@@ -1,0 +1,12 @@
+---
+description: Model IDs and AI_GATEWAY_API_KEY when editing apps/ai, Mastra agents, or ai-core model resolution — not Vercel AI SDK UI (use AG-UI).
+alwaysApply: false
+---
+# AI Gateway
+
+Product chat is **AG-UI** on `apps/ai`, not Vercel AI SDK (`useChat`, `streamText` in UI/modules).
+
+- Model ids: Gateway form (`openai/...`, `anthropic/...`); use `resolveChatModelId` / tenant `ai.config`.
+- Env: `AI_GATEWAY_API_KEY`; browser base `VITE_ENGENTY_AI_BASE_URL` (host only).
+- Do not add `createOpenAI` / `createAnthropic` constructors in new code.
+- See [howto-ai-config.md](../../../packages/ai-core/docs/howto-ai-config.md).

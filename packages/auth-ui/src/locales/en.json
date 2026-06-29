@@ -1,0 +1,9 @@
+{
+  "login": {
+    "title": "Sign in",
+    "signIn": "Sign In"
+  },
+  "callback": {
+    "redirecting": "Redirecting..."
+  }
+}

@@ -1,0 +1,201 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "@xyflow/react/dist/base.css";
+@import "tailwindcss";
+@import "../../../packages/design-tokens/src/tailwind-type-scale.css";
+@import "../../../packages/design-tokens/src/shadcn-ember.css";
+@import "../../../packages/design-tokens/src/ui-canvas-chrome.css";
+@import "../../../packages/app-shell/src/styles/engenty-print.css";
+@import "../../../packages/commercial-editor/src/commercial-core/RichTextEditor.css";
+@import "./plugins/generated-tailwind-sources.css";
+@plugin "tailwindcss-animate";
+@source "./";
+@source "../../../modules";
+@source "../../../packages";
+@source "../node_modules/streamdown/dist/*.js";
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant data-horizontal (
+  &[data-orientation="horizontal"],
+  &[data-horizontal]
+);
+@custom-variant data-vertical (
+  &[data-orientation="vertical"],
+  &[data-vertical]
+);
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-link: var(--link);
+  --color-ember: var(--ember);
+  --color-ember-tint: var(--ember-tint);
+  --color-ember-strong: var(--ember-strong);
+  --color-cobalt: var(--cobalt);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.75);
+  --radius-button: var(--radius-button);
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+html {
+  --base-size: 16px;
+  --small-size: 14px;
+  --large-size: 18px;
+  --appearance-font-scale: 1;
+  font-size: calc(var(--base-size) * var(--appearance-font-scale));
+  transition: zoom 0.3s ease-in-out;
+}
+
+/* Scale UI down for screens between 768px and 1280px (laptop / split view). */
+@media (width > 768px) and (width < 1280px) {
+  html {
+    /* do not apply user font scale here - can't get smaller */
+    font-size: var(--small-size);
+  }
+}
+
+::selection {
+  color: var(--ink);
+  background: var(--ember-veil);
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+.p-page {
+  @apply p-2 sm:p-4 md:p-5;
+}
+
+html,
+body,
+#root {
+  color-scheme: light dark;
+}
+
+/* Button cursor fix */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:enabled:where(.cursor-ew-resize) {
+    cursor: ew-resize;
+  }
+  button:enabled:where(.cursor-ns-resize) {
+    cursor: ns-resize;
+  }
+  button:enabled:where(.cursor-nwse-resize) {
+    cursor: nwse-resize;
+  }
+  button:enabled:where(.cursor-nesw-resize) {
+    cursor: nesw-resize;
+  }
+}
+
+.debug,
+.debug * {
+  outline: 1px dashed purple;
+  outline-offset: -1px;
+  background-color: rgba(255, 0, 0, 0.05);
+}
+
+/* 
+ * App Shell Layout Themes 
+ */
+.theme-lines {
+  --shell-bg: var(--color-background);
+}
+.theme-lines .shell-root {
+  background-color: var(--shell-bg);
+}
+.theme-lines .shell-surface {
+  @apply bg-background;
+}
+
+.theme-floating {
+  --shell-bg: color-mix(in oklch, var(--color-secondary) 70%, transparent);
+}
+.theme-floating .shell-root {
+  background-color: var(--shell-bg);
+}
+.theme-floating .shell-surface {
+  @apply md:my-2 md:mr-2 md:rounded-xl md:border md:border-border/80 bg-background shadow-sm;
+}
+
+.theme-paper {
+  --shell-bg: color-mix(in oklch, var(--color-muted) 50%, transparent);
+}
+.theme-paper .shell-root {
+  background-color: var(--shell-bg);
+}
+.theme-paper .shell-surface {
+  @apply md:my-3 md:mr-3 md:rounded-2xl bg-background shadow-md border-transparent;
+}
+
+.theme-lines .shell-divider,
+.theme-floating .shell-divider,
+.theme-paper .shell-divider {
+  box-shadow: var(--shadow-shell-secondary-edge);
+  @apply border-transparent relative z-20;
+}
+
+.theme-lines .shell-copilot-divider,
+.theme-floating .shell-copilot-divider,
+.theme-paper .shell-copilot-divider {
+  box-shadow: var(--shadow-shell-copilot-edge);
+  @apply border-transparent relative z-20;
+}

@@ -1,0 +1,163 @@
+---
+description: Animated sidebar open/close + hover-preview pattern for all app-shell sidebars
+globs:
+  - "packages/app-shell/src/**"
+  - "apps/ui/src/features/**"
+  - "packages/ai-ui/src/features/**"
+---
+
+# App Shell Sidebar Animation Pattern
+
+Use this pattern for **every** collapsible sidebar panel in the app — secondary nav, chat session sidebar, agents workspace sidebar, or any future custom sidebar.
+
+## Two-sidebar pattern (inline + overlay)
+
+Every collapsible sidebar requires **two** elements rendered in parallel:
+
+1. **Inline panel** — always mounted, takes layout space, animates its width between `0` and its natural width.
+2. **Hover overlay panel** — absolutely positioned, slides in via `translateX`, shown on hover over the toggle button. Only rendered when the sidebar is closed.
+
+### Inline panel
+
+```tsx
+<div
+  className={cn(
+    "hidden shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out md:flex",
+    isOpen ? "w-72" : "w-0"   // use the sidebar's natural width
+  )}
+>
+  {/* min-w must match the natural width to prevent content reflowing */}
+  <div className="flex min-h-0 min-w-72 flex-1 flex-col">{sidebar}</div>
+</div>
+```
+
+- Use `transition-[width] duration-300 ease-in-out` — never `hidden`/`block` toggling.
+- The inner wrapper's `min-w-*` must equal the sidebar's natural width so content doesn't reflow while animating.
+- Add `shell-divider` on the outer column when you need the shared shell theme hook (borders are transparent in `theme-lines` / `theme-floating` / `theme-paper` so the column does not draw a line against main content). At `w-0`, avoid stacking extra borders on the inline strip.
+
+```tsx
+className={cn(
+  "hidden shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out md:flex",
+  isOpen ? "shell-divider w-72" : "w-0"
+)}
+```
+
+### Hover overlay panel
+
+```tsx
+{!isOpen ? (
+  <div
+    className={cn(
+      "absolute inset-y-0 left-0 z-30 hidden w-72 flex-col overflow-hidden md:flex",
+      "border-border border-r bg-card/98 shadow-xl backdrop-blur-sm",
+      "transition-transform duration-300 ease-in-out",
+      hoverOpen
+        ? "translate-x-0"
+        : "pointer-events-none -translate-x-full"
+    )}
+    onMouseEnter={openHoverPanel}
+    onMouseLeave={closeHoverPanel}
+  >
+    {sidebar}
+  </div>
+) : null}
+```
+
+- Parent container must have `relative` positioning.
+- Parent must have `overflow-hidden` — this clips the panel while it is translated off-screen (left of the container boundary), which makes it slide in from the edge correctly.
+- Use `pointer-events-none -translate-x-full` when hidden so the invisible panel never intercepts clicks on the main content.
+
+### Hover state with debounce
+
+Use a 150 ms close-debounce so the panel stays open when the mouse moves between the toggle button (in the topbar) and the panel below it:
+
+```tsx
+const [hoverOpen, setHoverOpen] = useState(false);
+const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+const openHoverPanel = useCallback(() => {
+  if (hoverTimeoutRef.current) {
+    clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = null;
+  }
+  setHoverOpen(true);
+}, []);
+
+const closeHoverPanel = useCallback(() => {
+  hoverTimeoutRef.current = setTimeout(() => setHoverOpen(false), 150);
+}, []);
+
+// Clear hover when pinned open or nav items disappear
+useEffect(() => {
+  if (isOpen || !hasSidebar) setHoverOpen(false);
+}, [isOpen, hasSidebar]);
+
+// Cleanup on unmount
+useEffect(() => {
+  return () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+  };
+}, []);
+```
+
+## Toggle button wiring
+
+### Secondary nav (AppLayout → AppTopbar)
+
+Pass hover callbacks via `AppTopbar` props. They are only active when the nav is closed:
+
+```tsx
+// AppTopbar.tsx — secondary nav button
+<Button
+  onMouseEnter={!secondaryNavOpen ? onSecondaryNavHoverEnter : undefined}
+  onMouseLeave={!secondaryNavOpen ? onSecondaryNavHoverLeave : undefined}
+  onClick={onToggleSecondaryNav}
+  ...
+/>
+```
+
+Pass from `AppLayoutFrame`:
+```tsx
+<AppTopbar
+  onSecondaryNavHoverEnter={openHoverPanel}
+  onSecondaryNavHoverLeave={closeHoverPanel}
+  ...
+/>
+```
+
+### agentsWorkspaceNav sidebars (chat, agents workspace)
+
+Add `onHoverEnter` / `onHoverLeave` to the `AgentsWorkspaceNavRegistration` (defined in `packages/ui-plugin-sdk/src/page-config.tsx`). `AppTopbar` wires them to the `agentsWorkspaceNav` button automatically when closed:
+
+```tsx
+// AppTopbar.tsx — agentsWorkspaceNav button
+<Button
+  onMouseEnter={!agentsWorkspaceNav.open ? agentsWorkspaceNav.onHoverEnter : undefined}
+  onMouseLeave={!agentsWorkspaceNav.open ? agentsWorkspaceNav.onHoverLeave : undefined}
+  ...
+/>
+```
+
+Register in the page component:
+```tsx
+useAgentsWorkspaceNavRegistration({
+  open: sidebarOpen,
+  setOpen: setSidebarOpen,
+  onHoverEnter: openHoverPanel,   // optional but required for hover preview
+  onHoverLeave: closeHoverPanel,
+  toggleAriaLabelWhenClosed: "...",
+  toggleAriaLabelWhenOpen: "...",
+});
+```
+
+## Checklist for new sidebars
+
+- [ ] Outer container has `relative` + `overflow-hidden`
+- [ ] Inline panel uses `transition-[width] duration-300 ease-in-out` (not conditional render)
+- [ ] Inner wrapper has `min-w-*` equal to sidebar's natural width
+- [ ] `shell-divider` applied only when open (not at `w-0`)
+- [ ] Hover overlay uses `translate-x` with `pointer-events-none` when hidden
+- [ ] Hover state uses 150 ms debounce on close
+- [ ] Toggle button in topbar passes hover callbacks (do NOT put trigger strip on content edge)
+- [ ] Hover state cleared when sidebar is pinned open
+- [ ] Timeout cleaned up on unmount

@@ -1,0 +1,239 @@
+/**
+ * Canvas chrome (Phase 2): logical surfaces use shared variables so lists, toolbars,
+ * and table rules stay aligned without scattering one-off border utilities.
+ * Default: 1px `var(--border)` hairlines on fields and row underlines (matches list/search spec).
+ * Outline controls may still use soft shadow until `ui-chrome-sharp`.
+ * Do not pair `.ui-canvas-*` shadow tokens with Tailwind `shadow-none` on the same node.
+ *
+ * Sharp hairline variant: add class `ui-chrome-sharp` on <html> (or wrap a subtree).
+ */
+:root {
+  /* —— Fields (search inputs, select triggers, …) —— */
+  --ui-canvas-field-border-w: 1px;
+  --ui-canvas-field-border-c: var(--border);
+  --ui-canvas-field-shadow: none;
+
+  /* —— Outline / secondary controls —— */
+  --ui-canvas-outline-border-w: 0px;
+  --ui-canvas-outline-border-c: transparent;
+  --ui-canvas-outline-shadow: var(--shadow-ember-elevated);
+
+  /* —— Table row & sticky header underlines (per-cell border = full bleed) —— */
+  --ui-canvas-row-divider-w: 1px;
+  --ui-canvas-row-divider-c: var(--border);
+  --ui-canvas-row-divider-shadow: none;
+
+  /* —— Paged list shell (table + cards container) —— */
+  --ui-canvas-shell-border-w: 0px;
+  --ui-canvas-shell-border-c: transparent;
+  --ui-canvas-shell-shadow: var(--shadow-ember-elevated);
+
+  /* —— Detail / section cards on canvas —— */
+  --ui-canvas-panel-border-w: 0px;
+  --ui-canvas-panel-border-c: transparent;
+  --ui-canvas-panel-shadow: var(--shadow-ember-elevated);
+
+  /* —— Low-elevation card (list group cards) — lighter than the shell —— */
+  --ui-canvas-raised-border-w: 0px;
+  --ui-canvas-raised-border-c: transparent;
+  --ui-canvas-raised-shadow: var(--shadow-ember-soft);
+
+  /* —— Horizontal rule above footer stacks (pagination bar) —— */
+  --ui-canvas-stack-top-border-w: 0px;
+  --ui-canvas-stack-top-border-c: transparent;
+  --ui-canvas-stack-top-shadow: inset 0 1px 0 0
+    color-mix(in oklch, var(--ink) 5%, transparent);
+
+  /* —— Floating overlays (menus, popovers) —— */
+  --ui-canvas-floating-border-w: 0px;
+  --ui-canvas-floating-border-c: transparent;
+  --ui-canvas-floating-shadow: var(--shadow-ember-elevated);
+}
+
+/* Dark: same hairline fields/rows as light; other surfaces keep ember shadow until sharp */
+.dark {
+  --ui-canvas-field-border-w: 1px;
+  --ui-canvas-field-border-c: var(--border);
+  --ui-canvas-field-shadow: none;
+  --ui-canvas-outline-shadow: var(--shadow-ember-elevated);
+  --ui-canvas-shell-shadow: var(--shadow-ember-elevated);
+  --ui-canvas-panel-shadow: var(--shadow-ember-elevated);
+  --ui-canvas-raised-shadow: var(--shadow-ember-soft);
+  --ui-canvas-floating-shadow: var(--shadow-ember-elevated);
+  --ui-canvas-row-divider-w: 1px;
+  --ui-canvas-row-divider-c: var(--border);
+}
+
+:is(html.ui-chrome-sharp, .ui-chrome-sharp) {
+  --ui-canvas-field-border-w: 1px;
+  --ui-canvas-field-border-c: oklch(34% 0.014 60);
+  --ui-canvas-field-shadow: none;
+
+  --ui-canvas-outline-border-w: 1px;
+  --ui-canvas-outline-border-c: oklch(34% 0.014 60);
+  --ui-canvas-outline-shadow: none;
+
+  --ui-canvas-row-divider-w: 1px;
+  --ui-canvas-row-divider-c: color-mix(in oklch, var(--ink) 18%, var(--paper));
+  --ui-canvas-row-divider-shadow: none;
+
+  --ui-canvas-shell-border-w: 1px;
+  --ui-canvas-shell-border-c: oklch(34% 0.014 60);
+  --ui-canvas-shell-shadow: none;
+
+  --ui-canvas-stack-top-border-w: 1px;
+  --ui-canvas-stack-top-border-c: color-mix(
+    in oklch,
+    var(--ink) 18%,
+    var(--paper)
+  );
+  --ui-canvas-stack-top-shadow: none;
+
+  --ui-canvas-floating-border-w: 1px;
+  --ui-canvas-floating-border-c: oklch(34% 0.014 60);
+  --ui-canvas-floating-shadow: none;
+
+  --ui-canvas-panel-border-w: 1px;
+  --ui-canvas-panel-border-c: oklch(34% 0.014 60);
+  --ui-canvas-panel-shadow: none;
+
+  --ui-canvas-raised-border-w: 1px;
+  --ui-canvas-raised-border-c: oklch(34% 0.014 60);
+  --ui-canvas-raised-shadow: none;
+}
+
+html.dark.ui-chrome-sharp,
+html.dark .ui-chrome-sharp {
+  --ui-canvas-field-border-c: oklch(52% 0.02 70);
+  --ui-canvas-outline-border-c: oklch(52% 0.02 70);
+  --ui-canvas-row-divider-c: oklch(40% 0.02 70);
+  --ui-canvas-shell-border-c: oklch(52% 0.02 70);
+  --ui-canvas-stack-top-border-c: oklch(40% 0.02 70);
+  --ui-canvas-floating-border-c: oklch(52% 0.02 70);
+  --ui-canvas-panel-border-c: oklch(52% 0.02 70);
+  --ui-canvas-raised-border-c: oklch(52% 0.02 70);
+}
+
+@layer components {
+  /**
+   * Logical: single-line control on a canvas background (search, compact inputs).
+   */
+  .ui-canvas-field {
+    border-color: var(--ui-canvas-field-border-c);
+    border-style: solid;
+    border-width: var(--ui-canvas-field-border-w);
+    box-shadow: var(--ui-canvas-field-shadow);
+  }
+
+  /**
+   * Logical: secondary / outline button on canvas (toolbar, pagination).
+   */
+  .ui-canvas-outline-control {
+    border-color: var(--ui-canvas-outline-border-c);
+    border-style: solid;
+    border-width: var(--ui-canvas-outline-border-w);
+    box-shadow: var(--ui-canvas-outline-shadow);
+  }
+
+  /**
+   * Logical: data row underline — draw on each cell so the rule spans the full table
+   * width (inset tr box-shadow often short-changes at sticky / padded edges).
+   */
+  .ui-canvas-table-row {
+    border-bottom: 0;
+    box-shadow: none;
+  }
+
+  /* Use th/td as well as data-slot so borders survive Slot wrappers or build stripping. */
+  .ui-canvas-table-row > th,
+  .ui-canvas-table-row > td,
+  .ui-canvas-table-row > [data-slot="table-cell"],
+  .ui-canvas-table-row > [data-slot="table-head"] {
+    border-bottom-color: var(--ui-canvas-row-divider-c);
+    border-bottom-style: solid;
+    border-bottom-width: var(--ui-canvas-row-divider-w);
+    box-shadow: none;
+  }
+
+  [data-slot="table-body"] [data-slot="table-row"]:last-child > th,
+  [data-slot="table-body"] [data-slot="table-row"]:last-child > td,
+  [data-slot="table-body"]
+    [data-slot="table-row"]:last-child
+    > [data-slot="table-cell"],
+  [data-slot="table-body"]
+    [data-slot="table-row"]:last-child
+    > [data-slot="table-head"] {
+    border-bottom-color: transparent;
+    border-bottom-width: 0;
+  }
+
+  /**
+   * Sticky thead: header/data separator uses the same per-cell bottom border as
+   * `.ui-canvas-table-row > th|td` (full bleed with `border-separate`). A rule on
+   * `<thead>` is unreliable here, so do not zero header cell bottoms.
+   */
+  .ui-canvas-sticky-table-header {
+    border-bottom: 0;
+    box-shadow: none;
+    transition: box-shadow 0.2s ease;
+  }
+
+  /* Drop a soft shadow under the sticky header once its list is scrolled. */
+  [data-list-scrolled="true"] .ui-canvas-sticky-table-header {
+    box-shadow: 0 6px 8px -6px oklch(from var(--raw-background) 0.3 c h / 0.16);
+  }
+
+  /**
+   * Logical: section / detail card on the page canvas (Grunddaten blocks, read-only panels).
+   */
+  .ui-canvas-panel {
+    border-color: var(--ui-canvas-panel-border-c);
+    border-style: solid;
+    border-width: var(--ui-canvas-panel-border-w);
+    box-shadow: var(--ui-canvas-panel-shadow);
+  }
+
+  /**
+   * Logical: primary list/card surface on the page canvas.
+   */
+  .ui-canvas-elevated {
+    border-color: var(--ui-canvas-shell-border-c);
+    border-style: solid;
+    border-width: var(--ui-canvas-shell-border-w);
+    box-shadow: var(--ui-canvas-shell-shadow);
+  }
+
+  /**
+   * Logical: low-elevation card (list group cards) — softer/tighter than the
+   * primary shell, for stacked groups that should not compete with it.
+   */
+  .ui-canvas-raised {
+    border-color: var(--ui-canvas-raised-border-c);
+    border-style: solid;
+    border-width: var(--ui-canvas-raised-border-w);
+    box-shadow: var(--ui-canvas-raised-shadow);
+  }
+
+  /**
+   * Logical: separator above a docked footer (pagination strip).
+   */
+  .ui-canvas-stack-top {
+    border-top-color: var(--ui-canvas-stack-top-border-c);
+    border-top-style: solid;
+    border-top-width: var(--ui-canvas-stack-top-border-w);
+    box-shadow: var(--ui-canvas-stack-top-shadow);
+  }
+
+  /**
+   * Logical: floating panel (dropdown, select menu, inspector popovers).
+   */
+  .ui-canvas-floating {
+    background-color: var(--popover);
+    border-color: var(--ui-canvas-floating-border-c);
+    border-style: solid;
+    border-width: var(--ui-canvas-floating-border-w);
+    box-shadow: var(--ui-canvas-floating-shadow);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+}

@@ -1,0 +1,111 @@
+/* --------------------------------------------------------------------------
+ *  CopilotVoiceFab — CSS animations
+ * -------------------------------------------------------------------------- */
+
+/* ---- Wave pulse rings (speaking feedback) ---- */
+@keyframes voice-wave-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.voice-fab-wave {
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  border: 2px solid #3358d4;
+  border-radius: 50%;
+  animation: voice-wave-pulse 2s ease-out infinite;
+}
+.voice-fab-wave:nth-child(2) {
+  animation-delay: 0.4s;
+}
+.voice-fab-wave:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+/* ---- FAB container entry / exit ---- */
+@keyframes voice-fab-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes voice-fab-exit {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.6) translateY(12px);
+  }
+}
+
+.voice-fab-root {
+  animation: voice-fab-enter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ---- Fly-out menu ---- */
+@keyframes voice-fab-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.voice-fab-menu {
+  animation: voice-fab-menu-enter 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ---- Muted badge pulse ---- */
+@keyframes voice-fab-muted-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+.voice-fab-muted-badge {
+  animation: voice-fab-muted-pulse 2s ease-in-out infinite;
+}
+
+/* ---- Listening soft glow ---- */
+@keyframes voice-fab-listening-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(51, 88, 212, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(51, 88, 212, 0);
+  }
+}
+.voice-fab-listening {
+  animation: voice-fab-listening-glow 2.5s ease-in-out infinite;
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .voice-fab-wave,
+  .voice-fab-root,
+  .voice-fab-menu,
+  .voice-fab-muted-badge,
+  .voice-fab-listening {
+    animation: none;
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "models": [
+    {
+      "id": "alibaba/qwen3-embedding-0.6b",
+      "provider": "alibaba",
+      "name": "Qwen3 Embedding 0.6B"
+    },
+    {
+      "id": "alibaba/qwen3-embedding-4b",
+      "provider": "alibaba",
+      "name": "Qwen3 Embedding 4B"
+    },
+    {
+      "id": "alibaba/qwen3-embedding-8b",
+      "provider": "alibaba",
+      "name": "Qwen3 Embedding 8B"
+    },
+    {
+      "id": "amazon/titan-embed-text-v2",
+      "provider": "amazon",
+      "name": "Titan Text Embeddings V2"
+    },
+    {
+      "id": "cohere/embed-v4.0",
+      "provider": "cohere",
+      "name": "Embed v4.0"
+    },
+    {
+      "id": "google/gemini-embedding-001",
+      "provider": "google",
+      "name": "Gemini Embedding 001"
+    },
+    {
+      "id": "google/gemini-embedding-2",
+      "provider": "google",
+      "name": "Gemini Embedding 2"
+    },
+    {
+      "id": "google/text-embedding-005",
+      "provider": "google",
+      "name": "Text Embedding 005"
+    },
+    {
+      "id": "google/text-multilingual-embedding-002",
+      "provider": "google",
+      "name": "Text Multilingual Embedding 002"
+    },
+    {
+      "id": "mistral/codestral-embed",
+      "provider": "mistral",
+      "name": "Codestral Embed"
+    },
+    {
+      "id": "mistral/mistral-embed",
+      "provider": "mistral",
+      "name": "Mistral Embed"
+    },
+    {
+      "id": "openai/text-embedding-3-large",
+      "provider": "openai",
+      "name": "text-embedding-3-large"
+    },
+    {
+      "id": "openai/text-embedding-3-small",
+      "provider": "openai",
+      "name": "text-embedding-3-small"
+    },
+    {
+      "id": "openai/text-embedding-ada-002",
+      "provider": "openai",
+      "name": "text-embedding-ada-002"
+    },
+    {
+      "id": "voyage/voyage-3-large",
+      "provider": "voyage",
+      "name": "voyage-3-large"
+    },
+    {
+      "id": "voyage/voyage-3.5",
+      "provider": "voyage",
+      "name": "Voyage 3.5"
+    },
+    {
+      "id": "voyage/voyage-3.5-lite",
+      "provider": "voyage",
+      "name": "Voyage 3.5 Lite"
+    },
+    {
+      "id": "voyage/voyage-4",
+      "provider": "voyage",
+      "name": "Voyage 4"
+    },
+    {
+      "id": "voyage/voyage-4-large",
+      "provider": "voyage",
+      "name": "Voyage 4 Large"
+    },
+    {
+      "id": "voyage/voyage-4-lite",
+      "provider": "voyage",
+      "name": "Voyage 4 Lite"
+    },
+    {
+      "id": "voyage/voyage-code-2",
+      "provider": "voyage",
+      "name": "Voyage Code 2"
+    },
+    {
+      "id": "voyage/voyage-code-3",
+      "provider": "voyage",
+      "name": "Voyage Code 3"
+    },
+    {
+      "id": "voyage/voyage-finance-2",
+      "provider": "voyage",
+      "name": "Voyage Finance 2"
+    },
+    {
+      "id": "voyage/voyage-law-2",
+      "provider": "voyage",
+      "name": "Voyage Law 2"
+    }
+  ]
+}

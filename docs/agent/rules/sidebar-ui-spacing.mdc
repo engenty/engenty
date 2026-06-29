@@ -1,0 +1,166 @@
+---
+description: Coding and spacing conventions for all module secondary sidebar panels (Projects, Tasks, Contacts, etc.)
+globs:
+  - "modules/**/ui/components/*sidebar*"
+  - "packages/ui-core/src/components/layout/sidebar/**"
+---
+
+# Secondary Sidebar UI & Spacing Conventions
+
+This document outlines the standard layout, semantic elements, and pixel-perfect spacing guidelines for building secondary-column navigation sidebars in all modules.
+
+---
+
+## 1. The Spacing System & Alignment
+
+Sidebar horizontal alignments are governed strictly by the following tokens in `@engenty/ui-core`:
+
+| Token | CSS Class | Pixel Value | Purpose |
+|---|---|---|---|
+| `sidebarColumnGutterClassName` | `px-2` | **8px** (Left/Right) | Outer gutter applied on the parent column shell wrapper |
+| `sidebarColumnContentInsetClassName` | `pl-2` | **8px** (Left) | Visual offset stacking on top of the gutter to hit a **16px** alignment grid |
+| `sidebarColumnContentInsetEndClassName` | `pr-1` | **4px** (Right) | Inset to clear the column resize handle |
+
+### Visual Alignments Grid
+
+- **Search Inputs / Borders**: Must start at exactly **16px** left margin (8px gutter + `pl-2`).
+- **Row Hover Backgrounds**: Must start at exactly **8px** left margin (aligning directly to the column gutter edge).
+- **Icons**: Must sit at exactly **16px** left margin (8px gutter + 8px row inline padding).
+- **Iconless List Items (Leaf items)**: Text must start at exactly **16px** left margin (8px gutter + 8px row inline padding).
+- **Group Headings**: Text must start at exactly **16px** left margin.
+
+---
+
+## 2. Component Structure and Orchestration
+
+Every module's sidebar panel should be split into a lightweight parent orchestrator and dedicated sub-components under its `components/` directory:
+
+```
+SidebarPanel (e.g. ProjectsSidebarPanel)
+├── SidebarHeader (e.g. ProjectsSidebarHeader)
+├── SidebarContent (Scrollable area)
+│   └── SidebarList (e.g. ProjectsSidebarGroupedList)
+└── SidebarFooter (e.g. ProjectsSidebarFooter)
+```
+
+### 1. Parent Orchestrator (e.g. `ProjectsSidebarPanel`)
+- Owns all hooks, react-query hooks, search state, preferences (`sortBy`, `groupBy`), and modal triggers.
+- Passes clean data down to the sub-components.
+- Root element has `className="flex min-h-0 flex-1 flex-col overflow-hidden"`.
+
+---
+
+## 3. Header Component Spacing (e.g. `ProjectsSidebarHeader`)
+
+The header component manages the search row, filters, and top-level navigation rows.
+
+### Search Row & Buttons
+The search bar container must use the `pl-2 pr-1` wrapper offsets to hit the **16px** left border alignment:
+
+```tsx
+<div className="flex min-w-0 items-center gap-1 pl-2 pr-1">
+  <div className="relative min-w-0 flex-1">
+    <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+    <Input
+      className="h-8 w-full py-0 pr-7 pl-8 text-sm"
+      placeholder="Search..."
+    />
+  </div>
+  {/* Filter buttons / Actions */}
+</div>
+```
+
+### Main Nav Link Rows (e.g., "Projects", "Briefing")
+- Do **not** wrap these inside a `<nav>` tag. Wrapping navigation list items inside nested `<nav>` tags is semantically redundant and pollutes the screen-reader accessibility tree (often duplicating labels from search inputs).
+- Mount `<SidebarNavList>` directly under `<SidebarHeader>`.
+- Set `className="pt-2"` on `<SidebarNavList>` to separate it from the search container.
+
+```tsx
+{isSearching ? null : (
+  <SidebarNavList className="pt-2">
+    <SidebarNavRow
+      active={pathname === "/mdl/projects"}
+      icon={DockProjectsIcon}
+      label="Projects"
+      to="/mdl/projects"
+    />
+  </SidebarNavList>
+)}
+```
+
+---
+
+## 4. Main Content Spacing (e.g. `ProjectsSidebarList`)
+
+The main list renders groups and list items.
+
+- Wrap scrollable areas with `<SidebarContent className="min-h-0 flex-1 gap-0.5 overflow-x-hidden px-0 py-0">`.
+- Use a `SidebarGroup` with `p-0` inside the scroll container.
+- **Do not apply `pl-2` or inset wrapper classes on list lists/groups.** `SidebarRow` automatically applies inline `paddingLeft: 8px` (when depth is `0`). Since the parent column has an 8px gutter, this automatically places the item text/icon at **16px** left.
+
+```tsx
+export function ProjectsSidebarGroupedList({ groups, renderItem }) {
+  return (
+    <SidebarNavList>
+      {groups.map((group) => (
+        <div className="contents" key={group.key}>
+          {group.label ? (
+            <SidebarNavSectionLabel>
+              {group.label} ({group.projects.length})
+            </SidebarNavSectionLabel>
+          ) : null}
+          {group.projects.map((item) => renderItem(item))}
+        </div>
+      ))}
+    </SidebarNavList>
+  );
+}
+```
+
+---
+
+## 5. Footer Component Spacing (e.g. `ProjectsSidebarFooter`)
+
+The footer component is pinned to the bottom and holds the settings navigation.
+
+- Wrapped in a `div` with `shrink-0 border-border/50 border-t pt-2 pr-1 pb-2` (removes left padding `pl-2` to align hover borders).
+- Do **not** wrap in a `<nav>` tag.
+- Mount `<SidebarNavList>` directly inside.
+
+```tsx
+export function ProjectsSidebarFooter({ pathname }) {
+  return (
+    <div className="shrink-0 border-border/50 border-t pt-2 pr-1 pb-2">
+      <SidebarNavList>
+        <SidebarNavRow
+          active={pathname === "/mdl/projects/settings"}
+          icon={Settings}
+          label="Settings"
+          to="/mdl/projects/settings"
+        />
+      </SidebarNavList>
+    </div>
+  );
+}
+```
+
+---
+
+## 6. How SidebarRow and Padding Interact
+
+`SidebarRow` (from `@engenty/ui-core`) handles its horizontal indentation based on the `depth` prop:
+- `depth={0}` -> `paddingLeft` is inline **8px**.
+- `depth={n}` -> `8px + n * 12px` per nested tier.
+
+This is why **no parent wrapper around a list** should apply `pl-2` (which adds `8px`). Adding a `pl-2` wrapper on a list creates a **double-indent** (8px wrapper + 8px inline = 16px hover offset, throwing text/icons to 24px+).
+
+---
+
+## 7. Rebuilding Modules After UI Changes
+
+Since modules are bundled in dev using `tsup` and consumed by the app shell from `dist/`, any changes to sidebar UI code must be built to become visible in the browser:
+
+```bash
+pnpm --filter @engenty/<module-name> build
+```
+*(Example: `pnpm --filter @engenty/projects build`)*

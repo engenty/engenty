@@ -1,0 +1,80 @@
+{
+  "name": "@engenty/ai-ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./embed": {
+      "types": "./dist/embed.d.ts",
+      "default": "./dist/embed.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --dts --watch",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@engenty/ag-ui-bridge": "workspace:*",
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/api-contracts": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
+    "@engenty/environment": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/tiptap-editor": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@floating-ui/dom": "^1.7.6",
+    "@monaco-editor/react": "^4.7.0",
+    "@streamdown/cjk": "^1.0.3",
+    "@streamdown/code": "^1.1.1",
+    "@streamdown/math": "^1.0.2",
+    "@streamdown/mermaid": "^1.0.2",
+    "@tanstack/react-hotkeys": "0.10.0",
+    "@tiptap/core": "^3.27.1",
+    "@tiptap/markdown": "^3.27.1",
+    "@tiptap/pm": "^3.27.1",
+    "@tiptap/react": "^3.27.1",
+    "@tiptap/starter-kit": "^3.27.1",
+    "ai": "6.0.116",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^1.21.0",
+    "motion": "^12.40.0",
+    "nanoid": "^5.1.15",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "react-syntax-highlighter": "^16.1.1",
+    "streamdown": "^2.5.0",
+    "yaml": "2.8.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.10.6",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

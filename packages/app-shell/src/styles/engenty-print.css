@@ -1,0 +1,61 @@
+/**
+ * Engenty base print stylesheet.
+ * Only `#engenty-app-main` (see CopilotShellMain) is visible — primary sidebar,
+ * mobile nav sheet, topbar, module secondary nav, copilot sidebar, and other
+ * chrome sit outside that element.
+ */
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #engenty-app-main,
+  #engenty-app-main * {
+    visibility: visible;
+  }
+
+  #engenty-app-main {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: #fff !important;
+  }
+
+  #engenty-app-main h1,
+  #engenty-app-main h2,
+  #engenty-app-main h3 {
+    page-break-after: avoid;
+    break-after: avoid-page;
+  }
+
+  #engenty-app-main table,
+  #engenty-app-main pre,
+  #engenty-app-main figure {
+    page-break-inside: avoid;
+    break-inside: avoid-page;
+  }
+
+  #engenty-app-main a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+}

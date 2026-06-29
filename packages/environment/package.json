@@ -1,0 +1,33 @@
+{
+  "name": "@engenty/environment",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/env.ts src/dev-service-urls.ts src/dev-service-urls.fixture.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/env.ts src/dev-service-urls.ts src/dev-service-urls.fixture.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "happy-dom": "^20.10.6",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
+  }
+}

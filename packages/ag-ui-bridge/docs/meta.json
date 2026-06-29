@@ -1,0 +1,11 @@
+{
+  "title": "AG-UI Bridge",
+  "description": "@engenty/ag-ui-bridge — official AG-UI wire contracts and Engenty extension helpers.",
+  "pages": [
+    "README",
+    "architecture",
+    "compatibility",
+    "agent-ui-state",
+    "frontend-tools"
+  ]
+}

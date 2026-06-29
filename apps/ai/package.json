@@ -1,0 +1,63 @@
+{
+  "name": "@engenty/ai",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "portless": {
+    "name": "ai.engenty",
+    "script": "dev:app",
+    "appPort": 8790
+  },
+  "scripts": {
+    "dev": "bash ../../scripts/portless-dev.sh",
+    "dev:app": "tsx watch --clear-screen=false src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup src/index.ts --format esm --dts --clean --sourcemap",
+    "test": "vitest run",
+    "lint": "pnpm exec biome check .",
+    "studio": "MASTRA_AUTO_DETECT_URL=true MASTRA_STUDIO_BASE_PATH=/studio mastra studio --server-host 127.0.0.1 --server-port 8790 --server-api-prefix /ai --port 43111"
+  },
+  "dependencies": {
+    "@11ty/gray-matter": "^2.1.0",
+    "@earendil-works/gondolin": "0.12.0",
+    "@engenty/ag-ui-bridge": "workspace:*",
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
+    "@engenty/context-graph": "workspace:*",
+    "@engenty/engenty-copilot": "workspace:*",
+    "@engenty/environment": "workspace:*",
+    "@engenty/file-storage": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/queue": "workspace:*",
+    "@engenty/search-index": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@engenty/tenant-settings": "workspace:*",
+    "@hono/node-server": "^2.0.5",
+    "@mastra/core": "1.45.0",
+    "@mastra/docker": "0.4.0",
+    "@mastra/editor": "^0.13.0",
+    "@mastra/files-sdk": "^0.3.0",
+    "@mastra/hono": "1.5.0",
+    "@mastra/memory": "1.21.0",
+    "@mastra/pg": "1.14.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "ai": "7.0.0-beta.116",
+    "cron-parser": "^5.6.0",
+    "files-sdk": "^1.9.0",
+    "hono": "^4.12.26",
+    "pg": "8.22.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/pg": "^8.20.0",
+    "mastra": "1.15.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

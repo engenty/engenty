@@ -1,0 +1,972 @@
+/**
+ * TipTap Editor — Base styles.
+ *
+ * Import this file in consuming apps for proper editor styling.
+ */
+
+/* ── Editor body ── */
+
+.tiptap-base-editor .tiptap,
+.tiptap-rich-editor .tiptap {
+  min-height: 200px;
+  padding: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--foreground, inherit);
+  outline: none;
+}
+
+/* Placeholder: empty blocks (TipTap `is-empty` + data-placeholder) */
+.tiptap-base-editor .tiptap p.is-empty::before,
+.tiptap-rich-editor .tiptap p.is-empty::before,
+.tiptap-base-editor .tiptap h1.is-empty::before,
+.tiptap-rich-editor .tiptap h1.is-empty::before,
+.tiptap-base-editor .tiptap h2.is-empty::before,
+.tiptap-rich-editor .tiptap h2.is-empty::before,
+.tiptap-base-editor .tiptap h3.is-empty::before,
+.tiptap-rich-editor .tiptap h3.is-empty::before,
+.tiptap-base-editor .tiptap h4.is-empty::before,
+.tiptap-rich-editor .tiptap h4.is-empty::before {
+  float: left;
+  height: 0;
+  color: var(--muted-foreground, #9ca3af);
+  pointer-events: none;
+  content: attr(data-placeholder);
+}
+
+/* Whole-editor empty (first paragraph) — keep class from Placeholder */
+.tiptap-base-editor .tiptap p.is-editor-empty:first-child::before,
+.tiptap-rich-editor .tiptap p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: var(--muted-foreground, #9ca3af);
+  pointer-events: none;
+  content: attr(data-placeholder);
+}
+
+.tiptap-inline-editable-editor .tiptap {
+  min-height: 60px;
+  padding: 0;
+}
+
+.tiptap-inline-editable-editor .tiptap p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: var(--muted-foreground, #9ca3af);
+  pointer-events: none;
+  content: attr(data-placeholder);
+}
+
+/* ── Typography ── */
+
+.tiptap > :first-child {
+  margin-top: 0;
+}
+
+.tiptap h1 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+.tiptap h2 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+.tiptap h3 {
+  margin: 0.75rem 0 0.375rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.tiptap h4 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tiptap p {
+  margin: 0.25rem 0;
+}
+
+.tiptap a.tiptap-link {
+  color: var(--primary, #3b82f6);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Read-only inline preview (not inside TipTap editor): links use theme primary */
+.tiptap-inline-editable-filled-preview.tiptap a,
+.tiptap-inline-editable-filled-preview.tiptap a.tiptap-link {
+  color: var(--primary, #3b82f6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.tiptap blockquote {
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  font-style: italic;
+  color: var(--muted-foreground, #6b7280);
+  border-left: 3px solid var(--border, #e5e7eb);
+}
+
+.tiptap ul {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+  list-style: disc;
+}
+.tiptap ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+  list-style: decimal;
+}
+.tiptap li {
+  margin: 0.125rem 0;
+}
+.tiptap li p {
+  margin: 0;
+}
+
+.tiptap hr {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+/* ── Inline code ── */
+
+.tiptap code {
+  padding: 0.15rem 0.35rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  background: var(--muted, #f3f4f6);
+  border-radius: 0.25rem;
+}
+
+/* ── Code block ── */
+
+.tiptap pre {
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  /* Use theme tokens: light `--muted` surfaces need dark text (not #e0e0e0). */
+  color: var(--foreground);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.tiptap pre code {
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+/* lowlight / highlight.js class names — inherit base when no theme CSS is loaded */
+.tiptap pre code .hljs-comment,
+.tiptap pre code .hljs-quote {
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+.tiptap pre code .hljs-keyword,
+.tiptap pre code .hljs-selector-tag,
+.tiptap pre code .hljs-built_in,
+.tiptap pre code .hljs-name,
+.tiptap pre code .hljs-tag {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.tiptap pre code .hljs-string,
+.tiptap pre code .hljs-title,
+.tiptap pre code .hljs-section,
+.tiptap pre code .hljs-attribute,
+.tiptap pre code .hljs-literal,
+.tiptap pre code .hljs-template-tag,
+.tiptap pre code .hljs-template-variable,
+.tiptap pre code .hljs-type,
+.tiptap pre code .hljs-addition,
+.tiptap pre code .hljs-variable {
+  color: color-mix(in srgb, var(--primary, #2563eb) 78%, var(--foreground) 22%);
+}
+.tiptap pre code .hljs-number,
+.tiptap pre code .hljs-symbol,
+.tiptap pre code .hljs-bullet,
+.tiptap pre code .hljs-link {
+  color: color-mix(in srgb, var(--foreground) 72%, var(--primary, #2563eb) 28%);
+}
+.tiptap pre code .hljs-meta,
+.tiptap pre code .hljs-deletion {
+  color: var(--muted-foreground);
+}
+
+/* ── Tables ── */
+
+.tiptap table {
+  width: 100%;
+  margin: 0.75rem 0;
+  border-collapse: collapse;
+}
+.tiptap th,
+.tiptap td {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  vertical-align: top;
+  text-align: left;
+  border: 1px solid var(--border, #e5e7eb);
+}
+.tiptap th {
+  font-weight: 600;
+  background: var(--muted, #f3f4f6);
+}
+
+/* ── Task list ── */
+
+.tiptap ul[data-type="taskList"] {
+  padding-left: 0;
+  list-style: none;
+}
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.tiptap ul[data-type="taskList"] li label {
+  margin-top: 0.125rem;
+}
+
+/* ── Images ── */
+
+.tiptap .tiptap-image {
+  max-width: 100%;
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+}
+
+/* ── Callouts ── */
+
+.tiptap .callout {
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  border-left: 4px solid;
+  border-radius: 0.5rem;
+}
+.tiptap .callout[data-type="info"] {
+  background: color-mix(in srgb, #3b82f6 8%, transparent);
+  border-color: #3b82f6;
+}
+.tiptap .callout[data-type="warning"] {
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  border-color: #f59e0b;
+}
+.tiptap .callout[data-type="tip"] {
+  background: color-mix(in srgb, #10b981 8%, transparent);
+  border-color: #10b981;
+}
+.tiptap .callout[data-type="caution"] {
+  background: color-mix(in srgb, #ef4444 8%, transparent);
+  border-color: #ef4444;
+}
+
+/* ── Toolbar ── */
+
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+  padding: 0.375rem 0.5rem;
+  background: var(--muted, #f9fafb);
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.tiptap-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground, #6b7280);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.tiptap-toolbar-btn:hover {
+  color: var(--foreground, #111827);
+  background: var(--accent, #f3f4f6);
+}
+.tiptap-toolbar-btn.is-active {
+  color: white;
+  background: var(--primary, #3b82f6);
+}
+
+.tiptap-toolbar-sep {
+  display: inline-block;
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--border, #e5e7eb);
+}
+
+/* ── Selection bubble (inline formatting + links) ── */
+
+.tiptap-inline-bubble {
+  z-index: 50;
+}
+
+.tiptap-inline-bubble__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 12rem;
+  padding: 0.25rem;
+  background: var(--popover, #fff);
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow:
+    0 8px 24px -6px rgb(0 0 0 / 0.18),
+    0 4px 10px -4px rgb(0 0 0 / 0.1);
+}
+
+.tiptap-inline-bubble__marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+}
+
+.tiptap-inline-bubble__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground, #6b7280);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.tiptap-inline-bubble__btn:hover {
+  color: var(--foreground, #111827);
+  background: var(--accent, #f3f4f6);
+}
+
+.tiptap-inline-bubble__btn.is-active {
+  color: white;
+  background: var(--primary, #3b82f6);
+}
+
+.tiptap-inline-bubble__btn--primary {
+  font-size: 0.75rem;
+  color: white;
+  background: var(--primary, #3b82f6);
+}
+
+.tiptap-inline-bubble__btn--primary:hover {
+  opacity: 0.92;
+}
+
+.tiptap-inline-bubble__sep {
+  display: inline-block;
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.15rem;
+  background: var(--border, #e5e7eb);
+}
+
+.tiptap-inline-bubble__u {
+  text-decoration: underline;
+}
+
+.tiptap-inline-bubble__link-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 14rem;
+  max-width: min(22rem, 90vw);
+}
+
+.tiptap-inline-bubble__link-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.tiptap-inline-bubble__input {
+  flex: 1;
+  min-width: 0;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--foreground, #111827);
+  background: var(--muted, #f4f4f5);
+  border: none;
+  border-radius: 0.25rem;
+}
+
+.tiptap-inline-bubble__input::placeholder {
+  color: var(--muted-foreground, #9ca3af);
+}
+
+.tiptap-inline-bubble__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring, rgb(59 130 246 / 0.45));
+}
+
+.tiptap-inline-bubble__hits {
+  max-height: 11rem;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.tiptap-inline-bubble__hit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+}
+
+.tiptap-inline-bubble__hit:hover {
+  background: var(--accent, #f3f4f6);
+}
+
+.tiptap-inline-bubble__hit-title {
+  font-weight: 500;
+  color: var(--foreground, #111827);
+}
+
+.tiptap-inline-bubble__hit-sub {
+  margin-top: 0.1rem;
+  font-size: 0.65rem;
+  color: var(--muted-foreground, #6b7280);
+}
+
+.tiptap-inline-bubble__hit-src {
+  margin-top: 0.15rem;
+  font-size: 0.6rem;
+  color: var(--muted-foreground, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tiptap-inline-bubble__hit-muted {
+  padding: 0.35rem 0.4rem;
+  font-size: 0.7rem;
+  color: var(--muted-foreground, #9ca3af);
+}
+
+/* ── Block gutter (+, drag, menu) ── */
+
+.tiptap-editor-chrome {
+  position: relative;
+}
+
+/* Handles live OUTSIDE the content edge so the content aligns with the title.
+   No padding here — the gutter is absolutely positioned in the negative-left gutter. */
+.tiptap-editor-chrome--with-gutter {
+  padding-left: 0;
+}
+
+.tiptap-editor-chrome-content .tiptap {
+  padding-left: 0;
+}
+
+.tiptap-block-gutter {
+  position: absolute;
+  /* Sit fully outside the content's left edge with a small breathing gap.
+     Width = 2 × 1.5rem buttons + 2px gap ≈ 3.125rem; offset 3.375rem leaves ~4px before the text. */
+  left: -3.375rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  align-items: center;
+  height: 1.5rem;
+  /* The wrapper itself is transparent to pointer events so clicks below the
+     buttons (e.g. an empty trailing paragraph) reach the editor. Buttons
+     re-enable pointer-events individually. */
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-2px);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+.tiptap-block-gutter.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.tiptap-block-gutter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted-foreground, #9ca3af);
+  pointer-events: auto;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.tiptap-block-gutter-btn:hover {
+  color: var(--foreground, #374151);
+  background: color-mix(in srgb, var(--foreground, #111827) 6%, transparent);
+}
+
+.tiptap-block-gutter-drag {
+  cursor: grab;
+}
+
+.tiptap-block-gutter-drag:active {
+  cursor: grabbing;
+}
+
+.tiptap-block-grip-svg {
+  display: block;
+  opacity: 0.65;
+}
+
+/* Small floating preview shown under the cursor while dragging a block.
+   Rendered off-screen, captured as a drag image, then removed. */
+.tiptap-block-drag-preview {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  max-width: 240px;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--foreground, #111827);
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--popover, #fff);
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 0.375rem;
+  box-shadow:
+    0 6px 16px -4px rgb(0 0 0 / 0.18),
+    0 2px 4px -1px rgb(0 0 0 / 0.08);
+}
+
+/* Horizontal indicator line shown while dragging a block. */
+.tiptap-block-drop-indicator {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  height: 2px;
+  pointer-events: none;
+  background: var(--primary, #3b82f6);
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--primary, #3b82f6) 20%, transparent);
+  transform: translateY(-1px);
+}
+
+.tiptap-block-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  max-width: min(300px, calc(100vw - 1rem));
+  max-height: min(70vh, 440px);
+  padding: 0.375rem;
+  overflow: auto;
+  background: var(--popover, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.625rem;
+  box-shadow:
+    0 12px 32px -8px rgb(0 0 0 / 0.18),
+    0 2px 6px -2px rgb(0 0 0 / 0.08);
+}
+
+.tiptap-block-menu-search {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+  outline: none;
+  background: var(--background, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.375rem;
+}
+
+.tiptap-block-menu-search:focus {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--primary, #3b82f6) 20%, transparent);
+}
+
+.tiptap-block-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tiptap-block-menu-label {
+  padding: 0.375rem 0.5rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted-foreground, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tiptap-block-menu-divider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background: var(--border, #e5e7eb);
+}
+
+.tiptap-block-menu-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--foreground, #111827);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 0.375rem;
+  transition: background 0.1s;
+}
+
+.tiptap-block-menu-item:hover,
+.tiptap-block-menu-item:focus-visible {
+  outline: none;
+  background: var(--accent, #f3f4f6);
+}
+
+.tiptap-block-menu-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tiptap-block-menu-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted-foreground, #6b7280);
+  background: color-mix(in srgb, var(--foreground, #111827) 5%, transparent);
+  border-radius: 0.25rem;
+}
+
+.tiptap-block-menu-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans, inherit);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.tiptap-block-menu-item-danger {
+  color: var(--destructive, #dc2626);
+}
+
+.tiptap-block-menu-item-danger .tiptap-block-menu-icon {
+  color: var(--destructive, #dc2626);
+  background: color-mix(in srgb, var(--destructive, #dc2626) 8%, transparent);
+}
+
+.tiptap-block-menu-item-danger:hover,
+.tiptap-block-menu-item-danger:focus-visible {
+  background: color-mix(in srgb, var(--destructive, #dc2626) 8%, transparent);
+}
+
+.tiptap-block-menu-empty {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground, #9ca3af);
+  text-align: center;
+}
+
+/* ── Slash Command Menu ── */
+
+/* Raw HTML embed (slash command) — dashed outline in editor */
+.tiptap-raw-html {
+  padding: 0.5rem;
+  margin: 0.75rem 0;
+  border: 1px dashed color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 0.375rem;
+}
+
+.slash-command-menu {
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 280px;
+  max-height: 320px;
+  padding: 0.375rem;
+  overflow-y: auto;
+  background: var(--popover, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.625rem;
+  box-shadow:
+    0 4px 16px -2px rgb(0 0 0 / 0.08),
+    0 2px 4px -2px rgb(0 0 0 / 0.04);
+}
+
+.slash-command-item {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 0.375rem;
+  transition: background 0.1s;
+}
+.slash-command-item:hover,
+.slash-command-item.is-selected {
+  background: var(--accent, #f3f4f6);
+}
+
+.slash-command-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground, #6b7280);
+  background: var(--muted, #f3f4f6);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.375rem;
+}
+
+.slash-command-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.slash-command-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--foreground, #111827);
+}
+
+.slash-command-desc {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  color: var(--muted-foreground, #9ca3af);
+}
+
+/* ── Notion-like Editor ── */
+
+/**
+ * Namespace for KB article editor descendants (properties row, TipTap chrome).
+ * Outer inset / max width come from the module shell (`kbArticlePageShellInnerBaseClassName`);
+ * avoid page-level padding here so view ↔ edit route switches stay aligned.
+ */
+.kb-article-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-article-editor .kb-inline-title {
+  width: 100%;
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-family: inherit;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground, inherit);
+  outline: none;
+  background: transparent;
+  border: none;
+}
+.kb-article-editor .kb-inline-title::placeholder {
+  color: var(--muted-foreground, #c4c4c4);
+}
+
+.kb-article-editor .kb-properties {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.375rem 0 0.625rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground, #9ca3af);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border, #e5e5e5) 42%, transparent);
+}
+
+.kb-article-editor .kb-properties-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.25rem, 1fr));
+  gap: 0.45rem 0.85rem;
+  align-items: start;
+}
+
+.kb-article-editor .kb-property {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: stretch;
+  min-width: 0;
+  cursor: default;
+}
+
+.kb-article-editor .kb-property-wide {
+  grid-column: 1 / -1;
+}
+
+.kb-article-editor .kb-property-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.15;
+  color: color-mix(in srgb, var(--muted-foreground, #a3a3a3) 88%, transparent);
+  letter-spacing: 0.02em;
+}
+
+/**
+ * Compact metadata selects — light, low-contrast vs. title + body.
+ * `!important` beats SelectTrigger defaults (h-9, py-2, shadow-xs, size-4 icon).
+ */
+.kb-article-editor button.kb-property-field[data-slot="select-trigger"] {
+  display: inline-flex !important;
+  gap: 0.25rem !important;
+  width: 100% !important;
+  height: 1.5rem !important;
+  min-height: 1.5rem !important;
+  padding: 0 0.3125rem !important;
+  padding-right: 1.125rem !important;
+  font-size: 0.6875rem !important;
+  font-weight: 450 !important;
+  line-height: 1.2 !important;
+  color: color-mix(
+    in srgb,
+    var(--foreground, #fafafa) 86%,
+    var(--muted-foreground, #a3a3a3)
+  ) !important;
+  background: transparent !important;
+  border: 1px solid color-mix(in srgb, var(--border, #404040) 36%, transparent) !important;
+  border-radius: 0.25rem !important;
+  box-shadow: none !important;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease !important;
+}
+
+.kb-article-editor button.kb-property-field[data-slot="select-trigger"]:hover {
+  background: color-mix(
+    in srgb,
+    var(--muted, #737373) 9%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--border, #404040) 55%,
+    transparent
+  ) !important;
+}
+
+.kb-article-editor
+  button.kb-property-field[data-slot="select-trigger"]:focus-visible {
+  outline: none !important;
+  border-color: color-mix(
+    in srgb,
+    var(--ring, #3b82f6) 50%,
+    transparent
+  ) !important;
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--ring, #3b82f6) 32%, transparent) !important;
+}
+
+.kb-article-editor
+  button.kb-property-field[data-slot="select-trigger"][data-state="open"] {
+  background: color-mix(
+    in srgb,
+    var(--muted, #737373) 11%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--border, #404040) 55%,
+    transparent
+  ) !important;
+}
+
+.kb-article-editor button.kb-property-field[data-slot="select-trigger"] svg {
+  width: 0.625rem !important;
+  height: 0.625rem !important;
+  opacity: 0.5 !important;
+}
+
+.kb-article-editor .kb-property-tag {
+  height: 1.25rem !important;
+  min-height: 1.25rem !important;
+  padding: 0 0.4rem !important;
+  font-size: 0.625rem !important;
+  font-weight: 450 !important;
+  line-height: 1 !important;
+}
+
+.kb-article-editor .tiptap-rich-editor .tiptap {
+  min-height: 400px;
+  padding: 1rem 0;
+}

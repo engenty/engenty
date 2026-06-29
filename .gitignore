@@ -1,0 +1,29 @@
+node_modules
+dist
+/data
+/tmp
+*.log
+.DS_Store
+.turbo
+.next
+.sync
+
+# Secrets — never commit
+*.key
+*.crt
+*.pem
+.env
+.env.*
+!.env.example
+
+# Aggregated migrations (generated; do not commit)
+supabase/migrations/*.sql
+
+# Local database snapshots
+supabase/snapshots/
+
+# Test coverage output
+coverage/
+
+# Logs
+logs/

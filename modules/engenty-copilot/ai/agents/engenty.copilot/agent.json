@@ -1,0 +1,16 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "engenty.copilot",
+  "name": "Engenty Copilot",
+  "description": "Supervisor copilot, running in the UI frame, for Engenty. Uses registered catalog and app UI tools directly; delegates CLI/sandbox work to the engenty.cli sub-agent. It provides the main chat interface for users to interact with Engenty.",
+  "module_id": "engenty",
+  "instruction_keys": [],
+  "skills": [],
+  "tools": [
+    "engentyApiCatalog",
+    "engentyApi",
+    "delegateToAgent",
+    "memory",
+    "chatThreadSearch"
+  ]
+}

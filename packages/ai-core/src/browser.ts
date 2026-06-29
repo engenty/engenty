@@ -1,0 +1,106 @@
+/**
+ * Minimal surface for React/Vite clients — no Node built-ins.
+ * Prefer this over `@engenty/ai-core` in browser code; the main entry pulls server-only modules.
+ */
+
+export {
+  encodeAgUiSseEvent,
+  frontendToolCallToAgUiEvents,
+  frontendToolResultToAgUiEvent,
+  runtimeProgressToAgUiEvent,
+  stateDeltaToAgUiEvent,
+  stateSnapshotToAgUiEvent,
+} from "./ag-ui/ag-ui-event-adapter.js";
+export {
+  agUiMessageText,
+  buildAgUiMessagesFromSessionMessages,
+  buildAgUiMessagesFromThreadMessages,
+  normalizeAgUiMessageForPersistence,
+  type PersistedAgUiSessionMessageRecord,
+  type PersistedAgUiThreadMessageRecord,
+  readAgUiMessageCreatedAt,
+  sortAgUiMessagesForTranscript,
+  sortPersistedAgUiSessionMessageRecords,
+  sortPersistedAgUiThreadMessageRecords,
+} from "./ag-ui/ag-ui-messages.js";
+export { buildAppNavigationPathsPromptSection } from "./agent-ui/app-navigation-paths-prompt.js";
+export { GENERAL_CHAT_AGENT_ID } from "./agents/copilot-constants.js";
+export {
+  createFieldSuggestionsArtifact,
+  FIELD_SUGGESTIONS_ARTIFACT_TYPE,
+  type FieldSuggestion,
+  type FieldSuggestionCandidate,
+  type FieldSuggestionsArtifactCreatedValue,
+  type FieldSuggestionsToolOutput,
+  fieldSuggestionCandidateSchema,
+  fieldSuggestionSchema,
+  fieldSuggestionsPayloadSchema,
+  fieldSuggestionsToolOutputToCreatedValue,
+  parseFieldSuggestionsArtifactCreatedValue,
+} from "./artifacts/field-suggestions.js";
+export {
+  type ChatModelResolutionPurpose,
+  DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_CLASSIFIER_MODEL_ID,
+  DEFAULT_AI_SAFEGUARD_MODEL_ID,
+  resolveChatModelId,
+  resolveSafeguardModelId,
+} from "./config/chat-model-id.js";
+export type {
+  AgentConfig,
+  AgentGuardrailsConfig,
+} from "./dynamic-contracts.js";
+export type {
+  SupportedModel,
+  SupportedModelsData,
+} from "./models/supported.js";
+export { supportedModels } from "./models/supported.js";
+export type {
+  SupportedEmbeddingModel,
+  SupportedEmbeddingModelsData,
+} from "./models/supported-embeddings.js";
+export { supportedEmbeddingModels } from "./models/supported-embeddings.js";
+export { isAgentThreadId } from "./runtime/agent-thread-id.js";
+export { deriveInitialSessionTitleFromText } from "./runtime/initial-session-title.js";
+export { deriveInitialThreadTitleFromText } from "./runtime/initial-thread-title.js";
+export {
+  AGENT_SKILL_NAME_MAX_LENGTH,
+  isValidAgentSkillName,
+} from "./skill-name.js";
+export {
+  type DocConverterTenantPrefs,
+  parseTenantAiSettings,
+  TENANT_AI_CONFIG_KEY,
+  type TenantAiSettings,
+} from "./tenant-ai-settings.js";
+export {
+  type ProposeUpdatesArtifact,
+  type ProposeUpdatesInput,
+  proposeUpdatesInputSchema,
+  proposeUpdatesToolDefinition,
+} from "./tools/propose-updates.js";
+export type {
+  ModelPricingRecord,
+  TenantUsagePolicyRecord,
+  UsageEnforcementMode,
+  UsageEventRecord,
+  UsageFeature,
+  UsagePeriodMode,
+  UsagePeriodTotalRecord,
+  UsagePeriodUnit,
+  UsageTokenInput,
+  UserUsagePolicyRecord,
+} from "./usage/contracts.js";
+export {
+  DEFAULT_TENANT_USAGE_POLICY,
+  TENANT_AGGREGATE_USER_ID,
+} from "./usage/contracts.js";
+export type {
+  UsageLimitErrorBody,
+  UsageLimitScope,
+  UsageLimitType,
+} from "./usage/limit-check.js";
+export {
+  type ResolvedPeriod,
+  resolveCurrentPeriod,
+} from "./usage/period.js";

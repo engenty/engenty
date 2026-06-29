@@ -1,0 +1,323 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import { useTranslation } from "@engenty/i18n/ui";
+import {
+  Button,
+  Label,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@engenty/ui-core";
+import { AnimatedLoaderIcon } from "@engenty/ui-icons";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { RotateCcw, RotateCcwSquare, Save } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ClassifierSettingsCard } from "../features/ai-settings/classifier-settings-card";
+import { CopilotInstructionsInfoCard } from "../features/ai-settings/copilot-instructions-info-card";
+import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
+import { GeneralSettingsCard } from "../features/ai-settings/general-settings-card";
+import { SkillsTab } from "../features/ai-settings/skills-tab";
+import { useAiSettings } from "../hooks/use-ai-settings";
+import {
+  useDocConverterAvailabilityQuery,
+  useGatewayModelOptionsQuery,
+} from "../lib/admin/ai-settings-queries";
+import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
+
+const DEFAULT_TAB = "copilot";
+const VALID_TABS = new Set([
+  DEFAULT_TAB,
+  "classifier",
+  "doc-converter",
+  "skills",
+]);
+const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
+  "all",
+  "low",
+  "medium",
+  "high",
+  "expensive",
+];
+
+interface ModelOption {
+  disabled?: boolean;
+  label: string;
+  value: string;
+}
+
+function modelOptionsWithSelected(
+  options: ModelOption[],
+  selectedIds: Array<string | null | undefined>,
+  unavailableLabel: string
+): ModelOption[] {
+  const byValue = new Map(options.map((option) => [option.value, option]));
+  for (const selectedId of selectedIds) {
+    if (!(selectedId && !byValue.has(selectedId))) {
+      continue;
+    }
+    byValue.set(selectedId, {
+      disabled: true,
+      label: `${selectedId} (${unavailableLabel})`,
+      value: selectedId,
+    });
+  }
+  return [...byValue.values()];
+}
+
+export function AiGeneralSettingsPage() {
+  const { t } = useTranslation("ai-ui");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("breadcrumbs.settings"));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    loading,
+    settings,
+    hasChanges,
+    saving,
+    saveError,
+    handleReset,
+    handleResetToDefaults,
+    handleSave,
+    updateSettings,
+  } = useAiSettings();
+  const availabilityQuery = useDocConverterAvailabilityQuery();
+  const [maxPriceTier, setMaxPriceTier] = useState<
+    "all" | GatewayModelPriceTier
+  >("medium");
+  const chatModelOptionsQuery = useGatewayModelOptionsQuery({
+    availability_purpose: "chat",
+    max_price_tier: maxPriceTier === "all" ? undefined : maxPriceTier,
+    use_case: "text",
+  });
+  const routingModelOptionsQuery = useGatewayModelOptionsQuery({
+    availability_purpose: "routing",
+    max_price_tier: maxPriceTier === "all" ? undefined : maxPriceTier,
+    use_case: "text",
+  });
+  const tabParam = searchParams.get("tab");
+  const activeTab =
+    tabParam && VALID_TABS.has(tabParam) ? tabParam : DEFAULT_TAB;
+  const chatModelOptions = useMemo(
+    () =>
+      modelOptionsWithSelected(
+        (chatModelOptionsQuery.data?.items ?? []).map((model) => ({
+          value: model.model_id,
+          label: model.label,
+        })),
+        [settings.chat_model_id, settings.coordinator_model_id],
+        t("fields.modelUnavailable")
+      ),
+    [
+      chatModelOptionsQuery.data?.items,
+      settings.chat_model_id,
+      settings.coordinator_model_id,
+      t,
+    ]
+  );
+  const routingModelOptions = useMemo(
+    () =>
+      modelOptionsWithSelected(
+        (routingModelOptionsQuery.data?.items ?? []).map((model) => ({
+          value: model.model_id,
+          label: model.label,
+        })),
+        [settings.classifier_model_id],
+        t("fields.modelUnavailable")
+      ),
+    [routingModelOptionsQuery.data?.items, settings.classifier_model_id, t]
+  );
+  const handleTabChange = (nextTab: string) => {
+    if (!VALID_TABS.has(nextTab) || nextTab === activeTab) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    if (nextTab === DEFAULT_TAB) {
+      next.delete("tab");
+    } else {
+      next.set("tab", nextTab);
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("menu.ai") },
+    ],
+    [moduleRootCrumb, t]
+  );
+
+  const pageActions = useMemo(
+    () =>
+      loading ||
+      activeTab === "skills" ||
+      (activeTab !== "copilot" &&
+        activeTab !== "classifier" &&
+        activeTab !== "doc-converter") ? null : (
+        <div className="flex gap-2">
+          <Button
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            onClick={handleResetToDefaults}
+            size="sm"
+            variant="ghost"
+          >
+            <RotateCcwSquare className="h-3.5 w-3.5" />
+            {t("actions.resetToDefaults")}
+          </Button>
+          <Button
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            disabled={!hasChanges}
+            onClick={handleReset}
+            size="sm"
+            variant="outline"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            {t("actions.reset")}
+          </Button>
+          <Button
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            disabled={saving || !hasChanges}
+            onClick={() => void handleSave()}
+            size="sm"
+            variant={hasChanges ? "default" : "outline"}
+          >
+            {saving ? (
+              <AnimatedLoaderIcon play="always" size="xs" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {saving ? t("actions.saving") : t("actions.save")}
+          </Button>
+        </div>
+      ),
+    [
+      activeTab,
+      handleReset,
+      handleResetToDefaults,
+      handleSave,
+      saving,
+      t,
+      hasChanges,
+      loading,
+    ]
+  );
+
+  usePageConfig({
+    breadcrumbs,
+    actions: pageActions,
+    secondaryNavHeaderSlot,
+  });
+
+  if (loading) {
+    return (
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto max-w-4xl space-y-6 p-page">
+          <p className="text-muted-foreground text-sm">{t("page.loading")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+      <Tabs
+        className="flex w-full flex-col"
+        onValueChange={handleTabChange}
+        value={activeTab}
+      >
+        <header className="w-full shrink-0 border-b bg-muted/30">
+          <div className="mx-auto flex max-w-4xl items-end px-4 pt-3 pb-0 md:px-5">
+            <TabsList
+              className="-mb-px w-fit border-0 bg-transparent p-0"
+              variant="line"
+            >
+              <TabsTrigger value="copilot">{t("sections.copilot")}</TabsTrigger>
+              <TabsTrigger value="classifier">
+                {t("sections.classifier")}
+              </TabsTrigger>
+              <TabsTrigger value="doc-converter">
+                {t("sections.docConverter")}
+              </TabsTrigger>
+              <TabsTrigger value="skills">{t("sections.skills")}</TabsTrigger>
+            </TabsList>
+          </div>
+        </header>
+
+        <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-page">
+          {saveError &&
+          (activeTab === "copilot" ||
+            activeTab === "classifier" ||
+            activeTab === "doc-converter") ? (
+            <div
+              className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
+              role="alert"
+            >
+              {saveError}
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-2 text-sm">
+            <Label htmlFor="ai-settings-max-price-tier">
+              {t("fields.maxPriceTier")}
+            </Label>
+            <select
+              aria-label={t("fields.maxPriceTier")}
+              className="h-8 rounded-sm border bg-background px-2 text-sm"
+              id="ai-settings-max-price-tier"
+              onChange={(event) =>
+                setMaxPriceTier(
+                  event.target.value as "all" | GatewayModelPriceTier
+                )
+              }
+              value={maxPriceTier}
+            >
+              {PRICE_TIERS.map((tier) => (
+                <option key={tier} value={tier}>
+                  {t(`fields.priceTier.${tier}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <TabsContent className="space-y-6" value="copilot">
+            <GeneralSettingsCard
+              modelOptions={chatModelOptions}
+              settings={settings}
+              t={t}
+              updateSettings={updateSettings}
+            />
+            <CopilotInstructionsInfoCard t={t} />
+          </TabsContent>
+
+          <TabsContent className="space-y-6" value="classifier">
+            <ClassifierSettingsCard
+              modelOptions={routingModelOptions}
+              settings={settings}
+              t={t}
+              updateSettings={updateSettings}
+            />
+          </TabsContent>
+
+          <TabsContent className="space-y-6" value="doc-converter">
+            <DocConverterSettingsCard
+              availability={availabilityQuery.data}
+              availabilityLoading={availabilityQuery.isLoading}
+              settings={settings}
+              t={t}
+              updateSettings={updateSettings}
+            />
+          </TabsContent>
+
+          <TabsContent value="skills">
+            <SkillsTab t={t} />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
+}
+
+export const AiSettingsPage = AiGeneralSettingsPage;

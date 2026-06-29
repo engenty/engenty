@@ -1,0 +1,7 @@
+{
+  "apps": {
+    "apps/core": { "name": "engenty", "script": "api:app", "appPort": 8787 },
+    "apps/ai": { "name": "ai.engenty", "script": "dev:app", "appPort": 8790 },
+    "apps/docs": { "name": "docs.engenty", "script": "dev:app", "appPort": 3002 }
+  }
+}

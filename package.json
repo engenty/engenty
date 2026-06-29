@@ -1,0 +1,83 @@
+{
+  "name": "engenty",
+  "private": true,
+  "license": "FSL-1.1-MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "build": "turbo run build",
+    "predev": "turbo run build --filter=./packages/* --filter=./modules/*",
+    "dev": "turbo run api:app dev:app studio --filter=./apps/core --filter=./apps/ui --filter=./apps/ai --filter=./apps/docs",
+    "dev:docs": "pnpm --filter @engenty/docs dev:app",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check": "ultracite check",
+    "lint": "pnpm run check",
+    "fix": "ultracite fix",
+    "env:setup": "pnpm --filter @engenty/core exec tsx src/index.ts env init",
+    "env:check": "pnpm --filter @engenty/core exec tsx src/index.ts env check",
+    "env:example:write": "pnpm --filter @engenty/core exec tsx src/index.ts env example --write",
+    "env:example:check": "pnpm --filter @engenty/core exec tsx src/index.ts env example --check",
+    "env:localhost:sync": "node scripts/sync-dev-env-localhost.mjs",
+    "portless:setup": "node scripts/portless-setup.mjs",
+    "portless:env:sync": "node scripts/sync-dev-env-from-portless.mjs",
+    "portless": "portless",
+    "service:jwt": "node scripts/mint-service-jwt.mjs",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "migrations:aggregate": "node scripts/aggregate-module-migrations.mjs",
+    "supabase:sync": "node scripts/supabase-sync.mjs",
+    "db:setup": "node scripts/supabase-sync.mjs && supabase db reset",
+    "db:migrate": "node scripts/supabase-sync.mjs && supabase migration up --include-all",
+    "db:reset": "node scripts/aggregate-module-migrations.mjs && supabase db reset",
+    "db:snapshot": "node scripts/db-snapshot.mjs snapshot",
+    "db:restore": "node scripts/db-snapshot.mjs restore",
+    "purge": "bash scripts/purge.sh"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.0",
+    "@tailwindcss/typography": "^0.5.20",
+    "@vitest/coverage-v8": "^4.1.9",
+    "http-server": "^14.1.1",
+    "jose": "^6.2.3",
+    "portless": "^0.15.0",
+    "tailwindcss": "^4.3.1",
+    "turbo": "^2.9.18",
+    "ultracite": "7.8.3",
+    "vitest": "^4.1.9"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "^6",
+      "@engenty/ai>ai": "7.0.0-beta.116",
+      "ai": "6.0.116",
+      "@xmldom/xmldom": ">=0.9.10",
+      "dompurify": ">=3.4.0",
+      "lodash-es": "4.18.1",
+      "picomatch": "4.0.4",
+      "yaml": "2.9.0",
+      "zod": "4.4.3",
+      "protobufjs": ">=7.5.8",
+      "@protobufjs/utf8": ">=1.1.1",
+      "axios": ">=1.16.0",
+      "fast-uri": ">=3.1.2",
+      "react-router": ">=7.15.0",
+      "@opentelemetry/sdk-node": ">=0.217.0",
+      "@opentelemetry/exporter-prometheus": ">=0.217.0",
+      "postcss": ">=8.5.10",
+      "uuid": ">=11.1.1",
+      "mermaid": ">=11.15.0"
+    }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "modules/*"
+  ]
+}

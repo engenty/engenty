@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Engenty AI Agent Manifest",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "engenty/ai-agent-manifest/v1"
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier of the agent"
+    },
+    "name": {
+      "type": "string",
+      "description": "User-facing name of the agent"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the agent's capabilities"
+    },
+    "module_id": {
+      "type": "string",
+      "description": "The module this agent belongs to"
+    },
+    "instruction_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Override instruction keys"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Skills assigned to this agent"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tools assigned to this agent"
+    }
+  },
+  "required": [
+    "$schema",
+    "id",
+    "name",
+    "description",
+    "module_id",
+    "skills",
+    "tools"
+  ],
+  "additionalProperties": false
+}

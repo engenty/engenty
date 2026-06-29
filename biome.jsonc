@@ -1,0 +1,150 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "files": {
+    "includes": [
+      "!**/generated-catalog.ts",
+      "!**/generated-tailwind-sources.css",
+      "!**/.devtools",
+      "!.agent",
+      "!.agents",
+      "!.claude",
+      "!.pi",
+      "!.vibe",
+      "!packages/ui-core/src/components/ui",
+      "!apps/ui/src/components/ui"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "modules/**/src/dal/index.ts",
+        "modules/**/ui/index.ts",
+        "modules/**/ui/api.ts",
+        "modules/**/ui/pages/index.ts",
+        "modules/**/src/schema/index.ts",
+        "modules/**/pages/portal/index.ts"
+      ],
+      "linter": { "rules": { "performance": { "noBarrelFile": "off" } } }
+    },
+    {
+      "includes": ["modules/**"]
+    },
+    {
+      "includes": ["modules/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off",
+            "noForEach": "off",
+            "noVoid": "off"
+          },
+          "style": {
+            "noNestedTernary": "off",
+            "useDefaultSwitchClause": "off",
+            "noNonNullAssertion": "off",
+            "useFilenamingConvention": "off"
+          },
+          "performance": { "useTopLevelRegex": "off" },
+          "correctness": {
+            "noUnusedVariables": "off",
+            "useExhaustiveDependencies": "off",
+            "noUnusedFunctionParameters": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off",
+            "noEmptyBlockStatements": "off",
+            "useAwait": "off",
+            "useIterableCallbackReturn": "off",
+            "noExplicitAny": "off"
+          },
+          "a11y": {
+            "useSemanticElements": "off",
+            "noLabelWithoutControl": "off",
+            "noStaticElementInteractions": "off",
+            "noNoninteractiveElementInteractions": "off",
+            "useFocusableInteractive": "off",
+            "useKeyWithClickEvents": "off",
+            "useButtonType": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "apps/core/src/**",
+        "packages/telemetry/src/**",
+        "packages/ai-core/src/**",
+        "packages/ui-core/src/**",
+        "modules/**/src/**",
+        "modules/**/ui/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "warn" }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/cli/**",
+        "**/*.test.ts",
+        "scripts/**",
+        "**/scripts/**",
+        "docs/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["apps/**", "packages/**", "scripts/**", "docs/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off",
+            "noForEach": "off",
+            "noVoid": "off"
+          },
+          "style": {
+            "noNestedTernary": "off",
+            "useDefaultSwitchClause": "off",
+            "noNonNullAssertion": "off",
+            "useFilenamingConvention": "off"
+          },
+          "performance": { "useTopLevelRegex": "off", "noBarrelFile": "off" },
+          "correctness": {
+            "noUnusedVariables": "off",
+            "useExhaustiveDependencies": "off",
+            "noUnusedFunctionParameters": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off",
+            "noEmptyBlockStatements": "off",
+            "useAwait": "off",
+            "useIterableCallbackReturn": "off",
+            "noExplicitAny": "off",
+            "noImplicitAnyLet": "off",
+            "noEvolvingTypes": "off"
+          },
+          "a11y": {
+            "useButtonType": "off",
+            "noStaticElementInteractions": "off",
+            "noNoninteractiveElementInteractions": "off",
+            "useKeyWithClickEvents": "off",
+            "useSemanticElements": "off"
+          },
+          "security": { "noDangerouslySetInnerHtml": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.md"],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false },
+      "assist": { "enabled": false }
+    }
+  ]
+}

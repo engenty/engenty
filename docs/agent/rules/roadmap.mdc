@@ -1,0 +1,12 @@
+---
+description: Add or update items in the project roadmap. Use when the user invokes "Roadmap" or asks to add something to the roadmap.
+---
+
+# Roadmap Command
+
+When the user asks to **add to the roadmap**, **update the roadmap**, or invokes the **Roadmap** command:
+
+1. **Edit** `docs/content/roadmap/README.md` (or add a dated note there).
+2. **Structure:** Keep sections concise. Add one line per idea.
+3. **Format:** Short line of text per item. Use bold for the topic and a brief description.
+4. **Do not** remove or reword existing items unless the user asks to. Only add or update what the user requested.

@@ -1,0 +1,514 @@
+import { RequestContext } from "@mastra/core/request-context";
+import type { ToolExecutionContext } from "@mastra/core/tools";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createEngentyToolExecuteTool } from "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
+import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
+
+function executeTool(
+  tool: ReturnType<typeof createEngentyToolExecuteTool>,
+  input: unknown,
+  context?: ToolExecutionContext
+) {
+  return (
+    tool.execute as (input: unknown, context?: ToolExecutionContext) => unknown
+  )(input, context);
+}
+
+describe("createEngentyToolExecuteTool", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("documents how to run selected tools after discovery", () => {
+    const tool = createEngentyToolExecuteTool();
+
+    expect(tool.description).toContain("selected Engenty tool");
+    expect(tool.description).toContain("empty input object");
+  });
+
+  it("invokes a discovered tool with the current user's authorization", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "low",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "contacts",
+            pluginId: "contacts",
+            summary: "Search contacts",
+            toolId: "contacts_contact_search",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            items: [{ id: "contact-1" }],
+          },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = await engentyToolsRunAls.run(
+      {
+        userAccessToken: "user-token",
+      },
+      () =>
+        executeTool(tool, {
+          id: "contacts_contact_search",
+          input: { limit: 1, query: "Anwalt", strategy: "lexical" },
+        })
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        items: [{ id: "contact-1" }],
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL(
+        "https://api.engenty.localhost/api/tools/contracts/contacts_contact_search"
+      ),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer user-token",
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL(
+        "https://api.engenty.localhost/api/tools/contacts_contact_search/invoke"
+      ),
+      expect.objectContaining({
+        body: JSON.stringify({
+          input: { limit: 1, query: "Anwalt", strategy: "lexical" },
+        }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer user-token",
+          "Content-Type": "application/json",
+        }),
+        method: "POST",
+      })
+    );
+  });
+
+  it("uses the Mastra request context auth token for Studio runs", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "low",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "knowledge-base",
+            pluginId: "knowledge-base",
+            summary: "Search knowledge base",
+            toolId: "knowledge_base_search",
+          },
+        })
+      )
+      .mockResolvedValueOnce(Response.json({ ok: true, data: { items: [] } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+    const requestContext = new RequestContext([
+      ["mastra__authToken", "Bearer studio-token"],
+    ]);
+
+    const result = await executeTool(
+      tool,
+      {
+        id: "knowledge_base_search",
+        input: { query: "Förderungen" },
+      },
+      { requestContext }
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      data: { items: [] },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL(
+        "https://api.engenty.localhost/api/tools/contracts/knowledge_base_search"
+      ),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer studio-token",
+        }),
+      })
+    );
+  });
+
+  it("does not attach catalog describe metadata to successful results", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "low",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "knowledge-base",
+            pluginId: "knowledge-base",
+            summary: "Search knowledge base",
+            toolId: "kb_search",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: { error: "No knowledge base found" },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = await engentyToolsRunAls.run(
+      {
+        userAccessToken: "user-token",
+      },
+      () =>
+        executeTool(tool, {
+          id: "kb_search",
+          input: { limit: 10, query: "Förderungen" },
+        })
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      data: { error: "No knowledge base found" },
+    });
+    expect(result).not.toHaveProperty("tool");
+  });
+
+  it("returns a structured error when no tool run context is active", async () => {
+    const tool = createEngentyToolExecuteTool();
+
+    await expect(
+      executeTool(tool, {
+        id: "contacts_contact_search",
+        input: { limit: 1 },
+      })
+    ).resolves.toEqual({
+      ok: false,
+      code: "unauthorized",
+      message:
+        "Core-backed Engenty tools are unavailable because this run does not include an end-user bearer token.",
+    });
+  });
+
+  it("overrides agent_run_id with the ALS run context runId", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "high",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "tasks",
+            pluginId: "tasks",
+            summary: "Checkout task",
+            toolId: "tasks_checkout",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: { id: "task-uuid", status: "in_progress" },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+    const harnessRunId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const hallucinated = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+    await engentyToolsRunAls.run(
+      { userAccessToken: "user-token", runId: harnessRunId },
+      () =>
+        executeTool(tool, {
+          id: "tasks_checkout",
+          input: {
+            id: "task-uuid",
+            agent_run_id: hallucinated,
+            agent_id: "tasks.assist",
+          },
+        })
+    );
+
+    const invokeCall = fetchMock.mock.calls[1];
+    const body = JSON.parse(invokeCall[1].body as string) as {
+      input: Record<string, unknown>;
+    };
+    expect(body.input.agent_run_id).toBe(harnessRunId);
+    expect(body.input.agent_run_id).not.toBe(hallucinated);
+  });
+
+  it("injects agent_run_id from run context when the LLM omits it", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "high",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "tasks",
+            pluginId: "tasks",
+            summary: "Checkout task",
+            toolId: "tasks_checkout",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: { id: "task-uuid", status: "in_progress" },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+    const harnessRunId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+    await engentyToolsRunAls.run(
+      { userAccessToken: "user-token", runId: harnessRunId },
+      () =>
+        executeTool(tool, {
+          id: "tasks_checkout",
+          input: {
+            id: "task-uuid",
+            agent_run_id: "irrelevant",
+            agent_id: "tasks.assist",
+          },
+        })
+    );
+
+    const invokeCall = fetchMock.mock.calls[1];
+    const body = JSON.parse(invokeCall[1].body as string) as {
+      input: Record<string, unknown>;
+    };
+    expect(body.input.agent_run_id).toBe(harnessRunId);
+  });
+
+  it("does not inject agent_run_id for operations that do not expose it", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "low",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "tasks",
+            pluginId: "tasks",
+            summary: "List tasks",
+            toolId: "tasks_list",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { items: [], total: 0 } })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    await engentyToolsRunAls.run(
+      {
+        userAccessToken: "user-token",
+        runId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      },
+      () =>
+        executeTool(tool, {
+          id: "tasks_list",
+          input: {},
+        })
+    );
+
+    const invokeCall = fetchMock.mock.calls[1];
+    const body = JSON.parse(invokeCall[1].body as string) as {
+      input: Record<string, unknown>;
+    };
+    expect(body.input).not.toHaveProperty("agent_run_id");
+  });
+
+  it("returns an Approve/Deny artifact (and does NOT invoke) for a requiresApproval op", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      Response.json({
+        ok: true,
+        data: {
+          auth: {
+            requiredCapabilities: [],
+            requiredPermissions: [],
+            requiredScopes: [],
+            requiresApproval: true,
+            riskLevel: "critical",
+          },
+          inputSchema: { type: "zod" },
+          moduleId: "contacts",
+          pluginId: "contacts",
+          summary: "Delete contact",
+          toolId: "contacts_contact_delete",
+        },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = (await engentyToolsRunAls.run(
+      { userAccessToken: "user-token" },
+      () =>
+        executeTool(tool, {
+          id: "contacts_contact_delete",
+          input: { id: "contact-1" },
+        })
+    )) as { artifact_id?: string; artifact_type?: string };
+
+    expect(result.artifact_type).toBe("decision");
+    expect(result.artifact_id).toContain("tool-approval|");
+    // describeTool was called, but invoke was NOT (the gate stopped it).
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("invokes a requiresApproval op once the user granted it for the chat", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: true,
+              riskLevel: "critical",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "contacts",
+            pluginId: "contacts",
+            summary: "Delete contact",
+            toolId: "contacts_contact_delete",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { deleted: true } })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = await engentyToolsRunAls.run(
+      {
+        userAccessToken: "user-token",
+        approvalGrants: ["contacts_contact_delete"],
+      },
+      () =>
+        executeTool(tool, {
+          id: "contacts_contact_delete",
+          input: { id: "contact-1" },
+        })
+    );
+
+    expect(result).toEqual({ ok: true, data: { deleted: true } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("surfaces core's 202 approval_required as an Approve/Deny artifact (backstop)", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "high",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "billing",
+            pluginId: "billing",
+            summary: "Charge card",
+            toolId: "billing_charge",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            ok: false,
+            error: { code: "approval_required", message: "Approval required" },
+          },
+          { status: 202 }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = (await engentyToolsRunAls.run(
+      { userAccessToken: "user-token" },
+      () => executeTool(tool, { id: "billing_charge", input: {} })
+    )) as { artifact_id?: string; artifact_type?: string };
+
+    expect(result.artifact_type).toBe("decision");
+    expect(result.artifact_id).toBe("tool-approval|billing_charge");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

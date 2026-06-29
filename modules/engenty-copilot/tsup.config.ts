@@ -1,0 +1,38 @@
+import { defineConfig } from "tsup";
+import { copyCopilotAgentPrompts } from "./scripts/copy-copilot-agent-prompts.mjs";
+
+export default defineConfig({
+  entry: [
+    "ai/index.ts",
+    "ai/frontend-tools/index.ts",
+    "ai/frontend-tools/register-all.ts",
+    "src/plugin.ts",
+    "src/lib/copilot-workspace.ts",
+    "src/lib/ensure-copilot-user-workspace-prefix.ts",
+    "ui/plugin.ts",
+    "ui/paths.ts",
+  ],
+  format: ["esm"],
+  dts: true,
+  clean: true,
+  esbuildOptions(options) {
+    options.loader = {
+      ...options.loader,
+      ".md": "text",
+    };
+    options.plugins ??= [];
+    options.plugins.push({
+      name: "copy-copilot-agent-prompts",
+      setup(build) {
+        build.onEnd((result) => {
+          if (result.errors.length === 0) {
+            copyCopilotAgentPrompts();
+          }
+        });
+      },
+    });
+  },
+  onSuccess: async () => {
+    copyCopilotAgentPrompts();
+  },
+});

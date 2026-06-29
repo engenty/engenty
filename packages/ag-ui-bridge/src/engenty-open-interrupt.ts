@@ -1,0 +1,233 @@
+import type { JsonValue } from "./json-value.js";
+import { isJsonValue } from "./json-value.js";
+
+export const AG_UI_OPEN_INTERRUPT_METADATA_KEY = "ag_ui_open_interrupt";
+
+/** Default TTL for open decision interrupts (ms). */
+export const AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type AgUiOpenInterruptKind =
+  | "decision"
+  | "feedback"
+  | "frontend_tool"
+  | "sandbox_command";
+
+export interface AgUiOpenInterruptChoice {
+  id: string;
+  label: string;
+}
+
+export interface AgUiOpenInterruptMetadata {
+  artifact_id: string;
+  body?: string;
+  choices?: AgUiOpenInterruptChoice[];
+  /** ISO-8601 expiry; resume rejected after this instant. */
+  expires_at?: string;
+  interrupt_id: string;
+  kind?: AgUiOpenInterruptKind;
+  /** Suspended Mastra run id — reused on resume so the snapshot reloads (native suspend/resume). */
+  run_id?: string;
+  title: string;
+  tool_call_id: string;
+  tool_input?: JsonValue;
+  tool_name?: string;
+}
+
+function readOpenInterruptChoices(
+  raw: unknown
+): AgUiOpenInterruptChoice[] | undefined {
+  if (!Array.isArray(raw)) {
+    return;
+  }
+  const choices = raw.flatMap((choice) => {
+    if (!choice || typeof choice !== "object" || Array.isArray(choice)) {
+      return [];
+    }
+    const record = choice as { id?: unknown; label?: unknown };
+    return typeof record.id === "string" && typeof record.label === "string"
+      ? [{ id: record.id, label: record.label }]
+      : [];
+  });
+  return choices.length > 0 ? choices : undefined;
+}
+
+function readOpenInterruptKind(
+  raw: unknown,
+  choices: AgUiOpenInterruptChoice[] | undefined,
+  toolName: unknown
+): AgUiOpenInterruptKind {
+  if (
+    raw === "frontend_tool" ||
+    raw === "decision" ||
+    raw === "feedback" ||
+    raw === "sandbox_command"
+  ) {
+    return raw;
+  }
+  if (typeof toolName === "string" && toolName.trim()) {
+    return "frontend_tool";
+  }
+  if (choices?.length) {
+    return "decision";
+  }
+  return "decision";
+}
+
+export function readAgUiOpenInterrupt(
+  metadata: Record<string, unknown> | null | undefined
+): AgUiOpenInterruptMetadata | null {
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+  const raw = metadata[AG_UI_OPEN_INTERRUPT_METADATA_KEY];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  const interruptId = record.interrupt_id;
+  const toolCallId = record.tool_call_id;
+  const artifactId = record.artifact_id;
+  const title = record.title;
+  const expiresAt = record.expires_at;
+  const body = record.body;
+  const choices = readOpenInterruptChoices(record.choices);
+  const toolName = record.tool_name;
+  const toolInput = record.tool_input;
+  const runId = record.run_id;
+  if (
+    typeof interruptId !== "string" ||
+    typeof toolCallId !== "string" ||
+    typeof artifactId !== "string" ||
+    typeof title !== "string"
+  ) {
+    return null;
+  }
+  const kind = readOpenInterruptKind(record.kind, choices, toolName);
+  if (
+    kind === "frontend_tool" &&
+    (typeof toolName !== "string" || !toolName.trim())
+  ) {
+    return null;
+  }
+  return {
+    artifact_id: artifactId,
+    ...(typeof body === "string" && body.trim() ? { body: body.trim() } : {}),
+    ...(choices ? { choices } : {}),
+    ...(typeof expiresAt === "string" && expiresAt.trim()
+      ? { expires_at: expiresAt.trim() }
+      : {}),
+    interrupt_id: interruptId,
+    kind,
+    ...(typeof runId === "string" && runId.trim()
+      ? { run_id: runId.trim() }
+      : {}),
+    title,
+    tool_call_id: toolCallId,
+    ...(typeof toolName === "string" && toolName.trim()
+      ? { tool_name: toolName.trim() }
+      : {}),
+    ...(toolInput !== undefined && isJsonValue(toolInput)
+      ? { tool_input: toolInput }
+      : {}),
+  };
+}
+
+export function isFrontendToolOpenInterrupt(
+  open: AgUiOpenInterruptMetadata
+): boolean {
+  return open.kind === "frontend_tool";
+}
+
+export function isDecisionOpenInterrupt(
+  open: AgUiOpenInterruptMetadata
+): boolean {
+  return (
+    open.kind !== "frontend_tool" &&
+    open.kind !== "sandbox_command" &&
+    open.kind !== "feedback"
+  );
+}
+
+export function isFeedbackOpenInterrupt(
+  open: AgUiOpenInterruptMetadata
+): boolean {
+  return open.kind === "feedback";
+}
+
+export function isSandboxCommandOpenInterrupt(
+  open: AgUiOpenInterruptMetadata
+): boolean {
+  return open.kind === "sandbox_command";
+}
+
+export function buildSandboxCommandOpenInterrupt(params: {
+  artifact_id: string;
+  body?: string;
+  interrupt_id: string;
+  run_id?: string;
+  title: string;
+  tool_call_id: string;
+  tool_input?: JsonValue;
+  tool_name: string;
+  expires_at?: string;
+}): AgUiOpenInterruptMetadata {
+  return {
+    artifact_id: params.artifact_id,
+    ...(params.body ? { body: params.body } : {}),
+    interrupt_id: params.interrupt_id,
+    kind: "sandbox_command",
+    ...(params.run_id ? { run_id: params.run_id } : {}),
+    title: params.title,
+    tool_call_id: params.tool_call_id,
+    tool_name: params.tool_name,
+    ...(params.tool_input === undefined
+      ? {}
+      : { tool_input: params.tool_input }),
+    ...(params.expires_at ? { expires_at: params.expires_at } : {}),
+  };
+}
+
+export function buildFrontendToolOpenInterrupt(params: {
+  artifact_id: string;
+  interrupt_id: string;
+  title: string;
+  tool_call_id: string;
+  tool_input?: JsonValue;
+  tool_name: string;
+  expires_at?: string;
+  /** Suspended Mastra run id — persisted so resume reloads the snapshot natively. */
+  run_id?: string;
+}): AgUiOpenInterruptMetadata {
+  return {
+    artifact_id: params.artifact_id,
+    interrupt_id: params.interrupt_id,
+    kind: "frontend_tool",
+    title: params.title,
+    tool_call_id: params.tool_call_id,
+    tool_name: params.tool_name,
+    ...(params.tool_input === undefined
+      ? {}
+      : { tool_input: params.tool_input }),
+    ...(params.run_id ? { run_id: params.run_id } : {}),
+    ...(params.expires_at ? { expires_at: params.expires_at } : {}),
+  };
+}
+
+export function isAgUiOpenInterruptExpired(
+  open: AgUiOpenInterruptMetadata,
+  nowMs: number = Date.now()
+): boolean {
+  const expiresAt = open.expires_at;
+  if (!expiresAt) {
+    return false;
+  }
+  const expiresMs = Date.parse(expiresAt);
+  return Number.isFinite(expiresMs) && nowMs > expiresMs;
+}
+
+export function buildAgUiOpenInterruptExpiresAt(
+  nowMs: number = Date.now(),
+  ttlMs: number = AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS
+): string {
+  return new Date(nowMs + ttlMs).toISOString();
+}

@@ -1,0 +1,71 @@
+{
+  "id": "engenty-copilot",
+  "name": "Engenty Copilot",
+  "description": "Core Engenty copilot full-page chat and apps/ai UI consumer",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.engenty-copilot",
+    "platform.copilot",
+    "ui.route.module.engenty-copilot",
+    "ui.copilot.app"
+  ],
+  "capabilities": {
+    "ui": true,
+    "operations": true,
+    "ai": true,
+    "frontendTools": true
+  },
+  "env": {
+    "feature": {
+      "id": "ai",
+      "label": "AI copilot (Vercel AI Gateway)",
+      "description": "Copilot agents and AI tooling (apps/ai)"
+    },
+    "vars": [
+      {
+        "description": "Vercel AI Gateway API key — required for the copilot (apps/ai). Create at https://vercel.com/d?to=/[team]/~/ai/api-keys",
+        "feature": "ai",
+        "group": "AI",
+        "key": "AI_GATEWAY_API_KEY",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "1. Open the Vercel dashboard → AI Gateway → API keys",
+            "2. Create a key and copy it"
+          ],
+          "url": "https://vercel.com/docs/ai-gateway"
+        },
+        "required": "feature",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "Default model routed through the AI Gateway (e.g. anthropic/claude-sonnet-4-6).",
+        "feature": "ai",
+        "group": "AI",
+        "key": "AI_GATEWAY_DEFAULT_MODEL",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": false
+      },
+      {
+        "description": "OpenAI API key (optional fallback model provider / realtime voice).",
+        "feature": "ai",
+        "group": "AI",
+        "key": "OPENAI_API_KEY",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "Create a key under API keys in the OpenAI platform."
+          ],
+          "url": "https://platform.openai.com/api-keys"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      }
+    ]
+  }
+}

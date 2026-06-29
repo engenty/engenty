@@ -1,0 +1,11 @@
+{
+  "title": "AI UI",
+  "description": "@engenty/ai-ui — agent and copilot UI, AG-UI client runtime, and admin surfaces.",
+  "pages": [
+    "README",
+    "architecture",
+    "copilot",
+    "ai-elements",
+    "skills-catalog"
+  ]
+}

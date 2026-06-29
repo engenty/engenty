@@ -1,0 +1,5 @@
+{
+  "title": "UI Core",
+  "description": "@engenty/ui-core — shared admin, layout, and shadcn UI primitives.",
+  "pages": ["README", "shadcn-primitives", "admin", "layout"]
+}

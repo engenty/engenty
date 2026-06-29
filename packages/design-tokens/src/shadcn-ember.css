@@ -1,0 +1,141 @@
+@import "./ember-primitives.css";
+
+/* shadcn semantic tokens → Ember (light) */
+:root {
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: oklch(100% 0 0);
+  --card-foreground: var(--ink);
+  --popover: color-mix(in oklch, var(--card) 85%, transparent);
+  --popover-foreground: var(--ink);
+  --primary: var(--ember-strong);
+  --primary-foreground: oklch(99% 0 0);
+  --secondary: var(--paper-2);
+  --secondary-foreground: var(--ink);
+  /* Plain paper-3 read as a strong “beige band”; blend toward card so bg-muted/* feels quieter */
+  --muted: color-mix(in oklch, var(--paper-3) 32%, var(--card));
+  --muted-foreground: var(--ink-3);
+  /* Hover / selection wash: must read clearly on white cards and warm canvas */
+  --accent: color-mix(
+    in oklch,
+    var(--ink) calc(7.5% * var(--contrast)),
+    var(--paper)
+  );
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --destructive-foreground: oklch(99% 0 0);
+  --border: color-mix(
+    in oklch,
+    var(--ink) calc(12% * var(--contrast)),
+    var(--paper)
+  );
+  --input: color-mix(
+    in oklch,
+    var(--ink) calc(10% * var(--contrast)),
+    var(--paper)
+  );
+  --ring: color-mix(in oklch, var(--ember) 45%, transparent);
+  --link: var(--info);
+
+  --chart-1: var(--moss);
+  --chart-2: var(--cobalt);
+  --chart-3: var(--ember);
+  --chart-4: var(--amber);
+  --chart-5: var(--rose);
+
+  /* Primary app rail: fully dynamic, based on raw sidebar input */
+  --sidebar: oklch(from var(--raw-sidebar) l c h);
+  --sidebar-foreground: oklch(from var(--sidebar) calc(1 - l) calc(c * 0.1) h);
+  --sidebar-primary: var(--ember);
+  --sidebar-primary-foreground: oklch(
+    from var(--ember) calc(1 - l) calc(c * 0.1) h
+  );
+  --sidebar-accent: oklch(from var(--sidebar) calc(l + 0.05 * (1 - 2 * l)) c h);
+  --sidebar-accent-foreground: oklch(
+    from var(--sidebar) calc(1 - l) calc(c * 0.1) h
+  );
+  --sidebar-border: oklch(from var(--sidebar) calc(l - 0.08 * (1 - 2 * l)) c h);
+  --sidebar-ring: color-mix(in oklch, var(--sidebar-primary) 65%, transparent);
+
+  --font-sans: var(--f-ui);
+  --font-heading: var(--f-display);
+  --font-mono: var(--f-mono);
+
+  /* DESIGN: ~8px default control radius, larger cards use Tailwind rounded-xl+ */
+  --radius: 0.5rem;
+  --radius-button: 0.5rem;
+
+  --shadow-2xs: var(--e-1);
+  --shadow-xs: 0 1px 2px
+    oklch(40% var(--seed-neutral-c) var(--seed-neutral-h) / 0.06);
+  --shadow-sm: var(--e-2);
+  --shadow-md: 0 4px 12px
+    oklch(40% var(--seed-neutral-c) var(--seed-neutral-h) / 0.08);
+  --shadow-lg: var(--e-3);
+  --shadow-xl: 0 20px 40px
+    oklch(35% var(--seed-neutral-c) var(--seed-neutral-h) / 0.12);
+  --shadow-2xl: 0 24px 48px
+    oklch(30% var(--seed-neutral-c) var(--seed-neutral-h) / 0.16);
+}
+
+.dark {
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--card);
+  --card-foreground: var(--ink);
+  --popover: color-mix(in oklch, var(--card) 90%, transparent);
+  --popover-foreground: var(--ink);
+  --primary: var(--ember-strong);
+  --primary-foreground: oklch(from var(--raw-background) 0.16 0.02 h);
+  --secondary: var(--paper-2);
+  --secondary-foreground: var(--ink-2);
+  --muted: color-mix(in oklch, var(--paper-3) 45%, var(--card));
+  --muted-foreground: var(--ink-3);
+  --accent: color-mix(
+    in oklch,
+    var(--ink) calc(10% * var(--contrast)),
+    var(--paper)
+  );
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --destructive-foreground: oklch(99% 0 0);
+  --border: color-mix(
+    in oklch,
+    var(--ink) calc(12% * var(--contrast)),
+    var(--paper)
+  );
+  --input: color-mix(
+    in oklch,
+    var(--ink) calc(10% * var(--contrast)),
+    var(--paper)
+  );
+  --ring: color-mix(in oklch, var(--ember) 55%, transparent);
+  --link: var(--info);
+
+  --chart-1: var(--moss);
+  --chart-2: var(--cobalt);
+  --chart-3: var(--ember);
+  --chart-4: var(--amber);
+  --chart-5: var(--rose);
+
+  --sidebar: oklch(from var(--raw-sidebar) l c h);
+  --sidebar-foreground: oklch(from var(--sidebar) calc(1 - l) calc(c * 0.1) h);
+  --sidebar-primary: var(--ember);
+  --sidebar-primary-foreground: oklch(
+    from var(--ember) calc(1 - l) calc(c * 0.1) h
+  );
+  --sidebar-accent: oklch(from var(--sidebar) calc(l + 0.05 * (1 - 2 * l)) c h);
+  --sidebar-accent-foreground: oklch(
+    from var(--sidebar) calc(1 - l) calc(c * 0.1) h
+  );
+  --sidebar-border: oklch(from var(--sidebar) calc(l - 0.08 * (1 - 2 * l)) c h);
+  --sidebar-ring: color-mix(in oklch, var(--sidebar-primary) 55%, transparent);
+
+  --shadow-2xs: 0 1px 0 oklch(0% 0 0 / 0.2);
+  --shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.25);
+  --shadow-sm: var(--e-2);
+  --shadow-md: 0 4px 14px oklch(0% 0 0 / 0.32);
+  --shadow-lg: var(--e-3);
+  --shadow-xl: 0 20px 40px oklch(0% 0 0 / 0.42);
+  --shadow-2xl: 0 24px 56px oklch(0% 0 0 / 0.48);
+}

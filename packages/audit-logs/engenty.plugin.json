@@ -1,0 +1,11 @@
+{
+  "id": "audit-logs",
+  "name": "Audit Logs",
+  "version": "0.0.1",
+  "kind": "package",
+  "ui": {
+    "entry": "@engenty/audit-logs/plugin",
+    "load": "workspace",
+    "tailwindSources": ["./src", "./dist"]
+  }
+}

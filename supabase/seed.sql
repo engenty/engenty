@@ -1,0 +1,2 @@
+-- Optional local dev seed data for Supabase.
+-- Keep this empty unless explicit seed fixtures are needed.

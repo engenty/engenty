@@ -1,0 +1,7 @@
+{
+  "title": "Roadmap",
+  "description": "What we're building next.",
+  "root": true,
+  "icon": "Map",
+  "pages": ["README"]
+}

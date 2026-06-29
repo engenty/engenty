@@ -1,0 +1,5 @@
+{
+  "title": "Admin",
+  "description": "List views, display preferences, and settings form components.",
+  "pages": ["index", "list", "list-toolbar", "list-preferences", "settings"]
+}

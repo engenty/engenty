@@ -1,0 +1,7 @@
+{
+  "title": "Installation",
+  "description": "Install and deploy your own Engenty instance.",
+  "root": true,
+  "icon": "Server",
+  "pages": ["README", "coolify"]
+}

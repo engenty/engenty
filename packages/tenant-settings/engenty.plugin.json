@@ -1,0 +1,14 @@
+{
+  "id": "tenant-settings",
+  "name": "Tenant Settings",
+  "description": "KV store for tenant-scoped settings",
+  "version": "0.0.1",
+  "kind": "package",
+  "provides": ["tenant-settings"],
+  "capabilities": {
+    "ai": false,
+    "frontendTools": false,
+    "operations": false,
+    "ui": false
+  }
+}

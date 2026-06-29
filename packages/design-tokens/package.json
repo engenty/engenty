@@ -1,0 +1,10 @@
+{
+  "name": "@engenty/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./ember-primitives.css": "./src/ember-primitives.css",
+    "./shadcn-ember.css": "./src/shadcn-ember.css",
+    "./ui-canvas-chrome.css": "./src/ui-canvas-chrome.css"
+  }
+}

@@ -1,0 +1,22 @@
+---
+description: Visual UI — tokens, typography, shell, tables, forms. DESIGN.md is canonical and outranks shadcn defaults.
+alwaysApply: true
+---
+
+# Design system (primary UI reference)
+
+For **visual** UI work, read **[DESIGN.md](../../../DESIGN.md)** before implementing:
+
+- Color/surface tokens (`--paper`, `--card`, Ember palette)
+- **Root rem:** `16px` default, `14px` on `768px–1280px`; Tailwind `--text-*` in `packages/design-tokens/src/tailwind-type-scale.css`
+- Typography, radius, form field metrics
+- Page layout, scroll contracts, `usePageConfig` chrome (`contentBlend`, `contentStackBackground`)
+- Shell, breadcrumbs, secondary nav, data tables (`.ui-canvas-*`, `STICKY_HEADER_CLASS`)
+- **Elevated cards on `--paper`:** never `hover:bg-accent/*` — stay `bg-card`, deepen `--e-3` shadow in place + title underline
+- **No layout shift on hover:** no `translate` / `scale` / size changes on card hover — paint-only (shadow, color, underline); see DESIGN.md “Hover & motion”
+
+`DESIGN.md` **outranks** shadcn defaults, ad-hoc Tailwind, and external layout references when they conflict.
+
+**Secondary** (flow, not look): `list-detail-edit-ui-conventions.mdc`, `settings-form-section-ui.mdc`, `header-tabs-ui.mdc`, `ui-components.mdc`.
+
+When you establish or change a visual pattern, update `DESIGN.md` in the same change.

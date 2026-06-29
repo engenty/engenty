@@ -1,0 +1,44 @@
+{
+  "name": "@engenty/generative-ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./catalog": {
+      "types": "./dist/catalog.d.ts",
+      "default": "./dist/catalog.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/catalog.ts src/registry.tsx --format esm --dts --clean --external @engenty/ui-core",
+    "dev": "tsup src/index.ts src/catalog.ts src/registry.tsx --format esm --dts --watch --external @engenty/ui-core",
+    "test": "vitest run",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@engenty/ui-core": "workspace:*",
+    "@json-render/core": "^0.19.0",
+    "@json-render/react": "^0.19.0",
+    "@json-render/shadcn": "^0.19.0",
+    "lucide-react": "^1.21.0",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

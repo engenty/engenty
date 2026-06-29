@@ -1,0 +1,20 @@
+---
+description: Keep ai-core docs in sync with package changes
+globs: packages/ai-core/**/*
+---
+
+# @engenty/ai-core – Docs Sync
+
+When changing `packages/ai-core`, keep the docs up to date:
+
+1. **Inline docs** – Update JSDoc and comments in the changed file to reflect new behavior, contracts, or rules.
+2. **How-tos** – If contracts, APIs, or flows change, update the relevant how-to in `packages/ai-core/docs/`:
+   - `howto-build-tools.md` – ToolExecutionContext, callGatewayMethod, scope
+   - `howto-artifacts-hitl.md` – artifact definition, publishing, apply handler
+   - `howto-ai-config.md` – model resolution, tenant `ai.config`, instruction seeds
+   - `cleanup-plan.md` – phased retirement tracker
+3. **Retired how-tos** (do not recreate unless product revives the feature): `howto-register-module-capability.md`, `howto-add-specialist.md`, `howto-coordinator-sticky.md` — coordinator/orchestrator-era guides removed with Phase B.
+4. **README** – Update `packages/ai-core/README.md` if the package layout, Mermaid diagrams, or tutorial table change.
+5. **Docs hub** – Update `packages/ai-core/docs/README.md` and `docs/meta.json` if how-to files are added or removed.
+6. **Fumadocs** – Published under `/docs/dev/packages/ai-core/…` (symlink from `docs/content/dev/packages/ai-core`). Each page needs YAML frontmatter with `title` and `description`.
+7. **Cleanup plan** — Phases A–E complete (2026-05-29). [cleanup-plan.md](../../../packages/ai-core/docs/cleanup-plan.md) is the retirement record; update when changing live exports or layout.

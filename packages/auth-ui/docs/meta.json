@@ -1,0 +1,5 @@
+{
+  "title": "Auth UI",
+  "description": "@engenty/auth-ui — login, setup gate, Supabase session helpers, and UI plugin routes.",
+  "pages": ["README", "architecture", "routes-and-plugin", "session-api"]
+}

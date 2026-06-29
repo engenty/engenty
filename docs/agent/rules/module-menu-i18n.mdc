@@ -1,0 +1,43 @@
+---
+description: Use when adding or changing registerAdminMenuItem, registerSettingsItem, labelKey, or module ui/locales menu strings (not app common.json).
+alwaysApply: false
+---
+
+# Module Menu i18n Conventions
+
+Use when adding or updating module admin/settings menu contributions.
+
+## Translation Scope
+
+- **Module menu strings MUST live in the module.** Use the module's own i18n namespace and locale files (`ui/locales/en.json`, `ui/locales/de.json`), not app `common.json`.
+- Do not add module menu keys (e.g. `menu.contacts`, `menu.projects`, `menu.invoices`) to `apps/ui/src/locales/*/common.json`.
+
+## Namespaced labelKeys
+
+- Use namespaced `labelKey` values for all `registerAdminMenuItem` and `registerSettingsItem` contributions.
+- Format: `<namespace>:<key>` — e.g. `contacts:menu.contacts`, `projects:menu.projects`, `offers:menu.offers`, `invoices:menu`, `team:menu`.
+- The namespace must match the module's registered i18n namespace in `ui/plugin.ts`.
+
+## UI Plugin Example
+
+```tsx
+engenty.UI.registerAdminMenuItem({
+  id: "my-module.menu",
+  section: "modules",
+  label: "My Module",
+  labelKey: "my-module:menu",  // or "my-module:menu.myModule" for nested
+  to: "/module/my-module",
+  icon: Icon,
+  order: 100,
+});
+```
+
+## Module Locale Shape
+
+- Add the corresponding keys to `ui/locales/en.json` and `ui/locales/de.json`.
+- Use flat or nested keys as needed: `"menu": "My Module"` or `"menu": { "myModule": "My Module", "subItem": "Sub" }`.
+- For breadcrumbs and pages, use the same keys from the module namespace: `t("menu")`, `t("menu.contacts")`, etc.
+
+## App Preloading
+
+- The app preloads namespaces from `labelKey` values (extracting the prefix before `:`) before building the sidebar. No extra wiring required.

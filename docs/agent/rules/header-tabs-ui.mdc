@@ -1,0 +1,48 @@
+---
+description: Full-width header section with tabs for settings / subsection pages
+alwaysApply: false
+---
+
+# Header + Tabs UI Pattern
+
+Use for pages with multiple sub-sections (e.g. settings pages, detail pages with tabs) where a full-width header bar contains navigation tabs.
+
+## Structure
+
+- **Full-width header**: `w-full border-b bg-muted/30`
+- **Tabs live inside the header**: Use `TabsList` + `TabsTrigger` from `@engenty/ui-core` with `variant="line"`
+- **Tab content**: Separate section below, centered with `max-w-*` and `p-page`
+
+## Layout Contract
+
+```
+<Tabs className="flex w-full flex-col" defaultValue="...">
+  <header className="w-full shrink-0 border-b bg-muted/30">
+    <div className="mx-auto flex max-w-4xl items-end px-4 pt-3 pb-0 md:px-5">
+      <TabsList variant="line" className="-mb-px w-fit border-0 bg-transparent p-0">
+        <TabsTrigger value="...">...</TabsTrigger>
+      </TabsList>
+    </div>
+  </header>
+  <div className="mx-auto w-full max-w-4xl flex-1 space-y-6 p-page">
+    <TabsContent value="...">...</TabsContent>
+  </div>
+</Tabs>
+```
+
+## Stacked sections under tabs
+
+- For blocks that look like **Appearance** settings (section title, muted description, then a bordered form card), use **`SettingsFormSection`** from `@engenty/ui-core` (see `settings-form-section-ui.mdc`).
+
+## Key Details
+
+- **Header padding**: `pt-3 pb-0` — no bottom padding so the active tab underline aligns flush with the gray `border-b`
+- **Items alignment**: `items-end` so tabs and their underline sit at the bottom of the header
+- **Tabs variant**: Use `variant="line"` — underline-style tabs, not button-like segmented controls
+- **TabsList overrides**: `border-0 bg-transparent p-0` when inside the header; `-mb-px` helps the blue underline meet the gray line
+
+## Tabs Component (ui-core)
+
+- For underline-style tabs: `TabsList variant="line"`
+- Do not use `variant="segmented"` when you want tab styling (it renders button-like pill controls)
+- Reference: `packages/ai-ui/src/routes/ai-settings-page.tsx`

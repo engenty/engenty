@@ -1,0 +1,72 @@
+---
+description: How to structure edit and detail screens with cards, forms, and section headings (headings outside cards)
+globs: "**/*-edit-page*.tsx", "**/*-detail-page*.tsx", "**/*-settings-page*.tsx"
+alwaysApply: false
+---
+
+# Edit / Detail Screen Layout (Card, Form, Sections)
+
+Use this structure for edit and detail (read-only) pages so layout stays consistent.
+
+## Page wrapper
+
+- AppLayout does NOT provide any paddings on purpose
+- Use `.p-page` class for page paddings which provides paddings for responsive states
+- You may use full with headers with card background
+- Single scrollable column, centered: `mx-auto max-w-4xl space-y-6`.
+- Keep relevant info sticky when scrolling if needed for large pages
+- Edit pages: one `<Form>` wrapping one `<form className="space-y-6">`.
+
+## Sections and headings (outside the card)
+
+- **Section** = `<section className="space-y-2">` with heading and optional description *outside* the card, then the card as the next sibling.
+- **Heading**: `<h2 className="text-lg font-medium">` (translated). Optional: `<p className="text-sm text-muted-foreground">` below the heading.
+- **Do not** put the section title inside the card. Heading and card are siblings inside the section.
+
+## Cards
+
+- Use **Card** from `@engenty/ui-core` with **variant="form"** for each block (light background, padding, spacing).
+- One card per section. For a distinct sub-block inside a card (e.g. Contracts), use `<h3 className="mb-2 text-sm font-medium">` and `border-t pt-4` (or `mt-4 pt-4`).
+
+## Edit forms: fields inside cards
+
+- **FormItem variant="row"** for label + control in one row (no extra layout classes on `FormLabel` / `FormControl`).
+- Use **Textarea** for multi-line fields, **DatePicker** for dates, **FileInput** for file upload where appropriate.
+
+## Do / Don’t
+
+```tsx
+// ✅ Heading outside card
+<section className="space-y-2">
+  <div>
+    <h2 className="text-lg font-medium">{t("sectionTitle")}</h2>
+    <p className="text-sm text-muted-foreground">{t("sectionDescription")}</p>
+  </div>
+  <Card variant="form">
+    ...
+  </Card>
+</section>
+
+// ❌ Heading inside card
+<Card variant="form">
+  <h2>Section</h2>
+  ...
+</Card>
+```
+
+```tsx
+// ✅ Sub-block inside card
+<Card variant="form">
+  <FormField ... />
+  <div className="border-t pt-4 mt-4">
+    <h3 className="mb-2 text-sm font-medium">{t("contracts")}</h3>
+    ...
+  </div>
+</Card>
+```
+
+## Reference
+
+- Edit: `modules/engenty-copilot/ui/pages/ (list/detail/edit pattern)`
+- Detail: `see list-detail-edit-ui-conventions.mdc`
+- Card `variant="form"`, FormItem `variant="row"`, Textarea / DatePicker / FileInput from `@engenty/ui-core`

@@ -1,0 +1,25 @@
+/**
+ * Tailwind v4 text utilities (`--text-*`). Uses rem so sizes track `html { font-size }`
+ * (16px default, 14px on 768px–1280px in apps/ui + apps/manage entry CSS).
+ *
+ * Without these, `.text-base` etc. reference undefined `--text-base` and fall back badly.
+ */
+@theme inline {
+  --text-xxs: 0.6875rem;
+  --text-xxs--line-height: 0.875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+}

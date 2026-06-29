@@ -1,0 +1,76 @@
+---
+description: Use when adding or updating shadcn components in packages/ui-core, Card variants, SettingsFormSection usage, or engenty.UI module route registration from @engenty/ui-plugin-sdk.
+alwaysApply: false
+---
+
+# UI Core (shadcn) Instructions
+
+**Visual tokens, spacing, shell, and table chrome:** [DESIGN.md](../../../DESIGN.md) first — this rule covers component install/usage only.
+
+Use `@engenty/ui-core` as the single source for shared UI primitives.
+
+## Install / Manage shadcn Components
+
+- Always run shadcn CLI from `packages/ui-core` (Base UI / `base-vega` style in `components.json`).
+- Default target path for shadcn-generated components is `packages/ui-core/src/components/ui`.
+
+Commands:
+
+```bash
+cd packages/ui-core
+pnpm dlx shadcn@latest add button
+```
+
+```bash
+cd packages/ui-core
+pnpm dlx shadcn@latest add dialog dropdown-menu tabs
+```
+
+After adding/updating components:
+
+1. Export public components from `packages/ui-core/src/index.ts`.
+2. Do not commit `@/` imports under `packages/ui-core/src` (use relative imports or `@engenty/ui-core/...` per `components.json` / repo docs). Verify with `pnpm check:ui-core-imports`.
+3. Build package:
+
+```bash
+pnpm --filter @engenty/ui-core build
+```
+
+## Usage in App / Modules / Plugins
+
+- Import shared UI components from `@engenty/ui-core` only.
+- Settings pages with **section title + description + form card**: use **`SettingsFormSection`** (see `settings-form-section-ui.mdc`).
+- Do not import app-local UI primitives from `apps/ui/src/components/ui` in module/plugin code.
+
+Example:
+
+```tsx
+import { Card, CardContent, CardHeader, CardTitle } from "@engenty/ui-core";
+```
+
+### `Card` variants
+
+- **`variant="default"`** — bordered surface with padding (lists, standalone panels).
+- **`variant="form"`** — general form blocks (edit pages, PDF designer, etc.); not the same padding as stacked settings sections.
+- **`SettingsFormCard`** — bordered settings surface (`py-2`, horizontal padding); composed by **`SettingsFormSection`**.
+- **Do not nest `Card` inside `SettingsFormSection` children** — the section already renders a **`SettingsFormCard`**; an inner `Card` stacks borders and padding. See `settings-form-section-ui.mdc`.
+- **`variant="panel"`** — **no** `bg-card`, **no** outer padding, **no** border/shadow: use for sections that already sit on `bg-background` inside a scroll shell (e.g. admin workspace landing). Pair with **`CardHeader` / `CardContent` `className="p-0"`** so inner chrome does not double up.
+
+**`Card` + `CardHeader` + `CardContent` — avoid triple padding:** `variant="default"` adds outer `p-2 sm:p-4` on the root, while `CardHeader` defaults to `p-6` and `CardContent` to `p-4 pt-0`, which stacks badly on detail/settings-style layouts. Prefer one of:
+
+- Put **`className="p-0 sm:p-0"`** on `Card`, then give **`CardHeader`** and **`CardContent`** explicit matching padding (e.g. `px-4 py-3 sm:px-5` on the header, `px-4 py-4 sm:px-5` on the body; optional `border-b` on the header), **or**
+- Use **`variant="panel"`** plus `className="rounded-xl border border-border bg-card shadow-sm"` when you need a bordered card on `bg-background`, then same explicit padding on header/content (still override header’s default `p-6`).
+
+For UI plugin registration in modules/plugins, use `@engenty/ui-plugin-sdk` and `engenty.UI`:
+
+```tsx
+import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+
+export function registerMyPluginUi(engenty: EngentyPluginContext) {
+  engenty.UI.registerRoute({
+    id: "my-plugin.list",
+    path: "/module/my-plugin",
+    component: MyPage,
+  });
+}
+```

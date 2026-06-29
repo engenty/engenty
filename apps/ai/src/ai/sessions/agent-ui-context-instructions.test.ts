@@ -1,0 +1,198 @@
+import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildAgentUiContextInstructions } from "./agent-ui-context-instructions.js";
+
+const resolveAgentSystemPromptFromUiState = vi.fn();
+
+vi.mock("../core-http-client.js", () => ({
+  EngentyCoreClient: class MockEngentyCoreClient {
+    resolveAgentSystemPromptFromUiState = resolveAgentSystemPromptFromUiState;
+  },
+  getEngentyCoreBaseUrlFromEnv: () => "http://127.0.0.1:8787",
+}));
+
+const resolveModuleSkillCatalogHint = vi.fn();
+
+vi.mock("../skills/module-skill-hint.js", () => ({
+  resolveModuleSkillCatalogHint: (input: unknown) =>
+    resolveModuleSkillCatalogHint(input),
+}));
+
+describe("buildAgentUiContextInstructions", () => {
+  afterEach(() => {
+    resolveAgentSystemPromptFromUiState.mockReset();
+    resolveModuleSkillCatalogHint.mockReset();
+  });
+
+  it("returns frontend tool instructions when state_snapshot is missing", async () => {
+    const result = await buildAgentUiContextInstructions({
+      agentId: "tasks.assist",
+      agentUi: { frontend_tools: [] },
+      scope: {
+        tenantId: "t1",
+        userAccessToken: "token",
+        userId: "u1",
+      },
+    });
+    expect(result).toContain("run in the user's browser");
+    expect(result).toContain("navigate");
+    expect(resolveAgentSystemPromptFromUiState).not.toHaveBeenCalled();
+  });
+
+  it("includes client-provided frontend tools in runtime instructions", async () => {
+    const result = await buildAgentUiContextInstructions({
+      agentId: "tasks.assist",
+      agentUi: {
+        frontend_tools: [
+          createFrontendToolDefinition({
+            availability: "enabled",
+            description: "Open a test panel.",
+            name: "test.openPanel",
+            parameters: {
+              type: "object",
+              properties: { mode: { enum: ["a", "b"], type: "string" } },
+              required: ["mode"],
+            },
+            safety: "safe",
+          }),
+        ],
+      },
+      scope: {
+        tenantId: "t1",
+        userAccessToken: "token",
+        userId: "u1",
+      },
+    });
+    // Native tools carry their own typed schema in the tool list; the instructions
+    // only need to name the browser tools so the model knows they exist.
+    expect(result).toContain("test.openPanel");
+    expect(result).toContain("Browser tools available now:");
+  });
+
+  it("includes generic AG-UI snapshot instructions when snapshot is present", async () => {
+    resolveAgentSystemPromptFromUiState.mockResolvedValue({
+      system_prompt: "",
+    });
+    const snapshot = {
+      observed_at: new Date().toISOString(),
+      route: {
+        module_id: "engenty-copilot",
+        pathname: "/mdl/team/m1",
+        route_key: "chat",
+      },
+      selection: { entity_id: "m1", entity_type: "team" },
+      sequence: 1,
+      shell: { copilot_open: true },
+      snapshot_id: "snap-1",
+      version: 1 as const,
+    };
+    const result = await buildAgentUiContextInstructions({
+      agentId: "engenty.copilot",
+      agentUi: { frontend_tools: [], state_snapshot: snapshot },
+      scope: {
+        tenantId: "t1",
+        userAccessToken: "token",
+        userId: "u1",
+      },
+    });
+    expect(result).toContain("pathname: /mdl/team/m1");
+    expect(result).toContain("page_module: team");
+  });
+
+  it("returns system prompt from core when snapshot is present", async () => {
+    resolveAgentSystemPromptFromUiState.mockResolvedValue({
+      system_prompt: "Current task (preloaded)",
+    });
+    const snapshot = {
+      observed_at: new Date().toISOString(),
+      page: { task_snapshot: { identifier: "ENG-1" } },
+      route: {
+        module_id: "tasks",
+        pathname: "/mdl/tasks/x",
+        route_key: "detail",
+      },
+      sequence: 1,
+      shell: { copilot_open: true },
+      snapshot_id: "snap-1",
+      version: 1 as const,
+    };
+    const result = await buildAgentUiContextInstructions({
+      agentId: "tasks.assist",
+      agentUi: { frontend_tools: [], state_snapshot: snapshot },
+      scope: {
+        tenantId: "t1",
+        userAccessToken: "token",
+        userId: "u1",
+      },
+    });
+    expect(result).toContain("run in the user's browser");
+    expect(result).toContain("pathname: /mdl/tasks/x");
+    expect(result).toContain("Current task (preloaded)");
+    expect(resolveAgentSystemPromptFromUiState).toHaveBeenCalledWith(
+      "tasks.assist",
+      snapshot
+    );
+  });
+
+  it("injects the module skill catalog hint for copilot runs with a module context", async () => {
+    resolveAgentSystemPromptFromUiState.mockResolvedValue({
+      system_prompt: "",
+    });
+    resolveModuleSkillCatalogHint.mockResolvedValue(
+      "## Skills for the current module (contacts)\n- contacts-search — find contacts"
+    );
+    const snapshot = {
+      observed_at: new Date().toISOString(),
+      route: {
+        module_id: "contacts",
+        pathname: "/module/contacts",
+        route_key: "list",
+      },
+      sequence: 1,
+      shell: { copilot_open: true },
+      snapshot_id: "snap-1",
+      version: 1 as const,
+    };
+    const result = await buildAgentUiContextInstructions({
+      agentId: "engenty.copilot",
+      agentUi: { frontend_tools: [], state_snapshot: snapshot },
+      scope: { tenantId: "t1", userAccessToken: "token", userId: "u1" },
+    });
+    expect(result).toContain("## Skills for the current module (contacts)");
+    expect(resolveModuleSkillCatalogHint).toHaveBeenCalledWith(
+      expect.objectContaining({ moduleId: "contacts", tenantId: "t1" })
+    );
+  });
+
+  it("skips the skill hint for non-copilot agents and module-less snapshots", async () => {
+    resolveAgentSystemPromptFromUiState.mockResolvedValue({
+      system_prompt: "",
+    });
+    const snapshot = {
+      observed_at: new Date().toISOString(),
+      route: {
+        module_id: "contacts",
+        pathname: "/module/contacts",
+        route_key: "list",
+      },
+      sequence: 1,
+      shell: { copilot_open: true },
+      snapshot_id: "snap-1",
+      version: 1 as const,
+    };
+    await buildAgentUiContextInstructions({
+      agentId: "tasks.assist",
+      agentUi: { frontend_tools: [], state_snapshot: snapshot },
+      scope: { tenantId: "t1", userAccessToken: "token", userId: "u1" },
+    });
+    await buildAgentUiContextInstructions({
+      agentId: "engenty.copilot",
+      agentUi: {
+        frontend_tools: [],
+        state_snapshot: { ...snapshot, route: undefined },
+      },
+      scope: { tenantId: "t1", userAccessToken: "token", userId: "u1" },
+    });
+    expect(resolveModuleSkillCatalogHint).not.toHaveBeenCalled();
+  });
+});

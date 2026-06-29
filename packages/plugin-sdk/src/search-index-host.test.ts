@@ -1,0 +1,134 @@
+// Lean coverage for the security-critical bits of `search-index-host.ts`:
+//
+//   1. The synthesized auto-tool **never** trusts caller-supplied
+//      `filters.tenant_id` / `filters.user_id` and always overrides them with
+//      the authenticated `ctx.auth` values. An LLM-driven agent must not be
+//      able to pivot to another tenant by spoofing filters in the request.
+//
+//   2. Explicit `strategy: "lexical"` is forwarded verbatim to the provider.
+//      Quick search (BM25) must stay opt-in even when the provider also
+//      advertises `hybrid: true` / `semantic: true` capabilities — we do not
+//      auto-upgrade to a paid embedding path just because vectors exist.
+//
+// Anything else (list/get/event binding semantics) is exercised by callers
+// (contacts, kb, chat-search) so we don't re-test it here.
+
+import type {
+  SearchIndexProvider,
+  SearchProviderCapabilities,
+  SearchRequest,
+  SearchResponse,
+  SearchStrategy,
+} from "@engenty/search-index";
+import { describe, expect, it, vi } from "vitest";
+import { synthesizeSearchOperation } from "./search-index-host.js";
+
+function makeProvider(
+  capabilities: SearchProviderCapabilities,
+  searchImpl?: (
+    req: SearchRequest<Record<string, unknown>>
+  ) => Promise<SearchResponse<unknown>>
+): SearchIndexProvider {
+  return {
+    capabilities,
+    deleteDocument: vi.fn().mockResolvedValue(undefined),
+    id: "tests.entity",
+    replaceDocument: vi.fn().mockResolvedValue(undefined),
+    search: vi
+      .fn()
+      .mockImplementation(
+        searchImpl ?? (async () => ({ results: [], total: 0 }))
+      ),
+    version: "1",
+  } satisfies SearchIndexProvider;
+}
+
+describe("synthesizeSearchOperation — security boundary", () => {
+  it("overrides spoofed tenant_id/user_id with ctx.auth values", async () => {
+    const provider = makeProvider({ hybrid: true, lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+    });
+
+    await op.handler(
+      {
+        filters: { tenant_id: "evil-tenant", user_id: "evil-user" },
+        limit: 5,
+        query: "ada",
+      },
+      { auth: { tenantId: "real-tenant", userId: "real-user" } }
+    );
+
+    expect(provider.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: expect.objectContaining({
+          tenant_id: "real-tenant",
+          user_id: "real-user",
+        }),
+      })
+    );
+  });
+
+  it("strips spoofed tenant_id/user_id when ctx.auth is missing", async () => {
+    const provider = makeProvider({ hybrid: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+    });
+
+    await op.handler(
+      { filters: { tenant_id: "spoof", user_id: "spoof" }, limit: 5 },
+      {}
+    );
+
+    const call = (provider.search as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as SearchRequest<Record<string, unknown>>;
+    expect(call.filters).toBeDefined();
+    expect((call.filters as Record<string, unknown>).tenant_id).toBeUndefined();
+    expect((call.filters as Record<string, unknown>).user_id).toBeUndefined();
+  });
+});
+
+describe("synthesizeSearchOperation — explicit lexical (BM25)", () => {
+  it("forwards strategy='lexical' verbatim even when hybrid/semantic exist", async () => {
+    const provider = makeProvider({
+      hybrid: true,
+      lexical: true,
+      semantic: true,
+    });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+    });
+
+    await op.handler(
+      { limit: 5, query: "ada", strategy: "lexical" satisfies SearchStrategy },
+      { auth: { tenantId: "t-1" } }
+    );
+
+    expect(provider.search).toHaveBeenCalledWith(
+      expect.objectContaining({ strategy: "lexical" })
+    );
+  });
+
+  it("falls back to capability resolution only when strategy is omitted", async () => {
+    const provider = makeProvider({ lexical: true, semantic: false });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+    });
+
+    await op.handler({ limit: 5, query: "ada" }, { auth: { tenantId: "t-1" } });
+
+    const call = (provider.search as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as SearchRequest<Record<string, unknown>>;
+    expect(call.strategy).toBeDefined();
+    // No semantic capability → resolver picks `lexical`, not `hybrid`.
+    expect(call.strategy).toBe("lexical");
+  });
+});

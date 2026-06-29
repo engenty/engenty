@@ -1,0 +1,1688 @@
+import { formatZodErrorForApiError, isZodError } from "@engenty/api-contracts";
+import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
+import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
+import type { PluginRegistry } from "../../../plugins/registry.js";
+import type {
+  ApprovalDecision,
+  createApprovalService,
+} from "../../../security/approval-service.js";
+import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
+import {
+  recordCoreAuditEvent,
+  recordModuleAuditEvent,
+} from "../../../security/audit-service.js";
+import type { PrincipalContext } from "../../../security/auth.js";
+import type { AuthProvider } from "../../../security/auth-provider.js";
+import {
+  evaluatePolicy,
+  evaluateResultPolicy,
+} from "../../../security/policy.js";
+import { buildOperationContracts } from "../../operation-contracts.js";
+import { jsonApiError, jsonApiSuccess } from "../api-response.js";
+
+type ApprovalService = ReturnType<typeof createApprovalService>;
+
+type OperationEntry = PluginRegistry["moduleOperations"][number];
+
+const CORE_PLUGIN_ID = "core";
+
+type TenantPluginOverrideResolver = (
+  tenantId: string
+) => Promise<Record<string, boolean>>;
+
+interface OperationRoutesContext {
+  approvalService: ApprovalService;
+  auditLog: SecurityAuditLogAdapter;
+  authProvider: AuthProvider;
+  config: Record<string, unknown>;
+  dataDir: string;
+  registry: PluginRegistry;
+  resolvePath: (p: string) => string;
+  resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
+}
+
+interface HonoJsonContext {
+  json: (body: unknown, status?: number) => Response;
+  req: {
+    header: (name: string) => string | undefined;
+    json: () => Promise<unknown>;
+    param: (name: string) => string;
+  };
+}
+
+interface HonoGetContext {
+  json: (body: unknown, status?: number) => Response;
+  req: {
+    header: (name: string) => string | undefined;
+    param: (name: string) => string;
+  };
+}
+
+type OperationEventName =
+  | "operation.afterInvoke"
+  | "operation.beforeInvoke"
+  | "operation.context"
+  | "operation.error";
+
+function operationEventPayload(params: {
+  auth: PrincipalContext;
+  input?: unknown;
+  moduleId: string;
+  operationId: string;
+  result?: unknown;
+  transport: "gateway" | "http" | "module_ops" | "mcp";
+}): Record<string, unknown> {
+  return {
+    actor_id: params.auth.principalId,
+    input: params.input,
+    module_id: params.moduleId,
+    operation_id: params.operationId,
+    result: params.result,
+    tenant_id: params.auth.tenantId,
+    transport: params.transport,
+  };
+}
+
+async function emitCoreOperationEvent(params: {
+  auth: PrincipalContext;
+  eventName: OperationEventName;
+  payload: Record<string, unknown>;
+  registry: PluginRegistry;
+}) {
+  await params.registry.eventsRuntime?.api.core.emit(
+    params.eventName,
+    params.payload,
+    {
+      actorId: params.auth.principalId,
+      principalId: params.auth.principalId,
+      sourceModuleId: "core",
+      tenantId: params.auth.tenantId,
+    }
+  );
+}
+
+async function runBeforeOperationInterceptors(params: {
+  auth: PrincipalContext;
+  auditLog: SecurityAuditLogAdapter;
+  moduleId: string;
+  operationId: string;
+  payload: Record<string, unknown>;
+  registry: PluginRegistry;
+}) {
+  const decision = await params.registry.eventsRuntime?.runInterceptors(
+    "operation.beforeInvoke",
+    params.payload,
+    {
+      actorId: params.auth.principalId,
+      principalId: params.auth.principalId,
+      sourceModuleId: "core",
+      tenantId: params.auth.tenantId,
+    }
+  );
+  if (decision?.action !== "block") {
+    return;
+  }
+  recordModuleAuditEvent(params.auditLog, params.moduleId, {
+    type: "operation.intercepted",
+    actorId: params.auth.principalId,
+    tenantId: params.auth.tenantId,
+    moduleId: params.moduleId,
+    operationId: params.operationId,
+    detail: { reason: decision.reason },
+  });
+  throw new InvokeOperationError(decision.reason ?? "Operation blocked", 403, {
+    error: "Forbidden",
+    reason: decision.reason,
+  });
+}
+
+async function applyOperationContextFilters(params: {
+  auth: PrincipalContext;
+  payload: Record<string, unknown>;
+  registry: PluginRegistry;
+}) {
+  await params.registry.eventsRuntime?.applyFilters(
+    "operation.context",
+    params.payload,
+    {
+      actorId: params.auth.principalId,
+      principalId: params.auth.principalId,
+      sourceModuleId: "core",
+      tenantId: params.auth.tenantId,
+    }
+  );
+}
+
+function buildOperationMap(
+  registry: PluginRegistry
+): Map<string, OperationEntry> {
+  const entries = new Map<string, OperationEntry>();
+  for (const op of registry.moduleOperations) {
+    entries.set(op.operationId, op);
+  }
+  return entries;
+}
+
+function isCoreOwnedOperation(pluginId: string): boolean {
+  return pluginId === CORE_PLUGIN_ID;
+}
+
+const schemaSummarySchema = z.object({
+  type: z.enum(["zod", "none"]),
+  hint: z.string().optional(),
+});
+
+const operationContractSchema = z.object({
+  operationId: z.string(),
+  toolId: z.string(),
+  methodName: z.string(),
+  pluginId: z.string(),
+  moduleId: z.string(),
+  summary: z.string().optional(),
+  description: z.string().optional(),
+  inputSchema: schemaSummarySchema,
+  outputSchema: schemaSummarySchema,
+  auth: z.object({
+    requiredCapabilities: z.array(z.string()),
+    requiredPermissions: z.array(z.string()),
+    requiredScopes: z.array(z.string()),
+    riskLevel: z.enum(["low", "medium", "high", "critical"]),
+    requiresApproval: z.boolean(),
+    allowedPrincipalTypes: z.array(z.enum(["user", "agent", "service"])),
+  }),
+  transports: z.array(z.enum(["rest", "cli", "mcp"])),
+});
+
+const apiErrorResponseSchema = z.object({
+  ok: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.unknown().optional(),
+    fields: z.record(z.string(), z.array(z.string())).optional(),
+  }),
+});
+
+const toolInvokeBodySchema = z.object({
+  input: z.unknown().optional(),
+});
+
+const toolInvokeSuccessSchema = z.object({
+  ok: z.literal(true),
+  data: z.unknown(),
+});
+
+const listOperationContractsRoute = createRoute({
+  method: "get",
+  path: "/api/operations/contracts",
+  summary: "List tool contracts (operation compatibility)",
+  description:
+    "Compatibility route for discovering callable tool contracts available to the authenticated principal. Prefer /api/tools/contracts.",
+  tags: ["Tools"],
+  responses: {
+    200: {
+      description: "Available tool contracts",
+      content: {
+        "application/json": {
+          schema: z.object({
+            ok: z.literal(true),
+            data: z.array(operationContractSchema),
+          }),
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+  },
+});
+
+const getOperationContractRoute = createRoute({
+  method: "get",
+  path: "/api/operations/contracts/:operationId",
+  summary: "Get tool contract (operation compatibility)",
+  description:
+    "Compatibility route for fetching one callable tool contract after tenant and capability gating. Prefer /api/tools/contracts/:toolId.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ operationId: z.string() }),
+  },
+  responses: {
+    200: {
+      description: "Tool contract",
+      content: {
+        "application/json": {
+          schema: z.object({
+            ok: z.literal(true),
+            data: operationContractSchema,
+          }),
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    403: {
+      description: "Tool contract unavailable",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    404: {
+      description: "Tool contract not found",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+  },
+});
+
+const invokeOperationRoute = createRoute({
+  method: "post",
+  path: "/api/operations/:operationId/invoke",
+  summary: "Invoke tool (operation compatibility)",
+  description:
+    "Compatibility route for invoking a callable tool through capability gating, policy, approval, audit, and schema validation. Prefer /api/tools/:toolId/invoke.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ operationId: z.string() }),
+    body: {
+      content: {
+        "application/json": {
+          schema: toolInvokeBodySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Tool result",
+      content: { "application/json": { schema: toolInvokeSuccessSchema } },
+    },
+    202: {
+      description: "Approval required",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    400: {
+      description: "Validation error",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    404: {
+      description: "Tool not found",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+  },
+});
+
+function createConcreteToolInvokeRoute(entry: OperationEntry) {
+  const inputSchema = entry.inputSchema ?? z.unknown();
+  const outputSchema = entry.outputSchema ?? z.unknown();
+  return createRoute({
+    method: "post",
+    path: `/api/tools/${entry.operationId}/invoke`,
+    summary: `Invoke ${entry.operationId}`,
+    description:
+      entry.description ??
+      `Invoke the ${entry.operationId} tool through capability gating, policy, approval, audit, and schema validation.`,
+    tags: ["Tools"],
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              input: inputSchema.optional(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      ...invokeToolRoute.responses,
+      200: {
+        description: "Tool result",
+        content: {
+          "application/json": {
+            schema: z.object({
+              ok: z.literal(true),
+              data: outputSchema,
+            }),
+          },
+        },
+      },
+    },
+  });
+}
+
+function createConcreteModuleToolInvokeRoute(entry: OperationEntry) {
+  const inputSchema = entry.inputSchema ?? z.unknown();
+  const outputSchema = entry.outputSchema ?? z.unknown();
+  return createRoute({
+    method: "post",
+    path: `/api/${entry.operation.moduleId}/tools/${entry.operationId}/invoke`,
+    summary: `Invoke ${entry.operationId} for ${entry.operation.moduleId}`,
+    description:
+      entry.description ??
+      `Invoke the ${entry.operationId} module tool after confirming it belongs to ${entry.operation.moduleId}.`,
+    tags: ["Tools"],
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              input: inputSchema.optional(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      ...invokeModuleToolRoute.responses,
+      200: {
+        description: "Tool result",
+        content: {
+          "application/json": {
+            schema: z.object({
+              ok: z.literal(true),
+              data: outputSchema,
+            }),
+          },
+        },
+      },
+    },
+  });
+}
+
+const listToolContractsRoute = createRoute({
+  method: "get",
+  path: "/api/tools/contracts",
+  summary: "List tool contracts",
+  description:
+    "Discover callable tool contracts available to the authenticated principal.",
+  tags: ["Tools"],
+  responses: listOperationContractsRoute.responses,
+});
+
+const getToolContractRoute = createRoute({
+  method: "get",
+  path: "/api/tools/contracts/:toolId",
+  summary: "Get tool contract",
+  description:
+    "Fetch one callable tool contract after tenant and capability gating.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ toolId: z.string() }),
+  },
+  responses: getOperationContractRoute.responses,
+});
+
+const invokeToolRoute = createRoute({
+  method: "post",
+  path: "/api/tools/:toolId/invoke",
+  summary: "Invoke tool",
+  description:
+    "Invoke a callable tool through the internal executor, policy, approval, audit, and schema validation.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ toolId: z.string() }),
+    body: invokeOperationRoute.request.body,
+  },
+  responses: invokeOperationRoute.responses,
+});
+
+const listModuleToolContractsRoute = createRoute({
+  method: "get",
+  path: "/api/:moduleId/tools",
+  summary: "List module tool contracts",
+  description:
+    "Discover callable tool contracts for one module after tenant and capability gating.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ moduleId: z.string() }),
+  },
+  responses: listOperationContractsRoute.responses,
+});
+
+const getModuleToolContractRoute = createRoute({
+  method: "get",
+  path: "/api/:moduleId/tools/:toolId",
+  summary: "Get module tool contract",
+  description:
+    "Fetch one callable tool contract and reject URL module mismatches before returning it.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ moduleId: z.string(), toolId: z.string() }),
+  },
+  responses: getOperationContractRoute.responses,
+});
+
+const invokeModuleToolRoute = createRoute({
+  method: "post",
+  path: "/api/:moduleId/tools/:toolId/invoke",
+  summary: "Invoke module tool",
+  description:
+    "Invoke a callable tool and reject URL module mismatches before running policy or handler code.",
+  tags: ["Tools"],
+  request: {
+    params: z.object({ moduleId: z.string(), toolId: z.string() }),
+    body: invokeOperationRoute.request.body,
+  },
+  responses: invokeOperationRoute.responses,
+});
+
+export class InvokeOperationError extends Error {
+  status: number;
+  body?: unknown;
+  constructor(message: string, status: number, body?: unknown) {
+    super(message);
+    this.name = "InvokeOperationError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/** Invoke a module operation with policy/approval/audit. Use for test-data apply. */
+export async function invokeOperation(params: {
+  auth: PrincipalContext;
+  registry: PluginRegistry;
+  config: Record<string, unknown>;
+  dataDir: string;
+  resolvePath: (p: string) => string;
+  operationId: string;
+  input: unknown;
+  transport?: "gateway" | "http" | "module_ops" | "mcp";
+  approvalService: ApprovalService;
+  auditLog: SecurityAuditLogAdapter;
+  resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
+}): Promise<{ data: unknown }> {
+  const {
+    auth,
+    registry,
+    config,
+    dataDir,
+    resolvePath,
+    operationId,
+    input,
+    transport = "module_ops",
+    approvalService,
+    auditLog,
+    resolveTenantPluginOverrides,
+  } = params;
+  const map = buildOperationMap(registry);
+  const entry = map.get(operationId);
+  if (!entry) {
+    throw new InvokeOperationError(
+      `Unknown module operation: ${operationId}`,
+      404
+    );
+  }
+  const op = entry.operation;
+  const moduleId = op.moduleId;
+  const tenantPluginOverrides = resolveTenantPluginOverrides
+    ? await resolveTenantPluginOverrides(auth.tenantId)
+    : {};
+  if (!isCoreOwnedOperation(entry.pluginId)) {
+    const capability = op.operationId;
+    const capabilityResolution = resolvePluginCapability({
+      tenantId: auth.tenantId,
+      principal: auth,
+      registry,
+      pluginId: entry.pluginId,
+      capability,
+      contributionKind: transport === "mcp" ? "mcp_tool" : "operation",
+      registeredCapabilities: registry.moduleOperations
+        .filter((item) => item.pluginId === entry.pluginId)
+        .map((item) => item.operationId),
+      tenantPluginOverrides,
+    });
+    if (!capabilityResolution.allowed) {
+      recordModuleAuditEvent(auditLog, moduleId, {
+        type: "capability.deny",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId,
+        detail: {
+          reason: capabilityResolution.reason,
+          diagnostics: capabilityResolution.diagnostics,
+        },
+      });
+      throw new InvokeOperationError(capabilityResolution.reason, 403, {
+        error: "Forbidden",
+        reason: capabilityResolution.reason,
+        diagnostics: capabilityResolution.diagnostics,
+      });
+    }
+  }
+  const beforePayload = operationEventPayload({
+    auth,
+    input,
+    moduleId,
+    operationId,
+    transport,
+  });
+  await runBeforeOperationInterceptors({
+    auth,
+    auditLog,
+    moduleId,
+    operationId,
+    payload: beforePayload,
+    registry,
+  });
+  await applyOperationContextFilters({
+    auth,
+    payload: beforePayload,
+    registry,
+  });
+  const decision = evaluatePolicy(
+    {
+      auth,
+      moduleId,
+      operationId: op.operationId,
+      requiredCapabilities: op.requiredCapabilities,
+      riskLevel: op.riskLevel,
+      requiresApproval: op.requiresApproval,
+      transport,
+      input,
+    },
+    registry
+  );
+  if (decision.action === "deny") {
+    recordModuleAuditEvent(auditLog, moduleId, {
+      type: "policy.deny",
+      actorId: auth.principalId,
+      tenantId: auth.tenantId,
+      moduleId,
+      operationId,
+      detail: { reason: decision.reason },
+    });
+    throw new InvokeOperationError(decision.reason, 403, {
+      error: "Forbidden",
+      reason: decision.reason,
+    });
+  }
+  if (decision.action === "require_approval") {
+    const hasGrant = approvalService.consumeGrant({
+      actorId: auth.principalId,
+      moduleId,
+      operationId,
+      sessionId: auth.sessionId,
+    });
+    if (!hasGrant) {
+      const req = approvalService.request({
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId,
+        reason: decision.reason,
+      });
+      recordModuleAuditEvent(auditLog, moduleId, {
+        type: "policy.require_approval",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId,
+        detail: { approvalRequestId: req.id },
+      });
+      recordModuleAuditEvent(auditLog, moduleId, {
+        type: "approval.created",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId,
+        detail: { approvalRequestId: req.id },
+      });
+      throw new InvokeOperationError("Approval required", 202, {
+        ok: false,
+        status: "approval_required",
+        approvalRequestId: req.id,
+        expiresAt: req.expiresAt,
+        reason: decision.reason,
+      });
+    }
+  }
+  recordModuleAuditEvent(auditLog, moduleId, {
+    type: "policy.allow",
+    actorId: auth.principalId,
+    tenantId: auth.tenantId,
+    moduleId,
+    operationId,
+    detail: { reason: decision.reason },
+  });
+  const recordAuditEvent = (event: {
+    type: string;
+    detail?: Record<string, unknown>;
+    operationId?: string;
+  }) => {
+    recordModuleAuditEvent(auditLog, moduleId, {
+      type: event.type,
+      actorId: auth.principalId,
+      tenantId: auth.tenantId,
+      moduleId,
+      operationId: event.operationId ?? operationId,
+      detail: event.detail,
+    });
+  };
+  try {
+    const parsed = entry.inputSchema ? entry.inputSchema.parse(input) : input;
+    const result = await entry.handler(parsed, {
+      config,
+      pluginConfig: entry.pluginConfig,
+      dataDir,
+      resolvePath,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+      auth: {
+        tenantId: auth.tenantId,
+        scopeId: "default",
+        principalId: auth.principalId,
+      },
+      recordAuditEvent,
+    });
+    const validated = entry.outputSchema
+      ? entry.outputSchema.parse(result)
+      : result;
+    const resultDecision = evaluateResultPolicy(
+      {
+        auth,
+        moduleId,
+        operationId: op.operationId,
+        requiredCapabilities: op.requiredCapabilities,
+        riskLevel: op.riskLevel,
+        requiresApproval: op.requiresApproval,
+        transport,
+        input,
+      },
+      validated,
+      registry
+    );
+    if (resultDecision?.action === "deny") {
+      recordModuleAuditEvent(auditLog, moduleId, {
+        type: "operation.rejected",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId,
+        detail: { reason: resultDecision.reason },
+      });
+      throw new InvokeOperationError(resultDecision.reason, 403, {
+        error: "Forbidden",
+        reason: resultDecision.reason,
+      });
+    }
+    recordModuleAuditEvent(auditLog, moduleId, {
+      type: "operation.executed",
+      actorId: auth.principalId,
+      tenantId: auth.tenantId,
+      moduleId,
+      operationId,
+    });
+    await emitCoreOperationEvent({
+      auth,
+      eventName: "operation.afterInvoke",
+      payload: operationEventPayload({
+        auth,
+        input,
+        moduleId,
+        operationId,
+        result: validated,
+        transport,
+      }),
+      registry,
+    });
+    return { data: validated };
+  } catch (e) {
+    await emitCoreOperationEvent({
+      auth,
+      eventName: "operation.error",
+      payload: {
+        ...operationEventPayload({
+          auth,
+          input,
+          moduleId,
+          operationId,
+          transport,
+        }),
+        error: e instanceof Error ? e.message : String(e),
+      },
+      registry,
+    });
+    if (isZodError(e)) {
+      throw new InvokeOperationError(
+        e.message,
+        400,
+        formatZodErrorForApiError(e)
+      );
+    }
+    throw e;
+  }
+}
+
+async function requireAuth(
+  c: {
+    req: { header: (name: string) => string | undefined };
+    json: (body: unknown, status?: number) => Response;
+  },
+  authProvider: AuthProvider
+) {
+  const auth = await authProvider.resolvePrincipal(
+    c.req.header("authorization")
+  );
+  if (!auth) {
+    return {
+      error: jsonApiError(c, 401, { message: "Unauthorized" }),
+      auth: null,
+    };
+  }
+  return { error: null, auth };
+}
+
+/** Auth for audit API: engenty JWT or Supabase session (for UI users). */
+async function requireAuthForAudit(
+  c: {
+    req: {
+      header: (name: string) => string | undefined;
+      query: (key: string) => string | undefined;
+    };
+    json: (body: unknown, status?: number) => Response;
+  },
+  authProvider: AuthProvider
+): Promise<
+  | { error: Response; auth: null }
+  | { error: null; auth: { tenantId: string | null } }
+> {
+  const tenantId = await authProvider.resolveTenantForSession(
+    c.req.header("authorization")
+  );
+  if (!tenantId) {
+    return {
+      error: jsonApiError(c, 401, { message: "Unauthorized" }),
+      auth: null,
+    };
+  }
+  return { error: null, auth: { tenantId } };
+}
+
+async function listAvailableOperationContracts(
+  c: HonoGetContext,
+  params: OperationRoutesContext & { moduleId?: string }
+) {
+  const authResult = await requireAuth(c, params.authProvider);
+  if (authResult.error || !authResult.auth) {
+    return authResult.error!;
+  }
+  const tenantPluginOverrides = params.resolveTenantPluginOverrides
+    ? await params.resolveTenantPluginOverrides(authResult.auth.tenantId)
+    : {};
+  const contracts = buildOperationContracts(params.registry).filter(
+    (contract) =>
+      (params.moduleId ? contract.moduleId === params.moduleId : true) &&
+      (isCoreOwnedOperation(contract.pluginId) ||
+        resolvePluginCapability({
+          tenantId: authResult.auth.tenantId,
+          principal: authResult.auth,
+          registry: params.registry,
+          pluginId: contract.pluginId,
+          capability: contract.operationId,
+          contributionKind: "operation",
+          registeredCapabilities: params.registry.moduleOperations
+            .filter((item) => item.pluginId === contract.pluginId)
+            .map((item) => item.operationId),
+          tenantPluginOverrides,
+        }).allowed)
+  );
+  return jsonApiSuccess(c, contracts);
+}
+
+async function getAvailableOperationContract(
+  c: HonoGetContext,
+  params: OperationRoutesContext & {
+    moduleId?: string;
+    operationId: string;
+    publicName: "Operation" | "Tool";
+  }
+) {
+  const authResult = await requireAuth(c, params.authProvider);
+  if (authResult.error || !authResult.auth) {
+    return authResult.error!;
+  }
+  const contract = buildOperationContracts(params.registry).find(
+    (item) => item.operationId === params.operationId
+  );
+  if (!contract) {
+    return jsonApiError(c, 404, {
+      message: `${params.publicName} contract not found`,
+    });
+  }
+  if (params.moduleId && contract.moduleId !== params.moduleId) {
+    return jsonApiError(c, 404, {
+      message: `${params.publicName} contract not found for module`,
+      details: {
+        moduleId: params.moduleId,
+        toolId: params.operationId,
+      },
+    });
+  }
+  const tenantPluginOverrides = params.resolveTenantPluginOverrides
+    ? await params.resolveTenantPluginOverrides(authResult.auth.tenantId)
+    : {};
+  if (!isCoreOwnedOperation(contract.pluginId)) {
+    const capabilityResolution = resolvePluginCapability({
+      tenantId: authResult.auth.tenantId,
+      principal: authResult.auth,
+      registry: params.registry,
+      pluginId: contract.pluginId,
+      capability: contract.operationId,
+      contributionKind: "operation",
+      registeredCapabilities: params.registry.moduleOperations
+        .filter((item) => item.pluginId === contract.pluginId)
+        .map((item) => item.operationId),
+      tenantPluginOverrides,
+    });
+    if (!capabilityResolution.allowed) {
+      return jsonApiError(c, 403, {
+        code: capabilityResolution.reason,
+        message: `${params.publicName} contract unavailable`,
+        details: {
+          reason: capabilityResolution.reason,
+          diagnostics: capabilityResolution.diagnostics,
+        },
+      });
+    }
+  }
+  return jsonApiSuccess(c, contract);
+}
+
+async function invokeOperationFromRoute(
+  c: HonoJsonContext,
+  params: OperationRoutesContext & {
+    moduleId?: string;
+    operationId: string;
+    publicName: "operation" | "tool";
+  }
+) {
+  if (params.moduleId) {
+    const entry = buildOperationMap(params.registry).get(params.operationId);
+    if (!entry) {
+      return jsonApiError(c, 404, {
+        message: `Unknown module ${params.publicName}: ${params.operationId}`,
+      });
+    }
+    if (entry.operation.moduleId !== params.moduleId) {
+      return jsonApiError(c, 404, {
+        message: `Unknown module ${params.publicName}: ${params.operationId}`,
+        details: {
+          moduleId: params.moduleId,
+          toolId: params.operationId,
+        },
+      });
+    }
+  }
+  const body = (await c.req.json().catch(() => ({}))) as { input?: unknown };
+  return executeModuleOperation({
+    c,
+    registry: params.registry,
+    config: params.config,
+    dataDir: params.dataDir,
+    resolvePath: params.resolvePath,
+    operationId: params.operationId,
+    input: body.input ?? {},
+    transport: "module_ops",
+    authProvider: params.authProvider,
+    approvalService: params.approvalService,
+    auditLog: params.auditLog,
+    resolveTenantPluginOverrides: params.resolveTenantPluginOverrides,
+  });
+}
+
+export async function executeModuleOperation(params: {
+  c: {
+    req: {
+      header: (name: string) => string | undefined;
+    };
+    json: (body: unknown, status?: number) => Response;
+  };
+  registry: PluginRegistry;
+  config: Record<string, unknown>;
+  dataDir: string;
+  resolvePath: (p: string) => string;
+  operationId: string;
+  input: unknown;
+  transport?: "gateway" | "http" | "module_ops" | "mcp";
+  authProvider: AuthProvider;
+  approvalService: ApprovalService;
+  auditLog: SecurityAuditLogAdapter;
+  resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
+}) {
+  const authResult = await requireAuth(params.c, params.authProvider);
+  if (authResult.error || !authResult.auth) {
+    return authResult.error!;
+  }
+  const auth = authResult.auth;
+
+  const map = buildOperationMap(params.registry);
+  const entry = map.get(params.operationId);
+  if (!entry) {
+    return jsonApiError(params.c, 404, {
+      message: `Unknown module operation: ${params.operationId}`,
+    });
+  }
+
+  const op = entry.operation;
+  const moduleId = op.moduleId;
+  const transport = params.transport ?? "module_ops";
+  const tenantPluginOverrides = params.resolveTenantPluginOverrides
+    ? await params.resolveTenantPluginOverrides(auth.tenantId)
+    : {};
+  if (!isCoreOwnedOperation(entry.pluginId)) {
+    const capability = op.operationId;
+    const capabilityResolution = resolvePluginCapability({
+      tenantId: auth.tenantId,
+      principal: auth,
+      registry: params.registry,
+      pluginId: entry.pluginId,
+      capability,
+      contributionKind: transport === "mcp" ? "mcp_tool" : "operation",
+      registeredCapabilities: params.registry.moduleOperations
+        .filter((item) => item.pluginId === entry.pluginId)
+        .map((item) => item.operationId),
+      tenantPluginOverrides,
+    });
+    if (!capabilityResolution.allowed) {
+      recordModuleAuditEvent(params.auditLog, moduleId, {
+        type: "capability.deny",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId: params.operationId,
+        detail: {
+          reason: capabilityResolution.reason,
+          diagnostics: capabilityResolution.diagnostics,
+        },
+      });
+      return jsonApiError(params.c, 403, {
+        code: capabilityResolution.reason,
+        message: "Capability unavailable",
+        details: {
+          reason: capabilityResolution.reason,
+          diagnostics: capabilityResolution.diagnostics,
+        },
+      });
+    }
+  }
+  const beforePayload = operationEventPayload({
+    auth,
+    input: params.input,
+    moduleId,
+    operationId: params.operationId,
+    transport,
+  });
+  try {
+    await runBeforeOperationInterceptors({
+      auth,
+      auditLog: params.auditLog,
+      moduleId,
+      operationId: params.operationId,
+      payload: beforePayload,
+      registry: params.registry,
+    });
+    await applyOperationContextFilters({
+      auth,
+      payload: beforePayload,
+      registry: params.registry,
+    });
+  } catch (e) {
+    if (e instanceof InvokeOperationError) {
+      return jsonApiError(params.c, e.status, e.body ?? { message: e.message });
+    }
+    throw e;
+  }
+  const decision = evaluatePolicy(
+    {
+      auth,
+      moduleId,
+      operationId: op.operationId,
+      requiredCapabilities: op.requiredCapabilities,
+      riskLevel: op.riskLevel,
+      requiresApproval: op.requiresApproval,
+      transport,
+      input: params.input,
+    },
+    params.registry
+  );
+  if (decision.action === "deny") {
+    recordModuleAuditEvent(params.auditLog, moduleId, {
+      type: "policy.deny",
+      actorId: auth.principalId,
+      tenantId: auth.tenantId,
+      moduleId,
+      operationId: params.operationId,
+      detail: { reason: decision.reason },
+    });
+    return jsonApiError(params.c, 403, {
+      message: "Forbidden",
+      details: { reason: decision.reason },
+    });
+  }
+
+  if (decision.action === "require_approval") {
+    const hasGrant = params.approvalService.consumeGrant({
+      actorId: auth.principalId,
+      moduleId,
+      operationId: params.operationId,
+      sessionId: auth.sessionId,
+    });
+    if (!hasGrant) {
+      const req = params.approvalService.request({
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId: params.operationId,
+        reason: decision.reason,
+      });
+      recordModuleAuditEvent(params.auditLog, moduleId, {
+        type: "policy.require_approval",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId: params.operationId,
+        detail: { approvalRequestId: req.id },
+      });
+      recordModuleAuditEvent(params.auditLog, moduleId, {
+        type: "approval.created",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId: params.operationId,
+        detail: { approvalRequestId: req.id },
+      });
+      return jsonApiError(params.c, 202, {
+        code: "approval_required",
+        message: "Approval required",
+        details: {
+          approvalRequestId: req.id,
+          expiresAt: req.expiresAt,
+          reason: decision.reason,
+        },
+      });
+    }
+  }
+
+  recordModuleAuditEvent(params.auditLog, moduleId, {
+    type: "policy.allow",
+    actorId: auth.principalId,
+    tenantId: auth.tenantId,
+    moduleId,
+    operationId: params.operationId,
+    detail: { reason: decision.reason },
+  });
+
+  const recordAuditEvent = (event: {
+    type: string;
+    detail?: Record<string, unknown>;
+    operationId?: string;
+  }) => {
+    recordModuleAuditEvent(params.auditLog, moduleId, {
+      type: event.type,
+      actorId: auth.principalId,
+      tenantId: auth.tenantId,
+      moduleId,
+      operationId: event.operationId ?? params.operationId,
+      detail: event.detail,
+    });
+  };
+
+  try {
+    const parsed = entry.inputSchema
+      ? entry.inputSchema.parse(params.input)
+      : params.input;
+    const result = await entry.handler(parsed, {
+      config: params.config,
+      pluginConfig: entry.pluginConfig,
+      dataDir: params.dataDir,
+      resolvePath: params.resolvePath,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+      auth: {
+        tenantId: auth.tenantId,
+        scopeId: "default",
+        principalId: auth.principalId,
+      },
+      recordAuditEvent,
+    });
+    const validated = entry.outputSchema
+      ? entry.outputSchema.parse(result)
+      : result;
+    const resultDecision = evaluateResultPolicy(
+      {
+        auth,
+        moduleId,
+        operationId: op.operationId,
+        requiredCapabilities: op.requiredCapabilities,
+        riskLevel: op.riskLevel,
+        requiresApproval: op.requiresApproval,
+        transport,
+        input: params.input,
+      },
+      validated,
+      params.registry
+    );
+    if (resultDecision?.action === "deny") {
+      recordModuleAuditEvent(params.auditLog, moduleId, {
+        type: "operation.rejected",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId: params.operationId,
+        detail: { reason: resultDecision.reason },
+      });
+      return jsonApiError(params.c, 403, {
+        message: "Forbidden",
+        details: { reason: resultDecision.reason },
+      });
+    }
+    recordModuleAuditEvent(params.auditLog, moduleId, {
+      type: "operation.executed",
+      actorId: auth.principalId,
+      tenantId: auth.tenantId,
+      moduleId,
+      operationId: params.operationId,
+    });
+    await emitCoreOperationEvent({
+      auth,
+      eventName: "operation.afterInvoke",
+      payload: operationEventPayload({
+        auth,
+        input: params.input,
+        moduleId,
+        operationId: params.operationId,
+        result: validated,
+        transport,
+      }),
+      registry: params.registry,
+    });
+    return jsonApiSuccess(params.c, validated);
+  } catch (e) {
+    await emitCoreOperationEvent({
+      auth,
+      eventName: "operation.error",
+      payload: {
+        ...operationEventPayload({
+          auth,
+          input: params.input,
+          moduleId,
+          operationId: params.operationId,
+          transport,
+        }),
+        error: e instanceof Error ? e.message : String(e),
+      },
+      registry: params.registry,
+    });
+    if (isZodError(e)) {
+      return jsonApiError(params.c, 400, formatZodErrorForApiError(e));
+    }
+    throw e;
+  }
+}
+
+export function registerModuleOperationRoutes(params: {
+  app: OpenAPIHono;
+  registry: PluginRegistry;
+  config: Record<string, unknown>;
+  dataDir: string;
+  resolvePath: (p: string) => string;
+  authProvider: AuthProvider;
+  approvalService: ApprovalService;
+  auditLog: SecurityAuditLogAdapter;
+  tenantPluginOverrides?: TenantPluginOverridesDal;
+}) {
+  const resolveTenantPluginOverrides = params.tenantPluginOverrides
+    ? (tenantId: string) => params.tenantPluginOverrides!.getOverrides(tenantId)
+    : undefined;
+  const context: OperationRoutesContext = {
+    registry: params.registry,
+    config: params.config,
+    dataDir: params.dataDir,
+    resolvePath: params.resolvePath,
+    authProvider: params.authProvider,
+    approvalService: params.approvalService,
+    auditLog: params.auditLog,
+    resolveTenantPluginOverrides,
+  };
+
+  params.app.get("/api/modules/operations", async (c) => {
+    c.header("Deprecation", "true");
+    c.header("Link", '</api/operations/contracts>; rel="successor-version"');
+    return listAvailableOperationContracts(c, context);
+  });
+
+  params.app.openapi(
+    listOperationContractsRoute,
+    async (c) => listAvailableOperationContracts(c, context) as never
+  );
+
+  params.app.openapi(
+    getOperationContractRoute,
+    async (c) =>
+      getAvailableOperationContract(c, {
+        ...context,
+        operationId: c.req.param("operationId"),
+        publicName: "Operation",
+      }) as never
+  );
+
+  params.app.openapi(
+    invokeOperationRoute,
+    async (c) =>
+      invokeOperationFromRoute(c, {
+        ...context,
+        operationId: c.req.param("operationId"),
+        publicName: "operation",
+      }) as never
+  );
+
+  params.app.openapi(
+    listToolContractsRoute,
+    async (c) => listAvailableOperationContracts(c, context) as never
+  );
+
+  params.app.openapi(
+    getToolContractRoute,
+    async (c) =>
+      getAvailableOperationContract(c, {
+        ...context,
+        operationId: c.req.param("toolId"),
+        publicName: "Tool",
+      }) as never
+  );
+
+  params.app.openapi(
+    invokeToolRoute,
+    async (c) =>
+      invokeOperationFromRoute(c, {
+        ...context,
+        operationId: c.req.param("toolId"),
+        publicName: "tool",
+      }) as never
+  );
+
+  for (const entry of params.registry.moduleOperations) {
+    params.app.openapi(
+      createConcreteToolInvokeRoute(entry),
+      async (c) =>
+        invokeOperationFromRoute(c, {
+          ...context,
+          operationId: entry.operationId,
+          publicName: "tool",
+        }) as never
+    );
+  }
+
+  params.app.post("/api/modules/ops/:operationId", async (c) => {
+    c.header("Deprecation", "true");
+    c.header(
+      "Link",
+      '</api/operations/{operationId}/invoke>; rel="successor-version"'
+    );
+    const operationId = c.req.param("operationId");
+    const body = (await c.req.json().catch(() => ({}))) as { input?: unknown };
+    return executeModuleOperation({
+      c,
+      registry: params.registry,
+      config: params.config,
+      dataDir: params.dataDir,
+      resolvePath: params.resolvePath,
+      operationId,
+      input: body.input ?? {},
+      transport: "module_ops",
+      authProvider: params.authProvider,
+      approvalService: params.approvalService,
+      auditLog: params.auditLog,
+      resolveTenantPluginOverrides,
+    });
+  });
+
+  params.app.get("/api/mcp/tools", async (c) => {
+    const authResult = await requireAuth(c, params.authProvider);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    const tenantPluginOverrides = resolveTenantPluginOverrides
+      ? await resolveTenantPluginOverrides(authResult.auth.tenantId)
+      : {};
+    const tools = buildOperationContracts(params.registry)
+      .filter(
+        (contract) =>
+          resolvePluginCapability({
+            tenantId: authResult.auth.tenantId,
+            principal: authResult.auth,
+            registry: params.registry,
+            pluginId: contract.pluginId,
+            capability: contract.operationId,
+            contributionKind: "mcp_tool",
+            registeredCapabilities: params.registry.moduleOperations
+              .filter((item) => item.pluginId === contract.pluginId)
+              .map((item) => item.operationId),
+            tenantPluginOverrides,
+          }).allowed
+      )
+      .map((contract) => ({
+        name: contract.operationId,
+        description:
+          contract.description ?? `${contract.pluginId} module operation`,
+        inputSchema: contract.inputSchema,
+        requiredCapabilities: contract.auth.requiredCapabilities,
+        riskLevel: contract.auth.riskLevel,
+        requiresApproval: contract.auth.requiresApproval,
+      }));
+    return jsonApiSuccess(c, tools);
+  });
+
+  params.app.post("/api/mcp/call/:operationId", async (c) => {
+    c.header("Deprecation", "true");
+    c.header(
+      "Link",
+      '</api/mcp/tools/{operationId}/call>; rel="successor-version"'
+    );
+    const operationId = c.req.param("operationId");
+    const body = (await c.req.json().catch(() => ({}))) as {
+      arguments?: unknown;
+    };
+    return executeModuleOperation({
+      c,
+      registry: params.registry,
+      config: params.config,
+      dataDir: params.dataDir,
+      resolvePath: params.resolvePath,
+      operationId,
+      input: body.arguments ?? {},
+      transport: "mcp",
+      authProvider: params.authProvider,
+      approvalService: params.approvalService,
+      auditLog: params.auditLog,
+      resolveTenantPluginOverrides,
+    });
+  });
+
+  params.app.post("/api/mcp/tools/:operationId/call", async (c) => {
+    const operationId = c.req.param("operationId");
+    const body = (await c.req.json().catch(() => ({}))) as {
+      arguments?: unknown;
+    };
+    return executeModuleOperation({
+      c,
+      registry: params.registry,
+      config: params.config,
+      dataDir: params.dataDir,
+      resolvePath: params.resolvePath,
+      operationId,
+      input: body.arguments ?? {},
+      transport: "mcp",
+      authProvider: params.authProvider,
+      approvalService: params.approvalService,
+      auditLog: params.auditLog,
+      resolveTenantPluginOverrides,
+    });
+  });
+
+  params.app.openapi(
+    listModuleToolContractsRoute,
+    async (c) =>
+      listAvailableOperationContracts(c, {
+        ...context,
+        moduleId: c.req.param("moduleId"),
+      }) as never
+  );
+
+  params.app.openapi(
+    getModuleToolContractRoute,
+    async (c) =>
+      getAvailableOperationContract(c, {
+        ...context,
+        moduleId: c.req.param("moduleId"),
+        operationId: c.req.param("toolId"),
+        publicName: "Tool",
+      }) as never
+  );
+
+  params.app.openapi(
+    invokeModuleToolRoute,
+    async (c) =>
+      invokeOperationFromRoute(c, {
+        ...context,
+        moduleId: c.req.param("moduleId"),
+        operationId: c.req.param("toolId"),
+        publicName: "tool",
+      }) as never
+  );
+
+  for (const entry of params.registry.moduleOperations) {
+    params.app.openapi(
+      createConcreteModuleToolInvokeRoute(entry),
+      async (c) =>
+        invokeOperationFromRoute(c, {
+          ...context,
+          moduleId: entry.operation.moduleId,
+          operationId: entry.operationId,
+          publicName: "tool",
+        }) as never
+    );
+  }
+}
+
+export function registerApprovalRoutes(params: {
+  app: OpenAPIHono;
+  config: Record<string, unknown>;
+  authProvider: AuthProvider;
+  approvalService: ApprovalService;
+  auditLog: SecurityAuditLogAdapter;
+}) {
+  params.app.get("/api/security/approvals", async (c) => {
+    const authResult = await requireAuth(c, params.authProvider);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    const pending = params.approvalService.listPending();
+    return jsonApiSuccess(c, pending);
+  });
+
+  params.app.post("/api/security/approvals/:id/decision", async (c) => {
+    const authResult = await requireAuth(c, params.authProvider);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    const body = (await c.req.json().catch(() => ({}))) as {
+      decision?: ApprovalDecision;
+    };
+    const decision = body.decision;
+    if (
+      decision !== "allow_once" &&
+      decision !== "allow_session" &&
+      decision !== "allow_policy" &&
+      decision !== "deny"
+    ) {
+      return jsonApiError(c, 400, { message: "Invalid decision" });
+    }
+    const decided = params.approvalService.decide({
+      requestId: c.req.param("id"),
+      decision,
+      decidedBy: authResult.auth.principalId,
+      sessionId: authResult.auth.sessionId,
+    });
+    if (!decided) {
+      return jsonApiError(c, 404, { message: "Approval request not found" });
+    }
+    recordCoreAuditEvent(params.auditLog, {
+      type: "approval.decided",
+      actorId: authResult.auth.principalId,
+      tenantId: authResult.auth.tenantId,
+      moduleId: decided.moduleId,
+      operationId: decided.operationId,
+      detail: {
+        requestId: decided.id,
+        decision,
+      },
+    });
+    return jsonApiSuccess(c, decided);
+  });
+
+  params.app.get("/api/security/audit", async (c) => {
+    c.header("Deprecation", "true");
+    c.header("Link", '</api/security/audit/events>; rel="successor-version"');
+    const authResult = await requireAuth(c, params.authProvider);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    const limit = Math.min(Number(c.req.query("limit") ?? 200) || 200, 500);
+    const page = Math.max(0, Number(c.req.query("page") ?? 0) || 0);
+    const search = c.req.query("search")?.trim() || undefined;
+    const typesRaw = c.req.query("types");
+    const types = typesRaw
+      ? typesRaw
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : undefined;
+    const actor_id = c.req.query("actor_id")?.trim() || undefined;
+    const module_id = c.req.query("module_id")?.trim() || undefined;
+    const tenant_id = c.req.query("tenant_id")?.trim() || undefined;
+    const from = c.req.query("from")?.trim() || undefined;
+    const to = c.req.query("to")?.trim() || undefined;
+
+    const listOpts = {
+      limit,
+      offset: page * limit,
+      search,
+      types,
+      actor_id,
+      module_id,
+      tenant_id,
+      from: from ? new Date(from).toISOString() : undefined,
+      to: to ? new Date(to).toISOString() : undefined,
+    };
+    const countOpts = {
+      search,
+      types,
+      actor_id,
+      module_id,
+      tenant_id,
+      from: from ? new Date(from).toISOString() : undefined,
+      to: to ? new Date(to).toISOString() : undefined,
+    };
+
+    const [events, total] = await Promise.all([
+      params.auditLog.list(limit, listOpts),
+      params.auditLog.count(countOpts),
+    ]);
+    const mapped = events.map((r) => ({
+      ...r,
+      detail: r.detail ? (JSON.parse(r.detail) as Record<string, unknown>) : {},
+    }));
+    return jsonApiSuccess(c, {
+      events: mapped,
+      has_more: page * limit + events.length < total,
+      total,
+    });
+  });
+
+  params.app.get("/api/security/audit/events", async (c) => {
+    const authResult = await requireAuthForAudit(c, params.authProvider);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    let tenant_id = c.req.query("tenant_id")?.trim() || undefined;
+    if (authResult.auth.tenantId && !tenant_id) {
+      tenant_id = authResult.auth.tenantId;
+    }
+    if (
+      tenant_id &&
+      authResult.auth.tenantId &&
+      tenant_id !== authResult.auth.tenantId
+    ) {
+      return jsonApiError(c, 403, { message: "Forbidden" });
+    }
+    const limit = Math.min(Number(c.req.query("limit") ?? 200) || 200, 500);
+    const page = Math.max(0, Number(c.req.query("page") ?? 0) || 0);
+    const search = c.req.query("search")?.trim() || undefined;
+    const typesRaw = c.req.query("types");
+    const types = typesRaw
+      ? typesRaw
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : undefined;
+    const actor_id = c.req.query("actor_id")?.trim() || undefined;
+    const module_id = c.req.query("module_id")?.trim() || undefined;
+    const from = c.req.query("from")?.trim() || undefined;
+    const to = c.req.query("to")?.trim() || undefined;
+
+    const listOptions = {
+      limit,
+      offset: page * limit,
+      search,
+      types,
+      actor_id,
+      module_id,
+      tenant_id,
+      from: from ? new Date(from).toISOString() : undefined,
+      to: to ? new Date(to).toISOString() : undefined,
+    };
+    const countOptions = {
+      search,
+      types,
+      actor_id,
+      module_id,
+      tenant_id,
+      from: from ? new Date(from).toISOString() : undefined,
+      to: to ? new Date(to).toISOString() : undefined,
+    };
+
+    const [events, total] = await Promise.all([
+      params.auditLog.list(limit, listOptions),
+      params.auditLog.count(countOptions),
+    ]);
+    const mapped = events.map((r) => ({
+      ...r,
+      detail: r.detail ? (JSON.parse(r.detail) as Record<string, unknown>) : {},
+    }));
+    return jsonApiSuccess(c, {
+      events: mapped,
+      has_more: page * limit + events.length < total,
+      total,
+    });
+  });
+
+  params.app.get("/api/security/audit/distincts", async (c) => {
+    const authResult = await requireAuthForAudit(c, params.authProvider);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    let tenant_id = c.req.query("tenant_id")?.trim() || undefined;
+    if (authResult.auth.tenantId && !tenant_id) {
+      tenant_id = authResult.auth.tenantId;
+    }
+    if (
+      tenant_id &&
+      authResult.auth.tenantId &&
+      tenant_id !== authResult.auth.tenantId
+    ) {
+      return jsonApiError(c, 403, { message: "Forbidden" });
+    }
+    const distincts = await params.auditLog.distincts(tenant_id);
+    return jsonApiSuccess(c, distincts);
+  });
+}

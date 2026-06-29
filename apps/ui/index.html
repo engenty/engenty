@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Engenty</title>
+
+    <!-- Animated APNG favicon (Chrome, Firefox, Safari, Edge) -->
+    <link href="/favicon.apng" rel="icon" type="image/apng">
+    <!-- Dark-mode-aware SVG favicon (auto-switches light/dark) -->
+    <link href="/favicon.svg" rel="icon" type="image/svg+xml">
+    <!-- Legacy ICO fallback -->
+    <link href="/favicon.ico" rel="icon" sizes="32x32" type="image/x-icon">
+    <!-- iOS home-screen icon -->
+    <link href="/apple-touch-icon.png" rel="apple-touch-icon">
+    <!-- PWA manifest -->
+    <link href="/manifest.webmanifest" rel="manifest">
+    <!-- Browser chrome theme color (light + dark) -->
+    <meta
+      content="#e0531b"
+      media="(prefers-color-scheme: light)"
+      name="theme-color"
+    >
+    <meta
+      content="#1a1a1a"
+      media="(prefers-color-scheme: dark)"
+      name="theme-color"
+    >
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/src/main.tsx" type="module"></script>
+    <script>
+    "use strict";
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
+    }
+    </script>
+  </body>
+</html>

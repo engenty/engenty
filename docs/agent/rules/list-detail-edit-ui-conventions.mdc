@@ -1,0 +1,150 @@
+---
+description: Use when building or changing shared module list/detail/edit/settings UI, routes, breadcrumbs, display dialogs, table layout, list filters, or module API list/detail/patch wiring.
+alwaysApply: false
+---
+
+# List Detail Edit UI Conventions
+
+Use for shared module migrations that implement list/detail/edit screens.
+
+**Visual layout, spacing, shell, tables:** [DESIGN.md](../../../DESIGN.md) is canonical — this rule covers flow and composition only.
+
+## Route + Flow Contract
+
+- Preferred flow: `list -> detail (read-only) -> edit (dedicated route)`.
+- Allowed alternative: `list -> edit (dedicated route)`.
+- Do not use query-param edit toggles for primary flow.
+- Keep stable explicit routes, e.g.:
+  - `/module/<name>`
+  - `/module/<name>/:id`
+  - `/module/<name>/:id/edit`
+
+## Navigation + Topbar Contract (Shared Modules)
+
+- Topbar breadcrumb is the source of page context; page body must not duplicate it with redundant headings.
+- Use `usePageConfig` on every list/detail/edit/settings page.
+- Breadcrumb hierarchy must always start at module root:
+  - list: `[{ label: t("menu") }]`
+  - detail: `[{ label: t("menu"), to: "/module/<name>" }, { label: itemTitle }]`
+  - edit: `[{ label: t("menu"), to: "/module/<name>" }, { label: itemTitle, to: "/module/<name>/:id" }, { label: t("edit") }]`
+  - settings: `[{ label: t("menu"), to: "/module/<name>" }, { label: t("settings") }]`
+- `actions` in topbar should contain only page-critical actions (Save, Edit, Settings, Cancel), not filter controls.
+- **Topbar actions on mobile (`< md`):** use icon-only layout for simple `Button`s: wrap the visible label in `TopbarActionLabel` from `@engenty/ui-core` and add `className={topbarIconButtonClassName}` on the same `Button` (icon stays visible; label stays screen-reader accessible). Skip `topbarIconButtonClassName` on wide controls such as `DropdownMenuTrigger` buttons that show multiple icons.
+- Edit screens must include a Cancel button (outline) that navigates back.
+
+## UI Composition Contract
+
+- Use `usePageConfig` with memoized `breadcrumbs` and `actions`.
+- List screen is list-first only (no inline create/edit form above table).
+- Display control must use users-style `DropdownMenu` + display dialog, not a single toggle button.
+- Avoid double padding on edit/settings screens:
+ - Do not combine `container` with `p-page` on page roots.
+ - When using `Card` default variant, do not wrap all content in another full `p-*` container.
+ - Prefer root layout like `mx-auto w-full max-w-5xl p-page` and content wrappers without extra global padding.
+- Detail/edit layout mirrors users screens:
+  - single meaningful page heading
+  - section headings only when useful
+  - row layout: `flex items-center gap-4`, label `w-32`, value/input `flex-1`
+  - avoid redundant wrapper borders and duplicate headings
+
+## Display Dialog Contract
+
+- Trigger: outline button with sliders icon + label `Display/Anzeige`.
+- Shared modules should implement and use an explicit display dialog component (e.g. `ClientsDisplayDialog`) and mirror users behavior from `TeamDisplayDialog`.
+- List page should wire it like: `DropdownMenu` + `DropdownMenuTrigger` + `<ClientsDisplayDialog ... />`.
+- Dialog content order:
+  1. view mode controls (`table` / `cards`) when supported
+  2. compact mode switch (table only)
+  3. sort by / sort order
+  4. displayed columns controls (show/hide, reorder, at least one visible column enforced)
+- Display state belongs to list page local state and drives rendering directly:
+  - compact mode changes row density
+  - visible columns change both header and row cells
+  - view mode switches table/cards render path
+
+## Table Layout Contract (Admin Lists)
+
+Use for list pages with table/cards views. Ensures full-height layout, sticky filters, sticky table header, and correct scroll behavior.
+
+**Page structure:**
+- Root section: `flex h-full min-h-0 flex-col gap-3 overflow-hidden p-page`
+- Toolbar: wrapped in `shrink-0` (sticky filters; never scrolls away)
+- Content area: `flex min-h-0 flex-1 flex-col gap-3` (fills remaining height)
+
+**Table view (when data exists):**
+- Outer card: `flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card`
+- Scroll container: `min-h-0 flex-1 overflow-auto` (this is the scroll context for sticky header)
+- Inner wrapper: `min-w-full` (for horizontal scroll when needed)
+- Table component: renders plain `<Table noWrapper>` with `STICKY_HEADER_CLASS` on `TableHeader`; no scroll/border wrapper (list page owns it)
+- Pagination: inside card, `flex shrink-0 items-center justify-end gap-2 border-t px-3 py-2`
+
+**Cards view:**
+- Same outer card + scroll div structure; cards list scrolls inside.
+
+**Empty/loading/error:** Inside content area. Pagination bar for empty or cards-only: `flex shrink-0` when `(items.length === 0 || viewMode === "cards")`.
+
+**Table components:**
+- Use `STICKY_HEADER_CLASS` on `TableHeader` (sticky top, **`ui-canvas-sticky-table-header`**, opaque `[&_th]:bg-card`). Header/data separator is each header cell’s bottom border (`ui-canvas-table-row` + `--ui-canvas-row-divider-*`, same as body rows). Never zero it with **`border-0`** / **`[&_th]:border-b-0`** on that header row.
+- Use `TableSortableHeader` for sortable columns; sort icons right-aligned, visible on hover.
+- Table component must NOT wrap Table in `overflow-auto rounded-lg border`; the list page provides that.
+
+## List Filters Contract
+
+- Keep filters in a dedicated list toolbar row (never in topbar actions), similar to `TeamTableToolbar` behavior.
+- Minimum filter model for shared modules:
+  - `searchQuery` (text)
+  - `sortBy`
+  - `sortOrder`
+  - `page`, `pageSize`
+- Behavior rules:
+  - changing search/sort resets `page` to `1`
+  - filters are server-driven (API request params), not client-only post-filtering
+  - show list summary from server result (`total`)
+  - provide clear empty/loading/error states
+- If module has multiple filters, support clear/reset behavior and active filter visibility.
+
+## Backend Wiring Contract
+
+- Preserve backend shape exactly (`snake_case`, no UI remapping layer).
+- Required calls:
+  - list: `getX({ page, pageSize, sortBy, sortOrder, search })`
+  - detail: `getX(id)`
+  - edit save: `updateX(id, patch)` (PATCH semantics)
+- Render list from server pagination metadata (`total`, `page`, `pageSize`).
+- Handle aborts explicitly; never show abort error to users.
+
+## Do / Don't Anchors
+
+```tsx
+// ✅ good: dedicated edit route
+engenty.UI.registerRoute({ path: "/module/contacts/:id/edit", component: EntityEditPage });
+
+// ❌ bad: edit mode via query param
+// /module/contacts/:id?edit=true
+```
+
+```tsx
+// ✅ good: users-style display manager
+<DropdownMenu><DropdownMenuTrigger asChild><Button>Display</Button></DropdownMenuTrigger><ClientsDisplayDialog ... /></DropdownMenu>
+
+// ❌ bad: local view toggle only
+<Button onClick={() => setViewMode("cards")}>Display</Button>
+```
+
+```tsx
+// ✅ good: stable module breadcrumb contract
+usePageConfig({
+  breadcrumbs: [{ label: t("menu"), to: "/module/contacts" }, { label: t("settings") }],
+  actions: <Button onClick={onSave}>{t("saveSettings")}</Button>,
+});
+```
+
+## First-Run Acceptance Checklist
+
+- Routes resolve directly (no wildcard redirect masking module routes).
+- Breadcrumb hierarchy is correct (module root -> current page).
+- List display manager works (compact/view/columns where applicable).
+- List filters reset page correctly and call API with filter/sort/pagination params.
+- Topbar actions are page actions only; filters live in list toolbar.
+- Detail is read-only, edit is dedicated route.
+- No duplicate headings; no unnecessary nested wrappers.

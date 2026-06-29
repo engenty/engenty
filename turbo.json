@@ -1,0 +1,44 @@
+{
+  "$schema": "https://v2-9-16.turborepo.dev/schema.json",
+  "ui": "tui",
+  "concurrency": "40",
+  "globalDependencies": [".env", ".env.local", ".env.*.local"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "generate:plugins": {
+      "cache": false,
+      "outputs": [
+        "apps/ui/src/plugins/generated-catalog.ts",
+        "apps/ui/src/plugins/generated-tailwind-sources.css"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:app": {
+      "cache": false,
+      "persistent": true
+    },
+    "api": {
+      "cache": false,
+      "persistent": true
+    },
+    "api:app": {
+      "cache": false,
+      "persistent": true
+    },
+    "studio": {
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    }
+  }
+}

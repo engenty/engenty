@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "dist",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@engenty/ui-core": ["../ui-core/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

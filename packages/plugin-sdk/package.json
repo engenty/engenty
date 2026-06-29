@@ -1,0 +1,36 @@
+{
+  "name": "@engenty/plugin-sdk",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engenty/feature-flags": "workspace:*",
+    "@engenty/search-index": "workspace:*"
+  },
+  "peerDependencies": {
+    "commander": ">=11.0.0",
+    "zod": ">=3.22.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "commander": "^15.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9",
+    "zod": "4.4.3"
+  }
+}

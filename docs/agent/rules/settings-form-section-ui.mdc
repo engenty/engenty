@@ -1,0 +1,64 @@
+---
+description: Settings blocks with section title, description, and bordered form card (appearance spacing)
+alwaysApply: false
+---
+
+# Settings form section (title + description + Card)
+
+Use for stacked settings blocks that mirror **Settings → Appearance** (`/settings/appearance`): a **tight** stack of **title** (`h2`) + **description** (`p`), then a clear gap, then controls inside **`SettingsFormCard`** (via `SettingsFormSection`).
+
+## Rules
+
+- **Do not** put `h2`, description `p`, and `Card` as **direct siblings** under `space-y-2` — that adds extra gap between title and description (Tailwind spaces every child).
+- **Do** wrap **title + description** (+ optional **note**) in a **single** `<div>` so only **one** `space-y-2` step sits between that intro block and the card.
+- Prefer **`SettingsFormSection`** from `@engenty/ui-core` instead of hand-rolling the markup.
+
+## Component
+
+- **`SettingsFormSection`** (`packages/ui-core/src/components/admin/settings/settings-form-section.tsx`) — wraps children in **`SettingsFormCard`**.
+- **`SettingsFormCard`** (`packages/ui-core/src/components/admin/settings/settings-form-card.tsx`) — bordered settings surface; **`variant="default"`** (`p-3 sm:p-4`) or **`variant="compact"`** (`py-2` + horizontal padding for row stacks).
+- Props on the section: `title`, `description`, optional `note` (smaller muted line under description), optional `cardVariant` (`compact` for {@link SettingsFormRow} stacks), `children` (rendered inside the card with default `space-y-3`; override via `cardClassName`).
+
+## Example
+
+```tsx
+import { SettingsFormSection } from "@engenty/ui-core";
+
+<SettingsFormSection
+  title={t("sections.general")}
+  description={t("sections.generalDesc")}
+  note={optionalCallout}
+>
+  {/* rows, selects, etc. */}
+</SettingsFormSection>
+```
+
+## Inside the form `Card` (no cascading cards — one surface only)
+
+`SettingsFormSection` already wraps `children` in **`SettingsFormCard`** (border, radius, canvas panel). Use **`cardVariant="compact"`** with **`cardClassName="space-y-0 divide-y divide-border"`** when stacking {@link SettingsFormRow}s; otherwise default padding applies.
+
+- **Do not** nest another **`Card`**, **`Card variant="default"`**, or any second **bordered + padded** panel inside `children`. That produces **double borders**, **double padding**, and the “card in a card” look that keeps regressing in reviews.
+- **Tables:** render `<Table>` (and headers/rows) **directly** as `children`. Do **not** wrap the table in `<Card>…</Card>` — the table sits on the form card; `Table` supplies its own horizontal scroll wrapper when needed.
+- **Subgroups:** use **dividers** (`divide-y divide-border`), **flat** tinted blocks (`rounded-md bg-muted/25 px-3 py-2`), or **spacing + typography** — not a second card chrome.
+
+### Anti-pattern (avoid)
+
+```tsx
+<SettingsFormSection title="…" description="…">
+  <Card>   {/* ❌ redundant — outer section is already a form Card */}
+    <Table>...</Table>
+  </Card>
+</SettingsFormSection>
+```
+
+### Correct
+
+```tsx
+<SettingsFormSection title="…" description="…">
+  <Table>...</Table>
+</SettingsFormSection>
+```
+
+## When not to use
+
+- List/catalog sections where the body is **not** a single form card (e.g. repeated rows only) — keep a local layout; this rule targets **headline + helper text + one form surface**.

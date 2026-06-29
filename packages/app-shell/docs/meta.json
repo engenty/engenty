@@ -1,0 +1,11 @@
+{
+  "title": "App Shell",
+  "description": "@engenty/app-shell — product layout frame, navigation builders, and browser Agent UI registration.",
+  "pages": [
+    "README",
+    "architecture",
+    "shell-layout",
+    "navigation",
+    "agent-ui-registration"
+  ]
+}

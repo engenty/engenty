@@ -1,0 +1,35 @@
+{
+  "menu": {
+    "title": "Kontextgraph"
+  },
+  "page": {
+    "title": "Kontextgraph",
+    "loading": "Graph wird geladen…",
+    "empty": "Noch keine Entitäten. Erstelle eine, um zu beginnen.",
+    "hint": "Knoten anklicken zum Inspizieren · Ziehen zum Schwenken · Scrollen zum Zoomen"
+  },
+  "controls": {
+    "search": "Entitäten suchen…",
+    "allTypes": "Alle Typen",
+    "newEntity": "Entität",
+    "newEdge": "Kante",
+    "nodes": "{{count}} Knoten"
+  },
+  "entity": {
+    "attributes": "Attribute",
+    "outgoing": "Ausgehend",
+    "incoming": "Eingehend",
+    "edit": "Entität bearbeiten",
+    "create": "Neue Entität",
+    "deleteConfirm": "Diese Entität und alle ihre Kanten löschen?",
+    "deleted": "Entität gelöscht",
+    "saved": "Entität aktualisiert",
+    "created": "Entität erstellt"
+  },
+  "edge": {
+    "create": "Neue Kante",
+    "deleteConfirm": "Diese Kante entfernen?",
+    "deleted": "Kante entfernt",
+    "created": "Kante erstellt"
+  }
+}

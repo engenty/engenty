@@ -1,0 +1,35 @@
+{
+  "menu": {
+    "title": "Context Graph"
+  },
+  "page": {
+    "title": "Context Graph",
+    "loading": "Loading graph…",
+    "empty": "No entities yet. Create one to get started.",
+    "hint": "Click a node to inspect · drag to pan · scroll to zoom"
+  },
+  "controls": {
+    "search": "Search entities…",
+    "allTypes": "All types",
+    "newEntity": "Entity",
+    "newEdge": "Edge",
+    "nodes": "{{count}} nodes"
+  },
+  "entity": {
+    "attributes": "Attributes",
+    "outgoing": "Out",
+    "incoming": "In",
+    "edit": "Edit Entity",
+    "create": "New Entity",
+    "deleteConfirm": "Delete this entity and all its edges?",
+    "deleted": "Entity deleted",
+    "saved": "Entity updated",
+    "created": "Entity created"
+  },
+  "edge": {
+    "create": "New Edge",
+    "deleteConfirm": "Remove this edge?",
+    "deleted": "Edge removed",
+    "created": "Edge created"
+  }
+}

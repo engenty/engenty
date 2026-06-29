@@ -1,0 +1,7 @@
+{
+  "title": "Developer",
+  "description": "Architecture, the plugin system, building modules, and running Engenty locally.",
+  "root": true,
+  "icon": "SquareTerminal",
+  "pages": ["README", "architecture", "local-development", "plugins"]
+}

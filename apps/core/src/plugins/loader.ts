@@ -1,0 +1,826 @@
+import fs from "node:fs";
+import path from "node:path";
+import {
+  type ContextGraphServerApi,
+  createContextGraphHost,
+  createContextGraphRepoSupabase,
+  createContextGraphServerApi,
+  createContextGraphSourceRegistry,
+  createOntologyRegistry,
+  type OntologyRegistry,
+} from "@engenty/context-graph";
+import {
+  createPluginEventsRuntime,
+  type EngentyPluginApi,
+  type EngentyPluginFactory,
+  type EngentyPluginManifest,
+  type PluginEventContext,
+  type PluginEventFilter,
+  type PluginEventHandlerRegistration,
+  type PluginEventInterceptor,
+  type PluginEventObserver,
+  type PluginEventPayload,
+  type PluginEventsRuntime,
+  type PluginRuntime,
+} from "@engenty/plugin-sdk";
+import type { SearchIndexRegistry } from "@engenty/search-index";
+import { createJiti } from "jiti";
+import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
+import { createDatabaseAdapter } from "../infra/index.js";
+import { createBootApiLogger, initEvlog } from "../observability/evlog.js";
+import { resolvePluginCapability } from "./capability-resolver.js";
+import {
+  discoverPlugins,
+  type PluginCandidate,
+  resolveModulesDir,
+  resolvePackagesDir,
+} from "./discovery.js";
+import { isMandatoryPlugin } from "./mandatory-plugins.js";
+import {
+  loadPluginManifest,
+  type PluginManifest,
+  resolvePluginTier,
+} from "./manifest.js";
+import {
+  evaluatePluginTierViolations,
+  stripTierRestrictedContributions,
+} from "./plugin-tier-policy.js";
+import {
+  createPluginRegistry,
+  createPluginSourceInfo,
+  type PluginEventRegistration,
+  type PluginRecord,
+  type PluginRegistry,
+} from "./registry.js";
+import {
+  createSearchIndexHost,
+  createSearchIndexRegistry,
+} from "./search-index-host.js";
+import { startRegisteredServices } from "./service-lifecycle.js";
+import { readPluginState, resolvePluginStatePath } from "./state-store.js";
+
+export interface LoadPluginsParams {
+  config?: Record<string, unknown>;
+  dataDir?: string;
+  logger?: {
+    info: (msg: string) => void;
+    warn: (msg: string) => void;
+    error: (msg: string) => void;
+    debug: (msg: string) => void;
+  };
+  modulesDir?: string;
+  packagesDir?: string;
+  /**
+   * When false, registered plugin services (timers, loops) are not started.
+   * Use for the CLI so the process can exit after a command. Default true.
+   */
+  startRegisteredServices?: boolean;
+  tenantPluginOverrides?: TenantPluginOverridesDal;
+}
+
+const defaultLogger = (() => {
+  initEvlog();
+  return createBootApiLogger();
+})();
+
+type LoadedPluginEntry = EngentyPluginFactory;
+
+type PluginImportCache = Record<string, unknown>;
+
+export interface ClearPluginImportCacheResult {
+  clearedEntries: string[];
+  entryPath?: string;
+  reason?: string;
+  refused: boolean;
+  removed: number;
+  rootDir: string;
+}
+
+function normalizeCachePath(filePath: string) {
+  const resolved = path.resolve(filePath);
+  try {
+    return fs.realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+function isPathInRoot(filePath: string, rootDir: string) {
+  const relative = path.relative(rootDir, filePath);
+  return (
+    relative === "" ||
+    (!!relative && !relative.startsWith("..") && !path.isAbsolute(relative))
+  );
+}
+
+function getPluginImportCache() {
+  const jiti = createJiti(import.meta.url, { interopDefault: true });
+  return jiti.cache as PluginImportCache;
+}
+
+export function clearPluginImportCache(params: {
+  entryPath?: string;
+  importCache?: PluginImportCache;
+  rootDir: string;
+}): ClearPluginImportCacheResult {
+  const rootDir = normalizeCachePath(params.rootDir);
+  const rootPath = path.parse(rootDir).root;
+  if (rootDir === rootPath) {
+    return {
+      clearedEntries: [],
+      reason: "Refusing to clear import cache for a filesystem root.",
+      refused: true,
+      removed: 0,
+      rootDir,
+    };
+  }
+
+  const entryPath = params.entryPath
+    ? normalizeCachePath(params.entryPath)
+    : undefined;
+  const importCache = params.importCache ?? getPluginImportCache();
+  const clearedEntries: string[] = [];
+
+  for (const cacheKey of Object.keys(importCache)) {
+    const normalizedCacheKey = normalizeCachePath(cacheKey);
+    if (
+      normalizedCacheKey === entryPath ||
+      isPathInRoot(normalizedCacheKey, rootDir)
+    ) {
+      delete importCache[cacheKey];
+      clearedEntries.push(cacheKey);
+    }
+  }
+
+  return {
+    clearedEntries,
+    entryPath,
+    refused: false,
+    removed: clearedEntries.length,
+    rootDir,
+  };
+}
+
+function toEngentyPluginManifest(
+  manifest: PluginManifest
+): EngentyPluginManifest {
+  return {
+    capabilities: manifest.capabilities,
+    description: manifest.description ?? "",
+    id: manifest.id,
+    kind: manifest.kind ?? "module",
+    name: manifest.name ?? manifest.id,
+    optional: manifest.optional,
+    provides: manifest.provides,
+    requires: manifest.requires,
+    tier: manifest.tier,
+    server: {
+      entry: manifest.server?.entry ?? "",
+    },
+    ui: manifest.ui?.entry
+      ? {
+          assetOrigins: manifest.ui.assetOrigins,
+          entry: manifest.ui.entry,
+          export: manifest.ui.export ?? "",
+          load: manifest.ui.load,
+          staticAssets: manifest.ui.staticAssets,
+          tailwindSources: manifest.ui.tailwindSources,
+        }
+      : undefined,
+    version: manifest.version ?? "0.0.0",
+  };
+}
+
+function createPluginApi(params: {
+  contextGraphRegistry: OntologyRegistry;
+  contextGraphServerApi?: ContextGraphServerApi;
+  contextGraphSourceRegistry: ReturnType<
+    typeof createContextGraphSourceRegistry
+  >;
+  manifest: PluginManifest;
+  pluginApi: ReturnType<ReturnType<typeof createPluginRegistry>["createApi"]>;
+  pluginConfig: Record<string, unknown>;
+  record: PluginRecord;
+  registry: PluginRegistry;
+  eventsRuntime: PluginEventsRuntime;
+  resolveTenantPluginOverrides?: (
+    tenantId: string
+  ) => Promise<Record<string, boolean>>;
+  searchIndexRegistry: SearchIndexRegistry;
+}): EngentyPluginApi {
+  const capabilities = new Set(params.manifest.provides ?? []);
+  const events = params.eventsRuntime.createApi({
+    pluginId: params.record.id,
+    sourceInfo: createPluginSourceInfo(params.record, "server.plugin"),
+    createRegistrationReceipt: ({ eventName, key, kind, namespace }) => {
+      const sourceInfo = createPluginSourceInfo(params.record, kind);
+      return {
+        id: `${params.record.id}:${kind}:${namespace}:${String(eventName)}:${key}`,
+        pluginId: params.record.id,
+        generationId: sourceInfo.generationId,
+        kind,
+        sourceInfo,
+        dispose: () => {},
+      };
+    },
+    onRegister: (registration) => {
+      const entry = {
+        capability: registration.capability,
+        dispose: registration.receipt.dispose,
+        eventName: registration.eventName,
+        handler: registration.handler,
+        listenerKind: registration.listenerKind,
+        namespace: registration.namespace,
+        pluginId: params.record.id,
+        receiptId: registration.receipt.id,
+        requiredCapabilities: registration.requiredCapabilities,
+        sourceInfo: registration.receipt.sourceInfo,
+        tenantScoped: registration.tenantScoped,
+      } satisfies Parameters<typeof pushOwnedEventRegistration>[0]["entry"];
+      pushOwnedEventRegistration({
+        entry,
+        record: params.record,
+        registry: params.registry,
+      });
+    },
+    shouldInvoke: async ({ context, payload, registration }) =>
+      shouldInvokeEventRegistration({
+        context,
+        payload,
+        record: params.record,
+        registration,
+        registry: params.registry,
+        resolveTenantPluginOverrides: params.resolveTenantPluginOverrides,
+      }),
+  });
+
+  return {
+    ai: {},
+    capabilities: {
+      has: (capability) => capabilities.has(capability),
+      provides: (capability) => {
+        const normalized = capability.trim();
+        if (!normalized) {
+          return;
+        }
+        capabilities.add(normalized);
+        params.record.provides = Array.from(
+          new Set([...(params.record.provides ?? []), normalized])
+        );
+      },
+    },
+    config: {
+      pluginConfig: params.pluginConfig,
+      runtimeConfig: params.pluginApi.config,
+    },
+    diagnostics: {
+      report: (diagnostic) => {
+        params.registry.diagnostics.push({
+          ...diagnostic,
+          pluginId: diagnostic.pluginId ?? params.record.id,
+          sourceInfo:
+            diagnostic.sourceInfo ??
+            createPluginSourceInfo(params.record, "server.plugin"),
+        });
+      },
+    },
+    events,
+    frontendTools: {},
+    id: params.record.id,
+    manifest: toEngentyPluginManifest(params.manifest),
+    server: {
+      ...params.pluginApi.server,
+      contextGraph: params.contextGraphServerApi,
+      contextGraphSources: params.contextGraphSourceRegistry,
+      registerContextGraphSchema: createContextGraphHost({
+        events,
+        moduleId: params.record.id,
+        registry: params.contextGraphRegistry,
+        serverApi: params.contextGraphServerApi,
+      }),
+      registerContextGraphSource: (source) =>
+        params.contextGraphSourceRegistry.register(source),
+      registerSearchIndexProvider: createSearchIndexHost({
+        events,
+        registry: params.searchIndexRegistry,
+        server: params.pluginApi.server,
+      }),
+    },
+    source: createPluginSourceInfo(params.record, "server.plugin"),
+    ui: {},
+  };
+}
+
+function pushOwnedEventRegistration(params: {
+  entry: PluginEventRegistration;
+  record: PluginRecord;
+  registry: PluginRegistry;
+}) {
+  const key = `${params.entry.namespace}:${String(params.entry.eventName)}`;
+  switch (params.entry.listenerKind) {
+    case "filter":
+      params.record.eventFilters ??= [];
+      params.registry.eventFilters ??= [];
+      params.record.eventFilters.push(key);
+      params.registry.eventFilters.push(
+        params.entry as PluginEventRegistration<PluginEventFilter>
+      );
+      return;
+    case "interceptor":
+      params.record.eventInterceptors ??= [];
+      params.registry.eventInterceptors ??= [];
+      params.record.eventInterceptors.push(key);
+      params.registry.eventInterceptors.push(
+        params.entry as PluginEventRegistration<PluginEventInterceptor>
+      );
+      return;
+    default:
+      params.record.eventListeners ??= [];
+      params.registry.eventListeners ??= [];
+      params.record.eventListeners.push(key);
+      params.registry.eventListeners.push(
+        params.entry as PluginEventRegistration<PluginEventObserver>
+      );
+  }
+}
+
+function getRegisteredEventCapabilities(
+  registry: PluginRegistry,
+  pluginId: string
+) {
+  return [
+    ...(registry.eventListeners ?? []),
+    ...(registry.eventFilters ?? []),
+    ...(registry.eventInterceptors ?? []),
+  ]
+    .filter((entry) => entry.pluginId === pluginId)
+    .map((entry) => entry.capability);
+}
+
+async function shouldInvokeEventRegistration(params: {
+  context: PluginEventContext;
+  payload: PluginEventPayload;
+  record: PluginRecord;
+  registration: PluginEventHandlerRegistration;
+  registry: PluginRegistry;
+  resolveTenantPluginOverrides?: (
+    tenantId: string
+  ) => Promise<Record<string, boolean>>;
+}) {
+  void params.payload;
+  const pluginId = params.registration.pluginId ?? params.record.id;
+  const registrationGenerationId =
+    params.registration.receipt.generationId ??
+    params.registration.sourceInfo?.generationId;
+  const pluginRecord = params.registry.plugins.find((p) => p.id === pluginId);
+  const activeGenerationId =
+    pluginRecord?.generationId ?? params.registry.generationId;
+  if (
+    activeGenerationId !== undefined &&
+    registrationGenerationId !== undefined &&
+    registrationGenerationId !== activeGenerationId
+  ) {
+    params.registry.diagnostics.push({
+      level: "warn",
+      code: "plugin.runtime.stale_generation",
+      pluginId,
+      sourceInfo: params.registration.sourceInfo,
+      message: `Stale event listener skipped for ${String(
+        params.registration.eventName
+      )}`,
+      remediation:
+        "Restart the API or unload the previous plugin generation before dispatching events.",
+    });
+    return false;
+  }
+  const tenantId = params.context.tenantId;
+  if (params.registration.tenantScoped && !tenantId) {
+    params.registry.diagnostics.push({
+      level: "warn",
+      code: "plugin.event_listener.missing_tenant",
+      pluginId,
+      sourceInfo: params.registration.sourceInfo,
+      message: `Tenant-scoped event listener skipped without tenant context: ${String(
+        params.registration.eventName
+      )}`,
+      remediation:
+        "Emit tenant-scoped module events with an explicit tenantId in the event context.",
+    });
+    return false;
+  }
+
+  const tenantPluginOverrides =
+    tenantId && params.resolveTenantPluginOverrides
+      ? await params.resolveTenantPluginOverrides(tenantId)
+      : {};
+  const capabilityResolution = resolvePluginCapability({
+    registry: params.registry,
+    pluginId,
+    capability: params.registration.capability,
+    contributionKind: "event_listener",
+    registeredCapabilities: getRegisteredEventCapabilities(
+      params.registry,
+      pluginId
+    ),
+    tenantId,
+    tenantPluginOverrides,
+  });
+  if (!capabilityResolution.allowed) {
+    params.registry.diagnostics.push(...capabilityResolution.diagnostics);
+    return false;
+  }
+  return true;
+}
+
+function handleFactoryResult(params: {
+  factoryResult: PluginRuntime | Promise<void> | void;
+  record: PluginRecord;
+  registry: PluginRegistry;
+  logger: NonNullable<LoadPluginsParams["logger"]>;
+}) {
+  if (
+    params.factoryResult &&
+    typeof (params.factoryResult as Promise<void>).then === "function"
+  ) {
+    void Promise.resolve(params.factoryResult).catch((err) => {
+      params.record.loadError = String(err);
+      params.registry.diagnostics.push({
+        level: "error",
+        code: "plugin.load.failed",
+        pluginId: params.record.id,
+        sourceInfo: createPluginSourceInfo(params.record, "server.plugin"),
+        message: `Plugin load failed: ${params.record.loadError}`,
+        remediation:
+          "Fix the plugin entry import or factory error, then restart the API.",
+      });
+      params.logger.error(
+        `Plugin ${params.record.id} load failed: ${params.record.loadError}`
+      );
+    });
+  }
+}
+
+export interface RegisterPluginFactoryResult {
+  loadError?: string;
+  loaded: boolean;
+  pluginId: string;
+}
+
+export function getPluginRuntimeConfig(params: {
+  config: Record<string, unknown>;
+  pluginId: string;
+}): Record<string, unknown> {
+  const pluginsConfig = params.config.plugins as
+    | Record<string, { config?: Record<string, unknown> }>
+    | undefined;
+  return pluginsConfig?.[params.pluginId]?.config ?? {};
+}
+
+export function registerPluginFactory(params: {
+  config: Record<string, unknown>;
+  eventsRuntime?: PluginEventsRuntime;
+  logger: NonNullable<LoadPluginsParams["logger"]>;
+  manifest: PluginManifest;
+  record: PluginRecord;
+  registry: PluginRegistry;
+  resolveTenantPluginOverrides?: (
+    tenantId: string
+  ) => Promise<Record<string, boolean>>;
+  searchIndexRegistry?: SearchIndexRegistry;
+}): RegisterPluginFactoryResult {
+  const createApi = params.registry.createApi;
+  if (!createApi) {
+    params.record.loadError = "plugin registry cannot create plugin APIs";
+    params.registry.diagnostics.push({
+      level: "error",
+      code: "plugin.load.failed",
+      pluginId: params.record.id,
+      sourceInfo: createPluginSourceInfo(params.record, "server.plugin"),
+      message: `Plugin load failed: ${params.record.loadError}`,
+      remediation:
+        "Reload the plugin from a registry created by createPluginRegistry.",
+    });
+    params.logger.error(
+      `Plugin ${params.record.id} load failed: ${params.record.loadError}`
+    );
+    return {
+      loaded: false,
+      loadError: params.record.loadError,
+      pluginId: params.record.id,
+    };
+  }
+
+  const jiti = createJiti(import.meta.url, { interopDefault: true });
+  const pluginConfig = getPluginRuntimeConfig({
+    config: params.config,
+    pluginId: params.manifest.id,
+  });
+  const eventsRuntime =
+    params.eventsRuntime ??
+    params.registry.eventsRuntime ??
+    createPluginEventsRuntime();
+  params.registry.eventsRuntime = eventsRuntime;
+  const searchIndexRegistry =
+    params.searchIndexRegistry ??
+    params.registry.searchIndexRegistry ??
+    createSearchIndexRegistry();
+  params.registry.searchIndexRegistry = searchIndexRegistry;
+
+  const contextGraphRegistry =
+    params.registry.contextGraphRegistry ?? createOntologyRegistry();
+  params.registry.contextGraphRegistry = contextGraphRegistry;
+  if (!params.registry.contextGraphServerApi) {
+    const dbAdapter = params.registry.getDatabaseAdapter?.() ?? null;
+    if (dbAdapter) {
+      params.registry.contextGraphServerApi = createContextGraphServerApi({
+        registry: contextGraphRegistry,
+        repo: createContextGraphRepoSupabase(dbAdapter),
+      });
+    }
+  }
+  const contextGraphServerApi = params.registry.contextGraphServerApi;
+  const contextGraphSourceRegistry =
+    params.registry.contextGraphSourceRegistry ??
+    createContextGraphSourceRegistry();
+  params.registry.contextGraphSourceRegistry = contextGraphSourceRegistry;
+
+  try {
+    const mod = jiti(params.record.source) as { default?: LoadedPluginEntry };
+    const def = mod?.default;
+    if (typeof def === "function") {
+      const api = createApi(params.record, pluginConfig);
+      const pluginApi = createPluginApi({
+        contextGraphRegistry,
+        contextGraphServerApi,
+        contextGraphSourceRegistry,
+        manifest: params.manifest,
+        pluginApi: api,
+        pluginConfig,
+        record: params.record,
+        registry: params.registry,
+        eventsRuntime,
+        resolveTenantPluginOverrides: params.resolveTenantPluginOverrides,
+        searchIndexRegistry,
+      });
+      const factoryResult = def(pluginApi);
+      handleFactoryResult({
+        factoryResult,
+        record: params.record,
+        registry: params.registry,
+        logger: params.logger,
+      });
+      params.record.loaded = true;
+      return { loaded: true, pluginId: params.record.id };
+    }
+
+    const receivedKind =
+      def === undefined ? "undefined" : def === null ? "null" : typeof def;
+    params.logger.warn(
+      `Plugin ${params.manifest.id}: default export must be an EngentyPluginFactory function (received ${receivedKind})`
+    );
+    params.record.loadError = "no default EngentyPluginFactory export";
+    params.registry.diagnostics.push({
+      level: "error",
+      code: "plugin.entry.missing",
+      pluginId: params.manifest.id,
+      sourceInfo: createPluginSourceInfo(params.record, "server.plugin"),
+      message:
+        "Plugin entry did not export a default EngentyPluginFactory function.",
+      remediation:
+        "Export a default EngentyPluginFactory function or update the manifest server.entry to the correct module.",
+    });
+  } catch (err) {
+    params.record.loadError = String(err);
+    params.registry.diagnostics.push({
+      level: "error",
+      code: "plugin.load.failed",
+      pluginId: params.manifest.id,
+      sourceInfo: createPluginSourceInfo(params.record, "server.plugin"),
+      message: `Plugin load failed: ${params.record.loadError}`,
+      remediation:
+        "Fix the plugin entry import or factory error, then restart the API.",
+    });
+    params.logger.error(
+      `Plugin ${params.manifest.id} load failed: ${params.record.loadError}`
+    );
+  }
+
+  return {
+    loaded: false,
+    loadError: params.record.loadError,
+    pluginId: params.record.id,
+  };
+}
+
+/**
+ * Reports capability-ceiling violations for catalog-tier plugins
+ * (`tier: "plugin"`) as error diagnostics. Modules are unrestricted.
+ * Call after a plugin's factory has registered its contributions.
+ */
+export function enforcePluginTier(params: {
+  logger: NonNullable<LoadPluginsParams["logger"]>;
+  record: PluginRecord;
+  registry: PluginRegistry;
+}): void {
+  const tier = resolvePluginTier(params.record.tier);
+  const violations = evaluatePluginTierViolations({
+    pluginId: params.record.id,
+    registry: params.registry,
+    tier,
+  });
+  if (violations.length === 0) {
+    return;
+  }
+  for (const violation of violations) {
+    params.registry.diagnostics.push({
+      level: "error",
+      code: "plugin.tier.capability_blocked",
+      pluginId: params.record.id,
+      sourceInfo: createPluginSourceInfo(params.record, "server.plugin"),
+      message: `tier "plugin" may not register ${violation.surface} (found ${violation.count}); contribution disabled.`,
+      remediation:
+        'Remove the restricted contribution or promote the plugin to a module (tier: "module").',
+    });
+    params.logger.warn(
+      `Plugin ${params.record.id}: tier "plugin" may not register ${violation.surface}; contribution disabled`
+    );
+  }
+  // Hard enforcement: dispose/remove the restricted contributions so the
+  // catalog plugin cannot affect other modules' flows or the host process.
+  stripTierRestrictedContributions({
+    pluginId: params.record.id,
+    registry: params.registry,
+  });
+  params.record.eventFilters = [];
+  params.record.eventInterceptors = [];
+  params.record.cliCommands = [];
+  params.record.profilePolicies = [];
+  params.record.resultPolicies = [];
+}
+
+export function createPluginRecord(params: {
+  candidate: PluginCandidate;
+  enabled: boolean;
+  generationId?: number;
+  manifest: PluginManifest;
+  manifestPath: string;
+}): PluginRecord {
+  return {
+    id: params.manifest.id,
+    name: params.manifest.name,
+    description: params.manifest.description,
+    version: params.manifest.version,
+    sourceType: params.candidate.sourceType,
+    rootDir: params.candidate.rootDir,
+    source: params.candidate.source,
+    packageName: params.candidate.packageName,
+    manifestPath: params.manifestPath,
+    kind: params.manifest.kind,
+    tier: params.manifest.tier,
+    capabilities: params.manifest.capabilities,
+    ui: params.manifest.ui,
+    provides: params.manifest.provides ?? [],
+    requires: params.manifest.requires ?? [],
+    optional: params.manifest.optional ?? [],
+    enabled: params.enabled,
+    loaded: false,
+    dependencies: [],
+    cliCommands: [],
+    eventFilters: [],
+    eventInterceptors: [],
+    eventListeners: [],
+    services: [],
+    httpRoutes: [],
+    gatewayMethods: [],
+    moduleOperations: [],
+    profilePolicies: [],
+    resultPolicies: [],
+    testDataTypes: [],
+    featureFlags: [],
+    queues: [],
+    generationId: params.generationId,
+  };
+}
+
+export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
+  const modulesDir = params.modulesDir ?? resolveModulesDir();
+  const packagesDir = params.packagesDir ?? resolvePackagesDir();
+  const config = params.config ?? {};
+  const dataDir = params.dataDir ?? path.resolve(process.cwd(), "data");
+  const logger = params.logger ?? defaultLogger;
+  const resolveTenantPluginOverrides = params.tenantPluginOverrides
+    ? (tenantId: string) => params.tenantPluginOverrides!.getOverrides(tenantId)
+    : undefined;
+  const pluginStatePath = resolvePluginStatePath(dataDir);
+  const pluginState = readPluginState(pluginStatePath);
+
+  const resolvePath = (p: string) => path.resolve(dataDir, p);
+  const databaseAdapter = createDatabaseAdapter(config);
+  const getDatabaseAdapter = () => databaseAdapter;
+  const eventsRuntime = createPluginEventsRuntime();
+
+  const { registry } = createPluginRegistry({
+    config,
+    dataDir,
+    getDatabaseAdapter,
+    resolvePath,
+    logger,
+  });
+  registry.eventsRuntime = eventsRuntime;
+
+  const discovery = discoverPlugins({ modulesDir, packagesDir });
+
+  if (discovery.candidates.length === 0) {
+    logger.debug(`No plugins found in ${modulesDir} / ${packagesDir}`);
+  }
+
+  for (const candidate of discovery.candidates) {
+    const manifestRes = loadPluginManifest(candidate.rootDir);
+    if (!manifestRes.ok) {
+      registry.diagnostics.push({
+        level: "error",
+        code: manifestRes.code,
+        pluginId: candidate.idHint,
+        sourceInfo: {
+          pluginId: candidate.idHint,
+          generationId: registry.generationId,
+          packageName: candidate.packageName,
+          sourceType: candidate.sourceType,
+          rootDir: candidate.rootDir,
+          source: candidate.source,
+          manifestPath: manifestRes.manifestPath,
+          manifestId: candidate.idHint,
+          registrationKind: "server.plugin",
+        },
+        message: manifestRes.error,
+        remediation:
+          manifestRes.code === "plugin.manifest.missing"
+            ? "Add engenty.plugin.json to the plugin package root when overrides are required."
+            : "Fix engenty.plugin.json and required fields (id, server.entry or ui.entry).",
+      });
+      logger.warn(`Plugin ${candidate.idHint}: ${manifestRes.error}`);
+      continue;
+    }
+
+    const manifest = manifestRes.manifest;
+    const stateEntry = pluginState.plugins[manifest.id];
+    const enabled = isMandatoryPlugin(manifest.id)
+      ? true
+      : (stateEntry?.enabled ?? true);
+    const record = createPluginRecord({
+      candidate,
+      enabled,
+      generationId: registry.generationId,
+      manifest,
+      manifestPath: manifestRes.manifestPath,
+    });
+    record.sourceInfo = createPluginSourceInfo(record, "server.plugin");
+    registry.plugins.push(record);
+
+    for (const diagnostic of manifestRes.diagnostics) {
+      registry.diagnostics.push({
+        level: diagnostic.level,
+        code: diagnostic.code,
+        pluginId: manifest.id,
+        sourceInfo: record.sourceInfo,
+        message: diagnostic.message,
+        remediation:
+          "Align engenty.plugin.json version with package.json, or drop one of the versions if duplication is unintended.",
+      });
+      logger.warn(`Plugin ${manifest.id}: ${diagnostic.message}`);
+    }
+
+    if (!enabled) {
+      logger.info(`Plugin ${manifest.id} is disabled and will not be loaded`);
+      continue;
+    }
+
+    registerPluginFactory({
+      config,
+      eventsRuntime,
+      logger,
+      manifest,
+      record,
+      registry,
+      resolveTenantPluginOverrides,
+    });
+
+    enforcePluginTier({ logger, record, registry });
+  }
+
+  for (const record of registry.plugins) {
+    record.dependencies = record.requires ?? [];
+  }
+
+  if (params.startRegisteredServices !== false) {
+    void startRegisteredServices(registry, {
+      config,
+      pluginConfig: {},
+      dataDir,
+      resolvePath,
+      logger,
+    });
+  }
+
+  return registry;
+}

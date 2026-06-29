@@ -1,0 +1,355 @@
+/**
+ * Engenty Ember — canonical OKLCH primitives (DESIGN.md + typography scale).
+ * Consumed by apps/ui and apps/manage via shadcn-ember.css.
+ */
+:root {
+  /* ==========================================================================
+     1. THE 3 CORE INPUT SEEDS (Hex inputs set by JS with default fallbacks)
+     ========================================================================== */
+  --raw-primary: #e0531b;
+  --raw-secondary: #f1f3f5;
+  --raw-background: #faf8f5;
+  --raw-sidebar: #ffffff;
+
+  --contrast: 1;
+  /* Baseline contrast scalar */
+
+  /* Success/Danger/Warning/Info Hues. Overridden in color-blind modes. */
+  --hue-success: 150;
+  --hue-danger: 25;
+  --hue-warning: 70;
+  --hue-info: 264;
+
+  /* ==========================================================================
+     2. SEMANTIC TOKEN DERIVATIONS (Light Mode)
+     ========================================================================== */
+  /* Paper & Ink */
+  --paper: oklch(
+    from var(--raw-background) calc(0.99 - (0.02 * var(--contrast))) c h
+  );
+  --paper-2: oklch(
+    from var(--raw-background) calc(0.96 - (0.03 * var(--contrast)))
+      calc(c * 1.2) h
+  );
+  --paper-3: oklch(
+    from var(--raw-background) calc(0.94 - (0.04 * var(--contrast)))
+      calc(c * 1.5) h
+  );
+
+  --canvas: var(--paper);
+  --canvas-dim: var(--paper-2);
+  --canvas-darken: var(--paper-3);
+  --hairline: oklch(
+    from var(--raw-background)
+      calc(calc(0.99 - (0.02 * var(--contrast))) - (0.12 * var(--contrast)))
+      calc(c * 3) h /
+    0.55
+  );
+  --hairline-2: oklch(
+    from var(--raw-background)
+      calc(calc(0.99 - (0.02 * var(--contrast))) - (0.16 * var(--contrast)))
+      calc(c * 3.3) h /
+    0.45
+  );
+
+  --ink: oklch(
+    from var(--raw-background) calc(0.22 + (0.05 / var(--contrast)))
+      calc(c * 1.2) h
+  );
+  --ink-2: oklch(
+    from var(--raw-background) calc(0.4 + (0.05 / var(--contrast))) c h
+  );
+  --ink-3: oklch(
+    from var(--raw-background) calc(0.55 + (0.05 / var(--contrast)))
+      calc(c * 0.8) h
+  );
+  --ink-4: oklch(
+    from var(--raw-background) calc(0.7 + (0.05 / var(--contrast)))
+      calc(c * 0.6) h
+  );
+
+  /* Brand — Ember (Primary Brand Accent) */
+  --ember: oklch(from var(--raw-primary) l c h);
+  --ember-strong: oklch(
+    from var(--raw-primary) calc(l - (0.08 * var(--contrast))) c h
+  );
+  --ember-tint: oklch(
+    from var(--raw-primary) calc(0.96 + 0.02 * (1 - var(--contrast)))
+      calc(c * 0.2) h
+  );
+  --ember-veil: oklch(from var(--raw-primary) l c h / 0.1);
+
+  /* Accents */
+  --cobalt: var(--info);
+  --cobalt-tint: var(--info-tint);
+  --moss: var(--success);
+  --moss-tint: var(--success-tint);
+  --rose: oklch(
+    from var(--raw-background) calc(0.64 - (0.05 * var(--contrast))) 0.2
+      var(--hue-danger)
+  );
+  --rose-tint: var(--danger-tint);
+
+  /* Semantic Alerts */
+  --danger: oklch(
+    from var(--raw-background) calc(0.64 - (0.05 * var(--contrast))) 0.2
+      var(--hue-danger)
+  );
+  --danger-tint: oklch(
+    from var(--raw-background) calc(0.98 - (0.01 * var(--contrast))) 0.03
+      var(--hue-danger)
+  );
+
+  --success: oklch(
+    from var(--raw-background) calc(0.48 - (0.04 * var(--contrast))) 0.13
+      var(--hue-success)
+  );
+  --success-tint: oklch(
+    from var(--raw-background) calc(0.98 - (0.01 * var(--contrast))) 0.025
+      var(--hue-success)
+  );
+
+  --warning: oklch(
+    from var(--raw-background) calc(0.78 - (0.04 * var(--contrast))) 0.16
+      var(--hue-warning)
+  );
+  --warning-tint: oklch(
+    from var(--raw-background) calc(0.98 - (0.01 * var(--contrast))) 0.04
+      var(--hue-warning)
+  );
+
+  --info: oklch(
+    from var(--raw-background) calc(0.5 - (0.05 * var(--contrast))) 0.18
+      var(--hue-info)
+  );
+  --info-tint: oklch(
+    from var(--raw-background) calc(0.98 - (0.01 * var(--contrast))) 0.025
+      var(--hue-info)
+  );
+
+  --link: var(--info);
+
+  /* Secondary Accent (Derived from raw-secondary) */
+  --secondary-accent: oklch(from var(--raw-secondary) l c h);
+  --secondary-accent-strong: oklch(
+    from var(--raw-secondary) calc(l - (0.08 * var(--contrast))) c h
+  );
+
+  /* Type stacks (font files loaded by each app entry CSS) */
+  --f-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --f-ui: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --f-mono: "Geist Mono", ui-monospace, monospace;
+
+  --t-display-l: 56px;
+  --t-display: 40px;
+  --t-h1: 28px;
+  --t-h2: 20px;
+  --t-h3: 16px;
+  --t-body: 14px;
+  --t-ui: 13px;
+  --t-small: 12px;
+  --t-micro: 11px;
+
+  /* Spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  /* Radius */
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-3: 6px;
+  --r-4: 12px;
+  --r-5: 16px;
+  --r-pill: 999px;
+
+  /* Elevation (Tinted ambient shadows) */
+  --shadow-ember-elevated:
+    0 1px 2px oklch(from var(--raw-background) 0.4 c h / 0.04),
+    0 6px 18px oklch(from var(--raw-background) 0.2 c h / 0.06);
+  /* Low elevation — list group cards (lighter/tighter than --shadow-ember-elevated). */
+  --shadow-ember-soft:
+    0 1px 2px oklch(from var(--raw-background) 0.4 c h / 0.03),
+    0 3px 10px oklch(from var(--raw-background) 0.3 c h / 0.05);
+  --e-1: 0 1px 0 oklch(from var(--raw-background) 0.7 c h / 0.08);
+  --e-2: var(--shadow-ember-elevated);
+  --e-3:
+    0 1px 2px oklch(from var(--raw-background) 0.4 c h / 0.04),
+    0 6px 18px oklch(from var(--raw-background) 0.4 c h / 0.06),
+    0 18px 36px oklch(from var(--raw-background) 0.4 c h / 0.07);
+
+  /** Module secondary nav (`.shell-divider`): right-edge lift toward main (card-on-canvas). */
+  --shadow-shell-secondary-edge: 6px 0 22px -8px
+    oklch(from var(--raw-background) 0.35 c h / 0.085);
+  /** Copilot sidebar/drawer (`.shell-copilot-divider`): left-edge lift toward main. */
+  --shadow-shell-copilot-edge: -6px 0 22px -8px
+    oklch(from var(--raw-background) 0.35 c h / 0.085);
+
+  /* Row heights (align default with single-line field height `h-8`) */
+  --row-compact: 28px;
+  --row-default: 32px;
+  --row-comfy: 40px;
+
+  /* Inset outline for inputs (opaque hairline) */
+  --input-inset: oklch(
+    from var(--raw-background)
+      calc(calc(0.99 - (0.02 * var(--contrast))) - (0.12 * var(--contrast)))
+      calc(c * 3) h /
+    0.65
+  );
+}
+
+/* ==========================================================================
+   3. SEMANTIC TOKEN OVERRIDES (Dark Mode)
+   ========================================================================== */
+.dark {
+  /* Surfaces */
+  --paper: oklch(
+    from var(--raw-background) calc(0.12 + (0.03 * var(--contrast))) c h
+  );
+  --paper-2: oklch(
+    from var(--raw-background) calc(0.15 + (0.02 * var(--contrast)))
+      calc(c * 1.2) h
+  );
+  --paper-3: oklch(
+    from var(--raw-background) calc(0.18 + (0.01 * var(--contrast)))
+      calc(c * 1.5) h
+  );
+
+  --ink: oklch(
+    from var(--raw-background) calc(0.92 - (0.05 / var(--contrast)))
+      calc(c * 1.2) h
+  );
+  --ink-2: oklch(
+    from var(--raw-background) calc(0.85 - (0.05 / var(--contrast))) c h
+  );
+  --ink-3: oklch(
+    from var(--raw-background) calc(0.72 - (0.05 / var(--contrast)))
+      calc(c * 0.8) h
+  );
+  --ink-4: oklch(
+    from var(--raw-background) calc(0.58 - (0.05 / var(--contrast)))
+      calc(c * 0.6) h
+  );
+
+  --hairline: oklch(
+    from var(--raw-background)
+      calc(calc(0.12 + (0.03 * var(--contrast))) + (0.17 * var(--contrast)))
+      calc(c * 2.5) h /
+    0.55
+  );
+  --hairline-2: oklch(
+    from var(--raw-background)
+      calc(calc(0.12 + (0.03 * var(--contrast))) + (0.21 * var(--contrast)))
+      calc(c * 2.8) h /
+    0.45
+  );
+  --input-inset: oklch(
+    from var(--raw-background)
+      calc(calc(0.12 + (0.03 * var(--contrast))) + (0.21 * var(--contrast)))
+      calc(c * 2.8) h /
+    0.65
+  );
+
+  /* Accents */
+  --ember-strong: oklch(
+    from var(--raw-primary) calc(l + (0.08 * var(--contrast))) c h
+  );
+  --ember-tint: oklch(
+    from var(--raw-primary) calc(0.18 + 0.02 * var(--contrast)) calc(c * 0.35) h
+  );
+
+  --secondary-accent-strong: oklch(
+    from var(--raw-secondary) calc(l + (0.08 * var(--contrast))) c h
+  );
+
+  /* Alerts */
+  --danger: oklch(
+    from var(--raw-background) calc(0.62 + (0.05 * var(--contrast))) 0.2
+      var(--hue-danger)
+  );
+  --danger-tint: oklch(
+    from var(--raw-background) calc(0.18 + (0.02 * var(--contrast))) 0.05
+      var(--hue-danger)
+  );
+
+  --success: oklch(
+    from var(--raw-background) calc(0.65 + (0.05 * var(--contrast))) 0.13
+      var(--hue-success)
+  );
+  --success-tint: oklch(
+    from var(--raw-background) calc(0.18 + (0.02 * var(--contrast))) 0.04
+      var(--hue-success)
+  );
+
+  --warning: oklch(
+    from var(--raw-background) calc(0.78 + (0.04 * var(--contrast))) 0.16
+      var(--hue-warning)
+  );
+  --warning-tint: oklch(
+    from var(--raw-background) calc(0.18 + (0.02 * var(--contrast))) 0.05
+      var(--hue-warning)
+  );
+
+  --info: oklch(
+    from var(--raw-background) calc(0.72 + (0.05 * var(--contrast))) 0.18
+      var(--hue-info)
+  );
+  --info-tint: oklch(
+    from var(--raw-background) calc(0.18 + (0.02 * var(--contrast))) 0.04
+      var(--hue-info)
+  );
+
+  --shadow-ember-elevated:
+    0 1px 2px oklch(0% 0 0 / 0.22), 0 6px 18px oklch(0% 0 0 / 0.28);
+  --shadow-ember-soft:
+    0 1px 2px oklch(0% 0 0 / 0.18), 0 3px 10px oklch(0% 0 0 / 0.22);
+  --e-2: var(--shadow-ember-elevated);
+  --e-3:
+    0 1px 2px oklch(0% 0 0 / 0.22), 0 6px 18px oklch(0% 0 0 / 0.28),
+    0 24px 48px oklch(0% 0 0 / 0.32);
+  --shadow-shell-secondary-edge: 8px 0 28px -10px oklch(0% 0 0 / 0.42);
+  --shadow-shell-copilot-edge: -8px 0 28px -10px oklch(0% 0 0 / 0.42);
+}
+
+/* ==========================================================================
+   4. ACCESSIBILITY MODIFIERS (Contrast & Color Blindness)
+   ========================================================================== */
+/* High Contrast Toggle (CSS-only query + manual override class) */
+@media (prefers-contrast: more) {
+  :root {
+    --contrast: 1.4;
+  }
+}
+
+.theme-high-contrast {
+  --contrast: 1.4;
+}
+
+/* Protanopia / Deuteranopia (Red-Green color blindness) */
+.theme-deuteranopia,
+.theme-protanopia {
+  --hue-success: 195;
+  /* Shift Green success to Sky/Teal */
+  --hue-danger: 15;
+  /* Shift Red danger to Orange-Red */
+  --hue-warning: 50;
+  /* Gold */
+}
+
+/* Tritanopia (Blue-Yellow color blindness) */
+.theme-tritanopia {
+  --hue-success: 165;
+  /* Mint green-cyan */
+  --hue-warning: 10;
+  /* Shift Yellow to deep Red/Rose */
+  --hue-info: 140;
+  /* Shift Blue to Green/Mint */
+}

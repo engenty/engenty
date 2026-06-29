@@ -1,0 +1,33 @@
+---
+description: Use when adding or changing AI Elements chat UI in @engenty/ai-ui (Message, MessageResponse, streaming markdown).
+alwaysApply: false
+---
+
+# AI Elements (in @engenty/ai-ui)
+
+Chat presentation components live in **`packages/ai-ui/src/components/ai-elements/`** — not `ui-core`. Product chat uses **AG-UI**, not Vercel AI SDK `useChat`.
+
+## Location
+
+- `packages/ai-ui/src/components/ai-elements/` (e.g. `message.tsx` — `Message`, `MessageContent`, `MessageResponse`)
+- Copilot shell: `packages/ai-ui/src/components/copilot/`
+
+## Usage
+
+Import from `@engenty/ai-ui` (product shell) or `@engenty/ai-ui/embed` (module embeds):
+
+```tsx
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@engenty/ai-ui/embed";
+```
+
+Generic primitives (`Button`, `Card`, …) still come from `@engenty/ui-core`.
+
+## Adding components
+
+- Prefer copying/adapting from the [AI Elements registry](https://elements.ai-sdk.dev/docs) into `ai-ui`, with relative imports to `ui-core` primitives.
+- Export from `packages/ai-ui` and run `pnpm --filter @engenty/ai-ui build`.
+- See [agent-ui-runtime.md](../../../packages/app-shell/docs/agent-ui-registration.md) for package boundaries.

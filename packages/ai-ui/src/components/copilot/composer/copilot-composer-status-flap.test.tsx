@@ -1,0 +1,71 @@
+/** @vitest-environment happy-dom */
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { CopilotComposerStatusFlap } from "./copilot-composer-status-flap.js";
+
+afterEach(cleanup);
+
+const markdownReply =
+  "Here are the tasks:\n\n| Task | Hours |\n|------|-------|\n| Design | 22 |";
+
+function renderFlap(overrides: Record<string, unknown> = {}) {
+  return render(
+    <CopilotComposerStatusFlap
+      chatStatus="ready"
+      closing={false}
+      messages={[]}
+      replyText={markdownReply}
+      {...overrides}
+    />
+  );
+}
+
+describe("CopilotComposerStatusFlap", () => {
+  it("does not auto-expand content when autoExpand is false (threaded surfaces)", async () => {
+    // The drawer/full chat pass autoExpand={false} because the reply is already
+    // in the transcript above — the flap must stay collapsed (status only), not
+    // open over the thread. Drive a completed run (streaming → ready).
+    const { rerender } = render(
+      <CopilotComposerStatusFlap
+        autoExpand={false}
+        chatStatus="streaming"
+        closing={false}
+        messages={[]}
+        replyText={markdownReply}
+      />
+    );
+    rerender(
+      <CopilotComposerStatusFlap
+        autoExpand={false}
+        chatStatus="ready"
+        closing={false}
+        messages={[]}
+        replyText={markdownReply}
+      />
+    );
+    // No reply content is shown — only the status ticker.
+    await waitFor(() => {
+      expect(screen.queryByRole("table")).toBeNull();
+    });
+  });
+
+  it("renders the reply as markdown (a table), not raw pipe text, when expanded", async () => {
+    // Auto-expand path (compact launcher/popover): the reply must render through
+    // the same markdown component as the transcript, not as raw source.
+    const { rerender } = renderFlap({ chatStatus: "streaming" });
+    rerender(
+      <CopilotComposerStatusFlap
+        chatStatus="ready"
+        closing={false}
+        messages={[]}
+        replyText={markdownReply}
+      />
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("table")).toBeTruthy();
+    });
+    // The cell value is rendered, and the raw "| Task |" source is not present.
+    expect(screen.getByText("Design")).toBeTruthy();
+    expect(screen.queryByText(/\| Task \| Hours \|/)).toBeNull();
+  });
+});

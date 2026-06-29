@@ -1,0 +1,18 @@
+{
+  "id": "context-graph",
+  "name": "Context Graph",
+  "description": "Typed cross-module entity and edge store with graph explorer UI.",
+  "version": "0.0.1",
+  "kind": "package",
+  "provides": ["context-graph"],
+  "capabilities": {
+    "ai": false,
+    "frontendTools": false,
+    "operations": false,
+    "ui": true
+  },
+  "ui": {
+    "entry": "@engenty/context-graph/plugin",
+    "load": "workspace"
+  }
+}

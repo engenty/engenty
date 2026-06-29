@@ -1,0 +1,80 @@
+{
+  "name": "@engenty/engenty-copilot",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/ui/plugin.js",
+  "types": "./dist/ui/plugin.d.ts",
+  "exports": {
+    "./ai": {
+      "types": "./dist/ai/index.d.ts",
+      "default": "./dist/ai/index.js"
+    },
+    "./ai/frontend-tools": {
+      "types": "./dist/ai/frontend-tools/index.d.ts",
+      "default": "./dist/ai/frontend-tools/index.js"
+    },
+    "./ai/frontend-tools/register": {
+      "types": "./dist/ai/frontend-tools/register-all.d.ts",
+      "default": "./dist/ai/frontend-tools/register-all.js"
+    },
+    "./ai/ui/frontend-tools": {
+      "types": "./dist/ai/frontend-tools/register-all.d.ts",
+      "default": "./dist/ai/frontend-tools/register-all.js"
+    },
+    "./lib/copilot-workspace": {
+      "types": "./dist/src/lib/copilot-workspace.d.ts",
+      "default": "./dist/src/lib/copilot-workspace.js"
+    },
+    "./lib/ensure-copilot-user-workspace-prefix": {
+      "types": "./dist/src/lib/ensure-copilot-user-workspace-prefix.d.ts",
+      "default": "./dist/src/lib/ensure-copilot-user-workspace-prefix.js"
+    },
+    "./paths": {
+      "types": "./dist/ui/paths.d.ts",
+      "default": "./dist/ui/paths.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@engenty/ag-ui-bridge": "workspace:*",
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/ai-ui": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
+    "@engenty/auth-ui": "workspace:*",
+    "@engenty/file-storage": "workspace:*",
+    "@engenty/generative-ui": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@mastra/core": "1.45.0",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

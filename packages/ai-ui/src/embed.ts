@@ -1,0 +1,270 @@
+// @engenty/ai-ui embed entry — Tier 1 only (see packages/ai-ui/docs/architecture.md).
+//
+// Standalone React apps and module embeds import from `@engenty/ai-ui/embed` to avoid
+// pulling admin routes, admin HTTP clients, or product copilot shell hooks.
+
+// --- AG-UI runtime — apps/ai transport, conversation, frontend tools ---
+export { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
+export { isAgentThreadId } from "@engenty/ai-core/browser";
+export {
+  appsAiActionRunPath,
+  appsAiActionsListPath,
+  postAppsAiActionRun,
+} from "./ag-ui/apps-ai/apps-ai-api.js";
+export {
+  type AgUiOpenInterruptMetadata,
+  type AppsAiCopilotAppsAiQueryKeyParams,
+  type AppsAiCopilotModulePanelQueryKeyParams,
+  type AppsAiThreadDto,
+  type AppsAiThreadMessageRecord,
+  type AppsAiThreadRecord,
+  appsAiCopilotAppsAiQueryKeys,
+  appsAiCopilotModulePanelQueryKeys,
+  appsAiRequestHeaders,
+  appsAiThreadDetailQueryKey,
+  appsAiThreadMessagesQueryKey,
+  appsAiThreadsListQueryKey,
+  appsAiThreadsPath,
+  buildAppsAiResumeRunInput,
+  buildAppsAiRunInput,
+  createAppsAiThread,
+  deleteAppsAiThread,
+  deleteAppsAiThreads,
+  type EngentyAgUiPendingSend,
+  executeOpenAiRealtimeVoiceBackendTool,
+  executeOpenAiRealtimeVoiceFrontendTool,
+  getAppsAiThread,
+  isAgUiOpenInterruptExpired,
+  isOpenAiRealtimeVoiceBackendToolName,
+  listAppsAiThreadMessages,
+  listAppsAiThreads,
+  OPENAI_REALTIME_VOICE_ENGENTY_BACKEND_TOOLS,
+  type OpenAiRealtimeVoiceComposerControls,
+  type OpenAiRealtimeVoiceToolCallRequest,
+  type OpenAiRealtimeVoiceToolDefinition,
+  openAiRealtimeVoiceToolsFromFrontendTools,
+  postAppsAiThreadRun,
+  readAgUiOpenInterrupt,
+  resolveAppsAiFrontendTools,
+  resolveEngentyAiServiceBaseUrl,
+  transcribeAudioViaAppsAi,
+  updateAppsAiThread,
+  useAppsAiThreadMessagesQuery,
+  useAppsAiThreadQuery,
+  useAppsAiThreadsQuery,
+  useEngentyAgentContext,
+  useEngentyAgentState,
+  useEngentyAgUiAppsAiSession,
+  useEngentyAiCopilotSessionQueries,
+  useEngentyCopilot,
+  useEngentyFrontendTool,
+  useEngentyHumanInTheLoop,
+  useOpenAiRealtimeVoiceComposerControls,
+} from "./ag-ui/apps-ai/index.js";
+export {
+  applyEngentyAgUiConversationAction,
+  areAgUiHydrationTargetsEqual,
+  type EngentyAgUiConversationState,
+  type EngentyAgUiConversationStatus,
+  type EngentyAgUiMessage,
+  type EngentyAgUiState,
+  isAwaitingAgUiInitialHydrate,
+  reduceEngentyAgUiConversationEvent,
+  shouldSeedAgUiConversationFromInitialMessages,
+  useEngentyAgUiConversation,
+} from "./ag-ui/conversation.js";
+export { agUiMessagesToCopilotMessages } from "./ag-ui/copilot-adapter.js";
+export {
+  agUiMessagesFromAiSessionMessages,
+  type EngentyAgUiPanelStatus,
+  type EngentyAgUiRouteContext,
+} from "./ag-ui/engenty-ag-ui-route-context.js";
+export {
+  resolvePendingUserInsertIndex,
+  resolvePendingUserTextForTranscript,
+} from "./ag-ui/pending-send-transcript.js";
+export {
+  formatCopilotRunError,
+  resolveAgUiRunErrorEventMessage,
+} from "./ag-ui/run-error-message.js";
+export {
+  mergeDynamicToolPart,
+  mergeDynamicToolPartsInOrder,
+  shouldAcceptIncomingOverExisting,
+} from "./ag-ui/tool-call-merge.js";
+// --- Agent host provider + lane hooks ---
+export {
+  ACTIVE_COPILOT_AGENT_ID,
+  type ActiveCopilotAgentId,
+  type AgentHost,
+  ENGENTY_COPILOT_HOST_KEY,
+  EngentyAgent,
+  type EngentyAgentAffinityKeyInput,
+  type EngentyAgentProps,
+  type EngentyAgentStatus,
+  EngentyAI,
+  type EngentyAIContextValue,
+  type EngentyAIProps,
+  type EngentyCopilotHostKey,
+  type EngentyInterruptFeedback,
+  type HostConfig,
+  resolveCopilotWorkContextStableSessionKey,
+  resolveEngentyAgentAffinityStableSessionKey,
+  useAgentHost,
+  useAgentHostConfig,
+  useEngentyAIContext,
+} from "./agent-provider/index.js";
+export {
+  ActionButton,
+  type ActionButtonProps,
+} from "./components/ai-elements/action-button.js";
+// --- Presentation (copilot chrome + AI Elements) ---
+export {
+  asRecord,
+  COPILOT_BOTTOM_DOCK_HEIGHT,
+  COPILOT_DOCK_COMPOSER_CARD_CLASS,
+  COPILOT_LAYOUT_USER_SETTING_NAME,
+  CopilotAgentSessionChooser,
+  type CopilotAgentSessionChooserSession,
+  type CopilotChatOnFinish,
+  CopilotComposerSection,
+  CopilotDrawer,
+  type CopilotDrawerInjectedSession,
+  type CopilotLayoutPersistDockMode,
+  type CopilotLayoutPersistenceApi,
+  type CopilotLayoutSnapshotV1,
+  CopilotOpenInterruptBanner,
+  CopilotPanelContent,
+  type CopilotPanelContentProps,
+  CopilotPanelHeader,
+  type CopilotPanelMode,
+  type CopilotRouteContext,
+  CopilotTranscript,
+  CopilotTranscriptLoading,
+  type CopilotTranscriptLoadingProps,
+  type CopilotTranscriptProps,
+  createEmptyCopilotLayoutSnapshot,
+  type FieldSuggestion,
+  FileDownloadsToolCallCard,
+  formatCopilotRouteStatusLabel,
+  HitlApprovalCard,
+  isFileDownloadsOfferOutput,
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageBranch,
+  MessageBranchContent,
+  MessageBranchNext,
+  MessageBranchPage,
+  MessageBranchPrevious,
+  MessageBranchSelector,
+  MessageContent,
+  MessageResponse,
+  MessageToolbar,
+  matchesFileDownloadsToolCall,
+  mergeCopilotLayoutSnapshot,
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputInput,
+  type PromptInputMessage,
+  PromptInputProvider,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+  parseCopilotLayoutSnapshot,
+  parseDecisionArtifact,
+  pendingInterruptFromTranscript,
+  readStringField,
+  registerDefaultToolCallUiCards,
+  registerToolCallUi,
+  Shimmer,
+  shouldShowTopOpenInterruptBanner,
+  type TextShimmerProps,
+  ToolCallCard,
+  ToolCallCardBase,
+  type ToolCallCardDensity,
+  type ToolCallCardProps,
+  toHumanValue,
+  useCopilotSuggestionsState,
+  useCopilotToolCallActions,
+  usePromptInputController,
+} from "./components/presentation.js";
+export {
+  RoutineCreateDialog,
+  type RoutineCreateDialogProps,
+} from "./features/routines/routine-create-dialog.js";
+export {
+  RoutineDetailPanel,
+  type RoutineDetailPanelProps,
+} from "./features/routines/routine-detail-panel.js";
+export {
+  RoutineForm,
+  type RoutineFormProps,
+} from "./features/routines/routine-form.js";
+export {
+  defaultRoutineFormValue,
+  type RoutineFormErrorKey,
+  type RoutineFormValue,
+  routineFormToPayload,
+  routineToFormValue,
+  validateRoutineForm,
+} from "./features/routines/routine-form-value.js";
+export {
+  RoutineTriggerChip,
+  type RoutineTriggerChipProps,
+} from "./features/routines/routine-trigger-chip.js";
+
+// --- AI Routines & Custom Routines ---
+export {
+  type CustomRoutineInput,
+  createCustomRoutine,
+  deleteCustomRoutine,
+  listRoutines,
+  patchRoutineState,
+  type RoutineDto,
+  runRoutineNow,
+  updateCustomRoutine,
+} from "./features/routines/routines-api.js";
+export {
+  RoutinesList,
+  type RoutinesListProps,
+} from "./features/routines/routines-list.js";
+export {
+  routinesKeys,
+  routinesListOptions,
+  useCreateCustomRoutineMutation,
+  useDeleteCustomRoutineMutation,
+  usePatchRoutineStateMutation,
+  useRoutinesListQuery,
+  useRunRoutineNowMutation,
+  useUpdateCustomRoutineMutation,
+} from "./features/routines/routines-queries.js";
+export {
+  type RunActionInput,
+  type RunActionResult,
+  useRunAction,
+} from "./hooks/use-run-action.js";
+export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
+// --- Host-scoped thread list (CopilotKit-shaped) ---
+export {
+  type CreateEngentyThreadOptions,
+  ENGENTY_THREAD_HOST_KEY_FIELD,
+  type EngentyThreadRecord,
+  EngentyThreadsProvider,
+  type EngentyThreadsProviderProps,
+  engentyThreadsListQueryKey,
+  mergeRouteContextWithHostKey,
+  readActiveThreadIdForHost,
+  readThreadHostKeyFromRouteContext,
+  resolveEngentyThreadHostProfile,
+  sessionMatchesHostKey,
+  type UseEngentyThreadOptions,
+  type UseEngentyThreadResult,
+  type UseEngentyThreadsOptions,
+  type UseEngentyThreadsResult,
+  useEngentyThread,
+  useEngentyThreads,
+  useEngentyThreadsContext,
+  writeActiveThreadIdForHost,
+} from "./threads/index.js";

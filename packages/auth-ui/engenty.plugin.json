@@ -1,0 +1,11 @@
+{
+  "id": "auth-ui",
+  "name": "Auth UI",
+  "version": "0.0.1",
+  "kind": "package",
+  "ui": {
+    "entry": "@engenty/auth-ui/plugin",
+    "load": "workspace",
+    "tailwindSources": ["./src", "./dist"]
+  }
+}

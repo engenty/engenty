@@ -1,0 +1,78 @@
+{
+  "name": "@engenty/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "portless": {
+    "name": "engenty",
+    "script": "api:app",
+    "appPort": 8787
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    },
+    "./infra": {
+      "types": "./dist/infra/index.d.ts",
+      "default": "./dist/infra/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts src/api-entry.ts src/infra/index.ts --format esm --dts --clean --external pdfjs-dist --external sharp --external @napi-rs/canvas",
+    "api": "bash ../../scripts/portless-dev.sh",
+    "api:app": "ENGENTY_DEV_GATEWAY=1 ENGENTY_CORE_PORT=8787 tsx watch --clear-screen=false --exclude \"**/node_modules/**\" --exclude \"**/.git/**\" --exclude \"**/.turbo/**\" --exclude \"**/coverage/**\" --exclude \"../../packages/**/dist/**\" --exclude \"../../modules/**/dist/**\" src/api-entry.ts",
+    "cli:dev": "tsx watch src/index.ts",
+    "api:start": "node dist/api-entry.js",
+    "start": "node dist/index.js",
+    "test": "vitest run --config vitest.config.ts",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.6.0",
+    "@engenty/ag-ui-bridge": "workspace:*",
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-contracts": "workspace:*",
+    "@engenty/context-graph": "workspace:*",
+    "@engenty/dashboard-core": "workspace:*",
+    "@engenty/doc-converter": "workspace:*",
+    "@engenty/environment": "workspace:*",
+    "@engenty/feature-flags": "workspace:*",
+    "@engenty/file-storage": "workspace:*",
+    "@engenty/generative-ui": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/queue": "workspace:*",
+    "@engenty/search-index": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@engenty/tenant-settings": "workspace:*",
+    "@engenty/user-settings": "workspace:*",
+    "@hono/node-server": "^2.0.5",
+    "@hono/zod-openapi": "^1.4.0",
+    "@napi-rs/canvas": "^1.0.0",
+    "@scalar/hono-api-reference": "^0.11.4",
+    "@supabase/supabase-js": "^2.108.2",
+    "ai": "6.0.116",
+    "commander": "^15.0.0",
+    "evlog": "^2.19.1",
+    "hono": "^4.12.26",
+    "jiti": "^2.7.0",
+    "jose": "^6.2.3",
+    "pdfjs-dist": "^5.7.284",
+    "sharp": "^0.35.2",
+    "sql.js": "^1.14.1",
+    "uuidv7": "^1.2.1",
+    "zod": "4.4.3"
+  },
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "title": "AI Core",
+  "description": "@engenty/ai-core — module registration, Mastra tools, AG-UI helpers, usage and model config.",
+  "pages": [
+    "README",
+    "cleanup-plan",
+    "howto-build-tools",
+    "howto-workspaces",
+    "howto-artifacts-hitl",
+    "howto-ai-config"
+  ]
+}
