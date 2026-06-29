@@ -26,8 +26,10 @@ export {
 } from "./capability-resolver.js";
 export type {
   ContextGraphEventBinding,
+  ContextGraphHost,
   ContextGraphSchemaRegistration,
   ContextGraphSourceRegistration,
+  ContextGraphSourceRegistry,
   ContextGraphSourceStatus,
   ContextGraphSyncResult,
   ContextGraphUpsertInput,
@@ -105,6 +107,7 @@ import type { SearchIndexProvider } from "@engenty/search-index";
 import type { Command } from "commander";
 import type { ZodType } from "zod";
 import type {
+  ContextGraphHost,
   ContextGraphSchemaRegistration,
   ContextGraphSourceRegistration,
   PluginContextGraphServerApi,
@@ -517,6 +520,14 @@ export interface PluginServerApi {
     registrar: CliRegistrar,
     opts?: { commands?: string[] }
   ) => void;
+  /**
+   * Install the context-graph host implementation. Called once by the
+   * `@engenty/context-graph` plugin, which owns the shared singletons. The
+   * host then delegates `contextGraph` / `registerContextGraphSchema` /
+   * `registerContextGraphSource` to this provider, keeping core free of any
+   * concrete `@engenty/context-graph` import.
+   */
+  registerContextGraphHost?: (host: ContextGraphHost) => void;
   /**
    * Register entity and edge types (and optional event bindings) with the
    * shared context graph. The host translates this into a registry merge

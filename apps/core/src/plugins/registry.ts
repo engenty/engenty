@@ -9,9 +9,12 @@ import {
 } from "@engenty/file-storage";
 import type {
   CliRegistrar,
+  ContextGraphHost,
+  ContextGraphSchemaRegistration,
   FeatureFlagDefinition,
   PluginAiRegistration,
   PluginDiagnostic,
+  PluginEventsApi,
   PluginEventFilter,
   PluginEventInterceptor,
   PluginEventName,
@@ -224,16 +227,18 @@ export interface PluginRegistry {
     sourceInfo?: PluginSourceInfo;
   }>;
   cliRegistrars: CliRegistration[];
-  // Shared context-graph ontology registry. Populated by
-  // `engenty.server.registerContextGraphSchema(...)` and consumed by the
-  // graph server API (and the inspection HTTP routes).
-  contextGraphRegistry?: import("@engenty/context-graph").OntologyRegistry;
-  // Cached shared context-graph server API (registry + Supabase repo). Only
-  // created when a database adapter exists; left unset otherwise so plugin
-  // factories can detect that the graph is unavailable.
-  contextGraphServerApi?: import("@engenty/context-graph").ContextGraphServerApi;
-  // Registry of bulk-backfill sources contributed by individual modules.
-  contextGraphSourceRegistry?: import("@engenty/context-graph").ContextGraphSourceRegistry;
+  // Context-graph host installed by the `@engenty/context-graph` plugin via
+  // `engenty.server.registerContextGraphHost(...)`. Core delegates the
+  // `contextGraph` / schema / source surfaces to it without importing the
+  // concrete package. Unset until the host plugin loads.
+  contextGraphHost?: ContextGraphHost;
+  // Schema registrations made by consumer plugins before the host loaded
+  // (modules discover before packages). Flushed when the host installs.
+  pendingContextGraphSchemas?: Array<{
+    events: PluginEventsApi;
+    moduleId: string;
+    registration: ContextGraphSchemaRegistration;
+  }>;
   createApi?: (
     record: PluginRecord,
     pluginConfig: Record<string, unknown>

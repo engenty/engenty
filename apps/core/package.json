@@ -35,7 +35,6 @@
     "@engenty/ag-ui-bridge": "workspace:*",
     "@engenty/ai-core": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
-    "@engenty/context-graph": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
     "@engenty/doc-converter": "workspace:*",
     "@engenty/environment": "workspace:*",

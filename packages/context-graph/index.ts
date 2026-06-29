@@ -12,8 +12,14 @@
 
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import { registerContextGraphApi } from "./src/api/index.js";
-import type { ContextGraphServerApi } from "./src/server-api.js";
-import type { ContextGraphSourceRegistry } from "./src/source-registry.js";
+import { createContextGraphRepoSupabase } from "./src/dal/supabase.js";
+import { createContextGraphHost } from "./src/host.js";
+import { createOntologyRegistry } from "./src/registry.js";
+import {
+  type ContextGraphServerApi,
+  createContextGraphServerApi,
+} from "./src/server-api.js";
+import { createContextGraphSourceRegistry } from "./src/source-registry.js";
 
 export { registerContextGraphApi } from "./src/api/index.js";
 
@@ -68,23 +74,43 @@ export {
   createContextGraphSourceRegistry,
 } from "./src/source-registry.js";
 
-// The plugin factory mounts the HTTP routes. Shared singletons (registry, repo,
-// server API, source registry) are created once by the plugin host
-// (`apps/core/src/plugins/loader.ts`) and injected via `engenty.server`.
-// No DB adapter ⇒ no API surface ⇒ no routes (boot-without-DB stays clean).
+// This plugin OWNS the shared context-graph singletons (ontology registry,
+// Supabase-backed server API, source registry) and installs them on the host
+// via `engenty.server.registerContextGraphHost(...)`. Core then delegates the
+// `contextGraph` / `registerContextGraphSchema` / `registerContextGraphSource`
+// surfaces here, so core carries no concrete `@engenty/context-graph` import.
+//
+// No DB adapter ⇒ no server API ⇒ host installed without a serverApi and no
+// HTTP routes (boot-without-DB stays clean).
 const registerContextGraphPlugin: EngentyPluginFactory = (engenty) => {
-  const api = engenty.server.contextGraph;
-  if (!api) {
+  const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
+
+  const registry = createOntologyRegistry();
+  const sources = createContextGraphSourceRegistry();
+  const serverApi: ContextGraphServerApi | undefined = supabase
+    ? createContextGraphServerApi({
+        registry,
+        repo: createContextGraphRepoSupabase(supabase),
+      })
+    : undefined;
+
+  // Install the host so core can expose the context-graph surfaces to every
+  // plugin. `createSchemaRegistrar` binds the merge to the calling plugin's
+  // events/module id for ownership and declarative `onEvents` subscriptions.
+  engenty.server.registerContextGraphHost?.({
+    serverApi,
+    sources,
+    createSchemaRegistrar: (events, moduleId) =>
+      createContextGraphHost({ events, moduleId, registry, serverApi }),
+  });
+
+  if (!serverApi) {
     return;
   }
-  // SDK uses `unknown` returns to avoid pulling row types into plugin-sdk;
-  // the concrete singleton wired by `apps/core` is `ContextGraphServerApi`.
   registerContextGraphApi({
-    api: api as unknown as ContextGraphServerApi,
+    api: serverApi,
     server: engenty.server,
-    sourceRegistry: engenty.server.contextGraphSources as
-      | ContextGraphSourceRegistry
-      | undefined,
+    sourceRegistry: sources,
   });
 };
 

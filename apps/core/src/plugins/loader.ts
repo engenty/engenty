@@ -1,15 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  type ContextGraphServerApi,
-  createContextGraphHost,
-  createContextGraphRepoSupabase,
-  createContextGraphServerApi,
-  createContextGraphSourceRegistry,
-  createOntologyRegistry,
-  type OntologyRegistry,
-} from "@engenty/context-graph";
-import {
+  type ContextGraphHost,
+  type ContextGraphSchemaRegistration,
   createPluginEventsRuntime,
   type EngentyPluginApi,
   type EngentyPluginFactory,
@@ -20,6 +13,7 @@ import {
   type PluginEventInterceptor,
   type PluginEventObserver,
   type PluginEventPayload,
+  type PluginEventsApi,
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
@@ -192,11 +186,6 @@ function toEngentyPluginManifest(
 }
 
 function createPluginApi(params: {
-  contextGraphRegistry: OntologyRegistry;
-  contextGraphServerApi?: ContextGraphServerApi;
-  contextGraphSourceRegistry: ReturnType<
-    typeof createContextGraphSourceRegistry
-  >;
   manifest: PluginManifest;
   pluginApi: ReturnType<ReturnType<typeof createPluginRegistry>["createApi"]>;
   pluginConfig: Record<string, unknown>;
@@ -290,16 +279,28 @@ function createPluginApi(params: {
     manifest: toEngentyPluginManifest(params.manifest),
     server: {
       ...params.pluginApi.server,
-      contextGraph: params.contextGraphServerApi,
-      contextGraphSources: params.contextGraphSourceRegistry,
-      registerContextGraphSchema: createContextGraphHost({
-        events,
-        moduleId: params.record.id,
-        registry: params.contextGraphRegistry,
-        serverApi: params.contextGraphServerApi,
-      }),
+      // Context-graph surfaces delegate to the host installed by the
+      // `@engenty/context-graph` plugin. Read lazily so they resolve
+      // regardless of plugin load order (modules load before packages).
+      get contextGraph() {
+        return params.registry.contextGraphHost?.serverApi;
+      },
+      get contextGraphSources() {
+        return params.registry.contextGraphHost?.sources;
+      },
+      registerContextGraphHost: (host: ContextGraphHost) =>
+        installContextGraphHost(params.registry, host),
+      registerContextGraphSchema: (
+        registration: ContextGraphSchemaRegistration
+      ) =>
+        registerContextGraphSchema({
+          registry: params.registry,
+          events,
+          moduleId: params.record.id,
+          registration,
+        }),
       registerContextGraphSource: (source) =>
-        params.contextGraphSourceRegistry.register(source),
+        params.registry.contextGraphHost?.sources.register(source),
       registerSearchIndexProvider: createSearchIndexHost({
         events,
         registry: params.searchIndexRegistry,
@@ -309,6 +310,50 @@ function createPluginApi(params: {
     source: createPluginSourceInfo(params.record, "server.plugin"),
     ui: {},
   };
+}
+
+/**
+ * Install the context-graph host (from the `@engenty/context-graph` plugin) and
+ * flush any schema registrations buffered by consumers that loaded first.
+ */
+function installContextGraphHost(
+  registry: PluginRegistry,
+  host: ContextGraphHost
+): void {
+  registry.contextGraphHost = host;
+  const pending = registry.pendingContextGraphSchemas;
+  if (pending?.length) {
+    for (const item of pending) {
+      host.createSchemaRegistrar(item.events, item.moduleId)(item.registration);
+    }
+    registry.pendingContextGraphSchemas = [];
+  }
+}
+
+/**
+ * Delegate a schema registration to the installed host, or buffer it when the
+ * host plugin has not loaded yet (modules discover before packages). Deferred
+ * registrations return no receipt — dispose is not needed at boot.
+ */
+function registerContextGraphSchema(params: {
+  events: PluginEventsApi;
+  moduleId: string;
+  registration: ContextGraphSchemaRegistration;
+  registry: PluginRegistry;
+}) {
+  const host = params.registry.contextGraphHost;
+  if (host) {
+    return host.createSchemaRegistrar(
+      params.events,
+      params.moduleId
+    )(params.registration);
+  }
+  (params.registry.pendingContextGraphSchemas ??= []).push({
+    events: params.events,
+    moduleId: params.moduleId,
+    registration: params.registration,
+  });
+  return undefined;
 }
 
 function pushOwnedEventRegistration(params: {
@@ -526,33 +571,12 @@ export function registerPluginFactory(params: {
     createSearchIndexRegistry();
   params.registry.searchIndexRegistry = searchIndexRegistry;
 
-  const contextGraphRegistry =
-    params.registry.contextGraphRegistry ?? createOntologyRegistry();
-  params.registry.contextGraphRegistry = contextGraphRegistry;
-  if (!params.registry.contextGraphServerApi) {
-    const dbAdapter = params.registry.getDatabaseAdapter?.() ?? null;
-    if (dbAdapter) {
-      params.registry.contextGraphServerApi = createContextGraphServerApi({
-        registry: contextGraphRegistry,
-        repo: createContextGraphRepoSupabase(dbAdapter),
-      });
-    }
-  }
-  const contextGraphServerApi = params.registry.contextGraphServerApi;
-  const contextGraphSourceRegistry =
-    params.registry.contextGraphSourceRegistry ??
-    createContextGraphSourceRegistry();
-  params.registry.contextGraphSourceRegistry = contextGraphSourceRegistry;
-
   try {
     const mod = jiti(params.record.source) as { default?: LoadedPluginEntry };
     const def = mod?.default;
     if (typeof def === "function") {
       const api = createApi(params.record, pluginConfig);
       const pluginApi = createPluginApi({
-        contextGraphRegistry,
-        contextGraphServerApi,
-        contextGraphSourceRegistry,
         manifest: params.manifest,
         pluginApi: api,
         pluginConfig,
