@@ -14,7 +14,7 @@ function requireEnvUrl(key: string): string {
   const value = typeof raw === "string" ? raw.trim() : "";
   if (!value) {
     throw new Error(
-      `Missing ${key}. Run pnpm portless:env:sync (see docs/dev/portless-local-urls.md).`
+      `Missing ${key}. Run pnpm dev:urls:portless (see docs/dev/portless-local-urls.md).`
     );
   }
   try {
@@ -25,7 +25,7 @@ function requireEnvUrl(key: string): string {
     return value.replace(/\/$/, "");
   } catch {
     throw new Error(
-      `Invalid ${key}="${value}". Run pnpm portless:env:sync (see docs/dev/portless-local-urls.md).`
+      `Invalid ${key}="${value}". Run pnpm dev:urls:portless (see docs/dev/portless-local-urls.md).`
     );
   }
 }
@@ -37,7 +37,7 @@ function parseCorsOrigins(raw: string): string[] {
     .filter(Boolean);
   if (origins.length === 0) {
     throw new Error(
-      "ENGENTY_CORS_ORIGINS must list at least one origin. Run pnpm portless:env:sync."
+      "ENGENTY_CORS_ORIGINS must list at least one origin. Run pnpm dev:urls:portless."
     );
   }
   for (const origin of origins) {
@@ -72,7 +72,7 @@ function readCorsOriginsFromEnv(): string[] {
   const value = typeof raw === "string" ? raw.trim() : "";
   if (!value) {
     throw new Error(
-      "Missing ENGENTY_CORS_ORIGINS. Run pnpm portless:env:sync (see docs/dev/portless-local-urls.md)."
+      "Missing ENGENTY_CORS_ORIGINS. Run pnpm dev:urls:portless (see docs/dev/portless-local-urls.md)."
     );
   }
   return parseCorsOrigins(value);
