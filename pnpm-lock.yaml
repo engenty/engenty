@@ -195,9 +195,6 @@ importers:
       '@engenty/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
-      '@engenty/context-graph':
-        specifier: workspace:*
-        version: link:../../packages/context-graph
       '@engenty/dashboard-core':
         specifier: workspace:*
         version: link:../../packages/dashboard-core

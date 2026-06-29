@@ -4,7 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  assertUiWorkspaceDependencies,
   collectChangedGeneratedArtifacts,
   createUiCatalogSourceInfo,
   enrichManifestForUiArtifacts,
@@ -13,6 +12,7 @@ import {
   renderCatalog,
   renderTailwindSources,
 } from "./plugin-artifact-generator-lib.mjs";
+import { enabledModuleSlugSet } from "../../../scripts/lib/engenty-modules.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,23 +63,11 @@ function listPackageDirs(rootDir) {
 }
 
 function listWorkspacePackageDirs() {
-  return [...listPackageDirs(modulesDir), ...listPackageDirs(packagesDir)];
-}
-
-function collectWorkspacePackageNames(packageDirs) {
-  return packageDirs
-    .map((pkgDir) => {
-      const manifestPath = path.join(pkgDir, "package.json");
-      if (!fs.existsSync(manifestPath)) {
-        return null;
-      }
-      const packageManifest = readJson(manifestPath);
-      return typeof packageManifest.name === "string" &&
-        packageManifest.name.trim()
-        ? packageManifest.name.trim()
-        : null;
-    })
-    .filter(Boolean);
+  const enabled = enabledModuleSlugSet(repoRootDir);
+  const moduleDirs = listPackageDirs(modulesDir).filter((dir) =>
+    enabled.has(path.basename(dir))
+  );
+  return [...moduleDirs, ...listPackageDirs(packagesDir)];
 }
 
 function discoverUiPlugins(packageDirs) {
@@ -163,7 +151,7 @@ function checkGeneratedArtifacts(artifacts) {
     .map((filePath) => `- ${path.relative(repoRootDir, filePath)}`)
     .join("\n");
   throw new Error(
-    `Generated plugin artifacts are out of date:\n${changedPaths}\nRun pnpm --filter @engenty/ui generate:plugins and commit apps/ui/src/plugins/generated-catalog.ts and apps/ui/src/plugins/generated-tailwind-sources.css.`
+    `Generated plugin artifacts are out of date:\n${changedPaths}\nRun pnpm engenty setup (or pnpm --filter @engenty/ui generate:plugins).`
   );
 }
 
@@ -177,11 +165,6 @@ function main() {
 
   const packageDirs = listWorkspacePackageDirs();
   const entries = discoverUiPlugins(packageDirs);
-  assertUiWorkspaceDependencies({
-    entries,
-    uiPackageManifest: readJson(path.join(uiRootDir, "package.json")),
-    workspacePackageNames: collectWorkspacePackageNames(packageDirs),
-  });
 
   const artifacts = renderGeneratedArtifacts(entries);
   if (args.has("--check")) {

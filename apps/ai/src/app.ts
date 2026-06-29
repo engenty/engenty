@@ -147,7 +147,7 @@ export async function createApp(options: CreateAppOptions = {}) {
       /**
        * Mastra Studio sends cross-origin requests with `credentials: "include"`.
        * Scope still comes from Authorization where required; this only lets the browser accept
-       * credentialed preflights from ENGENTY_CORS_ORIGINS (see portless:env:sync).
+       * credentialed preflights from ENGENTY_CORS_ORIGINS (see pnpm dev:urls:portless).
        */
       credentials: true,
       maxAge: 86_400,

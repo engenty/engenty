@@ -21,10 +21,6 @@ export default defineConfig({
         repoRoot,
         "packages/plugin-sdk/src/index.ts"
       ),
-      "@engenty/pdf-service": path.resolve(
-        repoRoot,
-        "packages/pdf-service/src/index.ts"
-      ),
       "@engenty/ai-core/browser": path.resolve(
         repoRoot,
         "packages/ai-core/src/browser.ts"

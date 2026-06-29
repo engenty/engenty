@@ -28,6 +28,7 @@ export default defineConfig({
       "packages/**/*.test.tsx",
       "modules/**/*.test.ts",
       "modules/**/*.test.tsx",
+      "scripts/**/*.test.ts",
     ],
     exclude: ["**/node_modules/**", "**/dist/**", "**/*.d.ts"],
     setupFiles: [
@@ -41,10 +42,6 @@ export default defineConfig({
       "@engenty/plugin-sdk": path.resolve(
         repoRoot,
         "packages/plugin-sdk/src/index.ts"
-      ),
-      "@engenty/pdf-service": path.resolve(
-        repoRoot,
-        "packages/pdf-service/src/index.ts"
       ),
       "@engenty/ai-core/browser": path.resolve(
         repoRoot,

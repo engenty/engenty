@@ -183,6 +183,16 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
   const shared: Record<string, string> = {
     "@": path.join(appRoot, "src"),
     "@engenty/engenty-copilot/paths": path.join(engentyCopilotUi, "paths.ts"),
+    "@engenty/engenty-copilot/ai/frontend-tools/register": path.join(
+      engentyCopilotAi,
+      "frontend-tools",
+      "register-all.ts"
+    ),
+    "@engenty/engenty-copilot/ai/ui/frontend-tools": path.join(
+      engentyCopilotAi,
+      "frontend-tools",
+      "register-all.ts"
+    ),
     "@engenty/api-client": path.join(apiClient, "src", "index.ts"),
     "@engenty/environment": path.join(environment, "index.ts"),
     "@engenty/projects/ui/public-plugin": path.join(
@@ -230,16 +240,6 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
         "@engenty/generative-ui": path.join(generativeUi, "index.ts"),
         "@engenty/pdf-templates/core": path.join(pdfTemplates, "core.ts"),
         "@engenty/pdf-templates": path.join(pdfTemplates, "index.ts"),
-        "@engenty/engenty-copilot/ai/frontend-tools/register": path.join(
-          engentyCopilotAi,
-          "frontend-tools",
-          "register-all.ts"
-        ),
-        "@engenty/engenty-copilot/ai/ui/frontend-tools": path.join(
-          engentyCopilotAi,
-          "frontend-tools",
-          "register-all.ts"
-        ),
         "@engenty/projects/ui/portal": path.join(projectsUi, "portal.ts"),
       }
     : {};

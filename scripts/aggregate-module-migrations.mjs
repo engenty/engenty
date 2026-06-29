@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
  */
 import fs from "node:fs";
 import path from "node:path";
+import { enabledModuleSlugSet } from "./lib/engenty-modules.mjs";
 
 const TIMESTAMP_REGEX = /^(\d{14})_(.+)\.sql$/;
 const PLUGIN_SLUG_PREFIX = "plugin_";
@@ -49,7 +50,7 @@ function readPackageJson(dir) {
   }
 }
 
-function discoverMigrationOwners(parentDir, ownerKind) {
+function discoverMigrationOwners(parentDir, ownerKind, enabledModuleSlugs) {
   if (!(fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory())) {
     return [];
   }
@@ -57,6 +58,14 @@ function discoverMigrationOwners(parentDir, ownerKind) {
   const owners = [];
   for (const ent of entries) {
     if (!ent.isDirectory()) {
+      continue;
+    }
+    if (
+      ownerKind === "module" &&
+      parentDir.endsWith(`${path.sep}modules`) &&
+      enabledModuleSlugs &&
+      !enabledModuleSlugs.has(ent.name)
+    ) {
       continue;
     }
     const ownerDir = path.join(parentDir, ent.name);
@@ -184,10 +193,12 @@ function main() {
   const packagesDir = path.join(root, "packages");
   const outDir = path.join(root, "supabase", "migrations");
 
+  const enabledModuleSlugs = enabledModuleSlugSet(root);
+
   const owners = [
     ...discoverMigrationOwners(appsDir, "core"),
-    ...discoverMigrationOwners(modulesDir, "module"),
-    ...discoverMigrationOwners(packagesDir, "module"),
+    ...discoverMigrationOwners(modulesDir, "module", enabledModuleSlugs),
+    ...discoverMigrationOwners(packagesDir, "module", enabledModuleSlugs),
   ];
   if (owners.length === 0) {
     return;

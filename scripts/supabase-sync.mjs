@@ -1,30 +1,38 @@
 #!/usr/bin/env node
 /**
- * Composes module-owned Supabase storage buckets into supabase/config.toml,
- * then aggregates owned SQL migrations into supabase/migrations.
+ * Composes module-owned Supabase config from what's installed on disk:
+ * - `[api].schemas` from CREATE SCHEMA in aggregated migrations (base schemas only in git)
+ * - `[storage.buckets.*]` from engenty.plugin.json → supabase.storageBuckets (empty in git)
+ * - SQL migrations aggregated into supabase/migrations (gitignored)
  *
- * Buckets are declared per-module in engenty.plugin.json under
- * `supabase.storageBuckets`. This script scans apps/*, packages/* and modules/*
- * present on disk, renders a [storage.buckets.<name>] block for each, and writes
- * them between the managed markers in config.toml:
- *
- *   # >>> engenty:storage-buckets (managed by `pnpm supabase:sync` — do not edit by hand)
- *   # <<< engenty:storage-buckets
- *
- * Run from repo root. Idempotent: only writes config.toml when content changes.
- * Then runs scripts/aggregate-module-migrations.mjs so `supabase:sync` is a
- * single sweep: compose buckets + aggregate migrations from what's installed.
+ * Local supabase/config.toml is gitignored — materialize from config.toml.example via pnpm engenty setup.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-const MARKER_BEGIN =
-  "# >>> engenty:storage-buckets (managed by `pnpm supabase:sync` — do not edit by hand)";
-const MARKER_END = "# <<< engenty:storage-buckets";
+import {
+  composeApiSchemas,
+  syncApiSchemasInConfigToml,
+  syncStorageBucketsInConfigToml,
+} from "./supabase-sync-lib.mjs";
+import { enabledModuleSlugSet } from "./lib/engenty-modules.mjs";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+function ensureLocalSupabaseConfig(root) {
+  const configPath = path.join(root, "supabase", "config.toml");
+  if (fs.existsSync(configPath)) {
+    return;
+  }
+  const examplePath = path.join(root, "supabase", "config.toml.example");
+  if (!fs.existsSync(examplePath)) {
+    throw new Error(
+      `Missing ${configPath}. Run pnpm engenty setup or copy supabase/config.toml.example.`
+    );
+  }
+  fs.copyFileSync(examplePath, configPath);
+}
 
 function resolveRepoRoot() {
   let dir = process.cwd();
@@ -64,13 +72,20 @@ function readPluginManifest(dir) {
   }
 }
 
-function discoverBucketOwners(parentDir) {
+function discoverBucketOwners(parentDir, enabledModuleSlugs) {
   if (!(fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory())) {
     return [];
   }
   const owners = [];
   for (const ent of fs.readdirSync(parentDir, { withFileTypes: true })) {
     if (!ent.isDirectory()) {
+      continue;
+    }
+    if (
+      parentDir.endsWith(`${path.sep}modules`) &&
+      enabledModuleSlugs &&
+      !enabledModuleSlugs.has(ent.name)
+    ) {
       continue;
     }
     const manifest = readPluginManifest(path.join(parentDir, ent.name));
@@ -106,10 +121,11 @@ function renderBucketBlock(bucket) {
 }
 
 function composeBuckets(root) {
+  const enabledModuleSlugs = enabledModuleSlugSet(root);
   const owners = [
     ...discoverBucketOwners(path.join(root, "apps")),
     ...discoverBucketOwners(path.join(root, "packages")),
-    ...discoverBucketOwners(path.join(root, "modules")),
+    ...discoverBucketOwners(path.join(root, "modules"), enabledModuleSlugs),
   ];
 
   const all = [];
@@ -140,33 +156,35 @@ function composeBuckets(root) {
   };
 }
 
-function syncConfigToml(root, composed) {
+function writeConfigTomlIfChanged(configPath, next) {
+  const original = fs.readFileSync(configPath, "utf-8");
+  if (next === original) {
+    return false;
+  }
+  fs.writeFileSync(configPath, next, "utf-8");
+  return true;
+}
+
+function syncConfigToml(root, composedBuckets) {
   const configPath = path.join(root, "supabase", "config.toml");
   if (!fs.existsSync(configPath)) {
     throw new Error(`supabase/config.toml not found at ${configPath}`);
   }
   const original = fs.readFileSync(configPath, "utf-8");
+  const next = syncStorageBucketsInConfigToml(original, composedBuckets.blocks);
+  return writeConfigTomlIfChanged(configPath, next);
+}
 
-  const beginIdx = original.indexOf(MARKER_BEGIN);
-  const endIdx = original.indexOf(MARKER_END);
-  if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
-    throw new Error(
-      `Managed storage-bucket markers not found in supabase/config.toml. Expected:\n${MARKER_BEGIN}\n${MARKER_END}`
-    );
+function syncApiSchemas(root) {
+  const configPath = path.join(root, "supabase", "config.toml");
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`supabase/config.toml not found at ${configPath}`);
   }
-
-  const before = original.slice(0, beginIdx + MARKER_BEGIN.length);
-  const after = original.slice(endIdx);
-
-  const middle =
-    composed.blocks.length > 0 ? `\n${composed.blocks.join("\n\n")}\n` : "\n";
-
-  const next = `${before}${middle}${after}`;
-  if (next !== original) {
-    fs.writeFileSync(configPath, next, "utf-8");
-    return true;
-  }
-  return false;
+  const migrationsDir = path.join(root, "supabase", "migrations");
+  const schemas = composeApiSchemas(migrationsDir);
+  const original = fs.readFileSync(configPath, "utf-8");
+  const next = syncApiSchemasInConfigToml(original, schemas);
+  return { changed: writeConfigTomlIfChanged(configPath, next), schemas };
 }
 
 function countAggregatedMigrations(root) {
@@ -179,22 +197,26 @@ function countAggregatedMigrations(root) {
 
 function main() {
   const root = resolveRepoRoot();
+  ensureLocalSupabaseConfig(root);
 
-  const composed = composeBuckets(root);
-  const changed = syncConfigToml(root, composed);
+  const composedBuckets = composeBuckets(root);
+  const bucketsChanged = syncConfigToml(root, composedBuckets);
 
-  // Aggregate migrations in the same sweep.
   execFileSync(
     process.execPath,
     [path.join(SCRIPT_DIR, "aggregate-module-migrations.mjs")],
     { cwd: root, stdio: "inherit" }
   );
 
+  const { changed: schemasChanged, schemas } = syncApiSchemas(root);
   const migrationCount = countAggregatedMigrations(root);
+  const configChanged = bucketsChanged || schemasChanged;
 
   console.log(
-    `supabase:sync: composed ${composed.bucketCount} bucket(s) from ${composed.moduleCount} module(s)` +
-      `${changed ? "" : " (config.toml unchanged)"}; ${migrationCount} migration(s) aggregated.`
+    `supabase:sync: composed ${composedBuckets.bucketCount} bucket(s) from ${composedBuckets.moduleCount} module(s);` +
+      ` exposed ${schemas.length} api schema(s)` +
+      `${configChanged ? "" : " (config.toml unchanged)"};` +
+      ` ${migrationCount} migration(s) aggregated.`
   );
 }
 

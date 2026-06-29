@@ -133,7 +133,7 @@ function getSnapshotFileToRestore() {
   // No file specified, find the latest one
   if (!fs.existsSync(snapshotDir)) {
     console.error(`Error: Snapshot directory "${snapshotDir}" does not exist.`);
-    console.error("Please create a snapshot first using 'pnpm db:snapshot'.");
+    console.error("Please create a snapshot first using 'engenty db snapshot'.");
     process.exit(1);
   }
 
@@ -147,7 +147,7 @@ function getSnapshotFileToRestore() {
 
   if (snapshotFiles.length === 0) {
     console.error(`Error: No snapshot files found in "${snapshotDir}".`);
-    console.error("Please create a snapshot first using 'pnpm db:snapshot'.");
+    console.error("Please create a snapshot first using 'engenty db snapshot'.");
     process.exit(1);
   }
 
@@ -183,7 +183,7 @@ function runRestore() {
 
   console.log("Resetting database before restoring snapshot...");
   try {
-    execSync("pnpm db:reset", { stdio: "inherit", cwd: root });
+    execSync("pnpm engenty db reset", { stdio: "inherit", cwd: root });
   } catch (error) {
     console.error("Error resetting database:", error.message);
     process.exit(1);
@@ -211,7 +211,7 @@ if (action === "snapshot") {
 } else {
   console.error(`Unknown action: ${action}`);
   console.error(
-    "Usage: node scripts/db-snapshot.mjs [snapshot|restore] [snapshot-filename]"
+    "Usage: node scripts/db-snapshot.mjs [snapshot|restore] [snapshot-filename]\nAlso: engenty db snapshot | engenty db restore [file]"
   );
   process.exit(1);
 }
