@@ -1,6 +1,10 @@
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatPluginList, registerPluginCommands } from "./plugin-commands.js";
+import {
+  formatPluginList,
+  mergePlugins,
+  registerPluginCommands,
+} from "./plugin-commands.js";
 
 function createProgram() {
   const program = new Command();
@@ -36,25 +40,42 @@ describe("plugin CLI commands", () => {
     vi.unstubAllGlobals();
   });
 
-  it("formats plugin list output", () => {
-    expect(
-      formatPluginList([
-        {
-          enabled: true,
-          id: "contacts",
-          loaded: true,
-          packageName: "@engenty/contacts",
-          sourceType: "module",
-          version: "1.0.0",
-        },
-        {
-          enabled: false,
-          id: "leads",
-          loaded: false,
-          sourceType: "package",
-        },
+  it("formats merged plugin list output", () => {
+    const output = formatPluginList(
+      mergePlugins(
+        [
+          { slug: "contacts", onDisk: true, enabled: true, hasUi: true },
+          { slug: "leads", onDisk: true, enabled: false, hasUi: false },
+        ],
+        [
+          {
+            enabled: true,
+            id: "contacts",
+            loaded: true,
+            packageName: "@engenty/contacts",
+            sourceType: "module",
+            version: "1.0.0",
+          },
+        ]
+      )
+    );
+    // Live state present → enriched columns appear.
+    expect(output).toContain("STATUS");
+    expect(output).toContain("contacts");
+    expect(output).toContain("enabled");
+    expect(output).toContain("1.0.0");
+    expect(output).toContain("leads");
+  });
+
+  it("formats disk-only plugin list when no live state is available", () => {
+    const output = formatPluginList(
+      mergePlugins([
+        { slug: "contacts", onDisk: true, enabled: true, hasUi: true },
       ])
-    ).toContain("contacts  enabled");
+    );
+    expect(output).toContain("PLUGIN");
+    expect(output).not.toContain("STATUS");
+    expect(output).toContain("contacts");
   });
 
   it("maps plugins list to the tenant-aware API endpoint", async () => {
@@ -238,7 +259,7 @@ describe("plugin CLI commands", () => {
     expect(help).toContain("--yes");
     expect(help).toContain("--display-name");
     expect(help).toContain("--ui-load");
-    expect(help).toContain("--no-wire-ui");
-    expect(help).toContain("--no-install");
+    expect(help).toContain("--no-ui");
+    expect(help).toContain("--no-server-routes");
   });
 });

@@ -1,20 +1,30 @@
 /**
- * True when argv targets lightweight commands that must run without plugin boot:
- * plugin scaffold/wire commands, and `engenty env *` (a broken/missing env must
- * not break the command that fixes it).
+ * True when argv targets lightweight commands that must run without plugin boot.
+ * Fresh installs only have source — the plugin host needs built workspace packages.
+ *
+ * Keep in sync with scripts/lib/should-defer-plugin-boot.mjs
  */
 export function shouldDeferPluginBoot(
   argv: readonly string[] = process.argv
 ): boolean {
   const args = argv.slice(2);
-  if (args[0] === "env") {
+  if (args.length === 0) {
     return true;
   }
-  const pluginsIndex = args.indexOf("plugins");
-  if (pluginsIndex === -1) {
-    return false;
+  if (args.every((arg) => arg.startsWith("-"))) {
+    return true;
   }
-  return args
-    .slice(pluginsIndex + 1)
-    .some((arg) => arg === "create" || arg === "wire-ui");
+
+  const command = args[0];
+  if (
+    command === "env" ||
+    command === "setup" ||
+    command === "init" ||
+    command === "db" ||
+    command === "plugins"
+  ) {
+    return true;
+  }
+
+  return false;
 }

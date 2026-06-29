@@ -6,18 +6,19 @@ import {
   registerAuthCommands,
   registerModuleOperationCommands,
 } from "./cli/commands.js";
+import { registerDbCommands } from "./cli/db/db-commands.js";
 import { registerEnvCommands } from "./cli/env-setup/env-commands.js";
+import { registerSetupCommands } from "./cli/setup/setup-commands.js";
 import { registerPluginCommands } from "./cli/plugin-commands.js";
 import { shouldDeferPluginBoot } from "./cli/plugin-create/plugin-create-cli-path.js";
 import { registerSkillsCommands } from "./cli/tools/skills-commands.js";
 import { registerToolsCommands } from "./cli/tools/tools-commands.js";
 import { createBootApiLogger, initEvlog, log } from "./observability/evlog.js";
 import { resolveModulesDir } from "./plugins/discovery.js";
-import { loadPlugins } from "./plugins/loader.js";
 
 loadCoreRuntimeEnvFromCallerSrcDir(import.meta.url);
 
-export function createCli(): Command {
+export async function createCli(): Promise<Command> {
   const program = new Command("engenty")
     .description("Modular agent-friendly business app")
     .version("0.0.1");
@@ -37,15 +38,23 @@ export function createCli(): Command {
   const existingCommands = new Set(program.commands.map((c) => c.name()));
   registerAuthCommands(program);
   registerEnvCommands(program);
+  registerSetupCommands(program);
+  registerDbCommands(program);
   registerPluginCommands(program);
   registerToolsCommands(program);
   registerSkillsCommands(program);
   registerModuleOperationCommands(program);
 
+  // A command group invoked without a subcommand should print its help and
+  // exit 0, not exit 1. The non-zero exit otherwise cascades through pnpm as
+  // ERR_PNPM_RECURSIVE_EXEC / ELIFECYCLE on `pnpm engenty <group>`.
+  defaultToHelpForGroups(program);
+
   if (shouldDeferPluginBoot()) {
     return program;
   }
 
+  const { loadPlugins } = await import("./plugins/loader.js");
   const registry = loadPlugins({
     modulesDir: resolveModulesDir(),
     dataDir,
@@ -79,5 +88,29 @@ export function createCli(): Command {
     }
   }
 
+  // Re-apply to cover any plugin-contributed groups registered above.
+  defaultToHelpForGroups(program);
+
   return program;
+}
+
+/**
+ * Recursively give every command that has subcommands but no action handler a
+ * default action that prints help to stdout and exits 0. Idempotent: commands
+ * that already have an action (including ones we added) are left untouched.
+ */
+function defaultToHelpForGroups(command: Command): void {
+  for (const sub of command.commands) {
+    defaultToHelpForGroups(sub);
+  }
+  const hasSubcommands = command.commands.length > 0;
+  // `_actionHandler` is commander-internal; absent when no `.action()` was set.
+  const hasAction = Boolean(
+    (command as unknown as { _actionHandler?: unknown })._actionHandler
+  );
+  if (hasSubcommands && !hasAction) {
+    command.action(() => {
+      command.outputHelp();
+    });
+  }
 }

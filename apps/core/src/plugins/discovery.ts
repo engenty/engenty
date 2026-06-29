@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { enabledModuleSlugSetFromDir } from "@engenty/environment";
 import {
   ENGENTY_PLUGIN_MANIFEST_FILENAME,
   isConventionalPluginRoot,
@@ -100,9 +101,10 @@ function resolvePlugins(
 }
 
 function discoverFromRoot(params: {
+  enabledModuleSlugs?: Set<string>;
   rootDir: string;
-  sourceType: PluginCandidate["sourceType"];
   seen: Set<string>;
+  sourceType: PluginCandidate["sourceType"];
 }): PluginCandidate[] {
   const candidates: PluginCandidate[] = [];
   const rootDir = path.resolve(params.rootDir);
@@ -113,6 +115,13 @@ function discoverFromRoot(params: {
   const entries = fs.readdirSync(rootDir, { withFileTypes: true });
   for (const ent of entries) {
     if (!ent.isDirectory()) {
+      continue;
+    }
+    if (
+      params.sourceType === "module" &&
+      params.enabledModuleSlugs &&
+      !params.enabledModuleSlugs.has(ent.name)
+    ) {
       continue;
     }
     const moduleDir = path.join(rootDir, ent.name);
@@ -174,8 +183,19 @@ export function discoverPlugins(params: {
   const candidates: PluginCandidate[] = [];
   const modulesDir = path.resolve(params.modulesDir);
   const seen = new Set<string>();
+  let enabledModuleSlugs: Set<string> | undefined;
+  try {
+    enabledModuleSlugs = enabledModuleSlugSetFromDir(modulesDir);
+  } catch {
+    enabledModuleSlugs = undefined;
+  }
   candidates.push(
-    ...discoverFromRoot({ rootDir: modulesDir, sourceType: "module", seen })
+    ...discoverFromRoot({
+      rootDir: modulesDir,
+      sourceType: "module",
+      seen,
+      enabledModuleSlugs,
+    })
   );
   if (params.packagesDir) {
     candidates.push(

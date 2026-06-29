@@ -121,6 +121,37 @@ describe("discoverPlugins", () => {
     );
   });
 
+  it("skips module directories not listed in engenty.plugins", () => {
+    tmpRoot = makeTempDir();
+    fs.writeFileSync(
+      path.join(tmpRoot, "package.json"),
+      JSON.stringify({
+        workspaces: ["modules/*"],
+        engenty: {
+          plugins: { "enabled-only": { source: "workspace" } },
+        },
+      })
+    );
+    const modulesDir = path.join(tmpRoot, "modules");
+
+    for (const slug of ["enabled-only", "disabled-module"]) {
+      const pluginDir = path.join(modulesDir, slug);
+      fs.mkdirSync(pluginDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginDir, "package.json"),
+        JSON.stringify({ name: `@engenty/${slug}` })
+      );
+      fs.writeFileSync(
+        path.join(pluginDir, "index.ts"),
+        "export default {};"
+      );
+    }
+
+    const result = discoverPlugins({ modulesDir });
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.idHint).toBe("enabled-only");
+  });
+
   it("finds plugin with default index.ts", () => {
     tmpRoot = makeTempDir();
     const modulesDir = path.join(tmpRoot, "modules");

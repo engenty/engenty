@@ -1,13 +1,5 @@
-import {
-  cancel,
-  intro,
-  isCancel,
-  multiselect,
-  note,
-  outro,
-  select,
-} from "@clack/prompts";
 import { callCoreApi } from "./core-api.js";
+import { runMultiSelectLoop } from "./select-loop.js";
 
 export interface PluginListItem {
   dbHealth?: string;
@@ -109,85 +101,20 @@ function parseExplicitPluginIds(id: string): string[] {
   return [...new Set(parts)].sort();
 }
 
-async function runPluginSelectionUi(params: {
+function runPluginSelectionUi(params: {
   plugins: PluginListItem[];
   verb: string;
 }): Promise<string[] | "cancelled"> {
-  const { plugins, verb } = params;
-  const allIds = plugins.map((p) => p.id);
-  let selected = new Set(plugins.filter(isPluginActive).map((p) => p.id));
-
-  intro("Select plugins");
-
-  for (;;) {
-    const preview =
-      selected.size === 0 ? "(none)" : Array.from(selected).sort().join(", ");
-    note(preview, `${selected.size} selected`);
-
-    const next = await select({
-      message: "Adjust selection",
-      options: [
-        {
-          value: "edit",
-          label: "Toggle plugins…",
-          hint: "checkbox list",
-        },
-        { value: "all", label: "Select all" },
-        { value: "none", label: "Select none" },
-        { value: "invert", label: "Invert selection" },
-        {
-          value: "done",
-          label: "Continue",
-          hint: `${selected.size} plugin(s)`,
-        },
-      ],
-    });
-
-    if (isCancel(next)) {
-      cancel("Cancelled.");
-      return "cancelled";
-    }
-
-    if (next === "all") {
-      selected = new Set(allIds);
-      continue;
-    }
-    if (next === "none") {
-      selected = new Set();
-      continue;
-    }
-    if (next === "invert") {
-      selected = new Set(allIds.filter((id) => !selected.has(id)));
-      continue;
-    }
-    if (next === "done") {
-      if (selected.size === 0) {
-        note("Pick at least one plugin, or press Esc / Ctrl+C to cancel.");
-        continue;
-      }
-      break;
-    }
-    if (next === "edit") {
-      const picked = await multiselect({
-        message: "Installed plugins",
-        options: plugins.map((p) => ({
-          value: p.id,
-          label: p.id,
-          hint: `${statusLabel(p)} · ${p.sourceType ?? "?"} · ${p.packageName ?? "-"}`,
-        })),
-        initialValues: Array.from(selected),
-        required: false,
-      });
-      if (isCancel(picked)) {
-        cancel("Cancelled.");
-        return "cancelled";
-      }
-      selected = new Set(picked);
-    }
-  }
-
-  outro(`${selected.size} plugin(s) · ${verb}`);
-  return Array.from(selected).sort();
+  return runMultiSelectLoop({
+    title: "Select plugins",
+    doneVerb: params.verb,
+    preselect: params.plugins.filter(isPluginActive).map((p) => p.id),
+    options: params.plugins.map((p) => ({
+      value: p.id,
+      label: p.id,
+      hint: `${statusLabel(p)} · ${p.sourceType ?? "?"} · ${p.packageName ?? "-"}`,
+    })),
+  });
 }
 
 /**

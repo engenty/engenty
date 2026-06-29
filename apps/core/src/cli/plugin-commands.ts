@@ -1,4 +1,7 @@
+import { listWorkspaceModuleSlugsOnDisk } from "@engenty/environment";
 import type { Command } from "commander";
+import { CliApiError } from "./auth-sdk.js";
+import { runCliAction } from "./cli-errors.js";
 import {
   callCoreApi,
   callCoreApiWithAcceptedStatuses,
@@ -9,7 +12,15 @@ import {
   type PluginListItem,
   resolvePluginIdsFromArgsOrPrompt,
 } from "./plugin-id-prompt.js";
-import { registerPluginWireUiCommand } from "./plugin-wire-ui-command.js";
+import { pickWorkspaceSlugs } from "./plugins/pick-workspace-plugins.js";
+import { isInteractiveTerminal } from "./select-loop.js";
+import {
+  disablePluginsInProduct,
+  enablePluginsInProduct,
+  listPluginManifestEntries,
+  type PluginManifestEntry,
+  resolveRepoRoot,
+} from "./plugins/plugins-manifest-ops.js";
 
 interface PluginCommandOpts {
   apiUrl?: string;
@@ -118,20 +129,88 @@ function formatTable(rows: string[][]) {
     .join("\n");
 }
 
-export function formatPluginList(plugins: PluginListItem[]) {
-  if (plugins.length === 0) {
+/**
+ * A plugin row combining disk discovery (always available) with live runtime
+ * state from the core API (only present when the API is reachable).
+ */
+export interface MergedPluginRow {
+  key: string;
+  onDisk: boolean;
+  enabled: boolean;
+  hasUi: boolean;
+  live?: PluginListItem;
+}
+
+/** True when the API could not be reached at all (vs. an HTTP error response). */
+function isApiUnreachable(error: unknown): boolean {
+  return error instanceof CliApiError && error.status === 0;
+}
+
+/**
+ * Merge disk-discovered plugins with live API state. Disk is the base set;
+ * live entries enrich matching rows (by id == slug) and contribute any
+ * package-backed plugins that exist only at runtime.
+ */
+export function mergePlugins(
+  disk: PluginManifestEntry[],
+  live?: PluginListItem[]
+): MergedPluginRow[] {
+  const byKey = new Map<string, MergedPluginRow>();
+  for (const entry of disk) {
+    byKey.set(entry.slug, {
+      key: entry.slug,
+      onDisk: entry.onDisk,
+      enabled: entry.enabled,
+      hasUi: entry.hasUi,
+    });
+  }
+  for (const item of live ?? []) {
+    const existing = byKey.get(item.id);
+    if (existing) {
+      existing.live = item;
+      if (item.enabled !== undefined) {
+        existing.enabled = item.enabled;
+      }
+    } else {
+      byKey.set(item.id, {
+        key: item.id,
+        onDisk: false,
+        enabled: item.enabled ?? false,
+        hasUi: false,
+        live: item,
+      });
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function formatPluginList(rows: MergedPluginRow[]) {
+  if (rows.length === 0) {
     return "No plugins found.";
   }
+  const hasLive = rows.some((row) => row.live);
+  const header = hasLive
+    ? ["PLUGIN", "ON-DISK", "ENABLED", "UI", "STATUS", "VERSION", "PACKAGE"]
+    : ["PLUGIN", "ON-DISK", "ENABLED", "UI"];
   return formatTable([
-    ["ID", "STATUS", "LOADED", "SOURCE", "VERSION", "PACKAGE"],
-    ...plugins.map((plugin) => [
-      plugin.id,
-      statusLabel(plugin),
-      plugin.loaded === false ? "no" : "yes",
-      plugin.sourceType ?? "-",
-      plugin.version ?? "-",
-      plugin.packageName ?? "-",
-    ]),
+    header,
+    ...rows.map((row) => {
+      const base = [
+        row.key,
+        row.onDisk ? "yes" : "no",
+        row.enabled ? "yes" : "no",
+        row.hasUi ? "yes" : "no",
+      ];
+      if (!hasLive) {
+        return base;
+      }
+      return [
+        ...base,
+        row.live ? statusLabel(row.live) : "-",
+        row.live?.version ?? "-",
+        row.live?.packageName ?? "-",
+      ];
+    }),
   ]);
 }
 
@@ -204,27 +283,51 @@ export function registerPluginCommands(program: Command): void {
     .description("Manage Engenty plugins");
 
   registerPluginCreateCommand(plugins);
-  registerPluginWireUiCommand(plugins);
 
   plugins
     .command("list")
-    .description("List discovered plugins")
+    .description(
+      "List plugins discovered on disk, enriched with live runtime state when the API is reachable"
+    )
     .option("--api-url <url>", "API base URL", defaultApiUrl)
     .option("--token <token>", "Bearer JWT")
     .option("--tenant <id>", "Tenant ID for effective plugin state")
     .option("--json", "Print raw JSON response")
-    .action(async (opts: PluginCommandOpts) => {
-      const payload = await callCoreApi<ApiPayload<PluginListItem[]>>(
-        opts,
-        "GET",
-        `/api/plugins${tenantQuery(opts)}`
-      );
-      if (opts.json) {
-        printJson(payload);
-        return;
-      }
-      console.log(formatPluginList(unwrapApiData(payload)));
-    });
+    .action(
+      runCliAction(async (opts: PluginCommandOpts) => {
+        const diskEntries = listPluginManifestEntries(resolveRepoRoot());
+
+        let liveItems: PluginListItem[] | undefined;
+        try {
+          const payload = await callCoreApi<ApiPayload<PluginListItem[]>>(
+            opts,
+            "GET",
+            `/api/plugins${tenantQuery(opts)}`
+          );
+          liveItems = unwrapApiData(payload);
+        } catch (error) {
+          // Disk is the source of truth; the API only enriches. A reachability
+          // failure is non-fatal, but real HTTP errors (401/403/…) still bubble.
+          if (!isApiUnreachable(error)) {
+            throw error;
+          }
+        }
+
+        const rows = mergePlugins(diskEntries, liveItems);
+
+        if (opts.json) {
+          printJson({ apiAvailable: liveItems !== undefined, plugins: rows });
+          return;
+        }
+
+        if (liveItems === undefined) {
+          console.error(
+            "API not reachable — showing plugins on disk only. Start the API for live runtime state (status, version, tenant overrides)."
+          );
+        }
+        console.log(formatPluginList(rows));
+      })
+    );
 
   plugins
     .command("activate")
@@ -307,23 +410,97 @@ export function registerPluginCommands(program: Command): void {
   plugins
     .command("install")
     .description(
-      "Plan or run package-backed plugin installation through the core API"
+      "Install plugin(s) into the product — in-repo workspace modules by slug (manifest + setup), or external packages by spec (via the core API)"
     )
-    .argument("<package-spec>", "npm package name or package@version")
-    .option("--api-url <url>", "API base URL", defaultApiUrl)
-    .option("--token <token>", "Bearer JWT")
-    .option("--confirm-package-mutation", "Allow the API to run pnpm mutation")
+    .argument(
+      "[target...]",
+      "Workspace module slug(s) and/or external package spec(s)"
+    )
+    .option("--all", "Install every workspace module on disk (in-repo)")
+    .option("--api-url <url>", "API base URL (external packages)", defaultApiUrl)
+    .option("--token <token>", "Bearer JWT (external packages)")
+    .option(
+      "--confirm-package-mutation",
+      "Allow the API to run pnpm mutation (external packages)"
+    )
     .option("--json", "Print raw JSON response")
-    .action(async (packageSpec: string, opts: PackageLifecycleCommandOpts) => {
-      await runPackageLifecycleCommand({
-        body: {
-          confirm_package_mutation: opts.confirmPackageMutation === true,
-          package_spec: packageSpec,
-        },
-        endpoint: `/api/plugins/${encodeURIComponent(packageSpec)}/install`,
-        opts,
-      });
-    });
+    .action(
+      runCliAction(
+        async (
+          targets: string[],
+          opts: PackageLifecycleCommandOpts & { all?: boolean }
+        ) => {
+          const repoRoot = resolveRepoRoot();
+          const workspaceSlugs = new Set(
+            listWorkspaceModuleSlugsOnDisk(repoRoot)
+          );
+
+          // No targets and no --all → interactively pick installable workspace
+          // modules (on disk, not yet installed).
+          if (targets.length === 0 && opts.all !== true) {
+            if (opts.json) {
+              throw new Error(
+                "Provide a target (slug or package spec) or --all with --json."
+              );
+            }
+            if (!isInteractiveTerminal()) {
+              throw new Error(
+                "Provide a workspace module slug, an external package spec, or pass --all."
+              );
+            }
+            const installable = listPluginManifestEntries(repoRoot).filter(
+              (e) => e.onDisk && !e.enabled
+            );
+            if (installable.length === 0) {
+              console.log("All workspace plugins are already installed.");
+              return;
+            }
+            const picked = await pickWorkspaceSlugs({
+              entries: installable,
+              verb: "install",
+            });
+            if (picked === "cancelled") {
+              return;
+            }
+            const result = enablePluginsInProduct({ repoRoot, slugs: picked });
+            for (const message of result.messages) {
+              console.log(message);
+            }
+            return;
+          }
+
+          const inRepo =
+            opts.all === true
+              ? [...workspaceSlugs]
+              : targets.filter((t) => workspaceSlugs.has(t));
+          const external =
+            opts.all === true
+              ? []
+              : targets.filter((t) => !workspaceSlugs.has(t));
+
+          if (inRepo.length === 0 && external.length === 0) {
+            throw new Error("Nothing to install.");
+          }
+
+          if (inRepo.length > 0) {
+            const result = enablePluginsInProduct({ repoRoot, slugs: inRepo });
+            for (const message of result.messages) {
+              console.log(message);
+            }
+          }
+          for (const spec of external) {
+            await runPackageLifecycleCommand({
+              body: {
+                confirm_package_mutation: opts.confirmPackageMutation === true,
+                package_spec: spec,
+              },
+              endpoint: `/api/plugins/${encodeURIComponent(spec)}/install`,
+              opts,
+            });
+          }
+        }
+      )
+    );
 
   plugins
     .command("update")
@@ -373,43 +550,77 @@ export function registerPluginCommands(program: Command): void {
   plugins
     .command("uninstall")
     .description(
-      "Plan or run package-backed plugin uninstall through the core API"
+      "Uninstall plugin(s) from the product — in-repo workspace modules by slug (manifest + setup), or external packages by id (via the core API)"
     )
-    .argument("[id]", "Plugin ID (interactive pick when omitted)")
-    .option("--api-url <url>", "API base URL", defaultApiUrl)
-    .option("--token <token>", "Bearer JWT")
-    .option("--confirm-package-mutation", "Allow the API to run pnpm mutation")
+    .argument(
+      "[target...]",
+      "Workspace module slug(s) and/or external plugin id(s)"
+    )
+    .option("--api-url <url>", "API base URL (external packages)", defaultApiUrl)
+    .option("--token <token>", "Bearer JWT (external packages)")
+    .option(
+      "--confirm-package-mutation",
+      "Allow the API to run pnpm mutation (external packages)"
+    )
     .option("--json", "Print raw JSON response")
     .action(
-      async (id: string | undefined, opts: PackageLifecycleCommandOpts) => {
-        const resolved = await resolvePluginIdsFromArgsOrPrompt({
-          id,
-          json: opts.json === true,
-          opts,
-          verb: "uninstall",
-        });
-        if (resolved === "cancelled") {
-          return;
-        }
-        const payloads: ApiPayload<PackageLifecycleResult>[] = [];
-        for (const pluginId of resolved) {
-          payloads.push(
-            await invokePackageLifecycleRequest({
+      runCliAction(
+        async (targets: string[], opts: PackageLifecycleCommandOpts) => {
+          const repoRoot = resolveRepoRoot();
+          const workspaceSlugs = new Set(
+            listWorkspaceModuleSlugsOnDisk(repoRoot)
+          );
+
+          // No targets → interactively pick from installed workspace plugins.
+          if (targets.length === 0) {
+            if (opts.json) {
+              throw new Error("Provide a target (slug or id) with --json.");
+            }
+            if (!isInteractiveTerminal()) {
+              throw new Error(
+                "Provide plugin slug(s) / id(s) to uninstall."
+              );
+            }
+            const installed = listPluginManifestEntries(repoRoot).filter(
+              (e) => e.enabled
+            );
+            if (installed.length === 0) {
+              console.log("No workspace plugins are installed.");
+              return;
+            }
+            const picked = await pickWorkspaceSlugs({
+              entries: installed,
+              verb: "uninstall",
+            });
+            if (picked === "cancelled") {
+              return;
+            }
+            const result = disablePluginsInProduct({ repoRoot, slugs: picked });
+            for (const message of result.messages) {
+              console.log(message);
+            }
+            return;
+          }
+
+          const inRepo = targets.filter((t) => workspaceSlugs.has(t));
+          const external = targets.filter((t) => !workspaceSlugs.has(t));
+
+          if (inRepo.length > 0) {
+            const result = disablePluginsInProduct({ repoRoot, slugs: inRepo });
+            for (const message of result.messages) {
+              console.log(message);
+            }
+          }
+          for (const id of external) {
+            await runPackageLifecycleCommand({
               body: {
                 confirm_package_mutation: opts.confirmPackageMutation === true,
               },
-              endpoint: `/api/plugins/${encodeURIComponent(pluginId)}/uninstall`,
+              endpoint: `/api/plugins/${encodeURIComponent(id)}/uninstall`,
               opts,
-            })
-          );
+            });
+          }
         }
-        if (opts.json) {
-          printJson(payloads);
-          return;
-        }
-        for (const payload of payloads) {
-          printPackageLifecycleResult(extractLifecycleResult(payload));
-        }
-      }
+      )
     );
 }
