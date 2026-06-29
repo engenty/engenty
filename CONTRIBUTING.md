@@ -7,10 +7,10 @@ Thanks for your interest in contributing to the open **engenty** framework. You 
 Follow [README.md](./README.md) to install, configure, and run the stack locally.
 
 For module and plugin work, start with [docs/content/dev/plugins.md](./docs/content/dev/plugins.md).
-After changing module UI contributions, regenerate the plugin catalog, or just restart the dev server:
+After changing which modules are installed, regenerate local artifacts:
 
 ```bash
-pnpm --filter @engenty/ui generate:plugins
+pnpm engenty setup
 ```
 
 ## Pull requests

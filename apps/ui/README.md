@@ -12,14 +12,14 @@ Required in `.env.local`:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_API_BASE_URL` — omit for same-origin `/api` (Vite proxy to core on `:8787`)
 
-Dev URL block (written by `pnpm env:setup` or `pnpm env:localhost:sync`):
+Dev URL block (written by `pnpm dev:env:init` or `pnpm dev:urls:localhost`):
 
 - `VITE_ENGENTY_AI_BASE_URL` — browser origin for Copilot (default `http://localhost:5173`; Portless: `https://engenty.localhost`)
 
 ```bash
-pnpm env:setup              # interactive setup + localhost dev URLs
-pnpm env:localhost:sync     # refresh localhost URL block
-pnpm portless:env:sync      # optional HTTPS URLs
+pnpm dev:env:init           # interactive setup + localhost dev URLs
+pnpm dev:urls:localhost     # refresh localhost URL block
+pnpm dev:urls:portless      # optional HTTPS URLs
 ```
 
 ## Local dev
@@ -35,5 +35,6 @@ With Portless: **https://engenty.localhost** (core dev gateway). See
 [docs/dev/portless-local-urls.md](../../docs/dev/portless-local-urls.md).
 
 If Supabase vars are missing or wrong, the UI logs **"TypeError: Failed to fetch"**
-from the auth client. Start Supabase (`pnpm supabase:start`) and set keys from
-`pnpm supabase:status`.
+from the auth client. Run `pnpm engenty setup --local` (starts Supabase + applies
+migrations) or `pnpm supabase:start`, then set keys from `pnpm supabase:status`
+via `pnpm dev:env:init`.

@@ -12,7 +12,7 @@ and HTTPS locally.
 |---|---------|---------------------|
 | **Open in browser** | `http://localhost:5173` | `https://engenty.localhost` |
 | **Routing** | Vite serves UI; proxies `/api`, `/ai`, `/docs` | Core dev gateway proxies to Vite, AI, docs |
-| **Env sync** | `pnpm env:localhost:sync` | `pnpm portless:env:sync` (or `portless:setup`) |
+| **Env sync** | `pnpm dev:urls:localhost` | `pnpm dev:urls:portless` (or `portless:setup`) |
 | **Extra setup** | None | CA trust + HTTPS proxy on port 443 |
 
 Keep env URLs aligned with the origin you browse. Sessions and Copilot AI URLs
@@ -28,7 +28,7 @@ pnpm portless:setup       # trust CA + doctor + write HTTPS URLs to .env.local
 Re-sync URLs after `portless.json` changes:
 
 ```bash
-pnpm portless:env:sync
+pnpm dev:urls:portless
 ```
 
 ## Run
@@ -68,7 +68,7 @@ Direct upstream (bypass gateway, for debugging):
 | Docs | https://docs.engenty.localhost |
 
 These URLs are also written as comments in the `.env.local` dev URL block when you
-run `pnpm portless:env:sync`.
+run `pnpm dev:urls:portless`.
 
 ## Gateway routing
 
@@ -85,7 +85,7 @@ With `ENGENTY_DEV_GATEWAY=1`, core on `:8787` reverse-proxies paths on the gatew
 ## Switch back to localhost
 
 ```bash
-pnpm env:localhost:sync
+pnpm dev:urls:localhost
 ```
 
 Then open **http://localhost:5173** after `pnpm dev`.

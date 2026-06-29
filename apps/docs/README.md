@@ -24,10 +24,10 @@ pnpm dev
 
 Open **https://docs.engenty.localhost** (Portless; see [portless-local-urls.md](../../docs/dev/portless-local-urls.md)).
 
-Optional env (set via `pnpm portless:env:sync` in repo-root `.env.local`):
+Optional env (set via `pnpm dev:urls:portless` in repo-root `.env.local`):
 
 - `NEXT_PUBLIC_DOCS_SITE_URL` — canonical site URL for metadata / OG (e.g. `https://engenty.localhost` with the dev gateway; docs paths are under `/docs`).
-- `NEXT_PUBLIC_DOCS_GITHUB_REPO_BLOB_ROOT` — GitHub blob root for the repo (no trailing slash), e.g. `https://github.com/engenty/engenty/blob/main`. Used to build “Open in GitHub” for both `docs/content/…` and symlinked `packages/…/docs/…` pages (see `lib/docs-github-path.ts`).
+- `NEXT_PUBLIC_DOCS_GITHUB_REPO_BLOB_ROOT` — GitHub blob root for the repo (no trailing slash), e.g. [`https://github.com/engenty/engenty/blob/main`.](https://github.com/engenty/engenty/blob/main.) Used to build “Open in GitHub” for both `docs/content/…` and symlinked `packages/…/docs/…` pages (see `lib/docs-github-path.ts`).
 - `NEXT_PUBLIC_DOCS_GITHUB_BLOB_PREFIX` — legacy alternative: if set to `…/blob/<branch>/docs/content`, the repo root is derived by stripping `/docs/content` (otherwise prefer `NEXT_PUBLIC_DOCS_GITHUB_REPO_BLOB_ROOT`).
 
 ## Explore
