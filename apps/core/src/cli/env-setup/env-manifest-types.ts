@@ -58,6 +58,8 @@ export interface EnvFeatureInfo {
   description: string;
   id: string;
   label: string;
+  /** Preselected in the env wizard's feature picker on a fresh setup. */
+  recommended?: boolean;
 }
 
 /**

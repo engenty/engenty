@@ -143,7 +143,7 @@ export function renderScopeReport(
 ): string {
   const header = `${bold(underline(ENV_SCOPES[report.scope].label))}  ${dim(envFilePath(workspaceRoot, report.scope))}`;
   if (!report.fileExists) {
-    return `${header}\n  ${red("✗ File missing.")} Run: ${cyan("pnpm env:setup")}`;
+    return `${header}\n  ${red("✗ File missing.")} Run: ${cyan("pnpm dev:env:init")}`;
   }
 
   const rows: Row[] = [

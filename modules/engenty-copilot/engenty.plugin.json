@@ -20,7 +20,8 @@
     "feature": {
       "id": "ai",
       "label": "AI copilot (Vercel AI Gateway)",
-      "description": "Copilot agents and AI tooling (apps/ai)"
+      "description": "Copilot agents and AI tooling (apps/ai)",
+      "recommended": true
     },
     "vars": [
       {
@@ -42,6 +43,7 @@
       },
       {
         "description": "Default model routed through the AI Gateway (e.g. anthropic/claude-sonnet-4-6).",
+        "defaultValue": "anthropic/claude-sonnet-4-6",
         "feature": "ai",
         "group": "AI",
         "key": "AI_GATEWAY_DEFAULT_MODEL",

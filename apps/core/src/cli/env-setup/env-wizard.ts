@@ -13,7 +13,6 @@ import {
   spinner,
   text,
 } from "@clack/prompts";
-import { openInBrowser } from "../open-browser.js";
 import { renderScopeReport } from "./env-check.js";
 import {
   diffScope,
@@ -40,8 +39,13 @@ import {
   getEnvFeatures,
   manifestForScope,
 } from "./env-manifest.js";
+import { defaultValueForScope } from "./env-manifest-types.js";
 import type { EnvScope, EnvVarSpec } from "./env-manifest-types.js";
-import { harvestSupabaseStatus, resolveSupabaseValue } from "./env-supabase.js";
+import {
+  type CommandRunner,
+  harvestSupabaseStatus,
+  resolveSupabaseValue,
+} from "./env-supabase.js";
 
 const CANCELLED = Symbol("cancelled");
 
@@ -134,12 +138,16 @@ async function selectFeatures(
 ): Promise<typeof CANCELLED | undefined> {
   const features = getEnvFeatures();
   const preselected = features
-    .filter((feature) =>
-      specsFor(state).some(
-        ({ scope, spec }) =>
-          spec.feature === feature.id &&
-          (currentValue(state, scope, spec.key)?.trim() ?? "") !== ""
-      )
+    .filter(
+      (feature) =>
+        // Recommended features (e.g. the AI copilot) start checked on a fresh
+        // setup; anything already configured stays checked too.
+        feature.recommended === true ||
+        specsFor(state).some(
+          ({ scope, spec }) =>
+            spec.feature === feature.id &&
+            (currentValue(state, scope, spec.key)?.trim() ?? "") !== ""
+        )
     )
     .map((feature) => feature.id);
 
@@ -226,11 +234,26 @@ async function harvestSupabase(
 
   const spin = spinner();
   spin.start("Reading local Supabase credentials (supabase status)…");
-  const harvest = await harvestSupabaseStatus();
+  // Run supabase from the workspace root via spawnSync — same invocation the
+  // db/setup commands use — to avoid PATH/cwd differences when the CLI runs
+  // under `pnpm exec` from apps/core.
+  const runner: CommandRunner = (command, args) => {
+    const result = spawnSync(command, [...args], {
+      cwd: state.workspaceRoot,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    return Promise.resolve({
+      code: result.status ?? 1,
+      stdout: result.stdout ?? "",
+      stderr: result.stderr ?? result.error?.message ?? "",
+    });
+  };
+  const harvest = await harvestSupabaseStatus(runner);
   if (!harvest.ok) {
     spin.stop("Supabase stack not reachable.");
     note(
-      `${harvest.error ?? "supabase status failed."}\nStart it with: pnpm supabase:start — then rerun pnpm env:setup`,
+      `${harvest.error ?? "supabase status failed."}\nStart it with: pnpm supabase:start — then rerun pnpm dev:env:init`,
       "Supabase"
     );
     return;
@@ -313,7 +336,7 @@ async function syncPortless(
       );
     } else {
       note(
-        `${(localhost.stderr || localhost.stdout).trim()}\nRun: pnpm env:localhost:sync`,
+        `${(localhost.stderr || localhost.stdout).trim()}\nRun: pnpm dev:urls:localhost`,
         "Dev URLs sync failed"
       );
     }
@@ -333,7 +356,7 @@ async function syncPortless(
     );
   } else {
     note(
-      `${(result.stderr || result.stdout).trim()}\nSee docs/dev/portless-local-urls.md — or run pnpm env:localhost:sync for http://localhost:5173.`,
+      `${(result.stderr || result.stdout).trim()}\nSee docs/dev/portless-local-urls.md — or run pnpm dev:urls:localhost for http://localhost:5173.`,
       "Portless setup failed"
     );
   }
@@ -344,7 +367,6 @@ async function syncPortless(
 async function promptProviderVars(
   state: WizardState
 ): Promise<typeof CANCELLED | undefined> {
-  const openedUrls = new Set<string>();
   const pending = specsFor(state).filter(
     ({ scope, spec }) =>
       (spec.obtain.kind === "provider" || spec.obtain.kind === "manual") &&
@@ -359,28 +381,24 @@ async function promptProviderVars(
       obtain.kind === "provider" || obtain.kind === "manual"
         ? (obtain.instructions ?? [])
         : [];
-    if (instructionLines.length > 0) {
-      note([spec.description, "", ...instructionLines].join("\n"), spec.key);
+    const noteLines = [spec.description, "", ...instructionLines];
+    if (obtain.kind === "provider") {
+      // Show the URL (clickable in most terminals) rather than prompting to
+      // open a browser.
+      noteLines.push("", obtain.url);
     }
-    if (obtain.kind === "provider" && !openedUrls.has(obtain.url)) {
-      const open = await confirm({
-        initialValue: false,
-        message: `Open ${obtain.url} in your browser?`,
-      });
-      if (isCancel(open)) {
-        return CANCELLED;
-      }
-      openedUrls.add(obtain.url);
-      if (open) {
-        openInBrowser(obtain.url);
-      }
+    if (noteLines.some((line) => line.trim() !== "")) {
+      note(noteLines.join("\n"), spec.key);
     }
 
     const promptMessage = `${spec.key} (${ENV_SCOPES[scope].envFile}) — leave empty to skip`;
     const answer = spec.secret
       ? await password({ message: promptMessage })
       : await text({
-          initialValue: currentValue(state, scope, spec.key) ?? "",
+          initialValue:
+            currentValue(state, scope, spec.key) ??
+            defaultValueForScope(spec, scope) ??
+            "",
           message: promptMessage,
         });
     if (isCancel(answer)) {
@@ -463,7 +481,7 @@ export async function runEnvInitWizard(
   console.log(`\n${reportText}\n`);
   if (gaps > 0) {
     outro(
-      `${gaps} required value(s) still missing — rerun pnpm env:setup anytime, or set single keys via engenty env edit <KEY>.`
+      `${gaps} required value(s) still missing — rerun pnpm dev:env:init anytime, or set single keys via engenty env edit <KEY>.`
     );
   } else {
     outro(
@@ -480,7 +498,7 @@ export async function runEnvGenerate(force: boolean): Promise<number> {
     (scope) => loadScopeDocument(workspaceRoot, scope) !== null
   );
   if (scopes.length === 0) {
-    console.error("No env files found. Run: pnpm env:setup");
+    console.error("No env files found. Run: pnpm dev:env:init");
     return 1;
   }
 

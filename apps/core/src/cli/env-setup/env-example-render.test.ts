@@ -16,8 +16,8 @@ describe("renderExampleFile", () => {
 
   it("keeps dev URLs as an informational comment block", () => {
     const text = renderExampleFile("root");
-    expect(text).toContain("pnpm env:localhost:sync");
-    expect(text).toContain("pnpm portless:env:sync");
+    expect(text).toContain("pnpm dev:urls:localhost");
+    expect(text).toContain("pnpm dev:urls:portless");
     expect(text).toContain("# ENGENTY_API_BASE_URL=");
     // Dev URL keys must never be uncommented in the template.
     expect(text).not.toMatch(/^ENGENTY_API_BASE_URL=/m);
