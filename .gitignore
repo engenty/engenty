@@ -19,6 +19,13 @@ dist
 # Aggregated migrations (generated; do not commit)
 supabase/migrations/*.sql
 
+# Local Supabase config (generated from config.toml.example + supabase:sync)
+supabase/config.toml
+
+# UI plugin artifacts (generated from modules/packages on disk)
+apps/ui/src/plugins/generated-catalog.ts
+apps/ui/src/plugins/generated-tailwind-sources.css
+
 # Local database snapshots
 supabase/snapshots/
 
