@@ -30,18 +30,28 @@ Core apps and packages must not depend on optional modules — use plugin hooks,
 
 ```bash
 pnpm install
-pnpm dev          # full stack (UI :5173, core :8787, AI :8790, Supabase)
+pnpm engenty setup --local   # first run: pick plugins + Supabase + migrations + .env.local
+pnpm dev                     # dev:check + predev + full stack (UI :5173, core :8787, AI :8790)
 pnpm build
 pnpm typecheck
 pnpm test
-pnpm check        # lint + format check
-pnpm fix          # auto-fix
+pnpm check               # lint + format check
+pnpm fix                 # auto-fix
 ```
 
-- **Portless (optional):** `pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless:env:sync` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
-- **Env setup:** `pnpm env:setup` (wizard), `pnpm env:check` — `.env.example` is generated; do not edit by hand
+CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`).
+
+- **Local setup:** `pnpm engenty setup` — compose config.toml, migrations aggregate, UI catalog from **`engenty.plugins`**
+- **First clone:** `pnpm engenty setup --local` — prompts for plugins, composes artifacts, starts Supabase, applies migrations, initializes `.env.local` (each step skippable; non-interactive takes the default)
+- **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
+- **Local DB:** `pnpm db:init` (fresh), `pnpm db:migrate`, `pnpm db:reset`, `pnpm db:snapshot`, `pnpm db:restore` — thin aliases for `engenty db *`
+- **Local env:** `pnpm dev:env` (menu), `pnpm dev:env:init`, `pnpm dev:env:check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
+- **Deploy env:** copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
+- **Portless (optional):** `pnpm portless:setup`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
+- **Manifest / CI:** `pnpm env:example:write`, `pnpm env:example:check` — regenerate committed `.env.example` files
+- **Clean caches:** `pnpm clean` — remove `node_modules`, `dist`, Turbo/Next caches (then `pnpm install`)
+- **Full local reset:** `pnpm purge` — or `pnpm purge:light` (env + generated setup + caches, keeps `node_modules`); `pnpm purge -- --yes --quiet` for scripted full purge
 - **Scoped:** `pnpm --filter @engenty/<name> build|test|dev`
-- **Mastra Studio:** `pnpm mastra:studio` (start `pnpm dev:ai` first)
 
 Default dev URL: `http://localhost:5173` (Vite proxies `/api` and `/ai`). Portless HTTPS: `https://engenty.localhost`.
 
@@ -54,6 +64,15 @@ Default dev URL: `http://localhost:5173` (Vite proxies `/api` and `/ai`). Portle
 - Full stack must be running (`pnpm dev`) before browser tests
 
 ## Module contract
+
+**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": { "source": "workspace" } }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install|uninstall`** updates the manifest and runs setup; do **not** hand-edit `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules.
+
+| Layer | Committed? | Who sets it |
+|-------|------------|-------------|
+| `engenty.plugins` | yes | you / `engenty plugins install` |
+| `modules/<slug>/` source | yes | git |
+| `apps/ui` `@engenty/*` module deps | setup sync only | `engenty setup` — never manual |
+| Supabase + UI generated artifacts | no (gitignored) | `engenty setup` |
 
 Each `modules/<name>` follows:
 
@@ -116,7 +135,7 @@ pnpm build && pnpm typecheck && pnpm check && pnpm test
 - Module wiring: `engenty.plugin.json` + UI plugin in catalog
 - ui-core changes: `pnpm check:ui-core-imports` + `pnpm --filter @engenty/ui-core build`
 - Locale changes: both `en.json` and `de.json`
-- DB schema: module migration + `pnpm migrations:aggregate`
+- DB schema: module migration + `pnpm engenty setup` (or `engenty db sync`)
 - AI manifests: `pnpm ai:check`
 
 ## On-demand rules

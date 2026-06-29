@@ -66,7 +66,7 @@ function parseArgs(argv) {
 function loadEnvLocal(path) {
   if (!existsSync(path)) {
     process.stderr.write(
-      `ERROR: ${path} not found. Run pnpm env:setup first.\n`
+      `ERROR: ${path} not found. Run pnpm dev:env:init first.\n`
     );
     process.exit(1);
   }

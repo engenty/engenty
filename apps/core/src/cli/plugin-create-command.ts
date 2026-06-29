@@ -3,7 +3,6 @@ import path from "node:path";
 import type { Command } from "commander";
 import { resolveModulesDir } from "../plugins/discovery.js";
 import { printBanner } from "./banner.js";
-import { runPluginCreatePostSteps } from "./plugin-create/plugin-create-post-steps.js";
 import {
   collectPluginScaffoldFiles,
   writePluginScaffold,
@@ -19,10 +18,8 @@ interface CreatePluginCliOpts {
   description?: string;
   displayName?: string;
   id?: string;
-  noInstall?: boolean;
   noServerRoutes?: boolean;
   noUi?: boolean;
-  noWireUi?: boolean;
   uiLoad?: string;
   yes?: boolean;
 }
@@ -36,33 +33,23 @@ function isNonInteractiveEnvironment(): boolean {
 function printScaffoldSummary(params: {
   answers: PluginCreateAnswers;
   moduleRoot: string;
-  postSteps: ReturnType<typeof runPluginCreatePostSteps>;
 }): void {
-  const { answers, moduleRoot, postSteps } = params;
+  const { answers, moduleRoot } = params;
   const pkg = `@engenty/${answers.slug}`;
-  const lines = ["", `Scaffold complete: ${moduleRoot}`];
-
-  for (const message of postSteps.messages) {
-    lines.push(`- ${message}`);
-  }
-  for (const error of postSteps.errors) {
-    lines.push(`- ${error}`);
-  }
-
-  if (postSteps.errors.length === 0) {
-    lines.push(`- pnpm --filter ${pkg} test`);
-    if (answers.includeUi) {
-      lines.push(`- Open /mdl/${answers.slug} after restarting the API`);
-    }
-  }
+  const lines = [
+    "",
+    `Scaffold complete: ${moduleRoot}`,
+    "",
+    "Next steps:",
+    `- pnpm engenty plugins enable ${answers.slug}   # activate (manifest + setup)`,
+    `- pnpm --filter ${pkg} test`,
+  ];
 
   if (answers.includeUi && answers.uiLoad === "runtime") {
     lines.push(`- pnpm --filter ${pkg} build`);
   }
-  if (answers.serverRoutes) {
-    lines.push(
-      "- Restart apps/core (or pnpm dev:api) so routes are discovered"
-    );
+  if (answers.includeUi) {
+    lines.push(`- Open /mdl/${answers.slug} after enabling and restarting the API`);
   }
   lines.push("");
   console.log(lines.join("\n"));
@@ -85,14 +72,6 @@ export function registerPluginCreateCommand(plugins: Command): void {
     )
     .option("--no-ui", "Scaffold server-only module (no ui/ tree)")
     .option("--no-server-routes", "Skip backend (no HTTP routes or API client)")
-    .option(
-      "--no-wire-ui",
-      "Skip adding the module to apps/ui/package.json and generate:plugins"
-    )
-    .option(
-      "--no-install",
-      "Wire apps/ui/package.json but skip pnpm install and generate:plugins"
-    )
     .action(async (name: string | undefined, opts: CreatePluginCliOpts) => {
       const modulesDir = resolveModulesDir();
       const existingSlugs = listExistingModuleSlugs(modulesDir);
@@ -142,17 +121,7 @@ export function registerPluginCreateCommand(plugins: Command): void {
       const files = collectPluginScaffoldFiles(answers);
       writePluginScaffold({ files, moduleRootDir: moduleRoot });
 
-      const postSteps = runPluginCreatePostSteps({
-        answers,
-        modulesDir,
-        skipInstall: opts.noInstall === true,
-        skipWireUi: opts.noWireUi === true,
-      });
-
-      if (postSteps.errors.length > 0) {
-        process.exitCode = 1;
-      }
-
-      printScaffoldSummary({ answers, moduleRoot, postSteps });
+      // create only scaffolds; activation is the explicit `plugins enable` step.
+      printScaffoldSummary({ answers, moduleRoot });
     });
 }

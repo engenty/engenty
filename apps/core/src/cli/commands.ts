@@ -175,9 +175,14 @@ export function registerAuthCommands(program: Command): void {
 }
 
 export function registerModuleOperationCommands(program: Command): void {
-  const modules = program
-    .command("modules")
-    .description("Module-first tool access (alias — prefer `engenty tools`)");
+  const existingModules = program.commands.find(
+    (command) => command.name() === "modules"
+  );
+  const modules =
+    existingModules ??
+    program
+      .command("modules")
+      .description("Module-first tool access (alias — prefer `engenty tools`)");
   const tools = modules.command("tools").description("List and invoke tools");
   tools
     .command("list")

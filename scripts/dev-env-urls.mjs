@@ -1,7 +1,7 @@
 /**
  * Shared dev URL block for repo-root `.env.local`.
- * Default: localhost + Vite origin (`pnpm env:localhost:sync`).
- * Portless: HTTPS gateway URLs (`pnpm portless:env:sync`).
+ * Default: localhost + Vite origin (`pnpm dev:urls:localhost`).
+ * Portless: HTTPS gateway URLs (`pnpm dev:urls:portless`).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -9,12 +9,12 @@ import { fileURLToPath } from "node:url";
 import { ports } from "../apps/ports.config.mjs";
 
 export const DEV_URL_MARKER_START =
-  "# --- engenty dev URLs (pnpm env:localhost:sync or pnpm portless:env:sync) ---";
+  "# --- engenty dev URLs (pnpm dev:urls:localhost or pnpm dev:urls:portless) ---";
 export const DEV_URL_MARKER_END = "# --- end engenty dev URLs ---";
 
 /** @deprecated Recognized when reading existing `.env.local` files. */
 export const LEGACY_DEV_URL_MARKER_START =
-  "# --- engenty dev URLs (portless.json; pnpm portless:env:sync) ---";
+  "# --- engenty dev URLs (portless.json; pnpm dev:urls:portless) ---";
 
 const MARKER_STARTS = [DEV_URL_MARKER_START, LEGACY_DEV_URL_MARKER_START];
 

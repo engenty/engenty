@@ -6,11 +6,11 @@
 
 /** Exact markers from scripts/dev-env-urls.mjs — sync scripts own the block. */
 export const PORTLESS_MARKER_START =
-  "# --- engenty dev URLs (pnpm env:localhost:sync or pnpm portless:env:sync) ---";
+  "# --- engenty dev URLs (pnpm dev:urls:localhost or pnpm dev:urls:portless) ---";
 export const PORTLESS_MARKER_END = "# --- end engenty dev URLs ---";
 
 const LEGACY_PORTLESS_MARKER_START =
-  "# --- engenty dev URLs (portless.json; pnpm portless:env:sync) ---";
+  "# --- engenty dev URLs (portless.json; pnpm dev:urls:portless) ---";
 
 function isDevUrlMarkerStart(trimmed: string): boolean {
   return (
@@ -191,7 +191,7 @@ export interface SetValueOptions {
 
 /**
  * Update the last non-portless entry for `key` in place, or append at the end.
- * Throws for portless-owned keys — those belong to pnpm portless:env:sync.
+ * Throws for portless-owned keys — those belong to pnpm dev:urls:portless.
  */
 export function setValue(
   doc: EnvDocument,
@@ -219,7 +219,7 @@ export function setValue(
   }
   if (sawPortlessOwned) {
     throw new Error(
-      `${key} is managed by the dev URL block — run pnpm env:localhost:sync or pnpm portless:env:sync instead.`
+      `${key} is managed by the dev URL block — run pnpm dev:urls:localhost or pnpm dev:urls:portless instead.`
     );
   }
 

@@ -26,7 +26,7 @@ Public URL: `https://ai.engenty.localhost` (see [portless-local-urls.md](../../d
 
 With the core dev gateway (`ENGENTY_DEV_GATEWAY=1`), open **`https://engenty.localhost/studio`**. The studio script sets **`MASTRA_AUTO_DETECT_URL=true`** so Studio auto-configures to **`https://engenty.localhost`** with API prefix **`/ai`** (no manual setup screen when the gateway is up). If a stale config persists, delete **`mastra-studio-config`** in localStorage and reload.
 
-Without the gateway, Studio still runs on loopback; configure Settings to match your `apps/ai` URL. CORS allows origins in **`ENGENTY_CORS_ORIGINS`** (`pnpm portless:env:sync`).
+Without the gateway, Studio still runs on loopback; configure Settings to match your `apps/ai` URL. CORS allows origins in **`ENGENTY_CORS_ORIGINS`** (`pnpm dev:urls:portless`).
 
 ## CopilotKit AG-UI Inspector (development only)
 
@@ -45,7 +45,7 @@ Dotenv is loaded **before the server listens**: `apps/ai` package `.env*` merged
 
 - **`SUPABASE_URL`** + **`SUPABASE_SERVICE_ROLE_KEY`** — **required for product chat** (`POST /ai/threads`, runs, transcript hydrate). Without them, thread routes return **503** `agent_threads.unconfiguredDatabase`. Also enables usage and chat-search persistence in schema **`ai`** (see `supabase/migrations/*_core_ai_schema_agent_sessions.sql` and `*_ai_app_chat_search_index.sql`). Copy values from `pnpm supabase status` into repo-root `.env.local`.
 
-- **`ENGENTY_CORE_BASE_URL`** — required for session auth scope resolution and core-backed agent tools; set via `pnpm portless:env:sync` (typically `http://127.0.0.1:8787` with the dev gateway). `apps/ai` resolves tenant/user scope through core’s current workspace context and forwards the incoming end-user `Authorization: Bearer ...` token for core tool calls.
+- **`ENGENTY_CORE_BASE_URL`** — required for session auth scope resolution and core-backed agent tools; set via `pnpm dev:urls:portless` (typically `http://127.0.0.1:8787` with the dev gateway). `apps/ai` resolves tenant/user scope through core’s current workspace context and forwards the incoming end-user `Authorization: Bearer ...` token for core tool calls.
 - **`AI_GATEWAY_API_KEY`** — required for `GET /ai/v1/sdk/stream-ping` through AI Gateway and enables LLM-assisted `engenty_tools_discover` ranking.
 - **`OPENAI_API_KEY`** — required for Mastra agents using `openai/...` model ids.
 - **`AI_CHAT_MODEL`** and **`AI_COORDINATOR_MODEL`** — optional process defaults when tenant settings from `/settings/ai` are not set. The Engenty Copilot supervisor uses the coordinator model; its worker tools agent uses the chat model.
@@ -117,4 +117,4 @@ Chat transcript search is service-local in `apps/ai`: reindexing reads `ai.threa
 
 The **Engenty AI** copilot routes **`/module/engenty-copilot/chat/new`** and **`/module/engenty-copilot/chat/:sessionId`** call this HTTP API from the browser. Configure **repo-root** `.env.local` for Vite:
 
-- **`VITE_ENGENTY_AI_BASE_URL`** — base URL of this service with **no** trailing slash (e.g. `https://ai.engenty.localhost` from `pnpm portless:env:sync`). Documented in [apps/ui README](../../apps/ui/README.md), [docs/dev/quick-start.md](../../docs/dev/quick-start.md), and `apps/ui/.env.example`.
+- **`VITE_ENGENTY_AI_BASE_URL`** — base URL of this service with **no** trailing slash (e.g. `https://ai.engenty.localhost` from `pnpm dev:urls:portless`). Documented in [apps/ui README](../../apps/ui/README.md), [docs/dev/quick-start.md](../../docs/dev/quick-start.md), and `apps/ui/.env.example`.

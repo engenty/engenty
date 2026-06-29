@@ -120,7 +120,7 @@ export async function runEnvEdit(key?: string): Promise<number> {
 
   if (spec.obtain.kind === "portless") {
     cancel(
-      `${spec.key} is managed by the dev URL block — run pnpm env:localhost:sync or pnpm portless:env:sync instead.`
+      `${spec.key} is managed by the dev URL block — run pnpm dev:urls:localhost or pnpm dev:urls:portless instead.`
     );
     return 1;
   }
@@ -134,13 +134,13 @@ export async function runEnvEdit(key?: string): Promise<number> {
   const doc = loadScopeDocument(workspaceRoot, scope);
   if (!doc) {
     cancel(
-      `${ENV_SCOPES[scope].envFile} does not exist yet. Run: pnpm env:setup`
+      `${ENV_SCOPES[scope].envFile} does not exist yet. Run: pnpm dev:env:init`
     );
     return 1;
   }
   if (isPortlessOwned(doc, spec.key)) {
     cancel(
-      `${spec.key} is managed by the dev URL block — run pnpm env:localhost:sync or pnpm portless:env:sync instead.`
+      `${spec.key} is managed by the dev URL block — run pnpm dev:urls:localhost or pnpm dev:urls:portless instead.`
     );
     return 1;
   }

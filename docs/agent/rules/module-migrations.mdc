@@ -14,18 +14,37 @@ When changing DB schema in a module, add migrations **inside the module**, not i
 - **Filename**: `YYYYMMDDHHMMSS_plugin_<slug>.sql` (slug must start with `plugin_`)
 - **Uniqueness**: No two modules may use the same migration basename
 
+## Committed vs local (generated from engenty.plugins)
+
+Enabled modules are declared in root **`package.json` → `engenty.plugins`**. Compose pipelines (Supabase, migrations aggregate, UI catalog, runtime discovery) use that map — not every folder under `modules/` on disk.
+
+| Artifact | In git | Created by |
+|----------|--------|------------|
+| `modules/*/supabase/migrations/*.sql` | ✅ | Module |
+| root `package.json` → `engenty.plugins` | ✅ | Product manifest |
+| `supabase/config.toml.example` | ✅ module-agnostic base | Repo |
+| `supabase/migrations/*.sql` | ❌ gitignored | `engenty setup` |
+| `supabase/config.toml` | ❌ gitignored | `engenty setup` |
+| `apps/ui/src/plugins/generated-catalog.ts` | ❌ gitignored | `engenty setup` |
+| `apps/ui/src/plugins/generated-tailwind-sources.css` | ❌ gitignored | `engenty setup` |
+
+After clone: **`pnpm engenty setup --local`**. When changing the module set or module SQL: **`pnpm engenty setup`** then **`pnpm db:migrate`** (or **`pnpm db:init`** on a fresh DB).
+
 ## Do / Don't
 
 ```bash
 # ✅ Add migration in the module (plugin_ prefix required)
 # modules/team/supabase/migrations/20260227120000_plugin_team_avatar.sql
 
-# ❌ Do not add module schema in root; do not commit *_plugin_*.sql in supabase/migrations (gitignored)
+# ❌ Do not commit *_plugin_*.sql in supabase/migrations (gitignored)
+# ❌ Do not commit supabase/config.toml or generated UI plugin artifacts
 ```
 
 ## Commands
 
-- **Aggregate** (run manually when needed): `pnpm migrations:aggregate`
-- **Apply or push**: `pnpm supabase:migration:up` or `pnpm supabase:db:push` (run aggregate first if you added/changed module migrations)
+- **First-run / module set changed**: `pnpm engenty setup --local` (first clone) or `pnpm engenty setup`
+- **Add module to manifest**: `pnpm engenty plugins enable <slug>`
+- **Compose Supabase only**: `engenty db sync`
+- **Apply or push**: `pnpm db:migrate` or `pnpm db:init` on a fresh DB
 
 Full details: [plugins.md](../../../docs/content/dev/plugins.md).

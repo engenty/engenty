@@ -73,9 +73,22 @@ export function registerEnvCommands(program: Command): void {
     .description(
       "Set up and manage .env files — interactive menu; subcommands via --help"
     )
+    .option(
+      "--init",
+      "Run the first-run wizard (same as engenty env init) instead of the menu"
+    )
+    .option(
+      "--scope <scopes>",
+      "With --init: comma-separated root, deploy, or all (default: root)"
+    )
     // Bare `engenty env` starts the interactive menu (help stays on --help/-h).
-    .action(async () => {
+    .action(async (options: { init?: boolean; scope?: string }) => {
       printBanner();
+      if (options.init === true) {
+        const scopes = parseScopes(options.scope, ["root"]);
+        process.exitCode = await runEnvInitWizard(scopes);
+        return;
+      }
       process.exitCode = await runEnvMenu();
     });
 
@@ -118,7 +131,7 @@ export function registerEnvCommands(program: Command): void {
         );
         if (result.hasRequiredGaps) {
           console.error(
-            "\nRequired values missing — run pnpm env:setup to fill the gaps."
+            "\nRequired values missing — run pnpm dev:env:init to fill the gaps."
           );
         }
       }

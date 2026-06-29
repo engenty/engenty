@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Optional Portless dev setup: trust local CA, health check, sync .env.local URLs.
- * Default localhost dev uses http://localhost:5173 — run pnpm env:localhost:sync.
+ * Default localhost dev uses http://localhost:5173 — run pnpm dev:urls:localhost.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

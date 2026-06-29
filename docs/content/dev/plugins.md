@@ -8,6 +8,63 @@ description: Extend Engenty with your own modules.
 Engenty features ship as **modules** — self-contained plugins discovered by the
 core host at startup.
 
+## On disk vs active (read this first)
+
+Three different things often get conflated:
+
+1. **On disk** — `modules/<slug>/` exists in the repo. pnpm workspace includes it automatically. **No routes, UI, or migrations run** until the slug is in the manifest.
+2. **Active** — slug listed in root **`engenty.plugins`** object map. This is the **only** manual product declaration (pi-style). Backend discovery, Supabase compose, migration aggregate, and UI catalog all filter to this map.
+3. **Derived wiring** — artifacts produced by **`pnpm engenty setup`** (and `engenty plugins install`): gitignored Supabase/UI files, plus `@engenty/<slug>` workspace deps in `apps/ui/package.json` when the module has UI (pnpm needs them for imports — **do not add these by hand**).
+
+```bash
+# Module already in modules/ (e.g. rsync from legacy):
+pnpm engenty plugins install <slug>
+pnpm db:migrate && pnpm dev
+
+# See what's active:
+pnpm engenty plugins list
+```
+
+`plugins list` reads the plugins discovered on disk and works with the API down;
+when the API is running it enriches each row with live runtime state.
+
+**`install` / `uninstall` vs `activate` / `deactivate` — two different layers:**
+
+- **`install <slug | package-spec>` / `uninstall`** — *build-time*: wire a plugin
+  into the product. A workspace slug installs the in-repo module (writes
+  `engenty.plugins` + runs setup); a package spec installs an external package
+  through the core API. This is the "is it part of this build" layer.
+- **`activate` / `deactivate`** — *runtime*: turn an already-installed plugin on
+  or off, globally or per tenant, via the API. No rebuild. This is the
+  multi-tenant feature-gating layer.
+
+A plugin must be installed before it can be activated. They read as synonyms in
+English but operate at different layers — that is why both exist.
+
+## Plugins-free core (the import boundary)
+
+**The core repo must not statically import a plugin.** A plugin contributes
+through `engenty.plugin.json` + the runtime (`engenty.server.*`, registries,
+events) — never through a compile-time `import "@engenty/<plugin>"` in
+`apps/core`, `apps/ui`, or `apps/ai`, and never via an entry in an app's
+`package.json`. That keeps the core build independent of any plugin and lets the
+host boot without building plugin `dist/` (plugins load from source via jiti).
+
+When a plugin needs to expose shared services to the host, it **installs a host
+provider** at load time and core delegates to it lazily. The context graph works
+this way: `@engenty/context-graph` owns its singletons and calls
+`engenty.server.registerContextGraphHost(...)`; core holds only the
+`@engenty/plugin-sdk` contract.
+
+**Sanctioned exception — mandatory platform plugins.** A small set of plugins are
+declared mandatory in `ENGENTY_HOST_MANDATORY_PLUGINS` (`tenant-settings`,
+`user-settings`, `engenty-copilot`): always enabled, not user-toggleable. Core
+may depend on the **DAL primitives** of mandatory *platform* plugins
+(`tenant-settings`, `user-settings`) because they are effectively core
+infrastructure. "Plugins-free" means free of *optional / business* plugins —
+not free of the mandatory platform substrate. Do not extend this exception to
+any other plugin without a deliberate decision.
+
 ## The manifest
 
 Every module declares itself with an `engenty.plugin.json` manifest: its id,

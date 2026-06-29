@@ -30,6 +30,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Enable workspace plugins
+        run: pnpm engenty plugins enable --all
+
+      - name: Setup generated local artifacts
+        run: pnpm setup
+
+      - name: Validate engenty.plugins
+        run: pnpm plugins:check
+
+      - name: Supabase config template check
+        run: pnpm supabase:config:check
+
       - name: Build
         run: pnpm build
 

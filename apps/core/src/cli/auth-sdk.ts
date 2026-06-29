@@ -206,11 +206,18 @@ export async function ensureAccessToken(
     return stored.accessToken;
   }
 
-  const exchange = await fetch(`${apiUrl}/api/auth/token/exchange`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ refreshToken: stored.refreshToken }),
-  });
+  let exchange: Response;
+  try {
+    exchange = await fetch(`${apiUrl}/api/auth/token/exchange`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: stored.refreshToken }),
+    });
+  } catch {
+    // API unreachable — fall back to the stored token so the caller's request
+    // surfaces a clean "is the API running?" error instead of a raw fetch throw.
+    return stored.accessToken;
+  }
   if (!exchange.ok) {
     return stored.accessToken;
   }

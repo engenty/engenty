@@ -25,7 +25,8 @@
 // `@engenty/context-graph`.
 
 import type { ZodType } from "zod";
-import type { PluginEventPayload } from "./plugin-events.js";
+import type { PluginRegistrationReceipt } from "./index.js";
+import type { PluginEventPayload, PluginEventsApi } from "./plugin-events.js";
 
 // Minimal shape of the context-graph server API that modules call into.
 // Defined here so module code can stay free of a hard `@engenty/context-graph`
@@ -106,6 +107,35 @@ export interface ContextGraphSourceRegistration {
     api: PluginContextGraphServerApi,
     tenantId: string
   ): Promise<ContextGraphSyncResult>;
+}
+
+// Collector for bulk-backfill sources. Owned by the context-graph host plugin
+// and surfaced to the rest of the host via `ContextGraphHost`.
+export interface ContextGraphSourceRegistry {
+  get(id: string): ContextGraphSourceRegistration | undefined;
+  list(): ContextGraphSourceRegistration[];
+  register(source: ContextGraphSourceRegistration): void;
+}
+
+// Provider contract for the shared context graph. The `@engenty/context-graph`
+// plugin owns the singletons (ontology registry, Supabase-backed server API,
+// source registry) and installs them on the host via
+// `engenty.server.registerContextGraphHost(...)`. The host then exposes
+// `contextGraph` / `registerContextGraphSchema` / `registerContextGraphSource`
+// to every plugin by delegating here — so core stays free of any concrete
+// `@engenty/context-graph` import.
+export interface ContextGraphHost {
+  // Build a schema registrar bound to a specific calling plugin's events and
+  // module id (used for ownership and declarative `onEvents` subscriptions).
+  createSchemaRegistrar(
+    events: PluginEventsApi,
+    moduleId: string
+  ): (
+    registration: ContextGraphSchemaRegistration
+  ) => PluginRegistrationReceipt | undefined;
+  // Shared server API; undefined on DB-less boot.
+  serverApi?: PluginContextGraphServerApi;
+  sources: ContextGraphSourceRegistry;
 }
 
 // `ExternalRef` is how modules point at a canonical row they already own

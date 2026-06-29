@@ -70,7 +70,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   ).map(
     (key): EnvVarSpec => ({
       description:
-        "Dev service URL — generated block: pnpm env:localhost:sync (default) or pnpm portless:env:sync (HTTPS).",
+        "Dev service URL — generated block: pnpm dev:urls:localhost (default) or pnpm dev:urls:portless (HTTPS).",
       group: "Dev URLs",
       key,
       obtain: { kind: "portless" },

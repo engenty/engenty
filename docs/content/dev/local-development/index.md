@@ -14,19 +14,31 @@ description: Clone, install, and run the Engenty stack locally.
 
 ## Setup
 
+**First clone**
+
 ```bash
 pnpm install
-pnpm build                # required before first dev run
-pnpm supabase:start       # local Supabase
-pnpm db:setup             # apply migrations
-pnpm env:setup            # interactive: writes .env.local (+ dev URL block)
+pnpm engenty setup --local   # plugins (interactive) + Supabase + migrations + .env.local
+pnpm dev
 ```
+
+**Daily:** `pnpm dev`
+
+**Module or SQL changed:** `pnpm engenty setup && pnpm db:migrate && pnpm dev`
+
+**Add a workspace module:** `pnpm engenty plugins enable <slug>` (or copy from legacy, then enable)
+
+**Full local reset:** `pnpm purge` (or `pnpm purge:light` — skips `node_modules`, faster) — then run the first-clone flow above.
+
+Do **not** commit generated local artifacts. Run **`pnpm engenty setup`** after clone or when **`engenty.plugins`** changes.
 
 ## Run
 
 ```bash
 pnpm dev
 ```
+
+`pnpm dev` runs **`dev:check`** (Docker, Supabase, generated artifacts) and **`predev`** (build workspace packages/modules, regenerate UI plugin artifacts). You do not need a separate `pnpm build` before local dev.
 
 This starts core, UI (Vite), AI, and docs together.
 
@@ -62,8 +74,8 @@ are keyed to it.
 Sync env after switching:
 
 ```bash
-pnpm env:localhost:sync   # default
-pnpm portless:env:sync    # Portless
+pnpm dev:urls:localhost   # default
+pnpm dev:urls:portless    # Portless
 ```
 
 ## Build & test
