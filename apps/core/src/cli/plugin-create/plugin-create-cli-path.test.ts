@@ -17,7 +17,13 @@ describe("shouldDeferPluginBoot", () => {
       shouldDeferPluginBoot(["node", "engenty", "plugins", "install", "--all"])
     ).toBe(true);
     expect(
-      shouldDeferPluginBoot(["node", "engenty", "plugins", "uninstall", "leads"])
+      shouldDeferPluginBoot([
+        "node",
+        "engenty",
+        "plugins",
+        "uninstall",
+        "leads",
+      ])
     ).toBe(true);
     expect(shouldDeferPluginBoot(["node", "engenty", "plugins", "list"])).toBe(
       true

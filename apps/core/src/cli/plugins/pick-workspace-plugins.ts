@@ -41,7 +41,9 @@ export function pickWorkspaceSlugs(params: {
     // Install defaults to all-checked ("install them all"); uninstall defaults
     // to none-checked so it never proposes removing everything.
     preselect:
-      params.verb === "install" ? params.entries.map((entry) => entry.slug) : [],
+      params.verb === "install"
+        ? params.entries.map((entry) => entry.slug)
+        : [],
     options: params.entries.map((entry) => ({
       value: entry.slug,
       label: entry.slug,

@@ -49,7 +49,9 @@ function printScaffoldSummary(params: {
     lines.push(`- pnpm --filter ${pkg} build`);
   }
   if (answers.includeUi) {
-    lines.push(`- Open /mdl/${answers.slug} after enabling and restarting the API`);
+    lines.push(
+      `- Open /mdl/${answers.slug} after enabling and restarting the API`
+    );
   }
   lines.push("");
   console.log(lines.join("\n"));

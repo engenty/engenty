@@ -36,8 +36,7 @@ export function registerDbCommands(program: Command): void {
     .command("db")
     .description("Local database composition and migrations");
 
-  db
-    .command("init")
+  db.command("init")
     .description(
       "Run engenty setup, then reset the local database and apply aggregated migrations"
     )
@@ -54,8 +53,7 @@ export function registerDbCommands(program: Command): void {
       })
     );
 
-  db
-    .command("sync")
+  db.command("sync")
     .description(
       "Compose supabase/config.toml (API schemas, storage buckets) and aggregate module migrations"
     )
@@ -65,9 +63,10 @@ export function registerDbCommands(program: Command): void {
       })
     );
 
-  db
-    .command("migrate")
-    .description("Sync module migrations, then apply pending Supabase migrations locally")
+  db.command("migrate")
+    .description(
+      "Sync module migrations, then apply pending Supabase migrations locally"
+    )
     .action(
       runCliAction(async () => {
         runDbSyncStep();
@@ -75,8 +74,7 @@ export function registerDbCommands(program: Command): void {
       })
     );
 
-  db
-    .command("reset")
+  db.command("reset")
     .description("Sync module migrations, then reset the local database")
     .action(
       runCliAction(async () => {
@@ -85,8 +83,7 @@ export function registerDbCommands(program: Command): void {
       })
     );
 
-  db
-    .command("snapshot")
+  db.command("snapshot")
     .description(
       "Dump local Postgres data (developer schemas) to supabase/snapshots/"
     )
@@ -108,8 +105,7 @@ export function registerDbCommands(program: Command): void {
       })
     );
 
-  db
-    .command("restore")
+  db.command("restore")
     .description(
       "Reset the local database, then restore data from a snapshot (latest if omitted)"
     )

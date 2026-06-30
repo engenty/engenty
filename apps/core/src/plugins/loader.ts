@@ -348,12 +348,13 @@ function registerContextGraphSchema(params: {
       params.moduleId
     )(params.registration);
   }
-  (params.registry.pendingContextGraphSchemas ??= []).push({
+  params.registry.pendingContextGraphSchemas ??= [];
+  params.registry.pendingContextGraphSchemas.push({
     events: params.events,
     moduleId: params.moduleId,
     registration: params.registration,
   });
-  return undefined;
+  return;
 }
 
 function pushOwnedEventRegistration(params: {

@@ -11,12 +11,12 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { enabledModuleSlugSet } from "./lib/engenty-modules.mjs";
 import {
   composeApiSchemas,
   syncApiSchemasInConfigToml,
   syncStorageBucketsInConfigToml,
 } from "./supabase-sync-lib.mjs";
-import { enabledModuleSlugSet } from "./lib/engenty-modules.mjs";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 

@@ -133,7 +133,9 @@ function getSnapshotFileToRestore() {
   // No file specified, find the latest one
   if (!fs.existsSync(snapshotDir)) {
     console.error(`Error: Snapshot directory "${snapshotDir}" does not exist.`);
-    console.error("Please create a snapshot first using 'engenty db snapshot'.");
+    console.error(
+      "Please create a snapshot first using 'engenty db snapshot'."
+    );
     process.exit(1);
   }
 
@@ -147,7 +149,9 @@ function getSnapshotFileToRestore() {
 
   if (snapshotFiles.length === 0) {
     console.error(`Error: No snapshot files found in "${snapshotDir}".`);
-    console.error("Please create a snapshot first using 'engenty db snapshot'.");
+    console.error(
+      "Please create a snapshot first using 'engenty db snapshot'."
+    );
     process.exit(1);
   }
 

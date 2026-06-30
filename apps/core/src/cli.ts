@@ -8,9 +8,9 @@ import {
 } from "./cli/commands.js";
 import { registerDbCommands } from "./cli/db/db-commands.js";
 import { registerEnvCommands } from "./cli/env-setup/env-commands.js";
-import { registerSetupCommands } from "./cli/setup/setup-commands.js";
 import { registerPluginCommands } from "./cli/plugin-commands.js";
 import { shouldDeferPluginBoot } from "./cli/plugin-create/plugin-create-cli-path.js";
+import { registerSetupCommands } from "./cli/setup/setup-commands.js";
 import { registerSkillsCommands } from "./cli/tools/skills-commands.js";
 import { registerToolsCommands } from "./cli/tools/tools-commands.js";
 import { createBootApiLogger, initEvlog, log } from "./observability/evlog.js";

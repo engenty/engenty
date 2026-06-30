@@ -39,7 +39,9 @@ const CREATE_SCHEMA_RE =
 
 export function discoverPostgresSchemasFromMigrations(migrationsDir) {
   const created = new Set();
-  if (!(fs.existsSync(migrationsDir) && fs.statSync(migrationsDir).isDirectory())) {
+  if (
+    !(fs.existsSync(migrationsDir) && fs.statSync(migrationsDir).isDirectory())
+  ) {
     return created;
   }
 
@@ -61,7 +63,8 @@ export function composeApiSchemas(migrationsDir) {
   const baseSet = new Set(BASE_API_SCHEMAS);
   const moduleSchemas = [...discovered]
     .filter(
-      (schema) => !INTERNAL_POSTGRES_SCHEMAS.has(schema) && !baseSet.has(schema)
+      (schema) =>
+        !(INTERNAL_POSTGRES_SCHEMAS.has(schema) || baseSet.has(schema))
     )
     .sort((left, right) => left.localeCompare(right));
 
@@ -111,7 +114,9 @@ export function findCommittedSupabaseConfigModuleLeaks(content) {
     /# >>> engenty:storage-buckets[^\n]*\n([\s\S]*?)# <<< engenty:storage-buckets/m
   );
   if (!bucketSectionMatch) {
-    issues.push("managed storage-bucket markers missing from supabase/config.toml");
+    issues.push(
+      "managed storage-bucket markers missing from supabase/config.toml"
+    );
   } else if (/^\[storage\.buckets\./m.test(bucketSectionMatch[1].trim())) {
     issues.push(
       "committed storage-buckets block must stay empty (module buckets belong in local sync output)"
@@ -183,7 +188,10 @@ export function syncStorageBucketsInConfigToml(original, bucketBlocks) {
     );
   }
 
-  const before = original.slice(0, beginIdx + STORAGE_BUCKET_MARKER_BEGIN.length);
+  const before = original.slice(
+    0,
+    beginIdx + STORAGE_BUCKET_MARKER_BEGIN.length
+  );
   const after = original.slice(endIdx);
   const middle =
     bucketBlocks.length > 0 ? `\n${bucketBlocks.join("\n\n")}\n` : "\n";

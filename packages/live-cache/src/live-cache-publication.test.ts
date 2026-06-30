@@ -10,9 +10,7 @@ const MODULE_REALTIME_MIGRATIONS: Array<{
   tables: string[];
 }> = [
   // Closed modules (e.g. tasks) are validated in engenty-pro when present.
-].filter((spec) =>
-  fs.existsSync(path.join(repoRoot, "modules", spec.module))
-);
+].filter((spec) => fs.existsSync(path.join(repoRoot, "modules", spec.module)));
 
 describe("live cache publication guardrails", () => {
   it("core realtime migration publishes ai.agent_session", () => {

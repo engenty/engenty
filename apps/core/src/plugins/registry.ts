@@ -14,12 +14,12 @@ import type {
   FeatureFlagDefinition,
   PluginAiRegistration,
   PluginDiagnostic,
-  PluginEventsApi,
   PluginEventFilter,
   PluginEventInterceptor,
   PluginEventName,
   PluginEventObserver,
   PluginEventRegistrationReceipt,
+  PluginEventsApi,
   PluginEventsRuntime,
   PluginGatewayMethod,
   PluginHttpRoute,
@@ -232,13 +232,6 @@ export interface PluginRegistry {
   // `contextGraph` / schema / source surfaces to it without importing the
   // concrete package. Unset until the host plugin loads.
   contextGraphHost?: ContextGraphHost;
-  // Schema registrations made by consumer plugins before the host loaded
-  // (modules discover before packages). Flushed when the host installs.
-  pendingContextGraphSchemas?: Array<{
-    events: PluginEventsApi;
-    moduleId: string;
-    registration: ContextGraphSchemaRegistration;
-  }>;
   createApi?: (
     record: PluginRecord,
     pluginConfig: Record<string, unknown>
@@ -301,6 +294,13 @@ export interface PluginRegistry {
     sourceInfo?: PluginSourceInfo;
     summary?: string;
     pluginConfig: Record<string, unknown>;
+  }>;
+  // Schema registrations made by consumer plugins before the host loaded
+  // (modules discover before packages). Flushed when the host installs.
+  pendingContextGraphSchemas?: Array<{
+    events: PluginEventsApi;
+    moduleId: string;
+    registration: ContextGraphSchemaRegistration;
   }>;
   plugins: PluginRecord[];
   profilePolicies?: Array<{
