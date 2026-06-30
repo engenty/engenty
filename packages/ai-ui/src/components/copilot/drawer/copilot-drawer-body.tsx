@@ -62,6 +62,7 @@ export function CopilotDrawerBody({
   agentDebugPayload,
   triggerType = "message_copilot",
   requestedAgentId,
+  composerLeadingControl: composerLeadingControlProp,
   dockMode: shellDockMode,
   copilotSidebarRef,
   mainContentRef,
@@ -452,7 +453,13 @@ export function CopilotDrawerBody({
     reviewPromptLabel,
     thinkingLabel,
     composerOverride: realtimeVoice.composerOverride,
-    composerLeadingControl: realtimeVoice.composerLeadingControl,
+    composerLeadingControl:
+      composerLeadingControlProp || realtimeVoice.composerLeadingControl ? (
+        <div className="flex min-w-0 items-center gap-1">
+          {composerLeadingControlProp}
+          {realtimeVoice.composerLeadingControl}
+        </div>
+      ) : undefined,
     debugPayload: undefined,
     agentDebugPayload,
     resumeInterrupt: session.resumeInterrupt,

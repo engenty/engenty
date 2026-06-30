@@ -34,6 +34,10 @@
       "types": "./dist/ui/paths.d.ts",
       "default": "./dist/ui/paths.js"
     },
+    "./ui/model-chooser-control": {
+      "types": "./dist/ui/model-chooser-control.d.ts",
+      "default": "./dist/ui/model-chooser-control.js"
+    },
     "./ui/plugin": {
       "types": "./dist/ui/plugin.d.ts",
       "default": "./dist/ui/plugin.js"

@@ -206,6 +206,31 @@ const cardVariantClasses: Record<CopilotCompactComposerShellVariant, string> = {
     "border bg-card/95 shadow-lg supports-[backdrop-filter]:bg-card/85 supports-[backdrop-filter]:backdrop-blur blob-tinted-card",
 };
 
+/** Keep expanded chrome when focus moves to below-card controls or portaled menus. */
+function isComposerChromeFocusTarget(
+  shellRoot: HTMLElement | null,
+  target: EventTarget | null
+): boolean {
+  if (!(target instanceof Node)) {
+    return false;
+  }
+  if (shellRoot?.contains(target)) {
+    return true;
+  }
+  if (target instanceof Element) {
+    return Boolean(
+      target.closest(
+        [
+          '[data-slot="select-content"]',
+          '[data-slot="dropdown-menu-content"]',
+          '[data-slot="popover-content"]',
+        ].join(",")
+      )
+    );
+  }
+  return false;
+}
+
 export function CopilotCompactComposerShell({
   autoExpand = true,
   belowCard,
@@ -259,6 +284,7 @@ export function CopilotCompactComposerShell({
   const [hasContent, setHasContent] = useState(false);
   const blobCharacter = useBlobCharacterCycle();
   const cardRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const textarea = cardRef.current?.querySelector("textarea");
@@ -286,6 +312,18 @@ export function CopilotCompactComposerShell({
   return (
     <div
       className={cn("relative", rendered && "overflow-visible", className)}
+      onBlur={(e) => {
+        if (
+          !isComposerChromeFocusTarget(
+            shellRef.current,
+            e.relatedTarget
+          )
+        ) {
+          setIsFocused(false);
+        }
+      }}
+      onFocus={() => setIsFocused(true)}
+      ref={shellRef}
       style={
         {
           ...(rendered ? { paddingTop: STATUS_FLAP_LAYOUT_CLEARANCE } : {}),
@@ -454,12 +492,6 @@ export function CopilotCompactComposerShell({
             "rounded-[1.7rem] px-4 py-[0.7rem]"
           )}
           data-variant={variant}
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              setIsFocused(false);
-            }
-          }}
-          onFocus={() => setIsFocused(true)}
           onInput={(e) => {
             const textarea = e.currentTarget.querySelector("textarea");
             setHasContent(textarea ? textarea.value.trim().length > 0 : false);

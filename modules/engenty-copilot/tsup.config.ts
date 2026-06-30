@@ -11,6 +11,7 @@ export default defineConfig({
     "src/lib/ensure-copilot-user-workspace-prefix.ts",
     "ui/plugin.ts",
     "ui/paths.ts",
+    "ui/model-chooser-control.ts",
   ],
   format: ["esm"],
   dts: true,

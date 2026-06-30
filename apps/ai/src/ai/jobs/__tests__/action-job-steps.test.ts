@@ -1,4 +1,32 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Importing ../action-job-steps.js pulls in the heavy Mastra module graph (warm
+// ~1.6s, but transform-bound and able to balloon past the runner's default on a
+// loaded CI box). Pin a generous per-file timeout so the first dynamic import
+// doesn't surface as "Test timed out", regardless of which vitest config runs it.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+
+// These steps are pure unit tests: the resume branch returns before any agent runs,
+// and the apply step is mocked below. Nothing here should ever touch the network, so
+// fail loudly on any outbound fetch (e.g. a signed file URL) instead of letting it
+// hit real DNS and flake on the network round-trip.
+const realFetch = globalThis.fetch;
+beforeEach(() => {
+  // Reject (don't throw synchronously) so this behaves like a real fetch failure
+  // for both `await fetch(...)` and `fetch(...).catch(...)` call sites.
+  vi.stubGlobal("fetch", (input: unknown) =>
+    Promise.reject(
+      new Error(
+        `Unexpected network fetch in action-job-steps test: ${String(
+          input instanceof Request ? input.url : input
+        )}`
+      )
+    )
+  );
+});
+afterEach(() => {
+  vi.stubGlobal("fetch", realFetch);
+});
 
 // The apply step writes through this — mock it to assert the patch + isolate the
 // step logic from the core gateway.
