@@ -3,5 +3,11 @@
   "description": "Architecture, the plugin system, building modules, and running Engenty locally.",
   "root": true,
   "icon": "SquareTerminal",
-  "pages": ["README", "architecture", "local-development", "setup-process", "plugins"]
+  "pages": [
+    "README",
+    "architecture",
+    "local-development",
+    "setup-process",
+    "plugins"
+  ]
 }

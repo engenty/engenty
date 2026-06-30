@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createLogger } from "@engenty/telemetry";
+import { createLogger, env } from "@engenty/telemetry";
 import { embed, embedMany } from "ai";
 
 const logger = createLogger({ name: "api-catalog-search" });
@@ -161,6 +161,17 @@ function resolveEmbeddingModel(modelId?: string) {
   );
 }
 
+/**
+ * Gateway-backed embeddings need either an API key or a Vercel OIDC token.
+ * When neither is present, semantic/hybrid ranking can only fall back to lexical.
+ */
+function hasGatewayCredentials(): boolean {
+  return (
+    env("AI_GATEWAY_API_KEY", "").trim().length > 0 ||
+    env("VERCEL_OIDC_TOKEN", "").trim().length > 0
+  );
+}
+
 async function embedQuery(params: {
   modelId: string;
   query: string;
@@ -312,6 +323,13 @@ export async function rankCatalogEntries<T extends CatalogSearchEntry>(
   const strategy = params.strategy ?? "hybrid";
   const lexicalScores = entries.map((entry) => scoreCatalogEntry(entry, query));
   if (strategy === "lexical") {
+    return rankLexically(entries, lexicalScores);
+  }
+
+  // No gateway credentials (e.g. CI, local without a key) → skip the embedding
+  // call that would only fail auth and fall back anyway. Avoids a slow doomed
+  // network round-trip; semantic ranking requires the gateway.
+  if (!hasGatewayCredentials()) {
     return rankLexically(entries, lexicalScores);
   }
 

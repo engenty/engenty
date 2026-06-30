@@ -120,6 +120,11 @@ export const AI_CHAT_SESSION_UPDATED_EVENT = "ai.chat_session.updated" as const;
 export const AI_CHAT_SESSION_DELETED_EVENT = "ai.chat_session.deleted" as const;
 
 export async function createApp(options: CreateAppOptions = {}) {
+  // Unit tests boot createApp() without live backing services; skip background
+  // tasks that perform real DB/gateway I/O (startup sweep, gateway model sync,
+  // task dispatch) so they don't hang on unreachable services. The same tasks
+  // are also skipped when a store is injected via options (see below).
+  const skipBackgroundTasks = process.env.VITEST === "true";
   const app = new Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>();
 
   /**
@@ -194,9 +199,11 @@ export async function createApp(options: CreateAppOptions = {}) {
     logger.info("agent run store ready", { schema: "ai" });
     // D6: startup sweep — any run still "running" from a previous process cannot
     // be live. Mark as failed so clients never wait on a zombie run.
-    agentRunStore.sweepStalledRuns?.().catch((err: unknown) => {
-      logger.warn("startup sweep failed", { error: String(err) });
-    });
+    if (!skipBackgroundTasks) {
+      agentRunStore.sweepStalledRuns?.().catch((err: unknown) => {
+        logger.warn("startup sweep failed", { error: String(err) });
+      });
+    }
   }
   const chatSearchStore =
     "chatSearchStore" in options
@@ -519,7 +526,11 @@ export async function createApp(options: CreateAppOptions = {}) {
   // legacy cutover. Channels return in the Actions/Tasks rebuild (Phase 4).
 
   if (
-    !(options.disableGatewayModelScheduler || "usageStore" in options) &&
+    !(
+      skipBackgroundTasks ||
+      options.disableGatewayModelScheduler ||
+      "usageStore" in options
+    ) &&
     isGatewayModelStore(aiUsageStore)
   ) {
     await startGatewayModelSyncScheduler(aiUsageStore);
@@ -529,7 +540,13 @@ export async function createApp(options: CreateAppOptions = {}) {
   // durable `task-job` Mastra Workflow. On boot we first resume any workflow runs
   // that were mid-flight when the process last stopped (crash-resume), then start
   // the queue consumer. Skipped under test (`usageStore` injected) or kill-switch.
-  if (!(options.disableTaskDispatch || "usageStore" in options)) {
+  if (
+    !(
+      skipBackgroundTasks ||
+      options.disableTaskDispatch ||
+      "usageStore" in options
+    )
+  ) {
     const queueAdapter = (
       await import("./infra/database.js")
     ).createAiDatabaseAdapter();

@@ -3,13 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
-  BASE_API_SCHEMAS,
-  STORAGE_BUCKET_MARKER_BEGIN,
-  STORAGE_BUCKET_MARKER_END,
   assertCommittedSupabaseConfigIsModuleAgnostic,
+  BASE_API_SCHEMAS,
   composeApiSchemas,
   discoverPostgresSchemasFromMigrations,
   renderApiSchemasBlock,
+  STORAGE_BUCKET_MARKER_BEGIN,
+  STORAGE_BUCKET_MARKER_END,
   syncApiSchemasInConfigToml,
 } from "./supabase-sync-lib.mjs";
 
@@ -27,7 +27,9 @@ ${STORAGE_BUCKET_MARKER_END}
 describe("supabase-sync-lib", () => {
   it("guardrail rejects module-specific managed config blocks", () => {
     const base = moduleAgnosticConfigTemplate();
-    expect(() => assertCommittedSupabaseConfigIsModuleAgnostic(base)).not.toThrow();
+    expect(() =>
+      assertCommittedSupabaseConfigIsModuleAgnostic(base)
+    ).not.toThrow();
 
     const leaked = syncApiSchemasInConfigToml(base, [
       ...BASE_API_SCHEMAS,

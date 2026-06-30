@@ -30,7 +30,9 @@ function main() {
   });
 
   console.log(`Updated ${envLocalPath} with Portless dev URLs:`);
-  console.log(`  Open ${entries.ENGENTY_UI_BASE_URL}/ after pnpm portless && pnpm dev`);
+  console.log(
+    `  Open ${entries.ENGENTY_UI_BASE_URL}/ after pnpm portless && pnpm dev`
+  );
   for (const line of headerComments) {
     console.log(`  ${line.replace(/^#\s?/, "")}`);
   }

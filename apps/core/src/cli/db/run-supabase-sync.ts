@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { findWorkspaceRootFrom } from "@engenty/environment/env";
 
-export function resolveSupabaseSyncScriptPath(startDir = process.cwd()): string {
+export function resolveSupabaseSyncScriptPath(
+  startDir = process.cwd()
+): string {
   const repoRoot = findWorkspaceRootFrom(startDir);
   return path.join(repoRoot, "scripts", "supabase-sync.mjs");
 }
@@ -15,9 +17,11 @@ export function canRunSupabaseSync(startDir = process.cwd()): boolean {
   return fs.existsSync(scriptPath) && fs.existsSync(examplePath);
 }
 
-export function runSupabaseSyncScript(params: {
-  cwd?: string;
-} = {}): { ok: boolean; output: string; ran: boolean } {
+export function runSupabaseSyncScript(params: { cwd?: string } = {}): {
+  ok: boolean;
+  output: string;
+  ran: boolean;
+} {
   const cwd = params.cwd ?? findWorkspaceRootFrom(process.cwd());
   const scriptPath = path.join(cwd, "scripts", "supabase-sync.mjs");
   const examplePath = path.join(cwd, "supabase", "config.toml.example");

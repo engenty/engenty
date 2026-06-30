@@ -104,7 +104,9 @@ function readLegacyModulesArray(engenty) {
 export function readEngentyPluginsManifest(repoRoot) {
   const pkg = readRootPackageJson(repoRoot);
   const engenty =
-    pkg.engenty && typeof pkg.engenty === "object" && !Array.isArray(pkg.engenty)
+    pkg.engenty &&
+    typeof pkg.engenty === "object" &&
+    !Array.isArray(pkg.engenty)
       ? pkg.engenty
       : {};
 
@@ -259,7 +261,9 @@ function serializePluginEntry(spec) {
 export function writeEngentyPluginsObject(repoRoot, plugins) {
   const pkg = readRootPackageJson(repoRoot);
   const engenty =
-    pkg.engenty && typeof pkg.engenty === "object" && !Array.isArray(pkg.engenty)
+    pkg.engenty &&
+    typeof pkg.engenty === "object" &&
+    !Array.isArray(pkg.engenty)
       ? pkg.engenty
       : {};
 
@@ -279,7 +283,7 @@ export function writeEngentyPluginsObject(repoRoot, plugins) {
       plugins: nextPlugins,
     },
   };
-  delete next.engenty.modules;
+  next.engenty.modules = undefined;
 
   fs.writeFileSync(
     path.join(repoRoot, "package.json"),
@@ -300,7 +304,11 @@ export function enablePluginsInManifest(repoRoot, slugs) {
   }
   writeEngentyPluginsObject(
     repoRoot,
-    Object.fromEntries(Object.keys(next).sort().map((slug) => [slug, next[slug]]))
+    Object.fromEntries(
+      Object.keys(next)
+        .sort()
+        .map((slug) => [slug, next[slug]])
+    )
   );
 }
 

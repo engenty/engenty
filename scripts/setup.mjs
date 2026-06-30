@@ -65,7 +65,10 @@ function main() {
   }
 
   const root = resolveRepoRoot();
-  const refreshedConfig = materializeSupabaseConfig(root, args.has("--refresh"));
+  const refreshedConfig = materializeSupabaseConfig(
+    root,
+    args.has("--refresh")
+  );
 
   execFileSync(process.execPath, [path.join(SCRIPT_DIR, "supabase-sync.mjs")], {
     cwd: root,

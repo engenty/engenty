@@ -118,7 +118,9 @@ export async function runLocalSetup(params: {
     throw new Error("setup failed.");
   }
 
-  if (!isSupabaseRunning()) {
+  if (isSupabaseRunning()) {
+    console.log("Local Supabase is already running.");
+  } else {
     if (!(await ensureDockerReady())) {
       console.log(
         `
@@ -134,8 +136,6 @@ finishes the database and .env.local steps.`
     }
     console.log("Starting local Supabase (Docker)…");
     runSupabaseOrThrow(["start"]);
-  } else {
-    console.log("Local Supabase is already running.");
   }
 
   if (localDatabaseNeedsInit()) {
@@ -147,7 +147,9 @@ finishes the database and .env.local steps.`
       console.log("Applying migrations with supabase db reset…");
       runSupabaseOrThrow(["db", "reset"]);
     } else {
-      console.log("Skipped — run `pnpm db:reset` (or `pnpm db:migrate`) later.");
+      console.log(
+        "Skipped — run `pnpm db:reset` (or `pnpm db:migrate`) later."
+      );
     }
   } else {
     console.log("Applying pending migrations…");

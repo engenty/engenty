@@ -57,10 +57,7 @@ function parsePluginSlug(slug: string): string {
   return trimmed;
 }
 
-function parsePluginEntry(
-  slug: string,
-  value: unknown
-): EngentyPluginSpec {
+function parsePluginEntry(slug: string, value: unknown): EngentyPluginSpec {
   if (value === "workspace") {
     return { slug, source: "workspace", config: {} };
   }
@@ -110,7 +107,9 @@ export function readEngentyPluginsManifest(
 ): EngentyPluginsManifest {
   const pkg = readRootPackageJson(repoRoot);
   const engenty =
-    pkg.engenty && typeof pkg.engenty === "object" && !Array.isArray(pkg.engenty)
+    pkg.engenty &&
+    typeof pkg.engenty === "object" &&
+    !Array.isArray(pkg.engenty)
       ? (pkg.engenty as Record<string, unknown>)
       : {};
 
@@ -123,7 +122,7 @@ export function readEngentyPluginsManifest(
     rawPlugins = engenty.plugins as Record<string, unknown>;
   } else if (Array.isArray(engenty.plugins)) {
     throw new Error(
-      "engenty.plugins must be an object map — use { \"my-plugin\": { \"source\": \"workspace\" } }"
+      'engenty.plugins must be an object map — use { "my-plugin": { "source": "workspace" } }'
     );
   } else {
     rawPlugins = readLegacyModulesArray(engenty) ?? {};
@@ -307,7 +306,9 @@ export function isEnabledModuleSlug(repoRoot: string, slug: string): boolean {
   return enabledModuleSlugSet(repoRoot).has(slug);
 }
 
-function serializePluginEntry(spec: EngentyPluginSpec): Record<string, unknown> {
+function serializePluginEntry(
+  spec: EngentyPluginSpec
+): Record<string, unknown> {
   if (spec.source === "workspace" && Object.keys(spec.config).length === 0) {
     return { source: "workspace" };
   }
@@ -340,7 +341,9 @@ export function writeEngentyPluginsObject(
 ): void {
   const pkg = readRootPackageJson(repoRoot);
   const engenty =
-    pkg.engenty && typeof pkg.engenty === "object" && !Array.isArray(pkg.engenty)
+    pkg.engenty &&
+    typeof pkg.engenty === "object" &&
+    !Array.isArray(pkg.engenty)
       ? (pkg.engenty as Record<string, unknown>)
       : {};
 
@@ -357,7 +360,7 @@ export function writeEngentyPluginsObject(
       plugins: nextPlugins,
     },
   };
-  delete (next.engenty as Record<string, unknown>).modules;
+  (next.engenty as Record<string, unknown>).modules = undefined;
 
   fs.writeFileSync(
     path.join(repoRoot, "package.json"),

@@ -1,9 +1,9 @@
-import type { Command } from "commander";
 import { findWorkspaceRootFrom } from "@engenty/environment/env";
+import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { maybeInstallWorkspacePluginsInteractively } from "../plugins/pick-workspace-plugins.js";
-import { runSetupScript } from "./run-setup-script.js";
 import { runLocalSetup } from "./run-local-setup.js";
+import { runSetupScript } from "./run-setup-script.js";
 
 async function runSetup(refresh: boolean): Promise<void> {
   const result = runSetupScript({ refresh });
@@ -27,7 +27,10 @@ export function registerSetupCommands(program: Command): void {
     .description(
       "Generate local supabase/config.toml, aggregated migrations, and UI plugin artifacts from engenty.plugins"
     )
-    .option("--refresh", "Recreate supabase/config.toml from config.toml.example")
+    .option(
+      "--refresh",
+      "Recreate supabase/config.toml from config.toml.example"
+    )
     .option(
       "--local",
       "First-run orchestration: setup, start Supabase, apply migrations, then print next steps"
@@ -51,7 +54,10 @@ export function registerSetupCommands(program: Command): void {
             skip: options.plugins === false,
           });
           if (options.local === true) {
-            await runLocalSetup({ repoRoot, refresh: options.refresh === true });
+            await runLocalSetup({
+              repoRoot,
+              refresh: options.refresh === true,
+            });
             return;
           }
           await runSetup(options.refresh === true);
@@ -62,7 +68,10 @@ export function registerSetupCommands(program: Command): void {
   program
     .command("init")
     .description("Deprecated — use engenty setup --local")
-    .option("--refresh", "Recreate supabase/config.toml from config.toml.example")
+    .option(
+      "--refresh",
+      "Recreate supabase/config.toml from config.toml.example"
+    )
     .action(
       runCliAction(async (options: { refresh?: boolean }) => {
         console.warn(

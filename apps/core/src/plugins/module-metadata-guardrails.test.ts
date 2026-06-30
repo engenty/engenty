@@ -24,7 +24,7 @@ function readJson(filePath: string) {
 }
 
 /** First-party `modules/*` slugs covered by manifest and source-shape guardrails. */
-const FIRST_PARTY_GUARDED_MODULE_SLUGS = ["engenty-copilot"];
+const FIRST_PARTY_GUARDED_MODULE_SLUGS = ["company-profile", "engenty-copilot"];
 
 const OPERATION_SLICE_NO_DIRECT_GATEWAY_MODULES: string[] = [];
 

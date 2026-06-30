@@ -32,7 +32,11 @@ describe("in-repo plugin activation", () => {
     fs.writeFileSync(
       path.join(root, "package.json"),
       `${JSON.stringify(
-        { name: "repo", workspaces: ["modules/*"], engenty: { plugins: enabled } },
+        {
+          name: "repo",
+          workspaces: ["modules/*"],
+          engenty: { plugins: enabled },
+        },
         null,
         2
       )}\n`,

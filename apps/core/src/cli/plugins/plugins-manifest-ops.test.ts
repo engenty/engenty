@@ -19,9 +19,7 @@ describe("plugins-manifest-ops", () => {
   });
 
   function createRepo(slugs: Record<string, { source: string }>) {
-    const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "engenty-plugins-cli-")
-    );
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-plugins-cli-"));
     tempDirs.push(root);
     fs.mkdirSync(path.join(root, "modules"), { recursive: true });
     fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
