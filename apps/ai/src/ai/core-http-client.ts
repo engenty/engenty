@@ -149,6 +149,13 @@ export interface EngentyCoreClientOptions {
   userAccessToken: string;
 }
 
+// Workspace context cache: key is token, value is [context, expiresAt]
+const workspaceContextCache = new Map<
+  string,
+  [EngentyWorkspaceContext, number]
+>();
+const WORKSPACE_CONTEXT_TTL_MS = 60_000; // 1 minute
+
 export class EngentyCoreClient {
   private readonly options: EngentyCoreClientOptions;
   private readonly fetchImpl: typeof fetch;
@@ -294,8 +301,21 @@ export class EngentyCoreClient {
     );
   }
 
-  getWorkspaceContext() {
-    return this.request<EngentyWorkspaceContext>("/api/users/setup/context");
+  async getWorkspaceContext(): Promise<EngentyWorkspaceContext> {
+    const token = this.options.userAccessToken;
+    const cached = workspaceContextCache.get(token);
+    if (cached) {
+      const [context, expiresAt] = cached;
+      if (Date.now() < expiresAt) {
+        return context;
+      }
+      workspaceContextCache.delete(token);
+    }
+    const context = await this.request<EngentyWorkspaceContext>(
+      "/api/users/setup/context"
+    );
+    workspaceContextCache.set(token, [context, Date.now() + WORKSPACE_CONTEXT_TTL_MS]);
+    return context;
   }
 
   listPlugins(tenantId?: string | null) {
