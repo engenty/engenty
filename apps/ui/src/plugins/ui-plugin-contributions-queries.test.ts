@@ -177,6 +177,7 @@ describe("ui plugin contribution invalidation", () => {
         liveBindings: [],
         navigationPrefetch: [],
         settingsItems: [],
+        tabs: [],
       },
       diagnostics: [],
       pluginGenerations: {
@@ -239,6 +240,7 @@ describe("ui plugin contribution invalidation", () => {
         liveBindings: [],
         navigationPrefetch: [],
         settingsItems: [],
+        tabs: [],
       },
       diagnostics: [],
       pluginGenerations: {

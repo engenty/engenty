@@ -16,6 +16,7 @@ import type {
   UiRouteContribution,
   UiRouteScope,
   UiSettingsItemContribution,
+  UiTabContribution,
 } from "@engenty/ui-plugin-sdk";
 import { createHookEngine } from "./hook-engine";
 
@@ -34,6 +35,7 @@ interface MutableUiContributions {
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
+  tabs: UiTabContribution[];
 }
 
 function normalizeId(value: string, kind: string) {
@@ -106,6 +108,7 @@ export function createUiPluginRuntime(
       liveBindings: [],
       navigationPrefetch: [],
       settingsItems: [],
+      tabs: [],
     },
     hooks: createHookEngine<UiEventMap>(),
     enabledPluginIds,
@@ -203,6 +206,21 @@ export function createEngentyUiApi(
         to: normalizePath(input.to, "settings item"),
         order: input.order,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.settingsItem"),
+      });
+    },
+    registerTab: (input) => {
+      const id = normalizeId(input.id, "tab");
+      const surface = normalizeId(input.surface, "tab surface");
+      runtime.contributions.tabs.push({
+        id,
+        pluginId: normalizedPluginId,
+        surface,
+        component: input.component,
+        label: input.label?.trim(),
+        labelKey: input.labelKey?.trim(),
+        icon: input.icon,
+        order: input.order,
+        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.tab"),
       });
     },
     registerCopilotArticleHrefResolver: (input) => {
@@ -310,6 +328,7 @@ export async function resolveUiContributions(
     liveBindings,
     navigationPrefetch,
     settingsItems,
+    tabs,
   ] = await Promise.all([
     runtime.hooks.emit("ui.routes", [...runtime.contributions.routes]),
     runtime.hooks.emit("ui.adminMenuItems", [
@@ -339,6 +358,7 @@ export async function resolveUiContributions(
     runtime.hooks.emit("ui.settingsItems", [
       ...runtime.contributions.settingsItems,
     ]),
+    runtime.hooks.emit("ui.tabs", [...runtime.contributions.tabs]),
   ]);
 
   const resolved = {
@@ -354,6 +374,7 @@ export async function resolveUiContributions(
     liveBindings,
     navigationPrefetch,
     settingsItems,
+    tabs,
   };
   void runtime.hooks.emit("ui.contributionsResolved", resolved);
   return resolved;
