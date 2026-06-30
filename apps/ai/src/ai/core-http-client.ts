@@ -314,7 +314,10 @@ export class EngentyCoreClient {
     const context = await this.request<EngentyWorkspaceContext>(
       "/api/users/setup/context"
     );
-    workspaceContextCache.set(token, [context, Date.now() + WORKSPACE_CONTEXT_TTL_MS]);
+    workspaceContextCache.set(token, [
+      context,
+      Date.now() + WORKSPACE_CONTEXT_TTL_MS,
+    ]);
     return context;
   }
 
