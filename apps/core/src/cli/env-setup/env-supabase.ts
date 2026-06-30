@@ -57,11 +57,33 @@ export function parseSupabaseStatusEnv(stdout: string): Record<string, string> {
   return out;
 }
 
-/** Walk ordered key-name fallbacks (new sb_* keys first, legacy JWT keys after). */
+/** A 3-part `eyJ…`-prefixed HS256 token, e.g. the legacy ANON_KEY/SERVICE_ROLE_KEY. */
+function isJwtLike(value: string): boolean {
+  return /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(value.trim());
+}
+
+/**
+ * Walk ordered key-name fallbacks (new sb_* keys first, legacy JWT keys after).
+ *
+ * With `preferJwt`, a JWT-shaped candidate wins regardless of order. The local
+ * Supabase CLI stack validates JWTs against JWT_SECRET (HS256) and does not
+ * accept the new single-part sb_secret_/sb_publishable_ keys unless asymmetric
+ * signing keys are configured — so the wizard must write the legacy JWT keys for
+ * local dev, otherwise PostgREST rejects every request (`PGRST301`).
+ */
 export function resolveSupabaseValue(
   statusKeys: readonly string[],
-  statusValues: Record<string, string>
+  statusValues: Record<string, string>,
+  opts: { preferJwt?: boolean } = {}
 ): string | undefined {
+  if (opts.preferJwt) {
+    for (const key of statusKeys) {
+      const value = statusValues[key];
+      if (value && isJwtLike(value)) {
+        return value;
+      }
+    }
+  }
   for (const key of statusKeys) {
     const value = statusValues[key];
     if (value && value.trim() !== "") {

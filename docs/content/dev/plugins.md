@@ -1,45 +1,81 @@
 ---
-title: Plugins & modules
-description: Extend Engenty with your own modules.
+title: Plugin framework
+description: How Engenty modules are declared, discovered, loaded, and extended.
 ---
 
-# Plugins & modules
+# Plugins & Modules
 
-Engenty features ship as **modules** — self-contained plugins discovered by the
-core host at startup.
+Engenty is a modular framework - to integrate your AI agents with your apps in a unified UI.
 
-## On disk vs active (read this first)
+The core apps provide a backend (Hono, Supabase), an UI (React) and and an AI / agent backend based on Mastra. This is supported by various feature packages.
 
-Three different things often get conflated:
+To actually do something - you need **modules** - which can be integrated via the **plugin-framework**. 
 
-1. **On disk** — `modules/<slug>/` exists in the repo. pnpm workspace includes it automatically. **No routes, UI, or migrations run** until the slug is in the manifest.
-2. **Active** — slug listed in root **`engenty.plugins`** object map. This is the **only** manual product declaration (pi-style). Backend discovery, Supabase compose, migration aggregate, and UI catalog all filter to this map.
-3. **Derived wiring** — artifacts produced by **`pnpm engenty setup`** (and `engenty plugins install`): gitignored Supabase/UI files, plus `@engenty/<slug>` workspace deps in `apps/ui/package.json` when the module has UI (pnpm needs them for imports — **do not add these by hand**).
+We ship several base plugins as basic building blocks - so engenty isn't empty. Even some core functioanlities are designed as plugins ( tenant-settings, user-settings ).
+
+The core is **plugin-free**: it never imports a module directly; Instead we use plugin manifests and hooks to load and integrate them at runtime via the Plugin-SDK. This page covers the model, the lifecycle commands, the manifest, and how plugins can extend the core and each other.
+
+For how `engenty setup` turns the manifest into a running stack, see
+[Setup process](./setup-process).
+
+## What is a plugin
+
+A **module** is a self-contained feature in its own directory with an `engenty.plugin.json` manifest. Via the plugin-framework it can contribute backend routes and operations, UI routes, menus and widgets, AI agents and tools, database migrations, storage buckets, and environment settings. The core host discovers and loads plugins at startup — it never imports them directly.
+
+Plugins live in two locations:
+
+- **`modules/*`** — first-party feature modules, installed per product.
+- **`packages/*`** — platform plugins that ship with the host (for example the context graph and tenant/user settings).
+
+## Plugin lifecycle
+
+A plugin moves through three states:
+
+1. **On disk** — the directory exists in the repo and pnpm sees it as a workspace
+   package. The code is present, but nothing runs — no routes, UI, or migrations —
+   until the plugin is installed.
+2. **Installed** — the plugin is listed in the root **`engenty.plugins`**
+   manifest. This is the product declaration: the set of plugins this build
+   ships. Installing runs `engenty setup`, which regenerates the **derived
+   wiring** from the manifest — aggregated migrations, Supabase config, the UI
+   catalog, and the `@engenty/<slug>` dependency in `apps/ui/package.json` for UI
+   plugins. These artifacts are generated; never edit them by hand.
+3. **Active** — at runtime an installed plugin can be turned on or off, globally
+   or per tenant, through the API. Activation is a flag stored in the database and
+   takes effect without a rebuild.
+
+**Install vs. activate.** *Install* is build-time: it decides whether a plugin is
+part of this build and regenerates its wiring — use it to add or remove a feature
+from the product. *Activate* is runtime: it toggles an already-installed plugin
+for the whole instance or a single tenant, with no redeploy — use it for
+per-tenant feature gating. A plugin must be installed before it can be activated.
 
 ```bash
-# Module already in modules/ (e.g. rsync from legacy):
+# Install a module that's already in modules/ (writes engenty.plugins + runs setup):
 pnpm engenty plugins install <slug>
 pnpm db:migrate && pnpm dev
 
-# See what's active:
+# List plugins (works with the API down; adds live runtime state when it's up):
 pnpm engenty plugins list
 ```
 
-`plugins list` reads the plugins discovered on disk and works with the API down;
-when the API is running it enriches each row with live runtime state.
+## Lifecycle commands
 
-**`install` / `uninstall` vs `activate` / `deactivate` — two different layers:**
+```bash
+pnpm engenty plugins create [name]        # scaffold modules/<slug>/ (manifest + src) — files only
+pnpm engenty plugins install [target...]  # in-repo slug or external package spec; --all installs every workspace module
+pnpm engenty plugins uninstall <target>   # remove from the product (workspace slug, or external id via the API)
+pnpm engenty plugins list                 # list discovered plugins; enriched with live state when the API is up
+pnpm engenty plugins check                # validate installed entries exist on disk with a manifest
+pnpm engenty plugins activate|deactivate [id]   # runtime toggle, global or per-tenant (requires the API)
+```
 
-- **`install <slug | package-spec>` / `uninstall`** — *build-time*: wire a plugin
-  into the product. A workspace slug installs the in-repo module (writes
-  `engenty.plugins` + runs setup); a package spec installs an external package
-  through the core API. This is the "is it part of this build" layer.
-- **`activate` / `deactivate`** — *runtime*: turn an already-installed plugin on
-  or off, globally or per tenant, via the API. No rebuild. This is the
-  multi-tenant feature-gating layer.
-
-A plugin must be installed before it can be activated. They read as synonyms in
-English but operate at different layers — that is why both exist.
+- **`create`** only writes files — it does not install the plugin. Install it
+  afterwards.
+- Running **`install`** or **`uninstall`** with no target opens an interactive
+  picker (space to toggle, `a` = all / none, `i` = invert, enter to confirm).
+- **`install <slug>`** is the in-repo path; **`install <pkg@version>`** installs
+  an external package through the core API.
 
 ## Plugins-free core (the import boundary)
 
@@ -65,11 +101,45 @@ infrastructure. "Plugins-free" means free of *optional / business* plugins —
 not free of the mandatory platform substrate. Do not extend this exception to
 any other plugin without a deliberate decision.
 
-## The manifest
+## The manifest: `engenty.plugin.json`
 
-Every module declares itself with an `engenty.plugin.json` manifest: its id,
-capabilities, contributed env, storage buckets, and entry points for UI, AI, and
-migrations.
+Every plugin declares itself with an `engenty.plugin.json` at its root:
+
+```jsonc
+{
+  "id": "hello-world",            // kebab-case; matches the directory name
+  "name": "Hello World",
+  "version": "0.0.1",
+  "kind": "module",               // "module" (modules/*) or "package" (packages/*)
+  "provides": ["module.hello-world", "ui.route.module.hello-world"],
+  "requires": [],                 // capabilities this plugin needs from others
+  "capabilities": { "ui": true, "ai": false, "operations": true },
+  "server": { "entry": "src/plugin.ts" },   // backend EngentyPluginFactory
+  "ui": { "entry": "@engenty/hello-world/plugin", "load": "workspace" },
+  "env": { "feature": { "id": "...", "label": "..." }, "vars": [ /* … */ ] },
+  "supabase": { "storageBuckets": [ /* … */ ] }   // migrations live in supabase/migrations/
+}
+```
+
+- **`provides` / `requires`** drive capability gating and load order.
+- **`server.entry`** is the backend factory; **`ui.entry`** is the UI plugin.
+- **`env`** contributes feature gates and env vars to the `env` wizard
+  (`recommended: true` on a feature pre-checks it on a fresh setup).
+- **`supabase/migrations/`** in the plugin are aggregated by `engenty setup`.
+
+## Discovery
+
+The host scans two roots, with different gating:
+
+| Root | Gated by | Use |
+|------|----------|-----|
+| `modules/*` | the **`engenty.plugins`** manifest — only listed slugs are discovered | First-party / business modules (opt-in) |
+| `packages/*` | always discovered | Platform plugins (context-graph, tenant-settings, …) |
+
+**Mandatory plugins** (`ENGENTY_HOST_MANDATORY_PLUGINS`: `engenty-copilot`,
+`tenant-settings`, `user-settings`) are force-enabled by the loader. A mandatory
+*module* still needs a manifest entry to be discovered; mandatory *packages* load
+automatically. Plugins are loaded from source via `jiti`, so they need no build.
 
 ## What a module can contribute
 

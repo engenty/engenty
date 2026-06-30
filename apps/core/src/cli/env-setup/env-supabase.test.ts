@@ -5,20 +5,25 @@ import {
   resolveSupabaseValue,
 } from "./env-supabase.js";
 
+// 3-part HS256 JWT stubs, matching the shape of the real legacy ANON/SERVICE keys.
+const LEGACY_ANON = "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.legacy-anon-sig";
+const LEGACY_SERVICE =
+  "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.legacy-service-sig";
+
 // Shape of supabase CLI >= 2.x `status -o env` output (new sb_* key generation).
-const CURRENT_OUTPUT = `ANON_KEY="eyJhbGciOiJIUzI1NiJ9.legacy-anon"
+const CURRENT_OUTPUT = `ANON_KEY="${LEGACY_ANON}"
 API_URL="http://127.0.0.1:54321"
 DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 JWT_SECRET="super-secret-jwt"
 PUBLISHABLE_KEY="sb_publishable_abc123"
 SECRET_KEY="sb_secret_def456"
-SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiJ9.legacy-service"
+SERVICE_ROLE_KEY="${LEGACY_SERVICE}"
 `;
 
 // Older CLI generations only emit the legacy JWT keys.
-const LEGACY_OUTPUT = `ANON_KEY="eyJhbGciOiJIUzI1NiJ9.legacy-anon"
+const LEGACY_OUTPUT = `ANON_KEY="${LEGACY_ANON}"
 API_URL="http://127.0.0.1:54321"
-SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiJ9.legacy-service"
+SERVICE_ROLE_KEY="${LEGACY_SERVICE}"
 `;
 
 describe("parseSupabaseStatusEnv", () => {
@@ -48,11 +53,35 @@ describe("resolveSupabaseValue", () => {
     const values = parseSupabaseStatusEnv(LEGACY_OUTPUT);
     expect(
       resolveSupabaseValue(["SECRET_KEY", "SERVICE_ROLE_KEY"], values)
-    ).toBe("eyJhbGciOiJIUzI1NiJ9.legacy-service");
+    ).toBe(LEGACY_SERVICE);
   });
 
   it("returns undefined when nothing matches", () => {
     expect(resolveSupabaseValue(["NOPE"], {})).toBeUndefined();
+  });
+
+  it("with preferJwt, picks the legacy JWT over the new sb_* key", () => {
+    const values = parseSupabaseStatusEnv(CURRENT_OUTPUT);
+    expect(
+      resolveSupabaseValue(["SECRET_KEY", "SERVICE_ROLE_KEY"], values, {
+        preferJwt: true,
+      })
+    ).toBe(LEGACY_SERVICE);
+    expect(
+      resolveSupabaseValue(["PUBLISHABLE_KEY", "ANON_KEY"], values, {
+        preferJwt: true,
+      })
+    ).toBe(LEGACY_ANON);
+  });
+
+  it("with preferJwt, falls back to first non-empty when no JWT is present", () => {
+    expect(
+      resolveSupabaseValue(
+        ["API_URL"],
+        { API_URL: "http://127.0.0.1:54321" },
+        { preferJwt: true }
+      )
+    ).toBe("http://127.0.0.1:54321");
   });
 });
 

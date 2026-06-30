@@ -267,7 +267,10 @@ async function harvestSupabase(
     }
     const value = resolveSupabaseValue(
       target.spec.obtain.statusKeys,
-      harvest.values
+      harvest.values,
+      // `supabase status` is always the local CLI stack, whose PostgREST only
+      // validates legacy HS256 JWTs — prefer those over the new sb_* keys.
+      { preferJwt: true }
     );
     if (value) {
       resolved.push({ ...target, value });

@@ -26,11 +26,15 @@ pnpm dev
 
 **Module or SQL changed:** `pnpm engenty setup && pnpm db:migrate && pnpm dev`
 
-**Add a workspace module:** `pnpm engenty plugins enable <slug>` (or copy from legacy, then enable)
+**Add a workspace module:** `pnpm engenty plugins install <slug>` (or copy from legacy, then install)
 
 **Full local reset:** `pnpm purge` (or `pnpm purge:light` — skips `node_modules`, faster) — then run the first-clone flow above.
 
 Do **not** commit generated local artifacts. Run **`pnpm engenty setup`** after clone or when **`engenty.plugins`** changes.
+
+For how the setup machinery works (what `engenty setup` regenerates, the CLI
+bootstrap, Docker/Supabase on demand, env init), see **[Setup process](../setup-process)**.
+For the plugin model and lifecycle commands, see **[Plugin framework](../plugins)**.
 
 ## Run
 
