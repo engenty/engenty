@@ -34,7 +34,7 @@ jobs:
         run: pnpm engenty plugins install --all
 
       - name: Setup generated local artifacts
-        run: pnpm setup
+        run: pnpm run setup
 
       - name: Validate engenty.plugins
         run: pnpm plugins:check
