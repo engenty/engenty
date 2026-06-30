@@ -17,6 +17,7 @@ const emptyContributions: UiContributions = {
   liveBindings: [],
   navigationPrefetch: [],
   settingsItems: [],
+  tabs: [],
 };
 
 interface UseUiPluginContributionsOptions {

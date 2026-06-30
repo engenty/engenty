@@ -12,6 +12,7 @@ const EMPTY_CONTRIBUTIONS: UiContributions = {
   liveBindings: [],
   navigationPrefetch: [],
   settingsItems: [],
+  tabs: [],
 };
 
 interface UiContributionsContextValue {

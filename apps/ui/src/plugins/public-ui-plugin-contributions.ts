@@ -15,6 +15,7 @@ const emptyContributions: UiContributions = {
   liveBindings: [],
   navigationPrefetch: [],
   settingsItems: [],
+  tabs: [],
 };
 
 const publicUiPlugins: UiPluginSummary[] = publicUiPluginCatalog.map(

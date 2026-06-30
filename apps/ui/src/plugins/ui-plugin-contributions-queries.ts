@@ -261,6 +261,7 @@ export function pruneStaleUiPluginContributionsData(
     data.contributions.settingsItems,
     pluginId
   );
+  const tabs = removePluginOwnedItems(data.contributions.tabs, pluginId);
   const removed =
     routes.removed +
     adminMenuItems.removed +
@@ -270,7 +271,8 @@ export function pruneStaleUiPluginContributionsData(
     developmentPanels.removed +
     i18nNamespaces.removed +
     navigationPrefetch.removed +
-    settingsItems.removed;
+    settingsItems.removed +
+    tabs.removed;
 
   if (removed === 0) {
     return data;
@@ -287,6 +289,7 @@ export function pruneStaleUiPluginContributionsData(
       i18nNamespaces: i18nNamespaces.items,
       navigationPrefetch: navigationPrefetch.items,
       settingsItems: settingsItems.items,
+      tabs: tabs.items,
     },
     diagnostics: [
       ...data.diagnostics,

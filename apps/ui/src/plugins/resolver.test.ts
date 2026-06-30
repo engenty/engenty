@@ -533,6 +533,86 @@ describe("resolveUiPlugins", () => {
     ).toBe(true);
   });
 
+  it("collects tab contributions for a surface", async () => {
+    const TabBody = () => null;
+    const result = await resolveUiPlugins({
+      catalog: [
+        createCatalogEntry("files", (engenty) => {
+          engenty.UI.registerTab({
+            id: "files",
+            surface: "projects.detail",
+            component: TabBody,
+            labelKey: "files:detail.tab",
+          });
+        }),
+      ],
+      plugins: [{ id: "files", enabled: true, loaded: true }],
+    });
+
+    expect(result.contributions.tabs).toHaveLength(1);
+    expect(result.contributions.tabs[0]?.id).toBe("files");
+    expect(result.contributions.tabs[0]?.surface).toBe("projects.detail");
+    expect(result.contributions.tabs[0]?.pluginId).toBe("files");
+  });
+
+  it("omits tabs contributed by a disabled plugin", async () => {
+    const TabBody = () => null;
+    const result = await resolveUiPlugins({
+      catalog: [
+        createCatalogEntry("files", (engenty) => {
+          engenty.UI.registerTab({
+            id: "files",
+            surface: "projects.detail",
+            component: TabBody,
+          });
+        }),
+      ],
+      // Plugin present in the catalog but not enabled → never registers.
+      plugins: [{ id: "files", enabled: false, loaded: true }],
+    });
+
+    expect(result.contributions.tabs).toHaveLength(0);
+  });
+
+  it("dedupes tabs per (surface, id) but allows the same id on other surfaces", async () => {
+    const TabBody = () => null;
+    const result = await resolveUiPlugins({
+      catalog: [
+        createCatalogEntry("a", (engenty) => {
+          engenty.UI.registerTab({
+            id: "files",
+            surface: "projects.detail",
+            component: TabBody,
+          });
+        }),
+        createCatalogEntry("b", (engenty) => {
+          engenty.UI.registerTab({
+            id: "files",
+            surface: "projects.detail",
+            component: TabBody,
+          });
+          engenty.UI.registerTab({
+            id: "files",
+            surface: "agents.detail",
+            component: TabBody,
+          });
+        }),
+      ],
+      plugins: [
+        { id: "a", enabled: true, loaded: true },
+        { id: "b", enabled: true, loaded: true },
+      ],
+    });
+
+    const surfaces = result.contributions.tabs.map((tab) => tab.surface).sort();
+    expect(surfaces).toEqual(["agents.detail", "projects.detail"]);
+    expect(
+      result.diagnostics.some((entry) =>
+        entry.message.includes("duplicate tab")
+      )
+    ).toBe(true);
+  });
+
   it("collects new UI runtime contribution slots and applies filters", async () => {
     const Panel = () => null;
     const prefetch = vi.fn(async () => undefined);
