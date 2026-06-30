@@ -20,21 +20,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@engenty/ui-core";
-import { useFeatureFlags } from "@engenty/ui-plugin-sdk";
 import { Eye, EyeOff, GripVertical, Minus } from "lucide-react";
-import { PROJECT_TABS, type ProjectTab } from "../hooks/use-project-tabs.js";
+import type { ProjectTab, ProjectTabMeta } from "../hooks/use-project-tabs.js";
 
 interface ProjectTabsConfigDialogProps {
+  /** Native + contributed tabs currently resolvable for this project. */
+  availableTabs: ProjectTabMeta[];
   enabledTabs: ProjectTab[];
   onClose: () => void;
   onTabsChange: (tabs: ProjectTab[]) => void;
   open: boolean;
 }
 
+function tabLabel(tab: ProjectTabMeta, t: (key: string) => string) {
+  return tab.label ?? (tab.labelKey ? t(tab.labelKey) : tab.id);
+}
+
 interface SortableTabItemProps {
   onToggle: () => void;
   t: (key: string) => string;
-  tab: { id: ProjectTab; labelKey: string; required: boolean };
+  tab: ProjectTabMeta;
 }
 
 function SortableTabItem({ tab, onToggle, t }: SortableTabItemProps) {
@@ -70,7 +75,7 @@ function SortableTabItem({ tab, onToggle, t }: SortableTabItemProps) {
           </div>
         )}
       </div>
-      <span className="flex-1 text-sm">{t(tab.labelKey)}</span>
+      <span className="flex-1 text-sm">{tabLabel(tab, t)}</span>
       {!tab.required && (
         <button
           aria-label={t("detail.tabs.hideTab")}
@@ -89,19 +94,15 @@ function SortableTabItem({ tab, onToggle, t }: SortableTabItemProps) {
 export function ProjectTabsConfigDialog({
   open,
   onClose,
+  availableTabs,
   enabledTabs,
   onTabsChange,
 }: ProjectTabsConfigDialogProps) {
   const { t } = useTranslation("projects");
-  const { resolved: featureFlags } = useFeatureFlags();
 
-  const availableTabs = PROJECT_TABS.filter(
-    (tab) => !tab.featureFlagKey || featureFlags?.[tab.featureFlagKey] !== false
-  );
-
-  const requiredTabs = availableTabs.filter((t) => t.required);
+  const requiredTabs = availableTabs.filter((tab) => tab.required);
   const optionalEnabled = enabledTabs.filter(
-    (id) => !PROJECT_TABS.find((t) => t.id === id)?.required
+    (id) => !availableTabs.find((tab) => tab.id === id)?.required
   );
   const enabledTabsList = [
     ...requiredTabs,
@@ -134,7 +135,7 @@ export function ProjectTabsConfigDialog({
   };
 
   const handleToggle = (tabId: ProjectTab) => {
-    const tab = PROJECT_TABS.find((t) => t.id === tabId);
+    const tab = availableTabs.find((item) => item.id === tabId);
     if (tab?.required) {
       return;
     }
@@ -227,7 +228,7 @@ export function ProjectTabsConfigDialog({
                     <div className="text-muted-foreground/30">
                       <Minus className="h-4 w-4" />
                     </div>
-                    <span className="flex-1 text-sm">{t(tab.labelKey)}</span>
+                    <span className="flex-1 text-sm">{tabLabel(tab, t)}</span>
                     <button
                       aria-label={t("detail.tabs.showTab")}
                       className="text-muted-foreground transition-colors hover:text-foreground"

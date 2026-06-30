@@ -1,70 +1,52 @@
+import type { UiTabRenderProps } from "@engenty/ui-plugin-sdk";
+import type { ComponentType } from "react";
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
-export type ProjectTab =
-  | "planning"
-  | "notes"
-  | "files"
-  | "time-tracking"
-  | "reporting";
+/**
+ * A project tab id. `planning` and `notes` are native to this module; any other
+ * id is contributed by another installed module via `registerTab` on the
+ * {@link PROJECTS_DETAIL_SURFACE} surface (e.g. `files` from the files module).
+ */
+export type ProjectTab = string;
 
-const VALID_TABS: ProjectTab[] = [
-  "planning",
-  "notes",
-  "files",
-  "time-tracking",
-  "reporting",
-];
+/** Surface key other modules target to contribute a project-detail tab. */
+export const PROJECTS_DETAIL_SURFACE = "projects.detail";
 
 export interface ProjectTabMeta {
-  /** Feature flag key; when set, tab is only available when flag is enabled */
-  featureFlagKey?: string;
+  /** Contributed tab body. Native tabs render inline and omit this. */
+  component?: ComponentType<UiTabRenderProps>;
   id: ProjectTab;
-  labelKey: string;
+  /** Literal label; falls back to `labelKey` translation when absent. */
+  label?: string;
+  labelKey?: string;
   required: boolean;
 }
 
-export const PROJECT_TABS: readonly ProjectTabMeta[] = [
+/**
+ * Tabs this module owns and renders inline. Everything else (files,
+ * time-tracking, …) is a plugin contribution that only appears when the
+ * owning module is installed — see {@link PROJECTS_DETAIL_SURFACE}.
+ */
+export const NATIVE_PROJECT_TABS: readonly ProjectTabMeta[] = [
   { id: "planning", labelKey: "detail.tabs.planning", required: true },
   { id: "notes", labelKey: "detail.tabs.notes", required: false },
-  {
-    id: "files",
-    labelKey: "detail.tabs.files",
-    required: false,
-    featureFlagKey: "projects.tabs.files",
-  },
-  {
-    id: "time-tracking",
-    labelKey: "detail.tabs.timeTracking",
-    required: false,
-    featureFlagKey: "projects.tabs.time_tracking",
-  },
-  {
-    id: "reporting",
-    labelKey: "detail.tabs.reporting",
-    required: false,
-    featureFlagKey: "projects.tabs.reporting",
-  },
 ] as const;
 
 const DEFAULT_TAB: ProjectTab = "planning";
 
 /** Tabs shown when a project has no saved configuration (`enabled_tabs` null). */
-export const DEFAULT_ENABLED_TABS: ProjectTab[] = [
-  "planning",
-  "notes",
-  "files",
-];
+export const DEFAULT_ENABLED_TABS: ProjectTab[] = ["planning", "notes"];
 
 export function useProjectTabs() {
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // The active id is validated against the *resolved* tab set by the page
+  // (contributed tabs are not known statically here), so accept any non-empty
+  // value and let the page fall back when it is not visible.
   const activeTab = useMemo(() => {
-    const t = searchParams.get("tab");
-    if (t && VALID_TABS.includes(t as ProjectTab)) {
-      return t as ProjectTab;
-    }
-    return DEFAULT_TAB;
+    const t = searchParams.get("tab")?.trim();
+    return t ? (t as ProjectTab) : DEFAULT_TAB;
   }, [searchParams]);
 
   const setActiveTab = useCallback(

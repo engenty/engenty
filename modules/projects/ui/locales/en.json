@@ -116,15 +116,11 @@
     "tabs": {
       "planning": "Planning",
       "notes": "Notes",
-      "files": "Files",
-      "timeTracking": "Time tracking",
-      "reporting": "Reporting",
       "configure": "Configure tabs",
       "displayed": "Displayed tabs",
       "hidden": "Hidden tabs",
       "showAll": "Show all",
       "hideAll": "Hide all",
-      "comingSoon": "Coming soon...",
       "hideTab": "Hide tab",
       "showTab": "Show tab"
     },

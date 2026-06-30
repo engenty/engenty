@@ -133,15 +133,11 @@
     "tabs": {
       "planning": "Planung",
       "notes": "Notizen",
-      "files": "Dateien",
-      "timeTracking": "Zeiterfassung",
-      "reporting": "Berichte",
       "configure": "Tabs konfigurieren",
       "displayed": "Angezeigte Tabs",
       "hidden": "Ausgeblendete Tabs",
       "showAll": "Alle anzeigen",
       "hideAll": "Alle ausblenden",
-      "comingSoon": "Demnächst verfügbar...",
       "hideTab": "Tab ausblenden",
       "showTab": "Tab anzeigen"
     },

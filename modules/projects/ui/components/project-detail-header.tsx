@@ -1,6 +1,6 @@
 import { DetailPageHeader } from "@engenty/ui-core";
 import type { ProjectListItem } from "../api.js";
-import type { ProjectTab } from "../hooks/use-project-tabs.js";
+import type { ProjectTabMeta } from "../hooks/use-project-tabs.js";
 import { ProjectSubNav } from "./project-sub-nav.js";
 import { ProjectTitleEditable } from "./project-title-editable.js";
 
@@ -13,7 +13,7 @@ interface ProjectDetailHeaderProps {
   onTitleChange: (value: string) => void;
   project: Pick<ProjectListItem, "title" | "client_name" | "client_id">;
   titleValue: string;
-  visibleTabs: ProjectTab[];
+  visibleTabs: ProjectTabMeta[];
 }
 
 /**

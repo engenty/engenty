@@ -14,33 +14,6 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
     return;
   }
 
-  server.registerFeatureFlags([
-    {
-      key: "projects.tabs.files",
-      namespace: "projects",
-      default: true,
-      labelKey: "featureFlags.projects.tabs.files",
-      descriptionKey: "featureFlags.projects.tabs.filesDescription",
-      pluginId: "projects",
-    },
-    {
-      key: "projects.tabs.time_tracking",
-      namespace: "projects",
-      default: false,
-      labelKey: "featureFlags.projects.tabs.timeTracking",
-      descriptionKey: "featureFlags.projects.tabs.timeTrackingDescription",
-      pluginId: "projects",
-    },
-    {
-      key: "projects.tabs.reporting",
-      namespace: "projects",
-      default: false,
-      labelKey: "featureFlags.projects.tabs.reporting",
-      descriptionKey: "featureFlags.projects.tabs.reportingDescription",
-      pluginId: "projects",
-    },
-  ]);
-
   const { invokeOperation } = createPluginServerGatewayCaller(server);
 
   const repoOrFactory = (

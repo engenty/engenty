@@ -6,7 +6,7 @@ import { InlineEditableRichText } from "@engenty/tiptap-editor";
 import "@engenty/tiptap-editor/styles.css";
 import { useTeamMembersCatalogQuery } from "@engenty/tasks/ui/assignee";
 import { Tabs } from "@engenty/ui-core";
-import { useFeatureFlags, usePageConfig } from "@engenty/ui-plugin-sdk";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
@@ -27,9 +27,10 @@ import { ProjectTabsConfigDialog } from "../components/project-tabs-config-dialo
 import { TaskFormDialog } from "../components/task-form-dialog.js";
 import { useProjectDetail } from "../hooks/use-project-detail.js";
 import { useProjectDetailHandlers } from "../hooks/use-project-detail-handlers.js";
+import { useProjectDetailTabs } from "../hooks/use-project-detail-tabs.js";
 import {
   DEFAULT_ENABLED_TABS,
-  PROJECT_TABS,
+  PROJECTS_DETAIL_SURFACE,
   type ProjectTab,
   useProjectTabs,
 } from "../hooks/use-project-tabs.js";
@@ -133,22 +134,28 @@ export function ProjectDetailPage() {
   );
 
   const { activeTab, setActiveTab } = useProjectTabs();
-  const { resolved: featureFlags } = useFeatureFlags();
+  const allTabs = useProjectDetailTabs();
 
+  const visibleTabs = useMemo(
+    () => allTabs.filter((tab) => enabledTabs.includes(tab.id) || tab.required),
+    [allTabs, enabledTabs]
+  );
   const visibleTabIds = useMemo(
-    () =>
-      PROJECT_TABS.filter(
-        (tab) =>
-          (!tab.featureFlagKey ||
-            featureFlags?.[tab.featureFlagKey] !== false) &&
-          (enabledTabs.includes(tab.id) || tab.required)
-      ).map((t) => t.id),
-    [enabledTabs, featureFlags]
+    () => visibleTabs.map((tab) => tab.id),
+    [visibleTabs]
   );
 
   const effectiveActiveTab = useMemo(
     () => (visibleTabIds.includes(activeTab) ? activeTab : "planning"),
     [activeTab, visibleTabIds]
+  );
+
+  const activeContributedTab = useMemo(
+    () =>
+      visibleTabs.find(
+        (tab) => tab.id === effectiveActiveTab && tab.component
+      ) ?? null,
+    [visibleTabs, effectiveActiveTab]
   );
 
   useEffect(() => {
@@ -373,14 +380,15 @@ export function ProjectDetailPage() {
         onTitleChange={setTitleValue}
         project={project}
         titleValue={titleValue}
-        visibleTabs={visibleTabIds}
+        visibleTabs={visibleTabs}
       />
       <div className="flex-1 overflow-y-auto">
         <div
           className={`mx-auto space-y-4 p-page ${
-            // The file manager is a workspace tool — let it use the full content
-            // width instead of the narrow reading column used by the other tabs.
-            effectiveActiveTab === "files" ? "max-w-[100rem]" : "max-w-6xl"
+            // Contributed tabs (e.g. the files manager) are workspace tools — let
+            // them use the full content width instead of the narrow reading
+            // column used by the native tabs.
+            activeContributedTab ? "max-w-[100rem]" : "max-w-6xl"
           }`}
         >
           {effectiveActiveTab === "planning" && (
@@ -452,18 +460,19 @@ export function ProjectDetailPage() {
             </div>
           )}
 
-          {/* The "files" tab is a plugin contribution from the files module
-              (A.2). Until that lands it renders the shared coming-soon
-              placeholder — projects no longer hard-imports the files UI. */}
-          {(effectiveActiveTab === "files" ||
-            effectiveActiveTab === "time-tracking" ||
-            effectiveActiveTab === "reporting") && (
-            <p className="mt-4 text-muted-foreground text-sm">
-              {t("detail.tabs.comingSoon")}
-            </p>
+          {/* Tabs other modules contribute to `projects.detail` (e.g. files,
+              time-tracking) render their own body here. They only appear when
+              the owning module is installed — projects no longer hard-imports
+              their UI. */}
+          {activeContributedTab?.component && (
+            <activeContributedTab.component
+              params={{ projectId: id }}
+              surface={PROJECTS_DETAIL_SURFACE}
+            />
           )}
 
           <ProjectTabsConfigDialog
+            availableTabs={allTabs}
             enabledTabs={enabledTabs}
             onClose={() => setOpenTabsConfig(false)}
             onTabsChange={handleTabsChange}

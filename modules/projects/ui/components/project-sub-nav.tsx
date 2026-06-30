@@ -1,7 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, TabsList, TabsTrigger } from "@engenty/ui-core";
 import { Plus } from "lucide-react";
-import { PROJECT_TABS, type ProjectTab } from "../hooks/use-project-tabs.js";
+import type { ProjectTabMeta } from "../hooks/use-project-tabs.js";
 
 /**
  * Project detail section tabs + the "configure tabs" trigger. Renders into the
@@ -12,11 +12,10 @@ export function ProjectSubNav({
   visibleTabs,
   onConfigureClick,
 }: {
-  visibleTabs: ProjectTab[];
+  visibleTabs: ProjectTabMeta[];
   onConfigureClick: () => void;
 }) {
   const { t } = useTranslation("projects");
-  const tabMeta = PROJECT_TABS.filter((tab) => visibleTabs.includes(tab.id));
 
   const trailing = (
     <Button
@@ -36,9 +35,9 @@ export function ProjectSubNav({
       trailing={trailing}
       variant="line"
     >
-      {tabMeta.map((tab) => (
+      {visibleTabs.map((tab) => (
         <TabsTrigger key={tab.id} value={tab.id}>
-          {t(tab.labelKey)}
+          {tab.label ?? (tab.labelKey ? t(tab.labelKey) : tab.id)}
         </TabsTrigger>
       ))}
     </TabsList>
