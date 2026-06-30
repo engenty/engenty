@@ -1,0 +1,21 @@
+{
+  "id": "team",
+  "name": "Team",
+  "description": "Team directory, org structure, groups, and taxonomies",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.team",
+    "module.team.read",
+    "module.team.write",
+    "module.team.org.write",
+    "module.team.groups.write",
+    "module.team.settings.write",
+    "ui.route.module.team"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "frontendTools": false
+  }
+}
