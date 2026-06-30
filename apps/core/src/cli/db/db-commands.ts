@@ -5,6 +5,10 @@ import { runDbSnapshotScript } from "./run-db-snapshot.js";
 import { runSupabaseCli } from "./run-supabase-cli.js";
 import { runSupabaseSyncScript } from "./run-supabase-sync.js";
 
+/** Shown after a workspace-module install to point at the apply step. */
+export const DB_MIGRATE_NEXT_STEP =
+  "Migrations aggregated. Run `pnpm db:migrate` to apply them to your local database.";
+
 function runDbSyncStep(): void {
   const result = runSupabaseSyncScript();
   if (!result.ran) {
@@ -29,6 +33,22 @@ function runSupabaseOrThrow(args: readonly string[]): void {
   if (!result.ok) {
     throw new Error(`supabase ${args.join(" ")} failed.`);
   }
+}
+
+/** Compose module migrations, then apply pending Supabase migrations locally. */
+export function applyLocalDbMigrations(): void {
+  runDbSyncStep();
+  runSupabaseOrThrow(["migration", "up", "--include-all"]);
+}
+
+/**
+ * True when a local Supabase stack is up and reachable. Used to gate the
+ * opt-in `plugins install --db-migrate` convenience so install never fails or
+ * mutates a remote/unreachable database — `supabase status` is local-only and
+ * exits non-zero when the stack is stopped.
+ */
+export function isLocalDbReachable(): boolean {
+  return runSupabaseCli(["status"]).ok;
 }
 
 export function registerDbCommands(program: Command): void {
@@ -69,8 +89,7 @@ export function registerDbCommands(program: Command): void {
     )
     .action(
       runCliAction(async () => {
-        runDbSyncStep();
-        runSupabaseOrThrow(["migration", "up", "--include-all"]);
+        applyLocalDbMigrations();
       })
     );
 
