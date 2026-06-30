@@ -3,6 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createStaticAiScopeResolver } from "../api/http.js";
 import { createApp } from "../app.js";
 
+// The first createApp() in this fork transforms + imports the heavy Mastra module
+// graph (warm ~1.6s, but able to balloon past the runner's 10s default on a loaded
+// CI box — this surfaced as "Test timed out in 10000ms" on engenty/engenty#7). Pin a
+// generous per-file timeout so it holds regardless of which vitest config runs the
+// file (root `pnpm test` uses 10s; apps/ai's own config sets its own).
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+
 const testScopeResolver = createStaticAiScopeResolver({
   tenantId: "00000000-0000-4000-8000-000000000001",
   userId: "00000000-0000-4000-8000-000000000002",

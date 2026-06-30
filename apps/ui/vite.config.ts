@@ -183,6 +183,10 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
   const shared: Record<string, string> = {
     "@": path.join(appRoot, "src"),
     "@engenty/engenty-copilot/paths": path.join(engentyCopilotUi, "paths.ts"),
+    "@engenty/engenty-copilot/ui/model-chooser-control": path.join(
+      engentyCopilotUi,
+      "model-chooser-control.ts"
+    ),
     "@engenty/engenty-copilot/ai/frontend-tools/register": path.join(
       engentyCopilotAi,
       "frontend-tools",

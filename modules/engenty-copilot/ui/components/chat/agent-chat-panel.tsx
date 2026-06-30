@@ -5,12 +5,10 @@ import {
   CopilotOpenInterruptBanner,
   CopilotPanelContent,
   type CopilotPanelContentProps,
-  ENGENTY_COPILOT_HOST_KEY,
   formatCopilotRouteStatusLabel,
   pendingInterruptFromTranscript,
   rejectCopilotOpenInterrupt,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
-  useAgentHostConfig,
   useCopilotComposerDraftRecovery,
   useCopilotMessageQueue,
   useCopilotSelectedThread,
@@ -20,9 +18,8 @@ import {
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { useAgentChatModelOptions } from "../../hooks/chat/use-chat-model-options.js";
+import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
-import { ChatModelChooser } from "./model-chooser.js";
 
 interface AgentChatPanelProps {
   compactContextControl?: ReactNode;
@@ -46,7 +43,6 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     isTransportReady,
     openInterruptFromSession,
     selectedSessionMessagesError,
-    serviceBaseUrl,
     status,
     tenantId,
     userId,
@@ -66,16 +62,6 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     threadId: recoverySessionKey,
     tenantId,
     userId,
-  });
-
-  const modelOptions = useAgentChatModelOptions({
-    isTransportReady,
-    serviceBaseUrl,
-  });
-
-  useAgentHostConfig({
-    hostKey: ENGENTY_COPILOT_HOST_KEY,
-    modelId: modelOptions.activeModelId,
   });
 
   const openInterrupt = useMemo(() => {
@@ -209,13 +195,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   // model chooser stays visible (model selection is deferred but not retired).
   const composerLeadingControl = (
     <div className="flex min-w-0 items-center gap-1">
-      <ChatModelChooser
-        activeModelId={modelOptions.activeModelId}
-        ariaLabel={t("chat.modelChooserLabel")}
-        disabled={composerDisabled}
-        onModelChange={modelOptions.setSelectedModelId}
-        options={modelOptions.options}
-      />
+      <CopilotModelChooserControl disabled={composerDisabled} />
       {realtimeVoice.composerLeadingControl}
     </div>
   );

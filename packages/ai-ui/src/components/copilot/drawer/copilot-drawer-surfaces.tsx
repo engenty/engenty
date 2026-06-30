@@ -295,7 +295,9 @@ export function CopilotDrawerSurfaceTree({
         >
           <CopilotCompactComposerShell
             belowCard={
-              threadChooserEnabled ? (
+              panelContentProps.composerLeadingControl ? (
+                panelContentProps.composerLeadingControl
+              ) : threadChooserEnabled ? (
                 renderCopilotThreadChooser("compact")
               ) : (
                 <CopilotContextDropdown

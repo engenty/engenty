@@ -3,7 +3,7 @@ import type {
   AgUiOpenInterruptMetadata,
   Message,
 } from "@engenty/ag-ui-bridge";
-import type { MutableRefObject } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import type { CopilotAgentSessionChooserSession } from "../composer/copilot-agent-session-chooser";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import type { CopilotHeaderChrome } from "../panel/copilot-panel-content";
@@ -53,6 +53,8 @@ export interface CopilotDrawerProps {
   closeLabel?: string;
   compactLabel?: string;
   composerPlaceholder?: string;
+  /** Optional control rendered below the compact composer (e.g. model chooser). */
+  composerLeadingControl?: ReactNode;
   copilotContext?: CopilotRouteContext;
   /** When set, persist floating layout via host merge (e.g. user-settings). From useCopilotShell().copilotLayout. */
   copilotLayout?: CopilotLayoutPersistenceApi | null;

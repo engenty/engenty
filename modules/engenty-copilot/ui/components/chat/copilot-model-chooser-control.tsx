@@ -1,0 +1,38 @@
+import {
+  ENGENTY_COPILOT_HOST_KEY,
+  useAgentHost,
+  useAgentHostConfig,
+  useEngentyAIContext,
+} from "@engenty/ai-ui";
+import { useTranslation } from "@engenty/i18n/ui";
+import { useAgentChatModelOptions } from "../../hooks/chat/use-chat-model-options.js";
+import { ChatModelChooser } from "./model-chooser.js";
+
+export function CopilotModelChooserControl(props: { disabled?: boolean }) {
+  const { t } = useTranslation("engenty-copilot");
+  const ai = useEngentyAIContext();
+  const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
+  const modelOptions = useAgentChatModelOptions({
+    isTransportReady: ai.isTransportReady,
+    serviceBaseUrl: ai.serviceBaseUrl,
+  });
+
+  useAgentHostConfig({
+    hostKey: ENGENTY_COPILOT_HOST_KEY,
+    modelId: modelOptions.activeModelId,
+  });
+
+  const disabled =
+    props.disabled ??
+    (host.status !== "ready" || host.awaitingInterrupt || !ai.isTransportReady);
+
+  return (
+    <ChatModelChooser
+      activeModelId={modelOptions.activeModelId}
+      ariaLabel={t("chat.modelChooserLabel")}
+      disabled={disabled}
+      onModelChange={modelOptions.setSelectedModelId}
+      options={modelOptions.options}
+    />
+  );
+}
