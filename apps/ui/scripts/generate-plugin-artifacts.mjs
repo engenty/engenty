@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { enabledModuleSlugSet } from "../../../scripts/lib/engenty-modules.mjs";
 import {
   collectChangedGeneratedArtifacts,
   createUiCatalogSourceInfo,
@@ -12,7 +13,6 @@ import {
   renderCatalog,
   renderTailwindSources,
 } from "./plugin-artifact-generator-lib.mjs";
-import { enabledModuleSlugSet } from "../../../scripts/lib/engenty-modules.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -13,7 +13,6 @@ import {
   resolvePluginIdsFromArgsOrPrompt,
 } from "./plugin-id-prompt.js";
 import { pickWorkspaceSlugs } from "./plugins/pick-workspace-plugins.js";
-import { isInteractiveTerminal } from "./select-loop.js";
 import {
   disablePluginsInProduct,
   enablePluginsInProduct,
@@ -21,6 +20,7 @@ import {
   type PluginManifestEntry,
   resolveRepoRoot,
 } from "./plugins/plugins-manifest-ops.js";
+import { isInteractiveTerminal } from "./select-loop.js";
 
 interface PluginCommandOpts {
   apiUrl?: string;
@@ -134,11 +134,11 @@ function formatTable(rows: string[][]) {
  * state from the core API (only present when the API is reachable).
  */
 export interface MergedPluginRow {
-  key: string;
-  onDisk: boolean;
   enabled: boolean;
   hasUi: boolean;
+  key: string;
   live?: PluginListItem;
+  onDisk: boolean;
 }
 
 /** True when the API could not be reached at all (vs. an HTTP error response). */
@@ -417,7 +417,11 @@ export function registerPluginCommands(program: Command): void {
       "Workspace module slug(s) and/or external package spec(s)"
     )
     .option("--all", "Install every workspace module on disk (in-repo)")
-    .option("--api-url <url>", "API base URL (external packages)", defaultApiUrl)
+    .option(
+      "--api-url <url>",
+      "API base URL (external packages)",
+      defaultApiUrl
+    )
     .option("--token <token>", "Bearer JWT (external packages)")
     .option(
       "--confirm-package-mutation",
@@ -556,7 +560,11 @@ export function registerPluginCommands(program: Command): void {
       "[target...]",
       "Workspace module slug(s) and/or external plugin id(s)"
     )
-    .option("--api-url <url>", "API base URL (external packages)", defaultApiUrl)
+    .option(
+      "--api-url <url>",
+      "API base URL (external packages)",
+      defaultApiUrl
+    )
     .option("--token <token>", "Bearer JWT (external packages)")
     .option(
       "--confirm-package-mutation",
@@ -577,9 +585,7 @@ export function registerPluginCommands(program: Command): void {
               throw new Error("Provide a target (slug or id) with --json.");
             }
             if (!isInteractiveTerminal()) {
-              throw new Error(
-                "Provide plugin slug(s) / id(s) to uninstall."
-              );
+              throw new Error("Provide plugin slug(s) / id(s) to uninstall.");
             }
             const installed = listPluginManifestEntries(repoRoot).filter(
               (e) => e.enabled

@@ -141,10 +141,7 @@ describe("discoverPlugins", () => {
         path.join(pluginDir, "package.json"),
         JSON.stringify({ name: `@engenty/${slug}` })
       );
-      fs.writeFileSync(
-        path.join(pluginDir, "index.ts"),
-        "export default {};"
-      );
+      fs.writeFileSync(path.join(pluginDir, "index.ts"), "export default {};");
     }
 
     const result = discoverPlugins({ modulesDir });

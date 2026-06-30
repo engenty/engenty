@@ -209,16 +209,16 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
     path.join(repoRoot, "modules"),
     path.join(repoRoot, "packages"),
   ];
-  const workspaceUiAliases = isDev
-    ? discoverWorkspaceUiAliases(workspaceRoots)
-    : {};
-  const bareUiIndexAliases = isDev
-    ? discoverBareUiIndexAliases(workspaceRoots)
-    : [];
+  // Resolve every on-disk module's UI entrypoints (`/ui/plugin`, `/ui/*`, `/plugin`)
+  // to source in BOTH dev and build. The generated plugin catalog imports these
+  // even though modules are never dependencies of apps/ui (a module must not be a
+  // dependency of the core shell) — so the production build needs these aliases to
+  // resolve the catalog's module imports.
+  const workspaceUiAliases = discoverWorkspaceUiAliases(workspaceRoots);
+  const bareUiIndexAliases = discoverBareUiIndexAliases(workspaceRoots);
 
   const devWorkspace: Record<string, string> = isDev
     ? {
-        ...workspaceUiAliases,
         "@engenty/ai-ui/plugin": path.join(aiUi, "plugin.tsx"),
         "@engenty/ai-ui/embed": path.join(aiUi, "embed.ts"),
         "@engenty/ai-ui": path.join(aiUi, "index.ts"),
@@ -263,6 +263,7 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
     ...uiCoreDev,
     ...bareUiIndexAliases,
     ...recordToAliasEntries(shared),
+    ...recordToAliasEntries(workspaceUiAliases),
     ...recordToAliasEntries(devWorkspace),
   ];
 }

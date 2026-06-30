@@ -39,8 +39,8 @@ import {
   getEnvFeatures,
   manifestForScope,
 } from "./env-manifest.js";
-import { defaultValueForScope } from "./env-manifest-types.js";
 import type { EnvScope, EnvVarSpec } from "./env-manifest-types.js";
+import { defaultValueForScope } from "./env-manifest-types.js";
 import {
   type CommandRunner,
   harvestSupabaseStatus,
@@ -326,11 +326,15 @@ async function syncPortless(
   }
   if (!go) {
     saveDocs(state);
-    const localhost = spawnSync("node", ["scripts/sync-dev-env-localhost.mjs"], {
-      cwd: state.workspaceRoot,
-      encoding: "utf8",
-      stdio: "pipe",
-    });
+    const localhost = spawnSync(
+      "node",
+      ["scripts/sync-dev-env-localhost.mjs"],
+      {
+        cwd: state.workspaceRoot,
+        encoding: "utf8",
+        stdio: "pipe",
+      }
+    );
     if (localhost.status === 0) {
       note(
         (localhost.stdout || "").trim() ||

@@ -12,10 +12,9 @@ export function canRunSetupScript(startDir = process.cwd()): boolean {
   return fs.existsSync(resolveSetupScriptPath(startDir));
 }
 
-export function runSetupScript(params: {
-  cwd?: string;
-  refresh?: boolean;
-} = {}): { ok: boolean; output: string; ran: boolean } {
+export function runSetupScript(
+  params: { cwd?: string; refresh?: boolean } = {}
+): { ok: boolean; output: string; ran: boolean } {
   const cwd = params.cwd ?? findWorkspaceRootFrom(process.cwd());
   const scriptPath = path.join(cwd, "scripts", "setup.mjs");
 

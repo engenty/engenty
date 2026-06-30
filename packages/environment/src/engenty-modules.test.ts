@@ -9,10 +9,10 @@ import {
   writeEngentyPluginsManifest,
 } from "./engenty-modules.js";
 
-function pluginsFromSlugs(
-  slugs: string[]
-): Record<string, { source: string }> {
-  return Object.fromEntries(slugs.map((slug) => [slug, { source: "workspace" }]));
+function pluginsFromSlugs(slugs: string[]): Record<string, { source: string }> {
+  return Object.fromEntries(
+    slugs.map((slug) => [slug, { source: "workspace" }])
+  );
 }
 
 describe("engenty-plugins manifest", () => {

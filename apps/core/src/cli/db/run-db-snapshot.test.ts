@@ -14,7 +14,9 @@ describe("runDbSnapshotScript", () => {
   });
 
   it("no-ops when db-snapshot script is absent", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-no-db-snapshot-"));
+    const dir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "engenty-no-db-snapshot-")
+    );
     tempDirs.push(dir);
     fs.writeFileSync(
       path.join(dir, "package.json"),

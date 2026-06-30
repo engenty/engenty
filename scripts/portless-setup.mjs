@@ -38,11 +38,15 @@ function portless(args, options) {
   return run(portlessBin, args, options);
 }
 
-console.log("Portless setup (optional — HTTPS https://engenty.localhost instead of http://localhost:5173)\n");
+console.log(
+  "Portless setup (optional — HTTPS https://engenty.localhost instead of http://localhost:5173)\n"
+);
 
 ensurePortlessInstalled();
 
-console.log("1/3 Trusting local CA for *.localhost HTTPS (may prompt for sudo)…");
+console.log(
+  "1/3 Trusting local CA for *.localhost HTTPS (may prompt for sudo)…"
+);
 portless(["trust"], { allowFail: true });
 
 console.log("\n2/3 Running portless doctor…");

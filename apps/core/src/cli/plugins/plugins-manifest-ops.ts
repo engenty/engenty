@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import {
   disablePluginsInManifest,
-  enablePluginsInManifest,
   ENGENTY_PLUGIN_MANIFEST,
+  enablePluginsInManifest,
   findEngentyRepoRootFrom,
   listWorkspaceModuleSlugsOnDisk,
   moduleHasUi,

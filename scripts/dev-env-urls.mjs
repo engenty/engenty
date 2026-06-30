@@ -166,7 +166,9 @@ export function upsertDevUrlBlock(content, block) {
   return `${trimmed}\n\n${block}`;
 }
 
-export function resolveWorkspaceRoot(fromDir = path.dirname(fileURLToPath(import.meta.url))) {
+export function resolveWorkspaceRoot(
+  fromDir = path.dirname(fileURLToPath(import.meta.url))
+) {
   return path.resolve(fromDir, "..");
 }
 

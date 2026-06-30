@@ -17,7 +17,10 @@ export const ROOT = path.resolve(
 // Always-needed CLI packages: `apps/core`'s entry imports these statically, so
 // they must be built for any command (even deferred ones like `env`/`plugins`).
 export const CLI_PACKAGE_BUILDS = [
-  { filter: "@engenty/environment", marker: "packages/environment/dist/env.js" },
+  {
+    filter: "@engenty/environment",
+    marker: "packages/environment/dist/env.js",
+  },
   { filter: "@engenty/telemetry", marker: "packages/telemetry/dist/index.js" },
 ];
 
