@@ -13,6 +13,7 @@ import type {
   UiPluginSummary,
   UiRouteContribution,
   UiSettingsItemContribution,
+  UiTabContribution,
 } from "@engenty/ui-plugin-sdk";
 import type { UiPluginCatalogEntry } from "./catalog";
 import {
@@ -468,6 +469,31 @@ function normalizeDashboardWidgets(items: UiDashboardWidgetContribution[]) {
   };
 }
 
+function normalizeTabs(items: UiTabContribution[]) {
+  const sorted = [...items].sort(byOrderThenLabel);
+  // Tab ids are unique per surface, not globally — a "files" tab may exist on
+  // several surfaces. Dedupe on the (surface, id) pair.
+  const dedupe = dedupeByKey({
+    items: sorted,
+    key: (item) => `${item.surface}::${item.id}`,
+  });
+
+  return {
+    items: dedupe.deduped,
+    diagnostics: dedupe.duplicates.map((item) =>
+      diagnostic({
+        code: "plugin.registration.duplicate_tab",
+        level: "warn",
+        message: `duplicate tab "${item.id}" for surface "${item.surface}" from plugin "${item.pluginId}" was ignored.`,
+        pluginId: item.pluginId,
+        remediation:
+          "Use a unique tab id within the target surface for this contribution.",
+        sourceInfo: sourceInfoFor(item),
+      })
+    ),
+  };
+}
+
 function normalizeNavigationPrefetch(
   items: UiNavigationPrefetchContribution[]
 ) {
@@ -699,6 +725,10 @@ export async function resolveUiPlugins(params: {
     ...cleanupParams,
     kind: "settings item",
   });
+  const tabs = removeStaleOwnedContributions(filtered.tabs, {
+    ...cleanupParams,
+    kind: "tab",
+  });
   const copilotContributions = removeStaleOwnedContributions(
     filtered.copilotContributions ?? [],
     {
@@ -725,6 +755,7 @@ export async function resolveUiPlugins(params: {
   const navigationPrefetchNormalized =
     normalizeNavigationPrefetch(navigationPrefetch);
   const settingsNormalized = normalizeSettingsItems(settingsItems);
+  const tabsNormalized = normalizeTabs(tabs);
 
   diagnostics.push(
     ...routesNormalized.diagnostics,
@@ -734,7 +765,8 @@ export async function resolveUiPlugins(params: {
     ...developmentPanelsNormalized.diagnostics,
     ...i18nNamespacesNormalized.diagnostics,
     ...navigationPrefetchNormalized.diagnostics,
-    ...settingsNormalized.diagnostics
+    ...settingsNormalized.diagnostics,
+    ...tabsNormalized.diagnostics
   );
 
   return {
@@ -750,6 +782,7 @@ export async function resolveUiPlugins(params: {
       liveBindings,
       navigationPrefetch: navigationPrefetchNormalized.items,
       settingsItems: settingsNormalized.items,
+      tabs: tabsNormalized.items,
     },
     diagnostics,
   } satisfies ResolveUiPluginsResult;

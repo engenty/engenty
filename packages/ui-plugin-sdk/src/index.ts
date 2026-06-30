@@ -154,6 +154,37 @@ export interface UiDashboardWidgetContribution {
   title: string;
 }
 
+/**
+ * Props passed to a contributed tab body. `surface` identifies the host tab
+ * strip (e.g. `"projects.detail"`); `params` carries that host's context
+ * (e.g. `{ projectId }`). The contributing module narrows `params` itself.
+ */
+export interface UiTabRenderProps {
+  params: Record<string, unknown>;
+  surface: string;
+}
+
+/**
+ * A tab a module contributes to another surface's tab strip. The tab only
+ * exists while the contributing plugin is enabled — a parked module never
+ * registers it — so hosts get install-gated tabs for free, with no feature
+ * flag or availability check on the host side.
+ */
+export interface UiTabContribution {
+  component: ComponentType<UiTabRenderProps>;
+  icon?: UiIconComponent;
+  id: string;
+  /** Literal label; falls back to `labelKey` translation when absent. */
+  label?: string;
+  /** i18n key (qualify with the owning namespace, e.g. `"files:detail.tab"`). */
+  labelKey?: string;
+  order?: number;
+  pluginId: UiPluginId;
+  sourceInfo?: PluginSourceInfo;
+  /** Host surface this tab attaches to, e.g. `"projects.detail"`. */
+  surface: string;
+}
+
 /** Minimal query client surface used by navigation prefetch contributions. */
 export interface UiNavigationPrefetchQueryClient {
   prefetchQuery: (options: unknown) => Promise<unknown>;
@@ -241,6 +272,7 @@ export interface UiContributions {
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
+  tabs: UiTabContribution[];
 }
 
 export interface UiPluginSummary {
@@ -302,6 +334,7 @@ export interface UiEventMap {
   "ui.pluginsLoaded": { pluginIds: string[] };
   "ui.routes": UiRouteContribution[];
   "ui.settingsItems": UiSettingsItemContribution[];
+  "ui.tabs": UiTabContribution[];
 }
 
 /** @deprecated Merged into {@link UiEventMap}. Kept as an alias for back-compat. */
@@ -392,6 +425,15 @@ export interface EngentyUiApi {
     label: string;
     labelKey?: string;
     to: string;
+    order?: number;
+  }) => void;
+  registerTab: (input: {
+    id: string;
+    surface: string;
+    component: ComponentType<UiTabRenderProps>;
+    label?: string;
+    labelKey?: string;
+    icon?: UiIconComponent;
     order?: number;
   }) => void;
 }
