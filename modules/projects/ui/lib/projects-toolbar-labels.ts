@@ -1,0 +1,73 @@
+export function getProjectsToolbarLabels(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  total: number,
+  selectedCount: number
+): {
+  searchPlaceholder: string;
+  display: string;
+  paginationSummary: string;
+  selectedSummary: string;
+  sortByTitle: string;
+  sortByStartDate: string;
+  sortByEndDate: string;
+  sortByCreatedAt: string;
+  ascending: string;
+  descending: string;
+  compactView: string;
+  tableView: string;
+  cardsView: string;
+  sortBy: string;
+  groupBy: string;
+  groupByNone: string;
+  groupByClient: string;
+  groupByTimeframe: string;
+  groupByLead: string;
+  displayedColumns: string;
+  hiddenInTable: string;
+  showAll: string;
+  hideAll: string;
+  noColumnsDisplayed: string;
+  title: string;
+  client: string;
+  startDate: string;
+  endDate: string;
+  team: string;
+  itemsPerPage: string;
+  viewModeGroup: string;
+  toolbarMore: string;
+} {
+  return {
+    searchPlaceholder: t("list.searchPlaceholder"),
+    display: t("display"),
+    paginationSummary: t("list.paginationSummary", { total }),
+    selectedSummary: t("selectedSummary", { selected: selectedCount }),
+    sortByTitle: t("list.columns.title"),
+    sortByStartDate: t("list.columns.startDate"),
+    sortByEndDate: t("list.columns.endDate"),
+    sortByCreatedAt: t("list.sortByCreatedAt"),
+    ascending: t("ascending"),
+    descending: t("descending"),
+    compactView: t("compactView"),
+    tableView: t("tableView"),
+    cardsView: t("cardsView"),
+    sortBy: t("sortBy"),
+    groupBy: t("filters.groupBy"),
+    groupByNone: t("filters.groupByNone"),
+    groupByClient: t("filters.groupByClient"),
+    groupByTimeframe: t("filters.groupByTimeframe"),
+    groupByLead: t("filters.groupByLead"),
+    displayedColumns: t("displayedColumns"),
+    hiddenInTable: t("hiddenInTable"),
+    showAll: t("showAll"),
+    hideAll: t("hideAll"),
+    noColumnsDisplayed: t("noColumnsDisplayed"),
+    title: t("list.columns.title"),
+    client: t("list.columns.client"),
+    startDate: t("list.columns.startDate"),
+    endDate: t("list.columns.endDate"),
+    team: t("list.columns.team"),
+    itemsPerPage: t("itemsPerPage"),
+    viewModeGroup: t("viewModeGroup"),
+    toolbarMore: t("toolbarMore"),
+  };
+}

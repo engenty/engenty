@@ -1,0 +1,86 @@
+{
+  "name": "@engenty/projects",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
+    },
+    "./ui/public-plugin": {
+      "types": "./dist/ui/public-plugin.d.ts",
+      "default": "./dist/ui/public-plugin.js"
+    },
+    "./ui/portal": {
+      "types": "./dist/ui/portal.d.ts",
+      "default": "./dist/ui/portal.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    }
+  },
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --dts --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/api-contracts": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
+    "@engenty/auth-ui": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/queue": "workspace:*",
+    "@engenty/tasks": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@engenty/tiptap-editor": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@hono/zod-openapi": "^1.4.0",
+    "@hookform/resolvers": "^5.4.0",
+    "@mastra/core": "1.45.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-hook-form": "^7.80.0",
+    "react-router-dom": "^7.18.0",
+    "sonner": "^2.0.7",
+    "uuidv7": "^1.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

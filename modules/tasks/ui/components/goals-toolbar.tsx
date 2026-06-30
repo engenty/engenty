@@ -1,0 +1,130 @@
+import { useTranslation } from "@engenty/i18n/ui";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  ListFilterSelectTrigger,
+  ListSearchInput,
+  ListToolbarIconButton,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@engenty/ui-core";
+import { SlidersHorizontal } from "lucide-react";
+import type { GoalStatus } from "../../src/schema/types.js";
+import type { getGoalsToolbarLabels } from "../lib/goals-toolbar-labels.js";
+import { GOAL_STATUSES } from "./goal-status-badge.js";
+import type {
+  GoalColumnOption,
+  GoalsColumnVisibility,
+  GoalsSortColumn,
+  TableSize,
+} from "./goals-display-dialog.js";
+import { GoalsDisplayDialog } from "./goals-display-dialog.js";
+
+interface GoalsToolbarProps {
+  columnOrder: (keyof GoalsColumnVisibility)[];
+  columns: GoalColumnOption[];
+  columnVisibility: GoalsColumnVisibility;
+  labels: ReturnType<typeof getGoalsToolbarLabels>;
+  onSearchChange: (value: string) => void;
+  onStatusFilterChange: (status: GoalStatus | "all") => void;
+  searchQuery: string;
+  setColumnOrder: (order: (keyof GoalsColumnVisibility)[]) => void;
+  setColumnVisibility: (value: GoalsColumnVisibility) => void;
+  setSortBy: (column: GoalsSortColumn) => void;
+  setSortOrder: (order: "asc" | "desc") => void;
+  setTableSize?: (size: TableSize) => void;
+  sortBy: GoalsSortColumn;
+  sortOptions: { value: GoalsSortColumn; label: string }[];
+  sortOrder: "asc" | "desc";
+  statusFilter: GoalStatus | "all";
+  tableSize?: TableSize;
+}
+
+export function GoalsToolbar({
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  labels,
+  tableSize,
+  setTableSize,
+  columnOrder,
+  columnVisibility,
+  setColumnOrder,
+  setColumnVisibility,
+  columns,
+  sortBy,
+  setSortBy,
+  sortOptions,
+  sortOrder,
+  setSortOrder,
+}: GoalsToolbarProps) {
+  const { t } = useTranslation("tasks");
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <ListSearchInput
+        className="max-w-[220px]"
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder={labels.searchPlaceholder}
+        value={searchQuery}
+      />
+
+      <Select
+        onValueChange={(value) =>
+          onStatusFilterChange(value === "all" ? "all" : (value as GoalStatus))
+        }
+        value={statusFilter}
+      >
+        <ListFilterSelectTrigger className="min-w-[9rem]">
+          <SelectValue placeholder={labels.filterAllStatuses}>
+            {statusFilter === "all"
+              ? labels.filterAllStatuses
+              : t(`goals.status.${statusFilter}`)}
+          </SelectValue>
+        </ListFilterSelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{labels.filterAllStatuses}</SelectItem>
+          {GOAL_STATUSES.map((status) => (
+            <SelectItem key={status} value={status}>
+              {t(`goals.status.${status}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <p className="text-muted-foreground text-xs">
+        {labels.paginationSummary}
+      </p>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <ListToolbarIconButton
+            aria-label={labels.display}
+            className="ml-auto"
+            type="button"
+          >
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        </DropdownMenuTrigger>
+        <GoalsDisplayDialog
+          columnOrder={columnOrder}
+          columns={columns}
+          columnVisibility={columnVisibility}
+          labels={labels}
+          setColumnOrder={setColumnOrder}
+          setColumnVisibility={setColumnVisibility}
+          setSortBy={setSortBy}
+          setSortOrder={setSortOrder}
+          setTableSize={setTableSize}
+          sortBy={sortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          tableSize={tableSize}
+        />
+      </DropdownMenu>
+    </div>
+  );
+}

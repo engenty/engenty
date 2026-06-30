@@ -1,0 +1,22 @@
+{
+  "id": "tasks",
+  "name": "Tasks",
+  "description": "Canonical goals and tasks for human and agent collaboration",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.tasks",
+    "module.tasks.read",
+    "module.tasks.write",
+    "module.goals.read",
+    "module.goals.write",
+    "platform.work",
+    "ui.route.module.tasks"
+  ],
+  "optional": ["module.team"],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "ui": true
+  }
+}

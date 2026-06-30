@@ -11,6 +11,12 @@
       },
       "engenty-copilot": {
         "source": "workspace"
+      },
+      "tasks": {
+        "source": "workspace"
+      },
+      "projects": {
+        "source": "workspace"
       }
     }
   },

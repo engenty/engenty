@@ -1,0 +1,458 @@
+import { useTranslation } from "@engenty/i18n/ui";
+import {
+  TaskCollaboratorsPicker,
+  type TeamMemberCatalogRow,
+} from "@engenty/tasks/ui/assignee";
+import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  SidePanel,
+  SidePanelContent,
+  SidePanelFooter,
+  SidePanelHeader,
+  SidePanelTitle,
+} from "@engenty/ui-core";
+import {
+  Check,
+  Clock,
+  Eye,
+  EyeOff,
+  FolderKanban,
+  Layers,
+  Tag,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { PhaseTask, ProjectTaskStatusDefinition } from "../api.js";
+import { buildProjectTaskMemberOptions } from "../lib/project-team-members-ui.js";
+import { TASK_STATUS_KANBAN_DOT } from "../lib/task-status-styles.js";
+
+/** Minimal phase shape needed to drive the phase selector pill. */
+export interface TaskFormPhaseOption {
+  id: string;
+  title: string;
+}
+
+interface TaskFormDialogProps {
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: {
+    title: string;
+    content: string | null;
+    status: string;
+    is_public: boolean;
+    phase_id?: string | null;
+    discipline?: string | null;
+    hours?: number | null;
+    team_member_ids?: string[];
+  }) => Promise<void>;
+  open: boolean;
+  phaseId?: string | null;
+  /** Phases the task can be assigned to; when provided, a phase pill is shown. */
+  phases?: TaskFormPhaseOption[];
+  /** Ids already on the project (for grouped picker); may be empty. */
+  projectMemberIds: string[];
+  /** Name of the (fixed) project this task belongs to, shown as a static chip. */
+  projectName?: string;
+  task?: PhaseTask | null;
+  taskStatusDefinitions: ProjectTaskStatusDefinition[];
+  teamMembersCatalog: TeamMemberCatalogRow[];
+  teamMembersEnabled?: boolean;
+  teamMembersError?: string | null;
+  teamMembersLoading?: boolean;
+}
+
+// Shared pill trigger style — mirrors the tasks module's new-task dialog chrome.
+const pillClass =
+  "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs transition-colors hover:bg-accent/50 cursor-pointer";
+
+function autoGrow(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
+export function TaskFormDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  task,
+  phaseId,
+  phases,
+  projectName,
+  teamMembersCatalog,
+  projectMemberIds,
+  teamMembersEnabled = false,
+  teamMembersError = null,
+  teamMembersLoading = false,
+  taskStatusDefinitions,
+}: TaskFormDialogProps) {
+  const { t } = useTranslation("projects");
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [status, setStatus] = useState<string>("todo");
+  const [isPublic, setIsPublic] = useState(false);
+  const [phaseIdValue, setPhaseIdValue] = useState<string | null>(null);
+  const [discipline, setDiscipline] = useState("");
+  const [hours, setHours] = useState("");
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [phaseOpen, setPhaseOpen] = useState(false);
+  const [disciplineOpen, setDisciplineOpen] = useState(false);
+  const [hoursOpen, setHoursOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(task?.title ?? "");
+      setContent(task?.content ?? "");
+      const ids = taskStatusDefinitions.map((d) => d.id);
+      const fromTask = task?.status;
+      setStatus(
+        fromTask && ids.includes(fromTask)
+          ? fromTask
+          : (taskStatusDefinitions[0]?.id ?? "todo")
+      );
+      setIsPublic(task?.is_public ?? false);
+      setPhaseIdValue(task?.phase_id ?? phaseId ?? null);
+      setDiscipline(task?.discipline ?? "");
+      setHours(task?.hours?.toString() ?? "");
+      setTeamMemberIds(task?.task_team?.map((m) => m.user_id) ?? []);
+      setError(null);
+    }
+  }, [open, task, phaseId, taskStatusDefinitions]);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      if (!title.trim()) {
+        setError(t("detail.taskForm.titleRequired"));
+        return;
+      }
+      setSubmitting(true);
+      try {
+        await onSubmit({
+          title: title.trim(),
+          content: content.trim() || null,
+          status,
+          is_public: isPublic,
+          phase_id: phaseIdValue,
+          discipline: discipline.trim() || null,
+          hours: hours ? Number.parseFloat(hours) : null,
+          team_member_ids: teamMemberIds,
+        });
+        onOpenChange(false);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "";
+        if (message.includes("task_collaborator_requires_linked_user")) {
+          setError(t("detail.taskForm.assigneeLinkedUserRequired"));
+        } else if (message.includes("task_collaborator_invalid_user")) {
+          setError(t("detail.taskForm.assigneeInvalidUser"));
+        } else {
+          setError(message || t("detail.taskForm.saveFailed"));
+        }
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [
+      title,
+      content,
+      status,
+      isPublic,
+      phaseIdValue,
+      discipline,
+      hours,
+      teamMemberIds,
+      onSubmit,
+      onOpenChange,
+      t,
+    ]
+  );
+
+  const assigneeOptions = useMemo(
+    () =>
+      buildProjectTaskMemberOptions({
+        catalog: teamMembersCatalog,
+        projectMemberIds,
+        inProjectLabel: t("detail.members.inProject"),
+        otherTeamMembersLabel: t("detail.members.otherTeamMembers"),
+      }),
+    [teamMembersCatalog, projectMemberIds, t]
+  );
+
+  const currentStatus =
+    taskStatusDefinitions.find((d) => d.id === status) ??
+    taskStatusDefinitions[0];
+  const selectedPhase = phases?.find((p) => p.id === phaseIdValue) ?? null;
+  const showPhasePill = Boolean(phases && phases.length > 0);
+
+  return (
+    <SidePanel onOpenChange={onOpenChange} open={open}>
+      <SidePanelContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl lg:max-w-xl">
+        <form className="flex h-full flex-col" onSubmit={handleSubmit}>
+          <SidePanelHeader className="gap-2 border-b p-4 pr-12">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs">
+              {projectName ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 font-medium text-foreground">
+                  <FolderKanban className="h-3 w-3 text-muted-foreground" />
+                  <span className="max-w-[200px] truncate">{projectName}</span>
+                </span>
+              ) : null}
+              <SidePanelTitle className="font-normal text-muted-foreground text-xs">
+                {task
+                  ? t("detail.taskForm.editTask")
+                  : t("detail.taskForm.newTask")}
+              </SidePanelTitle>
+            </div>
+          </SidePanelHeader>
+
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            <textarea
+              autoFocus
+              className="w-full resize-none overflow-hidden bg-transparent font-semibold text-lg outline-none placeholder:text-muted-foreground/50"
+              onChange={(e) => {
+                setTitle(e.target.value);
+                autoGrow(e.target);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                }
+              }}
+              placeholder={t("detail.taskForm.titlePlaceholder")}
+              rows={1}
+              value={title}
+            />
+
+            {/* Metadata pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Status */}
+              <Popover modal onOpenChange={setStatusOpen} open={statusOpen}>
+                <PopoverTrigger asChild>
+                  <button className={pillClass} type="button">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        TASK_STATUS_KANBAN_DOT[currentStatus?.color ?? "slate"]
+                      }`}
+                    />
+                    <span>{currentStatus?.label ?? status}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-48 p-1">
+                  {taskStatusDefinitions.map((def) => (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                      key={def.id}
+                      onClick={() => {
+                        setStatus(def.id);
+                        setStatusOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${TASK_STATUS_KANBAN_DOT[def.color]}`}
+                      />
+                      <span className="flex-1 text-left">{def.label}</span>
+                      {status === def.id && (
+                        <Check className="h-4 w-4 text-foreground" />
+                      )}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+
+              {/* Phase */}
+              {showPhasePill ? (
+                <Popover modal onOpenChange={setPhaseOpen} open={phaseOpen}>
+                  <PopoverTrigger asChild>
+                    <button className={pillClass} type="button">
+                      <Layers className="h-3 w-3 text-muted-foreground" />
+                      <span className="max-w-[160px] truncate">
+                        {selectedPhase
+                          ? selectedPhase.title
+                          : t("detail.taskForm.generalPhase")}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-64 p-0">
+                    <Command className="bg-transparent">
+                      <CommandInput
+                        placeholder={t("detail.taskForm.searchPhases")}
+                      />
+                      <CommandList className="max-h-64 overflow-y-auto">
+                        <CommandEmpty>
+                          {t("detail.taskForm.noPhaseMatch")}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            className="flex cursor-pointer items-center justify-between px-2 py-1.5 text-sm"
+                            onSelect={() => {
+                              setPhaseIdValue(null);
+                              setPhaseOpen(false);
+                            }}
+                          >
+                            <span className="text-muted-foreground">
+                              {t("detail.taskForm.generalPhase")}
+                            </span>
+                            {!phaseIdValue && (
+                              <Check className="h-4 w-4 shrink-0 text-foreground" />
+                            )}
+                          </CommandItem>
+                          {phases?.map((p) => (
+                            <CommandItem
+                              className="flex cursor-pointer items-center justify-between px-2 py-1.5 text-sm"
+                              key={p.id}
+                              onSelect={() => {
+                                setPhaseIdValue(p.id);
+                                setPhaseOpen(false);
+                              }}
+                              value={p.title.toLowerCase()}
+                            >
+                              <span className="truncate">{p.title}</span>
+                              {phaseIdValue === p.id && (
+                                <Check className="h-4 w-4 shrink-0 text-foreground" />
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : null}
+
+              {/* Discipline */}
+              <Popover
+                modal
+                onOpenChange={setDisciplineOpen}
+                open={disciplineOpen}
+              >
+                <PopoverTrigger asChild>
+                  <button className={pillClass} type="button">
+                    <Tag className="h-3 w-3 text-muted-foreground" />
+                    <span className={discipline ? "" : "text-muted-foreground"}>
+                      {discipline || t("detail.taskForm.discipline")}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-56 p-2">
+                  <Input
+                    onChange={(e) => setDiscipline(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        setDisciplineOpen(false);
+                      }
+                    }}
+                    placeholder={t("detail.taskForm.disciplinePlaceholder")}
+                    value={discipline}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* Estimated hours */}
+              <Popover modal onOpenChange={setHoursOpen} open={hoursOpen}>
+                <PopoverTrigger asChild>
+                  <button className={pillClass} type="button">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className={hours ? "" : "text-muted-foreground"}>
+                      {hours
+                        ? `${hours} ${t("detail.taskForm.hoursSuffix")}`
+                        : t("detail.taskForm.hours")}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-40 p-2">
+                  <Input
+                    min="0"
+                    onChange={(e) => setHours(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        setHoursOpen(false);
+                      }
+                    }}
+                    placeholder={t("detail.taskForm.hours")}
+                    step="0.5"
+                    type="number"
+                    value={hours}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* Visible to client */}
+              <button
+                className={`${pillClass} ${
+                  isPublic ? "border-primary/40 bg-primary/5 text-primary" : ""
+                }`}
+                onClick={() => setIsPublic((v) => !v)}
+                type="button"
+              >
+                {isPublic ? (
+                  <Eye className="h-3 w-3" />
+                ) : (
+                  <EyeOff className="h-3 w-3 text-muted-foreground" />
+                )}
+                <span>
+                  {isPublic
+                    ? t("detail.taskForm.visibleToClient")
+                    : t("detail.taskForm.internal")}
+                </span>
+              </button>
+            </div>
+
+            <textarea
+              className="min-h-[120px] w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+              onChange={(e) => {
+                setContent(e.target.value);
+                autoGrow(e.target);
+              }}
+              placeholder={t("detail.taskForm.descriptionPlaceholder")}
+              value={content}
+            />
+
+            {teamMembersEnabled ? (
+              <TaskCollaboratorsPicker
+                catalog={teamMembersCatalog}
+                error={teamMembersError}
+                key={`${String(open)}-${task?.id ?? "new"}`}
+                label={t("detail.members.assignees")}
+                loading={teamMembersLoading}
+                onSelectedIdsChange={setTeamMemberIds}
+                options={assigneeOptions}
+                placeholder={t("detail.members.selectMembers")}
+                selectedIds={teamMemberIds}
+                teamMembersEnabled={teamMembersEnabled}
+              />
+            ) : null}
+
+            {error ? <p className="text-destructive text-sm">{error}</p> : null}
+          </div>
+
+          <SidePanelFooter className="p-4">
+            <Button
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
+              {t("create.cancel")}
+            </Button>
+            <Button disabled={submitting} type="submit">
+              {task ? t("detail.taskForm.save") : t("create.create")}
+            </Button>
+          </SidePanelFooter>
+        </form>
+      </SidePanelContent>
+    </SidePanel>
+  );
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "tasks.assist",
+  "name": "Tasks Assist",
+  "description": "Help users prioritize, understand, and update goals and tasks.",
+  "module_id": "tasks",
+  "skills": ["task-workflow"],
+  "tools": ["engenty_tools_search", "engenty_tool_execute"],
+  "workspace": { "preset": "staff" }
+}

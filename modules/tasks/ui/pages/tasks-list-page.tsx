@@ -1,0 +1,644 @@
+import { useCopilotShell } from "@engenty/app-shell";
+import { useTranslation } from "@engenty/i18n/ui";
+import {
+  AdminListPagination,
+  AdminListTableView,
+  Button,
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  useListDisplayState,
+  useTableSelection,
+} from "@engenty/ui-core";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { ListTodo, Pencil } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import type { Task, TasksQueryParams } from "../../src/schema/types.js";
+import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
+import { TasksBulkEditDialog } from "../components/tasks-bulk-edit-dialog.js";
+import type {
+  TasksColumnVisibility,
+  TasksSortColumn,
+} from "../components/tasks-display-dialog.js";
+import { TasksGroupedList } from "../components/tasks-grouped-list.js";
+import { TasksKanbanBoard } from "../components/tasks-kanban-board.js";
+import {
+  TasksListFilterBar,
+  type TasksListFilterState,
+} from "../components/tasks-list-filter-bar.js";
+import { TasksListTable } from "../components/tasks-list-table.js";
+import { TasksToolbar } from "../components/tasks-toolbar.js";
+import { useTasksListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
+import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
+import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
+import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
+import { tasksPaths } from "../lib/tasks-routes.js";
+import { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
+import { buildAssigneeProfileMap } from "../plugins.js";
+import {
+  useBulkUpdateTasksMutation,
+  useDeleteTaskMutation,
+  useGoalsListQuery,
+  useTaskSettingsQuery,
+  useTasksListQuery,
+  useUpdateTasksListMutation,
+} from "../tasks-queries.js";
+
+const EMPTY_TASKS: Task[] = [];
+
+const TASKS_DISPLAY_DEFAULTS = {
+  viewMode: "table" as const,
+  tableSize: "normal" as const,
+  sortBy: "updated_at" as TasksSortColumn,
+  sortOrder: "desc" as const,
+  columnVisibility: {
+    identifier: true,
+    title: true,
+    assignee: true,
+    status: false,
+    priority: false,
+    dueDate: true,
+    updatedAt: false,
+  } satisfies TasksColumnVisibility,
+  columnOrder: [
+    "identifier",
+    "title",
+    "assignee",
+    "dueDate",
+    "status",
+    "priority",
+    "updatedAt",
+  ] as (keyof TasksColumnVisibility)[],
+};
+
+export function TasksListPage() {
+  const { t } = useTranslation("tasks");
+  const { setCopilotContext } = useCopilotShell();
+  const navigate = useNavigate();
+
+  const display = useListDisplayState<
+    keyof TasksColumnVisibility,
+    TasksSortColumn
+  >({
+    storageKey: "tasks-list",
+    defaults: TASKS_DISPLAY_DEFAULTS,
+    validSortColumns: [
+      "updated_at",
+      "created_at",
+      "title",
+      "status",
+      "identifier",
+    ],
+    validViewModes: ["table", "kanban", "cards"],
+  });
+  const {
+    viewMode,
+    tableSize,
+    columnVisibility,
+    columnOrder,
+    sortBy,
+    sortOrder,
+    setViewMode,
+    setTableSize,
+    setColumnVisibility,
+    setColumnOrder,
+    setSortBy,
+    setSortOrder,
+  } = display;
+
+  const [search, setSearch] = useState("");
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [filters, setFilters] = useState<TasksListFilterState>({
+    groupBy: "status",
+    status: "all",
+    assignee: "all",
+    priority: "all",
+    goalId: "all",
+  });
+  const [page, setPage] = useState(1);
+
+  const { openCreateTask, pageActions, topbarDialogs } =
+    useTasksTopbarActions();
+
+  const pageSize = viewMode === "kanban" || viewMode === "cards" ? 200 : 25;
+
+  const listParams = useMemo<TasksQueryParams>(
+    () => ({
+      page,
+      pageSize,
+      search: search.trim() || undefined,
+      status: filters.status === "all" ? undefined : filters.status,
+      assigned_to:
+        filters.assignee === "all" || filters.assignee === "unassigned"
+          ? undefined
+          : filters.assignee,
+      goal_id: filters.goalId === "all" ? undefined : filters.goalId,
+      sortBy,
+      sortOrder,
+    }),
+    [
+      page,
+      pageSize,
+      search,
+      filters.status,
+      filters.assignee,
+      filters.goalId,
+      sortBy,
+      sortOrder,
+    ]
+  );
+
+  const tasksQuery = useTasksListQuery(listParams);
+  const goalsQuery = useGoalsListQuery({
+    page: 1,
+    pageSize: 200,
+    sortBy: "title",
+    sortOrder: "asc",
+  });
+  const settingsQuery = useTaskSettingsQuery();
+  const teamMembersCatalogQuery = useTeamMembersCatalogQuery();
+  const taskStatusDefinitions =
+    settingsQuery.data?.task_status_definitions ??
+    BUILTIN_TASK_STATUS_DEFINITIONS;
+  const deleteMutation = useDeleteTaskMutation();
+  const updateListMutation = useUpdateTasksListMutation(listParams);
+
+  const tasks = tasksQuery.data?.data ?? EMPTY_TASKS;
+  const goals = goalsQuery.data?.data ?? [];
+  const total = tasksQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const isLoading = tasksQuery.isLoading && !tasksQuery.data;
+  const error = tasksQuery.error
+    ? tasksQuery.error instanceof Error
+      ? tasksQuery.error.message
+      : t("list.loadFailed")
+    : null;
+
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+    if (filters.priority !== "all") {
+      result = result.filter((t) => t.priority === filters.priority);
+    }
+    if (filters.assignee === "unassigned") {
+      result = result.filter((t) => t.primary_assignee_kind === "none");
+    }
+    return result;
+  }, [tasks, filters.priority, filters.assignee]);
+
+  const selection = useTableSelection({ items: filteredTasks });
+  const { selectedIds, handleSelectAll, handleSelectOne, clearSelection } =
+    selection;
+
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const bulkUpdateMutation = useBulkUpdateTasksMutation();
+
+  const handleBulkEditSubmit = useCallback(
+    async (input: TaskUpdateInput) => {
+      const taskIds = Array.from(selectedIds);
+      if (taskIds.length === 0) {
+        return;
+      }
+
+      try {
+        await bulkUpdateMutation.mutateAsync({ taskIds, input });
+        toast.success(t("list.bulkUpdateSuccess"));
+        clearSelection();
+      } catch {
+        toast.error(t("list.bulkUpdateFailed"));
+      }
+    },
+    [selectedIds, bulkUpdateMutation, clearSelection, t]
+  );
+
+  const bulkActions = selectedIds.size > 0 && (
+    <Button
+      className="gap-1.5"
+      onClick={() => setBulkEditOpen(true)}
+      size="sm"
+      variant="outline"
+    >
+      <Pencil className="h-3.5 w-3.5" />
+      {t("list.editSelected", { count: selectedIds.size })}
+    </Button>
+  );
+
+  const teamMembersEnabled = teamMembersCatalogQuery.pluginEnabled;
+  const assigneeProfiles = useMemo(
+    () => buildAssigneeProfileMap(teamMembersCatalogQuery.data ?? []),
+    [teamMembersCatalogQuery.data]
+  );
+  const effectiveColumnVisibility = teamMembersEnabled
+    ? columnVisibility
+    : { ...columnVisibility, assignee: false };
+  const effectiveColumnOrder = teamMembersEnabled
+    ? columnOrder
+    : columnOrder.filter((key) => key !== "assignee");
+
+  const labels = useMemo(
+    () => getTasksToolbarLabels(t, total, selectedIds.size),
+    [t, total, selectedIds.size]
+  );
+
+  const columnOptions = useMemo(
+    () =>
+      [
+        { key: "identifier", label: labels.identifier },
+        { key: "title", label: labels.title },
+        { key: "assignee", label: labels.assignee },
+        { key: "status", label: labels.status },
+        { key: "priority", label: labels.priority },
+        { key: "dueDate", label: labels.dueDate },
+        { key: "updatedAt", label: labels.updatedAt },
+      ] as const,
+    [labels]
+  );
+
+  const sortOptions = useMemo(
+    () =>
+      [
+        { value: "updated_at", label: labels.sortByUpdatedAt },
+        { value: "created_at", label: labels.sortByCreatedAt },
+        { value: "title", label: labels.sortByTitle },
+        { value: "status", label: labels.sortByStatus },
+        { value: "identifier", label: labels.sortByIdentifier },
+      ] as const,
+    [labels]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filters, sortBy, sortOrder, viewMode]);
+
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useTasksModuleSecondaryShellNav();
+
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("sidebar.tasks") },
+    ],
+    [moduleRootCrumb, t]
+  );
+
+  usePageConfig({
+    actions: pageActions,
+    breadcrumbs,
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
+    title: t("sidebar.tasks"),
+    topbarChrome: "contentBlend",
+  });
+
+  useTasksListAgentUiSlice({ search, tasks });
+
+  useEffect(() => {
+    setCopilotContext({
+      scope: {
+        current_module: "tasks",
+        currentModule: "tasks",
+        routeKey: "list",
+      },
+    });
+    return () => setCopilotContext(null);
+  }, [setCopilotContext]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+  }, []);
+
+  const handleFiltersChange = useCallback((next: TasksListFilterState) => {
+    setFilters(next);
+  }, []);
+
+  const handleTaskClick = useCallback(
+    (task: Task) => {
+      navigate(tasksPaths.taskDetail(task.id));
+    },
+    [navigate]
+  );
+
+  const handleTaskEdit = useCallback(
+    (task: Task) => {
+      navigate(tasksPaths.taskDetail(task.id));
+    },
+    [navigate]
+  );
+
+  const handleTaskDelete = useCallback(
+    async (taskId: string) => {
+      try {
+        await deleteMutation.mutateAsync(taskId);
+      } catch {
+        toast.error(t("list.deleteFailed"));
+      }
+    },
+    [deleteMutation, t]
+  );
+
+  const handleAddTask = useCallback(
+    (goalId?: string | null) => {
+      openCreateTask(goalId);
+    },
+    [openCreateTask]
+  );
+
+  const handleTaskStatusChange = useCallback(
+    async (taskId: string, status: string) => {
+      try {
+        await updateListMutation.mutateAsync({
+          taskId,
+          input: { status },
+        });
+      } catch {
+        toast.error(t("list.statusUpdateFailed"));
+      }
+    },
+    [t, updateListMutation]
+  );
+
+  const handleGoalEdit = useCallback(
+    (goalId: string) => {
+      navigate(tasksPaths.goalDetail(goalId));
+    },
+    [navigate]
+  );
+
+  const hasActiveFilters =
+    filters.status !== "all" ||
+    filters.assignee !== "all" ||
+    filters.priority !== "all" ||
+    filters.goalId !== "all";
+
+  const assigneeOptions = useMemo(
+    () =>
+      (teamMembersCatalogQuery.data ?? []).map((m) => ({
+        id: m.user_id ?? m.id,
+        name: m.full_name,
+      })),
+    [teamMembersCatalogQuery.data]
+  );
+
+  const showGroupedEmpty =
+    viewMode === "cards" &&
+    !(isLoading || error) &&
+    filteredTasks.length === 0 &&
+    goals.length === 0 &&
+    !search.trim() &&
+    !hasActiveFilters;
+
+  const showGroupedNoResults =
+    viewMode === "cards" &&
+    !(isLoading || error) &&
+    filteredTasks.length === 0 &&
+    (goals.length > 0 || tasks.length > 0) &&
+    (search.trim() || hasActiveFilters);
+
+  return (
+    <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-page">
+      <div className="shrink-0 space-y-2">
+        <TasksToolbar
+          bulkActions={bulkActions}
+          clearSelectionLabel={t("list.clearSelection")}
+          columnOrder={effectiveColumnOrder}
+          columns={[...columnOptions]}
+          columnVisibility={effectiveColumnVisibility}
+          filtersExpanded={filtersExpanded}
+          hasActiveFilters={hasActiveFilters}
+          labels={labels}
+          onClearSelection={clearSelection}
+          onFiltersToggle={() => setFiltersExpanded((prev) => !prev)}
+          onSearchChange={handleSearchChange}
+          searchQuery={search}
+          selectedCount={selectedIds.size}
+          setColumnOrder={setColumnOrder}
+          setColumnVisibility={setColumnVisibility}
+          setSortBy={setSortBy}
+          setSortOrder={setSortOrder}
+          setTableSize={setTableSize}
+          setViewMode={setViewMode}
+          sortBy={sortBy}
+          sortOptions={[...sortOptions]}
+          sortOrder={sortOrder}
+          tableSize={tableSize}
+          viewMode={viewMode}
+        />
+        <TasksListFilterBar
+          assigneeOptions={assigneeOptions}
+          filtersExpanded={filtersExpanded}
+          goalOptions={goals}
+          hasActiveChipFilters={hasActiveFilters}
+          onChange={handleFiltersChange}
+          statusOptions={taskStatusDefinitions}
+          value={filters}
+        />
+      </div>
+
+      {isLoading ? <p className="text-muted-foreground text-sm">…</p> : null}
+
+      {!isLoading && error ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
+          {error}
+        </div>
+      ) : null}
+
+      {!(isLoading || error) &&
+      filteredTasks.length === 0 &&
+      viewMode !== "cards" ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListTodo className="h-12 w-12" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {search.trim() || hasActiveFilters
+                ? t("list.noSearchResults")
+                : t("list.empty")}
+            </EmptyTitle>
+            <EmptyDescription>{t("list.emptyDescription")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            {search.trim() || hasActiveFilters ? (
+              <button
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                onClick={() => {
+                  setSearch("");
+                  setFilters({
+                    groupBy: filters.groupBy,
+                    status: "all",
+                    assignee: "all",
+                    priority: "all",
+                    goalId: "all",
+                  });
+                }}
+                type="button"
+              >
+                {t("list.clearSearch")}
+              </button>
+            ) : (
+              <button
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                onClick={() => handleAddTask(null)}
+                type="button"
+              >
+                {t("list.newTask")}
+              </button>
+            )}
+          </EmptyContent>
+        </Empty>
+      ) : null}
+
+      {!(isLoading || error) &&
+        filteredTasks.length > 0 &&
+        viewMode === "table" && (
+          <AdminListTableView
+            bottomFade
+            pagination={{
+              nextLabel: t("list.next"),
+              onNext: () => setPage((prev) => Math.min(totalPages, prev + 1)),
+              onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
+              page,
+              pageOfLabel: t("list.pageOf", { page, totalPages }),
+              previousLabel: t("list.previous"),
+              totalPages,
+            }}
+            scrollClassName={
+              filters.groupBy === "none" ? undefined : "rounded-lg"
+            }
+            stickyHeaderShadow
+            transparent={filters.groupBy !== "none"}
+          >
+            <TasksListTable
+              assigneeProfiles={assigneeProfiles}
+              columnOrder={effectiveColumnOrder}
+              columnVisibility={effectiveColumnVisibility}
+              goals={goals}
+              groupBy={filters.groupBy}
+              onDelete={handleTaskDelete}
+              onEdit={handleTaskEdit}
+              onRowClick={handleTaskClick}
+              onSelectAll={handleSelectAll}
+              onSelectOne={handleSelectOne}
+              selectedIds={selectedIds}
+              showAssignee={teamMembersEnabled}
+              tableSize={tableSize ?? "normal"}
+              taskStatusDefinitions={taskStatusDefinitions}
+              tasks={filteredTasks}
+            />
+          </AdminListTableView>
+        )}
+
+      {!(isLoading || error) &&
+        filteredTasks.length > 0 &&
+        viewMode === "kanban" && (
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+            <TasksKanbanBoard
+              assigneeProfiles={assigneeProfiles}
+              listParams={listParams}
+              onTaskClick={handleTaskClick}
+              onTaskDelete={handleTaskDelete}
+              onTaskEdit={handleTaskEdit}
+              showAssignee={teamMembersEnabled}
+              statusColumns={taskStatusDefinitions}
+              tasks={filteredTasks}
+            />
+          </div>
+        )}
+
+      {!(isLoading || error) &&
+      viewMode === "cards" &&
+      filteredTasks.length > 0 ? (
+        <TasksGroupedList
+          assigneeProfiles={assigneeProfiles}
+          goals={goals}
+          onAddGeneralTask={() => handleAddTask(null)}
+          onAddTaskToGoal={(goalId) => handleAddTask(goalId)}
+          onGoalEdit={handleGoalEdit}
+          onTaskClick={handleTaskClick}
+          onTaskDelete={handleTaskDelete}
+          onTaskEdit={handleTaskEdit}
+          onTaskStatusChange={handleTaskStatusChange}
+          showAssignee={teamMembersEnabled}
+          taskStatusDefinitions={taskStatusDefinitions}
+          tasks={filteredTasks}
+        />
+      ) : null}
+
+      {showGroupedEmpty || showGroupedNoResults ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListTodo className="h-12 w-12" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {search.trim() || hasActiveFilters
+                ? t("list.noSearchResults")
+                : t("list.empty")}
+            </EmptyTitle>
+            <EmptyDescription>{t("list.emptyDescription")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            {search.trim() || hasActiveFilters ? (
+              <button
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                onClick={() => {
+                  setSearch("");
+                  setFilters({
+                    groupBy: filters.groupBy,
+                    status: "all",
+                    assignee: "all",
+                    priority: "all",
+                    goalId: "all",
+                  });
+                }}
+                type="button"
+              >
+                {t("list.clearSearch")}
+              </button>
+            ) : (
+              <button
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                onClick={() => handleAddTask(null)}
+                type="button"
+              >
+                {t("list.newTask")}
+              </button>
+            )}
+          </EmptyContent>
+        </Empty>
+      ) : null}
+
+      {!(isLoading || error) &&
+      filteredTasks.length > 0 &&
+      viewMode === "cards" ? (
+        <AdminListPagination
+          nextLabel={t("list.next")}
+          onNext={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+          onPrevious={() => setPage((prev) => Math.max(1, prev - 1))}
+          page={page}
+          pageOfLabel={t("list.pageOf", { page, totalPages })}
+          previousLabel={t("list.previous")}
+          totalPages={totalPages}
+        />
+      ) : null}
+
+      {topbarDialogs}
+
+      <TasksBulkEditDialog
+        goals={goals}
+        onClose={() => setBulkEditOpen(false)}
+        onSubmit={handleBulkEditSubmit}
+        open={bulkEditOpen}
+        selectedCount={selectedIds.size}
+        taskStatusDefinitions={taskStatusDefinitions}
+        teamMembersCatalog={teamMembersCatalogQuery.data ?? []}
+        teamMembersEnabled={teamMembersEnabled}
+        teamMembersLoading={teamMembersCatalogQuery.isLoading}
+      />
+    </section>
+  );
+}

@@ -1,0 +1,258 @@
+export type { TaskStatusColor } from "./task-status-colors.js";
+
+export type TaskStatus = string;
+
+export type TaskPriority = "critical" | "high" | "medium" | "low";
+
+export type PrimaryAssigneeKind = "user" | "agent" | "none";
+
+export type GoalStatus = "planned" | "active" | "achieved" | "cancelled";
+
+export interface TaskStatusDefinition {
+  color: import("./task-status-colors.js").TaskStatusColor;
+  id: string;
+  label: string;
+  locked?: boolean;
+}
+
+export interface TaskSettings {
+  default_task_statuses: string[];
+  identifier_prefix: string;
+  stale_after_days: number;
+  task_status_definitions: TaskStatusDefinition[];
+}
+
+export interface Goal {
+  created_at: string;
+  description: string | null;
+  id: string;
+  level: string;
+  /** Present on list responses when aggregated. */
+  linked_task_count?: number;
+  owner_agent_id: string | null;
+  owner_user_id: string | null;
+  parent_id: string | null;
+  project_id: string | null;
+  scope_id: string;
+  status: GoalStatus;
+  target_date: string | null;
+  tenant_id: string;
+  title: string;
+  updated_at: string;
+}
+
+export interface Task {
+  cancelled_at: string | null;
+  checkout_run_id: string | null;
+  collaborator_user_ids?: string[];
+  completed_at: string | null;
+  created_at: string;
+  created_by_agent_type_key: string | null;
+  created_by_user_id: string | null;
+  description: string | null;
+  due_date: string | null;
+  goal_id: string | null;
+  id: string;
+  identifier: string;
+  parent_id: string | null;
+  primary_assignee_agent_type_key: string | null;
+  primary_assignee_kind: PrimaryAssigneeKind;
+  primary_assignee_user_id: string | null;
+  priority: TaskPriority;
+  project_id: string | null;
+  request_depth: number;
+  scope_id: string;
+  started_at: string | null;
+  status: TaskStatus;
+  tenant_id: string;
+  title: string;
+  updated_at: string;
+}
+
+export interface TaskContext {
+  context_id: string;
+  context_type: string;
+  id: string;
+  metadata: Record<string, unknown>;
+  scope_id: string;
+  task_id: string;
+  tenant_id: string;
+}
+
+export interface TaskContextInput {
+  context_id: string;
+  context_type: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TaskComment {
+  content: string;
+  created_at: string;
+  created_by_agent_type_key: string | null;
+  created_by_user_id: string | null;
+  id: string;
+  scope_id: string;
+  task_id: string;
+  tenant_id: string;
+}
+
+export type TaskRunRole = "checkout" | "work" | "review";
+
+export interface TaskRun {
+  /** Enriched from ai.agent_session_run when available. */
+  agent_session_id?: string | null;
+  agent_session_run_id: string;
+  agent_type_key?: string | null;
+  created_at: string;
+  /** Enriched from ai.agent_session_run when available. */
+  created_by_user_id?: string | null;
+  id: string;
+  role: TaskRunRole;
+  run_finished_at?: string | null;
+  run_started_at?: string | null;
+  scope_id: string;
+  task_id: string;
+  tenant_id: string;
+}
+
+export type TaskActivityEventType =
+  | "tasks.checked_out"
+  | "tasks.released"
+  | "tasks.status_changed"
+  | "tasks.assignee_changed"
+  | "tasks.comment_added";
+
+export interface TaskActivity {
+  actor_agent_type_key: string | null;
+  actor_user_id: string | null;
+  created_at: string;
+  event_type: TaskActivityEventType | string;
+  id: string;
+  payload: Record<string, unknown>;
+  scope_id: string;
+  task_id: string;
+  tenant_id: string;
+}
+
+export interface TaskCheckoutInput {
+  agent_session_run_id: string;
+  agent_type_key: string;
+  expected_statuses?: string[];
+}
+
+export interface TaskReleaseInput {
+  agent_session_run_id?: string;
+}
+
+export interface TaskCheckoutConflictResponse {
+  checkout_run_id: string | null;
+  current_assignee_kind: string;
+  current_status: string;
+  error: "task_checkout_conflict";
+}
+
+export interface TaskDetail extends Task {
+  comments: TaskComment[];
+  contexts: TaskContext[];
+}
+
+export interface TasksQueryParams {
+  assigned_to?: string | null;
+  context_id?: string | null;
+  context_metadata_phase_id?: string | null;
+  context_type?: string | null;
+  goal_id?: string | null;
+  page?: number;
+  pageSize?: number;
+  parent_id?: string | null;
+  project_id?: string | null;
+  scope?: "all" | "mine";
+  search?: string | null;
+  sortBy?: "updated_at" | "created_at" | "title" | "status" | "identifier";
+  sortOrder?: "asc" | "desc";
+  status?: string | null;
+}
+
+export interface TasksPaginatedResponse {
+  data: Task[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface GoalsQueryParams {
+  page?: number;
+  pageSize?: number;
+  parent_id?: string | null;
+  search?: string | null;
+  sortBy?: "updated_at" | "created_at" | "title" | "status";
+  sortOrder?: "asc" | "desc";
+  status?: GoalStatus | null;
+}
+
+export interface GoalsPaginatedResponse {
+  data: Goal[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface TaskCreateInput {
+  collaborator_user_ids?: string[];
+  contexts?: TaskContextInput[];
+  created_by_agent_type_key?: string | null;
+  description?: string | null;
+  due_date?: string | null;
+  goal_id?: string | null;
+  parent_id?: string | null;
+  primary_assignee_agent_type_key?: string | null;
+  primary_assignee_kind?: PrimaryAssigneeKind;
+  primary_assignee_user_id?: string | null;
+  priority?: TaskPriority;
+  project_id?: string | null;
+  status?: TaskStatus;
+  title: string;
+}
+
+export type TaskUpdateInput = Partial<
+  Omit<TaskCreateInput, "created_by_agent_type_key" | "collaborator_user_ids">
+> & {
+  collaborator_user_ids?: string[];
+  status?: TaskStatus;
+};
+
+export interface GoalCreateInput {
+  description?: string | null;
+  level?: string;
+  owner_agent_id?: string | null;
+  owner_user_id?: string | null;
+  parent_id?: string | null;
+  project_id?: string | null;
+  status?: GoalStatus;
+  target_date?: string | null;
+  title: string;
+}
+
+export type GoalUpdateInput = Partial<GoalCreateInput>;
+
+export interface TaskSettingsUpdateInput {
+  identifier_prefix?: string;
+  stale_after_days?: number;
+  task_status_definitions?: TaskStatusDefinition[];
+}
+
+export type TasksBriefingMode = "personal" | "oversight";
+
+export interface TasksBriefingSectionItem {
+  reason: string;
+  task: Task;
+}
+
+export interface TasksBriefingResponse {
+  attention_items: TasksBriefingSectionItem[];
+  focus_items: TasksBriefingSectionItem[];
+  mode: TasksBriefingMode;
+  stale_after_days: number;
+  stale_items: TasksBriefingSectionItem[];
+  waiting_items: TasksBriefingSectionItem[];
+}
