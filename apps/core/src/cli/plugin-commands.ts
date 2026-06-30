@@ -7,6 +7,11 @@ import {
   callCoreApiWithAcceptedStatuses,
   defaultApiUrl,
 } from "./core-api.js";
+import {
+  applyLocalDbMigrations,
+  DB_MIGRATE_NEXT_STEP,
+  isLocalDbReachable,
+} from "./db/db-commands.js";
 import { registerPluginCreateCommand } from "./plugin-create-command.js";
 import {
   type PluginListItem,
@@ -99,6 +104,28 @@ function extractLifecycleResult(
 
 function tenantQuery(opts: PluginCommandOpts) {
   return opts.tenant ? `?tenantId=${encodeURIComponent(opts.tenant)}` : "";
+}
+
+/**
+ * After installing in-repo workspace modules (which aggregates their migrations
+ * but never applies them), either apply locally on opt-in or print the next
+ * step. Keep apply opt-in and local-only: install must stay DB-free for CI,
+ * fresh checkouts, and remote/unreachable databases.
+ */
+function finishInRepoInstall(opts: { dbMigrate?: boolean }): void {
+  if (opts.dbMigrate !== true) {
+    console.log(DB_MIGRATE_NEXT_STEP);
+    return;
+  }
+  if (!isLocalDbReachable()) {
+    console.log(
+      "Skipped --db-migrate: no local database reachable (start one with `supabase start`)."
+    );
+    console.log(DB_MIGRATE_NEXT_STEP);
+    return;
+  }
+  console.log("Applying module migrations to the local database…");
+  applyLocalDbMigrations();
 }
 
 function actionBody(opts: PluginCommandOpts) {
@@ -418,6 +445,10 @@ export function registerPluginCommands(program: Command): void {
     )
     .option("--all", "Install every workspace module on disk (in-repo)")
     .option(
+      "--db-migrate",
+      "After installing in-repo modules, apply their migrations to the local database (opt-in; local + reachable only)"
+    )
+    .option(
       "--api-url <url>",
       "API base URL (external packages)",
       defaultApiUrl
@@ -432,7 +463,10 @@ export function registerPluginCommands(program: Command): void {
       runCliAction(
         async (
           targets: string[],
-          opts: PackageLifecycleCommandOpts & { all?: boolean }
+          opts: PackageLifecycleCommandOpts & {
+            all?: boolean;
+            dbMigrate?: boolean;
+          }
         ) => {
           const repoRoot = resolveRepoRoot();
           const workspaceSlugs = new Set(
@@ -470,6 +504,7 @@ export function registerPluginCommands(program: Command): void {
             for (const message of result.messages) {
               console.log(message);
             }
+            finishInRepoInstall(opts);
             return;
           }
 
@@ -491,6 +526,7 @@ export function registerPluginCommands(program: Command): void {
             for (const message of result.messages) {
               console.log(message);
             }
+            finishInRepoInstall(opts);
           }
           for (const spec of external) {
             await runPackageLifecycleCommand({
