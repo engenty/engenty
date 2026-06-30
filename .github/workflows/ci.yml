@@ -31,7 +31,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Enable workspace plugins
-        run: pnpm engenty plugins enable --all
+        run: pnpm engenty plugins install --all
 
       - name: Setup generated local artifacts
         run: pnpm setup
