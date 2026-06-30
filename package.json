@@ -17,6 +17,9 @@
       },
       "projects": {
         "source": "workspace"
+      },
+      "team": {
+        "source": "workspace"
       }
     }
   },
@@ -57,7 +60,8 @@
     "db:snapshot": "pnpm engenty db snapshot",
     "db:restore": "pnpm engenty db restore",
     "clean": "bash scripts/clean.sh",
-    "purge": "bash scripts/purge.sh"
+    "purge": "bash scripts/purge.sh",
+    "push": "bash scripts/publish-open.sh"
   },
   "engines": {
     "node": ">=24.11.0"
