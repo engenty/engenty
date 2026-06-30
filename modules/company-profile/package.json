@@ -1,0 +1,66 @@
+{
+  "name": "@engenty/company-profile",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    }
+  },
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/company-profile-manager.ts ai/tools/load-company-profile.ts ai/tools/update-company-profile.ts ai/tools/set-company-logo.ts ai/tools/company-website-pages.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/company-profile-manager.ts ai/tools/load-company-profile.ts ai/tools/update-company-profile.ts ai/tools/set-company-logo.ts ai/tools/company-website-pages.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/api-contracts": "workspace:*",
+    "@engenty/auth-ui": "workspace:*",
+    "@engenty/file-storage": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@hono/zod-openapi": "^1.4.0",
+    "@mastra/core": "1.45.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "ai": "6.0.116",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

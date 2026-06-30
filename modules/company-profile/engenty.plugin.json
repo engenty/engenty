@@ -1,0 +1,33 @@
+{
+  "id": "company-profile",
+  "name": "Company Profile",
+  "description": "Legal entity profile and business identity settings",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.company-profile",
+    "module.company-profile.read",
+    "module.company-profile.write",
+    "ui.route.module.company-profile"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "frontendTools": false
+  },
+  "supabase": {
+    "storageBuckets": [
+      {
+        "name": "module-company-profile-logos",
+        "public": true,
+        "fileSizeLimit": "2MiB",
+        "allowedMimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/gif",
+          "image/webp"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "company-profile.manager",
+  "name": "Company Profile Manager",
+  "description": "Reviews and maintains company profile settings, including the logo, from official website snippets and public research.",
+  "module_id": "company-profile",
+  "skills": [],
+  "tools": [
+    "loadCompanyProfile",
+    "updateCompanyProfile",
+    "setCompanyLogo",
+    "uploadAsset",
+    "companyWebsitePages",
+    "convert_image",
+    "web_search"
+  ]
+}
