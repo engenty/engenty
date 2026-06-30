@@ -517,6 +517,91 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  modules/company-profile:
+    dependencies:
+      '@engenty/ai-core':
+        specifier: workspace:*
+        version: link:../../packages/ai-core
+      '@engenty/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@engenty/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
+      '@engenty/auth-ui':
+        specifier: workspace:*
+        version: link:../../packages/auth-ui
+      '@engenty/file-storage':
+        specifier: workspace:*
+        version: link:../../packages/file-storage
+      '@engenty/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
+      '@engenty/live-cache':
+        specifier: workspace:*
+        version: link:../../packages/live-cache
+      '@engenty/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@engenty/query-client':
+        specifier: workspace:*
+        version: link:../../packages/query-client
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
+      '@engenty/ui-icons':
+        specifier: workspace:*
+        version: link:../../packages/ui-icons
+      '@engenty/ui-plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/ui-plugin-sdk
+      '@hono/zod-openapi':
+        specifier: ^1.4.0
+        version: 1.4.0(hono@4.12.26)(zod@4.4.3)
+      '@mastra/core':
+        specifier: 1.45.0
+        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@supabase/supabase-js':
+        specifier: ^2.108.2
+        version: 2.108.2
+      ai:
+        specifier: 6.0.116
+        version: 6.0.116(zod@4.4.3)
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+      react-router-dom:
+        specifier: ^7.18.0
+        version: 7.18.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.0.0
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   modules/engenty-copilot:
     dependencies:
       '@engenty/ag-ui-bridge':
@@ -1175,6 +1260,52 @@ importers:
       '@types/node':
         specifier: ^26.0.0
         version: 26.0.0
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/csv-import:
+    dependencies:
+      '@engenty/ai-core':
+        specifier: workspace:*
+        version: link:../ai-core
+      '@engenty/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../ui-core
+      '@engenty/ui-icons':
+        specifier: workspace:*
+        version: link:../ui-icons
+      '@hono/zod-openapi':
+        specifier: ^1.4.0
+        version: 1.4.0(hono@4.12.26)(zod@4.4.3)
+      ai:
+        specifier: 6.0.116
+        version: 6.0.116(zod@4.4.3)
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
