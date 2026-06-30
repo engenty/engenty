@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { buildApiCatalog } from "./api-catalog.js";
@@ -141,6 +141,13 @@ describe("buildApiCatalog", () => {
     clearCatalogSearchEmbeddingCache();
     embedManyMock.mockReset();
     embedMock.mockReset();
+    // These tests exercise the (mocked) embedding path, so simulate having
+    // gateway credentials; without them ranking short-circuits to lexical.
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-gateway-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   const openApiDocument = {
