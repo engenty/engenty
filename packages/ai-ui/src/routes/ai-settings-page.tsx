@@ -21,7 +21,6 @@ import {
   mapGatewayModelSelectOptions,
   mergeSelectedGatewayModelOptions,
 } from "../features/ai-settings/map-gateway-model-select-options";
-import { SkillsTab } from "../features/ai-settings/skills-tab";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
   useDocConverterAvailabilityQuery,
@@ -30,12 +29,7 @@ import {
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
 
 const DEFAULT_TAB = "copilot";
-const VALID_TABS = new Set([
-  DEFAULT_TAB,
-  "classifier",
-  "doc-converter",
-  "skills",
-]);
+const VALID_TABS = new Set([DEFAULT_TAB, "classifier", "doc-converter"]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
   "cheap",
@@ -148,11 +142,7 @@ export function AiGeneralSettingsPage() {
 
   const pageActions = useMemo(
     () =>
-      loading ||
-      activeTab === "skills" ||
-      (activeTab !== "copilot" &&
-        activeTab !== "classifier" &&
-        activeTab !== "doc-converter") ? null : (
+      loading ? null : (
         <div className="flex gap-2">
           <Button
             className="h-8 gap-1.5 px-2.5 text-xs"
@@ -190,7 +180,6 @@ export function AiGeneralSettingsPage() {
         </div>
       ),
     [
-      activeTab,
       handleReset,
       handleResetToDefaults,
       handleSave,
@@ -237,7 +226,6 @@ export function AiGeneralSettingsPage() {
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
-              <TabsTrigger value="skills">{t("sections.skills")}</TabsTrigger>
             </TabsList>
           </div>
         </header>
@@ -324,10 +312,6 @@ export function AiGeneralSettingsPage() {
               t={t}
               updateSettings={updateSettings}
             />
-          </TabsContent>
-
-          <TabsContent value="skills">
-            <SkillsTab t={t} />
           </TabsContent>
         </div>
       </Tabs>

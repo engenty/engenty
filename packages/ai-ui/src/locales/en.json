@@ -85,9 +85,7 @@
     "safety": "Safety",
     "safetyDesc": "Guardrails and content policies.",
     "observability": "Observability",
-    "observabilityDesc": "Runs, logs, and monitoring.",
-    "skills": "Skills",
-    "skillsDesc": "Managed and custom skills available to agents."
+    "observabilityDesc": "Runs, logs, and monitoring."
   },
   "agents": {
     "catalogTitle": "Agents",
