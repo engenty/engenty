@@ -36,6 +36,10 @@ export interface CopilotShellContextValue {
   copilotContext: CopilotRouteContext;
   /** Copilot layout load/save (user-settings JSON). */
   copilotLayout: CopilotLayoutPersistence;
+  /** True after persisted `copilot.layout` snapshot is applied to shell state. */
+  copilotLayoutApplied: boolean;
+  /** True once inline sidebar mount target is attached (sidebar dock portal). */
+  copilotSidebarReady: boolean;
   /** Ref to the shell-owned inline sidebar container. */
   copilotSidebarRef: MutableRefObject<HTMLDivElement | null>;
   /** Current effective dock mode (screen + preference). */
@@ -46,6 +50,10 @@ export interface CopilotShellContextValue {
   mainContentRef: MutableRefObject<HTMLElement | null>;
   /** @internal Notify main content mounted. Used by CopilotShellMain. */
   notifyMainMounted?: () => void;
+  /** @internal Notify inline sidebar mount target attached. */
+  notifySidebarMounted?: () => void;
+  /** @internal Notify inline sidebar mount target detached. */
+  notifySidebarUnmounted?: () => void;
   /** Whether the copilot panel is open. */
   open: boolean;
   /** User preference; null = auto. */

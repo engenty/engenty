@@ -314,6 +314,13 @@ export function CopilotProviderContent() {
     return null;
   }
 
+  const copilotLayoutReady =
+    shell?.copilotLayout.layoutHydrated !== false &&
+    (shell?.copilotLayoutApplied ?? true);
+  if (!copilotLayoutReady) {
+    return null;
+  }
+
   return (
     <CopilotDrawerLayer
       agentUi={agentUi}

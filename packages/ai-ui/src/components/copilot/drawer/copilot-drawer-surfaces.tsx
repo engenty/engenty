@@ -122,6 +122,52 @@ function renderCollapseMorph(layout: UseCopilotDrawerLayoutResult) {
   );
 }
 
+function renderDrawerFallback(input: {
+  collapseMorph: ReactNode;
+  fabTrigger: ReactNode;
+  layout: UseCopilotDrawerLayoutResult;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  panelContent: ReactNode;
+  surfaceInstanceKey: string;
+  title: string | undefined;
+}) {
+  return (
+    <>
+      {input.fabTrigger}
+      {input.collapseMorph}
+      <SidePanel
+        key={`drawer:${input.surfaceInstanceKey}`}
+        modal={false}
+        onOpenChange={input.onOpenChange}
+        open={input.open}
+      >
+        <SidePanelContent
+          className={cn(
+            "flex h-full min-h-0 w-full max-w-lg flex-col gap-0 overflow-hidden rounded-none border-l-0 bg-card p-0 shadow-none sm:max-w-xl",
+            input.layout.isCollapsingToIcon &&
+              "pointer-events-none opacity-0 transition-none"
+          )}
+          data-copilot-drawer-panel
+          hideOverlay
+          showCloseButton={false}
+          side="right"
+          style={{ boxShadow: "var(--shadow-shell-copilot-edge)" }}
+        >
+          <SidePanelTitle className="sr-only">
+            {input.title ?? "Enhance"}
+          </SidePanelTitle>
+          <SidePanelDescription className="sr-only">
+            Copilot conversation panel. Use the header menu to switch between
+            this page, module list, settings, or global chat.
+          </SidePanelDescription>
+          {input.panelContent}
+        </SidePanelContent>
+      </SidePanel>
+    </>
+  );
+}
+
 export function CopilotDrawerSurfaceTree({
   threadChooserEnabled,
   closeLabel,
@@ -249,12 +295,13 @@ export function CopilotDrawerSurfaceTree({
 
   if (effectiveMode === "sidebar") {
     const sidebarContainer = copilotSidebarRef?.current;
+    const canPortalSidebar = open && sidebarContainer != null;
 
     return (
       <>
         {fabTrigger}
         {collapseMorph}
-        {open && sidebarContainer
+        {canPortalSidebar
           ? createPortal(
               <div
                 aria-label="Copilot sidebar panel"
@@ -271,7 +318,18 @@ export function CopilotDrawerSurfaceTree({
               sidebarContainer,
               "copilot-inline-sidebar"
             )
-          : null}
+          : open
+            ? renderDrawerFallback({
+                collapseMorph,
+                fabTrigger,
+                layout,
+                onOpenChange,
+                open,
+                panelContent,
+                surfaceInstanceKey,
+                title,
+              })
+            : null}
       </>
     );
   }
@@ -352,38 +410,14 @@ export function CopilotDrawerSurfaceTree({
     );
   }
 
-  return (
-    <>
-      {fabTrigger}
-      {collapseMorph}
-      <SidePanel
-        key={`drawer:${surfaceInstanceKey}`}
-        modal={false}
-        onOpenChange={onOpenChange}
-        open={open}
-      >
-        <SidePanelContent
-          className={cn(
-            "flex h-full min-h-0 w-full max-w-lg flex-col gap-0 overflow-hidden rounded-none border-l-0 bg-card p-0 shadow-none sm:max-w-xl",
-            layout.isCollapsingToIcon &&
-              "pointer-events-none opacity-0 transition-none"
-          )}
-          data-copilot-drawer-panel
-          hideOverlay
-          showCloseButton={false}
-          side="right"
-          style={{ boxShadow: "var(--shadow-shell-copilot-edge)" }}
-        >
-          <SidePanelTitle className="sr-only">
-            {title ?? "Enhance"}
-          </SidePanelTitle>
-          <SidePanelDescription className="sr-only">
-            Copilot conversation panel. Use the header menu to switch between
-            this page, module list, settings, or global chat.
-          </SidePanelDescription>
-          {panelContent}
-        </SidePanelContent>
-      </SidePanel>
-    </>
-  );
+  return renderDrawerFallback({
+    collapseMorph,
+    fabTrigger,
+    layout,
+    onOpenChange,
+    open,
+    panelContent,
+    surfaceInstanceKey,
+    title,
+  });
 }

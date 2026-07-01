@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot";
+import { reconcileCopilotLayoutSnapshot } from "../session/copilot-layout-snapshot";
 import {
   FLOATING_MAX_HEIGHT,
   FLOATING_MAX_WIDTH,
@@ -37,7 +38,8 @@ export function useCopilotDrawerLayoutPersistence(input: {
       return;
     }
     drawerSnapshotAppliedRef.current = true;
-    const s = input.copilotLayout.snapshot;
+    const raw = input.copilotLayout.snapshot;
+    const s = raw ? reconcileCopilotLayoutSnapshot(raw) : null;
     if (s) {
       if (
         !input.isPanelModeControlled &&
