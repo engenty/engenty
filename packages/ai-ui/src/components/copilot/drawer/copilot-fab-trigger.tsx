@@ -17,7 +17,9 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { clampFloatingPositionToViewport } from "../session/copilot-floating-bounds";
 import {
+  BUTTON_SNAP_FAB_INSET,
   BUTTON_SNAP_FAB_SIZE,
   BUTTON_SNAP_FAB_WIDTH,
   COPILOT_Z_SNAP_HINT,
@@ -161,10 +163,22 @@ export function CopilotFabTrigger({
   useLayoutEffect(() => {
     const sync = () => {
       if (fabPosition) {
+        // Clamp the persisted position to the current viewport. A position
+        // saved on a larger/other-sized window can otherwise render the FAB
+        // off-screen (and thus invisible) on a smaller viewport.
+        const clamped = clampFloatingPositionToViewport({
+          x: fabPosition.x,
+          y: fabPosition.y,
+          margin: BUTTON_SNAP_FAB_INSET,
+          surfaceWidth: BUTTON_SNAP_FAB_WIDTH,
+          surfaceHeight: BUTTON_SNAP_FAB_SIZE,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        });
         setAnchorStyle({
           position: "fixed",
-          left: fabPosition.x,
-          top: fabPosition.y,
+          left: clamped.x,
+          top: clamped.y,
           width: BUTTON_SNAP_FAB_WIDTH,
           height: BUTTON_SNAP_FAB_SIZE,
           zIndex: COPILOT_Z_SNAP_HINT + 5,
