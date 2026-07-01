@@ -12,6 +12,9 @@
       "contacts": {
         "source": "workspace"
       },
+      "engenty-coordinator": {
+        "source": "workspace"
+      },
       "engenty-copilot": {
         "source": "workspace"
       },
