@@ -1,0 +1,15 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "engenty.coordinator",
+  "name": "Coordinator",
+  "description": "Goal-driven orchestrator. Reviews active goals, decomposes them into tasks, assigns tasks to specialist agents, and monitors progress across the tenant.",
+  "module_id": "engenty-coordinator",
+  "instruction_keys": ["coordinator.agents", "coordinator.soul"],
+  "skills": ["coordinator-workflow"],
+  "tools": [
+    "engenty_tools_search",
+    "engenty_tools_discover",
+    "engenty_tool_execute",
+    "registry_agents_list"
+  ]
+}

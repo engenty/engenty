@@ -1,0 +1,13 @@
+{
+  "id": "engenty-coordinator",
+  "name": "Coordinator",
+  "description": "Goal-driven orchestrator agent. Decomposes active goals into tasks, assigns them to specialist agents, and monitors progress.",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": ["module.engenty-coordinator", "module.coordinator"],
+  "requires": ["module.tasks"],
+  "capabilities": {
+    "operations": false,
+    "ai": true
+  }
+}
