@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
-import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { resolveGatewayTarget } from "./gateway-paths.js";
 import { createReverseProxy } from "./reverse-proxy.js";
 
@@ -20,9 +19,8 @@ export {
 } from "./gateway-paths.js";
 
 export function shouldRegisterDevGateway(): boolean {
-  if (!isEngentyDevelopmentEnvironment()) {
-    return false;
-  }
+  // Explicit opt-in from `api:app` / Portless dev — do not also require ENV=development
+  // (that var is often commented in .env.local and is unrelated to gateway routing).
   return process.env.ENGENTY_DEV_GATEWAY === "1";
 }
 
@@ -40,6 +38,51 @@ function readTargetUrl(
   } catch {
     throw new Error(`Invalid ${envKey} for dev gateway (${label}): ${raw}`);
   }
+}
+
+export function readDevGatewayPublicOrigin(): string {
+  const fromUi = process.env.ENGENTY_UI_BASE_URL?.trim();
+  if (fromUi) {
+    try {
+      return new URL(fromUi).origin;
+    } catch {
+      // fall through to domain/default
+    }
+  }
+  const domain = process.env.ENGENTY_DEV_DOMAIN?.trim();
+  if (domain) {
+    return `https://${domain}.engenty.localhost`;
+  }
+  return "https://engenty.localhost";
+}
+
+export function readDevDocsDirectOrigin(): string {
+  const domain = process.env.ENGENTY_DEV_DOMAIN?.trim();
+  if (domain) {
+    return `https://${domain}.docs.engenty.localhost`;
+  }
+  return "https://docs.engenty.localhost";
+}
+
+export function rewriteDevGatewayLocationHeader(
+  location: string,
+  gatewayOrigin: string,
+  docsDirectOrigin: string
+): string {
+  let next = location;
+  if (docsDirectOrigin && next.includes(docsDirectOrigin)) {
+    next = next.replaceAll(docsDirectOrigin, gatewayOrigin);
+  }
+  if (next.includes("docs.engenty.localhost")) {
+    next = next.replaceAll("https://docs.engenty.localhost", gatewayOrigin);
+  }
+  if (next.includes("manage.engenty.localhost")) {
+    next = next.replaceAll(
+      "https://manage.engenty.localhost",
+      `${gatewayOrigin}/manage`
+    );
+  }
+  return next;
 }
 
 export interface DevGatewayHooks {
@@ -85,6 +128,9 @@ export function createDevGatewayHooks(logger?: {
     "Docs"
   );
 
+  const gatewayPublicOrigin = readDevGatewayPublicOrigin();
+  const docsDirectOrigin = readDevDocsDirectOrigin();
+
   const proxies = {
     ui: createReverseProxy({
       target: uiUrl,
@@ -129,12 +175,11 @@ export function createDevGatewayHooks(logger?: {
     if (typeof location !== "string") {
       return;
     }
-    if (location.includes("docs.engenty.localhost")) {
-      proxyRes.headers.location = location.replaceAll(
-        "https://docs.engenty.localhost",
-        "https://engenty.localhost"
-      );
-    }
+    proxyRes.headers.location = rewriteDevGatewayLocationHeader(
+      location,
+      gatewayPublicOrigin,
+      docsDirectOrigin
+    );
   });
 
   proxies.manage.on("proxyRes", (proxyRes) => {
@@ -142,12 +187,11 @@ export function createDevGatewayHooks(logger?: {
     if (typeof location !== "string") {
       return;
     }
-    if (location.includes("manage.engenty.localhost")) {
-      proxyRes.headers.location = location.replaceAll(
-        "https://manage.engenty.localhost",
-        "https://engenty.localhost/manage"
-      );
-    }
+    proxyRes.headers.location = rewriteDevGatewayLocationHeader(
+      location,
+      gatewayPublicOrigin,
+      docsDirectOrigin
+    );
   });
 
   for (const proxy of Object.values(proxies)) {

@@ -78,11 +78,12 @@ For production-like local URLs, use [Portless](https://github.com/vercel-labs/po
 
 ```bash
 pnpm portless:setup      # once — trust CA + sync HTTPS URLs to .env.local
-pnpm portless            # each session, before pnpm dev
-pnpm dev
+pnpm portless            # once per session — HTTPS proxy on :443 (sudo, Terminal.app)
+pnpm dev:portless        # env sync + routes + dev stack
 ```
 
-Open **https://engenty.localhost**. See [docs/dev/portless-local-urls.md](./docs/dev/portless-local-urls.md).
+Open **https://engenty.localhost**. Parallel worktrees: `pnpm dev:portless --domain=<name>`.
+See [docs/dev/portless-local-urls.md](./docs/dev/portless-local-urls.md).
 
 | App | URL |
 |-----|-----|

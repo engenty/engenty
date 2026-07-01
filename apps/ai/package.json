@@ -11,11 +11,12 @@
   "scripts": {
     "dev": "bash ../../scripts/portless-dev.sh",
     "dev:app": "tsx watch --clear-screen=false src/index.ts",
+    "dev:portless": "pnpm run dev:app",
     "start": "node dist/index.js",
     "build": "tsup src/index.ts --format esm --dts --clean --sourcemap",
     "test": "vitest run",
     "lint": "pnpm exec biome check .",
-    "studio": "MASTRA_AUTO_DETECT_URL=true MASTRA_STUDIO_BASE_PATH=/studio mastra studio --server-host 127.0.0.1 --server-port 8790 --server-api-prefix /ai --port 43111"
+    "studio": "MASTRA_AUTO_DETECT_URL=true MASTRA_STUDIO_BASE_PATH=/studio mastra studio --server-host 127.0.0.1 --server-port ${ENGENTY_AI_PORT:-8790} --server-api-prefix /ai --port ${ENGENTY_STUDIO_PORT:-43111}"
   },
   "dependencies": {
     "@11ty/gray-matter": "^2.1.0",

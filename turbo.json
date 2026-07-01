@@ -3,6 +3,20 @@
   "ui": "tui",
   "concurrency": "40",
   "globalDependencies": [".env", ".env.local", ".env.*.local"],
+  "globalEnv": [
+    "ENV",
+    "ENGENTY_DEV_DOMAIN",
+    "ENGENTY_UI_PORT",
+    "ENGENTY_CORE_PORT",
+    "ENGENTY_AI_PORT",
+    "ENGENTY_DOCS_PORT",
+    "ENGENTY_STUDIO_PORT",
+    "ENGENTY_DEV_GATEWAY_UI_URL",
+    "ENGENTY_DEV_GATEWAY_AI_URL",
+    "ENGENTY_DEV_GATEWAY_DOCS_URL",
+    "ENGENTY_DEV_GATEWAY_STUDIO_URL",
+    "ENGENTY_DEV_GATEWAY_MANAGE_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -21,6 +35,10 @@
       "persistent": true
     },
     "dev:app": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:portless": {
       "cache": false,
       "persistent": true
     },

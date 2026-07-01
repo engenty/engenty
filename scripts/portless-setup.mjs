@@ -56,5 +56,5 @@ console.log("\n3/3 Syncing dev URLs to .env.local…");
 run("node", [path.join(scriptDir, "sync-dev-env-from-portless.mjs")]);
 
 console.log(
-  "\nPortless setup complete. Start the stack with `pnpm portless` or per-app portless scripts."
+  "\nPortless setup complete. Start the proxy with `pnpm portless`, then `pnpm dev:portless`."
 );

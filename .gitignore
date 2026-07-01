@@ -34,3 +34,6 @@ coverage/
 
 # Logs
 logs/
+
+# Local dev slot registry (worktree portless)
+.engenty/

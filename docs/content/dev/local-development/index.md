@@ -61,8 +61,8 @@ dev if you already use Portless, but not required for contributors.
 
 ```bash
 pnpm portless:setup       # once
-pnpm portless             # each session, before pnpm dev
-pnpm dev
+pnpm portless             # each session — HTTPS proxy on :443 (sudo)
+pnpm dev:portless         # dev stack
 ```
 
 ## Dev origins

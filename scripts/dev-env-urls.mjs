@@ -70,14 +70,19 @@ export function buildLocalhostAppUrlComments() {
   ];
 }
 
-export function buildPortlessEntries({ coreName, aiName }) {
-  const gateway = portlessOrigin(coreName);
-  const ai = portlessOrigin(aiName);
+export function buildPortlessEntries({ coreName, aiName, domain = null }) {
+  const gatewayRoute = domain ? `${domain}.${coreName}` : coreName;
+  const aiRoute = domain ? `${domain}.${aiName}` : aiName;
+  const gateway = portlessOrigin(gatewayRoute);
+  const ai = portlessOrigin(aiRoute);
+  const studioPort = Number.parseInt(process.env.ENGENTY_STUDIO_PORT ?? "", 10);
+  const studioLoopback = Number.isFinite(studioPort) ? studioPort : 43_111;
   const corsOrigins = [
     gateway,
     ai,
     `http://localhost:${ports.docs}`,
-    "http://127.0.0.1:43111",
+    `http://127.0.0.1:${ports.docs}`,
+    `http://127.0.0.1:${studioLoopback}`,
   ].join(",");
   return {
     ENGENTY_UI_BASE_URL: gateway,
@@ -88,15 +93,25 @@ export function buildPortlessEntries({ coreName, aiName }) {
     ENGENTY_CORS_ORIGINS: corsOrigins,
     VITE_ENGENTY_AI_BASE_URL: gateway,
     NEXT_PUBLIC_DOCS_SITE_URL: gateway,
+    ...(domain ? { ENGENTY_DEV_DOMAIN: domain } : {}),
   };
 }
 
-export function buildPortlessAppUrlComments({ coreName, aiName, docsName }) {
-  const gateway = portlessOrigin(coreName);
-  const aiDirect = portlessOrigin(aiName);
-  const docsDirect = portlessOrigin(docsName);
+export function buildPortlessAppUrlComments({
+  coreName,
+  aiName,
+  docsName,
+  domain = null,
+}) {
+  const gatewayRoute = domain ? `${domain}.${coreName}` : coreName;
+  const aiRoute = domain ? `${domain}.${aiName}` : aiName;
+  const docsRoute = domain ? `${domain}.${docsName}` : docsName;
+  const gateway = portlessOrigin(gatewayRoute);
+  const aiDirect = portlessOrigin(aiRoute);
+  const docsDirect = portlessOrigin(docsRoute);
+  const domainNote = domain ? ` (worktree: ${domain})` : "";
   return [
-    "# App URLs (open after pnpm portless && pnpm dev)",
+    `# App URLs (open after pnpm dev:portless${domainNote})`,
     `#   Main app:  ${gateway}/`,
     `#   AI:        ${gateway}/ai`,
     `#   Docs:      ${gateway}/docs`,
