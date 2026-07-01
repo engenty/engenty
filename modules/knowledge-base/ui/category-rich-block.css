@@ -1,0 +1,20 @@
+/**
+ * KB page content blocks — TipTap shrinks to content height.
+ * Overrides @engenty/tiptap-editor default min-height (200px) without affecting article/FAQ editors.
+ */
+
+.kb-page-content-block .tiptap-rich-editor .tiptap,
+.kb-page-content-block .tiptap-base-editor .tiptap,
+.kb-page-content-block .tiptap-editor-chrome,
+.kb-page-content-block .tiptap-editor-chrome-content {
+  min-height: 0 !important;
+}
+
+.kb-page-content-block .tiptap-rich-editor .tiptap {
+  padding: 0;
+  padding-top: 0;
+}
+
+.kb-page-content-block .tiptap-rich-editor {
+  padding-top: 0;
+}

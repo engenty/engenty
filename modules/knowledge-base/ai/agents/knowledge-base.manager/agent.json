@@ -1,0 +1,22 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "knowledge-base.manager",
+  "name": "Knowledge Base Manager",
+  "description": "Knowledge base capture, compilation, and maintenance.",
+  "module_id": "knowledge-base",
+  "instruction_keys": ["knowledge-base.manager.agents"],
+  "skills": [
+    "kb-agentic-source-ingest",
+    "kb-article-content-management",
+    "kb-faq-content-management",
+    "kb-ingest",
+    "kb-maintenance",
+    "kb-search-and-retrieve",
+    "kb-source-manager"
+  ],
+  "tools": ["engenty_tools_search", "engenty_tool_execute", "web_search"],
+  "workspace": {
+    "enabled": true,
+    "preset": "staff"
+  }
+}

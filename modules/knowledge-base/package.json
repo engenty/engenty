@@ -1,0 +1,99 @@
+{
+  "name": "@engenty/knowledge-base",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./dal/supabase": {
+      "types": "./dist/src/dal/supabase.d.ts",
+      "default": "./dist/src/dal/supabase.js"
+    },
+    "./dal/contracts": {
+      "types": "./dist/src/dal/contracts.d.ts",
+      "default": "./dist/src/dal/contracts.js"
+    },
+    "./schema/types": {
+      "types": "./dist/src/schema/types.d.ts",
+      "default": "./dist/src/schema/types.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    }
+  },
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts src/api/index.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ui/index.ts ui/plugin.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/api/index.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ui/index.ts ui/plugin.ts ui/plugin.ts --format esm --dts --watch",
+    "test": "vitest run -r ../.. modules/knowledge-base",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/ai-ui": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/api-contracts": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
+    "@engenty/auth-ui": "workspace:*",
+    "@engenty/doc-converter": "workspace:*",
+    "@engenty/document-sources": "workspace:*",
+    "@engenty/file-storage": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/scoped-kv-settings": "workspace:*",
+    "@engenty/search-index": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@engenty/tenant-settings": "workspace:*",
+    "@engenty/tiptap-editor": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@engenty/user-settings": "workspace:*",
+    "@engenty/web-ingest": "workspace:*",
+    "@hono/zod-openapi": "^1.4.0",
+    "@mastra/core": "1.45.0",
+    "@mastra/rag": "2.3.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "ai": "6.0.116",
+    "cytoscape": "^3.34.0",
+    "cytoscape-fcose": "^2.2.0",
+    "graphology": "^0.26.0",
+    "graphology-layout": "^0.6.1",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "lucide-react": "^1.21.0",
+    "marked": "^18.0.5",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "sigma": "^3.0.3",
+    "sonner": "^2.0.7",
+    "uuidv7": "^1.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

@@ -18,6 +18,9 @@
       "engenty-copilot": {
         "source": "workspace"
       },
+      "knowledge-base": {
+        "source": "workspace"
+      },
       "tasks": {
         "source": "workspace"
       },
