@@ -109,6 +109,8 @@ export function CopilotShellProvider({
   );
   const mainContentRef = useRef<HTMLElement | null>(null);
   const [mainContentReady, setMainContentReady] = useState(false);
+  const [copilotSidebarReady, setCopilotSidebarReady] = useState(false);
+  const [copilotLayoutApplied, setCopilotLayoutApplied] = useState(false);
 
   const isMobile = useMediaQuery("(max-width: 767px)");
   const isTablet = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
@@ -129,6 +131,20 @@ export function CopilotShellProvider({
   const notifyMainMounted = useCallback(() => {
     setMainContentReady((ready) => (ready ? ready : true));
   }, []);
+
+  const notifySidebarMounted = useCallback(() => {
+    setCopilotSidebarReady(true);
+  }, []);
+
+  const notifySidebarUnmounted = useCallback(() => {
+    setCopilotSidebarReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (dockMode !== "sidebar") {
+      setCopilotSidebarReady(false);
+    }
+  }, [dockMode]);
 
   const shellSnapshotAppliedRef = useRef(false);
   const [shellPersistEnabled, setShellPersistEnabled] = useState(false);
@@ -156,6 +172,7 @@ export function CopilotShellProvider({
       setPreferredDockMode(defaultDockMode ?? null);
     }
     setShellPersistEnabled(true);
+    setCopilotLayoutApplied(true);
   }, [copilotLayout.layoutHydrated, copilotLayout.snapshot, defaultDockMode]);
 
   useEffect(() => {
@@ -170,6 +187,8 @@ export function CopilotShellProvider({
       copilotContext,
       copilotLayout,
       copilotSidebarRef,
+      copilotSidebarReady,
+      copilotLayoutApplied,
       open,
       setCopilotContext: setCopilotContextStable,
       setOpen: setOpenStable,
@@ -182,6 +201,8 @@ export function CopilotShellProvider({
     [
       copilotContext,
       copilotLayout,
+      copilotSidebarReady,
+      copilotLayoutApplied,
       open,
       setCopilotContextStable,
       setOpenStable,
@@ -193,8 +214,13 @@ export function CopilotShellProvider({
   );
 
   const valueWithNotify = useMemo(
-    () => ({ ...value, notifyMainMounted }),
-    [value, notifyMainMounted]
+    () => ({
+      ...value,
+      notifyMainMounted,
+      notifySidebarMounted,
+      notifySidebarUnmounted,
+    }),
+    [value, notifyMainMounted, notifySidebarMounted, notifySidebarUnmounted]
   );
   const agentUiBase = useMemo(
     () => ({

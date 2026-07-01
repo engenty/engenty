@@ -14,7 +14,12 @@ import {
 } from "./constants";
 
 export function useCopilotInlineSidebarWidth() {
-  const { copilotSidebarRef, dockMode } = useCopilotShell();
+  const {
+    copilotSidebarRef,
+    dockMode,
+    notifySidebarMounted,
+    notifySidebarUnmounted,
+  } = useCopilotShell();
   const showInlineCopilotSidebar = dockMode === "sidebar";
 
   const [copilotSidebarWidth, setCopilotSidebarWidth] = useState(
@@ -29,8 +34,13 @@ export function useCopilotInlineSidebarWidth() {
   const setSidebarRef = useCallback(
     (el: HTMLDivElement | null) => {
       copilotSidebarRef.current = el;
+      if (el) {
+        notifySidebarMounted?.();
+      } else {
+        notifySidebarUnmounted?.();
+      }
     },
-    [copilotSidebarRef]
+    [copilotSidebarRef, notifySidebarMounted, notifySidebarUnmounted]
   );
 
   useEffect(() => {
