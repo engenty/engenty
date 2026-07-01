@@ -115,6 +115,16 @@ describe("buildBriefingSnapshot", () => {
     const briefing: TasksBriefingResponse = {
       mode: "personal",
       stale_after_days: 7,
+      summary: {
+        open: 1,
+        in_progress: 1,
+        blocked: 0,
+        waiting: 0,
+        stale: 0,
+        attention: 0,
+      },
+      recent_tasks: [baseTask],
+      recent_activity: [],
       focus_items: [{ reason: "due_soon", task: baseTask }],
       attention_items: [],
       waiting_items: [],

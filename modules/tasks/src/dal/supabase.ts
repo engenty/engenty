@@ -1336,6 +1336,32 @@ export function createTasksRepoSupabase(
       );
     },
 
+    async listRecentActivity(opts: {
+      limit: number;
+      taskIds?: string[];
+    }): Promise<TaskActivity[]> {
+      let query = taskActivity()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .order("created_at", { ascending: false })
+        .limit(opts.limit);
+
+      if (opts.taskIds?.length) {
+        query = query.in("task_id", opts.taskIds);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        throw new Error(
+          `Failed to list recent task activity: ${error.message}`
+        );
+      }
+      return (data ?? []).map((row) =>
+        rowToTaskActivity(row as Record<string, unknown>)
+      );
+    },
+
     appendActivity,
   };
 }

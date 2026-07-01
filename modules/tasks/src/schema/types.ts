@@ -248,11 +248,29 @@ export interface TasksBriefingSectionItem {
   task: Task;
 }
 
+export interface TasksBriefingSummary {
+  attention: number;
+  blocked: number;
+  in_progress: number;
+  open: number;
+  stale: number;
+  waiting: number;
+}
+
+export interface TasksBriefingActivityItem {
+  activity: TaskActivity;
+  task_identifier: string;
+  task_title: string;
+}
+
 export interface TasksBriefingResponse {
   attention_items: TasksBriefingSectionItem[];
   focus_items: TasksBriefingSectionItem[];
   mode: TasksBriefingMode;
+  recent_activity: TasksBriefingActivityItem[];
+  recent_tasks: Task[];
   stale_after_days: number;
   stale_items: TasksBriefingSectionItem[];
+  summary: TasksBriefingSummary;
   waiting_items: TasksBriefingSectionItem[];
 }

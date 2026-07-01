@@ -286,7 +286,25 @@ export function makeMockTasksRepo(): TasksRepo {
       return [...runs.values()].filter((run) => run.task_id === taskId);
     },
     async listTaskActivity(taskId: string) {
-      return [...activity.values()].filter((item) => item.task_id === taskId);
+      return [...activity.values()]
+        .filter((item) => item.task_id === taskId)
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+    },
+    async listRecentActivity(opts: { limit: number; taskIds?: string[] }) {
+      let rows = [...activity.values()];
+      if (opts.taskIds?.length) {
+        const allowed = new Set(opts.taskIds);
+        rows = rows.filter((item) => allowed.has(item.task_id));
+      }
+      return rows
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        .slice(0, opts.limit);
     },
     async appendActivity(input: {
       task_id: string;

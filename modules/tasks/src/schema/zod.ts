@@ -208,13 +208,13 @@ export const tasksBriefingSectionItemSchema = z.object({
   task: taskSchema,
 });
 
-export const tasksBriefingResponseSchema = z.object({
-  mode: z.enum(["personal", "oversight"]),
-  stale_after_days: z.number().int(),
-  focus_items: z.array(tasksBriefingSectionItemSchema),
-  attention_items: z.array(tasksBriefingSectionItemSchema),
-  waiting_items: z.array(tasksBriefingSectionItemSchema),
-  stale_items: z.array(tasksBriefingSectionItemSchema),
+export const tasksBriefingSummarySchema = z.object({
+  open: z.number().int(),
+  in_progress: z.number().int(),
+  blocked: z.number().int(),
+  waiting: z.number().int(),
+  stale: z.number().int(),
+  attention: z.number().int(),
 });
 
 export const taskRunSchema = z.object({
@@ -240,6 +240,24 @@ export const taskActivitySchema = z.object({
   actor_user_id: z.string().uuid().nullable(),
   actor_agent_type_key: z.string().nullable(),
   created_at: z.string(),
+});
+
+export const tasksBriefingActivityItemSchema = z.object({
+  activity: taskActivitySchema,
+  task_identifier: z.string(),
+  task_title: z.string(),
+});
+
+export const tasksBriefingResponseSchema = z.object({
+  mode: z.enum(["personal", "oversight"]),
+  stale_after_days: z.number().int(),
+  summary: tasksBriefingSummarySchema,
+  recent_tasks: z.array(taskSchema),
+  recent_activity: z.array(tasksBriefingActivityItemSchema),
+  focus_items: z.array(tasksBriefingSectionItemSchema),
+  attention_items: z.array(tasksBriefingSectionItemSchema),
+  waiting_items: z.array(tasksBriefingSectionItemSchema),
+  stale_items: z.array(tasksBriefingSectionItemSchema),
 });
 
 // Accept both legacy (agent_session_run_id / agent_type_key) and modern

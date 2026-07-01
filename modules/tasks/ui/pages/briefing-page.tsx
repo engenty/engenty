@@ -1,17 +1,16 @@
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, Card, CardContent } from "@engenty/ui-core";
+import { Button } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type {
-  Task,
-  TaskStatusDefinition,
-  TasksBriefingMode,
-} from "../../src/schema/types.js";
+import type { TasksBriefingMode } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
+import {
+  BriefingOverviewDashboard,
+  BriefingPersonalDashboard,
+} from "../components/briefing/briefing-dashboard.js";
 import { BriefingModeToggle } from "../components/briefing-mode-toggle.js";
-import { TaskCard } from "../components/task-card.js";
 import { useTasksBriefingAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
@@ -21,53 +20,10 @@ import {
   useTasksBriefingQuery,
 } from "../tasks-queries.js";
 
-function BriefingSection({
-  emptyLabel,
-  items,
-  reasonLabel,
-  taskStatusDefinitions,
-  title,
-}: {
-  emptyLabel: string;
-  items: { task: Task; reason: string }[];
-  reasonLabel: (reason: string) => string;
-  taskStatusDefinitions: TaskStatusDefinition[];
-  title: string;
-}) {
-  return (
-    <div className="flex min-w-[280px] max-w-[420px] flex-1 flex-col gap-2.5">
-      <h2 className="px-1 font-semibold text-base text-foreground/90">
-        {title}
-      </h2>
-      <Card className="flex-1">
-        <CardContent className="space-y-2 pt-4">
-          {items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{emptyLabel}</p>
-          ) : (
-            items.map(({ task, reason }) => (
-              <div className="space-y-1" key={task.id}>
-                <p className="text-muted-foreground text-xs">
-                  {reasonLabel(reason)}
-                </p>
-                <Link to={tasksPaths.taskDetail(task.id)}>
-                  <TaskCard
-                    task={task}
-                    taskStatusDefinitions={taskStatusDefinitions}
-                  />
-                </Link>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export function BriefingPage() {
   const { t } = useTranslation("tasks");
   const { setCopilotContext } = useCopilotShell();
-  const [mode, setMode] = useState<TasksBriefingMode>("personal");
+  const [mode, setMode] = useState<TasksBriefingMode>("oversight");
   const { pageActions, topbarDialogs } = useTasksTopbarActions();
   const settingsQuery = useTaskSettingsQuery();
   const briefingQuery = useTasksBriefingQuery(mode);
@@ -149,37 +105,18 @@ export function BriefingPage() {
       ) : null}
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
-      {briefingQuery.isLoading || error || !snapshot ? null : (
-        <div className="flex flex-wrap gap-4">
-          <BriefingSection
-            emptyLabel={t("briefing.emptyFocus")}
-            items={snapshot.focus_items}
-            reasonLabel={reasonLabel}
-            taskStatusDefinitions={taskStatusDefinitions}
-            title={t("briefing.focus")}
-          />
-          <BriefingSection
-            emptyLabel={t("briefing.emptyAttention")}
-            items={snapshot.attention_items}
-            reasonLabel={reasonLabel}
-            taskStatusDefinitions={taskStatusDefinitions}
-            title={t("briefing.attention")}
-          />
-          <BriefingSection
-            emptyLabel={t("briefing.emptyWaiting")}
-            items={snapshot.waiting_items}
-            reasonLabel={reasonLabel}
-            taskStatusDefinitions={taskStatusDefinitions}
-            title={t("briefing.waiting")}
-          />
-          <BriefingSection
-            emptyLabel={t("briefing.emptyStale")}
-            items={snapshot.stale_items}
-            reasonLabel={reasonLabel}
-            taskStatusDefinitions={taskStatusDefinitions}
-            title={t("briefing.stale")}
-          />
-        </div>
+      {briefingQuery.isLoading || error || !snapshot ? null : mode ===
+        "oversight" ? (
+        <BriefingOverviewDashboard
+          snapshot={snapshot}
+          taskStatusDefinitions={taskStatusDefinitions}
+        />
+      ) : (
+        <BriefingPersonalDashboard
+          reasonLabel={reasonLabel}
+          snapshot={snapshot}
+          taskStatusDefinitions={taskStatusDefinitions}
+        />
       )}
       {topbarDialogs}
     </section>

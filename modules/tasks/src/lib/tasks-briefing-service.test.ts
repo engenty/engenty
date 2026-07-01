@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import type { Task, TaskSettings } from "../schema/types.js";
 import { definitionsToSettingsSlice } from "./task-status-settings.js";
-import { buildTasksBriefingSnapshot } from "./tasks-briefing-service.js";
+import {
+  buildTasksBriefingSnapshot,
+  buildTasksBriefingSummary,
+} from "./tasks-briefing-service.js";
 
 const USER_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const USER_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
@@ -137,5 +140,33 @@ describe("buildTasksBriefingSnapshot", () => {
     });
 
     expect(snapshot.stale_items.map((item) => item.task.id)).toEqual(["stale"]);
+  });
+
+  it("computes summary metrics for oversight mode", () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    const tasks = [
+      makeTask({ id: "open", status: "todo" }),
+      makeTask({ id: "progress", status: "in_progress" }),
+      makeTask({ id: "blocked", status: "blocked" }),
+      makeTask({
+        id: "overdue",
+        status: "todo",
+        due_date: yesterday,
+      }),
+      makeTask({ id: "done", status: "done" }),
+    ];
+
+    const summary = buildTasksBriefingSummary(tasks, settings, {
+      mode: "oversight",
+    });
+
+    expect(summary).toEqual({
+      open: 4,
+      in_progress: 1,
+      blocked: 1,
+      waiting: 1,
+      stale: 0,
+      attention: 2,
+    });
   });
 });
