@@ -103,7 +103,7 @@ Strict lowercase snake_case: `^[a-z0-9_]{1,64}$` (e.g. `shell_set_theme`). Use `
 
 ## UI and i18n
 
-- **Visual design (primary):** [DESIGN.md](./DESIGN.md) — tokens, shell, tables, elevation. Outranks shadcn defaults.
+- **Visual design (primary):** [DESIGN.md](./docs/agent/DESIGN.md) — tokens, shell, tables, elevation. Outranks shadcn defaults.
 - **Flow / composition:** [list-detail-edit-ui-conventions.mdc](./docs/agent/rules/list-detail-edit-ui-conventions.mdc), [settings-form-section-ui.mdc](./docs/agent/rules/settings-form-section-ui.mdc)
 - **ui-core / shadcn:** [ui-components.mdc](./docs/agent/rules/ui-components.mdc) — run `pnpm check:ui-core-imports` after edits
 - **Card surfaces:** use `.ui-canvas-elevated`, `.ui-canvas-raised`, `.ui-canvas-panel` — never hand-rolled borders/shadows
@@ -144,7 +144,7 @@ Full index: [docs/agent/README.md](./docs/agent/README.md). Pick **one** rule pe
 
 ## Preferences
 
-- Keep this file summary-level; deep detail lives in `docs/agent/rules/` and `DESIGN.md`
+- Keep this file summary-level; deep detail lives in `docs/agent/` (`DESIGN.md`, `rules/`)
 - `engenty.UI` (not `engentyUI`) for plugin registration
 - Compact UI — avoid unnecessary padding and boxed wrappers around sidebar areas
 - No fallback code to pass tests — fix properly or let it break

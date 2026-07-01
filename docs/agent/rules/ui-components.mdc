@@ -5,7 +5,7 @@ alwaysApply: false
 
 # UI Core (shadcn) Instructions
 
-**Visual tokens, spacing, shell, and table chrome:** [DESIGN.md](../../../DESIGN.md) first — this rule covers component install/usage only.
+**Visual tokens, spacing, shell, and table chrome:** [DESIGN.md](../DESIGN.md) first — this rule covers component install/usage only.
 
 Use `@engenty/ui-core` as the single source for shared UI primitives.
 

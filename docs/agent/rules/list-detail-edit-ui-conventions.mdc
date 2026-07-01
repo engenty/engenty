@@ -7,7 +7,7 @@ alwaysApply: false
 
 Use for shared module migrations that implement list/detail/edit screens.
 
-**Visual layout, spacing, shell, tables:** [DESIGN.md](../../../DESIGN.md) is canonical — this rule covers flow and composition only.
+**Visual layout, spacing, shell, tables:** [DESIGN.md](../DESIGN.md) is canonical — this rule covers flow and composition only.
 
 ## Route + Flow Contract
 

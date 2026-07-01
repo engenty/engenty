@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Design system (primary UI reference)
 
-For **visual** UI work, read **[DESIGN.md](../../../DESIGN.md)** before implementing:
+For **visual** UI work, read **[DESIGN.md](../DESIGN.md)** before implementing:
 
 - Color/surface tokens (`--paper`, `--card`, Ember palette)
 - **Root rem:** `16px` default, `14px` on `768px–1280px`; Tailwind `--text-*` in `packages/design-tokens/src/tailwind-type-scale.css`
@@ -19,4 +19,4 @@ For **visual** UI work, read **[DESIGN.md](../../../DESIGN.md)** before implemen
 
 **Secondary** (flow, not look): `list-detail-edit-ui-conventions.mdc`, `settings-form-section-ui.mdc`, `header-tabs-ui.mdc`, `ui-components.mdc`.
 
-When you establish or change a visual pattern, update `DESIGN.md` in the same change.
+When you establish or change a visual pattern, update `docs/agent/DESIGN.md` in the same change.

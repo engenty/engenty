@@ -13,7 +13,7 @@
 
 | Rule | When to load |
 |------|----------------|
-| [design-system.mdc](./rules/design-system.mdc) | Visual UI — read [DESIGN.md](../../DESIGN.md) first |
+| [design-system.mdc](./rules/design-system.mdc) | Visual UI — read [DESIGN.md](./DESIGN.md) first |
 | [list-detail-edit-ui-conventions.mdc](./rules/list-detail-edit-ui-conventions.mdc) | Module list/detail/edit routes, tables, filters |
 | [ui-components.mdc](./rules/ui-components.mdc) | shadcn / `@engenty/ui-core`, Card variants, plugin routes |
 | [settings-form-section-ui.mdc](./rules/settings-form-section-ui.mdc) | Settings blocks with title + form card |
@@ -38,4 +38,4 @@ cd .cursor/rules
 for f in ../../docs/agent/rules/*.mdc; do ln -sf "$f" "$(basename "$f")"; done
 ```
 
-- **DESIGN.md** lives at repo root — visual tokens and shell rules; referenced by `design-system.mdc`.
+- **[DESIGN.md](./DESIGN.md)** — visual tokens and shell rules; referenced by `design-system.mdc`.
