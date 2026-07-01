@@ -9,6 +9,9 @@
       "company-profile": {
         "source": "workspace"
       },
+      "contacts": {
+        "source": "workspace"
+      },
       "engenty-copilot": {
         "source": "workspace"
       },

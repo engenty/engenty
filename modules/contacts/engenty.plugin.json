@@ -1,0 +1,18 @@
+{
+  "id": "contacts",
+  "name": "Contacts",
+  "description": "Contacts and organisations module",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.contacts",
+    "module.contacts.read",
+    "module.contacts.write",
+    "ui.route.module.contacts"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "frontendTools": true
+  }
+}
