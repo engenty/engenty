@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { runSetupScript } from "../setup/run-setup-script.js";
 import { runDbSnapshotScript } from "./run-db-snapshot.js";
-import { runSupabaseCli } from "./run-supabase-cli.js";
+import { runSupabaseCli, runSupabaseCliStreaming } from "./run-supabase-cli.js";
 import { runSupabaseSyncScript } from "./run-supabase-sync.js";
 
 /** Shown after a workspace-module install to point at the apply step. */
@@ -39,6 +39,21 @@ function runSupabaseOrThrow(args: readonly string[]): void {
 export function applyLocalDbMigrations(): void {
   runDbSyncStep();
   runSupabaseOrThrow(["migration", "up", "--include-all"]);
+}
+
+/**
+ * Restart the local Supabase stack so PostgREST reloads `config.toml`.
+ * Applying a module's migrations creates its tables, but the running API only
+ * serves a schema listed in `db-schemas`, which is read at boot — so a newly
+ * exposed schema (e.g. `module_contacts` after installing a module) stays
+ * unreachable until the stack restarts. `start` is long-running, so stream it.
+ */
+export function restartLocalDb(): void {
+  console.log("Restarting the local Supabase stack to reload exposed schemas…");
+  runSupabaseOrThrow(["stop"]);
+  if (!runSupabaseCliStreaming(["start"]).ok) {
+    throw new Error("supabase start failed.");
+  }
 }
 
 /**
@@ -99,6 +114,16 @@ export function registerDbCommands(program: Command): void {
       runCliAction(async () => {
         runDbSyncStep();
         runSupabaseOrThrow(["db", "reset"]);
+      })
+    );
+
+  db.command("restart")
+    .description(
+      "Restart the local Supabase stack so the API reloads exposed schemas from config.toml"
+    )
+    .action(
+      runCliAction(async () => {
+        restartLocalDb();
       })
     );
 

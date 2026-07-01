@@ -11,6 +11,7 @@ import {
   applyLocalDbMigrations,
   DB_MIGRATE_NEXT_STEP,
   isLocalDbReachable,
+  restartLocalDb,
 } from "./db/db-commands.js";
 import { registerPluginCreateCommand } from "./plugin-create-command.js";
 import {
@@ -112,20 +113,30 @@ function tenantQuery(opts: PluginCommandOpts) {
  * step. Keep apply opt-in and local-only: install must stay DB-free for CI,
  * fresh checkouts, and remote/unreachable databases.
  */
-function finishInRepoInstall(opts: { dbMigrate?: boolean }): void {
-  if (opts.dbMigrate !== true) {
+function finishInRepoInstall(opts: {
+  dbMigrate?: boolean;
+  dbRestart?: boolean;
+}): void {
+  if (opts.dbMigrate !== true && opts.dbRestart !== true) {
     console.log(DB_MIGRATE_NEXT_STEP);
     return;
   }
   if (!isLocalDbReachable()) {
     console.log(
-      "Skipped --db-migrate: no local database reachable (start one with `supabase start`)."
+      "Skipped --db-migrate/--db-restart: no local database reachable (start one with `supabase start`)."
     );
     console.log(DB_MIGRATE_NEXT_STEP);
     return;
   }
-  console.log("Applying module migrations to the local database…");
-  applyLocalDbMigrations();
+  if (opts.dbMigrate === true) {
+    console.log("Applying module migrations to the local database…");
+    applyLocalDbMigrations();
+  }
+  // Restart last: applying migrations creates the schema's tables, then the
+  // restart makes the API serve the newly exposed schema from config.toml.
+  if (opts.dbRestart === true) {
+    restartLocalDb();
+  }
 }
 
 function actionBody(opts: PluginCommandOpts) {
@@ -449,6 +460,10 @@ export function registerPluginCommands(program: Command): void {
       "After installing in-repo modules, apply their migrations to the local database (opt-in; local + reachable only)"
     )
     .option(
+      "--db-restart",
+      "After installing in-repo modules, restart the local Supabase stack so the API serves their newly exposed schemas (opt-in; local + reachable only; pair with --db-migrate)"
+    )
+    .option(
       "--api-url <url>",
       "API base URL (external packages)",
       defaultApiUrl
@@ -466,6 +481,7 @@ export function registerPluginCommands(program: Command): void {
           opts: PackageLifecycleCommandOpts & {
             all?: boolean;
             dbMigrate?: boolean;
+            dbRestart?: boolean;
           }
         ) => {
           const repoRoot = resolveRepoRoot();

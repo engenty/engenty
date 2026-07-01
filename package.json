@@ -64,6 +64,7 @@
     "db:init": "pnpm engenty db init",
     "db:migrate": "pnpm engenty db migrate",
     "db:reset": "pnpm engenty db reset",
+    "db:restart": "pnpm engenty db restart",
     "db:snapshot": "pnpm engenty db snapshot",
     "db:restore": "pnpm engenty db restore",
     "clean": "bash scripts/clean.sh",
