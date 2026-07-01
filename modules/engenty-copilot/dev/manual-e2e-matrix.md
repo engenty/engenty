@@ -1,6 +1,6 @@
 # Copilot AG-UI — manual E2E matrix
 
-**Purpose:** QA checklist after session-hook cutover (Track A) and message-authority cutover (Track B). Run against **https://engenty.localhost** with Portless (`pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless:env:sync`) and the dev stack (`pnpm dev` or at minimum `pnpm dev:api` + `pnpm dev:ui` + `pnpm dev:ai`). Set `VITE_ENGENTY_AI_BASE_URL` to the **gateway host only** (e.g. `https://engenty.localhost`, no `/ai` suffix).
+**Purpose:** QA checklist after session-hook cutover (Track A) and message-authority cutover (Track B). Run against **https://engenty.localhost** with Portless (`pnpm portless:setup`, `pnpm portless`, `pnpm dev:portless`) or at minimum core + UI + AI on loopback. Set `VITE_ENGENTY_AI_BASE_URL` to the **gateway host only** (e.g. `https://engenty.localhost`, no `/ai` suffix).
 
 **Prerequisites:** `apps/ai` must be up on `:8790` (`curl http://127.0.0.1:8790/ai/health` → 200). If AI crashes on startup with `ENOENT … AGENTS.md`, rebuild `@engenty/engenty-copilot` (`pnpm --filter @engenty/engenty-copilot build`) — prompts resolve from `dist/ai/agents/engenty.copilot/` with source-tree fallback during tsup watch races.
 

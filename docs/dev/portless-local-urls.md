@@ -44,6 +44,8 @@ pnpm dev:portless         # sync .env.local, register routes, run the stack
 
 Open **https://engenty.localhost**.
 
+`pnpm dev:portless` also starts a **ready** Turbo task that prints the URL again once UI and core are listening, and writes it to your terminal (`/dev/tty`) so it is not lost in the Turbo TUI scrollback.
+
 Per-app scripts (`apps/core` → `pnpm api`, etc.) call `scripts/portless-dev.sh`.
 
 ## Git worktrees (parallel dev)
@@ -117,6 +119,43 @@ With `ENGENTY_DEV_GATEWAY=1`, core reverse-proxies paths on the gateway host:
 | `/ai` | `apps/ai` `:8790` |
 | `/docs` | `apps/docs` `:3002` |
 | `/studio` | Mastra Studio `:43111` |
+
+## Env URLs (`.env.local`)
+
+Portless sync writes **browser/gateway** URLs (`https://engenty.localhost`, …) for the UI,
+CORS, and `VITE_ENGENTY_AI_BASE_URL`.
+
+**Server-side AI → core** uses loopback HTTP — not the Portless HTTPS hostname (Node does not
+trust the Portless CA for outbound fetch):
+
+| Variable | Typical Portless value | Used by |
+|----------|------------------------|---------|
+| `ENGENTY_UI_BASE_URL` | `https://engenty.localhost` | Browser, redirects |
+| `ENGENTY_CORE_BASE_URL` | `http://127.0.0.1:8787` | `apps/ai` scope resolution, core tools |
+| `ENGENTY_API_BASE_URL` | `https://engenty.localhost` | UI / gateway API calls |
+
+Worktrees use the matching slot port (e.g. `http://127.0.0.1:8797` for slot 1). Re-sync with
+`pnpm dev:portless` or `pnpm dev:urls:portless --domain=<name>`.
+
+## Troubleshooting
+
+**Proxy not running** — `pnpm dev:portless` fails fast. In Terminal.app (sudo may prompt):
+
+```bash
+pnpm portless              # start HTTPS proxy on :443
+pnpm portless:proxy:check  # verify :443 responds
+pnpm dev:portless
+```
+
+**404 on `https://engenty.localhost/`** — ensure the dev stack is up (core gateway on loopback
+`:8787`, Vite on `:5173`). Check Turbo tasks for `@engenty/core` and `@engenty/ui`.
+
+**Copilot “Chats konnten nicht geladen werden” / `scopeResolutionFailed`** — confirm
+`ENGENTY_CORE_BASE_URL` in `.env.local` is loopback (`http://127.0.0.1:<core-port>`), not
+`https://engenty.localhost`. Re-sync env and restart `@engenty/ai`.
+
+**URL lost in Turbo TUI** — read the **ready** task pane or run
+`grep ENGENTY_UI_BASE_URL .env.local` (main checkout → `https://engenty.localhost/`).
 
 ## Switch back to localhost
 

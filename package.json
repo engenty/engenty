@@ -32,6 +32,7 @@
     "dev": "turbo run api:app dev:app studio --filter=./apps/core --filter=./apps/ui --filter=./apps/ai --filter=./apps/docs",
     "predev:portless": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/*",
     "dev:portless": "bash scripts/dev-portless.sh",
+    "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
     "typecheck": "turbo run typecheck",
     "test": "vitest run",

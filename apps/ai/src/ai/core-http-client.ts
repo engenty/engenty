@@ -353,10 +353,11 @@ export function getEngentyCoreBaseUrlFromEnv(
   if (value && value.length > 0) {
     return value;
   }
-  // Local dev fallback: core runs on :8787 (the gateway). Avoids portless/env
-  // wiring for same-machine dev. Production must set ENGENTY_CORE_BASE_URL.
+  // Local dev fallback: core runs on loopback (the dev gateway). Avoids Portless TLS in Node.
   if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:8787";
+    const port =
+      Number.parseInt(process.env.ENGENTY_CORE_PORT ?? "", 10) || 8787;
+    return `http://127.0.0.1:${port}`;
   }
   return;
 }

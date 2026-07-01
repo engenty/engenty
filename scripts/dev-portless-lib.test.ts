@@ -170,6 +170,7 @@ describe("dev-portless-lib", () => {
       "https://tab-ui.ai.engenty.localhost"
     );
     expect(entries.ENGENTY_DEV_DOMAIN).toBe("tab-ui");
+    expect(entries.ENGENTY_CORE_BASE_URL).toBe("http://127.0.0.1:8787");
     expect(entries.ENGENTY_CORS_ORIGINS).toContain(
       "https://tab-ui.engenty.localhost"
     );

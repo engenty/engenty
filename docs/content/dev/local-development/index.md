@@ -61,9 +61,12 @@ dev if you already use Portless, but not required for contributors.
 
 ```bash
 pnpm portless:setup       # once
-pnpm portless             # each session — HTTPS proxy on :443 (sudo)
-pnpm dev:portless         # dev stack
+pnpm portless             # each session — HTTPS proxy on :443 (sudo, Terminal.app)
+pnpm dev:portless         # env sync, routes, dev stack (+ ready URL announcer)
 ```
+
+See [Portless local URLs](../../../dev/portless-local-urls.md) for worktrees, env URLs, and
+troubleshooting (`pnpm portless:proxy:check`, loopback `ENGENTY_CORE_BASE_URL`, …).
 
 ## Dev origins
 

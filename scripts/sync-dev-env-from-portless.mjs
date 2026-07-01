@@ -13,7 +13,7 @@ import {
   resolveWorkspaceRoot,
   writeDevUrlBlock,
 } from "./dev-env-urls.mjs";
-import { resolveDevDomain } from "./dev-portless-lib.mjs";
+import { resolveDevDomain, resolveDevPorts } from "./dev-portless-lib.mjs";
 
 const portlessConfigPath = path.join(resolveWorkspaceRoot(), "portless.json");
 const envLocalPath = path.join(resolveWorkspaceRoot(), ".env.local");
@@ -48,10 +48,15 @@ function main() {
       : resolveDevDomain({ explicitDomain: args.domain });
 
   const names = loadPortlessNames(portlessConfigPath);
+  const { ports: slotPorts } = resolveDevPorts({
+    domain,
+    workspaceRoot: resolveWorkspaceRoot(),
+    persist: false,
+  });
   const headerComments = buildPortlessAppUrlComments({ ...names, domain });
   const entries = writeDevUrlBlock(
     envLocalPath,
-    buildPortlessEntries({ ...names, domain }),
+    buildPortlessEntries({ ...names, domain, corePort: slotPorts.core }),
     { headerComments }
   );
 

@@ -70,11 +70,25 @@ export function buildLocalhostAppUrlComments() {
   ];
 }
 
-export function buildPortlessEntries({ coreName, aiName, domain = null }) {
+/** Loopback core URL for server-side callers (AI → core). Avoids Portless TLS in Node. */
+export function resolveCoreLoopbackOrigin(corePort = ports.core) {
+  return `http://127.0.0.1:${corePort}`;
+}
+
+export function buildPortlessEntries({
+  coreName,
+  aiName,
+  domain = null,
+  corePort,
+}) {
   const gatewayRoute = domain ? `${domain}.${coreName}` : coreName;
   const aiRoute = domain ? `${domain}.${aiName}` : aiName;
   const gateway = portlessOrigin(gatewayRoute);
   const ai = portlessOrigin(aiRoute);
+  const resolvedCorePort =
+    corePort ??
+    (Number.parseInt(process.env.ENGENTY_CORE_PORT ?? "", 10) || ports.core);
+  const coreLoopback = resolveCoreLoopbackOrigin(resolvedCorePort);
   const studioPort = Number.parseInt(process.env.ENGENTY_STUDIO_PORT ?? "", 10);
   const studioLoopback = Number.isFinite(studioPort) ? studioPort : 43_111;
   const corsOrigins = [
@@ -89,7 +103,7 @@ export function buildPortlessEntries({ coreName, aiName, domain = null }) {
     ENGENTY_API_BASE_URL: gateway,
     ENGENTY_AI_BASE_URL: ai,
     ENGENTY_DOCS_BASE_URL: gateway,
-    ENGENTY_CORE_BASE_URL: gateway,
+    ENGENTY_CORE_BASE_URL: coreLoopback,
     ENGENTY_CORS_ORIGINS: corsOrigins,
     VITE_ENGENTY_AI_BASE_URL: gateway,
     NEXT_PUBLIC_DOCS_SITE_URL: gateway,
@@ -117,6 +131,9 @@ export function buildPortlessAppUrlComments({
     `#   Docs:      ${gateway}/docs`,
     `#   Studio:    ${gateway}/studio`,
     `#   OpenAPI:   ${gateway}/api/docs`,
+    `#   Core (server-side / AI → core): ${resolveCoreLoopbackOrigin(
+      Number.parseInt(process.env.ENGENTY_CORE_PORT ?? "", 10) || ports.core
+    )}`,
     "# Direct upstream (debug):",
     `#   AI:        ${aiDirect}/`,
     `#   Docs:      ${docsDirect}/`,

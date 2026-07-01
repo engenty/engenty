@@ -106,14 +106,17 @@ for (const alias of config.portlessAliases) {
   )
 fi
 
-echo ""
-echo "Open ${GATEWAY_ORIGIN}/"
-if [[ -n "${ENGENTY_DEV_DOMAIN:-}" ]]; then
-  echo "Worktree domain: ${ENGENTY_DEV_DOMAIN} (UI loopback :${ENGENTY_UI_PORT})"
-fi
-echo ""
+node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint --tty 2>/dev/null || \
+  node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint
 
-TURBO_TASKS=(dev:portless)
+node "$ROOT/scripts/dev-portless-ready.mjs" --wait --tty &
+READY_ANNOUNCER_PID=$!
+cleanup_ready_announcer() {
+  kill "$READY_ANNOUNCER_PID" 2>/dev/null || true
+}
+trap cleanup_ready_announcer EXIT INT TERM
+
+TURBO_TASKS=(dev:portless dev:portless:ready)
 if [[ -z "${RESOLVED_DOMAIN}" ]]; then
   TURBO_TASKS+=(studio)
 fi
@@ -122,4 +125,5 @@ exec pnpm exec turbo run "${TURBO_TASKS[@]}" \
   --filter=./apps/core \
   --filter=./apps/ui \
   --filter=./apps/ai \
-  --filter=./apps/docs
+  --filter=./apps/docs \
+  --filter=engenty
