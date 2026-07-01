@@ -64,11 +64,13 @@ export function AppSidebar({
   }
 
   const baseItemClass = cn(
-    "group/item flex w-full items-center gap-2 rounded-md py-2 text-sm transition-colors",
+    "group/item flex items-center gap-2 rounded-md text-sm transition-colors",
     isPanel
       ? "text-foreground hover:bg-muted hover:text-foreground"
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-    compact ? "justify-center px-0" : "px-2"
+    compact
+      ? "mx-auto size-[40px] shrink-0 justify-center p-0"
+      : "w-full px-2 py-2"
   );
 
   const adminSectionIndex = sections.findIndex((s) =>
@@ -127,10 +129,13 @@ export function AppSidebar({
       </>
     );
 
-    const itemStyle: CSSProperties = {
-      paddingTop: `${8 * iconScale}px`,
-      paddingBottom: `${8 * iconScale}px`,
-    };
+    const itemStyle: CSSProperties =
+      compact && !inFlyout
+        ? {}
+        : {
+            paddingTop: `${8 * iconScale}px`,
+            paddingBottom: `${8 * iconScale}px`,
+          };
 
     const element = itemExternal ? (
       <a
