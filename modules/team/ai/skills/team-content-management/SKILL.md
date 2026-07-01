@@ -14,7 +14,7 @@ Use this skill when the user wants to browse, create, edit, merge, or remove tea
 1. Start with `engenty_tools_search` using `moduleId: "team"` and `kind: "tool"`.
 2. Prefer registered operations: `team_list`, `team_get`, `team_create`, `team_update`, and `team_delete`.
 3. Use `engenty_tool_execute` before writes unless the input schema is already clear from this skill and prior tool results.
-4. Call the `navigate` tool to open `/mdl/team/members` or `/mdl/team/:id/edit` when the user should review changes in the UI.
+4. Call the `navigate` tool to open `/mdl/team` or `/mdl/team/:id/edit` when the user should review changes in the UI.
 
 ## Find Before Writing
 
