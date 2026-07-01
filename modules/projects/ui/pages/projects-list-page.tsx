@@ -505,7 +505,7 @@ export function ProjectsListPage() {
         {!(isLoading || error) &&
           projects.length > 0 &&
           viewMode === "cards" && (
-            <AdminListCardsView bottomFade variant="default">
+            <AdminListCardsView bottomFade>
               <div className="flex flex-col gap-2">
                 {groupedProjects.map((group) => {
                   const open = grouped ? isGroupOpen(group.key) : true;

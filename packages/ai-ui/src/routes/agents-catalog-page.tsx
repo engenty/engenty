@@ -169,7 +169,7 @@ export function AgentsCatalogPage() {
         ) : null}
 
         {filteredAgents.length > 0 && viewMode !== "table" ? (
-          <AdminListCardsView bottomFade variant="default">
+          <AdminListCardsView bottomFade>
             <AgentsCardGrid
               groups={agentGroups}
               isGroupOpen={isGroupOpen}

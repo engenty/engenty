@@ -389,7 +389,7 @@ export function SkillsCatalogPage() {
         {!skillsQuery.isLoading &&
         groupedSkills.length > 0 &&
         viewMode === "cards" ? (
-          <AdminListCardsView bottomFade variant="default">
+          <AdminListCardsView bottomFade>
             <SkillCatalogCards
               groupBy={groupBy}
               groups={groupedSkills}

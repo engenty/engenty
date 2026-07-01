@@ -549,10 +549,7 @@ export function TeamMembersListPage() {
         {!(isLoading || error) &&
           members.length > 0 &&
           viewMode === "cards" && (
-            <AdminListCardsView
-              bottomFade
-              variant={grouped ? "default" : "card"}
-            >
+            <AdminListCardsView bottomFade>
               <div className="flex flex-col gap-2">
                 {groupedMembers.map((group) => {
                   const open = grouped ? isGroupOpen(group.key) : true;

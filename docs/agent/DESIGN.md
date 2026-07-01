@@ -94,8 +94,8 @@ Cards are **borderless** with a **soft shadow**. Do **not** hand-roll `border �
 
 | Use | When | Shadow token |
 |---|---|---|
-| `.ui-canvas-elevated` | The **primary** list/table/card shell on the page canvas — one per list (e.g. `AdminListTableView`/`AdminListCardsView`), or a standalone teaser card | `--shadow-ember-elevated` (`--e-2`) |
-| `.ui-canvas-raised` | **Stacked group cards inside a list** — when groups each get their own card and must not compete with the shell. Lighter, tighter shadow | `--shadow-ember-soft` |
+| `.ui-canvas-elevated` | The **primary** list/table shell on the page canvas for **flat-row tables** (`AdminListTableView` without `transparent`), or a standalone teaser card — **not** as a wrapper around responsive card grids | `--shadow-ember-elevated` (`--e-2`) |
+| `.ui-canvas-raised` | **Individual cards in a responsive grid** (`AdminListCardsView` + `adminListCardsGridClassName`), or stacked group cards inside a list. Lighter, tighter shadow | `--shadow-ember-soft` |
 | `.ui-canvas-panel` | Detail / section cards (settings blocks, read-only panels) | `--shadow-ember-elevated` |
 
 Rules:
@@ -103,6 +103,7 @@ Rules:
 - **No borders** — every `ui-canvas-*` card class drops its border in the default/floating themes (a hairline returns only under `ui-chrome-sharp`). Never add your own `border`.
 - **Hover** = paint-only, shadow-in-place: `hover:shadow-[var(--e-3)]` to deepen; keep `bg-card` (never `hover:bg-accent`, which muddies the surface). See Hover & Motion.
 - **Group dividers stay transparent** — the collapsible group header (`AdminListGroupHeader`) is not a card; only the rows/cards it groups get the surface.
+- **Card grids** — `AdminListCardsView` has no outer shell; each grid item is its own elevated surface on `--paper`. Never wrap a card grid in `.ui-canvas-elevated` (no double borders or stacked shadows).
 
 ---
 

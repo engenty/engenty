@@ -14,14 +14,12 @@ export interface AdminListCardsViewProps {
   children: React.ReactNode;
   /** Extra classes on the scroll area (e.g. p-4). */
   contentClassName?: string;
-  /** Rendered above the elevated cards shell (inherits page canvas background). */
+  /** Rendered above the card grid (inherits page canvas background). */
   header?: React.ReactNode;
   /** Extra classes on the header container. */
   headerClassName?: string;
   /** When set, renders the footer pagination bar. */
   pagination?: AdminListPaginationProps;
-  /** "card" adds bordered card shell (team, offers, invoices). */
-  variant?: "default" | "card";
 }
 
 export function AdminListCardsView({
@@ -31,19 +29,20 @@ export function AdminListCardsView({
   header,
   headerClassName,
   pagination,
-  variant = "default",
 }: AdminListCardsViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { hasMoreBelow } = useListScrollState(scrollRef);
-  /** Card variant mirrors `AdminListTableView` (gap-4, py-2 header) so table/card toggles do not jump. */
-  const headerRowClassName =
-    variant === "card"
-      ? "flex shrink-0 flex-wrap items-center gap-2 py-2"
-      : "flex shrink-0 flex-wrap items-center gap-2 px-3 py-2";
 
   const headerEl =
     header == null ? null : (
-      <div className={cn(headerRowClassName, headerClassName)}>{header}</div>
+      <div
+        className={cn(
+          "flex shrink-0 flex-wrap items-center gap-2 px-3 py-2",
+          headerClassName
+        )}
+      >
+        {header}
+      </div>
     );
 
   const footerEl =
@@ -72,26 +71,6 @@ export function AdminListCardsView({
       ) : null}
     </div>
   );
-
-  if (variant === "card") {
-    const cardShell = (
-      <div className="ui-canvas-elevated flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border-0">
-        {inner}
-        {footerEl}
-      </div>
-    );
-
-    if (headerEl == null) {
-      return cardShell;
-    }
-
-    return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden">
-        {headerEl}
-        {cardShell}
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

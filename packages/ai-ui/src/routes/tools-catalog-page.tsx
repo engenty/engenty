@@ -157,7 +157,7 @@ export function ToolsCatalogPage() {
         ) : null}
 
         {filteredTools.length > 0 && viewMode === "cards" ? (
-          <AdminListCardsView bottomFade variant="default">
+          <AdminListCardsView bottomFade>
             <ToolsCatalogCards
               grouped
               groups={toolGroups}
