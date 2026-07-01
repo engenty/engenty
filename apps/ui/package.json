@@ -10,6 +10,7 @@
     "dev": "vite --host",
     "dev:app": "vite --host",
     "dev:portless": "pnpm run dev:app",
+    "dev:portless:ready": "node ../../scripts/dev-portless-ready.mjs --turbo-pane",
     "prebuild": "pnpm run generate:plugins",
     "build": "vite build",
     "lint": "biome check .",

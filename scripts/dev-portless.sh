@@ -109,13 +109,6 @@ fi
 node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint --tty 2>/dev/null || \
   node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint
 
-node "$ROOT/scripts/dev-portless-ready.mjs" --wait --tty &
-READY_ANNOUNCER_PID=$!
-cleanup_ready_announcer() {
-  kill "$READY_ANNOUNCER_PID" 2>/dev/null || true
-}
-trap cleanup_ready_announcer EXIT INT TERM
-
 TURBO_TASKS=(dev:portless dev:portless:ready)
 if [[ -z "${RESOLVED_DOMAIN}" ]]; then
   TURBO_TASKS+=(studio)
@@ -125,5 +118,4 @@ exec pnpm exec turbo run "${TURBO_TASKS[@]}" \
   --filter=./apps/core \
   --filter=./apps/ui \
   --filter=./apps/ai \
-  --filter=./apps/docs \
-  --filter=engenty
+  --filter=./apps/docs

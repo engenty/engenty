@@ -103,6 +103,11 @@ export async function waitForDevPortlessReady({
 }
 
 function writeToTty(text) {
+  // Turbo TUI owns the terminal (mouse tracking, alt screen). Writing to /dev/tty
+  // while it runs injects bytes that leak into task stdout and pane titles.
+  if (process.env.TURBO_HASH) {
+    return false;
+  }
   try {
     fs.writeFileSync("/dev/tty", `${text}\n`);
     return true;
@@ -154,7 +159,7 @@ async function main() {
 
   if (result.timedOut && !(result.uiReady && result.coreReady)) {
     const message = `Dev stack did not become ready in time (UI :${uiPort}, core :${corePort}).`;
-    emit(message, { preferTty: args.tty });
+    emit(message, { preferTty: args.tty && !args.turboPane });
     process.exitCode = 1;
     return;
   }
@@ -165,7 +170,7 @@ async function main() {
     corePort,
     domain,
   });
-  emit(banner, { preferTty: args.tty || args.wait });
+  emit(banner, { preferTty: args.tty && !args.turboPane });
 
   if (args.turboPane) {
     emit("Pinned — URL stays visible in this Turbo task while dev runs.");
