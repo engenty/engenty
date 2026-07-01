@@ -85,9 +85,7 @@
     "safety": "Sicherheit",
     "safetyDesc": "Schutzmaßnahmen und Inhaltsrichtlinien.",
     "observability": "Beobachtbarkeit",
-    "observabilityDesc": "Runs, Logs und Überwachung.",
-    "skills": "Skills",
-    "skillsDesc": "Verwaltete und benutzerdefinierte Skills für Agenten."
+    "observabilityDesc": "Runs, Logs und Überwachung."
   },
   "agents": {
     "catalogTitle": "Agenten",
