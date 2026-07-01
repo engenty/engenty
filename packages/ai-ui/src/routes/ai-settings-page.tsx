@@ -17,6 +17,10 @@ import { ClassifierSettingsCard } from "../features/ai-settings/classifier-setti
 import { CopilotInstructionsInfoCard } from "../features/ai-settings/copilot-instructions-info-card";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
 import { GeneralSettingsCard } from "../features/ai-settings/general-settings-card";
+import {
+  mapGatewayModelSelectOptions,
+  mergeSelectedGatewayModelOptions,
+} from "../features/ai-settings/map-gateway-model-select-options";
 import { SkillsTab } from "../features/ai-settings/skills-tab";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
@@ -34,36 +38,12 @@ const VALID_TABS = new Set([
 ]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
+  "cheap",
   "low",
   "medium",
   "high",
   "expensive",
 ];
-
-interface ModelOption {
-  disabled?: boolean;
-  label: string;
-  value: string;
-}
-
-function modelOptionsWithSelected(
-  options: ModelOption[],
-  selectedIds: Array<string | null | undefined>,
-  unavailableLabel: string
-): ModelOption[] {
-  const byValue = new Map(options.map((option) => [option.value, option]));
-  for (const selectedId of selectedIds) {
-    if (!(selectedId && !byValue.has(selectedId))) {
-      continue;
-    }
-    byValue.set(selectedId, {
-      disabled: true,
-      label: `${selectedId} (${unavailableLabel})`,
-      value: selectedId,
-    });
-  }
-  return [...byValue.values()];
-}
 
 export function AiGeneralSettingsPage() {
   const { t } = useTranslation("ai-ui");
@@ -100,33 +80,49 @@ export function AiGeneralSettingsPage() {
     tabParam && VALID_TABS.has(tabParam) ? tabParam : DEFAULT_TAB;
   const chatModelOptions = useMemo(
     () =>
-      modelOptionsWithSelected(
-        (chatModelOptionsQuery.data?.items ?? []).map((model) => ({
-          value: model.model_id,
-          label: model.label,
-        })),
-        [settings.chat_model_id, settings.coordinator_model_id],
+      mergeSelectedGatewayModelOptions(
+        mapGatewayModelSelectOptions(
+          chatModelOptionsQuery.data?.items ?? [],
+          t
+        ),
+        [settings.chat_model_id],
         t("fields.modelUnavailable")
       ),
-    [
-      chatModelOptionsQuery.data?.items,
-      settings.chat_model_id,
-      settings.coordinator_model_id,
-      t,
-    ]
+    [chatModelOptionsQuery.data?.items, settings.chat_model_id, t]
   );
   const routingModelOptions = useMemo(
     () =>
-      modelOptionsWithSelected(
-        (routingModelOptionsQuery.data?.items ?? []).map((model) => ({
-          value: model.model_id,
-          label: model.label,
-        })),
+      mergeSelectedGatewayModelOptions(
+        mapGatewayModelSelectOptions(
+          routingModelOptionsQuery.data?.items ?? [],
+          t
+        ),
+        [settings.coordinator_model_id],
+        t("fields.modelUnavailable")
+      ),
+    [routingModelOptionsQuery.data?.items, settings.coordinator_model_id, t]
+  );
+  const classifierModelOptions = useMemo(
+    () =>
+      mergeSelectedGatewayModelOptions(
+        mapGatewayModelSelectOptions(
+          routingModelOptionsQuery.data?.items ?? [],
+          t
+        ),
         [settings.classifier_model_id],
         t("fields.modelUnavailable")
       ),
     [routingModelOptionsQuery.data?.items, settings.classifier_model_id, t]
   );
+  const catalogEmpty =
+    !(
+      chatModelOptionsQuery.isLoading ||
+      routingModelOptionsQuery.isLoading ||
+      chatModelOptionsQuery.isError ||
+      routingModelOptionsQuery.isError
+    ) && (chatModelOptionsQuery.data?.items.length ?? 0) === 0;
+  const catalogLoadError =
+    chatModelOptionsQuery.isError || routingModelOptionsQuery.isError;
   const handleTabChange = (nextTab: string) => {
     if (!VALID_TABS.has(nextTab) || nextTab === activeTab) {
       return;
@@ -259,6 +255,24 @@ export function AiGeneralSettingsPage() {
             </div>
           ) : null}
 
+          {catalogLoadError ? (
+            <div
+              className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
+              role="alert"
+            >
+              {t("sections.modelCatalogLoadError")}
+            </div>
+          ) : null}
+
+          {catalogEmpty ? (
+            <div
+              className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-950 text-sm dark:text-amber-100"
+              role="status"
+            >
+              {t("sections.modelCatalogEmpty")}
+            </div>
+          ) : null}
+
           <div className="flex items-center gap-2 text-sm">
             <Label htmlFor="ai-settings-max-price-tier">
               {t("fields.maxPriceTier")}
@@ -284,7 +298,8 @@ export function AiGeneralSettingsPage() {
 
           <TabsContent className="space-y-6" value="copilot">
             <GeneralSettingsCard
-              modelOptions={chatModelOptions}
+              chatModelOptions={chatModelOptions}
+              routingModelOptions={routingModelOptions}
               settings={settings}
               t={t}
               updateSettings={updateSettings}
@@ -294,7 +309,7 @@ export function AiGeneralSettingsPage() {
 
           <TabsContent className="space-y-6" value="classifier">
             <ClassifierSettingsCard
-              modelOptions={routingModelOptions}
+              modelOptions={classifierModelOptions}
               settings={settings}
               t={t}
               updateSettings={updateSettings}

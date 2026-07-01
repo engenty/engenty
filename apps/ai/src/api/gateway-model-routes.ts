@@ -113,6 +113,7 @@ function modelOptionFromRecord(
       : model.model_id,
     model_id: model.model_id,
     output_per_mtok_micros: model.output_per_mtok_micros,
+    input_per_mtok_micros: model.input_per_mtok_micros,
     price_tier: model.price_tier,
     provider: model.provider,
     use_cases: model.use_cases,

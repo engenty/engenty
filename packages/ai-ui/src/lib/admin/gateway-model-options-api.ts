@@ -1,4 +1,5 @@
 import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
+import { getAiServiceBaseUrl } from "../runtime/ai-service-client.js";
 
 export type GatewayModelUseCase =
   | "text"
@@ -8,7 +9,12 @@ export type GatewayModelUseCase =
   | "embed"
   | "rerank";
 
-export type GatewayModelPriceTier = "low" | "medium" | "high" | "expensive";
+export type GatewayModelPriceTier =
+  | "cheap"
+  | "low"
+  | "medium"
+  | "high"
+  | "expensive";
 
 export type GatewayModelAvailabilityPurpose =
   | "chat"
@@ -27,19 +33,13 @@ export interface GatewayModelOption {
   available_for_video: boolean;
   display_name: string | null;
   id: string;
+  input_per_mtok_micros: number | null;
   label: string;
   model_id: string;
   output_per_mtok_micros: number | null;
   price_tier: GatewayModelPriceTier | null;
   provider: string;
   use_cases: GatewayModelUseCase[];
-}
-
-function aiBaseUrl(): string {
-  const value = (
-    import.meta as unknown as { env?: Record<string, string | undefined> }
-  ).env?.VITE_ENGENTY_AI_BASE_URL;
-  return (value ?? "").trim().replace(/\/$/, "");
 }
 
 export async function listGatewayModelOptions(
@@ -51,7 +51,7 @@ export async function listGatewayModelOptions(
   } = {},
   signal?: AbortSignal
 ) {
-  const baseUrl = aiBaseUrl();
+  const baseUrl = getAiServiceBaseUrl();
   if (!baseUrl) {
     throw new Error("Missing VITE_ENGENTY_AI_BASE_URL");
   }

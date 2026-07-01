@@ -149,6 +149,50 @@ function assertNeverPurpose(value: never): never {
   throw new Error(`Unhandled gateway model availability purpose: ${value}`);
 }
 
+/** Keep PostgREST `.in(model_id, …)` URLs under limits (~297 gateway models). */
+export const GATEWAY_MODEL_UPSERT_BATCH_SIZE = 50;
+
+export function chunkGatewayModelBatch<T>(
+  items: readonly T[],
+  batchSize = GATEWAY_MODEL_UPSERT_BATCH_SIZE
+): T[][] {
+  if (batchSize < 1) {
+    throw new Error("batchSize must be at least 1");
+  }
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += batchSize) {
+    chunks.push(items.slice(index, index + batchSize));
+  }
+  return chunks;
+}
+
+const GATEWAY_MODEL_AVAILABILITY_SELECT = [
+  "model_id",
+  "available_for_chat",
+  "available_for_routing",
+  "available_for_embedding",
+  "available_for_image",
+  "available_for_video",
+  "available_for_rerank",
+].join(",");
+
+function mapGatewayModelAvailabilityRow(
+  row: Record<string, unknown>
+): [string, GatewayModelAvailabilityFlags] {
+  const modelId = String(row.model_id);
+  return [
+    modelId,
+    {
+      available_for_chat: asBoolean(row.available_for_chat),
+      available_for_embedding: asBoolean(row.available_for_embedding),
+      available_for_image: asBoolean(row.available_for_image),
+      available_for_rerank: asBoolean(row.available_for_rerank),
+      available_for_routing: asBoolean(row.available_for_routing),
+      available_for_video: asBoolean(row.available_for_video),
+    },
+  ];
+}
+
 function preserveExistingAvailability(
   model: GatewayModelUpsertInput,
   existing: GatewayModelAvailabilityFlags | undefined
@@ -505,59 +549,50 @@ export function createAiUsageStore(
       if (models.length === 0) {
         return 0;
       }
-      const { data: existingRows, error: existingError } = await gatewayModels()
-        .select(
-          [
-            "model_id",
-            "available_for_chat",
-            "available_for_routing",
-            "available_for_embedding",
-            "available_for_image",
-            "available_for_video",
-            "available_for_rerank",
-          ].join(",")
-        )
-        .in(
-          "model_id",
-          models.map((model) => model.model_id)
-        );
-      if (existingError) {
-        throw new Error(
-          `gateway model existing availability select: ${existingError.message}`
-        );
-      }
       const existingAvailability = new Map<
         string,
         GatewayModelAvailabilityFlags
       >();
-      for (const row of (existingRows ?? []) as unknown as Record<
-        string,
-        unknown
-      >[]) {
-        existingAvailability.set(String(row.model_id), {
-          available_for_chat: asBoolean(row.available_for_chat),
-          available_for_embedding: asBoolean(row.available_for_embedding),
-          available_for_image: asBoolean(row.available_for_image),
-          available_for_rerank: asBoolean(row.available_for_rerank),
-          available_for_routing: asBoolean(row.available_for_routing),
-          available_for_video: asBoolean(row.available_for_video),
-        });
+      for (const modelIdBatch of chunkGatewayModelBatch(
+        models.map((model) => model.model_id)
+      )) {
+        const { data: existingRows, error: existingError } =
+          await gatewayModels()
+            .select(GATEWAY_MODEL_AVAILABILITY_SELECT)
+            .in("model_id", modelIdBatch);
+        if (existingError) {
+          throw new Error(
+            `gateway model existing availability select: ${existingError.message}`
+          );
+        }
+        for (const row of (existingRows ?? []) as unknown as Record<
+          string,
+          unknown
+        >[]) {
+          const [modelId, flags] = mapGatewayModelAvailabilityRow(row);
+          existingAvailability.set(modelId, flags);
+        }
       }
-      const { data, error } = await gatewayModels()
-        .upsert(
-          models.map((model) =>
-            preserveExistingAvailability(
-              model,
-              existingAvailability.get(model.model_id)
-            )
-          ),
-          { onConflict: "model_id" }
-        )
-        .select("model_id");
-      if (error) {
-        throw new Error(`gateway model upsert: ${error.message}`);
+
+      let upserted = 0;
+      for (const modelBatch of chunkGatewayModelBatch(models)) {
+        const { data, error } = await gatewayModels()
+          .upsert(
+            modelBatch.map((model) =>
+              preserveExistingAvailability(
+                model,
+                existingAvailability.get(model.model_id)
+              )
+            ),
+            { onConflict: "model_id" }
+          )
+          .select("model_id");
+        if (error) {
+          throw new Error(`gateway model upsert: ${error.message}`);
+        }
+        upserted += data?.length ?? 0;
       }
-      return data?.length ?? 0;
+      return upserted;
     },
 
     async updateGatewayModelAvailability(modelId, patch) {

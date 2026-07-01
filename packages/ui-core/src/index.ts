@@ -329,6 +329,11 @@ export {
 export { Progress } from "./components/ui/progress";
 export { ScrollArea, ScrollBar } from "./components/ui/scroll-area";
 export {
+  SearchableSelect,
+  type SearchableSelectOption,
+  type SearchableSelectProps,
+} from "./components/ui/searchable-select";
+export {
   Select,
   SelectContent,
   SelectGroup,

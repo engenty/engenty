@@ -1,22 +1,13 @@
 import {
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
+  type SearchableSelectOption,
   SettingsFormSection,
 } from "@engenty/ui-core";
 import type { AiConfig } from "../../lib/admin/ai-settings-api";
 
-interface ModelOption {
-  disabled?: boolean;
-  label: string;
-  value: string;
-}
-
 interface ClassifierSettingsCardProps {
-  modelOptions: ModelOption[];
+  modelOptions: SearchableSelectOption[];
   settings: AiConfig;
   t: (key: string) => string;
   updateSettings: <K extends keyof AiConfig>(
@@ -40,27 +31,18 @@ export function ClassifierSettingsCard({
         <Label className="shrink-0 sm:w-32 md:w-40" htmlFor="classifier-model">
           {t("fields.classifierModel")}
         </Label>
-        <Select
+        <SearchableSelect
+          emptyMessage={t("fields.modelSearchEmpty")}
+          id="classifier-model"
           onValueChange={(value) =>
             updateSettings("classifier_model_id", value || null)
           }
+          options={modelOptions}
+          placeholder={t("fields.classifierModelPlaceholder")}
+          searchPlaceholder={t("fields.modelSearchPlaceholder")}
+          triggerClassName="min-w-0 flex-1"
           value={settings.classifier_model_id ?? ""}
-        >
-          <SelectTrigger className="min-w-0 flex-1" id="classifier-model">
-            <SelectValue placeholder={t("fields.classifierModelPlaceholder")} />
-          </SelectTrigger>
-          <SelectContent>
-            {modelOptions.map((option) => (
-              <SelectItem
-                disabled={option.disabled}
-                key={option.value}
-                value={option.value}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       </div>
       <p className="text-muted-foreground text-xs">
         {t("sections.classifierHint")}
