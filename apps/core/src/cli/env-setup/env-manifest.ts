@@ -148,7 +148,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
       root: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     },
     description:
-      "Direct Postgres connection (Mastra agent store in apps/ai). Local default matches the Supabase CLI stack.",
+      "Direct Postgres connection for apps/ai Mastra framework storage (workflow/run snapshots, native suspend/resume). Chat sessions use SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY instead. Recommended for local dev; without it Mastra falls back to in-memory storage. Local default matches the Supabase CLI stack.",
     group: "Supabase",
     key: "SUPABASE_DB_URL",
     obtain: { kind: "supabase", statusKeys: ["DB_URL"] },
