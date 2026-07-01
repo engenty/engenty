@@ -175,6 +175,11 @@
     "searchGoals": "Search goals…",
     "noGoalMatch": "No matching goals.",
     "clearGoal": "No goal",
+    "project": "Project",
+    "noProject": "No project",
+    "searchProjects": "Search projects…",
+    "noProjectMatch": "No matching projects.",
+    "clearProject": "No project",
     "noDueDate": "No due date",
     "workspace": {
       "sectionAria": "Task workspace",

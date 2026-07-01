@@ -35,10 +35,14 @@ function resolveWorkspaceFsMode(): "remote" | "local" {
 }
 
 interface TaskWorkspaceStripProps {
+  onStartWork?: () => void;
   task: Task;
 }
 
-export function TaskWorkspaceStrip({ task }: TaskWorkspaceStripProps) {
+export function TaskWorkspaceStrip({
+  task,
+  onStartWork,
+}: TaskWorkspaceStripProps) {
   const { t } = useTranslation("tasks");
   const { startWorkOnTask } = useTaskRunObserverContext();
   const { currentTenant } = useWorkspaceContext();
@@ -58,7 +62,11 @@ export function TaskWorkspaceStrip({ task }: TaskWorkspaceStripProps) {
   const showDevBadge = isEngentyDeveloperModeUiEnabled();
   const workspaceFsMode = showDevBadge ? resolveWorkspaceFsMode() : null;
 
+  // Only an agent-assigned task can be worked on by the agent runner.
+  const canWorkOnTask = task.primary_assignee_kind === "agent";
+
   const handleWorkOnTask = () => {
+    onStartWork?.();
     void startWorkOnTask();
   };
 
@@ -67,16 +75,18 @@ export function TaskWorkspaceStrip({ task }: TaskWorkspaceStripProps) {
       aria-label={t("detail.workspace.sectionAria")}
       className="flex min-w-[280px] flex-col gap-2"
     >
-      <div className="px-1">
-        <Button
-          className="w-full justify-start gap-2"
-          onClick={handleWorkOnTask}
-          variant="ai"
-        >
-          <Sparkles className="size-3.5 shrink-0" />
-          {t("detail.workspace.workOnTask")}
-        </Button>
-      </div>
+      {canWorkOnTask ? (
+        <div className="px-1">
+          <Button
+            className="w-full justify-start gap-2"
+            onClick={handleWorkOnTask}
+            variant="ai"
+          >
+            <Sparkles className="size-3.5 shrink-0" />
+            {t("detail.workspace.workOnTask")}
+          </Button>
+        </div>
+      ) : null}
 
       <TaskPropertyRow icon={Layers} label={t("detail.workspace.key")}>
         <code className="break-all font-mono text-sm">{workspaceKey}</code>

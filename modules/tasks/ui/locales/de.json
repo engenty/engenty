@@ -175,6 +175,11 @@
     "searchGoals": "Ziele suchen…",
     "noGoalMatch": "Keine passenden Ziele.",
     "clearGoal": "Kein Ziel",
+    "project": "Projekt",
+    "noProject": "Kein Projekt",
+    "searchProjects": "Projekte suchen…",
+    "noProjectMatch": "Keine passenden Projekte.",
+    "clearProject": "Kein Projekt",
     "noDueDate": "Kein Fälligkeitsdatum",
     "workspace": {
       "sectionAria": "Aufgaben-Arbeitsbereich",

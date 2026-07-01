@@ -22,6 +22,7 @@ import type { TeamMemberCatalogRow } from "../plugins.js";
 import type { TaskAssigneeValue } from "./task-assignee-picker.js";
 import { TaskAssigneePropertyRows } from "./task-assignee-property-rows.js";
 import { TaskGoalPropertyRow } from "./task-goal-property-row.js";
+import { TaskProjectPropertyRow } from "./task-project-property-row.js";
 import { TaskPropertyEmpty, TaskPropertyRow } from "./task-property-row.js";
 import { TaskStatusBadge } from "./task-status-badge.js";
 
@@ -34,6 +35,7 @@ interface TaskPropertiesPanelProps {
   onDueDateChange: (dueDate: string | null) => void;
   onGoalChange: (goalId: string | null) => void;
   onPriorityChange: (priority: TaskPriority) => void;
+  onProjectChange: (projectId: string | null) => void;
   onStatusChange: (status: string) => void;
   task: Task;
   taskStatusDefinitions: TaskStatusDefinition[];
@@ -65,6 +67,7 @@ export function TaskPropertiesPanel({
   onPriorityChange,
   onDueDateChange,
   onGoalChange,
+  onProjectChange,
   onAssigneeChange,
   disabled,
   assigneeCatalog,
@@ -169,6 +172,12 @@ export function TaskPropertiesPanel({
         section="primary"
         teamMembersEnabled={teamMembersEnabled}
         value={assigneeFromTask(task)}
+      />
+
+      <TaskProjectPropertyRow
+        disabled={disabled}
+        onChange={onProjectChange}
+        projectId={task.project_id}
       />
 
       <TaskGoalPropertyRow

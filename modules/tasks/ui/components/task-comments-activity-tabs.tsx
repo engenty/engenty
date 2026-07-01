@@ -1,8 +1,7 @@
 import {
-  COPILOT_DOCK_COMPOSER_CARD_CLASS,
+  CopilotCompactComposerShell,
   PromptInput,
   PromptInputBody,
-  PromptInputFooter,
   PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
@@ -249,27 +248,31 @@ function TaskCommentComposerInner({
       plain
     >
       <PromptInputBody>
-        <PromptInputTextarea
-          className="max-h-32 min-h-[3.5rem] resize-none px-2 py-2 pr-14 text-sm leading-5"
-          disabled={disabled || posting}
-          onChange={(event) => onCommentDraftChange(event.currentTarget.value)}
-          placeholder={t("detail.commentPlaceholder")}
-          rows={2}
-        />
+        <div className="flex w-full items-end gap-1.5">
+          <div className="relative min-w-0 flex-1 self-center">
+            <PromptInputTextarea
+              className="max-h-32 min-h-8 resize-none px-1 py-1.5 text-sm leading-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              disabled={disabled || posting}
+              onChange={(event) =>
+                onCommentDraftChange(event.currentTarget.value)
+              }
+              placeholder={t("detail.commentPlaceholder")}
+              rows={1}
+            />
+          </div>
+          <PromptInputSubmit
+            className="-mr-1 size-8 shrink-0 self-end rounded-full shadow-none"
+            disabled={disabled || posting || commentDraft.trim().length === 0}
+            size="icon-sm"
+            status={submitStatus}
+            variant="default"
+          >
+            {submitStatus === "ready" ? (
+              <AnimatedSendIcon play={posting ? "always" : "hover"} size="sm" />
+            ) : undefined}
+          </PromptInputSubmit>
+        </div>
       </PromptInputBody>
-      <PromptInputFooter className="items-center px-0 pt-0 pb-0">
-        <PromptInputSubmit
-          className="ml-auto size-6 rounded-full shadow-none"
-          disabled={disabled || posting || commentDraft.trim().length === 0}
-          size="icon-xs"
-          status={submitStatus}
-          variant="default"
-        >
-          {submitStatus === "ready" ? (
-            <AnimatedSendIcon play={posting ? "always" : "hover"} size="sm" />
-          ) : undefined}
-        </PromptInputSubmit>
-      </PromptInputFooter>
     </PromptInput>
   );
 }
@@ -288,7 +291,12 @@ function TaskCommentComposer({
   posting?: boolean;
 }) {
   return (
-    <div className={COPILOT_DOCK_COMPOSER_CARD_CLASS}>
+    <CopilotCompactComposerShell
+      chatStatus={posting ? "submitted" : "ready"}
+      enableStatusFlap={false}
+      showAvatar={false}
+      showUsageMeter={false}
+    >
       <TaskCommentComposerInner
         commentDraft={commentDraft}
         disabled={disabled}
@@ -296,7 +304,7 @@ function TaskCommentComposer({
         onCommentDraftChange={onCommentDraftChange}
         posting={posting}
       />
-    </div>
+    </CopilotCompactComposerShell>
   );
 }
 

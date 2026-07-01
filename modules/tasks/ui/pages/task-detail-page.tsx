@@ -86,6 +86,7 @@ interface TaskDetailLoadedProps {
   onDueDateChange: (dueDate: string | null) => void;
   onGoalChange: (goalId: string | null) => void;
   onPriorityChange: (priority: TaskPriority) => void;
+  onStartWork: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onTitleBlur: () => void;
   onTitleChange: (value: string) => void;
@@ -113,6 +114,7 @@ function TaskDetailLoadedContent({
   onDueDateChange,
   onGoalChange,
   onPriorityChange,
+  onStartWork,
   onStatusChange,
   onTitleBlur,
   onTitleChange,
@@ -217,7 +219,7 @@ function TaskDetailLoadedContent({
           taskStatusDefinitions={taskStatusDefinitions}
           teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
         />
-        <TaskWorkspaceStrip task={task} />
+        <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
         <TaskLinkedSessionsPanel
           isLoading={linkedSessionsQuery.isLoading}
           sessions={linkedSessionsQuery.data ?? []}
@@ -463,6 +465,16 @@ export function TaskDetailPage() {
             }}
             onPriorityChange={(priority: TaskPriority) => {
               void saveTask({ priority });
+            }}
+            onProjectChange={(projectId) => {
+              void saveTask({ project_id: projectId });
+            }}
+            onStartWork={() => {
+              // Starting an agent run moves a not-yet-started task into
+              // progress so the board and Briefing counters reflect live work.
+              if (task.status === "todo" || task.status === "backlog") {
+                void saveTask({ status: "in_progress" });
+              }
             }}
             onStatusChange={(status) => {
               void saveTask({ status });
