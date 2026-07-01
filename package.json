@@ -23,6 +23,9 @@
       },
       "team": {
         "source": "workspace"
+      },
+      "time-tracking": {
+        "source": "workspace"
       }
     }
   },

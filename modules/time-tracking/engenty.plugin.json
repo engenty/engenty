@@ -1,0 +1,20 @@
+{
+  "id": "time-tracking",
+  "name": "Time Tracking",
+  "description": "Weekly time tracking for project, phase, and task work",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.time-tracking",
+    "module.time-tracking.read",
+    "module.time-tracking.write",
+    "ui.route.module.time-tracking"
+  ],
+  "requires": ["module.projects", "module.tasks"],
+  "optional": ["module.team"],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false
+  }
+}
