@@ -45,6 +45,8 @@ Dotenv is loaded **before the server listens**: `apps/ai` package `.env*` merged
 
 - **`SUPABASE_URL`** + **`SUPABASE_SERVICE_ROLE_KEY`** — **required for product chat** (`POST /ai/threads`, runs, transcript hydrate). Without them, thread routes return **503** `agent_threads.unconfiguredDatabase`. Also enables usage and chat-search persistence in schema **`ai`** (see `supabase/migrations/*_core_ai_schema_agent_sessions.sql` and `*_ai_app_chat_search_index.sql`). Copy values from `pnpm supabase status` into repo-root `.env.local`.
 
+- **`SUPABASE_DB_URL`** — **recommended for full apps/ai** (direct Postgres; local default `postgresql://postgres:postgres@127.0.0.1:54322/postgres`). Powers Mastra **framework** storage (`PostgresStore` for workflow/run snapshots and native suspend/resume). Chat transcript memory uses the Supabase HTTP client above, not this URL. Without it, Mastra logs an in-memory storage warning and workflow crash-resume is not durable. Set automatically by `pnpm dev:env:init` when local Supabase is running, or copy **`DB URL`** from `pnpm supabase status`.
+
 - **`ENGENTY_CORE_BASE_URL`** — required for session auth scope resolution and core-backed agent tools; set via `pnpm dev:urls:portless` (typically `http://127.0.0.1:8787` with the dev gateway). `apps/ai` resolves tenant/user scope through core’s current workspace context and forwards the incoming end-user `Authorization: Bearer ...` token for core tool calls.
 - **`AI_GATEWAY_API_KEY`** — required for `GET /ai/v1/sdk/stream-ping` through AI Gateway and enables LLM-assisted `engenty_tools_discover` ranking.
 - **`OPENAI_API_KEY`** — required for Mastra agents using `openai/...` model ids.
