@@ -7,7 +7,6 @@
 | Tool | Always-on entry | On-demand rules |
 |------|-----------------|-----------------|
 | **Any agent** | [AGENTS.md](../../AGENTS.md) | [rules/](./rules/) — read the file that matches your task |
-| **Claude Code** | [CLAUDE.md](../../CLAUDE.md) → AGENTS.md | Same as above |
 | **Cursor** | AGENTS.md (project rule) | `.cursor/rules/*.mdc` — symlinks to `docs/agent/rules/` |
 
 ## Rule index
