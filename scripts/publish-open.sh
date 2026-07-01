@@ -32,12 +32,10 @@ CLOSED_PREFIXES=(
   "packages/brand-assets"
   "packages/csv-import"
   "packages/document-scanner"
-  "packages/document-sources"
   "packages/engenty-cli"
   "packages/pdf-service"
   "packages/pdf-templates"
   "packages/plate-editor"
-  "packages/scoped-kv-settings"
 )
 
 usage() {

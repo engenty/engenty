@@ -1,0 +1,38 @@
+export function getInboxToolbarLabels(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  total: number
+) {
+  return {
+    searchPlaceholder: t("inbox.search_placeholder"),
+    display: t("display.display"),
+    paginationSummary: t("inbox.pagination_summary", { total }),
+    sortByCaptured: t("inbox.sort_by_captured"),
+    sortByUpdated: t("inbox.sort_by_updated"),
+    sortByTitle: t("inbox.sort_by_title"),
+    sortByStatus: t("inbox.sort_by_status"),
+    ascending: t("display.ascending"),
+    descending: t("display.descending"),
+    compactView: t("display.compactView"),
+    tableView: t("display.tableView"),
+    cardsView: t("display.cardsView"),
+    sortBy: t("display.sortBy"),
+    displayedColumns: t("display.displayedColumns"),
+    hiddenInTable: t("display.hiddenInTable"),
+    showAll: t("display.showAll"),
+    hideAll: t("display.hideAll"),
+    noColumnsDisplayed: t("display.noColumnsDisplayed"),
+    colTitle: t("inbox.col_title"),
+    colStatus: t("inbox.col_status"),
+    colSourceType: t("inbox.col_source_type"),
+    colAdapterType: t("inbox.col_adapter_type"),
+    colCaptured: t("inbox.col_captured"),
+    statusFilterAll: t("inbox.status_all"),
+    statusNew: t("inbox.status_new"),
+    statusTriaged: t("inbox.status_triaged"),
+    statusNeedsReview: t("inbox.status_needs_review"),
+    statusPromoted: t("inbox.status_promoted"),
+    statusDiscarded: t("inbox.status_discarded"),
+    statusFailed: t("inbox.status_failed"),
+    clearFilters: t("inbox.clear_filters"),
+  };
+}

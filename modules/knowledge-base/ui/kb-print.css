@@ -1,0 +1,38 @@
+/**
+ * Knowledge Base — print refinements for article (and similar) views.
+ * Relies on Engenty base print styles from the app shell (imported in the host app `index.css`) for chrome hiding.
+ */
+
+@media print {
+  .kb-article-print {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .kb-article-print .prose {
+    max-width: none !important;
+  }
+
+  .kb-article-print .text-muted-foreground {
+    color: #333 !important;
+  }
+
+  .kb-article-print .rounded-lg.border,
+  .kb-article-print .rounded-md.border {
+    border-color: #ccc !important;
+    box-shadow: none !important;
+  }
+
+  .kb-article-reading-reader {
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    color: #111 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .kb-article-reading-large {
+    font-size: inherit !important;
+  }
+}

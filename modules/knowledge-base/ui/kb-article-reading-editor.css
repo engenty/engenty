@@ -1,0 +1,15 @@
+/**
+ * KB article detail — Large / Reader body size for TipTap read-only.
+ *
+ * Package `@engenty/tiptap-editor/styles.css` sets
+ * `.tiptap-rich-editor .tiptap { font-size: 0.9375rem }`, which wins over
+ * Tailwind arbitrary utilities on an ancestor. Scope a higher-specificity
+ * override under the reading-mode classes on the article wrap.
+ */
+.kb-article-reading-large .tiptap-base-editor .tiptap,
+.kb-article-reading-large .tiptap-rich-editor .tiptap,
+.kb-article-reading-reader .tiptap-base-editor .tiptap,
+.kb-article-reading-reader .tiptap-rich-editor .tiptap {
+  font-size: 1.2rem;
+  line-height: 1.5;
+}

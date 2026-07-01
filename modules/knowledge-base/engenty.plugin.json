@@ -1,0 +1,149 @@
+{
+  "id": "knowledge-base",
+  "name": "Knowledge Base",
+  "description": "Knowledge base with articles, tags, FAQs, and AI-powered assistants",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.knowledge-base",
+    "module.knowledge-base.read",
+    "module.knowledge-base.write",
+    "ui.route.module.knowledge-base"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "frontendTools": true
+  },
+  "supabase": {
+    "storageBuckets": [
+      {
+        "name": "module-kb-attachments",
+        "public": false,
+        "fileSizeLimit": "50MiB",
+        "allowedMimeTypes": [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "image/png",
+          "image/jpeg",
+          "image/gif",
+          "image/webp",
+          "text/plain",
+          "text/markdown",
+          "text/csv"
+        ]
+      }
+    ]
+  },
+  "env": {
+    "feature": {
+      "id": "ingestion",
+      "label": "Web ingest & document parsing (Firecrawl / LlamaParse / Exa)",
+      "description": "Knowledge-base ingestion and document parsing"
+    },
+    "vars": [
+      {
+        "description": "Firecrawl web crawling/scraping (knowledge-base ingestion).",
+        "feature": "ingestion",
+        "group": "Web ingest & document parsing",
+        "key": "FIRECRAWL_API_KEY",
+        "obtain": {
+          "kind": "provider",
+          "instructions": ["Create a key in the Firecrawl dashboard."],
+          "url": "https://www.firecrawl.dev/app/api-keys"
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": true
+      },
+      {
+        "description": "LlamaParse / LlamaCloud document parsing (OCR, tables).",
+        "feature": "ingestion",
+        "group": "Web ingest & document parsing",
+        "key": "LLAMA_CLOUD_API_KEY",
+        "obtain": {
+          "kind": "provider",
+          "instructions": ["Create a key in LlamaCloud → API keys."],
+          "url": "https://cloud.llamaindex.ai"
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": true
+      },
+      {
+        "description": "Exa web search tool (optional; tool disabled when unset).",
+        "feature": "ingestion",
+        "group": "Web ingest & document parsing",
+        "key": "EXA_API_KEY",
+        "obtain": {
+          "kind": "provider",
+          "instructions": ["Create a key in the Exa dashboard."],
+          "url": "https://dashboard.exa.ai/api-keys"
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": true
+      },
+      {
+        "description": "Firecrawl API base URL override (self-hosted Firecrawl; cloud API when unset).",
+        "feature": "ingestion",
+        "group": "Web ingest & document parsing",
+        "key": "FIRECRAWL_API_URL",
+        "obtain": {
+          "kind": "manual",
+          "instructions": [
+            "Set to the base URL of a self-hosted Firecrawl instance."
+          ]
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": false,
+        "validate": "url"
+      },
+      {
+        "description": "Unsplash access key for article cover image search (picker hidden when unset).",
+        "group": "Knowledge base",
+        "key": "UNSPLASH_ACCESS_KEY",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "Create an app in the Unsplash developer dashboard and copy its Access Key."
+          ],
+          "url": "https://unsplash.com/oauth/applications"
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": true
+      },
+      {
+        "description": "AI Gateway model id for cover image generation (built-in default when unset).",
+        "group": "Knowledge base",
+        "key": "AI_GATEWAY_IMAGE_MODEL",
+        "obtain": {
+          "kind": "manual",
+          "instructions": [
+            "Set to an image-capable model id available through the configured AI gateway."
+          ]
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": false
+      },
+      {
+        "description": "IANA timezone for source refresh schedules (falls back to TZ, then UTC).",
+        "exampleValue": "Europe/Vienna",
+        "group": "Knowledge base",
+        "key": "ENGENTY_KB_SOURCE_SCHEDULE_TZ",
+        "obtain": {
+          "kind": "manual",
+          "instructions": ["Set to an IANA timezone name, e.g. Europe/Vienna."]
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": false
+      }
+    ]
+  }
+}

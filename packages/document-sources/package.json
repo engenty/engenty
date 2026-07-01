@@ -1,0 +1,59 @@
+{
+  "name": "@engenty/document-sources",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pluggable URL / feed / index adapters and helpers for scheduled document ingestion (consumers: knowledge-base, etc.)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/public.d.ts",
+      "default": "./dist/adapters/public.js"
+    },
+    "./react/schedule-fields": {
+      "types": "./dist/react/document-source-schedule-fields.d.ts",
+      "default": "./dist/react/document-source-schedule-fields.js"
+    },
+    "./registry": {
+      "types": "./dist/registry-export.d.ts",
+      "default": "./dist/registry-export.js"
+    },
+    "./schedule": {
+      "types": "./dist/schedule-export.d.ts",
+      "default": "./dist/schedule-export.js"
+    }
+  },
+  "peerDependencies": {
+    "@engenty/ui-core": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/adapters/public.ts src/react/document-source-schedule-fields.tsx src/registry-export.ts src/schedule-export.ts --format esm --dts --clean --external react --external react-dom --external @engenty/ui-core",
+    "dev": "tsup src/index.ts src/adapters/public.ts src/react/document-source-schedule-fields.tsx src/registry-export.ts src/schedule-export.ts --format esm --dts --watch --external react --external react-dom --external @engenty/ui-core",
+    "test": "vitest run --config vitest.config.ts --exclude 'dist/**'",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@engenty/web-ingest": "workspace:*",
+    "cron-parser": "^5.6.0",
+    "cronstrue": "^3.20.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@engenty/ui-core": "workspace:*",
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

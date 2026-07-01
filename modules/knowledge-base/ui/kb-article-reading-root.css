@@ -1,0 +1,31 @@
+/**
+ * Reader (stored as "tone") paints the shell while KB article detail is mounted.
+ * `ArticleDetailPage` sets `html[data-kb-reading="reader"]`; cleanup removes it on unmount.
+ */
+html[data-kb-reading="reader"] {
+  --kb-reader-surface: #f4f1ea;
+  --kb-reader-foreground: #1c1917;
+}
+
+html.dark[data-kb-reading="reader"] {
+  --kb-reader-surface: #18140f;
+  --kb-reader-foreground: #fafaf9;
+}
+
+html[data-kb-reading="reader"] .shell-surface {
+  background-color: var(--kb-reader-surface) !important;
+}
+
+html[data-kb-reading="reader"] nav[data-topbar-chrome="content-blend"] {
+  color: var(--kb-reader-foreground);
+  background-color: var(--kb-reader-surface) !important;
+}
+
+html[data-kb-reading="reader"] [data-engenty-content-stack] > :first-child {
+  background-color: var(--kb-reader-surface) !important;
+}
+
+html[data-kb-reading="reader"] #engenty-app-main {
+  color: var(--kb-reader-foreground);
+  background-color: var(--kb-reader-surface) !important;
+}

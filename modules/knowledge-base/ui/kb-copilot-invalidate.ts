@@ -1,0 +1,44 @@
+import type { QueryClient } from "@engenty/query-client";
+import { kbArticleKeys } from "./queries.js";
+
+const ARTICLE_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolves a KB article id from common article view/edit URLs so detail queries
+ * refetch after copilot tools mutate articles.
+ */
+export function extractKbArticleIdFromPathname(
+  pathname: string
+): string | null {
+  const scoped = pathname.match(
+    /^\/mdl\/knowledge-base\/[^/]+\/([^/]+)(?:\/edit)?\/?$/i
+  );
+  if (scoped?.[1] && ARTICLE_UUID.test(scoped[1])) {
+    return scoped[1];
+  }
+  const legacy = pathname.match(
+    /^\/mdl\/knowledge-base\/([^/]+)(?:\/edit)?\/?$/i
+  );
+  if (legacy?.[1] && ARTICLE_UUID.test(legacy[1])) {
+    return legacy[1];
+  }
+  return null;
+}
+
+/** After a KB copilot assistant turn, refresh article lists and any open article detail. */
+export async function invalidateKbDataAfterCopilotAssistantTurn(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  pathname: string
+): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: kbArticleKeys.all });
+  const articleId = extractKbArticleIdFromPathname(pathname);
+  if (articleId) {
+    await queryClient.invalidateQueries({
+      queryKey: ["kb", "articles", "detail", articleId],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["kb", "articles", "versions", articleId],
+    });
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@engenty/scoped-kv-settings",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup index.ts --format esm --dts --clean",
+    "dev": "tsup index.ts src/dal/index.ts src/types.ts --format esm --dts --watch",
+    "test": "vitest run -r ../.. packages/scoped-kv-settings",
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engenty/tenant-settings": "workspace:*",
+    "@supabase/supabase-js": "^2.108.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
