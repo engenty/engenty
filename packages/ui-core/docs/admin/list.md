@@ -53,6 +53,12 @@ return (
 
 Switch on `display.viewMode` to render `AdminListCardsView` instead when the user picks cards view.
 
+## Card grid layout
+
+`AdminListCardsView` renders a scroll area only — **no outer elevated list shell**. Individual items in the grid should be elevated cards (`.ui-canvas-raised` or `bg-card` with canvas shadow tokens) sitting directly on the page canvas.
+
+Pair with `adminListCardsGridClassName(tableSize)` for the responsive grid. Use `AdminListTableView` with `transparent` when the table view should also skip the outer shell.
+
 ## When not to use
 
 - **Display toggles and column picker** — use `ListDisplayConfigurator` from [list preferences](./list-preferences), not ad-hoc toolbar controls.
