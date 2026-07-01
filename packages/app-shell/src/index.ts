@@ -81,6 +81,7 @@ export {
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
   type CopilotPersistedPanelMode,
+  reconcileCopilotLayoutSnapshot,
 } from "./types/copilot-layout";
 export {
   COPILOT_LAYOUT_NOOP,

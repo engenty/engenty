@@ -60,6 +60,17 @@ describe("copilot-layout-snapshot", () => {
     expect(s?.fabPosition).toBeUndefined();
   });
 
+  it("reconciles open + collapseToCircle to expanded layout", () => {
+    const s = parseCopilotLayoutSnapshot({
+      v: 1,
+      open: true,
+      preferredDockMode: "sidebar",
+      collapseToCircle: true,
+    });
+    expect(s?.open).toBe(true);
+    expect(s?.collapseToCircle).toBe(false);
+  });
+
   it("merges fabPosition", () => {
     const base = mergeCopilotLayoutSnapshot(
       { v: 1, open: false, preferredDockMode: null },

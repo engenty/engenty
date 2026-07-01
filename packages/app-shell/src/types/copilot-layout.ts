@@ -27,6 +27,16 @@ export interface CopilotLayoutSnapshotV1 {
   v: 1;
 }
 
+/** `open` + collapsed circle hides all chrome; force expanded when shell is open. */
+export function reconcileCopilotLayoutSnapshot(
+  snapshot: CopilotLayoutSnapshotV1
+): CopilotLayoutSnapshotV1 {
+  if (snapshot.open && snapshot.collapseToCircle) {
+    return { ...snapshot, collapseToCircle: false };
+  }
+  return snapshot;
+}
+
 /** Injected by the host (e.g. React Query + user-settings API). */
 export interface CopilotLayoutPersistenceApi {
   layoutHydrated: boolean;

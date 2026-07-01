@@ -4,6 +4,7 @@ import {
   createEmptyCopilotLayoutSnapshot,
   mergeCopilotLayoutSnapshot,
   parseCopilotLayoutSnapshot,
+  reconcileCopilotLayoutSnapshot,
 } from "@engenty/ai-ui";
 import { queryOptions, useQuery, useQueryClient } from "@engenty/query-client";
 import { useCallback, useMemo, useRef } from "react";
@@ -39,8 +40,11 @@ export const copilotLayoutQueryOptions = queryOptions({
       typeof res.value === "object"
     ) {
       const snapshot = parseCopilotLayoutSnapshot(res.value);
-      logCopilotLayout("loaded snapshot", { snapshot });
-      return snapshot;
+      const reconciled = snapshot
+        ? reconcileCopilotLayoutSnapshot(snapshot)
+        : null;
+      logCopilotLayout("loaded snapshot", { snapshot: reconciled });
+      return reconciled;
     }
     logCopilotLayout("loaded snapshot", { snapshot: null });
     return null;

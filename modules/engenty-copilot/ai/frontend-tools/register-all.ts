@@ -20,6 +20,7 @@ export interface RegisterCopilotFrontendToolsOptions {
   changeLanguage: (locale: CopilotLocale) => Promise<unknown>;
   invalidateWorkspaceContext: () => Promise<unknown>;
   open: boolean;
+  openCopilotShell: () => void;
   persistAppearance: (key: string, value: unknown) => Promise<unknown>;
   setOpen: (open: boolean) => void;
   setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
@@ -29,9 +30,13 @@ export interface RegisterCopilotFrontendToolsOptions {
 export function useRegisterCopilotFrontendTools(
   options: RegisterCopilotFrontendToolsOptions
 ): void {
-  useRegisterNavigateFrontendTool({ setOpen: options.setOpen });
+  useRegisterNavigateFrontendTool({
+    openCopilotShell: options.openCopilotShell,
+  });
   useRegisterOfferFileDownloadsFrontendTool();
-  useRegisterOpenCopilotFrontendTool({ setOpen: options.setOpen });
+  useRegisterOpenCopilotFrontendTool({
+    openCopilotShell: options.openCopilotShell,
+  });
   useRegisterCloseCopilotFrontendTool({ setOpen: options.setOpen });
   useRegisterSetCopilotDockModeFrontendTool({
     setPreferredDockMode: options.setPreferredDockMode,

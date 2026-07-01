@@ -97,6 +97,11 @@ export {
   formatCopilotRouteStatusLabel,
 } from "./copilot/drawer/copilot-drawer.js";
 export type { CopilotDrawerInjectedSession } from "./copilot/drawer/copilot-drawer-injected-session.js";
+export {
+  type OpenCopilotShellInput,
+  openCopilotShell,
+  resolveCopilotOpenDockMode,
+} from "./copilot/drawer/copilot-drawer-utils.js";
 export { CopilotOpenInterruptBanner } from "./copilot/interrupts/copilot-open-interrupt-banner.js";
 export {
   type CopilotDecisionInterruptFeedback,
@@ -145,6 +150,7 @@ export {
   createEmptyCopilotLayoutSnapshot,
   mergeCopilotLayoutSnapshot,
   parseCopilotLayoutSnapshot,
+  reconcileCopilotLayoutSnapshot,
 } from "./copilot/session/copilot-layout-snapshot.js";
 export { useCopilotSuggestionsState } from "./copilot/session/use-copilot-suggestions-state.js";
 export {

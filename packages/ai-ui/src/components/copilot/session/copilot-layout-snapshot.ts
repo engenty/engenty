@@ -9,11 +9,13 @@ export {
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
   type CopilotPersistedPanelMode,
+  reconcileCopilotLayoutSnapshot,
 } from "@engenty/app-shell";
 
-import type {
-  CopilotLayoutPersistDockMode,
-  CopilotLayoutSnapshotV1,
+import {
+  type CopilotLayoutPersistDockMode,
+  type CopilotLayoutSnapshotV1,
+  reconcileCopilotLayoutSnapshot,
 } from "@engenty/app-shell";
 
 function isFiniteNumber(n: unknown): n is number {
@@ -98,7 +100,7 @@ export function parseCopilotLayoutSnapshot(
       ? o.panelMode
       : undefined;
 
-  return {
+  return reconcileCopilotLayoutSnapshot({
     v: 1,
     open,
     preferredDockMode,
@@ -107,7 +109,7 @@ export function parseCopilotLayoutSnapshot(
     floatingSize,
     collapseToCircle,
     panelMode,
-  };
+  });
 }
 
 export function createEmptyCopilotLayoutSnapshot(): CopilotLayoutSnapshotV1 {
@@ -122,7 +124,7 @@ export function mergeCopilotLayoutSnapshot(
   base: CopilotLayoutSnapshotV1,
   patch: Partial<CopilotLayoutSnapshotV1>
 ): CopilotLayoutSnapshotV1 {
-  return {
+  return reconcileCopilotLayoutSnapshot({
     v: 1,
     open: patch.open === undefined ? base.open : patch.open,
     preferredDockMode:
@@ -142,5 +144,5 @@ export function mergeCopilotLayoutSnapshot(
         ? base.collapseToCircle
         : patch.collapseToCircle,
     panelMode: patch.panelMode === undefined ? base.panelMode : patch.panelMode,
-  };
+  });
 }

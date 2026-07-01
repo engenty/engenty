@@ -2,7 +2,7 @@
 // `CopilotShellUiHost`; `ActiveCopilotProvider` wraps layout in App.tsx so
 // full-page chat and the drawer share the same lane via `useAgentHost` + copilot hooks.
 
-import { ACTIVE_COPILOT_AGENT_ID } from "@engenty/ai-ui";
+import { ACTIVE_COPILOT_AGENT_ID, openCopilotShell } from "@engenty/ai-ui";
 import {
   useAgentUiFrontendTools,
   useAgentUiStateSnapshot,
@@ -126,10 +126,25 @@ export function CopilotProviderContent() {
     });
   }, [queryClient]);
 
+  const openCopilotShellAction = useCallback(() => {
+    openCopilotShell({
+      mergeLayout: shell?.copilotLayout.mergeLayout,
+      preferredDockMode: shell?.preferredDockMode ?? null,
+      setOpen,
+      setPreferredDockMode,
+    });
+  }, [
+    shell?.copilotLayout.mergeLayout,
+    shell?.preferredDockMode,
+    setOpen,
+    setPreferredDockMode,
+  ]);
+
   useRegisterCopilotFrontendTools({
     changeLanguage: i18n.changeLanguage.bind(i18n),
     invalidateWorkspaceContext,
     open,
+    openCopilotShell: openCopilotShellAction,
     persistAppearance,
     setOpen,
     setPreferredDockMode,
@@ -247,9 +262,9 @@ export function CopilotProviderContent() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("copilot") === "open" && !open) {
-      setOpen(true);
+      openCopilotShellAction();
     }
-  }, [location.search, open, setOpen]);
+  }, [location.search, open, openCopilotShellAction]);
 
   // Full-page chat surface owns the only visible copilot slot; drawer chrome
   // closes on entry and restores its prior open state on exit so navigating
@@ -282,9 +297,9 @@ export function CopilotProviderContent() {
     });
     openBeforeChatRef.current = null;
     if (restoreOpen && !open) {
-      setOpen(true);
+      openCopilotShellAction();
     }
-  }, [isDedicatedChatSurface, open, setOpen, location.pathname]);
+  }, [isDedicatedChatSurface, open, openCopilotShellAction, location.pathname]);
 
   useEffect(() => {
     logCopilotUiState("shell snapshot", {

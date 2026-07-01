@@ -14,7 +14,7 @@ export function useNavigateFrontendToolExecutor(): AgentUiFrontendToolHandler {
 }
 
 export function useRegisterNavigateFrontendTool(options?: {
-  setOpen?: (open: boolean) => void;
+  openCopilotShell?: () => void;
 }): void {
   const navigate = useNavigate();
   // run.js stays the execution authority (internal-path security checks); the zod
@@ -23,7 +23,7 @@ export function useRegisterNavigateFrontendTool(options?: {
     ...NAVIGATE_SPEC,
     handler: (input) =>
       runNavigateFrontendTool(input, navigate, {
-        onNavigate: () => options?.setOpen?.(true),
+        onNavigate: () => options?.openCopilotShell?.(),
       }),
   });
 }

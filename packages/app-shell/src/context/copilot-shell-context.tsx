@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import { useMediaQuery } from "../hooks/use-media-query";
+import { reconcileCopilotLayoutSnapshot } from "../types/copilot-layout";
 import type {
   CopilotDockMode,
   CopilotLayoutPersistence,
@@ -138,12 +139,19 @@ export function CopilotShellProvider({
     }
     shellSnapshotAppliedRef.current = true;
     if (copilotLayout.snapshot) {
-      setOpen(copilotLayout.snapshot.open);
+      const snapshot = reconcileCopilotLayoutSnapshot(copilotLayout.snapshot);
+      setOpen(snapshot.open);
       setPreferredDockMode(
-        (copilotLayout.snapshot.preferredDockMode as CopilotDockMode | null) ??
+        (snapshot.preferredDockMode as CopilotDockMode | null) ??
           defaultDockMode ??
           null
       );
+      if (
+        copilotLayout.snapshot.open &&
+        copilotLayout.snapshot.collapseToCircle
+      ) {
+        copilotLayout.mergeLayout({ collapseToCircle: false });
+      }
     } else {
       setPreferredDockMode(defaultDockMode ?? null);
     }

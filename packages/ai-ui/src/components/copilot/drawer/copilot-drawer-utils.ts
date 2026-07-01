@@ -1,3 +1,4 @@
+import type { CopilotLayoutSnapshotV1 } from "@engenty/app-shell";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
@@ -92,6 +93,22 @@ export function resolveCopilotOpenDockMode(
     return preferred;
   }
   return "sidebar";
+}
+
+export interface OpenCopilotShellInput {
+  mergeLayout?: (patch: Partial<CopilotLayoutSnapshotV1>) => void;
+  preferredDockMode?: CopilotDockMode | null;
+  setOpen: (open: boolean) => void;
+  setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
+}
+
+/** Open copilot shell from FAB-equivalent entry points (tools, URL params, etc.). */
+export function openCopilotShell(input: OpenCopilotShellInput): void {
+  input.mergeLayout?.({ collapseToCircle: false, open: true });
+  input.setPreferredDockMode?.(
+    resolveCopilotOpenDockMode(input.preferredDockMode)
+  );
+  input.setOpen(true);
 }
 
 function humanizeToken(value: string): string {

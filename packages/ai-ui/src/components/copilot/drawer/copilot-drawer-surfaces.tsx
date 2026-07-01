@@ -182,7 +182,7 @@ export function CopilotDrawerSurfaceTree({
     : null;
   const collapseMorph = renderCollapseMorph(layout);
 
-  if (showCompactLauncher && layout.collapseToCircle) {
+  if (showCompactLauncher && layout.collapseToCircle && !open) {
     return (
       <>
         {fabTrigger}
