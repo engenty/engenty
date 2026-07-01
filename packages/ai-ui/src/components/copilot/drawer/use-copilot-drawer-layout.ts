@@ -17,6 +17,9 @@ import {
   domRectToMorphRect,
 } from "./copilot-drawer-collapse-morph";
 import {
+  BUTTON_SNAP_FAB_INSET,
+  BUTTON_SNAP_FAB_SIZE,
+  BUTTON_SNAP_FAB_WIDTH,
   COMPACT_LAUNCHER_HEIGHT,
   COMPACT_LAUNCHER_WIDTH,
   FLOATING_DEFAULT_HEIGHT,
@@ -102,6 +105,13 @@ export function useCopilotDrawerLayout({
   >(null);
   const collapseMorphTimeoutRef = useRef<number | null>(null);
   const [isCollapsingToIcon, setIsCollapsingToIcon] = useState(false);
+
+  useLayoutEffect(() => {
+    if (open && collapseToCircle) {
+      setCollapseToCircle(false);
+    }
+  }, [open, collapseToCircle]);
+
   const [enterFromClose, setEnterFromClose] = useState(false);
   const [isIconDragging, setIsIconDragging] = useState(false);
   const [fabPosition, setFabPosition] = useState<{
@@ -302,7 +312,17 @@ export function useCopilotDrawerLayout({
 
   const resolveTriggerAnchor = useCallback(() => {
     if (fabPosition) {
-      return { x: fabPosition.x, y: fabPosition.y };
+      // Keep a persisted position within the current viewport so drag origin
+      // and speed-dial centering match the (clamped) rendered FAB position.
+      return clampFloatingPositionToViewport({
+        x: fabPosition.x,
+        y: fabPosition.y,
+        margin: BUTTON_SNAP_FAB_INSET,
+        surfaceWidth: BUTTON_SNAP_FAB_WIDTH,
+        surfaceHeight: BUTTON_SNAP_FAB_SIZE,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      });
     }
     const anchor = resolveFabTriggerAnchorStyle();
     if (!anchor || anchor.left == null || anchor.top == null) {
