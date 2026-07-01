@@ -18,8 +18,8 @@ import {
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
+import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
 
 interface AgentChatPanelProps {
   compactContextControl?: ReactNode;

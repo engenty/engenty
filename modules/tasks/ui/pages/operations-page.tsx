@@ -10,9 +10,7 @@ import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secon
 import { cancelTaskAgentRun } from "../lib/task-run-observer-api.js";
 import {
   activeGoalsOptions,
-  coordinatorStatusOptions,
   dispatchStatusOptions,
-  useRunCoordinatorNowMutation,
 } from "../operations-queries.js";
 import { useTaskSettingsQuery } from "../tasks-queries.js";
 
@@ -44,9 +42,7 @@ export function OperationsPage() {
     BUILTIN_TASK_STATUS_DEFINITIONS;
 
   const dispatchQuery = useQuery(dispatchStatusOptions());
-  const coordinatorQuery = useQuery(coordinatorStatusOptions());
   const goalsQuery = useQuery(activeGoalsOptions());
-  const runCoordinatorMutation = useRunCoordinatorNowMutation();
 
   const handleCancelRun = (runId: string) => {
     void cancelTaskAgentRun(runId, {
@@ -63,12 +59,7 @@ export function OperationsPage() {
         </span>
       </div>
 
-      <DispatchStatusStrip
-        coordinator={coordinatorQuery.data}
-        dispatch={dispatchQuery.data}
-        onRunCoordinator={() => runCoordinatorMutation.mutate()}
-        runPending={runCoordinatorMutation.isPending}
-      />
+      <DispatchStatusStrip dispatch={dispatchQuery.data} />
 
       <OperationsTree
         definitions={taskStatusDefinitions}

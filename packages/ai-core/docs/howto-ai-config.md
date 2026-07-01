@@ -13,7 +13,8 @@ Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/a
 |----------|-------------|---------|
 | `AI_GATEWAY_API_KEY` | API key for AI Gateway (required for copilot) | — |
 | `AI_CHAT_MODEL` | Model ID for chat/specialist | Package default from `DEFAULT_AI_CHAT_MODEL_ID` |
-| `AI_COORDINATOR_MODEL` | Model ID for coordinator routing | Falls back to `AI_CHAT_MODEL`, then package default |
+| `AI_ROUTING_MODEL` | Model ID for routing / supervisor decisions | Falls back to `AI_COORDINATOR_MODEL`, then `AI_CHAT_MODEL`, then package default |
+| `AI_COORDINATOR_MODEL` | Legacy alias for `AI_ROUTING_MODEL` | Same chain as `AI_ROUTING_MODEL` |
 
 Runtime resolution is centralized in `resolveChatModelId` (`@engenty/ai-core`): override → optional `tenantDefault` → env chain above → `DEFAULT_AI_CHAT_MODEL_ID`.
 
@@ -21,7 +22,8 @@ Runtime resolution is centralized in `resolveChatModelId` (`@engenty/ai-core`): 
 
 Stored under key `ai.config`. Parsed fields include:
 
-- `chat_model_id`, `coordinator_model_id` — copilot chat and coordinator
+- `chat_model_id`, `coordinator_model_id` (routing model; legacy JSON key) — copilot chat and supervisor/routing
+- `routing_model_id` — optional alias read by parsers; persisted settings still use `coordinator_model_id`
 - `classifier_model_id` — intended for fast single-shot classification (e.g. inbox document scan); default in UI is `openai/gpt-5-nano`
 
 Legacy keys such as `identity_prompt` / `soul_prompt` may still exist in stored JSON but are ignored by the API and UI.
@@ -33,8 +35,8 @@ The `apps/ai` session harness resolves tenant `ai.config` per run and passes res
 Typical resolution order:
 
 1. Per-request override (if any)
-2. Tenant `ai.config` (`chat_model_id`, `coordinator_model_id`)
-3. Environment variables (`AI_CHAT_MODEL`, `AI_COORDINATOR_MODEL`)
+2. Tenant `ai.config` (`chat_model_id`, `coordinator_model_id` / `routing_model_id`)
+3. Environment variables (`AI_CHAT_MODEL`, `AI_ROUTING_MODEL`, `AI_COORDINATOR_MODEL`)
 4. Package defaults (`DEFAULT_AI_CHAT_MODEL_ID`, etc.)
 
 ## Copilot instruction seeds

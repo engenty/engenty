@@ -8,7 +8,7 @@ import type {
 export type AgentRoleFilter = "all" | AiAgentRole;
 export type AgentSourceFilter = "all" | "builtin" | "module" | "custom";
 
-/** Section order: Copilot & coordinator / Workers / Chat surfaces / External / Custom. */
+/** Section order: Copilot / Workers / Chat surfaces / External / Custom. */
 export const AGENT_CATALOG_GROUPS = [
   "leadership",
   "specialists",
@@ -53,7 +53,6 @@ export function getAgentCatalogGroup(
 const ROLE_FILTER_VALUES: readonly AgentRoleFilter[] = [
   "all",
   "copilot",
-  "coordinator",
   "specialist",
   "chat_surface",
   "external",

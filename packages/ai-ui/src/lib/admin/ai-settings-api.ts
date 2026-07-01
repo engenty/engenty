@@ -1,6 +1,6 @@
 /**
  * AI settings persistence via tenant-settings KV.
- * Keys: ai.config (JSON) for chat/coordinator/classifier model defaults.
+ * Keys: ai.config (JSON) for chat/routing/classifier model defaults.
  */
 
 import {
@@ -16,8 +16,9 @@ export const AI_CONFIG_KEY = "ai.config";
 
 export interface AiConfig {
   chat_model_id?: string | null;
-  /** Fast single-shot model for classification (inbox attachment scan, routing). */
+  /** Fast single-shot model for classification (inbox attachment scan). */
   classifier_model_id?: string | null;
+  /** Routing / supervisor model (`coordinator_model_id` in stored JSON for legacy compat). */
   coordinator_model_id?: string | null;
   /** Knowledge-base document → markdown conversion preferences. */
   doc_converter?:
@@ -26,7 +27,9 @@ export interface AiConfig {
 }
 
 export const DEFAULT_CHAT_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
+/** @deprecated Use {@link DEFAULT_ROUTING_MODEL}. */
 export const DEFAULT_COORDINATOR_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
+export const DEFAULT_ROUTING_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
 /** Small / non-reasoning models work best for one-call document type classification. */
 export const DEFAULT_CLASSIFIER_MODEL = DEFAULT_AI_CLASSIFIER_MODEL_ID;
 

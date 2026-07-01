@@ -313,12 +313,7 @@ export function CopilotCompactComposerShell({
     <div
       className={cn("relative", rendered && "overflow-visible", className)}
       onBlur={(e) => {
-        if (
-          !isComposerChromeFocusTarget(
-            shellRef.current,
-            e.relatedTarget
-          )
-        ) {
+        if (!isComposerChromeFocusTarget(shellRef.current, e.relatedTarget)) {
           setIsFocused(false);
         }
       }}

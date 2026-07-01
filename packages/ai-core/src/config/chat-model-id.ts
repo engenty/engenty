@@ -58,6 +58,7 @@ export function resolveChatModelId(options: ResolveChatModelIdOptions): string {
   if (options.purpose === "routing") {
     const candidates = [
       ...prefix,
+      read("AI_ROUTING_MODEL"),
       read("AI_COORDINATOR_MODEL"),
       read("AI_CHAT_MODEL"),
     ];

@@ -31,16 +31,32 @@ export function getAppChatModel(config: Record<string, unknown>): string {
 }
 
 /**
- * App-level coordinator model id from config or env. Prefers config.aiCoordinatorModel
- * (when a string), then process.env.AI_COORDINATOR_MODEL. Returns trimmed string or "".
+ * App-level routing model id from config or env. Prefers `config.aiRoutingModel`,
+ * then legacy `config.aiCoordinatorModel`, then `AI_ROUTING_MODEL`, then
+ * `AI_COORDINATOR_MODEL`. Returns trimmed string or "".
  */
-export function getAppCoordinatorModel(
-  config: Record<string, unknown>
-): string {
-  const fromConfig =
+export function getAppRoutingModel(config: Record<string, unknown>): string {
+  const fromRoutingConfig =
+    typeof config.aiRoutingModel === "string"
+      ? config.aiRoutingModel.trim()
+      : "";
+  const fromCoordinatorConfig =
     typeof config.aiCoordinatorModel === "string"
       ? config.aiCoordinatorModel.trim()
       : "";
-  const fromEnv = env("AI_COORDINATOR_MODEL") ?? "";
-  return fromConfig || fromEnv;
+  const fromRoutingEnv = env("AI_ROUTING_MODEL") ?? "";
+  const fromCoordinatorEnv = env("AI_COORDINATOR_MODEL") ?? "";
+  return (
+    fromRoutingConfig ||
+    fromCoordinatorConfig ||
+    fromRoutingEnv ||
+    fromCoordinatorEnv
+  );
+}
+
+/** @deprecated Use {@link getAppRoutingModel}. */
+export function getAppCoordinatorModel(
+  config: Record<string, unknown>
+): string {
+  return getAppRoutingModel(config);
 }

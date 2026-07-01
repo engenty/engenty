@@ -27,4 +27,25 @@ describe("parseTenantAiSettings", () => {
       coordinator_model_id: null,
     });
   });
+
+  it("accepts routing_model_id and prefers it over coordinator_model_id", () => {
+    expect(
+      parseTenantAiSettings({
+        routing_model_id: "openai/gpt-5-nano",
+        coordinator_model_id: "anthropic/claude-sonnet-4.5",
+      })
+    ).toMatchObject({
+      coordinator_model_id: "openai/gpt-5-nano",
+    });
+  });
+
+  it("falls back from routing_model_id to coordinator_model_id", () => {
+    expect(
+      parseTenantAiSettings({
+        coordinator_model_id: "openai/gpt-5-mini",
+      })
+    ).toMatchObject({
+      coordinator_model_id: "openai/gpt-5-mini",
+    });
+  });
 });

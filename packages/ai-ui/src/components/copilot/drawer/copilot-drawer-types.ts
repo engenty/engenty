@@ -52,9 +52,9 @@ export interface CopilotDrawerProps {
   clearLabel?: string;
   closeLabel?: string;
   compactLabel?: string;
-  composerPlaceholder?: string;
   /** Optional control rendered below the compact composer (e.g. model chooser). */
   composerLeadingControl?: ReactNode;
+  composerPlaceholder?: string;
   copilotContext?: CopilotRouteContext;
   /** When set, persist floating layout via host merge (e.g. user-settings). From useCopilotShell().copilotLayout. */
   copilotLayout?: CopilotLayoutPersistenceApi | null;

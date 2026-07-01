@@ -10,11 +10,13 @@ import {
 describe("resolveChatModelId", () => {
   const origChat = process.env.AI_CHAT_MODEL;
   const origCoord = process.env.AI_COORDINATOR_MODEL;
+  const origRouting = process.env.AI_ROUTING_MODEL;
   const origCodeExec = process.env.AI_CODE_EXECUTION_MODEL;
 
   afterEach(() => {
     process.env.AI_CHAT_MODEL = origChat ?? "";
     process.env.AI_COORDINATOR_MODEL = origCoord ?? "";
+    process.env.AI_ROUTING_MODEL = origRouting ?? "";
     process.env.AI_CODE_EXECUTION_MODEL = origCodeExec ?? "";
   });
 
@@ -45,13 +47,22 @@ describe("resolveChatModelId", () => {
     expect(resolveChatModelId({ purpose: "chat" })).toBe("env/chat-only");
   });
 
-  it("uses coordinator then chat env for routing", () => {
+  it("uses routing env before coordinator then chat for routing", () => {
+    process.env.AI_ROUTING_MODEL = "env/routing";
+    process.env.AI_COORDINATOR_MODEL = "env/coord";
+    process.env.AI_CHAT_MODEL = "env/chat";
+    expect(resolveChatModelId({ purpose: "routing" })).toBe("env/routing");
+  });
+
+  it("uses coordinator then chat env for routing when routing env unset", () => {
+    process.env.AI_ROUTING_MODEL = "";
     process.env.AI_COORDINATOR_MODEL = "env/coord";
     process.env.AI_CHAT_MODEL = "env/chat";
     expect(resolveChatModelId({ purpose: "routing" })).toBe("env/coord");
   });
 
   it("falls back from coordinator to chat for routing", () => {
+    process.env.AI_ROUTING_MODEL = "";
     process.env.AI_COORDINATOR_MODEL = "";
     process.env.AI_CHAT_MODEL = "env/chat";
     expect(resolveChatModelId({ purpose: "routing" })).toBe("env/chat");
@@ -59,6 +70,7 @@ describe("resolveChatModelId", () => {
 
   it("uses package default when nothing set", () => {
     process.env.AI_CHAT_MODEL = "";
+    process.env.AI_ROUTING_MODEL = "";
     process.env.AI_COORDINATOR_MODEL = "";
     expect(resolveChatModelId({ purpose: "chat" })).toBe(
       DEFAULT_AI_CHAT_MODEL_ID

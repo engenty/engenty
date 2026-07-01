@@ -499,7 +499,7 @@
     "progress": {
       "runStarted": "Lauf gestartet",
       "contextLoaded": "Kontext geladen",
-      "coordinator": "Koordinator",
+      "routing": "Routing",
       "toolRunning": "Tool läuft",
       "toolCompleted": "Tool abgeschlossen",
       "completed": "Abgeschlossen",

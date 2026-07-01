@@ -73,7 +73,10 @@ import type {
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
 import type { AiChatSearchStore } from "./dal/chat-search/index.js";
 import { seedAiUsageModelPricing } from "./dal/usage/index.js";
-import { startGatewayModelSyncScheduler } from "./gateway-model-sync-scheduler.js";
+import {
+  bootstrapGatewayModelsIfEmpty,
+  startGatewayModelSyncScheduler,
+} from "./gateway-model-sync-scheduler.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
 
 const logger = createLogger({ name: "apps/ai" });
@@ -533,6 +536,13 @@ export async function createApp(options: CreateAppOptions = {}) {
     ) &&
     isGatewayModelStore(aiUsageStore)
   ) {
+    try {
+      await bootstrapGatewayModelsIfEmpty(aiUsageStore);
+    } catch (err) {
+      logger.warn("Gateway model bootstrap sync failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
     await startGatewayModelSyncScheduler(aiUsageStore);
   }
 

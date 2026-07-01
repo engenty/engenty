@@ -6,15 +6,15 @@ import {
 
 describe("chunkGatewayModelBatch", () => {
   it("uses the default gateway sync batch size", () => {
-    expect(GATEWAY_MODEL_UPSERT_BATCH_SIZE).toBe(75);
+    expect(GATEWAY_MODEL_UPSERT_BATCH_SIZE).toBe(50);
   });
 
   it("splits large model id lists for PostgREST .in() queries", () => {
     const modelIds = Array.from({ length: 297 }, (_, index) => `p/m-${index}`);
     const batches = chunkGatewayModelBatch(modelIds);
-    expect(batches).toHaveLength(4);
-    expect(batches[0]).toHaveLength(75);
-    expect(batches[3]).toHaveLength(72);
+    expect(batches).toHaveLength(6);
+    expect(batches[0]).toHaveLength(50);
+    expect(batches[5]).toHaveLength(47);
     expect(batches.flat()).toEqual(modelIds);
   });
 

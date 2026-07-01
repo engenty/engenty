@@ -47,7 +47,7 @@ export interface GenerateCopilotSessionTitleParams {
 
 /**
  * Produces a short conversation title from the latest user + assistant texts.
- * Uses the routing/coordinator model stack (typically smaller/faster than chat).
+ * Uses the routing model stack (typically smaller/faster than chat).
  */
 export async function generateCopilotSessionTitle(
   params: GenerateCopilotSessionTitleParams

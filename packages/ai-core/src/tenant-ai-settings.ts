@@ -12,6 +12,7 @@ export interface DocConverterTenantPrefs {
 export interface TenantAiSettings {
   chat_model_id?: string | null;
   classifier_model_id?: string | null;
+  /** Routing / supervisor model (stored as `coordinator_model_id` for legacy compat). */
   coordinator_model_id?: string | null;
   doc_converter?: DocConverterTenantPrefs | null;
   safeguard_model_id?: string | null;
@@ -62,9 +63,12 @@ export function parseTenantAiSettings(raw: unknown): TenantAiSettings {
     return {};
   }
   const o = raw as Record<string, unknown>;
+  const routingModelId =
+    parseGatewayModelId(o.routing_model_id) ??
+    parseGatewayModelId(o.coordinator_model_id);
   return {
     chat_model_id: parseGatewayModelId(o.chat_model_id),
-    coordinator_model_id: parseGatewayModelId(o.coordinator_model_id),
+    coordinator_model_id: routingModelId,
     classifier_model_id: parseGatewayModelId(o.classifier_model_id),
     doc_converter: parseDocConverterPrefs(o.doc_converter),
     safeguard_model_id: parseGatewayModelId(o.safeguard_model_id),

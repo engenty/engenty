@@ -482,6 +482,7 @@
     "autoRefreshHint": "Auto-refreshing",
     "dispatch": {
       "label": "Dispatcher",
+      "queueLabel": "Queue",
       "enabled": "Active",
       "disabled": "Disabled",
       "disabledTooltip": "Kill-switch ENGENTY_AGENT_TASK_DISPATCH_ENABLED is set to false",

@@ -51,7 +51,6 @@ export function AgentsCatalogToolbar({
   const roleOptions = [
     { label: t("agentsCatalog.filter.allRoles"), value: "all" },
     { label: t("agentsCatalog.role.copilot"), value: "copilot" },
-    { label: t("agentsCatalog.role.coordinator"), value: "coordinator" },
     { label: t("agentsCatalog.role.specialist"), value: "specialist" },
     { label: t("agentsCatalog.role.chatSurface"), value: "chat_surface" },
     { label: t("agentsCatalog.role.external"), value: "external" },

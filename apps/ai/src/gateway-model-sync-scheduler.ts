@@ -7,6 +7,26 @@ import {
 const logger = createLogger({ name: "apps/ai/gateway-model-sync" });
 const DEFAULT_INTERVAL_MS = 86_400_000;
 
+/** Populate `ai.gateway_model` once when the catalog is empty (fresh DB / post-migrate). */
+export async function bootstrapGatewayModelsIfEmpty(
+  store: AiGatewayModelStore
+): Promise<boolean> {
+  const existing = await store.listGatewayModels({});
+  if (existing.length > 0) {
+    return false;
+  }
+  logger.info("Gateway model catalog empty — running bootstrap sync");
+  const result = await syncGatewayModels(store, { trigger: "scheduled" });
+  await store.markGatewayModelSyncSettingsRun(
+    result.run.completed_at ?? new Date().toISOString()
+  );
+  logger.info("Gateway model bootstrap sync completed", {
+    modelCount: result.model_count,
+    updatedModelCount: result.updated_model_count,
+  });
+  return true;
+}
+
 function envFlag(name: string): boolean | null {
   const value = process.env[name];
   if (value == null || value === "") {

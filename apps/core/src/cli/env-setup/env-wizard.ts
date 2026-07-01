@@ -306,6 +306,40 @@ async function harvestSupabase(
   return;
 }
 
+/** Write manifest `defaultValue` for optional, non-secret vars that are still unset. */
+function applyManifestDefaults(state: WizardState): void {
+  const applied: string[] = [];
+  for (const { scope, spec } of specsFor(state)) {
+    if (!spec.defaultValue || spec.secret || !isActive(state, spec)) {
+      continue;
+    }
+    if ((currentValue(state, scope, spec.key)?.trim() ?? "") !== "") {
+      continue;
+    }
+    const value = defaultValueForScope(spec, scope);
+    if (!value) {
+      continue;
+    }
+    const doc = state.docs.get(scope);
+    if (!doc) {
+      continue;
+    }
+    setValue(doc, spec.key, value, { commentLines: [spec.description] });
+    applied.push(`${spec.key}=${value} (${ENV_SCOPES[scope].envFile})`);
+  }
+  if (applied.length === 0) {
+    return;
+  }
+  saveDocs(state);
+  note(applied.join("\n"), "Applied defaults");
+}
+
+async function applyManifestDefaultsStep(
+  state: WizardState
+): Promise<undefined> {
+  applyManifestDefaults(state);
+}
+
 async function syncPortless(
   state: WizardState
 ): Promise<typeof CANCELLED | undefined> {
@@ -472,6 +506,7 @@ export async function runEnvInitWizard(
 
   const steps = [
     selectFeatures,
+    applyManifestDefaultsStep,
     generateSecrets,
     harvestSupabase,
     syncPortless,

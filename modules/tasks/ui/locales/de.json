@@ -482,6 +482,7 @@
     "autoRefreshHint": "Automatische Aktualisierung",
     "dispatch": {
       "label": "Dispatcher",
+      "queueLabel": "Warteschlange",
       "enabled": "Aktiv",
       "disabled": "Deaktiviert",
       "disabledTooltip": "Kill-Switch ENGENTY_AGENT_TASK_DISPATCH_ENABLED ist auf false gesetzt",

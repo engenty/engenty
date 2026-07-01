@@ -53,6 +53,28 @@
         "secret": false
       },
       {
+        "description": "Enable apps/ai to refresh the Gateway model catalog from Vercel AI Gateway on a schedule.",
+        "defaultValue": "true",
+        "feature": "ai",
+        "group": "AI",
+        "key": "AI_GATEWAY_MODEL_SYNC_ENABLED",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Run Gateway model catalog sync when apps/ai starts (populates copilot model dropdowns after fresh setup).",
+        "defaultValue": "true",
+        "feature": "ai",
+        "group": "AI",
+        "key": "AI_GATEWAY_MODEL_SYNC_RUN_ON_START",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
         "description": "OpenAI API key (optional fallback model provider / realtime voice).",
         "feature": "ai",
         "group": "AI",
