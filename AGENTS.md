@@ -120,7 +120,7 @@ Use `@engenty/query-client` (`useQuery`, `useMutation`, `useInfiniteQuery`). No 
 
 ## Backend adapters
 
-No new `@supabase/supabase-js` imports outside approved adapter locations (DAL/adapter directories such as `src/dal/*`, `apps/core/src/identity|storage/*`).
+No new `@supabase/supabase-js` imports outside approved adapter locations (DAL/adapter directories such as `src/dal/*`, `apps/core/src/identity|storage/*`). Type-only imports of `SupabaseClient` are fine anywhere. Run `pnpm check:supabase-imports` to verify.
 
 ## File size
 
