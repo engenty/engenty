@@ -236,4 +236,20 @@ html.dark .ui-chrome-sharp {
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
   }
+
+  /**
+   * Logical: translucent floating panel (Apple-menu-style glass) — a lighter
+   * alternative to `.ui-canvas-floating` for surfaces that deliberately read
+   * the content behind them. Only background + blur live here; pair with
+   * Tailwind's `shadow-*`/`ring-*` utilities per consumer (a plain CSS
+   * box-shadow here would NOT compose with Tailwind's ring utility — both
+   * set the box-shadow property outright, so whichever cascades last wins
+   * and the other is lost, not layered). Opt in per component/variant; not a
+   * drop-in replacement for `.ui-canvas-floating`.
+   */
+  .ui-canvas-glass {
+    background-color: var(--popover);
+    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(40px);
+  }
 }
