@@ -10,44 +10,33 @@ import { cronToPreset, presetToCron } from "./schedule-cron.js";
 
 const routine: RoutineDto = {
   agent_id: "tasks.assist",
+  cron: "0 9 * * 1-5",
   description: "Sort the inbox",
   enabled: true,
-  enabled_by_default: true,
-  id: "custom:0b9f3a52-7c1d-4e2a-9f3b-1a2b3c4d5e6f",
+  id: "0b9f3a52-7c1d-4e2a-9f3b-1a2b3c4d5e6f",
   last_result: null,
   last_run_at: null,
-  module_id: "custom",
+  module_id: null,
   name: "Daily Email Sort",
   next_due_at: null,
   prompt: "Check emails",
   quiet_hours: null,
-  schedule: "0 9 * * 1-5",
-  schedule_override: null,
-  schedules: ["0 9 * * 1-5", "0 18 * * *"],
   source: "custom",
-  target_kind: "agent_prompt",
-  thread_id: null,
+  task_template_id: "11111111-2222-4333-8444-555555555555",
+  task_title: "Daily Email Sort",
 };
 
 describe("routine form value mapping", () => {
-  it("maps a RoutineDto into form values (all schedules)", () => {
+  it("maps a RoutineDto into form values", () => {
     const value = routineToFormValue(routine);
     expect(value.name).toBe("Daily Email Sort");
     expect(value.description).toBe("Sort the inbox");
     expect(value.agentId).toBe("tasks.assist");
     expect(value.prompt).toBe("Check emails");
-    expect(value.schedules).toEqual([
-      cronToPreset("0 9 * * 1-5"),
-      cronToPreset("0 18 * * *"),
-    ]);
+    expect(value.schedule).toEqual(cronToPreset("0 9 * * 1-5"));
   });
 
-  it("falls back to the single schedule when schedules is empty", () => {
-    const value = routineToFormValue({ ...routine, schedules: [] });
-    expect(value.schedules).toEqual([cronToPreset("0 9 * * 1-5")]);
-  });
-
-  it("builds the create/update payload with trimmed fields and cron strings", () => {
+  it("builds the create/update payload with trimmed fields and a cron string", () => {
     const value = routineToFormValue(routine);
     const payload = routineFormToPayload({
       ...value,
@@ -56,10 +45,10 @@ describe("routine form value mapping", () => {
     });
     expect(payload).toEqual({
       agent_id: "tasks.assist",
+      cron: presetToCron(value.schedule),
       description: null,
       name: "Daily Email Sort",
       prompt: "Check emails",
-      schedules: value.schedules.map((preset) => presetToCron(preset)),
     });
   });
 

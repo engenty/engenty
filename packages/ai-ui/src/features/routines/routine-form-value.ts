@@ -1,5 +1,7 @@
-// Shared form state for custom routines — used by the create dialog and the
-// tasks-module edit page so payload shaping/validation lives in one place.
+// Shared form state for custom routines (schedule triggers) — used by the
+// create dialog and the tasks-module edit page so payload shaping/validation
+// lives in one place. The routine name doubles as the materialized task's
+// title; the instructions become the task description.
 import type { CustomRoutineInput, RoutineDto } from "./routines-api.js";
 import {
   cronToPreset,
@@ -12,15 +14,13 @@ export interface RoutineFormValue {
   description: string;
   name: string;
   prompt: string;
-  schedules: PresetSchedule[];
+  schedule: PresetSchedule;
 }
 
 export type RoutineFormErrorKey =
   | "nameRequired"
   | "agentRequired"
   | "promptRequired";
-
-export const MAX_ROUTINE_SCHEDULES = 5;
 
 export function defaultRoutineFormValue(
   defaultAgentId?: string | null
@@ -30,20 +30,17 @@ export function defaultRoutineFormValue(
     description: "",
     name: "",
     prompt: "",
-    schedules: [{ type: "weekdays", hour: 9, minute: 0 }],
+    schedule: { type: "weekdays", hour: 9, minute: 0 },
   };
 }
 
 export function routineToFormValue(routine: RoutineDto): RoutineFormValue {
-  const rawSchedules = routine.schedules?.length
-    ? routine.schedules
-    : [routine.schedule];
   return {
     agentId: routine.agent_id ?? "",
     description: routine.description ?? "",
     name: routine.name,
     prompt: routine.prompt ?? "",
-    schedules: rawSchedules.map((cron) => cronToPreset(cron)),
+    schedule: cronToPreset(routine.cron ?? ""),
   };
 }
 
@@ -68,9 +65,9 @@ export function routineFormToPayload(
 ): CustomRoutineInput {
   return {
     agent_id: value.agentId,
+    cron: presetToCron(value.schedule),
     description: value.description.trim() || null,
     name: value.name.trim(),
     prompt: value.prompt.trim(),
-    schedules: value.schedules.map((preset) => presetToCron(preset)),
   };
 }

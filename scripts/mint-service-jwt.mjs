@@ -451,12 +451,12 @@ const expiresAt = signIn.expires_at
   : `now + ${signIn.expires_in}s`;
 ok(`Token minted, expires at: ${expiresAt}`);
 
-// 7. Validate token against GET /ai/v1/routines
-step("Validating token against GET /ai/v1/routines");
+// 7. Validate token against GET /ai/v1/triggers
+step("Validating token against GET /ai/v1/triggers");
 const AI_BASE_URL = (
   envLocal.ENGENTY_AI_BASE_URL ?? "https://ai.engenty.localhost"
 ).replace(/\/$/, "");
-const validateUrl = `${AI_BASE_URL}/ai/v1/routines`;
+const validateUrl = `${AI_BASE_URL}/ai/v1/triggers`;
 
 let validateRes;
 try {

@@ -153,24 +153,18 @@ export function RoutinesList({
                 <td className="whitespace-nowrap px-4 py-3.5">
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium text-xs ${
-                      routine.source === "builtin"
-                        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                        : routine.source === "custom"
-                          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      routine.source === "custom"
+                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                     }`}
                   >
-                    {routine.source === "builtin"
+                    {routine.source === "custom"
                       ? isDe
-                        ? "System"
-                        : "System"
-                      : routine.source === "custom"
-                        ? isDe
-                          ? "Eigene"
-                          : "Custom"
-                        : isDe
-                          ? "Modul"
-                          : "Module"}
+                        ? "Eigene"
+                        : "Custom"
+                      : isDe
+                        ? "Modul"
+                        : "Module"}
                   </span>
                 </td>
 

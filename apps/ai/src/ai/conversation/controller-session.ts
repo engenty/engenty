@@ -18,10 +18,13 @@
 // - The session is explicitly bound to the Engenty thread via
 //   `thread.switch` — `createSession`'s own "most recent thread" binding is
 //   only a starting point and never the thread this run must write to.
+import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { Agent } from "@mastra/core/agent";
 import { AgentController, type Session } from "@mastra/core/agent-controller";
 import type { MastraMemory } from "@mastra/core/memory";
-import { Workspace } from "@mastra/core/workspace";
+import { LocalFilesystem, Workspace } from "@mastra/core/workspace";
 
 /** Session-owned controller state Engenty uses (see yolo note above). */
 export interface ConversationControllerState {
@@ -44,13 +47,30 @@ export interface CreateConversationSessionInput {
   /** The run's authenticated user — the memory `resourceId` and session owner. */
   userId: string;
   /**
-   * The run's workspace, when the agent has one. A Session REQUIRES a workspace
-   * instance; runs without one get an empty `new Workspace({})`, which
-   * contributes no tools (workspace tools are gated on filesystem/sandbox
-   * presence) — the same behavior as the pre-Session runtime, which carried no
-   * workspace at all.
+   * The run's workspace, when the agent has one. A Session REQUIRES a valid
+   * workspace instance (and the Workspace constructor requires at least a
+   * filesystem, sandbox, or skills) — runs without one get the shared
+   * scratch-directory fallback from {@link fallbackSessionWorkspace}. The
+   * session-level workspace feeds no tools to the agent (workspace tools ride
+   * the AGENT's own workspace), so the fallback cannot leak capabilities.
    */
   workspace?: Workspace;
+}
+
+// One inert filesystem workspace shared by all sessions whose run has no
+// workspace of its own. Rooted in a scratch dir nothing writes to.
+let fallbackWorkspace: Workspace | null = null;
+
+function fallbackSessionWorkspace(): Workspace {
+  if (!fallbackWorkspace) {
+    const basePath = path.join(tmpdir(), "engenty-session-noop-workspace");
+    mkdirSync(basePath, { recursive: true });
+    fallbackWorkspace = new Workspace({
+      filesystem: new LocalFilesystem({ basePath }),
+      name: "engenty-session-fallback",
+    });
+  }
+  return fallbackWorkspace;
 }
 
 /**
@@ -78,7 +98,7 @@ export async function createConversationSession(
     id: input.id,
     ownerId: input.userId,
     resourceId: input.userId,
-    workspace: input.workspace ?? new Workspace({}),
+    workspace: input.workspace ?? fallbackSessionWorkspace(),
   });
   await session.thread.switch({ threadId: input.threadId });
   await session.state.set({ yolo: true });

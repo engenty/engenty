@@ -1,10 +1,11 @@
 // Module-declared ACTION.md / ROUTINE.md must reach the apps/ai runtime via
-// the module capability channel: GET /ai/v1/actions and listAllRoutines.
+// the module capability channel: GET /ai/v1/actions and the scheduler
+// reconcile (ROUTINE.md → trigger rows).
 import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { registerRegistryRoutes } from "../api/registry-routes.js";
-import { listAllRoutines } from "../routines/routine-registry.js";
+import { reconcileScheduler } from "../scheduler/heartbeat-sync.js";
 
 const fakeLoader: DynamicAiModuleCapabilityLoader = {
   async listModuleCapabilities() {
@@ -88,15 +89,45 @@ describe("module capability actions/routines runtime", () => {
     expect(action?.input_schema_json).toMatchObject({ type: "object" });
   });
 
-  it("listAllRoutines includes module routines from the capability channel", async () => {
-    const routines = await listAllRoutines(null, undefined, fakeLoader);
-    const weekly = routines.find(
-      (entry) => entry.definition.id === "demo-module.weekly"
+  it("reconcile creates trigger rows for module ROUTINE.md declarations", async () => {
+    const invocations: Array<{ input: Record<string, unknown>; op: string }> =
+      [];
+    const invokeOperation = vi.fn(
+      async (op: string, input?: Record<string, unknown>) => {
+        invocations.push({ input: input ?? {}, op });
+        if (op === "triggers_list") {
+          return [];
+        }
+        return {};
+      }
     );
-    // The capability channel transports module routines (task_template only).
-    expect(weekly?.source).toBe("module");
-    expect(weekly?.definition.target.kind).toBe("task_template");
-    // No builtin routines remain — maintenance moved to system jobs.
-    expect(routines.some((entry) => entry.source === "builtin")).toBe(false);
+    const fakeMastra = {
+      heartbeats: {
+        get: vi.fn(async () => null),
+        create: vi.fn(async (input: { id: string }) => ({ id: input.id })),
+        list: vi.fn(async () => []),
+      },
+    } as never;
+
+    await reconcileScheduler({
+      invokeOperation,
+      mastra: fakeMastra,
+      moduleLoader: fakeLoader,
+      tenantId: "tenant-1",
+    });
+
+    const create = invocations.find((entry) => entry.op === "triggers_create");
+    expect(create).toBeDefined();
+    expect(create?.input).toMatchObject({
+      cron: "*/30 * * * *",
+      kind: "schedule",
+      module_id: "demo-module",
+      module_key: "demo-module.weekly",
+      source: "module",
+      task_template: {
+        agent_type_key: "demo.agent",
+        title: "Weekly",
+      },
+    });
   });
 });
