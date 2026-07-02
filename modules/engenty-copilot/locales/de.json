@@ -18,6 +18,22 @@
     "missingScope": "Mandant oder Benutzer fehlt; nach der Anmeldung neu laden.",
     "agentChooserLabel": "Agent auswählen",
     "modelChooserLabel": "Modell auswählen",
+    "modelChooser": {
+      "searchPlaceholder": "Modelle durchsuchen…",
+      "emptyMessage": "Keine Modelle gefunden.",
+      "pricingIn": "Eingabe",
+      "pricingOut": "Ausgabe",
+      "pricingPerMtok": "/ Mtok",
+      "pricingUnknown": "Preis unbekannt",
+      "priceTier": {
+        "cheap": "Günstig",
+        "low": "Niedrig",
+        "medium": "Mittel",
+        "high": "Hoch",
+        "expensive": "Teuer",
+        "unknown": "Sonstige"
+      }
+    },
     "requestFailed": "apps/ai ist nicht erreichbar: {{message}}",
     "listLoadFailedTitle": "Chats konnten nicht geladen werden",
     "retry": "Erneut versuchen",
