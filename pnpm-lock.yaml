@@ -108,26 +108,26 @@ importers:
         specifier: ^2.0.5
         version: 2.0.5(hono@4.12.26)
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@mastra/docker':
         specifier: 0.4.0
-        version: 0.4.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
+        version: 0.4.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
       '@mastra/editor':
         specifier: ^0.13.0
-        version: 0.13.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.13.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
       '@mastra/files-sdk':
         specifier: ^0.3.0
-        version: 0.3.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(@opentelemetry/api@1.9.1)(@supabase/storage-js@2.108.2)(ai@7.0.0-beta.116(zod@4.4.3))(openai@6.44.0(ws@8.21.0)(zod@4.4.3))(zod@4.4.3)
+        version: 0.3.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(@opentelemetry/api@1.9.1)(@supabase/storage-js@2.108.2)(ai@7.0.0-beta.116(zod@4.4.3))(openai@6.44.0(ws@8.21.0)(zod@4.4.3))(zod@4.4.3)
       '@mastra/hono':
-        specifier: 1.5.0
-        version: 1.5.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(hono@4.12.26)(zod@4.4.3)
+        specifier: 1.5.3
+        version: 1.5.3(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(hono@4.12.26)(zod@4.4.3)
       '@mastra/memory':
-        specifier: 1.21.0
-        version: 1.21.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+        specifier: 1.22.0
+        version: 1.22.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
       '@mastra/pg':
-        specifier: 1.14.0
-        version: 1.14.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
+        specifier: 1.14.3
+        version: 1.14.3(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -167,7 +167,7 @@ importers:
         version: 8.20.0
       mastra:
         specifier: 1.15.0
-        version: 1.15.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(rxjs@7.8.1)(typescript@6.0.3)(zod@4.4.3)
+        version: 1.15.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(rxjs@7.8.1)(typescript@6.0.3)(zod@4.4.3)
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
@@ -559,8 +559,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -677,8 +677,8 @@ importers:
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -817,8 +817,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui-plugin-sdk
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       lucide-react:
         specifier: ^1.21.0
         version: 1.21.0(react@19.2.7)
@@ -999,11 +999,11 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@mastra/rag':
         specifier: 2.3.0
-        version: 2.3.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+        version: 2.3.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -1141,8 +1141,8 @@ importers:
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -1474,8 +1474,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@mastra/core':
-        specifier: 1.45.0
-        version: 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+        specifier: 1.48.0
+        version: 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -3041,6 +3041,12 @@ packages:
     peerDependencies:
       zod: 4.4.3
 
+  '@ai-sdk/provider-utils@2.2.8':
+    resolution: {integrity: sha512-fqhG+4sCVv8x7nFzYnFo19ryhAa3w096Kmc3hWxMQfW/TubPOmt3A6tYZhl4mUfQWWQMsuSkLrtjlWuXBVSGQA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: 4.4.3
+
   '@ai-sdk/provider-utils@3.0.25':
     resolution: {integrity: sha512-CvsRu+32Y8a167s+lrIBtsybvgTHp8j9y+6BeTvLeoW3Q+okw/b4CnNUFOLIXsRaKHQKAH+IHNJPYWywfpw0LA==}
     engines: {node: '>=18'}
@@ -3065,11 +3071,21 @@ packages:
     peerDependencies:
       zod: 4.4.3
 
+  '@ai-sdk/provider-utils@5.0.0':
+    resolution: {integrity: sha512-zj66M02jc6ASYwIgWZowsooDUwaVngeNZQ3H10GwcPMZ+KR6gHMhcUuKl6tkai+JPXTKDyHY1pnszuxRtw2D4A==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: 4.4.3
+
   '@ai-sdk/provider-utils@5.0.0-beta.30':
     resolution: {integrity: sha512-X3AxTsFJZr9Mw32SncWJA4/ShU8NA/XjhoallCYdcdQZ2gZZ/cIDyJJ6pNh1aBhicRNHv2ndgI6w/H2NGNIjOA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: 4.4.3
+
+  '@ai-sdk/provider@1.1.3':
+    resolution: {integrity: sha512-qZMxYJ0qqX/RfnuIaab+zp8UAeJn/ygXXAffR5I4N0n1IrvA6qBsjc8hXLmBiMV2zoXlifkacF7sEFnYnjBcqg==}
+    engines: {node: '>=18'}
 
   '@ai-sdk/provider@2.0.3':
     resolution: {integrity: sha512-h88OPkavHTiN9tMn2l5awAznGB0lXzjcLhgR1/rvjB2zlLprsNxbM2tt6OJsHUxduLC3klq0/eqaSf6fX5XVww==}
@@ -3083,6 +3099,10 @@ packages:
     resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
     engines: {node: '>=18'}
 
+  '@ai-sdk/provider@4.0.0':
+    resolution: {integrity: sha512-fr9Gs89prDWiuox/T+kCA+i2cJkHpxU5S+tr4megjTzRC27ZsvFhwjU/+XrqqMbvBUlfmXxTOYWy8ng45dsjIg==}
+    engines: {node: '>=22'}
+
   '@ai-sdk/provider@4.0.0-beta.14':
     resolution: {integrity: sha512-SMijtjVHs38n0dMkTcNuGrnStiF76OhAqS0R+ZX4iXUnuPPyTxQoVcF8Xuf2AoBB5rqndTId5FVT05bgqD5KsA==}
     engines: {node: '>=18'}
@@ -3092,6 +3112,12 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
+
+  '@ai-sdk/ui-utils@1.2.11':
+    resolution: {integrity: sha512-3zcwCc8ezzFlwp3ZD15wAPjf2Au4s3vAbKsXQVyhxODHcmu0iyPO2Eua6D/vicq/AUm/BAo60r97O6HU+EI0+w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: 4.4.3
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -4226,8 +4252,8 @@ packages:
     resolution: {integrity: sha512-qC72D4+CDdjGqJvkFMMEAtancHUQ7/d/tAiHf64z8MopFDmcrtbcJuerDtFceuAfQJ2pDSfCKCtbqoGBNnwg0w==}
     engines: {node: '>=8'}
 
-  '@mastra/core@1.45.0':
-    resolution: {integrity: sha512-UPpNL+iJVfypfc7IOKL9fhmoKKDe6IA6y+DwZDRSTN+uz/ft194e+TrB4LnBdYtTTeLhDO96mxW2rp9LK0ULhg==}
+  '@mastra/core@1.48.0':
+    resolution: {integrity: sha512-GoMizWnC0UfiibD0SjIDJuwUsE1Q7FidghL/9RUQCqbK7BsVKevhkQ0PrQa5xo+nzEXKwXnHmqnGAOBtsUkV0A==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       zod: 4.4.3
@@ -4260,11 +4286,11 @@ packages:
     peerDependencies:
       '@mastra/core': '>=1.4.0-0 <2.0.0-0'
 
-  '@mastra/hono@1.5.0':
-    resolution: {integrity: sha512-K8AEpvUKVNTtMpcldzNxWgWXrreuVU266SeV1C/aA0NdD/4bxNzr0FxtssXzkre+VmbxcP926Qbn1liVOKegfA==}
+  '@mastra/hono@1.5.3':
+    resolution: {integrity: sha512-zZ4DYxZI1ULFi5Q0bu/+GXrr0RBEbKIwdPedU5MzQI4Z2/3BrEFprwsu3r0ByCeSMeIcRKcni3Z0UPFtlInSgg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@mastra/core': '>=1.34.0-0 <2.0.0-0'
+      '@mastra/core': '>=1.47.0-0 <2.0.0-0'
       hono: ^4.12.8
 
   '@mastra/loggers@1.2.0':
@@ -4279,8 +4305,14 @@ packages:
     peerDependencies:
       '@mastra/core': '>=1.4.1-0 <2.0.0-0'
 
-  '@mastra/pg@1.14.0':
-    resolution: {integrity: sha512-OJl5bNMFHvk3KdBcuQY/ucExPYrfcRsj5oNDtDkVjf7OajL9XZfjfJyLMQW+bX7OZhW88j6CwUpa7iV7gJKAww==}
+  '@mastra/memory@1.22.0':
+    resolution: {integrity: sha512-F8fKeN+I3aQCllTqilqmZkA4iAZj3ZU0ozHFw7rR1Ln37q/0dP7V4GSSVtbQD1g2n98F5AhF3SWBUerU7J7RpQ==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.4.1-0 <2.0.0-0'
+
+  '@mastra/pg@1.14.3':
+    resolution: {integrity: sha512-+73lbePkz53YWRI04CkS9a3da/K2uhCSjh8tz8DBrvTlueIlTdCvEQp5yLaqE0xrL9MidnWjaWhmQGaQniT42A==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       '@mastra/core': '>=1.42.1-0 <2.0.0-0'
@@ -4298,11 +4330,24 @@ packages:
     peerDependencies:
       zod: 4.4.3
 
+  '@mastra/schema-compat@1.3.2':
+    resolution: {integrity: sha512-ArzpkHL/otVuMjjZn2tm6jNVikZvY5UTIGDhdMz1nI3zlN4TRfiOj2N86xcWwwEvL64dAhZ98Ce7Cp8SvZejWA==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      zod: 4.4.3
+
   '@mastra/server@1.45.0':
     resolution: {integrity: sha512-g+YacedrIb9CUeQkPhBi5PNzdESijaMid1KAf8GwSv0UyxNkIwZiM6FsmB+stTU+aPKGFmSYKM8mLWNBSojxLQ==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       '@mastra/core': '>=1.34.0-0 <2.0.0-0'
+      zod: 4.4.3
+
+  '@mastra/server@1.48.0':
+    resolution: {integrity: sha512-LQPhtfJW7uSDVfLcZ7LhlAcoBQ5cPbUmwicaZJSU7mDAhDC2bcp2W0lOjgzehYfke65/nJaSEMXBqGNkVG0qAA==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.47.0-0 <2.0.0-0'
       zod: 4.4.3
 
   '@mdx-js/mdx@3.1.1':
@@ -9911,6 +9956,9 @@ packages:
   secure-compare@3.0.1:
     resolution: {integrity: sha512-AckIIV90rPDcBcglUwXPF3kg0P0qmPsPXAj6BBEENQE1p5yA1xfmDJzfi1Tappj37Pv2mVbKpL3Z1T+Nn7k1Qw==}
 
+  secure-json-parse@2.7.0:
+    resolution: {integrity: sha512-6aU+Rwsezw7VR8/nyvKTx8QpWH9FrcYiXXlqC4z5d5XQBDRqtbfsRjnwGyqbi3gddNtWHuEk9OANUotL26qKUw==}
+
   secure-json-parse@4.1.0:
     resolution: {integrity: sha512-l4KnYfEyqYJxDwlNVyRfO2E4NTHfMKAWdUuA8J0yve2Dz/E/PdBepY03RvyJpssIpRFwJoCD55wA+mEDs6ByWA==}
 
@@ -10785,6 +10833,13 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.30(zod@4.4.3)
       zod: 4.4.3
 
+  '@ai-sdk/provider-utils@2.2.8(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 1.1.3
+      nanoid: 3.3.14
+      secure-json-parse: 2.7.0
+      zod: 4.4.3
+
   '@ai-sdk/provider-utils@3.0.25(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 2.0.3
@@ -10813,6 +10868,14 @@ snapshots:
       eventsource-parser: 3.1.0
       zod: 4.4.3
 
+  '@ai-sdk/provider-utils@5.0.0(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.0
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.0
+      zod: 4.4.3
+
   '@ai-sdk/provider-utils@5.0.0-beta.30(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.0-beta.14
@@ -10820,6 +10883,10 @@ snapshots:
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.1.0
       zod: 4.4.3
+
+  '@ai-sdk/provider@1.1.3':
+    dependencies:
+      json-schema: 0.4.0
 
   '@ai-sdk/provider@2.0.3':
     dependencies:
@@ -10830,6 +10897,10 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@3.0.8':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@4.0.0':
     dependencies:
       json-schema: 0.4.0
 
@@ -10846,6 +10917,13 @@ snapshots:
       throttleit: 2.1.0
     transitivePeerDependencies:
       - zod
+
+  '@ai-sdk/ui-utils@1.2.11(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 1.1.3
+      '@ai-sdk/provider-utils': 2.2.8(zod@4.4.3)
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -11151,10 +11229,10 @@ snapshots:
     dependencies:
       zod: 4.4.3
 
-  '@composio/mastra@0.6.11(@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
+  '@composio/mastra@0.6.11(@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
       '@composio/core': 0.6.11(ws@8.21.0)(zod@4.4.3)
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@mastra/schema-compat': 1.3.0(zod@4.4.3)
       zod: 4.4.3
 
@@ -11793,16 +11871,19 @@ snapshots:
     dependencies:
       '@lukeed/csprng': 1.1.0
 
-  '@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)':
+  '@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)':
     dependencies:
       '@a2a-js/sdk': 0.3.13(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(express@5.2.1)
       '@ai-sdk/provider-utils-v5': '@ai-sdk/provider-utils@3.0.25(zod@4.4.3)'
       '@ai-sdk/provider-utils-v6': '@ai-sdk/provider-utils@4.0.27(zod@4.4.3)'
+      '@ai-sdk/provider-utils-v7': '@ai-sdk/provider-utils@5.0.0(zod@4.4.3)'
       '@ai-sdk/provider-v5': '@ai-sdk/provider@2.0.3'
       '@ai-sdk/provider-v6': '@ai-sdk/provider@3.0.10'
+      '@ai-sdk/provider-v7': '@ai-sdk/provider@4.0.0'
+      '@ai-sdk/ui-utils-v5': '@ai-sdk/ui-utils@1.2.11(zod@4.4.3)'
       '@isaacs/ttlcache': 2.1.5
       '@lukeed/uuid': 2.0.1
-      '@mastra/schema-compat': 1.3.0(zod@4.4.3)
+      '@mastra/schema-compat': 1.3.2(zod@4.4.3)
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
       '@sindresorhus/slugify': 2.2.1
       '@standard-schema/spec': 1.1.0
@@ -11836,16 +11917,19 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)':
+  '@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)':
     dependencies:
       '@a2a-js/sdk': 0.3.13(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(express@5.2.1)
       '@ai-sdk/provider-utils-v5': '@ai-sdk/provider-utils@3.0.25(zod@4.4.3)'
       '@ai-sdk/provider-utils-v6': '@ai-sdk/provider-utils@4.0.27(zod@4.4.3)'
+      '@ai-sdk/provider-utils-v7': '@ai-sdk/provider-utils@5.0.0(zod@4.4.3)'
       '@ai-sdk/provider-v5': '@ai-sdk/provider@2.0.3'
       '@ai-sdk/provider-v6': '@ai-sdk/provider@3.0.10'
+      '@ai-sdk/provider-v7': '@ai-sdk/provider@4.0.0'
+      '@ai-sdk/ui-utils-v5': '@ai-sdk/ui-utils@1.2.11(zod@4.4.3)'
       '@isaacs/ttlcache': 2.1.5
       '@lukeed/uuid': 2.0.1
-      '@mastra/schema-compat': 1.3.0(zod@4.4.3)
+      '@mastra/schema-compat': 1.3.2(zod@4.4.3)
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
       '@sindresorhus/slugify': 2.2.1
       '@standard-schema/spec': 1.1.0
@@ -11879,14 +11963,14 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@mastra/deployer@1.45.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(typescript@6.0.3)(zod@4.4.3)':
+  '@mastra/deployer@1.45.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(typescript@6.0.3)(zod@4.4.3)':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7)
       '@babel/traverse': 7.29.7
       '@hono/node-ws': 1.3.1(@hono/node-server@2.0.5(hono@4.12.26))(hono@4.12.26)
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
-      '@mastra/server': 1.45.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/server': 1.45.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
       '@optimize-lodash/rollup-plugin': 5.1.0(rollup@4.62.2)
       '@rollup/plugin-alias': 6.0.0(rollup@4.62.2)
       '@rollup/plugin-commonjs': 29.0.2(rollup@4.62.2)
@@ -11917,29 +12001,29 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@mastra/docker@0.4.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
+  '@mastra/docker@0.4.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       dockerode: 4.0.12
     transitivePeerDependencies:
       - supports-color
 
-  '@mastra/editor@0.13.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@mastra/editor@0.13.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
     dependencies:
       '@arcadeai/arcadejs': 2.4.1
       '@composio/core': 0.6.11(ws@8.21.0)(zod@4.4.3)
-      '@composio/mastra': 0.6.11(@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
-      '@mastra/memory': 1.21.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+      '@composio/mastra': 0.6.11(@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/memory': 1.21.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
       '@mastra/schema-compat': 1.3.0(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
       - ws
       - zod
 
-  '@mastra/files-sdk@0.3.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(@opentelemetry/api@1.9.1)(@supabase/storage-js@2.108.2)(ai@7.0.0-beta.116(zod@4.4.3))(openai@6.44.0(ws@8.21.0)(zod@4.4.3))(zod@4.4.3)':
+  '@mastra/files-sdk@0.3.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(@opentelemetry/api@1.9.1)(@supabase/storage-js@2.108.2)(ai@7.0.0-beta.116(zod@4.4.3))(openai@6.44.0(ws@8.21.0)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       files-sdk: 1.9.0(@opentelemetry/api@1.9.1)(@supabase/storage-js@2.108.2)(ai@7.0.0-beta.116(zod@4.4.3))(openai@6.44.0(ws@8.21.0)(zod@4.4.3))(zod@4.4.3)
     transitivePeerDependencies:
       - '@anthropic-ai/claude-agent-sdk'
@@ -11976,11 +12060,11 @@ snapshots:
       - uploadthing
       - zod
 
-  '@mastra/hono@1.5.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(hono@4.12.26)(zod@4.4.3)':
+  '@mastra/hono@1.5.3(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(hono@4.12.26)(zod@4.4.3)':
     dependencies:
       '@hono/node-ws': 1.3.1(@hono/node-server@2.0.5(hono@4.12.26))(hono@4.12.26)
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
-      '@mastra/server': 1.45.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/server': 1.48.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
       fetch-to-node: 2.1.0
       hono: 4.12.26
       ws: 8.21.0
@@ -11990,15 +12074,15 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@mastra/loggers@1.2.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
+  '@mastra/loggers@1.2.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       pino: 10.3.1
       pino-pretty: 13.1.3
 
-  '@mastra/memory@1.21.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
+  '@mastra/memory@1.21.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@mastra/schema-compat': 1.3.0(zod@4.4.3)
       async-mutex: 0.5.0
       diff: 8.0.4
@@ -12012,9 +12096,25 @@ snapshots:
       - supports-color
       - zod
 
-  '@mastra/pg@1.14.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
+  '@mastra/memory@1.22.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/schema-compat': 1.3.2(zod@4.4.3)
+      async-mutex: 0.5.0
+      diff: 8.0.4
+      image-size: 1.2.1
+      json-schema: 0.4.0
+      lru-cache: 11.5.1
+      probe-image-size: 7.3.0
+      tokenx: 1.3.0
+      xxhash-wasm: 1.1.0
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@mastra/pg@1.14.3(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))':
+    dependencies:
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       async-mutex: 0.5.0
       pg: 8.22.0
       pg-connection-string: 2.14.0
@@ -12022,9 +12122,9 @@ snapshots:
     transitivePeerDependencies:
       - pg-native
 
-  '@mastra/rag@2.3.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
+  '@mastra/rag@2.3.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       big.js: 7.0.1
       js-tiktoken: 1.0.21
       node-html-better-parser: 1.5.8
@@ -12041,9 +12141,23 @@ snapshots:
       zod-from-json-schema-v3: zod-from-json-schema@0.0.5
       zod-to-json-schema: 3.25.2(zod@4.4.3)
 
-  '@mastra/server@1.45.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
+  '@mastra/schema-compat@1.3.2(zod@4.4.3)':
     dependencies:
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      json-schema-to-zod: 2.8.1
+      zod: 4.4.3
+      zod-from-json-schema: 0.5.3
+      zod-from-json-schema-v3: zod-from-json-schema@0.0.5
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
+
+  '@mastra/server@1.45.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      hono: 4.12.26
+      zod: 4.4.3
+
+  '@mastra/server@1.48.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       hono: 4.12.26
       zod: 4.4.3
 
@@ -16472,15 +16586,15 @@ snapshots:
 
   marked@18.0.5: {}
 
-  mastra@1.15.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(rxjs@7.8.1)(typescript@6.0.3)(zod@4.4.3):
+  mastra@1.15.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(rxjs@7.8.1)(typescript@6.0.3)(zod@4.4.3):
     dependencies:
       '@babel/parser': 7.29.7
       '@babel/types': 7.29.7
       '@clack/prompts': 1.6.0
       '@expo/devcert': 1.2.1
-      '@mastra/core': 1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
-      '@mastra/deployer': 1.45.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(typescript@6.0.3)(zod@4.4.3)
-      '@mastra/loggers': 1.2.0(@mastra/core@1.45.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
+      '@mastra/core': 1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
+      '@mastra/deployer': 1.45.0(@hono/node-server@2.0.5(hono@4.12.26))(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(typescript@6.0.3)(zod@4.4.3)
+      '@mastra/loggers': 1.2.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.0-beta.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))
       archiver: 8.0.0
       commander: 14.0.3
       dotenv: 17.4.2
@@ -18137,6 +18251,8 @@ snapshots:
       kind-of: 6.0.3
 
   secure-compare@3.0.1: {}
+
+  secure-json-parse@2.7.0: {}
 
   secure-json-parse@4.1.0: {}
 

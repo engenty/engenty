@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  HarnessAgUiConverter,
-  type HarnessEventLike,
-} from "../harness-agui-bridge.js";
+  SessionAgUiConverter,
+  type SessionEventLike,
+} from "../session-agui-bridge.js";
 
 type Ev = Record<string, unknown> & { type: string };
 
-function run(events: HarnessEventLike[]): Ev[] {
-  const converter = new HarnessAgUiConverter();
+function run(events: SessionEventLike[]): Ev[] {
+  const converter = new SessionAgUiConverter();
   const out = events.flatMap((e) => converter.convert(e));
   out.push(...converter.finish());
   return out as unknown as Ev[];
@@ -16,11 +16,11 @@ function run(events: HarnessEventLike[]): Ev[] {
 function assistantMessage(
   id: string,
   text: string
-): HarnessEventLike["message"] {
+): SessionEventLike["message"] {
   return { content: [{ text, type: "text" }], id, role: "assistant" };
 }
 
-describe("HarnessAgUiConverter", () => {
+describe("SessionAgUiConverter", () => {
   it("diffs full message content into TEXT_MESSAGE_CONTENT deltas", () => {
     const out = run([
       { message: assistantMessage("m1", "Hel"), type: "message_update" },
@@ -67,12 +67,12 @@ describe("HarnessAgUiConverter", () => {
         argsTextDelta: '{"q":',
         toolCallId: "t1",
         type: "tool_input_delta",
-      } as HarnessEventLike,
+      } as SessionEventLike,
       {
         argsTextDelta: '"cats"}',
         toolCallId: "t1",
         type: "tool_input_delta",
-      } as HarnessEventLike,
+      } as SessionEventLike,
       { toolCallId: "t1", type: "tool_input_end" },
       {
         isError: false,
@@ -116,7 +116,7 @@ describe("HarnessAgUiConverter", () => {
     // Mastra persists tool-invocations as PARTS of the assistant message; a tool
     // emitted under its own messageId is an orphan the client drops on finish (the
     // card vanishes). So once a message_* sets the id, tools must use it.
-    const converter = new HarnessAgUiConverter();
+    const converter = new SessionAgUiConverter();
     converter.convert({
       message: assistantMessage("m1", "calling a tool"),
       type: "message_update",
@@ -133,14 +133,14 @@ describe("HarnessAgUiConverter", () => {
   });
 
   it("captures the latest usage_update for recording", () => {
-    const converter = new HarnessAgUiConverter();
+    const converter = new SessionAgUiConverter();
     converter.convert({ type: "usage_update", usage: { totalTokens: 10 } });
     converter.convert({ type: "usage_update", usage: { totalTokens: 42 } });
     expect(converter.lastUsage).toEqual({ totalTokens: 42 });
   });
 
   it("maps native subagent_* events to an agent-* tool card with nested progress", () => {
-    const converter = new HarnessAgUiConverter();
+    const converter = new SessionAgUiConverter();
     const out = [
       {
         agentType: "research",

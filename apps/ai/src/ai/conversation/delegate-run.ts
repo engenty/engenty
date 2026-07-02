@@ -1,8 +1,8 @@
 // Phase 3 — child-run delegation engine. Runs a delegated agent (e.g. the CLI
-// specialist) as its OWN Conversation run: a fresh Harness over the delegated agent,
-// bound to the child's own thread + workspace + sandbox, driven to completion, with
-// its final text returned to the caller (the `delegate` tool) and tool/step activity
-// streamed out via `onProgress`.
+// specialist) as its OWN Conversation run: a fresh controller/session over the
+// delegated agent, bound to the child's own thread + workspace + sandbox, driven to
+// completion, with its final text returned to the caller (the `delegate` tool) and
+// tool/step activity streamed out via `onProgress`.
 //
 // This is the single delegation mechanism (Decision ②): a delegation is a child RUN,
 // not Mastra's in-process subagent tool. The child runs as a LEAF — no nested
@@ -10,21 +10,19 @@
 // returns. Its own thread is the per-delegation drill-in target and its own sandbox
 // makes parallel delegations safe.
 //
-// The harness construction mirrors the parent executor's hard-won recipe (top-level
+// The session construction shares the parent executor's hard-won recipe (top-level
 // `config.agent`, `yolo` to disable the redundant native gate, memory adapter) — see
-// conversation-run.ts for the rationale behind each.
+// createConversationSession for the rationale behind each.
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 import {
   type FieldSuggestion,
   fieldSuggestionsToolOutputToCreatedValue,
 } from "@engenty/ai-core";
-import { Harness } from "@mastra/core/harness";
 import {
   MASTRA_AUTH_TOKEN_KEY,
   RequestContext,
 } from "@mastra/core/request-context";
 import type { Workspace } from "@mastra/core/workspace";
-import { gateway } from "ai";
 import {
   engentyToolsRunAls,
   getEngentyToolsRunContext,
@@ -42,7 +40,11 @@ import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
 import { markRunDone, markRunLive } from "../sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../sessions/run-tracking.js";
 import type { AiSessionScope } from "../sessions/types.js";
-import { HarnessAgUiConverter } from "./harness-agui-bridge.js";
+import {
+  type ConversationController,
+  createConversationSession,
+} from "./controller-session.js";
+import { SessionAgUiConverter } from "./session-agui-bridge.js";
 
 export interface RunDelegatedConversationInput {
   abortSignal?: AbortSignal;
@@ -94,7 +96,7 @@ export interface DelegatedConversationResult {
   suspendedForApproval?: boolean;
 }
 
-/** Extract the plain text of a Harness assistant message (content[] text blocks). */
+/** Extract the plain text of a session assistant message (content[] text blocks). */
 function assistantTextOf(message: unknown): string {
   if (!message || typeof message !== "object") {
     return "";
@@ -131,14 +133,14 @@ export async function runDelegatedConversation(
     childThreadId: input.childThreadId,
     finalText: "",
   };
-  let harness: Harness | null = null;
-  // A Harness `error` event (e.g. a model/gateway 402 like "quota exceeded") does
+  let controller: ConversationController | null = null;
+  // A session `error` event (e.g. a model/gateway 402 like "quota exceeded") does
   // NOT make sendMessage throw — the stream just ends. Capture it so the run is
   // reported as FAILED instead of silently "completed with no output".
   let streamError: string | null = null;
   // Observe mode (Actions): stream + persist AG-UI events keyed by childRunId.
   const observe = input.observe;
-  const converter = observe ? new HarnessAgUiConverter() : null;
+  const converter = observe ? new SessionAgUiConverter() : null;
   const tracker = observe
     ? createSessionRunTracker({
         agentId: input.childAgentId,
@@ -181,9 +183,9 @@ export async function runDelegatedConversation(
       requestContext.set(MASTRA_AUTH_TOKEN_KEY, input.scope.userAccessToken);
     }
 
-    // Construct AND drive the Harness inside the engenty-tools ALS scope. A HEADLESS
+    // Construct AND drive the session inside the engenty-tools ALS scope. A HEADLESS
     // run (dispatched Task Job — no incoming HTTP request, no ambient context) has no
-    // other source of the bearer; the Harness captures the async context as it sets
+    // other source of the bearer; the session captures the async context as it sets
     // up its tool pipeline, so the whole lifecycle must run within `.run()` for the
     // child's tools to see the token. (The interactive path runs inside the server's
     // ambient request context, which masked this.)
@@ -209,21 +211,19 @@ export async function runDelegatedConversation(
           }
         );
 
-        const h = new Harness({
+        const created = await createConversationSession({
           agent,
           id: `engenty-sub-${input.childThreadId}`,
           memory,
-          modes: [{ default: true, id: "default", name: "Default" }] as never,
-          resolveModel: (modelId: string) => gateway(modelId) as never,
-          resourceId: input.scope.userId,
-        } as never);
-        harness = h;
-        await h.init();
-        await h.switchThread({ threadId: input.childThreadId });
-        await h.setState({ yolo: true } as never);
+          threadId: input.childThreadId,
+          userId: input.scope.userId,
+          ...(input.workspace ? { workspace: input.workspace } : {}),
+        });
+        controller = created.controller;
+        const session = created.session;
 
         let finalText = "";
-        const unsub = h.subscribe((event) => {
+        const unsub = session.subscribe((event) => {
           const typed = event as {
             error?: { message?: string };
             message?: { role?: string };
@@ -268,14 +268,14 @@ export async function runDelegatedConversation(
         });
 
         if (input.abortSignal?.aborted) {
-          h.abort();
+          session.abort();
         } else {
-          input.abortSignal?.addEventListener("abort", () => h.abort(), {
+          input.abortSignal?.addEventListener("abort", () => session.abort(), {
             once: true,
           });
         }
 
-        await h.sendMessage({ content: input.brief, requestContext });
+        await session.sendMessage({ content: input.brief, requestContext });
         unsub();
         if (converter && tracker) {
           for (const agui of converter.finish()) {
@@ -361,9 +361,9 @@ export async function runDelegatedConversation(
     }).catch(() => {
       // best-effort — child sandbox teardown failure shouldn't crash the parent
     });
-    // `harness` is assigned inside the ALS closure above, which TS's flow analysis
-    // can't see — cast back to the real type for cleanup.
-    await (harness as Harness | null)?.destroy().catch(() => {
+    // `controller` is assigned inside the ALS closure above, which TS's flow
+    // analysis can't see — cast back to the real type for cleanup.
+    await (controller as ConversationController | null)?.destroy().catch(() => {
       // best-effort cleanup
     });
     if (observe) {

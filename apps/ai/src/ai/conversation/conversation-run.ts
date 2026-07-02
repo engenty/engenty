@@ -1,7 +1,8 @@
 // The conversation chat executor — the single live chat substrate. Drives a run on
-// Mastra's Harness `Session`: construct a `Harness` over our assembled agent + our
-// memory adapter + a single default mode, bind it to the Engenty thread, and bridge
-// the Harness's high-level events to the run-event-bus via `HarnessAgUiConverter`.
+// a Mastra `Session` (created by a per-run `AgentController`) over our assembled
+// agent + our memory adapter + a single default mode, bound to the Engenty thread,
+// and bridges the session's high-level events to the run-event-bus via
+// `SessionAgUiConverter`.
 //
 // Covers text + tools + real cancel + usage + runtime-context, native sub-agent
 // cards, frontend-tool HITL (suspend/park/resume), decision/feedback artifacts, and
@@ -10,9 +11,7 @@
 // EngentySessionMemoryStorage.
 import type { AGUIEvent, RunAgentInput } from "@engenty/ag-ui-bridge";
 import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
-import { Harness } from "@mastra/core/harness";
 import type { Workspace } from "@mastra/core/workspace";
-import { gateway } from "ai";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
 import {
@@ -43,14 +42,18 @@ import type {
   AgentUiProducerContext,
   AiSessionScope,
 } from "../sessions/types.js";
+import {
+  type ConversationController,
+  createConversationSession,
+} from "./controller-session.js";
 import { createDelegationTools } from "./delegate-tool.js";
 import {
   emitArtifactInterrupt,
   emitFrontendToolInterrupt,
 } from "./emit-interrupt.js";
-import { HarnessAgUiConverter } from "./harness-agui-bridge.js";
-import { parkHarnessRun } from "./harness-park.js";
 import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
+import { SessionAgUiConverter } from "./session-agui-bridge.js";
+import { parkSessionRun } from "./session-park.js";
 
 /** A frontend tool that suspended the run, captured for the post-run interrupt. */
 interface SuspendedFrontendTool {
@@ -60,11 +63,11 @@ interface SuspendedFrontendTool {
   toolName: string;
 }
 
-const HARNESS_SESSION_NOTE =
-  "You are running on the new Mastra Harness `Session` (the target chat substrate), as documented at https://mastra.ai/docs/harness/overview.";
+const MASTRA_SESSION_NOTE =
+  "You are running on the Mastra `Session` chat substrate (AgentController), the target chat runtime.";
 
-/** Map a Mastra Harness `TokenUsage` to the `recordAiUsage` usage shape. */
-function usageFromHarness(usage: unknown): {
+/** Map a Mastra `TokenUsage` to the `recordAiUsage` usage shape. */
+function usageFromSession(usage: unknown): {
   cached?: number | null;
   input?: number | null;
   output?: number | null;
@@ -139,9 +142,9 @@ export async function startConversationRun(
     publishRunEvent(input.runId, { event, seq: seq++ });
   emit({ runId: input.runId, threadId: input.threadId, type: "RUN_STARTED" });
 
-  let harness: Harness | null = null;
-  // Set when a frontend tool suspends and we park the Harness for resume — guards
-  // the finally from destroying the parked instance.
+  let controller: ConversationController | null = null;
+  // Set when a frontend tool suspends and we park the session for resume — guards
+  // the finally from destroying the parked controller.
   let parkedForResume = false;
   try {
     const { memory } = createEngentySessionMemoryRuntime({
@@ -157,7 +160,7 @@ export async function startConversationRun(
     const frontendTools = createNativeFrontendTools(mergedDefinitions);
     // Built early so the delegation tools' onProgress can fold lines onto the
     // sub-agent card (recordSubAgentProgress) and tag live progress events.
-    const converter = new HarnessAgUiConverter();
+    const converter = new SessionAgUiConverter();
     // Phase 3 — child-run delegation: expose one `agent-<alias>` tool per declared
     // sub-agent that spawns it as its own child run, and skip the in-process Mastra
     // subagent mechanism so there is a single delegation path.
@@ -200,7 +203,7 @@ export async function startConversationRun(
     });
 
     // The same runtime-context system message the control plane injects, set as
-    // the Harness's per-run instructions (the Harness is constructed per run).
+    // the controller's per-run instructions (the controller is constructed per run).
     const runtimeInstructions = (
       await buildSessionRuntimeInstructions({
         agentId: input.agentId,
@@ -211,43 +214,26 @@ export async function startConversationRun(
         threadId: input.threadId,
       })
     ).trim();
-    const instructions = [HARNESS_SESSION_NOTE, runtimeInstructions]
+    const instructions = [MASTRA_SESSION_NOTE, runtimeInstructions]
       .filter(Boolean)
       .join("\n\n");
 
-    harness = new Harness({
-      // The agent goes at the TOP LEVEL (config.agent), NOT on the mode (mode.agent
-      // is deprecated). The Harness only combines its instructions
-      // (runtime-context) with the agent's own when `config.agent` is set
-      // (buildAgentMessageStreamOptions) — on the mode the runtime-context is
-      // silently dropped (the "missing context" bug).
+    // Construction recipe (top-level agent, thread binding, yolo rationale):
+    // see createConversationSession.
+    const created = await createConversationSession({
       agent,
       id: `engenty-hs-${input.threadId}`,
       instructions,
       memory,
-      modes: [{ default: true, id: "default", name: "Default" }] as never,
-      resolveModel: (modelId: string) => gateway(modelId) as never,
-      resourceId: input.scope.userId,
-    } as never);
-    await harness.init();
-    await harness.switchThread({ threadId: input.threadId });
-    // Phase 3.2c — turn the Harness's NATIVE tool-approval gate fully OFF (yolo).
-    // It keys on the Mastra tool NAME, but Engenty rides ONE generic tool
-    // (`engenty_tool_execute`), so a per-name gate is structurally too coarse — it
-    // can't tell a read from a destructive write, and (CONFIRMED live: tool stuck at
-    // state="call") it parks every tool on `tool_approval_required` → the run hangs.
-    // A permissionRules/category-allow attempt did NOT reliably auto-allow in
-    // practice, so we use the proven kill-switch. This is NOT the old blanket bypass:
-    // Engenty's REAL approval gate now lives at the execution boundary inside
-    // `engenty_tool_execute` (lib/tool-approval.ts) — it reads the resolved tool
-    // CONTRACT (requiresApproval; core authoritative, 202 backstop) and returns an
-    // Approve/Deny artifact. Disabling the redundant, too-coarse native gate is a
-    // deliberate architecture choice; frontend-tool + sandbox HITL use the suspend
-    // path, not this gate.
-    await harness.setState({ yolo: true } as never);
+      threadId: input.threadId,
+      userId: input.scope.userId,
+      ...(input.workspace ? { workspace: input.workspace } : {}),
+    });
+    controller = created.controller;
+    const session = created.session;
 
     let runError: string | null = null;
-    // A frontend tool that suspends (browser-executed HITL): the Harness emits
+    // A frontend tool that suspends (browser-executed HITL): the session emits
     // `tool_suspended` + parks the run in session.suspensions. Capture it (with the
     // current run id, for reattach) and handle the interrupt after sendMessage idles.
     let suspended: SuspendedFrontendTool | null = null;
@@ -267,7 +253,7 @@ export async function startConversationRun(
     const interruptSignal = new Promise<void>((resolve) => {
       signalInterrupt = resolve;
     });
-    const unsub = harness.subscribe((event) => {
+    const unsub = session.subscribe((event) => {
       const typed = event as {
         args?: unknown;
         error?: { message?: string };
@@ -277,12 +263,12 @@ export async function startConversationRun(
         type?: string;
       };
       if (typed.type === "error") {
-        runError = typed.error?.message ?? "Harness run error";
+        runError = typed.error?.message ?? "Session run error";
       }
       if (typed.type === "tool_suspended") {
         suspended = {
           args: typed.args,
-          runId: harness?.session.getCurrentRunId() ?? "",
+          runId: session.getCurrentRunId() ?? "",
           toolCallId: typed.toolCallId ?? "",
           toolName: typed.toolName ?? "",
         };
@@ -300,7 +286,7 @@ export async function startConversationRun(
         };
         // Stop the run so the model doesn't continue past the interrupt; skip
         // converting this tool_end to a plain TOOL_CALL_RESULT.
-        harness?.abort();
+        session.abort();
         signalInterrupt();
         return;
       }
@@ -309,11 +295,11 @@ export async function startConversationRun(
       }
     });
 
-    // Route cancel → real Harness abort.
+    // Route cancel → real session abort.
     if (abort.abortSignal.aborted) {
-      harness.abort();
+      session.abort();
     } else {
-      abort.abortSignal.addEventListener("abort", () => harness?.abort(), {
+      abort.abortSignal.addEventListener("abort", () => session.abort(), {
         once: true,
       });
     }
@@ -321,7 +307,7 @@ export async function startConversationRun(
     // `sendMessage` resolves on a NORMAL finish, but a frontend-tool SUSPEND leaves
     // it pending forever (the suspended run's stream never terminates). Race it
     // against the interrupt signal so a suspend/artifact is handled immediately. On
-    // suspend, sendMessage stays pending against the parked Harness — the resume
+    // suspend, sendMessage stays pending against the parked session — the resume
     // continues it; we drop our await (errors are caught so it never rejects loudly).
     // Run the send (and thus every tool execution it drives) inside the
     // engenty-tools run context so the execute-boundary approval gate sees the
@@ -338,12 +324,12 @@ export async function startConversationRun(
     };
     const sendDone = engentyToolsRunAls
       .run(toolsRunContext, () =>
-        harness!.sendMessage({ content: input.prompt })
+        session.sendMessage({ content: input.prompt })
       )
       .catch((error: unknown) => {
         if (!runError) {
           runError =
-            error instanceof Error ? error.message : "Harness run error";
+            error instanceof Error ? error.message : "Session run error";
         }
       });
     await Promise.race([sendDone, interruptSignal]);
@@ -351,7 +337,7 @@ export async function startConversationRun(
 
     // Frontend-tool HITL: a suspend surfaced. Emit the same AG-UI interrupt the
     // control plane does (persist the open interrupt keyed by the suspended run id
-    // + RUN_FINISHED outcome) and PARK the Harness so the resume POST reattaches.
+    // + RUN_FINISHED outcome) and PARK the session so the resume POST reattaches.
     const sus = suspended as SuspendedFrontendTool | null;
     if (sus && !abort.abortSignal.aborted) {
       const handled = await emitFrontendToolInterrupt({
@@ -370,7 +356,12 @@ export async function startConversationRun(
         threadId: input.threadId,
       });
       if (handled) {
-        parkHarnessRun(sus.runId, harness, input.threadId, mergedDefinitions);
+        parkSessionRun(sus.runId, {
+          controller,
+          mergedDefinitions,
+          session,
+          threadId: input.threadId,
+        });
         parkedForResume = true;
         return { runId: input.runId };
       }
@@ -378,7 +369,7 @@ export async function startConversationRun(
 
     // A decision/feedback artifact surfaced (run already aborted). Persist the open
     // interrupt + emit the RUN_FINISHED outcome so the chat shows the picker/form.
-    // Resume re-runs via the route's artifact branch (no parked Harness).
+    // Resume re-runs via the route's artifact branch (no parked session).
     const art = artifact as { result: unknown; toolCallId: string } | null;
     if (art) {
       await emitArtifactInterrupt({
@@ -399,7 +390,7 @@ export async function startConversationRun(
     }
     // Fold any native sub-agent progress lines onto the persisted delegation
     // part (Mastra memory drops them) so the sub-agent card Log + drill-in
-    // survive reload — same as the control plane. No-op until a native Harness
+    // survive reload — same as the control plane. No-op until a native Mastra
     // subagent runs (Engenty's CLI stays Agent-level for its sandbox).
     await persistSubAgentProgress({
       progressByToolCallId: converter.getSubAgentProgressLines(),
@@ -414,7 +405,7 @@ export async function startConversationRun(
     }
 
     if (!abort.abortSignal.aborted) {
-      await recordHarnessUsage({
+      await recordSessionUsage({
         agentId: input.agentId,
         modelId: input.modelId ?? null,
         runId: input.runId,
@@ -451,10 +442,10 @@ export async function startConversationRun(
         error
       );
     });
-    // Release the per-run Harness — UNLESS it's parked for a frontend-tool resume
-    // (the resume reattaches to it; the park's TTL owns its disposal).
+    // Release the per-run controller — UNLESS it's parked for a frontend-tool
+    // resume (the resume reattaches to it; the park's TTL owns its disposal).
     if (!parkedForResume) {
-      await harness?.destroy().catch(() => {
+      await controller?.destroy().catch(() => {
         // best-effort cleanup
       });
     }
@@ -462,7 +453,7 @@ export async function startConversationRun(
   return { runId: input.runId };
 }
 
-async function recordHarnessUsage(input: {
+async function recordSessionUsage(input: {
   agentId: string;
   modelId: string | null;
   runId: string;
@@ -474,7 +465,7 @@ async function recordHarnessUsage(input: {
   if (!input.usageStore) {
     return;
   }
-  const usage = usageFromHarness(input.usage);
+  const usage = usageFromSession(input.usage);
   if (!usage) {
     return;
   }
