@@ -74,7 +74,9 @@ export function useAppMenuActions(): AppMenuActions {
   }, [developerMode]);
 
   const onSignOut = useCallback(async () => {
-    await getSupabaseAuthClient().auth.signOut();
+    // Default scope is "global", which revokes the user's sessions in every
+    // browser — only end the session in this one.
+    await getSupabaseAuthClient().auth.signOut({ scope: "local" });
     navigate("/auth/login");
   }, [navigate]);
 
