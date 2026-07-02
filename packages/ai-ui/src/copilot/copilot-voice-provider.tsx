@@ -12,8 +12,10 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import {
   executeOpenAiRealtimeVoiceBackendTool,
@@ -60,12 +62,27 @@ import { useCustomAgentDetailQuery } from "../lib/admin/ai-runtime-queries.js";
 import { useCopilotThreadBinding } from "./copilot-thread-binding-provider.js";
 
 interface CopilotVoiceContextValue {
+  /** True while a RealtimeVoiceCallStrip (composer override) is mounted
+   *  somewhere on screen — the voice FAB hides to avoid a duplicate surface. */
+  callStripMounted: boolean;
   realtimeVoice: OpenAiRealtimeVoiceComposerControls;
 }
 
 const CopilotVoiceContext = createContext<CopilotVoiceContextValue | null>(
   null
 );
+
+/** Marks the call strip as mounted for the FAB's visibility check. */
+function CallStripPresence({
+  children,
+  register,
+}: {
+  children: ReactNode;
+  register: () => () => void;
+}) {
+  useEffect(register, [register]);
+  return children;
+}
 
 export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation("engenty-copilot");
@@ -370,7 +387,27 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
   // Keep sessionRef in sync for the tool executor
   sessionRef.current = realtimeVoice.session;
 
-  const value = useMemo(() => ({ realtimeVoice }), [realtimeVoice]);
+  const [callStripCount, setCallStripCount] = useState(0);
+  const registerCallStrip = useCallback(() => {
+    setCallStripCount((count) => count + 1);
+    return () => setCallStripCount((count) => count - 1);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      callStripMounted: callStripCount > 0,
+      realtimeVoice: {
+        ...realtimeVoice,
+        composerOverride:
+          realtimeVoice.composerOverride === undefined ? undefined : (
+            <CallStripPresence register={registerCallStrip}>
+              {realtimeVoice.composerOverride}
+            </CallStripPresence>
+          ),
+      },
+    }),
+    [callStripCount, realtimeVoice, registerCallStrip]
+  );
 
   return (
     <CopilotVoiceContext.Provider value={value}>
@@ -389,4 +426,15 @@ export function useCopilotVoice(): OpenAiRealtimeVoiceComposerControls {
     throw new Error("useCopilotVoice must be used within CopilotVoiceProvider");
   }
   return context.realtimeVoice;
+}
+
+/** True while a voice call strip is mounted anywhere (composer override). */
+export function useCopilotVoiceCallStripMounted(): boolean {
+  const context = useContext(CopilotVoiceContext);
+  if (!context) {
+    throw new Error(
+      "useCopilotVoiceCallStripMounted must be used within CopilotVoiceProvider"
+    );
+  }
+  return context.callStripMounted;
 }
