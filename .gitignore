@@ -37,3 +37,6 @@ logs/
 
 # Local dev slot registry (worktree portless)
 .engenty/
+
+# Local Claude Code preview server config
+.claude/launch.json
