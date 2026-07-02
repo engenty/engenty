@@ -1,7 +1,13 @@
 import { DockVaultIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { ProjectFilesTab } from "./components/project-files-tab.js";
 import { FilesDetailPage } from "./pages/files-detail.js";
 import { FilesListPage } from "./pages/files-list.js";
+
+/** Host surface key from `@engenty/projects` — kept as a literal to avoid a
+ * hard workspace dependency on the projects module (this tab only appears
+ * when both modules happen to be installed). */
+const PROJECTS_DETAIL_SURFACE = "projects.detail";
 
 export default function plugin(engenty: EngentyPluginContext) {
   // Realtime-only binding; files (@engenty/files-ui) has no `*-live-binding.ts`.
@@ -46,5 +52,17 @@ export default function plugin(engenty: EngentyPluginContext) {
     to: "/admin/files",
     icon: DockVaultIcon,
     order: 110,
+  });
+
+  // Only appears when the projects module is also installed — see
+  // `PROJECTS_DETAIL_SURFACE` in @engenty/projects' use-project-tabs.ts.
+  engenty.UI.registerTab({
+    id: "files",
+    surface: PROJECTS_DETAIL_SURFACE,
+    component: ProjectFilesTab,
+    label: "Files",
+    labelKey: "files:projectFilesTab",
+    icon: DockVaultIcon,
+    order: 300,
   });
 }
