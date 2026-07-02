@@ -1,3 +1,4 @@
+import { realtimeCallErrorMessage } from "./openai-realtime-call-error.js";
 import {
   type CreateAppsAiRealtimeSessionOptions,
   createAppsAiRealtimeSession,
@@ -107,7 +108,7 @@ export async function connectOpenAiRealtimeWebRtc({
       signal: sessionOptions.signal,
     });
     if (!response.ok) {
-      throw new Error(`Realtime WebRTC call failed (${response.status})`);
+      throw new Error(await realtimeCallErrorMessage(response));
     }
 
     await peerConnection.setRemoteDescription({

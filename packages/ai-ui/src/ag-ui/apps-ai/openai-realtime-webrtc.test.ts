@@ -183,7 +183,55 @@ describe("connectOpenAiRealtimeWebRtc", () => {
         headers: { Authorization: "Bearer user-token" },
         realtimeCallsUrl: "https://api.openai.test/v1/realtime/calls",
       })
-    ).rejects.toThrow("Realtime WebRTC call failed (502)");
+    ).rejects.toThrow("Realtime WebRTC call failed (502): failed");
+
+    expect(localStream.getTracks()[0]?.stop).toHaveBeenCalled();
+    expect(lastPeerConnection?.close).toHaveBeenCalled();
+  });
+
+  it("surfaces the OpenAI error code and message when the realtime call fails", async () => {
+    const localStream = new MockMediaStream();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          provider: "openai",
+          model: "gpt-realtime-2",
+          voice: "marin",
+          client_secret: { expires_at: 1_800_000_000, value: "ek_test" },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            error: {
+              code: "insufficient_quota",
+              message: "You exceeded your current quota.",
+            },
+          },
+          { status: 429 }
+        )
+      );
+    const mediaDevices = {
+      getUserMedia: vi.fn(async () => localStream),
+    };
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("RTCPeerConnection", MockRTCPeerConnection);
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: mediaDevices,
+    });
+
+    await expect(
+      connectOpenAiRealtimeWebRtc({
+        baseUrl: "https://ai.engenty_localhost",
+        headers: { Authorization: "Bearer user-token" },
+        realtimeCallsUrl: "https://api.openai.test/v1/realtime/calls",
+      })
+    ).rejects.toThrow(
+      "Realtime WebRTC call failed (429): insufficient_quota: You exceeded your current quota."
+    );
 
     expect(localStream.getTracks()[0]?.stop).toHaveBeenCalled();
     expect(lastPeerConnection?.close).toHaveBeenCalled();
