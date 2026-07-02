@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+# Mastra Studio (optional). Proxied at /studio on the edge gateway.
+FROM node:24-bookworm-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+WORKDIR /app
+
+FROM base AS deps
+# scripts/ is needed by the root postinstall hook; skip its build warm-up.
+ENV ENGENTY_SKIP_INSTALL_BUILD=1
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY scripts ./scripts
+COPY apps ./apps
+COPY packages ./packages
+COPY modules ./modules
+RUN pnpm install --frozen-lockfile --filter @engenty/ai...
+
+WORKDIR /app/apps/ai
+ENV MASTRA_STUDIO_BASE_PATH=/studio
+ENV MASTRA_SKIP_PEERDEP_CHECK=1
+ENV MASTRA_AI_HOST=engenty-ai
+
+EXPOSE 43111
+CMD ["sh", "-c", "pnpm exec mastra studio --server-host \"${MASTRA_AI_HOST}\" --server-port 8790 --server-api-prefix /ai --port 43111"]
