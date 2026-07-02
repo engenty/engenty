@@ -1,9 +1,9 @@
-// Harness `Session` → AG-UI bridge (Phase 3.0). Maps the Harness's HIGH-LEVEL
+// Mastra `Session` → AG-UI bridge (Phase 3.0). Maps the session's HIGH-LEVEL
 // events (subscribe listener) to the SAME AG-UI wire the UI already speaks —
 // deliberately NOT the raw-chunk converter (DurableAgUiConverter) the control
-// plane uses, because the Harness emits at a different altitude:
+// plane uses, because the session emits at a different altitude:
 //   - assistant text arrives as `message_update`/`message_end` carrying the FULL
-//     HarnessMessage content (text blocks), so we diff per message id to emit
+//     SessionMessage content (text blocks), so we diff per message id to emit
 //     TEXT_MESSAGE_CONTENT deltas;
 //   - tool calls arrive as `tool_input_start|delta|end` + `tool_start` + `tool_end`;
 //   - usage via `usage_update`; failures via `error`.
@@ -11,8 +11,8 @@
 // are layered on in 3.1 / 3.2.
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 
-/** The Harness event shapes we map (a subset of the full union). */
-export interface HarnessEventLike {
+/** The session event shapes we map (a subset of the full union). */
+export interface SessionEventLike {
   agentType?: string;
   args?: unknown;
   error?: { message?: string } | unknown;
@@ -36,7 +36,7 @@ function str(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value ?? null);
 }
 
-function assistantText(content: HarnessEventLike["message"]): string {
+function assistantText(content: SessionEventLike["message"]): string {
   if (!Array.isArray(content?.content)) {
     return "";
   }
@@ -52,7 +52,7 @@ function assistantText(content: HarnessEventLike["message"]): string {
  * deltas) and which text/tool messages are open, keeping the AG-UI stream
  * well-formed (one START per message/tool, END before the next).
  */
-export class HarnessAgUiConverter {
+export class SessionAgUiConverter {
   // messageId → length of text already emitted as TEXT_MESSAGE_CONTENT.
   readonly #emittedTextLen = new Map<string, number>();
   // messageId → text START emitted (and not yet ended).
@@ -122,7 +122,7 @@ export class HarnessAgUiConverter {
     } as AGUIEvent);
   }
 
-  convert(event: HarnessEventLike): AGUIEvent[] {
+  convert(event: SessionEventLike): AGUIEvent[] {
     const out: AGUIEvent[] = [];
     // Track the current assistant message id from any message_* event so tool
     // calls / sub-agent cards attach to it (matching the persisted message shape).
@@ -247,7 +247,7 @@ export class HarnessAgUiConverter {
         });
         break;
       }
-      // Native Harness sub-agents (HarnessConfig.subagents) stream `subagent_*`
+      // Native Mastra sub-agents (AgentControllerConfig.subagents) stream `subagent_*`
       // events keyed by the delegation toolCallId. Render the delegation as an
       // `agent-<type>` tool card (UI routes that to the rich sub-agent card) and
       // its inner activity as nested progress lines — the same shape the copilot
