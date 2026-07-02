@@ -17,10 +17,11 @@ We think agents belong in your apps - side by side with your team
 
 The Setup:
 
- * Based on Mastra as the Agent Harness
- * Using AG-UI to integrated seamless with the UI
+ * Based on **[Mastra](https://mastra.ai/)** as the agent framework
+ * Using **[AG-UI](https://ag-ui.com/)** to integrated seamless with the UI
  * Modulare to the core - based on a plugin architecture
- * Runs on your own infrastructure using Supabase and Hono
+ * Batteries included - ships with basic modules and a powerful knowledge-base with ingestions and RAG
+ * Runs on your own infrastructure using **[Supabase](https://supabase.com/)** and **[Hono](https://hono.dev/)** - currently using **[Vercel Gateway](https://vercel.com/docs/ai-gateway)** as the LLM router
 
 
 ## Modules
@@ -58,10 +59,19 @@ Here's how the workspace is organized:
 
 ## Database / Hosting
 
-engenty runs on your own infrastructure — one Postgres/Supabase project backs the whole product, with modules owning their own slice of the schema.
+One Postgres/Supabase project backs the whole product, on your own infrastructure; 
 
-- **Single Supabase** — there is one local (or hosted) Supabase instance per deployment, shared by `apps/core`, `apps/ui`, and `apps/ai`. Config lives in `supabase/config.toml` (gitignored, materialized from `supabase/config.toml.example` via `pnpm engenty setup`); auth, storage, and Postgres all run from this one project. Self-host it (see [docs/content/setup/coolify.md](./docs/content/setup/coolify.md)) or point it at Supabase Cloud.
-- **Supabase modules** — each active module owns its own `supabase/migrations` and, optionally, storage buckets declared in its `engenty.plugin.json`. `pnpm engenty setup` composes these module-owned pieces (API schemas, storage buckets, aggregated migrations) into the single `supabase/config.toml` and `supabase/migrations` tree — nothing is wired in by hand. Installing or uninstalling a module (`pnpm engenty plugins install|uninstall`) adds or removes its schema from the composed config; run `pnpm db:migrate` afterward to apply.
+Each active module owns its own `supabase/migrations` and storage buckets (declared in `engenty.plugin.json`); `pnpm engenty setup` composes them into that one config and migrations tree, and `pnpm db:migrate` applies changes.
+
+## Authentication / Authorization
+
+**[Supabase Auth](https://supabase.com/docs/guides/auth)** handles sign-in (email/password, magic link, OTP) — verified server-side in `apps/core/src/security`. Additional providers (OAuth, SSO) are on the roadmap.
+
+**RBAC Authorization**: a per-tenant role (currently `admin`/`member`). Tenant isolation is enforced at the DB layer via Postgres Row Level Security. Today's roles by concept simple — a more granular permission model is planned.
+
+## i18n
+
+Built on **[i18next](https://www.i18next.com/)** (`@engenty/i18n`), namespaced per module — every module ships `en`/`de` locales, enforced by convention. Language is a persisted user/tenant setting, switchable at runtime.
 
 ## Requirements
 
