@@ -51,6 +51,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",
+    "check:ui-core-imports": "node scripts/check-ui-core-imports.mjs",
+    "ai:check": "node scripts/ai-check.mjs",
     "lint": "pnpm run check",
     "fix": "ultracite fix",
     "setup": "pnpm engenty setup",
@@ -78,6 +80,7 @@
     "db:restore": "pnpm engenty db restore",
     "clean": "bash scripts/clean.sh",
     "purge": "bash scripts/purge.sh",
+    "purge:light": "bash scripts/purge.sh --light",
     "push": "bash scripts/publish-open.sh"
   },
   "engines": {

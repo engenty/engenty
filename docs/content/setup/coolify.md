@@ -10,6 +10,12 @@ instance on your own server, using [Coolify](https://coolify.io/) to manage the
 Docker stack and TLS. No prior Engenty knowledge is assumed — follow the steps in
 order.
 
+> **Status:** the `deploy/` bundle this guide references
+> (`deploy/docker-compose.yml`, `deploy/scripts/migrate.sh`, `deploy/DEPLOY.md`)
+> is not yet included in this repository — only `deploy/.env.example` ships
+> today. Until the bundle lands, treat this guide as a description of the target
+> setup rather than copy-paste-ready steps.
+
 ## How it fits together
 
 Everything is served from **one HTTPS domain** (for example

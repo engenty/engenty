@@ -22,7 +22,7 @@ Default guide for contributors and coding agents in this repository.
 | `apps/ai` | Agent runtime (Mastra + AG-UI) |
 | `apps/docs` | Documentation site (Fumadocs) |
 | `packages/*` | Shared libraries (`ui-core`, `plugin-sdk`, `ai-core`, …) |
-| `modules/*` | Installable feature modules (open base: `engenty-copilot`) |
+| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, contacts, engenty-coordinator, engenty-copilot, knowledge-base, projects, tasks, team, time-tracking) |
 
 Core apps and packages must not depend on optional modules — use plugin hooks, events, and gateway methods instead.
 
@@ -120,7 +120,7 @@ Use `@engenty/query-client` (`useQuery`, `useMutation`, `useInfiniteQuery`). No 
 
 ## Backend adapters
 
-No new `@supabase/supabase-js` imports outside approved adapter locations. Run `pnpm check:supabase-imports`.
+No new `@supabase/supabase-js` imports outside approved adapter locations (DAL/adapter directories such as `src/dal/*`, `apps/core/src/identity|storage/*`).
 
 ## File size
 
