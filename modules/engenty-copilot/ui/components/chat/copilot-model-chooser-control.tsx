@@ -31,8 +31,10 @@ export function CopilotModelChooserControl(props: { disabled?: boolean }) {
       activeModelId={modelOptions.activeModelId}
       ariaLabel={t("chat.modelChooserLabel")}
       disabled={disabled}
+      emptyMessage={t("chat.modelChooser.emptyMessage")}
       onModelChange={modelOptions.setSelectedModelId}
       options={modelOptions.options}
+      searchPlaceholder={t("chat.modelChooser.searchPlaceholder")}
     />
   );
 }

@@ -18,6 +18,22 @@
     "missingScope": "Workspace tenant or user is not available; reload after sign-in.",
     "agentChooserLabel": "Choose agent",
     "modelChooserLabel": "Choose model",
+    "modelChooser": {
+      "searchPlaceholder": "Search models…",
+      "emptyMessage": "No models match your search.",
+      "pricingIn": "in",
+      "pricingOut": "out",
+      "pricingPerMtok": "/ Mtok",
+      "pricingUnknown": "Pricing unknown",
+      "priceTier": {
+        "cheap": "Cheap",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "expensive": "Expensive",
+        "unknown": "Other"
+      }
+    },
     "requestFailed": "Could not reach apps/ai: {{message}}",
     "listLoadFailedTitle": "Could not load chats",
     "retry": "Try again",

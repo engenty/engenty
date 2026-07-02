@@ -6,11 +6,21 @@ import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
 
 const AI_CONFIG_KEY = "ai.config";
 
+export type AgentModelPriceTier =
+  | "cheap"
+  | "low"
+  | "medium"
+  | "high"
+  | "expensive";
+
 export interface AgentModelOption {
   display_name: string | null;
   id: string;
+  input_per_mtok_micros: number | null;
   label: string;
   model_id: string;
+  output_per_mtok_micros: number | null;
+  price_tier: AgentModelPriceTier | null;
   provider: string;
 }
 
