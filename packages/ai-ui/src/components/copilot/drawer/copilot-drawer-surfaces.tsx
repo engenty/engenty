@@ -237,6 +237,18 @@ export function CopilotDrawerSurfaceTree({
     );
   }
 
+  // During a voice call with the shell closed, the voice FAB is the single
+  // voice surface — the compact launcher would sit next to it as a second,
+  // non-voice input.
+  if (showCompactLauncher && voiceSession.isActive && !open) {
+    return (
+      <>
+        {fabTrigger}
+        {collapseMorph}
+      </>
+    );
+  }
+
   if (showCompactLauncher) {
     return (
       <>

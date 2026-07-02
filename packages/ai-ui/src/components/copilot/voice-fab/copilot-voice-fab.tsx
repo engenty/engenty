@@ -4,7 +4,10 @@ import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { BlobAvatar, Button, cn } from "@engenty/ui-core";
 import { Mic, MicOff, PhoneOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
+import {
+  useCopilotVoice,
+  useCopilotVoiceCallStripMounted,
+} from "../../../copilot/copilot-voice-provider.js";
 import type { RealtimeVoiceUiStatus } from "../../realtime-voice/realtime-voice.js";
 
 /* -------------------------------------------------------------------------- */
@@ -117,6 +120,7 @@ export interface CopilotVoiceFabProps {
  */
 export function CopilotVoiceFab({ className, hidden }: CopilotVoiceFabProps) {
   const { session } = useCopilotVoice();
+  const callStripMounted = useCopilotVoiceCallStripMounted();
   const shell = useCopilotShellOrNull();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -124,8 +128,12 @@ export function CopilotVoiceFab({ className, hidden }: CopilotVoiceFabProps) {
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---- Visibility ----
+  // A mounted call strip (composer override) is already the voice surface —
+  // e.g. the floating composer while the shell reports closed. Showing the
+  // FAB too would duplicate the voice UI.
   const shellOpen = shell?.open ?? false;
-  const visible = session.isActive && !shellOpen && !hidden;
+  const visible =
+    session.isActive && !shellOpen && !hidden && !callStripMounted;
 
   // Auto-close the copilot drawer when a voice session starts so the FAB
   // becomes the primary voice UI surface.

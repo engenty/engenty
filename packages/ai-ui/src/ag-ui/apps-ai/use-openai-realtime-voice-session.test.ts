@@ -226,6 +226,103 @@ describe("useOpenAiRealtimeVoiceSession", () => {
     expect(result.current.status).toBe("error");
   });
 
+  it("keeps the session alive on recoverable realtime error events", async () => {
+    const disconnect = vi.fn();
+    const sendEvent = vi.fn();
+    let onEvent: ((event: unknown) => void) | undefined;
+    const connect = vi.fn(
+      async (options: ConnectOpenAiRealtimeWebRtcOptions) => {
+        onEvent = options.onEvent;
+        return {
+          dataChannel: {} as RTCDataChannel,
+          disconnect,
+          localStream: {} as MediaStream,
+          peerConnection: {} as RTCPeerConnection,
+          remoteAudio: {} as HTMLAudioElement,
+          sendEvent,
+          setMuted: vi.fn(),
+        };
+      }
+    );
+
+    const { result } = renderHook(() =>
+      useOpenAiRealtimeVoiceSession({ connect })
+    );
+
+    await act(async () => {
+      await result.current.start();
+    });
+    act(() =>
+      onEvent?.({
+        error: {
+          code: "conversation_already_has_active_response",
+          message: "Conversation already has an active response",
+        },
+        type: "error",
+      })
+    );
+
+    expect(disconnect).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
+    expect(result.current.status).toBe("listening");
+    expect(result.current.isActive).toBe(true);
+  });
+
+  it("defers response.create for tool outputs while a response is active", async () => {
+    const sendEvent = vi.fn();
+    let onEvent: ((event: unknown) => void) | undefined;
+    const connect = vi.fn(
+      async (options: ConnectOpenAiRealtimeWebRtcOptions) => {
+        onEvent = options.onEvent;
+        return {
+          dataChannel: {} as RTCDataChannel,
+          disconnect: vi.fn(),
+          localStream: {} as MediaStream,
+          peerConnection: {} as RTCPeerConnection,
+          remoteAudio: {} as HTMLAudioElement,
+          sendEvent,
+          setMuted: vi.fn(),
+        };
+      }
+    );
+    const executeTool = vi.fn(async () => ({ ok: true }));
+
+    const { result } = renderHook(() =>
+      useOpenAiRealtimeVoiceSession({
+        connect,
+        executeTool,
+        tools: [{ name: "navigate" }],
+      })
+    );
+
+    await act(async () => {
+      await result.current.start();
+    });
+
+    // A response is in flight when the tool output resolves.
+    act(() => onEvent?.({ type: "response.created" }));
+    await act(async () => {
+      onEvent?.({
+        arguments: JSON.stringify({ path: "/mdl/team" }),
+        call_id: "call-1",
+        name: "navigate",
+        type: "response.function_call_arguments.done",
+      });
+      await Promise.resolve();
+    });
+
+    const responseCreates = () =>
+      sendEvent.mock.calls.filter(
+        ([event]) => (event as { type?: string }).type === "response.create"
+      );
+    expect(executeTool).toHaveBeenCalledTimes(1);
+    expect(responseCreates()).toHaveLength(0);
+
+    // The queued request flushes once the active response completes.
+    act(() => onEvent?.({ type: "response.done" }));
+    expect(responseCreates()).toHaveLength(1);
+  });
+
   it("configures realtime tools and returns tool outputs to the model", async () => {
     const disconnect = vi.fn();
     const sendEvent = vi.fn();
