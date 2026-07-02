@@ -23,7 +23,26 @@ The Setup:
  * Runs on your own infrastructure using Supabase and Hono
 
 
+## Modules
+
+engenty ships with a basic set of modules out of the box — each one is an installable plugin (see [Modules: on disk vs active](#modules-on-disk-vs-active)). Use them as building blocks, reference or in real life.
+
+engenty is strictly modular. So you can add your own modules using the PluginsSDK.
+
+| Module | What it does |
+|--------|--------------|
+| Company Profile | Legal entity profile and business identity settings |
+| Contacts | Contacts and organisations module |
+| Copilot | Full-page AI chat, backed by `apps/ai` |
+| Knowledge Base | Articles, tags, FAQs, and AI-powered assistants |
+| Projects | Project management with phases, tasks, and client portal |
+| Tasks | Canonical goals and tasks for human and agent collaboration |
+| Team | Team directory, org structure, groups, and taxonomies |
+| Time Tracking | Weekly time tracking for project, phase, and task work |
+
 ## Repo Layout
+
+Here's how the workspace is organized:
 
 | Path | What it is |
 |------|------------|
@@ -36,6 +55,13 @@ The Setup:
 | `scripts/*` | Root dev tooling (DB sync, migrations, Portless, clean, purge) |
 | `supabase/*` | Local Postgres + auth config and migrations |
 | `test/*` | Global Vitest setup and test defaults |
+
+## Database / Hosting
+
+engenty runs on your own infrastructure — one Postgres/Supabase project backs the whole product, with modules owning their own slice of the schema.
+
+- **Single Supabase** — there is one local (or hosted) Supabase instance per deployment, shared by `apps/core`, `apps/ui`, and `apps/ai`. Config lives in `supabase/config.toml` (gitignored, materialized from `supabase/config.toml.example` via `pnpm engenty setup`); auth, storage, and Postgres all run from this one project. Self-host it (see [docs/content/setup/coolify.md](./docs/content/setup/coolify.md)) or point it at Supabase Cloud.
+- **Supabase modules** — each active module owns its own `supabase/migrations` and, optionally, storage buckets declared in its `engenty.plugin.json`. `pnpm engenty setup` composes these module-owned pieces (API schemas, storage buckets, aggregated migrations) into the single `supabase/config.toml` and `supabase/migrations` tree — nothing is wired in by hand. Installing or uninstalling a module (`pnpm engenty plugins install|uninstall`) adds or removes its schema from the composed config; run `pnpm db:migrate` afterward to apply.
 
 ## Requirements
 
@@ -57,20 +83,26 @@ plugins, starts local Supabase, applies migrations, and initializes `.env.local`
 (each step is skippable; non-interactive shells take the safe default). Re-run it
 any time — it only prompts for plugins on a fresh workspace.
 
-**Daily:** `pnpm dev`
-
-**Module or SQL changed:** `pnpm engenty setup && pnpm db:migrate && pnpm dev`
-
-**Add a workspace module:** `pnpm engenty plugins install <slug>` (or rsync from legacy, then install)
-
-See **[Modules: on disk vs active](#modules-on-disk-vs-active)** below — do not wire modules into `apps/*` by hand.
-
-**Full local reset:** `pnpm purge` (or `pnpm purge:light` to keep `node_modules`, or `pnpm purge -- --yes --quiet`)
-
 Open **http://localhost:5173/** — the Vite dev server serves the UI with hot reload.
 `/api`, `/ai`, and `/docs` are proxied to the other apps on the same origin.
 
-You'll be redirected to `/initial_setup` to create the first admin user and tenant.
+### Daily work:
+
+```bash
+pnpm dev
+
+# Module or SQL changed: 
+# stop / start dev 
+# new schemas require supabase restart
+pnpm engenty setup && pnpm db:migrate
+
+# Add a workspace module
+pnpm engenty plugins install <slug>
+
+# Trouble shoot / start fresh
+pnpm purge     # FULL LOCAL RESET
+pnpm db:reset  # WHIPES ALL DATA
+```
 
 ### Optional: HTTPS via Portless (recommended)
 
@@ -114,7 +146,7 @@ pnpm check               # lint / format (ultracite)
 Each module and package is an independent workspace member with its own `build`,
 `test`, and migrations. **`pnpm dev`** runs `dev:check` and `predev` first (Docker/Supabase checks, builds packages/modules, regenerates UI plugin artifacts).
 
-## Modules: on disk vs active
+## Modules: in repo, wired (installed) and activation
 
 **Goal:** one declared product stack. Apps (`apps/core`, `apps/ui`, `apps/ai`) must not hard-code which modules exist — only **`engenty.plugins`** does.
 
@@ -124,7 +156,6 @@ Each module and package is an independent workspace member with its own `build`,
 | **Active** | root `package.json` → **`engenty.plugins`** | Object map (pi-style) declaring which plugins this product runs. SSOT for backend, DB, UI catalog, Supabase compose. |
 | **Derived** | gitignored or setup-written | `supabase/config.toml`, aggregated migrations, `generated-catalog.ts`, and (when needed) `@engenty/*` entries in `apps/ui/package.json` — all produced by **`pnpm engenty setup`**, not edited by hand. |
 
-**If the folder is already in the repo** (e.g. copied from `legacy/`):
 
 ```bash
 pnpm engenty plugins install <slug>  # add to engenty.plugins + setup + UI dep sync
@@ -138,8 +169,6 @@ pnpm dev
 pnpm engenty plugins uninstall <slug>
 pnpm dev
 ```
-
-**Do not** manually add `@engenty/<module>` to `apps/ui/package.json`, `apps/ai/package.json`, or import module paths from `apps/*` — that bypasses the manifest. (Some legacy `engenty-copilot` imports in `apps/ui` and `apps/ai` remain; new work must go through module plugins and `engenty.plugins`.)
 
 Commands: `pnpm engenty plugins install|uninstall|list`
 
