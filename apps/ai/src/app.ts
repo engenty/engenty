@@ -58,11 +58,11 @@ import {
 } from "./api/realtime-session-routes.js";
 import { registerRealtimeToolRoutes } from "./api/realtime-tool-routes.js";
 import { registerRegistryRoutes } from "./api/registry-routes.js";
-import { registerRoutineRoutes } from "./api/routine-routes.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
+import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
@@ -497,11 +497,9 @@ export async function createApp(options: CreateAppOptions = {}) {
         scopeResolver,
       });
     }
-    registerRoutineRoutes(app, {
-      getDb: () => actionDb,
-      aiService,
+    registerTriggerRoutes(app, {
+      mastra,
       moduleLoader: moduleCapabilityLoader,
-      runStore: agentRunStore ?? null,
       scopeResolver,
       getRegistry: (tenantId) =>
         createDefaultAiRegistry({
@@ -577,6 +575,20 @@ export async function createApp(options: CreateAppOptions = {}) {
       process.once("SIGINT", stop);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
+    }
+
+    // Trigger scheduler (Mastra heartbeats): starts workers + reconciles
+    // triggers ↔ heartbeats. Replaces the pg_cron routines tick.
+    const { startScheduler } = await import("./scheduler/start.js");
+    try {
+      await startScheduler({
+        mastra,
+        moduleLoader: moduleCapabilityLoader,
+      });
+    } catch (err) {
+      logger.warn("trigger scheduler failed to start", {
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

@@ -6,6 +6,10 @@ import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tasksAiRegistration } from "../ai/registrar.js";
 import { registerTasksApi } from "./api/index.js";
+import {
+  createTriggersRepoFactory,
+  registerTriggerGatewayMethods,
+} from "./api/trigger-gateway-methods.js";
 import { createTasksRepoSupabase } from "./dal/supabase.js";
 
 const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
@@ -43,6 +47,12 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     );
   }
   registerTasksApi(server, repoOrFactory, { queue });
+  registerTriggerGatewayMethods(
+    server,
+    createTriggersRepoFactory(supabase as SupabaseClient),
+    repoOrFactory,
+    { queue }
+  );
 };
 
 export default registerTasksPlugin;

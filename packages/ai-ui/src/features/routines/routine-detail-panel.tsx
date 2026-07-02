@@ -63,16 +63,6 @@ export function RoutineDetailPanel({
     runMutation.mutate(routine.id);
   }, [routine, runMutation]);
 
-  const handleClearOverride = useCallback(() => {
-    if (!routine) {
-      return;
-    }
-    patchMutation.mutate({
-      id: routine.id,
-      patch: { schedule_override: null },
-    });
-  }, [routine, patchMutation]);
-
   if (!routine) {
     return null;
   }
@@ -86,24 +76,18 @@ export function RoutineDetailPanel({
           <div className="flex items-center justify-between">
             <span
               className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium text-xs ${
-                routine.source === "builtin"
-                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                  : routine.source === "custom"
-                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                routine.source === "custom"
+                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
               }`}
             >
-              {routine.source === "builtin"
+              {routine.source === "custom"
                 ? isDe
-                  ? "System"
-                  : "Built-in"
-                : routine.source === "custom"
-                  ? isDe
-                    ? "Eigene"
-                    : "Custom"
-                  : isDe
-                    ? "Modul"
-                    : "Module"}
+                  ? "Eigene"
+                  : "Custom"
+                : isDe
+                  ? "Modul"
+                  : "Module"}
             </span>
 
             <div className="flex items-center gap-2">
@@ -182,11 +166,7 @@ export function RoutineDetailPanel({
             <div className="flex items-center gap-2 rounded-lg border bg-card p-3">
               <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <RoutineTriggerChip
-                  locale={locale}
-                  onClearOverride={handleClearOverride}
-                  routine={routine}
-                />
+                <RoutineTriggerChip locale={locale} routine={routine} />
               </div>
             </div>
             {routine.next_due_at && (
@@ -276,20 +256,6 @@ export function RoutineDetailPanel({
                   <p className="break-words rounded border bg-muted/40 p-2.5 font-mono text-[11px] text-muted-foreground leading-relaxed">
                     {routine.last_result}
                   </p>
-                )}
-
-                {routine.thread_id && routine.agent_id && (
-                  <div className="flex justify-end border-t pt-2">
-                    <Link
-                      className="inline-flex items-center gap-1.5 font-medium text-primary text-xs hover:underline"
-                      to={`/admin/engenty/${encodeURIComponent(routine.agent_id)}/sessions/${encodeURIComponent(routine.thread_id)}`}
-                    >
-                      {isDe
-                        ? "Lauf-Details anzeigen (Timeline)"
-                        : "View run details (Timeline)"}
-                      <ExternalLink className="h-3 w-3" />
-                    </Link>
-                  </div>
                 )}
               </div>
             </div>

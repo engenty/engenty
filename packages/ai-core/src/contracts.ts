@@ -160,9 +160,10 @@ export interface RoutineTarget {
 }
 
 /**
- * Declared recurring work. A Routine = `Trigger(schedule) → Task`. Definitions
- * live in code (in-process registration) or as tenant `ai.custom_routine` rows;
- * per-tenant enable/override state is persisted in `ai.routine_state`.
+ * Declared recurring work (module ROUTINE.md). A Routine = `Trigger(schedule)
+ * → Task`. At runtime these declarations are reconciled into
+ * `module_tasks.triggers` rows (source `'module'`) backed by Mastra
+ * heartbeats — see apps/ai `src/scheduler/`.
  */
 export interface RoutineDefinition {
   description?: string;
