@@ -480,7 +480,7 @@ export function FilesListPage() {
                   })()}
                 </SelectValue>
               </ListFilterSelectTrigger>
-              <SelectContent>
+              <SelectContent alignItemWithTrigger={false}>
                 {buckets.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.id}
