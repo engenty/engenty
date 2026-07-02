@@ -52,6 +52,7 @@
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",
     "check:ui-core-imports": "node scripts/check-ui-core-imports.mjs",
+    "check:supabase-imports": "node scripts/check-supabase-imports.mjs",
     "ai:check": "node scripts/ai-check.mjs",
     "lint": "pnpm run check",
     "fix": "ultracite fix",
