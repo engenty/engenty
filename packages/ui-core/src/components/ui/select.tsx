@@ -136,10 +136,8 @@ const selectContentVariants = cva(
     variants: {
       variant: {
         default: "ui-canvas-floating rounded-md shadow-md",
-        // Translucent, Apple-menu-style panel: reads content behind it, so pair
-        // with a hairline ring for edge definition instead of a solid border.
         glass:
-          "rounded-2xl bg-popover/60 shadow-lg ring-1 ring-foreground/10 backdrop-blur-2xl",
+          "rounded-2xl bg-popover shadow-lg ring-1 ring-foreground/10 backdrop-blur-2xl",
       },
     },
     defaultVariants: {
