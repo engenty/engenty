@@ -1,0 +1,20 @@
+{
+  "id": "files",
+  "name": "Files",
+  "description": "Tenant file storage and previews",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.files",
+    "module.files.read",
+    "module.files.write",
+    "platform.storage",
+    "platform.document-conversion",
+    "ui.route.module.files"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false
+  }
+}

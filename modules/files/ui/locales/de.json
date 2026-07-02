@@ -1,0 +1,123 @@
+{
+  "title": "Speicher",
+  "list": "Mediathek",
+  "detail": "Dateidetails",
+  "menu": {
+    "files": "Speicher"
+  },
+  "columns": {
+    "filename": "Dateiname",
+    "mime_type": "Typ",
+    "size": "Größe",
+    "module": "Modul",
+    "inbox_message": "Mail",
+    "openInbox": "Nachricht öffnen",
+    "created_at": "Hochgeladen",
+    "key": "Pfad"
+  },
+  "tabs": {
+    "preview": "Vorschau",
+    "extracted": "Extrahierter Text"
+  },
+  "extract": {
+    "loading": "Extrahierter Text wird geladen…",
+    "empty": "Noch keine gespeicherte Extraktion. Führen Sie eine Extraktion aus, um diese Datei mit den Mandanten-Einstellungen (z. B. LlamaParse) in Markdown zu konvertieren.",
+    "lastRun": "Zuletzt extrahiert: {{time}}",
+    "rendered": "Vorschau",
+    "raw": "Roh"
+  },
+  "actions": {
+    "upload": "Hochladen",
+    "extractContent": "Inhalt extrahieren",
+    "download": "Herunterladen",
+    "delete": "Löschen",
+    "deleteSelected": "Ausgewählte löschen",
+    "preview": "Vorschau",
+    "copyUrl": "URL kopieren",
+    "confirmDelete": "Datei löschen",
+    "confirmDeleteMessage": "Möchten Sie diese Datei wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "cancel": "Abbrechen",
+    "clearSelection": "Auswahl aufheben",
+    "uploadSuccess": "{{filename}} hochgeladen",
+    "uploadFailed": "Upload fehlgeschlagen: {{error}}",
+    "uploadTooLarge": "Datei zu groß (max. {{maxMb}} MB).",
+    "uploadMissingTenant": "Hochladen nicht möglich – kein aktiver Workspace."
+  },
+  "toolbar": {
+    "search": "Dateien suchen…",
+    "allTypes": "Alle Typen",
+    "allModules": "Alle Module",
+    "items": "{{count}} Datei(en)",
+    "selected": "{{count}} ausgewählt"
+  },
+  "empty": {
+    "title": "Noch keine Dateien",
+    "description": "Laden Sie Dateien hoch oder sie erscheinen hier, wenn Module Dokumente speichern.",
+    "prefixTitle": "Keine Dateien in diesem Ordner",
+    "prefixDescription": "Aufgaben-Arbeitsbereichsdateien erscheinen hier nach dem Checkout."
+  },
+  "preview": {
+    "generating": "Vorschau wird erzeugt…",
+    "noPreview": "Vorschau für diesen Dateityp nicht verfügbar",
+    "loading": "Vorschau wird geladen…",
+    "truncated": "Vorschau gekürzt – laden Sie die Datei herunter, um den vollständigen Inhalt zu sehen."
+  },
+  "metadata": {
+    "size": "Größe",
+    "type": "Typ",
+    "knowledgeBase": "Wissensdatenbank",
+    "module": "Modul",
+    "path": "Speicherpfad",
+    "uploaded": "Hochgeladen",
+    "updated": "Aktualisiert"
+  },
+  "display": {
+    "display": "Anzeige",
+    "sortBy": "Sortieren nach",
+    "ascending": "Aufsteigend",
+    "descending": "Absteigend",
+    "compactView": "Kompakte Ansicht",
+    "tableView": "Tabellenansicht",
+    "cardsView": "Kartenansicht",
+    "displayedColumns": "Angezeigte Spalten",
+    "hiddenInTable": "Ausgeblendete Spalten",
+    "showAll": "Alle anzeigen",
+    "hideAll": "Alle ausblenden",
+    "noColumnsDisplayed": "Keine Spalten angezeigt",
+    "sortByFilename": "Dateiname",
+    "sortBySize": "Größe",
+    "sortByType": "Typ",
+    "sortByCreatedAt": "Hochgeladen"
+  },
+  "export": {
+    "export": "Export",
+    "csv": "CSV exportieren",
+    "excel": "Excel exportieren"
+  },
+  "fileManager": {
+    "root": "Dateien",
+    "newFolder": "Neuer Ordner",
+    "folderNamePlaceholder": "Ordnername",
+    "create": "Erstellen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "upload": "Hochladen",
+    "uploading": "Wird hochgeladen…",
+    "uploadSuccess": "{{count}} Datei(en) hochgeladen",
+    "dropHere": "Dateien zum Hochladen ablegen",
+    "download": "Herunterladen",
+    "rename": "Umbenennen",
+    "delete": "Löschen",
+    "confirmDeleteFolder": "Ordner „{{name}}“ und seinen gesamten Inhalt löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirmDeleteFile": "„{{name}}“ löschen? Das kann nicht rückgängig gemacht werden.",
+    "empty": {
+      "title": "Noch keine Dateien",
+      "description": "Lade Dateien hoch oder ziehe sie hierher. Erstelle Ordner zur Organisation.",
+      "readOnly": "Hier wurden noch keine Dateien hinzugefügt."
+    },
+    "errors": {
+      "generic": "Etwas ist schiefgelaufen.",
+      "upload": "{{filename}} konnte nicht hochgeladen werden: {{error}}"
+    }
+  }
+}
