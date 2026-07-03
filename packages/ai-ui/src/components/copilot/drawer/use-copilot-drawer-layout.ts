@@ -45,6 +45,11 @@ import {
   type CopilotFloatingSnapTarget,
   resolveCopilotOpenDockMode,
 } from "./copilot-drawer-utils";
+import {
+  type CopilotFabAnchor,
+  computeFabAnchor,
+  resolveFabAnchorPosition,
+} from "./copilot-fab-anchor";
 
 export type {
   UseCopilotDrawerLayoutOptions,
@@ -114,10 +119,44 @@ export function useCopilotDrawerLayout({
 
   const [enterFromClose, setEnterFromClose] = useState(false);
   const [isIconDragging, setIsIconDragging] = useState(false);
-  const [fabPosition, setFabPosition] = useState<{
+  const [fabPosition, setFabPositionRaw] = useState<{
     x: number;
     y: number;
   } | null>(null);
+  // Edge anchor derived from the FAB's custom position. Persisting the anchor
+  // (not the absolute point) keeps the avatar stuck to its corner across
+  // window resizes and reloads.
+  const [fabAnchor, setFabAnchor] = useState<CopilotFabAnchor | null>(null);
+
+  // Wrap the FAB position setter so every user-committed position also records
+  // its edge anchor. Clearing the position (snap to a dock) clears the anchor.
+  const setFabPosition = useCallback(
+    (
+      value:
+        | { x: number; y: number }
+        | null
+        | ((
+            prev: { x: number; y: number } | null
+          ) => { x: number; y: number } | null)
+    ) => {
+      setFabPositionRaw((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        if (next == null) {
+          setFabAnchor(null);
+        } else if (typeof window !== "undefined") {
+          setFabAnchor(
+            computeFabAnchor(
+              next,
+              { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
+              { width: window.innerWidth, height: window.innerHeight }
+            )
+          );
+        }
+        return next;
+      });
+    },
+    []
+  );
   const [compactShellMeasured, setCompactShellMeasured] = useState({
     width: COMPACT_LAUNCHER_WIDTH,
     height: COMPACT_LAUNCHER_HEIGHT,
@@ -143,17 +182,41 @@ export function useCopilotDrawerLayout({
   useCopilotDrawerLayoutPersistence({
     collapseToCircle,
     copilotLayout,
+    fabAnchor,
     fabPosition,
     floatingPosition,
     floatingSize,
     internalPanelMode,
     isPanelModeControlled,
     setCollapseToCircle,
+    setFabAnchor,
     setFabPosition,
     setFloatingPosition,
     setFloatingSize,
     setInternalPanelMode,
   });
+
+  // Keep the custom FAB pinned to its corner when the viewport changes. The
+  // anchor (not the absolute point) is the source of truth, so a resized or
+  // reloaded window re-resolves the same edge offsets instead of drifting.
+  useEffect(() => {
+    if (typeof window === "undefined" || !fabAnchor) {
+      return;
+    }
+    const reanchor = () => {
+      setFabPositionRaw(
+        resolveFabAnchorPosition(
+          fabAnchor,
+          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
+          { width: window.innerWidth, height: window.innerHeight },
+          BUTTON_SNAP_FAB_INSET
+        )
+      );
+    };
+    reanchor();
+    window.addEventListener("resize", reanchor);
+    return () => window.removeEventListener("resize", reanchor);
+  }, [fabAnchor]);
 
   const margin = floatingBoundsMargin;
   const dragBoundsMargin = open ? margin : Math.min(margin, 8);

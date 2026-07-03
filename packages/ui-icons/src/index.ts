@@ -5,6 +5,7 @@ export * from "./icons/ChatbotIcon";
 export * from "./icons/ChatIcon";
 export * from "./icons/ContactsIcon";
 export * from "./icons/DashboardIcon";
+export * from "./icons/EngentyAvatarIcon";
 export * from "./icons/EngentyIcon";
 export * from "./icons/ExpensesIcon";
 export * from "./icons/InboxIcon";
