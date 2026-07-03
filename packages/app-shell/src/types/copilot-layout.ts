@@ -15,9 +15,25 @@ export type CopilotLayoutPersistDockMode =
   | "sidebar"
   | "bottom";
 
+/**
+ * Which viewport edges the FAB avatar is pinned to, plus the gap from each
+ * edge. Persisting the anchor (rather than an absolute point) keeps the avatar
+ * stuck to its corner across window resizes and reloads.
+ */
+export interface CopilotFabAnchor {
+  edgeX: "left" | "right";
+  edgeY: "top" | "bottom";
+  /** Distance in px from `edgeX` to the FAB's nearest horizontal edge. */
+  offsetX: number;
+  /** Distance in px from `edgeY` to the FAB's nearest vertical edge. */
+  offsetY: number;
+}
+
 export interface CopilotLayoutSnapshotV1 {
   collapseToCircle?: boolean;
-  /** Custom FAB position when dragged away from the default corner. */
+  /** Edge anchor for a FAB dragged away from the default corner. */
+  fabAnchor?: CopilotFabAnchor;
+  /** Legacy absolute FAB position (superseded by `fabAnchor`). */
   fabPosition?: { x: number; y: number };
   floatingPosition?: { x: number; y: number };
   floatingSize?: { width: number; height: number };

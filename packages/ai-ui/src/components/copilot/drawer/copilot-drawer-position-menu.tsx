@@ -4,13 +4,12 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
+import { EngentyAvatarIcon } from "@engenty/ui-icons";
 import {
   AppWindow,
   GripVertical,
@@ -18,7 +17,6 @@ import {
   PanelBottom,
   PanelRight,
   PanelRightOpen,
-  Sparkles,
 } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useRef, useState } from "react";
@@ -121,72 +119,66 @@ export function CopilotDrawerPositionMenu({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[13.5rem]">
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="gap-2">
-            <span>{positionHeadingLabel}</span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-[13.5rem]">
-            <DropdownMenuRadioGroup
-              onValueChange={(next) =>
-                onSelectDockPosition(next as CopilotDockMode)
-              }
-              value={value}
+        <DropdownMenuLabel>{positionHeadingLabel}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={(next) =>
+            onSelectDockPosition(next as CopilotDockMode)
+          }
+          value={value}
+        >
+          <DropdownMenuRadioItem
+            className="flex items-center gap-2"
+            value="bottom"
+          >
+            <PanelBottom
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+            <span>{positionBottomLabel}</span>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem
+            className="flex items-center gap-2"
+            value="mini-floating"
+          >
+            <EngentyAvatarIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+            <span>{positionButtonLabel}</span>
+          </DropdownMenuRadioItem>
+          {showDrawerOption ? (
+            <DropdownMenuRadioItem
+              className="flex items-center gap-2"
+              value="drawer"
             >
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="bottom"
-              >
-                <PanelBottom
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionBottomLabel}</span>
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="mini-floating"
-              >
-                <Sparkles
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionButtonLabel}</span>
-              </DropdownMenuRadioItem>
-              {showDrawerOption ? (
-                <DropdownMenuRadioItem
-                  className="flex items-center gap-2"
-                  value="drawer"
-                >
-                  <PanelRightOpen
-                    aria-hidden
-                    className="size-4 shrink-0 text-muted-foreground"
-                  />
-                  <span>{positionDrawerLabel}</span>
-                </DropdownMenuRadioItem>
-              ) : null}
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="floating"
-              >
-                <AppWindow
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionFloatingLabel}</span>
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="sidebar"
-              >
-                <PanelRight
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionSidebarLabel}</span>
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+              <PanelRightOpen
+                aria-hidden
+                className="size-4 shrink-0 text-muted-foreground"
+              />
+              <span>{positionDrawerLabel}</span>
+            </DropdownMenuRadioItem>
+          ) : null}
+          <DropdownMenuRadioItem
+            className="flex items-center gap-2"
+            value="floating"
+          >
+            <AppWindow
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+            <span>{positionFloatingLabel}</span>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem
+            className="flex items-center gap-2"
+            value="sidebar"
+          >
+            <PanelRight
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+            <span>{positionSidebarLabel}</span>
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

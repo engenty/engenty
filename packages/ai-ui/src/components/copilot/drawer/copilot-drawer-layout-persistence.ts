@@ -1,26 +1,36 @@
 "use client";
 
+import type { CopilotFabAnchor } from "@engenty/app-shell";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot";
 import { reconcileCopilotLayoutSnapshot } from "../session/copilot-layout-snapshot";
 import {
+  BUTTON_SNAP_FAB_INSET,
+  BUTTON_SNAP_FAB_SIZE,
+  BUTTON_SNAP_FAB_WIDTH,
   FLOATING_MAX_HEIGHT,
   FLOATING_MAX_WIDTH,
   FLOATING_MIN_HEIGHT,
   FLOATING_MIN_WIDTH,
 } from "./copilot-drawer-constants";
 import type { CopilotPanelMode } from "./copilot-drawer-types";
+import {
+  computeFabAnchor,
+  resolveFabAnchorPosition,
+} from "./copilot-fab-anchor";
 
 export function useCopilotDrawerLayoutPersistence(input: {
   collapseToCircle: boolean;
   copilotLayout: CopilotLayoutPersistenceApi | null;
+  fabAnchor: CopilotFabAnchor | null;
   fabPosition: { x: number; y: number } | null;
   floatingPosition: { x: number; y: number };
   floatingSize: { height: number; width: number };
   internalPanelMode: CopilotPanelMode;
   isPanelModeControlled: boolean;
   setCollapseToCircle: Dispatch<SetStateAction<boolean>>;
+  setFabAnchor: Dispatch<SetStateAction<CopilotFabAnchor | null>>;
   setFabPosition: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setFloatingPosition: Dispatch<SetStateAction<{ x: number; y: number }>>;
   setFloatingSize: Dispatch<SetStateAction<{ height: number; width: number }>>;
@@ -68,12 +78,35 @@ export function useCopilotDrawerLayoutPersistence(input: {
       if (typeof s.collapseToCircle === "boolean") {
         input.setCollapseToCircle(s.collapseToCircle);
       }
-      // Restore custom FAB position (undefined → keep null default)
-      if (s.fabPosition) {
+      // Restore the FAB's custom corner. Prefer the edge anchor (resilient to
+      // viewport changes); fall back to a legacy absolute position.
+      const fabSize = {
+        width: BUTTON_SNAP_FAB_WIDTH,
+        height: BUTTON_SNAP_FAB_SIZE,
+      };
+      if (s.fabAnchor && typeof window !== "undefined") {
+        input.setFabAnchor(s.fabAnchor);
+        input.setFabPosition(
+          resolveFabAnchorPosition(
+            s.fabAnchor,
+            fabSize,
+            { width: window.innerWidth, height: window.innerHeight },
+            BUTTON_SNAP_FAB_INSET
+          )
+        );
+      } else if (s.fabPosition) {
         input.setFabPosition({
           x: s.fabPosition.x,
           y: s.fabPosition.y,
         });
+        if (typeof window !== "undefined") {
+          input.setFabAnchor(
+            computeFabAnchor(s.fabPosition, fabSize, {
+              width: window.innerWidth,
+              height: window.innerHeight,
+            })
+          );
+        }
       }
     }
     drawerPersistEnabledRef.current = true;
@@ -83,6 +116,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
     input.copilotLayout?.snapshot,
     input.isPanelModeControlled,
     input.setCollapseToCircle,
+    input.setFabAnchor,
     input.setFabPosition,
     input.setFloatingPosition,
     input.setFloatingSize,
@@ -97,6 +131,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
     const timer = window.setTimeout(() => {
       mergeLayout({
         collapseToCircle: input.collapseToCircle,
+        fabAnchor: input.fabAnchor ?? undefined,
         fabPosition: input.fabPosition ?? undefined,
         floatingPosition: input.floatingPosition,
         floatingSize: input.floatingSize,
@@ -109,6 +144,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
   }, [
     input.collapseToCircle,
     input.copilotLayout,
+    input.fabAnchor,
     input.fabPosition,
     input.floatingPosition.x,
     input.floatingPosition.y,

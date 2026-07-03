@@ -5,6 +5,7 @@
 
 export {
   COPILOT_LAYOUT_USER_SETTING_NAME,
+  type CopilotFabAnchor,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
@@ -13,6 +14,7 @@ export {
 } from "@engenty/app-shell";
 
 import {
+  type CopilotFabAnchor,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutSnapshotV1,
   reconcileCopilotLayoutSnapshot,
@@ -79,6 +81,24 @@ export function parseCopilotLayoutSnapshot(
     };
   }
 
+  let fabAnchor: CopilotFabAnchor | undefined;
+  const fa = o.fabAnchor as Record<string, unknown> | undefined | null;
+  if (
+    fa &&
+    typeof fa === "object" &&
+    (fa.edgeX === "left" || fa.edgeX === "right") &&
+    (fa.edgeY === "top" || fa.edgeY === "bottom") &&
+    isFiniteNumber(fa.offsetX) &&
+    isFiniteNumber(fa.offsetY)
+  ) {
+    fabAnchor = {
+      edgeX: fa.edgeX,
+      edgeY: fa.edgeY,
+      offsetX: fa.offsetX,
+      offsetY: fa.offsetY,
+    };
+  }
+
   let floatingSize: { width: number; height: number } | undefined;
   const fs = o.floatingSize;
   if (
@@ -104,6 +124,7 @@ export function parseCopilotLayoutSnapshot(
     v: 1,
     open,
     preferredDockMode,
+    fabAnchor,
     fabPosition,
     floatingPosition,
     floatingSize,
@@ -131,6 +152,7 @@ export function mergeCopilotLayoutSnapshot(
       patch.preferredDockMode === undefined
         ? base.preferredDockMode
         : patch.preferredDockMode,
+    fabAnchor: patch.fabAnchor === undefined ? base.fabAnchor : patch.fabAnchor,
     fabPosition:
       patch.fabPosition === undefined ? base.fabPosition : patch.fabPosition,
     floatingPosition:
