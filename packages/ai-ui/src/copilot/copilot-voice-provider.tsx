@@ -177,11 +177,14 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
             operationId,
             threadId,
           }),
-        executeBackendTool: (req) =>
+        executeBackendTool: (req, opts) =>
           executeOpenAiRealtimeVoiceBackendTool({
             baseUrl: serviceBaseUrl,
             request: req,
             threadId: binding.activeThreadId,
+            ...(opts?.approvalGrantOnce
+              ? { approvalGrantOnce: opts.approvalGrantOnce }
+              : {}),
           }),
         executeFrontendTool,
         frontendTools,
@@ -240,10 +243,11 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
         });
         // A gated backend op returns an approval decision artifact instead of
         // running. Park it for confirmation rather than handing the model the
-        // raw artifact (which it can't act on). Needs a thread to persist the
-        // grant against; without one, fall back to returning the artifact.
+        // raw artifact (which it can't act on). With a thread the decision
+        // persists as a chat grant; a threadless session (fresh voice chat)
+        // carries it on the re-invoke as a one-shot grant instead.
         const approval = parseRealtimeVoiceToolApproval(result);
-        if (approval && binding.activeThreadId) {
+        if (approval) {
           setPendingVoiceConfirmation({
             artifactId: approval.artifactId,
             body: approval.body,
@@ -254,7 +258,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
             kind: "backend_approval",
             operationId: approval.operationId,
             request,
-            threadId: binding.activeThreadId,
+            threadId: binding.activeThreadId ?? null,
             title: approval.title,
           });
           return {
