@@ -10,7 +10,9 @@ export interface RoutineDto {
   cron: string | null;
   description: string | null;
   enabled: boolean;
+  event_filter: Record<string, unknown> | null;
   id: string;
+  kind: "schedule" | "event" | "manual";
   last_result: string | null;
   last_run_at: string | null;
   module_id: string | null;
@@ -18,23 +20,31 @@ export interface RoutineDto {
   next_due_at: string | null;
   /** Task instructions — the task template's description. */
   prompt: string | null;
+  provider_id: "module-events" | "webhook" | null;
   quiet_hours: string | null;
+  resource: string | null;
   source: "module" | "custom";
   task_template_id: string | null;
   task_title: string | null;
+  /** webhook provider only: the secret path segment of the hook URL. */
+  webhook_secret: string | null;
 }
 
 interface TriggerDto {
   cron: string | null;
   description: string | null;
   enabled: boolean;
+  event_filter: Record<string, unknown> | null;
   id: string;
+  kind: "schedule" | "event" | "manual";
   last_fired_at: string | null;
   last_result: string | null;
   module_id: string | null;
   name: string;
   next_fire_at: string | null;
+  provider_id: "module-events" | "webhook" | null;
   quiet_hours: string | null;
+  resource: string | null;
   source: "module" | "custom";
   task_template: {
     agent_type_key: string;
@@ -43,16 +53,21 @@ interface TriggerDto {
     title: string;
   } | null;
   task_template_id: string;
+  webhook_secret: string | null;
 }
 
 export interface CustomRoutineInput {
   agent_id: string;
-  cron: string;
+  cron?: string | null;
   description?: string | null;
   enabled?: boolean;
+  event_filter?: Record<string, unknown> | null;
+  kind?: "schedule" | "event";
   name: string;
   prompt: string;
+  provider_id?: "module-events" | "webhook" | null;
   quiet_hours?: string | null;
+  resource?: string | null;
 }
 
 function toRoutineDto(trigger: TriggerDto): RoutineDto {
@@ -61,17 +76,22 @@ function toRoutineDto(trigger: TriggerDto): RoutineDto {
     cron: trigger.cron,
     description: trigger.description,
     enabled: trigger.enabled,
+    event_filter: trigger.event_filter ?? null,
     id: trigger.id,
+    kind: trigger.kind ?? "schedule",
     last_result: trigger.last_result,
     last_run_at: trigger.last_fired_at,
     module_id: trigger.module_id,
     name: trigger.name,
     next_due_at: trigger.next_fire_at,
     prompt: trigger.task_template?.description ?? null,
+    provider_id: trigger.provider_id ?? null,
     quiet_hours: trigger.quiet_hours,
+    resource: trigger.resource ?? null,
     source: trigger.source,
     task_template_id: trigger.task_template?.id ?? trigger.task_template_id,
     task_title: trigger.task_template?.title ?? null,
+    webhook_secret: trigger.webhook_secret ?? null,
   };
 }
 
@@ -129,8 +149,16 @@ function toTriggerPayload(body: Partial<CustomRoutineInput>) {
     cron: body.cron,
     description: body.description,
     enabled: body.enabled,
+    ...(body.event_filter === undefined
+      ? {}
+      : { event_filter: body.event_filter }),
+    ...(body.kind === undefined ? {} : { kind: body.kind }),
     name: body.name,
+    ...(body.provider_id === undefined
+      ? {}
+      : { provider_id: body.provider_id }),
     quiet_hours: body.quiet_hours,
+    ...(body.resource === undefined ? {} : { resource: body.resource }),
     ...template,
   };
 }

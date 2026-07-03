@@ -30,23 +30,30 @@ export interface TriggerCreateInput {
   cron?: string | null;
   description?: string | null;
   enabled?: boolean;
+  event_filter?: Record<string, unknown> | null;
   kind: TriggerKind;
   module_id?: string | null;
   module_key?: string | null;
   name: string;
+  provider_id?: string | null;
   quiet_hours?: string | null;
+  resource?: string | null;
   source?: TriggerSource;
   task_template_id: string;
   timezone?: string | null;
+  webhook_secret?: string | null;
 }
 
 export interface TriggerUpdateInput {
   cron?: string | null;
   description?: string | null;
   enabled?: boolean;
+  event_filter?: Record<string, unknown> | null;
   heartbeat_id?: string | null;
   name?: string;
+  provider_id?: string | null;
   quiet_hours?: string | null;
+  resource?: string | null;
   task_template_id?: string;
   timezone?: string | null;
 }
@@ -96,6 +103,7 @@ function rowToTrigger(row: Record<string, unknown>): Trigger {
     tenant_id: String(row.tenant_id),
     timezone: (row.timezone as string | null) ?? null,
     updated_at: String(row.updated_at),
+    webhook_secret: (row.webhook_secret as string | null) ?? null,
   };
 }
 
@@ -202,18 +210,22 @@ export function createTriggersRepoSupabase(
           cron: input.cron ?? null,
           description: input.description ?? null,
           enabled: input.enabled ?? true,
+          event_filter: input.event_filter ?? null,
           id: uuidv7(),
           kind: input.kind,
           module_id: input.module_id ?? null,
           module_key: input.module_key ?? null,
           name: input.name.trim(),
+          provider_id: input.provider_id ?? null,
           quiet_hours: input.quiet_hours ?? null,
+          resource: input.resource ?? null,
           scope_id: scopeId,
           source: input.source ?? "custom",
           task_template_id: input.task_template_id,
           tenant_id: tenantId,
           timezone: input.timezone ?? null,
           updated_at: now,
+          webhook_secret: input.webhook_secret ?? null,
         })
         .select("*")
         .single();
@@ -272,13 +284,22 @@ export function createTriggersRepoSupabase(
             ? {}
             : { description: patch.description ?? null }),
           ...(patch.enabled === undefined ? {} : { enabled: patch.enabled }),
+          ...(patch.event_filter === undefined
+            ? {}
+            : { event_filter: patch.event_filter ?? null }),
           ...(patch.heartbeat_id === undefined
             ? {}
             : { heartbeat_id: patch.heartbeat_id ?? null }),
           ...(patch.name === undefined ? {} : { name: patch.name.trim() }),
+          ...(patch.provider_id === undefined
+            ? {}
+            : { provider_id: patch.provider_id ?? null }),
           ...(patch.quiet_hours === undefined
             ? {}
             : { quiet_hours: patch.quiet_hours ?? null }),
+          ...(patch.resource === undefined
+            ? {}
+            : { resource: patch.resource ?? null }),
           ...(patch.task_template_id === undefined
             ? {}
             : { task_template_id: patch.task_template_id }),
@@ -360,3 +381,79 @@ export function createTriggersRepoSupabase(
 }
 
 export type TriggersRepo = ReturnType<typeof createTriggersRepoSupabase>;
+
+// --- Service-level event-dispatch lookups -----------------------------------
+//
+// Event ingestion runs OUTSIDE a request auth context (the in-process event
+// bus handler, the public webhook route), so these query with the module's
+// service client across scopes; the fire itself then runs scoped to the
+// matched trigger's own tenant/scope.
+
+function detailRows(data: unknown[]): TriggerDetail[] {
+  return (data as Record<string, unknown>[]).map((raw) => {
+    const { task_template, ...row } = raw as Record<string, unknown> & {
+      task_template: Record<string, unknown> | null;
+    };
+    return {
+      ...rowToTrigger(row),
+      task_template: task_template ? rowToTemplate(task_template) : null,
+    };
+  });
+}
+
+/** Enabled event triggers matching a bus event, for one tenant. */
+export async function listEventTriggersForEvent(
+  supabase: SupabaseClient,
+  params: { providerId: string; resource: string; tenantId: string }
+): Promise<TriggerDetail[]> {
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .from("triggers")
+    .select("*, task_template:task_templates(*)")
+    .eq("tenant_id", params.tenantId)
+    .eq("kind", "event")
+    .eq("enabled", true)
+    .eq("provider_id", params.providerId)
+    .eq("resource", params.resource);
+  if (error) {
+    throw new Error(`Failed to list event triggers: ${error.message}`);
+  }
+  return detailRows(data ?? []);
+}
+
+/** Distinct bus event names any enabled module-events trigger listens to —
+ * the boot-replay set for the event subscriber (exact-name subscriptions). */
+export async function listDistinctEventResources(
+  supabase: SupabaseClient
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .from("triggers")
+    .select("resource")
+    .eq("kind", "event")
+    .eq("enabled", true)
+    .eq("provider_id", "module-events")
+    .not("resource", "is", null);
+  if (error) {
+    throw new Error(`Failed to list event resources: ${error.message}`);
+  }
+  return [...new Set((data ?? []).map((row) => String(row.resource)))];
+}
+
+/** Webhook fire: the route is public (secret-authenticated), so the lookup is
+ * by primary key across tenants; the caller verifies the secret. */
+export async function getTriggerByIdUnscoped(
+  supabase: SupabaseClient,
+  id: string
+): Promise<TriggerDetail | null> {
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .from("triggers")
+    .select("*, task_template:task_templates(*)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Failed to load trigger: ${error.message}`);
+  }
+  return data ? (detailRows([data])[0] ?? null) : null;
+}

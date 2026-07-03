@@ -52,9 +52,26 @@ One row per "reason work starts", replacing `ai.custom_routine` + `ai.routine_st
 - schedule triggers: `cron`, `timezone`, `quiet_hours` → one Mastra Heartbeat row
   (`metadata.triggerId` back-references us; our `prepare` hook enforces quiet hours by
   returning `null` = skip, and materializes the Task).
-- event triggers: `provider_id`, `resource`, filter → persisted subscription we replay
-  into the (in-memory) provider registry on boot; the provider's notification
-  materializes the Task.
+- event triggers: `provider_id` (`module-events` | `webhook`), `resource`, `event_filter`.
+  **Design revision (2026-07-03, from compiled-dist verification):** Mastra
+  `SignalProvider`s are agent/thread-scoped — every subscription is
+  `(resourceId, threadId)` and the only delivery primitive is
+  `sendNotificationSignal` into a thread; there is no anonymous "event → work"
+  path, no mounted webhook route in the shipped 1.48 build (the documented
+  `POST /api/signals/:providerId` does not exist), and subscriptions are
+  in-memory. A trigger has no thread — its effect is materializing a Task — so
+  event triggers do NOT ride SignalProviders. Instead the two ingestion edges
+  call `triggers_fire` directly:
+  - `module-events`: the tasks plugin subscribes to the existing plugin event
+    bus (`engenty.events.modules.on`) and fires triggers whose `resource`
+    matches the canonical event name (`<module>.<entity>.<verb>`), after the
+    shallow `event_filter` payload match.
+  - `webhook`: a secret-authenticated tasks-module route
+    (`POST /api/tasks/trigger-hooks/:triggerId/:secret`) fires the trigger with
+    the payload snapshot.
+  Mastra signals/notifications are adopted where they actually fit — the
+  Notifications/inbox phase (thread delivery, `ifIdle: wake`, the built-in
+  `__mastra_notification_dispatcher` cron).
 - `enabled`, `last_fired_at`, `last_result` — written from heartbeat `onFinish`/provider
   hooks for the management UI.
 

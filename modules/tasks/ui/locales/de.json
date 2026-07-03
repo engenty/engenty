@@ -386,7 +386,9 @@
       "neverExecuted": "Nie gelaufen",
       "failed": "Fehlgeschlagen",
       "success": "Erfolgreich",
-      "viewRunDetails": "Lauf-Details anzeigen (Timeline)"
+      "viewRunDetails": "Lauf-Details anzeigen (Timeline)",
+      "webhookUrl": "Webhook-URL",
+      "webhookHint": "POST an diese URL löst die Routine aus; der Request-Body wird der Aufgabe angehängt."
     },
     "edit": {
       "title": "Routine bearbeiten",
