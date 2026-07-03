@@ -167,6 +167,9 @@ export async function runDelegatedConversation(
     const childToolsContext = {
       ...getEngentyToolsRunContext(),
       approvalGrants: [],
+      // Leaf run — no interactive channel: a gated operation is denied with a
+      // clear result instead of suspending (which would deadlock the parent).
+      approvalPolicy: "deny" as const,
       orchestratorThreadId: input.childThreadId,
       runId: input.childRunId,
       tenantId: input.scope.tenantId,

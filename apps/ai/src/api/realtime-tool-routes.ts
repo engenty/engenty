@@ -101,6 +101,9 @@ export function registerRealtimeToolRoutes(
         {
           ...current,
           approvalGrants,
+          // Voice executes tools outside a Mastra run (nothing to suspend); it
+          // receives the decision artifact and drives its own approve flow.
+          approvalPolicy: "artifact",
           ...(opts.coreBaseUrl ? { coreBaseUrl: opts.coreBaseUrl } : {}),
           ...(opts.coreFetch ? { fetchImpl: opts.coreFetch } : {}),
           orchestratorThreadId: body.data.thread_id ?? null,
