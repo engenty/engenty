@@ -11,6 +11,7 @@ import {
   BriefingPersonalDashboard,
 } from "../components/briefing/briefing-dashboard.js";
 import { BriefingModeToggle } from "../components/briefing-mode-toggle.js";
+import { BriefingInboxSection } from "../components/inbox/briefing-inbox-section.js";
 import { useTasksBriefingAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
@@ -104,6 +105,8 @@ export function BriefingPage() {
         <p className="text-muted-foreground text-sm">{t("briefing.loading")}</p>
       ) : null}
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
+
+      <BriefingInboxSection />
 
       {briefingQuery.isLoading || error || !snapshot ? null : mode ===
         "oversight" ? (

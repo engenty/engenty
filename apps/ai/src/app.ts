@@ -51,6 +51,7 @@ import {
 } from "./api/gateway-model-routes.js";
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
+import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   type RealtimeClientSecretFetch,
   type RealtimeVoiceConfigResolver,
@@ -508,6 +509,7 @@ export async function createApp(options: CreateAppOptions = {}) {
           tenantId,
         }),
     });
+    registerNotificationRoutes(app, { scopeResolver });
 
     // UI-4 Part A: dispatch status endpoint. getQueue is populated by the
     // task dispatcher below — until then it returns null and the endpoint

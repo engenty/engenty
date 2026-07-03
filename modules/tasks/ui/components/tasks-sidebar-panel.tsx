@@ -1,3 +1,4 @@
+import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
 import { requestApiEnvelope } from "@engenty/api-client";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -24,6 +25,7 @@ import {
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import {
   Activity,
+  Inbox,
   LayoutDashboard,
   ListTodo,
   Plus,
@@ -92,6 +94,7 @@ const SIDEBAR_FETCH_SIZE = 200;
 
 function SidebarNavRow({
   active,
+  badgeCount,
   icon: Icon,
   label,
   to,
@@ -99,6 +102,7 @@ function SidebarNavRow({
   createAriaLabel,
 }: {
   active: boolean;
+  badgeCount?: number;
   icon?: typeof LayoutDashboard;
   label: string;
   to: string;
@@ -111,6 +115,11 @@ function SidebarNavRow({
         <Link to={to} {...shellSecondaryNavItemProps}>
           {Icon ? <Icon aria-hidden className="size-4 shrink-0" /> : null}
           <span className="truncate">{label}</span>
+          {badgeCount ? (
+            <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 font-semibold text-[10px] text-primary-foreground leading-none">
+              {badgeCount > 99 ? "99+" : badgeCount}
+            </span>
+          ) : null}
         </Link>
       </SidebarRowButton>
       {onCreate ? (
@@ -478,6 +487,7 @@ export function TasksSidebarPanel() {
     () => ({
       briefing: isBriefingPath(pathname),
       goalsList: isGoalsListPath(pathname),
+      inbox: pathname === tasksPaths.inbox,
       operations: isOperationsPath(pathname),
       routines: isRoutinesPath(pathname),
       settings: isSettingsPath(pathname),
@@ -485,6 +495,8 @@ export function TasksSidebarPanel() {
     }),
     [pathname]
   );
+  const inboxUnseenQuery = useInboxUnseenCountQuery();
+  const inboxUnseen = inboxUnseenQuery.data?.count ?? 0;
 
   const activeTab = prefs.tab;
   const isGoalsTab = activeTab === "goals";
@@ -564,6 +576,13 @@ export function TasksSidebarPanel() {
                   icon={LayoutDashboard}
                   label={t("sidebar.briefing")}
                   to={tasksPaths.briefing}
+                />
+                <SidebarNavRow
+                  active={navActive.inbox}
+                  badgeCount={inboxUnseen}
+                  icon={Inbox}
+                  label={t("sidebar.inbox")}
+                  to={tasksPaths.inbox}
                 />
                 <SidebarRow isActive={false}>
                   <SidebarRowButton

@@ -17,6 +17,9 @@ export interface NavigationItem {
   icon: UiIconComponent;
   label: string;
   to: string;
+  /** Reactive count badge on the icon — a hook the sidebar calls per item;
+   * undefined or 0 hides the badge. */
+  useBadgeCount?: () => number | undefined;
 }
 
 export interface NavigationSection {
