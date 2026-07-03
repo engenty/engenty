@@ -160,6 +160,9 @@ export const OPENAI_REALTIME_VOICE_ENGENTY_BACKEND_TOOLS: readonly OpenAiRealtim
   ];
 
 export interface ExecuteOpenAiRealtimeVoiceBackendToolOptions {
+  /** One-shot approval for this call — the user's dialog decision in a
+   * threadless voice session (no place to persist a grant). */
+  approvalGrantOnce?: string;
   auth?: "apps-ai" | "none";
   baseUrl?: string;
   headers?: Record<string, string>;
@@ -177,6 +180,7 @@ export function isOpenAiRealtimeVoiceBackendToolName(name: string): boolean {
 }
 
 export async function executeOpenAiRealtimeVoiceBackendTool({
+  approvalGrantOnce,
   auth = "apps-ai",
   baseUrl,
   headers,
@@ -215,6 +219,7 @@ export async function executeOpenAiRealtimeVoiceBackendTool({
       call_id: request.callId,
       name: request.name,
       ...(threadId ? { thread_id: threadId } : {}),
+      ...(approvalGrantOnce ? { approval_grant_once: approvalGrantOnce } : {}),
     }),
     headers: {
       "content-type": "application/json",
