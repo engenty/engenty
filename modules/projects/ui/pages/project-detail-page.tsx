@@ -466,7 +466,7 @@ export function ProjectDetailPage() {
               their UI. */}
           {activeContributedTab?.component && (
             <activeContributedTab.component
-              params={{ projectId: id }}
+              params={{ projectId: id, viewMode }}
               surface={PROJECTS_DETAIL_SURFACE}
             />
           )}

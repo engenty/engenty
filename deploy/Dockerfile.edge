@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1
+# Engenty production edge: core API + prod gateway + UI static assets.
+FROM node:24-bookworm-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+WORKDIR /app
+
+FROM base AS deps
+# scripts/ is needed by the root postinstall hook; the build warm-up it does is
+# redundant here (turbo builds below), so skip it.
+ENV ENGENTY_SKIP_INSTALL_BUILD=1
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY scripts ./scripts
+COPY apps ./apps
+COPY packages ./packages
+COPY modules ./modules
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS build
+ARG VITE_SUPABASE_URL=http://127.0.0.1:54321
+ARG VITE_SUPABASE_ANON_KEY=placeholder
+ARG VITE_ENGENTY_AI_BASE_URL=http://127.0.0.1:8787
+# Lower on memory-constrained builders (each parallel tsup/tsc worker is heavy).
+ARG TURBO_BUILD_CONCURRENCY=10
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_ENGENTY_AI_BASE_URL=$VITE_ENGENTY_AI_BASE_URL
+# ./packages/* and ./modules/* mirror the root predev: the UI's generated
+# plugin catalog imports module/package plugins that are not package.json
+# deps of @engenty/ui, so turbo won't build them via ^build alone.
+RUN pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter='...@engenty/core' --filter=@engenty/ui --filter='./packages/*' --filter='./modules/*'
+
+FROM node:24-bookworm-slim AS runtime
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/core/package.json ./apps/core/
+COPY --from=deps /app/node_modules ./node_modules
+# pnpm links workspace deps inside the importer's own node_modules
+# (apps/core/node_modules/@engenty/* -> ../../../packages/...), so ship both
+# that link dir and the packages/ + modules/ trees (with dist) it points into.
+COPY --from=deps /app/apps/core/node_modules ./apps/core/node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/modules ./modules
+COPY --from=build /app/apps/core/dist ./apps/core/dist
+COPY --from=build /app/apps/ui/dist ./apps/ui/dist
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=8787
+ENV ENGENTY_PROD_GATEWAY=1
+ENV ENGENTY_GATEWAY_UI_ROOT=/app/apps/ui/dist
+# apps/manage is closed-source and not in this repository — /manage stays off.
+ENV ENGENTY_GATEWAY_MANAGE_ENABLED=false
+ENV ENGENTY_GATEWAY_AI_URL=http://engenty-ai:8790
+ENV ENGENTY_GATEWAY_DOCS_URL=http://engenty-docs:3000
+ENV ENGENTY_GATEWAY_STUDIO_URL=http://engenty-studio:43111
+ENV GOTENBERG_URL=http://gotenberg:3000
+
+EXPOSE 8787
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8787/api/openapi.json').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "apps/core/dist/api-entry.js"]

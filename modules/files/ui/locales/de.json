@@ -5,6 +5,7 @@
   "menu": {
     "files": "Speicher"
   },
+  "projectFilesTab": "Dateien",
   "columns": {
     "filename": "Dateiname",
     "mime_type": "Typ",

@@ -10,12 +10,6 @@ instance on your own server, using [Coolify](https://coolify.io/) to manage the
 Docker stack and TLS. No prior Engenty knowledge is assumed — follow the steps in
 order.
 
-> **Status:** the `deploy/` bundle this guide references
-> (`deploy/docker-compose.yml`, `deploy/scripts/migrate.sh`, `deploy/DEPLOY.md`)
-> is not yet included in this repository — only `deploy/.env.example` ships
-> today. Until the bundle lands, treat this guide as a description of the target
-> setup rather than copy-paste-ready steps.
-
 ## How it fits together
 
 Everything is served from **one HTTPS domain** (for example
@@ -26,7 +20,6 @@ each path to the right place:
 | Path | What it serves |
 |------|----------------|
 | `/` | The main app (UI) |
-| `/manage` | The admin portal |
 | `/api`, `/gateway` | The backend API |
 | `/ai` | The AI service (proxied internally) |
 | `/docs` | These docs (optional) |
@@ -67,7 +60,7 @@ it at your app:
 
 1. In the Supabase dashboard, set:
    - **Site URL:** your app URL, e.g. `https://app.example.com`
-   - **Redirect URLs:** `https://app.example.com` and `https://app.example.com/manage`
+   - **Redirect URLs:** `https://app.example.com`
 2. Link the CLI and apply the Engenty database schema:
 
    ```bash

@@ -324,7 +324,9 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
         <DropdownMenuItem
           data-agent-user-menu-item-logout
           onClick={async () => {
-            await getSupabaseAuthClient().auth.signOut();
+            // Scope "local" ends only this browser's session; the default
+            // "global" would log the user out everywhere.
+            await getSupabaseAuthClient().auth.signOut({ scope: "local" });
             navigate("/auth/login");
           }}
         >

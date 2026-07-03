@@ -81,6 +81,14 @@ const ACTIVE_STATUSES = new Set<RealtimeVoiceUiStatus>([
   "muted",
 ]);
 
+// Server error events with these codes leave the session fully usable (the
+// data channel and audio stay up) — ending the call on them would drop a live
+// conversation over a refused duplicate request.
+const RECOVERABLE_REALTIME_ERROR_CODES = new Set([
+  "conversation_already_has_active_response",
+  "response_cancel_not_active",
+]);
+
 const EMPTY_TRANSCRIPT: OpenAiRealtimeVoiceTranscript = {
   segments: [],
 };
@@ -209,6 +217,8 @@ export function useOpenAiRealtimeVoiceSession({
   const handledToolCallIdsRef = useRef(new Set<string>());
   const mutedRef = useRef(false);
   const pendingUserSegmentIdRef = useRef<string | null>(null);
+  const responseActiveRef = useRef(false);
+  const responseCreateQueuedRef = useRef(false);
   const segmentSequenceRef = useRef(0);
   const turnIdRef = useRef(0);
 
@@ -216,6 +226,27 @@ export function useOpenAiRealtimeVoiceSession({
     connectionRef.current?.disconnect();
     connectionRef.current = null;
     mutedRef.current = false;
+    responseActiveRef.current = false;
+    responseCreateQueuedRef.current = false;
+  }, []);
+
+  // OpenAI refuses response.create while a response is in flight
+  // ("conversation_already_has_active_response"), so queue the request and
+  // flush it on the next response.done instead of sending immediately.
+  const requestAssistantResponse = useCallback(() => {
+    const connection = connectionRef.current;
+    if (!connection) {
+      return;
+    }
+    if (responseActiveRef.current) {
+      responseCreateQueuedRef.current = true;
+      return;
+    }
+    try {
+      connection.sendEvent({ type: "response.create" });
+    } catch {
+      // Data channel not open — drop the request silently.
+    }
   }, []);
 
   const sendClientEvent = useCallback((event: unknown) => {
@@ -251,55 +282,68 @@ export function useOpenAiRealtimeVoiceSession({
   const toolsLengthRef = useRef(tools.length);
   toolsLengthRef.current = tools.length;
 
-  const handleToolCalls = useCallback((event: unknown) => {
-    const executeToolFn = executeToolRef.current;
-    if (!(executeToolFn && toolsLengthRef.current > 0)) {
-      return;
-    }
-    const toolCalls = openAiRealtimeVoiceToolCallsFromOpenAiEvent(event);
-    if (toolCalls.length === 0) {
-      return;
-    }
-    const connection = connectionRef.current;
-    if (!connection) {
-      return;
-    }
-    for (const toolCall of toolCalls) {
-      if (handledToolCallIdsRef.current.has(toolCall.callId)) {
-        continue;
+  const handleToolCalls = useCallback(
+    (event: unknown) => {
+      const executeToolFn = executeToolRef.current;
+      if (!(executeToolFn && toolsLengthRef.current > 0)) {
+        return;
       }
-      handledToolCallIdsRef.current.add(toolCall.callId);
-      void Promise.resolve(executeToolFn(toolCall))
-        .then((output) => {
-          connection.sendEvent({
-            item: {
-              call_id: toolCall.callId,
-              output: stringifyToolOutput(output),
-              type: "function_call_output",
-            },
-            type: "conversation.item.create",
+      const toolCalls = openAiRealtimeVoiceToolCallsFromOpenAiEvent(event);
+      if (toolCalls.length === 0) {
+        return;
+      }
+      const connection = connectionRef.current;
+      if (!connection) {
+        return;
+      }
+      for (const toolCall of toolCalls) {
+        if (handledToolCallIdsRef.current.has(toolCall.callId)) {
+          continue;
+        }
+        handledToolCallIdsRef.current.add(toolCall.callId);
+        void Promise.resolve(executeToolFn(toolCall))
+          .then((output) => {
+            connection.sendEvent({
+              item: {
+                call_id: toolCall.callId,
+                output: stringifyToolOutput(output),
+                type: "function_call_output",
+              },
+              type: "conversation.item.create",
+            });
+            requestAssistantResponse();
+          })
+          .catch((error) => {
+            connection.sendEvent({
+              item: {
+                call_id: toolCall.callId,
+                output: stringifyToolOutput({
+                  error: error instanceof Error ? error.message : String(error),
+                }),
+                type: "function_call_output",
+              },
+              type: "conversation.item.create",
+            });
+            requestAssistantResponse();
           });
-          connection.sendEvent({ type: "response.create" });
-        })
-        .catch((error) => {
-          connection.sendEvent({
-            item: {
-              call_id: toolCall.callId,
-              output: stringifyToolOutput({
-                error: error instanceof Error ? error.message : String(error),
-              }),
-              type: "function_call_output",
-            },
-            type: "conversation.item.create",
-          });
-          connection.sendEvent({ type: "response.create" });
-        });
-    }
-  }, []);
+      }
+    },
+    [requestAssistantResponse]
+  );
 
   const handleEvent = useCallback(
     (event: unknown) => {
       onEvent?.(event);
+      if (isOpenAiRealtimeEventType(event, "response.created")) {
+        responseActiveRef.current = true;
+      }
+      if (isOpenAiRealtimeEventType(event, "response.done")) {
+        responseActiveRef.current = false;
+        if (responseCreateQueuedRef.current) {
+          responseCreateQueuedRef.current = false;
+          requestAssistantResponse();
+        }
+      }
       if (
         isOpenAiRealtimeEventType(event, "input_audio_buffer.speech_started")
       ) {
@@ -326,6 +370,11 @@ export function useOpenAiRealtimeVoiceSession({
         return;
       }
       if (next === "error") {
+        const code = readOpenAiRealtimeErrorCode(event);
+        if (code && RECOVERABLE_REALTIME_ERROR_CODES.has(code)) {
+          // The session survives these — keep the call running.
+          return;
+        }
         disconnect();
         setError(readOpenAiRealtimeErrorMessage(event));
         setStatus("error");
@@ -333,7 +382,13 @@ export function useOpenAiRealtimeVoiceSession({
       }
       setStatus((current) => (current === "muted" ? current : next));
     },
-    [disconnect, handleToolCalls, nextSegmentId, onEvent]
+    [
+      disconnect,
+      handleToolCalls,
+      nextSegmentId,
+      onEvent,
+      requestAssistantResponse,
+    ]
   );
 
   const start = useCallback(async () => {
@@ -348,6 +403,8 @@ export function useOpenAiRealtimeVoiceSession({
     currentAssistantSegmentIdRef.current = null;
     handledToolCallIdsRef.current.clear();
     pendingUserSegmentIdRef.current = null;
+    responseActiveRef.current = false;
+    responseCreateQueuedRef.current = false;
     segmentSequenceRef.current = 0;
     try {
       const connection = await connect({
@@ -462,6 +519,18 @@ function isOpenAiRealtimeEventType(event: unknown, type: string): boolean {
     "type" in event &&
     event.type === type
   );
+}
+
+function readOpenAiRealtimeErrorCode(event: unknown): string | null {
+  if (!(event && typeof event === "object")) {
+    return null;
+  }
+  const error = (event as Record<string, unknown>).error;
+  if (!(error && typeof error === "object")) {
+    return null;
+  }
+  const code = (error as Record<string, unknown>).code;
+  return typeof code === "string" && code.trim() ? code : null;
 }
 
 function readOpenAiRealtimeErrorMessage(event: unknown): string {

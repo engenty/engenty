@@ -5,6 +5,7 @@
   "menu": {
     "files": "Files"
   },
+  "projectFilesTab": "Files",
   "columns": {
     "filename": "Filename",
     "mime_type": "Type",
