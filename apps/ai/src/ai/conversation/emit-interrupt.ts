@@ -14,6 +14,10 @@ import type {
   AgUiOpenInterruptMetadata,
   FrontendToolDefinition,
 } from "@engenty/ag-ui-bridge";
+import {
+  buildToolApprovalArtifact,
+  type ToolApprovalSuspendPayload,
+} from "../../../ai/tools/engenty-tools/index.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
 import {
   buildFrontendToolOpenInterruptFromPayload,
@@ -98,6 +102,61 @@ export async function emitFrontendToolInterrupt(input: {
     type: "RUN_FINISHED",
   } as never);
   return true;
+}
+
+/**
+ * Map a tool-approval SUSPEND (native Mastra HITL from `engenty_tool_execute`)
+ * to an AG-UI interrupt: a decision-kind open interrupt (so the existing
+ * Approve/Deny card renders it) that ALSO carries `run_id`, which routes the
+ * resume to the parked session (`respondToToolSuspension`) instead of the
+ * decision re-run branch. The caller parks the session.
+ */
+export async function emitToolApprovalInterrupt(input: {
+  busRunId: string;
+  emit: (event: AGUIEvent) => void;
+  payload: ToolApprovalSuspendPayload;
+  // The suspended run id the resume reattaches to.
+  resumeRunId: string;
+  scope: AiSessionScope;
+  sessionMetadata: Record<string, unknown>;
+  store: AgentSessionStore;
+  threadId: string;
+  toolCallId: string;
+}): Promise<void> {
+  const artifact = buildToolApprovalArtifact({
+    operationId: input.payload.operation_id,
+    requiresApproval: input.payload.requires_approval,
+    riskLevel: input.payload.risk_level,
+    ...(input.payload.title ? { title: input.payload.title } : {}),
+  });
+  const interrupt: SessionInterruptPayload = {
+    artifact,
+    interruptId: artifact.interrupt_id,
+    kind: "decision",
+    toolCallId: input.toolCallId,
+  };
+  try {
+    await input.store.updateSessionForUser({
+      metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, {
+        ...artifactOpenInterrupt(interrupt),
+        run_id: input.resumeRunId,
+      }),
+      tenantId: input.scope.tenantId,
+      threadId: input.threadId,
+      userId: input.scope.userId,
+    });
+  } catch (error) {
+    console.error(
+      `[conversation ${input.resumeRunId}] failed to persist tool-approval interrupt:`,
+      error
+    );
+  }
+  input.emit({
+    outcome: buildSessionInterruptOutcome(interrupt),
+    runId: input.busRunId,
+    threadId: input.threadId,
+    type: "RUN_FINISHED",
+  } as never);
 }
 
 /**

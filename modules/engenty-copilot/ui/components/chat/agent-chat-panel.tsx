@@ -109,13 +109,15 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
 
   // The executing decision/feedback chooser to dock above the composer, read from
   // the transcript (immediate) and gated by the authoritative pending-tool-call set
-  // from the stream — no session-metadata refetch lag.
+  // from the stream. Fall back to the persisted open interrupt for server-driven
+  // interrupts that never enter the transcript — e.g. the tool-approval gate, whose
+  // suspended `engenty_tool_execute` call has no artifact result to render from.
   const dockInterrupt = useMemo(
     () =>
       host.pendingInterruptToolCallIds.size > 0
-        ? pendingInterruptFromTranscript(messages)
+        ? (pendingInterruptFromTranscript(messages) ?? openInterrupt)
         : null,
-    [host.pendingInterruptToolCallIds, messages]
+    [host.pendingInterruptToolCallIds, messages, openInterrupt]
   );
 
   // "Send now" / auto-drain submit. When a run is still in flight (the user sent

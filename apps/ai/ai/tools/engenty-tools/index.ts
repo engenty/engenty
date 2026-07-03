@@ -2,6 +2,9 @@ export { createEngentyCatalogTools } from "./create-engenty-tools.js";
 export {
   engentyToolExecuteTool,
   executeEngentyTool,
+  isToolApprovalSuspendPayload,
+  type ToolApprovalResumeData,
+  type ToolApprovalSuspendPayload,
 } from "./engenty-tool-execute-tool.js";
 export {
   createEngentyToolsContextTool,
@@ -29,6 +32,7 @@ export {
   toSearchResult,
 } from "./lib/format.js";
 export { engentyToolsRunAls } from "./lib/run-context.js";
+export { buildToolApprovalArtifact } from "./lib/tool-approval.js";
 export type {
   EngentyToolsClient,
   EngentyToolsClientResult,

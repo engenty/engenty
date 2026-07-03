@@ -11,7 +11,9 @@ import type { AiUsageStore } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import type { FrontendToolResumeData } from "../../ai/frontend-tools/native-frontend-tool.js";
+import type { ToolApprovalResumeData } from "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
 import {
+  isToolApprovalArtifactId,
   parseToolApprovalOperationId,
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
@@ -262,31 +264,82 @@ export function registerAgentSessionRunRoutes(
     const conversationStore = opts.getStore?.() ?? null;
     const canRunConversation =
       Boolean(opts.createRegistry) && Boolean(conversationStore);
-    // A frontend-tool interrupt PARKS the Harness (a real Mastra suspend); its resume
-    // reattaches to that parked Harness. Decision/feedback interrupts come from a tool
-    // RESULT (no suspend) — they re-run with the user's selection nudged in.
+    // A SUSPENDED tool (frontend tool, or the execute tool's approval gate)
+    // PARKS the session — its interrupt carries `run_id` and the resume
+    // reattaches via respondToToolSuspension, continuing the same run.
+    // Decision/feedback interrupts from requestDecision/requestFeedback come
+    // from a tool RESULT (no suspend, no run_id) — they re-run with the user's
+    // selection nudged in.
     const openInterrupt = canRunConversation
       ? readAgUiOpenInterrupt(session.metadata)
       : null;
+    const isParkedApprovalResume =
+      isResumeRun &&
+      openInterrupt != null &&
+      Boolean(openInterrupt.run_id) &&
+      isToolApprovalArtifactId(openInterrupt.artifact_id);
     const isParkedResume =
       isResumeRun &&
       openInterrupt != null &&
       Boolean(openInterrupt.run_id) &&
-      isFrontendToolOpenInterrupt(openInterrupt);
+      (isFrontendToolOpenInterrupt(openInterrupt) || isParkedApprovalResume);
     const isArtifactResume =
       isResumeRun &&
+      !isParkedResume &&
       openInterrupt != null &&
       (openInterrupt.kind === "decision" || openInterrupt.kind === "feedback");
     if (canRunConversation && conversationStore && isParkedResume) {
-      // Conversation resume: a frontend tool suspended; reattach to the parked
-      // Harness and stream the continuation via respondToToolSuspension.
       markRunLive(runId);
+      let resumeData: FrontendToolResumeData | ToolApprovalResumeData =
+        toFrontendToolResumeData(resumeEntries[0]);
+      // Metadata the resume writes back when it clears the interrupt — must
+      // include a grant persisted below, or the write-back would erase it.
+      let resumeSessionMetadata = session.metadata;
+      if (isParkedApprovalResume) {
+        // Tool-approval resume: audit the decision, persist the grant ("once"
+        // survives this request's resumes; "always" the whole chat), and hand
+        // the suspended execute tool the decision. The gate re-check on
+        // re-execution passes via the resume data itself.
+        const operationId =
+          parseToolApprovalOperationId(openInterrupt?.artifact_id) ?? "";
+        const choice = resumeEntries[0]
+          ? readDecisionResumeChoice(resumeEntries[0])?.choiceId
+          : undefined;
+        const always = choice === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS;
+        const once = choice === TOOL_APPROVAL_CHOICE_APPROVE_ONCE;
+        auditToolApprovalDecision({
+          decision: always ? "approve_always" : once ? "approve_once" : "deny",
+          operationId,
+          tenantId: scope.scope.tenantId,
+          threadId,
+          userId: scope.scope.userId,
+        });
+        if (once || always) {
+          resumeSessionMetadata = always
+            ? withToolApprovalGrant(session.metadata, operationId)
+            : withToolApprovalGrantOnce(session.metadata, operationId);
+          try {
+            await conversationStore.updateSessionForUser({
+              metadata: resumeSessionMetadata,
+              tenantId: scope.scope.tenantId,
+              threadId,
+              userId: scope.scope.userId,
+            });
+          } catch (err) {
+            console.error("conversation approval grant persist failed", err);
+          }
+        }
+        resumeData = {
+          approved: once || always,
+          ...(choice ? { choice_id: choice } : {}),
+        };
+      }
       void resumeConversationRun({
         newRunId: runId,
         resolvedToolCallId: openInterrupt?.tool_call_id ?? "",
-        resumeData: toFrontendToolResumeData(resumeEntries[0]),
+        resumeData,
         scope: scope.scope,
-        sessionMetadata: session.metadata,
+        sessionMetadata: resumeSessionMetadata,
         store: conversationStore,
         suspendedRunId: openInterrupt?.run_id ?? "",
         threadId,
@@ -320,41 +373,6 @@ export function registerAgentSessionRunRoutes(
           threadId,
           toolCallId: openInterrupt?.tool_call_id ?? "",
         });
-        // If the resolved artifact was a tool-approval, audit + grant. "Once" grants
-        // for THIS run only (transient — not persisted). "Always" also persists a
-        // thread grant so the op isn't re-prompted later in the chat.
-        const hsApprovalOp = parseToolApprovalOperationId(
-          openInterrupt?.artifact_id
-        );
-        if (hsApprovalOp) {
-          const hsChoice = readDecisionResumeChoice(
-            resumeEntries[0]!
-          )?.choiceId;
-          const hsAlways = hsChoice === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS;
-          const hsOnce = hsChoice === TOOL_APPROVAL_CHOICE_APPROVE_ONCE;
-          auditToolApprovalDecision({
-            decision: hsAlways
-              ? "approve_always"
-              : hsOnce
-                ? "approve_once"
-                : "deny",
-            operationId: hsApprovalOp,
-            tenantId: scope.scope.tenantId,
-            threadId,
-            userId: scope.scope.userId,
-          });
-          if (hsOnce || hsAlways) {
-            // Persist the grant so it survives every resume run of THIS request —
-            // the agent may interleave a domain decision between the approval and the
-            // actual execute, and a run-scoped grant would be lost on that hop,
-            // re-prompting the same op. "Always" lives for the whole chat; "Once" is
-            // cleared at the next fresh user turn (below).
-            hsSessionMetadata = hsAlways
-              ? withToolApprovalGrant(hsSessionMetadata, hsApprovalOp)
-              : withToolApprovalGrantOnce(hsSessionMetadata, hsApprovalOp);
-            hsApprovalGrants = readToolApprovalGrants(hsSessionMetadata);
-          }
-        }
         hsSessionMetadata = mergeAgUiOpenInterruptMetadata(
           hsSessionMetadata,
           null
