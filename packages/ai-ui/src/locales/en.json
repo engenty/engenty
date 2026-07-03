@@ -758,8 +758,22 @@
         "nameRequired": "Name is required",
         "agentRequired": "Agent is required",
         "promptRequired": "Instructions are required",
-        "actionFailed": "Action failed"
-      }
+        "actionFailed": "Action failed",
+        "resourceRequired": "Event name is required",
+        "filterInvalid": "Filter must be a JSON object"
+      },
+      "triggerType": "Trigger",
+      "triggerTypes": {
+        "schedule": "Schedule",
+        "module-events": "Module event",
+        "webhook": "Inbound webhook"
+      },
+      "eventResource": "Event",
+      "eventResourcePlaceholder": "e.g., contacts.contact.created",
+      "eventFilter": "Payload filter (optional JSON)",
+      "eventFilterPlaceholder": "{ \"type\": \"person\" }",
+      "webhookHint": "The webhook URL (with its secret) is shown on the routine after creation.",
+      "webhookUrl": "Webhook URL"
     },
     "dialog": {
       "createTitle": "Add Routine",
@@ -804,7 +818,6 @@
     "workSourcesTasksHint": "This agent can also be assigned work directly in Tasks.",
     "workSourcesTitle": "How work reaches it"
   },
-
   "agentsCatalog": {
     "actions": {
       "delete": "Delete",

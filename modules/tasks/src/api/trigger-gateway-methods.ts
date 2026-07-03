@@ -4,12 +4,14 @@
 // always references a task template. `triggers_fire` materializes the Task —
 // it is the one execution path shared by scheduled fires (the apps/ai
 // heartbeat hook), manual "run now", and (later) event-driven fires.
+import { randomBytes } from "node:crypto";
 import type {
   PluginAuthContext,
   PluginServerApi,
   QueueServiceLike,
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   createTriggersRepoSupabase,
   type TriggersRepo,
@@ -26,11 +28,9 @@ import {
   triggersListSchema,
   triggerUpdateInputSchema,
 } from "../schema/zod.js";
-import { getRepo, type RepoOrFactory } from "./gateway-methods.js";
-import {
-  enqueueTaskDispatch,
-  isDispatchableTask,
-} from "./task-dispatch-queue.js";
+import { MODULE_EVENTS_PROVIDER_ID } from "./trigger-event-subscriber.js";
+import { fireTrigger } from "./trigger-fire.js";
+import { WEBHOOK_PROVIDER_ID } from "./trigger-webhook-route.js";
 
 export type TriggersRepoFactory = (auth: PluginAuthContext) => TriggersRepo;
 
@@ -53,8 +53,13 @@ const writeOp = {
 };
 
 export interface TriggerGatewayOptions {
+  /** Ensure the module-event bus listener covers a trigger's resource — the
+   * subscriber's `ensureSubscribed`, called on event-trigger create/update. */
+  onEventResourceAdded?: (resource: string) => void;
   /** Queue for auto-dispatching agent tasks materialized by a fire. */
   queue?: QueueServiceLike | null;
+  /** Service client for the shared fire path (tenant/scope come from the trigger row). */
+  supabase: SupabaseClient;
 }
 
 export function createTriggersRepoFactory(
@@ -67,8 +72,7 @@ export function createTriggersRepoFactory(
 export function registerTriggerGatewayMethods(
   api: PluginServerApi,
   triggersRepoFactory: TriggersRepoFactory,
-  tasksRepoOrFactory: RepoOrFactory,
-  options?: TriggerGatewayOptions
+  options: TriggerGatewayOptions
 ) {
   api.registerOperation({
     operationId: "triggers_list",
@@ -113,6 +117,17 @@ export function registerTriggerGatewayMethods(
       if (parsed.kind === "schedule" && !parsed.cron?.trim()) {
         throw new Error("trigger_schedule_requires_cron");
       }
+      if (parsed.kind === "event") {
+        if (!parsed.provider_id) {
+          throw new Error("trigger_event_requires_provider");
+        }
+        if (
+          parsed.provider_id === MODULE_EVENTS_PROVIDER_ID &&
+          !parsed.resource?.trim()
+        ) {
+          throw new Error("trigger_event_requires_resource");
+        }
+      }
       let templateId = parsed.task_template_id;
       if (!templateId) {
         if (!parsed.task_template) {
@@ -129,17 +144,34 @@ export function registerTriggerGatewayMethods(
           cron: parsed.cron ?? null,
           description: parsed.description ?? null,
           enabled: parsed.enabled ?? true,
+          event_filter: parsed.event_filter ?? null,
           kind: parsed.kind,
           module_id: parsed.module_id ?? null,
           module_key: parsed.module_key ?? null,
           name: parsed.name,
+          provider_id: parsed.provider_id ?? null,
           quiet_hours: parsed.quiet_hours ?? null,
+          resource: parsed.resource ?? null,
           source: parsed.source ?? "custom",
           task_template_id: templateId,
           timezone: parsed.timezone ?? null,
+          // Webhook triggers are fired by external systems posting to the
+          // public hook route; the per-trigger secret is the authentication.
+          webhook_secret:
+            parsed.kind === "event" &&
+            parsed.provider_id === WEBHOOK_PROVIDER_ID
+              ? randomBytes(24).toString("hex")
+              : null,
         },
         auth.principalId ?? null
       );
+      if (
+        trigger.kind === "event" &&
+        trigger.provider_id === MODULE_EVENTS_PROVIDER_ID &&
+        trigger.resource
+      ) {
+        options.onEventResourceAdded?.(trigger.resource);
+      }
       const detail = await repo.getTrigger(trigger.id);
       if (!detail) {
         throw new Error("trigger_not_found");
@@ -162,6 +194,13 @@ export function registerTriggerGatewayMethods(
       const updated = await repo.updateTrigger(id, patch);
       if (!updated) {
         throw new Error("trigger_not_found");
+      }
+      if (
+        updated.kind === "event" &&
+        updated.provider_id === MODULE_EVENTS_PROVIDER_ID &&
+        updated.resource
+      ) {
+        options.onEventResourceAdded?.(updated.resource);
       }
       const detail = await repo.getTrigger(id);
       if (!detail) {
@@ -201,30 +240,19 @@ export function registerTriggerGatewayMethods(
       const auth = requireAuth(ctx.auth);
       const repo = triggersRepoFactory(auth);
       const { id } = triggerIdParamsSchema.parse(input);
+      // The scoped lookup IS the authorization: the caller can only fire
+      // triggers in their own tenant/scope. The fire itself runs on the
+      // shared path used by all ingestion edges.
       const trigger = await repo.getTrigger(id);
       if (!trigger) {
         throw new Error("trigger_not_found");
       }
-      const template = trigger.task_template;
-      if (!template) {
-        throw new Error("trigger_task_template_missing");
-      }
-      const tasksRepo = getRepo(tasksRepoOrFactory, ctx.auth);
-      const task = await tasksRepo.createTask(
-        {
-          description: template.description,
-          primary_assignee_agent_type_key: template.agent_type_key,
-          primary_assignee_kind: "agent",
-          priority: template.priority,
-          title: template.title,
-        },
-        { actorKind: "agent", createdByUserId: auth.principalId ?? null }
-      );
-      await repo.recordTriggerFire(id, `task ${task.id} created`);
-      if (options?.queue && auth.tenantId && isDispatchableTask(task)) {
-        await enqueueTaskDispatch(options.queue, task, auth.tenantId);
-      }
-      return task;
+      return fireTrigger({
+        createdByUserId: auth.principalId ?? null,
+        queue: options.queue ?? null,
+        supabase: options.supabase,
+        trigger,
+      });
     },
   });
 

@@ -11,10 +11,20 @@ export function RoutineTriggerChip({
   routine,
   locale = "en",
 }: RoutineTriggerChipProps) {
-  const label = useMemo(
-    () => (routine.cron ? cronToHumanLabel(routine.cron, locale) : null),
-    [routine.cron, locale]
-  );
+  const label = useMemo(() => {
+    if (routine.kind === "event") {
+      return routine.provider_id === "webhook"
+        ? "Webhook"
+        : (routine.resource ?? "Event");
+    }
+    return routine.cron ? cronToHumanLabel(routine.cron, locale) : null;
+  }, [
+    routine.cron,
+    routine.kind,
+    routine.provider_id,
+    routine.resource,
+    locale,
+  ]);
 
   if (!label) {
     return null;

@@ -137,6 +137,21 @@ export function RoutineDetailContent({
         )}
       </div>
 
+      {/* Webhook URL — external systems POST here to fire the trigger */}
+      {routine.provider_id === "webhook" && routine.webhook_secret && (
+        <div className="space-y-2">
+          <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+            {t("routines.detail.webhookUrl")}
+          </h4>
+          <div className="select-all break-all rounded-lg border bg-muted/40 p-3 font-mono text-xs">
+            {`${window.location.origin}/api/tasks/trigger-hooks/${routine.id}/${routine.webhook_secret}`}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {t("routines.detail.webhookHint")}
+          </p>
+        </div>
+      )}
+
       <RoutineDetailSections routine={routine} />
     </div>
   );

@@ -771,8 +771,22 @@
         "nameRequired": "Name ist erforderlich",
         "agentRequired": "Agent ist erforderlich",
         "promptRequired": "Anweisungen sind erforderlich",
-        "actionFailed": "Aktion fehlgeschlagen"
-      }
+        "actionFailed": "Aktion fehlgeschlagen",
+        "resourceRequired": "Ereignisname ist erforderlich",
+        "filterInvalid": "Filter muss ein JSON-Objekt sein"
+      },
+      "triggerType": "Auslöser",
+      "triggerTypes": {
+        "schedule": "Zeitplan",
+        "module-events": "Modul-Ereignis",
+        "webhook": "Eingehender Webhook"
+      },
+      "eventResource": "Ereignis",
+      "eventResourcePlaceholder": "z. B. contacts.contact.created",
+      "eventFilter": "Payload-Filter (optional, JSON)",
+      "eventFilterPlaceholder": "{ \"type\": \"person\" }",
+      "webhookHint": "Die Webhook-URL (mit Secret) wird nach dem Erstellen an der Routine angezeigt.",
+      "webhookUrl": "Webhook-URL"
     },
     "dialog": {
       "createTitle": "Routine hinzufügen",
@@ -817,7 +831,6 @@
     "workSourcesTasksHint": "Diesem Agenten kann auch direkt in Aufgaben Arbeit zugewiesen werden.",
     "workSourcesTitle": "Wie Arbeit ankommt"
   },
-
   "agentsCatalog": {
     "actions": {
       "delete": "Löschen",

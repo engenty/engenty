@@ -340,6 +340,8 @@ export const taskTemplateUpdateInputSchema =
 
 export const triggerKindSchema = z.enum(["schedule", "event", "manual"]);
 
+export const triggerEventProviderSchema = z.enum(["module-events", "webhook"]);
+
 export const triggerSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -357,6 +359,7 @@ export const triggerSchema = z.object({
   module_id: z.string().nullable(),
   module_key: z.string().nullable(),
   heartbeat_id: z.string().nullable(),
+  webhook_secret: z.string().nullable(),
   last_fired_at: z.string().nullable(),
   last_result: z.string().nullable(),
   created_at: z.string(),
@@ -378,6 +381,10 @@ export const triggerCreateInputSchema = z.object({
   cron: z.string().max(100).nullable().optional(),
   timezone: z.string().max(64).nullable().optional(),
   quiet_hours: z.string().max(100).nullable().optional(),
+  // kind = 'event'
+  provider_id: triggerEventProviderSchema.nullable().optional(),
+  resource: z.string().max(255).nullable().optional(),
+  event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
   // Module-declared triggers (ROUTINE.md sync).
   source: z.enum(["module", "custom"]).optional(),
   module_id: z.string().max(255).nullable().optional(),
@@ -391,6 +398,9 @@ export const triggerUpdateInputSchema = z.object({
   cron: z.string().max(100).nullable().optional(),
   timezone: z.string().max(64).nullable().optional(),
   quiet_hours: z.string().max(100).nullable().optional(),
+  provider_id: triggerEventProviderSchema.nullable().optional(),
+  resource: z.string().max(255).nullable().optional(),
+  event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
   task_template_id: z.string().uuid().optional(),
   heartbeat_id: z.string().nullable().optional(),
 });

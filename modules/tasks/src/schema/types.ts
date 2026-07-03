@@ -279,6 +279,9 @@ export interface TasksBriefingResponse {
 
 export type TriggerKind = "schedule" | "event" | "manual";
 export type TriggerSource = "module" | "custom";
+/** Event-trigger ingestion edges: the in-process plugin event bus, or the
+ * public secret-authenticated webhook route. */
+export type TriggerEventProvider = "module-events" | "webhook";
 
 export interface TaskTemplate {
   agent_type_key: string;
@@ -316,6 +319,7 @@ export interface Trigger {
   tenant_id: string;
   timezone: string | null;
   updated_at: string;
+  webhook_secret: string | null;
 }
 
 export interface TriggerDetail extends Trigger {

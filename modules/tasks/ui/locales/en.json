@@ -386,7 +386,9 @@
       "neverExecuted": "Never executed",
       "failed": "Failed",
       "success": "Success",
-      "viewRunDetails": "View run details (Timeline)"
+      "viewRunDetails": "View run details (Timeline)",
+      "webhookUrl": "Webhook URL",
+      "webhookHint": "POST to this URL fires the routine; the request body is attached to the task."
     },
     "edit": {
       "title": "Edit Routine",

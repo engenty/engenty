@@ -50,11 +50,17 @@ const taskTemplateInputSchema = z.object({
 });
 
 const createTriggerSchema = z.object({
-  cron: z.string().min(1).max(100),
+  // Schedule triggers require cron; event triggers require provider (+
+  // resource for module events) — enforced in the handler per kind.
+  cron: z.string().min(1).max(100).optional(),
   description: z.string().max(1000).nullable().optional(),
   enabled: z.boolean().optional(),
+  event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
+  kind: z.enum(["schedule", "event"]).default("schedule"),
   name: z.string().min(1).max(255),
+  provider_id: z.enum(["module-events", "webhook"]).nullable().optional(),
   quiet_hours: z.string().max(100).nullable().optional(),
+  resource: z.string().max(255).nullable().optional(),
   task_template: taskTemplateInputSchema.optional(),
   task_template_id: z.string().uuid().optional(),
   timezone: z.string().max(64).nullable().optional(),
@@ -64,8 +70,11 @@ const updateTriggerSchema = z.object({
   cron: z.string().min(1).max(100).optional(),
   description: z.string().max(1000).nullable().optional(),
   enabled: z.boolean().optional(),
+  event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
   name: z.string().min(1).max(255).optional(),
+  provider_id: z.enum(["module-events", "webhook"]).nullable().optional(),
   quiet_hours: z.string().max(100).nullable().optional(),
+  resource: z.string().max(255).nullable().optional(),
   task_template: taskTemplateInputSchema.partial().optional(),
   timezone: z.string().max(64).nullable().optional(),
 });
@@ -185,6 +194,17 @@ export function registerTriggerRoutes(
     if (!(data.task_template || data.task_template_id)) {
       return c.json({ error: "triggers.taskTemplateRequired" }, 400);
     }
+    if (data.kind === "schedule" && !data.cron?.trim()) {
+      return c.json({ error: "triggers.cronRequired" }, 400);
+    }
+    if (data.kind === "event") {
+      if (!data.provider_id) {
+        return c.json({ error: "triggers.providerRequired" }, 400);
+      }
+      if (data.provider_id === "module-events" && !data.resource?.trim()) {
+        return c.json({ error: "triggers.resourceRequired" }, 400);
+      }
+    }
     const agentError = await validateAgentTypeKey(
       resolved.scope.tenantId,
       data.task_template?.agent_type_key
@@ -194,12 +214,15 @@ export function registerTriggerRoutes(
     }
     try {
       const trigger = (await invokerFor(resolved.scope)("triggers_create", {
-        cron: data.cron,
+        cron: data.cron ?? null,
         description: data.description ?? null,
         enabled: data.enabled ?? true,
-        kind: "schedule",
+        event_filter: data.event_filter ?? null,
+        kind: data.kind,
         name: data.name,
+        provider_id: data.provider_id ?? null,
         quiet_hours: data.quiet_hours ?? null,
+        resource: data.resource ?? null,
         task_template: data.task_template,
         task_template_id: data.task_template_id,
         timezone: data.timezone ?? null,
@@ -264,9 +287,12 @@ export function registerTriggerRoutes(
         cron: data.cron,
         description: data.description,
         enabled: data.enabled,
+        event_filter: data.event_filter,
         id: c.req.param("id"),
         name: data.name,
+        provider_id: data.provider_id,
         quiet_hours: data.quiet_hours,
+        resource: data.resource,
         timezone: data.timezone,
       })) as TriggerDetailRow;
       if (data.task_template && trigger.task_template_id) {

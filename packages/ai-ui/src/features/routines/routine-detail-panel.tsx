@@ -178,6 +178,23 @@ export function RoutineDetailPanel({
             )}
           </div>
 
+          {/* Webhook URL — external systems POST here to fire the trigger */}
+          {routine.provider_id === "webhook" && routine.webhook_secret && (
+            <div className="space-y-2">
+              <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+                {isDe ? "Webhook-URL" : "Webhook URL"}
+              </h4>
+              <div className="select-all break-all rounded-lg border bg-muted/40 p-3 font-mono text-xs">
+                {`${window.location.origin}/api/tasks/trigger-hooks/${routine.id}/${routine.webhook_secret}`}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {isDe
+                  ? "POST an diese URL löst die Routine aus; der Request-Body wird der Aufgabe angehängt."
+                  : "POST to this URL fires the routine; the request body is attached to the task."}
+              </p>
+            </div>
+          )}
+
           {/* Prompt/Instructions */}
           {routine.prompt && (
             <div className="space-y-2">
