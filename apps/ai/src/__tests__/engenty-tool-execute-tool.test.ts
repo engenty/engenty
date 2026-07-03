@@ -403,6 +403,57 @@ describe("createEngentyToolExecuteTool", () => {
     });
   }
 
+  it("rejects an EMPTY input for an operation with required fields (never invokes, never gates)", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      Response.json({
+        ok: true,
+        data: {
+          auth: {
+            requiredCapabilities: [],
+            requiredPermissions: [],
+            requiredScopes: [],
+            requiresApproval: true,
+            riskLevel: "medium",
+          },
+          inputSchema: {
+            jsonSchema: {
+              type: "object",
+              properties: { type: { type: "string" }, email: {} },
+              required: ["type"],
+            },
+            type: "zod",
+          },
+          moduleId: "contacts",
+          pluginId: "contacts",
+          summary: "Create contact",
+          toolId: "contacts_create",
+        },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+    const suspend = vi.fn(async () => {});
+
+    // Weaker models drop function-call arguments entirely; the guard must fire
+    // BEFORE the approval gate (no Approve/Deny card for a doomed call) and
+    // instruct the model to retry once, then surface the model limitation.
+    const result = (await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeTool(tool, { id: "contacts_create", input: {} }, {
+          agent: { suspend },
+        } as never)
+    )) as { error?: string; message?: string; ok?: boolean };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("empty_tool_input");
+    expect(result.message).toContain("type");
+    expect(result.message).toContain("different model");
+    expect(suspend).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("SUSPENDS the run (native HITL) for a requiresApproval op in a conversation run", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());

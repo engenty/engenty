@@ -96,6 +96,30 @@ function approvalDeniedResult(operationId: string) {
   };
 }
 
+/** Required property names from an operation contract's input JSON schema. */
+function requiredInputKeys(
+  jsonSchema: Record<string, unknown> | undefined
+): string[] {
+  const required = jsonSchema?.required;
+  return Array.isArray(required)
+    ? required.filter((key): key is string => typeof key === "string")
+    : [];
+}
+
+/**
+ * The model-facing result when a tool call arrives with an EMPTY input object
+ * for an operation that requires fields. Weaker models drop function-call
+ * arguments entirely; without this guard the empty input reaches core and
+ * surfaces as a raw validation error the model tends to retry verbatim.
+ */
+function emptyToolInputResult(operationId: string, required: string[]) {
+  return {
+    ok: false as const,
+    error: "empty_tool_input",
+    message: `The ${operationId} call was rejected before execution: its input object arrived empty, but the operation requires: ${required.join(", ")}. If arguments were provided, they were lost in transport — some models fail to emit function-call arguments reliably. Retry once with the full input object; if it arrives empty again, stop and report this failure and its likely cause (the currently selected model's function calling) so the user can decide how to proceed, e.g. with a different model.`,
+  };
+}
+
 /**
  * Handle an operation that requires approval, per the run's approval policy:
  * suspend the Mastra run (interactive chat — the resume re-executes this tool
@@ -167,6 +191,14 @@ export async function executeEngentyTool(
     if (resumedApproval && !resumedApproval.approved) {
       return approvalDeniedResult(operationId);
     }
+    // Empty-input guard BEFORE the approval gate: never ask the user to approve
+    // a call that cannot succeed. (An input with wrong/partial fields still goes
+    // to core for a precise validation error.)
+    const rawInput = isRecord(parsed.input) ? parsed.input : {};
+    const required = requiredInputKeys(entry.input.jsonSchema);
+    if (required.length > 0 && Object.keys(rawInput).length === 0) {
+      return emptyToolInputResult(entry.tool.toolId, required);
+    }
     // The gate: contract-driven (requiresApproval), bypassed by chat grants or
     // a just-approved resume. Core stays authoritative via the 202 backstop.
     const decision = resolveToolApprovalDecision({
@@ -184,7 +216,6 @@ export async function executeEngentyTool(
         title: entry.title,
       });
     }
-    const rawInput = isRecord(parsed.input) ? parsed.input : {};
     const resolvedInput = injectRunContextFields(rawInput);
     const data = await client.client.invokeTool(
       entry.tool.toolId,
