@@ -23,7 +23,16 @@ export const describeInputSchema = z.object({
 
 export const runInputSchema = z.object({
   id: z.string().trim().min(1),
-  input: z.unknown().optional(),
+  // A real object schema, not z.unknown(): unknown serializes to an EMPTY JSON
+  // schema in the tool definition, and providers with strict schema-conformant
+  // function calling then constrain the arguments down to {} — dropping every
+  // key the model wanted to pass.
+  input: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(
+      "The selected tool's input object, matching its contract inputSchema."
+    ),
 });
 
 export type DescribeEngentyToolInput = z.input<typeof describeInputSchema>;

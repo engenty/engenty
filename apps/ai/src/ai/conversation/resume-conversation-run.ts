@@ -18,12 +18,12 @@ import {
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
 import { mergeAgUiOpenInterruptMetadata } from "../sessions/interrupts.js";
-import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
 import {
   markRunDone,
   markRunLive,
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
+import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import {
   emitFrontendToolInterrupt,
