@@ -5,6 +5,7 @@
 // step lives separately in task-job-specialist-step.ts.
 import { randomUUID } from "node:crypto";
 import { createStep } from "@mastra/core/workflows";
+import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import { buildTaskBrief } from "./task-brief.js";
@@ -150,6 +151,27 @@ export const finalizeStep = createStep({
       runId,
       scope: await resolveTaskJobServiceScope(inputData.tenant_id),
       status: inputData.status === "failed" ? "failed" : "completed",
+    });
+    const failed = inputData.status === "failed";
+    const taskRef = inputData.identifier ?? inputData.task_id;
+    await emitInboxNotification({
+      dedupeKey: `task:${inputData.task_id}:${runId}`,
+      kind: failed ? "task_failed" : "task_completed",
+      metadata: {
+        agent_type_key: inputData.agent_type_key,
+        run_id: runId,
+        task_id: inputData.task_id,
+        ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
+      },
+      ...(inputData.result_text
+        ? { payload: { result_text: inputData.result_text.slice(0, 2000) } }
+        : {}),
+      priority: failed ? "high" : "medium",
+      source: "tasks",
+      summary: failed
+        ? `Task ${taskRef} failed and was marked blocked`
+        : `Task ${taskRef} completed and is ready for review`,
+      tenantId: inputData.tenant_id,
     });
     return { ...inputData, status: "released" as const };
   },

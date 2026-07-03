@@ -21,6 +21,27 @@ import { SidebarTenantSwitcher } from "./sidebar-tenant-switcher";
 
 type AppSidebarSurface = "rail" | "panel";
 
+/**
+ * Count badge on an app-bar icon. Own component so the contribution's
+ * `useBadgeCount` hook runs unconditionally per rendered item (rules of
+ * hooks) inside the app providers.
+ */
+function NavItemBadge({
+  useBadgeCount,
+}: {
+  useBadgeCount: () => number | undefined;
+}) {
+  const count = useBadgeCount();
+  if (!count) {
+    return null;
+  }
+  return (
+    <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 font-semibold text-[9px] text-primary-foreground leading-none">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 interface AppSidebarProps {
   className?: string;
   compact?: boolean;
@@ -116,7 +137,7 @@ export function AppSidebar({
       <>
         <span
           className={cn(
-            "flex size-6 shrink-0 items-center justify-center transition-transform duration-200 ease-out group-hover/item:scale-110",
+            "relative flex size-6 shrink-0 items-center justify-center transition-transform duration-200 ease-out group-hover/item:scale-110",
             isDockGrow && "group-hover/item-grow:scale-125"
           )}
           style={{
@@ -124,6 +145,9 @@ export function AppSidebar({
           }}
         >
           <Icon className="size-full" />
+          {item.useBadgeCount ? (
+            <NavItemBadge useBadgeCount={item.useBadgeCount} />
+          ) : null}
         </span>
         {showLabel && <span>{item.label}</span>}
       </>

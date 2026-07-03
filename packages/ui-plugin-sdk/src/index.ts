@@ -113,6 +113,12 @@ export interface UiAdminMenuItemContribution {
   section: UiAdminMenuSection;
   sourceInfo?: PluginSourceInfo;
   to: string;
+  /**
+   * Reactive count badge on the app-bar icon. A React hook the shell calls
+   * from an always-mounted per-item component (inside the app providers, so
+   * react-query works) — return undefined or 0 to hide the badge.
+   */
+  useBadgeCount?: () => number | undefined;
 }
 
 export interface UiSettingsItemContribution {
@@ -366,6 +372,7 @@ export interface EngentyUiApi {
     icon?: UiIconComponent;
     parentId?: string;
     order?: number;
+    useBadgeCount?: () => number | undefined;
   }) => void;
   registerCopilotApp: (input: {
     id: string;

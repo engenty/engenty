@@ -10,6 +10,7 @@
 // calls `triggers_fire` directly and deliberately bypasses them.
 import { createLogger } from "@engenty/telemetry";
 import type { Config } from "@mastra/core/mastra";
+import { emitInboxNotification } from "../notifications/inbox.js";
 import { readHeartbeatMetadata } from "./heartbeat-metadata.js";
 import { isWithinQuietHours } from "./quiet-hours.js";
 import {
@@ -104,6 +105,18 @@ export function createSchedulerHeartbeatHooks(options?: {
               : String(recordError),
           triggerId: meta.triggerId,
         });
+      });
+      await emitInboxNotification({
+        // Dedupe while unhandled: a crashing schedule fires every interval —
+        // coalesce into one inbox entry until someone looks at it.
+        dedupeKey: `trigger_failed:${meta.triggerId}`,
+        kind: "trigger_failed",
+        metadata: { heartbeat_id: heartbeat.id, trigger_id: meta.triggerId },
+        payload: { error: error.message.slice(0, 1000), phase },
+        priority: "high",
+        source: "triggers",
+        summary: `Scheduled trigger fire failed: ${error.message.slice(0, 200)}`,
+        tenantId: meta.tenantId,
       });
     },
   };

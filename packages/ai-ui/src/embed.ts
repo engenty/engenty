@@ -193,6 +193,15 @@ export {
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";
+// --- Inbox (Mastra notifications; rendered by the tasks module) ---
+export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
+export {
+  inboxKeys,
+  useInboxListQuery,
+  useInboxUnseenCountQuery,
+  useMarkAllInboxSeenMutation,
+  useMarkInboxNotificationMutation,
+} from "./features/inbox/inbox-queries.js";
 export {
   RoutineCreateDialog,
   type RoutineCreateDialogProps,

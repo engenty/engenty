@@ -194,6 +194,7 @@ export function createEngentyUiApi(
         parentId: input.parentId?.trim(),
         order: input.order,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.adminMenuItem"),
+        useBadgeCount: input.useBadgeCount,
       });
     },
     registerSettingsItem: (input) => {
