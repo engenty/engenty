@@ -164,7 +164,11 @@ export async function executeEngentyTool(
   contextOrClient:
     | ToolExecutionContext
     | ReturnType<typeof getCurrentEngentyToolsClient>
-    | undefined
+    | undefined,
+  options?: {
+    /** Code Mode: only read-only operations (low risk, no approval) may run. */
+    enforceReadOnly?: boolean;
+  }
 ) {
   const executionContext =
     contextOrClient && "ok" in contextOrClient ? undefined : contextOrClient;
@@ -188,6 +192,13 @@ export async function executeEngentyTool(
     const contract = await client.client.describeTool(parsed.id);
     const entry = normalizeToolContract(contract);
     operationId = entry.tool.toolId;
+    if (options?.enforceReadOnly && !entry.execution.readOnly) {
+      return {
+        ok: false as const,
+        error: "code_mode_read_only",
+        message: `Operation ${operationId} is not read-only and cannot run from Code Mode. Call it as a regular chat tool instead (engenty_tool_execute), where approvals apply.`,
+      };
+    }
     if (resumedApproval && !resumedApproval.approved) {
       return approvalDeniedResult(operationId);
     }

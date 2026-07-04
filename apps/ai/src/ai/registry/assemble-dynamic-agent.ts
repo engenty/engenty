@@ -10,6 +10,10 @@ import {
 } from "@mastra/core/processors";
 import type { Workspace } from "@mastra/core/workspace";
 import { gateway } from "ai";
+import {
+  engentyCodeModeInstructions,
+  engentyCodeModeTool,
+} from "../../../ai/tools/engenty-tools/code-mode.js";
 import { ENGENTY_TOOL_EXECUTE_TOOL_ID } from "../../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
 
 import { AiSessionError } from "../errors.js";
@@ -105,12 +109,6 @@ async function assembleDynamicAgentWithAncestors(
           )
         );
 
-  // Skills are no longer inlined into the prompt. `skillIds` are now *preferred
-  // skill names*: the agent loads their SKILL.md on demand via the Mastra
-  // Workspace `skill`/`skill_search` tools (file-storage discovery). We only
-  // surface a short hint so the model knows which skills to reach for.
-  const instructions = buildAgentInstructions(config);
-
   // Native frontend tools (extraTools) only attach to the root agent, alongside
   // its config tools; they win on name clash. Built mutably so the value keeps the
   // exact type Mastra's Agent generic infers from `Object.fromEntries`.
@@ -118,6 +116,27 @@ async function assembleDynamicAgentWithAncestors(
   if (attachMemory && options.extraTools) {
     Object.assign(agentTools, options.extraTools);
   }
+
+  // Code Mode (read-only): one `execute_typescript` tool for bulk/aggregation
+  // tool orchestration in the workspace sandbox. Attached to root agents that
+  // (a) carry the engenty catalog meta-tools and (b) run WITH a workspace —
+  // the code-mode tool resolves its sandbox from `ctx.workspace.sandbox`.
+  const attachCodeMode =
+    attachMemory &&
+    options.workspace?.sandbox != null &&
+    ENGENTY_TOOL_EXECUTE_TOOL_ID in agentTools;
+  if (attachCodeMode) {
+    agentTools[engentyCodeModeTool.id] =
+      engentyCodeModeTool as unknown as MastraToolDefinition;
+  }
+
+  // Skills are no longer inlined into the prompt. `skillIds` are now *preferred
+  // skill names*: the agent loads their SKILL.md on demand via the Mastra
+  // Workspace `skill`/`skill_search` tools (file-storage discovery). We only
+  // surface a short hint so the model knows which skills to reach for.
+  const instructions = attachCodeMode
+    ? `${buildAgentInstructions(config)}\n\n${engentyCodeModeInstructions}`
+    : buildAgentInstructions(config);
 
   // Mastra guardrail processors (prompt-injection / moderation / PII /
   // system-prompt scrubber / batch parts) — opt-in per agent via
