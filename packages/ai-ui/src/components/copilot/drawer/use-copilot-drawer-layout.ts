@@ -8,7 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { clampFloatingPositionToViewport } from "../session/copilot-floating-bounds";
+import {
+  clampFloatingPositionToViewport,
+  reanchorFloatingPositionToViewport,
+} from "../session/copilot-floating-bounds";
 import {
   anchorStyleToMorphRect,
   COPILOT_COLLAPSE_MORPH_MS,
@@ -45,11 +48,42 @@ import {
   type CopilotFloatingSnapTarget,
   resolveCopilotOpenDockMode,
 } from "./copilot-drawer-utils";
+import {
+  type CopilotFabAnchor,
+  computeFabAnchor,
+  resolveFabAnchorPosition,
+} from "./copilot-fab-anchor";
 
 export type {
   UseCopilotDrawerLayoutOptions,
   UseCopilotDrawerLayoutResult,
 } from "./copilot-drawer-layout-types";
+
+/**
+ * Bottom-right home for the floating compact launcher, sized to the launcher's
+ * own footprint (not the larger modal) so it docks to the corner instead of
+ * floating mid-screen. Used for the initial position and whenever the user
+ * switches into a floating mode from the position menu.
+ */
+function resolveLauncherCornerPosition(
+  launcherHeight: number,
+  inset: number
+): { x: number; y: number } {
+  if (typeof window === "undefined") {
+    return { x: 100, y: 100 };
+  }
+  const width = COMPACT_LAUNCHER_WIDTH;
+  const height = launcherHeight || COMPACT_LAUNCHER_HEIGHT;
+  return clampFloatingPositionToViewport({
+    x: window.innerWidth - width - inset,
+    y: window.innerHeight - height - inset,
+    margin: inset,
+    surfaceWidth: width,
+    surfaceHeight: height,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  });
+}
 
 export function useCopilotDrawerLayout({
   activeCopilotContext,
@@ -76,22 +110,12 @@ export function useCopilotDrawerLayout({
   const copilotOpenRef = useRef(open);
   copilotOpenRef.current = open;
 
-  const [floatingPosition, setFloatingPosition] = useState(() => ({
-    x:
-      typeof window === "undefined"
-        ? 100
-        : window.innerWidth - FLOATING_DEFAULT_WIDTH - FLOATING_DEFAULT_MARGIN,
-    y:
-      typeof window === "undefined"
-        ? 100
-        : Math.max(
-            FLOATING_DEFAULT_MARGIN,
-            window.innerHeight -
-              FLOATING_DEFAULT_HEIGHT -
-              FLOATING_DEFAULT_MARGIN -
-              96
-          ),
-  }));
+  const [floatingPosition, setFloatingPosition] = useState(() =>
+    resolveLauncherCornerPosition(
+      COMPACT_LAUNCHER_HEIGHT,
+      FLOATING_DEFAULT_MARGIN
+    )
+  );
   const [floatingSize, setFloatingSize] = useState(() => ({
     width: FLOATING_DEFAULT_WIDTH,
     height: FLOATING_DEFAULT_HEIGHT,
@@ -114,14 +138,51 @@ export function useCopilotDrawerLayout({
 
   const [enterFromClose, setEnterFromClose] = useState(false);
   const [isIconDragging, setIsIconDragging] = useState(false);
-  const [fabPosition, setFabPosition] = useState<{
+  const [fabPosition, setFabPositionRaw] = useState<{
     x: number;
     y: number;
   } | null>(null);
+  // Edge anchor derived from the FAB's custom position. Persisting the anchor
+  // (not the absolute point) keeps the avatar stuck to its corner across
+  // window resizes and reloads.
+  const [fabAnchor, setFabAnchor] = useState<CopilotFabAnchor | null>(null);
+
+  // Wrap the FAB position setter so every user-committed position also records
+  // its edge anchor. Clearing the position (snap to a dock) clears the anchor.
+  const setFabPosition = useCallback(
+    (
+      value:
+        | { x: number; y: number }
+        | null
+        | ((
+            prev: { x: number; y: number } | null
+          ) => { x: number; y: number } | null)
+    ) => {
+      setFabPositionRaw((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        if (next == null) {
+          setFabAnchor(null);
+        } else if (typeof window !== "undefined") {
+          setFabAnchor(
+            computeFabAnchor(
+              next,
+              { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
+              { width: window.innerWidth, height: window.innerHeight }
+            )
+          );
+        }
+        return next;
+      });
+    },
+    []
+  );
   const [compactShellMeasured, setCompactShellMeasured] = useState({
     width: COMPACT_LAUNCHER_WIDTH,
     height: COMPACT_LAUNCHER_HEIGHT,
   });
+  // True while the floating launcher rests at its bottom-right home corner.
+  // Cleared once the user drags it away; re-armed when a mode switch re-docks.
+  const [floatingDockedToCorner, setFloatingDockedToCorner] = useState(true);
 
   const isMiniFloating = open && launcherMode === "mini-floating";
   const floatingWidth = isMiniFloating
@@ -143,17 +204,69 @@ export function useCopilotDrawerLayout({
   useCopilotDrawerLayoutPersistence({
     collapseToCircle,
     copilotLayout,
+    fabAnchor,
     fabPosition,
     floatingPosition,
     floatingSize,
     internalPanelMode,
     isPanelModeControlled,
     setCollapseToCircle,
+    setFabAnchor,
     setFabPosition,
     setFloatingPosition,
     setFloatingSize,
     setInternalPanelMode,
   });
+
+  // Keep the custom FAB pinned to its corner when the viewport changes. The
+  // anchor (not the absolute point) is the source of truth, so a resized or
+  // reloaded window re-resolves the same edge offsets instead of drifting.
+  useEffect(() => {
+    if (typeof window === "undefined" || !fabAnchor) {
+      return;
+    }
+    const reanchor = () => {
+      setFabPositionRaw(
+        resolveFabAnchorPosition(
+          fabAnchor,
+          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
+          { width: window.innerWidth, height: window.innerHeight },
+          BUTTON_SNAP_FAB_INSET
+        )
+      );
+    };
+    reanchor();
+    window.addEventListener("resize", reanchor);
+    return () => window.removeEventListener("resize", reanchor);
+  }, [fabAnchor]);
+
+  // Keep the resting floating launcher glued to its bottom-right corner as its
+  // measured height settles (the default height constant overestimates a
+  // single-line launcher, so the initial dock would otherwise float too high).
+  useLayoutEffect(() => {
+    if (
+      !floatingDockedToCorner ||
+      typeof window === "undefined" ||
+      open ||
+      collapseToCircle ||
+      !showCompactLauncher
+    ) {
+      return;
+    }
+    const next = resolveLauncherCornerPosition(
+      compactShellMeasured.height,
+      FLOATING_DEFAULT_MARGIN
+    );
+    setFloatingPosition((cur) =>
+      cur.x === next.x && cur.y === next.y ? cur : next
+    );
+  }, [
+    collapseToCircle,
+    compactShellMeasured.height,
+    floatingDockedToCorner,
+    open,
+    showCompactLauncher,
+  ]);
 
   const margin = floatingBoundsMargin;
   const dragBoundsMargin = open ? margin : Math.min(margin, 8);
@@ -225,6 +338,18 @@ export function useCopilotDrawerLayout({
         setCollapseToCircle(false);
         onOpenChange(true);
       } else if (mode === "floating" || mode === "mini-floating") {
+        // Re-dock both surfaces to their bottom-right home so switching modes
+        // always lands in the corner: the floating launcher via floatingPosition,
+        // the collapsed avatar by clearing its custom position/anchor. The
+        // docked flag keeps the launcher pinned as its measured height settles.
+        setFloatingDockedToCorner(true);
+        setFloatingPosition(
+          resolveLauncherCornerPosition(
+            compactShellMeasuredRef.current.height,
+            FLOATING_DEFAULT_MARGIN
+          )
+        );
+        setFabPosition(null);
         setCollapseToCircle(mode === "mini-floating");
         onOpenChange(false);
       } else {
@@ -232,7 +357,7 @@ export function useCopilotDrawerLayout({
         onOpenChange(true);
       }
     },
-    [onOpenChange, setPreferredDockMode]
+    [onOpenChange, setFabPosition, setPreferredDockMode]
   );
 
   const finishCollapseToFabIcon = useCallback(
@@ -369,21 +494,43 @@ export function useCopilotDrawerLayout({
     if (typeof window === "undefined") {
       return;
     }
+    // Track the viewport across resizes so the panel keeps its distance to the
+    // nearest edges (a bottom-right panel tracks the corner instead of drifting).
+    let prevWidth = window.innerWidth;
+    let prevHeight = window.innerHeight;
     const handleResize = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
       setFloatingPosition((current) => {
-        const next = clampCurrentFloatingPosition(current);
+        const next = reanchorFloatingPositionToViewport({
+          x: current.x,
+          y: current.y,
+          margin: dragBoundsMargin,
+          surfaceWidth,
+          surfaceHeight,
+          prevViewportWidth: prevWidth,
+          prevViewportHeight: prevHeight,
+          viewportWidth,
+          viewportHeight,
+        });
         if (next.x === current.x && next.y === current.y) {
           return current;
         }
         return next;
       });
+      prevWidth = viewportWidth;
+      prevHeight = viewportHeight;
     };
     window.addEventListener("resize", handleResize);
-    handleResize();
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [clampCurrentFloatingPosition, clampFloatingChromeActive]);
+  }, [
+    clampFloatingChromeActive,
+    dragBoundsMargin,
+    surfaceHeight,
+    surfaceWidth,
+  ]);
 
   useLayoutEffect(() => {
     if (!showCompactLauncher || collapseToCircle) {
@@ -459,6 +606,24 @@ export function useCopilotDrawerLayout({
     });
   }, [collapseToFabIcon, drag.handleFabTriggerClick, handleFabTriggerOpen]);
 
+  // Dragging the floating surface (launcher or bottom-dock grip) breaks the
+  // corner dock, so the re-pin effect stops overriding the dropped position.
+  const handlePointerDown = useCallback(
+    (e: ReactPointerEvent) => {
+      setFloatingDockedToCorner(false);
+      drag.handlePointerDown(e);
+    },
+    [drag.handlePointerDown]
+  );
+
+  const handleBottomDockGripPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLElement>) => {
+      setFloatingDockedToCorner(false);
+      drag.handleBottomDockGripPointerDown(e);
+    },
+    [drag.handleBottomDockGripPointerDown]
+  );
+
   return {
     bottomDockCardRef,
     bottomDockIndicatorStyle: resolveBottomDockIndicatorStyle({
@@ -479,10 +644,10 @@ export function useCopilotDrawerLayout({
     floatingPosition,
     floatingSize,
     floatingWidth,
-    handleBottomDockGripPointerDown: drag.handleBottomDockGripPointerDown,
+    handleBottomDockGripPointerDown,
     handleDockPositionSelect,
     handleExpandFromCircle,
-    handlePointerDown: drag.handlePointerDown,
+    handlePointerDown,
     handlePointerMove: drag.handlePointerMove,
     handlePointerUp: drag.handlePointerUp,
     handleResizePointerDown: drag.handleResizePointerDown,

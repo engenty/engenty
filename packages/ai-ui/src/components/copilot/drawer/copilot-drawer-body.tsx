@@ -72,7 +72,7 @@ export function CopilotDrawerBody({
   preferredDockMode = null,
   positionMenuAriaLabel = "Copilot position",
   positionBottomLabel = "Bottom dock",
-  positionButtonLabel = "Button",
+  positionButtonLabel = "Avatar",
   positionDrawerLabel = "Drawer",
   positionFloatingLabel = "Modal",
   positionHeadingLabel = "Position",

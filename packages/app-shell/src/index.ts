@@ -77,6 +77,7 @@ export {
 export {
   COPILOT_BOTTOM_DOCK_HEIGHT,
   COPILOT_LAYOUT_USER_SETTING_NAME,
+  type CopilotFabAnchor,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
