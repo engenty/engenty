@@ -12,14 +12,14 @@ import {
   scoreCatalogEntry,
 } from "@engenty/search-index";
 
+export { scoreCatalogEntry } from "@engenty/search-index";
+
 export type CatalogSearchStrategy = "lexical" | "semantic" | "hybrid";
 
 interface CatalogRankParams {
   query?: string;
   strategy?: CatalogSearchStrategy;
 }
-
-export { scoreCatalogEntry };
 
 export async function rankCatalogEntries<T extends CatalogSearchEntry>(
   entries: T[],

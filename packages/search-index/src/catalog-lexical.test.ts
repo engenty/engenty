@@ -53,9 +53,7 @@ describe("catalog lexical scoring", () => {
     );
     expect(summaryWeighted).toBeGreaterThan(0);
     // Default weights have no `summary` field, so the same entry scores 0.
-    expect(
-      scoreCatalogEntry({ summary: "List contacts" }, "contacts")
-    ).toBe(0);
+    expect(scoreCatalogEntry({ summary: "List contacts" }, "contacts")).toBe(0);
   });
 
   it("rankLexically sorts by score and drops zero-score entries", () => {
