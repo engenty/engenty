@@ -6,6 +6,9 @@
   "packageManager": "pnpm@10.23.0",
   "engenty": {
     "plugins": {
+      "commercial-settings": {
+        "source": "workspace"
+      },
       "company-profile": {
         "source": "workspace"
       },
@@ -21,7 +24,16 @@
       "files": {
         "source": "workspace"
       },
+      "invoices": {
+        "source": "workspace"
+      },
       "knowledge-base": {
+        "source": "workspace"
+      },
+      "offers": {
+        "source": "workspace"
+      },
+      "pdf-templates": {
         "source": "workspace"
       },
       "tasks": {

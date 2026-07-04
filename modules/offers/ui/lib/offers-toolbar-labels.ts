@@ -1,0 +1,68 @@
+export function getOffersToolbarLabels(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  total: number
+): {
+  searchPlaceholder: string;
+  statusFilterLabel: string;
+  statusAll: string;
+  statusDraft: string;
+  statusReady: string;
+  statusAccepted: string;
+  display: string;
+  paginationSummary: string;
+  sortByTitle: string;
+  sortByOfferNumber: string;
+  sortByStatus: string;
+  sortByOfferDate: string;
+  sortByValidUntil: string;
+  sortByCreatedAt: string;
+  ascending: string;
+  descending: string;
+  compactView: string;
+  tableView: string;
+  cardsView: string;
+  sortBy: string;
+  displayedColumns: string;
+  hiddenInTable: string;
+  showAll: string;
+  hideAll: string;
+  noColumnsDisplayed: string;
+  title: string;
+  offerNumber: string;
+  status: string;
+  offerDate: string;
+  validUntil: string;
+} {
+  return {
+    searchPlaceholder: t("searchPlaceholder"),
+    statusFilterLabel: t("status"),
+    statusAll: t("statusAll"),
+    statusDraft: t("statusDraft"),
+    statusReady: t("statusReady"),
+    statusAccepted: t("statusAccepted"),
+    display: t("display"),
+    paginationSummary: t("paginationSummary", { total }),
+    sortByTitle: t("sortByTitle"),
+    sortByOfferNumber: t("sortByOfferNumber"),
+    sortByStatus: t("sortByStatus"),
+    sortByOfferDate: t("sortByOfferDate"),
+    sortByValidUntil: t("sortByValidUntil"),
+    sortByCreatedAt: t("sortByCreatedAt"),
+    ascending: t("ascending"),
+    descending: t("descending"),
+    compactView: t("compactView"),
+    tableView: t("tableView"),
+    cardsView: t("cardsView"),
+    sortBy: t("sortBy"),
+    displayedColumns: t("displayedColumns"),
+    hiddenInTable: t("hiddenInTable"),
+    showAll: t("showAll"),
+    hideAll: t("hideAll"),
+    noColumnsDisplayed: t("noColumnsDisplayed"),
+    title: t("title"),
+    offerNumber: t("offerNumber"),
+    status: t("status"),
+    offerDate: t("offerDate"),
+    validUntil: t("validUntil"),
+  };
+}

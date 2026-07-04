@@ -1,0 +1,36 @@
+{
+  "menu": "PDF Templates",
+  "breadcrumbs": {
+    "settings": "Settings"
+  },
+  "tabs": {
+    "design": "Design",
+    "document": "Document",
+    "stylesheet": "StyleSheet",
+    "help": "Help"
+  },
+  "actions": {
+    "save": "Save",
+    "reset": "Reset",
+    "showPreview": "Show preview"
+  },
+  "toolbar": {
+    "defaultTemplate": "Default",
+    "selectTemplate": "Select template"
+  },
+  "defaults": {
+    "templateName": "Template"
+  },
+  "empty": {
+    "noProviders": "No PDF template providers are registered."
+  },
+  "errors": {
+    "previewFailed": "Preview failed.",
+    "saveFailed": "Saving failed."
+  },
+  "dialogs": {
+    "delete": "Delete",
+    "deleteConfirmDescription": "This template will be removed. This action cannot be undone.",
+    "deleteConfirmTitle": "Delete template?"
+  }
+}
