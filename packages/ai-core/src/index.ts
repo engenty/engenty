@@ -192,7 +192,6 @@ export {
   unregisterAiRegistrationsByOwner,
 } from "./registry.js";
 export { isAgentThreadId } from "./runtime/agent-thread-id.js";
-export { deriveInitialThreadTitleFromText } from "./runtime/initial-thread-title.js";
 export {
   type ParallelTaskResult,
   type ParallelTaskSpec,

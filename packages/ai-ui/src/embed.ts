@@ -202,6 +202,14 @@ export {
   useMarkAllInboxSeenMutation,
   useMarkInboxNotificationMutation,
 } from "./features/inbox/inbox-queries.js";
+// --- Working memory (assistant's per-user profile; settings view) ---
+export {
+  parseWorkingMemoryProfile,
+  useResetWorkingMemoryMutation,
+  useWorkingMemoryQuery,
+  type WorkingMemoryDto,
+  workingMemoryKeys,
+} from "./features/memory/working-memory-api.js";
 export {
   RoutineCreateDialog,
   type RoutineCreateDialogProps,

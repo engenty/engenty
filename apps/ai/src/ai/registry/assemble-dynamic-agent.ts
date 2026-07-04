@@ -2,9 +2,15 @@ import { Agent, type SubAgent } from "@mastra/core/agent";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Mastra } from "@mastra/core/mastra";
 import type { MastraMemory } from "@mastra/core/memory";
-import { PrefillErrorHandler } from "@mastra/core/processors";
+import {
+  PrefillErrorHandler,
+  type Processor,
+  TokenLimiterProcessor,
+  ToolCallFilter,
+} from "@mastra/core/processors";
 import type { Workspace } from "@mastra/core/workspace";
 import { gateway } from "ai";
+import { ENGENTY_TOOL_EXECUTE_TOOL_ID } from "../../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
 
 import { AiSessionError } from "../errors.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
@@ -116,15 +122,25 @@ async function assembleDynamicAgentWithAncestors(
   // Mastra guardrail processors (prompt-injection / moderation / PII /
   // system-prompt scrubber / batch parts) — opt-in per agent via
   // `AgentConfig.guardrails.enabled`. Safeguard model shared across detectors.
-  const { inputProcessors, outputProcessors } = buildGuardrailProcessors(
-    config.guardrails,
-    {
+  const { inputProcessors: guardrailInput, outputProcessors } =
+    buildGuardrailProcessors(config.guardrails, {
       agentId: config.id,
       safeguardModelId:
         options.modelConfig?.safeguardModelId ??
         "openrouter/openai/gpt-oss-safeguard-20b",
-    }
-  );
+    });
+  // History hygiene, always on (before the guardrail classifiers): strip bulky
+  // `engenty_tool_execute` transcripts from RECALLED history — the last two
+  // tool-producing steps stay intact so the live loop keeps its results — and
+  // hard-cap recalled history so a long thread cannot blow the prompt budget.
+  const inputProcessors: Processor[] = [
+    new ToolCallFilter({
+      exclude: [ENGENTY_TOOL_EXECUTE_TOOL_ID],
+      filterAfterToolSteps: 2,
+    }),
+    new TokenLimiterProcessor({ limit: 100_000 }),
+    ...guardrailInput,
+  ];
 
   return new Agent({
     ...(config.backgroundTasks
