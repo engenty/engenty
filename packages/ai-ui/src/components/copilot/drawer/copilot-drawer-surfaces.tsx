@@ -83,12 +83,7 @@ function renderFabTrigger(input: {
       bottomDockIndicatorStyle={input.layout.bottomDockIndicatorStyle}
       buttonFabIndicatorStyle={input.layout.buttonFabIndicatorStyle}
       dragPosition={
-        input.layout.isIconDragging
-          ? {
-              x: input.layout.floatingPosition.x,
-              y: input.layout.floatingPosition.y,
-            }
-          : null
+        input.layout.isIconDragging ? input.layout.fabDragPosition : null
       }
       enterFromClose={input.layout.enterFromClose}
       fabPosition={input.layout.fabPosition}

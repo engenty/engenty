@@ -46,8 +46,10 @@ export interface UseCopilotDrawerLayoutResult {
   compactLauncherMeasureRef: RefObject<HTMLDivElement | null>;
   compactShellMeasured: { height: number; width: number };
   enterFromClose: boolean;
-  /** Custom FAB position when dragged away from the default corner, or null for default. */
-  fabPosition: { x: number; y: number } | null;
+  /** Live pixel position while the FAB is being dragged; null when not dragging. */
+  fabDragPosition: { x: number; y: number } | null;
+  /** FAB's committed pixel position, always derived from its logical corner anchor. */
+  fabPosition: { x: number; y: number };
   floatingHeight: number;
   floatingPosition: { x: number; y: number };
   floatingSize: { height: number; width: number };

@@ -50,7 +50,7 @@ import {
 } from "./copilot-drawer-utils";
 import {
   type CopilotFabAnchor,
-  computeFabAnchor,
+  defaultFabAnchor,
   resolveFabAnchorPosition,
 } from "./copilot-fab-anchor";
 
@@ -138,44 +138,57 @@ export function useCopilotDrawerLayout({
 
   const [enterFromClose, setEnterFromClose] = useState(false);
   const [isIconDragging, setIsIconDragging] = useState(false);
-  const [fabPosition, setFabPositionRaw] = useState<{
+
+  // The FAB's logical dock: which corner it's pinned to, plus its gap to that
+  // corner. This is the single source of truth for the avatar's position —
+  // always defined (defaults to bottom-right), never a raw pixel point, and
+  // entirely independent of the floating modal's `floatingPosition`.
+  const [fabAnchor, setFabAnchor] = useState<CopilotFabAnchor>(() =>
+    defaultFabAnchor(BUTTON_SNAP_FAB_INSET)
+  );
+  const resetFabAnchor = useCallback(() => {
+    setFabAnchor(defaultFabAnchor(BUTTON_SNAP_FAB_INSET));
+  }, []);
+
+  // Pixel position derived from fabAnchor for the current viewport. Recomputed
+  // on anchor change and on resize — never mutated directly.
+  const [fabPosition, setFabPosition] = useState(() =>
+    typeof window === "undefined"
+      ? { x: 100, y: 100 }
+      : resolveFabAnchorPosition(
+          fabAnchor,
+          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
+          { width: window.innerWidth, height: window.innerHeight },
+          BUTTON_SNAP_FAB_INSET
+        )
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const recompute = () => {
+      setFabPosition(
+        resolveFabAnchorPosition(
+          fabAnchor,
+          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
+          { width: window.innerWidth, height: window.innerHeight },
+          BUTTON_SNAP_FAB_INSET
+        )
+      );
+    };
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, [fabAnchor]);
+
+  // Transient pixel position used only while actively dragging the FAB — kept
+  // fully separate from floatingPosition (the modal's own state) so dragging
+  // one surface can never bleed into the other's committed position.
+  const [fabDragPosition, setFabDragPosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  // Edge anchor derived from the FAB's custom position. Persisting the anchor
-  // (not the absolute point) keeps the avatar stuck to its corner across
-  // window resizes and reloads.
-  const [fabAnchor, setFabAnchor] = useState<CopilotFabAnchor | null>(null);
 
-  // Wrap the FAB position setter so every user-committed position also records
-  // its edge anchor. Clearing the position (snap to a dock) clears the anchor.
-  const setFabPosition = useCallback(
-    (
-      value:
-        | { x: number; y: number }
-        | null
-        | ((
-            prev: { x: number; y: number } | null
-          ) => { x: number; y: number } | null)
-    ) => {
-      setFabPositionRaw((prev) => {
-        const next = typeof value === "function" ? value(prev) : value;
-        if (next == null) {
-          setFabAnchor(null);
-        } else if (typeof window !== "undefined") {
-          setFabAnchor(
-            computeFabAnchor(
-              next,
-              { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
-              { width: window.innerWidth, height: window.innerHeight }
-            )
-          );
-        }
-        return next;
-      });
-    },
-    []
-  );
   const [compactShellMeasured, setCompactShellMeasured] = useState({
     width: COMPACT_LAUNCHER_WIDTH,
     height: COMPACT_LAUNCHER_HEIGHT,
@@ -204,41 +217,15 @@ export function useCopilotDrawerLayout({
   useCopilotDrawerLayoutPersistence({
     collapseToCircle,
     copilotLayout,
-    fabAnchor,
-    fabPosition,
     floatingPosition,
     floatingSize,
     internalPanelMode,
     isPanelModeControlled,
     setCollapseToCircle,
-    setFabAnchor,
-    setFabPosition,
     setFloatingPosition,
     setFloatingSize,
     setInternalPanelMode,
   });
-
-  // Keep the custom FAB pinned to its corner when the viewport changes. The
-  // anchor (not the absolute point) is the source of truth, so a resized or
-  // reloaded window re-resolves the same edge offsets instead of drifting.
-  useEffect(() => {
-    if (typeof window === "undefined" || !fabAnchor) {
-      return;
-    }
-    const reanchor = () => {
-      setFabPositionRaw(
-        resolveFabAnchorPosition(
-          fabAnchor,
-          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
-          { width: window.innerWidth, height: window.innerHeight },
-          BUTTON_SNAP_FAB_INSET
-        )
-      );
-    };
-    reanchor();
-    window.addEventListener("resize", reanchor);
-    return () => window.removeEventListener("resize", reanchor);
-  }, [fabAnchor]);
 
   // Keep the resting floating launcher glued to its bottom-right corner as its
   // measured height settles (the default height constant overestimates a
@@ -315,8 +302,10 @@ export function useCopilotDrawerLayout({
     floatingSize,
     margin,
     onOpenChange,
+    resetFabAnchor,
     setCollapseToCircle,
-    setFabPosition,
+    setFabAnchor,
+    setFabDragPosition,
     setFloatingPosition,
     setFloatingSize,
     setPanelMode,
@@ -338,18 +327,20 @@ export function useCopilotDrawerLayout({
         setCollapseToCircle(false);
         onOpenChange(true);
       } else if (mode === "floating" || mode === "mini-floating") {
-        // Re-dock both surfaces to their bottom-right home so switching modes
-        // always lands in the corner: the floating launcher via floatingPosition,
-        // the collapsed avatar by clearing its custom position/anchor. The
-        // docked flag keeps the launcher pinned as its measured height settles.
-        setFloatingDockedToCorner(true);
-        setFloatingPosition(
-          resolveLauncherCornerPosition(
-            compactShellMeasuredRef.current.height,
-            FLOATING_DEFAULT_MARGIN
-          )
-        );
-        setFabPosition(null);
+        // Only re-dock to the bottom-right home if the launcher was never
+        // dragged away from it — otherwise a user-customized position would
+        // get silently discarded on every round-trip through another mode.
+        if (floatingDockedToCorner) {
+          setFloatingPosition(
+            resolveLauncherCornerPosition(
+              compactShellMeasuredRef.current.height,
+              FLOATING_DEFAULT_MARGIN
+            )
+          );
+        }
+        // The avatar always resets to its bottom-right home on a mode switch
+        // (clearing any custom drag anchor).
+        resetFabAnchor();
         setCollapseToCircle(mode === "mini-floating");
         onOpenChange(false);
       } else {
@@ -357,7 +348,7 @@ export function useCopilotDrawerLayout({
         onOpenChange(true);
       }
     },
-    [onOpenChange, setFabPosition, setPreferredDockMode]
+    [floatingDockedToCorner, onOpenChange, resetFabAnchor, setPreferredDockMode]
   );
 
   const finishCollapseToFabIcon = useCallback(
@@ -435,26 +426,9 @@ export function useCopilotDrawerLayout({
     []
   );
 
-  const resolveTriggerAnchor = useCallback(() => {
-    if (fabPosition) {
-      // Keep a persisted position within the current viewport so drag origin
-      // and speed-dial centering match the (clamped) rendered FAB position.
-      return clampFloatingPositionToViewport({
-        x: fabPosition.x,
-        y: fabPosition.y,
-        margin: BUTTON_SNAP_FAB_INSET,
-        surfaceWidth: BUTTON_SNAP_FAB_WIDTH,
-        surfaceHeight: BUTTON_SNAP_FAB_SIZE,
-        viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight,
-      });
-    }
-    const anchor = resolveFabTriggerAnchorStyle();
-    if (!anchor || anchor.left == null || anchor.top == null) {
-      return { x: 0, y: 0 };
-    }
-    return { x: Number(anchor.left), y: Number(anchor.top) };
-  }, [fabPosition]);
+  // fabPosition is always derived from fabAnchor and already viewport-clamped,
+  // so the drag origin can use it directly — no separate default-style path.
+  const resolveTriggerAnchor = useCallback(() => fabPosition, [fabPosition]);
 
   const handleFabTriggerOpen = useCallback(() => {
     setCollapseToCircle(false);
@@ -639,6 +613,7 @@ export function useCopilotDrawerLayout({
     compactLauncherMeasureRef,
     compactShellMeasured,
     enterFromClose,
+    fabDragPosition,
     fabPosition,
     floatingHeight,
     floatingPosition,
