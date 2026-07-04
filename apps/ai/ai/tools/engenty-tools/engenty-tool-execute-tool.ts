@@ -2,6 +2,7 @@ import type { ToolExecutionContext } from "@mastra/core/tools";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { EngentyCoreHttpError } from "../../../src/ai/core-http-client.js";
+import { emitInboxNotification } from "../../../src/notifications/inbox.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
 import { coreErrorToToolResult } from "./lib/errors.js";
 import { isRecord, normalizeToolContract } from "./lib/format.js";
@@ -93,6 +94,21 @@ function approvalDeniedResult(operationId: string) {
     ok: false as const,
     error: "approval_denied",
     message: `The user denied approval for ${operationId}. Do not retry it; continue without this operation.`,
+  };
+}
+
+/**
+ * Defer-policy result for core's 202: a human approval request is now pending
+ * (durable, e.g. a connections approval routed to the connection owner). The
+ * task should report the block; a re-dispatch after approval will pass.
+ */
+function approvalPendingResult(operationId: string, reason?: string) {
+  return {
+    ok: false as const,
+    error: "approval_pending",
+    message: `Operation ${operationId} needs human approval before it can run.${
+      reason ? ` ${reason}` : ""
+    } The approval request has been recorded; do not retry in this run. Report that this step is blocked on approval and continue with what you can finish without it.`,
   };
 }
 
@@ -218,7 +234,16 @@ export async function executeEngentyTool(
       requiresApproval: entry.auth.requiresApproval,
       riskLevel: entry.auth.riskLevel,
     });
-    if (decision === "require_approval" && !resumedApproval?.approved) {
+    // "defer": headless task runs skip the local gate — core is authoritative
+    // and may allow (durable connection grant), 202 (recording a durable
+    // approval request), or 403. The 202 backstop below shapes the result.
+    const approvalPolicy =
+      getEngentyToolsRunContext().approvalPolicy ?? "deny";
+    if (
+      decision === "require_approval" &&
+      !resumedApproval?.approved &&
+      approvalPolicy !== "defer"
+    ) {
       return gateRequiresApproval({
         context: executionContext,
         operationId: entry.tool.toolId,
@@ -249,6 +274,26 @@ export async function executeEngentyTool(
         // The user just approved, yet core still gates — a policy mismatch, not
         // something a re-prompt can fix. Surface it plainly.
         return approvalUnavailableResult(operationId);
+      }
+      if ((getEngentyToolsRunContext().approvalPolicy ?? "deny") === "defer") {
+        // Headless defer run: core recorded the durable approval request; ping
+        // the tenant inbox so a human sees it without watching the task list.
+        const ctx = getEngentyToolsRunContext();
+        if (ctx.tenantId) {
+          await emitInboxNotification({
+            dedupeKey: `connection-approval:${ctx.tenantId}:${operationId}`,
+            kind: "connection_approval_requested",
+            metadata: {
+              operation_id: operationId,
+              ...(ctx.runId ? { run_id: ctx.runId } : {}),
+            },
+            priority: "high",
+            source: "connections",
+            summary: `An autonomous run needs approval to execute ${operationId}. Review it under Settings → Connections.`,
+            tenantId: ctx.tenantId,
+          });
+        }
+        return approvalPendingResult(operationId, err.message);
       }
       return gateRequiresApproval({
         context: executionContext,

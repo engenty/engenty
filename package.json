@@ -9,6 +9,18 @@
       "company-profile": {
         "source": "workspace"
       },
+      "connections": {
+        "source": "workspace"
+      },
+      "connections-google": {
+        "source": "workspace"
+      },
+      "connections-microsoft": {
+        "source": "workspace"
+      },
+      "connections-slack": {
+        "source": "workspace"
+      },
       "contacts": {
         "source": "workspace"
       },

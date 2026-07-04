@@ -1,0 +1,121 @@
+{
+  "menu": {
+    "connections": "Connections"
+  },
+  "breadcrumb": {
+    "settings": "Settings",
+    "connections": "Connections"
+  },
+  "catalog": {
+    "connected": "Connected",
+    "connectedAs": "Connected as {{account}}",
+    "notConnected": "Not connected",
+    "manage": "Manage",
+    "connect": "Connect",
+    "connectPersonal": "Connect (personal)",
+    "connectOrg": "Connect for organization",
+    "connecting": "Connecting…",
+    "empty": "No connectors available",
+    "emptyDescription": "Install a connector module (Google, Microsoft, Slack, …) to connect external services."
+  },
+  "toasts": {
+    "connected": "Connection established.",
+    "connectFailed": "Connecting failed: {{error}}",
+    "connectStartFailed": "Could not start the connect flow: {{error}}",
+    "settingsSaved": "Connection settings saved.",
+    "settingsSaveFailed": "Saving connection settings failed: {{error}}",
+    "policySaved": "Permission updated.",
+    "policySaveFailed": "Updating the permission failed: {{error}}",
+    "disconnected": "Connection removed.",
+    "disconnectFailed": "Disconnecting failed: {{error}}",
+    "approvalDecided": "Request {{decision}}.",
+    "approvalDecideFailed": "Deciding the request failed: {{error}}"
+  },
+  "status": {
+    "active": "Connected",
+    "error": "Error",
+    "revoked": "Revoked"
+  },
+  "sharing": {
+    "label": "Sharing",
+    "personal": "Personal",
+    "org": "Organization",
+    "orgBadge": "Org"
+  },
+  "policy": {
+    "allow": "Always allow",
+    "ask": "Ask first",
+    "deny": "Deny"
+  },
+  "matrix": {
+    "title": "Tool permissions",
+    "description": "Control what connected tools may do. \"Ask first\" requires your approval before each use.",
+    "groups": {
+      "read": "Read-only tools",
+      "write": "Write tools",
+      "destructive": "Destructive tools"
+    },
+    "customBadge": "Custom",
+    "reset": "Reset to inherited",
+    "noActions": "This connector exposes no tools yet.",
+    "readOnlyNotice": "You can use this shared connection, but only its owner or an admin can change permissions."
+  },
+  "settings": {
+    "title": "Connection settings",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "Optional label for this connection",
+    "account": "Account",
+    "autonomousMode": "Autonomous use",
+    "autonomousModeHelp": "What agents may do with this connection when you are not present (scheduled tasks, triggers).",
+    "autonomous": {
+      "off": "Off",
+      "read_only": "Read-only",
+      "full": "Full access"
+    },
+    "nonOwnerMaxGroup": "Non-owner limit",
+    "nonOwnerMaxGroupHelp": "Cap what other members of the organization may do with this connection.",
+    "nonOwnerCap": {
+      "none": "No cap",
+      "read": "Read-only tools",
+      "write": "Up to write tools",
+      "destructive": "All tools"
+    },
+    "disconnect": "Disconnect",
+    "disconnectTitle": "Disconnect {{name}}?",
+    "disconnectDescription": "The stored tokens are destroyed and agents lose access immediately. You can reconnect at any time.",
+    "disconnectConfirm": "Disconnect",
+    "disconnecting": "Disconnecting…",
+    "cancel": "Cancel"
+  },
+  "detail": {
+    "notFound": "Unknown connector",
+    "notFoundDescription": "This connector is not installed or was removed.",
+    "backToList": "Back to Connections",
+    "noConnection": "Not connected yet",
+    "noConnectionDescription": "Connect {{name}} to configure tool permissions.",
+    "connectionError": "Connection error: {{error}}"
+  },
+  "admin": {
+    "title": "Connections",
+    "approvalsTitle": "Pending approvals",
+    "approvalsDescription": "Requests from autonomous runs that hit an \"Ask first\" permission.",
+    "approvalsEmpty": "No pending requests",
+    "approvalsEmptyDescription": "Approval requests from autonomous runs will show up here.",
+    "columns": {
+      "operation": "Operation",
+      "connection": "Connection",
+      "requestedBy": "Requested by",
+      "requestedAt": "Requested",
+      "actions": "Actions"
+    },
+    "approve": "Approve",
+    "approveAlways": "Approve always",
+    "deny": "Deny",
+    "approved": "approved",
+    "denied": "denied",
+    "orgConnectionsTitle": "Organization connections",
+    "orgConnectionsDescription": "Connections shared with the whole organization.",
+    "orgConnectionsEmpty": "No shared connections",
+    "orgConnectionsEmptyDescription": "Connections with sharing set to \"Organization\" appear here."
+  }
+}

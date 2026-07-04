@@ -48,12 +48,13 @@ function inferCapabilityFromOperation(operationId: string): string {
   return "module.write";
 }
 
-function evaluateProfilePolicies(
+async function evaluateProfilePolicies(
   input: PolicyInput,
   registry?: Pick<PluginRegistry, "profilePolicies">
-): PolicyDecision | null {
+): Promise<PolicyDecision | null> {
   for (const entry of registry?.profilePolicies ?? []) {
-    const decision = entry.policy(input);
+    // Policies may be async (e.g. connections resolves per-connection state).
+    const decision = await entry.policy(input);
     if (decision) {
       return decision;
     }
@@ -61,10 +62,10 @@ function evaluateProfilePolicies(
   return null;
 }
 
-export function evaluatePolicy(
+export async function evaluatePolicy(
   input: PolicyInput,
   registry?: Pick<PluginRegistry, "profilePolicies">
-): PolicyDecision {
+): Promise<PolicyDecision> {
   const { auth, moduleId, requiredCapabilities, operationId, scopeId } = input;
   if (auth.moduleIds.length > 0 && !auth.moduleIds.includes(moduleId)) {
     return { action: "deny", reason: "module not allowed for actor" };
@@ -81,7 +82,7 @@ export function evaluatePolicy(
       return { action: "deny", reason: `missing capability: ${capability}` };
     }
   }
-  const profileDecision = evaluateProfilePolicies(input, registry);
+  const profileDecision = await evaluateProfilePolicies(input, registry);
   if (profileDecision) {
     return profileDecision;
   }

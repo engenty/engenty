@@ -580,7 +580,7 @@ export async function invokeOperation(params: {
     payload: beforePayload,
     registry,
   });
-  const decision = evaluatePolicy(
+  const decision = await evaluatePolicy(
     {
       auth,
       moduleId,
@@ -1047,7 +1047,7 @@ export async function executeModuleOperation(params: {
     }
     throw e;
   }
-  const decision = evaluatePolicy(
+  const decision = await evaluatePolicy(
     {
       auth,
       moduleId,
