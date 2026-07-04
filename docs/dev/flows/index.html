@@ -1,0 +1,1547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engenty flow explorer</title>
+<style>
+  :root {
+    --bg: #0e1117; --bg-panel: #161b22; --bg-chip: #1c2330;
+    --border: #2d3644; --text: #dbe2ec; --text-dim: #8b96a5;
+    --app: #4f9cf9; --package: #a78bfa; --module: #4ade80; --infra: #fbbf24; --external: #f472b6;
+    --hot: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--border); flex: none; }
+  header h1 { font-size: 16px; font-weight: 650; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+  #flow-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .flow-btn { background: var(--bg-chip); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 16px; cursor: pointer; font-size: 13px; transition: all .15s; }
+  .flow-btn:hover { border-color: var(--text-dim); }
+  .flow-btn.active { background: #223049; border-color: var(--app); color: #fff; }
+  .hint { color: var(--text-dim); font-size: 12px; margin-top: 8px; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+  #map-wrap { flex: 1; overflow: auto; position: relative; padding: 18px; }
+  #map { position: relative; min-width: 720px; }
+  #edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 5; }
+
+  .group { border: 1px dashed var(--border); border-radius: 10px; padding: 26px 12px 12px; margin-bottom: 16px; position: relative; transition: opacity .2s; }
+  .group > .group-title { position: absolute; top: 6px; left: 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+  .group-nodes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+  .node { background: var(--bg-chip); border: 1px solid var(--border); border-left: 3px solid var(--kind, var(--border)); border-radius: 6px; padding: 5px 10px; cursor: pointer; position: relative; transition: opacity .2s, box-shadow .15s; font-size: 12.5px; }
+  .node .mono { color: var(--text-dim); font-size: 10.5px; display: block; }
+  .node[data-kind="app"] { --kind: var(--app); }
+  .node[data-kind="package"] { --kind: var(--package); }
+  .node[data-kind="module"] { --kind: var(--module); }
+  .node[data-kind="infra"] { --kind: var(--infra); }
+  .node[data-kind="external"] { --kind: var(--external); }
+  .node.hot, .group.hot { box-shadow: 0 0 0 2px var(--kind, var(--app)); }
+  .node .self-badges { position: absolute; top: -8px; right: -6px; display: flex; gap: 2px; }
+  .self-badge { background: var(--infra); color: #1a1a1a; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+  body.flow-active .node:not(.on-path), body.flow-active .group:not(.on-path):not(.has-path-children) { opacity: .22; }
+  body.flow-active .group.has-path-children { opacity: 1; }
+
+  /* stepper: current-step emphasis */
+  .node.current, .group.current { box-shadow: 0 0 0 2px var(--hot); }
+  body.stepping .node.on-path:not(.current) { opacity: .5; }
+  .self-badge.current { outline: 2px solid var(--hot); outline-offset: 1px; }
+  .edge.current .edge-path { stroke: var(--hot); stroke-width: 2.6; opacity: 1; }
+  .edge.current .edge-num circle { stroke: var(--hot); fill: #223049; }
+  body.stepping #edges .edge:not(.current):not(.hot) { opacity: .15; }
+  body.stepping .step:not(.current) { opacity: .5; }
+  .step.current { border-color: var(--hot); background: #1a2230; opacity: 1; }
+
+  #stepper { position: sticky; top: -16px; margin: -16px -16px 12px; padding: 10px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; z-index: 10; }
+  #stepper button { background: var(--bg-chip); border: 1px solid var(--border); color: var(--text); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1; }
+  #stepper button:hover:not(:disabled) { border-color: var(--app); }
+  #stepper button:disabled { opacity: .35; cursor: default; }
+  #st-label { font-size: 12px; color: var(--text-dim); min-width: 92px; text-align: center; }
+  #stepper .keys { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  #panel { width: 420px; flex: none; border-left: 1px solid var(--border); background: var(--bg-panel); overflow-y: auto; padding: 16px; position: relative; }
+  #panel h2 { font-size: 15px; margin-bottom: 6px; }
+  #panel .desc { color: var(--text-dim); font-size: 13px; margin-bottom: 14px; }
+  .section-title { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin: 14px 0 6px; }
+  .step { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .step:hover, .step.hot { border-color: var(--app); background: #1a2230; }
+  .step-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .step-num { background: var(--app); color: #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .ep { border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 11.5px; font-family: ui-monospace, Menlo, monospace; }
+  .arrow { color: var(--text-dim); }
+  .mech { color: var(--text-dim); font-size: 12px; margin-bottom: 3px; }
+  .payload { display: block; background: #10151d; border-radius: 4px; padding: 4px 7px; margin: 4px 0; color: #9ecbff; white-space: pre-wrap; word-break: break-word; }
+  .detail { font-size: 12.5px; }
+  .refs { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .ref { color: var(--text-dim); font-size: 11px; cursor: copy; word-break: break-all; }
+  .ref:hover { color: var(--text); }
+  .uncertain { border: 1px solid #5b4a1f; background: #241d10; border-radius: 8px; padding: 8px 12px; margin-top: 12px; font-size: 12px; color: #d8c48a; }
+  .uncertain b { display: block; margin-bottom: 4px; }
+  #panel .empty { color: var(--text-dim); font-size: 13px; }
+  #node-info { margin-bottom: 14px; }
+
+  .edge-path { fill: none; stroke: var(--app); stroke-width: 1.8; opacity: .85; transition: opacity .15s, stroke-width .15s; }
+  .edge.hot .edge-path { stroke: var(--hot); stroke-width: 2.6; opacity: 1; }
+  .edge-num circle { fill: var(--bg); stroke: var(--app); stroke-width: 1.5; }
+  .edge-num text { fill: var(--text); font: 700 10px -apple-system, sans-serif; text-anchor: middle; dominant-baseline: central; }
+  .edge.hot .edge-num circle { stroke: var(--hot); }
+  .edge { pointer-events: auto; cursor: pointer; }
+  .legend { display: flex; gap: 14px; margin-top: 8px; font-size: 11.5px; color: var(--text-dim); flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Engenty flow explorer <span>— engenty-pro · pick an action to trace it across packages</span></h1>
+  <div id="flow-buttons"></div>
+  <div class="legend">
+    <span><i style="background:var(--app)"></i>app</span>
+    <span><i style="background:var(--package)"></i>package</span>
+    <span><i style="background:var(--module)"></i>module</span>
+    <span><i style="background:var(--infra)"></i>infra</span>
+    <span><i style="background:var(--external)"></i>external</span>
+  </div>
+  <div class="hint">Click a step to highlight its edge · hover edges/steps to cross-highlight · click a node for details · Esc clears · edit the JSON block in this file to add flows</div>
+</header>
+<main>
+  <div id="map-wrap">
+    <div id="map">
+      <svg id="edges"></svg>
+    </div>
+  </div>
+  <aside id="panel"><div class="empty">Select a flow above, or click any node to see what it is and which flows touch it.</div></aside>
+</main>
+<!-- ==== FLOW DATA (pure JSON — edit this block to add/update flows; see README.md for the schema) ==== -->
+<script type="application/json" id="engenty-flows">
+{
+  "generated": "2026-07-03",
+  "repo": "engenty-pro",
+  "nodes": [
+    {
+      "id": "ui",
+      "kind": "app",
+      "label": "apps/ui",
+      "pkgName": "@engenty/ui",
+      "description": "Main web frontend (React + Vite), port 5173. Plugin UI host, real-time features."
+    },
+    {
+      "id": "core",
+      "kind": "app",
+      "label": "apps/core",
+      "pkgName": "@engenty/core",
+      "description": "API backend (Hono), port 8787. Plugin system, document ingestion, workspace/tenant management, prod gateway."
+    },
+    {
+      "id": "ai",
+      "kind": "app",
+      "label": "apps/ai",
+      "pkgName": "@engenty/ai",
+      "description": "AI service (Hono + Mastra agent runtime), port 8790. Threads, routines, Copilot chat engine."
+    },
+    {
+      "id": "docs-app",
+      "kind": "app",
+      "label": "apps/docs",
+      "pkgName": "@engenty/docs",
+      "description": "Documentation site (Next.js + Fumadocs), port 3002."
+    },
+    {
+      "id": "manage",
+      "kind": "app",
+      "label": "apps/manage",
+      "description": "Management plane. Not a workspace package; excluded from the deploy bundle (gateway manage flag defaults false)."
+    },
+    {
+      "id": "supabase",
+      "kind": "infra",
+      "label": "supabase",
+      "description": "Postgres + Auth + Storage + pg_cron + pgmq. Schemas: core.*, ai.*, module-owned schemas via composed migrations."
+    },
+    {
+      "id": "scripts",
+      "kind": "infra",
+      "label": "scripts/",
+      "description": "Repo build & codegen scripts: postinstall, supabase-sync.mjs, plugin artifact generation."
+    },
+    {
+      "id": "deploy",
+      "kind": "infra",
+      "label": "deploy/",
+      "description": "Docker multi-stage builds (Dockerfile.edge et al.) and docker-compose runtime."
+    },
+    {
+      "id": "llm",
+      "kind": "external",
+      "label": "LLM provider",
+      "description": "External model API (Claude etc.) called via Mastra / AI SDK from apps/ai."
+    },
+    {
+      "id": "ag-ui-bridge",
+      "kind": "package",
+      "label": "ag-ui-bridge",
+      "pkgName": "@engenty/ag-ui-bridge",
+      "description": "AG-UI SDK bridge: SSE encode/parse of AG-UI protocol events."
+    },
+    {
+      "id": "ai-core",
+      "kind": "package",
+      "label": "ai-core",
+      "pkgName": "@engenty/ai-core",
+      "description": "LLM provider abstraction with AI SDK, embeddings, image processing."
+    },
+    {
+      "id": "ai-ui",
+      "kind": "package",
+      "label": "ai-ui",
+      "pkgName": "@engenty/ai-ui",
+      "description": "React components for AI: chat streams, session hook, model selector."
+    },
+    {
+      "id": "api-client",
+      "kind": "package",
+      "label": "api-client",
+      "pkgName": "@engenty/api-client",
+      "description": "TypeScript REST API client generated from contracts."
+    },
+    {
+      "id": "api-contracts",
+      "kind": "package",
+      "label": "api-contracts",
+      "pkgName": "@engenty/api-contracts",
+      "description": "Zod schemas for REST API request/response contracts."
+    },
+    {
+      "id": "app-shell",
+      "kind": "package",
+      "label": "app-shell",
+      "pkgName": "@engenty/app-shell",
+      "description": "Shared shell layout, navigation, app-bar container for plugins."
+    },
+    {
+      "id": "audit-logs",
+      "kind": "package",
+      "label": "audit-logs",
+      "pkgName": "@engenty/audit-logs",
+      "description": "Plugin UI for activity audit logs, filtering, search."
+    },
+    {
+      "id": "auth-ui",
+      "kind": "package",
+      "label": "auth-ui",
+      "pkgName": "@engenty/auth-ui",
+      "description": "Authentication UI: login, signup, password reset, Supabase integration."
+    },
+    {
+      "id": "commercial-editor",
+      "kind": "package",
+      "label": "commercial-editor",
+      "pkgName": "@engenty/commercial-editor",
+      "description": "Premium rich text editor with drag-drop, tables, placeholders."
+    },
+    {
+      "id": "context-graph",
+      "kind": "package",
+      "label": "context-graph",
+      "pkgName": "@engenty/context-graph",
+      "description": "Knowledge graph visualization and entity contracts with AI tools."
+    },
+    {
+      "id": "csv-import",
+      "kind": "package",
+      "label": "csv-import",
+      "pkgName": "@engenty/import",
+      "description": "CSV import wizard with AI-powered column mapping."
+    },
+    {
+      "id": "dashboard-core",
+      "kind": "package",
+      "label": "dashboard-core",
+      "pkgName": "@engenty/dashboard-core",
+      "description": "Dashboard schema definitions and metric utilities."
+    },
+    {
+      "id": "design-tokens",
+      "kind": "package",
+      "label": "design-tokens",
+      "pkgName": "@engenty/design-tokens",
+      "description": "CSS design token exports for theming."
+    },
+    {
+      "id": "doc-converter",
+      "kind": "package",
+      "label": "doc-converter",
+      "pkgName": "@engenty/doc-converter",
+      "description": "PDF/Word → Markdown converter (LlamaParse, Gemini, local)."
+    },
+    {
+      "id": "document-sources",
+      "kind": "package",
+      "label": "document-sources",
+      "pkgName": "@engenty/document-sources",
+      "description": "Pluggable document source adapters (URL, RSS, file upload) for ingestion."
+    },
+    {
+      "id": "environment",
+      "kind": "package",
+      "label": "environment",
+      "pkgName": "@engenty/environment",
+      "description": "Env var loading, schema validation, monorepo configuration."
+    },
+    {
+      "id": "feature-flags",
+      "kind": "package",
+      "label": "feature-flags",
+      "pkgName": "@engenty/feature-flags",
+      "description": "Feature flag definitions and client-side control."
+    },
+    {
+      "id": "file-storage",
+      "kind": "package",
+      "label": "file-storage",
+      "pkgName": "@engenty/file-storage",
+      "description": "Supabase Storage abstractions: signed URLs, upload, retrieval."
+    },
+    {
+      "id": "generative-ui",
+      "kind": "package",
+      "label": "generative-ui",
+      "pkgName": "@engenty/generative-ui",
+      "description": "JSON-Render schema registry for AI-generated forms/UI."
+    },
+    {
+      "id": "i18n",
+      "kind": "package",
+      "label": "i18n",
+      "pkgName": "@engenty/i18n",
+      "description": "i18next integration with React context."
+    },
+    {
+      "id": "live-cache",
+      "kind": "package",
+      "label": "live-cache",
+      "pkgName": "@engenty/live-cache",
+      "description": "React hooks for cache invalidation and real-time sync."
+    },
+    {
+      "id": "plugin-sdk",
+      "kind": "package",
+      "label": "plugin-sdk",
+      "pkgName": "@engenty/plugin-sdk",
+      "description": "Server plugin system: registration API (routes, operations, AI seeds)."
+    },
+    {
+      "id": "query-client",
+      "kind": "package",
+      "label": "query-client",
+      "pkgName": "@engenty/query-client",
+      "description": "React Query setup and shared query hooks."
+    },
+    {
+      "id": "queue",
+      "kind": "package",
+      "label": "queue",
+      "pkgName": "@engenty/queue",
+      "description": "Work queue abstraction (pgmq-backed) for async task execution."
+    },
+    {
+      "id": "scoped-kv-settings",
+      "kind": "package",
+      "label": "scoped-kv-settings",
+      "pkgName": "@engenty/scoped-kv-settings",
+      "description": "User/tenant KV settings in Supabase with scope isolation."
+    },
+    {
+      "id": "search-index",
+      "kind": "package",
+      "label": "search-index",
+      "pkgName": "@engenty/search-index",
+      "description": "Search index provider abstraction for semantic/lexical search."
+    },
+    {
+      "id": "telemetry",
+      "kind": "package",
+      "label": "telemetry",
+      "pkgName": "@engenty/telemetry",
+      "description": "OpenTelemetry integration with Langfuse and event logging."
+    },
+    {
+      "id": "tenant-settings",
+      "kind": "package",
+      "label": "tenant-settings",
+      "pkgName": "@engenty/tenant-settings",
+      "description": "Tenant configuration API backed by Supabase."
+    },
+    {
+      "id": "tiptap-editor",
+      "kind": "package",
+      "label": "tiptap-editor",
+      "pkgName": "@engenty/tiptap-editor",
+      "description": "Tiptap rich text editor with markdown, tables, collaboration."
+    },
+    {
+      "id": "ui-core",
+      "kind": "package",
+      "label": "ui-core",
+      "pkgName": "@engenty/ui-core",
+      "description": "React component library: buttons, forms, dialogs, theming."
+    },
+    {
+      "id": "ui-icons",
+      "kind": "package",
+      "label": "ui-icons",
+      "pkgName": "@engenty/ui-icons",
+      "description": "Animated icon library (Lucide + Motion)."
+    },
+    {
+      "id": "ui-plugin-sdk",
+      "kind": "package",
+      "label": "ui-plugin-sdk",
+      "pkgName": "@engenty/ui-plugin-sdk",
+      "description": "Plugin UI system: routes, context, i18n for plugin components."
+    },
+    {
+      "id": "user-management-ui",
+      "kind": "package",
+      "label": "user-management-ui",
+      "pkgName": "@engenty/user-management-ui",
+      "description": "UI plugin for user/role management, permissions, profiles."
+    },
+    {
+      "id": "user-settings",
+      "kind": "package",
+      "label": "user-settings",
+      "pkgName": "@engenty/user-settings",
+      "description": "User preference API backed by Supabase."
+    },
+    {
+      "id": "web-ingest",
+      "kind": "package",
+      "label": "web-ingest",
+      "pkgName": "@engenty/web-ingest",
+      "description": "HTML → Markdown conversion and Firecrawl scraping."
+    },
+    {
+      "id": "company-profile",
+      "kind": "module",
+      "label": "company-profile",
+      "pkgName": "@engenty/company-profile",
+      "description": "Company data, logo management, AI-driven profile updates."
+    },
+    {
+      "id": "contacts",
+      "kind": "module",
+      "label": "contacts",
+      "pkgName": "@engenty/contacts",
+      "description": "Contact management with import, dedup, AI suggestions."
+    },
+    {
+      "id": "engenty-coordinator",
+      "kind": "module",
+      "label": "engenty-coordinator",
+      "pkgName": "@engenty/engenty-coordinator",
+      "description": "AI orchestrator agent: decomposes goals into tasks, monitors progress."
+    },
+    {
+      "id": "engenty-copilot",
+      "kind": "module",
+      "label": "engenty-copilot",
+      "pkgName": "@engenty/engenty-copilot",
+      "description": "Main AI assistant UI plugin: chat panel, frontend tools, workspace context."
+    },
+    {
+      "id": "files",
+      "kind": "module",
+      "label": "files",
+      "pkgName": "@engenty/files-ui",
+      "description": "File management: upload, preview, organization, search."
+    },
+    {
+      "id": "knowledge-base",
+      "kind": "module",
+      "label": "knowledge-base",
+      "pkgName": "@engenty/knowledge-base",
+      "description": "Document ingestion, RAG search, knowledge graphs, AI indexing."
+    },
+    {
+      "id": "projects",
+      "kind": "module",
+      "label": "projects",
+      "pkgName": "@engenty/projects",
+      "description": "Project management: phases, tasks, timelines, dashboards."
+    },
+    {
+      "id": "tasks",
+      "kind": "module",
+      "label": "tasks",
+      "pkgName": "@engenty/tasks",
+      "description": "Task/goal management for human-agent collaboration."
+    },
+    {
+      "id": "team",
+      "kind": "module",
+      "label": "team",
+      "pkgName": "@engenty/team",
+      "description": "Org structure, members, roles, permissions."
+    },
+    {
+      "id": "time-tracking",
+      "kind": "module",
+      "label": "time-tracking",
+      "pkgName": "@engenty/time-tracking",
+      "description": "Time entries, logging, reports, billing tracking."
+    }
+  ],
+  "flows": [
+    {
+      "id": "invite-user",
+      "title": "Invite new user",
+      "description": "Admin invites a user from the user management UI. The user is created synchronously with a pre-confirmed email (no invite email is sent): Supabase auth user + core.users row + tenant membership.",
+      "steps": [
+        {
+          "section": "Main path",
+          "from": "ui",
+          "to": "user-management-ui",
+          "mechanism": "React route + dialog form",
+          "payload": "{ email, password, display_name, role?, phone? }",
+          "detail": "UsersListPage renders UserInviteDialog; react-hook-form validates against the Zod inviteUserSchema.",
+          "refs": [
+            "packages/user-management-ui/src/routes/users-list-page.tsx:30-125",
+            "packages/user-management-ui/src/components/users/user-invite-dialog.tsx:31-92",
+            "packages/user-management-ui/src/lib/schemas.ts:14-22"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "user-management-ui",
+          "to": "api-client",
+          "mechanism": "inviteUser() → requestApiJson",
+          "payload": "validated invite payload",
+          "detail": "The plugin's API layer hands the payload to the shared api-client helper.",
+          "refs": [
+            "packages/user-management-ui/src/lib/user-management-api.ts:68-79"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "api-client",
+          "to": "core",
+          "mechanism": "HTTP POST /api/users (Bearer token)",
+          "payload": "JSON body: email, password, display_name, role, phone",
+          "detail": "requestApiJson attaches the Supabase session token as Authorization header and POSTs to core.",
+          "refs": [
+            "packages/api-client/src/index.ts:157-228"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "core",
+          "to": "core",
+          "mechanism": "route handler + authz",
+          "payload": "body validated against CreateUserBodySchema (api-contracts)",
+          "detail": "createUserRoute validates the token, resolves the tenant, and requires isAuthUserAdmin or hasManageCapability before calling dal.createUser(tenantId, input).",
+          "refs": [
+            "apps/core/src/api/routes/user-management/crud-routes.ts:272-362",
+            "apps/core/src/dal/core-users.ts:67-68"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "core",
+          "to": "supabase",
+          "mechanism": "Supabase Auth Admin API",
+          "payload": "{ email, password, email_confirm: true, user_metadata }",
+          "detail": "IdentityAdminService calls client.auth.admin.createUser with the email pre-confirmed — no verification email is sent. Supabase returns the new auth user id.",
+          "refs": [
+            "apps/core/src/dal/core-users/crud.ts:112-148",
+            "apps/core/src/identity/supabase-identity-admin-adapter.ts:12-26"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "core",
+          "to": "supabase",
+          "mechanism": "PostgREST INSERT core.users",
+          "payload": "{ id (auth user id), tenant_id, email, display_name, role, phone }",
+          "detail": "The app-level user record is inserted with the tenant assignment.",
+          "refs": [
+            "apps/core/src/dal/core-users/crud.ts:124-137"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "core",
+          "to": "supabase",
+          "mechanism": "PostgREST UPSERT core.user_tenant_roles",
+          "payload": "{ user_id, tenant_id, role, updated_at }",
+          "detail": "upsertTenantMembership establishes tenant membership with the chosen role.",
+          "refs": [
+            "apps/core/src/dal/core-users/memberships.ts:4-23"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "core",
+          "to": "core",
+          "mechanism": "audit event",
+          "payload": "{ type: 'user_management.user.created', actorId, tenantId, detail }",
+          "detail": "recordCoreAuditEvent logs the creation if an audit adapter is configured.",
+          "refs": [
+            "apps/core/src/api/routes/user-management/crud-routes.ts:343-360"
+          ]
+        },
+        {
+          "section": "Main path",
+          "from": "core",
+          "to": "user-management-ui",
+          "mechanism": "HTTP 200 (apiSuccess envelope)",
+          "payload": "{ ok: true, data: CoreUser }",
+          "detail": "api-client unwraps the envelope; the dialog closes and the users list is refreshed via listUsers().",
+          "refs": [
+            "packages/api-contracts/src/index.ts:53-69",
+            "packages/user-management-ui/src/routes/users-list-page.tsx:114-125"
+          ]
+        },
+        {
+          "section": "Alternative: via Team module",
+          "from": "team",
+          "to": "core",
+          "mechanism": "POST /api/team → invokeOperation('core_users_create_in_tenant')",
+          "payload": "{ display_name, email: invite_email, password: invite_password, role: invite_role }",
+          "detail": "The team member create modal can also create a user account: its POST handler invokes the core gateway method, then links the created user_id on the team member record.",
+          "refs": [
+            "modules/team/ui/components/team-member-create-modal.tsx:93-124",
+            "modules/team/src/api/index.ts:206-269",
+            "apps/core/src/api/methods/core-users/create-in-tenant-method.ts:18-36"
+          ]
+        }
+      ],
+      "uncertain": [
+        "Whether email_confirm: true fully suppresses the Supabase confirmation email (Supabase-side behavior, not visible in code).",
+        "Whether any post-creation event/webhook is emitted for other modules to listen to."
+      ]
+    },
+    {
+      "id": "deploy-build",
+      "title": "Production bundle build (“desktop build”)",
+      "description": "There is no Electron/Tauri target in engenty-pro — the shippable build is the deploy/ Docker edge bundle: turbo builds packages → enabled modules → UI (with generated plugin catalog) → core, then the runtime image serves the UI dist through core's prod gateway. apps/manage is excluded.",
+      "steps": [
+        {
+          "section": "Build stage",
+          "from": "deploy",
+          "to": "scripts",
+          "mechanism": "docker build → pnpm install (postinstall)",
+          "payload": "CLI packages + core build warm-up",
+          "detail": "Dockerfile.edge installs the workspace; scripts/postinstall.mjs builds CLI packages on first install (skippable via ENGENTY_SKIP_INSTALL_BUILD=1).",
+          "refs": [
+            "deploy/Dockerfile.edge:11-12",
+            "scripts/postinstall.mjs:1-47"
+          ]
+        },
+        {
+          "section": "Build stage",
+          "from": "scripts",
+          "to": "ui",
+          "mechanism": "codegen (prebuild hook)",
+          "payload": "generated-catalog.ts + generated-tailwind-sources.css",
+          "detail": "generate-plugin-artifacts.mjs discovers engenty.plugin.json manifests from enabled modules/packages and writes the UI plugin catalog + Tailwind sources consumed by the vite build.",
+          "refs": [
+            "apps/ui/scripts/generate-plugin-artifacts.mjs:158-179",
+            "apps/ui/package.json:14-15",
+            "turbo.json:26-31"
+          ]
+        },
+        {
+          "section": "Build stage",
+          "from": "deploy",
+          "to": "packages",
+          "mechanism": "turbo build",
+          "payload": "dist/ per package (ui-core, app-shell, environment, plugin-sdk, …)",
+          "detail": "Packages build first (tsup etc.) so apps can import their dist output.",
+          "refs": [
+            "deploy/Dockerfile.edge:32"
+          ]
+        },
+        {
+          "section": "Build stage",
+          "from": "deploy",
+          "to": "modules",
+          "mechanism": "turbo build (enabled modules only)",
+          "payload": "dist/ per enabled module",
+          "detail": "Only modules listed in root package.json engenty.plugins are built, filtered via enabledModuleSlugSet().",
+          "refs": [
+            "deploy/Dockerfile.edge:32",
+            "scripts/lib/engenty-modules.mjs"
+          ]
+        },
+        {
+          "section": "Build stage",
+          "from": "ui",
+          "to": "ui",
+          "mechanism": "vite build",
+          "payload": "apps/ui/dist (SPA: index.html + JS/CSS chunks)",
+          "detail": "Vite bundles the React app; aliases resolve module/package entrypoints from the generated catalog. VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are baked in here.",
+          "refs": [
+            "apps/ui/vite.config.ts:278-368"
+          ]
+        },
+        {
+          "section": "Build stage",
+          "from": "core",
+          "to": "core",
+          "mechanism": "tsup build",
+          "payload": "apps/core/dist/api-entry.js (+ index.js, cli.js, infra.js)",
+          "detail": "Core compiles with pdfjs-dist and sharp kept external. The UI is NOT embedded — it's served separately by the prod gateway.",
+          "refs": [
+            "apps/core/package.json:24"
+          ]
+        },
+        {
+          "section": "Build stage",
+          "from": "scripts",
+          "to": "supabase",
+          "mechanism": "supabase-sync.mjs (setup step)",
+          "payload": "aggregated migrations + config.toml schemas/buckets",
+          "detail": "Module-owned supabase/migrations dirs are composed into the top-level migration set and storage buckets from manifests are linked — needed for the runtime DB, not part of the image itself.",
+          "refs": [
+            "scripts/supabase-sync.mjs:1-223",
+            "deploy/DEPLOY.md:43-45"
+          ]
+        },
+        {
+          "section": "Runtime image",
+          "from": "deploy",
+          "to": "deploy",
+          "mechanism": "Docker COPY --from=build",
+          "payload": "apps/core/dist, apps/ui/dist, packages/*, modules/* (with dist/)",
+          "detail": "The runtime stage copies dist artifacts plus full packages/modules trees so pnpm workspace symlinks resolve at runtime.",
+          "refs": [
+            "deploy/Dockerfile.edge:47-50"
+          ]
+        },
+        {
+          "section": "Serve",
+          "from": "deploy",
+          "to": "core",
+          "mechanism": "CMD node apps/core/dist/api-entry.js",
+          "payload": "ENGENTY_PROD_GATEWAY=1, ENGENTY_GATEWAY_UI_ROOT=/app/apps/ui/dist",
+          "detail": "startApiServer() loads plugins, registers routes, and registers prod-gateway hooks that route requests by pathname (/, /api, /ai, /docs, /studio; /manage defaults off).",
+          "refs": [
+            "deploy/Dockerfile.edge:56-68",
+            "apps/core/src/api/server.ts:509-538",
+            "apps/core/src/api/prod-gateway.ts:26-31"
+          ]
+        },
+        {
+          "section": "Serve",
+          "from": "core",
+          "to": "modules",
+          "mechanism": "loadPlugins() at boot",
+          "payload": "backend plugin registries (routes, operations, AI seeds)",
+          "detail": "Core discovers modules/packages on the filesystem, reads manifests, and instantiates backend plugin factories. UI plugins are already compiled into the SPA via the generated catalog.",
+          "refs": [
+            "apps/core/src/plugins/loader.ts:756-761"
+          ]
+        },
+        {
+          "section": "Serve",
+          "from": "core",
+          "to": "ui",
+          "mechanism": "prod gateway static serving",
+          "payload": "apps/ui/dist served as SPA (unknown paths → index.html)",
+          "detail": "tryServeStatic() serves the UI bundle; the browser app then calls /api on the same origin, routed to the Hono API with plugin-registered handlers.",
+          "refs": [
+            "apps/core/src/api/prod-gateway.ts:243-269"
+          ]
+        }
+      ],
+      "uncertain": [
+        "“Desktop build” has no Electron/Tauri target in this repo — if you mean a different artifact (e.g. in engenty-released), this flow needs a retrace there."
+      ]
+    },
+    {
+      "id": "module-load",
+      "title": "Module/plugin load (boot → app bar)",
+      "description": "How a module in modules/ (example: contacts) becomes live: build-time UI catalog codegen, server-side discovery + factory registration at core boot, migration composition, AI capability sync, and runtime UI resolution into app-bar menu items.",
+      "steps": [
+        {
+          "section": "Build-time codegen",
+          "from": "scripts",
+          "to": "ui",
+          "mechanism": "pnpm --filter @engenty/ui generate:plugins (predev/prebuild)",
+          "payload": "generated-catalog.ts with prebound dynamic imports",
+          "detail": "Discovers modules/ and packages/, reads engenty.plugin.json manifests of modules enabled in root package.json engenty.plugins, and generates the static UI catalog. Stale catalog after a merge = module loads in admin but no app-bar icon.",
+          "refs": [
+            "apps/ui/scripts/generate-plugin-artifacts.mjs:73-113",
+            "apps/ui/src/plugins/generated-catalog.ts:5-20",
+            "package.json:8-39"
+          ]
+        },
+        {
+          "section": "Build-time codegen",
+          "from": "scripts",
+          "to": "supabase",
+          "mechanism": "supabase-sync.mjs migration compose",
+          "payload": "module-owned SQL migrations + config.toml schemas/buckets",
+          "detail": "Module supabase/migrations dirs (filtered by the enabled set) are aggregated and schemas/storage buckets declared in manifests are synced into supabase config before db init.",
+          "refs": [
+            "scripts/supabase-sync.mjs:75-100",
+            "modules/contacts/package.json:26-27"
+          ]
+        },
+        {
+          "section": "Server boot",
+          "from": "contacts",
+          "to": "core",
+          "mechanism": "filesystem discovery + manifest read",
+          "payload": "plugin candidate { rootDir, packageName, sourceType, server entry }",
+          "detail": "At core boot discoverPlugins() scans modules/ (respecting enabledModuleSlugSet) and packages/, reads engenty.plugin.json, and resolves the server entry point.",
+          "refs": [
+            "apps/core/src/plugins/discovery.ts:179-211",
+            "apps/core/src/plugins/loader.ts:756-761"
+          ]
+        },
+        {
+          "section": "Server boot",
+          "from": "core",
+          "to": "plugin-sdk",
+          "mechanism": "dynamic import + factory invocation",
+          "payload": "EngentyPluginFactory(EngentyPluginApi) → registered capabilities",
+          "detail": "registerPluginFactory() imports the module's plugin entry and invokes its default factory; the factory calls server.registerHttpRoute / registerOperation / registerAiRegistration etc. on the plugin-sdk API, populating the registry.",
+          "refs": [
+            "apps/core/src/plugins/loader.ts:575-598",
+            "packages/plugin-sdk/src/index.ts:553-586",
+            "modules/contacts/src/plugin.ts:22-194"
+          ]
+        },
+        {
+          "section": "Server boot",
+          "from": "core",
+          "to": "core",
+          "mechanism": "route mount",
+          "payload": "/api/<module>/*, /api/module-operations/*, GET /api/plugins",
+          "detail": "Registered routes/operations are mounted on the Hono server with per-tenant auth and capability gating; /api/plugins exposes the catalog with per-tenant enablement overrides.",
+          "refs": [
+            "packages/plugin-sdk/src/index.ts:553-560"
+          ]
+        },
+        {
+          "section": "Server boot",
+          "from": "ai",
+          "to": "core",
+          "mechanism": "HTTP fetch of capability seeds",
+          "payload": "listPlugins(), listToolContracts(), listModuleCapabilitySeeds()",
+          "detail": "apps/ai's CoreCatalogDynamicAiModuleCapabilityLoader pulls active plugins and their AI registrations (agents, skills, actions from e.g. contacts/ai/registrar.ts) and auto-synthesizes agent tools from registered operations.",
+          "refs": [
+            "apps/ai/src/ai/module-capability-loader.ts:56-94",
+            "modules/contacts/package.json:21-24"
+          ]
+        },
+        {
+          "section": "UI runtime",
+          "from": "ui",
+          "to": "core",
+          "mechanism": "HTTP GET /api/plugins",
+          "payload": "plugin summaries: enablement state, capabilities, generationId",
+          "detail": "useUiPluginContributionsQuery fetches the server-side plugin list with per-tenant enablement overrides.",
+          "refs": [
+            "apps/ui/src/plugins/ui-plugin-contributions-queries.ts:140"
+          ]
+        },
+        {
+          "section": "UI runtime",
+          "from": "ui",
+          "to": "ui",
+          "mechanism": "catalog derivation + trust policy",
+          "payload": "filtered UI plugin catalog",
+          "detail": "deriveUiPluginCatalogFromSummaries() merges the generated catalog with server summaries, filtering by enablement, ui capability declaration, and trust policy (module-only or @engenty/* packages).",
+          "refs": [
+            "apps/ui/src/plugins/catalog.ts:315-371"
+          ]
+        },
+        {
+          "section": "UI runtime",
+          "from": "ui",
+          "to": "ui-plugin-sdk",
+          "mechanism": "dynamic import of ui/plugin.ts registrars",
+          "payload": "UiContributions: routes, adminMenuItems, liveBindings, copilot contributions, i18n",
+          "detail": "resolveUiPlugins() imports each enabled plugin's UI entry and invokes its registrar with EngentyPluginContext, collecting contributions via engenty.UI.registerRoute / registerAdminMenuItem.",
+          "refs": [
+            "apps/ui/src/plugins/resolver.ts:200-350",
+            "modules/contacts/ui/plugin.ts:36-202"
+          ]
+        },
+        {
+          "section": "UI runtime",
+          "from": "ui",
+          "to": "app-shell",
+          "mechanism": "React hook + shell rendering",
+          "payload": "merged adminMenuItems",
+          "detail": "useUiPluginContributions() feeds the app shell, which renders the module's icon and routes in the app bar / sidebar navigation.",
+          "refs": [
+            "apps/ui/src/plugins/use-ui-plugin-contributions.ts:29-52",
+            "apps/ui/src/App.tsx:45"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent-chat",
+      "title": "Agent chat message round-trip",
+      "description": "User sends a chat message in the Copilot panel; apps/ai runs a Mastra session against the LLM and streams AG-UI events back over SSE, with tool calls, interrupts/approvals, and Supabase-persisted thread history.",
+      "steps": [
+        {
+          "section": "Send",
+          "from": "engenty-copilot",
+          "to": "ai-ui",
+          "mechanism": "PromptInput submit → submitMessage()",
+          "payload": "user text + attachments",
+          "detail": "The copilot module hosts the chat panel; useEngentyAgUiAppsAiSession appends the user message to conversation state and starts the run stream.",
+          "refs": [
+            "modules/engenty-copilot/ui/components/chat/agent-chat-panel.tsx:143-150",
+            "packages/ai-ui/src/ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.ts:734-845"
+          ]
+        },
+        {
+          "section": "Send",
+          "from": "ai-ui",
+          "to": "ai-ui",
+          "mechanism": "buildAppsAiRunInput",
+          "payload": "RunAgentInput { messages, tools (frontend), threadId, runId, context, state }",
+          "detail": "Message, route context, and AG-UI frontend tool definitions are packaged into an AG-UI protocol RunAgentInput.",
+          "refs": [
+            "packages/ai-ui/src/ag-ui/apps-ai/build-apps-ai-run-input.ts"
+          ]
+        },
+        {
+          "section": "Send",
+          "from": "ai-ui",
+          "to": "core",
+          "mechanism": "HTTP POST /ai/threads (if no thread yet)",
+          "payload": "{ agent_id, route_context, stable_session_key, title }",
+          "detail": "Thread creation goes through the core gateway, which proxies /ai/* to apps/ai.",
+          "refs": [
+            "packages/ai-ui/src/ag-ui/apps-ai/apps-ai-transport.ts:27-67"
+          ]
+        },
+        {
+          "section": "Send",
+          "from": "core",
+          "to": "ai",
+          "mechanism": "gateway proxy",
+          "payload": "thread creation body / run body / SSE responses",
+          "detail": "apps/core forwards /ai routes to the apps/ai service and streams responses back.",
+          "refs": [
+            "apps/core/src/api/prod-gateway.ts:26-31"
+          ]
+        },
+        {
+          "section": "Send",
+          "from": "ai",
+          "to": "supabase",
+          "mechanism": "INSERT ai.thread + ai.thread_participant",
+          "payload": "{ id, tenant_id, agent_id, created_by_user_id, title, metadata, route_context }",
+          "detail": "createSession persists the new thread and the owner participant row.",
+          "refs": [
+            "apps/ai/src/dal/agent-sessions/agent-session-store.ts:62-100"
+          ]
+        },
+        {
+          "section": "Run (apps/ai)",
+          "from": "ai-ui",
+          "to": "ai",
+          "mechanism": "HTTP POST /ai/v1/threads/:id/runs (SSE, via core proxy)",
+          "payload": "RunAgentInput",
+          "detail": "The run endpoint validates input, resolves tenant scope, and loads session metadata (open interrupts, tool-approval grants) from ai.thread.",
+          "refs": [
+            "packages/ai-ui/src/ag-ui/apps-ai/apps-ai-transport.ts:69-106",
+            "apps/ai/src/api/agent-session-runs-routes.ts:150-208"
+          ]
+        },
+        {
+          "section": "Run (apps/ai)",
+          "from": "ai",
+          "to": "supabase",
+          "mechanism": "SELECT ai.thread_message (seq ASC, limit 500)",
+          "payload": "prior messages for the thread",
+          "detail": "EngentySessionMemoryStorage hydrates Mastra's MessageList with the persisted history for LLM context.",
+          "refs": [
+            "apps/ai/src/ai/memory/engenty-session-memory-storage.ts:200-250"
+          ]
+        },
+        {
+          "section": "Run (apps/ai)",
+          "from": "ai",
+          "to": "ai",
+          "mechanism": "startConversationRun (fire-and-forget)",
+          "payload": "Mastra AgentController/Session bound to the thread",
+          "detail": "Runtime instructions are built with context; Engenty, sandbox, delegation, and forwarded frontend tools are injected into the session.",
+          "refs": [
+            "apps/ai/src/api/agent-session-runs-routes.ts:423-457",
+            "apps/ai/src/ai/conversation/conversation-run.ts:135-200"
+          ]
+        },
+        {
+          "section": "Run (apps/ai)",
+          "from": "ai",
+          "to": "llm",
+          "mechanism": "Mastra → model API call",
+          "payload": "{ model, system, messages (history + new), tools }",
+          "detail": "Mastra routes to the configured LLM; tool calls come back as part of the model's streamed response.",
+          "refs": [
+            "apps/ai/src/ai/conversation/conversation-run.ts:66"
+          ]
+        },
+        {
+          "section": "Stream back",
+          "from": "ai",
+          "to": "ag-ui-bridge",
+          "mechanism": "session-agui-bridge + run event bus",
+          "payload": "Mastra events → AGUIEvent { type, payload, seq }",
+          "detail": "Session events (message_delta, tool_call_start/result, RUN_FINISHED) are converted to AG-UI protocol events, published on an in-process bus keyed by runId, optionally persisted to agent_run for replay, and SSE-encoded by ag-ui-bridge.",
+          "refs": [
+            "apps/ai/src/ai/conversation/session-agui-bridge.ts",
+            "apps/ai/src/ai/sessions/run-event-bus.ts",
+            "packages/ag-ui-bridge/src/ag-ui-sse.ts:5-8"
+          ]
+        },
+        {
+          "section": "Stream back",
+          "from": "ai",
+          "to": "ai-ui",
+          "mechanism": "HTTP SSE stream (via core proxy)",
+          "payload": "data: {\"type\": …} event chunks",
+          "detail": "The client-side parser (createAgUiSseParser from ag-ui-bridge) decodes chunks into AGUIEvents; the conversation reducer applies each event and the transcript re-renders live.",
+          "refs": [
+            "packages/ag-ui-bridge/src/ag-ui-sse.ts:28-49",
+            "packages/ai-ui/src/ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.ts:615-695"
+          ]
+        },
+        {
+          "section": "Tools & interrupts",
+          "from": "ai-ui",
+          "to": "ai-ui",
+          "mechanism": "frontend tool execution / interrupt chooser",
+          "payload": "FrontendToolCallRequest | AgUiOpenInterruptMetadata",
+          "detail": "Native frontend tools run in the browser; decision/feedback/approval interrupts suspend the run and persist metadata on ai.thread so the UI can render a chooser.",
+          "refs": [
+            "packages/ai-ui/src/copilot/use-auto-resolve-safe-frontend-tool.ts",
+            "apps/ai/src/ai/conversation/emit-interrupt.ts"
+          ]
+        },
+        {
+          "section": "Tools & interrupts",
+          "from": "ai-ui",
+          "to": "ai",
+          "mechanism": "POST /ai/v1/threads/:id/runs with resume payload",
+          "payload": "RunAgentInput { resume: [{ status, payload }] } — no new message",
+          "detail": "The resume branch reattaches to the parked session, marks the tool call ANSWERED in ai.thread_message, and persists 'approve always' grants in thread metadata.",
+          "refs": [
+            "apps/ai/src/api/agent-session-runs-routes.ts:280-357",
+            "apps/ai/src/ai/conversation/resume-conversation-run.ts"
+          ]
+        },
+        {
+          "section": "Persist & refresh",
+          "from": "ai",
+          "to": "supabase",
+          "mechanism": "INSERT ai.thread_message + UPDATE ai.thread",
+          "payload": "messages (keyed by Mastra message id) + final metadata/title",
+          "detail": "The memory adapter persists each user/assistant message idempotently during/after the run, then updates thread metadata, title, and summary at run end.",
+          "refs": [
+            "apps/ai/src/ai/memory/engenty-session-memory-storage.ts:89-210"
+          ]
+        },
+        {
+          "section": "Persist & refresh",
+          "from": "ai-ui",
+          "to": "query-client",
+          "mechanism": "TanStack Query invalidation",
+          "payload": "threads list / thread detail / messages / usage query keys",
+          "detail": "On run completion the query cache is invalidated so thread title, usage stats, and message list refetch from apps/ai.",
+          "refs": [
+            "packages/ai-ui/src/ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.ts:402-436"
+          ]
+        }
+      ],
+      "uncertain": [
+        "agent_run event persistence appears optional per deployment (runStore may be unconfigured).",
+        "Supabase realtime subscriptions exist in code for multi-tab sync but the flow wasn't fully mapped."
+      ]
+    },
+    {
+      "id": "trigger-routine",
+      "title": "Scheduled routine / trigger firing",
+      "description": "Phase-1 transitional state: pg_cron ticks apps/ai's routines endpoint; due routines create tasks that are dispatched through a pgmq queue into a durable Mastra task-job workflow, with run state recorded in ai.routine_state.",
+      "steps": [
+        {
+          "from": "supabase",
+          "to": "ai",
+          "mechanism": "pg_cron → HTTP POST /ai/v1/routines/tick",
+          "payload": "no body; Vault-stored JWT in Authorization header",
+          "detail": "A pg_cron job registered during tenant provisioning (private.trigger_engenty_routines_tick) ticks the routines endpoint on a schedule (default hourly).",
+          "refs": [
+            "supabase/migrations/20260616000700_plugin_engenty_coordinator.sql:61-74"
+          ]
+        },
+        {
+          "from": "ai",
+          "to": "ai",
+          "mechanism": "due evaluation",
+          "payload": "routine definitions (module ROUTINE.md + custom_routine rows) × cron + quiet_hours",
+          "detail": "The tick handler lists all routines for the tenant scope and filters with isRoutineDue; disabled/not-due routines are skipped.",
+          "refs": [
+            "apps/ai/src/api/routine-routes.ts:88-160",
+            "apps/ai/src/routines/due.ts:30-75"
+          ]
+        },
+        {
+          "from": "ai",
+          "to": "core",
+          "mechanism": "module operation invoke: tasks_create",
+          "payload": "{ agent_type_key, title, description, primary_assignee_kind, priority }",
+          "detail": "executeRoutineTarget invokes the tasks module's create operation through core, materializing a task row.",
+          "refs": [
+            "apps/ai/src/routines/executors.ts:50-60"
+          ]
+        },
+        {
+          "from": "core",
+          "to": "supabase",
+          "mechanism": "task INSERT + pgmq enqueue",
+          "payload": "task row + agent_task_dispatch queue message",
+          "detail": "Task creation enqueues a dispatch message on the agent_task_dispatch pgmq queue (queue package abstraction).",
+          "refs": [
+            "apps/ai/src/ai/sessions/task-workspace-hook.ts:88-120"
+          ]
+        },
+        {
+          "from": "supabase",
+          "to": "ai",
+          "mechanism": "queue consumer poll",
+          "payload": "taskJobInput { agent_type_key, task_id, tenant_id }",
+          "detail": "startTaskDispatchConsumer polls the queue and starts a run of the TASK_JOB workflow for each message.",
+          "refs": [
+            "apps/ai/src/api/task-dispatch-consumer.ts:39-102"
+          ]
+        },
+        {
+          "from": "ai",
+          "to": "llm",
+          "mechanism": "Mastra task-job workflow",
+          "payload": "checkout → buildBrief → runSpecialist → writeResult → finalize",
+          "detail": "The workflow claims the task, assembles the prompt, executes the specialist agent against the LLM, and persists the result; each step snapshots to Postgres so a crash resumes at the next incomplete step.",
+          "refs": [
+            "apps/ai/ai/workflows/task-job-workflow.ts",
+            "apps/ai/src/ai/jobs/task-job-steps.ts"
+          ]
+        },
+        {
+          "from": "ai",
+          "to": "supabase",
+          "mechanism": "UPSERT ai.routine_state",
+          "payload": "{ routine_id, tenant_id, last_run_at, last_result (≤2000 chars) }",
+          "detail": "recordRun persists the outcome for next-due calculation and the admin UI.",
+          "refs": [
+            "apps/ai/src/routines/routine-state-store.ts:47-64"
+          ]
+        },
+        {
+          "from": "ai-ui",
+          "to": "ai",
+          "mechanism": "GET /ai/v1/routines",
+          "payload": "routines + state + computed next_due_at",
+          "detail": "The admin/triggers UI merges definitions with routine_state via cron-parser; no live push — the UI polls via TanStack query hooks.",
+          "refs": [
+            "apps/ai/src/api/routine-routes.ts:162-235",
+            "packages/ai-ui/src/lib/admin/triggers-api.ts:6-10"
+          ]
+        }
+      ],
+      "uncertain": [
+        "Per-tenant pg_cron scheduling call site not found in this repo (likely provisioning outside the checkout).",
+        "Coordinator heartbeat was unscheduled by the 20260611 migration; its replacement routine definition wasn't found in modules/engenty-coordinator."
+      ]
+    },
+    {
+      "id": "file-ingestion",
+      "title": "File upload → knowledge ingestion → agent search",
+      "description": "A document uploaded through the files UI is stored in Supabase Storage, extracted to markdown by doc-converter, ingested by a knowledge-base source into an article, chunk-embedded into the search index, and finally reachable by agents via synthesized search tools.",
+      "steps": [
+        {
+          "section": "Upload",
+          "from": "files",
+          "to": "core",
+          "mechanism": "POST /api/file-storage/files/signed-upload-url",
+          "payload": "{ key, content_type, expires_in }",
+          "detail": "The files module UI requests a presigned upload URL; core checks tenant scope and issues it via the file-storage package.",
+          "refs": [
+            "modules/files/ui/api.ts:168-210",
+            "apps/core/src/api/routes/file-storage-routes.ts:463-541"
+          ]
+        },
+        {
+          "section": "Upload",
+          "from": "files",
+          "to": "supabase",
+          "mechanism": "PUT <signed-url> (direct browser upload)",
+          "payload": "file bytes + Content-Type",
+          "detail": "The browser uploads straight to Supabase Storage at a tenant-scoped key (tenants/<id>/…/<timestamp>_<name>) — bytes never pass through core.",
+          "refs": [
+            "modules/files/ui/api.ts:192-210",
+            "packages/file-storage/src/providers/supabase-provider.ts"
+          ]
+        },
+        {
+          "section": "Extraction",
+          "from": "core",
+          "to": "doc-converter",
+          "mechanism": "POST /api/file-storage/files/extract (on-demand)",
+          "payload": "{ key, bucket }",
+          "detail": "Core downloads the file and runs the Converter, selecting a provider (llamaparse / gemini / liteparse / local) by MIME type and tenant config to produce markdown.",
+          "refs": [
+            "apps/core/src/api/routes/file-storage-routes.ts:963-1053",
+            "packages/doc-converter/src/converter.ts"
+          ]
+        },
+        {
+          "section": "Extraction",
+          "from": "doc-converter",
+          "to": "file-storage",
+          "mechanism": "service.upload(key + '.extracted.json')",
+          "payload": "{ markdown, extracted_at, source_mime, metadata }",
+          "detail": "The extracted markdown is cached as a JSON sidecar next to the original file so it's reusable without re-conversion.",
+          "refs": [
+            "apps/core/src/api/routes/file-storage-routes.ts:1036-1042"
+          ]
+        },
+        {
+          "section": "Ingestion",
+          "from": "knowledge-base",
+          "to": "document-sources",
+          "mechanism": "KbSource with file_upload adapter",
+          "payload": "{ storage_object_key, original_filename }",
+          "detail": "A KB source references the stored file; the file_upload DocumentSourceAdapter defers retrieval until the source is run.",
+          "refs": [
+            "packages/document-sources/src/adapters/file-upload/adapter.ts"
+          ]
+        },
+        {
+          "section": "Ingestion",
+          "from": "knowledge-base",
+          "to": "supabase",
+          "mechanism": "source run → article upsert",
+          "payload": "DocumentSourceRetrievedItem { markdown, sections, media } → KbSourceItem article + content_hash",
+          "detail": "On a manual or scheduled run, source-runner downloads the .extracted.json sidecar and upserts the article row.",
+          "refs": [
+            "modules/knowledge-base/src/sources/source-runner.ts:138-150"
+          ]
+        },
+        {
+          "section": "Indexing",
+          "from": "knowledge-base",
+          "to": "search-index",
+          "mechanism": "replaceDocument(SearchDocument) + embedding",
+          "payload": "{ doc_id, text, chunks[], metadata, tenant_id }",
+          "detail": "Article create/update triggers KbArticlesSearchIndexProvider: markdown chunked in paragraph mode, chunks embedded (ai-core embedder), vectors stored in article_embeddings; Postgres FTS covers lexical search.",
+          "refs": [
+            "modules/knowledge-base/src/dal/kb-articles-search-index-provider.ts:1-32",
+            "packages/search-index/src/contracts.ts:82-90"
+          ]
+        },
+        {
+          "section": "Retrieval",
+          "from": "ui",
+          "to": "core",
+          "mechanism": "POST /api/kb/search (hybrid)",
+          "payload": "{ kb_id, query, use_vector, fts_fallback, match_threshold }",
+          "detail": "Hybrid search merges vector kNN with BM25/trigram FTS, optionally LLM-reranked, and returns scored hits with chunk boundaries.",
+          "refs": [
+            "modules/knowledge-base/ui/api/search.ts:13-30"
+          ]
+        },
+        {
+          "section": "Retrieval",
+          "from": "ai",
+          "to": "knowledge-base",
+          "mechanism": "synthesized kb.search tool / context-graph entities",
+          "payload": "SearchResult[] with markdown chunk text",
+          "detail": "Agents reach the same index via an auto-synthesized tool from the SearchIndexProvider, and articles are upserted as kb.article entities in the context graph for NL queries.",
+          "refs": [
+            "packages/context-graph/src/contracts.ts:17-26",
+            "apps/ai/src/ai/workspace/core-file-storage-client.ts:1-27"
+          ]
+        }
+      ],
+      "uncertain": [
+        "Whether extraction is auto-triggered by a KB run or always requires the explicit /extract call.",
+        "Whether article embedding runs in-process during the KB run or via a background queue job.",
+        "Whether context-graph entity upsert is automatic or needs explicit syncing."
+      ]
+    }
+  ]
+}
+</script>
+<script>
+(function () {
+  const DATA = JSON.parse(document.getElementById('engenty-flows').textContent);
+  const map = document.getElementById('map');
+  const svg = document.getElementById('edges');
+  const panel = document.getElementById('panel');
+  const flowButtons = document.getElementById('flow-buttons');
+  const nodeEls = {};   // node id -> element
+  const groupEls = {};  // group id (apps/packages/modules) -> element
+  let activeFlow = null;
+  let currentStep = -1; // -1 = overview (all steps shown)
+  // Some embedded preview panels freeze animation frames, which stalls smooth
+  // scrolling forever — probe once and fall back to instant scrolling there.
+  let smoothOk = false;
+  requestAnimationFrame(() => { smoothOk = true; });
+
+  const GROUPS = [
+    { id: 'apps', title: 'Apps', kinds: ['app'] },
+    { id: 'infra', title: 'Infra & external', kinds: ['infra', 'external'] },
+    { id: 'packages', title: 'Packages', kinds: ['package'] },
+    { id: 'modules', title: 'Modules (plugins)', kinds: ['module'] },
+  ];
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---- build map ----
+  for (const g of GROUPS) {
+    const div = document.createElement('div');
+    div.className = 'group';
+    div.dataset.group = g.id;
+    div.innerHTML = `<span class="group-title">${g.title}</span><div class="group-nodes"></div>`;
+    const holder = div.querySelector('.group-nodes');
+    for (const n of DATA.nodes.filter(n => g.kinds.includes(n.kind))) {
+      const el = document.createElement('div');
+      el.className = 'node';
+      el.dataset.kind = n.kind;
+      el.dataset.id = n.id;
+      el.title = n.description || '';
+      el.innerHTML = `${esc(n.label)}${n.pkgName ? `<span class="mono">${esc(n.pkgName)}</span>` : ''}<span class="self-badges"></span>`;
+      el.addEventListener('click', () => showNodeInfo(n));
+      holder.appendChild(el);
+      nodeEls[n.id] = el;
+    }
+    map.appendChild(div);
+    groupEls[g.id] = div;
+  }
+
+  // ---- flow buttons ----
+  for (const f of DATA.flows) {
+    const b = document.createElement('button');
+    b.className = 'flow-btn';
+    b.textContent = f.title;
+    b.addEventListener('click', () => selectFlow(activeFlow === f ? null : f));
+    b.dataset.flow = f.id;
+    flowButtons.appendChild(b);
+  }
+
+  function targetEl(id) { return nodeEls[id] || groupEls[id] || null; }
+
+  function clearHighlights() {
+    currentStep = -1;
+    document.body.classList.remove('flow-active', 'stepping');
+    document.querySelectorAll('.current').forEach(e => e.classList.remove('current'));
+    document.querySelectorAll('.on-path, .has-path-children').forEach(e => e.classList.remove('on-path', 'has-path-children'));
+    document.querySelectorAll('.flow-btn.active').forEach(e => e.classList.remove('active'));
+    document.querySelectorAll('.self-badges').forEach(e => e.innerHTML = '');
+    svg.innerHTML = '';
+  }
+
+  function selectFlow(flow) {
+    clearHighlights();
+    activeFlow = flow;
+    if (!flow) { panel.innerHTML = '<div class="empty">Select a flow above, or click any node to see what it is and which flows touch it.</div>'; return; }
+    document.body.classList.add('flow-active');
+    document.querySelector(`.flow-btn[data-flow="${flow.id}"]`).classList.add('active');
+
+    // mark participants
+    flow.steps.forEach((s, i) => {
+      for (const end of [s.from, s.to]) {
+        const el = targetEl(end);
+        if (!el) continue;
+        el.classList.add('on-path');
+        if (el.classList.contains('node')) el.closest('.group').classList.add('has-path-children');
+      }
+      if (s.from === s.to && nodeEls[s.from]) {
+        const badge = document.createElement('span');
+        badge.className = 'self-badge';
+        badge.textContent = i + 1;
+        badge.title = s.mechanism;
+        nodeEls[s.from].querySelector('.self-badges').appendChild(badge);
+      }
+    });
+
+    renderPanel(flow);
+    drawEdges();
+    setStep(-1, false);
+  }
+
+  function setStep(i, scroll = true) {
+    if (!activeFlow) return;
+    const n = activeFlow.steps.length;
+    currentStep = Math.max(-1, Math.min(n - 1, i));
+    document.body.classList.toggle('stepping', currentStep >= 0);
+    document.querySelectorAll('.current').forEach(e => e.classList.remove('current'));
+    const label = document.getElementById('st-label');
+    if (label) label.textContent = currentStep < 0 ? 'Overview' : `Step ${currentStep + 1} / ${n}`;
+    const prev = document.getElementById('st-prev'), next = document.getElementById('st-next');
+    if (prev) prev.disabled = currentStep < 0;
+    if (next) next.disabled = currentStep >= n - 1;
+    if (currentStep < 0) return;
+    const s = activeFlow.steps[currentStep];
+    svg.querySelector(`.edge[data-step="${currentStep}"]`)?.classList.add('current');
+    [s.from, s.to].forEach(id => targetEl(id)?.classList.add('current'));
+    if (s.from === s.to) {
+      nodeEls[s.from]?.querySelectorAll('.self-badge').forEach(b => { if (+b.textContent === currentStep + 1) b.classList.add('current'); });
+    }
+    const card = panel.querySelector(`.step[data-step="${currentStep}"]`);
+    card?.classList.add('current');
+    if (scroll) {
+      const behavior = smoothOk ? 'smooth' : 'auto';
+      if (card) {
+        // manual scroll: a second scrollIntoView (map node below) would cancel this one
+        panel.scrollTo({ top: Math.max(0, card.offsetTop - panel.clientHeight / 2 + card.clientHeight / 2), behavior });
+      }
+      (targetEl(s.to) || targetEl(s.from))?.scrollIntoView({ behavior, block: 'nearest' });
+    }
+  }
+
+  function renderPanel(flow) {
+    let html = `<div id="stepper">
+      <button id="st-prev" title="Previous step (←)">‹</button>
+      <span id="st-label">Overview</span>
+      <button id="st-next" title="Next step (→)">›</button>
+      <span class="keys">←/→ · Esc</span>
+    </div>`;
+    html += `<h2>${esc(flow.title)}</h2><div class="desc">${esc(flow.description)}</div>`;
+    let lastSection = null;
+    flow.steps.forEach((s, i) => {
+      if (s.section && s.section !== lastSection) { html += `<div class="section-title">${esc(s.section)}</div>`; lastSection = s.section; }
+      html += `<div class="step" data-step="${i}">
+        <div class="step-head"><span class="step-num">${i + 1}</span><span class="ep">${esc(s.from)}</span><span class="arrow">${s.from === s.to ? '↻ internal' : '→'}</span>${s.from === s.to ? '' : `<span class="ep">${esc(s.to)}</span>`}</div>
+        <div class="mech">${esc(s.mechanism)}</div>
+        ${s.payload ? `<code class="payload">${esc(s.payload)}</code>` : ''}
+        <div class="detail">${esc(s.detail)}</div>
+        ${(s.refs && s.refs.length) ? `<div class="refs">${s.refs.map(r => `<code class="ref" title="click to copy">${esc(r)}</code>`).join('')}</div>` : ''}
+      </div>`;
+    });
+    if (flow.uncertain && flow.uncertain.length) {
+      html += `<div class="uncertain"><b>Not fully verified</b>${flow.uncertain.map(u => `· ${esc(u)}<br>`).join('')}</div>`;
+    }
+    panel.innerHTML = html;
+
+    document.getElementById('st-prev').addEventListener('click', () => setStep(currentStep - 1));
+    document.getElementById('st-next').addEventListener('click', () => setStep(currentStep + 1));
+
+    panel.querySelectorAll('.step').forEach(el => {
+      const i = +el.dataset.step;
+      el.addEventListener('mouseenter', () => hotStep(i, true));
+      el.addEventListener('mouseleave', () => hotStep(i, false));
+      el.addEventListener('click', () => setStep(i));
+    });
+    panel.querySelectorAll('.ref').forEach(el => el.addEventListener('click', e => {
+      e.stopPropagation();
+      navigator.clipboard?.writeText(el.textContent);
+      const t = el.textContent; el.textContent = '✓ copied'; setTimeout(() => el.textContent = t, 700);
+    }));
+  }
+
+  function hotStep(i, on) {
+    svg.querySelectorAll(`.edge[data-step="${i}"]`).forEach(e => e.classList.toggle('hot', on));
+    panel.querySelector(`.step[data-step="${i}"]`)?.classList.toggle('hot', on);
+    if (!activeFlow) return;
+    const s = activeFlow.steps[i];
+    [s.from, s.to].forEach(id => targetEl(id)?.classList.toggle('hot', on));
+  }
+
+  function anchor(rect, other, box) {
+    // point on rect border facing the other rect's center, in map coordinates
+    const cx = rect.left + rect.width / 2 - box.left, cy = rect.top + rect.height / 2 - box.top;
+    const ox = other.left + other.width / 2 - box.left, oy = other.top + other.height / 2 - box.top;
+    const dx = ox - cx, dy = oy - cy;
+    if (Math.abs(dx) * rect.height > Math.abs(dy) * rect.width) {
+      return { x: cx + Math.sign(dx) * rect.width / 2, y: cy, cx, cy };
+    }
+    return { x: cx, y: cy + Math.sign(dy) * rect.height / 2, cx, cy };
+  }
+
+  function drawEdges() {
+    svg.innerHTML = '';
+    if (!activeFlow) return;
+    svg.setAttribute('width', map.scrollWidth);
+    svg.setAttribute('height', map.scrollHeight);
+    const box = map.getBoundingClientRect();
+    const ns = 'http://www.w3.org/2000/svg';
+    const defs = document.createElementNS(ns, 'defs');
+    defs.innerHTML = `<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--app)"/></marker>`;
+    svg.appendChild(defs);
+
+    const pairCount = {};
+    activeFlow.steps.forEach((s, i) => {
+      if (s.from === s.to) return;
+      const a = targetEl(s.from), b = targetEl(s.to);
+      if (!a || !b) return;
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const p1 = anchor(ra, rb, box), p2 = anchor(rb, ra, box);
+      const key = [s.from, s.to].sort().join('|');
+      const k = (pairCount[key] = (pairCount[key] || 0) + 1) - 1;
+      // perpendicular offset for parallel edges between the same pair
+      const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1;
+      const bend = 18 + k * 22;
+      const cxp = mx - dy / len * bend, cyp = my + dx / len * bend;
+
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'edge');
+      g.dataset.step = i;
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('class', 'edge-path');
+      path.setAttribute('d', `M ${p1.x} ${p1.y} Q ${cxp} ${cyp} ${p2.x} ${p2.y}`);
+      path.setAttribute('marker-end', 'url(#arr)');
+      g.appendChild(path);
+      const num = document.createElementNS(ns, 'g');
+      num.setAttribute('class', 'edge-num');
+      const lx = (p1.x + 2 * cxp + p2.x) / 4, ly = (p1.y + 2 * cyp + p2.y) / 4; // point on curve at t=.5
+      num.innerHTML = `<circle cx="${lx}" cy="${ly}" r="9"></circle><text x="${lx}" y="${ly}">${i + 1}</text>`;
+      g.appendChild(num);
+      g.addEventListener('mouseenter', () => hotStep(i, true));
+      g.addEventListener('mouseleave', () => hotStep(i, false));
+      g.addEventListener('click', () => setStep(i));
+      svg.appendChild(g);
+    });
+    if (currentStep >= 0) setStep(currentStep, false); // re-apply after redraw (e.g. resize)
+  }
+
+  function showNodeInfo(n) {
+    if (activeFlow) return; // during a flow, node clicks shouldn't clobber the step panel
+    const inFlows = DATA.flows.filter(f => f.steps.some(s => s.from === n.id || s.to === n.id));
+    panel.innerHTML = `<div id="node-info">
+      <h2>${esc(n.label)}</h2>
+      ${n.pkgName ? `<code class="mono" style="color:var(--text-dim)">${esc(n.pkgName)}</code>` : ''}
+      <div class="desc" style="margin-top:6px">${esc(n.description || '')}</div>
+      <div class="section-title">Appears in flows</div>
+      ${inFlows.length ? inFlows.map(f => `<button class="flow-btn" data-flow="${f.id}" style="margin:0 6px 6px 0">${esc(f.title)}</button>`).join('') : '<div class="empty">No documented flow touches this unit yet.</div>'}
+    </div>`;
+    panel.querySelectorAll('.flow-btn').forEach(b => b.addEventListener('click', () => selectFlow(DATA.flows.find(f => f.id === b.dataset.flow))));
+  }
+
+  window.addEventListener('resize', () => drawEdges());
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { selectFlow(null); return; }
+    if (!activeFlow) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); setStep(currentStep + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); setStep(currentStep - 1); }
+  });
+})();
+</script>
+</body>
+</html>
