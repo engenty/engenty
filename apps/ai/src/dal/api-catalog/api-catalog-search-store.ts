@@ -1,24 +1,27 @@
 // `core_api_catalog` `SearchIndexProvider` for in-process consumption in
 // apps/ai (Mastra tools, future admin surfaces).
 //
-// The real, OpenAPI-aware api-catalog provider lives in apps/core (see
-// `apps/core/src/api/api-catalog-provider.ts`); apps/ai cannot host it
-// because the plugin registry it needs lives in another process. To
-// still expose the catalog through the unified `SearchIndexProvider`
-// contract on the agent's side — so that `engenty_tools_search` and
-// future consumers go through `provider.search(...)` instead of forking
-// their own scoring — this proxy fetches the user-scoped tool contracts
-// from `apps/core` `/api/tools/contracts` (full JSON Schemas, tenant
-// `provides`-gated) and applies the same simple substring + additive
-// scoring `engenty_tools_search` used historically. Returning the raw
-// `EngentyToolContract` as `result.item` keeps schema fidelity intact
-// for the LLM tool wrapper.
+// Catalog BUILDING stays in apps/core (it needs the plugin registry and the
+// live OpenAPI document); this provider fetches the user-scoped, tenant-gated
+// tool contracts from core (`/api/tools/contracts`, full JSON Schemas) and
+// ranks them here: shared lexical BM25 from @engenty/search-index plus
+// semantic embedding reranking (see catalog-ranking.ts). Core itself ranks
+// lexically only — apps/ai is where gateway credentials live.
+//
+// Contract sources are pluggable via `CatalogContractSource`: an external
+// (non-core) source normalizes its API surface (e.g. an OpenAPI spec) into
+// `EngentyToolContract[]` and is merged into the same ranked catalog. Only
+// the core source is implemented today.
+//
+// Returning the raw `EngentyToolContract` as `result.item` keeps schema
+// fidelity intact for the LLM tool wrapper.
 
 import type {
   SearchIndexProvider,
   SearchRequest,
   SearchResponse,
 } from "@engenty/search-index";
+import { resolveSearchStrategy } from "@engenty/search-index";
 import { resolveEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import {
   EngentyCoreClient,
@@ -26,6 +29,7 @@ import {
   type EngentyToolContract,
   getEngentyCoreBaseUrlFromEnv,
 } from "../../ai/core-http-client.js";
+import { type CatalogRankStrategy, rankContracts } from "./catalog-ranking.js";
 
 export const CORE_API_CATALOG_PROVIDER_ID = "core_api_catalog";
 
@@ -41,10 +45,32 @@ export interface AiApiCatalogSearchFilters {
   user_id?: string | null;
 }
 
+/**
+ * A source of tool contracts to include in the searchable catalog.
+ * External catalogs plug in here: normalize the external API surface into
+ * `EngentyToolContract[]` and the contracts flow through the same filter +
+ * ranking pipeline as core's.
+ */
+export interface CatalogContractSource {
+  /**
+   * Cache partition key for this source's contracts — e.g. the end-user
+   * bearer for the core source, since core gates contracts per caller.
+   * Return null to bypass the contracts cache entirely.
+   */
+  cacheKey?: () => string | null;
+  id: string;
+  loadContracts: () => Promise<EngentyToolContract[]>;
+}
+
 export interface CreateApiCatalogSearchStoreOptions {
+  /** Contracts cache TTL; 0 disables caching. */
+  contractsTtlMs?: number;
   // Override the contract loader for tests so the proxy does not need a
-  // live core HTTP endpoint.
+  // live core HTTP endpoint. Wrapped as a single uncached source unless
+  // `sources` is given.
   loadContracts?: () => Promise<EngentyToolContract[]>;
+  /** Contract sources; defaults to the core `/api/tools/contracts` source. */
+  sources?: CatalogContractSource[];
 }
 
 export type ApiCatalogSearchStore = SearchIndexProvider<
@@ -53,16 +79,81 @@ export type ApiCatalogSearchStore = SearchIndexProvider<
   EngentyToolContract
 >;
 
+const DEFAULT_CONTRACTS_TTL_MS = 60_000;
+
+// Module-level so the per-run fallback store in `engenty_tools_search`
+// (created ad hoc when the registry is unavailable) still hits the cache.
+const contractsCache = new Map<
+  string,
+  { contracts: EngentyToolContract[]; expiresAt: number }
+>();
+
+export function clearApiCatalogContractsCache() {
+  contractsCache.clear();
+}
+
+export function createCoreCatalogContractSource(): CatalogContractSource {
+  return {
+    id: "core",
+    // Contracts are gated per caller on the core side, so partition the
+    // cache by the end-user bearer.
+    cacheKey: () =>
+      resolveEngentyToolsRunContext().userAccessToken?.trim() || null,
+    loadContracts: () => loadContractsFromCore(),
+  };
+}
+
 export function createApiCatalogSearchStore(
   options: CreateApiCatalogSearchStoreOptions = {}
 ): ApiCatalogSearchStore {
-  const loadContracts =
-    options.loadContracts ?? (async () => loadContractsFromCore());
+  const sources: CatalogContractSource[] = options.sources
+    ? options.sources
+    : options.loadContracts
+      ? // Injected loaders bypass the module-level cache (test isolation);
+        // pass `sources` with a cacheKey to exercise caching explicitly.
+        [
+          {
+            cacheKey: () => null,
+            id: "injected",
+            loadContracts: options.loadContracts,
+          },
+        ]
+      : [createCoreCatalogContractSource()];
+  const ttlMs = options.contractsTtlMs ?? DEFAULT_CONTRACTS_TTL_MS;
+
+  async function loadSourceContracts(
+    source: CatalogContractSource
+  ): Promise<EngentyToolContract[]> {
+    const partition = source.cacheKey?.();
+    const cacheable = ttlMs > 0 && partition !== null;
+    const cacheKey = `${source.id}:${partition ?? ""}`;
+    if (cacheable) {
+      const cached = contractsCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.contracts;
+      }
+    }
+    const contracts = await source.loadContracts();
+    if (cacheable) {
+      contractsCache.set(cacheKey, {
+        contracts,
+        expiresAt: Date.now() + ttlMs,
+      });
+    }
+    return contracts;
+  }
+
+  async function loadAllContracts(): Promise<EngentyToolContract[]> {
+    const perSource = await Promise.all(
+      sources.map((source) => loadSourceContracts(source))
+    );
+    return perSource.flat();
+  }
 
   return {
     id: CORE_API_CATALOG_PROVIDER_ID,
-    capabilities: { hybrid: false, lexical: true, semantic: false },
-    version: "1",
+    capabilities: { hybrid: true, lexical: true, semantic: true },
+    version: "2",
 
     async deleteDocument(): Promise<void> {},
     async replaceDocument(): Promise<void> {},
@@ -70,7 +161,7 @@ export function createApiCatalogSearchStore(
     async getStatus() {
       let total = 0;
       try {
-        total = (await loadContracts()).length;
+        total = (await loadAllContracts()).length;
       } catch {
         // Status is best-effort over the wire; surface zero on transient errors.
       }
@@ -88,25 +179,44 @@ export function createApiCatalogSearchStore(
       request: SearchRequest<AiApiCatalogSearchFilters>
     ): Promise<SearchResponse<EngentyToolContract>> {
       const filters = request.filters ?? {};
-      const contracts = await loadContracts();
+      const contracts = await loadAllContracts();
       const limit = request.limit ?? 10;
-      const matched = contracts
-        .filter((c) => matchesFilters(c, filters, request.query))
-        .map((c) => ({
-          contract: c,
-          score: scoreContract(c, filters, request.query),
-        }))
-        .sort((a, b) => b.score - a.score);
-      const total = matched.length;
-      const window = matched.slice(0, limit);
+      const filtered = contracts.filter((c) => matchesFilters(c, filters));
+      const query = request.query?.trim();
+
+      if (!query) {
+        // No query: keep the legacy static ordering (module bonus, read-only
+        // bonus, risk penalties) so module browsing stays stable.
+        const matched = filtered
+          .map((c) => ({ contract: c, score: staticScore(c, filters) }))
+          .sort((a, b) => b.score - a.score);
+        return {
+          results: matched.slice(0, limit).map((entry) => ({
+            item: entry.contract,
+            matched_fields: [],
+            score: entry.score,
+            source_scores: { lexical: entry.score },
+          })),
+          total: matched.length,
+        };
+      }
+
+      const strategy = resolveSearchStrategy(
+        { capabilities: this.capabilities },
+        request
+      ) as CatalogRankStrategy;
+      const ranked = await rankContracts(filtered, { query, strategy });
       return {
-        results: window.map((entry) => ({
+        results: ranked.slice(0, limit).map((entry) => ({
           item: entry.contract,
           matched_fields: [],
           score: entry.score,
-          source_scores: { lexical: entry.score },
+          source_scores: {
+            lexical: entry.lexical,
+            ...(entry.semantic > 0 ? { semantic: entry.semantic } : {}),
+          },
         })),
-        total,
+        total: ranked.length,
       };
     },
   };
@@ -142,8 +252,7 @@ async function loadContractsFromCore(): Promise<EngentyToolContract[]> {
 
 function matchesFilters(
   contract: EngentyToolContract,
-  filters: AiApiCatalogSearchFilters,
-  query: string | undefined
+  filters: AiApiCatalogSearchFilters
 ): boolean {
   // `engenty_tools_search` is operation-focused: `kind` is either "all"
   // (default) or "tool". Everything coming from `/api/tools/contracts` is
@@ -163,52 +272,15 @@ function matchesFilters(
   if (filters.read_only_only && !contract.readOnly) {
     return false;
   }
-  if (!query) {
-    return true;
-  }
-  // Match the legacy `engenty_tools_search` haystack (toolId, moduleId,
-  // pluginId, title/summary, description, required capabilities).
-  // `methodName` is intentionally excluded — it's an internal handler id
-  // that callers should not have to think about.
-  const id = contract.toolId ?? contract.operationId ?? contract.methodName;
-  const haystack = [
-    id,
-    contract.moduleId,
-    contract.pluginId,
-    contract.summary,
-    contract.description,
-    ...(contract.auth?.requiredCapabilities ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(query.toLowerCase());
+  return true;
 }
 
-function scoreContract(
+// Query-less ordering bonuses, carried over from the legacy heuristic scorer.
+function staticScore(
   contract: EngentyToolContract,
-  filters: AiApiCatalogSearchFilters,
-  query: string | undefined
+  filters: AiApiCatalogSearchFilters
 ): number {
   let score = 0;
-  if (query) {
-    const q = query.toLowerCase();
-    const id = (contract.toolId ?? contract.operationId ?? "").toLowerCase();
-    const title = (contract.summary ?? "").toLowerCase();
-    const description = (contract.description ?? "").toLowerCase();
-    if (id === q) {
-      score += 100;
-    }
-    if (id.includes(q)) {
-      score += 25;
-    }
-    if (title.includes(q)) {
-      score += 15;
-    }
-    if (description.includes(q)) {
-      score += 10;
-    }
-  }
   if (filters.module_id && contract.moduleId === filters.module_id) {
     score += 20;
   }

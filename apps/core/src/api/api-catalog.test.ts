@@ -1,18 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { buildApiCatalog } from "./api-catalog.js";
-import { clearCatalogSearchEmbeddingCache } from "./api-catalog-search.js";
-
-const { embedManyMock, embedMock } = vi.hoisted(() => ({
-  embedManyMock: vi.fn(),
-  embedMock: vi.fn(),
-}));
-
-vi.mock("ai", () => ({
-  embed: embedMock,
-  embedMany: embedManyMock,
-}));
 
 function makeRegistry(): PluginRegistry {
   return {
@@ -137,19 +126,6 @@ function makeRegistry(): PluginRegistry {
 }
 
 describe("buildApiCatalog", () => {
-  beforeEach(() => {
-    clearCatalogSearchEmbeddingCache();
-    embedManyMock.mockReset();
-    embedMock.mockReset();
-    // These tests exercise the (mocked) embedding path, so simulate having
-    // gateway credentials; without them ranking short-circuits to lexical.
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-gateway-key");
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   const openApiDocument = {
     components: {
       schemas: {
@@ -343,7 +319,9 @@ describe("buildApiCatalog", () => {
     });
   });
 
-  it("uses semantic ranking when lexical query text is not present", async () => {
+  it("ranks lexically when a semantic strategy is requested", async () => {
+    // Semantic/hybrid catalog ranking moved to apps/ai; core accepts the
+    // strategy for compatibility and ranks lexically.
     const registry = makeRegistry();
     registry.moduleOperations.push({
       pluginId: "contacts",
@@ -365,19 +343,12 @@ describe("buildApiCatalog", () => {
       handler: async () => ({ items: [] }),
       summary: "Find counsel contacts",
     });
-    embedMock.mockResolvedValueOnce({ embedding: [1, 0] });
-    embedManyMock.mockResolvedValueOnce({
-      embeddings: [
-        [0, 1],
-        [1, 0],
-      ],
-    });
 
     const result = await buildApiCatalog({
       input: {
         kind: "tool",
         limit: 10,
-        query: "advocate",
+        query: "counsel",
         strategy: "semantic",
       },
       openApiDocument,
@@ -389,14 +360,9 @@ describe("buildApiCatalog", () => {
       kind: "tool",
       toolId: "contacts_find_counsel",
     });
-    expect(embedMock).toHaveBeenCalledTimes(1);
-    expect(embedManyMock).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to lexical ranking when embeddings are unavailable", async () => {
-    embedMock.mockRejectedValueOnce(new Error("401 Unauthorized"));
-    embedManyMock.mockRejectedValueOnce(new Error("401 Unauthorized"));
-
+  it("ranks lexically when a hybrid strategy is requested", async () => {
     const result = await buildApiCatalog({
       input: {
         kind: "all",
@@ -414,12 +380,7 @@ describe("buildApiCatalog", () => {
     });
   });
 
-  it("applies catalog filters before semantic ranking", async () => {
-    embedMock.mockResolvedValueOnce({ embedding: [1, 0] });
-    embedManyMock.mockResolvedValueOnce({
-      embeddings: [[1, 0]],
-    });
-
+  it("applies catalog filters before ranking", async () => {
     const result = await buildApiCatalog({
       input: {
         kind: "http_route",
@@ -427,7 +388,7 @@ describe("buildApiCatalog", () => {
         method: "get",
         moduleId: "team",
         pluginId: "team",
-        query: "people directory",
+        query: "team",
         readOnlyOnly: true,
         strategy: "semantic",
       },
@@ -443,61 +404,6 @@ describe("buildApiCatalog", () => {
         pluginId: "team",
       }),
     ]);
-    expect(embedManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        values: [expect.stringContaining("moduleId: team")],
-      })
-    );
-  });
-
-  it("reuses cached catalog entry embeddings for unchanged entries", async () => {
-    embedMock
-      .mockResolvedValueOnce({ embedding: [1, 0] })
-      .mockResolvedValueOnce({ embedding: [0, 1] });
-    embedManyMock.mockResolvedValueOnce({
-      embeddings: [[1, 0]],
-    });
-
-    await buildApiCatalog({
-      input: {
-        kind: "tool",
-        limit: 10,
-        query: "contacts",
-        strategy: "semantic",
-      },
-      openApiDocument,
-      registry: makeRegistry(),
-    });
-    await buildApiCatalog({
-      input: {
-        kind: "tool",
-        limit: 10,
-        query: "people",
-        strategy: "semantic",
-      },
-      openApiDocument,
-      registry: makeRegistry(),
-    });
-
-    expect(embedMock).toHaveBeenCalledTimes(2);
-    expect(embedManyMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not request embeddings for lexical search", async () => {
-    const result = await buildApiCatalog({
-      input: {
-        kind: "tool",
-        limit: 10,
-        query: "contacts",
-        strategy: "lexical",
-      },
-      openApiDocument,
-      registry: makeRegistry(),
-    });
-
-    expect(result.total).toBe(1);
-    expect(embedMock).not.toHaveBeenCalled();
-    expect(embedManyMock).not.toHaveBeenCalled();
   });
 
   it("prefers tools over HTTP routes when searching all entries", async () => {
