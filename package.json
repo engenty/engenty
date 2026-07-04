@@ -33,6 +33,9 @@
       "files": {
         "source": "workspace"
       },
+      "inbox": {
+        "source": "workspace"
+      },
       "knowledge-base": {
         "source": "workspace"
       },

@@ -65,6 +65,30 @@ async function cleanupExpiredInterrupts(ctx: {
   return `cleared ${cleaned} expired interrupt(s)`;
 }
 
+/**
+ * Pull the inbox mail streams. The sync itself lives in the inbox module
+ * (core process — that's where the connector registry is populated); this job
+ * is only the cron edge, invoking the module operation over the service JWT.
+ */
+async function runInboxSync(): Promise<string> {
+  const { createSchedulerOperationInvoker } = await import(
+    "./service-invoker.js"
+  );
+  const invoke = createSchedulerOperationInvoker();
+  const result = (await invoke("inbox_sync_run", {})) as {
+    connections?: { error: string | null; new_messages: number }[];
+  } | null;
+  const connections = result?.connections ?? [];
+  const synced = connections.reduce(
+    (sum, entry) => sum + entry.new_messages,
+    0
+  );
+  const failed = connections.filter((entry) => entry.error).length;
+  return `pulled ${connections.length} connection(s), ${synced} new message(s)${
+    failed > 0 ? `, ${failed} failed` : ""
+  }`;
+}
+
 export function listSystemJobs(): SystemJob[] {
   return [
     {
@@ -72,6 +96,12 @@ export function listSystemJobs(): SystemJob[] {
       name: "Cleanup expired interrupts",
       schedule: "30 3 * * *",
       execute: cleanupExpiredInterrupts,
+    },
+    {
+      id: "inbox-sync",
+      name: "Inbox mail sync",
+      schedule: "*/5 * * * *",
+      execute: runInboxSync,
     },
   ];
 }

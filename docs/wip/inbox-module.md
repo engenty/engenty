@@ -1,8 +1,37 @@
 # Inbox module — design & plan
 
-Status: WIP design, 2026-07-04 (rev 2 — split from groundwork).
+Status: v1 IMPLEMENTED 2026-07-05 on `feat/connections` (phases 1–4:
+schema/repo, sync engine, UI, search + agent surface). Phases 5–6 (triage
+model, reply/send) remain open.
 **Prerequisite:** `docs/wip/connections-multi-account-groundwork.md`
-(workstreams A, C, D; B before reply-flows).
+(workstreams A, C, D; B before reply-flows) — shipped.
+
+Implementation deltas vs. the plan below (`modules/inbox`):
+
+- **Scheduling:** the triggers substrate only materializes agent Tasks
+  (`triggers_fire` requires a task template), so the deterministic sync pulse
+  is a **system job** `inbox-sync` in `apps/ai` (`*/5 * * * *`) that invokes
+  the `inbox_sync_run` module operation over the service JWT — the sync body
+  runs in core, where the connector registry lives.
+- **Agent surface = module operations:** `inbox_threads_list`,
+  `inbox_thread_get`, `inbox_set_status`, `inbox_accounts_list`,
+  `inbox_sync_settings_update`, `inbox_sync_run`, plus the synthesized
+  `inbox_message_search` (op names differ slightly from the sketch below).
+- **Search v1 is lexical-only:** `module_inbox.search_messages` FTS RPC over
+  the base table (provider id `inbox.message`, no derived index, no
+  embeddings — semantic can be layered later without changing the tool). The
+  owner-visibility filter (`owner_user_id is null or = user_id`) is in the
+  first version as decided; the host injects authenticated
+  `filters.tenant_id`/`filters.user_id`.
+- **Backfill window is per connection** (`sync_state.backfill_days`, default
+  90), not per tenant; the per-account sync toggle lives on the same row.
+- Cursor-expiry handling: one automatic null-cursor re-backfill per run
+  (dedup on `(connection_id, provider_message_id)` absorbs the overlap).
+- UI routes follow module conventions: `/mdl/inbox`, `/mdl/inbox/settings`,
+  `/mdl/inbox/:threadId`. HTML bodies render inside `sandbox=""` iframes;
+  reply-split + cid-resolve lifted from legacy with their tests.
+- Threads are grouped by `(connection_id, provider_thread_id)`; messages
+  without a provider thread id get a synthetic single-message thread.
 
 A fresh module on the current substrate — connections framework, hybrid
 search, Mastra triggers/tasks, native approvals. The legacy inbox
