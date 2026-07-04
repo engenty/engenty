@@ -13,27 +13,41 @@ export type SchedulerOperationInvoker = (
   input?: Record<string, unknown>
 ) => Promise<unknown>;
 
+export type SchedulerServiceScopeResolution =
+  | { ok: true; scope: AiSessionScope }
+  | { ok: false; reason: "jwt_missing" }
+  | { error: string; ok: false; reason: "resolution_failed"; status: number };
+
 export function getSchedulerServiceJwt(): string | null {
   return process.env.ENGENTY_AI_SERVICE_JWT?.trim() || null;
 }
 
 /**
- * Resolve the service principal's scope (tenant + user). Returns null when the
- * service JWT is not configured or does not resolve — the scheduler then stays
- * off and says so, rather than half-running.
+ * Resolve the service principal's scope (tenant + user). Failures are split
+ * into `jwt_missing` (env var not set — permanent for this process) and
+ * `resolution_failed` (core unreachable or rejecting — possibly a boot race,
+ * worth retrying) so the caller can react accordingly.
  */
-export async function resolveSchedulerServiceScope(): Promise<AiSessionScope | null> {
+export async function resolveSchedulerServiceScope(): Promise<SchedulerServiceScopeResolution> {
   const serviceJwt = getSchedulerServiceJwt();
   if (!serviceJwt) {
-    return null;
+    return { ok: false, reason: "jwt_missing" };
   }
   const resolved = await createCoreAiScopeResolver()({
     authorization: `Bearer ${serviceJwt}`,
   });
   if (!resolved.ok) {
-    return null;
+    return {
+      error: resolved.error,
+      ok: false,
+      reason: "resolution_failed",
+      status: resolved.status,
+    };
   }
-  return { ...resolved.scope, userAccessToken: serviceJwt };
+  return {
+    ok: true,
+    scope: { ...resolved.scope, userAccessToken: serviceJwt },
+  };
 }
 
 /** Module-operation invoker riding the service JWT. */
