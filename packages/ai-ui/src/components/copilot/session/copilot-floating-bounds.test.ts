@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { clampFloatingPositionToViewport } from "./copilot-floating-bounds";
+import {
+  clampFloatingPositionToViewport,
+  reanchorFloatingPositionToViewport,
+} from "./copilot-floating-bounds";
 
 describe("clampFloatingPositionToViewport", () => {
   it("keeps an already visible position unchanged", () => {
@@ -42,5 +45,39 @@ describe("clampFloatingPositionToViewport", () => {
         viewportHeight: 480,
       })
     ).toEqual({ x: 16, y: 16 });
+  });
+});
+
+describe("reanchorFloatingPositionToViewport", () => {
+  const size = { surfaceWidth: 420, surfaceHeight: 480 };
+
+  it("keeps a bottom-right panel pinned to the corner as the window grows", () => {
+    // 16px gap from the right and bottom of a 1280x800 viewport.
+    const pos = { x: 1280 - 420 - 16, y: 800 - 480 - 16 };
+    const next = reanchorFloatingPositionToViewport({
+      ...pos,
+      ...size,
+      margin: 16,
+      prevViewportWidth: 1280,
+      prevViewportHeight: 800,
+      viewportWidth: 1600,
+      viewportHeight: 1000,
+    });
+    // Still 16px from the right/bottom edges of the larger viewport.
+    expect(next).toEqual({ x: 1600 - 420 - 16, y: 1000 - 480 - 16 });
+  });
+
+  it("keeps a top-left panel pinned to the top-left edges", () => {
+    const next = reanchorFloatingPositionToViewport({
+      x: 24,
+      y: 40,
+      ...size,
+      margin: 16,
+      prevViewportWidth: 1280,
+      prevViewportHeight: 800,
+      viewportWidth: 800,
+      viewportHeight: 600,
+    });
+    expect(next).toEqual({ x: 24, y: 40 });
   });
 });
