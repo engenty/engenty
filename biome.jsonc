@@ -5,6 +5,7 @@
     "includes": [
       "!**/generated-catalog.ts",
       "!**/generated-tailwind-sources.css",
+      "!docs/dev/flows/index.html",
       "!**/.devtools",
       "!.agent",
       "!.agents",
