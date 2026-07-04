@@ -1,152 +1,155 @@
-# Inbox module — design (from scratch, on the new substrate)
+# Inbox module — design & plan
 
-Status: WIP design, 2026-07-04. Successor to the legacy inbox module
-(`/Users/m/code/engenty/legacy/modules/inbox`), rebuilt on the connections
-framework, hybrid search, Mastra triggers/tasks, and native approvals.
+Status: WIP design, 2026-07-04 (rev 2 — split from groundwork).
+**Prerequisite:** `docs/wip/connections-multi-account-groundwork.md`
+(workstreams A, C, D; B before reply-flows).
+
+A fresh module on the current substrate — connections framework, hybrid
+search, Mastra triggers/tasks, native approvals. The legacy inbox
+(`/Users/m/code/engenty/legacy/modules/inbox`) is a *parts bin, not a
+template*: it proved sync-to-local works and left reusable pieces, but the
+concept here stands on its own.
 
 ## What it is
 
-A general, simplified email client inside engenty: synced local message store,
-account switcher/filter, triage states, hybrid search — plus the stream that
-routines and (later) the customer-care module process.
+A general, simplified email client inside engenty:
 
-## Lessons mined from the legacy inbox
+- synced local message store across all connected mail accounts
+- account switcher/filter (personal + org mailboxes side by side)
+- triage states (`new → triaged → processed/archived`) as first-class data
+- hybrid search over messages (UI + agent tool)
+- the substrate that routines and, later, the customer-care module process
 
-The legacy module worked end-to-end (Gmail + Outlook OAuth, incremental sync
-via `last_history_id`, staged pipeline `inbox → classifying → finalize` with
-crash recovery, LLM classification, multi-module dispatch to
-expenses/leads/projects, full three-view UI). What its architecture teaches:
+## Decisions (settled)
 
-**Absorbed by the connections framework (delete, don't port):**
-- Own OAuth routes + `pending_oauth_flows` + token crypto + encrypted token
-  columns on `accounts` — all of it is now `module_connections`.
-- The `EmailProvider` interface mixed auth concerns (`getAuthUrl`,
-  `exchangeCodeForTokens`) with fetch concerns (`getMessages`,
-  `getAttachment`). Auth is gone; fetch becomes the connector-side `stream`
-  capability (below).
+| Decision | Choice |
+|---|---|
+| Data plane | Sync-to-local store; provider APIs never in render/triage path |
+| Provider fetch | Connector-side `stream` capability (groundwork D) — inbox is provider-agnostic |
+| Accounts | No accounts table — accounts ARE connections; `external_account` is the label |
+| Background consent | Sync requires connection `autonomous_mode ≥ read_only`; `off` = visible no-op |
+| Outbound writes | Through connector actions (`gmail_send_message`, …) — allow/ask/deny + approvals unchanged |
+| Search | `registerSearchIndexProvider` (KB pattern) with owner-scoped visibility from v1 |
+| Body storage | Text + HTML bodies local; attachment metadata local, content on demand |
+| Backfill | ~90 days default, per-tenant configurable |
 
-**Carry forward (validated by legacy):**
-- Sync-to-local with provider cursors (`last_history_id`) — worked; keep.
-- The `RawEmailMessage` normalized envelope (from/to/cc, `body_text` +
-  `body_html`, attachments with `content_id`, `thread_id`,
-  `provider_message_id`) — directly reusable as the stream item shape.
-- Message rows carrying BOTH machine classification (`classification`,
-  `classification_reason`) and user override (`user_classification`,
-  `user_action`) — the triage model; keep the dual columns.
-- The processor/dispatch registry (`registerProcessor`, per-message
-  `message_route` rows with per-route status/retry) — this is the seed of the
-  customer-care module. Keep the concept; revisit bus-backed vs. explicit
-  routes at build time (explicit routes win on auditability/retry).
-- UI email-rendering utilities: `email-reply-split.ts` (quoted-reply
-  collapsing), `cid-resolve.ts` (inline CID image resolution) — lift as-is
-  with their tests. Painful to rediscover.
-- Realtime on the messages table (live inbox updates); per-processor
-  tenant settings.
+## Open: triage/classification model (TBD)
 
-**Do differently:**
-- Search: legacy did live provider search (`searchMessages`). New: hybrid
-  local search via `registerSearchIndexProvider` (KB pattern:
-  auto agent tool + reindex from bus events + admin backfill).
-- Classification: legacy ran a bespoke classify queue. Keep a *cheap*
-  deterministic/small-model classify stage that only writes columns; anything
-  that ACTS (reply, label, dispatch) is a routine/task on the Mastra
-  substrate, approval-gated through connections policies.
-- Scheduling: heartbeat triggers (trigger-heartbeats phase) instead of a
-  custom job loop; provider push (Gmail watch / Graph subscriptions) later
-  via the existing webhook trigger edges.
+Two candidate models — deliberately NOT decided yet:
 
-## Architecture on the new substrate
+**Model 1 — stream hook (centralized pipeline).** Inbox owns a classify
+stage in the sync pipeline; other modules register hooks/processors
+(legacy-style dispatcher). One cheap pass per message, one consistent
+`classification` column, natural dedup — but inbox becomes an orchestrator
+and hooks run on its terms.
+
+**Model 2 — per-module triage (decentralized).** Inbox only maintains the
+store and emits bus events (`inbox.message.synced`); each module/routine
+subscribes via event triggers and processes on its own terms, keeping its
+own marks. Maximum flexibility and decoupling — but N passes over the same
+message (duplicate LLM spend), no single "processed" truth, ordering is
+per-consumer.
+
+**Likely hybrid:** inbox provides *shared cheap signals* as a common good
+(a small-model/deterministic classify stage writing
+`classification`/`classification_reason` — read-only hints, never actions),
+while acting consumers subscribe to events and run their own deep triage.
+"Processed" then splits: a global user-facing `status` on the message +
+per-consumer marks (`message_routes`-style rows) for modules. Decide when
+building phase 5; schema below keeps both doors open.
+
+## Architecture
 
 ```
-connections framework      auth, tokens, per-action consent, approvals
-connector stream cap.      gmail/outlook: pull(cursor) → {items, nextCursor}
-module_inbox               local data plane: threads/messages, sync state,
-                           triage state, dispatch routes
-search-index provider      hybrid search over messages (+ agent tool)
-triggers + task jobs       sync heartbeat; triage routines (defer approvals)
+connections framework       auth, tokens, consent, approvals   (shipped)
+connector stream cap.       pull(cursor) → normalized InboundMessage[]   (groundwork D)
+module consumption API      policy-checked server-side access  (groundwork C)
+module_inbox                local data plane
+search-index provider       hybrid search + agent tool
+heartbeat/event triggers    sync scheduling; triage routines (defer approvals)
 ```
 
-### Schema (module_inbox)
+### Schema (`module_inbox`)
 
-- `messages` / `threads` — provider-agnostic index: participants, subject,
-  `body_text` + `body_html`, `attachments_json` (content fetched on demand via
-  connector action), `received_at`, provider refs (`connection_id`,
-  `provider_message_id`, `provider_thread_id`).
-  Triage: `status: new | triaged | processed | archived`,
-  `classification` + `classification_reason` (machine),
-  `user_classification` + `user_action` (override), `processed_by`
-  (user id | routine/task ref).
-- `sync_state` — per `connection_id`: cursor (Gmail `historyId`, Graph
-  `deltaLink`), backfill progress, last error.
-- `message_routes` — dispatch rows per (message, processor) with status/retry
-  (carried from legacy; powers customer-care later).
-- NO accounts table. Accounts ARE connections (`module_connections`), joined
-  live; `external_account` is the display label.
+- `threads` — subject, participants digest, last_message_at, message_count,
+  provider refs (`connection_id`, `provider_thread_id`).
+- `messages` — thread_id, `connection_id`, `provider_message_id` (unique per
+  connection), from/to/cc, subject, `body_text`, `body_html`,
+  `attachments_json` (metadata + content_id), `received_at`.
+  Triage: `status new|triaged|processed|archived`, `status_set_by`
+  (user id | task/routine ref), machine hints `classification` +
+  `classification_reason` (nullable until triage model decided), user
+  override `user_classification`.
+- `sync_state` — per `connection_id`: cursor, backfill window/progress,
+  last_synced_at, last_error.
+- `message_routes` — per (message, consumer) status/retry rows. Ships empty
+  in v1; carries Model 1/hybrid dispatch later without a schema break.
+- RLS: org-connection messages tenant-readable; personal-connection messages
+  owner-only (mirror of connections sharing semantics).
 
 ### Sync engine
 
-- Per-connection incremental pull through the connector `stream` capability;
-  driven by a heartbeat trigger; backfill window ~90 days (configurable).
-- Consent: background sync requires the connection's
-  `autonomous_mode ≥ read_only` — the existing setting already means "may
-  read unattended". Sync is a no-op (visible in UI) for `off` connections.
-- Writes back to providers (reply, label-mirror) go through the normal
-  connector actions ⇒ allow/ask/deny + approval machinery unchanged.
+- Heartbeat trigger (existing substrate) → sync job iterates active,
+  stream-capable connections via the module consumption API.
+- Incremental `pullStream` per connection; upsert threads/messages; emit
+  `inbox.message.synced` bus events (feeds search reindex + Model-2
+  consumers for free).
+- Backfill on first sync (window-bounded, chunked, resumable via
+  `sync_state.backfill_progress`).
+- Failure isolation per connection: one broken account never blocks others;
+  errors surface on the account row in the UI.
+
+### Search (hybrid)
+
+`registerSearchIndexProvider` over `inbox.message.*` events → UI search +
+auto agent tool. Payload carries `owner_user_id` (null for org) — the
+visibility filter lands in the FIRST index version (retrofit is painful).
 
 ### Agent surface
 
-Reads from the LOCAL store (fast, no provider quota):
-`inbox_search` (hybrid), `inbox_get_thread`, `inbox_set_status`.
-Writes via connector operations (`gmail_send_message`, …) — consent applies.
+- Local reads (fast, no provider quota): `inbox_search`, `inbox_get_thread`,
+  `inbox_set_status`.
+- Writes via connector operations — consent machinery applies unchanged.
+  Reply-from-a-specific-account needs groundwork B (account addressing).
 
-### Search scoping (design-in from day one)
+### UI
 
-Personal-account messages must be searchable/visible ONLY to the owner; org
-mailboxes tenant-wide (action caps via `non_owner_max_group` still apply).
-The search payload carries an owner/visibility filter — retrofitting this is
-painful, so it lands with the first index version.
+- Routes: `/inbox` (list: account filter chips, status lanes, search) and
+  `/inbox/:threadId` (thread view, reply composer → connector action).
+- Settings: per-account sync toggle + backfill window; account rows link to
+  the connections detail page (consent lives there, not duplicated here).
+- Lift from legacy WITH tests: `email-reply-split.ts` (quoted-reply
+  collapsing), `cid-resolve.ts` (inline CID images).
+- Realtime on `messages` for live updates (legacy precedent; live-cache).
 
-## Prerequisites (connections framework additions)
+## Build plan
 
-1. **Multi-account + addressing** — re-key uniqueness on `external_account`
-   (`(tenant, connector, owner, external_account)` personal,
-   `(tenant, connector, external_account)` org); inject optional `account`
-   param into connector tools; candidates listed in tool description; fix the
-   personal-shadows-org resolution.
-2. **Module consumption API** — sanctioned server-side path for modules to
-   call connector actions / streams under policy + autonomous-mode checks
-   (thin wrapper over `resolveConnectionForPrincipal` + policy +
-   `withFreshAccessToken`).
-3. **Connector `stream` capability** — optional per connector:
-   `stream.pull(cursor, ctx) → {items: NormalizedMessage[], nextCursor}` with
-   the legacy `RawEmailMessage` envelope as the item shape. Gmail first;
-   Outlook = same interface later. Sync-shaped provider calls stay in the
-   connector module (`visibility: system`, not in the agent tool catalog).
+| Phase | Scope | Depends on | Est. |
+|---|---|---|---|
+| 1 | Schema + migration + repo (threads/messages/sync_state) | groundwork A | 0.5 d |
+| 2 | Sync job (heartbeat trigger, incremental + backfill, per-connection isolation) | groundwork C+D | 1–1.5 d |
+| 3 | UI: list + thread view + account filter (lift reply-split/cid-resolve) | 1 | 1.5 d |
+| 4 | Search-index provider + `inbox_*` agent tools | 2 | 0.5–1 d |
+| 5 | Triage: decide Model 1/2/hybrid; status flows; routine template (approval-gated) | 2, 4 | 1–1.5 d |
+| 6 | Reply composer + send via connector action (needs groundwork B); Outlook stream; provider push via webhook trigger edges | 3, B | 1–1.5 d |
 
-## Build sequence
+Phases 3 and 4 parallelize. v1 = phases 1–4 (usable synced inbox with
+search); 5–6 make it act.
 
-1. Primitives 1+2 (one focused session; everything builds on them)
-2. Stream capability on the Gmail connector (mine legacy `providers/gmail.ts`
-   for history.list handling + message parsing — partially already ported
-   into `connections-google` for `get_thread`)
-3. Inbox core: schema, sync worker + heartbeat, list/detail UI
-   (lift reply-split + cid-resolve), account filter
-4. Search-index provider + agent tools
-5. Triage: classify stage (cheap pass) + routine template on the trigger
-   substrate; approval flow already works (defer + inbox notifications)
-6. Outlook stream; provider push (Gmail watch / Graph subscriptions) via
-   webhook trigger edges; `message_routes` dispatch → customer-care seed
+## Open decisions (beyond triage model)
 
-## Open decisions
-
-- Dispatch: explicit `message_routes` registry (legacy pattern) vs. pure bus
-  events — leaning explicit routes for auditability/retry.
-- Attachment storage: metadata-only locally, content on demand (lean) vs.
-  mirroring small attachments into file-storage for preview/indexing.
-- Org-mailbox UI visibility default; whether creating org connections stays
-  open to all members or becomes admin-only.
+- Attachment mirroring: metadata-only (current lean) vs. copying small
+  attachments into file-storage for preview/indexing.
 - Body retention/PII: how long full bodies stay local; per-tenant retention
   setting?
+- Org-mailbox creation: stays open to all members or admin-only?
+- Label write-back: mirror engenty `processed` status to a provider label?
 
-Related docs: `docs/wip/connections-framework.md`,
-`docs/content/dev/connections.md`.
+## Legacy parts bin (reference)
+
+Reusable with tests: `ui/lib/email-reply-split.ts`, `ui/lib/cid-resolve.ts`;
+envelope shape (`RawEmailMessage` → groundwork's `InboundMessage`); Gmail
+history.list handling in `src/providers/gmail.ts`; dual
+machine/user-classification columns; `message_route` per-consumer rows.
+Explicitly NOT carried: own OAuth/token store, `EmailProvider` auth+fetch
+mix, bespoke classify queue, provider live-search.
