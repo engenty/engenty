@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeFabAnchor,
+  defaultFabAnchor,
   resolveFabAnchorPosition,
 } from "./copilot-fab-anchor";
 
@@ -63,5 +64,25 @@ describe("copilot fab anchor", () => {
     expect(resolved.x).toBeGreaterThanOrEqual(16);
     expect(resolved.y).toBeGreaterThanOrEqual(16);
     expect(resolved.x).toBeLessThanOrEqual(300 - 72 - 16 + 0.0001 + 72);
+  });
+
+  it("defaultFabAnchor is the bottom-right corner at the given inset", () => {
+    const anchor = defaultFabAnchor(16);
+    expect(anchor).toEqual({
+      edgeX: "right",
+      edgeY: "bottom",
+      offsetX: 16,
+      offsetY: 16,
+    });
+    const resolved = resolveFabAnchorPosition(
+      anchor,
+      SIZE,
+      {
+        width: 1000,
+        height: 800,
+      },
+      16
+    );
+    expect(resolved).toEqual({ x: 1000 - 72 - 16, y: 800 - 60 - 16 });
   });
 });

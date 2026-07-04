@@ -40,6 +40,15 @@ export function computeFabAnchor(
 }
 
 /**
+ * The FAB's logical home: bottom-right corner with a fixed inset. This is the
+ * single source of truth for "default position" — there is no separate
+ * null/undefined convention for "not customized".
+ */
+export function defaultFabAnchor(inset: number): CopilotFabAnchor {
+  return { edgeX: "right", edgeY: "bottom", offsetX: inset, offsetY: inset };
+}
+
+/**
  * Resolve an edge anchor back to an absolute, in-viewport position for the
  * current window size.
  */

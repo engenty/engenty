@@ -45,16 +45,25 @@
 
   /* Primary app rail: fully dynamic, based on raw sidebar input */
   --sidebar: oklch(from var(--raw-sidebar) l c h);
-  --sidebar-foreground: oklch(from var(--sidebar) calc(1 - l) calc(c * 0.1) h);
+  /* Auto-contrast: light rail → dark ink, dark rail → light ink. Threshold at
+     OKLCH l≈0.62 (perceptual black-text cutoff). Works for any picked color
+     and both themes without manual tuning. */
+  --sidebar-foreground: oklch(
+    from var(--sidebar) clamp(0.15, (0.62 - l) * 100, 0.98) calc(c * 0.06) h
+  );
   --sidebar-primary: var(--ember);
   --sidebar-primary-foreground: oklch(
     from var(--ember) calc(1 - l) calc(c * 0.1) h
   );
   --sidebar-accent: oklch(from var(--sidebar) calc(l + 0.05 * (1 - 2 * l)) c h);
   --sidebar-accent-foreground: oklch(
-    from var(--sidebar) calc(1 - l) calc(c * 0.1) h
+    from var(--sidebar) clamp(0.15, (0.62 - l) * 100, 0.98) calc(c * 0.06) h
   );
-  --sidebar-border: oklch(from var(--sidebar) calc(l - 0.08 * (1 - 2 * l)) c h);
+  /* Divider that always contrasts with the rail so the app bar never melts into
+     the adjacent panel. Nudged toward the (auto-contrasting) foreground, so it
+     stays visible at ANY rail lightness — including mid-tones like a red/green
+     rail where an l-relative offset collapses to zero. Theme-agnostic. */
+  --sidebar-border: color-mix(in oklch, var(--sidebar) 82%, var(--sidebar-foreground));
   --sidebar-ring: color-mix(in oklch, var(--sidebar-primary) 65%, transparent);
 
   --font-sans: var(--f-ui);
@@ -119,16 +128,25 @@
   --chart-5: var(--rose);
 
   --sidebar: oklch(from var(--raw-sidebar) l c h);
-  --sidebar-foreground: oklch(from var(--sidebar) calc(1 - l) calc(c * 0.1) h);
+  /* Auto-contrast: light rail → dark ink, dark rail → light ink. Threshold at
+     OKLCH l≈0.62 (perceptual black-text cutoff). Works for any picked color
+     and both themes without manual tuning. */
+  --sidebar-foreground: oklch(
+    from var(--sidebar) clamp(0.15, (0.62 - l) * 100, 0.98) calc(c * 0.06) h
+  );
   --sidebar-primary: var(--ember);
   --sidebar-primary-foreground: oklch(
     from var(--ember) calc(1 - l) calc(c * 0.1) h
   );
   --sidebar-accent: oklch(from var(--sidebar) calc(l + 0.05 * (1 - 2 * l)) c h);
   --sidebar-accent-foreground: oklch(
-    from var(--sidebar) calc(1 - l) calc(c * 0.1) h
+    from var(--sidebar) clamp(0.15, (0.62 - l) * 100, 0.98) calc(c * 0.06) h
   );
-  --sidebar-border: oklch(from var(--sidebar) calc(l - 0.08 * (1 - 2 * l)) c h);
+  /* Divider that always contrasts with the rail so the app bar never melts into
+     the adjacent panel. Nudged toward the (auto-contrasting) foreground, so it
+     stays visible at ANY rail lightness — including mid-tones like a red/green
+     rail where an l-relative offset collapses to zero. Theme-agnostic. */
+  --sidebar-border: color-mix(in oklch, var(--sidebar) 82%, var(--sidebar-foreground));
   --sidebar-ring: color-mix(in oklch, var(--sidebar-primary) 55%, transparent);
 
   --shadow-2xs: 0 1px 0 oklch(0% 0 0 / 0.2);
