@@ -1,6 +1,10 @@
 import {
   type ConnectorDefinition,
   defineConnector,
+  type InboundMessage,
+  type InboundMessageAttachment,
+  type StreamPullCtx,
+  type StreamPullResult,
 } from "@engenty/connections-sdk";
 import { z } from "zod";
 import { connectorAction, GOOGLE_OAUTH2, googleJson } from "../shared.js";
@@ -111,6 +115,244 @@ function parseGmailMessage(raw: GmailMessage): {
     subject: getHeader(headers, "Subject") ?? null,
     to: parseAddressList(getHeader(headers, "To")),
   };
+}
+
+// ─── Inbound message stream (module consumption API only) ───
+
+function collectAttachments(
+  payload: GmailPayload | undefined,
+  out: InboundMessageAttachment[]
+): void {
+  if (!payload) {
+    return;
+  }
+  if (payload.filename && payload.body?.attachmentId) {
+    out.push({
+      attachment_id: payload.body.attachmentId,
+      content_id: getHeader(payload.headers, "Content-ID") ?? null,
+      filename: payload.filename,
+      mime_type: payload.mimeType ?? null,
+      size: payload.body.size ?? null,
+    });
+  }
+  for (const part of payload.parts ?? []) {
+    collectAttachments(part, out);
+  }
+}
+
+function toInboundMessage(raw: GmailMessage): InboundMessage {
+  const parsed = parseGmailMessage(raw);
+  const attachments: InboundMessageAttachment[] = [];
+  collectAttachments(raw.payload, attachments);
+  return {
+    attachments,
+    body_html: extractBody(raw.payload, "text/html"),
+    body_text: parsed.body_text,
+    cc: parsed.cc,
+    from_email: parsed.from_email,
+    from_name: parsed.from_name,
+    provider_message_id: parsed.message_id,
+    provider_thread_id: raw.threadId ?? null,
+    received_at: parsed.date,
+    subject: parsed.subject,
+    to: parsed.to,
+  };
+}
+
+/** Drafts and chats are never "inbound"; everything else flows through. */
+const EXCLUDED_LABELS = new Set(["CHAT", "DRAFT"]);
+
+const DEFAULT_PULL_LIMIT = 50;
+const MAX_PULL_LIMIT = 100;
+
+/**
+ * Backfill continuation cursors are JSON (`{"backfill":…}`) so the page token
+ * survives arbitrary characters; incremental cursors are the plain historyId.
+ * Cursors are opaque to consumers either way.
+ */
+interface BackfillCursor {
+  backfill: { historyId: string; pageToken: string };
+}
+
+function parseBackfillCursor(
+  cursor: string
+): BackfillCursor["backfill"] | null {
+  if (!cursor.startsWith("{")) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(cursor) as Partial<BackfillCursor>;
+    return parsed.backfill ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function backfillQuery(since: string | undefined): string {
+  const sinceSeconds = since ? Math.floor(Date.parse(since) / 1000) : null;
+  const window =
+    sinceSeconds !== null && Number.isFinite(sinceSeconds)
+      ? `after:${sinceSeconds}`
+      : "newer_than:30d";
+  return `${window} -in:chats -in:draft`;
+}
+
+function pullLimit(ctx: StreamPullCtx): number {
+  return Math.min(Math.max(ctx.limit ?? DEFAULT_PULL_LIMIT, 1), MAX_PULL_LIMIT);
+}
+
+async function fetchInboundMessages(
+  ctx: StreamPullCtx,
+  ids: string[]
+): Promise<InboundMessage[]> {
+  const messages = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        return await googleJson<GmailMessage>(
+          ctx,
+          `${GMAIL_API}/messages/${encodeURIComponent(id)}?format=full`
+        );
+      } catch (error) {
+        // Deleted between listing and fetch — skip instead of failing the pull.
+        if (error instanceof Error && error.message.includes("(404)")) {
+          ctx.log("gmail stream: message vanished before fetch", { id });
+          return null;
+        }
+        throw error;
+      }
+    })
+  );
+  return messages
+    .filter((m): m is GmailMessage => m !== null)
+    .map(toInboundMessage);
+}
+
+/** First pull (or backfill continuation): messages.list over a date window. */
+async function pullBackfillPage(
+  ctx: StreamPullCtx,
+  historyId: string,
+  pageToken: string | null
+): Promise<StreamPullResult> {
+  const url = new URL(`${GMAIL_API}/messages`);
+  url.searchParams.set("q", backfillQuery(ctx.since));
+  url.searchParams.set("maxResults", String(pullLimit(ctx)));
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
+  const list = await googleJson<{
+    messages?: { id: string }[];
+    nextPageToken?: string;
+  }>(ctx, url.toString());
+  const items = await fetchInboundMessages(
+    ctx,
+    (list.messages ?? []).map((m) => m.id)
+  );
+  return {
+    hasMore: Boolean(list.nextPageToken),
+    items,
+    nextCursor: list.nextPageToken
+      ? JSON.stringify({
+          backfill: { historyId, pageToken: list.nextPageToken },
+        } satisfies BackfillCursor)
+      : historyId,
+  };
+}
+
+/** Incremental pull: history.list from the cursor historyId. */
+async function pullIncremental(
+  ctx: StreamPullCtx,
+  cursor: string
+): Promise<StreamPullResult> {
+  const limit = pullLimit(ctx);
+  const ids = new Set<string>();
+  let pageToken: string | undefined;
+  let lastRecordId: string | null = null;
+  let latestHistoryId: string | null = null;
+  let stoppedEarly = false;
+
+  do {
+    const url = new URL(`${GMAIL_API}/history`);
+    url.searchParams.set("startHistoryId", cursor);
+    url.searchParams.set("historyTypes", "messageAdded");
+    url.searchParams.set("maxResults", "100");
+    if (pageToken) {
+      url.searchParams.set("pageToken", pageToken);
+    }
+    let data: {
+      history?: {
+        id: string;
+        messagesAdded?: { message?: GmailMessage }[];
+      }[];
+      historyId?: string;
+      nextPageToken?: string;
+    };
+    try {
+      data = await googleJson(ctx, url.toString());
+    } catch (error) {
+      // Gmail expires history ids (~a week); the consumer must restart with
+      // a null cursor (its own dedupe absorbs the backfill overlap).
+      if (error instanceof Error && error.message.includes("(404)")) {
+        throw new Error(
+          "gmail_stream_cursor_expired: the history cursor is no longer valid; pull again with a null cursor to re-backfill"
+        );
+      }
+      throw error;
+    }
+    latestHistoryId = data.historyId ?? latestHistoryId;
+    for (const record of data.history ?? []) {
+      const added = (record.messagesAdded ?? [])
+        .map((m) => m.message)
+        .filter(
+          (m): m is GmailMessage =>
+            Boolean(m?.id) &&
+            !(m?.labelIds ?? []).some((l) => EXCLUDED_LABELS.has(l))
+        );
+      if (ids.size + added.length > limit && ids.size > 0) {
+        // Stop BEFORE this record: history ids are only safe cursor points
+        // at record granularity (startHistoryId is exclusive).
+        stoppedEarly = true;
+        break;
+      }
+      for (const message of added) {
+        ids.add(message.id);
+      }
+      lastRecordId = record.id;
+    }
+    if (stoppedEarly) {
+      break;
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  const items = await fetchInboundMessages(ctx, [...ids]);
+  return {
+    hasMore: stoppedEarly,
+    items,
+    nextCursor: stoppedEarly
+      ? (lastRecordId ?? cursor)
+      : (latestHistoryId ?? cursor),
+  };
+}
+
+async function pullGmailStream(
+  ctx: StreamPullCtx,
+  cursor: string | null
+): Promise<StreamPullResult> {
+  if (cursor === null) {
+    // Capture the mailbox history id BEFORE listing so the switch to
+    // incremental pulls never leaves a gap (overlap is deduped downstream
+    // by provider_message_id).
+    const profile = await googleJson<{ historyId: string }>(
+      ctx,
+      `${GMAIL_API}/profile`
+    );
+    return pullBackfillPage(ctx, profile.historyId, null);
+  }
+  const backfill = parseBackfillCursor(cursor);
+  if (backfill) {
+    return pullBackfillPage(ctx, backfill.historyId, backfill.pageToken);
+  }
+  return pullIncremental(ctx, cursor);
 }
 
 // ─── RFC 822 assembly for drafts/sending ───
@@ -268,14 +510,16 @@ export const gmailConnector: ConnectorDefinition = defineConnector({
       summary: "List Gmail labels",
     }),
     connectorAction({
-      description:
-        "List Gmail drafts with their ids, recipients and subjects.",
+      description: "List Gmail drafts with their ids, recipients and subjects.",
       group: "read",
       handler: async (input, ctx) => {
         const url = new URL(`${GMAIL_API}/drafts`);
         url.searchParams.set("maxResults", String(input.max_results ?? 10));
         const list = await googleJson<{
-          drafts?: { id: string; message?: { id: string; threadId?: string } }[];
+          drafts?: {
+            id: string;
+            message?: { id: string; threadId?: string };
+          }[];
         }>(ctx, url.toString());
         const drafts = await Promise.all(
           (list.drafts ?? []).map(async (d) => {
@@ -416,7 +660,11 @@ export const gmailConnector: ConnectorDefinition = defineConnector({
           `${GMAIL_API}/messages/${encodeURIComponent(input.message_id)}/trash`,
           { method: "POST" }
         );
-        return { label_ids: result.labelIds ?? [], message_id: result.id, trashed: true };
+        return {
+          label_ids: result.labelIds ?? [],
+          message_id: result.id,
+          trashed: true,
+        };
       },
       id: "trash_message",
       inputSchema: z.object({
@@ -429,9 +677,13 @@ export const gmailConnector: ConnectorDefinition = defineConnector({
   auth: { kind: "oauth2", oauth2: GOOGLE_OAUTH2 },
   description:
     "Read, draft, label and send email in a connected Gmail account.",
-  icon: "✉️",
+  icon: "logo:gmail",
   id: "google-gmail",
   moduleId: "connections-google",
   name: "Gmail",
+  // Inbound message stream for module consumers (inbox, KB, …): incremental
+  // via history.list (cursor = historyId), initial backfill via messages.list
+  // over a date window. Never projected as an agent tool.
+  stream: { kind: "messages", pull: pullGmailStream },
   toolPrefix: "gmail",
 });

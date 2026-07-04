@@ -1,4 +1,27 @@
 export {
+  type ConnectionAccountLabel,
+  type ConnectionSelection,
+  connectionAccountLabel,
+  describeSelectionFailure,
+  selectConnectionForAccount,
+} from "./accounts.js";
+export {
+  type ConnectionsModuleClient,
+  type ConnectionsModuleClientOptions,
+  createConnectionsModuleClient,
+  createConnectionsModuleClientFromRepo,
+  type ModuleCallActionParams,
+  type ModulePullStreamParams,
+} from "./client.js";
+export {
+  ConnectionsActionError,
+  type ConnectionsActionErrorCode,
+} from "./errors.js";
+export {
+  type ExecuteConnectorActionParams,
+  executeConnectorAction,
+} from "./execute.js";
+export {
   buildAuthorizationUrl,
   exchangeAuthorizationCode,
   type OAuth2Env,
@@ -9,8 +32,8 @@ export {
 export {
   type ConnectionPolicyPrincipal,
   grantedOperationIds,
-  resolveConnectionActionPolicy,
   type ResolvedConnectionPolicy,
+  resolveConnectionActionPolicy,
 } from "./policy.js";
 export {
   __resetConnectorRegistryForTests,
@@ -24,7 +47,11 @@ export {
   createConnectionsRepo,
   type PendingOAuthFlow,
 } from "./repo.js";
-export { defineConnector, registerConnectorModule } from "./runtime.js";
+export {
+  defineConnector,
+  registerConnectorModule,
+  withAccountParam,
+} from "./runtime.js";
 export { decryptToken, encryptToken } from "./token-crypto.js";
 export {
   ACTION_GROUP_CONTRACTS,
@@ -40,6 +67,11 @@ export {
   type ConnectorActionGroup,
   type ConnectorDefinition,
   type ConnectorOAuth2Config,
+  type ConnectorStreamCapability,
   connectorOperationId,
+  type InboundMessage,
+  type InboundMessageAttachment,
+  type StreamPullCtx,
+  type StreamPullResult,
   scopesForGroups,
 } from "./types.js";

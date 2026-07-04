@@ -12,6 +12,7 @@
     "notConnected": "Not connected",
     "manage": "Manage",
     "connect": "Connect",
+    "addAccount": "Add account",
     "connectPersonal": "Connect (personal)",
     "connectOrg": "Connect for organization",
     "connecting": "Connecting…",
@@ -97,6 +98,16 @@
   },
   "admin": {
     "title": "Connections",
+    "newConnection": "New connection",
+    "listTitle": "All connections",
+    "listDescription": "Every connection you can see: your personal accounts and organization-shared ones.",
+    "listEmpty": "No connections yet",
+    "listEmptyDescription": "Connect a service under Settings → Connections to see it here.",
+    "listColumns": {
+      "connector": "Service",
+      "account": "Account",
+      "status": "Status"
+    },
     "approvalsTitle": "Pending approvals",
     "approvalsDescription": "Requests from autonomous runs that hit an \"Ask first\" permission.",
     "approvalsEmpty": "No pending requests",
@@ -112,10 +123,6 @@
     "approveAlways": "Approve always",
     "deny": "Deny",
     "approved": "approved",
-    "denied": "denied",
-    "orgConnectionsTitle": "Organization connections",
-    "orgConnectionsDescription": "Connections shared with the whole organization.",
-    "orgConnectionsEmpty": "No shared connections",
-    "orgConnectionsEmptyDescription": "Connections with sharing set to \"Organization\" appear here."
+    "denied": "denied"
   }
 }

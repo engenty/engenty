@@ -23,9 +23,12 @@ export const GOOGLE_OAUTH2: ConnectorOAuth2Config = {
     prompt: "consent",
   },
   resolveAccount: async (accessToken, fetchImpl) => {
-    const res = await fetchImpl("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetchImpl(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
     if (!res.ok) {
       throw new Error(
         `google_api_error (${res.status}): ${await errorExcerpt(res)}`
@@ -62,7 +65,9 @@ export async function googleFetch(
     },
   });
   if (!res.ok) {
-    throw new Error(`google_api_error (${res.status}): ${await errorExcerpt(res)}`);
+    throw new Error(
+      `google_api_error (${res.status}): ${await errorExcerpt(res)}`
+    );
   }
   return res;
 }

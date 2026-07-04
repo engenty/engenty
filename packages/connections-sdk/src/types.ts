@@ -95,6 +95,59 @@ export interface ConnectorOAuth2Config {
   tokenUrl: string;
 }
 
+/** Attachment metadata on an inbound message; content is fetched on demand. */
+export interface InboundMessageAttachment {
+  attachment_id: string | null;
+  content_id: string | null;
+  filename: string | null;
+  mime_type: string | null;
+  size: number | null;
+}
+
+/**
+ * Normalized inbound message envelope for `stream.kind === "messages"`
+ * (the legacy RawEmailMessage shape). Consumers (inbox, KB, customer care)
+ * stay provider-agnostic against this.
+ */
+export interface InboundMessage {
+  attachments: InboundMessageAttachment[];
+  body_html: string | null;
+  body_text: string | null;
+  cc: string[];
+  from_email: string | null;
+  from_name: string | null;
+  provider_message_id: string;
+  provider_thread_id: string | null;
+  received_at: string | null;
+  subject: string | null;
+  to: string[];
+}
+
+/** Runtime context handed to a connector's stream pull. */
+export interface StreamPullCtx extends ConnectorActionContext {
+  /** Soft cap on items per pull; providers may return fewer, never more. */
+  limit?: number;
+  /** Initial backfill window start (ISO timestamp), used when cursor is null. */
+  since?: string;
+}
+
+export interface StreamPullResult {
+  hasMore: boolean;
+  items: InboundMessage[];
+  nextCursor: string | null;
+}
+
+/**
+ * Connector-side stream capability: how to pull normalized inbound items.
+ * Exposed ONLY through the module consumption API (`client.pullStream`) —
+ * never as an agent tool; consent requires `autonomous_mode ≥ read_only`.
+ */
+export interface ConnectorStreamCapability {
+  /** Envelope discriminator; more kinds later. */
+  kind: "messages";
+  pull(ctx: StreamPullCtx, cursor: string | null): Promise<StreamPullResult>;
+}
+
 export interface ConnectorDefinition {
   /** All actions, each projected as module operation `<toolPrefix>_<action.id>`. */
   actions: ConnectorAction[];
@@ -107,6 +160,8 @@ export interface ConnectorDefinition {
   /** Owning module id (e.g. `connections-google`). */
   moduleId: string;
   name: string;
+  /** Optional inbound stream (module consumption API only). */
+  stream?: ConnectorStreamCapability;
   /** Operation/tool id prefix, snake_case (e.g. `gmail`). */
   toolPrefix: string;
 }

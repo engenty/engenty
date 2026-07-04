@@ -1,8 +1,32 @@
 # Connections groundwork — multi-account + module consumption + streams
 
-Status: WIP plan, 2026-07-04. Extends the connections framework
-(`docs/wip/connections-framework.md`, shipped on `feat/connections`).
-Companion plan: `docs/wip/inbox-module.md` (first consumer).
+Status: IMPLEMENTED 2026-07-04 on `feat/connections` (all four workstreams).
+Extends the connections framework (`docs/wip/connections-framework.md`,
+shipped on `feat/connections`). Companion plan: `docs/wip/inbox-module.md`
+(first consumer).
+
+Implementation deltas vs. the plan below:
+
+- The migration is `20260704120000_plugin_connections_multi_account.sql`
+  (module migrations must use the `plugin_` slug prefix).
+- Unique indexes use `NULLS NOT DISTINCT` (PG 17), so even raw inserts cannot
+  stack duplicate null-account rows; the upsert additionally adopts a
+  null-account row as its replace target when the same scope reconnects with
+  a resolved account.
+- The shared resolver lives in `packages/connections-sdk/src/accounts.ts`
+  (`selectConnectionForAccount`); typed failures (`ConnectionsActionError`
+  with `code` + `details.candidates`) come from `errors.ts`.
+- The shared execution path is `executeConnectorAction()` (`execute.ts`);
+  the module client is `createConnectionsModuleClient(supabase, { moduleId })`
+  (plus `…FromRepo` for composition/tests) in `client.ts`.
+- `client.pullStream` policy check runs as a read-group pseudo-action with
+  selector `stream_pull` (overridable per connection); it requires a resolved
+  `allow`, and defaults the acting principal to the connection owner.
+- Gmail stream cursors are opaque strings: plain historyId when incremental,
+  a JSON `{"backfill":{historyId,pageToken}}` continuation while the initial
+  `messages.list` window is still paging. An expired historyId throws
+  `gmail_stream_cursor_expired`; the consumer re-pulls with a null cursor and
+  dedupes by `provider_message_id`.
 
 ## Goal
 

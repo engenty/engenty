@@ -14,6 +14,8 @@ import { getConnectUrl } from "../api.js";
 
 export interface ConnectButtonProps {
   connectorId: string;
+  /** Connections already exist — label the button "Add account" instead. */
+  hasConnections?: boolean;
   /** Same-app path the OAuth callback returns to (`?connected=1` / `?error=`). */
   redirectTo: string;
   size?: "sm" | "default";
@@ -26,6 +28,7 @@ export interface ConnectButtonProps {
  */
 export function ConnectButton({
   connectorId,
+  hasConnections = false,
   redirectTo,
   size = "sm",
   variant = "default",
@@ -55,8 +58,17 @@ export function ConnectButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button disabled={connecting} size={size} type="button" variant={variant}>
-          {connecting ? t("catalog.connecting") : t("catalog.connect")}
+        <Button
+          disabled={connecting}
+          size={size}
+          type="button"
+          variant={variant}
+        >
+          {connecting
+            ? t("catalog.connecting")
+            : hasConnections
+              ? t("catalog.addAccount")
+              : t("catalog.connect")}
           <ChevronDown className="ml-1 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

@@ -32,7 +32,10 @@ export interface PendingOAuthFlow {
   user_id: string;
 }
 
-function throwOnError<T>(result: { data: T; error: { message: string } | null }): T {
+function throwOnError<T>(result: {
+  data: T;
+  error: { message: string } | null;
+}): T {
   if (result.error) {
     throw new Error(`connections repo: ${result.error.message}`);
   }
@@ -181,28 +184,25 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
     },
 
     /**
-     * Usable connection for a principal: their personal connection for the
-     * connector if present, else the org-shared one.
+     * All active connections a principal may use for a connector: their own
+     * personal connections plus the org-shared ones. Which candidate a call
+     * actually uses is decided by `selectConnectionForAccount` (explicit
+     * `account` addressing, single-candidate default, ambiguity error).
      */
-    async resolveConnectionForPrincipal(params: {
+    async listCandidateConnections(params: {
       connectorId: string;
       principalId: string;
       tenantId: string;
-    }): Promise<ConnectionSummary | null> {
+    }): Promise<ConnectionSummary[]> {
       const all = await this.listConnections({
         connectorId: params.connectorId,
         tenantId: params.tenantId,
       });
-      const personal = all.find(
+      return all.filter(
         (c) =>
-          c.sharing === "personal" &&
-          c.owner_user_id === params.principalId &&
-          c.status === "active"
+          c.status === "active" &&
+          (c.sharing === "org" || c.owner_user_id === params.principalId)
       );
-      if (personal) {
-        return personal;
-      }
-      return all.find((c) => c.sharing === "org" && c.status === "active") ?? null;
     },
 
     async setPolicyOverride(params: {
@@ -221,16 +221,14 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
         return;
       }
       throwOnError(
-        await db()
-          .from("connection_action_policies")
-          .upsert(
-            {
-              connection_id: params.connectionId,
-              policy: params.policy,
-              selector: params.selector,
-            },
-            { onConflict: "connection_id,selector" }
-          )
+        await db().from("connection_action_policies").upsert(
+          {
+            connection_id: params.connectionId,
+            policy: params.policy,
+            selector: params.selector,
+          },
+          { onConflict: "connection_id,selector" }
+        )
       );
     },
 
@@ -278,17 +276,30 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       sharing: ConnectionSharing;
       tenantId: string;
     }): Promise<ConnectionSummary> {
-      // One connection per (tenant, connector, owner, sharing) — reconnecting
-      // replaces tokens and widens granted scopes.
-      const existing = throwOnError(
-        await db()
-          .from("connections")
-          .select(CONNECTION_COLUMNS)
-          .eq("tenant_id", input.tenantId)
-          .eq("connector_id", input.connectorId)
-          .eq("owner_user_id", input.ownerUserId)
-          .eq("sharing", input.sharing)
-      ) as ConnectionSummary[];
+      // One connection per (tenant, connector, owner-scope, external_account) —
+      // reconnecting the same account replaces tokens (connection id stays
+      // stable so downstream cursors survive); a different account inserts a
+      // new row. A null-account row (degraded connect where resolveAccount
+      // failed) is the replace target for the next connect in the same scope,
+      // so degraded connects never strand duplicates.
+      let query = db()
+        .from("connections")
+        .select(CONNECTION_COLUMNS)
+        .eq("tenant_id", input.tenantId)
+        .eq("connector_id", input.connectorId)
+        .eq("sharing", input.sharing);
+      if (input.sharing === "personal") {
+        query = query.eq("owner_user_id", input.ownerUserId);
+      }
+      const scoped = throwOnError(await query) as ConnectionSummary[];
+      const account = input.externalAccount?.toLowerCase() ?? null;
+      const existing = [
+        scoped.find(
+          (c) =>
+            c.external_account !== null &&
+            c.external_account.toLowerCase() === account
+        ) ?? scoped.find((c) => c.external_account === null),
+      ].filter((c): c is ConnectionSummary => c !== undefined);
       const tokenFields = {
         access_token_enc: encryptToken(input.accessToken),
         error_message: null,
@@ -366,11 +377,16 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       if (!row.refresh_token_enc) {
         await db()
           .from("connections")
-          .update({ error_message: "token expired, no refresh token", status: "error" })
+          .update({
+            error_message: "token expired, no refresh token",
+            status: "error",
+          })
           .eq("id", row.id);
         throw new Error("connection_token_expired");
       }
-      const refreshed = await params.refresh(decryptToken(row.refresh_token_enc));
+      const refreshed = await params.refresh(
+        decryptToken(row.refresh_token_enc)
+      );
       throwOnError(
         await db()
           .from("connections")

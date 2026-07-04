@@ -235,7 +235,7 @@ export const microsoftOneDriveConnector: ConnectorDefinition = defineConnector({
   auth: { kind: "oauth2", oauth2: MICROSOFT_OAUTH2 },
   description:
     "OneDrive files via Microsoft Graph: search, browse, read text file content, and upload text files.",
-  icon: "folder",
+  icon: "logo:microsoft-onedrive",
   id: "microsoft-onedrive",
   moduleId: "connections-microsoft",
   name: "Microsoft OneDrive",

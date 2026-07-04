@@ -1,9 +1,14 @@
-import { DockPluginsIcon } from "@engenty/ui-icons";
+import { CONNECTIONS_ROOT_PATH } from "@engenty/ai-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
-import { ConnectionsAdminPage } from "./pages/connections-admin-page.js";
 import { ConnectionsSettingsPage } from "./pages/connections-settings-page.js";
-import { ConnectorDetailPage } from "./pages/connector-detail-page.js";
-import { usePendingConnectionApprovalsBadgeCount } from "./queries.js";
+import {
+  ConnectionsWorkspacePage,
+  LegacyConnectionsAdminRedirect,
+} from "./pages/connections-workspace-page.js";
+import {
+  ConnectorDetailPage,
+  ConnectorWorkspaceDetailPage,
+} from "./pages/connector-detail-page.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.i18n.registerNamespace({
@@ -29,11 +34,27 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 401,
   });
 
+  // Main entry inside the /admin/engenty workspace; the sidebar row lives in
+  // ai-ui (AgentsWorkspaceSidebar), the page is module-owned.
   engenty.UI.registerRoute({
-    id: "connections_admin",
-    path: "/admin/connections",
-    component: ConnectionsAdminPage,
+    id: "connections_workspace",
+    path: CONNECTIONS_ROOT_PATH,
+    component: ConnectionsWorkspacePage,
     order: 910,
+  });
+
+  engenty.UI.registerRoute({
+    id: "connections_workspace_detail",
+    path: `${CONNECTIONS_ROOT_PATH}/:connectorId`,
+    component: ConnectorWorkspaceDetailPage,
+    order: 910.5,
+  });
+
+  engenty.UI.registerRoute({
+    id: "connections_admin_legacy_redirect",
+    path: "/admin/connections",
+    component: LegacyConnectionsAdminRedirect,
+    order: 911,
   });
 
   engenty.UI.registerSettingsItem({
@@ -42,16 +63,5 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "connections:menu.connections",
     to: "/settings/connections",
     order: 400,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "connections_admin_menu",
-    section: "admin",
-    label: "Connections",
-    labelKey: "connections:menu.connections",
-    to: "/admin/connections",
-    icon: DockPluginsIcon,
-    order: 120,
-    useBadgeCount: usePendingConnectionApprovalsBadgeCount,
   });
 }

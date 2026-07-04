@@ -6,6 +6,8 @@ export const ACTIONS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/actions`
 export const SKILLS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/skills`;
 export const TOOLS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/tools`;
 export const ACTIVITY_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/activity`;
+/** Owned by the connections module; ai-ui only links to it from the sidebar. */
+export const CONNECTIONS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/connections`;
 
 function withSearch(
   pathname: string,
@@ -94,6 +96,16 @@ export function buildAgentSessionDetailPath(
 
 export function buildActivityPath() {
   return ACTIVITY_ROOT_PATH;
+}
+
+// ── Connections ───────────────────────────────────────────────────────────────
+
+export function buildConnectionsPath() {
+  return CONNECTIONS_ROOT_PATH;
+}
+
+export function buildConnectionDetailPath(connectorId: string) {
+  return `${CONNECTIONS_ROOT_PATH}/${encodeURIComponent(connectorId)}`;
 }
 
 // ── Tools ─────────────────────────────────────────────────────────────────────

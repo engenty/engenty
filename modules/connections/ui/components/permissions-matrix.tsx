@@ -83,7 +83,7 @@ function MatrixGroup({
   const groupState = effectiveGroupPolicy({ defaultPolicy, group, overrides });
 
   return (
-    <Card className="p-0">
+    <Card className="space-y-0 overflow-hidden" variant="settings">
       <div className="flex items-center gap-2 border-border border-b bg-muted/40 px-4 py-2.5">
         <span className="font-medium text-sm">
           {t(`matrix.groups.${group}`)}
@@ -109,10 +109,7 @@ function MatrixGroup({
         {actions.map((action) => {
           const state = effectiveActionPolicy({ action, overrides });
           return (
-            <li
-              className="flex items-center gap-3 px-4 py-2.5"
-              key={action.id}
-            >
+            <li className="flex items-center gap-3 px-4 py-2.5" key={action.id}>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm">{action.summary}</span>

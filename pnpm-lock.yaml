@@ -598,6 +598,9 @@ importers:
 
   modules/connections:
     dependencies:
+      '@engenty/ai-ui':
+        specifier: workspace:*
+        version: link:../../packages/ai-ui
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client

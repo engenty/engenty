@@ -257,7 +257,7 @@ export const driveConnector: ConnectorDefinition = defineConnector({
   auth: { kind: "oauth2", oauth2: GOOGLE_OAUTH2 },
   description:
     "Search, read and create files in a connected Google Drive account.",
-  icon: "📁",
+  icon: "logo:google-drive",
   id: "google-drive",
   moduleId: "connections-google",
   name: "Google Drive",

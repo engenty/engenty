@@ -156,7 +156,11 @@ describe("connections-google connector definitions", () => {
   it("keeps read-only listing/fetch actions in the read group", () => {
     const readActionIds: Record<string, string[]> = {
       "google-calendar": ["list_calendars", "list_events", "get_event"],
-      "google-drive": ["search_files", "get_file_metadata", "read_file_content"],
+      "google-drive": [
+        "search_files",
+        "get_file_metadata",
+        "read_file_content",
+      ],
       "google-gmail": [
         "search_threads",
         "get_thread",

@@ -3,7 +3,12 @@ import {
   defineConnector,
 } from "@engenty/connections-sdk";
 import { z } from "zod";
-import { connectorAction, GOOGLE_OAUTH2, googleFetch, googleJson } from "../shared.js";
+import {
+  connectorAction,
+  GOOGLE_OAUTH2,
+  googleFetch,
+  googleJson,
+} from "../shared.js";
 
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
@@ -50,7 +55,9 @@ function toEventSummary(e: CalendarEvent) {
 }
 
 /** "2026-07-04" → { date }, full ISO timestamp → { dateTime }. */
-function toEventDateTime(value: string): { date: string } | { dateTime: string } {
+function toEventDateTime(
+  value: string
+): { date: string } | { dateTime: string } {
   return ALL_DAY_DATE.test(value) ? { date: value } : { dateTime: value };
 }
 
@@ -304,7 +311,11 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(input.event_id)}`,
           { method: "DELETE" }
         );
-        return { calendar_id: calendarId, deleted: true, event_id: input.event_id };
+        return {
+          calendar_id: calendarId,
+          deleted: true,
+          event_id: input.event_id,
+        };
       },
       id: "delete_event",
       inputSchema: z.object({
@@ -316,9 +327,8 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
     }),
   ],
   auth: { kind: "oauth2", oauth2: GOOGLE_OAUTH2 },
-  description:
-    "Read and manage events in a connected Google Calendar account.",
-  icon: "📅",
+  description: "Read and manage events in a connected Google Calendar account.",
+  icon: "logo:google-calendar",
   id: "google-calendar",
   moduleId: "connections-google",
   name: "Google Calendar",

@@ -76,10 +76,7 @@ export function resolveConnectionActionPolicy(params: {
     if (connection.autonomous_mode === "off") {
       return { decision: "deny", reason: "connection_autonomous_disabled" };
     }
-    if (
-      connection.autonomous_mode === "read_only" &&
-      action.group !== "read"
-    ) {
+    if (connection.autonomous_mode === "read_only" && action.group !== "read") {
       return { decision: "deny", reason: "connection_autonomous_read_only" };
     }
   }
@@ -104,9 +101,7 @@ export function resolveConnectionActionPolicy(params: {
  */
 export function grantedOperationIds(params: {
   actions: readonly Pick<ConnectorAction, "group" | "id">[];
-  connection: Parameters<
-    typeof resolveConnectionActionPolicy
-  >[0]["connection"];
+  connection: Parameters<typeof resolveConnectionActionPolicy>[0]["connection"];
   isAutonomous: boolean;
   overrides: readonly Pick<ConnectionPolicyOverride, "policy" | "selector">[];
   principal: ConnectionPolicyPrincipal;

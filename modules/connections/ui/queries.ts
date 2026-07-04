@@ -53,19 +53,6 @@ export function useConnectionApprovalsQuery(
   return useQuery(connectionApprovalsOptions(status));
 }
 
-/**
- * Pending-approvals count for the admin app-bar badge. Called by the shell
- * from an always-mounted component, so it polls conservatively.
- */
-export function usePendingConnectionApprovalsBadgeCount(): number | undefined {
-  const { data } = useQuery({
-    ...connectionApprovalsOptions("pending"),
-    refetchInterval: 60_000,
-  });
-  const count = data?.length ?? 0;
-  return count > 0 ? count : undefined;
-}
-
 export function useUpdateConnectionSettingsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -82,8 +69,7 @@ export function useUpdateConnectionSettingsMutation() {
 export function useSetConnectionPolicyMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: SetConnectionPolicyInput) =>
-      setConnectionPolicy(input),
+    mutationFn: (input: SetConnectionPolicyInput) => setConnectionPolicy(input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: connectionsKeys.catalog(),

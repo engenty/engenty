@@ -3,8 +3,10 @@ import type {
   ConnectorActionGroup,
 } from "@engenty/connections-sdk";
 import {
+  describeSelectionFailure,
   resolveConnectionActionPolicy,
   resolveConnectorOperation,
+  selectConnectionForAccount,
 } from "@engenty/connections-sdk";
 import type {
   PluginPolicyInput,
@@ -52,17 +54,28 @@ export function createConnectionsProfilePolicy(
     }
     const { action, connector } = match;
     const isAutonomous = input.auth.principalType !== "user";
-    const connection = await repo.resolveConnectionForPrincipal({
+    const candidates = await repo.listCandidateConnections({
       connectorId: connector.id,
       principalId: input.auth.principalId,
       tenantId: input.auth.tenantId,
     });
-    if (!connection) {
+    // Same selection the operation handler runs (shared resolver): the gate
+    // must evaluate policy on the exact connection the call will use.
+    const rawAccount =
+      input.input && typeof input.input === "object"
+        ? (input.input as { account?: unknown }).account
+        : undefined;
+    const selection = selectConnectionForAccount({
+      account: typeof rawAccount === "string" ? rawAccount : null,
+      candidates,
+    });
+    if (!selection.ok) {
       return {
         action: "deny",
-        reason: `connection_not_connected: ${connector.name} is not connected`,
+        reason: `${selection.code}: ${describeSelectionFailure(selection, connector.name)}`,
       };
     }
+    const connection = selection.connection;
     const overrides = await repo.listPolicyOverrides([connection.id]);
     const resolved = resolveConnectionActionPolicy({
       action: { group: action.group as ConnectorActionGroup, id: action.id },

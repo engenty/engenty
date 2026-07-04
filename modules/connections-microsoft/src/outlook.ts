@@ -544,7 +544,7 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
   auth: { kind: "oauth2", oauth2: MICROSOFT_OAUTH2 },
   description:
     "Outlook mail and calendar via Microsoft Graph: search and read messages, drafts, sending, folders, and calendar events.",
-  icon: "mail",
+  icon: "logo:microsoft-outlook",
   id: "microsoft-outlook",
   moduleId: "connections-microsoft",
   name: "Microsoft Outlook",

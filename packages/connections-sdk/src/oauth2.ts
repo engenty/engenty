@@ -15,7 +15,7 @@ export interface OAuth2Env {
 export function resolveOAuth2Env(config: ConnectorOAuth2Config): OAuth2Env {
   const clientId = process.env[config.clientIdEnv];
   const clientSecret = process.env[config.clientSecretEnv];
-  if (!clientId || !clientSecret) {
+  if (!(clientId && clientSecret)) {
     throw new Error(
       `OAuth client credentials missing: set ${config.clientIdEnv} and ${config.clientSecretEnv}`
     );
@@ -48,13 +48,13 @@ export function buildAuthorizationUrl(params: {
 
 interface TokenResponse {
   access_token?: string;
-  expires_in?: number;
-  refresh_token?: string;
-  scope?: string;
   /** Slack v2 nests user tokens under authed_user. */
   authed_user?: { access_token?: string; scope?: string };
   error?: string;
   error_description?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  scope?: string;
 }
 
 function parseTokenResponse(

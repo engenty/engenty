@@ -25,6 +25,7 @@
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
+    "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
     "@engenty/i18n": "workspace:*",

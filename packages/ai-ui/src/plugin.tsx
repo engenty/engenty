@@ -22,7 +22,15 @@ import { SkillsCatalogPage } from "./routes/skills-catalog-page.js";
 import { ToolFormPage } from "./routes/tool-form-page.js";
 import { ToolsCatalogPage } from "./routes/tools-catalog-page.js";
 
-const RESERVED_SECTIONS = ["agents", "skills", "tools", "actions", "activity"];
+const RESERVED_SECTIONS = [
+  "agents",
+  "skills",
+  "tools",
+  "actions",
+  "activity",
+  // Owned by the connections module (route registered there).
+  "connections",
+];
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.i18n.registerNamespace({

@@ -435,7 +435,7 @@ export const slackConnector = defineConnector({
   },
   description:
     "Slack workspace access as the connected user: channels, history, search, messages, reactions.",
-  icon: "message-circle",
+  icon: "logo:slack",
   id: "slack",
   moduleId: "connections-slack",
   name: "Slack",

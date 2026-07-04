@@ -62,26 +62,19 @@ export function ConnectionSettingsCard({
   const updateSettings = useUpdateConnectionSettingsMutation();
   const disconnect = useDisconnectConnectionMutation();
 
-  const [displayName, setDisplayName] = useState(
-    connection.display_name ?? ""
-  );
+  const [displayName, setDisplayName] = useState(connection.display_name ?? "");
   const [disconnectOpen, setDisconnectOpen] = useState(false);
 
   const busy = disabled || updateSettings.isPending || disconnect.isPending;
 
   const saveSettings = (
-    patch: Omit<
-      Parameters<typeof updateSettings.mutate>[0],
-      "connection_id"
-    >
+    patch: Omit<Parameters<typeof updateSettings.mutate>[0], "connection_id">
   ) => {
     updateSettings.mutate(
       { connection_id: connection.id, ...patch },
       {
         onError: (error) => {
-          toast.error(
-            t("toasts.settingsSaveFailed", { error: error.message })
-          );
+          toast.error(t("toasts.settingsSaveFailed", { error: error.message }));
         },
         onSuccess: () => {
           toast.success(t("toasts.settingsSaved"));

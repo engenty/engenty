@@ -4,6 +4,7 @@ import type { AiAgentEntry } from "../../lib/admin/ai-runtime-api";
 import {
   ACTIONS_CATALOG_ROOT_PATH,
   ACTIVITY_ROOT_PATH,
+  CONNECTIONS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
 } from "./agent-workspace-url-state";
 
@@ -15,7 +16,8 @@ export type WorkspaceNavPrimaryTab =
   | "agents"
   | "sessions"
   | "skills"
-  | "actions";
+  | "actions"
+  | "connections";
 
 export function workspaceNavPrimaryTabFromPathname(
   pathname: string
@@ -37,6 +39,12 @@ export function workspaceNavPrimaryTabFromPathname(
     pathname.startsWith(`${ACTIONS_CATALOG_ROOT_PATH}/`)
   ) {
     return "actions";
+  }
+  if (
+    pathname === CONNECTIONS_ROOT_PATH ||
+    pathname.startsWith(`${CONNECTIONS_ROOT_PATH}/`)
+  ) {
+    return "connections";
   }
   return "agents";
 }

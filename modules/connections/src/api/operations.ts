@@ -1,11 +1,11 @@
 import type { ConnectionsRepo } from "@engenty/connections-sdk";
 import {
   ACTION_GROUP_DEFAULT_POLICY,
+  connectionAccountLabel,
   connectorOperationId,
   getConnectorDefinition,
   grantedOperationIds,
   listConnectorDefinitions,
-  resolveConnectionActionPolicy,
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
@@ -78,6 +78,37 @@ export function registerConnectionsOperations(
           tool_prefix: connector.toolPrefix,
         })),
       };
+    },
+  });
+
+  // ── Account discovery for agents ──────────────────────────────────────────
+  // Static tool descriptions cannot enumerate per-tenant accounts (the
+  // operation catalog is process-global); this cheap read plus the
+  // connection_ambiguous error path carry that job.
+  api.registerOperation({
+    operationId: "connections_list_accounts",
+    moduleId: "connections",
+    summary:
+      "List the connected accounts usable for a connector (for the `account` param of its actions)",
+    description:
+      "Accounts the caller can address on a connector's actions via the optional `account` input param, with their sharing mode. Use when an action fails with connection_ambiguous.",
+    idempotent: true,
+    riskLevel: "low",
+    requiredCapabilities: ["module.connections.read"],
+    inputSchema: z.object({
+      connector_id: z.string().describe('Connector id (e.g. "google-gmail").'),
+    }),
+    handler: async (input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      const parsed = input as { connector_id: string };
+      const candidates = await repo.listCandidateConnections({
+        connectorId: parsed.connector_id,
+        principalId: ctx.auth.principalId,
+        tenantId: ctx.auth.tenantId,
+      });
+      return { accounts: candidates.map(connectionAccountLabel) };
     },
   });
 
@@ -198,7 +229,9 @@ export function registerConnectionsOperations(
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
-      const parsed = input as { status?: "pending" | "approved" | "denied" | "expired" };
+      const parsed = input as {
+        status?: "pending" | "approved" | "denied" | "expired";
+      };
       return {
         requests: await repo.listApprovalRequests({
           status: parsed.status ?? "pending",

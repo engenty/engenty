@@ -12,6 +12,7 @@
     "notConnected": "Nicht verbunden",
     "manage": "Verwalten",
     "connect": "Verbinden",
+    "addAccount": "Konto hinzufügen",
     "connectPersonal": "Verbinden (persönlich)",
     "connectOrg": "Für Organisation verbinden",
     "connecting": "Verbinde…",
@@ -97,6 +98,16 @@
   },
   "admin": {
     "title": "Verbindungen",
+    "newConnection": "Neue Verbindung",
+    "listTitle": "Alle Verbindungen",
+    "listDescription": "Alle sichtbaren Verbindungen: Ihre persönlichen Konten und die der Organisation.",
+    "listEmpty": "Noch keine Verbindungen",
+    "listEmptyDescription": "Verbinden Sie einen Dienst unter Einstellungen → Verbindungen, um ihn hier zu sehen.",
+    "listColumns": {
+      "connector": "Dienst",
+      "account": "Konto",
+      "status": "Status"
+    },
     "approvalsTitle": "Ausstehende Freigaben",
     "approvalsDescription": "Anfragen aus autonomen Läufen, die auf eine \"Zuerst fragen\"-Berechtigung gestoßen sind.",
     "approvalsEmpty": "Keine ausstehenden Anfragen",
@@ -112,10 +123,6 @@
     "approveAlways": "Immer freigeben",
     "deny": "Ablehnen",
     "approved": "freigegeben",
-    "denied": "abgelehnt",
-    "orgConnectionsTitle": "Organisationsverbindungen",
-    "orgConnectionsDescription": "Verbindungen, die mit der gesamten Organisation geteilt sind.",
-    "orgConnectionsEmpty": "Keine geteilten Verbindungen",
-    "orgConnectionsEmptyDescription": "Verbindungen mit Freigabe \"Organisation\" erscheinen hier."
+    "denied": "abgelehnt"
   }
 }

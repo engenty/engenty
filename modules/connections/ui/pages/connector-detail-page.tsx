@@ -1,3 +1,9 @@
+import {
+  AGENTS_WORKSPACE_ROOT_PATH,
+  CONNECTIONS_ROOT_PATH,
+  useAgentsWorkspaceShellNav,
+  useWorkspaceNavData,
+} from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -45,7 +51,13 @@ export function canManageConnection(
   );
 }
 
-export function ConnectorDetailPage() {
+/**
+ * Connector detail body, shared by the settings-context and workspace-context
+ * pages. `basePath` is the list this detail belongs to (`/settings/connections`
+ * or `/admin/engenty/connections`); it drives the empty-state back link and
+ * the OAuth callback redirect so a reconnect returns to the same context.
+ */
+function ConnectorDetailBody({ basePath }: { basePath: string }) {
   const { t } = useTranslation("connections");
   const { connectorId } = useParams<{ connectorId: string }>();
   const navigate = useNavigate();
@@ -54,25 +66,8 @@ export function ConnectorDetailPage() {
 
   useConnectResultToast();
 
-  const connector =
-    data?.connectors.find((c) => c.id === connectorId) ?? null;
-
-  const breadcrumbs = useMemo<PageBreadcrumb[]>(
-    () => [
-      { label: t("breadcrumb.settings"), to: "/settings" },
-      { label: t("breadcrumb.connections"), to: CONNECTIONS_SETTINGS_PATH },
-      { label: connector?.name ?? (connectorId ?? "") },
-    ],
-    [t, connector?.name, connectorId]
-  );
-
-  usePageConfig({
-    breadcrumbs,
-    contentStackBackground: "paper",
-    topbarChrome: "contentBlend",
-  });
-
-  const redirectTo = `${CONNECTIONS_SETTINGS_PATH}/${connectorId ?? ""}`;
+  const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
+  const redirectTo = `${basePath}/${connectorId ?? ""}`;
 
   return (
     <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
@@ -82,25 +77,7 @@ export function ConnectorDetailPage() {
             <Skeleton className="h-12 w-1/2" />
             <Skeleton className="h-64 w-full" />
           </div>
-        ) : !connector ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>{t("detail.notFound")}</EmptyTitle>
-              <EmptyDescription>
-                {t("detail.notFoundDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                onClick={() => navigate(CONNECTIONS_SETTINGS_PATH)}
-                type="button"
-                variant="outline"
-              >
-                {t("detail.backToList")}
-              </Button>
-            </EmptyContent>
-          </Empty>
-        ) : (
+        ) : connector ? (
           <>
             <div className="flex items-start gap-3">
               <ConnectorIcon icon={connector.icon} />
@@ -112,16 +89,16 @@ export function ConnectorDetailPage() {
               </div>
               <ConnectButton
                 connectorId={connector.id}
+                hasConnections={
+                  visibleConnections(connector, currentUserId).length > 0
+                }
                 redirectTo={redirectTo}
                 variant="outline"
               />
             </div>
 
             {(() => {
-              const connections = visibleConnections(
-                connector,
-                currentUserId
-              );
+              const connections = visibleConnections(connector, currentUserId);
               if (connections.length === 0) {
                 return (
                   <Empty>
@@ -155,8 +132,81 @@ export function ConnectorDetailPage() {
               ));
             })()}
           </>
+        ) : (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("detail.notFound")}</EmptyTitle>
+              <EmptyDescription>
+                {t("detail.notFoundDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                onClick={() => navigate(basePath)}
+                type="button"
+                variant="outline"
+              >
+                {t("detail.backToList")}
+              </Button>
+            </EmptyContent>
+          </Empty>
         )}
       </div>
     </section>
   );
+}
+
+/** Detail reached from Settings → Connections (settings sidebar). */
+export function ConnectorDetailPage() {
+  const { t } = useTranslation("connections");
+  const { connectorId } = useParams<{ connectorId: string }>();
+  const { data } = useConnectionsCatalogQuery();
+  const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
+
+  const breadcrumbs = useMemo<PageBreadcrumb[]>(
+    () => [
+      { label: t("breadcrumb.settings"), to: "/settings" },
+      { label: t("breadcrumb.connections"), to: CONNECTIONS_SETTINGS_PATH },
+      { label: connector?.name ?? connectorId ?? "" },
+    ],
+    [t, connector?.name, connectorId]
+  );
+
+  usePageConfig({
+    breadcrumbs,
+    contentStackBackground: "paper",
+    topbarChrome: "contentBlend",
+  });
+
+  return <ConnectorDetailBody basePath={CONNECTIONS_SETTINGS_PATH} />;
+}
+
+/** Detail reached from the Engenty workspace (workspace sidebar). */
+export function ConnectorWorkspaceDetailPage() {
+  const { t } = useTranslation("connections");
+  const { t: tAi } = useTranslation("ai-ui");
+  const { connectorId } = useParams<{ connectorId: string }>();
+  const nav = useWorkspaceNavData();
+  const shellNav = useAgentsWorkspaceShellNav({ ...nav, selectedAgentId: "" });
+  const { data } = useConnectionsCatalogQuery();
+  const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
+
+  const breadcrumbs = useMemo<PageBreadcrumb[]>(
+    () => [
+      { label: tAi("menu.engenty"), to: AGENTS_WORKSPACE_ROOT_PATH },
+      { label: t("admin.title"), to: CONNECTIONS_ROOT_PATH },
+      { label: connector?.name ?? connectorId ?? "" },
+    ],
+    [t, tAi, connector?.name, connectorId]
+  );
+
+  usePageConfig({
+    breadcrumbs,
+    contentStackBackground: "paper",
+    secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
+    secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+  });
+
+  return <ConnectorDetailBody basePath={CONNECTIONS_ROOT_PATH} />;
 }
