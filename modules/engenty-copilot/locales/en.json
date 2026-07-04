@@ -130,5 +130,22 @@
     "notFound": "This sub-agent run is no longer available in the transcript.",
     "output": "Output",
     "running": "Running…"
+  },
+  "memory": {
+    "settingsItem": "Assistant memory",
+    "title": "Assistant memory",
+    "subtitle": "What the assistant has learned about you across chats. It maintains this profile itself — reset it to start fresh.",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load the memory profile.",
+    "empty": "Nothing stored yet. As you chat, the assistant remembers durable preferences and facts here.",
+    "reset": "Reset memory",
+    "updatedAt": "Last updated: {{time}}",
+    "fields": {
+      "preferred_language": "Preferred language",
+      "role": "Role",
+      "current_focus": "Current focus",
+      "preferences": "Preferences",
+      "facts": "Facts"
+    }
   }
 }

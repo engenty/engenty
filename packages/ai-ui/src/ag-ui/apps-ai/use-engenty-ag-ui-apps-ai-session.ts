@@ -12,10 +12,7 @@ import type {
   RunFinishedEvent,
 } from "@engenty/ag-ui-bridge";
 import { EventType, isAgUiOpenInterruptExpired } from "@engenty/ag-ui-bridge";
-import {
-  deriveInitialSessionTitleFromText,
-  sortAgUiMessagesForTranscript,
-} from "@engenty/ai-core/browser";
+import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import {
   useCallback,
@@ -777,6 +774,10 @@ export function useEngentyAgUiAppsAiSession(
       try {
         if (!threadId) {
           try {
+            // Created UNTITLED on purpose: the backend's memory
+            // `generateTitle` synthesizes the title from the first exchange
+            // (compiled gate is `!thread.title` — a client-set title would
+            // block it). Lists fall back to summary/id until it lands.
             const session = await createAppsAiThread({
               agentId: options.agentId,
               hostKey: options.hostKey,
@@ -784,7 +785,6 @@ export function useEngentyAgUiAppsAiSession(
               serviceBaseUrl: options.serviceBaseUrl,
               signal: abortController.signal,
               stableSessionKey: options.stableSessionKey,
-              title: deriveInitialSessionTitleFromText(trimmed),
             });
             threadId = session.id;
             runtimeSessionIdRef.current = session.id;

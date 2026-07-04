@@ -3,7 +3,6 @@ import {
   type AgentWorkspaceConfig,
   agUiMessageText,
   checkUsageLimits,
-  deriveInitialThreadTitleFromText,
   formatUsageLimitError,
   normalizeAgUiMessageForPersistence,
   recordAiUsage,
@@ -16,7 +15,6 @@ import { engentyToolsRunAls } from "../../../ai/tools/engenty-tools/lib/run-cont
 import type {
   AgentSessionMessageRow,
   AgentSessionRow,
-  AgentThreadStore,
 } from "../../dal/agent-sessions/index.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { AiSessionError } from "../errors.js";
@@ -140,39 +138,6 @@ export function resolveSubmittedUserMessage(messages: Message[] | undefined): {
     message: normalized[0].message,
     normalized: normalized[0].normalized,
   };
-}
-
-// Title only — Mastra Memory appends the first user turn after the agent run.
-async function maybeDeriveInitialSessionTitle(params: {
-  messages: Message[] | undefined;
-  scope: AiSessionScope;
-  sessionTitle?: string | null;
-  store: AgentThreadStore;
-  threadId: string;
-}): Promise<void> {
-  if (params.sessionTitle?.trim() || !params.messages?.length) {
-    return;
-  }
-  const rows = await params.store.listMessagesOrdered({
-    tenantId: params.scope.tenantId,
-    threadId: params.threadId,
-  });
-  if (rows.some((row) => row.role === "user")) {
-    return;
-  }
-  const { message: userMessage } = resolveSubmittedUserMessage(params.messages);
-  const title = deriveInitialThreadTitleFromText(
-    agUiMessageText(userMessage) || null
-  );
-  if (!title) {
-    return;
-  }
-  await params.store.updateSessionForUser({
-    tenantId: params.scope.tenantId,
-    userId: params.scope.userId,
-    threadId: params.threadId,
-    title,
-  });
 }
 
 function findLastAssistantMessageRow(

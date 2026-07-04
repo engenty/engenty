@@ -65,6 +65,7 @@ import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
+import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
 import type {
@@ -510,6 +511,7 @@ export async function createApp(options: CreateAppOptions = {}) {
         }),
     });
     registerNotificationRoutes(app, { scopeResolver });
+    registerWorkingMemoryRoutes(app, { scopeResolver });
 
     // UI-4 Part A: dispatch status endpoint. getQueue is populated by the
     // task dispatcher below — until then it returns null and the endpoint
