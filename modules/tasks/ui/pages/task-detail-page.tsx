@@ -162,7 +162,7 @@ function TaskDetailLoadedContent({
           />
         </div>
 
-        <Card className="p-0" variant="form">
+        <Card variant="form">
           <Textarea
             className="min-h-[120px] resize-y rounded-none border-0 bg-transparent px-0 py-0 shadow-none transition-colors hover:bg-input/25 focus-visible:border-transparent focus-visible:bg-input/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
             disabled={fieldsDisabled}
