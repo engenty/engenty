@@ -403,6 +403,63 @@ describe("createEngentyToolExecuteTool", () => {
     });
   }
 
+  it("Code Mode read-only: rejects a non-read-only op, executes a read-only one", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const { executeEngentyTool } = await import(
+      "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js"
+    );
+    // Gated op (requiresApproval, critical) — denied before any gate/invoke.
+    const gatedFetch = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
+    vi.stubGlobal("fetch", gatedFetch);
+    const denied = (await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_contact_delete", input: { id: "c1" } },
+          undefined,
+          { enforceReadOnly: true }
+        )
+    )) as { error?: string; ok?: boolean };
+    expect(denied.ok).toBe(false);
+    expect(denied.error).toBe("code_mode_read_only");
+    expect(gatedFetch).toHaveBeenCalledTimes(1);
+
+    // Read-only op (low risk, no approval) — executes normally.
+    const readFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "low",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "contacts",
+            pluginId: "contacts",
+            summary: "Search contacts",
+            toolId: "contacts_contact_search",
+          },
+        })
+      )
+      .mockResolvedValueOnce(Response.json({ ok: true, data: { items: [] } }));
+    vi.stubGlobal("fetch", readFetch);
+    const result = await engentyToolsRunAls.run(
+      { userAccessToken: "user-token" },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_contact_search", input: { query: "x" } },
+          undefined,
+          { enforceReadOnly: true }
+        )
+    );
+    expect(result).toEqual({ ok: true, data: { items: [] } });
+  });
+
   it("rejects an EMPTY input for an operation with required fields (never invokes, never gates)", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi.fn().mockResolvedValueOnce(

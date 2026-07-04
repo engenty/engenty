@@ -26,12 +26,20 @@ export const engentyCopilotAgentConfig: AgentConfig = {
   subAgents: [{ alias: "engenty_cli", id: ENGENTY_CLI_AGENT_ID }],
   toolIds: ENGENTY_COPILOT_TOOL_IDS,
   // Personal-assistant desk: per-user `/home` (rw), `/skills` (ro), `/task`
-  // when bound, tenant-shared `/shared` (rw). No sandbox on the copilot itself
-  // — code execution is delegated to the engenty.cli sub-agent which owns its
-  // own sandbox (code_execution preset, session lifecycle).
+  // when bound, tenant-shared `/shared` (rw). The sandbox powers Code Mode
+  // (`execute_typescript` — read-only tool orchestration programs); the
+  // container starts lazily on first use, so idle chats pay nothing.
+  // EXECUTE_COMMAND keeps its HITL approval gate; free-form CLI/code work
+  // stays delegated to the engenty.cli sub-agent (own sandbox + artifacts).
   workspace: {
     enabled: true,
     preset: "assistant",
+    sandbox: {
+      enabled: true,
+      lifecycle: "session",
+      mountPath: "/sandbox",
+      requireApproval: true,
+    },
     search: { bm25: true },
   },
 };
