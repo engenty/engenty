@@ -69,7 +69,9 @@ describe("createCoreApiCatalogSearchIndexProvider", () => {
         moduleId: "contacts",
         query: "list",
         readOnlyOnly: true,
-        strategy: "hybrid",
+        // Core capabilities are lexical-only (semantic ranking moved to
+        // apps/ai), so the auto-resolved strategy is lexical.
+        strategy: "lexical",
       }),
       tenantId: "tenant-1",
     });

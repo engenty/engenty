@@ -54,7 +54,6 @@
     "@napi-rs/canvas": "^1.0.0",
     "@scalar/hono-api-reference": "^0.11.4",
     "@supabase/supabase-js": "^2.108.2",
-    "ai": "6.0.116",
     "commander": "^15.0.0",
     "evlog": "^2.19.1",
     "hono": "^4.12.26",

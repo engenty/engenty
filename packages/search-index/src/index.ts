@@ -1,3 +1,4 @@
+export * from "./catalog-lexical.js";
 export * from "./chunks.js";
 export * from "./contracts.js";
 export * from "./embedder.js";

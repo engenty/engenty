@@ -356,14 +356,15 @@ export async function createApp(options: CreateAppOptions = {}) {
     );
   }
 
-  // `core_api_catalog` proxy: the real provider lives in apps/core (it
-  // owns the plugin registry + tenant-override gating). Register a thin
-  // store here so in-process consumers — most importantly the
-  // `engenty_tools_search` Mastra tool — can call `provider.search(...)`
-  // through the same `SearchIndexRegistry` they use for `ai_chat_search`,
-  // instead of forking their own HTTP path.
-  searchIndexRegistry.register(createApiCatalogSearchStore(), {
-    capabilities: { hybrid: true, lexical: true, semantic: true },
+  // `core_api_catalog`: catalog building stays in apps/core (it owns the
+  // plugin registry + tenant-override gating), but ranking happens here —
+  // the store fetches the caller-gated contracts from core and applies
+  // lexical BM25 + semantic embedding reranking (catalog-ranking.ts). The
+  // `engenty_tools_search` Mastra tool consumes it via this registry, the
+  // same way it uses `ai_chat_search`.
+  const apiCatalogStore = createApiCatalogSearchStore();
+  searchIndexRegistry.register(apiCatalogStore, {
+    capabilities: apiCatalogStore.capabilities,
     entityName: "api_catalog",
     isSystem: false,
     moduleId: "core",

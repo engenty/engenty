@@ -73,7 +73,8 @@ export function createCoreApiCatalogSearchIndexProvider(
     ApiCatalogEntry
   > = {
     id: CORE_API_CATALOG_PROVIDER_ID,
-    capabilities: { hybrid: true, lexical: true, semantic: true },
+    // Semantic/hybrid catalog ranking lives in apps/ai; core ranks lexically.
+    capabilities: { hybrid: false, lexical: true, semantic: false },
     version: "1",
 
     async deleteDocument(): Promise<void> {

@@ -38,6 +38,7 @@ export interface EngentyToolContract {
     type?: string;
   };
   pluginId?: string;
+  readOnly?: boolean;
   summary?: string;
   toolId?: string;
   transports?: string[];

@@ -203,10 +203,12 @@ describe("Engenty Mastra tools helpers", () => {
   });
 
   it("falls back to module tools when a catalog query looks like app content", async () => {
+    // BM25 matches on token overlap ("article" would hit kb_articles_list),
+    // so the fallback only fires when no query token appears in any contract.
     const result = await searchEngentyTools(
       {
         moduleId: "knowledge-base",
-        query: "pricing article that only exists in app data",
+        query: "quarterly pricing figures",
       },
       {
         apiCatalog: makeCatalog([
