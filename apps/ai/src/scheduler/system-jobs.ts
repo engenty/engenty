@@ -1,42 +1,36 @@
-// System jobs — internal scheduled maintenance that runs on the same tick as
-// routines but is NOT a routine: not board-tracked, not surfaced in
-// GET /ai/v1/routines, never creates a Task. Per the Actions/Tasks/Routines
-// spec, only Routines (= Trigger(schedule) → Task) are user-facing; headless
-// platform work (cleanup, the coordinator heartbeat) lives here.
+// System jobs — internal scheduled maintenance. Not triggers: not user-facing,
+// never creates a Task. Each job is backed by its own Mastra heartbeat
+// (metadata `{ engenty: { kind: 'system-job', jobId, tenantId } }`) and runs
+// inside the heartbeat `prepare` hook.
 import {
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
 import { createLogger } from "@engenty/telemetry";
-import type { RoutineExecutionContext } from "./executors.js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const logger = createLogger({ name: "system-jobs" });
 
 export interface SystemJob {
-  /** Default true when no `routine_state` row exists. */
-  enabled_by_default?: boolean;
-  execute: (ctx: RoutineExecutionContext) => Promise<string>;
-  /** Stable id; reuses `ai.routine_state` rows for enable/override/last-run. */
+  execute: (ctx: { db: SupabaseClient; tenantId: string }) => Promise<string>;
+  /** Stable id; the backing heartbeat is `hb_system_<id-slug>`. */
   id: string;
   name: string;
-  quiet_hours?: string | null;
   /** Cron, UTC. */
   schedule: string;
 }
 
 /** Clear expired open-interrupt entries from ai.thread metadata (hygiene). */
-async function cleanupExpiredInterrupts(
-  ctx: RoutineExecutionContext
-): Promise<string> {
-  if (!ctx.db) {
-    return "skipped: no database";
-  }
+async function cleanupExpiredInterrupts(ctx: {
+  db: SupabaseClient;
+  tenantId: string;
+}): Promise<string> {
   const { data, error } = await ctx.db
     .schema("ai")
     .from("thread")
     .select("id, metadata")
-    .eq("tenant_id", ctx.scope.tenantId)
+    .eq("tenant_id", ctx.tenantId)
     .not("metadata", "is", null);
   if (error) {
     throw new Error(`thread scan failed: ${error.message}`);
@@ -58,7 +52,7 @@ async function cleanupExpiredInterrupts(
       .from("thread")
       .update({ metadata: rest })
       .eq("id", row.id)
-      .eq("tenant_id", ctx.scope.tenantId);
+      .eq("tenant_id", ctx.tenantId);
     if (updateError) {
       logger.warn("failed to clear expired interrupt", {
         threadId: row.id,
@@ -74,15 +68,27 @@ async function cleanupExpiredInterrupts(
 export function listSystemJobs(): SystemJob[] {
   return [
     {
-      id: "engenty-ai.cleanup-interrupts",
+      id: "cleanup-interrupts",
       name: "Cleanup expired interrupts",
       schedule: "30 3 * * *",
-      quiet_hours: null,
       execute: cleanupExpiredInterrupts,
     },
-    // NOTE: the engenty-coordinator heartbeat job ran the coordinator agent via the
-    // legacy detached-run executor, removed in the 2026-06-20 legacy cutover. The
-    // coordinator (and other scheduled agent work) returns as a durable workflow /
-    // control-plane job in the Actions/Tasks rebuild (Phase 4).
   ];
+}
+
+/** Run one system job by id — called from the heartbeat `prepare` hook. */
+export async function runSystemJob(
+  jobId: string,
+  tenantId: string
+): Promise<string> {
+  const job = listSystemJobs().find((entry) => entry.id === jobId);
+  if (!job) {
+    throw new Error(`unknown system job: ${jobId}`);
+  }
+  const { createAiDatabaseAdapter } = await import("../infra/database.js");
+  const db = createAiDatabaseAdapter();
+  if (!db) {
+    return "skipped: no database";
+  }
+  return job.execute({ db, tenantId });
 }

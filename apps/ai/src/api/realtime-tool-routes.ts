@@ -34,6 +34,11 @@ import {
 } from "./http.js";
 
 const realtimeToolExecuteBodySchema = z.object({
+  // One-shot approval for THIS call only: the voice user approved the gated
+  // operation in the on-screen dialog, but the session has no thread yet to
+  // persist the grant against. Carries the same authority as the persisted
+  // grant path — an explicit user decision on the user's own bearer token.
+  approval_grant_once: z.string().trim().min(1).max(256).optional(),
   arguments: z.unknown().optional(),
   call_id: z.string().trim().min(1).max(256).optional(),
   name: z.string().trim().min(1).max(128),
@@ -88,19 +93,27 @@ export function registerRealtimeToolRoutes(
 
     // Read any chat-scoped approval grants for this thread so a previously
     // approved gated op (or one just approved on the resolve path) runs without
-    // re-prompting. Mirrors the text copilot's execute-boundary gate.
+    // re-prompting. Mirrors the text copilot's execute-boundary gate. A
+    // threadless voice session instead carries the dialog decision as a
+    // one-shot grant on the call itself.
     const approvalGrants = await loadThreadApprovalGrants({
       getSessionStore: opts.getSessionStore,
       tenantId: scope.scope.tenantId,
       threadId: body.data.thread_id,
     });
+    const effectiveGrants = body.data.approval_grant_once
+      ? [...approvalGrants, body.data.approval_grant_once]
+      : approvalGrants;
 
     try {
       const current = getEngentyToolsRunContext();
       const result = await engentyToolsRunAls.run(
         {
           ...current,
-          approvalGrants,
+          approvalGrants: effectiveGrants,
+          // Voice executes tools outside a Mastra run (nothing to suspend); it
+          // receives the decision artifact and drives its own approve flow.
+          approvalPolicy: "artifact",
           ...(opts.coreBaseUrl ? { coreBaseUrl: opts.coreBaseUrl } : {}),
           ...(opts.coreFetch ? { fetchImpl: opts.coreFetch } : {}),
           orchestratorThreadId: body.data.thread_id ?? null,

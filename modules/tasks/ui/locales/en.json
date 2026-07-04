@@ -52,7 +52,8 @@
     "dueTomorrow": "Due tomorrow",
     "dueThisWeek": "Due this week",
     "dueLater": "Due later",
-    "dueOverdue": "Overdue"
+    "dueOverdue": "Overdue",
+    "inbox": "Inbox"
   },
   "tabs": {
     "briefing": "Briefing",
@@ -386,7 +387,9 @@
       "neverExecuted": "Never executed",
       "failed": "Failed",
       "success": "Success",
-      "viewRunDetails": "View run details (Timeline)"
+      "viewRunDetails": "View run details (Timeline)",
+      "webhookUrl": "Webhook URL",
+      "webhookHint": "POST to this URL fires the routine; the request body is attached to the task."
     },
     "edit": {
       "title": "Edit Routine",
@@ -545,5 +548,16 @@
       "body": "When goals have agent-assigned tasks, their progress appears here.",
       "cta": "Go to goals"
     }
+  },
+  "inbox": {
+    "title": "Inbox",
+    "subtitle": "Completed agent work and failures that need your attention.",
+    "empty": "Nothing new — completed tasks and trigger failures land here.",
+    "loading": "Loading inbox…",
+    "loadFailed": "Failed to load the inbox.",
+    "markSeen": "Mark as seen",
+    "markAllSeen": "Mark all seen",
+    "dismiss": "Dismiss",
+    "viewAll": "View all"
   }
 }

@@ -49,6 +49,7 @@ function mapTopLevelEntryToNavItem(
     label: resolveContributionLabel(entry, t),
     icon: entry.icon ?? Box,
     children: children.length > 0 ? children : undefined,
+    ...(entry.useBadgeCount ? { useBadgeCount: entry.useBadgeCount } : {}),
   };
 }
 

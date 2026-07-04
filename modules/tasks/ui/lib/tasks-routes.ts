@@ -15,6 +15,7 @@ const BASE = "/mdl/tasks";
 export const tasksRoutePatterns = {
   root: BASE,
   briefing: `${BASE}/briefing`,
+  inbox: `${BASE}/inbox`,
   list: `${BASE}/list`,
   goals: `${BASE}/goals`,
   goalDetail: `${BASE}/goals/:id`,
@@ -33,6 +34,7 @@ export const tasksRoutePatterns = {
 export const tasksPaths = {
   root: BASE,
   briefing: `${BASE}/briefing`,
+  inbox: `${BASE}/inbox`,
   list: `${BASE}/list`,
   goals: `${BASE}/goals`,
   goalDetail: (id: string) => `${BASE}/goals/${encodeURIComponent(id)}`,

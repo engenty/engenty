@@ -51,6 +51,7 @@ import {
 } from "./api/gateway-model-routes.js";
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
+import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   type RealtimeClientSecretFetch,
   type RealtimeVoiceConfigResolver,
@@ -58,12 +59,13 @@ import {
 } from "./api/realtime-session-routes.js";
 import { registerRealtimeToolRoutes } from "./api/realtime-tool-routes.js";
 import { registerRegistryRoutes } from "./api/registry-routes.js";
-import { registerRoutineRoutes } from "./api/routine-routes.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
+import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
+import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
 import type {
@@ -498,11 +500,9 @@ export async function createApp(options: CreateAppOptions = {}) {
         scopeResolver,
       });
     }
-    registerRoutineRoutes(app, {
-      getDb: () => actionDb,
-      aiService,
+    registerTriggerRoutes(app, {
+      mastra,
       moduleLoader: moduleCapabilityLoader,
-      runStore: agentRunStore ?? null,
       scopeResolver,
       getRegistry: (tenantId) =>
         createDefaultAiRegistry({
@@ -511,6 +511,8 @@ export async function createApp(options: CreateAppOptions = {}) {
           tenantId,
         }),
     });
+    registerNotificationRoutes(app, { scopeResolver });
+    registerWorkingMemoryRoutes(app, { scopeResolver });
 
     // UI-4 Part A: dispatch status endpoint. getQueue is populated by the
     // task dispatcher below — until then it returns null and the endpoint
@@ -578,6 +580,20 @@ export async function createApp(options: CreateAppOptions = {}) {
       process.once("SIGINT", stop);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
+    }
+
+    // Trigger scheduler (Mastra heartbeats): starts workers + reconciles
+    // triggers ↔ heartbeats. Replaces the pg_cron routines tick.
+    const { startScheduler } = await import("./scheduler/start.js");
+    try {
+      await startScheduler({
+        mastra,
+        moduleLoader: moduleCapabilityLoader,
+      });
+    } catch (err) {
+      logger.warn("trigger scheduler failed to start", {
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

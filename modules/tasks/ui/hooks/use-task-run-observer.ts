@@ -4,10 +4,7 @@ import type {
   RunFinishedEvent,
 } from "@engenty/ag-ui-bridge";
 import { EventType, readAgUiOpenInterrupt } from "@engenty/ag-ui-bridge";
-import {
-  deriveInitialThreadTitleFromText,
-  sortAgUiMessagesForTranscript,
-} from "@engenty/ai-core/browser";
+import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import {
   agUiMessagesToCopilotMessages,
   appsAiThreadMessagesQueryKey,
@@ -364,12 +361,13 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
     try {
       let threadId = threadIdRef.current;
       if (!threadId) {
+        // Untitled — the backend's memory generateTitle synthesizes it from
+        // the first exchange (a client-set title would block generation).
         const session = await createAppsAiThread({
           agentId: TASK_RUN_OBSERVER_AGENT_TYPE_KEY,
           routeContext,
           serviceBaseUrl,
           signal: abortController.signal,
-          title: deriveInitialThreadTitleFromText(prompt),
         });
         threadId = session.id;
         threadIdRef.current = session.id;
@@ -608,12 +606,12 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
 
       try {
         if (!threadId) {
+          // Untitled — backend generateTitle synthesizes from the first turn.
           const session = await createAppsAiThread({
             agentId: TASK_RUN_OBSERVER_AGENT_TYPE_KEY,
             routeContext,
             serviceBaseUrl,
             signal: abortController.signal,
-            title: deriveInitialThreadTitleFromText(trimmed),
           });
           threadId = session.id;
         }

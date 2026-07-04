@@ -16,14 +16,6 @@ export interface DispatchStatus {
   } | null;
 }
 
-export interface RoutineStatus {
-  enabled: boolean;
-  id: string;
-  last_result: string | null;
-  last_run_at: string | null;
-  name: string;
-}
-
 export async function getDispatchStatus(
   signal?: AbortSignal
 ): Promise<DispatchStatus> {
@@ -36,38 +28,4 @@ export async function getDispatchStatus(
     baseUrl,
     signal,
   });
-}
-
-export async function getRoutinesList(
-  signal?: AbortSignal
-): Promise<{ routines: RoutineStatus[] }> {
-  const baseUrl = resolveAiServiceBaseUrl();
-  if (!baseUrl) {
-    throw new Error("Missing VITE_ENGENTY_AI_BASE_URL");
-  }
-  return requestApiJson<{ routines: RoutineStatus[] }>("/ai/v1/routines", {
-    authToken: (await getCurrentAccessToken()) ?? undefined,
-    baseUrl,
-    signal,
-  });
-}
-
-export async function runRoutineNow(
-  routineId: string,
-  signal?: AbortSignal
-): Promise<unknown> {
-  const baseUrl = resolveAiServiceBaseUrl();
-  if (!baseUrl) {
-    throw new Error("Missing VITE_ENGENTY_AI_BASE_URL");
-  }
-  return requestApiJson(
-    `/ai/v1/routines/${encodeURIComponent(routineId)}/run`,
-    {
-      authToken: (await getCurrentAccessToken()) ?? undefined,
-      baseUrl,
-      method: "POST",
-      body: JSON.stringify({}),
-      signal,
-    }
-  );
 }

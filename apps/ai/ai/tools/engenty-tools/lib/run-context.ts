@@ -1,10 +1,26 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ToolExecutionContext } from "@mastra/core/tools";
 
+/**
+ * How the execute tool handles an operation that requires approval:
+ * - `"suspend"` — suspend the Mastra run (native HITL): the chat shows the
+ *   Approve/Deny card, the run parks, and the resume continues it in place.
+ *   Interactive conversation runs use this.
+ * - `"deny"` — return a clear denial result without prompting. Delegated child
+ *   runs and headless task jobs are leaf runs with no interactive channel
+ *   (their contract: no HITL suspend) — prompting would deadlock them.
+ * - `"artifact"` — return the decision artifact as the tool result. Only the
+ *   realtime-voice path uses this: it executes tools outside a Mastra run (no
+ *   suspend available) and drives its own approve flow over the artifact.
+ * Default when absent: `"deny"` (fail-safe for unknown headless contexts).
+ */
+export type EngentyToolApprovalPolicy = "suspend" | "deny" | "artifact";
+
 export interface EngentyToolsRunContext {
   // Operation ids the user approved for this chat (Phase 3.2c). The execute tool
   // consults these to skip re-prompting an already-approved gated operation.
   approvalGrants?: readonly string[];
+  approvalPolicy?: EngentyToolApprovalPolicy;
   coreBaseUrl?: string;
   fetchImpl?: typeof fetch;
   orchestratorThreadId?: string | null;

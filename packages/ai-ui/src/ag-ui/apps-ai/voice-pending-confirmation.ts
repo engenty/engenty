@@ -69,8 +69,9 @@ export interface VoiceBackendApprovalPendingConfirmation
   kind: "backend_approval";
   /** Backend operation id the user is approving (e.g. `contacts_contact_create`). */
   operationId: string;
-  /** Thread the grant is persisted against. */
-  threadId: string;
+  /** Thread the grant is persisted against. Null in a threadless voice session
+   * (fresh chat) — the decision then rides the re-invoke as a one-shot grant. */
+  threadId: string | null;
 }
 
 export interface VoiceFieldSuggestionsPendingConfirmation
@@ -159,9 +160,11 @@ export interface ResolvePendingVoiceConfirmationParams {
   approved: boolean;
   /** Field suggestions only: the explicit field selection (click path). */
   approvedFields?: Array<{ field: string; value: string | null }>;
-  /** Re-invoke the gated backend op after the grant is persisted. */
+  /** Re-invoke the gated backend op after the grant is persisted. In a
+   * threadless session the approval travels as `approvalGrantOnce` instead. */
   executeBackendTool?: (
-    request: OpenAiRealtimeVoiceToolCallRequest
+    request: OpenAiRealtimeVoiceToolCallRequest,
+    opts?: { approvalGrantOnce?: string }
   ) => Promise<unknown>;
   executeFrontendTool: (
     request: FrontendToolCallRequest
@@ -210,16 +213,23 @@ async function resolveBackendApproval(
       ? "approve_always"
       : "approve_once"
     : "deny";
-  await params.approveBackendTool?.({
-    decision,
-    operationId: pending.operationId,
-    threadId: pending.threadId,
-  });
+  // Persisting the grant needs a thread; a threadless session carries the
+  // approval on the re-invoke itself instead.
+  if (pending.threadId) {
+    await params.approveBackendTool?.({
+      decision,
+      operationId: pending.operationId,
+      threadId: pending.threadId,
+    });
+  }
   if (!params.approved) {
     return { status: "rejected", tool: pending.operationId };
   }
-  // Grant persisted — re-invoke the op; the execute-boundary gate now passes.
-  const result = await params.executeBackendTool?.(pending.request);
+  // Grant persisted (or carried one-shot) — re-invoke; the gate now passes.
+  const result = await params.executeBackendTool?.(
+    pending.request,
+    pending.threadId ? undefined : { approvalGrantOnce: pending.operationId }
+  );
   return { result, status: "approved", tool: pending.operationId };
 }
 

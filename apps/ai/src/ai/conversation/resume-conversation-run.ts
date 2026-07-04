@@ -1,11 +1,21 @@
-// Resume a harness_session run that suspended on a frontend tool (Phase 3.2).
-// Reattaches to the PARKED session (kept alive in-process by startConversationRun)
-// and calls `session.respondToToolSuspension({ resumeData, toolCallId })` — which
-// drives `agent.resumeStream` internally and streams the continuation through the
-// session's subscribe listener. If the session is no longer parked (server restart
-// since the suspend), surfaces a clear RUN_ERROR — the suspended state is in-memory.
+// Resume a run that suspended on a tool (Phase 3.2) — a browser-executed
+// frontend tool or the execute tool's approval gate. Reattaches to the PARKED
+// session (kept alive in-process by startConversationRun) and calls
+// `session.respondToToolSuspension({ resumeData, toolCallId })` — which drives
+// `agent.resumeStream` internally and streams the continuation through the
+// session's subscribe listener. If the session is no longer parked (server
+// restart since the suspend), surfaces a clear RUN_ERROR — the suspended state
+// is in-memory.
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 import type { FrontendToolResumeData } from "../../../ai/frontend-tools/native-frontend-tool.js";
+import {
+  isToolApprovalSuspendPayload,
+  type ToolApprovalResumeData,
+} from "../../../ai/tools/engenty-tools/index.js";
+import {
+  engentyToolsRunAls,
+  getEngentyToolsRunContext,
+} from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
 import { mergeAgUiOpenInterruptMetadata } from "../sessions/interrupts.js";
 import {
@@ -13,14 +23,19 @@ import {
   markRunLive,
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
+import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
 import type { AiSessionScope } from "../sessions/types.js";
-import { emitFrontendToolInterrupt } from "./emit-interrupt.js";
+import {
+  emitFrontendToolInterrupt,
+  emitToolApprovalInterrupt,
+} from "./emit-interrupt.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
 import { parkSessionRun, takeParkedSessionRun } from "./session-park.js";
 
-/** A second frontend tool that suspended within the resumed continuation. */
+/** A second tool that suspended within the resumed continuation. */
 interface SuspendedAgain {
   args: unknown;
+  suspendPayload: unknown;
   toolCallId: string;
   toolName: string;
 }
@@ -28,10 +43,10 @@ interface SuspendedAgain {
 export interface ResumeConversationRunInput {
   // The new run id the client attached to for this resume POST.
   newRunId: string;
-  // The just-resolved interrupt's toolCallId (the suspended frontend tool).
+  // The just-resolved interrupt's toolCallId (the suspended tool).
   resolvedToolCallId: string;
-  // The browser's frontend-tool result.
-  resumeData: FrontendToolResumeData;
+  // The browser's frontend-tool result, or the user's approval decision.
+  resumeData: FrontendToolResumeData | ToolApprovalResumeData;
   scope: AiSessionScope;
   sessionMetadata?: Record<string, unknown>;
   store: AgentSessionStore;
@@ -60,7 +75,7 @@ export async function resumeConversationRun(
   try {
     if (!parked) {
       throw new Error(
-        `Session run ${input.suspendedRunId || "(missing)"} is no longer in memory; cannot resume the frontend-tool interrupt (the server may have restarted).`
+        `Session run ${input.suspendedRunId || "(missing)"} is no longer in memory; cannot resume the suspended tool (the server may have restarted).`
       );
     }
     const converter = new SessionAgUiConverter();
@@ -88,6 +103,8 @@ export async function resumeConversationRun(
       if (typed.type === "tool_suspended") {
         suspendedAgain = {
           args: typed.args,
+          suspendPayload: (typed as { suspendPayload?: unknown })
+            .suspendPayload,
           toolCallId: typed.toolCallId ?? "",
           toolName: typed.toolName ?? "",
         };
@@ -98,11 +115,30 @@ export async function resumeConversationRun(
       }
     });
 
-    const resumeDone = parked.session
-      .respondToToolSuspension({
-        resumeData: input.resumeData,
-        toolCallId: input.resolvedToolCallId,
-      })
+    // Drive the continuation inside the engenty-tools run context, mirroring the
+    // start executor: without it, a SECOND gated tool call in the continuation
+    // (e.g. the model retrying after an error) would see no approvalPolicy and be
+    // denied instead of suspending again. Grants persisted for this chat (incl. a
+    // just-granted "approve once"/"always") are threaded through so re-approved
+    // operations skip the gate.
+    const toolsRunContext = {
+      ...getEngentyToolsRunContext(),
+      approvalGrants: readToolApprovalGrants(input.sessionMetadata ?? {}),
+      approvalPolicy: "suspend" as const,
+      runId: input.newRunId,
+      tenantId: input.scope.tenantId,
+      userId: input.scope.userId,
+      ...(input.scope.userAccessToken
+        ? { userAccessToken: input.scope.userAccessToken }
+        : {}),
+    };
+    const resumeDone = engentyToolsRunAls
+      .run(toolsRunContext, () =>
+        parked.session.respondToToolSuspension({
+          resumeData: input.resumeData,
+          toolCallId: input.resolvedToolCallId,
+        })
+      )
       .catch((error: unknown) => {
         if (!runError) {
           runError =
@@ -112,26 +148,43 @@ export async function resumeConversationRun(
     await Promise.race([resumeDone, suspendAgainSignal]);
     unsub();
 
-    // A SECOND frontend tool suspended in the continuation — re-emit the interrupt
-    // and re-park the SAME session for the next resume.
+    // A SECOND tool suspended in the continuation (another approval gate or a
+    // frontend tool) — re-emit the interrupt and re-park the SAME session for
+    // the next resume.
     const again = suspendedAgain as SuspendedAgain | null;
     if (again) {
       const reRunId = parked.session.getCurrentRunId() ?? "";
-      const handled = await emitFrontendToolInterrupt({
-        busRunId: input.newRunId,
-        resumeRunId: reRunId,
-        emit,
-        mergedDefinitions: parked.mergedDefinitions,
-        payload: {
-          args: again.args,
+      let handled = false;
+      if (isToolApprovalSuspendPayload(again.suspendPayload)) {
+        await emitToolApprovalInterrupt({
+          busRunId: input.newRunId,
+          emit,
+          payload: again.suspendPayload,
+          resumeRunId: reRunId,
+          scope: input.scope,
+          sessionMetadata: input.sessionMetadata ?? {},
+          store: input.store,
+          threadId: input.threadId,
           toolCallId: again.toolCallId,
-          toolName: again.toolName,
-        },
-        scope: input.scope,
-        sessionMetadata: input.sessionMetadata ?? {},
-        store: input.store,
-        threadId: input.threadId,
-      });
+        });
+        handled = true;
+      } else {
+        handled = await emitFrontendToolInterrupt({
+          busRunId: input.newRunId,
+          resumeRunId: reRunId,
+          emit,
+          mergedDefinitions: parked.mergedDefinitions,
+          payload: {
+            args: again.args,
+            toolCallId: again.toolCallId,
+            toolName: again.toolName,
+          },
+          scope: input.scope,
+          sessionMetadata: input.sessionMetadata ?? {},
+          store: input.store,
+          threadId: input.threadId,
+        });
+      }
       if (handled) {
         parkSessionRun(reRunId, {
           controller: parked.controller,

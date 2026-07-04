@@ -274,3 +274,54 @@ export interface TasksBriefingResponse {
   summary: TasksBriefingSummary;
   waiting_items: TasksBriefingSectionItem[];
 }
+
+// --- Triggers + task templates ---------------------------------------------
+
+export type TriggerKind = "schedule" | "event" | "manual";
+export type TriggerSource = "module" | "custom";
+/** Event-trigger ingestion edges: the in-process plugin event bus, or the
+ * public secret-authenticated webhook route. */
+export type TriggerEventProvider = "module-events" | "webhook";
+
+export interface TaskTemplate {
+  agent_type_key: string;
+  created_at: string;
+  description: string | null;
+  id: string;
+  name: string;
+  priority: TaskPriority;
+  scope_id: string;
+  tenant_id: string;
+  title: string;
+  updated_at: string;
+}
+
+export interface Trigger {
+  created_at: string;
+  cron: string | null;
+  description: string | null;
+  enabled: boolean;
+  event_filter: Record<string, unknown> | null;
+  heartbeat_id: string | null;
+  id: string;
+  kind: TriggerKind;
+  last_fired_at: string | null;
+  last_result: string | null;
+  module_id: string | null;
+  module_key: string | null;
+  name: string;
+  provider_id: string | null;
+  quiet_hours: string | null;
+  resource: string | null;
+  scope_id: string;
+  source: TriggerSource;
+  task_template_id: string;
+  tenant_id: string;
+  timezone: string | null;
+  updated_at: string;
+  webhook_secret: string | null;
+}
+
+export interface TriggerDetail extends Trigger {
+  task_template: TaskTemplate | null;
+}

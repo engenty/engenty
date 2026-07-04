@@ -1,15 +1,19 @@
 // Field body for custom routines (no dialog chrome) — consumed by
 // RoutineCreateDialog and the tasks-module routine edit page.
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, Input, Label, Textarea } from "@engenty/ui-core";
-import { Plus, Trash } from "lucide-react";
+import { Input, Label, Textarea } from "@engenty/ui-core";
 import { RoutineAgentSelect } from "./routine-agent-select.js";
-import {
-  MAX_ROUTINE_SCHEDULES,
-  type RoutineFormValue,
+import type {
+  RoutineFormValue,
+  RoutineTriggerType,
 } from "./routine-form-value.js";
-import type { PresetSchedule } from "./schedule-cron.js";
 import { SchedulePresetPicker } from "./schedule-preset-picker.js";
+
+const TRIGGER_TYPES: RoutineTriggerType[] = [
+  "schedule",
+  "module-events",
+  "webhook",
+];
 
 export interface RoutineFormProps {
   idPrefix?: string;
@@ -31,11 +35,6 @@ export function RoutineForm({
 
   const set = (patch: Partial<RoutineFormValue>) =>
     onChange({ ...value, ...patch });
-
-  const setSchedule = (index: number, next: PresetSchedule) =>
-    set({
-      schedules: value.schedules.map((s, idx) => (idx === index ? next : s)),
-    });
 
   return (
     <div className="space-y-4">
@@ -86,65 +85,73 @@ export function RoutineForm({
         />
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>{t("routines.form.scheduleTriggers")}</Label>
-          {value.schedules.length < MAX_ROUTINE_SCHEDULES && (
-            <Button
-              className="h-8 gap-1 font-medium text-xs"
-              onClick={() =>
-                set({
-                  schedules: [
-                    ...value.schedules,
-                    { type: "daily", hour: 9, minute: 0 },
-                  ],
-                })
-              }
-              type="button"
-              variant="outline"
-            >
-              <Plus className="h-3 w-3" />
-              {t("routines.form.addTrigger")}
-            </Button>
-          )}
-        </div>
-
-        <div className="space-y-3.5">
-          {value.schedules.map((preset, index) => (
-            <div
-              className="flex items-end gap-2 border-b pb-3.5 last:border-0 last:pb-0"
-              key={index}
-            >
-              <div className="min-w-0 flex-1">
-                <SchedulePresetPicker
-                  locale={locale}
-                  onChange={(next) => setSchedule(index, next)}
-                  value={preset}
-                />
-              </div>
-              {value.schedules.length > 1 && (
-                <Button
-                  className="h-10 w-10 shrink-0 p-0 text-destructive hover:bg-destructive/10"
-                  onClick={() =>
-                    set({
-                      schedules: value.schedules.filter(
-                        (_, idx) => idx !== index
-                      ),
-                    })
-                  }
-                  type="button"
-                  variant="outline"
-                >
-                  <Trash className="h-4 w-4" />
-                  <span className="sr-only">
-                    {t("routines.form.removeTrigger")}
-                  </span>
-                </Button>
-              )}
-            </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-trigger-type`}>
+          {t("routines.form.triggerType")}
+        </Label>
+        <select
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          id={`${idPrefix}-trigger-type`}
+          onChange={(e) =>
+            set({ triggerType: e.target.value as RoutineTriggerType })
+          }
+          value={value.triggerType}
+        >
+          {TRIGGER_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {t(`routines.form.triggerTypes.${type}`)}
+            </option>
           ))}
-        </div>
+        </select>
       </div>
+
+      {value.triggerType === "schedule" && (
+        <div className="space-y-3">
+          <Label>{t("routines.form.scheduleTriggers")}</Label>
+          <SchedulePresetPicker
+            locale={locale}
+            onChange={(next) => set({ schedule: next })}
+            value={value.schedule}
+          />
+        </div>
+      )}
+
+      {value.triggerType === "module-events" && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-resource`}>
+            {t("routines.form.eventResource")}
+          </Label>
+          <Input
+            autoComplete="off"
+            id={`${idPrefix}-resource`}
+            onChange={(e) => set({ resource: e.target.value })}
+            placeholder={t("routines.form.eventResourcePlaceholder")}
+            required
+            value={value.resource}
+          />
+        </div>
+      )}
+
+      {value.triggerType !== "schedule" && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-filter`}>
+            {t("routines.form.eventFilter")}
+          </Label>
+          <Textarea
+            className="min-h-[64px] font-mono text-xs"
+            id={`${idPrefix}-filter`}
+            onChange={(e) => set({ eventFilter: e.target.value })}
+            placeholder={t("routines.form.eventFilterPlaceholder")}
+            value={value.eventFilter}
+          />
+        </div>
+      )}
+
+      {value.triggerType === "webhook" && (
+        <p className="text-muted-foreground text-xs">
+          {t("routines.form.webhookHint")}
+        </p>
+      )}
     </div>
   );
 }

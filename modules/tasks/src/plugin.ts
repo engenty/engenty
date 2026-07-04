@@ -6,6 +6,12 @@ import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tasksAiRegistration } from "../ai/registrar.js";
 import { registerTasksApi } from "./api/index.js";
+import { createTriggerEventSubscriber } from "./api/trigger-event-subscriber.js";
+import {
+  createTriggersRepoFactory,
+  registerTriggerGatewayMethods,
+} from "./api/trigger-gateway-methods.js";
+import { registerTriggerWebhookRoute } from "./api/trigger-webhook-route.js";
 import { createTasksRepoSupabase } from "./dal/supabase.js";
 
 const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
@@ -43,6 +49,38 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     );
   }
   registerTasksApi(server, repoOrFactory, { queue });
+
+  // Event-trigger ingestion edges: the in-process module event bus and the
+  // public webhook route. Bus subscriptions are exact-name, replayed from the
+  // database — DEFERRED off the boot path (awaiting module capabilities during
+  // createApp deadlocks the loader).
+  const eventSubscriber = createTriggerEventSubscriber({
+    events: engenty.events,
+    queue,
+    supabase: supabase as SupabaseClient,
+  });
+  setTimeout(() => {
+    eventSubscriber.replayFromDatabase().catch((error: unknown) => {
+      createLogger({ name: "tasks-plugin" }).warn(
+        "event trigger subscription replay failed",
+        { message: error instanceof Error ? error.message : String(error) }
+      );
+    });
+  }, 3000);
+  registerTriggerWebhookRoute(server, {
+    queue,
+    supabase: supabase as SupabaseClient,
+  });
+
+  registerTriggerGatewayMethods(
+    server,
+    createTriggersRepoFactory(supabase as SupabaseClient),
+    {
+      onEventResourceAdded: eventSubscriber.ensureSubscribed,
+      queue,
+      supabase: supabase as SupabaseClient,
+    }
+  );
 };
 
 export default registerTasksPlugin;

@@ -14,6 +14,7 @@ import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
 import type { Workspace } from "@mastra/core/workspace";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
+import { isToolApprovalSuspendPayload } from "../../../ai/tools/engenty-tools/index.js";
 import {
   engentyToolsRunAls,
   getEngentyToolsRunContext,
@@ -50,15 +51,17 @@ import { createDelegationTools } from "./delegate-tool.js";
 import {
   emitArtifactInterrupt,
   emitFrontendToolInterrupt,
+  emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
 import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
 import { parkSessionRun } from "./session-park.js";
 
-/** A frontend tool that suspended the run, captured for the post-run interrupt. */
-interface SuspendedFrontendTool {
+/** A tool that suspended the run, captured for the post-run interrupt. */
+interface SuspendedTool {
   args: unknown;
   runId: string;
+  suspendPayload: unknown;
   toolCallId: string;
   toolName: string;
 }
@@ -233,10 +236,11 @@ export async function startConversationRun(
     const session = created.session;
 
     let runError: string | null = null;
-    // A frontend tool that suspends (browser-executed HITL): the session emits
-    // `tool_suspended` + parks the run in session.suspensions. Capture it (with the
-    // current run id, for reattach) and handle the interrupt after sendMessage idles.
-    let suspended: SuspendedFrontendTool | null = null;
+    // A suspending tool (browser-executed frontend tool, or the execute tool's
+    // approval gate): the session emits `tool_suspended` + parks the run in
+    // session.suspensions. Capture it (with the current run id, for reattach)
+    // and handle the interrupt after sendMessage idles.
+    let suspended: SuspendedTool | null = null;
     // A decision/feedback artifact arrives as a tool RESULT (not a suspend): the
     // requestDecision/requestFeedback tool returns the artifact and the agent would
     // talk past it. Capture it, ABORT the run (so it stops), and emit the interactive
@@ -258,6 +262,7 @@ export async function startConversationRun(
         args?: unknown;
         error?: { message?: string };
         result?: unknown;
+        suspendPayload?: unknown;
         toolCallId?: string;
         toolName?: string;
         type?: string;
@@ -269,6 +274,7 @@ export async function startConversationRun(
         suspended = {
           args: typed.args,
           runId: session.getCurrentRunId() ?? "",
+          suspendPayload: typed.suspendPayload,
           toolCallId: typed.toolCallId ?? "",
           toolName: typed.toolName ?? "",
         };
@@ -315,6 +321,9 @@ export async function startConversationRun(
     const toolsRunContext = {
       ...getEngentyToolsRunContext(),
       approvalGrants: input.approvalGrants ?? [],
+      // Interactive chat: a gated operation suspends the run for the user's
+      // Approve/Deny (native HITL) instead of being denied outright.
+      approvalPolicy: "suspend" as const,
       runId: input.runId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
@@ -335,11 +344,33 @@ export async function startConversationRun(
     await Promise.race([sendDone, interruptSignal]);
     unsub();
 
-    // Frontend-tool HITL: a suspend surfaced. Emit the same AG-UI interrupt the
-    // control plane does (persist the open interrupt keyed by the suspended run id
-    // + RUN_FINISHED outcome) and PARK the session so the resume POST reattaches.
-    const sus = suspended as SuspendedFrontendTool | null;
+    // A suspend surfaced — tool-approval (native HITL from the execute tool's
+    // gate) or frontend tool. Either way: persist the open interrupt keyed by
+    // the suspended run id, emit the RUN_FINISHED interrupt outcome, and PARK
+    // the session so the resume POST reattaches and continues the SAME run.
+    const sus = suspended as SuspendedTool | null;
     if (sus && !abort.abortSignal.aborted) {
+      if (isToolApprovalSuspendPayload(sus.suspendPayload)) {
+        await emitToolApprovalInterrupt({
+          busRunId: input.runId,
+          emit,
+          payload: sus.suspendPayload,
+          resumeRunId: sus.runId,
+          scope: input.scope,
+          sessionMetadata: input.sessionMetadata ?? {},
+          store: input.store,
+          threadId: input.threadId,
+          toolCallId: sus.toolCallId,
+        });
+        parkSessionRun(sus.runId, {
+          controller,
+          mergedDefinitions,
+          session,
+          threadId: input.threadId,
+        });
+        parkedForResume = true;
+        return { runId: input.runId };
+      }
       const handled = await emitFrontendToolInterrupt({
         busRunId: input.runId,
         resumeRunId: sus.runId,

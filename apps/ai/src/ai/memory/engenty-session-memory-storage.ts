@@ -372,6 +372,33 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     );
   }
 
+  // --- Resources (working memory) -------------------------------------------
+  //
+  // Resource records back RESOURCE-scoped working memory (the per-user profile
+  // the agent maintains via `updateWorkingMemory`). We keep thread/message
+  // ownership but delegate resource persistence to the pg memory domain
+  // (`ai.mastra_resources`) — runtime state, not business data. The Mastra
+  // resourceId is the engenty user id; rows are keyed `${tenantId}:${userId}`
+  // so a user's profile stays tenant-scoped (user ids are global).
+
+  #resourceKey(resourceId: string): string {
+    return `${this.#scope.tenantId}:${resourceId}`;
+  }
+
+  async #resourceStore(): Promise<MemoryStorage | null> {
+    const { mastra } = await import("../../../ai/index.js");
+    const storage = mastra.getStorage();
+    if (!storage) {
+      return null;
+    }
+    const store = (await Promise.resolve(
+      (
+        storage as unknown as { getStore: (domain: string) => unknown }
+      ).getStore("memory")
+    )) as MemoryStorage | undefined;
+    return store ?? null;
+  }
+
   override async getResourceById({
     resourceId,
   }: {
@@ -380,7 +407,19 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     if (resourceId !== this.#scope.userId) {
       return null;
     }
-    return makeResource(resourceId);
+    const store = await this.#resourceStore();
+    if (!store) {
+      return makeResource(resourceId);
+    }
+    const record = await store.getResourceById({
+      resourceId: this.#resourceKey(resourceId),
+    });
+    if (!record) {
+      return null;
+    }
+    // Surface the record under the CALLER's resourceId — the tenant prefix is
+    // a storage detail.
+    return { ...record, id: resourceId };
   }
 
   override async saveResource({
@@ -388,6 +427,16 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   }: {
     resource: StorageResourceType;
   }): Promise<StorageResourceType> {
+    if (resource.id !== this.#scope.userId) {
+      return resource;
+    }
+    const store = await this.#resourceStore();
+    if (!store) {
+      return resource;
+    }
+    await store.saveResource({
+      resource: { ...resource, id: this.#resourceKey(resource.id) },
+    });
     return resource;
   }
 
@@ -400,7 +449,19 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     resourceId: string;
     workingMemory?: string;
   }): Promise<StorageResourceType> {
-    return makeResource(resourceId, metadata, workingMemory);
+    if (resourceId !== this.#scope.userId) {
+      return makeResource(resourceId, metadata, workingMemory);
+    }
+    const store = await this.#resourceStore();
+    if (!store) {
+      return makeResource(resourceId, metadata, workingMemory);
+    }
+    const record = await store.updateResource({
+      resourceId: this.#resourceKey(resourceId),
+      ...(metadata ? { metadata } : {}),
+      ...(workingMemory === undefined ? {} : { workingMemory }),
+    });
+    return { ...record, id: resourceId };
   }
 }
 

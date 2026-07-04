@@ -1,3 +1,4 @@
+import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { ListTodo } from "lucide-react";
 import {
@@ -15,6 +16,7 @@ import { BriefingPage } from "./pages/briefing-page.js";
 import { GoalDetailPage } from "./pages/goal-detail-page.js";
 import { GoalEditPage } from "./pages/goal-edit-page.js";
 import { GoalsListPage } from "./pages/goals-list-page.js";
+import { InboxPage } from "./pages/inbox-page.js";
 import { OperationsPage } from "./pages/operations-page.js";
 import { RoutineDetailPage } from "./pages/routine-detail-page.js";
 import { RoutineEditPage } from "./pages/routine-edit-page.js";
@@ -36,6 +38,7 @@ const UUID_PATTERN =
 
 const RESERVED_SEGMENTS = new Set([
   "briefing",
+  "inbox",
   "list",
   "goals",
   "settings",
@@ -80,6 +83,13 @@ export default function plugin(engenty: EngentyPluginContext) {
     id: "tasks_module_briefing",
     path: tasksRoutePatterns.briefing,
     component: BriefingPage,
+    order: 140,
+  });
+
+  engenty.UI.registerRoute({
+    id: "tasks_module_inbox",
+    path: tasksRoutePatterns.inbox,
+    component: InboxPage,
     order: 140,
   });
 
@@ -217,6 +227,9 @@ export default function plugin(engenty: EngentyPluginContext) {
     icon: ListTodo,
     to: tasksPaths.root,
     order: 145,
+    // Unseen inbox count on the app-bar icon (the shell calls this hook from
+    // an always-mounted per-item component).
+    useBadgeCount: () => useInboxUnseenCountQuery().data?.count,
   });
 
   engenty.UI.registerCopilotContribution(tasksBriefingCopilotContribution);

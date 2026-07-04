@@ -383,7 +383,84 @@ describe("createEngentyToolExecuteTool", () => {
     expect(body.input).not.toHaveProperty("agent_run_id");
   });
 
-  it("returns an Approve/Deny artifact (and does NOT invoke) for a requiresApproval op", async () => {
+  function gatedDescribeResponse() {
+    return Response.json({
+      ok: true,
+      data: {
+        auth: {
+          requiredCapabilities: [],
+          requiredPermissions: [],
+          requiredScopes: [],
+          requiresApproval: true,
+          riskLevel: "critical",
+        },
+        inputSchema: { type: "zod" },
+        moduleId: "contacts",
+        pluginId: "contacts",
+        summary: "Delete contact",
+        toolId: "contacts_contact_delete",
+      },
+    });
+  }
+
+  it("Code Mode read-only: rejects a non-read-only op, executes a read-only one", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const { executeEngentyTool } = await import(
+      "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js"
+    );
+    // Gated op (requiresApproval, critical) — denied before any gate/invoke.
+    const gatedFetch = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
+    vi.stubGlobal("fetch", gatedFetch);
+    const denied = (await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_contact_delete", input: { id: "c1" } },
+          undefined,
+          { enforceReadOnly: true }
+        )
+    )) as { error?: string; ok?: boolean };
+    expect(denied.ok).toBe(false);
+    expect(denied.error).toBe("code_mode_read_only");
+    expect(gatedFetch).toHaveBeenCalledTimes(1);
+
+    // Read-only op (low risk, no approval) — executes normally.
+    const readFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "low",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "contacts",
+            pluginId: "contacts",
+            summary: "Search contacts",
+            toolId: "contacts_contact_search",
+          },
+        })
+      )
+      .mockResolvedValueOnce(Response.json({ ok: true, data: { items: [] } }));
+    vi.stubGlobal("fetch", readFetch);
+    const result = await engentyToolsRunAls.run(
+      { userAccessToken: "user-token" },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_contact_search", input: { query: "x" } },
+          undefined,
+          { enforceReadOnly: true }
+        )
+    );
+    expect(result).toEqual({ ok: true, data: { items: [] } });
+  });
+
+  it("rejects an EMPTY input for an operation with required fields (never invokes, never gates)", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi.fn().mockResolvedValueOnce(
       Response.json({
@@ -394,21 +471,159 @@ describe("createEngentyToolExecuteTool", () => {
             requiredPermissions: [],
             requiredScopes: [],
             requiresApproval: true,
-            riskLevel: "critical",
+            riskLevel: "medium",
           },
-          inputSchema: { type: "zod" },
+          inputSchema: {
+            jsonSchema: {
+              type: "object",
+              properties: { type: { type: "string" }, email: {} },
+              required: ["type"],
+            },
+            type: "zod",
+          },
           moduleId: "contacts",
           pluginId: "contacts",
-          summary: "Delete contact",
-          toolId: "contacts_contact_delete",
+          summary: "Create contact",
+          toolId: "contacts_create",
         },
       })
     );
     vi.stubGlobal("fetch", fetchMock);
     const tool = createEngentyToolExecuteTool();
+    const suspend = vi.fn(async () => {});
+
+    // Weaker models drop function-call arguments entirely; the guard must fire
+    // BEFORE the approval gate (no Approve/Deny card for a doomed call) and
+    // instruct the model to retry once, then surface the model limitation.
+    const result = (await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeTool(tool, { id: "contacts_create", input: {} }, {
+          agent: { suspend },
+        } as never)
+    )) as { error?: string; message?: string; ok?: boolean };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("empty_tool_input");
+    expect(result.message).toContain("type");
+    expect(result.message).toContain("different model");
+    expect(suspend).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("SUSPENDS the run (native HITL) for a requiresApproval op in a conversation run", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+    const suspend = vi.fn(async () => {});
+
+    await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeTool(
+          tool,
+          { id: "contacts_contact_delete", input: { id: "contact-1" } },
+          { agent: { suspend } } as never
+        )
+    );
+
+    expect(suspend.mock.calls[0]?.[0]).toEqual({
+      kind: "tool_approval",
+      operation_id: "contacts_contact_delete",
+      requires_approval: true,
+      risk_level: "critical",
+      title: "Delete contact",
+    });
+    // describeTool was called, but invoke was NOT (the gate stopped it).
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("invokes after a resume that approved the suspended op", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(gatedDescribeResponse())
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { deleted: true } })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeTool(
+          tool,
+          { id: "contacts_contact_delete", input: { id: "contact-1" } },
+          {
+            agent: {
+              resumeData: { approved: true, choice_id: "approve_once" },
+              suspend: vi.fn(),
+            },
+          } as never
+        )
+    );
+
+    expect(result).toEqual({ ok: true, data: { deleted: true } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a denial result after a resume that denied the suspended op", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
 
     const result = (await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      () =>
+        executeTool(
+          tool,
+          { id: "contacts_contact_delete", input: { id: "contact-1" } },
+          {
+            agent: {
+              resumeData: { approved: false, choice_id: "deny" },
+              suspend: vi.fn(),
+            },
+          } as never
+        )
+    )) as { error?: string; ok?: boolean };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("approval_denied");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("DENIES a requiresApproval op in a leaf run (no interactive channel)", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = (await engentyToolsRunAls.run(
+      // No approvalPolicy — headless contexts default to deny.
       { userAccessToken: "user-token" },
+      () =>
+        executeTool(tool, {
+          id: "contacts_contact_delete",
+          input: { id: "contact-1" },
+        })
+    )) as { error?: string; ok?: boolean };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("approval_required");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the Approve/Deny artifact for the voice path (artifact policy)", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const fetchMock = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const tool = createEngentyToolExecuteTool();
+
+    const result = (await engentyToolsRunAls.run(
+      { approvalPolicy: "artifact", userAccessToken: "user-token" },
       () =>
         executeTool(tool, {
           id: "contacts_contact_delete",
@@ -418,7 +633,6 @@ describe("createEngentyToolExecuteTool", () => {
 
     expect(result.artifact_type).toBe("decision");
     expect(result.artifact_id).toContain("tool-approval|");
-    // describeTool was called, but invoke was NOT (the gate stopped it).
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -467,7 +681,7 @@ describe("createEngentyToolExecuteTool", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("surfaces core's 202 approval_required as an Approve/Deny artifact (backstop)", async () => {
+  it("surfaces core's 202 approval_required via the approval policy (backstop)", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi
       .fn()
@@ -503,7 +717,7 @@ describe("createEngentyToolExecuteTool", () => {
     const tool = createEngentyToolExecuteTool();
 
     const result = (await engentyToolsRunAls.run(
-      { userAccessToken: "user-token" },
+      { approvalPolicy: "artifact", userAccessToken: "user-token" },
       () => executeTool(tool, { id: "billing_charge", input: {} })
     )) as { artifact_id?: string; artifact_type?: string };
 

@@ -1,6 +1,23 @@
 # Agent approvals — converging four HITL mechanisms onto native suspend/resume
 
-Status: WIP · 2026-07-02 · basis: `@mastra/core` 1.48.0 (installed, behavior verified in compiled dist)
+Status: IMPLEMENTED (branch `feat/native-approvals`) · 2026-07-03 · basis: `@mastra/core` 1.48.0 (installed, behavior verified in compiled dist)
+
+> **Implementation note — the design below was adjusted in one place.** The
+> session-level `requireApproval` predicate (yolo off) turned out to be the wrong
+> transport: with yolo OFF the compiled controller gates *all* tools (including
+> controller builtins we don't own), and with yolo ON it auto-approves armed gates.
+> What shipped instead: `engenty_tool_execute` declares `suspendSchema`/`resumeSchema`
+> and calls `ctx.agent.suspend()` itself when the contract requires approval — the
+> exact mechanism frontend tools already use — while `yolo: true` stays. The policy
+> lives on the engenty-tools ALS run context (`approvalPolicy: "suspend" | "deny" |
+> "artifact"`, default **deny**, fail-safe): interactive chat suspends, delegated
+> leaf runs deny, voice keeps its artifact + `/v1/realtime/tools/approve` flow.
+> Everything else below (contract-driven gate, per-operation grants in session
+> metadata, 202 backstop, one suspend/resume path shared with frontend tools and
+> parked sessions) landed as designed. **Restart recovery via
+> `listSuspendedRuns` is DEFERRED**: suspended runs are parked in-memory with the
+> same 15-min TTL as frontend-tool suspends; workflow snapshots exist in pg, so
+> re-discovery on thread open remains a straight future enhancement.
 
 ## What we have today: four parallel mechanisms
 

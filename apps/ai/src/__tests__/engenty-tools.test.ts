@@ -370,10 +370,11 @@ describe("Engenty Mastra tools helpers", () => {
     expect(result).not.toHaveProperty("tool");
   });
 
-  it("pre-gates a requiresApproval op with an Approve/Deny artifact (never invokes)", async () => {
-    // contactsDeleteContract has `requiresApproval: true`, so the execute-boundary
-    // gate (Phase 3.2c) returns a decision artifact INSTEAD of invoking — the run
-    // loop turns it into a HITL Approve/Deny card. invokeTool throws so the test
+  it("pre-gates a requiresApproval op with a deny result when no approval channel exists", async () => {
+    // contactsDeleteContract has `requiresApproval: true`. With no run context (and
+    // thus no approvalPolicy), the execute-boundary gate fails safe: it DENIES
+    // instead of invoking. The interactive suspend and voice artifact policies are
+    // covered in engenty-tool-execute-tool.test.ts. invokeTool throws so the test
     // fails loudly if the gate ever lets the call through.
     const result = (await executeEngentyTool(
       { id: "contacts_delete", input: { id: "c1" } },
@@ -383,15 +384,16 @@ describe("Engenty Mastra tools helpers", () => {
           throw new Error("invoke should not run for a gated op");
         },
       })
-    )) as { artifact_id?: string; artifact_type?: string };
+    )) as { error?: string; ok?: boolean };
 
-    expect(result.artifact_type).toBe("decision");
-    expect(result.artifact_id).toBe("tool-approval|contacts_delete");
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("approval_required");
   });
 
-  it("surfaces core's 202 approval_required as an artifact when the contract did not flag it", async () => {
+  it("surfaces core's 202 approval_required as a deny result when the contract did not flag it", async () => {
     // kbSearchContract is not flagged requiresApproval, so the pre-gate passes —
-    // but if core itself returns 202 at invoke time, the backstop converts it.
+    // but if core itself returns 202 at invoke time, the backstop routes it through
+    // the same approval policy (default deny with no run context).
     const result = (await executeEngentyTool(
       { id: "kb_search", input: { query: "x" } },
       createTestClient({
@@ -405,10 +407,10 @@ describe("Engenty Mastra tools helpers", () => {
           );
         },
       })
-    )) as { artifact_id?: string; artifact_type?: string };
+    )) as { error?: string; ok?: boolean };
 
-    expect(result.artifact_type).toBe("decision");
-    expect(result.artifact_id).toBe("tool-approval|kb_search");
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("approval_required");
   });
 
   it("returns unavailable when the run has no bearer token", async () => {

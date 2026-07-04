@@ -61,8 +61,6 @@ export type {
 } from "./models/supported-embeddings.js";
 export { supportedEmbeddingModels } from "./models/supported-embeddings.js";
 export { isAgentThreadId } from "./runtime/agent-thread-id.js";
-export { deriveInitialSessionTitleFromText } from "./runtime/initial-session-title.js";
-export { deriveInitialThreadTitleFromText } from "./runtime/initial-thread-title.js";
 export {
   AGENT_SKILL_NAME_MAX_LENGTH,
   isValidAgentSkillName,
