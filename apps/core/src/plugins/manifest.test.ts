@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ENGENTY_PLUGIN_MANIFEST_FILENAME,
+  isConventionalPluginRoot,
   loadPluginManifest,
   resolveEngentyPluginManifestPath,
 } from "./manifest";
@@ -451,5 +452,27 @@ describe("resolveEngentyPluginManifestPath", () => {
     expect(resolveEngentyPluginManifestPath(root)).toBe(
       path.join(root, ENGENTY_PLUGIN_MANIFEST_FILENAME)
     );
+  });
+});
+
+describe("isConventionalPluginRoot", () => {
+  it("accepts top-level modules and packages", () => {
+    expect(isConventionalPluginRoot("/repo/modules/connections")).toBe(true);
+    expect(isConventionalPluginRoot("/repo/packages/connections-sdk")).toBe(
+      true
+    );
+  });
+
+  it("accepts nested connector providers", () => {
+    expect(
+      isConventionalPluginRoot("/repo/modules/connections/providers/google")
+    ).toBe(true);
+  });
+
+  it("rejects unrelated nesting", () => {
+    expect(isConventionalPluginRoot("/repo/modules/connections/src")).toBe(
+      false
+    );
+    expect(isConventionalPluginRoot("/repo/apps/core")).toBe(false);
   });
 });

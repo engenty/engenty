@@ -112,34 +112,76 @@ function discoverFromRoot(params: {
     return candidates;
   }
 
-  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
-  for (const ent of entries) {
-    if (!ent.isDirectory()) {
-      continue;
-    }
-    if (
-      params.sourceType === "module" &&
-      params.enabledModuleSlugs &&
-      !params.enabledModuleSlugs.has(ent.name)
-    ) {
-      continue;
-    }
-    const moduleDir = path.join(rootDir, ent.name);
+  const pushCandidate = (moduleDir: string): void => {
     const candidate = discoverPluginPackageRoot({
       rootDir: moduleDir,
       sourceType: params.sourceType,
     });
     if (!candidate) {
-      continue;
+      return;
     }
     if (params.seen.has(candidate.source)) {
-      continue;
+      return;
     }
     params.seen.add(candidate.source);
     candidates.push(candidate);
+  };
+
+  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+  for (const ent of entries) {
+    if (!ent.isDirectory()) {
+      continue;
+    }
+    const moduleDir = path.join(rootDir, ent.name);
+
+    // Top-level plugin: slug === dirname.
+    if (
+      !(
+        params.sourceType === "module" &&
+        params.enabledModuleSlugs &&
+        !params.enabledModuleSlugs.has(ent.name)
+      )
+    ) {
+      pushCandidate(moduleDir);
+    }
+
+    // Nested connector providers: modules/<parent>/providers/<child>, where the
+    // slug is the child manifest id (not its dirname).
+    if (params.sourceType !== "module") {
+      continue;
+    }
+    const providersDir = path.join(moduleDir, "providers");
+    if (
+      !(fs.existsSync(providersDir) && fs.statSync(providersDir).isDirectory())
+    ) {
+      continue;
+    }
+    for (const child of fs.readdirSync(providersDir, { withFileTypes: true })) {
+      if (!child.isDirectory()) {
+        continue;
+      }
+      const childDir = path.join(providersDir, child.name);
+      const slug = readNestedModuleSlug(childDir);
+      if (!slug) {
+        continue;
+      }
+      if (params.enabledModuleSlugs && !params.enabledModuleSlugs.has(slug)) {
+        continue;
+      }
+      pushCandidate(childDir);
+    }
   }
 
   return candidates;
+}
+
+function readNestedModuleSlug(moduleDir: string): string | undefined {
+  const manifest = readJson(
+    path.join(moduleDir, ENGENTY_PLUGIN_MANIFEST_FILENAME)
+  );
+  const id =
+    manifest && typeof manifest.id === "string" ? manifest.id.trim() : "";
+  return id || undefined;
 }
 
 export function discoverPluginPackageRoot(params: {

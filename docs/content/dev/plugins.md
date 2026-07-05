@@ -134,7 +134,15 @@ The host scans two roots, with different gating:
 | Root | Gated by | Use |
 |------|----------|-----|
 | `modules/*` | the **`engenty.plugins`** manifest — only listed slugs are discovered | First-party / business modules (opt-in) |
+| `modules/*/providers/*` | same manifest, by nested `id` | Provider sub-plugins of a host module (e.g. `modules/connections/providers/*`) |
 | `packages/*` | always discovered | Platform plugins (context-graph, tenant-settings, …) |
+
+A module may nest provider sub-plugins under a `providers/` directory (only that
+literal segment is scanned one level deeper — never `src`, `ui`, or `dist`).
+Each nested provider is a full workspace package with its own manifest, and its
+slug is the manifest **`id`** (not its dirname), so it must declare an explicit
+`id` whose `@engenty/<id>` matches its `package.json` name. This keeps flat slugs
+in `engenty.plugins` while grouping related connectors on disk.
 
 **Mandatory plugins** (`ENGENTY_HOST_MANDATORY_PLUGINS`: `engenty-copilot`,
 `tenant-settings`, `user-settings`) are force-enabled by the loader. A mandatory

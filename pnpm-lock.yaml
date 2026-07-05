@@ -733,17 +733,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  modules/connections-google:
+  modules/connections/providers/google:
     dependencies:
       '@engenty/connections-sdk':
         specifier: workspace:*
-        version: link:../../packages/connections-sdk
+        version: link:../../../../packages/connections-sdk
       '@engenty/plugin-sdk':
         specifier: workspace:*
-        version: link:../../packages/plugin-sdk
+        version: link:../../../../packages/plugin-sdk
       '@engenty/telemetry':
         specifier: workspace:*
-        version: link:../../packages/telemetry
+        version: link:../../../../packages/telemetry
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -761,17 +761,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  modules/connections-microsoft:
+  modules/connections/providers/microsoft:
     dependencies:
       '@engenty/connections-sdk':
         specifier: workspace:*
-        version: link:../../packages/connections-sdk
+        version: link:../../../../packages/connections-sdk
       '@engenty/plugin-sdk':
         specifier: workspace:*
-        version: link:../../packages/plugin-sdk
+        version: link:../../../../packages/plugin-sdk
       '@engenty/telemetry':
         specifier: workspace:*
-        version: link:../../packages/telemetry
+        version: link:../../../../packages/telemetry
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -789,17 +789,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  modules/connections-slack:
+  modules/connections/providers/slack:
     dependencies:
       '@engenty/connections-sdk':
         specifier: workspace:*
-        version: link:../../packages/connections-sdk
+        version: link:../../../../packages/connections-sdk
       '@engenty/plugin-sdk':
         specifier: workspace:*
-        version: link:../../packages/plugin-sdk
+        version: link:../../../../packages/plugin-sdk
       '@engenty/telemetry':
         specifier: workspace:*
-        version: link:../../packages/telemetry
+        version: link:../../../../packages/telemetry
       zod:
         specifier: 4.4.3
         version: 4.4.3

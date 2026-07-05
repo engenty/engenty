@@ -100,6 +100,19 @@ function listAiDirs() {
       if (existsSync(aiDir)) {
         dirs.push(aiDir);
       }
+      // Nested connector providers: modules/<parent>/providers/<child>/ai.
+      const providersDir = join(base, entry.name, "providers");
+      if (existsSync(providersDir)) {
+        for (const child of readdirSync(providersDir, { withFileTypes: true })) {
+          if (!child.isDirectory() || SKIP_DIRS.has(child.name)) {
+            continue;
+          }
+          const nestedAiDir = join(providersDir, child.name, "ai");
+          if (existsSync(nestedAiDir)) {
+            dirs.push(nestedAiDir);
+          }
+        }
+      }
     }
   }
   return dirs;
@@ -276,6 +289,18 @@ for (const entry of readdirSync(modulesDir, { withFileTypes: true })) {
   const aiDir = join(modulesDir, entry.name, "ai");
   if (existsSync(aiDir)) {
     grepDir(aiDir, RETIRED_AGENT_KEYS);
+  }
+  const providersDir = join(modulesDir, entry.name, "providers");
+  if (existsSync(providersDir)) {
+    for (const child of readdirSync(providersDir, { withFileTypes: true })) {
+      if (!child.isDirectory() || SKIP_DIRS.has(child.name)) {
+        continue;
+      }
+      const nestedAiDir = join(providersDir, child.name, "ai");
+      if (existsSync(nestedAiDir)) {
+        grepDir(nestedAiDir, RETIRED_AGENT_KEYS);
+      }
+    }
   }
 }
 

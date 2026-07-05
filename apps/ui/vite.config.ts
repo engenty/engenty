@@ -211,8 +211,21 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
     "@engenty/pdf-templates/core": path.join(pdfTemplates, "core.ts"),
   };
 
+  const modulesRoot = path.join(repoRoot, "modules");
+  // Nested connector providers live at modules/<parent>/providers/<child>; add
+  // each existing `providers` dir as a workspace root so their `/ui/*` and
+  // `/plugin` entrypoints resolve to source (keyed by package name regardless
+  // of nesting depth).
+  const providerRoots = fs.existsSync(modulesRoot)
+    ? fs
+        .readdirSync(modulesRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(modulesRoot, entry.name, "providers"))
+        .filter((dir) => fs.existsSync(dir))
+    : [];
   const workspaceRoots = [
-    path.join(repoRoot, "modules"),
+    modulesRoot,
+    ...providerRoots,
     path.join(repoRoot, "packages"),
   ];
   // Resolve every on-disk module's UI entrypoints (`/ui/plugin`, `/ui/*`, `/plugin`)

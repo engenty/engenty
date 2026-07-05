@@ -46,6 +46,69 @@ function readManifestEnv(manifestPath: string): ContributedEnv | undefined {
   return env;
 }
 
+function readManifestId(manifestPath: string): string | undefined {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+      id?: unknown;
+    };
+    return typeof parsed.id === "string" && parsed.id.trim()
+      ? parsed.id.trim()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Manifest members directly under `parentDir`, plus (for the `modules` parent)
+ * nested connector providers at `modules/<parent>/providers/<child>`. Nested
+ * members sort by their manifest id (the slug), so the combined ordering — and
+ * thus `.env.example` — is identical to the old flat layout.
+ */
+function listManifestMembers(
+  parentDir: string,
+  includeProviders: boolean
+): Array<{ manifestPath: string; sortKey: string }> {
+  const members: Array<{ manifestPath: string; sortKey: string }> = [];
+  for (const ent of fs.readdirSync(parentDir, { withFileTypes: true })) {
+    if (!ent.isDirectory()) {
+      continue;
+    }
+    const dir = path.join(parentDir, ent.name);
+    const manifestPath = path.join(dir, "engenty.plugin.json");
+    if (fs.existsSync(manifestPath)) {
+      members.push({ manifestPath, sortKey: ent.name });
+    }
+    if (!includeProviders) {
+      continue;
+    }
+    const providersDir = path.join(dir, "providers");
+    if (
+      !(fs.existsSync(providersDir) && fs.statSync(providersDir).isDirectory())
+    ) {
+      continue;
+    }
+    for (const child of fs.readdirSync(providersDir, { withFileTypes: true })) {
+      if (!child.isDirectory()) {
+        continue;
+      }
+      const childManifest = path.join(
+        providersDir,
+        child.name,
+        "engenty.plugin.json"
+      );
+      if (!fs.existsSync(childManifest)) {
+        continue;
+      }
+      members.push({
+        manifestPath: childManifest,
+        sortKey: readManifestId(childManifest) ?? child.name,
+      });
+    }
+  }
+  return members.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
 function discoverContributions(
   workspaceRoot: string
 ): DiscoveredContribution[] {
@@ -55,22 +118,10 @@ function discoverContributions(
     if (!(fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory())) {
       continue;
     }
-    const entries = fs
-      .readdirSync(parentDir, { withFileTypes: true })
-      .filter((ent) => ent.isDirectory())
-      .sort((a, b) => a.name.localeCompare(b.name));
-    for (const ent of entries) {
-      const manifestPath = path.join(
-        parentDir,
-        ent.name,
-        "engenty.plugin.json"
-      );
-      if (!fs.existsSync(manifestPath)) {
-        continue;
-      }
-      const env = readManifestEnv(manifestPath);
+    for (const member of listManifestMembers(parentDir, parent === "modules")) {
+      const env = readManifestEnv(member.manifestPath);
       if (env) {
-        found.push({ env, source: manifestPath });
+        found.push({ env, source: member.manifestPath });
       }
     }
   }

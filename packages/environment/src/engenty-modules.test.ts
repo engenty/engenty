@@ -3,9 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  listWorkspaceModulesOnDisk,
   modulePackageName,
   readEngentyPluginsManifest,
   resolveEnabledModules,
+  resolveModuleDir,
   writeEngentyPluginsManifest,
 } from "./engenty-modules.js";
 
@@ -83,6 +85,91 @@ describe("engenty-plugins manifest", () => {
     expect(modules).toHaveLength(1);
     expect(modules[0]?.packageName).toBe(modulePackageName("alpha"));
     expect(modules[0]?.hasUi).toBe(true);
+  });
+
+  function writeManifest(dir: string, manifest: Record<string, unknown>): void {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "engenty.plugin.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`
+    );
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      `${JSON.stringify({ name: modulePackageName(String(manifest.id)) }, null, 2)}\n`
+    );
+  }
+
+  it("discovers nested connector providers by manifest id", () => {
+    const root = createRepo(["connections", "connections-google"]);
+    writeManifest(path.join(root, "modules", "connections"), {
+      id: "connections",
+    });
+    writeManifest(
+      path.join(root, "modules", "connections", "providers", "google"),
+      { id: "connections-google" }
+    );
+
+    const onDisk = listWorkspaceModulesOnDisk(root);
+    expect(onDisk.map((m) => m.slug)).toEqual([
+      "connections",
+      "connections-google",
+    ]);
+    expect(resolveModuleDir(root, "connections-google")).toBe(
+      path.join(root, "modules", "connections", "providers", "google")
+    );
+
+    const modules = resolveEnabledModules(root);
+    expect(modules.map((m) => m.slug).sort()).toEqual([
+      "connections",
+      "connections-google",
+    ]);
+    expect(
+      modules.find((m) => m.slug === "connections-google")?.packageName
+    ).toBe(modulePackageName("connections-google"));
+  });
+
+  it("throws when a nested provider omits its manifest id", () => {
+    const root = createRepo(["connections"]);
+    writeManifest(path.join(root, "modules", "connections"), {
+      id: "connections",
+    });
+    const nested = path.join(
+      root,
+      "modules",
+      "connections",
+      "providers",
+      "google"
+    );
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(
+      path.join(nested, "engenty.plugin.json"),
+      `${JSON.stringify({ name: "Google" }, null, 2)}\n`
+    );
+    expect(() => listWorkspaceModulesOnDisk(root)).toThrow(/valid kebab-case/);
+  });
+
+  it("throws when a nested provider package name disagrees with its id", () => {
+    const root = createRepo(["connections"]);
+    writeManifest(path.join(root, "modules", "connections"), {
+      id: "connections",
+    });
+    const nested = path.join(
+      root,
+      "modules",
+      "connections",
+      "providers",
+      "google"
+    );
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(
+      path.join(nested, "engenty.plugin.json"),
+      `${JSON.stringify({ id: "connections-google" }, null, 2)}\n`
+    );
+    fs.writeFileSync(
+      path.join(nested, "package.json"),
+      `${JSON.stringify({ name: "@engenty/wrong-name" }, null, 2)}\n`
+    );
+    expect(() => listWorkspaceModulesOnDisk(root)).toThrow(/package name/);
   });
 
   it("writes updated plugin object", () => {

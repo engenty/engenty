@@ -17,6 +17,7 @@ import {
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
+import { enabledModuleSlugSetFromDir } from "@engenty/environment";
 import type { SearchIndexRegistry } from "@engenty/search-index";
 import { createJiti } from "jiti";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
@@ -757,6 +758,33 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
 
   if (discovery.candidates.length === 0) {
     logger.debug(`No plugins found in ${modulesDir} / ${packagesDir}`);
+  }
+
+  // Fail loud: an enabled workspace module with no discovered candidate is
+  // almost always a path-resolution regression (e.g. a nested provider the
+  // discovery scan missed), which would otherwise be a silent "never loaded".
+  try {
+    const discoveredModuleIds = new Set(
+      discovery.candidates
+        .filter((candidate) => candidate.sourceType === "module")
+        .map((candidate) => candidate.idHint)
+    );
+    for (const slug of enabledModuleSlugSetFromDir(modulesDir)) {
+      if (discoveredModuleIds.has(slug)) {
+        continue;
+      }
+      registry.diagnostics.push({
+        level: "error",
+        code: "plugin.discovery.missing",
+        pluginId: slug,
+        message: `Enabled module "${slug}" was not discovered under ${modulesDir} (checked modules/${slug} and modules/*/providers/*).`,
+        remediation:
+          "Confirm the module directory exists and its engenty.plugin.json id matches the enabled slug.",
+      });
+      logger.warn(`Enabled module "${slug}" was not discovered on disk`);
+    }
+  } catch {
+    // No resolvable repo root (some unit-test fixtures) — skip the guard.
   }
 
   for (const candidate of discovery.candidates) {

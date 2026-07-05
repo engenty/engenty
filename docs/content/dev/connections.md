@@ -16,13 +16,21 @@ the stable developer reference.
 ## Architecture
 
 ```
-packages/connections-sdk        @engenty/connections-sdk — shared types + runtime
-modules/connections             framework module: schema, OAuth routes,
-                                management operations, policy gate, UI
-modules/connections-google      connectors: google-gmail, google-drive, google-calendar
-modules/connections-microsoft   connectors: microsoft-outlook, microsoft-onedrive
-modules/connections-slack       connector: slack
+packages/connections-sdk                 @engenty/connections-sdk — shared types + runtime
+modules/connections                      framework module: schema, OAuth routes,
+                                         management operations, policy gate, UI
+modules/connections/providers/google     connectors: google-gmail, google-drive, google-calendar
+modules/connections/providers/microsoft  connectors: microsoft-outlook, microsoft-onedrive
+modules/connections/providers/slack      connector: slack
 ```
+
+Connector providers are **nested workspace plugins** under
+`modules/connections/providers/*`. Each is its own package (`@engenty/connections-<provider>`)
+with its own `engenty.plugin.json` — the manifest `id` (e.g. `connections-google`)
+is the slug used in the root `engenty.plugins` map and for enable/disable.
+Nesting is discovered by convention (only the literal `providers/` segment is
+scanned one level deeper); a nested provider **must** declare an explicit `id`
+and its `package.json` name must equal `@engenty/<id>`.
 
 A **connector** is a `ConnectorDefinition`: an OAuth2 config plus a list of
 **actions**. Each action is projected as a regular module operation
@@ -97,13 +105,18 @@ so a route that skipped the policy layer still cannot run a denied action.
 
 ## Building a connector module
 
-A connector module is a normal workspace module that declares one or more
-connectors. See `modules/connections-slack` for the smallest complete example.
+A connector module is a nested workspace plugin that declares one or more
+connectors. See `modules/connections/providers/slack` for the smallest complete
+example.
 
-1. **Scaffold** `modules/connections-<provider>/` with `engenty.plugin.json`
-   (`kind: "module"`, `capabilities.operations: true`), `package.json`
-   (depends on `@engenty/connections-sdk`), and register it in the root
-   `package.json` `engenty.plugins` map.
+1. **Scaffold** `modules/connections/providers/<provider>/` with
+   `engenty.plugin.json` (`kind: "module"`, `capabilities.operations: true`, an
+   explicit `id` of `connections-<provider>`), `package.json` (name
+   `@engenty/connections-<provider>`, depends on `@engenty/connections-sdk`,
+   `tsconfig.json` extending `../../../../tsconfig.base.json`), and register the
+   slug in the root `package.json` `engenty.plugins` map. `pnpm engenty plugins
+   create` still scaffolds flat `modules/<slug>/` only, so nested provider
+   scaffolds are currently manual.
 2. **Define the connector**:
 
 ```ts
