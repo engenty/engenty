@@ -6,7 +6,22 @@
   "packageManager": "pnpm@10.23.0",
   "engenty": {
     "plugins": {
+      "commercial-settings": {
+        "source": "workspace"
+      },
       "company-profile": {
+        "source": "workspace"
+      },
+      "connections": {
+        "source": "workspace"
+      },
+      "connections-google": {
+        "source": "workspace"
+      },
+      "connections-microsoft": {
+        "source": "workspace"
+      },
+      "connections-slack": {
         "source": "workspace"
       },
       "contacts": {
@@ -21,13 +36,25 @@
       "files": {
         "source": "workspace"
       },
+      "inbox": {
+        "source": "workspace"
+      },
+      "invoices": {
+        "source": "workspace"
+      },
       "knowledge-base": {
         "source": "workspace"
       },
-      "tasks": {
+      "offers": {
+        "source": "workspace"
+      },
+      "pdf-templates": {
         "source": "workspace"
       },
       "projects": {
+        "source": "workspace"
+      },
+      "tasks": {
         "source": "workspace"
       },
       "team": {
@@ -36,7 +63,8 @@
       "time-tracking": {
         "source": "workspace"
       }
-    }
+    },
+    "containerRuntime": "dory"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",

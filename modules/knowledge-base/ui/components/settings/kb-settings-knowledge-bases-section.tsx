@@ -181,7 +181,7 @@ export function KbSettingsKnowledgeBasesSection({
         </Button>
       </div>
 
-      <SettingsFormCard className="p-0">
+      <SettingsFormCard variant="flush">
         <Table>
           <TableHeader>
             <TableRow>

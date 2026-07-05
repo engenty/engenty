@@ -51,7 +51,7 @@ export function CompanyProfileBrandIdentitySection({
           {t("sections.brandIdentityDesc")}
         </p>
       </div>
-      <Card className="p-0" variant="form">
+      <Card variant="form">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <Label className="font-semibold text-base">

@@ -132,3 +132,34 @@ describe("synthesizeSearchOperation — explicit lexical (BM25)", () => {
     expect(call.strategy).toBe("lexical");
   });
 });
+
+describe("createSearchIndexHost — plugin reload", () => {
+  it("re-synthesizes the search op when the same provider id re-registers", async () => {
+    const { createSearchIndexRegistry } = await import("@engenty/search-index");
+    const { createSearchIndexHost } = await import("./search-index-host.js");
+    const registerOperation = vi.fn().mockReturnValue({ dispose: vi.fn() });
+    const register = createSearchIndexHost({
+      events: {
+        core: { emit: vi.fn().mockResolvedValue(undefined) },
+        modules: { on: vi.fn().mockReturnValue({ dispose: vi.fn() }) },
+      } as never,
+      registry: createSearchIndexRegistry(),
+      server: { registerOperation } as never,
+    });
+    const options = {
+      capabilities: { lexical: true },
+      entityName: "entity",
+      moduleId: "tests",
+    };
+
+    register(makeProvider({ lexical: true }), options);
+    // A dev hot-reload drops the module's operations and registers the same
+    // provider id again — the op must be synthesized again, not skipped.
+    register(makeProvider({ lexical: true }), options);
+
+    expect(registerOperation).toHaveBeenCalledTimes(2);
+    expect(registerOperation.mock.calls[1]?.[0]?.operationId).toBe(
+      "tests_entity_search"
+    );
+  });
+});

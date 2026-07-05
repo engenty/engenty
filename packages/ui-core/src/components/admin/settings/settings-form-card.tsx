@@ -14,6 +14,11 @@ const settingsFormCardVariants = cva(
          * avoids double-stacking with row-level `py-2`.
          */
         compact: "px-3 py-2 sm:px-4",
+        /**
+         * No padding for self-padded content (tables, row lists);
+         * `overflow-hidden` clips flush children to the rounded corners.
+         */
+        flush: "overflow-hidden p-0",
       },
     },
     defaultVariants: {
@@ -31,6 +36,7 @@ export type SettingsFormCardProps = React.ComponentProps<"div"> &
  * - **`variant="default"`** — `p-3 sm:p-4` for general form content.
  * - **`variant="compact"`** — `py-2` + horizontal `px-3 sm:px-4` for
  *   {@link SettingsFormRow} stacks (pair with `divide-y` on the card).
+ * - **`variant="flush"`** — no padding, for self-padded content like tables.
  *
  * Prefer composing through {@link SettingsFormSection}; use this directly only
  * when you need the same chrome without the section title stack.

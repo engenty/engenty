@@ -24,6 +24,10 @@ import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/f
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
 import {
+  loadConnectionApprovalGrants,
+  mergeApprovalGrants,
+} from "../ai/sessions/connection-approval-grants.js";
+import {
   type AgUiResumeEntry,
   mergeAgUiOpenInterruptMetadata,
   readAgUiOpenInterrupt,
@@ -438,10 +442,18 @@ export function registerAgentSessionRunRoutes(
       } catch (err) {
         console.error("conversation model config resolution failed", err);
       }
+      // Durable connection-level "always allow" grants (Settings → Connections)
+      // merge with this chat's session grants; both feed the same pre-gate.
+      const hsConnectionGrants = await loadConnectionApprovalGrants({
+        userAccessToken: scope.scope.userAccessToken,
+      });
       void startConversationRun({
         agentId: session.agent_id,
         agentUi: agentUi ?? null,
-        approvalGrants: hsApprovalGrants,
+        approvalGrants: mergeApprovalGrants(
+          hsApprovalGrants,
+          hsConnectionGrants
+        ),
         modelConfig: hsModelConfig?.modelConfig ?? null,
         modelId: hsModelConfig?.modelId ?? modelIdOverride,
         prompt: hsPrompt,

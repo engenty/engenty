@@ -1,0 +1,36 @@
+{
+  "menu": "PDF-Vorlagen",
+  "breadcrumbs": {
+    "settings": "Einstellungen"
+  },
+  "tabs": {
+    "design": "Design",
+    "document": "Dokument",
+    "stylesheet": "StyleSheet",
+    "help": "Hilfe"
+  },
+  "actions": {
+    "save": "Speichern",
+    "reset": "Zurücksetzen",
+    "showPreview": "Vorschau anzeigen"
+  },
+  "toolbar": {
+    "defaultTemplate": "Standard",
+    "selectTemplate": "Vorlage auswählen"
+  },
+  "defaults": {
+    "templateName": "Vorlage"
+  },
+  "empty": {
+    "noProviders": "Es sind keine PDF-Vorlagen-Provider registriert."
+  },
+  "errors": {
+    "previewFailed": "Die Vorschau konnte nicht geladen werden.",
+    "saveFailed": "Speichern fehlgeschlagen."
+  },
+  "dialogs": {
+    "delete": "Löschen",
+    "deleteConfirmDescription": "Diese Vorlage wird entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteConfirmTitle": "Vorlage löschen?"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "connections",
+  "name": "Connections",
+  "description": "Central external-service connections: OAuth, per-action permissions, approvals",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.connections",
+    "module.connections.read",
+    "module.connections.write",
+    "ui.route.module.connections"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false,
+    "ui": true
+  },
+  "env": {
+    "feature": {
+      "id": "connections",
+      "label": "External connections (OAuth token encryption)",
+      "description": "Central external-service connections framework"
+    },
+    "vars": [
+      {
+        "description": "AES-256-GCM key for connection tokens at rest (32 bytes, base64). Generate: openssl rand -base64 32.",
+        "feature": "connections",
+        "group": "Connections",
+        "key": "CONNECTIONS_TOKEN_ENC_KEY",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "Override the OAuth callback URL when core is behind a public proxy. Default: <ENGENTY_API_BASE_URL>/api/connections/oauth/callback.",
+        "feature": "connections",
+        "group": "Connections",
+        "key": "CONNECTIONS_REDIRECT_URI",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      }
+    ]
+  }
+}

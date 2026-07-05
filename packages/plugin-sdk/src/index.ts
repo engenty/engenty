@@ -381,7 +381,7 @@ export interface PluginPolicyDecision {
 
 export type PluginProfilePolicy = (
   input: PluginPolicyInput
-) => PluginPolicyDecision | null;
+) => PluginPolicyDecision | null | Promise<PluginPolicyDecision | null>;
 
 export type PluginResultPolicy = (
   input: PluginPolicyInput,

@@ -1,0 +1,18 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "offers.manager",
+  "name": "Offers Manager",
+  "description": "Create, edit, and manage sales offers.",
+  "module_id": "offers",
+  "skills": [
+    "offers-search-and-retrieve",
+    "offers-create-and-edit",
+    "offers-blocks-management"
+  ],
+  "tools": [
+    "engenty_tools_search",
+    "engenty_tool_execute",
+    "invoke_frontend_tool"
+  ],
+  "workspace": { "enabled": true, "preset": "staff" }
+}

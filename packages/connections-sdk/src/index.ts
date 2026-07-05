@@ -1,0 +1,77 @@
+export {
+  type ConnectionAccountLabel,
+  type ConnectionSelection,
+  connectionAccountLabel,
+  describeSelectionFailure,
+  selectConnectionForAccount,
+} from "./accounts.js";
+export {
+  type ConnectionsModuleClient,
+  type ConnectionsModuleClientOptions,
+  createConnectionsModuleClient,
+  createConnectionsModuleClientFromRepo,
+  type ModuleCallActionParams,
+  type ModulePullStreamParams,
+} from "./client.js";
+export {
+  ConnectionsActionError,
+  type ConnectionsActionErrorCode,
+} from "./errors.js";
+export {
+  type ExecuteConnectorActionParams,
+  executeConnectorAction,
+} from "./execute.js";
+export {
+  buildAuthorizationUrl,
+  exchangeAuthorizationCode,
+  type OAuth2Env,
+  type OAuth2Tokens,
+  refreshAccessToken,
+  resolveOAuth2Env,
+} from "./oauth2.js";
+export {
+  type ConnectionPolicyPrincipal,
+  grantedOperationIds,
+  type ResolvedConnectionPolicy,
+  resolveConnectionActionPolicy,
+} from "./policy.js";
+export {
+  __resetConnectorRegistryForTests,
+  getConnectorDefinition,
+  listConnectorDefinitions,
+  registerConnectorDefinition,
+  resolveConnectorOperation,
+} from "./registry.js";
+export {
+  type ConnectionsRepo,
+  createConnectionsRepo,
+  type PendingOAuthFlow,
+} from "./repo.js";
+export {
+  defineConnector,
+  registerConnectorModule,
+  withAccountParam,
+} from "./runtime.js";
+export { decryptToken, encryptToken } from "./token-crypto.js";
+export {
+  ACTION_GROUP_CONTRACTS,
+  ACTION_GROUP_DEFAULT_POLICY,
+  type ApprovalRequestRecord,
+  type ConnectionActionPolicy,
+  type ConnectionAutonomousMode,
+  type ConnectionPolicyOverride,
+  type ConnectionSharing,
+  type ConnectionSummary,
+  type ConnectorAction,
+  type ConnectorActionContext,
+  type ConnectorActionGroup,
+  type ConnectorDefinition,
+  type ConnectorOAuth2Config,
+  type ConnectorStreamCapability,
+  connectorOperationId,
+  type InboundMessage,
+  type InboundMessageAttachment,
+  type StreamPullCtx,
+  type StreamPullResult,
+  scopesForGroups,
+} from "./types.js";

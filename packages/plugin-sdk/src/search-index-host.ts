@@ -306,7 +306,11 @@ export function createSearchIndexHost(input: {
       return;
     }
     if (registry.has(provider.id)) {
-      return;
+      // Plugin hot-reload re-registers the same provider id. Replace the
+      // stale entry instead of returning early — the reload already dropped
+      // the module's operations, so skipping here strands the synthesized
+      // `<module>_<entity>_search` op until a full server restart.
+      registry.unregister(provider.id);
     }
 
     let opReceipt: PluginRegistrationReceipt | undefined;

@@ -225,7 +225,7 @@ function mountPluginRoute(
     }
 
     // ── Authenticated routes: full policy / approval / audit pipeline ──
-    const policy = evaluatePolicy(
+    const policy = await evaluatePolicy(
       {
         auth,
         moduleId: operation?.moduleId ?? params.pluginId,

@@ -1,0 +1,86 @@
+{
+  "title": "Posteingang",
+  "menu": {
+    "inbox": "Posteingang"
+  },
+  "actions": {
+    "archive": "Archivieren",
+    "markProcessed": "Als erledigt markieren",
+    "settings": "Einstellungen",
+    "syncNow": "Jetzt synchronisieren"
+  },
+  "filters": {
+    "allAccounts": "Alle Konten",
+    "org": "Org",
+    "personal": "Persönlich",
+    "searchPlaceholder": "Nachrichten durchsuchen…"
+  },
+  "lanes": {
+    "all": "Alle",
+    "new": "Neu",
+    "triaged": "Gesichtet",
+    "processed": "Erledigt",
+    "archived": "Archiviert"
+  },
+  "list": {
+    "next": "Weiter",
+    "noSubject": "(kein Betreff)",
+    "pageInfo": "{{from}}–{{to}} von {{total}}",
+    "previous": "Zurück"
+  },
+  "search": {
+    "noResults": "Keine Nachrichten gefunden"
+  },
+  "empty": {
+    "title": "Keine Nachrichten",
+    "description": "Verbinde ein E-Mail-Konto und starte eine Synchronisierung.",
+    "laneTitle": "Nichts hier",
+    "laneDescription": "Keine Nachrichten für diesen Filter."
+  },
+  "thread": {
+    "attachment": "Anhang",
+    "cc": "Cc: {{cc}}",
+    "emptyBody": "Diese Nachricht hat keinen Inhalt.",
+    "hideQuoted": "Zitierten Text ausblenden",
+    "notFound": "Konversation nicht gefunden",
+    "showQuoted": "Zitierten Text anzeigen",
+    "to": "An: {{to}}"
+  },
+  "settings": {
+    "autonomousOff": "Hintergrundzugriff ist für diese Verbindung deaktiviert — der Posteingang kann sie nicht synchronisieren.",
+    "autonomousOffLink": "In den Verbindungseinstellungen ändern",
+    "backfillDays": "Backfill-Zeitraum (Tage)",
+    "connectionsLink": "Verbindungen verwalten",
+    "description": "Die Synchronisierung ist pro Konto. Zustimmung und Berechtigungen liegen auf der Verbindung.",
+    "lastError": "Letzter Sync-Fehler: {{error}}",
+    "lastSynced": "Zuletzt synchronisiert {{at}}",
+    "neverSynced": "Noch nie synchronisiert",
+    "noAccounts": "Keine E-Mail-Konten verbunden",
+    "noAccountsDescription": "Verbinde zuerst ein Google-Konto unter Einstellungen → Verbindungen.",
+    "syncEnabled": "Sync",
+    "title": "Posteingang-Einstellungen"
+  },
+  "toasts": {
+    "settingsFailed": "Speichern fehlgeschlagen: {{error}}",
+    "status": {
+      "archived": "Konversation archiviert",
+      "new": "Als neu markiert",
+      "processed": "Als erledigt markiert",
+      "triaged": "Als gesichtet markiert"
+    },
+    "statusFailed": "Statusänderung fehlgeschlagen: {{error}}",
+    "syncDone": "Synchronisierung abgeschlossen — {{count}} neue Nachricht(en)",
+    "syncFailed": "Synchronisierung fehlgeschlagen: {{error}}"
+  },
+  "errors": {
+    "loadFailed": "Der Posteingang konnte nicht geladen werden",
+    "retry": "Erneut versuchen"
+  },
+  "sidebar": {
+    "accounts": "Konten"
+  },
+  "detail": {
+    "placeholderTitle": "Konversation auswählen",
+    "placeholderDescription": "Wähle links eine Konversation aus, um sie hier zu lesen."
+  }
+}

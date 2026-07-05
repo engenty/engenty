@@ -17,6 +17,10 @@ import {
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import {
+  loadConnectionApprovalGrants,
+  mergeApprovalGrants,
+} from "../sessions/connection-approval-grants.js";
 import { mergeAgUiOpenInterruptMetadata } from "../sessions/interrupts.js";
 import {
   markRunDone,
@@ -123,7 +127,12 @@ export async function resumeConversationRun(
     // operations skip the gate.
     const toolsRunContext = {
       ...getEngentyToolsRunContext(),
-      approvalGrants: readToolApprovalGrants(input.sessionMetadata ?? {}),
+      approvalGrants: mergeApprovalGrants(
+        readToolApprovalGrants(input.sessionMetadata ?? {}),
+        await loadConnectionApprovalGrants({
+          userAccessToken: input.scope.userAccessToken,
+        })
+      ),
       approvalPolicy: "suspend" as const,
       runId: input.newRunId,
       tenantId: input.scope.tenantId,
