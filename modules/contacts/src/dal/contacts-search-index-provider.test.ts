@@ -160,3 +160,112 @@ describe("ContactsSearchIndexProvider — tenant isolation", () => {
     expect(supabase.schema).not.toHaveBeenCalled();
   });
 });
+
+// Backfill must "scan wide, work narrow": the contact scan runs over the full
+// MAX_STATUS_SCAN window and only the *target* list is cut to `limit`.
+// Filtering inside a `limit`-sized scan window would mean that once the
+// newest `limit` contacts are indexed, repeated backfill calls could never
+// reach older unindexed contacts.
+describe("ContactsSearchIndexProvider — backfill window", () => {
+  interface ChainCall {
+    args: unknown[];
+    method: string;
+  }
+
+  // Thenable query-builder fake: every chained method records itself and
+  // `await` resolves through `handler(table, calls)` so tests can answer
+  // per-table, per-chain.
+  function makeChainedSupabase(
+    handler: (table: string, calls: ChainCall[]) => unknown
+  ) {
+    const chains: { calls: ChainCall[]; table: string }[] = [];
+    const makeBuilder = (table: string) => {
+      const calls: ChainCall[] = [];
+      chains.push({ calls, table });
+      const builder: Record<string, unknown> = {
+        then: (resolve: (value: unknown) => unknown) =>
+          resolve({ data: handler(table, calls), error: null }),
+      };
+      for (const method of [
+        "delete",
+        "eq",
+        "in",
+        "is",
+        "limit",
+        "or",
+        "order",
+        "select",
+        "upsert",
+      ]) {
+        builder[method] = (...args: unknown[]) => {
+          calls.push({ args, method });
+          return builder;
+        };
+      }
+      return builder;
+    };
+    const schemaBuilder = { from: (table: string) => makeBuilder(table), rpc: vi.fn() };
+    return { chains, supabase: { schema: () => schemaBuilder } };
+  }
+
+  it("scans MAX_STATUS_SCAN wide and reaches unindexed contacts beyond the newest `limit`", async () => {
+    // Newest-first scan window: c1 is indexed and current; c2/c3 have no
+    // embedding row. With limit=1 the old code scanned only c1 and found
+    // nothing to do — the fixed code must find c2 (newest missing first).
+    const scanRows = [
+      { id: "c1", updated_at: "2026-01-03T00:00:00Z" },
+      { id: "c2", updated_at: "2026-01-02T00:00:00Z" },
+      { id: "c3", updated_at: "2026-01-01T00:00:00Z" },
+    ];
+    const indexRows = [
+      { contact_id: "c1", updated_at: "2026-01-04T00:00:00Z" },
+    ];
+    const { chains, supabase } = makeChainedSupabase((table, calls) => {
+      if (table === "contacts") {
+        // The status scan selects "id, updated_at"; document hydration
+        // (loadContactsByIds) selects "*" — return nothing there so the
+        // backfill takes the delete-document path, which doesn't need
+        // mapper-shaped rows.
+        const select = calls.find((c) => c.method === "select");
+        return select?.args[0] === "id, updated_at" ? scanRows : [];
+      }
+      if (table === "contact_search_embeddings") {
+        return calls.some((c) => c.method === "delete") ? null : indexRows;
+      }
+      return [];
+    });
+
+    const provider = createContactsSearchIndexProvider({
+      supabase: supabase as never,
+    });
+
+    if (!provider.backfill) {
+      throw new Error("provider.backfill is not implemented");
+    }
+    // The `SearchIndexProvider` contract types backfill's result as
+    // `unknown`; the concrete shape is owned by this provider.
+    const result = (await provider.backfill({
+      limit: 1,
+      tenant_id: "tenant-1",
+    })) as {
+      failed: number;
+      processed: number;
+      results: { contact_id: string; error?: string; ok: boolean }[];
+    };
+
+    expect(result.processed).toBe(1);
+    expect(result.failed).toBe(0);
+    // c2, not c1 (indexed) — and not c3 either: targets are cut to `limit`
+    // newest-first AFTER filtering, so the next call would pick up c3.
+    expect(result.results).toEqual([{ contact_id: "c2", ok: true }]);
+
+    // The contact scan itself must use the wide window, not `limit`.
+    const scanChain = chains.find(
+      (chain) =>
+        chain.table === "contacts" &&
+        chain.calls.some((c) => c.method === "limit")
+    );
+    const limitCall = scanChain?.calls.find((c) => c.method === "limit");
+    expect(limitCall?.args[0]).toBe(5000);
+  });
+});

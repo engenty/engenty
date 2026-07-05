@@ -558,27 +558,13 @@ export function createContactsSearchIndexProvider(
     }
   }
 
-  async function getStatus(input?: {
-    tenant_id?: string | null;
-    user_id?: string | null;
-  }): Promise<SearchIndexStatus> {
-    const tenantId = input?.tenant_id?.trim();
-    if (!tenantId) {
-      return {
-        current_count: 0,
-        indexed_count: 0,
-        last_indexed_at: null,
-        missing_count: 0,
-        stale_count: 0,
-        total_count: 0,
-      };
-    }
+  async function loadIndexState(tenantId: string, limit: number) {
     const { data: contactRows } = await contacts()
       .select("id, updated_at")
       .eq("tenant_id", tenantId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
-      .limit(MAX_STATUS_SCAN);
+      .limit(limit);
     const contactRowsArr = (contactRows ?? []) as {
       id: string;
       updated_at: string;
@@ -595,6 +581,28 @@ export function createContactsSearchIndexProvider(
         String((row as { updated_at: string }).updated_at)
       );
     }
+    return { contactRowsArr, indexedAt };
+  }
+
+  async function getStatus(input?: {
+    tenant_id?: string | null;
+    user_id?: string | null;
+  }): Promise<SearchIndexStatus> {
+    const tenantId = input?.tenant_id?.trim();
+    if (!tenantId) {
+      return {
+        current_count: 0,
+        indexed_count: 0,
+        last_indexed_at: null,
+        missing_count: 0,
+        stale_count: 0,
+        total_count: 0,
+      };
+    }
+    const { contactRowsArr, indexedAt } = await loadIndexState(
+      tenantId,
+      MAX_STATUS_SCAN
+    );
     let current = 0;
     let stale = 0;
     let missing = 0;
@@ -638,47 +646,28 @@ export function createContactsSearchIndexProvider(
       return { failed: 0, processed: 0, results: [] };
     }
     const limit = clampLimit(input?.limit, MAX_BACKFILL, DEFAULT_STATUS_LIMIT);
-    const { data: contactRows } = await contacts()
-      .select("id, updated_at")
-      .eq("tenant_id", tenantId)
-      .is("deleted_at", null)
-      .order("updated_at", { ascending: false })
-      .limit(limit);
-    const contactRowsArr = (contactRows ?? []) as {
-      id: string;
-      updated_at: string;
-    }[];
-    const targetIds = input?.force
-      ? contactRowsArr.map((row) => String(row.id))
-      : await (async () => {
-          const ids = contactRowsArr.map((row) => String(row.id));
-          if (ids.length === 0) {
-            return [];
-          }
-          const { data: indexRows } = await embeddings()
-            .select("contact_id, updated_at")
-            .eq("tenant_id", tenantId)
-            .in("contact_id", ids);
-          const indexedAt = new Map<string, string>();
-          for (const row of indexRows ?? []) {
-            indexedAt.set(
-              String((row as { contact_id: string }).contact_id),
-              String((row as { updated_at: string }).updated_at)
-            );
-          }
-          return contactRowsArr
-            .filter((row) => {
-              const last = indexedAt.get(String(row.id));
-              if (!last) {
-                return true;
-              }
-              return (
-                new Date(last).getTime() <
-                new Date(String(row.updated_at)).getTime()
-              );
-            })
-            .map((row) => String(row.id));
-        })();
+    // Scan wide, work narrow: the missing/stale filter runs over the full
+    // status window so repeated calls advance past the newest `limit`
+    // contacts instead of re-checking the same window forever.
+    const { contactRowsArr, indexedAt } = await loadIndexState(
+      tenantId,
+      MAX_STATUS_SCAN
+    );
+    const targetIds = contactRowsArr
+      .filter((row) => {
+        if (input?.force) {
+          return true;
+        }
+        const last = indexedAt.get(String(row.id));
+        if (!last) {
+          return true;
+        }
+        return (
+          new Date(last).getTime() < new Date(String(row.updated_at)).getTime()
+        );
+      })
+      .map((row) => String(row.id))
+      .slice(0, limit);
     const results: { contact_id: string; error?: string; ok: boolean }[] = [];
     for (const id of targetIds) {
       try {
