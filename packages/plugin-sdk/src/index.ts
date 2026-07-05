@@ -103,6 +103,7 @@ export {
   STRICT_TOOL_ID_PATTERN,
 } from "./tool-id.js";
 
+import type { RetrievalSourceRegistration } from "@engenty/retrieval";
 import type { SearchIndexProvider } from "@engenty/search-index";
 import type { Command } from "commander";
 import type { ZodType } from "zod";
@@ -578,6 +579,17 @@ export interface PluginServerApi {
    * search operation (auto-tool), auto-subscribes declarative re-index
    * triggers, and exposes status/backfill via `/api/search-index/*`.
    */
+  /**
+   * Register a managed retrieval source with the central retrieval service
+   * (`@engenty/retrieval`). The host manufactures a `SearchIndexProvider`
+   * from it and routes it through `registerSearchIndexProvider`, so the
+   * synthesized tool, event bindings, and `/api/search-index/*` surface are
+   * identical to a hand-rolled provider. Optional: only hosts with the
+   * retrieval service wired provide it.
+   */
+  registerRetrievalSource?: (
+    registration: RetrievalSourceRegistration
+  ) => PluginRegistrationReceipt | undefined;
   registerSearchIndexProvider: (
     provider: SearchIndexProvider,
     options: PluginSearchIndexRegistrationOptions

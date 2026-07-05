@@ -17,6 +17,11 @@ import {
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
+import {
+  createRetrievalService,
+  createWorkspaceSearchProvider,
+  type RetrievalSourceRegistration,
+} from "@engenty/retrieval";
 import type { SearchIndexRegistry } from "@engenty/search-index";
 import { createJiti } from "jiti";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
@@ -243,6 +248,12 @@ function createPluginApi(params: {
       }),
   });
 
+  const searchIndexHost = createSearchIndexHost({
+    events,
+    registry: params.searchIndexRegistry,
+    server: params.pluginApi.server,
+  });
+
   return {
     ai: {},
     capabilities: {
@@ -301,11 +312,52 @@ function createPluginApi(params: {
         }),
       registerContextGraphSource: (source) =>
         params.registry.contextGraphHost?.sources.register(source),
-      registerSearchIndexProvider: createSearchIndexHost({
-        events,
-        registry: params.searchIndexRegistry,
-        server: params.pluginApi.server,
-      }),
+      registerRetrievalSource: (registration: RetrievalSourceRegistration) => {
+        // One shared service per process; created on first use. The creating
+        // plugin also hosts the synthesized `core_workspace_search` tool —
+        // acceptable provenance until a core-owned boot registration exists.
+        let service = params.registry.retrievalService;
+        if (!service) {
+          const supabase = params.pluginApi.server.getDatabaseAdapter?.();
+          if (!supabase) {
+            throw new Error(
+              "registerRetrievalSource requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+            );
+          }
+          service = createRetrievalService({ supabase: supabase as never });
+          params.registry.retrievalService = service;
+          searchIndexHost(createWorkspaceSearchProvider(service), {
+            entityName: "workspace",
+            moduleId: "core",
+            operationOverrides: {
+              idempotent: true,
+              riskLevel: "low",
+              summary:
+                "Search across all indexed workspace content (mail, contacts, knowledge base, …) with module/source/time filters",
+            },
+          });
+        }
+        service.registerSource(registration);
+        const provider = service.getProvider(registration.source_type);
+        if (!provider) {
+          throw new Error(
+            `Retrieval source ${registration.source_type} produced no provider`
+          );
+        }
+        return searchIndexHost(provider, {
+          capabilities: provider.capabilities,
+          entityName: registration.operation.entityName,
+          ...(registration.operation.filtersSchema
+            ? { filtersSchema: registration.operation.filtersSchema as never }
+            : {}),
+          moduleId: registration.module_id,
+          ...(registration.onEvents ? { onEvents: registration.onEvents } : {}),
+          ...(registration.operation.overrides
+            ? { operationOverrides: registration.operation.overrides }
+            : {}),
+        });
+      },
+      registerSearchIndexProvider: searchIndexHost,
     },
     source: createPluginSourceInfo(params.record, "server.plugin"),
     ui: {},
