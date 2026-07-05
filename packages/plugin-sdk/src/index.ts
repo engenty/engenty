@@ -103,7 +103,10 @@ export {
   STRICT_TOOL_ID_PATTERN,
 } from "./tool-id.js";
 
-import type { RetrievalSourceRegistration } from "@engenty/retrieval";
+import type {
+  RetrievalServiceWithProviders as RetrievalServiceLike,
+  RetrievalSourceRegistration,
+} from "@engenty/retrieval";
 import type { SearchIndexProvider } from "@engenty/search-index";
 import type { Command } from "commander";
 import type { ZodType } from "zod";
@@ -587,6 +590,8 @@ export interface PluginServerApi {
    * identical to a hand-rolled provider. Optional: only hosts with the
    * retrieval service wired provide it.
    */
+  /** Shared retrieval service handle (null until the first source registers). */
+  getRetrievalService?: () => RetrievalServiceLike | null;
   registerRetrievalSource?: (
     registration: RetrievalSourceRegistration
   ) => PluginRegistrationReceipt | undefined;

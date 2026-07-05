@@ -350,6 +350,9 @@ export interface PluginRegistry {
   // Shared central retrieval service (one per process). Created lazily by the
   // first `registerRetrievalSource(...)` call; also owns `core_workspace_search`.
   retrievalService?: RetrievalServiceWithProviders;
+  // Live receipt of the synthesized core_workspace_search op (re-homed on
+  // every registerRetrievalSource call — see loader).
+  workspaceSearchReceipt?: { dispose?: () => Promise<void> | void };
   services: Array<{
     pluginId: string;
     service: PluginService;

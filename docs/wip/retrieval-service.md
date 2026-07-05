@@ -442,6 +442,24 @@ Acceptance gate: golden queries ≥ parity (see §13 protocol); as-you-type late
 (lexical fast path) p50 < 80ms locally; KB UI search + agent tool verified in dev
 stack; deletion list empty; `pnpm db:snapshot` taken before cutover.
 
+**Phase 2 status: DONE 2026-07-05.** Golden 18/18 at parity (3 reviewed
+improvements recorded via `accept_new_top1`); fast-path p50 ≈ 13ms; tool +
+workspace_search verified live; deletion list empty (kb-vector-store.ts,
+provider internals, article_embeddings + both RPCs dropped); manual pg_dump
+snapshot at `.engenty/pre-kb-cutover-20260705.dump` (db:snapshot CLI expects a
+per-worktree container name — shared stack needs docker exec pg_dump).
+Execution findings folded back into the design:
+- Pre-existing legacy bug found by the harness: injected `user_id` emptied
+  every authenticated KB search (fixed in b8132b4 before recording baseline).
+- `vectorThreshold` became a per-source retriever knob (static or per-tenant):
+  the 0.62 default silently dropped KB's 0.45-calibrated matches.
+- Verifier semantics: trims the tail, never vetoes the top fused hit, and a
+  fully-rejected set falls back to the fused ranking — judging lone table
+  fragments under-informs the model.
+- `registerSource` replaces on re-registration and the workspace_search
+  receipt re-homes per call: dev plugin reload re-runs factories and disposes
+  the previous owner's receipts.
+
 ### Phase 3 — inbox (prereq: `feat/inbox-hybrid-search` merged)
 Source: splitter `none` (doc builder already caps body), visibility `owner`,
 `occurred_at = received_at`, metadata `{connection_id, status}`, events

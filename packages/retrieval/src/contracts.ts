@@ -151,6 +151,12 @@ export interface RetrievalSourceRetriever<TResult = unknown> {
   ): SearchResult<TResult>[];
   /** Enable title-trigram fuzzy matching (contacts quick-search). */
   useTrigram?: boolean;
+  /**
+   * Minimum cosine similarity for a vector-only match (default 0.62).
+   * Static or per-tenant (KB reads `search_vector_min_similarity`).
+   * Multi-source queries use the minimum across targeted sources.
+   */
+  vectorThreshold?: number | ((tenant_id: string) => Promise<number>);
 }
 
 export interface RetrievalSourceRegistration<TResult = unknown> {

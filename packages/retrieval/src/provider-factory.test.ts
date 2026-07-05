@@ -54,11 +54,12 @@ describe("createManagedProvider", () => {
     expect(args?.p_metadata).toEqual({ kb_id: "kb-9" });
   });
 
-  it("registration duplicates are rejected; unknown sources throw on use", async () => {
+  it("re-registration replaces (plugin reload); unknown sources throw on use", async () => {
     const { service } = setup();
-    expect(() => service.registerSource(makeSource())).toThrow(
-      /already registered/
-    );
+    const replacement = makeSource({ visibility: "owner" });
+    service.registerSource(replacement);
+    expect(service.listSources()).toHaveLength(1);
+    expect(service.listSources()[0]?.visibility).toBe("owner");
     await expect(
       service.backfill("nope.nope", { tenant_id: "tenant-1" })
     ).rejects.toThrow(/Unknown retrieval source/);

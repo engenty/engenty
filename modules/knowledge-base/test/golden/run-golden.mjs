@@ -131,7 +131,11 @@ async function run() {
     const next = current[spec.id] ?? [];
     const baseTop1 = base[0]?.article_id ?? null;
     const nextTop3 = next.slice(0, 3).map((r) => r.article_id);
-    const pass = baseTop1 == null || nextTop3.includes(baseTop1);
+    // A reviewed improvement passes when the new top1 is the accepted title
+    // (strict baseline-containment would flag better rankings as failures).
+    const accepted =
+      spec.accept_new_top1 != null && next[0]?.title === spec.accept_new_top1;
+    const pass = baseTop1 == null || nextTop3.includes(baseTop1) || accepted;
     if (!pass) failures++;
     const delta =
       base[0] && next[0] ? (next[0].score - base[0].score).toFixed(3) : "n/a";

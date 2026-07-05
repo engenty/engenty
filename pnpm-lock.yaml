@@ -1365,6 +1365,9 @@ importers:
       '@engenty/query-client':
         specifier: workspace:*
         version: link:../../packages/query-client
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@engenty/scoped-kv-settings':
         specifier: workspace:*
         version: link:../../packages/scoped-kv-settings

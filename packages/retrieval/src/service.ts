@@ -129,11 +129,8 @@ export function createRetrievalService(
     },
     listSources: () => Array.from(sources.values()),
     registerSource: (registration) => {
-      if (sources.has(registration.source_type)) {
-        throw new Error(
-          `Retrieval source already registered: ${registration.source_type}`
-        );
-      }
+      // Re-registration replaces (dev plugin reload re-runs module factories;
+      // the manufactured provider is rebuilt against the fresh closures).
       sources.set(registration.source_type, registration);
       visibilityRegistrations.push(
         store.registerSourceVisibility(

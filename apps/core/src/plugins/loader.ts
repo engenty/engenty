@@ -312,6 +312,7 @@ function createPluginApi(params: {
         }),
       registerContextGraphSource: (source) =>
         params.registry.contextGraphHost?.sources.register(source),
+      getRetrievalService: () => params.registry.retrievalService ?? null,
       registerRetrievalSource: (registration: RetrievalSourceRegistration) => {
         // One shared service per process; created on first use. The creating
         // plugin also hosts the synthesized `core_workspace_search` tool —
@@ -326,7 +327,17 @@ function createPluginApi(params: {
           }
           service = createRetrievalService({ supabase: supabase as never });
           params.registry.retrievalService = service;
-          searchIndexHost(createWorkspaceSearchProvider(service), {
+        }
+        // Keep exactly one live `core_workspace_search`, re-homed to the
+        // latest registrant: plugin reload disposes the previous owner's
+        // receipts, so a boot-time one-shot would vanish on first HMR.
+        const previousWorkspaceReceipt = params.registry.workspaceSearchReceipt;
+        if (previousWorkspaceReceipt?.dispose) {
+          void previousWorkspaceReceipt.dispose();
+        }
+        params.registry.workspaceSearchReceipt = searchIndexHost(
+          createWorkspaceSearchProvider(service),
+          {
             entityName: "workspace",
             moduleId: "core",
             operationOverrides: {
@@ -335,8 +346,8 @@ function createPluginApi(params: {
               summary:
                 "Search across all indexed workspace content (mail, contacts, knowledge base, …) with module/source/time filters",
             },
-          });
-        }
+          }
+        );
         service.registerSource(registration);
         const provider = service.getProvider(registration.source_type);
         if (!provider) {

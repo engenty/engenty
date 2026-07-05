@@ -16,7 +16,7 @@ import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import { generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 import type { KbRepoFactoryFn } from "../dal/contracts.js";
-import type { KbArticlesSearchProvider } from "../dal/kb-articles-search-index-provider.js";
+import type { KbArticlesSearchProvider } from "../dal/kb-retrieval-source.js";
 
 const kbChatBodySchema = z.object({
   kb_id: z.string().min(1),

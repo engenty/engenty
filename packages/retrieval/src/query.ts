@@ -176,6 +176,20 @@ export async function runQuery(
   }
 
   const useTrigram = sources.some((source) => source.retriever?.useTrigram);
+  let vectorThreshold = DEFAULT_VECTOR_THRESHOLD;
+  for (const source of sources) {
+    const configured = source.retriever?.vectorThreshold;
+    if (configured === undefined) {
+      continue;
+    }
+    const resolved =
+      typeof configured === "function"
+        ? await configured(tenantId)
+        : configured;
+    if (Number.isFinite(resolved)) {
+      vectorThreshold = Math.min(vectorThreshold, resolved);
+    }
+  }
   const { data, error } = await deps.supabase
     .schema(SCHEMA)
     .rpc("query_chunks", {
@@ -196,7 +210,7 @@ export async function runQuery(
       p_trigram_threshold: DEFAULT_TRIGRAM_THRESHOLD,
       p_use_trigram: useTrigram,
       p_user_id: filters.user_id ?? null,
-      p_vector_threshold: DEFAULT_VECTOR_THRESHOLD,
+      p_vector_threshold: vectorThreshold,
     });
   if (error) {
     throw new Error(`retrieval query failed: ${error.message}`);
