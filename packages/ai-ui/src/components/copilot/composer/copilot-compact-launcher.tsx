@@ -38,6 +38,8 @@ export interface CopilotCompactLauncherProps {
   /** Start a fresh conversation (exposed in the composer (+) menu). */
   onNewChat?: () => void;
   onSelectContext: (value: string) => void;
+  /** Optimistic user text while a run is in flight (flap "sending" preview). */
+  pendingUserText?: string | null;
   /** Shell position menu (⋮); rendered before the drag handle when set. */
   positionMenu?: ReactNode;
   recentContextOptions?: CopilotCompactContextOption[];
@@ -62,6 +64,7 @@ export function CopilotCompactLauncher({
   interruptContent = null,
   onCollapseToCircle,
   onNewChat,
+  pendingUserText = null,
   positionMenu,
   onSelectContext,
   recentContextOptions,
@@ -119,6 +122,7 @@ export function CopilotCompactLauncher({
       interruptContent={interruptContent}
       isMultiline={isMultiline}
       messages={agentTickerMessages}
+      pendingUserText={pendingUserText}
       variant="dock"
     >
       <PromptInputProvider initialInput={draft}>

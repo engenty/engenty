@@ -33,6 +33,39 @@ export function useAnimatedPresence(visible: boolean, exitMs = 220) {
   return { closing, rendered };
 }
 
+/** Text of the last user message — the "what am I waiting on" line shown in
+ *  the flap while a run is submitted/streaming with no assistant activity yet. */
+export function getLastUserMessageText(
+  messages: readonly AgentTurnMessageLike[]
+): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message?.role !== "user") {
+      continue;
+    }
+    const record = message as unknown as {
+      content?: unknown;
+      parts?: readonly unknown[];
+    };
+    if (typeof record.content === "string" && record.content.trim()) {
+      return record.content.trim();
+    }
+    const text = (record.parts ?? [])
+      .map((part) => {
+        const typed = part as { text?: unknown; type?: unknown };
+        return typed?.type === "text" && typeof typed.text === "string"
+          ? typed.text
+          : "";
+      })
+      .join("")
+      .trim();
+    if (text) {
+      return text;
+    }
+  }
+  return "";
+}
+
 /** Concatenated text parts of the last assistant message — empty when the
  *  run only executed commands/tools (no content reply). */
 export function getAssistantReplyText(

@@ -1,7 +1,10 @@
 /** @vitest-environment happy-dom */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { CopilotComposerStatusFlap } from "./copilot-composer-status-flap.js";
+import {
+  CopilotComposerStatusFlap,
+  getLastUserMessageText,
+} from "./copilot-composer-status-flap.js";
 
 afterEach(cleanup);
 
@@ -47,6 +50,22 @@ describe("CopilotComposerStatusFlap", () => {
     await waitFor(() => {
       expect(screen.queryByRole("table")).toBeNull();
     });
+  });
+
+  it("extracts the last user message text for the sending preview", () => {
+    expect(
+      getLastUserMessageText([
+        { role: "user", parts: [{ type: "text", text: "First" }] },
+        { role: "assistant", parts: [{ type: "text", text: "Reply" }] },
+        { role: "user", parts: [{ type: "text", text: "Ändere den Titel" }] },
+      ] as never)
+    ).toBe("Ändere den Titel");
+    expect(
+      getLastUserMessageText([
+        { role: "user", content: "String content form" },
+      ] as never)
+    ).toBe("String content form");
+    expect(getLastUserMessageText([])).toBe("");
   });
 
   it("renders pending HITL interrupt content (approval card) in the flap", () => {

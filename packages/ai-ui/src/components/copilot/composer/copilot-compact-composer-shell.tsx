@@ -20,6 +20,7 @@ import type {
 import {
   CopilotComposerStatusFlap,
   getAssistantReplyText,
+  getLastUserMessageText,
   useAnimatedPresence,
 } from "./copilot-composer-status-flap.js";
 import { CopilotComposerUsageMeter } from "./copilot-composer-usage-meter.js";
@@ -69,6 +70,9 @@ export interface CopilotCompactComposerShellProps {
   isMultiline?: boolean;
   labels?: AgentStatusTickerLabels;
   messages?: readonly AgentTurnMessageLike[];
+  /** Optimistic user text while a run is in flight (not yet in `messages`) —
+   *  shown as the flap's one-line "sending" preview with the spinner. */
+  pendingUserText?: string | null;
   runStatus?: AgentRunStatus | null;
   showAvatar?: boolean;
   showUsageMeter?: boolean;
@@ -247,6 +251,7 @@ export function CopilotCompactComposerShell({
   interruptContent = null,
   labels,
   messages = [],
+  pendingUserText = null,
   runStatus = null,
   showUsageMeter = true,
   stale = false,
@@ -260,13 +265,23 @@ export function CopilotCompactComposerShell({
     chatStatus,
     messages
   );
+  // The one-line "sending" preview: the message the user just submitted,
+  // shown with the ticker spinner while the run has produced nothing yet.
+  const isActiveRun = chatStatus === "submitted" || chatStatus === "streaming";
+  const sendingUserText = isActiveRun
+    ? pendingUserText?.trim() || getLastUserMessageText(messages)
+    : "";
   const showRunningFlap =
     enableStatusFlap &&
-    shouldShowRunningStatusFlap({
+    (shouldShowRunningStatusFlap({
       chatStatus,
       hasNewActivity,
       messages,
-    });
+    }) ||
+      // Without this, submitting into a thread that already has an assistant
+      // reply shows NO flap until new activity streams — the user stares at a
+      // bare composer wondering whether the send registered.
+      (isActiveRun && sendingUserText.length > 0));
   // Only persist the flap for runs that happened while this shell was mounted.
   const hadRunRef = useRef(false);
   if (chatStatus === "submitted" || chatStatus === "streaming") {
@@ -460,7 +475,18 @@ export function CopilotCompactComposerShell({
             errorMessage={errorMessage}
             idlePreviewText={idlePreviewText || null}
             interruptContent={interruptContent}
-            labels={labels}
+            labels={
+              // Until the run produces activity, the ticker line is the just-
+              // sent user message (with spinner) instead of a generic
+              // "Waiting…" — so the send is visibly acknowledged.
+              sendingUserText
+                ? {
+                    ...labels,
+                    thinking: sendingUserText,
+                    waiting: sendingUserText,
+                  }
+                : labels
+            }
             messages={messages}
             replyText={replyText}
             runStatus={runStatus}

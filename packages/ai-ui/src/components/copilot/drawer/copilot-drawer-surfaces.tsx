@@ -51,6 +51,7 @@ export interface CopilotDrawerSurfaceTreeProps {
     draft: string;
     error?: { message?: string | null } | null;
     messages: CopilotPanelContentProps["messages"];
+    pendingUserText?: string | null;
     setDraft: CopilotPanelContentProps["setDraft"];
     status: CopilotPanelContentProps["status"];
     submitMessage: CopilotPanelContentProps["submitMessage"];
@@ -296,6 +297,7 @@ export function CopilotDrawerSurfaceTree({
             interruptContent={compactInterruptContent}
             onNewChat={panelContentProps.onNewChat}
             onSelectContext={handleCompactContextChange}
+            pendingUserText={injected.pendingUserText ?? null}
             positionMenu={copilotPositionDropdown}
             recentContextOptions={recentCompactContexts}
             selectedContextId={selectedCompactContext?.id ?? "current"}
@@ -389,6 +391,7 @@ export function CopilotDrawerSurfaceTree({
             interruptContent={compactInterruptContent}
             isMultiline={bottomIsMultiline}
             messages={injected.messages}
+            pendingUserText={injected.pendingUserText ?? null}
             threadId={injected.activeThreadId}
             variant="dock-tinted"
           >
