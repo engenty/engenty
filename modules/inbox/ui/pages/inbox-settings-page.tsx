@@ -11,10 +11,13 @@ import {
   Skeleton,
   Switch,
 } from "@engenty/ui-core";
-import { ArrowLeft, RefreshCw } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { RefreshCw } from "lucide-react";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import type { InboxAccount } from "../api.js";
+import { useInboxSecondaryNav } from "../hooks/use-inbox-secondary-nav.js";
 import {
   useInboxAccountsQuery,
   useRunSyncNowMutation,
@@ -23,22 +26,28 @@ import {
 
 export function InboxSettingsPage() {
   const { t } = useTranslation("inbox");
-  const navigate = useNavigate();
   const accountsQuery = useInboxAccountsQuery();
   const accounts = accountsQuery.data?.accounts ?? [];
 
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useInboxSecondaryNav();
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("settings.title") },
+    ],
+    [moduleRootCrumb, t]
+  );
+  usePageConfig({
+    breadcrumbs,
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+  });
+
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4">
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={() => navigate("/mdl/inbox")}
-          size="sm"
-          variant="ghost"
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="font-semibold text-xl">{t("settings.title")}</h1>
-      </div>
+    <section className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-auto p-page pb-10">
+      <h1 className="font-semibold text-xl">{t("settings.title")}</h1>
       <p className="text-muted-foreground text-sm">
         {t("settings.description")}{" "}
         <Link className="underline" to="/settings/connections">
@@ -54,9 +63,7 @@ export function InboxSettingsPage() {
         <Empty>
           <EmptyHeader>
             <EmptyTitle>{t("errors.loadFailed")}</EmptyTitle>
-            <EmptyDescription>
-              {String(accountsQuery.error)}
-            </EmptyDescription>
+            <EmptyDescription>{String(accountsQuery.error)}</EmptyDescription>
           </EmptyHeader>
           <Button
             onClick={() => accountsQuery.refetch()}
@@ -76,13 +83,13 @@ export function InboxSettingsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="space-y-3">
+        <div className="max-w-4xl space-y-3">
           {accounts.map((account) => (
             <AccountRow account={account} key={account.connection_id} />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

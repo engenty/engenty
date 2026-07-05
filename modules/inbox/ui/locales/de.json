@@ -33,7 +33,9 @@
   },
   "empty": {
     "title": "Keine Nachrichten",
-    "description": "Verbinde ein E-Mail-Konto und starte eine Synchronisierung."
+    "description": "Verbinde ein E-Mail-Konto und starte eine Synchronisierung.",
+    "laneTitle": "Nichts hier",
+    "laneDescription": "Keine Nachrichten für diesen Filter."
   },
   "thread": {
     "attachment": "Anhang",
@@ -73,5 +75,12 @@
   "errors": {
     "loadFailed": "Der Posteingang konnte nicht geladen werden",
     "retry": "Erneut versuchen"
+  },
+  "sidebar": {
+    "accounts": "Konten"
+  },
+  "detail": {
+    "placeholderTitle": "Konversation auswählen",
+    "placeholderDescription": "Wähle links eine Konversation aus, um sie hier zu lesen."
   }
 }

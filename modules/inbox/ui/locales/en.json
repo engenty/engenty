@@ -33,7 +33,9 @@
   },
   "empty": {
     "title": "No messages",
-    "description": "Connect a mail account and run a sync to see messages here."
+    "description": "Connect a mail account and run a sync to see messages here.",
+    "laneTitle": "Nothing here",
+    "laneDescription": "No messages match this lane or account filter."
   },
   "thread": {
     "attachment": "Attachment",
@@ -73,5 +75,12 @@
   "errors": {
     "loadFailed": "Loading the inbox failed",
     "retry": "Retry"
+  },
+  "sidebar": {
+    "accounts": "Accounts"
+  },
+  "detail": {
+    "placeholderTitle": "Select a conversation",
+    "placeholderDescription": "Pick a thread from the list to read it here."
   }
 }

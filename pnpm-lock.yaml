@@ -1144,6 +1144,9 @@ importers:
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@engenty/connections-sdk':
         specifier: workspace:*
         version: link:../../packages/connections-sdk

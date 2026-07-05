@@ -1,8 +1,7 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { Mail } from "lucide-react";
-import { InboxListPage } from "./pages/inbox-list-page.js";
+import { InboxClientPage } from "./pages/inbox-client-page.js";
 import { InboxSettingsPage } from "./pages/inbox-settings-page.js";
-import { InboxThreadPage } from "./pages/inbox-thread-page.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   // Realtime: new synced messages invalidate the inbox queries live.
@@ -22,9 +21,9 @@ export default function plugin(engenty: EngentyPluginContext) {
   });
 
   engenty.UI.registerRoute({
-    id: "inbox_module_list",
+    id: "inbox_module_client",
     path: "/mdl/inbox",
-    component: InboxListPage,
+    component: InboxClientPage,
     order: 150,
   });
 
@@ -39,7 +38,7 @@ export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerRoute({
     id: "inbox_module_thread",
     path: "/mdl/inbox/:threadId",
-    component: InboxThreadPage,
+    component: InboxClientPage,
     order: 152,
   });
 
