@@ -49,6 +49,25 @@ describe("CopilotComposerStatusFlap", () => {
     });
   });
 
+  it("shows a one-line idle preview of the last reply when the thread has history", () => {
+    // Idle with prior conversation: the flap shows a single-line preview of the
+    // last assistant reply (compact surfaces have no transcript) instead of the
+    // "Done" status ticker.
+    renderFlap({ idlePreviewText: "Angebotstitel wurde aktualisiert." });
+    expect(screen.getByText("Angebotstitel wurde aktualisiert.")).toBeTruthy();
+  });
+
+  it("prefers the live status ticker over the idle preview while running", () => {
+    // A running turn must show progress, not the stale previous reply.
+    renderFlap({
+      chatStatus: "streaming",
+      idlePreviewText: "Old reply that must not show while running.",
+    });
+    expect(
+      screen.queryByText("Old reply that must not show while running.")
+    ).toBeNull();
+  });
+
   it("renders the reply as markdown (a table), not raw pipe text, when expanded", async () => {
     // Auto-expand path (compact launcher/popover): the reply must render through
     // the same markdown component as the transcript, not as raw source.

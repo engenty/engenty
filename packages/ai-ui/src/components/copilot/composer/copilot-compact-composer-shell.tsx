@@ -280,10 +280,20 @@ export function CopilotCompactComposerShell({
     chatStatus === "ready" &&
     hadRunRef.current &&
     (replyText.length > 0 || tickerVisible);
+  // Persistent history hint: whenever the thread already has a real
+  // back-and-forth (at least one user message) and a reply exists, keep the
+  // flap showing a 1-line preview — so reopening the launcher/dock on an
+  // existing conversation shows continuity, not a blank composer.
+  const hasConversation = messages.some((message) => message.role === "user");
+  const idlePreviewText =
+    enableStatusFlap && chatStatus === "ready" && hasConversation
+      ? replyText
+      : "";
   const showStatus =
     (enableStatusFlap && interruptContent != null) ||
     showRunningFlap ||
-    showPostRunFlap;
+    showPostRunFlap ||
+    idlePreviewText.length > 0;
   const { closing, rendered } = useAnimatedPresence(showStatus);
 
   const [isFocused, setIsFocused] = useState(false);
@@ -448,6 +458,7 @@ export function CopilotCompactComposerShell({
             chatStatus={chatStatus}
             closing={closing}
             errorMessage={errorMessage}
+            idlePreviewText={idlePreviewText || null}
             interruptContent={interruptContent}
             labels={labels}
             messages={messages}

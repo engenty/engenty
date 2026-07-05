@@ -334,6 +334,7 @@ export function CopilotDrawerSurfaceTree({
               role: "presentation",
             }}
             interruptContent={compactInterruptContent}
+            onNewChat={panelContentProps.onNewChat}
             onSelectContext={handleCompactContextChange}
             positionMenu={copilotPositionDropdown}
             recentContextOptions={recentCompactContexts}
@@ -440,6 +441,7 @@ export function CopilotDrawerSurfaceTree({
                 composerPlaceholder={composerPlaceholder}
                 draft={injected.draft}
                 onMultilineChange={setBottomIsMultiline}
+                onNewChat={panelContentProps.onNewChat}
                 setDraft={injected.setDraft}
                 showStarterPrompts={false}
                 status={injected.status}

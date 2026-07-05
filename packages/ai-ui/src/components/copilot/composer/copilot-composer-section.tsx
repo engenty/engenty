@@ -1,9 +1,9 @@
 "use client";
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn } from "@engenty/ui-core";
+import { Button, cn, DropdownMenuSeparator } from "@engenty/ui-core";
 import { AnimatedSendIcon } from "@engenty/ui-icons";
-import { Mic, MicOff, XIcon } from "lucide-react";
+import { MessageSquarePlus, Mic, MicOff, XIcon } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -45,6 +45,8 @@ export interface CopilotComposerSectionProps {
   mentionAgentCandidates?: Array<{ handle: string; id: string; name: string }>;
   onComposerMentionAgent?: (agentId: string) => void;
   onMultilineChange?: (multiline: boolean) => void;
+  /** Start a fresh conversation from the composer (+) menu. Omit to hide it. */
+  onNewChat?: () => void;
   /** Abort the in-flight AG-UI run (maps to PromptInputSubmit `onStop`). */
   onStop?: () => void;
   setDraft: Dispatch<SetStateAction<string>>;
@@ -73,6 +75,7 @@ export function CopilotComposerSection({
   focusComposerKey,
   mentionAgentCandidates,
   onComposerMentionAgent,
+  onNewChat,
   setDraft,
   showStarterPrompts,
   starterPrompts,
@@ -154,6 +157,14 @@ export function CopilotComposerSection({
       attachments.openFileDialog();
     },
     [attachments]
+  );
+
+  const handleNewChatSelect = useCallback(
+    (event: Event) => {
+      event.preventDefault();
+      onNewChat?.();
+    },
+    [onNewChat]
   );
 
   const handleSubmit = useCallback(
@@ -285,6 +296,15 @@ export function CopilotComposerSection({
           size="icon-sm"
         />
         <PromptInputActionMenuContent align="start" className="z-45 w-56">
+          {onNewChat ? (
+            <>
+              <PromptInputActionMenuItem onSelect={handleNewChatSelect}>
+                <MessageSquarePlus className="size-4 shrink-0" />
+                {t("copilot.newChat")}
+              </PromptInputActionMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <PromptInputActionMenuItem onSelect={handleAddAttachments}>
             Add photos or files
           </PromptInputActionMenuItem>

@@ -35,6 +35,8 @@ export interface CopilotCompactLauncherProps {
   /** Pending HITL interrupt UI, rendered in the status flap above the input. */
   interruptContent?: ReactNode;
   onCollapseToCircle?: () => void;
+  /** Start a fresh conversation (exposed in the composer (+) menu). */
+  onNewChat?: () => void;
   onSelectContext: (value: string) => void;
   /** Shell position menu (⋮); rendered before the drag handle when set. */
   positionMenu?: ReactNode;
@@ -59,6 +61,7 @@ export function CopilotCompactLauncher({
   dragHandleProps,
   interruptContent = null,
   onCollapseToCircle,
+  onNewChat,
   positionMenu,
   onSelectContext,
   recentContextOptions,
@@ -125,6 +128,7 @@ export function CopilotCompactLauncher({
           composerPlaceholder={composerPlaceholder}
           draft={draft}
           onMultilineChange={setIsMultiline}
+          onNewChat={onNewChat}
           setDraft={setDraft}
           showStarterPrompts={false}
           status={status}
