@@ -27,8 +27,8 @@ idempotent and only prompts for plugins on a fresh workspace.
 |------|-----------|-------|
 | `pnpm install` | Installs deps, then **`postinstall`** warms the build | `postinstall` is best-effort and marker-gated — it never fails the install; the CLI rebuilds on demand if skipped. Skip with `ENGENTY_SKIP_INSTALL_BUILD=1`. |
 | `engenty setup` | **Regenerates derived artifacts** from `engenty.plugins` | Pure function of the manifest — see below. |
-| `engenty setup --local` | `setup` **plus** orchestration | Interactive plugin install (fresh only) → start Docker → start Supabase → apply migrations → init `.env.local`. Each step is skippable; non-interactive shells take safe defaults. |
-| `pnpm dev` | `dev:check` + `predev` + the stack | Auto-starts Docker and Supabase if needed, builds packages/modules, regenerates UI artifacts, then runs core/ui/ai/docs. |
+| `engenty setup --local` | `setup` **plus** orchestration | Interactive plugin install (fresh only) → start the container runtime → start Supabase → apply migrations → init `.env.local`. Each step is skippable; non-interactive shells take safe defaults. |
+| `pnpm dev` | `dev:check` + `predev` + the stack | Auto-starts the [chosen container runtime](#choosing-a-container-runtime) and Supabase if needed, builds packages/modules, regenerates UI artifacts, then runs core/ui/ai/docs. |
 
 ## What `engenty setup` regenerates
 
@@ -74,12 +74,34 @@ warms this so the first command is instant; if it was skipped, the wrapper build
 the needed packages before running. Plugins themselves are loaded from source via
 `jiti` and never need a `dist` build.
 
-## Docker & Supabase, on demand
+## Container runtime & Supabase, on demand
 
-Both `pnpm dev` (`predev-check.sh`) and `setup --local` will, on macOS, start
-Docker Desktop if it isn't running and wait for it, then start local Supabase if
-it isn't up. If Docker can't be readied, you get a clear instruction and a clean
-exit (no stack trace) — start Docker Desktop and re-run.
+Both `pnpm dev` (`predev-check.sh`) and `setup --local` will, on macOS, start the
+container runtime if it isn't running and wait for it, then start local Supabase
+if it isn't up. If the runtime can't be readied, you get a clear instruction and
+a clean exit (no stack trace) — start it and re-run.
+
+### Choosing a container runtime
+
+The local Supabase stack needs a Docker-compatible engine. Three are supported:
+
+- **Docker Desktop**
+- **[OrbStack](https://orbstack.dev)**
+- **[Dory](https://augani.github.io/dory)** — native to the Apple container stack
+
+The first time `pnpm dev` runs without a saved choice, `predev-check.sh` prompts
+you to pick one and records it under `engenty.containerRuntime` in `package.json`
+(values: `docker-desktop`, `orbstack`, `dory`). Later runs read that value and
+`open -a` the matching app, waiting for its Docker-compatible daemon. Dory's own
+`docker context` is selected automatically so the CLI and Supabase hit the right
+socket.
+
+This is a **per-machine preference** — it's not committed, and the field is
+deliberately namespaced under `engenty.` rather than `devEngines` (which is a
+package-manager-enforced schema for the JS runtime/package manager and would fail
+`install`/`run` if given a container-engine name). Non-interactive shells (CI)
+default to Docker Desktop. To switch runtimes, edit or delete the field and you'll
+be re-prompted.
 
 ## Environment
 
