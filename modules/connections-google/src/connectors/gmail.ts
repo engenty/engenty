@@ -201,27 +201,59 @@ function pullLimit(ctx: StreamPullCtx): number {
   return Math.min(Math.max(ctx.limit ?? DEFAULT_PULL_LIMIT, 1), MAX_PULL_LIMIT);
 }
 
+// Gmail caps concurrent requests per user ("Too many concurrent requests",
+// 429 rateLimitExceeded) — fetch details in small chunks, never all at once.
+const DETAIL_FETCH_CONCURRENCY = 5;
+const RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_BACKOFF_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchMessageDetail(
+  ctx: StreamPullCtx,
+  id: string
+): Promise<GmailMessage | null> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await googleJson<GmailMessage>(
+        ctx,
+        `${GMAIL_API}/messages/${encodeURIComponent(id)}?format=full`
+      );
+    } catch (error) {
+      // Deleted between listing and fetch — skip instead of failing the pull.
+      if (error instanceof Error && error.message.includes("(404)")) {
+        ctx.log("gmail stream: message vanished before fetch", { id });
+        return null;
+      }
+      // Transient rate limit — back off and retry before failing the pull.
+      if (
+        error instanceof Error &&
+        error.message.includes("(429)") &&
+        attempt < RATE_LIMIT_RETRIES
+      ) {
+        const delay = RATE_LIMIT_BACKOFF_MS * 2 ** attempt;
+        ctx.log("gmail stream: rate limited, backing off", { delay, id });
+        await sleep(delay);
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 async function fetchInboundMessages(
   ctx: StreamPullCtx,
   ids: string[]
 ): Promise<InboundMessage[]> {
-  const messages = await Promise.all(
-    ids.map(async (id) => {
-      try {
-        return await googleJson<GmailMessage>(
-          ctx,
-          `${GMAIL_API}/messages/${encodeURIComponent(id)}?format=full`
-        );
-      } catch (error) {
-        // Deleted between listing and fetch — skip instead of failing the pull.
-        if (error instanceof Error && error.message.includes("(404)")) {
-          ctx.log("gmail stream: message vanished before fetch", { id });
-          return null;
-        }
-        throw error;
-      }
-    })
-  );
+  const messages: (GmailMessage | null)[] = [];
+  for (let i = 0; i < ids.length; i += DETAIL_FETCH_CONCURRENCY) {
+    const chunk = ids.slice(i, i + DETAIL_FETCH_CONCURRENCY);
+    messages.push(
+      ...(await Promise.all(chunk.map((id) => fetchMessageDetail(ctx, id))))
+    );
+  }
   return messages
     .filter((m): m is GmailMessage => m !== null)
     .map(toInboundMessage);
