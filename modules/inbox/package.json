@@ -37,6 +37,7 @@
     "@engenty/ui-plugin-sdk": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
     "@supabase/supabase-js": "^2.108.2",
+    "ai": "6.0.116",
     "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
