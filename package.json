@@ -39,10 +39,10 @@
       "knowledge-base": {
         "source": "workspace"
       },
-      "tasks": {
+      "projects": {
         "source": "workspace"
       },
-      "projects": {
+      "tasks": {
         "source": "workspace"
       },
       "team": {
