@@ -14,16 +14,29 @@
  * @see docs/dev/backend-abstraction.md
  */
 
-export type FileSourceKind = "native" | "gdrive" | "dropbox" | "onedrive";
+export type FileSourceKind =
+  | "native"
+  | "gdrive"
+  | "dropbox"
+  | "onedrive"
+  | "s3"
+  | "local";
 
 /** A folder node in a file space (source-agnostic). */
 export interface FileSourceFolder {
+  /**
+   * Connections-module connection id backing this folder (mount roots only).
+   * Presence marks the folder as a mounted external source.
+   */
+  connectionId?: string;
   /** ISO timestamp */
   createdAt: string;
   id: string;
   name: string;
   /** null = space root */
   parentId: string | null;
+  /** True for virtual nodes inside a mount: browse/download only. */
+  readOnly?: boolean;
   source: FileSourceKind;
   /** ISO timestamp */
   updatedAt: string;
@@ -38,6 +51,8 @@ export interface FileSourceFile {
   id: string;
   mimeType: string;
   name: string;
+  /** True for virtual nodes inside a mount: browse/download only. */
+  readOnly?: boolean;
   sizeBytes: number;
   source: FileSourceKind;
   /** External provider file id (connector sources only). */
@@ -53,6 +68,8 @@ export interface FileSourceListing {
   cursor?: string;
   files: FileSourceFile[];
   folders: FileSourceFolder[];
+  /** True when the listed level lives inside a read-only mount. */
+  readOnly?: boolean;
 }
 
 /** Identifies the owning container a file space is bound to (e.g. a project). */
@@ -169,10 +186,16 @@ export type FileEntryStatus = "pending" | "active";
 
 /** Persisted folder row, scoped to (tenant, owner). */
 export interface FileFolderRow {
+  /** Connection id when this folder is a connector mount root. */
+  connectionId?: string | null;
   createdAt: string;
   id: string;
   name: string;
   parentId: string | null;
+  /** Source kind ("native" or a connector kind for mount roots). */
+  source?: string;
+  /** Provider folder ref the mount points at (null = provider root). */
+  sourceFolderId?: string | null;
   updatedAt: string;
 }
 

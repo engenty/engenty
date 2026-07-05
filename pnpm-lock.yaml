@@ -1169,6 +1169,9 @@ importers:
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@engenty/connections-sdk':
+        specifier: workspace:*
+        version: link:../../packages/connections-sdk
       '@engenty/file-storage':
         specifier: workspace:*
         version: link:../../packages/file-storage

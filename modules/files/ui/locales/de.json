@@ -119,6 +119,19 @@
     "errors": {
       "generic": "Etwas ist schiefgelaufen.",
       "upload": "{{filename}} konnte nicht hochgeladen werden: {{error}}"
+    },
+    "sources": {
+      "connectFolder": "Ordner verbinden",
+      "connectedBadge": "verbunden",
+      "confirmRemoveSource": "Verbundene Quelle \"{{name}}\" entfernen? Dateien beim Anbieter bleiben unberührt.",
+      "mounted": "\"{{name}}\" verbunden.",
+      "mounting": "Verbinde…",
+      "none": "Keine Dateiquellen verbunden — Verbindungen öffnen",
+      "noSubfolders": "Keine Unterordner — diese Ebene verbinden oder zurückgehen.",
+      "pickDescription": "Zum gewünschten Ordner navigieren und bestätigen.",
+      "pickTitle": "Ordner aus {{name}} verbinden",
+      "removeSource": "Quelle entfernen",
+      "useThisFolder": "Diesen Ordner verwenden"
     }
   }
 }

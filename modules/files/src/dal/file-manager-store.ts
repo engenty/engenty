@@ -21,11 +21,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const SCHEMA = "module_files";
 
+const FOLDER_COLUMNS =
+  "id, parent_id, name, source, source_folder_id, connection_id, created_at, updated_at";
+
 interface FolderDbRow {
+  connection_id: string | null;
   created_at: string;
   id: string;
   name: string;
   parent_id: string | null;
+  source: string;
+  source_folder_id: string | null;
   updated_at: string;
 }
 
@@ -46,6 +52,9 @@ function toFolderRow(row: FolderDbRow): FileFolderRow {
     id: row.id,
     parentId: row.parent_id,
     name: row.name,
+    source: row.source,
+    sourceFolderId: row.source_folder_id,
+    connectionId: row.connection_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -82,7 +91,7 @@ export function createFileManagerStores(adapter: unknown): {
   const folders: NativeFolderStore = {
     async list(ctx, parentId) {
       let query = foldersTable()
-        .select("id, parent_id, name, created_at, updated_at")
+        .select(FOLDER_COLUMNS)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
         .eq("owner_id", ctx.owner.id)
@@ -99,7 +108,7 @@ export function createFileManagerStores(adapter: unknown): {
 
     async get(ctx, id) {
       const { data, error } = await foldersTable()
-        .select("id, parent_id, name, created_at, updated_at")
+        .select(FOLDER_COLUMNS)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
         .eq("owner_id", ctx.owner.id)
@@ -119,7 +128,7 @@ export function createFileManagerStores(adapter: unknown): {
           name: input.name,
           source: "native",
         })
-        .select("id, parent_id, name, created_at, updated_at")
+        .select(FOLDER_COLUMNS)
         .single();
       if (error) {
         throw new Error(`file_folders.create failed: ${error.message}`);
@@ -143,7 +152,7 @@ export function createFileManagerStores(adapter: unknown): {
         .eq("owner_type", ctx.owner.type)
         .eq("owner_id", ctx.owner.id)
         .eq("id", id)
-        .select("id, parent_id, name, created_at, updated_at")
+        .select(FOLDER_COLUMNS)
         .maybeSingle();
       if (error) {
         throw new Error(`file_folders.update failed: ${error.message}`);
@@ -310,4 +319,69 @@ export function createFileManagerStores(adapter: unknown): {
   };
 
   return { folders, entries };
+}
+
+/* ── Connector mounts ──
+ * A mount is a `file_folders` row whose source is a connector kind, carrying
+ * the backing connection id and the provider folder ref. Everything below the
+ * mount is virtual (`cnx:` ids) — no rows.
+ */
+
+export interface MountDbInput {
+  connectionId: string;
+  name: string;
+  parentId: string | null;
+  source: string;
+  sourceFolderId: string | null;
+}
+
+export interface FileMountStore {
+  create(
+    ctx: FileSourceContext,
+    input: MountDbInput
+  ): Promise<FileFolderRow>;
+  get(ctx: FileSourceContext, folderId: string): Promise<FileFolderRow | null>;
+}
+
+export function createFileMountStore(adapter: unknown): FileMountStore {
+  const supabase = adapter as SupabaseClient;
+  const foldersTable = () => supabase.schema(SCHEMA).from("file_folders");
+
+  return {
+    async get(ctx, folderId) {
+      const { data, error } = await foldersTable()
+        .select(FOLDER_COLUMNS)
+        .eq("tenant_id", ctx.tenantId)
+        .eq("owner_type", ctx.owner.type)
+        .eq("owner_id", ctx.owner.id)
+        .eq("id", folderId)
+        .neq("source", "native")
+        .not("connection_id", "is", null)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`file_folders.getMount failed: ${error.message}`);
+      }
+      return data ? toFolderRow(data as FolderDbRow) : null;
+    },
+
+    async create(ctx, input) {
+      const { data, error } = await foldersTable()
+        .insert({
+          tenant_id: ctx.tenantId,
+          owner_type: ctx.owner.type,
+          owner_id: ctx.owner.id,
+          parent_id: input.parentId,
+          name: input.name,
+          source: input.source,
+          source_folder_id: input.sourceFolderId,
+          connection_id: input.connectionId,
+        })
+        .select(FOLDER_COLUMNS)
+        .single();
+      if (error) {
+        throw new Error(`file_folders.createMount failed: ${error.message}`);
+      }
+      return toFolderRow(data as FolderDbRow);
+    },
+  };
 }

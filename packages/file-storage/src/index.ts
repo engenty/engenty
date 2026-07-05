@@ -55,6 +55,7 @@ export {
   type CreateNativeFileSourceOptions,
   createNativeFileSource,
   FileSourceNotFoundError,
+  FileSourceReadOnlyError,
 } from "./sources/native-file-source.js";
 export {
   assertTenantScopedStorageKey,

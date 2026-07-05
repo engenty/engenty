@@ -46,11 +46,15 @@ function defaultBuildStorageKey(
 }
 
 function toFolderNode(row: FileFolderRow): FileSourceFolder {
+  // Mount roots (connector-backed folders) surface their source kind and
+  // connection so the UI can badge them; plain rows stay native.
+  const source = (row.source ?? "native") as FileSourceFolder["source"];
   return {
     id: row.id,
     name: row.name,
     parentId: row.parentId,
-    source: "native",
+    source,
+    ...(row.connectionId ? { connectionId: row.connectionId } : {}),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -74,6 +78,14 @@ export class FileSourceNotFoundError extends Error {
   constructor(message = "File or folder not found") {
     super(message);
     this.name = "FileSourceNotFoundError";
+  }
+}
+
+/** Thrown when a mutation targets a read-only (connector-mounted) node. */
+export class FileSourceReadOnlyError extends Error {
+  constructor(message = "Connected sources are read-only") {
+    super(message);
+    this.name = "FileSourceReadOnlyError";
   }
 }
 

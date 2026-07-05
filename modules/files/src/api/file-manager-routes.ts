@@ -9,6 +9,7 @@ import {
   type FileSource,
   type FileSourceContext,
   FileSourceNotFoundError,
+  FileSourceReadOnlyError,
 } from "@engenty/file-storage";
 import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import type { z } from "@hono/zod-openapi";
@@ -68,6 +69,12 @@ async function withNotFound<T>(fn: () => Promise<T>): Promise<T | Response> {
   } catch (err) {
     if (err instanceof FileSourceNotFoundError) {
       return notFound(err.message);
+    }
+    if (err instanceof FileSourceReadOnlyError) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
     }
     throw err;
   }

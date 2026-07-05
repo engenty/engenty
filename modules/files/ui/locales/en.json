@@ -119,6 +119,19 @@
     "errors": {
       "generic": "Something went wrong.",
       "upload": "Failed to upload {{filename}}: {{error}}"
+    },
+    "sources": {
+      "connectFolder": "Connect folder",
+      "connectedBadge": "connected",
+      "confirmRemoveSource": "Remove the connected source \"{{name}}\"? Files in the provider are not touched.",
+      "mounted": "Connected \"{{name}}\".",
+      "mounting": "Connecting…",
+      "none": "No file sources connected — open Connections settings",
+      "noSubfolders": "No subfolders — mount this level or go back.",
+      "pickDescription": "Navigate to the folder you want to connect, then confirm.",
+      "pickTitle": "Connect a folder from {{name}}",
+      "removeSource": "Remove source",
+      "useThisFolder": "Use this folder"
     }
   }
 }
