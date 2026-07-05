@@ -1,0 +1,51 @@
+{
+  "name": "@engenty/retrieval",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./mastra-splitter": {
+      "types": "./dist/mastra-splitter.d.ts",
+      "default": "./dist/mastra-splitter.js"
+    }
+  },
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/mastra-splitter.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/mastra-splitter.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    
+    "@engenty/search-index": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@supabase/supabase-js": "^2.108.2",
+    "ai": "6.0.116",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@mastra/rag": ">=2.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@mastra/rag": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@mastra/rag": "2.3.0",
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

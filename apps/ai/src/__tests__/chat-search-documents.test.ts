@@ -3,7 +3,7 @@ import type {
   AgentSessionMessageRow,
   AgentSessionRow,
 } from "../dal/agent-sessions/index.js";
-import { buildAiChatSearchDocumentsForSession } from "../dal/chat-search/index.js";
+import { buildChatSessionSearchText } from "../dal/chat-search/index.js";
 
 const session: AgentSessionRow = {
   agent_id: "engenty.copilot",
@@ -37,30 +37,28 @@ function message(
   };
 }
 
-describe("buildAiChatSearchDocumentsForSession", () => {
-  it("indexes session text and searchable transcript messages", () => {
-    const documents = buildAiChatSearchDocumentsForSession(session, [
+describe("buildChatSessionSearchText", () => {
+  it("compacts title, summary, and role-prefixed transcript; excludes tool messages", () => {
+    const text = buildChatSessionSearchText(session, [
       message("11", "user", [{ type: "text", text: "Find contacts" }]),
       message("12", "assistant", [{ type: "text", text: "Found Ada" }]),
       message("13", "tool", [{ type: "tool-result", text: "internal" }]),
     ]);
 
-    expect(documents).toHaveLength(3);
-    expect(documents[0]).toMatchObject({
-      agent_id: "engenty.copilot",
-      document_type: "session",
-      thread_id: session.id,
-      workspace_key: "chat",
-    });
-    expect(documents[0]?.text).toContain("Transcript title");
-    expect(documents[0]?.text).toContain("user: Find contacts");
-    expect(documents.map((document) => document.role)).toEqual([
-      undefined,
-      "user",
-      "assistant",
-    ]);
+    expect(text).toContain("Transcript title");
+    expect(text).toContain("A saved summary");
+    expect(text).toContain("user: Find contacts");
+    expect(text).toContain("assistant: Found Ada");
+    expect(text).not.toContain("internal");
+  });
+
+  it("returns an empty string for a session with no searchable content", () => {
+    const empty: AgentSessionRow = { ...session, summary: null, title: null };
+    expect(buildChatSessionSearchText(empty, [])).toBe("");
     expect(
-      documents.some((document) => document.text.includes("internal"))
-    ).toBe(false);
+      buildChatSessionSearchText(empty, [
+        message("14", "tool", [{ type: "tool-result", text: "internal" }]),
+      ])
+    ).toBe("");
   });
 });

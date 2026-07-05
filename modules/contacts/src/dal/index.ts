@@ -1,9 +1,11 @@
 export type {
   ContactsSearchFilters,
   ContactsSearchProvider,
-  CreateContactsSearchIndexProviderOptions,
-} from "./contacts-search-index-provider.js";
-export { createContactsSearchIndexProvider } from "./contacts-search-index-provider.js";
+} from "./contacts-retrieval-source.js";
+export {
+  CONTACTS_CONTACT_SOURCE_TYPE,
+  createContactsRetrievalSource,
+} from "./contacts-retrieval-source.js";
 export type {
   ContactRepoSupabase,
   CreateContactRepoSupabaseOptions,

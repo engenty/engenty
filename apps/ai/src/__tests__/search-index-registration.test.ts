@@ -1,7 +1,8 @@
-// Verifies the chat-search store is registered against the unified
-// `SearchIndexProvider` contract and that emitting `ai.chat_session.updated`
-// triggers `provider.refreshSession`. This pins the new event-driven
-// indexing path that replaced the inline `refreshChatSearchSession` hook.
+// Verifies the chat-search retrieval provider is registered under the
+// legacy `ai_chat_search` id and that the `ai.chat_session.updated` /
+// `.deleted` events drive `refreshSession` / `removeSession` on the
+// apps/ai-local retrieval assembly (retrieval-service Phase 5a: the central
+// search.documents store has no FK into ai.thread, so deletes are explicit).
 
 import { ENGENTY_DEV_SERVICE_URLS_FIXTURE } from "@engenty/environment";
 import {
@@ -20,7 +21,7 @@ import {
   type AiChatSessionEventPayload,
   createApp,
 } from "../app.js";
-import type { AiChatSearchStore } from "../dal/chat-search/index.js";
+import type { ChatSearchRetrieval } from "../dal/chat-search/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -31,10 +32,8 @@ const scopeResolver = createStaticAiScopeResolver({
   userId,
 });
 
-function makeChatSearchStore(): AiChatSearchStore & SearchIndexProvider {
-  // Minimal stub honoring both the `SearchIndexProvider` contract surface and
-  // the chat-search-specific helpers the listener calls.
-  const store: Partial<AiChatSearchStore & SearchIndexProvider> = {
+function makeChatSearchRetrieval(): ChatSearchRetrieval {
+  const provider = {
     capabilities: { hybrid: true, lexical: true, semantic: true },
     deleteDocument: vi.fn(async () => {}),
     getDocumentById: vi.fn(async () => null),
@@ -47,12 +46,15 @@ function makeChatSearchStore(): AiChatSearchStore & SearchIndexProvider {
       total_count: 0,
     })),
     id: "ai_chat_search",
-    refreshSession: vi.fn(async () => []),
     replaceDocument: vi.fn(async () => {}),
     search: vi.fn(async () => ({ results: [], total: 0 })),
     version: "1",
+  } as unknown as SearchIndexProvider<never, never, unknown>;
+  return {
+    provider,
+    refreshSession: vi.fn(async () => {}),
+    removeSession: vi.fn(async () => {}),
   };
-  return store as AiChatSearchStore & SearchIndexProvider;
 }
 
 describe("apps/ai search-index registration", () => {
@@ -73,11 +75,11 @@ describe("apps/ai search-index registration", () => {
     vi.unstubAllEnvs();
   });
 
-  it("registers the chat-search store as `ai_chat_search` with metadata", async () => {
+  it("registers the chat-search provider as `ai_chat_search` with metadata", async () => {
     const registry = createSearchIndexRegistry();
-    const store = makeChatSearchStore();
+    const retrieval = makeChatSearchRetrieval();
     await createApp({
-      chatSearchStore: store,
+      chatSearchRetrieval: retrieval,
       events,
       scopeResolver,
       searchIndexRegistry: registry,
@@ -97,11 +99,11 @@ describe("apps/ai search-index registration", () => {
     expect(registration?.metadata.operationId).toBeUndefined();
   });
 
-  it("emitting ai.chat_session.updated triggers provider.refreshSession", async () => {
+  it("emitting ai.chat_session.updated triggers refreshSession", async () => {
     const registry = createSearchIndexRegistry();
-    const store = makeChatSearchStore();
+    const retrieval = makeChatSearchRetrieval();
     await createApp({
-      chatSearchStore: store,
+      chatSearchRetrieval: retrieval,
       events,
       scopeResolver,
       searchIndexRegistry: registry,
@@ -117,19 +119,19 @@ describe("apps/ai search-index registration", () => {
       { tenantId }
     );
 
-    expect(store.refreshSession).toHaveBeenCalledTimes(1);
-    expect(store.refreshSession).toHaveBeenCalledWith({
+    expect(retrieval.refreshSession).toHaveBeenCalledTimes(1);
+    expect(retrieval.refreshSession).toHaveBeenCalledWith({
       thread_id: threadId,
       tenant_id: tenantId,
-      user_id: userId,
     });
+    expect(retrieval.removeSession).not.toHaveBeenCalled();
   });
 
-  it("ai.chat_session.deleted does not call refreshSession (FK cascade owns it)", async () => {
+  it("emitting ai.chat_session.deleted triggers removeSession (no FK cascade anymore)", async () => {
     const registry = createSearchIndexRegistry();
-    const store = makeChatSearchStore();
+    const retrieval = makeChatSearchRetrieval();
     await createApp({
-      chatSearchStore: store,
+      chatSearchRetrieval: retrieval,
       events,
       scopeResolver,
       searchIndexRegistry: registry,
@@ -145,14 +147,18 @@ describe("apps/ai search-index registration", () => {
       { tenantId }
     );
 
-    expect(store.refreshSession).not.toHaveBeenCalled();
-    expect(store.deleteDocument).not.toHaveBeenCalled();
+    expect(retrieval.removeSession).toHaveBeenCalledTimes(1);
+    expect(retrieval.removeSession).toHaveBeenCalledWith({
+      thread_id: threadId,
+      tenant_id: tenantId,
+    });
+    expect(retrieval.refreshSession).not.toHaveBeenCalled();
   });
 
-  it("registers only core.api_catalog when chat-search store is null", async () => {
+  it("registers only core.api_catalog when chat-search retrieval is null", async () => {
     const registry = createSearchIndexRegistry();
     await createApp({
-      chatSearchStore: null,
+      chatSearchRetrieval: null,
       events,
       scopeResolver,
       searchIndexRegistry: registry,

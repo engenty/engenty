@@ -10,7 +10,7 @@ import type {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerInboxGatewayMethods } from "./api/gateway-methods.js";
 import type { EmitInboxEvent } from "./dal/contracts.js";
-import { createInboxSearchIndexProvider } from "./dal/inbox-search-index-provider.js";
+import { createInboxRetrievalSource } from "./dal/inbox-retrieval-source.js";
 import { createInboxRepoSupabase } from "./dal/supabase.js";
 
 type InboxEntityPayload = EntityEventPayload<"message_id">;
@@ -35,22 +35,19 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     );
   };
 
-  const searchProvider = createInboxSearchIndexProvider({ supabase });
-  // Auto-tool `inbox_message_search`. The provider searches the base table
-  // via FTS (no derived index), so no declarative re-index bindings are
-  // needed — the GIN index updates with the row itself.
-  server.registerSearchIndexProvider(searchProvider, {
-    capabilities: searchProvider.capabilities,
-    entityName: "message",
-    moduleId: "inbox",
-    operationOverrides: {
-      idempotent: true,
-      requiredCapabilities: ["module.inbox.read"],
-      riskLevel: "low",
-      summary:
-        "Search synced inbox messages by sender, subject, or body text (local store — no provider quota)",
-    },
-  });
+  // `inbox.message` is a managed retrieval source (retrieval-service
+  // Phase 3): the central service owns embeddings/fusion/backfill; the
+  // module supplies the mail document builder, owner visibility, and
+  // connection/status filters. The host manufactures the provider and
+  // synthesizes the unchanged `inbox_message_search` tool. Events: `synced`
+  // and `updated` re-ingest (status is filterable metadata), `deleted`
+  // clears the row.
+  if (!server.registerRetrievalSource) {
+    throw new Error(
+      "Inbox module requires a host with the central retrieval service"
+    );
+  }
+  server.registerRetrievalSource(createInboxRetrievalSource({ supabase }));
 
   const connectionsClient = createConnectionsModuleClient(supabase, {
     moduleId: "inbox",

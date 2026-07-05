@@ -30,6 +30,7 @@
     "@engenty/file-storage": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/queue": "workspace:*",
+    "@engenty/retrieval": "workspace:*",
     "@engenty/search-index": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/tenant-settings": "workspace:*",
