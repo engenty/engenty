@@ -11,8 +11,41 @@ import type {
   ApprovalRequestRecord,
   ConnectionSummary,
   ConnectorDefinition,
+  ConnectorFileEntry,
+  ConnectorFilesListResult,
+  ConnectorFilesReadResult,
   StreamPullResult,
 } from "./types.js";
+
+/** A file-capable connection, enriched with connector display metadata. */
+export interface FileSourceConnection extends ConnectionSummary {
+  connector_icon: string | null;
+  connector_name: string;
+}
+
+export interface ModuleFilesListParams {
+  connectionId: string;
+  cursor?: string | null;
+  folderRef: string | null;
+  limit?: number;
+  principal: ConnectionPolicyPrincipal;
+  tenantId: string;
+}
+
+export interface ModuleFilesReadParams {
+  connectionId: string;
+  fileRef: string;
+  maxBytes?: number;
+  principal: ConnectionPolicyPrincipal;
+  tenantId: string;
+}
+
+export interface ModuleFilesStatParams {
+  connectionId: string;
+  principal: ConnectionPolicyPrincipal;
+  ref: string;
+  tenantId: string;
+}
 
 export interface ConnectionsModuleClientOptions {
   /** Consuming module id (e.g. `inbox`), recorded on audit events. */
@@ -89,7 +122,7 @@ export function createConnectionsModuleClientFromRepo(
     return connector;
   }
 
-  return {
+  const client = {
     /** Active connections of the tenant (optionally one connector). */
     async listConnections(params: {
       connectorId?: string;
@@ -97,6 +130,76 @@ export function createConnectionsModuleClientFromRepo(
     }): Promise<ConnectionSummary[]> {
       const all = await repo.listConnections(params);
       return all.filter((c) => c.status === "active");
+    },
+
+    /** Active connections whose connector declares the files capability. */
+    async listFileSources(params: {
+      tenantId: string;
+    }): Promise<FileSourceConnection[]> {
+      const all = await repo.listConnections({ tenantId: params.tenantId });
+      const sources: FileSourceConnection[] = [];
+      for (const connection of all) {
+        if (connection.status !== "active") {
+          continue;
+        }
+        const def = getConnectorDefinition(connection.connector_id);
+        if (!def?.files) {
+          continue;
+        }
+        sources.push({
+          ...connection,
+          connector_icon: def.icon ?? null,
+          connector_name: def.name,
+        });
+      }
+      return sources;
+    },
+
+    /** List a folder in a file-capable connection (read-gated like any action). */
+    async filesList(
+      params: ModuleFilesListParams
+    ): Promise<ConnectorFilesListResult> {
+      return client.callAction({
+        actionId: "files_list",
+        connectionId: params.connectionId,
+        input: {
+          cursor: params.cursor ?? null,
+          folder_ref: params.folderRef,
+          ...(params.limit === undefined ? {} : { limit: params.limit }),
+        },
+        isAutonomous: false,
+        principal: params.principal,
+        tenantId: params.tenantId,
+      }) as Promise<ConnectorFilesListResult>;
+    },
+
+    async filesRead(
+      params: ModuleFilesReadParams
+    ): Promise<ConnectorFilesReadResult> {
+      return client.callAction({
+        actionId: "files_read",
+        connectionId: params.connectionId,
+        input: {
+          file_ref: params.fileRef,
+          ...(params.maxBytes === undefined ? {} : { max_bytes: params.maxBytes }),
+        },
+        isAutonomous: false,
+        principal: params.principal,
+        tenantId: params.tenantId,
+      }) as Promise<ConnectorFilesReadResult>;
+    },
+
+    async filesStat(
+      params: ModuleFilesStatParams
+    ): Promise<ConnectorFileEntry> {
+      return client.callAction({
+        actionId: "files_stat",
+        connectionId: params.connectionId,
+        input: { ref: params.ref },
+        isAutonomous: false,
+        principal: params.principal,
+        tenantId: params.tenantId,
+      }) as Promise<ConnectorFileEntry>;
     },
 
     async callAction(params: ModuleCallActionParams): Promise<unknown> {
@@ -237,6 +340,7 @@ export function createConnectionsModuleClientFromRepo(
       return result;
     },
   };
+  return client;
 }
 
 export type ConnectionsModuleClient = ReturnType<
