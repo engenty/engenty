@@ -84,6 +84,7 @@ describe("realtime session routes", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({
+      kind: "webrtc-direct",
       provider: "openai",
       model: "gpt-realtime-2",
       transcription_model: "gpt-realtime-whisper",

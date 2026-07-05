@@ -84,6 +84,19 @@ export {
   parseObjectRef,
   readObjectRenderMeta,
 } from "./objects/object-ref.js";
+export {
+  type LegacyRealtimeProviderId,
+  normalizeRealtimeProviderId,
+  type RealtimeProviderId,
+  type RealtimeServerCascadeSession,
+  type RealtimeSessionDescriptor,
+  RealtimeSessionError,
+  type RealtimeSessionRequest,
+  type RealtimeSessionScope,
+  type RealtimeVoiceProvider,
+  type RealtimeVoiceTenantPrefs,
+  type RealtimeWebRtcDirectSession,
+} from "./realtime/provider.js";
 export { isAgentThreadId } from "./runtime/agent-thread-id.js";
 export {
   AGENT_SKILL_NAME_MAX_LENGTH,
