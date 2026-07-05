@@ -31,6 +31,7 @@ VERIFY=0
 # engine degrades when they're absent.
 CLOSED_PREFIXES=(
   "apps/manage"
+  "docs/internal"
   "modules/banking"
   "packages/banking"
   "packages/brand-assets"
