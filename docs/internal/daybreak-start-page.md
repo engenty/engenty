@@ -1,8 +1,16 @@
 # Daybreak — the start page as briefing (design & plan)
 
-Status: CONCEPT AGREED 2026-07-05. Not started. This replaces the retired
+Status: CONCEPT AGREED 2026-07-05. Detailed implementation plan:
+`docs/internal/daybreak-implementation-plan.md` — pro feature as
+`modules/briefing`, based on the legacy dashboard module +
+`packages/dashboard-core`, generative UI on **OpenUI** (Mastra guide:
+https://mastra.ai/guides/build-your-ui/openui). This replaces the retired
 legacy dashboard (`apps/core` widget-generate endpoint returns 503) and, over
 time, the per-module briefing pages as the post-login default route.
+
+Note: the implementation plan supersedes this doc's grounding table where
+they differ (json-render catalog → OpenUI library; `modules/briefing` builds
+on the migrated legacy dashboard rather than from scratch).
 
 Design artifacts (versioned next to this doc, open in a browser):
 
