@@ -178,6 +178,24 @@ export function InboxListPage() {
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
+          ) : threadsQuery.isError ? (
+            // Distinguish "backend failed" from "inbox is empty" — the empty
+            // state's connect-an-account hint is wrong advice on errors.
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>{t("errors.loadFailed")}</EmptyTitle>
+                <EmptyDescription>
+                  {String(threadsQuery.error)}
+                </EmptyDescription>
+              </EmptyHeader>
+              <Button
+                onClick={() => threadsQuery.refetch()}
+                size="sm"
+                variant="outline"
+              >
+                {t("errors.retry")}
+              </Button>
+            </Empty>
           ) : (threadsQuery.data?.threads.length ?? 0) === 0 ? (
             <Empty>
               <EmptyHeader>

@@ -48,6 +48,24 @@ export function InboxSettingsPage() {
 
       {accountsQuery.isLoading ? (
         <Skeleton className="h-24 w-full" />
+      ) : accountsQuery.isError ? (
+        // An errored query is NOT "no accounts" — showing the empty state
+        // here sends users hunting in the wrong place (connections setup).
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t("errors.loadFailed")}</EmptyTitle>
+            <EmptyDescription>
+              {String(accountsQuery.error)}
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button
+            onClick={() => accountsQuery.refetch()}
+            size="sm"
+            variant="outline"
+          >
+            {t("errors.retry")}
+          </Button>
+        </Empty>
       ) : accounts.length === 0 ? (
         <Empty>
           <EmptyHeader>

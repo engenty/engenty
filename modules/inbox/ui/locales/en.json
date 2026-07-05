@@ -69,5 +69,9 @@
     "statusFailed": "Updating status failed: {{error}}",
     "syncDone": "Sync finished — {{count}} new message(s)",
     "syncFailed": "Sync failed: {{error}}"
+  },
+  "errors": {
+    "loadFailed": "Loading the inbox failed",
+    "retry": "Retry"
   }
 }

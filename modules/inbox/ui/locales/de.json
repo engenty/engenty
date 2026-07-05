@@ -69,5 +69,9 @@
     "statusFailed": "Statusänderung fehlgeschlagen: {{error}}",
     "syncDone": "Synchronisierung abgeschlossen — {{count}} neue Nachricht(en)",
     "syncFailed": "Synchronisierung fehlgeschlagen: {{error}}"
+  },
+  "errors": {
+    "loadFailed": "Der Posteingang konnte nicht geladen werden",
+    "retry": "Erneut versuchen"
   }
 }

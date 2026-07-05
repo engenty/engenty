@@ -63,7 +63,8 @@
       "time-tracking": {
         "source": "workspace"
       }
-    }
+    },
+    "containerRuntime": "dory"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",
