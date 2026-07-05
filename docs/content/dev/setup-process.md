@@ -92,9 +92,14 @@ The local Supabase stack needs a Docker-compatible engine. Three are supported:
 The first time `pnpm dev` runs without a saved choice, `predev-check.sh` prompts
 you to pick one and records it under `engenty.containerRuntime` in `package.json`
 (values: `docker-desktop`, `orbstack`, `dory`). Later runs read that value and
-`open -a` the matching app, waiting for its Docker-compatible daemon. Dory's own
-`docker context` is selected automatically so the CLI and Supabase hit the right
-socket.
+`open -a` the matching app, waiting for its Docker-compatible daemon.
+
+`predev-check.sh` also pins the matching **Docker CLI context** (`desktop-linux`,
+`orbstack`, or `dory`) via `docker context use`. Because that writes the global
+`~/.docker/config.json`, the choice is authoritative for **every** tool that
+follows the Docker context — not just `pnpm dev`, but `pnpm supabase`, `db:*`,
+snapshots, and a bare `docker` too. Switching the field and re-running `pnpm dev`
+re-points them all at the new daemon.
 
 This is a **per-machine preference** — it's not committed, and the field is
 deliberately namespaced under `engenty.` rather than `devEngines` (which is a
