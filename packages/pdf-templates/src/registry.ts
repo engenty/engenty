@@ -34,3 +34,39 @@ export function resetPdfTemplateRegistries() {
   uiProviders.clear();
   serverProviders.clear();
 }
+
+/**
+ * Markup that matches the provider's built-in default is stored as NULL so
+ * the tenant keeps following provider improvements until they actually edit
+ * it. Fields left undefined (PATCH semantics) pass through untouched, as does
+ * everything when no server provider is registered for the module.
+ */
+export function normalizePdfTemplateMarkup(
+  moduleKey: string,
+  markup: {
+    document_template?: string | null;
+    stylesheet_template?: string | null;
+  }
+): {
+  document_template?: string | null;
+  stylesheet_template?: string | null;
+} {
+  const provider = serverProviders.get(moduleKey);
+  if (!provider) {
+    return markup;
+  }
+  const normalize = (value: string | null | undefined, fallback: string) =>
+    typeof value === "string" && value.trim() === fallback.trim()
+      ? null
+      : value;
+  return {
+    document_template: normalize(
+      markup.document_template,
+      provider.defaultDocumentTemplate
+    ),
+    stylesheet_template: normalize(
+      markup.stylesheet_template,
+      provider.defaultStylesheetTemplate
+    ),
+  };
+}

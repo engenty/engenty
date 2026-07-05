@@ -17,6 +17,7 @@ export {
   getPdfTemplateServerProvider,
   getPdfTemplateUiProvider,
   getPdfTemplateUiProviders,
+  normalizePdfTemplateMarkup,
   registerPdfTemplateServerProvider,
   registerPdfTemplateUiProvider,
   resetPdfTemplateRegistries,

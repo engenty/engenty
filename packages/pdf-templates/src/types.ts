@@ -97,7 +97,8 @@ export interface PdfTemplateListItem {
   created_at: string;
   document_id: string;
   document_key: string;
-  document_template: string;
+  /** NULL = follow the module provider's built-in default template. */
+  document_template: string | null;
   engine: PdfTemplateEngine;
   id: string;
   input_schema_json: Record<string, unknown> | null;
@@ -106,7 +107,8 @@ export interface PdfTemplateListItem {
   name: string;
   schema_version: number;
   settings_json: PdfTemplateSettings;
-  stylesheet_template: string;
+  /** NULL = follow the module provider's built-in default stylesheet. */
+  stylesheet_template: string | null;
   updated_at: string;
 }
 
@@ -163,8 +165,12 @@ export const pdfTemplateInputSchema = z.object({
   schema_version: z.number().int().min(1).default(1),
   document_key: z.string().min(1).default("default"),
   engine: z.enum(PDF_TEMPLATE_ENGINES).default("xml_liquid_v1"),
-  document_template: z.string().min(1),
-  stylesheet_template: z.string().min(1),
+  // NULL = follow the module provider's built-in default markup.
+  // No .default() here: pdfTemplateUpdateInputSchema derives via .partial(),
+  // and zod applies defaults for absent keys even inside partials — a
+  // name-only PATCH would silently reset custom markup to NULL.
+  document_template: z.string().min(1).nullable(),
+  stylesheet_template: z.string().min(1).nullable(),
   settings_json: pdfTemplateSettingsSchema,
 });
 
@@ -186,8 +192,8 @@ export const pdfTemplateSchema = z.object({
   document_id: z.string().min(1),
   document_key: z.string().min(1),
   engine: z.enum(PDF_TEMPLATE_ENGINES),
-  document_template: z.string().min(1),
-  stylesheet_template: z.string().min(1),
+  document_template: z.string().min(1).nullable(),
+  stylesheet_template: z.string().min(1).nullable(),
   input_schema_json: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string().min(1),
   updated_at: z.string().min(1),
