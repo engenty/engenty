@@ -216,6 +216,11 @@ export {
   readObjectRenderMeta,
 } from "./objects/object-ref.js";
 export {
+  composeVoiceInstructions,
+  type VoiceRegister,
+  voiceRegisterInstructions,
+} from "./realtime/locale-register.js";
+export {
   type LegacyRealtimeProviderId,
   normalizeRealtimeProviderId,
   type RealtimeProviderId,

@@ -1,4 +1,5 @@
 import {
+  composeVoiceInstructions,
   RealtimeSessionError,
   type RealtimeVoiceTenantPrefs,
 } from "@engenty/ai-core";
@@ -69,7 +70,13 @@ export function registerRealtimeSessionRoutes(
     try {
       const descriptor = await provider.createSession(
         { tenantId: scope.scope.tenantId, userId: scope.scope.userId },
-        body,
+        {
+          ...body,
+          instructions: composeVoiceInstructions(
+            body.instructions,
+            voiceConfig?.voice_register
+          ),
+        },
         voiceConfig
       );
       return c.json(descriptor);
