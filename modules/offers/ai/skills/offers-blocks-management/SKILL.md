@@ -40,18 +40,35 @@ expect them when reading blocks back via `offers_get_blocks`.
 
 ## Tool Process
 
-1. **Always read first**: Call `offers_get_blocks` before proposing any changes. Never guess the existing block list.
-2. **Build the new block array**: Merge existing blocks with the requested changes, preserving `id` fields for existing blocks.
-3. **Write**: Use `offers_replace_blocks` — this is a full replacement (atomic PUT).
-4. Assign `order_index` sequentially starting at 0.
+1. **Always read first**: Call `offers_get_blocks` before proposing any changes. Never guess the existing block list. Every block has a stable UUID `id` — that id is how you address it in edits.
+2. **Small, targeted changes** (edit one position, insert a block, delete a block, reorder): use `offers_update_blocks` — a diff write, no need to resend the full list.
+3. **Full restructuring** (rebuild the whole offer, reorder everything): use `offers_replace_blocks` — a full replacement (atomic PUT); assign `order_index` sequentially starting at 0.
 
-## Writing Blocks
+## Partial Edits (preferred for small changes)
+
+`offers_update_blocks` with `{ id: "<offer-id>", delete?: [...], upsert?: [...] }`:
+
+- `delete`: block ids to remove.
+- `upsert` entries with an existing `id` UPDATE that block in place (position preserved).
+- `upsert` entries without `id` INSERT a new block — appended by default, or positioned via `order_index` or `after_id` (`after_id: null` = at the top, `after_id: "<block-id>"` = right after that block).
+- Untouched blocks are left exactly as they are — safest against accidental data loss on long offers.
+
+```json
+{ "id": "<offer-id>",
+  "delete": ["<old-block-id>"],
+  "upsert": [
+    { "id": "<existing-id>", "type": "line_item", "content_json": { "title": "Konzeption", "amount": 3, "unit": "Tage", "cost_per_item": 1200, "tax": 20 } },
+    { "type": "text", "content_json": { "content": "Neuer Schlusstext." }, "after_id": "<existing-id>" }
+  ] }
+```
+
+## Full Replacement
 
 Use `offers_replace_blocks` with `{ id: "<offer-id>", blocks: [...] }` — a full
 replacement (atomic PUT). Omit `id` for new blocks (generated on write); keep
 existing `id` values to preserve identity.
 
-The write persists immediately. If the user has the offer open in the editor,
+Both writes persist immediately. If the user has the offer open in the editor,
 the new blocks appear there live (realtime); if they have unsaved local edits,
 the editor shows a conflict banner instead of overwriting them.
 

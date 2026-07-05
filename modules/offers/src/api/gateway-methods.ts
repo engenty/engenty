@@ -16,6 +16,8 @@ import {
   offerBlockSchema,
   offerIdParamsSchema,
   offerSchema,
+  offerSettingsInputSchema,
+  offerSettingsSchema,
   offerStatusSchema,
   offersListQuerySchema,
   offersPaginatedResponseSchema,
@@ -60,6 +62,88 @@ const offerAgentCreateSchema = z.object({
 const offerAgentBlockInputSchema = offerBlockInputSchema
   .omit({ id: true, offer_id: true })
   .extend({ id: z.string().optional() });
+
+/** Diff-style upsert entry: position via `order_index` or `after_id`. */
+const offerAgentBlockUpsertSchema = offerAgentBlockInputSchema.extend({
+  after_id: z.string().nullable().optional(),
+  order_index: z.number().int().optional(),
+});
+
+export interface OfferBlockEditEntry {
+  content_json: Record<string, unknown>;
+  id: string;
+  offer_id: string;
+  order_index: number;
+  type: string;
+}
+
+/**
+ * Pure diff application for `offers_update_blocks`: delete by id, update
+ * matching ids in place (position preserved unless repositioned), insert new
+ * blocks (append by default, or position via `order_index` / `after_id`,
+ * `after_id: null` = at the top). Upserted content goes through
+ * {@link normalizeAgentBlock}; untouched blocks pass through verbatim.
+ */
+export function applyOfferBlockEdits(
+  offerId: string,
+  current: readonly OfferBlockEditEntry[],
+  edits: {
+    delete?: string[];
+    upsert?: Array<
+      {
+        after_id?: string | null;
+        content_json?: Record<string, unknown>;
+        id?: string;
+        order_index?: number;
+        type: string;
+      } & Record<string, unknown>
+    >;
+  }
+): OfferBlockEditEntry[] {
+  const deleteIds = new Set(edits.delete ?? []);
+  const next: OfferBlockEditEntry[] = current
+    .filter((block) => !deleteIds.has(block.id))
+    .map((block) => ({ ...block, offer_id: offerId }));
+
+  for (const up of edits.upsert ?? []) {
+    const normalized = normalizeAgentBlock({
+      content: up.content_json ?? {},
+      type: up.type,
+    });
+    const existingIdx = up.id ? next.findIndex((b) => b.id === up.id) : -1;
+    const entry: OfferBlockEditEntry = {
+      id: up.id ?? "",
+      offer_id: offerId,
+      type: normalized.type,
+      content_json: normalized.content,
+      order_index: existingIdx >= 0 ? next[existingIdx]!.order_index : 0,
+    };
+    let idx: number;
+    if (existingIdx >= 0) {
+      next[existingIdx] = entry;
+      idx = existingIdx;
+    } else {
+      next.push(entry);
+      idx = next.length - 1;
+    }
+    const wantsReposition = up.after_id !== undefined || up.order_index != null;
+    if (wantsReposition) {
+      const [moved] = next.splice(idx, 1);
+      let insertAt: number;
+      if (up.after_id === undefined) {
+        insertAt = Math.min(Math.max(up.order_index ?? 0, 0), next.length);
+      } else if (up.after_id === null) {
+        insertAt = 0;
+      } else {
+        const anchor = next.findIndex((b) => b.id === up.after_id);
+        insertAt = anchor >= 0 ? anchor + 1 : next.length;
+      }
+      next.splice(insertAt, 0, moved!);
+    }
+  }
+
+  return next.map((block, index) => ({ ...block, order_index: index }));
+}
 
 /**
  * Normalize an agent-written block to the CANONICAL shape the editor, PDF
@@ -404,6 +488,79 @@ export function registerOffersGatewayMethods(
           };
         })
       );
+    },
+  });
+
+  api.registerOperation({
+    operationId: "offers_update_blocks",
+    summary:
+      "Partially edit offer blocks by id (update/insert/delete without resending the full list)",
+    moduleId: "offers",
+    requiredCapabilities: ["module.offers.write"],
+    riskLevel: "high",
+    requiresApproval: true,
+    inputSchema: z.object({
+      id: z.string().min(1),
+      delete: z.array(z.string()).optional().describe("Block ids to remove."),
+      upsert: z
+        .array(offerAgentBlockUpsertSchema)
+        .optional()
+        .describe(
+          'Blocks to update (id matches an existing block; position kept) or insert (no id; appended). Reposition/insert placement via "order_index" or "after_id" (null = at the top). content_json schema per type: see offers_replace_blocks.'
+        ),
+    }),
+    outputSchema: z.array(offerBlockSchema),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth);
+      const parsed = input as {
+        delete?: string[];
+        id: string;
+        upsert?: z.infer<typeof offerAgentBlockUpsertSchema>[];
+      };
+      const current = await repo.listBlocks(parsed.id);
+      const next = applyOfferBlockEdits(parsed.id, current, {
+        delete: parsed.delete,
+        upsert: parsed.upsert,
+      });
+      return repo.replaceBlocks(
+        parsed.id,
+        next.map((block) => ({
+          ...block,
+          type: block.type as (typeof current)[number]["type"],
+        }))
+      );
+    },
+  });
+
+  api.registerOperation({
+    operationId: "offers_settings_get",
+    summary:
+      "Get offer module settings (number format, defaults, validity days)",
+    moduleId: "offers",
+    requiredCapabilities: ["module.offers.read"],
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: z.object({}),
+    outputSchema: offerSettingsSchema,
+    handler: async (_input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth);
+      return repo.getSettings();
+    },
+  });
+
+  api.registerOperation({
+    operationId: "offers_settings_set",
+    summary:
+      "Update offer module settings (partial: offer_id_prefix/offset/postfix, default_intro, default_final_notes, valid_until_days)",
+    moduleId: "offers",
+    requiredCapabilities: ["module.offers.write"],
+    riskLevel: "high",
+    requiresApproval: true,
+    inputSchema: offerSettingsInputSchema,
+    outputSchema: offerSettingsSchema,
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth);
+      return repo.setSettings(offerSettingsInputSchema.parse(input ?? {}));
     },
   });
 

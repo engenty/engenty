@@ -63,6 +63,14 @@ Use `offers_set_status` with `{ id: "<id>", status: "ready" }` or `{ status: "ac
 
 Status transitions always go through `offers_set_status` — a status change moves the offer out of the draft editor.
 
+## Module Settings
+
+Read the offers module settings with `offers_settings_get`: number format
+(`offer_id_prefix` — supports `{year}` —, `offer_id_offset`,
+`offer_id_postfix`), `default_intro`, `default_final_notes`, and
+`valid_until_days`. Update them with `offers_settings_set` (partial patch,
+approval-gated). Changing the number format only affects future offers.
+
 ## Safety Rules
 
 - Confirm before any status transition.
