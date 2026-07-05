@@ -29,6 +29,9 @@ export function buildAuthorizationUrl(params: {
   scopes: string[];
   state: string;
 }): string {
+  if (params.connector.auth.kind !== "oauth2") {
+    throw new Error("buildAuthorizationUrl requires an oauth2 connector");
+  }
   const { oauth2 } = params.connector.auth;
   const env = resolveOAuth2Env(oauth2);
   const url = new URL(oauth2.authUrl);

@@ -91,31 +91,44 @@ export async function executeConnectorAction(
   // decision "ask" with a live principal proceeds: the AI-side native
   // suspend/resume pre-gate already handled the approval UX upstream.
 
-  const output = await repo.withFreshAccessToken(
-    {
-      connectionId: connection.id,
-      refresh: async (refreshToken) => {
-        const refreshed = await refreshAccessToken({
-          config: connector.auth.oauth2,
-          refreshToken,
-        });
-        return {
-          accessToken: refreshed.accessToken,
-          expiresAt: refreshed.expiresAt,
-          refreshToken: refreshed.refreshToken,
-        };
-      },
-    },
-    (accessToken) =>
-      Promise.resolve(
-        action.handler(params.input, {
-          accessToken,
-          connection,
-          fetchImpl: fetch,
-          log: params.log ?? (() => undefined),
-        })
-      )
-  );
+  const runHandler = (accessToken: string) =>
+    Promise.resolve(
+      action.handler(params.input, {
+        accessToken,
+        connection,
+        fetchImpl: fetch,
+        log: params.log ?? (() => undefined),
+      })
+    );
+
+  // `browser` connectors hold no server-side secret — the handler bridges into
+  // the user's browser, so it runs directly with an empty token. `oauth2` and
+  // `api_key` both go through the DAL: oauth2 refreshes on demand; api_key has
+  // no expiry, so `withFreshAccessToken` just decrypts the credentials JSON and
+  // the refresh closure is never reached.
+  const output =
+    connector.auth.kind === "browser"
+      ? await runHandler("")
+      : await repo.withFreshAccessToken(
+          {
+            connectionId: connection.id,
+            refresh: async (refreshToken) => {
+              if (connector.auth.kind !== "oauth2") {
+                throw new Error("connection_credentials_cannot_refresh");
+              }
+              const refreshed = await refreshAccessToken({
+                config: connector.auth.oauth2,
+                refreshToken,
+              });
+              return {
+                accessToken: refreshed.accessToken,
+                expiresAt: refreshed.expiresAt,
+                refreshToken: refreshed.refreshToken,
+              };
+            },
+          },
+          runHandler
+        );
   params.recordAuditEvent?.({
     detail: {
       action: action.id,

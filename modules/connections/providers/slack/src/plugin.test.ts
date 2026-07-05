@@ -24,6 +24,7 @@ const REQUIRED_SCOPES_BY_ACTION: Record<string, string[]> = {
 
 function stubContext(fetchImpl: typeof fetch): ConnectorActionContext {
   const connection: ConnectionSummary = {
+    auth_kind: "oauth2",
     autonomous_mode: "off",
     connector_id: "slack",
     created_at: new Date(0).toISOString(),

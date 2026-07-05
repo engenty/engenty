@@ -61,6 +61,12 @@ export function registerConnectionsOAuthRoutes(
       if (!connector) {
         return hono.json({ error: `Unknown connector: ${connectorId}` }, 404);
       }
+      if (connector.auth.kind !== "oauth2") {
+        return hono.json(
+          { error: `Connector ${connector.id} does not use OAuth` },
+          400
+        );
+      }
       const query = ctx.query as { redirect_to?: string; sharing?: string };
       const sharing = query?.sharing === "org" ? "org" : "personal";
       // Request the full scope union up front; the per-action policy matrix
@@ -122,6 +128,12 @@ export function registerConnectionsOAuthRoutes(
       if (!connector) {
         return hono.json(
           { error: `Connector no longer available: ${flow.connector_id}` },
+          400
+        );
+      }
+      if (connector.auth.kind !== "oauth2") {
+        return hono.json(
+          { error: `Connector ${connector.id} does not use OAuth` },
           400
         );
       }

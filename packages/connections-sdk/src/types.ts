@@ -46,7 +46,12 @@ export const ACTION_GROUP_DEFAULT_POLICY: Record<
 
 /** Runtime context handed to a connector action handler. */
 export interface ConnectorActionContext {
-  /** Decrypted, refreshed bearer token for the provider API. */
+  /**
+   * Provider credential for the action:
+   * - oauth2  → decrypted, refreshed bearer token
+   * - api_key → decrypted credentials JSON string
+   * - browser → `""` (no server-held secret; the handler bridges to the browser)
+   */
   accessToken: string;
   /** The resolved connection row (tokens redacted). */
   connection: ConnectionSummary;
@@ -94,6 +99,45 @@ export interface ConnectorOAuth2Config {
   scopeSeparator?: string;
   tokenUrl: string;
 }
+
+export type ConnectorAuthKind = "oauth2" | "api_key" | "browser";
+
+/** A single credential field captured by an `api_key` connect form. */
+export interface ConnectorApiKeyField {
+  /** snake_case key stored in the credentials JSON (e.g. `secret_access_key`). */
+  key: string;
+  label: string;
+  placeholder?: string;
+  /** Defaults to true. */
+  required?: boolean;
+  /** Render as a password input; never echoed back to the client. */
+  secret?: boolean;
+}
+
+export interface ConnectorApiKeyConfig {
+  fields: ConnectorApiKeyField[];
+  /**
+   * Validate submitted credentials and resolve the account label (e.g. an S3
+   * HeadBucket producing `bucket/prefix`). Throws on invalid credentials.
+   */
+  verify(
+    credentials: Record<string, string>,
+    fetchImpl: typeof fetch
+  ): Promise<{ externalId?: string; label: string }>;
+}
+
+/**
+ * How a connector authenticates:
+ * - `oauth2`  — provider OAuth redirect flow, refreshable bearer tokens.
+ * - `api_key` — credentials captured via a form, stored AES-256-GCM encrypted;
+ *   the decrypted JSON is handed to handlers via `ctx.accessToken`.
+ * - `browser` — no server-held secret; actions round-trip into the user's
+ *   browser (e.g. File System Access). `ctx.accessToken` is `""`.
+ */
+export type ConnectorAuth =
+  | { kind: "oauth2"; oauth2: ConnectorOAuth2Config }
+  | { kind: "api_key"; apiKey: ConnectorApiKeyConfig }
+  | { kind: "browser" };
 
 /** Attachment metadata on an inbound message; content is fetched on demand. */
 export interface InboundMessageAttachment {
@@ -151,7 +195,7 @@ export interface ConnectorStreamCapability {
 export interface ConnectorDefinition {
   /** All actions, each projected as module operation `<toolPrefix>_<action.id>`. */
   actions: ConnectorAction[];
-  auth: { kind: "oauth2"; oauth2: ConnectorOAuth2Config };
+  auth: ConnectorAuth;
   description: string;
   /** Icon hint for the UI (ui-core icon name or emoji fallback). */
   icon?: string;
@@ -168,6 +212,7 @@ export interface ConnectorDefinition {
 
 /** Connection row as exposed to module code and the UI — tokens never leave the DAL. */
 export interface ConnectionSummary {
+  auth_kind: ConnectorAuthKind;
   autonomous_mode: ConnectionAutonomousMode;
   connector_id: string;
   created_at: string;
@@ -217,6 +262,9 @@ export function scopesForGroups(
   connector: ConnectorDefinition,
   groups: ReadonlySet<ConnectorActionGroup>
 ): string[] {
+  if (connector.auth.kind !== "oauth2") {
+    return [];
+  }
   const scopes = new Set(connector.auth.oauth2.baseScopes);
   for (const action of connector.actions) {
     if (!groups.has(action.group)) {

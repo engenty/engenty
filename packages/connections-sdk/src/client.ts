@@ -199,6 +199,9 @@ export function createConnectionsModuleClientFromRepo(
         {
           connectionId: connection.id,
           refresh: async (refreshToken) => {
+            if (connector.auth.kind !== "oauth2") {
+              throw new Error("connection_credentials_cannot_refresh");
+            }
             const refreshed = await refreshAccessToken({
               config: connector.auth.oauth2,
               refreshToken,

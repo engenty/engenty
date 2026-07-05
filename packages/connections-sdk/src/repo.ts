@@ -7,12 +7,13 @@ import type {
   ConnectionSharing,
   ConnectionSummary,
   ConnectorActionGroup,
+  ConnectorAuthKind,
 } from "./types.js";
 
 const SCHEMA = "module_connections";
 
 const CONNECTION_COLUMNS =
-  "id, tenant_id, connector_id, owner_user_id, sharing, autonomous_mode, non_owner_max_group, display_name, external_account, granted_scopes, status, error_message, created_at";
+  "id, tenant_id, connector_id, owner_user_id, sharing, autonomous_mode, non_owner_max_group, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
 
 interface ConnectionTokenRow {
   access_token_enc: string | null;
@@ -267,6 +268,8 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
 
     async upsertConnectionWithTokens(input: {
       accessToken: string;
+      /** Defaults to `oauth2`. `api_key` stores encrypted credentials JSON. */
+      authKind?: ConnectorAuthKind;
       connectorId: string;
       expiresAt: Date | null;
       externalAccount: string | null;
@@ -331,6 +334,7 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
         await db()
           .from("connections")
           .insert({
+            auth_kind: input.authKind ?? "oauth2",
             connector_id: input.connectorId,
             owner_user_id: input.ownerUserId,
             sharing: input.sharing,
