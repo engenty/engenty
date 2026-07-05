@@ -199,6 +199,9 @@ export class EngentyKbVectorStore extends MastraVector<any> {
       const {
         tenant_id: _t1,
         tenantId: _t2,
+        // Injected by the synthesized op + admin route for visibility — NOT
+        // chunk metadata. Leaving it in the filter empties every result set.
+        user_id: _u0,
         scope_id: _s1,
         scopeId: _s2,
         kb_id: _k1,

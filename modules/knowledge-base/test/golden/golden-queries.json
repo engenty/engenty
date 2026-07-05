@@ -1,0 +1,23 @@
+{
+  "description": "Golden queries for the KB search migration (retrieval-service Phase 2). Recorded against the LEGACY kb.article provider before migration; the managed-source path must keep baseline top-1 within its top-3. Mix: fast-path (1-2 terms), lexical phrases, semantic questions (DE/EN) over the Antrag-6619992 dev KB.",
+  "queries": [
+    { "id": "fast-hosting", "kind": "fast_path", "query": "Hosting" },
+    { "id": "fast-moonshot", "kind": "fast_path", "query": "Moonshot" },
+    { "id": "fast-fragen", "kind": "fast_path", "query": "Fragen" },
+    { "id": "fast-knowledge-agent", "kind": "fast_path", "query": "Knowledge Agent" },
+    { "id": "fast-plugin", "kind": "fast_path", "query": "Plugin Architektur" },
+    { "id": "lex-user-testing", "kind": "lexical", "query": "Documentation User-Testing" },
+    { "id": "lex-erstmigration", "kind": "lexical", "query": "Technical Project Setup Erstmigration" },
+    { "id": "lex-commercial", "kind": "lexical", "query": "Modul Commercial Agent" },
+    { "id": "sem-framework-kosten", "kind": "semantic", "query": "Wie hoch sind die Gesamtkosten für das Agentic Framework?" },
+    { "id": "sem-hosting-phase", "kind": "semantic", "query": "Welche Phase kümmert sich um Hosting und Betrieb der Anwendung?" },
+    { "id": "sem-mvp", "kind": "semantic", "query": "Was ist das MVP nach 12 Monaten?" },
+    { "id": "sem-generated-modules", "kind": "semantic", "query": "Wann beginnt die Arbeit an automatisch generierten Modulen?" },
+    { "id": "sem-phase-overview", "kind": "semantic", "query": "Übersicht über alle Projektphasen und Arbeitspakete" },
+    { "id": "sem-branding", "kind": "semantic", "query": "Welches Modul behandelt Marke und Marketing?" },
+    { "id": "sem-coagents-ui", "kind": "semantic", "query": "Benutzeroberfläche für die Zusammenarbeit mit Co-Agents" },
+    { "id": "sem-knowledge-hours", "kind": "semantic", "query": "Wie viele interne Stunden sind für den Knowledge Agent geplant?" },
+    { "id": "sem-antrag-questions", "kind": "semantic", "query": "Welche Rückfragen gab es zum Förderantrag?" },
+    { "id": "sem-project-mgmt", "kind": "semantic", "query": "Wer koordiniert das Projektmanagement und die Meilensteine?" }
+  ]
+}
