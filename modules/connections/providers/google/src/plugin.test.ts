@@ -22,6 +22,11 @@ const EXPECTED_GROUPS: Record<string, Record<string, string>> = {
   },
   "google-drive": {
     create_file: "write",
+    // files_* are synthesized from the files capability (all read).
+    files_list: "read",
+    files_read: "read",
+    files_search: "read",
+    files_stat: "read",
     get_file_metadata: "read",
     read_file_content: "read",
     search_files: "read",
@@ -51,7 +56,9 @@ describe("connections-google connector definitions", () => {
     ]);
     for (const connector of googleConnectors) {
       expect(connector.moduleId).toBe("connections-google");
-      expect(connector.auth.kind).toBe("oauth2");
+      if (connector.auth.kind !== "oauth2") {
+        throw new Error(`expected oauth2 auth on ${connector.id}`);
+      }
       expect(connector.auth.oauth2.clientIdEnv).toBe("GOOGLE_OAUTH_CLIENT_ID");
       expect(connector.auth.oauth2.clientSecretEnv).toBe(
         "GOOGLE_OAUTH_CLIENT_SECRET"
@@ -118,6 +125,10 @@ describe("connections-google connector definitions", () => {
       "gdrive_get_file_metadata",
       "gdrive_read_file_content",
       "gdrive_create_file",
+      "gdrive_files_list",
+      "gdrive_files_read",
+      "gdrive_files_stat",
+      "gdrive_files_search",
     ]);
     expect(
       calendarConnector.actions.map((a) =>
