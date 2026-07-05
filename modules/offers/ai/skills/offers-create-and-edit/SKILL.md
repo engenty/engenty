@@ -37,9 +37,9 @@ After creating, navigate to the new offer with the `navigate` tool: `/mdl/offers
 
 ### When user is NOT on the offer edit page
 
-Use `offers_update` with `{ id: "<offer-id>", ...patch }`. Send only the fields that should change.
+Use `offers_update` with `{ id: "<offer-id>", patch: { ... } }`. Put only the fields that should change inside `patch`.
 
-Editable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `valid_until`, `reference`, `currency`, `default_tax_rate`, `no_tax_reason`, `introduction`, `final_notes`, `phases_enabled`, `show_phase_index`, `show_phase_totals`, `show_tax_per_item`, `status`.
+Patchable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `valid_until`, `reference`, `currency`, `default_tax_rate`, `no_tax_reason`, `introduction`, `final_notes`, `phases_enabled`, `show_phase_index`, `show_phase_totals`, `show_tax_per_item`, recipient fields, and `client_id`. For status changes use `offers_set_status` instead.
 
 ### When user IS on the offer edit page (live update)
 
@@ -54,7 +54,7 @@ offers_apply_draft_patch({
 })
 ```
 
-Supported paths: `/title`, `/billing_type`, `/billing_interval`, `/offer_date`, `/valid_until`, `/reference`, `/currency`, `/default_tax_rate`, `/no_tax_reason`, `/introduction`, `/final_notes`.
+Supported paths: `/title`, `/billing_type`, `/billing_interval`, `/offer_date`, `/valid_until`, `/reference`, `/currency`, `/default_tax_rate`, `/no_tax_reason`, `/introduction`, `/final_notes`, `/phases_enabled`, `/show_phase_index`, `/show_phase_totals`, `/show_tax_per_item`.
 
 This updates the local editor draft only — the user saves explicitly. Inform the user that changes are staged and they need to save.
 
@@ -62,12 +62,12 @@ This updates the local editor draft only — the user saves explicitly. Inform t
 
 | From | To | Meaning |
 |------|----|---------|
-| `draft` | `done` | Mark as ready — offer is finalized |
-| `done` | `accepted` | Mark as accepted — client agreed |
+| `draft` | `ready` | Mark as ready — offer is finalized |
+| `ready` | `accepted` | Mark as accepted — client agreed |
 
-Use `offers_update` with `{ id: "<id>", status: "done" }` or `{ status: "accepted" }`.
+Use `offers_set_status` with `{ id: "<id>", status: "ready" }` or `{ status: "accepted" }`.
 
-When on the edit page, status transitions go through `offers_update` directly (not through `offers_apply_draft_patch`) because a status change navigates the user to the detail page.
+Status transitions always go through `offers_set_status` (never through `offers_apply_draft_patch`) — a status change moves the offer out of the draft editor.
 
 ## Safety Rules
 

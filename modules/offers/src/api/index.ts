@@ -54,6 +54,7 @@ import {
   offerUpdateSchema,
   offerVersionsResponseSchema,
 } from "../schema/zod.js";
+import { registerOffersGatewayMethods } from "./gateway-methods.js";
 
 type OfferRepo = ReturnType<typeof createOfferRepoSupabase>;
 type RepoOrFactory = OfferRepo | ((auth: PluginAuthContext) => OfferRepo);
@@ -74,10 +75,17 @@ function getRepo(
 export function registerOffersApi(
   server: Pick<
     PluginServerApi,
-    "callGatewayMethod" | "hasOperation" | "registerHttpRoute"
+    | "callGatewayMethod"
+    | "hasOperation"
+    | "registerHttpRoute"
+    | "registerOperation"
   >,
   repoOrFactory: RepoOrFactory
 ) {
+  // Agent-callable module operations (offers_list/get/create/…). The HTTP
+  // routes below serve the UI only and never enter the tools catalog.
+  registerOffersGatewayMethods(server, repoOrFactory, getRepo);
+
   const { invokeOperation } = createPluginServerGatewayCaller(
     server as PluginServerApi
   );
@@ -146,10 +154,10 @@ export function registerOffersApi(
           : { module_key: "offers", use_default: true },
         { auth: ctx.auth }
       )) as {
-        document_template: string;
+        document_template: string | null;
         name: string;
         settings_json: Record<string, unknown>;
-        stylesheet_template: string;
+        stylesheet_template: string | null;
       } | null;
 
       const provider = getPdfTemplateServerProvider("offers");
@@ -157,8 +165,9 @@ export function registerOffersApi(
         throw new Error("Offers PDF template provider unavailable");
       }
 
-      // No tenant template yet → render with the provider's built-in default
-      // so PDF export works out of the box.
+      // No tenant template yet, or NULL markup (tenant never edited it) →
+      // render with the provider's built-in default so PDF export works out
+      // of the box and provider improvements reach untouched templates.
       const settingsJson = (template?.settings_json ??
         provider.settingsDefaults) as Parameters<
         typeof buildPdfTemplateRenderData

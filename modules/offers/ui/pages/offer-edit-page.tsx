@@ -71,6 +71,10 @@ const OFFER_DRAFT_ALLOWED_PATHS = [
   "no_tax_reason",
   "introduction",
   "final_notes",
+  "phases_enabled",
+  "show_phase_index",
+  "show_phase_totals",
+  "show_tax_per_item",
 ] as const satisfies Array<keyof OfferListItem>;
 
 const OFFERS_APPLY_DRAFT_PATCH_TOOL = createFrontendToolDefinition({
