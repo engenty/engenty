@@ -22,7 +22,7 @@ import {
   mergeSelectedGatewayModelOptions,
 } from "../features/ai-settings/map-gateway-model-select-options";
 import { ModelMatrixCard } from "../features/ai-settings/model-matrix-card";
-import { RealtimeVoiceCard } from "../features/ai-settings/realtime-voice-card";
+import { RealtimeVoiceSettingsCard } from "../features/ai-settings/realtime-voice-settings-card";
 import { UsageReportTab } from "../features/ai-settings/usage-report-tab";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
@@ -350,7 +350,7 @@ export function AiGeneralSettingsPage() {
             </TabsContent>
 
             <TabsContent className="space-y-6" value="voice">
-              <RealtimeVoiceCard
+              <RealtimeVoiceSettingsCard
                 settings={settings}
                 t={t}
                 updateSettings={updateSettings}

@@ -39,7 +39,7 @@ export interface AiConfig {
     | null;
   /** Most-capable tier: planning, decomposition, sandboxed code execution. */
   planning_coding_model_id?: string | null;
-  /** Realtime voice agent (OpenAI Realtime) preferences. */
+  /** Realtime voice provider + voice preferences. */
   realtime_voice?:
     | import("@engenty/ai-core/browser").RealtimeVoiceTenantPrefs
     | null;

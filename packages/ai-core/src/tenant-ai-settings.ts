@@ -2,6 +2,8 @@
  * Shared parsing for tenant `ai.config` JSON (tenant-settings key {@link TENANT_AI_CONFIG_KEY}).
  */
 
+import type { RealtimeVoiceTenantPrefs } from "./realtime/provider.js";
+
 export const TENANT_AI_CONFIG_KEY = "ai.config" as const;
 
 export interface DocConverterTenantPrefs {
@@ -48,7 +50,7 @@ export interface TenantAiSettings {
   doc_converter?: DocConverterTenantPrefs | null;
   /** Most-capable tier: planning, decomposition, sandboxed code execution. */
   planning_coding_model_id?: string | null;
-  /** Realtime voice agent (OpenAI Realtime) preferences. */
+  /** Realtime voice provider + voice preferences. */
   realtime_voice?: RealtimeVoiceTenantPrefs | null;
   /** Search / retrieval / deep-research tier. */
   research_model_id?: string | null;
@@ -105,15 +107,35 @@ function parseRealtimeVoicePrefs(
     return null;
   }
   const o = raw as Record<string, unknown>;
-  const provider =
-    o.provider === "openai" || o.provider === "mistral" ? o.provider : null;
+  const provider = o.provider;
+  const register = o.voice_register;
   return {
-    provider,
+    provider:
+      provider === "openai" ||
+      provider === "voxtral-elevenlabs" ||
+      provider === "mistral"
+        ? provider
+        : null,
     openai_model: trimmedOrNull(o.openai_model),
-    openai_transcription_model: trimmedOrNull(o.openai_transcription_model),
+    openai_transcription_model: trimmedOrNull(
+      o.openai_transcription_model
+    ),
     openai_voice: trimmedOrNull(o.openai_voice),
+    // Legacy mistral_* keys are read as fallbacks for one release.
+    voxtral_stt_model:
+      trimmedOrNull(o.voxtral_stt_model) ??
+      trimmedOrNull(o.mistral_stt_model),
+    elevenlabs_tts_model:
+      trimmedOrNull(o.elevenlabs_tts_model) ??
+      trimmedOrNull(o.mistral_tts_model),
+    elevenlabs_voice_id: trimmedOrNull(o.elevenlabs_voice_id),
+    voice_register:
+      register === "de-AT" || register === "de-DE" || register === "de-CH"
+        ? register
+        : null,
   };
 }
+
 
 function parseCaps(raw: unknown): AiCapsConfig | null {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
@@ -127,7 +149,6 @@ function parseCaps(raw: unknown): AiCapsConfig | null {
       : null;
   return { max_steps: steps };
 }
-
 /**
  * Parse stored `ai.config` JSON value into a normalized shape.
  * Model settings are AI Gateway ids (`provider/model`); stale direct-provider

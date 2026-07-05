@@ -615,10 +615,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       : null,
     openAiApiKey: options.openAiRealtimeApiKey,
     openAiFetch: options.openAiRealtimeFetch,
+    // Explicit null (tests) disables tenant prefs; undefined falls back to
+    // the tenant-settings KV resolver so prefs work in production.
     realtimeVoiceConfig:
-      options.realtimeVoiceConfigResolver ??
-      createRealtimeVoiceConfigResolverFromEnv() ??
-      null,
+      options.realtimeVoiceConfigResolver === undefined
+        ? createRealtimeVoiceConfigResolverFromEnv()
+        : options.realtimeVoiceConfigResolver,
     scopeResolver,
   });
   if (upgradeWebSocket && cascadeMistralKey && cascadeElevenLabsKey) {

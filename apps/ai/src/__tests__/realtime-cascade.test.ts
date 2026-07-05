@@ -105,9 +105,9 @@ describe("cascade orchestrator", () => {
   it("barge-in: user speech cancels the running turn and TTS", async () => {
     const sent: CascadeServerMessage[] = [];
     const tts = createFakeTts();
-    let release: (() => void) | null = null;
+    const gate2: { release: (() => void) | null } = { release: null };
     const gate = new Promise<void>((resolve) => {
-      release = resolve;
+      gate2.release = resolve;
     });
     const orchestrator = createCascadeOrchestrator({
       async *runAgentTurn({ signal }) {
@@ -130,7 +130,7 @@ describe("cascade orchestrator", () => {
     expect(tts.log).toContain("cancel");
     expect(sent).toContainEqual({ type: "speech-started" });
 
-    release?.();
+    gate2.release?.();
     await new Promise((resolve) => setTimeout(resolve, 0));
     // The aborted turn never spoke its second chunk and never flushed.
     expect(tts.spoken).toEqual(["Lange "]);
