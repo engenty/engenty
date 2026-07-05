@@ -38,6 +38,13 @@ The write persists immediately. If the user has the offer open in the editor,
 the new blocks appear there live (realtime); if they have unsaved local edits,
 the editor shows a conflict banner instead of overwriting them.
 
+**Act directly on drafts.** When the user asks for content ("add 4 positions",
+"write a closing text"), write the blocks in the same turn — do NOT paste the
+drafted content into chat and ask "should I apply this?". Drafts are low-risk,
+the approval prompt (when configured) is the safety gate, and the user watches
+the result appear live in the editor. Only ask when the request itself is
+ambiguous.
+
 ## Working With Phases
 
 Phases group line items when `phases_enabled: true` on the offer. A phase block appears before the line items it contains. The AI does not need to link line items to phases — the position (order_index) determines grouping visually.

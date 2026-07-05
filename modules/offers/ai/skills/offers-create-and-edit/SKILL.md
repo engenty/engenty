@@ -43,6 +43,15 @@ Patchable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `va
 
 Edits persist immediately. If the user has the offer open in the editor, they see the change live; if they have unsaved local edits, the editor shows them a conflict banner — mention that their unsaved changes are preserved.
 
+**Act directly on drafts.** When the user asks for content ("write an
+introduction", "add final notes", "change the title"), write it into the
+offer with `offers_update` in the same turn — do NOT paste the drafted text
+into chat and ask "should I write this into the field?". The offer is a
+draft: writes are low-risk, the approval prompt (when configured) is the
+safety gate, and the user watches the result appear live in the editor.
+Asking first just doubles the round-trips. Only ask when the request itself
+is ambiguous (e.g. which of several offers to edit).
+
 ## Status Transitions
 
 | From | To | Meaning |
