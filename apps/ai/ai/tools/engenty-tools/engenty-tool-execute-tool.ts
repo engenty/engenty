@@ -237,8 +237,7 @@ export async function executeEngentyTool(
     // "defer": headless task runs skip the local gate — core is authoritative
     // and may allow (durable connection grant), 202 (recording a durable
     // approval request), or 403. The 202 backstop below shapes the result.
-    const approvalPolicy =
-      getEngentyToolsRunContext().approvalPolicy ?? "deny";
+    const approvalPolicy = getEngentyToolsRunContext().approvalPolicy ?? "deny";
     if (
       decision === "require_approval" &&
       !resumedApproval?.approved &&

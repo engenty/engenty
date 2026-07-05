@@ -3,9 +3,6 @@ import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import { microsoftOneDriveConnector } from "./onedrive.js";
 import { microsoftOutlookConnector } from "./outlook.js";
 
-export { microsoftOneDriveConnector } from "./onedrive.js";
-export { microsoftOutlookConnector } from "./outlook.js";
-
 /**
  * Microsoft connector module: registers the Outlook (mail + calendar) and
  * OneDrive connectors against the shared connections framework. The

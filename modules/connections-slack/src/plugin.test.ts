@@ -90,11 +90,15 @@ describe("slack connector definition", () => {
     const requested = new Set(userScopeParam.split(","));
     for (const action of slackConnector.actions) {
       const needed = REQUIRED_SCOPES_BY_ACTION[action.id];
-      expect(needed, `missing scope mapping for action ${action.id}`).toBeDefined();
+      expect(
+        needed,
+        `missing scope mapping for action ${action.id}`
+      ).toBeDefined();
       for (const scope of needed ?? []) {
-        expect(requested, `user_scope missing ${scope} (${action.id})`).toContain(
-          scope
-        );
+        expect(
+          requested,
+          `user_scope missing ${scope} (${action.id})`
+        ).toContain(scope);
       }
       // Slack user scopes ride on user_scope, never on providerScopes/scope.
       expect(action.providerScopes ?? []).toHaveLength(0);
@@ -108,10 +112,10 @@ describe("slack connector definition", () => {
 
   it("throws slack_api_error when Slack responds ok:false", async () => {
     const fetchStub = (async () =>
-      new Response(
-        JSON.stringify({ error: "channel_not_found", ok: false }),
-        { headers: { "content-type": "application/json" }, status: 200 }
-      )) as typeof fetch;
+      new Response(JSON.stringify({ error: "channel_not_found", ok: false }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      })) as typeof fetch;
     const action = slackConnector.actions.find(
       (a) => a.id === "get_channel_history"
     );

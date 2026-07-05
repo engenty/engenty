@@ -391,7 +391,9 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
           .describe("Plain-text event description."),
         end: z
           .string()
-          .describe("Event end, ISO 8601 date-time (e.g. 2026-07-04T15:00:00)."),
+          .describe(
+            "Event end, ISO 8601 date-time (e.g. 2026-07-04T15:00:00)."
+          ),
         start: z
           .string()
           .describe(

@@ -24,16 +24,16 @@ import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/f
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
 import {
+  loadConnectionApprovalGrants,
+  mergeApprovalGrants,
+} from "../ai/sessions/connection-approval-grants.js";
+import {
   type AgUiResumeEntry,
   mergeAgUiOpenInterruptMetadata,
   readAgUiOpenInterrupt,
   resumePayloadToModelContent,
   runInputHasNewUserMessages,
 } from "../ai/sessions/interrupts.js";
-import {
-  loadConnectionApprovalGrants,
-  mergeApprovalGrants,
-} from "../ai/sessions/connection-approval-grants.js";
 import { resolveToolCallResultInHistory } from "../ai/sessions/resolve-tool-call-history.js";
 import {
   isRunLiveInProcess,

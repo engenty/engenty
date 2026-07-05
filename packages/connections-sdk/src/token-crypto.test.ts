@@ -36,6 +36,7 @@ describe("token-crypto", () => {
     const encrypted = encryptToken("secret");
     const [iv, ct, tag] = encrypted.split(".");
     const flipped = Buffer.from(ct, "base64");
+    // biome-ignore lint/suspicious/noBitwiseOperators: intentional — bit-flip tampers the ciphertext to prove GCM auth rejects it
     flipped[0] = flipped[0]! ^ 0xff;
     expect(() =>
       decryptToken([iv, flipped.toString("base64"), tag].join("."))

@@ -1,6 +1,6 @@
 import type { StreamPullCtx } from "@engenty/connections-sdk";
 import { describe, expect, it } from "vitest";
-import { gmailConnector } from "./definitions.js";
+import { gmailConnector } from "./connectors/gmail.js";
 
 const pull = gmailConnector.stream?.pull;
 if (!pull) {

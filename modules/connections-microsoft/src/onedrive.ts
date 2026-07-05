@@ -172,7 +172,7 @@ export const microsoftOneDriveConnector: ConnectorDefinition = defineConnector({
           );
         }
         const mimeType = item.file?.mimeType ?? "";
-        if (!mimeType || !isTextishMimeType(mimeType)) {
+        if (!(mimeType && isTextishMimeType(mimeType))) {
           return {
             id: item.id,
             mimeType: mimeType || null,

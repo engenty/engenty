@@ -4,12 +4,10 @@ import {
   registerConnectorDefinition,
 } from "@engenty/connections-sdk";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  calendarConnector,
-  driveConnector,
-  gmailConnector,
-  googleConnectors,
-} from "./definitions.js";
+import { calendarConnector } from "./connectors/calendar.js";
+import { driveConnector } from "./connectors/drive.js";
+import { gmailConnector } from "./connectors/gmail.js";
+import { googleConnectors } from "./definitions.js";
 
 const VALID_GROUPS = ["read", "write", "destructive"] as const;
 

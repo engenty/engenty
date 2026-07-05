@@ -17,16 +17,16 @@ import {
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import {
+  loadConnectionApprovalGrants,
+  mergeApprovalGrants,
+} from "../sessions/connection-approval-grants.js";
 import { mergeAgUiOpenInterruptMetadata } from "../sessions/interrupts.js";
 import {
   markRunDone,
   markRunLive,
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
-import {
-  loadConnectionApprovalGrants,
-  mergeApprovalGrants,
-} from "../sessions/connection-approval-grants.js";
 import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import {

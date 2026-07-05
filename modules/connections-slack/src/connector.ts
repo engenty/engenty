@@ -122,7 +122,9 @@ const listChannelsInput = z.object({
 });
 
 const getChannelHistoryInput = z.object({
-  channel: z.string().describe("Channel ID to fetch history for (e.g. C0123456789)."),
+  channel: z
+    .string()
+    .describe("Channel ID to fetch history for (e.g. C0123456789)."),
   latest: z
     .string()
     .optional()
@@ -151,7 +153,9 @@ const getThreadRepliesInput = z.object({
     .describe("Maximum number of replies to return (1-25, default 25)."),
   thread_ts: z
     .string()
-    .describe("Timestamp of the thread's parent message (e.g. 1712345678.000100)."),
+    .describe(
+      "Timestamp of the thread's parent message (e.g. 1712345678.000100)."
+    ),
 });
 
 const searchMessagesInput = z.object({
@@ -164,7 +168,9 @@ const searchMessagesInput = z.object({
     .describe("Maximum number of matches to return (1-25, default 25)."),
   query: z
     .string()
-    .describe("Search query; supports Slack search modifiers like in:#channel or from:@user."),
+    .describe(
+      "Search query; supports Slack search modifiers like in:#channel or from:@user."
+    ),
 });
 
 const listUsersInput = z.object({
@@ -178,12 +184,16 @@ const listUsersInput = z.object({
 });
 
 const postMessageInput = z.object({
-  channel: z.string().describe("Channel ID (or user ID for a DM) to post the message to."),
+  channel: z
+    .string()
+    .describe("Channel ID (or user ID for a DM) to post the message to."),
   text: z.string().describe("Message text (Slack mrkdwn)."),
   thread_ts: z
     .string()
     .optional()
-    .describe("Parent message timestamp to reply in a thread instead of the channel."),
+    .describe(
+      "Parent message timestamp to reply in a thread instead of the channel."
+    ),
 });
 
 const updateMessageInput = z.object({
@@ -193,7 +203,9 @@ const updateMessageInput = z.object({
 });
 
 const addReactionInput = z.object({
-  channel: z.string().describe("Channel ID containing the message to react to."),
+  channel: z
+    .string()
+    .describe("Channel ID containing the message to react to."),
   emoji: z
     .string()
     .describe("Emoji name without colons (e.g. thumbsup, white_check_mark)."),
@@ -210,15 +222,13 @@ const actions: ConnectorAction[] = [
     group: "read",
     handler: async (input, ctx) => {
       const args = listChannelsInput.parse(input);
-      const data = await slackApi<SlackApiEnvelope & { channels?: SlackChannel[] }>(
-        ctx,
-        "conversations.list",
-        {
-          exclude_archived: true,
-          limit: args.limit ?? 50,
-          types: "public_channel,private_channel",
-        }
-      );
+      const data = await slackApi<
+        SlackApiEnvelope & { channels?: SlackChannel[] }
+      >(ctx, "conversations.list", {
+        exclude_archived: true,
+        limit: args.limit ?? 50,
+        types: "public_channel,private_channel",
+      });
       return {
         channels: (data.channels ?? []).map((channel) => ({
           id: channel.id,
@@ -239,16 +249,14 @@ const actions: ConnectorAction[] = [
     group: "read",
     handler: async (input, ctx) => {
       const args = getChannelHistoryInput.parse(input);
-      const data = await slackApi<SlackApiEnvelope & { messages?: SlackMessage[] }>(
-        ctx,
-        "conversations.history",
-        {
-          channel: args.channel,
-          latest: args.latest,
-          limit: args.limit ?? 25,
-          oldest: args.oldest,
-        }
-      );
+      const data = await slackApi<
+        SlackApiEnvelope & { messages?: SlackMessage[] }
+      >(ctx, "conversations.history", {
+        channel: args.channel,
+        latest: args.latest,
+        limit: args.limit ?? 25,
+        oldest: args.oldest,
+      });
       return { messages: (data.messages ?? []).map(mapMessage) };
     },
     id: "get_channel_history",
@@ -257,19 +265,18 @@ const actions: ConnectorAction[] = [
     summary: "Get Slack channel history",
   },
   {
-    description: "Fetch the replies of a Slack thread (including the parent message).",
+    description:
+      "Fetch the replies of a Slack thread (including the parent message).",
     group: "read",
     handler: async (input, ctx) => {
       const args = getThreadRepliesInput.parse(input);
-      const data = await slackApi<SlackApiEnvelope & { messages?: SlackMessage[] }>(
-        ctx,
-        "conversations.replies",
-        {
-          channel: args.channel,
-          limit: args.limit ?? 25,
-          ts: args.thread_ts,
-        }
-      );
+      const data = await slackApi<
+        SlackApiEnvelope & { messages?: SlackMessage[] }
+      >(ctx, "conversations.replies", {
+        channel: args.channel,
+        limit: args.limit ?? 25,
+        ts: args.thread_ts,
+      });
       return { messages: (data.messages ?? []).map(mapMessage) };
     },
     id: "get_thread_replies",
@@ -278,7 +285,8 @@ const actions: ConnectorAction[] = [
     summary: "Get Slack thread replies",
   },
   {
-    description: "Search messages across the Slack workspace as the connected user.",
+    description:
+      "Search messages across the Slack workspace as the connected user.",
     group: "read",
     handler: async (input, ctx) => {
       const args = searchMessagesInput.parse(input);
@@ -335,15 +343,13 @@ const actions: ConnectorAction[] = [
     group: "write",
     handler: async (input, ctx) => {
       const args = postMessageInput.parse(input);
-      const data = await slackApi<SlackApiEnvelope & { channel?: string; ts?: string }>(
-        ctx,
-        "chat.postMessage",
-        {
-          channel: args.channel,
-          text: args.text,
-          thread_ts: args.thread_ts,
-        }
-      );
+      const data = await slackApi<
+        SlackApiEnvelope & { channel?: string; ts?: string }
+      >(ctx, "chat.postMessage", {
+        channel: args.channel,
+        text: args.text,
+        thread_ts: args.thread_ts,
+      });
       return { channel: data.channel ?? args.channel, ts: data.ts ?? "" };
     },
     id: "post_message",
@@ -356,15 +362,13 @@ const actions: ConnectorAction[] = [
     group: "write",
     handler: async (input, ctx) => {
       const args = updateMessageInput.parse(input);
-      const data = await slackApi<SlackApiEnvelope & { channel?: string; ts?: string }>(
-        ctx,
-        "chat.update",
-        {
-          channel: args.channel,
-          text: args.text,
-          ts: args.ts,
-        }
-      );
+      const data = await slackApi<
+        SlackApiEnvelope & { channel?: string; ts?: string }
+      >(ctx, "chat.update", {
+        channel: args.channel,
+        text: args.text,
+        ts: args.ts,
+      });
       return { channel: data.channel ?? args.channel, ts: data.ts ?? args.ts };
     },
     id: "update_message",
@@ -382,7 +386,12 @@ const actions: ConnectorAction[] = [
         name: args.emoji,
         timestamp: args.ts,
       });
-      return { added: true, channel: args.channel, emoji: args.emoji, ts: args.ts };
+      return {
+        added: true,
+        channel: args.channel,
+        emoji: args.emoji,
+        ts: args.ts,
+      };
     },
     id: "add_reaction",
     inputSchema: addReactionInput,

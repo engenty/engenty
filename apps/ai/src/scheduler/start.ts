@@ -90,13 +90,16 @@ export async function startScheduler(options: {
           status: resolved.status,
         }
       );
-      setTimeout(() => {
-        resolveAndStart(attempt + 1).catch((err) => {
-          logger.error("trigger scheduler failed to start", {
-            message: err instanceof Error ? err.message : String(err),
+      setTimeout(
+        () => {
+          resolveAndStart(attempt + 1).catch((err) => {
+            logger.error("trigger scheduler failed to start", {
+              message: err instanceof Error ? err.message : String(err),
+            });
           });
-        });
-      }, SCOPE_RETRY_DELAY_MS * (attempt + 1)).unref?.();
+        },
+        SCOPE_RETRY_DELAY_MS * (attempt + 1)
+      ).unref?.();
       return;
     }
     logger.warn(

@@ -64,12 +64,12 @@ export async function graphJson<T = unknown>(
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${ctx.accessToken}`,
-      ...(init?.body !== undefined
-        ? { "Content-Type": "application/json" }
-        : {}),
+      ...(init?.body === undefined
+        ? {}
+        : { "Content-Type": "application/json" }),
     },
     method: init?.method ?? "GET",
-    ...(init?.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+    ...(init?.body === undefined ? {} : { body: JSON.stringify(init.body) }),
   });
   if (!res.ok) {
     throw await graphError(res);
@@ -100,7 +100,7 @@ export async function graphRaw(
       ...(init?.contentType ? { "Content-Type": init.contentType } : {}),
     },
     method: init?.method ?? "GET",
-    ...(init?.body !== undefined ? { body: init.body } : {}),
+    ...(init?.body === undefined ? {} : { body: init.body }),
   });
   if (!res.ok) {
     throw await graphError(res);
@@ -132,7 +132,10 @@ export function htmlToText(html: string): string {
 
 /** Body from a Graph message/event `itemBody`, normalized to plain text. */
 export function bodyToText(
-  body: { content?: string | null; contentType?: string | null } | null | undefined
+  body:
+    | { content?: string | null; contentType?: string | null }
+    | null
+    | undefined
 ): string {
   const content = body?.content ?? "";
   if (!content) {

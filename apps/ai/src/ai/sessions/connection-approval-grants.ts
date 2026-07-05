@@ -15,7 +15,7 @@ export async function loadConnectionApprovalGrants(params: {
 }): Promise<string[]> {
   const token = params.userAccessToken?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  if (!token || !coreBaseUrl) {
+  if (!(token && coreBaseUrl)) {
     return [];
   }
   try {

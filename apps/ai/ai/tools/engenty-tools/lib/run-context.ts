@@ -20,7 +20,11 @@ import type { ToolExecutionContext } from "@mastra/core/tools";
  * request may have been recorded, e.g. by the connections module), so the
  * agent can report the block instead of silently failing.
  */
-export type EngentyToolApprovalPolicy = "suspend" | "deny" | "artifact" | "defer";
+export type EngentyToolApprovalPolicy =
+  | "suspend"
+  | "deny"
+  | "artifact"
+  | "defer";
 
 export interface EngentyToolsRunContext {
   // Operation ids the user approved for this chat (Phase 3.2c). The execute tool

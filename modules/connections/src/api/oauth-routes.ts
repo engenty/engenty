@@ -109,7 +109,7 @@ export function registerConnectionsOAuthRoutes(
       };
       if (query?.error) {
         logger.warn("oauth callback returned error", { error: query.error });
-        return hono.redirect(uiRedirect(null) + `?error=${query.error}`);
+        return hono.redirect(`${uiRedirect(null)}?error=${query.error}`);
       }
       if (!(query?.code && query?.state)) {
         return hono.json({ error: "Missing code or state" }, 400);
@@ -164,14 +164,14 @@ export function registerConnectionsOAuthRoutes(
           detail: { connector: connector.id, sharing: flow.sharing },
           type: "connection.connected",
         });
-        return hono.redirect(uiRedirect(flow.redirect_to) + "?connected=1");
+        return hono.redirect(`${uiRedirect(flow.redirect_to)}?connected=1`);
       } catch (error) {
         logger.error("oauth code exchange failed", {
           connector: connector.id,
           error: error instanceof Error ? error.message : String(error),
         });
         return hono.redirect(
-          uiRedirect(flow.redirect_to) + "?error=exchange_failed"
+          `${uiRedirect(flow.redirect_to)}?error=exchange_failed`
         );
       }
     },
