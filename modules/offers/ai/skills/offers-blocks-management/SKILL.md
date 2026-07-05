@@ -2,7 +2,7 @@
 name: offers-blocks-management
 title: Offer blocks management
 description: Add, edit, and replace content blocks (line items, phases, headings, text) within an offer.
-allowed-tools: engenty_tools_search engenty_tool_execute offers_apply_blocks_patch
+allowed-tools: engenty_tools_search engenty_tool_execute
 ---
 
 # Offer Blocks Management
@@ -28,26 +28,15 @@ All numeric fields in `content_json` are numbers, not strings. `tax_rate` is a p
 3. **Write**: Use `offers_replace_blocks` — this is a full replacement (atomic PUT).
 4. Assign `order_index` sequentially starting at 0.
 
-## When User is NOT on the offer edit page
+## Writing Blocks
 
-Use `offers_replace_blocks` with `{ id: "<offer-id>", blocks: [...] }`.
+Use `offers_replace_blocks` with `{ id: "<offer-id>", blocks: [...] }` — a full
+replacement (atomic PUT). Omit `id` for new blocks (generated on write); keep
+existing `id` values to preserve identity.
 
-## When User IS on the offer edit page (live update)
-
-When `offers_apply_blocks_patch` is available in the frontend tools, prefer it for immediate visual feedback. Call the `offers_apply_blocks_patch` tool directly:
-
-```
-offers_apply_blocks_patch({
-  blocks: [
-    { "id": "<existing-id>", "type": "line_item", "order_index": 0, "content_json": { "title": "Consulting", "quantity": 5, "unit": "h", "unit_price": 150, "tax_rate": 20 } },
-    { "type": "line_item", "order_index": 1, "content_json": { "title": "Setup fee", "quantity": 1, "unit": "Pauschal", "unit_price": 500, "tax_rate": 20 } }
-  ]
-})
-```
-
-Omit `id` for new blocks (they get generated on save). Keep existing `id` values to preserve identity.
-
-This updates the local draft — the user saves explicitly. Tell the user their changes are staged.
+The write persists immediately. If the user has the offer open in the editor,
+the new blocks appear there live (realtime); if they have unsaved local edits,
+the editor shows a conflict banner instead of overwriting them.
 
 ## Working With Phases
 

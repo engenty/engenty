@@ -437,5 +437,8 @@
   "contactTabCount": "{{count}} Angebot(e) für diesen Kontakt",
   "contactTabEmpty": "Noch keine Angebote",
   "contactTabEmptyDescription": "Mit diesem Kontakt verknüpfte Angebote erscheinen hier.",
-  "contactTabViewAll": "Alle Angebote"
+  "contactTabViewAll": "Alle Angebote",
+  "externalChange": "Dieses Angebot wurde außerhalb des Editors geändert (z. B. durch den Assistenten).",
+  "externalChangeAdopt": "Änderungen laden",
+  "externalChangeKeep": "Meine Version behalten"
 }

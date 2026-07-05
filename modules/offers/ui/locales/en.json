@@ -437,5 +437,8 @@
   "contactTabCount": "{{count}} offer(s) for this contact",
   "contactTabEmpty": "No offers yet",
   "contactTabEmptyDescription": "Offers linked to this contact will show up here.",
-  "contactTabViewAll": "All offers"
+  "contactTabViewAll": "All offers",
+  "externalChange": "This offer was changed outside the editor (e.g. by the assistant).",
+  "externalChangeAdopt": "Load changes",
+  "externalChangeKeep": "Keep my version"
 }

@@ -1,9 +1,4 @@
-import type { JsonPatchOperation, JsonValue } from "@engenty/ag-ui-bridge";
-import { useEngentyFrontendTool } from "@engenty/ai-ui";
-import {
-  createFrontendToolDefinition,
-  useRegisterAgentUiSlice,
-} from "@engenty/app-shell";
+import { useRegisterAgentUiSlice } from "@engenty/app-shell";
 import {
   BlockEditor,
   type CommercialBlock,
@@ -59,59 +54,12 @@ import {
   useUpdateOfferMutation,
 } from "../queries.js";
 
-const OFFER_DRAFT_ALLOWED_PATHS = [
-  "title",
-  "billing_type",
-  "billing_interval",
-  "offer_date",
-  "valid_until",
-  "reference",
-  "currency",
-  "default_tax_rate",
-  "no_tax_reason",
-  "introduction",
-  "final_notes",
-  "phases_enabled",
-  "show_phase_index",
-  "show_phase_totals",
-  "show_tax_per_item",
-] as const satisfies Array<keyof OfferListItem>;
-
-const OFFERS_APPLY_DRAFT_PATCH_TOOL = createFrontendToolDefinition({
-  availability: "enabled",
-  description:
-    "Apply JSON Patch ops to the current offer draft (title, billing type, dates, reference, etc). Browser-only; user saves explicitly.",
-  name: "offers_apply_draft_patch",
-  owner_module_id: "offers",
-  parameters: {
-    additionalProperties: false,
-    properties: {
-      patch: { items: { type: "object" }, type: "array" },
-    },
-    required: ["patch"],
-    type: "object",
-  },
-  safety: "requires_confirmation",
-  title: "Apply Offer Draft Patch",
-});
-
-const OFFERS_APPLY_BLOCKS_PATCH_TOOL = createFrontendToolDefinition({
-  availability: "enabled",
-  description:
-    "Replace the blocks of the current offer draft with a new array. Browser-only; user saves explicitly.",
-  name: "offers_apply_blocks_patch",
-  owner_module_id: "offers",
-  parameters: {
-    additionalProperties: false,
-    properties: {
-      blocks: { items: { type: "object" }, type: "array" },
-    },
-    required: ["blocks"],
-    type: "object",
-  },
-  safety: "requires_confirmation",
-  title: "Apply Offer Blocks Patch",
-});
+// The former offers_apply_draft_patch / offers_apply_blocks_patch frontend
+// tools were removed deliberately: agents edit offers through the backend
+// operations (offers_update / offers_replace_blocks — approval-gated with
+// durable grants), and this editor follows those writes live via the offers
+// realtime binding. Frontend staging tools only worked with the edit page
+// open, were invisible to the agent's reads, and duplicated the write path.
 
 function toCommercialBlocks(blocks: OfferBlock[]): CommercialBlock[] {
   return blocks.map((block) => ({
@@ -260,20 +208,67 @@ export function OfferEditPage() {
     [normalizedEditorTaxRates]
   );
 
+  // Last server state this editor adopted. Local `offer`/`blocks` staying
+  // reference-equal to it means the user has no unsaved edits (every local
+  // mutation produces new objects), so external writes can be adopted live.
+  const adoptedRef = useRef<{
+    blocks: CommercialBlock[];
+    offer: OfferListItem | null;
+    serverJson: string;
+  }>({ blocks: [], offer: null, serverJson: "" });
+  const [externalChange, setExternalChange] = useState(false);
+
+  const adoptServerState = useCallback(
+    (data: NonNullable<typeof pageData>, serverJson: string) => {
+      const nextBlocks = toCommercialBlocks(data.blocks);
+      adoptedRef.current = {
+        blocks: nextBlocks,
+        offer: data.offer,
+        serverJson,
+      };
+      setOffer(data.offer);
+      setBlocks(nextBlocks);
+      setExternalChange(false);
+    },
+    []
+  );
+
   useEffect(() => {
     initialSyncedRef.current = false;
   }, [id]);
 
+  // Seed on first load, then keep following the server: the offers live
+  // binding invalidates this query whenever an agent (or another tab) writes
+  // the offer or its blocks. Pristine local state adopts the fresh server
+  // state immediately; unsaved local edits surface a conflict banner instead
+  // of being clobbered.
   useEffect(() => {
-    if (!pageData || initialSyncedRef.current) {
+    if (!pageData) {
       return;
     }
-    initialSyncedRef.current = true;
-    setOffer(pageData.offer);
-    setBlocks(toCommercialBlocks(pageData.blocks));
-    setCompanyProfile(pageData.companyProfile);
-    setCommercialSettings(pageData.commercialSettings);
-  }, [pageData]);
+    const serverJson = JSON.stringify({
+      b: pageData.blocks,
+      o: pageData.offer,
+    });
+    if (!initialSyncedRef.current) {
+      initialSyncedRef.current = true;
+      adoptServerState(pageData, serverJson);
+      setCompanyProfile(pageData.companyProfile);
+      setCommercialSettings(pageData.commercialSettings);
+      return;
+    }
+    if (serverJson === adoptedRef.current.serverJson) {
+      return;
+    }
+    const pristine =
+      offer === adoptedRef.current.offer &&
+      blocks === adoptedRef.current.blocks;
+    if (pristine) {
+      adoptServerState(pageData, serverJson);
+    } else {
+      setExternalChange(true);
+    }
+  }, [pageData, offer, blocks, adoptServerState]);
 
   useEffect(() => {
     if (!offer) {
@@ -314,6 +309,11 @@ export function OfferEditPage() {
           order_index: index,
         }))
       );
+      // Local state is the server state now — mark it adopted so the
+      // save-triggered realtime refetch syncs cleanly instead of flagging a
+      // false conflict.
+      adoptedRef.current = { blocks, offer, serverJson: "" };
+      setExternalChange(false);
       return true;
     },
     [blocks, offer, replaceBlocksMutation, updateMutation]
@@ -442,88 +442,6 @@ export function OfferEditPage() {
             }
           : null,
       [offer]
-    )
-  );
-
-  useEngentyFrontendTool(
-    OFFERS_APPLY_DRAFT_PATCH_TOOL,
-    useCallback(
-      (input): JsonValue => {
-        const record =
-          input && typeof input === "object" && !Array.isArray(input)
-            ? input
-            : {};
-        const patch = Array.isArray(record.patch)
-          ? (record.patch as JsonPatchOperation[])
-          : [];
-        if (patch.length === 0) {
-          throw new Error("patch must contain at least one operation.");
-        }
-        for (const op of patch) {
-          const field = op.path.replace(/^\//, "") as keyof OfferListItem;
-          if (
-            !OFFER_DRAFT_ALLOWED_PATHS.includes(
-              field as (typeof OFFER_DRAFT_ALLOWED_PATHS)[number]
-            )
-          ) {
-            throw new Error(`Unsupported offer draft path: ${op.path}`);
-          }
-          setOffer((current) =>
-            current
-              ? {
-                  ...current,
-                  [field]:
-                    op.op === "remove"
-                      ? null
-                      : (op as { value: unknown }).value,
-                }
-              : current
-          );
-        }
-        return { ok: true };
-      },
-      [setOffer]
-    )
-  );
-
-  useEngentyFrontendTool(
-    OFFERS_APPLY_BLOCKS_PATCH_TOOL,
-    useCallback(
-      (input): JsonValue => {
-        const record =
-          input && typeof input === "object" && !Array.isArray(input)
-            ? input
-            : {};
-        // Widen from JsonValue: type predicates aren't assignable on the
-        // JsonValue union, so hop through unknown[] for the narrowing.
-        const rawBlocks: unknown[] = Array.isArray(record.blocks)
-          ? (record.blocks as unknown[])
-          : [];
-        // Agents send the operation/skill shape ({type, content_json,
-        // order_index, id?}); the editor works on CommercialBlock ({content},
-        // id required). Storing the raw payload verbatim renders blank blocks
-        // — normalize instead.
-        const newBlocks: CommercialBlock[] = rawBlocks
-          .filter(
-            (raw): raw is Record<string, unknown> =>
-              Boolean(raw) && typeof raw === "object" && !Array.isArray(raw)
-          )
-          .map((raw, index) => ({
-            id:
-              typeof raw.id === "string" && raw.id.trim()
-                ? raw.id
-                : crypto.randomUUID(),
-            type: typeof raw.type === "string" ? raw.type : "text",
-            content: (raw.content_json ??
-              raw.content ??
-              {}) as CommercialBlock["content"],
-            order_index:
-              typeof raw.order_index === "number" ? raw.order_index : index,
-          }));
-        setBlocks(newBlocks);
-        return { ok: true, blocks_applied: newBlocks.length };
-      },
-      [setBlocks]
     )
   );
 
@@ -702,6 +620,41 @@ export function OfferEditPage() {
         />
         <OfferStatusStepper status={offer.status} />
       </DocumentHeader>
+
+      {externalChange && pageData ? (
+        <div className="flex items-center justify-between gap-3 border-amber-500/40 border-b bg-amber-500/10 px-4 py-2 text-sm">
+          <span>{t("externalChange")}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              onClick={() =>
+                adoptServerState(
+                  pageData,
+                  JSON.stringify({ b: pageData.blocks, o: pageData.offer })
+                )
+              }
+              size="sm"
+              variant="outline"
+            >
+              {t("externalChangeAdopt")}
+            </Button>
+            <Button
+              onClick={() => {
+                // Keep the local edits; remember the server revision so the
+                // same emission doesn't re-flag. Saving overwrites it.
+                adoptedRef.current.serverJson = JSON.stringify({
+                  b: pageData.blocks,
+                  o: pageData.offer,
+                });
+                setExternalChange(false);
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              {t("externalChangeKeep")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <section className="mx-auto w-full max-w-6xl space-y-4 bg-card/30 p-page">
