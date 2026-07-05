@@ -9,8 +9,14 @@ function createRealtimeChannel() {
   let callback: ((payload: AgentSessionRealtimePayload) => void) | null = null;
   const unsubscribe = vi.fn();
   const channel: AgentSessionRealtimeChannel = {
-    on: vi.fn((_event, _config, nextCallback) => {
-      callback = nextCallback;
+    on: vi.fn((event, _config, nextCallback) => {
+      // A "system" error listener is also registered; only capture the
+      // postgres_changes handler here.
+      if (event === "postgres_changes") {
+        callback = nextCallback as (
+          payload: AgentSessionRealtimePayload
+        ) => void;
+      }
       return channel;
     }),
     subscribe: vi.fn(() => channel),

@@ -61,6 +61,86 @@ const offerAgentBlockInputSchema = offerBlockInputSchema
   .omit({ id: true, offer_id: true })
   .extend({ id: z.string().optional() });
 
+/**
+ * Normalize an agent-written block to the CANONICAL shape the editor, PDF
+ * templates, and phase grouping actually read (verified against
+ * ItemBlockRow/HeadlineBlock/TextBlock and the PDF provider's sample data):
+ *
+ * - line_item:  { title, amount, unit, cost_per_item, tax, content? }
+ * - headline:   { title, content?, is_phase? } — a PHASE is a headline block
+ *               with `is_phase: true` (there is no rendered "phase" type!)
+ * - subheading: { title }
+ * - text:       { content }
+ *
+ * Models overwhelmingly guess `quantity`/`unit_price`/`tax_rate`, `text`, and
+ * a literal `type: "phase"` — all of which stored fine but rendered as 0 or
+ * not at all. Accept the intuitive shapes here and convert, dropping aliases
+ * so a later manual edit in the editor cannot diverge from a stale copy.
+ */
+export function normalizeAgentBlock(input: {
+  content: Record<string, unknown>;
+  type: string;
+}): { content: Record<string, unknown>; type: string } {
+  const next: Record<string, unknown> = { ...input.content };
+  if (input.type === "line_item") {
+    if (next.amount == null && next.quantity != null) {
+      next.amount = next.quantity;
+    }
+    if (next.cost_per_item == null && next.unit_price != null) {
+      next.cost_per_item = next.unit_price;
+    }
+    if (next.cost_per_item == null && next.price != null) {
+      next.cost_per_item = next.price;
+    }
+    if (next.tax == null && next.tax_rate != null) {
+      next.tax = next.tax_rate;
+    }
+    // Optional secondary description line renders from `content`.
+    if (
+      typeof next.content !== "string" &&
+      typeof next.description === "string"
+    ) {
+      next.content = next.description;
+      delete next.description;
+    }
+    delete next.quantity;
+    delete next.unit_price;
+    delete next.price;
+    delete next.tax_rate;
+    return { content: next, type: input.type };
+  }
+  if (
+    input.type === "phase" ||
+    input.type === "headline" ||
+    input.type === "subheading"
+  ) {
+    if (
+      (typeof next.title !== "string" || next.title.length === 0) &&
+      typeof next.text === "string"
+    ) {
+      next.title = next.text;
+      delete next.text;
+    }
+    if (input.type === "phase") {
+      return { content: { ...next, is_phase: true }, type: "headline" };
+    }
+    return { content: next, type: input.type };
+  }
+  if (input.type === "text") {
+    if (typeof next.content !== "string" || next.content.length === 0) {
+      if (typeof next.text === "string" && next.text.length > 0) {
+        next.content = next.text;
+        delete next.text;
+      } else if (typeof next.title === "string" && next.title.length > 0) {
+        next.content = next.title;
+        delete next.title;
+      }
+    }
+    return { content: next, type: input.type };
+  }
+  return { content: next, type: input.type };
+}
+
 const DEFAULT_TAX_RATE = 20;
 
 async function resolveDefaultTaxRate(
@@ -295,7 +375,11 @@ export function registerOffersGatewayMethods(
     requiresApproval: true,
     inputSchema: z.object({
       id: z.string().min(1),
-      blocks: z.array(offerAgentBlockInputSchema),
+      blocks: z
+        .array(offerAgentBlockInputSchema)
+        .describe(
+          'Full ordered block list. content_json by type — line_item: {"title": string, "amount": number (quantity), "unit": string ("h", "Tage", "fixed", …), "cost_per_item": number (net unit price), "tax": number (percent), "content"?: string (description line)}; phase: {"title": string} (stored as a headline block with is_phase: true; groups all following blocks until the next phase); headline/subheading: {"title": string}; text: {"content": string}. The aliases quantity/unit_price/tax_rate and text are accepted and normalized to the canonical keys.'
+        ),
     }),
     outputSchema: z.array(offerBlockSchema),
     handler: async (input, ctx) => {
@@ -306,13 +390,19 @@ export function registerOffersGatewayMethods(
       };
       return repo.replaceBlocks(
         parsed.id,
-        parsed.blocks.map((block, index) => ({
-          id: block.id ?? "",
-          offer_id: parsed.id,
-          type: block.type,
-          content_json: block.content_json,
-          order_index: block.order_index ?? index,
-        }))
+        parsed.blocks.map((block, index) => {
+          const normalized = normalizeAgentBlock({
+            content: block.content_json ?? {},
+            type: block.type,
+          });
+          return {
+            id: block.id ?? "",
+            offer_id: parsed.id,
+            type: normalized.type as typeof block.type,
+            content_json: normalized.content,
+            order_index: block.order_index ?? index,
+          };
+        })
       );
     },
   });

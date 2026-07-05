@@ -11,15 +11,32 @@ Use this skill when the user wants to add, edit, reorder, or remove content bloc
 
 ## Block Types
 
-| type | Purpose | Key `content_json` fields |
-|------|---------|--------------------------|
-| `line_item` | Billable position | `title`, `quantity`, `unit`, `unit_price`, `tax_rate` |
-| `phase` | Phase/milestone header | `title` |
-| `headline` | Large heading | `text` |
-| `subheading` | Secondary heading | `text` |
-| `text` | Free-form paragraph | `text` |
+| type | Purpose | `content_json` fields (canonical) |
+|------|---------|-----------------------------------|
+| `line_item` | Billable position | `title` (string), `amount` (number — the quantity), `unit` (string, e.g. `"h"`, `"Tage"`, `"fixed"`), `cost_per_item` (number — net unit price), `tax` (number — percent, e.g. `20`), optional `content` (string — description line under the title) |
+| `headline` with `is_phase: true` | **Phase/section header** | `title` (string — the phase name), `is_phase: true`. There is NO rendered `"phase"` type — a phase is a headline block with `is_phase: true`. (Sending `type: "phase"` with `{title}` is accepted and converted.) |
+| `headline` | Large heading | `title` (string), optional `content` (string) |
+| `subheading` | Secondary heading | `title` (string) |
+| `text` | Free-form paragraph | `content` (string) |
 
-All numeric fields in `content_json` are numbers, not strings. `tax_rate` is a percentage (e.g. `20` for 20%).
+All numeric fields are JSON numbers, not strings. These are the field names
+the editor, PDF templates, and totals actually read — other names (e.g.
+`quantity`/`unit_price`, or `text` on headings) render as 0 or not at all.
+The write normalizes the common aliases, but emit the canonical names, and
+expect them when reading blocks back via `offers_get_blocks`.
+
+### Example: 2 phases with positions
+
+```json
+{ "id": "<offer-id>", "blocks": [
+  { "type": "headline",  "order_index": 0, "content_json": { "title": "Konzeption", "is_phase": true } },
+  { "type": "line_item", "order_index": 1, "content_json": { "title": "Anforderungsanalyse", "amount": 2, "unit": "Tage", "cost_per_item": 1200, "tax": 20 } },
+  { "type": "line_item", "order_index": 2, "content_json": { "title": "UX-Konzept", "amount": 3, "unit": "Tage", "cost_per_item": 1100, "tax": 20 } },
+  { "type": "headline",  "order_index": 3, "content_json": { "title": "Umsetzung", "is_phase": true } },
+  { "type": "line_item", "order_index": 4, "content_json": { "title": "Frontend-Entwicklung", "amount": 8, "unit": "Tage", "cost_per_item": 1300, "tax": 20 } },
+  { "type": "text",      "order_index": 5, "content_json": { "content": "Alle Positionen verstehen sich zzgl. USt." } }
+] }
+```
 
 ## Tool Process
 
@@ -47,7 +64,12 @@ ambiguous.
 
 ## Working With Phases
 
-Phases group line items when `phases_enabled: true` on the offer. A phase block appears before the line items it contains. The AI does not need to link line items to phases — the position (order_index) determines grouping visually.
+Phases group line items when `phases_enabled: true` on the offer. A phase is a
+`headline` block with `is_phase: true`, placed before the line items it
+contains — the position (order_index) determines grouping; everything after a
+phase headline belongs to that phase until the next one. Check the offer's
+`phases_enabled` via `offers_get` and set it with `offers_update` when
+introducing phases into an offer that has none.
 
 ## Safety
 
