@@ -104,6 +104,10 @@ export interface CopilotComposerStatusFlapProps {
   interruptContent?: ReactNode;
   labels?: AgentStatusTickerLabels;
   messages: readonly AgentTurnMessageLike[];
+  /** Absolutely-positioned chrome anchored to the flap (e.g. the peeking blob
+   *  avatar) — rendered inside the flap root so it rides the flap's top edge
+   *  instead of overlapping its content. */
+  overlayAdornment?: ReactNode;
   replyText: string;
   runStatus?: AgentRunStatus | null;
   stale?: boolean;
@@ -121,6 +125,7 @@ export function CopilotComposerStatusFlap({
   interruptContent = null,
   labels,
   messages,
+  overlayAdornment = null,
   replyText,
   runStatus = null,
   stale = false,
@@ -205,6 +210,7 @@ export function CopilotComposerStatusFlap({
       onPointerUp={onPointerUp}
       role="status"
     >
+      {overlayAdornment}
       {showIdlePreview ? (
         <div className="flex min-w-0 items-center gap-2 text-muted-foreground text-sm">
           <MessageSquare aria-hidden className="size-3.5 shrink-0" />

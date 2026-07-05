@@ -422,6 +422,21 @@
     "newChat": "Neuer Chat",
     "newChatPickAgent": "Agent für neuen Chat wählen",
     "newChatStartWithAgent": "Mit anderem Agent starten",
+    "decisionCard": {
+      "customPrefix": "Eigene Antwort:",
+      "inputPlaceholder": "Nummer eingeben oder eigene Antwort…",
+      "pressHintPrefix": "Drücke",
+      "pressHintSuffix": "oder tippe und drücke",
+      "submit": "Senden ↵",
+      "submitting": "Wird gesendet…"
+    },
+    "toolApproval": {
+      "title": "Freigeben: {{action}}?",
+      "body": "Diese Aktion erfordert deine Freigabe. Operation: {{operation}}",
+      "approveOnce": "Einmal erlauben",
+      "approveAlways": "Immer erlauben (dieser Chat)",
+      "deny": "Ablehnen"
+    },
     "sidebar": {
       "title": "Chats",
       "searchPlaceholder": "Chats suchen",

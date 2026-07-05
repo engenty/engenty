@@ -341,6 +341,44 @@ export function CopilotCompactComposerShell({
     }
   }, [shouldShowAvatar]);
 
+  // Peeking blob avatar + drop shadow. Anchored to whichever surface is the
+  // visual top: rendered INSIDE the flap while it is open (so the avatar sits
+  // on the flap's top edge instead of overlapping its content/buttons), and
+  // directly above the composer card otherwise.
+  const avatarOverlay =
+    showAvatar && hasInteracted ? (
+      <>
+        {/* Shadow FIRST in DOM → paints behind the avatar (z-[15] < avatar z-20). */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute -top-1 right-10 z-[15] h-3 w-16",
+            shouldShowAvatar ? "shadow-enter-active" : "shadow-leave-active"
+          )}
+        >
+          <span className="absolute left-3 h-3 w-4/5 rounded-full bg-foreground/35 blur-[8px]" />
+        </span>
+        {/* Avatar SECOND in DOM → paints on top of the shadow. */}
+        <div
+          className={cn(
+            "avatar-animated-wrap",
+            shouldShowAvatar ? "avatar-enter-active" : "avatar-leave-active"
+          )}
+        >
+          <BlobAvatar
+            character={blobCharacter}
+            state={
+              chatStatus === "submitted"
+                ? "thinking"
+                : chatStatus === "streaming"
+                  ? "streaming"
+                  : "idle"
+            }
+          />
+        </div>
+      </>
+    ) : null;
+
   return (
     <div
       className={cn("relative", rendered && "overflow-visible", className)}
@@ -488,43 +526,13 @@ export function CopilotCompactComposerShell({
                 : labels
             }
             messages={messages}
+            overlayAdornment={avatarOverlay}
             replyText={replyText}
             runStatus={runStatus}
             stale={stale}
           />
         ) : null}
-        {showAvatar && hasInteracted ? (
-          <>
-            {/* Shadow FIRST in DOM → paints behind the avatar (z-[15] < avatar z-20). */}
-            <span
-              aria-hidden="true"
-              className={cn(
-                "pointer-events-none absolute -top-1 right-10 z-[15] h-3 w-16",
-                shouldShowAvatar ? "shadow-enter-active" : "shadow-leave-active"
-              )}
-            >
-              <span className="absolute left-3 h-3 w-4/5 rounded-full bg-foreground/35 blur-[8px]" />
-            </span>
-            {/* Avatar SECOND in DOM → paints on top of the shadow. */}
-            <div
-              className={cn(
-                "avatar-animated-wrap",
-                shouldShowAvatar ? "avatar-enter-active" : "avatar-leave-active"
-              )}
-            >
-              <BlobAvatar
-                character={blobCharacter}
-                state={
-                  chatStatus === "submitted"
-                    ? "thinking"
-                    : chatStatus === "streaming"
-                      ? "streaming"
-                      : "idle"
-                }
-              />
-            </div>
-          </>
-        ) : null}
+        {rendered ? null : avatarOverlay}
         <div
           className={cn(
             "relative z-10 border-red transition-all duration-200",

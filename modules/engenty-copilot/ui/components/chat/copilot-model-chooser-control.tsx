@@ -22,9 +22,11 @@ export function CopilotModelChooserControl(props: { disabled?: boolean }) {
     modelId: modelOptions.activeModelId,
   });
 
+  // Deliberately NOT disabled while awaiting an interrupt: a parked run is
+  // waiting on the human, and a model change simply applies to the next turn —
+  // greying the chooser there just reads as broken.
   const disabled =
-    props.disabled ??
-    (host.status !== "ready" || host.awaitingInterrupt || !ai.isTransportReady);
+    props.disabled ?? (host.status !== "ready" || !ai.isTransportReady);
 
   return (
     <ChatModelChooser
