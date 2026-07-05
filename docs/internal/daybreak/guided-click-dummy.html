@@ -1,216 +1,909 @@
 <meta charset="utf-8">
 <title>Daybreak — guided briefing (click dummy)</title>
 <style>
-  :root{
-    --paper:#FAF9F6;
-    --ink:#22262E;
-    --muted:#787D87;
-    --faint:#A9ADB5;
-    --line:#E7E4DC;
-    --ember:#C4611A;
-    --ember-ink:#A0500F;
-    --ember-wash:#F7ECDF;
-    --good:#2F7D55;
-    --bad:#B0483C;
-    --serif:Georgia,'Iowan Old Style','Times New Roman',serif;
-    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
-    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+:root {
+  --paper: #faf9f6;
+  --ink: #22262e;
+  --muted: #787d87;
+  --faint: #a9adb5;
+  --line: #e7e4dc;
+  --ember: #c4611a;
+  --ember-ink: #a0500f;
+  --ember-wash: #f7ecdf;
+  --good: #2f7d55;
+  --bad: #b0483c;
+  --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+html {
+  background: var(--paper);
+}
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--paper);
+}
+::selection {
+  background: var(--ember-wash);
+}
+.hidden {
+  display: none !important;
+}
+button {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+button:focus-visible,
+[contenteditable]:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ---------- chrome ---------- */
+.top {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  background: linear-gradient(var(--paper) 65%, transparent);
+}
+.top .wordmark b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.top button {
+  padding-bottom: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  border-bottom: 1px solid var(--line);
+}
+.top button:hover {
+  color: var(--ember-ink);
+  border-color: var(--ember);
+}
+
+.dots {
+  position: fixed;
+  top: 23px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  gap: 7px;
+  transform: translateX(-50%);
+}
+.dots i {
+  width: 5px;
+  height: 5px;
+  background: var(--line);
+  border-radius: 50%;
+  transition: background 0.3s;
+}
+.dots i.done {
+  background: var(--faint);
+}
+.dots i.on {
+  background: var(--ember);
+}
+
+/* ---------- steps ---------- */
+main {
+  max-width: 620px;
+  padding: 0 28px 150px;
+  margin: 0 auto;
+}
+.step {
+  display: none;
+  min-height: 70vh;
+  padding-top: 15vh;
+}
+.step.on {
+  display: block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .step.on {
+    animation: enter 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }
-  html{background:var(--paper)}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
-  ::selection{background:var(--ember-wash)}
-  .hidden{display:none!important}
-  button{font:inherit;cursor:pointer;background:none;border:0;padding:0;color:inherit}
-  button:focus-visible,[contenteditable]:focus-visible{outline:2px solid var(--ember);outline-offset:3px;border-radius:2px}
-
-  /* ---------- chrome ---------- */
-  .top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:20px 28px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);background:linear-gradient(var(--paper) 65%,transparent);z-index:5}
-  .top .wordmark b{color:var(--ink);font-weight:600}
-  .top button{color:var(--muted);letter-spacing:.14em;text-transform:uppercase;font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--line);padding-bottom:2px}
-  .top button:hover{color:var(--ember-ink);border-color:var(--ember)}
-
-  .dots{position:fixed;left:50%;transform:translateX(-50%);top:23px;display:flex;gap:7px;z-index:6}
-  .dots i{width:5px;height:5px;border-radius:50%;background:var(--line);transition:background .3s}
-  .dots i.done{background:var(--faint)}
-  .dots i.on{background:var(--ember)}
-
-  /* ---------- steps ---------- */
-  main{max-width:620px;margin:0 auto;padding:0 28px 150px}
-  .step{display:none;padding-top:15vh;min-height:70vh}
-  .step.on{display:block}
-  @media(prefers-reduced-motion:no-preference){
-    .step.on{animation:enter .55s cubic-bezier(.2,.7,.3,1) both}
-    @keyframes enter{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
+}
 
-  .who{display:flex;align-items:center;gap:10px;margin-bottom:26px}
-  .orb{width:9px;height:9px;border-radius:50%;background:var(--ember)}
-  @media(prefers-reduced-motion:no-preference){
-    .orb{animation:breathe 3.2s ease-in-out infinite}
-    @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(196,97,26,.25)}50%{box-shadow:0 0 0 7px rgba(196,97,26,0)}}
+.who {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 26px;
+}
+.orb {
+  width: 9px;
+  height: 9px;
+  background: var(--ember);
+  border-radius: 50%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .orb {
+    animation: breathe 3.2s ease-in-out infinite;
   }
-  .stepmark{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
-  .stepmark em{font-style:normal;color:var(--ember-ink)}
+  @keyframes breathe {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(196, 97, 26, 0.25);
+    }
+    50% {
+      box-shadow: 0 0 0 7px rgba(196, 97, 26, 0);
+    }
+  }
+}
+.stepmark {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.stepmark em {
+  font-style: normal;
+  color: var(--ember-ink);
+}
 
-  .voice{font-family:var(--serif);font-size:23px;line-height:1.5;color:var(--ink);margin:0 0 8px;text-wrap:pretty;max-width:34ch}
-  .voice b{font-weight:600}
-  .voice .num{font-variant-numeric:tabular-nums}
-  .aside{color:var(--muted);font-size:14px;margin:0;max-width:52ch}
+.voice {
+  max-width: 34ch;
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: 23px;
+  line-height: 1.5;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.voice b {
+  font-weight: 600;
+}
+.voice .num {
+  font-variant-numeric: tabular-nums;
+}
+.aside {
+  max-width: 52ch;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
 
-  /* subject block — hairlines, no card chrome */
-  .subject{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:34px 0 0;padding:18px 2px}
-  .s-row{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
-  .s-row .t{font-size:15.5px;font-weight:600}
-  .s-row .t span{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:2px}
-  .s-row .amt{font-family:var(--mono);font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* subject block — hairlines, no card chrome */
+.subject {
+  padding: 18px 2px;
+  margin: 34px 0 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.s-row {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.s-row .t {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.s-row .t span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.s-row .amt {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
-  .zoomlink{display:inline-flex;align-items:center;gap:7px;margin-top:16px;font-size:13px;color:var(--muted)}
-  .zoomlink::before{content:"+";font-family:var(--mono);color:var(--ember);width:14px;text-align:center;transition:transform .3s}
-  .zoomlink:hover{color:var(--ember-ink)}
-  .zoomlink.open::before{content:"–"}
-  .zoom{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s cubic-bezier(.2,.7,.3,1)}
-  @media(prefers-reduced-motion:reduce){.zoom{transition:none}}
-  .zoom.open{grid-template-rows:1fr}
-  .zoom>div{overflow:hidden;min-height:0}
-  .zoom-pad{padding:18px 0 6px}
+.zoomlink {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.zoomlink::before {
+  width: 14px;
+  font-family: var(--mono);
+  color: var(--ember);
+  text-align: center;
+  content: "+";
+  transition: transform 0.3s;
+}
+.zoomlink:hover {
+  color: var(--ember-ink);
+}
+.zoomlink.open::before {
+  content: "–";
+}
+.zoom {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .zoom {
+    transition: none;
+  }
+}
+.zoom.open {
+  grid-template-rows: 1fr;
+}
+.zoom > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.zoom-pad {
+  padding: 18px 0 6px;
+}
 
-  /* zoom internals */
-  .mini{width:100%;border-collapse:collapse;font-size:13px}
-  .mini td{padding:7px 0;border-top:1px solid var(--line);vertical-align:baseline}
-  .mini tr:first-child td{border-top:0}
-  .mini .r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .mini .was{color:var(--faint);text-decoration:line-through;margin-right:8px;font-size:11.5px}
-  .mini tr.hot td{background:var(--ember-wash)}
-  .mini tr.hot td:first-child{padding-left:8px}
-  .mini tr.hot td:last-child{padding-right:8px}
-  .mini tr.sum td{border-top:1px solid var(--ink);font-weight:600}
-  .whisper{font-size:12.5px;color:var(--muted);margin:12px 0 0}
+/* zoom internals */
+.mini {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+.mini td {
+  padding: 7px 0;
+  vertical-align: baseline;
+  border-top: 1px solid var(--line);
+}
+.mini tr:first-child td {
+  border-top: 0;
+}
+.mini .r {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.mini .was {
+  margin-right: 8px;
+  font-size: 11.5px;
+  color: var(--faint);
+  text-decoration: line-through;
+}
+.mini tr.hot td {
+  background: var(--ember-wash);
+}
+.mini tr.hot td:first-child {
+  padding-left: 8px;
+}
+.mini tr.hot td:last-child {
+  padding-right: 8px;
+}
+.mini tr.sum td {
+  font-weight: 600;
+  border-top: 1px solid var(--ink);
+}
+.whisper {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
 
-  .tl{list-style:none;margin:0;padding:0;font-size:13px}
-  .tl li{display:flex;gap:14px;padding:7px 0;border-top:1px solid var(--line)}
-  .tl li:first-child{border-top:0}
-  .tl time{font-family:var(--mono);font-size:11px;color:var(--faint);min-width:52px;padding-top:2px}
-  .tl b{font-weight:600}
-  .tl .today{color:var(--ember-ink)}
+.tl {
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+  list-style: none;
+}
+.tl li {
+  display: flex;
+  gap: 14px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.tl li:first-child {
+  border-top: 0;
+}
+.tl time {
+  min-width: 52px;
+  padding-top: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+.tl b {
+  font-weight: 600;
+}
+.tl .today {
+  color: var(--ember-ink);
+}
 
-  .thread{display:flex;flex-direction:column;gap:10px;font-size:13.5px}
-  .msg{max-width:46ch}
-  .msg .m-meta{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-bottom:3px}
-  .msg p{margin:0;background:#F1EFE9;border-radius:10px;padding:8px 13px;color:var(--ink)}
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13.5px;
+}
+.msg {
+  max-width: 46ch;
+}
+.msg .m-meta {
+  margin-bottom: 3px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+}
+.msg p {
+  padding: 8px 13px;
+  margin: 0;
+  color: var(--ink);
+  background: #f1efe9;
+  border-radius: 10px;
+}
 
-  .draft{margin:18px 0 0;border-left:2px solid var(--ember);padding:4px 0 4px 16px}
-  .draft .d-meta{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
-  .draft [contenteditable]{font-size:14.5px;line-height:1.6;color:var(--ink)}
-  .draft .hint{font-size:11.5px;color:var(--faint);margin-top:8px}
+.draft {
+  padding: 4px 0 4px 16px;
+  margin: 18px 0 0;
+  border-left: 2px solid var(--ember);
+}
+.draft .d-meta {
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.draft [contenteditable] {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.draft .hint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
 
-  .tone{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin:16px 0 0;font-size:12px}
-  .tone button{padding:5px 14px;color:var(--muted)}
-  .tone button.on{background:var(--ink);color:var(--paper)}
+.tone {
+  display: inline-flex;
+  margin: 16px 0 0;
+  overflow: hidden;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.tone button {
+  padding: 5px 14px;
+  color: var(--muted);
+}
+.tone button.on {
+  color: var(--paper);
+  background: var(--ink);
+}
 
-  /* actions */
-  .acts{display:flex;align-items:center;gap:18px;margin-top:30px;flex-wrap:wrap}
-  .go{background:var(--ember);color:#fff;border-radius:7px;padding:11px 22px;font-weight:600;font-size:14.5px;letter-spacing:.01em}
-  .go:hover{background:var(--ember-ink)}
-  .alt{border:1px solid var(--line);border-radius:7px;padding:10px 18px;font-size:14px;color:var(--ink)}
-  .alt:hover{border-color:var(--faint)}
-  .quiet{font-size:13.5px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:1px}
-  .quiet:hover{color:var(--ink)}
+/* actions */
+.acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  margin-top: 30px;
+}
+.go {
+  padding: 11px 22px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.01em;
+  background: var(--ember);
+  border-radius: 7px;
+}
+.go:hover {
+  background: var(--ember-ink);
+}
+.alt {
+  padding: 10px 18px;
+  font-size: 14px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.alt:hover {
+  border-color: var(--faint);
+}
+.quiet {
+  padding-bottom: 1px;
+  font-size: 13.5px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.quiet:hover {
+  color: var(--ink);
+}
 
-  .confirm{display:flex;align-items:baseline;gap:14px;margin-top:30px}
-  .confirm .tick{font-family:var(--mono);color:var(--good);font-size:13px;padding-top:1px}
-  .confirm .ct{font-family:var(--serif);font-size:17px;line-height:1.55;color:var(--ink);max-width:44ch}
-  .confirm .undo{font-size:12px;color:var(--faint);border-bottom:1px solid var(--line);white-space:nowrap}
-  .confirm .undo:hover{color:var(--ink)}
+.confirm {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  margin-top: 30px;
+}
+.confirm .tick {
+  padding-top: 1px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--good);
+}
+.confirm .ct {
+  max-width: 44ch;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.confirm .undo {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+.confirm .undo:hover {
+  color: var(--ink);
+}
 
-  /* overnight / schedule / numbers */
-  .ledger{list-style:none;margin:34px 0 0;padding:0}
-  .ledger li{display:flex;gap:16px;padding:12px 2px;border-top:1px solid var(--line);font-size:13.5px;align-items:baseline}
-  .ledger li:last-child{border-bottom:1px solid var(--line)}
-  .ledger time{font-family:var(--mono);font-size:11px;color:var(--faint);min-width:46px}
-  .ledger b{font-weight:600}
-  .ledger span{color:var(--muted)}
+/* overnight / schedule / numbers */
+.ledger {
+  padding: 0;
+  margin: 34px 0 0;
+  list-style: none;
+}
+.ledger li {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding: 12px 2px;
+  font-size: 13.5px;
+  border-top: 1px solid var(--line);
+}
+.ledger li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.ledger time {
+  min-width: 46px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+.ledger b {
+  font-weight: 600;
+}
+.ledger span {
+  color: var(--muted);
+}
 
-  .sched{list-style:none;margin:34px 0 0;padding:0}
-  .sched li{display:flex;gap:18px;padding:13px 2px;border-top:1px solid var(--line);align-items:baseline}
-  .sched li:last-child{border-bottom:1px solid var(--line)}
-  .sched time{font-family:var(--mono);font-size:12.5px;min-width:50px;font-variant-numeric:tabular-nums}
-  .sched .t{flex:1;font-size:14px}
-  .sched .t span{display:block;font-size:12px;color:var(--muted)}
-  .sched li.clash{background:var(--ember-wash);margin:0 -10px;padding-left:12px;padding-right:12px;border-radius:6px;border-top-color:transparent}
-  .sched .flag{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ember-ink);white-space:nowrap}
-  .sched li.moved .flag{color:var(--good)}
+.sched {
+  padding: 0;
+  margin: 34px 0 0;
+  list-style: none;
+}
+.sched li {
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  padding: 13px 2px;
+  border-top: 1px solid var(--line);
+}
+.sched li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.sched time {
+  min-width: 50px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.sched .t {
+  flex: 1;
+  font-size: 14px;
+}
+.sched .t span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.sched li.clash {
+  padding-right: 12px;
+  padding-left: 12px;
+  margin: 0 -10px;
+  background: var(--ember-wash);
+  border-top-color: transparent;
+  border-radius: 6px;
+}
+.sched .flag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ember-ink);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.sched li.moved .flag {
+  color: var(--good);
+}
 
-  .stats{display:flex;gap:44px;margin:40px 0 0;flex-wrap:wrap}
-  .stat .v{font-family:var(--mono);font-size:30px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-  .stat .l{font-size:12px;color:var(--muted);margin-top:4px}
-  .stat .d{font-size:12px;margin-top:1px}
-  .stat .d.up{color:var(--good)}.stat .d.down{color:var(--bad)}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 44px;
+  margin: 40px 0 0;
+}
+.stat .v {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.stat .l {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stat .d {
+  margin-top: 1px;
+  font-size: 12px;
+}
+.stat .d.up {
+  color: var(--good);
+}
+.stat .d.down {
+  color: var(--bad);
+}
 
-  /* say bar */
-  .say{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 48px));display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 16px;box-shadow:0 10px 34px rgba(34,38,46,.08);z-index:5}
-  .say span{flex:1;color:var(--faint);font-size:13.5px}
-  .say .mic{width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
-  .say .mic svg{width:14px;height:14px}
+/* say bar */
+.say {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: min(560px, calc(100vw - 48px));
+  padding: 11px 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  box-shadow: 0 10px 34px rgba(34, 38, 46, 0.08);
+  transform: translateX(-50%);
+}
+.say span {
+  flex: 1;
+  font-size: 13.5px;
+  color: var(--faint);
+}
+.say .mic {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: #fff;
+  background: var(--ink);
+  border-radius: 50%;
+}
+.say .mic svg {
+  width: 14px;
+  height: 14px;
+}
 
-  /* skim sheet */
-  #skim{position:fixed;inset:0;background:var(--paper);overflow-y:auto;z-index:20}
-  .sk-wrap{max-width:620px;margin:0 auto;padding:60px 28px 120px}
-  .sk-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;margin-bottom:8px}
-  .sk-head h1{font-family:var(--serif);font-size:26px;font-weight:600;margin:0}
-  .sk-head button{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:2px}
-  .sk-head button:hover{color:var(--ember-ink)}
-  .sk-sub{font-size:12.5px;color:var(--muted);margin:0 0 34px}
-  .sk-t{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:34px 0 4px}
-  .sk-row{display:flex;justify-content:space-between;gap:18px;align-items:baseline;padding:12px 2px;border-top:1px solid var(--line);font-size:14px}
-  .sk-row:last-child{border-bottom:1px solid var(--line)}
-  .sk-row .t b{font-weight:600}
-  .sk-row .t span{display:block;font-size:12px;color:var(--muted)}
-  .pill{font-family:var(--mono);font-size:10px;letter-spacing:.08em;border-radius:5px;padding:3px 9px;white-space:nowrap}
-  .pill.wait{background:var(--ember-wash);color:var(--ember-ink)}
-  .pill.ok{background:#E8F2EC;color:var(--good)}
-  .pill.info{background:#F1EFE9;color:var(--muted)}
+/* skim sheet */
+#skim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow-y: auto;
+  background: var(--paper);
+}
+.sk-wrap {
+  max-width: 620px;
+  padding: 60px 28px 120px;
+  margin: 0 auto;
+}
+.sk-head {
+  display: flex;
+  gap: 20px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.sk-head h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+}
+.sk-head button {
+  padding-bottom: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  border-bottom: 1px solid var(--line);
+}
+.sk-head button:hover {
+  color: var(--ember-ink);
+}
+.sk-sub {
+  margin: 0 0 34px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.sk-t {
+  margin: 34px 0 4px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.sk-row {
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 2px;
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+}
+.sk-row:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.sk-row .t b {
+  font-weight: 600;
+}
+.sk-row .t span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pill {
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  border-radius: 5px;
+}
+.pill.wait {
+  color: var(--ember-ink);
+  background: var(--ember-wash);
+}
+.pill.ok {
+  color: var(--good);
+  background: #e8f2ec;
+}
+.pill.info {
+  color: var(--muted);
+  background: #f1efe9;
+}
 
-  /* sheet widgets */
-  .sk-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:8px}
-  @media(max-width:620px){.sk-grid{grid-template-columns:1fr}}
-  .sk-row .amt{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:auto;padding-right:14px}
-  .sk-count{color:var(--muted);text-transform:none;letter-spacing:.02em}
-  .big{font-family:var(--mono);font-size:27px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:10px 0 0}
-  .big small{font-size:12px;font-family:var(--sans);font-weight:600;color:var(--good);margin-left:9px;letter-spacing:0}
-  .big small.down{color:var(--bad)}
-  .spark{display:block;width:100%;height:60px;margin-top:10px}
-  .wig-cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:6px}
-  .wig .mini{margin-top:14px}
-  .wig .mini .pill{font-size:9px;padding:2px 7px}
-  .agebar,.stackbar{display:flex;height:13px;border-radius:4px;overflow:hidden;margin:16px 0 8px;background:#F1EFE9}
-  .agebar i,.stackbar i{display:block;height:100%}
-  .leg{display:flex;gap:18px;font-size:11px;color:var(--muted);flex-wrap:wrap}
-  .leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
-  .c-sand{background:#D9CDB6}.c-warm{background:#C7B491}.c-ember{background:var(--ember)}.c-mist{background:#E4E0D6}
-  .tlchart{position:relative;height:100px;margin:18px 0 26px;border-bottom:1px solid var(--line)}
-  .tick{position:absolute;top:0;bottom:0;border-left:1px solid #EFECE5}
-  .tick span{position:absolute;bottom:-20px;left:-8px;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
-  .blk{position:absolute;height:26px;border-radius:5px;font-family:var(--mono);font-size:10px;line-height:26px;padding:0 9px;white-space:nowrap;background:#EAE6DC;color:var(--ink);min-width:fit-content}
-  .blk.l1{top:16px}.blk.l2{top:52px}
-  .blk.hot{background:var(--ember);color:#fff}
-  .blk.ok{background:#E8F2EC;color:var(--good)}
-  .blk.soft{background:transparent;border:1px dashed var(--faint);color:var(--muted);line-height:24px}
-  .sk-foot{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);max-width:56ch}
+/* sheet widgets */
+.sk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 8px;
+}
+@media (max-width: 620px) {
+  .sk-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.sk-row .amt {
+  padding-right: 14px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sk-count {
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.big {
+  margin: 10px 0 0;
+  font-family: var(--mono);
+  font-size: 27px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.big small {
+  margin-left: 9px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--good);
+  letter-spacing: 0;
+}
+.big small.down {
+  color: var(--bad);
+}
+.spark {
+  display: block;
+  width: 100%;
+  height: 60px;
+  margin-top: 10px;
+}
+.wig-cap {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.wig .mini {
+  margin-top: 14px;
+}
+.wig .mini .pill {
+  padding: 2px 7px;
+  font-size: 9px;
+}
+.agebar,
+.stackbar {
+  display: flex;
+  height: 13px;
+  margin: 16px 0 8px;
+  overflow: hidden;
+  background: #f1efe9;
+  border-radius: 4px;
+}
+.agebar i,
+.stackbar i {
+  display: block;
+  height: 100%;
+}
+.leg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.leg i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+.c-sand {
+  background: #d9cdb6;
+}
+.c-warm {
+  background: #c7b491;
+}
+.c-ember {
+  background: var(--ember);
+}
+.c-mist {
+  background: #e4e0d6;
+}
+.tlchart {
+  position: relative;
+  height: 100px;
+  margin: 18px 0 26px;
+  border-bottom: 1px solid var(--line);
+}
+.tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid #efece5;
+}
+.tick span {
+  position: absolute;
+  bottom: -20px;
+  left: -8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--faint);
+}
+.blk {
+  position: absolute;
+  min-width: fit-content;
+  height: 26px;
+  padding: 0 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 26px;
+  color: var(--ink);
+  white-space: nowrap;
+  background: #eae6dc;
+  border-radius: 5px;
+}
+.blk.l1 {
+  top: 16px;
+}
+.blk.l2 {
+  top: 52px;
+}
+.blk.hot {
+  color: #fff;
+  background: var(--ember);
+}
+.blk.ok {
+  color: var(--good);
+  background: #e8f2ec;
+}
+.blk.soft {
+  line-height: 24px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--faint);
+}
+.sk-foot {
+  max-width: 56ch;
+  padding-top: 16px;
+  margin-top: 48px;
+  font-size: 12px;
+  color: var(--faint);
+  border-top: 1px solid var(--line);
+}
 </style>
 
 <div class="top">
   <span class="wordmark"><b>engenty</b> · daybreak</span>
   <button onclick="openSkim()">Skim the sheet</button>
 </div>
-<div class="dots" id="dots" aria-hidden="true"></div>
+<div aria-hidden="true" class="dots" id="dots"></div>
 
 <main id="steps">
-
   <!-- 0 · wake -->
   <section class="step" data-i="0">
-    <div class="who"><span class="orb"></span><span class="stepmark">Tuesday, July 7 · composed 06:30</span></div>
+    <div class="who">
+      <span class="orb"></span
+      ><span class="stepmark">Tuesday, July 7 · composed 06:30</span>
+    </div>
     <p class="voice">Good morning, Matthias.</p>
-    <p class="voice" style="font-size:19px;color:var(--muted)">I went through everything since last night. Eleven things are handled — <b class="num" style="color:var(--ink)">three need you</b>, and there's one calendar snag. Ten minutes, tops.</p>
+    <p class="voice" style="font-size:19px;color:var(--muted)">
+      I went through everything since last night. Eleven things are handled —
+      <b class="num" style="color:var(--ink)">three need you</b>, and there's
+      one calendar snag. Ten minutes, tops.
+    </p>
     <div class="acts">
       <button class="go" onclick="go(1)">Walk me through</button>
       <button class="quiet" onclick="openSkim()">I'll skim it myself</button>
@@ -219,100 +912,257 @@
 
   <!-- 1 · offer -->
   <section class="step" data-i="1" data-id="offer">
-    <div class="who"><span class="orb"></span><span class="stepmark">Decision <em>1 of 3</em> · offers</span></div>
-    <p class="voice">First — the Huber offer. I finalized it overnight from your Thursday notes; one position moved with the new supplier prices. It's ready to go.</p>
+    <div class="who">
+      <span class="orb"></span
+      ><span class="stepmark">Decision <em>1 of 3</em> · offers</span>
+    </div>
+    <p class="voice">
+      First — the Huber offer. I finalized it overnight from your Thursday
+      notes; one position moved with the new supplier prices. It's ready to go.
+    </p>
     <div class="subject">
       <div class="s-row">
-        <p class="t">Offer #2041 — Huber Bau GmbH<span>6 pages · PDF &amp; cover mail prepared · valid 30 days</span></p>
+        <p class="t">
+          Offer #2041 — Huber Bau GmbH<span
+            >6 pages · PDF &amp; cover mail prepared · valid 30 days</span
+          >
+        </p>
         <span class="amt">€18,400</span>
       </div>
-      <button class="zoomlink" onclick="toggleZoom(this)">Show me what changed</button>
-      <div class="zoom"><div><div class="zoom-pad">
-        <table class="mini">
-          <tr><td>1 · Earthworks &amp; excavation</td><td class="r">€6,900</td></tr>
-          <tr><td>2 · Foundation slab C25/30</td><td class="r">€7,260</td></tr>
-          <tr class="hot"><td>3 · Reinforcement steel BSt 550</td><td class="r"><span class="was">€4,150</span>€4,240</td></tr>
-          <tr class="sum"><td>Total, net</td><td class="r">€18,400</td></tr>
-        </table>
-        <p class="whisper">Position 3 repriced +2.1% from yesterday's supplier list — parsed from the mail at 06:12. Everything else is your Thursday draft, untouched.</p>
-      </div></div></div>
+      <button class="zoomlink" onclick="toggleZoom(this)">
+        Show me what changed
+      </button>
+      <div class="zoom">
+        <div>
+          <div class="zoom-pad">
+            <table class="mini">
+              <tr>
+                <td>1 · Earthworks &amp; excavation</td>
+                <td class="r">€6,900</td>
+              </tr>
+              <tr>
+                <td>2 · Foundation slab C25/30</td>
+                <td class="r">€7,260</td>
+              </tr>
+              <tr class="hot">
+                <td>3 · Reinforcement steel BSt 550</td>
+                <td class="r"><span class="was">€4,150</span>€4,240</td>
+              </tr>
+              <tr class="sum">
+                <td>Total, net</td>
+                <td class="r">€18,400</td>
+              </tr>
+            </table>
+            <p class="whisper">
+              Position 3 repriced +2.1% from yesterday's supplier list — parsed
+              from the mail at 06:12. Everything else is your Thursday draft,
+              untouched.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="acts">
       <button class="go" onclick="decide('offer','send')">Send it</button>
-      <button class="alt" onclick="decide('offer','defer')">Defer to noon</button>
+      <button class="alt" onclick="decide('offer','defer')">
+        Defer to noon
+      </button>
     </div>
-    <div class="confirm hidden"><span class="tick">✓</span><p class="ct"></p><button class="undo" onclick="undo('offer')">undo</button></div>
+    <div class="confirm hidden">
+      <span class="tick">✓</span>
+      <p class="ct"></p>
+      <button class="undo" onclick="undo('offer')">undo</button>
+    </div>
   </section>
 
   <!-- 2 · kranz -->
   <section class="step" data-i="2" data-id="kranz">
-    <div class="who"><span class="orb"></span><span class="stepmark">Decision <em>2 of 3</em> · invoices</span></div>
-    <p class="voice">Next — Kranz. Still nothing since the June reminder; that's <b class="num">24 days</b> on €9,800 now. I've drafted the second reminder — their AP contact changed, and I already picked up the new one.</p>
+    <div class="who">
+      <span class="orb"></span
+      ><span class="stepmark">Decision <em>2 of 3</em> · invoices</span>
+    </div>
+    <p class="voice">
+      Next — Kranz. Still nothing since the June reminder; that's
+      <b class="num">24 days</b>
+      on €9,800 now. I've drafted the second reminder — their AP contact
+      changed, and I already picked up the new one.
+    </p>
     <div class="subject">
       <div class="s-row">
-        <p class="t">Invoice 2025-103 — Kranz GmbH<span>2nd reminder, level 2 · to r.leitner@kranz.at (new)</span></p>
+        <p class="t">
+          Invoice 2025-103 — Kranz GmbH<span
+            >2nd reminder, level 2 · to r.leitner@kranz.at (new)</span
+          >
+        </p>
         <span class="amt">€9,800</span>
       </div>
-      <button class="zoomlink" onclick="toggleZoom(this)">Show the history</button>
-      <div class="zoom"><div><div class="zoom-pad">
-        <ul class="tl">
-          <li><time>Jun 02</time><p><b>Invoice sent</b> — €9,800, net 14</p></li>
-          <li><time>Jun 16</time><p>Due date passed, no payment</p></li>
-          <li><time>Jun 26</time><p><b>1st reminder</b> — opened twice, no reply</p></li>
-          <li><time>Jul 04</time><p>AP contact changed — new address pulled from Friday's mail</p></li>
-          <li><time>today</time><p class="today"><b>2nd reminder drafted</b>, level 2</p></li>
-        </ul>
-      </div></div></div>
-      <div class="tone" role="group" aria-label="Tone">
+      <button class="zoomlink" onclick="toggleZoom(this)">
+        Show the history
+      </button>
+      <div class="zoom">
+        <div>
+          <div class="zoom-pad">
+            <ul class="tl">
+              <li>
+                <time>Jun 02</time>
+                <p><b>Invoice sent</b> — €9,800, net 14</p>
+              </li>
+              <li>
+                <time>Jun 16</time>
+                <p>Due date passed, no payment</p>
+              </li>
+              <li>
+                <time>Jun 26</time>
+                <p><b>1st reminder</b> — opened twice, no reply</p>
+              </li>
+              <li>
+                <time>Jul 04</time>
+                <p>
+                  AP contact changed — new address pulled from Friday's mail
+                </p>
+              </li>
+              <li>
+                <time>today</time>
+                <p class="today"><b>2nd reminder drafted</b>, level 2</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div aria-label="Tone" class="tone" role="group">
         <button class="on" onclick="setTone(this,'firm')">Firm</button>
         <button onclick="setTone(this,'soft')">Softer</button>
       </div>
       <div class="draft">
         <p class="d-meta">Draft — closing line</p>
-        <div id="toneText">…we must ask you to settle the outstanding €9,800 by <b>July 11</b>. Should no payment arrive, we will hand the claim to collections.</div>
+        <div id="toneText">
+          …we must ask you to settle the outstanding €9,800 by <b>July 11</b>.
+          Should no payment arrive, we will hand the claim to collections.
+        </div>
       </div>
     </div>
     <div class="acts">
-      <button class="go" onclick="decide('kranz','send')">Send the reminder</button>
-      <button class="alt" onclick="decide('kranz','hold')">Hold till Friday</button>
+      <button class="go" onclick="decide('kranz','send')">
+        Send the reminder
+      </button>
+      <button class="alt" onclick="decide('kranz','hold')">
+        Hold till Friday
+      </button>
     </div>
-    <div class="confirm hidden"><span class="tick">✓</span><p class="ct"></p><button class="undo" onclick="undo('kranz')">undo</button></div>
+    <div class="confirm hidden">
+      <span class="tick">✓</span>
+      <p class="ct"></p>
+      <button class="undo" onclick="undo('kranz')">undo</button>
+    </div>
   </section>
 
   <!-- 3 · stefan -->
   <section class="step" data-i="3" data-id="stefan">
-    <div class="who"><span class="orb"></span><span class="stepmark">Decision <em>3 of 3</em> · slack — write policy: ask</span></div>
-    <p class="voice">Last one. Stefan asked at 22:14 whether Thursday still holds for the ARGE submission — he has to tell the consortium this morning. I'd say yes, with one caveat. Here's what I'd send:</p>
+    <div class="who">
+      <span class="orb"></span
+      ><span class="stepmark"
+        >Decision <em>3 of 3</em> · slack — write policy: ask</span
+      >
+    </div>
+    <p class="voice">
+      Last one. Stefan asked at 22:14 whether Thursday still holds for the ARGE
+      submission — he has to tell the consortium this morning. I'd say yes, with
+      one caveat. Here's what I'd send:
+    </p>
     <div class="subject">
-      <button class="zoomlink" style="margin-top:0" onclick="toggleZoom(this)">Show the thread</button>
-      <div class="zoom"><div><div class="zoom-pad">
-        <div class="thread">
-          <div class="msg"><p class="m-meta">Stefan Maier · 22:02</p><p>statics annex came back from Petra with two remarks — nothing structural</p></div>
-          <div class="msg"><p class="m-meta">Stefan Maier · 22:14</p><p>does Thursday still hold for the ARGE submission? need to tell the consortium tomorrow morning</p></div>
+      <button class="zoomlink" onclick="toggleZoom(this)" style="margin-top:0">
+        Show the thread
+      </button>
+      <div class="zoom">
+        <div>
+          <div class="zoom-pad">
+            <div class="thread">
+              <div class="msg">
+                <p class="m-meta">Stefan Maier · 22:02</p>
+                <p>
+                  statics annex came back from Petra with two remarks — nothing
+                  structural
+                </p>
+              </div>
+              <div class="msg">
+                <p class="m-meta">Stefan Maier · 22:14</p>
+                <p>
+                  does Thursday still hold for the ARGE submission? need to tell
+                  the consortium tomorrow morning
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div></div></div>
+      </div>
       <div class="draft">
         <p class="d-meta">Your reply — tap to edit</p>
-        <div contenteditable="true" spellcheck="false">Yes — Thursday holds. One caveat: the statics annex follows separately Friday morning, Petra's remarks land tomorrow. I'll confirm the final package Wednesday EOD.</div>
-        <p class="hint">Sending needs your OK — Slack write actions are set to <b>ask</b>.</p>
+        <div contenteditable="true" spellcheck="false">
+          Yes — Thursday holds. One caveat: the statics annex follows separately
+          Friday morning, Petra's remarks land tomorrow. I'll confirm the final
+          package Wednesday EOD.
+        </div>
+        <p class="hint">
+          Sending needs your OK — Slack write actions are set to <b>ask</b>.
+        </p>
       </div>
     </div>
     <div class="acts">
-      <button class="go" onclick="decide('stefan','send')">Send the reply</button>
+      <button class="go" onclick="decide('stefan','send')">
+        Send the reply
+      </button>
       <button class="alt" onclick="decide('stefan','skip')">Not now</button>
     </div>
-    <div class="confirm hidden"><span class="tick">✓</span><p class="ct"></p><button class="undo" onclick="undo('stefan')">undo</button></div>
+    <div class="confirm hidden">
+      <span class="tick">✓</span>
+      <p class="ct"></p>
+      <button class="undo" onclick="undo('stefan')">undo</button>
+    </div>
   </section>
 
   <!-- 4 · overnight -->
   <section class="step" data-i="4">
-    <div class="who"><span class="orb"></span><span class="stepmark">While you were out</span></div>
-    <p class="voice">That's all three. The rest took care of itself — the short version:</p>
+    <div class="who">
+      <span class="orb"></span><span class="stepmark">While you were out</span>
+    </div>
+    <p class="voice">
+      That's all three. The rest took care of itself — the short version:
+    </p>
     <ul class="ledger">
-      <li><time>04:30</time><p><b>€7,200 came in</b> from Böhm &amp; Partner. <span>Matched to invoice 2025-118, closed.</span></p></li>
-      <li><time>23:40</time><p><b>The ARGE escalation resolved itself.</b> <span>Petra confirmed the statics report; I archived the thread.</span></p></li>
-      <li><time>06:12</time><p><b>Inbox is triaged</b> — 14 new, 12 handled by your standing rules. <span>The two that needed answers have drafts waiting.</span></p></li>
-      <li><time>06:20</time><p><b>Two new tenders match your profile.</b> <span>Wien Holding published the Q3 calendar — filed as leads in Offers.</span></p></li>
+      <li>
+        <time>04:30</time>
+        <p>
+          <b>€7,200 came in</b>
+          from Böhm &amp; Partner.
+          <span>Matched to invoice 2025-118, closed.</span>
+        </p>
+      </li>
+      <li>
+        <time>23:40</time>
+        <p>
+          <b>The ARGE escalation resolved itself.</b>
+          <span
+            >Petra confirmed the statics report; I archived the thread.</span
+          >
+        </p>
+      </li>
+      <li>
+        <time>06:12</time>
+        <p>
+          <b>Inbox is triaged</b>
+          — 14 new, 12 handled by your standing rules.
+          <span>The two that needed answers have drafts waiting.</span>
+        </p>
+      </li>
+      <li>
+        <time>06:20</time>
+        <p>
+          <b>Two new tenders match your profile.</b>
+          <span
+            >Wien Holding published the Q3 calendar — filed as leads in Offers.</span
+          >
+        </p>
+      </li>
     </ul>
     <div class="acts">
       <button class="go" onclick="go(5)">Good — what's today?</button>
@@ -322,85 +1172,238 @@
 
   <!-- 5 · schedule -->
   <section class="step" data-i="5" data-id="conflict">
-    <div class="who"><span class="orb"></span><span class="stepmark">Today · one snag</span></div>
-    <p class="voice">Your day is light: site call with Huber at 8:30 — the fresh offer is attached. One snag — the Raiffeisen callback overlaps your ARGE weekly. I can move it to 11:30.</p>
+    <div class="who">
+      <span class="orb"></span><span class="stepmark">Today · one snag</span>
+    </div>
+    <p class="voice">
+      Your day is light: site call with Huber at 8:30 — the fresh offer is
+      attached. One snag — the Raiffeisen callback overlaps your ARGE weekly. I
+      can move it to 11:30.
+    </p>
     <ul class="sched" id="schedList">
-      <li><time>08:30</time><p class="t">Site call — Huber Bau<span>15 min · phone · offer #2041 in context</span></p></li>
-      <li><time>10:00</time><p class="t">ARGE weekly<span>Teams · talking points ready at 09:55</span></p></li>
-      <li class="clash" id="clashRow"><time>10:15</time><p class="t">Bank callback — Raiffeisen<span>overlaps the ARGE weekly</span></p><span class="flag">CONFLICT</span></li>
-      <li><time>14:00</time><p class="t">Focus block<span>held free — 2 h 15 min, no meetings accepted</span></p></li>
+      <li>
+        <time>08:30</time>
+        <p class="t">
+          Site call — Huber Bau<span
+            >15 min · phone · offer #2041 in context</span
+          >
+        </p>
+      </li>
+      <li>
+        <time>10:00</time>
+        <p class="t">
+          ARGE weekly<span>Teams · talking points ready at 09:55</span>
+        </p>
+      </li>
+      <li class="clash" id="clashRow">
+        <time>10:15</time>
+        <p class="t">
+          Bank callback — Raiffeisen<span>overlaps the ARGE weekly</span>
+        </p>
+        <span class="flag">CONFLICT</span>
+      </li>
+      <li>
+        <time>14:00</time>
+        <p class="t">
+          Focus block<span>held free — 2 h 15 min, no meetings accepted</span>
+        </p>
+      </li>
     </ul>
     <div class="acts">
-      <button class="go" onclick="decide('conflict','move')">Move it to 11:30</button>
+      <button class="go" onclick="decide('conflict','move')">
+        Move it to 11:30
+      </button>
       <button class="alt" onclick="decide('conflict','keep')">Leave it</button>
     </div>
-    <div class="confirm hidden"><span class="tick">✓</span><p class="ct"></p><button class="undo" onclick="undo('conflict')">undo</button></div>
+    <div class="confirm hidden">
+      <span class="tick">✓</span>
+      <p class="ct"></p>
+      <button class="undo" onclick="undo('conflict')">undo</button>
+    </div>
   </section>
 
   <!-- 6 · numbers -->
   <section class="step" data-i="6">
-    <div class="who"><span class="orb"></span><span class="stepmark">The numbers · one glance</span></div>
-    <p class="voice">Numbers, quickly — nothing alarming. Pipeline is climbing, overdues shrink once Kranz answers.</p>
+    <div class="who">
+      <span class="orb"></span
+      ><span class="stepmark">The numbers · one glance</span>
+    </div>
+    <p class="voice">
+      Numbers, quickly — nothing alarming. Pipeline is climbing, overdues shrink
+      once Kranz answers.
+    </p>
     <div class="stats">
-      <div class="stat"><p class="v">€142.5k</p><p class="l">open pipeline</p><p class="d up">+18.4k this week</p></div>
-      <div class="stat"><p class="v">€21.3k</p><p class="l">overdue · 3 invoices</p><p class="d down">oldest 24 days</p></div>
-      <div class="stat"><p class="v">2h 15m</p><p class="l">focus held today</p><p class="d" style="color:var(--muted)">14:00 – 16:15</p></div>
+      <div class="stat">
+        <p class="v">€142.5k</p>
+        <p class="l">open pipeline</p>
+        <p class="d up">+18.4k this week</p>
+      </div>
+      <div class="stat">
+        <p class="v">€21.3k</p>
+        <p class="l">overdue · 3 invoices</p>
+        <p class="d down">oldest 24 days</p>
+      </div>
+      <div class="stat">
+        <p class="v">2h 15m</p>
+        <p class="l">focus held today</p>
+        <p class="d" style="color:var(--muted)">14:00 – 16:15</p>
+      </div>
     </div>
     <div class="acts">
       <button class="go" onclick="go(7)">Wrap it up</button>
-      <button class="quiet" onclick="openSkim()">Why is the pipeline up?</button>
+      <button class="quiet" onclick="openSkim()">
+        Why is the pipeline up?
+      </button>
     </div>
   </section>
 
   <!-- 7 · done -->
   <section class="step" data-i="7">
-    <div class="who"><span class="orb"></span><span class="stepmark">Done · <em id="doneClock">07:24</em></span></div>
-    <p class="voice" id="doneVoice">That's everything. You're clear until the site call at 8:30 — I'll have the ARGE talking points ready at 9:55.</p>
-    <p class="aside">If anything shifts before then, I'll only interrupt for things at the "needs you" bar. Everything else waits for the evening wrap.</p>
+    <div class="who">
+      <span class="orb"></span
+      ><span class="stepmark">Done · <em id="doneClock">07:24</em></span>
+    </div>
+    <p class="voice" id="doneVoice">
+      That's everything. You're clear until the site call at 8:30 — I'll have
+      the ARGE talking points ready at 9:55.
+    </p>
+    <p class="aside">
+      If anything shifts before then, I'll only interrupt for things at the
+      "needs you" bar. Everything else waits for the evening wrap.
+    </p>
     <div class="subject" style="border-bottom:0;padding-bottom:0">
-      <button class="zoomlink" style="margin-top:0" onclick="toggleZoom(this)">See the 11 things handled without you</button>
-      <div class="zoom"><div><div class="zoom-pad">
-        <ul class="tl">
-          <li><time>night</time><p>14 inbox mails triaged — 12 archived or answered by standing rules</p></li>
-          <li><time>04:30</time><p>Böhm payment €7,200 matched to 2025-118, closed</p></li>
-          <li><time>06:12</time><p>Supplier price list parsed → offer #2041 repriced</p></li>
-          <li><time>06:14</time><p>Offer #2041 PDF + cover mail generated</p></li>
-          <li><time>06:15</time><p>Kranz dunning letter drafted, level 2</p></li>
-          <li><time>06:15</time><p>New Kranz AP contact captured from Friday's mail</p></li>
-          <li><time>06:16</time><p>Reply to Stefan drafted, held for your OK</p></li>
-          <li><time>06:20</time><p>2 tender matches filed as leads in Offers</p></li>
-          <li><time>06:22</time><p>ARGE talking points drafted, checked against tender news</p></li>
-          <li><time>06:25</time><p>Meeting contexts attached — Huber call, ARGE weekly</p></li>
-          <li><time>06:26</time><p>#arge-tunnel archived after Petra's confirmation</p></li>
-        </ul>
-      </div></div></div>
+      <button class="zoomlink" onclick="toggleZoom(this)" style="margin-top:0">
+        See the 11 things handled without you
+      </button>
+      <div class="zoom">
+        <div>
+          <div class="zoom-pad">
+            <ul class="tl">
+              <li>
+                <time>night</time>
+                <p>
+                  14 inbox mails triaged — 12 archived or answered by standing
+                  rules
+                </p>
+              </li>
+              <li>
+                <time>04:30</time>
+                <p>Böhm payment €7,200 matched to 2025-118, closed</p>
+              </li>
+              <li>
+                <time>06:12</time>
+                <p>Supplier price list parsed → offer #2041 repriced</p>
+              </li>
+              <li>
+                <time>06:14</time>
+                <p>Offer #2041 PDF + cover mail generated</p>
+              </li>
+              <li>
+                <time>06:15</time>
+                <p>Kranz dunning letter drafted, level 2</p>
+              </li>
+              <li>
+                <time>06:15</time>
+                <p>New Kranz AP contact captured from Friday's mail</p>
+              </li>
+              <li>
+                <time>06:16</time>
+                <p>Reply to Stefan drafted, held for your OK</p>
+              </li>
+              <li>
+                <time>06:20</time>
+                <p>2 tender matches filed as leads in Offers</p>
+              </li>
+              <li>
+                <time>06:22</time>
+                <p>ARGE talking points drafted, checked against tender news</p>
+              </li>
+              <li>
+                <time>06:25</time>
+                <p>Meeting contexts attached — Huber call, ARGE weekly</p>
+              </li>
+              <li>
+                <time>06:26</time>
+                <p>#arge-tunnel archived after Petra's confirmation</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="acts">
       <button class="alt" onclick="openSkim()">View the one-page sheet</button>
       <button class="quiet" onclick="restart()">Replay the walkthrough</button>
     </div>
   </section>
-
 </main>
 
 <div class="say">
-  <span id="sayHint">Or just say it — "hold Kranz till Friday, move the bank call"…</span>
-  <span class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/></svg></span>
+  <span id="sayHint"
+    >Or just say it — "hold Kranz till Friday, move the bank call"…</span
+  >
+  <span class="mic"
+    ><svg
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+    >
+      <rect height="12" rx="3" width="6" x="9" y="2" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 17v4" />
+    </svg></span
+  >
 </div>
 
 <!-- skim sheet -->
-<div id="skim" class="hidden">
+<div class="hidden" id="skim">
   <div class="sk-wrap">
-    <div class="sk-head"><h1>The sheet — Tuesday, July 7</h1><button onclick="closeSkim()">Walk me through instead</button></div>
-    <p class="sk-sub">Composed 06:30 from 6 sources · the same briefing, laid flat for scanning. Statuses update live as you decide.</p>
+    <div class="sk-head">
+      <h1>The sheet — Tuesday, July 7</h1>
+      <button onclick="closeSkim()">Walk me through instead</button>
+    </div>
+    <p class="sk-sub">
+      Composed 06:30 from 6 sources · the same briefing, laid flat for scanning.
+      Statuses update live as you decide.
+    </p>
 
-    <p class="sk-t">Decisions · <span class="sk-count" id="sk-decided">0 of 3 decided</span></p>
-    <div class="sk-row"><p class="t"><b>Offer #2041 — Huber Bau</b><span>finalized overnight · position 3 repriced +2.1%</span></p><span class="amt">€18,400</span><span class="pill wait" data-sk="offer" data-wait="WAITING">WAITING</span></div>
-    <div class="sk-row"><p class="t"><b>2nd reminder — Kranz GmbH</b><span>24 d overdue · level 2 drafted · new AP contact</span></p><span class="amt">€9,800</span><span class="pill wait" data-sk="kranz" data-wait="WAITING">WAITING</span></div>
-    <div class="sk-row"><p class="t"><b>Reply to Stefan — Thursday deadline</b><span>draft says yes, caveat on statics annex · policy: ask</span></p><span class="amt">—</span><span class="pill wait" data-sk="stefan" data-wait="WAITING">WAITING</span></div>
+    <p class="sk-t">
+      Decisions · <span class="sk-count" id="sk-decided">0 of 3 decided</span>
+    </p>
+    <div class="sk-row">
+      <p class="t">
+        <b>Offer #2041 — Huber Bau</b
+        ><span>finalized overnight · position 3 repriced +2.1%</span>
+      </p>
+      <span class="amt">€18,400</span
+      ><span class="pill wait" data-sk="offer" data-wait="WAITING"
+        >WAITING</span
+      >
+    </div>
+    <div class="sk-row">
+      <p class="t">
+        <b>2nd reminder — Kranz GmbH</b
+        ><span>24 d overdue · level 2 drafted · new AP contact</span>
+      </p>
+      <span class="amt">€9,800</span
+      ><span class="pill wait" data-sk="kranz" data-wait="WAITING"
+        >WAITING</span
+      >
+    </div>
+    <div class="sk-row">
+      <p class="t">
+        <b>Reply to Stefan — Thursday deadline</b
+        ><span>draft says yes, caveat on statics annex · policy: ask</span>
+      </p>
+      <span class="amt">—</span
+      ><span class="pill wait" data-sk="stefan" data-wait="WAITING"
+        >WAITING</span
+      >
+    </div>
 
     <p class="sk-t">Today · 3 meetings, one conflict</p>
-    <div class="tlchart" aria-label="Day timeline 08:00 to 17:00">
+    <div aria-label="Day timeline 08:00 to 17:00" class="tlchart">
       <div class="tick" style="left:0"><span>08</span></div>
       <div class="tick" style="left:22.2%"><span>10</span></div>
       <div class="tick" style="left:44.4%"><span>12</span></div>
@@ -409,184 +1412,360 @@
       <div class="blk l1" style="left:5.6%">08:30 Huber</div>
       <div class="blk l1" style="left:22.2%;width:11.1%">10:00 ARGE</div>
       <div class="blk l2 hot" id="tlBank" style="left:25%">10:15 · Bank</div>
-      <div class="blk l1 soft" style="left:66.7%;width:25%">14:00 focus — held free</div>
+      <div class="blk l1 soft" style="left:66.7%;width:25%">
+        14:00 focus — held free
+      </div>
     </div>
 
     <p class="sk-t">Money</p>
     <div class="sk-grid">
       <div class="wig">
         <p class="big">€142.5k<small>+18.4k this week</small></p>
-        <svg class="spark" viewBox="0 0 200 64" preserveAspectRatio="none" aria-hidden="true">
-          <line x1="0" y1="16" x2="200" y2="16" stroke="#EFECE5"/>
-          <line x1="0" y1="36" x2="200" y2="36" stroke="#EFECE5"/>
-          <line x1="0" y1="56" x2="200" y2="56" stroke="#EFECE5"/>
-          <polygon points="4,51 36,46 68,49 100,39 132,34 164,28 196,12 196,56 4,56" fill="rgba(196,97,26,.09)"/>
-          <polyline points="4,51 36,46 68,49 100,39 132,34 164,28 196,12" fill="none" stroke="#C4611A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-          <circle cx="196" cy="12" r="3" fill="#C4611A"/>
+        <svg
+          aria-hidden="true"
+          class="spark"
+          preserveAspectRatio="none"
+          viewBox="0 0 200 64"
+        >
+          <line stroke="#EFECE5" x1="0" x2="200" y1="16" y2="16" />
+          <line stroke="#EFECE5" x1="0" x2="200" y1="36" y2="36" />
+          <line stroke="#EFECE5" x1="0" x2="200" y1="56" y2="56" />
+          <polygon
+            fill="rgba(196,97,26,.09)"
+            points="4,51 36,46 68,49 100,39 132,34 164,28 196,12 196,56 4,56"
+          />
+          <polyline
+            fill="none"
+            points="4,51 36,46 68,49 100,39 132,34 164,28 196,12"
+            stroke="#C4611A"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+          />
+          <circle cx="196" cy="12" fill="#C4611A" r="3" />
         </svg>
-        <p class="wig-cap"><span>Open pipeline · 7 weeks</span><span>today</span></p>
+        <p class="wig-cap">
+          <span>Open pipeline · 7 weeks</span><span>today</span>
+        </p>
         <table class="mini">
-          <tr><td>#2041 Huber Bau — new build</td><td class="r">€18.4k</td><td class="r"><span class="pill wait" data-sk="offer" data-wait="WAITING">WAITING</span></td></tr>
-          <tr><td>#2038 Bergmann — renewal</td><td class="r">€24.0k</td><td class="r"><span class="pill info">NEGOTIATING</span></td></tr>
-          <tr><td>WH Depot Simmering — lead</td><td class="r">est €62k</td><td class="r"><span class="pill info">NEW TODAY</span></td></tr>
+          <tr>
+            <td>#2041 Huber Bau — new build</td>
+            <td class="r">€18.4k</td>
+            <td class="r">
+              <span class="pill wait" data-sk="offer" data-wait="WAITING"
+                >WAITING</span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td>#2038 Bergmann — renewal</td>
+            <td class="r">€24.0k</td>
+            <td class="r"><span class="pill info">NEGOTIATING</span></td>
+          </tr>
+          <tr>
+            <td>WH Depot Simmering — lead</td>
+            <td class="r">est €62k</td>
+            <td class="r"><span class="pill info">NEW TODAY</span></td>
+          </tr>
         </table>
-        <p class="whisper">12 open offers — showing the 3 that moved. Ask me about the rest.</p>
+        <p class="whisper">
+          12 open offers — showing the 3 that moved. Ask me about the rest.
+        </p>
       </div>
       <div class="wig">
-        <p class="big">€21.3k<small class="down">overdue · oldest 24 d</small></p>
+        <p class="big">
+          €21.3k<small class="down">overdue · oldest 24 d</small>
+        </p>
         <div class="agebar">
           <i class="c-sand" style="width:54%" title="1–14 days: €11.5k"></i>
           <i class="c-ember" style="width:46%" title="15–30 days: €9.8k"></i>
         </div>
-        <p class="leg"><span><i class="c-sand"></i>1–14 d · €11.5k</span><span><i class="c-ember"></i>15–30 d · €9.8k</span></p>
+        <p class="leg">
+          <span><i class="c-sand"></i>1–14 d · €11.5k</span
+          ><span><i class="c-ember"></i>15–30 d · €9.8k</span>
+        </p>
         <table class="mini">
-          <tr><td>Kranz GmbH · 24 d</td><td class="r">€9.8k</td><td class="r"><span class="pill wait" data-sk="kranz" data-wait="WAITING">WAITING</span></td></tr>
-          <tr><td>Steiner Bau · 12 d</td><td class="r">€6.3k</td><td class="r"><span class="pill info">REMINDER FRI</span></td></tr>
-          <tr><td>Wagner &amp; Söhne · 8 d</td><td class="r">€5.2k</td><td class="r"><span class="pill info">WATCHING</span></td></tr>
+          <tr>
+            <td>Kranz GmbH · 24 d</td>
+            <td class="r">€9.8k</td>
+            <td class="r">
+              <span class="pill wait" data-sk="kranz" data-wait="WAITING"
+                >WAITING</span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td>Steiner Bau · 12 d</td>
+            <td class="r">€6.3k</td>
+            <td class="r"><span class="pill info">REMINDER FRI</span></td>
+          </tr>
+          <tr>
+            <td>Wagner &amp; Söhne · 8 d</td>
+            <td class="r">€5.2k</td>
+            <td class="r"><span class="pill info">WATCHING</span></td>
+          </tr>
         </table>
-        <p class="whisper">€7.2k came in overnight from Böhm — matched &amp; closed before you woke up.</p>
+        <p class="whisper">
+          €7.2k came in overnight from Böhm — matched &amp; closed before you
+          woke up.
+        </p>
       </div>
     </div>
 
     <p class="sk-t">While you were out</p>
     <div class="stackbar">
       <i class="c-mist" style="width:64.3%" title="9 archived by rules"></i>
-      <i class="c-warm" style="width:21.4%" title="3 answered automatically"></i>
-      <i class="c-ember" style="width:14.3%" title="2 need you — drafts ready"></i>
+      <i
+        class="c-warm"
+        style="width:21.4%"
+        title="3 answered automatically"
+      ></i>
+      <i
+        class="c-ember"
+        style="width:14.3%"
+        title="2 need you — drafts ready"
+      ></i>
     </div>
-    <p class="leg" style="margin-bottom:10px"><span><i class="c-mist"></i>9 archived by rules</span><span><i class="c-warm"></i>3 answered automatically</span><span><i class="c-ember"></i>2 need you — drafts ready</span></p>
-    <div class="sk-row"><p class="t"><b>€7,200 received</b> — Böhm &amp; Partner<span>invoice 2025-118 matched &amp; closed · 04:30</span></p><span class="pill ok">DONE</span></div>
-    <div class="sk-row"><p class="t"><b>ARGE escalation resolved</b><span>Petra confirmed statics · thread archived · 23:40</span></p><span class="pill ok">DONE</span></div>
+    <p class="leg" style="margin-bottom:10px">
+      <span><i class="c-mist"></i>9 archived by rules</span
+      ><span><i class="c-warm"></i>3 answered automatically</span
+      ><span><i class="c-ember"></i>2 need you — drafts ready</span>
+    </p>
+    <div class="sk-row">
+      <p class="t">
+        <b>€7,200 received</b>
+        — Böhm &amp; Partner<span
+          >invoice 2025-118 matched &amp; closed · 04:30</span
+        >
+      </p>
+      <span class="pill ok">DONE</span>
+    </div>
+    <div class="sk-row">
+      <p class="t">
+        <b>ARGE escalation resolved</b
+        ><span>Petra confirmed statics · thread archived · 23:40</span>
+      </p>
+      <span class="pill ok">DONE</span>
+    </div>
 
-    <p class="sk-t">New tenders — Wien Holding Q3 calendar, published overnight</p>
+    <p class="sk-t">
+      New tenders — Wien Holding Q3 calendar, published overnight
+    </p>
     <table class="mini" style="margin-top:4px">
-      <tr><td><b>WH-2026-114</b> Depot Simmering — structural works<span style="display:block;font-size:11px;color:var(--muted)">est. €480k · submission Aug 14</span></td><td class="r"><span class="pill ok">STRONG MATCH</span></td></tr>
-      <tr><td><b>WH-2026-121</b> Schulcampus renovation — lot 3<span style="display:block;font-size:11px;color:var(--muted)">est. €120k · submission Jul 30</span></td><td class="r"><span class="pill info">PARTIAL</span></td></tr>
+      <tr>
+        <td>
+          <b>WH-2026-114</b>
+          Depot Simmering — structural works<span
+            style="display:block;font-size:11px;color:var(--muted)"
+            >est. €480k · submission Aug 14</span
+          >
+        </td>
+        <td class="r"><span class="pill ok">STRONG MATCH</span></td>
+      </tr>
+      <tr>
+        <td>
+          <b>WH-2026-121</b>
+          Schulcampus renovation — lot 3<span
+            style="display:block;font-size:11px;color:var(--muted)"
+            >est. €120k · submission Jul 30</span
+          >
+        </td>
+        <td class="r"><span class="pill info">PARTIAL</span></td>
+      </tr>
     </table>
-    <p class="whisper">Both filed as leads in Offers with the source documents attached.</p>
+    <p class="whisper">
+      Both filed as leads in Offers with the source documents attached.
+    </p>
 
-    <p class="sk-foot">Every block on this sheet is a generated widget — chosen, ranked and sized by this morning's composition, not a configured dashboard. A quieter day renders fewer of them.</p>
+    <p class="sk-foot">
+      Every block on this sheet is a generated widget — chosen, ranked and sized
+      by this morning's composition, not a configured dashboard. A quieter day
+      renders fewer of them.
+    </p>
   </div>
 </div>
 
 <script>
-(function(){
+"use strict";
+(() => {
   const N = 8;
-  const steps = Array.from(document.querySelectorAll('.step'));
-  const dots = document.getElementById('dots');
-  for(let i=0;i<N;i++){const d=document.createElement('i');dots.appendChild(d);}
-  let cur = 0, timer = null;
-  const state = {offer:null,kranz:null,stefan:null,conflict:null};
+  const steps = Array.from(document.querySelectorAll(".step"));
+  const dots = document.getElementById("dots");
+  for (let i = 0; i < N; i++) {
+    const d = document.createElement("i");
+    dots.appendChild(d);
+  }
+  let cur = 0,
+    timer = null;
+  const state = { offer: null, kranz: null, stefan: null, conflict: null };
 
   const CONFIRM = {
-    offer_send:  "Sent — PDF attached, your usual cover note. Huber has it before the 08:30 call.",
-    offer_defer: "Parked until noon. It comes back with fresh context — and dissolves if Huber calls first.",
-    kranz_send:  "Sent to the new AP contact. I'll watch for payment and only escalate if it stays quiet.",
-    kranz_hold:  "Held. Friday 09:00 I re-check payments first — if the money lands, this dissolves on its own.",
+    offer_send:
+      "Sent — PDF attached, your usual cover note. Huber has it before the 08:30 call.",
+    offer_defer:
+      "Parked until noon. It comes back with fresh context — and dissolves if Huber calls first.",
+    kranz_send:
+      "Sent to the new AP contact. I'll watch for payment and only escalate if it stays quiet.",
+    kranz_hold:
+      "Held. Friday 09:00 I re-check payments first — if the money lands, this dissolves on its own.",
     stefan_send: "Sent to Stefan. I'll flag his answer the moment it comes in.",
-    stefan_skip: "Kept in the queue — I'll bring it back before your 10:00; Stefan needs it for the agenda.",
-    conflict_move:"Done — Raiffeisen moved to 11:30, confirmation sent. Your ten o'clock is clean.",
-    conflict_keep:"Alright, both stay. I'll nudge you out of the ARGE call at 10:12."
+    stefan_skip:
+      "Kept in the queue — I'll bring it back before your 10:00; Stefan needs it for the agenda.",
+    conflict_move:
+      "Done — Raiffeisen moved to 11:30, confirmation sent. Your ten o'clock is clean.",
+    conflict_keep:
+      "Alright, both stay. I'll nudge you out of the ARGE call at 10:12.",
   };
   const SKPILL = {
-    offer_send:["SENT","ok"], offer_defer:["NOON","info"],
-    kranz_send:["SENT","ok"], kranz_hold:["FRI 09:00","info"],
-    stefan_send:["SENT","ok"], stefan_skip:["QUEUED","info"],
-    conflict_move:["MOVED 11:30","ok"], conflict_keep:["KEPT","info"]
+    offer_send: ["SENT", "ok"],
+    offer_defer: ["NOON", "info"],
+    kranz_send: ["SENT", "ok"],
+    kranz_hold: ["FRI 09:00", "info"],
+    stefan_send: ["SENT", "ok"],
+    stefan_skip: ["QUEUED", "info"],
+    conflict_move: ["MOVED 11:30", "ok"],
+    conflict_keep: ["KEPT", "info"],
   };
 
-  function updateDecided(){
-    const n = ['offer','kranz','stefan'].filter(k=>state[k]).length;
-    const el = document.getElementById('sk-decided');
-    if(el) el.textContent = n + ' of 3 decided';
+  function updateDecided() {
+    const n = ["offer", "kranz", "stefan"].filter((k) => state[k]).length;
+    const el = document.getElementById("sk-decided");
+    if (el) {
+      el.textContent = n + " of 3 decided";
+    }
   }
-  function setBank(moved){
-    const b = document.getElementById('tlBank');
-    if(!b) return;
-    if(moved){ b.style.left='38.9%'; b.className='blk l2 ok'; b.textContent='11:30 · Bank ✓'; }
-    else{ b.style.left='25%'; b.className='blk l2 hot'; b.textContent='10:15 · Bank'; }
+  function setBank(moved) {
+    const b = document.getElementById("tlBank");
+    if (!b) {
+      return;
+    }
+    if (moved) {
+      b.style.left = "38.9%";
+      b.className = "blk l2 ok";
+      b.textContent = "11:30 · Bank ✓";
+    } else {
+      b.style.left = "25%";
+      b.className = "blk l2 hot";
+      b.textContent = "10:15 · Bank";
+    }
   }
 
-  window.go = function(i){
-    if(timer){clearTimeout(timer);timer=null;}
-    cur = Math.max(0, Math.min(N-1, i));
-    steps.forEach(s=>s.classList.toggle('on', +s.dataset.i===cur));
-    Array.from(dots.children).forEach((d,ix)=>{
-      d.className = ix===cur?'on':(ix<cur?'done':'');
+  window.go = (i) => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    cur = Math.max(0, Math.min(N - 1, i));
+    steps.forEach((s) => s.classList.toggle("on", +s.dataset.i === cur));
+    Array.from(dots.children).forEach((d, ix) => {
+      d.className = ix === cur ? "on" : ix < cur ? "done" : "";
     });
-    window.scrollTo({top:0,behavior:'instant' in window?'instant':'auto'});
+    window.scrollTo({
+      top: 0,
+      behavior: "instant" in window ? "instant" : "auto",
+    });
   };
 
-  window.decide = function(key, verdict){
+  window.decide = (key, verdict) => {
     state[key] = verdict;
-    const sec = document.querySelector('[data-id="'+key+'"]');
-    sec.querySelector('.acts').classList.add('hidden');
-    const c = sec.querySelector('.confirm');
-    c.querySelector('.ct').textContent = CONFIRM[key+'_'+verdict];
-    c.classList.remove('hidden');
-    const p = SKPILL[key+'_'+verdict];
-    document.querySelectorAll('[data-sk="'+key+'"]').forEach(el=>{
-      el.textContent = p[0]; el.className = 'pill ' + p[1];
+    const sec = document.querySelector('[data-id="' + key + '"]');
+    sec.querySelector(".acts").classList.add("hidden");
+    const c = sec.querySelector(".confirm");
+    c.querySelector(".ct").textContent = CONFIRM[key + "_" + verdict];
+    c.classList.remove("hidden");
+    const p = SKPILL[key + "_" + verdict];
+    document.querySelectorAll('[data-sk="' + key + '"]').forEach((el) => {
+      el.textContent = p[0];
+      el.className = "pill " + p[1];
     });
     updateDecided();
-    if(key==='conflict'){
-      setBank(verdict==='move');
-      const row = document.getElementById('clashRow');
-      if(verdict==='move'){
-        row.classList.remove('clash');row.classList.add('moved');
-        row.querySelector('time').textContent='11:30';
-        row.querySelector('.t span').textContent='moved from 10:15 · confirmation sent';
-        row.querySelector('.flag').textContent='MOVED';
+    if (key === "conflict") {
+      setBank(verdict === "move");
+      const row = document.getElementById("clashRow");
+      if (verdict === "move") {
+        row.classList.remove("clash");
+        row.classList.add("moved");
+        row.querySelector("time").textContent = "11:30";
+        row.querySelector(".t span").textContent =
+          "moved from 10:15 · confirmation sent";
+        row.querySelector(".flag").textContent = "MOVED";
       }
     }
-    timer = setTimeout(()=>go(cur+1), 2400);
+    timer = setTimeout(() => go(cur + 1), 2400);
   };
 
-  window.undo = function(key){
-    if(timer){clearTimeout(timer);timer=null;}
+  window.undo = (key) => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
     state[key] = null;
-    const sec = document.querySelector('[data-id="'+key+'"]');
-    sec.querySelector('.acts').classList.remove('hidden');
-    sec.querySelector('.confirm').classList.add('hidden');
-    document.querySelectorAll('[data-sk="'+key+'"]').forEach(el=>{
-      el.textContent = el.dataset.wait || 'WAITING'; el.className = 'pill wait';
+    const sec = document.querySelector('[data-id="' + key + '"]');
+    sec.querySelector(".acts").classList.remove("hidden");
+    sec.querySelector(".confirm").classList.add("hidden");
+    document.querySelectorAll('[data-sk="' + key + '"]').forEach((el) => {
+      el.textContent = el.dataset.wait || "WAITING";
+      el.className = "pill wait";
     });
     updateDecided();
-    if(key==='conflict'){
+    if (key === "conflict") {
       setBank(false);
-      const row = document.getElementById('clashRow');
-      row.classList.add('clash');row.classList.remove('moved');
-      row.querySelector('time').textContent='10:15';
-      row.querySelector('.t span').textContent='overlaps the weekly';
-      row.querySelector('.flag').textContent='CONFLICT';
+      const row = document.getElementById("clashRow");
+      row.classList.add("clash");
+      row.classList.remove("moved");
+      row.querySelector("time").textContent = "10:15";
+      row.querySelector(".t span").textContent = "overlaps the weekly";
+      row.querySelector(".flag").textContent = "CONFLICT";
     }
   };
 
-  window.toggleZoom = function(btn){
-    btn.classList.toggle('open');
-    btn.nextElementSibling.classList.toggle('open');
+  window.toggleZoom = (btn) => {
+    btn.classList.toggle("open");
+    btn.nextElementSibling.classList.toggle("open");
   };
 
-  window.setTone = function(btn, tone){
-    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-    btn.classList.add('on');
-    document.getElementById('toneText').innerHTML = tone==='firm'
-      ? '…we must ask you to settle the outstanding €9,800 by <b>July 11</b>. Should no payment arrive, we will hand the claim to collections.'
-      : '…we assume this is simply an oversight — may we ask you to settle the €9,800 in the coming days? Happy to resend the invoice if that helps.';
+  window.setTone = (btn, tone) => {
+    btn.parentElement
+      .querySelectorAll("button")
+      .forEach((b) => b.classList.remove("on"));
+    btn.classList.add("on");
+    document.getElementById("toneText").innerHTML =
+      tone === "firm"
+        ? "…we must ask you to settle the outstanding €9,800 by <b>July 11</b>. Should no payment arrive, we will hand the claim to collections."
+        : "…we assume this is simply an oversight — may we ask you to settle the €9,800 in the coming days? Happy to resend the invoice if that helps.";
   };
 
-  window.openSkim = function(){document.getElementById('skim').classList.remove('hidden');document.body.style.overflow='hidden';};
-  window.closeSkim = function(){document.getElementById('skim').classList.add('hidden');document.body.style.overflow='';};
+  window.openSkim = () => {
+    document.getElementById("skim").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  };
+  window.closeSkim = () => {
+    document.getElementById("skim").classList.add("hidden");
+    document.body.style.overflow = "";
+  };
 
-  window.restart = function(){
-    ['offer','kranz','stefan','conflict'].forEach(k=>{ if(state[k]) undo(k); });
+  window.restart = () => {
+    ["offer", "kranz", "stefan", "conflict"].forEach((k) => {
+      if (state[k]) {
+        undo(k);
+      }
+    });
     go(0);
   };
 
-  document.addEventListener('keydown', e=>{
-    if(!document.getElementById('skim').classList.contains('hidden')){ if(e.key==='Escape') closeSkim(); return; }
-    if(e.key==='ArrowRight') go(cur+1);
-    if(e.key==='ArrowLeft') go(cur-1);
+  document.addEventListener("keydown", (e) => {
+    if (!document.getElementById("skim").classList.contains("hidden")) {
+      if (e.key === "Escape") {
+        closeSkim();
+      }
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      go(cur + 1);
+    }
+    if (e.key === "ArrowLeft") {
+      go(cur - 1);
+    }
   });
 
   go(0);
