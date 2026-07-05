@@ -494,9 +494,30 @@ export function OfferEditPage() {
           input && typeof input === "object" && !Array.isArray(input)
             ? input
             : {};
-        const newBlocks = Array.isArray(record.blocks) ? record.blocks : [];
-        setBlocks(newBlocks as unknown as CommercialBlock[]);
-        return { ok: true };
+        const rawBlocks = Array.isArray(record.blocks) ? record.blocks : [];
+        // Agents send the operation/skill shape ({type, content_json,
+        // order_index, id?}); the editor works on CommercialBlock ({content},
+        // id required). Storing the raw payload verbatim renders blank blocks
+        // — normalize instead.
+        const newBlocks: CommercialBlock[] = rawBlocks
+          .filter(
+            (raw): raw is Record<string, unknown> =>
+              Boolean(raw) && typeof raw === "object" && !Array.isArray(raw)
+          )
+          .map((raw, index) => ({
+            id:
+              typeof raw.id === "string" && raw.id.trim()
+                ? raw.id
+                : crypto.randomUUID(),
+            type: typeof raw.type === "string" ? raw.type : "text",
+            content: (raw.content_json ??
+              raw.content ??
+              {}) as CommercialBlock["content"],
+            order_index:
+              typeof raw.order_index === "number" ? raw.order_index : index,
+          }));
+        setBlocks(newBlocks);
+        return { ok: true, blocks_applied: newBlocks.length };
       },
       [setBlocks]
     )
