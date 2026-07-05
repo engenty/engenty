@@ -9,7 +9,7 @@ description: Clone, install, and run the Engenty stack locally.
 
 - **Node** ≥ 24.11 (an `.nvmrc` pins the exact version)
 - **pnpm** 10.x
-- **Docker** — local Supabase (Postgres + auth)
+- **A container runtime** — Docker Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory) — for local Supabase (Postgres + auth). `pnpm dev` prompts for your pick on first run (see [Setup process](../setup-process#choosing-a-container-runtime)).
 - **[Supabase CLI](https://supabase.com/docs/guides/cli)**
 
 ## Setup

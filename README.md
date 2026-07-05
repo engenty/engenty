@@ -77,7 +77,7 @@ Built on **[i18next](https://www.i18next.com/)** (`@engenty/i18n`), namespaced p
 
 - Node `>= 24.11` (`.nvmrc` pins the version; `nvm use`)
 - pnpm `10.23` (`corepack enable`)
-- Docker — for the local Supabase database
+- A container runtime for the local Supabase database — Docker Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory). On first `pnpm dev` you're prompted to pick one; the choice is saved to `engenty.containerRuntime` in `package.json` and the app is auto-started on later runs.
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 
 ## Getting started
