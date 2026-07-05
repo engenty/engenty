@@ -3,7 +3,7 @@ import {
   useShellSecondaryNav,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { DockOffersIcon } from "@engenty/ui-icons";
+import { DockInvoicesIcon } from "@engenty/ui-icons";
 import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { InvoicesSidebarPanel } from "../components/invoices-list-secondary-nav-shell.js";
@@ -20,7 +20,7 @@ function InvoicesSidebarHeaderLabel() {
   const { t } = useTranslation("invoices");
   return (
     <ModuleSidebarHeaderLabel
-      icon={DockOffersIcon}
+      icon={DockInvoicesIcon}
       label={t("menu")}
       to={INVOICES_BASE}
     />

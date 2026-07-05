@@ -1,4 +1,4 @@
-import { DockOffersIcon } from "@engenty/ui-icons";
+import { DockInvoicesIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { registerInvoicesPdfTemplateUiProvider } from "../src/pdf-templates/provider.js";
 import { invoicesLiveBinding } from "./invoices-live-binding.js";
@@ -59,7 +59,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Invoices",
     labelKey: "invoices:menu",
     to: "/mdl/invoices",
-    icon: DockOffersIcon,
+    icon: DockInvoicesIcon,
     order: 100,
   });
 
