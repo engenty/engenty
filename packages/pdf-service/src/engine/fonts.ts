@@ -6,6 +6,7 @@
  * 2. Local fonts (bundled font files)
  */
 
+import { existsSync } from "node:fs";
 import { Font } from "@react-pdf/renderer";
 import { type FontDefinition, LOCAL_FONTS } from "./localFonts.js";
 
@@ -142,6 +143,19 @@ function tryRegisterFamilyFromLocal(family: string): boolean {
       });
     }
   }
+
+  // Drop font files that aren't on disk. The Fontshare families are not
+  // redistributable (ITF EULA) and ship only in the pro repo — an OSS
+  // checkout registers what it has and falls back to Helvetica otherwise.
+  const present = fonts.filter((font) => existsSync(font.src));
+  if (present.length < fonts.length) {
+    console.warn(
+      `[PDF Fonts] Font "${family}": ${fonts.length - present.length} file(s) missing on disk — ` +
+        "if this is a Fontshare family, download it from fontshare.com into packages/pdf-service/assets/fonts/fontshare/"
+    );
+  }
+  fonts.length = 0;
+  fonts.push(...present);
 
   if (fonts.length === 0) {
     return false;

@@ -25,6 +25,10 @@ NO_SYNC=0
 VERIFY=0
 
 # Paths that must never land on the public repo (prefix match).
+# pdf-service/pdf-templates went open 2026-07-05 — EXCEPT the Fontshare font
+# files: the ITF Fontshare EULA forbids redistribution ("uploading them in a
+# public server"). OSS users download them from fontshare.com themselves; the
+# engine degrades when they're absent.
 CLOSED_PREFIXES=(
   "apps/manage"
   "modules/banking"
@@ -33,8 +37,7 @@ CLOSED_PREFIXES=(
   "packages/csv-import"
   "packages/document-scanner"
   "packages/engenty-cli"
-  "packages/pdf-service"
-  "packages/pdf-templates"
+  "packages/pdf-service/assets/fonts/fontshare"
   "packages/plate-editor"
 )
 
