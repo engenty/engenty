@@ -9,6 +9,7 @@ import {
 const emptyContributions: UiContributions = {
   routes: [],
   adminMenuItems: [],
+  backgroundComponents: [],
   copilotApps: [],
   copilotContributions: [],
   dashboardWidgets: [],

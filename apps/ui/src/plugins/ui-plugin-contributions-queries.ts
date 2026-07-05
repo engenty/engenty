@@ -245,6 +245,10 @@ export function pruneStaleUiPluginContributionsData(
     data.contributions.dashboardWidgets,
     pluginId
   );
+  const backgroundComponents = removePluginOwnedItems(
+    data.contributions.backgroundComponents,
+    pluginId
+  );
   const developmentPanels = removePluginOwnedItems(
     data.contributions.developmentPanels,
     pluginId
@@ -268,6 +272,7 @@ export function pruneStaleUiPluginContributionsData(
     copilotApps.removed +
     copilotContributions.removed +
     dashboardWidgets.removed +
+    backgroundComponents.removed +
     developmentPanels.removed +
     i18nNamespaces.removed +
     navigationPrefetch.removed +
@@ -285,6 +290,7 @@ export function pruneStaleUiPluginContributionsData(
       copilotApps: copilotApps.items,
       copilotContributions: copilotContributions.items,
       dashboardWidgets: dashboardWidgets.items,
+      backgroundComponents: backgroundComponents.items,
       developmentPanels: developmentPanels.items,
       i18nNamespaces: i18nNamespaces.items,
       navigationPrefetch: navigationPrefetch.items,

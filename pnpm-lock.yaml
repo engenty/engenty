@@ -761,6 +761,67 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  modules/connections/providers/local-files:
+    dependencies:
+      '@engenty/api-client':
+        specifier: workspace:*
+        version: link:../../../../packages/api-client
+      '@engenty/connections':
+        specifier: workspace:*
+        version: link:../..
+      '@engenty/connections-sdk':
+        specifier: workspace:*
+        version: link:../../../../packages/connections-sdk
+      '@engenty/i18n':
+        specifier: workspace:*
+        version: link:../../../../packages/i18n
+      '@engenty/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../../../packages/plugin-sdk
+      '@engenty/query-client':
+        specifier: workspace:*
+        version: link:../../../../packages/query-client
+      '@engenty/telemetry':
+        specifier: workspace:*
+        version: link:../../../../packages/telemetry
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../../../../packages/ui-core
+      '@engenty/ui-plugin-sdk':
+        specifier: workspace:*
+        version: link:../../../../packages/ui-plugin-sdk
+      '@supabase/supabase-js':
+        specifier: ^2.108.2
+        version: 2.108.2
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   modules/connections/providers/microsoft:
     dependencies:
       '@engenty/connections-sdk':

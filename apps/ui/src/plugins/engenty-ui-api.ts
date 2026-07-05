@@ -4,6 +4,7 @@ import type {
   PluginMethodsRecord,
   PluginSourceInfo,
   UiAdminMenuItemContribution,
+  UiBackgroundComponentContribution,
   UiContributions,
   UiCopilotAppContribution,
   UiCopilotContribution,
@@ -22,6 +23,7 @@ import { createHookEngine } from "./hook-engine";
 
 interface MutableUiContributions {
   adminMenuItems: UiAdminMenuItemContribution[];
+  backgroundComponents: UiBackgroundComponentContribution[];
   copilotApps: UiCopilotAppContribution[];
   copilotArticleHrefResolver?: (
     slug: string,
@@ -99,6 +101,7 @@ export function createUiPluginRuntime(
     contributions: {
       routes: [],
       adminMenuItems: [],
+      backgroundComponents: [],
       copilotArticleHrefResolver: undefined,
       copilotApps: [],
       copilotContributions: [],
@@ -250,6 +253,16 @@ export function createEngentyUiApi(
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.copilotApp"),
       });
     },
+    registerBackgroundComponent: (input) => {
+      const id = normalizeId(input.id, "background component");
+      runtime.contributions.backgroundComponents.push({
+        id,
+        pluginId: normalizedPluginId,
+        component: input.component,
+        order: input.order,
+        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.backgroundComponent"),
+      });
+    },
     registerDashboardWidget: (input) => {
       const id = normalizeId(input.id, "dashboard widget");
       runtime.contributions.dashboardWidgets.push({
@@ -321,6 +334,7 @@ export async function resolveUiContributions(
   const [
     routes,
     adminMenuItems,
+    backgroundComponents,
     copilotApps,
     copilotContributions,
     dashboardWidgets,
@@ -334,6 +348,9 @@ export async function resolveUiContributions(
     runtime.hooks.emit("ui.routes", [...runtime.contributions.routes]),
     runtime.hooks.emit("ui.adminMenuItems", [
       ...runtime.contributions.adminMenuItems,
+    ]),
+    runtime.hooks.emit("ui.backgroundComponents", [
+      ...runtime.contributions.backgroundComponents,
     ]),
     runtime.hooks.emit("ui.copilotApps", [
       ...runtime.contributions.copilotApps,
@@ -365,6 +382,7 @@ export async function resolveUiContributions(
   const resolved = {
     routes,
     adminMenuItems,
+    backgroundComponents,
     copilotArticleHrefResolver:
       runtime.contributions.copilotArticleHrefResolver,
     copilotApps,

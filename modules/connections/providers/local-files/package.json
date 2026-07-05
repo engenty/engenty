@@ -1,5 +1,5 @@
 {
-  "name": "@engenty/connections",
+  "name": "@engenty/connections-local-files",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -13,46 +13,38 @@
     "./ui/plugin": {
       "types": "./dist/ui/plugin.d.ts",
       "default": "./dist/ui/plugin.js"
-    },
-    "./ui/extensions": {
-      "types": "./dist/ui/extensions.d.ts",
-      "default": "./dist/ui/extensions.js"
     }
   },
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts ui/plugin.ts ui/extensions.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts ui/plugin.ts ui/extensions.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts ui/plugin.ts --format esm --dts --watch",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
-    "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
+    "@engenty/connections": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
-    "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^1.21.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.0",
     "sonner": "^2.0.7",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3"
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
