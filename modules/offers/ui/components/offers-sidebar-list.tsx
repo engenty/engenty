@@ -28,6 +28,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { OfferListItem } from "../api.js";
 import type { OffersListGroup } from "../lib/offer-list-grouping.js";
+import { OfferStatusBadge } from "./offer-status-badge.js";
 
 /** Draft offers open in the draft editor; everything else on the detail page. */
 export function offerSidebarPath(offer: OfferListItem): string {
@@ -71,16 +72,10 @@ export function OfferSidebarRow({
         <Link to={offerSidebarPath(offer)} {...shellSecondaryNavItemProps}>
           <span className="flex min-w-0 flex-1 items-center gap-2">
             <span className="min-w-0 flex-1 truncate">{offer.title}</span>
-            <span className="shrink-0 text-muted-foreground text-xxs">
-              {t(`statusShort.${offer.status}`, {
-                defaultValue:
-                  offer.status === "draft"
-                    ? "Entwurf"
-                    : offer.status === "ready"
-                      ? "Bereit"
-                      : "Angenommen",
-              })}
-            </span>
+            <OfferStatusBadge
+              className="shrink-0 px-1.5 py-0 text-xxs"
+              status={offer.status}
+            />
           </span>
         </Link>
       </SidebarRowButton>

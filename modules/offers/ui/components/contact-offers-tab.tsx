@@ -2,7 +2,6 @@
 // the contact's offers, linked into the offers module.
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Badge,
   Button,
   Card,
   Empty,
@@ -14,17 +13,8 @@ import {
 import type { UiTabRenderProps } from "@engenty/ui-plugin-sdk";
 import { Plus } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { OfferStatus } from "../api.js";
 import { useOffersListQuery } from "../queries.js";
-
-const STATUS_BADGE_VARIANT: Record<
-  OfferStatus,
-  "default" | "outline" | "secondary"
-> = {
-  accepted: "default",
-  draft: "outline",
-  ready: "secondary",
-};
+import { OfferStatusBadge } from "./offer-status-badge.js";
 
 export function ContactOffersTab({ params }: UiTabRenderProps) {
   const { t } = useTranslation("offers");
@@ -86,9 +76,7 @@ export function ContactOffersTab({ params }: UiTabRenderProps) {
                   {offer.offer_date ? ` · ${offer.offer_date}` : ""}
                 </div>
               </div>
-              <Badge variant={STATUS_BADGE_VARIANT[offer.status]}>
-                {t(`statusLabels.${offer.status}`)}
-              </Badge>
+              <OfferStatusBadge status={offer.status} />
             </Link>
           </Card>
         ))}
