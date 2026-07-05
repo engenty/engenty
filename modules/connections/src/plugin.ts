@@ -1,6 +1,7 @@
 import { createConnectionsRepo } from "@engenty/connections-sdk";
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { registerConnectionsCredentialsRoutes } from "./api/credentials-routes.js";
 import { registerConnectionsOAuthRoutes } from "./api/oauth-routes.js";
 import { registerConnectionsOperations } from "./api/operations.js";
 import { createConnectionsProfilePolicy } from "./policy.js";
@@ -23,6 +24,7 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   const repo = createConnectionsRepo(supabaseRaw as SupabaseClient);
 
   registerConnectionsOAuthRoutes(server, repo);
+  registerConnectionsCredentialsRoutes(server, repo);
 
   registerConnectionsOperations(server, repo, {
     onApprovalDecided: async ({ approved, requestId, tenantId }) => {

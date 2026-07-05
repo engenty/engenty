@@ -24,6 +24,9 @@
       "connections-microsoft": {
         "source": "workspace"
       },
+      "connections-s3": {
+        "source": "workspace"
+      },
       "connections-slack": {
         "source": "workspace"
       },
