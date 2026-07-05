@@ -10,12 +10,7 @@
  */
 
 import { useMemo } from "react";
-import {
-  openAiRealtimeVoiceSessionToolEvents,
-  openAiRealtimeVoiceToolCallsFromOpenAiEvent,
-  realtimeVoiceStatusFromOpenAiEvent,
-  realtimeVoiceTranscriptFromOpenAiEvent,
-} from "./openai-realtime-voice-mapping.js";
+import { openAiRealtimeVoiceSessionToolEvents } from "./openai-realtime-voice-mapping.js";
 import type {
   ConnectOpenAiRealtimeWebRtcOptions,
   OpenAiRealtimeWebRtcConnection,
@@ -43,7 +38,7 @@ export {
   openAiRealtimeVoiceToolCallsFromOpenAiEvent,
   realtimeVoiceStatusFromOpenAiEvent,
   realtimeVoiceTranscriptFromOpenAiEvent,
-};
+} from "./openai-realtime-voice-mapping.js";
 
 export type OpenAiRealtimeVoiceSessionState = RealtimeVoiceSessionState;
 export type OpenAiRealtimeVoiceTranscript = RealtimeVoiceTranscript;
