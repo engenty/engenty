@@ -152,34 +152,30 @@ export function registerOffersApi(
         stylesheet_template: string;
       } | null;
 
-      if (!template) {
-        return new Response(
-          JSON.stringify({ error: "No PDF template configured for offers" }),
-          {
-            status: 404,
-            headers: { "content-type": "application/json" },
-          }
-        );
-      }
-
       const provider = getPdfTemplateServerProvider("offers");
       if (!(provider?.resolvePreviewData && ctx.auth)) {
         throw new Error("Offers PDF template provider unavailable");
       }
+
+      // No tenant template yet → render with the provider's built-in default
+      // so PDF export works out of the box.
+      const settingsJson = (template?.settings_json ??
+        provider.settingsDefaults) as Parameters<
+        typeof buildPdfTemplateRenderData
+      >[0];
+      const documentTemplateXml =
+        template?.document_template ?? provider.defaultDocumentTemplate;
+      const stylesheetTemplate =
+        template?.stylesheet_template ?? provider.defaultStylesheetTemplate;
 
       const data = await provider.resolvePreviewData({
         auth: ctx.auth,
         recordId: params.id,
       });
       const buffer = await renderPdfTemplate({
-        data: buildPdfTemplateRenderData(
-          template.settings_json as Parameters<
-            typeof buildPdfTemplateRenderData
-          >[0],
-          data
-        ),
-        documentTemplateXml: template.document_template,
-        styling: template.stylesheet_template,
+        data: buildPdfTemplateRenderData(settingsJson, data),
+        documentTemplateXml,
+        styling: stylesheetTemplate,
       });
       const filename =
         offer.offer_number?.trim() || offer.title?.trim() || "offer-preview";

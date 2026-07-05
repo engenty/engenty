@@ -509,7 +509,15 @@ export function registerInvoicesHttpRoutes(
       let buffer = await storage.getPdf(invoice.id);
       if (!buffer) {
         const blocks = await repo.listBlocks(invoice.id).catch(() => []);
-        buffer = await generateInvoicePdf(invoice, blocks);
+        const { callGatewayMethod: invokeOperation } = ctx;
+        const template = invokeOperation
+          ? ((await invokeOperation(
+              "pdf_templates_get",
+              { module_key: "invoices", use_default: true },
+              { auth: ctx.auth }
+            ).catch(() => null)) as Parameters<typeof generateInvoicePdf>[2])
+          : null;
+        buffer = await generateInvoicePdf(invoice, blocks, template);
         await storage.savePdf(invoice.id, invoice.number, buffer);
       }
       const filename = `${invoice.number.replace(/[^a-zA-Z0-9._-]/g, "_")}.pdf`;

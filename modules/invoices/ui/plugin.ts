@@ -1,5 +1,6 @@
 import { DockOffersIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { registerInvoicesPdfTemplateUiProvider } from "../src/pdf-templates/provider.js";
 import { invoicesLiveBinding } from "./invoices-live-binding.js";
 import {
   InvoiceDetailPage,
@@ -11,6 +12,7 @@ import { setInvoicesPluginsApi } from "./plugins.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   setInvoicesPluginsApi(engenty.plugins);
+  registerInvoicesPdfTemplateUiProvider();
 
   engenty.i18n.registerNamespace({
     pluginId: "invoices",

@@ -5,6 +5,7 @@ import { createInvoiceRepo } from "./dal/index.js";
 import { createLocalPdfStorage } from "./dal/pdf-storage-local.js";
 import { createSupabasePdfStorage } from "./dal/pdf-storage-supabase.js";
 import { createInvoiceRepoSupabase } from "./dal/supabase.js";
+import { registerInvoicesPdfTemplateServerProvider } from "./pdf-templates/provider.js";
 import { invoicesProfilePolicy, invoicesResultPolicy } from "./policies.js";
 
 const registerInvoicesPlugin: EngentyPluginFactory = (engenty) => {
@@ -49,6 +50,7 @@ const registerInvoicesPlugin: EngentyPluginFactory = (engenty) => {
   ]);
   server.registerProfilePolicy(invoicesProfilePolicy);
   server.registerResultPolicy(invoicesResultPolicy);
+  registerInvoicesPdfTemplateServerProvider(server);
   registerInvoicesApi(server, repoOrFactory, pdfStorageOrFactory);
   server.registerAiRegistration(invoicesAiRegistration());
 };

@@ -394,7 +394,11 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
     const amount = Number(c.amount ?? c.quantity ?? 1);
     const unit = String(c.unit ?? "h");
     const costPerItem = Number(c.cost_per_item ?? c.unit_price ?? 0);
-    const total = Number(c.item_total ?? amount * costPerItem);
+    // item_total is only authoritative when set: the editor persists 0 as a
+    // placeholder (flat-price items carry their price here), so fall back to
+    // amount × unit price — the same math the editor shows live.
+    const storedTotal = Number(c.item_total ?? 0);
+    const total = storedTotal || amount * costPerItem;
     const taxRate = Number(c.tax ?? c.tax_rate ?? defaultTaxRate);
     const subtype = getLineItemSubtype(c);
 

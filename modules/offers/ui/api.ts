@@ -1,4 +1,9 @@
-import { requestApiEnvelope, requestApiJson } from "@engenty/api-client";
+import {
+  getApiBaseUrl,
+  getCurrentAccessToken,
+  requestApiEnvelope,
+  requestApiJson,
+} from "@engenty/api-client";
 
 export type OfferStatus = "draft" | "ready" | "accepted";
 export type OfferBillingType =
@@ -357,10 +362,13 @@ export function getNextOfferNumber() {
 }
 
 export async function downloadOfferPdf(id: string) {
-  const response = await fetch(`/api/offers/${id}/pdf`, {
+  const token = (await getCurrentAccessToken()) ?? "";
+  const response = await fetch(`${getApiBaseUrl()}/api/offers/${id}/pdf`, {
     method: "GET",
-    headers: { accept: "application/pdf" },
-    credentials: "include",
+    headers: {
+      accept: "application/pdf",
+      ...(token.trim() ? { authorization: `Bearer ${token.trim()}` } : {}),
+    },
   });
   if (!response.ok) {
     throw new Error(`Failed to download offer PDF: ${response.status}`);
