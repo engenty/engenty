@@ -36,19 +36,34 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
   };
 
   const searchProvider = createInboxSearchIndexProvider({ supabase });
-  // Auto-tool `inbox_message_search`. The provider searches the base table
-  // via FTS (no derived index), so no declarative re-index bindings are
-  // needed — the GIN index updates with the row itself.
+  // Auto-tool `inbox_message_search`, hybrid FTS + vector. `synced` drives the
+  // embedding upsert (`updated` fires only on status changes, which don't
+  // touch the document text — no re-embed); `deleted` clears the row (the FK
+  // cascade covers hard deletes, the binding covers soft removal paths).
   server.registerSearchIndexProvider(searchProvider, {
     capabilities: searchProvider.capabilities,
     entityName: "message",
     moduleId: "inbox",
+    onEvents: [
+      {
+        action: "replace",
+        docId: (payload) =>
+          (payload as InboxEntityPayload).message_id ?? null,
+        name: "inbox.message.synced",
+      },
+      {
+        action: "delete",
+        docId: (payload) =>
+          (payload as InboxEntityPayload).message_id ?? null,
+        name: "inbox.message.deleted",
+      },
+    ],
     operationOverrides: {
       idempotent: true,
       requiredCapabilities: ["module.inbox.read"],
       riskLevel: "low",
       summary:
-        "Search synced inbox messages by sender, subject, or body text (local store — no provider quota)",
+        "Search synced inbox messages by sender, subject, body text, or natural-language question (hybrid lexical + semantic, local store — no provider quota)",
     },
   });
 
