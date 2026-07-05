@@ -17,6 +17,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { OfferSettings } from "../api.js";
+import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import {
   useOfferSettingsPageQuery,
   useSetDefaultOfferTemplateMutation,
@@ -63,12 +64,15 @@ export function OffersSettingsPage() {
     setLoadedTemplateId(templateId);
   }, [query.data]);
 
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useOffersModuleSecondaryShellNav();
+
   const breadcrumbs = useMemo(
     () => [
-      { label: t("menu.offers"), to: "/mdl/offers" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       { label: t("settings") },
     ],
-    [t]
+    [moduleRootCrumb, t]
   );
 
   const handleSave = useCallback(async () => {
@@ -101,7 +105,13 @@ export function OffersSettingsPage() {
     [handleSave, saving, t]
   );
 
-  usePageConfig({ breadcrumbs, actions: pageActions });
+  usePageConfig({
+    actions: pageActions,
+    breadcrumbs,
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+  });
 
   if (loading) {
     return (

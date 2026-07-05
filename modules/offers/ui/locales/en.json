@@ -1,6 +1,7 @@
 {
   "menu": {
-    "offers": "Offers"
+    "offers": "Offers",
+    "settings": "Settings"
   },
   "title": "Title",
   "status": "Status",
@@ -440,5 +441,39 @@
   "contactTabViewAll": "All offers",
   "externalChange": "This offer was changed outside the editor (e.g. by the assistant).",
   "externalChangeAdopt": "Load changes",
-  "externalChangeKeep": "Keep my version"
+  "externalChangeKeep": "Keep my version",
+  "sidebar": {
+    "searchPlaceholder": "Search offers…",
+    "searchAria": "Search offers",
+    "clearSearch": "Clear search",
+    "listSettings": "List settings",
+    "groupBy": "Group by",
+    "groupByNone": "No grouping",
+    "groupByClient": "Customer",
+    "groupByStatus": "Status",
+    "sortBy": "Sort by",
+    "sortOrder": "Sort order",
+    "sort": {
+      "title": "Title",
+      "offer_number": "Number",
+      "offer_date": "Offer date",
+      "created_at": "Created"
+    },
+    "filterStatus": "Status",
+    "allStatuses": "All statuses",
+    "filterClient": "Customer",
+    "allClients": "All customers",
+    "ungrouped": "No customer",
+    "noOffers": "No offers yet",
+    "noSearchResults": "No offers match your search",
+    "offerMenuAria": "Offer actions",
+    "openOffer": "Open offer",
+    "deleteConfirm": "Delete this offer?",
+    "deleteConfirmDescription": "This action cannot be undone."
+  },
+  "statusShort": {
+    "draft": "Draft",
+    "ready": "Ready",
+    "accepted": "Accepted"
+  }
 }

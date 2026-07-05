@@ -40,6 +40,7 @@ import { OfferRecipientBlock } from "../components/offer-recipient-block.js";
 import { OfferSenderBlock } from "../components/offer-sender-block.js";
 import { OfferSettingsPanel } from "../components/offer-settings-panel.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
+import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import {
   normalizeCommercialTaxRates,
   resolveDefaultTaxRateFromCommercial,
@@ -279,16 +280,19 @@ export function OfferEditPage() {
     }
   }, [offer, navigate]);
 
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useOffersModuleSecondaryShellNav();
+
   const breadcrumbs = useMemo(
     () => [
-      { label: t("menu.offers"), to: "/mdl/offers" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       {
         label: offer?.title ?? t("draft"),
         to: id ? `/mdl/offers/${id}` : "/mdl/offers",
       },
       { label: t("draft") },
     ],
-    [id, offer?.title, t]
+    [id, moduleRootCrumb, offer?.title, t]
   );
 
   const saving = updateMutation.isPending || replaceBlocksMutation.isPending;
@@ -423,6 +427,8 @@ export function OfferEditPage() {
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
 

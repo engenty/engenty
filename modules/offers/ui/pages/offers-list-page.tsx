@@ -23,7 +23,7 @@ import {
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { FileText, Plus, Trash2 } from "lucide-react";
 import { parseAsStringEnum, useQueryState } from "nuqs";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { OfferListItem, OfferStatus } from "../api.js";
 import { CreateOfferDialog } from "../components/create-offer-dialog.js";
@@ -35,6 +35,7 @@ import {
 } from "../components/offers-display-dialog.js";
 import { OffersTable } from "../components/offers-table.js";
 import { useOffersListAgentUiSlice } from "../hooks/use-offers-agent-ui-slice.js";
+import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import { formatContactSnapshot } from "../lib/contact-snapshot.js";
 import { buildOfferCreatePayload } from "../lib/create-offer-payload.js";
 import { getOffersToolbarLabels } from "../lib/offers-toolbar-labels.js";
@@ -81,6 +82,14 @@ export function OffersListPage() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  // Sidebar "+" deep link: /mdl/offers?create=1 opens the create dialog once.
+  const [createParam, setCreateParam] = useQueryState("create");
+  useEffect(() => {
+    if (createParam) {
+      setCreateDialogOpen(true);
+      void setCreateParam(null);
+    }
+  }, [createParam, setCreateParam]);
   const [creatingOffer, setCreatingOffer] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -174,7 +183,13 @@ export function OffersListPage() {
     []
   );
 
-  const breadcrumbs = useMemo(() => [{ label: t("menu.offers") }], [t]);
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useOffersModuleSecondaryShellNav();
+
+  const breadcrumbs = useMemo(
+    () => (moduleRootCrumb ? [moduleRootCrumb] : []),
+    [moduleRootCrumb]
+  );
 
   const handleCreateOffer = useCallback(
     async (input: { title: string; clientId: string | null }) => {
@@ -251,6 +266,8 @@ export function OffersListPage() {
   usePageConfig({
     actions: pageActions,
     breadcrumbs,
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
   useOffersListAgentUiSlice({ search, offers });

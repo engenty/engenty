@@ -121,35 +121,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 118,
   });
 
-  engenty.UI.registerAdminMenuItem({
-    id: "offers_module_menu_draft",
-    parentId: "offers_module_menu",
-    section: "modules",
-    label: "Drafts",
-    labelKey: "offers:statusDraft",
-    to: "/mdl/offers?status=draft",
-    order: 1,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "offers_module_menu_ready",
-    parentId: "offers_module_menu",
-    section: "modules",
-    label: "Ready",
-    labelKey: "offers:statusReady",
-    to: "/mdl/offers?status=ready",
-    order: 2,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "offers_module_menu_accepted",
-    parentId: "offers_module_menu",
-    section: "modules",
-    label: "Accepted",
-    labelKey: "offers:statusAccepted",
-    to: "/mdl/offers?status=accepted",
-    order: 3,
-  });
+  // The former Drafts/Ready/Accepted quick links moved into the sidebar
+  // panel's status filter (OffersSidebarPanel — projects-style secondary nav).
 
   engenty.UI.registerSettingsItem({
     id: "offers_settings_menu",
