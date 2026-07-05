@@ -49,6 +49,15 @@ describe("CopilotComposerStatusFlap", () => {
     });
   });
 
+  it("renders pending HITL interrupt content (approval card) in the flap", () => {
+    // The compact surfaces (bottom dock, floating launcher) have no transcript,
+    // so a pending approval MUST render inside the flap or it is unanswerable.
+    renderFlap({
+      interruptContent: <button type="button">Approve once</button>,
+    });
+    expect(screen.getByRole("button", { name: "Approve once" })).toBeTruthy();
+  });
+
   it("shows a one-line idle preview of the last reply when the thread has history", () => {
     // Idle with prior conversation: the flap shows a single-line preview of the
     // last assistant reply (compact surfaces have no transcript) instead of the
