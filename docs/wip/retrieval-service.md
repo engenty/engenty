@@ -490,6 +490,78 @@ role/type via metadata filters + postRank role boost. Gate: quick-search UX pari
 `ai.chat_search` → source with `visibility: "user"`. Then: repo-wide grep sweep for
 deleted symbols, docs update (`docs/wip/*`, module AGENTS notes), final E2E rerun.
 
+**Phase 5a status (chat-search migration): DONE 2026-07-05** — apps/ai code +
+cutover migration written; migration NOT yet applied. Repo sweep + final E2E
+rerun remain (Phase 5b).
+
+- Provider id `ai_chat_search` (the actual legacy registry id — the dotted
+  `ai.chat_search` in this doc was aspirational) is kept: apps/ai runs
+  out-of-process from core, so it constructs its OWN
+  `createRetrievalService({ supabase })` over the same database
+  (`createChatSearchRetrieval`,
+  `apps/ai/src/dal/chat-search/chat-retrieval-source.ts`) and registers the
+  manufactured provider on the local `SearchIndexRegistry` under the legacy
+  id. `/ai/v1/search-index/providers/ai_chat_search/*`, the Mastra chat
+  session/thread tools, the copilot sidebar, and the apps/ui dev panel are
+  unchanged; hydrate reproduces the legacy `AiChatSearchHit` item shape.
+- Source `ai.chat_session`, visibility `user`: one document per session
+  (title + summary + role-prefixed transcript), `doc_id = thread_id`,
+  paragraph splitter (max 1200), `fastPath` 2 terms, `vectorThreshold` 0.45
+  (inbox-calibrated floor). Legacy per-message documents are gone — chunk
+  hits stand in; the unused `role`/`thread_id` search filters dropped with
+  them. Per-user filtering moved from app-side `.eq("user_id", …)` into
+  `owner_user_id` rows + the RPC's `user` visibility kind.
+- Legacy `ai.agent_chat_search_document/chunk` were lexical-only (no
+  embeddings). Cutover migration
+  `apps/core/supabase/migrations/20260706003000_ai_chat_search_retrieval_cutover.sql`
+  (apps/* migrations must use core naming; the aggregator rejects `plugin_`
+  there) copies session-level rows into `search.documents/chunks` with
+  `embedding NULL` and `content_updated_at = epoch`, then drops both tables:
+  lexical search stays live through the cutover, and the epoch pin marks
+  every copied doc stale so the standard backfill re-chunks + embeds.
+  Semantic chat search is NEW capability that arrives with that backfill.
+- The legacy FK cascade from `ai.thread` is replaced by an explicit
+  `ai.chat_session.deleted` → `removeSession` subscriber; the single-session
+  DELETE route now emits the event.
+
+**Phase 5 known follow-ups:**
+
+- **`core_workspace_search` does not federate chat.** Registrations are
+  per-process closures; core's service instance has no `ai.chat_session`
+  registration, so workspace_search never targets it even though the rows
+  live in the shared `search.*` schema (and the shared
+  `search.source_visibility` row keeps visibility consistent for anyone who
+  does query it). Deliberately NOT solved with cross-process federation now.
+  Options when it matters: a core-side thin registration whose
+  buildDocument/hydrate proxy apps/ai over HTTP, or a registration-descriptor
+  handoff at boot.
+- **Bulk session delete leaves index rows.** `DELETE /ai/threads` (bulk)
+  doesn't report the deleted thread ids, so no per-thread `.deleted` events
+  fire and orphaned `ai.chat_session` docs linger (owner-only visible;
+  self-heal on the next ingest of the same thread id). Fix by returning ids
+  from `deleteSessionsForUser` and emitting per id.
+- **getStatus is tenant-wide.** The managed provider's status scan counts all
+  tenant sessions, not just the caller's (the legacy store counted per-user).
+  Counts only — no content crosses users; the dev-panel numbers change
+  meaning.
+
+**Phase 4 status: DONE 2026-07-05** (commit a8e00d7). contacts.contact managed
+source; metadata values widened to string|string[] for multi-valued roles
+(jsonb containment). Verified live: misspelled-name trigram, role=client
+filter, event-driven re-ingest via contacts_update. Reviewed behavior deltas
+documented in the source header (title-only trigram, single query embedding,
+role as hard filter, query+role needs a signal).
+
+**Phase 5 status: DONE 2026-07-05.** ai_chat_search re-manufactured over the
+central store from apps/ai's own service instance; visibility `user` enforced
+in the RPC (replaces app-side .eq(user_id) filtering); legacy
+agent_chat_search_document/chunk tables dropped (they held NO embeddings —
+legacy "hybrid" was lexical-in-JS; semantic chat search is NEW capability from
+the first backfill: 38/41 dev sessions embedded, 3 empty threads skipped).
+Known follow-ups recorded below: core workspace_search does not federate the
+chat source cross-process; bulk thread deletes emit no per-thread ids (orphans
+self-heal on re-ingest); managed getStatus is tenant-wide vs legacy per-user.
+
 ### Explicitly deferred
 Tool search (`core_api_catalog`) — separate discussion with latency data on the table.
 

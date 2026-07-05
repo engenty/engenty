@@ -28,9 +28,9 @@ import {
   createActionRequestStoreFromEnv,
   createAgentRunStoreFromEnv,
   createAgentSessionStoreFromEnv,
-  createAiChatSearchStoreFromEnv,
   createAiService,
   createAiUsageStoreFromEnv,
+  createChatSearchRetrievalFromEnv,
   createDefaultAiRegistry,
   createDefaultModuleCapabilityLoader,
   createTenantModelConfigResolverFromEnv,
@@ -73,7 +73,7 @@ import type {
   AgentSessionStore,
 } from "./dal/agent-sessions/index.js";
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
-import type { AiChatSearchStore } from "./dal/chat-search/index.js";
+import type { ChatSearchRetrieval } from "./dal/chat-search/index.js";
 import { seedAiUsageModelPricing } from "./dal/usage/index.js";
 import {
   bootstrapGatewayModelsIfEmpty,
@@ -93,7 +93,7 @@ let dispatchQueueService: QueueService | null = null;
 export interface CreateAppOptions {
   agentRunStore?: AgentRunStore | null;
   agentSessionStore?: AgentSessionStore | null;
-  chatSearchStore?: AiChatSearchStore | null;
+  chatSearchRetrieval?: ChatSearchRetrieval | null;
   coreBaseUrl?: string;
   coreFetch?: typeof fetch;
   disableGatewayModelScheduler?: boolean;
@@ -210,10 +210,10 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
     }
   }
-  const chatSearchStore =
-    "chatSearchStore" in options
-      ? options.chatSearchStore
-      : createAiChatSearchStoreFromEnv();
+  const chatSearchRetrieval =
+    "chatSearchRetrieval" in options
+      ? options.chatSearchRetrieval
+      : createChatSearchRetrievalFromEnv();
   const aiUsageStore =
     "usageStore" in options ? options.usageStore : createAiUsageStoreFromEnv();
   const registryStore =
@@ -311,25 +311,24 @@ export async function createApp(options: CreateAppOptions = {}) {
     events: eventsApi,
     registry: searchIndexRegistry,
   });
-  if (chatSearchStore) {
-    registerSearchIndexProvider(chatSearchStore, {
-      capabilities: chatSearchStore.capabilities,
+  if (chatSearchRetrieval) {
+    registerSearchIndexProvider(chatSearchRetrieval.provider, {
+      capabilities: chatSearchRetrieval.provider.capabilities,
       entityName: "chat_session",
       moduleId: "ai",
-      // No declarative `onEvents`; chat-search rebuilds the entire session
-      // (one session doc + one doc per message) on any persistence write,
-      // which the per-doc bindings cannot express. The custom subscriber
-      // below handles `ai.chat_session.updated` / `.deleted` instead.
+      // No declarative `onEvents`; a session re-indexes as a whole document
+      // on any persistence write, which the per-doc bindings cannot express.
+      // The custom subscribers below handle `ai.chat_session.updated` /
+      // `.deleted` against the apps/ai-local retrieval service.
       skipAutoTool: true,
     });
     eventsApi.modules.on<AiChatSessionEventPayload>(
       AI_CHAT_SESSION_UPDATED_EVENT,
       async (payload) => {
         try {
-          await chatSearchStore.refreshSession({
+          await chatSearchRetrieval.refreshSession({
             thread_id: payload.thread_id,
             tenant_id: payload.tenant_id,
-            user_id: payload.user_id,
           });
         } catch (err) {
           logger.warn("chat search refresh skipped after session.updated", {
@@ -344,16 +343,22 @@ export async function createApp(options: CreateAppOptions = {}) {
     eventsApi.modules.on<AiChatSessionEventPayload>(
       AI_CHAT_SESSION_DELETED_EVENT,
       async (payload) => {
-        // FK cascade on `agent_chat_search_document.thread_id` already
-        // removes session/message docs at the DB layer when the session row
-        // is deleted; this listener is reserved for follow-up wiring (e.g.
-        // partial deletes, cross-store cleanup) so the event surface is
-        // already present when those land.
-        logger.debug("chat search session.deleted observed", {
-          thread_id: payload.thread_id,
-          tenant_id: payload.tenant_id,
-          user_id: payload.user_id,
-        });
+        // The legacy tables had an FK cascade from ai.thread; the central
+        // search.documents store does not, so index rows must be removed
+        // explicitly when a session is deleted.
+        try {
+          await chatSearchRetrieval.removeSession({
+            thread_id: payload.thread_id,
+            tenant_id: payload.tenant_id,
+          });
+        } catch (err) {
+          logger.warn("chat search removal skipped after session.deleted", {
+            err,
+            thread_id: payload.thread_id,
+            tenant_id: payload.tenant_id,
+            user_id: payload.user_id,
+          });
+        }
       }
     );
   }
@@ -390,9 +395,29 @@ export async function createApp(options: CreateAppOptions = {}) {
       { tenantId: params.tenantId }
     );
   };
+  // Emitted by the single-session DELETE route. The central retrieval store
+  // has no FK into ai.thread, so index cleanup rides on this event (bulk
+  // deletes don't report thread ids yet — known follow-up, see
+  // docs/wip/retrieval-service.md Phase 5).
+  const emitChatSessionDeleted = async (params: {
+    threadId: string;
+    tenantId: string;
+    userId: string;
+  }) => {
+    await eventsApi.modules.emit<AiChatSessionEventPayload>(
+      AI_CHAT_SESSION_DELETED_EVENT,
+      {
+        thread_id: params.threadId,
+        tenant_id: params.tenantId,
+        user_id: params.userId,
+      },
+      { tenantId: params.tenantId }
+    );
+  };
   registerAgentSessionRoutes(app, {
     getUsageStore: () => aiUsageStore,
     aiService,
+    onSessionDeleted: emitChatSessionDeleted,
     onSessionPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
