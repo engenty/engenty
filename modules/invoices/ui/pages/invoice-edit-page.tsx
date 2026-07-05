@@ -8,6 +8,7 @@ import {
   stripHtmlTags,
 } from "@engenty/commercial-editor";
 import { useTranslation } from "@engenty/i18n/ui";
+import { PdfPreviewSheet } from "@engenty/pdf-templates";
 import {
   Button,
   Card,
@@ -17,14 +18,16 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Check, Save, Settings } from "lucide-react";
+import { Check, FileText, Save, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import type {
   InvoiceBlockInput,
   InvoiceBlockType,
   InvoiceListItem,
 } from "../api.js";
+import { fetchInvoicePdf } from "../api.js";
 import { InvoiceDocumentHeader } from "../components/invoice-document-header.js";
 import { InvoiceSettingsPanel } from "../components/invoice-settings-panel.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
@@ -190,6 +193,28 @@ export function InvoiceEditPage() {
     }
   }, [invoice, deleteMutation, navigate]);
 
+  // Draft-phase PDF preview (legacy engency parity): persist what's on
+  // screen, render server-side, show in the in-app sheet.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const handlePreviewPdf = useCallback(async () => {
+    if (!invoice) {
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      await persist();
+      const { blob } = await fetchInvoicePdf(invoice.id);
+      setPreviewBlob(blob);
+      setPreviewOpen(true);
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [invoice, persist]);
+
   const actions = useMemo(
     () => (
       <div className="flex items-center gap-2">
@@ -225,9 +250,31 @@ export function InvoiceEditPage() {
             {t("issueAction", { defaultValue: "Issue invoice" })}
           </TopbarActionLabel>
         </Button>
+        <Button
+          className={topbarIconButtonClassName}
+          disabled={saving || previewLoading}
+          onClick={handlePreviewPdf}
+          size="sm"
+          variant="outline"
+        >
+          <FileText className="mr-1.5 h-4 w-4" />
+          <TopbarActionLabel>
+            {previewLoading
+              ? t("saving")
+              : t("previewPdf", { defaultValue: "Preview PDF" })}
+          </TopbarActionLabel>
+        </Button>
       </div>
     ),
-    [handleIssue, handleSave, issueMutation.isPending, saving, t]
+    [
+      handleIssue,
+      handlePreviewPdf,
+      handleSave,
+      issueMutation.isPending,
+      previewLoading,
+      saving,
+      t,
+    ]
   );
 
   const breadcrumbs = useMemo(
@@ -391,6 +438,17 @@ export function InvoiceEditPage() {
         onOpenChange={setSettingsOpen}
         open={settingsOpen}
         settingsTaxRates={taxRates}
+      />
+
+      <PdfPreviewSheet
+        blob={previewBlob}
+        downloadLabel={t("downloadPdf", { defaultValue: "Download PDF" })}
+        fileName={`${invoice.number ?? "invoice"}.pdf`}
+        onOpenChange={setPreviewOpen}
+        open={previewOpen}
+        title={
+          invoice.number ?? t("previewPdf", { defaultValue: "Preview PDF" })
+        }
       />
     </div>
   );

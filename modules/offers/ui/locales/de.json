@@ -431,5 +431,6 @@
   "selectAll": "Alle auswählen",
   "cancel": "Abbrechen",
   "deleteOfferConfirm": "Dieses Angebot löschen?",
-  "deleteOfferConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden."
+  "deleteOfferConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden.",
+  "previewPdf": "PDF-Vorschau"
 }

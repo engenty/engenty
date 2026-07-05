@@ -431,5 +431,6 @@
   "selectAll": "Select all",
   "cancel": "Cancel",
   "deleteOfferConfirm": "Delete this offer?",
-  "deleteOfferConfirmDescription": "This action cannot be undone."
+  "deleteOfferConfirmDescription": "This action cannot be undone.",
+  "previewPdf": "Preview PDF"
 }

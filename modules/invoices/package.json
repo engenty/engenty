@@ -61,6 +61,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.0",
+    "sonner": "^2.0.7",
     "sql.js": "^1.14.1",
     "uuidv7": "^1.2.1",
     "zod": "4.4.3"

@@ -1,4 +1,8 @@
 export {
+  PdfPreviewSheet,
+  type PdfPreviewSheetProps,
+} from "./components/pdf-preview-sheet.js";
+export {
   buildPdfTemplateRenderData,
   createDefaultPdfTemplateSettings,
   PDF_TEMPLATE_FONT_FAMILIES,

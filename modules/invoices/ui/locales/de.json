@@ -121,5 +121,6 @@
     "recentSection": "Zuletzt",
     "noRecent": "Noch keine Rechnungen.",
     "noSearchResults": "Keine passenden Rechnungen."
-  }
+  },
+  "previewPdf": "PDF-Vorschau"
 }

@@ -21,6 +21,7 @@ import {
 import type { CommercialSettings } from "@engenty/commercial-settings/ui";
 import type { CompanyProfileSettings } from "@engenty/company-profile/ui";
 import { useTranslation } from "@engenty/i18n/ui";
+import { PdfPreviewSheet } from "@engenty/pdf-templates";
 import {
   Button,
   Card,
@@ -30,10 +31,12 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { Check, Save, Settings } from "lucide-react";
+import { Check, FileText, Save, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { OfferBlock, OfferBlockType, OfferListItem } from "../api.js";
+import { downloadOfferPdf } from "../api.js";
 import { ClientTopline } from "../components/client-topline.js";
 import { DocumentHeader } from "../components/document-header.js";
 import { DocumentTitle } from "../components/document-title.js";
@@ -291,12 +294,13 @@ export function OfferEditPage() {
 
   const saving = updateMutation.isPending || replaceBlocksMutation.isPending;
 
-  const handleSave = useCallback(async () => {
-    if (!offer) {
-      return;
-    }
-    try {
-      await updateMutation.mutateAsync(offer);
+  /** Persist the current editor state (offer fields + block list). */
+  const persistDraft = useCallback(
+    async (patch?: Partial<OfferListItem>) => {
+      if (!offer) {
+        return false;
+      }
+      await updateMutation.mutateAsync({ ...offer, ...patch });
       await replaceBlocksMutation.mutateAsync(
         blocks.map((block, index) => ({
           id: block.id,
@@ -306,6 +310,17 @@ export function OfferEditPage() {
           order_index: index,
         }))
       );
+      return true;
+    },
+    [blocks, offer, replaceBlocksMutation, updateMutation]
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!offer) {
+      return;
+    }
+    try {
+      await persistDraft();
       navigate(
         offer.status === "draft"
           ? `/mdl/offers/${offer.id}/draft`
@@ -314,28 +329,40 @@ export function OfferEditPage() {
     } catch {
       // Error surfaced via mutation
     }
-  }, [blocks, navigate, offer, replaceBlocksMutation, updateMutation]);
+  }, [navigate, offer, persistDraft]);
 
   const handleMarkAsReady = useCallback(async () => {
     if (!offer) {
       return;
     }
     try {
-      await updateMutation.mutateAsync({ ...offer, status: "ready" });
-      await replaceBlocksMutation.mutateAsync(
-        blocks.map((block, index) => ({
-          id: block.id,
-          offer_id: offer.id,
-          type: block.type as OfferBlockType,
-          content_json: block.content as Record<string, unknown>,
-          order_index: index,
-        }))
-      );
+      await persistDraft({ status: "ready" });
       navigate(`/mdl/offers/${offer.id}`);
     } catch {
       // Error surfaced via mutation
     }
-  }, [blocks, navigate, offer, replaceBlocksMutation, updateMutation]);
+  }, [navigate, offer, persistDraft]);
+
+  // Draft-phase PDF preview (legacy engency parity): persist what's on
+  // screen, render server-side, show in the in-app sheet.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const handlePreviewPdf = useCallback(async () => {
+    if (!offer) {
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      await persistDraft();
+      setPreviewBlob(await downloadOfferPdf(offer.id));
+      setPreviewOpen(true);
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [offer, persistDraft]);
 
   const actions = useMemo(
     () => (
@@ -365,6 +392,18 @@ export function OfferEditPage() {
         </Button>
         <Button
           className={topbarIconButtonClassName}
+          disabled={saving || previewLoading}
+          onClick={handlePreviewPdf}
+          size="sm"
+          variant="outline"
+        >
+          <FileText className="mr-1.5 h-4 w-4" />
+          <TopbarActionLabel>
+            {previewLoading ? t("saving") : t("previewPdf")}
+          </TopbarActionLabel>
+        </Button>
+        <Button
+          className={topbarIconButtonClassName}
           onClick={() => setSettingsOpen(true)}
           size="sm"
           variant="outline"
@@ -374,7 +413,7 @@ export function OfferEditPage() {
         </Button>
       </div>
     ),
-    [handleMarkAsReady, handleSave, saving, t]
+    [handleMarkAsReady, handlePreviewPdf, handleSave, previewLoading, saving, t]
   );
   usePageConfig({
     actions,
@@ -775,6 +814,15 @@ export function OfferEditPage() {
         onOpenChange={setSettingsOpen}
         open={settingsOpen}
         settingsTaxRates={normalizedEditorTaxRates}
+      />
+
+      <PdfPreviewSheet
+        blob={previewBlob}
+        downloadLabel={t("downloadPdf")}
+        fileName={`${offer.offer_number ?? "offer"}.pdf`}
+        onOpenChange={setPreviewOpen}
+        open={previewOpen}
+        title={offer.title ?? t("previewPdf")}
       />
     </div>
   );
