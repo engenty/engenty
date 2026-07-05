@@ -138,6 +138,7 @@ export const offersListQuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
   search: z.string().optional(),
   status: offerStatusSchema.optional(),
+  client_id: z.string().optional(),
 });
 
 export const offersPaginatedResponseSchema = z.object({

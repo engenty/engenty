@@ -432,5 +432,10 @@
   "cancel": "Abbrechen",
   "deleteOfferConfirm": "Dieses Angebot löschen?",
   "deleteOfferConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden.",
-  "previewPdf": "PDF-Vorschau"
+  "previewPdf": "PDF-Vorschau",
+  "contactTab": "Angebote",
+  "contactTabCount": "{{count}} Angebot(e) für diesen Kontakt",
+  "contactTabEmpty": "Noch keine Angebote",
+  "contactTabEmptyDescription": "Mit diesem Kontakt verknüpfte Angebote erscheinen hier.",
+  "contactTabViewAll": "Alle Angebote"
 }

@@ -177,6 +177,7 @@ export type OfferUpdateInput = Partial<OfferCreateInput> & {
 };
 
 export interface OffersQueryParams {
+  client_id?: string;
   page?: number;
   pageSize?: number;
   search?: string;
@@ -221,6 +222,9 @@ function buildQuery(params: OffersQueryParams): string {
   }
   if (params.status) {
     searchParams.set("status", params.status);
+  }
+  if (params.client_id) {
+    searchParams.set("client_id", params.client_id);
   }
   const query = searchParams.toString();
   return query.length > 0 ? `?${query}` : "";

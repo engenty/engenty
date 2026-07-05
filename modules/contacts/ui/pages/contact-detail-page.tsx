@@ -9,15 +9,23 @@ import {
   TabsContent,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import type { ContactListItem } from "../api.js";
 import { ContactInfoTab } from "../components/contact-info-tab.js";
 import { ContactOverviewTab } from "../components/contact-overview-tab.js";
 import { ContactRelationsTab } from "../components/contact-relations-tab.js";
 import { ContactSubNav } from "../components/contact-sub-nav.js";
 import { buildContactDetailCopilotContext } from "../copilot-context.js";
-import { type ContactTab, useContactTabs } from "../hooks/use-contact-tabs.js";
+import {
+  CONTACT_TABS,
+  CONTACTS_DETAIL_SURFACE,
+  type ContactTab,
+  type ContactTabMeta,
+  useContactTabs,
+} from "../hooks/use-contact-tabs.js";
 import { useContactsDetailAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
 import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import { useContactDetailQuery } from "../queries.js";
@@ -177,7 +185,11 @@ export function ContactDetailPage() {
               )}
             </TabsContent>
             <TabsContent className="space-y-6" value="offers">
-              {tabPlaceholder}
+              <ContributedTabContent
+                entity={entity}
+                fallback={tabPlaceholder}
+                tab={visibleTabs.find((tab) => tab.id === "offers")}
+              />
             </TabsContent>
             <TabsContent className="space-y-6" value="invoices">
               {entity ? (
@@ -205,14 +217,63 @@ export function ContactDetailPage() {
               ) : null}
             </TabsContent>
             <TabsContent className="space-y-6" value="projects">
-              {tabPlaceholder}
+              <ContributedTabContent
+                entity={entity}
+                fallback={tabPlaceholder}
+                tab={visibleTabs.find((tab) => tab.id === "projects")}
+              />
             </TabsContent>
             <TabsContent className="space-y-6" value="expenses">
-              {tabPlaceholder}
+              <ContributedTabContent
+                entity={entity}
+                fallback={tabPlaceholder}
+                tab={visibleTabs.find((tab) => tab.id === "expenses")}
+              />
             </TabsContent>
+            {/* Tabs contributed under ids without a native slot. */}
+            {visibleTabs
+              .filter(
+                (tab) =>
+                  tab.component && !NATIVE_CONTACT_TAB_IDS.has(tab.id as string)
+              )
+              .map((tab) => (
+                <TabsContent className="space-y-6" key={tab.id} value={tab.id}>
+                  <ContributedTabContent entity={entity} tab={tab} />
+                </TabsContent>
+              ))}
           </div>
         </div>
       </Tabs>
     </div>
+  );
+}
+
+const NATIVE_CONTACT_TAB_IDS = new Set(
+  CONTACT_TABS.map((tab) => tab.id as string)
+);
+
+/** Renders a module-contributed tab body, passing the contact as params. */
+function ContributedTabContent({
+  entity,
+  fallback = null,
+  tab,
+}: {
+  entity: ContactListItem;
+  fallback?: ReactNode;
+  tab: ContactTabMeta | undefined;
+}) {
+  const Component = tab?.component;
+  if (!Component) {
+    return <>{fallback}</>;
+  }
+  return (
+    <Component
+      params={{
+        contact_display_name: entity.display_name,
+        contact_id: entity.id,
+        contact_type: entity.type,
+      }}
+      surface={CONTACTS_DETAIL_SURFACE}
+    />
   );
 }

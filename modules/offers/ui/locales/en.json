@@ -432,5 +432,10 @@
   "cancel": "Cancel",
   "deleteOfferConfirm": "Delete this offer?",
   "deleteOfferConfirmDescription": "This action cannot be undone.",
-  "previewPdf": "Preview PDF"
+  "previewPdf": "Preview PDF",
+  "contactTab": "Offers",
+  "contactTabCount": "{{count}} offer(s) for this contact",
+  "contactTabEmpty": "No offers yet",
+  "contactTabEmptyDescription": "Offers linked to this contact will show up here.",
+  "contactTabViewAll": "All offers"
 }

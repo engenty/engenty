@@ -11,6 +11,7 @@ import {
   setOfferSettings,
   updateOffer,
 } from "./api.js";
+import { ContactOffersTab } from "./components/contact-offers-tab.js";
 import { createOfferFromLead } from "./lib/create-offer-from-lead.js";
 import { offersLiveBinding } from "./offers-live-binding.js";
 import {
@@ -37,6 +38,17 @@ export default function plugin(engenty: EngentyPluginContext) {
       en: () => import("./locales/en.json").then((m) => m.default),
       de: () => import("./locales/de.json").then((m) => m.default),
     },
+  });
+
+  // Fills the "Angebote" slot on the contact detail page. Kept as a literal
+  // to avoid a static dep — the host constant is CONTACTS_DETAIL_SURFACE in
+  // @engenty/contacts' use-contact-tabs.ts.
+  engenty.UI.registerTab({
+    id: "offers",
+    surface: "contacts.detail",
+    component: ContactOffersTab,
+    labelKey: "offers:contactTab",
+    order: 200,
   });
 
   engenty.plugins.expose({

@@ -117,6 +117,7 @@ export type OfferUpdateInput = Partial<OfferCreateInput> & {
 };
 
 export interface OffersQueryParams {
+  client_id?: string;
   page?: number;
   pageSize?: number;
   search?: string;

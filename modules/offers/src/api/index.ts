@@ -118,6 +118,7 @@ export function registerOffersApi(
         sortOrder: url.searchParams.get("sortOrder") ?? undefined,
         search: url.searchParams.get("search") ?? undefined,
         status: url.searchParams.get("status") ?? undefined,
+        client_id: url.searchParams.get("client_id") ?? undefined,
       });
       return repo.listPaginated(parsed);
     },

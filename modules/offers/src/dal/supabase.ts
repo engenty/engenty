@@ -356,6 +356,9 @@ export function createOfferRepoSupabase(
       if (params.status) {
         query = query.eq("status", params.status);
       }
+      if (params.client_id) {
+        query = query.eq("client_id", params.client_id);
+      }
       if (params.search?.trim()) {
         const search = `%${params.search.trim()}%`;
         query = query.or(
