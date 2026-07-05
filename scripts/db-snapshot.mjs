@@ -2,6 +2,7 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { resolveSupabaseDbContainerName } from "./supabase-sync-lib.mjs";
 
 function resolveRepoRoot() {
   let dir = process.cwd();
@@ -20,8 +21,7 @@ function resolveRepoRoot() {
 }
 
 const root = resolveRepoRoot();
-const projectName = path.basename(root);
-const containerName = `supabase_db_${projectName}`;
+const containerName = resolveSupabaseDbContainerName(root);
 const snapshotDir = path.join(root, "supabase", "snapshots");
 function getLocalTimestamp() {
   const now = new Date();

@@ -71,6 +71,27 @@ export function composeApiSchemas(migrationsDir) {
   return [...BASE_API_SCHEMAS, ...moduleSchemas];
 }
 
+export function parseProjectIdFromConfigToml(content) {
+  const match = content.match(/^project_id\s*=\s*"([^"]+)"/m);
+  return match ? match[1] : null;
+}
+
+/**
+ * The Supabase CLI names the local Postgres container `supabase_db_<project_id>`,
+ * not after the repo folder. Falls back to the folder basename when
+ * supabase/config.toml is missing or has no project_id.
+ */
+export function resolveSupabaseDbContainerName(repoRoot) {
+  let projectId = null;
+  const configPath = path.join(repoRoot, "supabase", "config.toml");
+  if (fs.existsSync(configPath)) {
+    projectId = parseProjectIdFromConfigToml(
+      fs.readFileSync(configPath, "utf-8")
+    );
+  }
+  return `supabase_db_${projectId ?? path.basename(repoRoot)}`;
+}
+
 export function parseApiSchemasFromConfigToml(content) {
   const managed = content.match(
     /# >>> engenty:api-schemas[^\n]*\nschemas\s*=\s*(\[[^\]]*\])/m

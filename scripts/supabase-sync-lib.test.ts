@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -7,7 +8,9 @@ import {
   BASE_API_SCHEMAS,
   composeApiSchemas,
   discoverPostgresSchemasFromMigrations,
+  parseProjectIdFromConfigToml,
   renderApiSchemasBlock,
+  resolveSupabaseDbContainerName,
   STORAGE_BUCKET_MARKER_BEGIN,
   STORAGE_BUCKET_MARKER_END,
   syncApiSchemasInConfigToml,
@@ -103,5 +106,51 @@ ${renderApiSchemasBlock(BASE_API_SCHEMAS)}
 
     expect(next).toContain('"module_company_profile"');
     expect(next.match(/# >>> engenty:api-schemas/g)?.length).toBe(1);
+  });
+
+  it("parses project_id, ignoring commented-out lines", () => {
+    const content = `project_id = "engenty-local"
+
+[functions.my-function]
+# project_id = "my-firebase-project"
+`;
+    expect(parseProjectIdFromConfigToml(content)).toBe("engenty-local");
+    expect(
+      parseProjectIdFromConfigToml('# project_id = "my-firebase-project"\n')
+    ).toBeNull();
+  });
+
+  it("derives the db container name from supabase/config.toml project_id", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-container-"));
+    try {
+      fs.mkdirSync(path.join(dir, "supabase"));
+      fs.writeFileSync(
+        path.join(dir, "supabase", "config.toml"),
+        'project_id = "engenty-local"\n',
+        "utf-8"
+      );
+      expect(resolveSupabaseDbContainerName(dir)).toBe(
+        "supabase_db_engenty-local"
+      );
+    } finally {
+      fs.rmSync(dir, { force: true, recursive: true });
+    }
+  });
+
+  it("falls back to the folder basename when config.toml is missing", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-no-config-"));
+    try {
+      expect(resolveSupabaseDbContainerName(dir)).toBe(
+        `supabase_db_${path.basename(dir)}`
+      );
+    } finally {
+      fs.rmSync(dir, { force: true, recursive: true });
+    }
+  });
+
+  it("repo config.toml resolves to the real container name", () => {
+    expect(resolveSupabaseDbContainerName(repoRoot)).toBe(
+      "supabase_db_engenty-local"
+    );
   });
 });
