@@ -1,0 +1,624 @@
+<meta charset="utf-8">
+<title>Daybreak — the engenty start page</title>
+<style>
+  :root{
+    --ink:#0E1322;          /* pre-dawn ground */
+    --ink-2:#151B2E;        /* raised panel */
+    --ink-3:#1D2439;        /* hairline fill */
+    --line:#2A3350;
+    --text:#EAE7DE;         /* warm off-white */
+    --muted:#9BA0B3;
+    --faint:#6B7188;
+    --ember:#E8873C;        /* accent — ties to shadcn-ember tokens */
+    --ember-soft:rgba(232,135,60,.14);
+    --dawn:#8FB4E3;         /* secondary, diagrams */
+    --dawn-soft:rgba(143,180,227,.12);
+    --good:#5FBF8A;
+    --warn:#E3B341;
+    --crit:#E06B5D;
+    /* product mock (light) */
+    --m-canvas:#F5F4F0;
+    --m-card:#FFFFFF;
+    --m-ink:#1E222B;
+    --m-muted:#6B7078;
+    --m-faint:#9AA0A8;
+    --m-line:#E5E3DC;
+    --m-ember:#D9701F;
+    --m-ember-soft:#FBEEDF;
+    --m-rail:#14181F;
+    --serif:Georgia,'Iowan Old Style','Times New Roman',serif;
+    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  html{background:var(--ink)}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.65;margin:0;font-size:16px}
+  ::selection{background:var(--ember);color:var(--ink)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 32px 120px}
+  .prose{max-width:68ch}
+
+  /* ---------- document typography ---------- */
+  h1,h2,h3{font-family:var(--serif);font-weight:600;text-wrap:balance;color:var(--text)}
+  h1{font-size:clamp(38px,5.4vw,58px);line-height:1.08;margin:18px 0 22px;letter-spacing:-.01em}
+  h2{font-size:31px;line-height:1.2;margin:0 0 14px}
+  h3{font-size:21px;margin:0 0 10px}
+  p{margin:0 0 16px;color:var(--text)}
+  p.dim,li.dim{color:var(--muted)}
+  a{color:var(--dawn)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ember);margin:0 0 12px}
+  .lede{font-size:19.5px;line-height:1.6;color:var(--muted)}
+  .lede strong{color:var(--text);font-weight:600}
+  section{padding:76px 0 8px;border-top:1px solid var(--line);margin-top:64px}
+  section:first-of-type{border-top:0;margin-top:0}
+  code,.k{font-family:var(--mono);font-size:.86em;background:var(--ink-3);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--dawn);white-space:nowrap}
+  .cap{font-family:var(--mono);font-size:12px;color:var(--faint);margin:12px 2px 0;letter-spacing:.02em}
+  .cap b{color:var(--muted);font-weight:600}
+
+  /* hero */
+  header.hero{padding:96px 0 40px}
+  .hero-meta{display:flex;gap:22px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.06em;margin-top:26px}
+  .hero-meta span b{color:var(--muted);font-weight:500}
+  .thesis{border-left:3px solid var(--ember);padding:6px 0 6px 22px;margin:34px 0 0}
+  .thesis p{font-family:var(--serif);font-size:23px;line-height:1.45;color:var(--text);margin:0}
+
+  /* principle cards */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:860px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:22px 24px}
+  .card h3{font-size:18px;margin-bottom:8px}
+  .card p{font-size:14.5px;color:var(--muted);margin:0}
+  .card .n{font-family:var(--mono);font-size:11px;color:var(--ember);letter-spacing:.15em;display:block;margin-bottom:10px}
+
+  /* ---------- browser / device frames ---------- */
+  .frame{background:#0B0F1A;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5);margin:30px 0 0}
+  .frame-bar{display:flex;align-items:center;gap:8px;background:#141927;border-bottom:1px solid var(--line);padding:10px 14px}
+  .dot{width:10px;height:10px;border-radius:50%;background:#2E3752}
+  .urlbox{flex:1;max-width:340px;margin-left:10px;background:#0E1322;border:1px solid var(--line);border-radius:6px;font-family:var(--mono);font-size:11.5px;color:var(--faint);padding:4px 12px;text-align:center}
+  .frame-scroll{overflow-x:auto}
+
+  /* ---------- product mock (light, namespaced m-) ---------- */
+  .mock{display:grid;grid-template-columns:58px 1fr;min-width:920px;background:var(--m-canvas);color:var(--m-ink);font-family:var(--sans);font-size:13px;line-height:1.45}
+  .m-rail{background:var(--m-rail);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0}
+  .m-logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--m-ember),#B04A0F);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--serif);font-size:16px;margin-bottom:10px}
+  .m-ic{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#8B92A3;position:relative}
+  .m-ic svg{width:17px;height:17px}
+  .m-ic.on{background:rgba(217,112,31,.18);color:#F0A05C}
+  .m-badge{position:absolute;top:2px;right:2px;background:var(--m-ember);color:#fff;font-size:8.5px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+  .m-main{padding:26px 30px 22px;display:flex;flex-direction:column;gap:20px}
+
+  .m-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+  .m-hi{font-family:var(--serif);font-size:26px;color:var(--m-ink);line-height:1.15;margin:0 0 5px}
+  .m-sub{color:var(--m-muted);font-size:12.5px}
+  .m-sub .sep{color:var(--m-faint);margin:0 6px}
+  .m-headbtns{display:flex;gap:8px;align-items:center}
+  .m-btn{border:1px solid var(--m-line);background:var(--m-card);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:500;color:var(--m-ink);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  .m-btn.pri{background:var(--m-ink);color:#fff;border-color:var(--m-ink)}
+  .m-btn.ember{background:var(--m-ember);border-color:var(--m-ember);color:#fff}
+  .m-btn.ghost{border-color:transparent;background:transparent;color:var(--m-muted)}
+  .m-av{width:30px;height:30px;border-radius:50%;background:#3E4658;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+
+  .m-sec-t{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--m-faint);display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .m-sec-t em{font-style:normal;color:var(--m-ember)}
+  .m-sec-t::after{content:"";flex:1;height:1px;background:var(--m-line)}
+
+  .m-dec{display:flex;flex-direction:column;gap:10px}
+  .m-dcard{background:var(--m-card);border:1px solid var(--m-line);border-left:3px solid var(--m-ember);border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 18px;align-items:center}
+  .m-dcard.ask{border-left-color:var(--warn)}
+  .m-dcard h4{margin:0;font-size:13.5px;font-weight:600}
+  .m-dcard .why{grid-column:1;color:var(--m-muted);font-size:12px}
+  .m-dcard .src{grid-column:1;display:flex;gap:6px;margin-top:4px}
+  .m-chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;background:var(--m-canvas);border:1px solid var(--m-line);border-radius:5px;padding:2px 7px;color:var(--m-muted)}
+  .m-chip.hot{background:var(--m-ember-soft);border-color:#F0CBA6;color:#A85512}
+  .m-acts{grid-row:1/span 3;grid-column:2;display:flex;gap:8px;align-items:center}
+
+  .m-cols{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+  .m-panel{background:var(--m-card);border:1px solid var(--m-line);border-radius:10px;padding:14px 16px}
+  .m-dig{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--m-line);align-items:baseline}
+  .m-dig:last-child{border-bottom:0}
+  .m-dig time{font-family:var(--mono);font-size:10px;color:var(--m-faint);min-width:40px}
+  .m-dig .t{font-size:12.5px}
+  .m-dig .t b{font-weight:600}
+  .m-dig .t span{color:var(--m-muted)}
+  .m-open{font-size:11px;color:var(--m-ember);font-weight:600;white-space:nowrap;margin-left:auto}
+
+  .m-ev{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--m-line);align-items:center}
+  .m-ev:last-child{border-bottom:0}
+  .m-ev time{font-family:var(--mono);font-size:10.5px;color:var(--m-ink);min-width:40px;font-weight:600}
+  .m-ev .t{font-size:12.5px;flex:1}
+  .m-ev .t span{display:block;color:var(--m-muted);font-size:11px}
+  .m-flag{font-size:10px;font-weight:700;color:#B0483C;background:#FBE9E5;border-radius:5px;padding:2px 7px}
+
+  .m-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .m-met{background:var(--m-card);border:1px solid var(--m-line);border-radius:10px;padding:13px 15px}
+  .m-met .l{font-size:11px;color:var(--m-muted);margin-bottom:3px}
+  .m-met .v{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .m-met .d{font-size:11px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .m-met .d.up{color:#2E7D54}.m-met .d.bad{color:#B0483C}.m-met .d.dim{color:var(--m-faint)}
+  .m-spark{display:flex;align-items:flex-end;gap:2px;height:22px;margin-top:8px}
+  .m-spark i{flex:1;background:#EBE3D6;border-radius:1.5px}
+  .m-spark i.hi{background:var(--m-ember)}
+
+  .m-prep{display:flex;gap:10px;flex-wrap:wrap}
+  .m-art{display:flex;align-items:center;gap:10px;background:var(--m-card);border:1px solid var(--m-line);border-radius:9px;padding:9px 13px;font-size:12px}
+  .m-art .ft{width:26px;height:30px;border-radius:4px;background:var(--m-ember-soft);border:1px solid #F0CBA6;color:#A85512;font-family:var(--mono);font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .m-art .ft.doc{background:#E8EFF9;border-color:#C4D6EE;color:#3D6CA8}
+  .m-art b{display:block;font-weight:600}
+  .m-art span{color:var(--m-muted);font-size:11px}
+
+  .m-composer{display:flex;flex-direction:column;gap:9px;margin-top:2px}
+  .m-sugs{display:flex;gap:8px;flex-wrap:wrap}
+  .m-sug{border:1px solid var(--m-line);background:var(--m-card);border-radius:16px;padding:5px 13px;font-size:12px;color:var(--m-ink)}
+  .m-input{display:flex;align-items:center;gap:10px;background:var(--m-card);border:1px solid var(--m-line);border-radius:12px;padding:11px 15px;box-shadow:0 2px 10px rgba(30,34,43,.05)}
+  .m-input span{color:var(--m-faint);flex:1;font-size:13px}
+  .m-mic{width:32px;height:32px;border-radius:50%;background:var(--m-ember);display:flex;align-items:center;justify-content:center;color:#fff}
+  .m-mic svg{width:15px;height:15px}
+
+  /* phone */
+  .devicerow{display:grid;grid-template-columns:300px 1fr;gap:26px;align-items:start;margin-top:30px}
+  @media(max-width:860px){.devicerow{grid-template-columns:1fr}}
+  .phone{background:#0B0F1A;border:1px solid var(--line);border-radius:30px;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .phone-scr{background:var(--m-canvas);border-radius:22px;overflow:hidden;color:var(--m-ink);font-family:var(--sans)}
+  .p-status{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--m-muted);padding:9px 16px 0}
+  .p-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:12px;font-size:12px}
+  .p-hi{font-family:var(--serif);font-size:19px;margin:2px 0 0}
+  .p-sub{color:var(--m-muted);font-size:10.5px;margin-top:2px}
+  .p-deck{position:relative;margin-top:4px}
+  .p-card{background:var(--m-card);border:1px solid var(--m-line);border-left:3px solid var(--m-ember);border-radius:11px;padding:12px 13px;position:relative;z-index:2}
+  .p-card h5{margin:0 0 4px;font-size:12.5px}
+  .p-card p{margin:0 0 10px;color:var(--m-muted);font-size:11px;line-height:1.5}
+  .p-card .row{display:flex;gap:7px}
+  .p-under{position:absolute;left:8px;right:8px;bottom:-7px;height:14px;background:var(--m-card);border:1px solid var(--m-line);border-radius:11px;z-index:1}
+  .p-pips{display:flex;gap:4px;justify-content:center;margin-top:12px}
+  .p-pips i{width:5px;height:5px;border-radius:50%;background:var(--m-line)}
+  .p-pips i.on{background:var(--m-ember)}
+  .p-dig .m-dig{padding:7px 0}
+  .p-voice{display:flex;align-items:center;gap:10px;background:var(--m-ink);color:#fff;border-radius:13px;padding:11px 14px}
+  .p-voice .m-mic{flex:none}
+  .p-voice span{font-size:11.5px;color:#C8CBD4}
+
+  /* channel mocks */
+  .chan{background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px}
+  .chan h4{margin:0;font-size:13px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dawn);font-weight:500}
+  .chan .note{font-size:12.5px;color:var(--muted);margin:0}
+  .email-mock{background:#FFFFFF;border-radius:8px;color:var(--m-ink);font-size:11.5px;overflow:hidden}
+  .email-head{border-bottom:1px solid var(--m-line);padding:10px 14px;font-size:11px;color:var(--m-muted)}
+  .email-head b{color:var(--m-ink)}
+  .email-body{padding:12px 14px;display:flex;flex-direction:column;gap:7px}
+  .email-kpi{display:flex;justify-content:space-between;border:1px solid var(--m-line);border-radius:6px;padding:6px 10px;font-variant-numeric:tabular-nums}
+  .email-kpi span{color:var(--m-muted)}
+  .email-foot{background:var(--m-ember-soft);color:#A85512;font-family:var(--mono);font-size:10px;padding:8px 14px}
+  .slack-mock{background:#1A1D21;border-radius:8px;padding:12px 14px;font-size:12px;color:#D1D2D3}
+  .slack-mock .who{display:flex;gap:8px;align-items:center;margin-bottom:7px}
+  .slack-mock .who i{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,var(--m-ember),#B04A0F);display:block}
+  .slack-mock .who b{color:#fff}
+  .slack-mock .who span{font-size:10px;color:#9B9C9E}
+  .slack-attach{border-left:3px solid var(--m-ember);padding:4px 0 4px 10px;margin:6px 0;display:flex;flex-direction:column;gap:3px}
+  .slack-attach b{color:#fff;font-size:12px}
+  .slack-attach span{color:#9B9C9E;font-size:11px}
+  .slack-btns{display:flex;gap:7px;margin-top:8px}
+  .slack-btn{border:1px solid #565759;border-radius:5px;padding:4px 11px;font-size:11px;color:#D1D2D3}
+  .slack-btn.go{background:#007A5A;border-color:#007A5A;color:#fff}
+  .voice-mock{display:flex;flex-direction:column;gap:9px}
+  .v-line{display:flex;gap:10px;align-items:flex-start}
+  .v-line .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;min-width:44px;padding-top:4px;color:var(--faint);text-transform:uppercase}
+  .v-line p{margin:0;font-size:13px;background:var(--ink-3);border:1px solid var(--line);border-radius:10px;padding:8px 13px;color:var(--text)}
+  .v-line.user p{background:var(--dawn-soft);border-color:#3A4A6B}
+  .v-line.user .tag{color:var(--dawn)}
+  .v-line.ai .tag{color:var(--ember)}
+
+  /* flows */
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 4px 10px;margin-top:16px}
+  .fnode{min-width:150px;max-width:190px;background:var(--ink-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;flex:none}
+  .fnode .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;display:block}
+  .fnode.trig{border-color:#6B4A28}.fnode.trig .ft{color:var(--ember)}
+  .fnode.agent{border-color:#39517A}.fnode.agent .ft{color:var(--dawn)}
+  .fnode.data .ft{color:var(--faint)}
+  .fnode.surface{background:var(--ink-3);border-color:var(--line)}.fnode.surface .ft{color:var(--good)}
+  .fnode b{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+  .fnode span{font-size:11px;color:var(--muted);line-height:1.5;display:block}
+  .fnode .k{font-size:10px;margin-top:6px;display:inline-block}
+  .farrow{flex:none;display:flex;align-items:center;padding:0 4px;color:var(--faint)}
+  .farrow i{display:block;width:26px;height:1px;background:var(--faint);position:relative}
+  .farrow i::after{content:"";position:absolute;right:0;top:-3px;border-left:6px solid var(--faint);border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
+  .fstack{display:flex;flex-direction:column;gap:8px;flex:none;justify-content:center}
+  .fstack .fnode{min-width:150px}
+  .flow-title{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dawn);margin:40px 0 2px}
+  .flow-title b{color:var(--text);font-weight:600}
+  .flow-note{font-size:13.5px;color:var(--muted);max-width:68ch;margin:8px 0 0}
+
+  /* grounding table */
+  .tblwrap{overflow-x:auto;margin-top:22px;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:13.5px}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-align:left;padding:12px 16px;background:var(--ink-2);border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--text)}
+  tr:last-child td{border-bottom:0}
+  td .sub{color:var(--muted);font-size:12.5px;display:block;margin-top:3px}
+  .pill{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;border-radius:5px;padding:3px 8px;white-space:nowrap}
+  .pill.ship{background:rgba(95,191,138,.12);color:var(--good);border:1px solid rgba(95,191,138,.3)}
+  .pill.build{background:var(--ember-soft);color:var(--ember);border:1px solid rgba(232,135,60,.35)}
+
+  /* use cases */
+  .uc{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:20px 22px;display:flex;flex-direction:column;gap:8px}
+  .uc .when{font-family:var(--mono);font-size:11px;color:var(--ember);letter-spacing:.1em}
+  .uc h3{font-size:17px;margin:0}
+  .uc p{font-size:13.5px;color:var(--muted);margin:0}
+  .uc .via{font-size:11.5px;color:var(--faint);font-family:var(--mono);margin-top:4px}
+
+  /* phases */
+  .phase{display:grid;grid-template-columns:120px 1fr;gap:20px;padding:22px 0;border-bottom:1px solid var(--line)}
+  .phase:last-child{border-bottom:0}
+  .phase .pn{font-family:var(--mono);font-size:11px;color:var(--ember);letter-spacing:.14em;padding-top:4px}
+  .phase h3{font-size:18px;margin-bottom:6px}
+  .phase p{color:var(--muted);font-size:14px;margin:0}
+  .phase .ships{font-size:12px;color:var(--faint);font-family:var(--mono);margin-top:8px;line-height:1.9}
+
+  footer{margin-top:90px;padding-top:28px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  @media(prefers-reduced-motion:no-preference){
+    header.hero>*{animation:rise .7s cubic-bezier(.2,.7,.3,1) both}
+    header.hero>*:nth-child(2){animation-delay:.08s}
+    header.hero>*:nth-child(3){animation-delay:.16s}
+    header.hero>*:nth-child(4){animation-delay:.24s}
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Concept · engenty-pro · start page</p>
+  <h1>Daybreak.<br>The start page as chief&nbsp;of&nbsp;staff.</h1>
+  <p class="lede prose">You walk in at 7:15. The screen isn't a grid of empty widgets waiting for you to click — it's a <strong>briefing that was composed for you at 6:30</strong>: what needs your decision, what changed overnight, what's already prepared, and a conversation ready to continue. Think the perfect assistant from <em>The Devil Wears Prada</em>; think a chief of staff who worked the early shift.</p>
+  <div class="hero-meta">
+    <span><b>replaces</b> · legacy dashboard (retired) + per-module briefing pages</span>
+    <span><b>substrate</b> · generative-ui (json-render) · heartbeats · connections · pdf-service</span>
+    <span><b>surfaces</b> · web · mobile · voice · email/PDF · Slack/Teams</span>
+  </div>
+  <div class="thesis">
+    <p>A dashboard shows you the state of the system. A briefing tells you what to do about it — and has already done everything that didn't need you.</p>
+  </div>
+</header>
+
+<!-- ============ PRINCIPLES ============ -->
+<section>
+  <p class="eyebrow">01 · Stance</p>
+  <h2>Five principles</h2>
+  <div class="grid g3" style="margin-top:26px">
+    <div class="card"><span class="n">P1</span><h3>Composed, not configured</h3><p>Nobody arranges widgets. An agent composes the page each morning from what actually matters today — the layout is an output, not a setting. Generated UI via the json-render catalog, not hand-built dashboards.</p></div>
+    <div class="card"><span class="n">P2</span><h3>Decisions first</h3><p>The scarcest resource is the user's judgment. Everything that needs a human verdict is at the top, pre-worked: context gathered, draft written, one tap to approve, edit, or defer.</p></div>
+    <div class="card"><span class="n">P3</span><h3>Work happened overnight</h3><p>The briefing is the visible tip of autonomous work: inbox triaged, payments matched, drafts written, tenders scanned online. The page reports outcomes, and only escalates what policy says it must.</p></div>
+    <div class="card"><span class="n">P4</span><h3>It's a conversation</h3><p>Every element is an entry point into chat. Tap a metric, ask "why", say "push everything to tomorrow". The briefing is the first message of the day's session, not a separate app.</p></div>
+    <div class="card"><span class="n">P5</span><h3>One briefing, many bodies</h3><p>The same BriefingSpec renders interactive on web and mobile, spoken over voice, as a PNG/PDF in email or WhatsApp, as action cards in Slack. Reduced channels still act — "reply APPROVE 2041".</p></div>
+    <div class="card"><span class="n">P6</span><h3>Grounded &amp; fresh</h3><p>Not just internal state: the composition step checks the outside world — tender portals, news about counterparties, price lists — and folds what's relevant into the brief with sources.</p></div>
+  </div>
+</section>
+
+<!-- ============ MAIN MOCK ============ -->
+<section>
+  <p class="eyebrow">02 · The morning screen</p>
+  <h2>Web — 7:15 AM, first thing you see</h2>
+  <p class="prose dim">Default route after sign-in. Composed at 06:30 by the briefing agent on a per-user heartbeat; every card below is a json-render widget the agent chose to include — none of this layout is static.</p>
+
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">app.engenty.io/briefing</span></div>
+    <div class="frame-scroll">
+    <div class="mock">
+      <!-- icon rail -->
+      <div class="m-rail">
+        <div class="m-logo">e</div>
+        <div class="m-ic on" title="Briefing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="14" r="6"/><path d="M12 2v4M4.5 6.5l2 2M19.5 6.5l-2 2"/></svg></div>
+        <div class="m-ic" title="Chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg></div>
+        <div class="m-ic" title="Inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 6h14l2 7v5H3v-5z"/></svg><span class="m-badge">2</span></div>
+        <div class="m-ic" title="Tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l2 2 3-3M4 12l2 2 3-3M4 18l2 2 3-3M13 7h8M13 13h8M13 19h8"/></svg></div>
+        <div class="m-ic" title="Offers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span class="m-badge">1</span></div>
+        <div class="m-ic" title="Invoices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></div>
+        <div class="m-ic" title="Contacts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-5.5 8-5.5s6.5 1.5 8 5.5"/></svg></div>
+      </div>
+      <!-- main -->
+      <div class="m-main">
+        <div class="m-head">
+          <div>
+            <p class="m-hi">Good morning, Matthias.</p>
+            <p class="m-sub">Tuesday, July 7<span class="sep">·</span>Composed 06:30 from 6 sources<span class="sep">·</span><b style="color:var(--m-ember)">3 decisions</b> waiting<span class="sep">·</span>everything else is handled</p>
+          </div>
+          <div class="m-headbtns">
+            <span class="m-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg> Read it to me</span>
+            <span class="m-btn">Send as PDF</span>
+            <span class="m-av">MH</span>
+          </div>
+        </div>
+
+        <!-- decisions -->
+        <div>
+          <p class="m-sec-t">Needs your decision <em>— 3</em></p>
+          <div class="m-dec">
+            <div class="m-dcard">
+              <h4>Offer #2041 — Huber Bau GmbH · €18,400</h4>
+              <p class="why">Finalized overnight from your Thursday notes. Position 3 repriced after the supplier list update (+2.1%). PDF and cover mail are ready.</p>
+              <div class="src"><span class="m-chip hot">offers</span><span class="m-chip">gmail draft</span><span class="m-chip">pdf ready</span></div>
+              <div class="m-acts"><span class="m-btn ember">Approve &amp; send</span><span class="m-btn">Open draft</span><span class="m-btn ghost">Defer to 12:00</span></div>
+            </div>
+            <div class="m-dcard">
+              <h4>2nd reminder — Kranz GmbH · €9,800 · 24 days overdue</h4>
+              <p class="why">No payment since the June 26 reminder. Dunning letter drafted at level 2, tone firm; their AP contact changed — new address pulled from Friday's email.</p>
+              <div class="src"><span class="m-chip hot">invoices</span><span class="m-chip">dunning L2</span></div>
+              <div class="m-acts"><span class="m-btn ember">Approve &amp; send</span><span class="m-btn">Soften tone</span><span class="m-btn ghost">Skip this week</span></div>
+            </div>
+            <div class="m-dcard ask">
+              <h4>Reply to Stefan Maier (Slack) — commit to the Thursday deadline?</h4>
+              <p class="why">Stefan asked at 22:14 whether the ARGE submission holds. Draft answers yes, with one caveat on the statics annex. Sending needs your OK — write policy is <b>ask</b>.</p>
+              <div class="src"><span class="m-chip hot">slack</span><span class="m-chip">policy: ask</span></div>
+              <div class="m-acts"><span class="m-btn pri">Send reply</span><span class="m-btn">Edit</span><span class="m-btn ghost">Not now</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- digest + schedule -->
+        <div class="m-cols">
+          <div>
+            <p class="m-sec-t">While you were out</p>
+            <div class="m-panel">
+              <div class="m-dig"><time>06:12</time><p class="t"><b>Inbox</b> — 14 new, 2 need you. <span>Kranz dispute reply drafted; supplier price list parsed into offer #2041.</span></p><span class="m-open">Open →</span></div>
+              <div class="m-dig"><time>04:30</time><p class="t"><b>Payment received</b> — €7,200 from Böhm &amp; Partner. <span>Invoice 2025-118 auto-matched and closed.</span></p><span class="m-open">Open →</span></div>
+              <div class="m-dig"><time>23:40</time><p class="t"><b>#arge-tunnel</b> — escalation resolved. <span>Petra confirmed the statics report; no action left for you.</span></p><span class="m-open">Open →</span></div>
+              <div class="m-dig"><time>06:20</time><p class="t"><b>Watching the web</b> — Wien Holding published the Q3 tender calendar. <span>Two matches for your profile; flagged in Offers as leads.</span></p><span class="m-open">Open →</span></div>
+            </div>
+          </div>
+          <div>
+            <p class="m-sec-t">Today</p>
+            <div class="m-panel">
+              <div class="m-ev"><time>08:30</time><p class="t">Site call — Huber Bau <span>15 min · phone · offer #2041 context attached</span></p></div>
+              <div class="m-ev"><time>10:00</time><p class="t">ARGE weekly <span>Teams · talking points prepared below</span></p><span class="m-flag">overlaps 10:15</span></div>
+              <div class="m-ev"><time>10:15</time><p class="t">Bank callback — Raiffeisen <span>agent can move it to 11:30 — say the word</span></p></div>
+              <div class="m-ev"><time>14:00</time><p class="t">Focus block <span>held free — 2h 15m, no meetings accepted</span></p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- metrics -->
+        <div>
+          <p class="m-sec-t">The numbers that moved</p>
+          <div class="m-metrics">
+            <div class="m-met"><p class="l">Open pipeline</p><p class="v">€142.5k</p><p class="d up">+€18.4k this week</p><div class="m-spark"><i style="height:30%"></i><i style="height:40%"></i><i style="height:35%"></i><i style="height:55%"></i><i style="height:50%"></i><i style="height:70%"></i><i class="hi" style="height:90%"></i></div></div>
+            <div class="m-met"><p class="l">Overdue receivables</p><p class="v">€21.3k</p><p class="d bad">3 invoices · oldest 24 d</p><div class="m-spark"><i style="height:80%"></i><i style="height:75%"></i><i style="height:85%"></i><i style="height:70%"></i><i style="height:65%"></i><i style="height:60%"></i><i class="hi" style="height:55%"></i></div></div>
+            <div class="m-met"><p class="l">Due today</p><p class="v">5 tasks</p><p class="d dim">3 meetings · 2 deadlines</p><div class="m-spark"><i style="height:40%"></i><i style="height:60%"></i><i style="height:30%"></i><i style="height:50%"></i><i style="height:45%"></i><i style="height:75%"></i><i class="hi" style="height:60%"></i></div></div>
+            <div class="m-met"><p class="l">Handled without you</p><p class="v">11 items</p><p class="d up">triage · matching · drafts</p><div class="m-spark"><i style="height:20%"></i><i style="height:35%"></i><i style="height:45%"></i><i style="height:40%"></i><i style="height:65%"></i><i style="height:70%"></i><i class="hi" style="height:85%"></i></div></div>
+          </div>
+        </div>
+
+        <!-- prepared -->
+        <div>
+          <p class="m-sec-t">Prepared for you</p>
+          <div class="m-prep">
+            <div class="m-art"><span class="ft">PDF</span><div><b>Offer #2041 — Huber Bau</b><span>ready to send · 6 pages</span></div></div>
+            <div class="m-art"><span class="ft doc">DOC</span><div><b>Talking points — ARGE weekly</b><span>checked against this morning's tender news</span></div></div>
+            <div class="m-art"><span class="ft doc">TAB</span><div><b>Cash summary — week 28</b><span>receivables · payables · runway</span></div></div>
+          </div>
+        </div>
+
+        <!-- composer -->
+        <div class="m-composer">
+          <div class="m-sugs">
+            <span class="m-sug">Push everything non-urgent to tomorrow</span>
+            <span class="m-sug">Brief me on ARGE Tunnel before 10:00</span>
+            <span class="m-sug">What did Stefan need exactly?</span>
+            <span class="m-sug">Move the bank callback</span>
+          </div>
+          <div class="m-input">
+            <span>Ask, or tell me what to do…</span>
+            <div class="m-mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+  <p class="cap"><b>Anatomy:</b> decisions → digest &amp; schedule → moved numbers → prepared artifacts → conversation. Order encodes priority: judgment first, awareness second, ambient state last. Every card carries a <code>sendMessage</code> action from the generative-ui catalog — tap anything and the copilot opens scoped to it.</p>
+</section>
+
+<!-- ============ MOBILE + VOICE ============ -->
+<section>
+  <p class="eyebrow">03 · Pocket &amp; voice</p>
+  <h2>Same briefing, smaller bodies</h2>
+  <p class="prose dim">On mobile the decision queue becomes a swipeable stack — approve right, defer left, tap to talk. Voice is the same session over the realtime channel: the FAB and the phone mic drive identical frontend tools.</p>
+
+  <div class="devicerow">
+    <div class="phone"><div class="phone-scr">
+      <div class="p-status"><span>07:18</span><span>engenty</span><span>●●●</span></div>
+      <div class="p-body">
+        <div>
+          <p class="p-hi">Morning, Matthias.</p>
+          <p class="p-sub">3 decisions · 11 things handled overnight</p>
+        </div>
+        <div class="p-deck">
+          <div class="p-card">
+            <h5>Offer #2041 — Huber Bau · €18,400</h5>
+            <p>Repriced &amp; finalized overnight. PDF and cover mail ready to go.</p>
+            <div class="row"><span class="m-btn ember" style="font-size:11px;padding:5px 10px">Approve &amp; send</span><span class="m-btn" style="font-size:11px;padding:5px 10px">Later</span></div>
+          </div>
+          <div class="p-under"></div>
+          <div class="p-pips"><i class="on"></i><i></i><i></i></div>
+        </div>
+        <div class="m-panel p-dig">
+          <div class="m-dig"><time>04:30</time><p class="t"><b>€7,200 in</b> <span>— Böhm, matched &amp; closed</span></p></div>
+          <div class="m-dig"><time>06:12</time><p class="t"><b>Inbox triaged</b> <span>— 2 of 14 need you</span></p></div>
+          <div class="m-dig"><time>06:20</time><p class="t"><b>2 new tenders</b> <span>— match your profile</span></p></div>
+        </div>
+        <div class="p-voice">
+          <div class="m-mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/></svg></div>
+          <span>Hold to talk — "read me the short version"</span>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="chan" style="align-self:stretch;justify-content:center">
+      <h4>Voice — in the car, 07:40</h4>
+      <p class="note">The narration isn't text-to-speech of the page — the agent renders the same BriefingSpec into a spoken script, and voice commands hit the same decision tools with the same approval semantics.</p>
+      <div class="voice-mock">
+        <div class="v-line user"><span class="tag">You</span><p>Morning. Short version.</p></div>
+        <div class="v-line ai"><span class="tag">Agent</span><p>Two things need you. The Huber offer at eighteen-four is finalized — shall I send it? And Kranz is 24 days overdue; the second reminder is drafted.</p></div>
+        <div class="v-line user"><span class="tag">You</span><p>Send Huber. Hold Kranz until Friday.</p></div>
+        <div class="v-line ai"><span class="tag">Agent</span><p>Done — offer 2041 is out with the PDF attached. Kranz moves to Friday 9:00; I'll re-check payments before that. Stefan's Slack reply is still waiting — want to hear the draft?</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CLASSIC CHANNELS ============ -->
+<section>
+  <p class="eyebrow">04 · Classic channels</p>
+  <h2>The briefing travels</h2>
+  <p class="prose dim">The same spec renders to static bodies through pdf-service: a PNG/PDF for email and WhatsApp, action cards for Slack and Teams. Reduced channels keep agency — structured replies act, because the reply lands back in the same inbox pipeline the agent already triages.</p>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="chan">
+      <h4>Email / WhatsApp — rendered PNG + PDF</h4>
+      <div class="email-mock">
+        <div class="email-head">From <b>Daybreak — engenty</b> · Tue Jul 7, 06:31 · to matthias@engrd.at</div>
+        <div class="email-body">
+          <b style="font-family:Georgia,serif;font-size:14px">Your briefing — 3 decisions, 11 handled</b>
+          <div class="email-kpi"><span>Offer #2041 · Huber Bau</span><b>€18,400 · ready</b></div>
+          <div class="email-kpi"><span>Kranz GmbH · 24 d overdue</span><b>€9,800 · reminder drafted</b></div>
+          <div class="email-kpi"><span>Overnight payment in</span><b>€7,200 · matched</b></div>
+        </div>
+        <div class="email-foot">Reply APPROVE 2041 · DEFER KRANZ FRI · or just write back — I'll act on it.</div>
+      </div>
+      <p class="note">Full briefing attached as PDF (same template engine as offers/invoices). Reply keywords are conveniences; free-text replies work too.</p>
+    </div>
+    <div class="chan">
+      <h4>Slack / Teams — action cards</h4>
+      <div class="slack-mock">
+        <div class="who"><i></i><div><b>engenty</b> <span>APP · 06:31</span></div></div>
+        Morning briefing — 3 decisions waiting.
+        <div class="slack-attach"><b>Offer #2041 — Huber Bau · €18,400</b><span>Finalized overnight · PDF ready · cover mail drafted</span>
+          <div class="slack-btns"><span class="slack-btn go">Approve &amp; send</span><span class="slack-btn">Open</span><span class="slack-btn">Defer</span></div>
+        </div>
+        <div class="slack-attach"><b>Kranz GmbH — 2nd reminder · €9,800</b><span>24 days overdue · dunning level 2 drafted</span>
+          <div class="slack-btns"><span class="slack-btn go">Approve</span><span class="slack-btn">Soften</span><span class="slack-btn">Skip</span></div>
+        </div>
+      </div>
+      <p class="note">Buttons resolve through the same approval flow as the web cards — one decision queue, many remotes. Outbound goes through the Slack connector under its write policy.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FLOWS ============ -->
+<section>
+  <p class="eyebrow">05 · Flows</p>
+  <h2>How it works, end to end</h2>
+
+  <p class="flow-title"><b>A — Composition</b> · every morning, per user</p>
+  <div class="flow">
+    <div class="fnode trig"><span class="ft">Trigger</span><b>06:15 heartbeat</b><span>per-user, timezone-aware</span><code class="k">hb_briefing_{user}</code></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode agent"><span class="ft">Agent</span><b>Briefing agent</b><span>session on thread</span><code class="k">briefing:{tenant}:{user}</code></div>
+    <div class="farrow"><i></i></div>
+    <div class="fstack">
+      <div class="fnode data"><span class="ft">Modules</span><b>Briefing providers</b><span>tasks · projects · offers · invoices</span></div>
+      <div class="fnode data"><span class="ft">Inbox</span><b>module_inbox digest</b><span>overnight triage results</span></div>
+      <div class="fnode data"><span class="ft">Connections</span><b>Gmail · Calendar · Slack</b><span>read = allow · autonomous read_only</span></div>
+      <div class="fnode data"><span class="ft">Web</span><b>Fresh knowledge</b><span>tenders · counterparty news</span></div>
+    </div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode agent"><span class="ft">Output</span><b>BriefingSpec</b><span>json-render widget tree + narration script</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fstack">
+      <div class="fnode surface"><span class="ft">Web / Mobile</span><b>Interactive render</b></div>
+      <div class="fnode surface"><span class="ft">Voice</span><b>Spoken brief</b></div>
+      <div class="fnode surface"><span class="ft">Email / Slack</span><b>PNG · PDF · cards</b></div>
+    </div>
+  </div>
+  <p class="flow-note">The agent doesn't fill a fixed template — it selects, ranks, and drops sections. A quiet day is three lines and "nothing needs you"; a loud day leads with five decisions. Composition is cheap to re-run, so "refresh my briefing" mid-day is the same flow with a smaller window.</p>
+
+  <p class="flow-title"><b>B — Decision</b> · approve, edit, defer</p>
+  <div class="flow">
+    <div class="fnode surface"><span class="ft">Any surface</span><b>Decision card</b><span>web · phone · Slack button · voice "send it"</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode agent"><span class="ft">Queue</span><b>Decision record</b><span>one queue, resolved once, idempotent everywhere</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode agent"><span class="ft">Approvals</span><b>Suspend / resume</b><span>native tool approvals; grant written back</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode data"><span class="ft">Execute</span><b>Connector action</b><span>send Gmail · post Slack · under write policy</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode surface"><span class="ft">Close loop</span><b>Card → log line</b><span>badge drops · other surfaces update · "Defer" reschedules a trigger</span></div>
+  </div>
+  <p class="flow-note">"Defer to 12:00" is not a snooze on a notification — it creates a one-shot trigger that re-runs the decision's context first. If Kranz pays at 10:40, the deferred reminder dissolves itself and the noon briefing says so.</p>
+
+  <p class="flow-title"><b>C — Drill-in</b> · from glance to conversation</p>
+  <div class="flow">
+    <div class="fnode surface"><span class="ft">Widget</span><b>Tap "Overdue €21.3k"</b><span>catalog sendMessage action fires</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode agent"><span class="ft">Copilot</span><b>Scoped session</b><span>widget context + module tools attached</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode agent"><span class="ft">Answer</span><b>Generated detail view</b><span>table of the 3 invoices, aging, last contact</span></div>
+    <div class="farrow"><i></i></div>
+    <div class="fnode surface"><span class="ft">Act</span><b>"Chase all three"</b><span>drafts queue as new decision cards</span></div>
+  </div>
+  <p class="flow-note">The briefing page and the chat are one continuum: the page is the agent's opening message, rendered large. Drilling in never navigates away — it deepens the same session, and new decisions flow back into the same queue.</p>
+</section>
+
+<!-- ============ USE CASES ============ -->
+<section>
+  <p class="eyebrow">06 · Days in the life</p>
+  <h2>Use cases</h2>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="uc"><span class="when">TUE 07:15 · DESKTOP</span><h3>The office arrival</h3><p>The mock above. Three decisions, coffee still hot. By 07:25 the offer is out, Kranz is deferred, Stefan has his answer, and the 10:15 conflict is resolved by voice — "move the bank call."</p><p class="via">web · voice fab</p></div>
+    <div class="uc"><span class="when">FRI 06:30 · EMAIL</span><h3>Cash Friday</h3><p>Friday's briefing leads with money: who paid, who didn't, dunning drafts batched. One "approve all reminders" verdict clears four decisions; the cash summary PDF goes to the tax advisor unprompted.</p><p class="via">email + pdf · one-tap batch approval</p></div>
+    <div class="uc"><span class="when">MON 08:10 · CAR</span><h3>On the road</h3><p>No screen. "Read me the briefing" over voice; two decisions spoken and resolved. The WhatsApp PNG waits as backup at the destination — with reply keywords in case the connection drops.</p><p class="via">voice · whatsapp png</p></div>
+    <div class="uc"><span class="when">MON 09:00 · AFTER 10 DAYS OFF</span><h3>Back from vacation</h3><p>Not 400 unread emails — a catch-up brief layered by importance: 3 things that need you now, 6 threads that resolved themselves (with proof), the numbers' trajectory, and what the agent committed to in your name under standing policy.</p><p class="via">web · long-window composition</p></div>
+    <div class="uc"><span class="when">DAILY 17:30 · MOBILE</span><h3>The evening wrap</h3><p>The same engine, inverted: what closed today, what slipped to tomorrow, one decision that shouldn't wait for morning. Ends with tomorrow's first meeting and what will be prepared for it overnight.</p><p class="via">mobile · second heartbeat</p></div>
+    <div class="uc"><span class="when">ANY DAY 09:55 · TEAMS</span><h3>Five minutes before the meeting</h3><p>"Brief me on ARGE Tunnel" — an on-demand micro-briefing: last decisions, open items by owner, the overnight statics resolution, and this morning's tender news that changes the agenda. Rendered as a card pinned into the Teams meeting chat.</p><p class="via">on-demand · teams card</p></div>
+  </div>
+</section>
+
+<!-- ============ GROUNDING ============ -->
+<section>
+  <p class="eyebrow">07 · Grounding in engenty-pro</p>
+  <h2>Almost everything already exists</h2>
+  <p class="prose dim">This is the credibility check: each concept element mapped to what's shipped in the repo today versus what Daybreak adds. The gap is mostly composition and packaging — not new infrastructure.</p>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Concept element</th><th>Exists today</th><th>Daybreak adds</th></tr></thead>
+    <tbody>
+      <tr><td><b>Generated UI</b><span class="sub">agent-composed widgets</span></td><td><span class="pill ship">shipped</span> <code>packages/generative-ui</code> — json-render v0.19 + catalog (Metric, List, Card, Grid, Badge, sendMessage)</td><td>Briefing-grade widgets: DecisionCard, Digest, Timeline, Artifact. Persistable <b>BriefingSpec</b> on a thread.</td></tr>
+      <tr><td><b>Morning trigger</b><span class="sub">composed before you arrive</span></td><td><span class="pill ship">shipped</span> <code>apps/ai/src/scheduler</code> — heartbeat sync, system jobs, timezone-aware crons</td><td>Per-user <code>hb_briefing_*</code> heartbeats + evening wrap; on-demand recompose tool.</td></tr>
+      <tr><td><b>Section content</b><span class="sub">what goes in the brief</span></td><td><span class="pill ship">shipped</span> tasks/projects briefing services &amp; components (hero, focus, attention, waiting, forgotten)</td><td>A <b>briefing-provider contract</b> in the plugin SDK so every module feeds the composer instead of owning its own page.</td></tr>
+      <tr><td><b>Overnight awareness</b><span class="sub">"while you were out"</span></td><td><span class="pill ship">shipped</span> <code>module_inbox</code> sync engine + <code>inbox:{tenant}</code> notifications thread + useBadgeCount</td><td>Digest summarization per user; "handled without you" ledger.</td></tr>
+      <tr><td><b>External reach</b><span class="sub">email, calendar, Slack</span></td><td><span class="pill ship">shipped</span> connections framework — Google/MS/Slack, multi-account, allow/ask/deny/defer policies</td><td>Calendar read scope in the composer; <b>ask</b>-policy items surfaced as decision cards.</td></tr>
+      <tr><td><b>Decisions</b><span class="sub">approve / edit / defer</span></td><td><span class="pill ship">shipped</span> native approvals (tool suspend/resume, grants, "defer" policy)</td><td>A durable <b>decision queue</b> resolved once across surfaces; defer = one-shot trigger with context re-check.</td></tr>
+      <tr><td><b>Voice</b><span class="sub">spoken brief + commands</span></td><td><span class="pill ship">shipped</span> <code>packages/ai-ui</code> — realtime voice provider, CopilotVoiceFab, voice frontend tools</td><td>Narration script as a BriefingSpec render target; decision tools exposed to voice.</td></tr>
+      <tr><td><b>Classic channels</b><span class="sub">PNG / PDF / cards out</span></td><td><span class="pill ship">shipped</span> <code>pdf-service</code> + <code>pdf-templates</code> (offers/invoices flows, browser-verified)</td><td>Briefing PDF/PNG template; outbound send via Gmail/Slack connectors; reply-to-act parsing in the inbox pipeline.</td></tr>
+      <tr><td><b>Fresh knowledge</b><span class="sub">tenders, counterparty news</span></td><td><span class="pill ship">shipped</span> code-mode sandbox + web tooling in the AI plane</td><td>A bounded, cited web-check step in composition — sources shown on every external claim.</td></tr>
+      <tr><td><b>Start page slot</b><span class="sub">the default route</span></td><td><span class="pill ship">shipped</span> plugin routes + app-shell navigation; legacy dashboard already retired</td><td><span class="pill build">build</span> <code>modules/briefing</code> plugin claiming <code>ui.route.module.briefing</code> as post-login default.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ PHASING ============ -->
+<section>
+  <p class="eyebrow">08 · Path</p>
+  <h2>Four phases, each independently shippable</h2>
+  <div style="margin-top:20px">
+    <div class="phase"><span class="pn">PHASE 1</span><div><h3>One page</h3><p>New <code>modules/briefing</code> plugin. The composer agent pulls existing module briefing services + inbox digest on a morning heartbeat and emits a BriefingSpec rendered by generative-ui. Replaces the per-module briefing pages as the start route. No decisions yet — awareness only, but composed, ranked, and conversational.</p><p class="ships">ships: briefing-provider contract · hb_briefing heartbeat · BriefingSpec + 3 new catalog widgets · default route</p></div></div>
+    <div class="phase"><span class="pn">PHASE 2</span><div><h3>Decisions</h3><p>The decision queue: connections <b>ask</b>-policy items, approval-gated module actions, and agent-drafted work become cards with approve/edit/defer. Defer creates one-shot triggers that re-check context before resurfacing.</p><p class="ships">ships: decision store · approvals integration · defer-as-trigger · "handled without you" ledger</p></div></div>
+    <div class="phase"><span class="pn">PHASE 3</span><div><h3>Channels</h3><p>BriefingSpec → PDF/PNG via pdf-service; delivery through Gmail/Slack connectors under their write policies. Reply-to-act lands in the existing inbox pipeline. Slack/Teams action cards resolve against the same decision queue.</p><p class="ships">ships: briefing pdf template · outbound delivery · reply parsing · slack card actions</p></div></div>
+    <div class="phase"><span class="pn">PHASE 4</span><div><h3>Voice &amp; rhythm</h3><p>Narrated briefing over the realtime voice channel with decision tools; evening wrap heartbeat; on-demand micro-briefings ("brief me on X before the meeting"). The page stops being a morning event and becomes the day's cadence.</p><p class="ships">ships: narration render target · voice decision tools · evening heartbeat · scoped micro-briefs</p></div></div>
+  </div>
+</section>
+
+<!-- ============ OPEN QUESTIONS ============ -->
+<section>
+  <p class="eyebrow">09 · Honest edges</p>
+  <h2>Open questions worth deciding early</h2>
+  <div class="grid g2" style="margin-top:24px">
+    <div class="card"><h3>Trust ramp</h3><p>The "handled without you" ledger is the trust instrument — every autonomous act visible and reversible. But the default autonomy level per tenant (read-only vs. draft-everything) should be an explicit onboarding choice, not a config buried in connections.</p></div>
+    <div class="card"><h3>Tenant vs. user briefing</h3><p>The inbox thread is tenant-scoped; the briefing is personal. Composition needs a per-user view over tenant data — roles decide whose decisions land on whose page. A two-person shop wants overlap; a ten-person one wants routing.</p></div>
+    <div class="card"><h3>Cost of composition</h3><p>A full compose touches every module, three connectors, and the web — per user, per morning, in the tenant's AI-plane sandbox. Needs a budget: incremental since-last-brief windows, cached module summaries, and a cheap "quiet day" early exit.</p></div>
+    <div class="card"><h3>When the agent is wrong</h3><p>A briefing that misranks once is forgiven; one that buries a critical item loses the user. Every dropped-or-demoted item needs a "everything else" overflow view, and "why did you rank this here?" must always have an answer.</p></div>
+  </div>
+</section>
+
+<footer>
+  <span>daybreak — start page concept · engenty-pro</span>
+  <span>july 2026 · grounded against repo state, modules &amp; packages as shipped</span>
+</footer>
+
+</div>
