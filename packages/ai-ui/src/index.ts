@@ -120,7 +120,15 @@ export {
 } from "./copilot/use-copilot-thread-actions.js";
 export * from "./embed.js";
 // --- Tier 2: admin operator UI (plugin catalog + HTTP clients) ---
-export { AGENTS_WORKSPACE_ROOT_PATH } from "./features/agents-workspace/agent-workspace-url-state.js";
+export {
+  AGENTS_WORKSPACE_ROOT_PATH,
+  buildConnectionDetailPath,
+  CONNECTIONS_ROOT_PATH,
+} from "./features/agents-workspace/agent-workspace-url-state.js";
+// Shell nav for module-owned pages living under /admin/engenty (e.g. the
+// connections module's Connections page): same sidebar as the core pages.
+export { useAgentsWorkspaceShellNav } from "./features/agents-workspace/use-agents-workspace-shell-nav.js";
+export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-nav-data.js";
 export type {
   AiAdminSessionStats,
   AiRegisteredAgent,

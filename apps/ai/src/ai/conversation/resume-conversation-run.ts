@@ -23,6 +23,10 @@ import {
   markRunLive,
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
+import {
+  loadConnectionApprovalGrants,
+  mergeApprovalGrants,
+} from "../sessions/connection-approval-grants.js";
 import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import {
@@ -123,7 +127,12 @@ export async function resumeConversationRun(
     // operations skip the gate.
     const toolsRunContext = {
       ...getEngentyToolsRunContext(),
-      approvalGrants: readToolApprovalGrants(input.sessionMetadata ?? {}),
+      approvalGrants: mergeApprovalGrants(
+        readToolApprovalGrants(input.sessionMetadata ?? {}),
+        await loadConnectionApprovalGrants({
+          userAccessToken: input.scope.userAccessToken,
+        })
+      ),
       approvalPolicy: "suspend" as const,
       runId: input.newRunId,
       tenantId: input.scope.tenantId,

@@ -1,0 +1,174 @@
+// Connections page inside the /admin/engenty workspace: every connection the
+// caller can see (own personal + org-shared). Replaces the old standalone
+// /admin/connections page.
+
+import {
+  AGENTS_WORKSPACE_ROOT_PATH,
+  buildConnectionDetailPath,
+  CONNECTIONS_ROOT_PATH,
+  useAgentsWorkspaceShellNav,
+  useWorkspaceNavData,
+} from "@engenty/ai-ui";
+import { useTranslation } from "@engenty/i18n/ui";
+import {
+  Badge,
+  Card,
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@engenty/ui-core";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { useMemo } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import type {
+  CatalogConnection,
+  CatalogConnector,
+  ConnectionsCatalog,
+} from "../api.js";
+import { StatusBadge } from "../components/connection-panel.js";
+import { NewConnectionButton } from "../components/new-connection-button.js";
+import { useConnectionsCatalogQuery } from "../queries.js";
+import {
+  ConnectorIcon,
+  useConnectResultToast,
+} from "./connections-settings-page.js";
+
+/** Old /admin/connections URL → the workspace page. */
+export function LegacyConnectionsAdminRedirect() {
+  return <Navigate replace to={CONNECTIONS_ROOT_PATH} />;
+}
+
+export function ConnectionsWorkspacePage() {
+  const { t } = useTranslation("connections");
+  const { t: tAi } = useTranslation("ai-ui");
+  const nav = useWorkspaceNavData();
+  const shellNav = useAgentsWorkspaceShellNav({ ...nav, selectedAgentId: "" });
+  const catalogQuery = useConnectionsCatalogQuery();
+
+  useConnectResultToast();
+
+  usePageConfig({
+    actions: (
+      <NewConnectionButton
+        connectors={catalogQuery.data?.connectors ?? []}
+        redirectTo={CONNECTIONS_ROOT_PATH}
+      />
+    ),
+    breadcrumbs: [
+      { label: tAi("menu.engenty"), to: AGENTS_WORKSPACE_ROOT_PATH },
+      { label: t("admin.title") },
+    ],
+    contentStackBackground: "paper",
+    secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
+    secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+  });
+
+  const rows = useMemo(
+    () => collectConnections(catalogQuery.data),
+    [catalogQuery.data]
+  );
+
+  return (
+    <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
+      <div className="mx-auto w-full max-w-5xl space-y-3 pt-4">
+        <div>
+          <h2 className="font-semibold text-lg">{t("admin.listTitle")}</h2>
+          <p className="text-muted-foreground text-sm">
+            {t("admin.listDescription")}
+          </p>
+        </div>
+        {catalogQuery.isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : rows.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("admin.listEmpty")}</EmptyTitle>
+              <EmptyDescription>
+                {t("admin.listEmptyDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ConnectionsTable rows={rows} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+interface ConnectionRow {
+  connection: CatalogConnection;
+  connector: CatalogConnector;
+}
+
+function collectConnections(
+  catalog: ConnectionsCatalog | undefined
+): ConnectionRow[] {
+  if (!catalog) {
+    return [];
+  }
+  return catalog.connectors.flatMap((connector) =>
+    connector.connections.map((connection) => ({ connection, connector }))
+  );
+}
+
+function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
+  const { t } = useTranslation("connections");
+  const navigate = useNavigate();
+  return (
+    <Card className="space-y-0 overflow-x-auto" variant="settings">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("admin.listColumns.connector")}</TableHead>
+            <TableHead>{t("admin.listColumns.account")}</TableHead>
+            <TableHead>{t("sharing.label")}</TableHead>
+            <TableHead>{t("settings.autonomousMode")}</TableHead>
+            <TableHead>{t("admin.listColumns.status")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map(({ connection, connector }) => (
+            <TableRow
+              className="cursor-pointer"
+              key={connection.id}
+              onClick={() => navigate(buildConnectionDetailPath(connector.id))}
+            >
+              <TableCell>
+                <div className="flex items-center gap-2.5">
+                  <ConnectorIcon icon={connector.icon} />
+                  <span className="font-medium">{connector.name}</span>
+                </div>
+              </TableCell>
+              <TableCell className="max-w-[220px] truncate">
+                {connection.display_name ?? connection.external_account ?? (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">
+                  {t(`sharing.${connection.sharing}`)}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {t(`settings.autonomous.${connection.autonomous_mode}`)}
+              </TableCell>
+              <TableCell>
+                <StatusBadge connection={connection} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}

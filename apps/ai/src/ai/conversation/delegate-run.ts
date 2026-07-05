@@ -50,6 +50,10 @@ export interface RunDelegatedConversationInput {
   abortSignal?: AbortSignal;
   // Restrict the delegated agent to this tool allow list (Action guardrail).
   allowedToolIds?: string[];
+  // Gated-operation behavior for this leaf run. Default "deny" (in-chat
+  // delegation: suspending would deadlock the waiting parent). Task jobs pass
+  // "defer": core decides and records durable approval requests (connections).
+  approvalPolicy?: "deny" | "defer";
   brief: string;
   childAgentId: string;
   // Identity for the child run — the caller generates these so it can correlate the
@@ -169,7 +173,8 @@ export async function runDelegatedConversation(
       approvalGrants: [],
       // Leaf run — no interactive channel: a gated operation is denied with a
       // clear result instead of suspending (which would deadlock the parent).
-      approvalPolicy: "deny" as const,
+      // Task jobs override to "defer" so core records durable approval requests.
+      approvalPolicy: input.approvalPolicy ?? ("deny" as const),
       orchestratorThreadId: input.childThreadId,
       runId: input.childRunId,
       tenantId: input.scope.tenantId,

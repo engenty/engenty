@@ -21,6 +21,7 @@ import {
 } from "@engenty/ui-core";
 import {
   Bot,
+  Cable,
   FileTerminal,
   House,
   ListChecks,
@@ -46,12 +47,14 @@ import {
   buildActivityPath,
   buildAgentsCatalogPath,
   buildAgentsWorkspacePath,
+  buildConnectionsPath,
   buildSkillsCatalogPath,
   buildToolsPath,
   parseAgentSessionDetailFromPathname,
 } from "./agent-workspace-url-state";
 import { AgentsWorkspaceActionsPanel } from "./agents-workspace-actions-panel";
 import { AgentsWorkspaceAgentsPanel } from "./agents-workspace-agents-panel";
+import { AgentsWorkspaceConnectionsPanel } from "./agents-workspace-connections-panel";
 import { AgentsWorkspaceSessionsPanel } from "./agents-workspace-sessions-panel";
 import { SkillCatalogSidebarPanel } from "./skills-catalog-view";
 import { useAgentsWorkspaceSidebarState } from "./use-agents-workspace-sidebar-state";
@@ -193,6 +196,14 @@ export function AgentsWorkspaceSidebar({
               {t("workspace.sidebarTools")}
             </WorkspaceNavLinkRow>
             <WorkspaceNavLinkRow
+              Icon={Cable}
+              pathname={location.pathname}
+              search={location.search}
+              to={buildConnectionsPath()}
+            >
+              {t("workspace.sidebarConnections")}
+            </WorkspaceNavLinkRow>
+            <WorkspaceNavLinkRow
               Icon={MessagesSquare}
               pathname={location.pathname}
               search={location.search}
@@ -215,6 +226,9 @@ export function AgentsWorkspaceSidebar({
           <SidebarTab value="sessions">
             {t("workspace.sidebarSessions")}
           </SidebarTab>
+          <SidebarTab value="connections">
+            {t("workspace.sidebarConnections")}
+          </SidebarTab>
         </SidebarTabStrip>
       </SidebarHeader>
 
@@ -234,6 +248,8 @@ export function AgentsWorkspaceSidebar({
           onSelectAction={(id) => runNav(() => onSelectAction(id))}
           selectedActionId={selectedActionId}
         />
+      ) : primaryTab === "connections" ? (
+        <AgentsWorkspaceConnectionsPanel runNav={runNav} />
       ) : primaryTab === "agents" ? (
         <AgentsWorkspaceAgentsPanel
           agents={agents}

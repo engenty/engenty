@@ -1,0 +1,73 @@
+{
+  "title": "Inbox",
+  "menu": {
+    "inbox": "Inbox"
+  },
+  "actions": {
+    "archive": "Archive",
+    "markProcessed": "Mark processed",
+    "settings": "Settings",
+    "syncNow": "Sync now"
+  },
+  "filters": {
+    "allAccounts": "All accounts",
+    "org": "Org",
+    "personal": "Personal",
+    "searchPlaceholder": "Search messages…"
+  },
+  "lanes": {
+    "all": "All",
+    "new": "New",
+    "triaged": "Triaged",
+    "processed": "Processed",
+    "archived": "Archived"
+  },
+  "list": {
+    "next": "Next",
+    "noSubject": "(no subject)",
+    "pageInfo": "{{from}}–{{to}} of {{total}}",
+    "previous": "Previous"
+  },
+  "search": {
+    "noResults": "No messages match your search"
+  },
+  "empty": {
+    "title": "No messages",
+    "description": "Connect a mail account and run a sync to see messages here."
+  },
+  "thread": {
+    "attachment": "Attachment",
+    "cc": "Cc: {{cc}}",
+    "emptyBody": "This message has no body.",
+    "hideQuoted": "Hide quoted text",
+    "notFound": "Thread not found",
+    "showQuoted": "Show quoted text",
+    "to": "To: {{to}}"
+  },
+  "settings": {
+    "autonomousOff": "Background access is off for this connection — the inbox cannot sync it.",
+    "autonomousOffLink": "Change in connection settings",
+    "backfillDays": "Backfill window (days)",
+    "connectionsLink": "Manage connections",
+    "description": "Sync is per account. Consent and permissions live on the connection.",
+    "lastError": "Last sync error: {{error}}",
+    "lastSynced": "Last synced {{at}}",
+    "neverSynced": "Never synced",
+    "noAccounts": "No mail accounts connected",
+    "noAccountsDescription": "Connect a Google account under Settings → Connections first.",
+    "syncEnabled": "Sync",
+    "title": "Inbox settings"
+  },
+  "toasts": {
+    "settingsFailed": "Saving settings failed: {{error}}",
+    "status": {
+      "archived": "Thread archived",
+      "new": "Marked as new",
+      "processed": "Marked processed",
+      "triaged": "Marked triaged"
+    },
+    "statusFailed": "Updating status failed: {{error}}",
+    "syncDone": "Sync finished — {{count}} new message(s)",
+    "syncFailed": "Sync failed: {{error}}"
+  }
+}

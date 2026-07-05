@@ -19,4 +19,9 @@ export * from "./icons/TeamMembersIcon";
 export * from "./icons/TimeTrackingIcon";
 export * from "./icons/UsersIcon";
 export * from "./icons/VaultIcon";
+export {
+  CONNECTOR_LOGOS,
+  ConnectorLogoImg,
+  connectorLogoSvg,
+} from "./lib/connector-logos";
 export { dockBrandFill } from "./lib/dock-brand-fills";

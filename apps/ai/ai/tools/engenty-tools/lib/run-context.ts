@@ -13,8 +13,14 @@ import type { ToolExecutionContext } from "@mastra/core/tools";
  *   realtime-voice path uses this: it executes tools outside a Mastra run (no
  *   suspend available) and drives its own approve flow over the artifact.
  * Default when absent: `"deny"` (fail-safe for unknown headless contexts).
+ *
+ * `"defer"` (headless task jobs): skip the AI-side pre-gate and let core — the
+ * authoritative policy engine — decide. Core's 202 `approval_required` comes
+ * back as a structured `approval_pending` tool result (a durable approval
+ * request may have been recorded, e.g. by the connections module), so the
+ * agent can report the block instead of silently failing.
  */
-export type EngentyToolApprovalPolicy = "suspend" | "deny" | "artifact";
+export type EngentyToolApprovalPolicy = "suspend" | "deny" | "artifact" | "defer";
 
 export interface EngentyToolsRunContext {
   // Operation ids the user approved for this chat (Phase 3.2c). The execute tool

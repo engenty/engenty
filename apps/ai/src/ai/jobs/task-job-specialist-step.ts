@@ -38,6 +38,9 @@ export const runSpecialistStep = createStep({
     });
 
     const result = await runDelegatedConversation({
+      // Headless task job: gated operations go through to core, which records
+      // durable approval requests (connections) instead of a client-side deny.
+      approvalPolicy: "defer",
       brief: inputData.brief ?? "",
       childAgentId: inputData.agent_type_key,
       childRunId: runId,

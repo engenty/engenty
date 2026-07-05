@@ -22,7 +22,7 @@ Default guide for contributors and coding agents in this repository.
 | `apps/ai` | Agent runtime (Mastra + AG-UI) |
 | `apps/docs` | Documentation site (Fumadocs) |
 | `packages/*` | Shared libraries (`ui-core`, `plugin-sdk`, `ai-core`, …) |
-| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, contacts, engenty-coordinator, engenty-copilot, knowledge-base, projects, tasks, team, time-tracking) |
+| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, connections-google, connections-microsoft, connections-slack, contacts, engenty-coordinator, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking) |
 
 Core apps and packages must not depend on optional modules — use plugin hooks, events, and gateway methods instead.
 
@@ -65,7 +65,7 @@ Default dev URL: `http://localhost:5173` (Vite proxies `/api` and `/ai`). Portle
 
 ## Module contract
 
-**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": { "source": "workspace" } }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install|uninstall`** updates the manifest and runs setup; do **not** hand-edit `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules.
+**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": { "source": "workspace" } }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install <slug>`** is the only sanctioned way to activate a module: it adds the `engenty.plugins` entry **and** runs `engenty setup` (supabase compose → `config.toml` exposed schemas + buckets, migration aggregation, UI catalog gen, `apps/ui` dep sync) + `pnpm install`. Add `--db-migrate --db-restart` to also apply migrations locally. Do **not** hand-edit the `engenty.plugins` map, `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules. **Gotcha:** if the slug is already in `engenty.plugins`, `install` early-returns and **skips setup** — so a hand-added entry leaves setup un-run; back the entry out and re-run `install` to repair. (Modules with UI are loaded via the generated catalog's dynamic `import()` through pnpm root symlinks — they are correctly **absent** from `apps/ui/package.json` deps.)
 
 | Layer | Committed? | Who sets it |
 |-------|------------|-------------|

@@ -1,0 +1,18 @@
+{
+  "id": "inbox",
+  "name": "Inbox",
+  "description": "Synced email inbox over connected mail accounts (connections framework)",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.inbox",
+    "module.inbox.read",
+    "module.inbox.write",
+    "ui.route.module.inbox"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false
+  }
+}

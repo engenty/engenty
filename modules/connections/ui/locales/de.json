@@ -1,0 +1,128 @@
+{
+  "menu": {
+    "connections": "Verbindungen"
+  },
+  "breadcrumb": {
+    "settings": "Einstellungen",
+    "connections": "Verbindungen"
+  },
+  "catalog": {
+    "connected": "Verbunden",
+    "connectedAs": "Verbunden als {{account}}",
+    "notConnected": "Nicht verbunden",
+    "manage": "Verwalten",
+    "connect": "Verbinden",
+    "addAccount": "Konto hinzufügen",
+    "connectPersonal": "Verbinden (persönlich)",
+    "connectOrg": "Für Organisation verbinden",
+    "connecting": "Verbinde…",
+    "empty": "Keine Konnektoren verfügbar",
+    "emptyDescription": "Installieren Sie ein Konnektor-Modul (Google, Microsoft, Slack, …), um externe Dienste zu verbinden."
+  },
+  "toasts": {
+    "connected": "Verbindung hergestellt.",
+    "connectFailed": "Verbinden fehlgeschlagen: {{error}}",
+    "connectStartFailed": "Der Verbindungsvorgang konnte nicht gestartet werden: {{error}}",
+    "settingsSaved": "Verbindungseinstellungen gespeichert.",
+    "settingsSaveFailed": "Speichern der Verbindungseinstellungen fehlgeschlagen: {{error}}",
+    "policySaved": "Berechtigung aktualisiert.",
+    "policySaveFailed": "Aktualisieren der Berechtigung fehlgeschlagen: {{error}}",
+    "disconnected": "Verbindung entfernt.",
+    "disconnectFailed": "Trennen fehlgeschlagen: {{error}}",
+    "approvalDecided": "Anfrage {{decision}}.",
+    "approvalDecideFailed": "Entscheidung fehlgeschlagen: {{error}}"
+  },
+  "status": {
+    "active": "Verbunden",
+    "error": "Fehler",
+    "revoked": "Widerrufen"
+  },
+  "sharing": {
+    "label": "Freigabe",
+    "personal": "Persönlich",
+    "org": "Organisation",
+    "orgBadge": "Org"
+  },
+  "policy": {
+    "allow": "Immer erlauben",
+    "ask": "Zuerst fragen",
+    "deny": "Verweigern"
+  },
+  "matrix": {
+    "title": "Tool-Berechtigungen",
+    "description": "Steuern Sie, was verbundene Tools tun dürfen. \"Zuerst fragen\" erfordert Ihre Freigabe vor jeder Verwendung.",
+    "groups": {
+      "read": "Nur-Lese-Tools",
+      "write": "Schreib-Tools",
+      "destructive": "Destruktive Tools"
+    },
+    "customBadge": "Angepasst",
+    "reset": "Auf Vererbung zurücksetzen",
+    "noActions": "Dieser Konnektor stellt noch keine Tools bereit.",
+    "readOnlyNotice": "Sie können diese geteilte Verbindung verwenden, aber nur ihr Besitzer oder ein Admin kann Berechtigungen ändern."
+  },
+  "settings": {
+    "title": "Verbindungseinstellungen",
+    "displayName": "Anzeigename",
+    "displayNamePlaceholder": "Optionale Bezeichnung für diese Verbindung",
+    "account": "Konto",
+    "autonomousMode": "Autonome Nutzung",
+    "autonomousModeHelp": "Was Agenten mit dieser Verbindung tun dürfen, wenn Sie nicht anwesend sind (geplante Aufgaben, Trigger).",
+    "autonomous": {
+      "off": "Aus",
+      "read_only": "Nur lesen",
+      "full": "Vollzugriff"
+    },
+    "nonOwnerMaxGroup": "Limit für andere Mitglieder",
+    "nonOwnerMaxGroupHelp": "Begrenzen Sie, was andere Mitglieder der Organisation mit dieser Verbindung tun dürfen.",
+    "nonOwnerCap": {
+      "none": "Keine Begrenzung",
+      "read": "Nur-Lese-Tools",
+      "write": "Bis Schreib-Tools",
+      "destructive": "Alle Tools"
+    },
+    "disconnect": "Trennen",
+    "disconnectTitle": "{{name}} trennen?",
+    "disconnectDescription": "Die gespeicherten Tokens werden zerstört und Agenten verlieren sofort den Zugriff. Sie können jederzeit neu verbinden.",
+    "disconnectConfirm": "Trennen",
+    "disconnecting": "Trenne…",
+    "cancel": "Abbrechen"
+  },
+  "detail": {
+    "notFound": "Unbekannter Konnektor",
+    "notFoundDescription": "Dieser Konnektor ist nicht installiert oder wurde entfernt.",
+    "backToList": "Zurück zu Verbindungen",
+    "noConnection": "Noch nicht verbunden",
+    "noConnectionDescription": "Verbinden Sie {{name}}, um Tool-Berechtigungen zu konfigurieren.",
+    "connectionError": "Verbindungsfehler: {{error}}"
+  },
+  "admin": {
+    "title": "Verbindungen",
+    "newConnection": "Neue Verbindung",
+    "listTitle": "Alle Verbindungen",
+    "listDescription": "Alle sichtbaren Verbindungen: Ihre persönlichen Konten und die der Organisation.",
+    "listEmpty": "Noch keine Verbindungen",
+    "listEmptyDescription": "Verbinden Sie einen Dienst unter Einstellungen → Verbindungen, um ihn hier zu sehen.",
+    "listColumns": {
+      "connector": "Dienst",
+      "account": "Konto",
+      "status": "Status"
+    },
+    "approvalsTitle": "Ausstehende Freigaben",
+    "approvalsDescription": "Anfragen aus autonomen Läufen, die auf eine \"Zuerst fragen\"-Berechtigung gestoßen sind.",
+    "approvalsEmpty": "Keine ausstehenden Anfragen",
+    "approvalsEmptyDescription": "Freigabe-Anfragen aus autonomen Läufen erscheinen hier.",
+    "columns": {
+      "operation": "Operation",
+      "connection": "Verbindung",
+      "requestedBy": "Angefragt von",
+      "requestedAt": "Angefragt",
+      "actions": "Aktionen"
+    },
+    "approve": "Freigeben",
+    "approveAlways": "Immer freigeben",
+    "deny": "Ablehnen",
+    "approved": "freigegeben",
+    "denied": "abgelehnt"
+  }
+}

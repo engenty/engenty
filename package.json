@@ -9,6 +9,18 @@
       "company-profile": {
         "source": "workspace"
       },
+      "connections": {
+        "source": "workspace"
+      },
+      "connections-google": {
+        "source": "workspace"
+      },
+      "connections-microsoft": {
+        "source": "workspace"
+      },
+      "connections-slack": {
+        "source": "workspace"
+      },
       "contacts": {
         "source": "workspace"
       },
@@ -21,13 +33,16 @@
       "files": {
         "source": "workspace"
       },
+      "inbox": {
+        "source": "workspace"
+      },
       "knowledge-base": {
         "source": "workspace"
       },
-      "tasks": {
+      "projects": {
         "source": "workspace"
       },
-      "projects": {
+      "tasks": {
         "source": "workspace"
       },
       "team": {
