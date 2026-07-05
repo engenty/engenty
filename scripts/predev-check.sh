@@ -26,6 +26,29 @@ runtime_app() {
   esac
 }
 
+# The Docker CLI context each runtime registers. Pinning it makes the choice
+# authoritative for EVERY tool that follows ~/.docker/config.json — not just
+# `pnpm dev`, but `pnpm supabase`, `db:*`, snapshots, and bare `docker` too.
+runtime_context() {
+  case "$1" in
+    docker-desktop) echo "desktop-linux" ;;
+    orbstack)       echo "orbstack" ;;
+    dory)           echo "dory" ;;
+    *)              echo "" ;;
+  esac
+}
+
+# Best-effort switch of the global Docker context to the chosen runtime.
+select_runtime_context() {
+  local ctx
+  ctx="$(runtime_context "$1")"
+  [[ -z "$ctx" ]] && return 0
+  # Only switch if the context exists (the app registers it once it has run).
+  if docker context inspect "$ctx" >/dev/null 2>&1; then
+    docker context use "$ctx" >/dev/null 2>&1 || true
+  fi
+}
+
 # The persisted choice lives in package.json under engenty.containerRuntime.
 read_runtime_choice() {
   node -e "try{process.stdout.write(require('${ROOT}/package.json').engenty?.containerRuntime||'')}catch(e){}" 2>/dev/null
@@ -91,11 +114,10 @@ ensure_docker() {
   label="$(runtime_label "$runtime")"
   app="$(runtime_app "$runtime")"
 
-  # Dory exposes the Docker API on its own context; select it so `docker info`
-  # (and everything downstream) talks to the right daemon.
-  if [[ "$runtime" == "dory" ]]; then
-    docker context use dory >/dev/null 2>&1 || true
-  fi
+  # Pin the CLI context so `docker info` here — and every other script that
+  # follows ~/.docker/config.json (pnpm supabase, db:*, snapshots) — talks to
+  # the chosen daemon rather than whatever happened to be active last.
+  select_runtime_context "$runtime"
 
   if docker info >/dev/null 2>&1; then
     return 0
@@ -105,9 +127,8 @@ ensure_docker() {
     echo "Docker daemon not reachable — starting ${label}..." >&2
     open -a "$app" >/dev/null 2>&1 || true
     for i in $(seq 1 120); do
-      if [[ "$runtime" == "dory" ]]; then
-        docker context use dory >/dev/null 2>&1 || true
-      fi
+      # The context may only register after the app's first boot — retry it.
+      select_runtime_context "$runtime"
       if docker info >/dev/null 2>&1; then
         echo "${label} is ready." >&2
         return 0
