@@ -119,7 +119,10 @@ describe("registerOffersApi", () => {
       "offers_list",
       "offers_replace_blocks",
       "offers_set_status",
+      "offers_settings_get",
+      "offers_settings_set",
       "offers_update",
+      "offers_update_blocks",
     ]);
 
     const create = serverOperations.find(
