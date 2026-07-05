@@ -245,8 +245,9 @@ export function pruneStaleUiPluginContributionsData(
     data.contributions.dashboardWidgets,
     pluginId
   );
+  // `?? []`: cached query data may predate this contribution kind.
   const backgroundComponents = removePluginOwnedItems(
-    data.contributions.backgroundComponents,
+    data.contributions.backgroundComponents ?? [],
     pluginId
   );
   const developmentPanels = removePluginOwnedItems(
