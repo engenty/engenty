@@ -494,7 +494,11 @@ export function OfferEditPage() {
           input && typeof input === "object" && !Array.isArray(input)
             ? input
             : {};
-        const rawBlocks = Array.isArray(record.blocks) ? record.blocks : [];
+        // Widen from JsonValue: type predicates aren't assignable on the
+        // JsonValue union, so hop through unknown[] for the narrowing.
+        const rawBlocks: unknown[] = Array.isArray(record.blocks)
+          ? (record.blocks as unknown[])
+          : [];
         // Agents send the operation/skill shape ({type, content_json,
         // order_index, id?}); the editor works on CommercialBlock ({content},
         // id required). Storing the raw payload verbatim renders blank blocks
