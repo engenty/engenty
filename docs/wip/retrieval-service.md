@@ -467,6 +467,20 @@ synced/deleted. Data migration + drop `message_embeddings` + hybrid RPC parts.
 Gate: existing inbox provider tests port to source-level tests; hybrid smoke on dev
 mail (semantic question returns fts=0/vector≥thresh match).
 
+**Phase 3 status: DONE 2026-07-05.** `feat/inbox-hybrid-search` merged, source
+registered (splitter `none`, owner visibility, connection/status metadata,
+synced/updated/deleted events — `updated` re-ingests because status is
+filterable metadata). 200 embeddings SQL-copied + 98 backfilled live (298/298
+current); `message_embeddings` + `search_messages` dropped; provider internals
+deleted. Smoke: "Gab es einen Ausfall oder Probleme mit der Infrastruktur?" →
+three "Server Down" threads, all pure-semantic (fts=0). Findings:
+- `listIndexedDocs` now pages per (tenant, source) — passing hundreds of doc
+  ids through PostgREST `in()` blows the URI limit (hit at 298 messages).
+- Inbox `vectorThreshold` lowered 0.62 → 0.45 (measured: question-style
+  queries hit relevant mail at ~0.47–0.50 cosine; the v2 guess hid them).
+- `core_workspace_search` now fuses both sources; multi-source results carry
+  `source_type` per match (single-source requests still hydrate module shapes).
+
 ### Phase 4 — contacts
 Source: splitter `none` (doc = `buildContactSearchDocument`), `p_use_trigram`,
 role/type via metadata filters + postRank role boost. Gate: quick-search UX parity

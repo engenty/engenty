@@ -131,31 +131,39 @@ export function createRetrievalStore(supabase: SupabaseClient) {
     }
   }
 
+  // Paged full scan per (tenant, source) — passing thousands of doc ids
+  // through a PostgREST `in()` filter blows the URI limit (hit live with
+  // 298 inbox messages). Callers intersect with their own source window.
   async function listIndexedDocs(
     tenantId: string,
-    sourceType: string,
-    docIds?: string[]
+    sourceType: string
   ): Promise<Map<string, IndexedDocState>> {
-    let query = documents()
-      .select("doc_id, content_updated_at, indexed_at")
-      .eq("tenant_id", tenantId)
-      .eq("source_type", sourceType);
-    if (docIds) {
-      query = query.in("doc_id", docIds.length === 0 ? [""] : docIds);
-    }
-    const { data, error } = await query;
-    if (error) {
-      throw new Error(
-        `Failed to list indexed documents for ${sourceType}: ${error.message}`
-      );
-    }
+    const PAGE = 1000;
+    const MAX_PAGES = 20;
     const map = new Map<string, IndexedDocState>();
-    for (const row of (data ?? []) as IndexedDocState[]) {
-      map.set(String(row.doc_id), {
-        content_updated_at: String(row.content_updated_at),
-        doc_id: String(row.doc_id),
-        indexed_at: String(row.indexed_at),
-      });
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { data, error } = await documents()
+        .select("doc_id, content_updated_at, indexed_at")
+        .eq("tenant_id", tenantId)
+        .eq("source_type", sourceType)
+        .order("doc_id", { ascending: true })
+        .range(page * PAGE, (page + 1) * PAGE - 1);
+      if (error) {
+        throw new Error(
+          `Failed to list indexed documents for ${sourceType}: ${error.message}`
+        );
+      }
+      const rows = (data ?? []) as IndexedDocState[];
+      for (const row of rows) {
+        map.set(String(row.doc_id), {
+          content_updated_at: String(row.content_updated_at),
+          doc_id: String(row.doc_id),
+          indexed_at: String(row.indexed_at),
+        });
+      }
+      if (rows.length < PAGE) {
+        break;
+      }
     }
     return map;
   }

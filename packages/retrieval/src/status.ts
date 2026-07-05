@@ -37,11 +37,7 @@ export async function scanIndexState(
     limit: MAX_STATUS_SCAN,
     tenant_id: trimmed,
   });
-  const indexed = await store.listIndexedDocs(
-    trimmed,
-    source.source_type,
-    sourceRows.map((row) => row.doc_id)
-  );
+  const indexed = await store.listIndexedDocs(trimmed, source.source_type);
   let current = 0;
   let stale = 0;
   let missing = 0;

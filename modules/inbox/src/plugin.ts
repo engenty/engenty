@@ -10,7 +10,7 @@ import type {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerInboxGatewayMethods } from "./api/gateway-methods.js";
 import type { EmitInboxEvent } from "./dal/contracts.js";
-import { createInboxSearchIndexProvider } from "./dal/inbox-search-index-provider.js";
+import { createInboxRetrievalSource } from "./dal/inbox-retrieval-source.js";
 import { createInboxRepoSupabase } from "./dal/supabase.js";
 
 type InboxEntityPayload = EntityEventPayload<"message_id">;
@@ -35,37 +35,19 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     );
   };
 
-  const searchProvider = createInboxSearchIndexProvider({ supabase });
-  // Auto-tool `inbox_message_search`, hybrid FTS + vector. `synced` drives the
-  // embedding upsert (`updated` fires only on status changes, which don't
-  // touch the document text — no re-embed); `deleted` clears the row (the FK
-  // cascade covers hard deletes, the binding covers soft removal paths).
-  server.registerSearchIndexProvider(searchProvider, {
-    capabilities: searchProvider.capabilities,
-    entityName: "message",
-    moduleId: "inbox",
-    onEvents: [
-      {
-        action: "replace",
-        docId: (payload) =>
-          (payload as InboxEntityPayload).message_id ?? null,
-        name: "inbox.message.synced",
-      },
-      {
-        action: "delete",
-        docId: (payload) =>
-          (payload as InboxEntityPayload).message_id ?? null,
-        name: "inbox.message.deleted",
-      },
-    ],
-    operationOverrides: {
-      idempotent: true,
-      requiredCapabilities: ["module.inbox.read"],
-      riskLevel: "low",
-      summary:
-        "Search synced inbox messages by sender, subject, body text, or natural-language question (hybrid lexical + semantic, local store — no provider quota)",
-    },
-  });
+  // `inbox.message` is a managed retrieval source (retrieval-service
+  // Phase 3): the central service owns embeddings/fusion/backfill; the
+  // module supplies the mail document builder, owner visibility, and
+  // connection/status filters. The host manufactures the provider and
+  // synthesizes the unchanged `inbox_message_search` tool. Events: `synced`
+  // and `updated` re-ingest (status is filterable metadata), `deleted`
+  // clears the row.
+  if (!server.registerRetrievalSource) {
+    throw new Error(
+      "Inbox module requires a host with the central retrieval service"
+    );
+  }
+  server.registerRetrievalSource(createInboxRetrievalSource({ supabase }));
 
   const connectionsClient = createConnectionsModuleClient(supabase, {
     moduleId: "inbox",

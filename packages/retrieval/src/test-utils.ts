@@ -70,6 +70,7 @@ export function createFakeSupabase(options?: {
       "gte",
       "order",
       "limit",
+      "range",
       "delete",
       "upsert",
     ]) {

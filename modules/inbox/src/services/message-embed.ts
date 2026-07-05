@@ -1,11 +1,8 @@
 import type { InboxMessage } from "../schema/types.js";
 
-// Per-document embedding model is owned by the inbox SearchIndexProvider
-// (see `dal/inbox-search-index-provider.ts`). This module only owns the
-// canonical document-text builder, shared by the provider's re-index path,
-// backfill, and inspection tooling.
-
-export const DEFAULT_INBOX_EMBEDDING_MODEL = "openai/text-embedding-3-small";
+// Canonical inbox document-text builder, consumed by the `inbox.message`
+// retrieval source (`dal/inbox-retrieval-source.ts`) — the central service
+// embeds whatever this produces (platform-default model).
 
 // One vector per message: the document must fit the embedding model's input
 // window (text-embedding-3-small: 8191 tokens). Header lines are short, so
