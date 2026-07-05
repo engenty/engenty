@@ -38,6 +38,30 @@ function makePluginApi() {
         operations.push(operation);
         return { dispose: async () => {} };
       },
+      getRetrievalService: () => ({
+        getProvider: () => ({
+          capabilities: { hybrid: true, lexical: true, semantic: true },
+          id: "kb.article",
+          search: async () => ({ results: [], total: 0 }),
+        }),
+      }),
+      registerRetrievalSource: (registration: {
+        module_id: string;
+        operation: { entityName: string };
+      }) => {
+        // Mirrors the loader: a managed source synthesizes the same search
+        // op a hand-rolled provider registration would.
+        const operationId =
+          `${registration.module_id}_${registration.operation.entityName}_search`
+            .replace(/[^a-zA-Z0-9_]+/g, "_")
+            .replace(/^_+|_+$/g, "");
+        operations.push({
+          operationId,
+          summary: "synthesized",
+          handler: async () => ({}),
+        } as unknown as PluginServerOperation);
+        return { dispose: async () => {} };
+      },
       registerSearchIndexProvider: (
         _provider: unknown,
         opts: { entityName?: string; moduleId?: string }

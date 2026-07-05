@@ -7,7 +7,7 @@
 import type { PluginAuthContext, PluginEventsApi } from "@engenty/plugin-sdk";
 import { registerKbAiGatewayMethods } from "../../ai/tools/kb-ai-gateway-methods.js";
 import type { KbRepoFactoryFn } from "../dal/contracts.js";
-import type { KbArticlesSearchProvider } from "../dal/kb-articles-search-index-provider.js";
+import type { KbArticlesSearchProvider } from "../dal/kb-retrieval-source.js";
 import type { KbServerApi } from "./kb-api-shared.js";
 import { registerKbArticleRoutes } from "./kb-articles-routes.js";
 import { registerKbAttachmentAndFaqRoutes } from "./kb-attachments-faqs-routes.js";

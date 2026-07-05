@@ -35,7 +35,7 @@ import {
   sanitizeInput,
   sanitizePartialPatch,
 } from "./contact-mappers.js";
-import type { ContactsSearchProvider } from "./contacts-search-index-provider.js";
+import type { ContactsSearchProvider } from "./contacts-retrieval-source.js";
 import type { ContactRepo } from "./contracts.js";
 
 export type ContactRepoSupabase = ContactRepo;

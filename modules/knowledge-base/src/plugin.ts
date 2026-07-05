@@ -16,9 +16,10 @@ import type {
   EmitKbEvent,
 } from "./dal/contracts.js";
 import {
-  createKbArticlesSearchIndexProvider,
+  createKbRetrievalSource,
+  KB_ARTICLE_SOURCE_TYPE,
   type KbArticlesSearchProvider,
-} from "./dal/kb-articles-search-index-provider.js";
+} from "./dal/kb-retrieval-source.js";
 import { createKbRepoFactory } from "./dal/supabase.js";
 import { kbArticlesSearchFiltersSchema } from "./schema/zod.js";
 import {
@@ -100,52 +101,31 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
       emitKbEvent,
     });
 
-  const searchProvider: KbArticlesSearchProvider =
-    createKbArticlesSearchIndexProvider({
-      supabase,
-      resolveRepos: (tenantId, scopeId) => {
-        const repos = repoFactory(tenantId, scopeId);
-        return {
-          articles: repos.articles,
-          kb: repos.kb,
-          settings: repos.settings,
-        };
-      },
-    });
-
-  // Auto-tool `knowledge_base_article_search`, declarative re-index from
-  // `knowledge-base.article.{created,updated,deleted}`, and admin
-  // status/backfill at `/api/search-index/providers/kb.article/*`.
-  server.registerSearchIndexProvider(searchProvider, {
-    capabilities: searchProvider.capabilities,
-    entityName: "article",
-    filtersSchema: kbArticlesSearchFiltersSchema,
-    moduleId: "knowledge-base",
-    onEvents: [
-      {
-        action: "replace",
-        docId: (p) => (p as ArticleEntityPayload).article_id ?? null,
-        name: "knowledge-base.article.created",
-      },
-      {
-        action: "replace",
-        docId: (p) => (p as ArticleEntityPayload).article_id ?? null,
-        name: "knowledge-base.article.updated",
-      },
-      {
-        action: "delete",
-        docId: (p) => (p as ArticleEntityPayload).article_id ?? null,
-        name: "knowledge-base.article.deleted",
-      },
-    ],
-    operationOverrides: {
-      idempotent: true,
-      requiredCapabilities: ["module.knowledge-base.read"],
-      riskLevel: "low",
-      summary:
-        'Search Knowledge Base articles (omit kb_id to fan out across every accessible KB). Use strategy: "lexical" for cheap BM25/FTS-only suggest.',
-    },
+  // `kb.article` is a managed retrieval source (retrieval-service Phase 2):
+  // the central service owns chunks/embeddings/fusion; this module supplies
+  // the document builder, per-tenant chunking + model, the lexical fast
+  // path, the verifier evaluator, and hydration. The host manufactures the
+  // provider, synthesizes `knowledge_base_article_search`, binds the
+  // article events, and serves `/api/search-index/providers/kb.article/*`.
+  if (!server.registerRetrievalSource || !server.getRetrievalService) {
+    throw new Error(
+      "Knowledge-base requires a host with the central retrieval service"
+    );
+  }
+  const kbSource = createKbRetrievalSource({
+    supabase,
+    resolveRepos: (tenantId, scopeId) => ({
+      settings: repoFactory(tenantId, scopeId).settings,
+    }),
   });
+  kbSource.operation.filtersSchema = kbArticlesSearchFiltersSchema;
+  server.registerRetrievalSource(kbSource);
+  const searchProvider = server
+    .getRetrievalService()
+    ?.getProvider(KB_ARTICLE_SOURCE_TYPE) as KbArticlesSearchProvider | null;
+  if (!searchProvider) {
+    throw new Error("kb.article retrieval source produced no provider");
+  }
 
   registerKbApi(server, events, repoFactory, searchProvider);
 
