@@ -1,6 +1,7 @@
 import {
   composeVoiceInstructions,
   RealtimeSessionError,
+  type RealtimeVoiceProvider,
   type RealtimeVoiceTenantPrefs,
 } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
@@ -34,6 +35,8 @@ export type RealtimeVoiceConfigResolver = (scope: {
 export function registerRealtimeSessionRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
+    /** Voxtral+ElevenLabs cascade provider; null keeps it 501-unsupported. */
+    cascadeProvider?: RealtimeVoiceProvider | null;
     openAiApiKey?: () => string | null;
     openAiFetch?: RealtimeClientSecretFetch;
     realtimeVoiceConfig?: RealtimeVoiceConfigResolver | null;
@@ -45,6 +48,7 @@ export function registerRealtimeSessionRoutes(
       apiKey: opts.openAiApiKey,
       fetchImpl: opts.openAiFetch,
     }),
+    ...(opts.cascadeProvider ? [opts.cascadeProvider] : []),
   ]);
 
   app.post(`${AI_BASE_PATH}/v1/realtime/sessions`, async (c) => {

@@ -13,7 +13,7 @@ import {
   createSearchIndexRegistry,
   type SearchIndexRegistry,
 } from "@engenty/search-index";
-import { createLogger } from "@engenty/telemetry";
+import { createLogger, env } from "@engenty/telemetry";
 import {
   type HonoBindings,
   type HonoVariables,
@@ -21,6 +21,7 @@ import {
 } from "@mastra/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { UpgradeWebSocket } from "hono/ws";
 import { mastra } from "../ai/index.js";
 import { engentyToolsRunAls } from "../ai/tools/engenty-tools/lib/run-context.js";
 import { mirrorArtifactToBoundStorage } from "./ai/artifacts/artifact-mirror.js";
@@ -49,6 +50,10 @@ import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
 import { registerAppProxyRoutes } from "./api/app-proxy-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
+import { generateCascadeTicketSecret } from "./api/cascade/cascade-tickets.js";
+import { createElevenLabsTtsLeg } from "./api/cascade/elevenlabs-tts.js";
+import { createSessionAgentTurn } from "./api/cascade/session-agent-turn.js";
+import { createVoxtralSttLeg } from "./api/cascade/voxtral-stt.js";
 import { registerChatCommandRoutes } from "./api/chat-command-routes.js";
 import {
   createAgUiDebugEventBus,
@@ -64,6 +69,15 @@ import { registerInstructionRoutes } from "./api/instruction-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
+import {
+  createVoxtralElevenLabsProvider,
+  readElevenLabsApiKeyFromEnv,
+  readMistralApiKeyFromEnv,
+} from "./api/providers/voxtral-elevenlabs.js";
+import {
+  REALTIME_CASCADE_WS_PATH,
+  registerRealtimeCascadeWs,
+} from "./api/realtime-cascade-ws.js";
 import {
   type RealtimeClientSecretFetch,
   type RealtimeVoiceConfigResolver,
@@ -123,6 +137,10 @@ export interface CreateAppOptions {
   chatSearchRetrieval?: ChatSearchRetrieval | null;
   coreBaseUrl?: string;
   coreFetch?: typeof fetch;
+  /** Node WS upgrade factory; enables the realtime voice cascade broker. */
+  createUpgradeWebSocket?: (
+    app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>
+  ) => UpgradeWebSocket;
   disableGatewayModelScheduler?: boolean;
   disableTaskDispatch?: boolean;
   events?: PluginEventsApi;
@@ -577,7 +595,24 @@ export async function createApp(options: CreateAppOptions = {}) {
     scopeResolver,
   });
   registerAudioTranscriptionRoutes(app, { scopeResolver });
+  // Voxtral+ElevenLabs cascade: only registered when a WS upgrade factory
+  // and both vendor keys are configured; otherwise the provider stays
+  // unregistered and tenant prefs selecting it get a clean 501.
+  const upgradeWebSocket = options.createUpgradeWebSocket?.(app) ?? null;
+  const cascadeMistralKey = readMistralApiKeyFromEnv();
+  const cascadeElevenLabsKey = readElevenLabsApiKeyFromEnv();
+  const cascadeConfigured = Boolean(
+    upgradeWebSocket && cascadeMistralKey && cascadeElevenLabsKey
+  );
+  const cascadeTicketSecret =
+    env("ENGENTY_REALTIME_TICKET_SECRET", "") || generateCascadeTicketSecret();
   registerRealtimeSessionRoutes(app, {
+    cascadeProvider: cascadeConfigured
+      ? createVoxtralElevenLabsProvider({
+          cascadeWsPath: REALTIME_CASCADE_WS_PATH,
+          ticketSecret: cascadeTicketSecret,
+        })
+      : null,
     openAiApiKey: options.openAiRealtimeApiKey,
     openAiFetch: options.openAiRealtimeFetch,
     realtimeVoiceConfig:
@@ -586,6 +621,32 @@ export async function createApp(options: CreateAppOptions = {}) {
       null,
     scopeResolver,
   });
+  if (upgradeWebSocket && cascadeMistralKey && cascadeElevenLabsKey) {
+    registerRealtimeCascadeWs(app, {
+      createAgentTurn: (ticket) =>
+        createSessionAgentTurn({
+          instructions: ticket.instructions,
+          scope: { tenantId: ticket.tenant_id, userId: ticket.user_id },
+          sessions: aiService.sessions,
+        }),
+      createSttLeg: (ticket, handlers) =>
+        createVoxtralSttLeg({
+          apiKey: cascadeMistralKey,
+          languageHint: ticket.language_hint,
+          model: ticket.stt_model,
+          ...handlers,
+        }),
+      createTtsLeg: (ticket, handlers) =>
+        createElevenLabsTtsLeg({
+          apiKey: cascadeElevenLabsKey,
+          modelId: ticket.tts_model,
+          voiceId: ticket.tts_voice,
+          ...handlers,
+        }),
+      ticketSecret: cascadeTicketSecret,
+      upgradeWebSocket,
+    });
+  }
   registerRealtimeToolRoutes(app, {
     coreBaseUrl: options.coreBaseUrl,
     coreFetch: options.coreFetch,

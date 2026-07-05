@@ -9,6 +9,7 @@ import {
   type OpenAiRealtimeWebRtcConnection,
 } from "./openai-realtime-webrtc.js";
 import { createAppsAiRealtimeSession } from "./realtime-session.js";
+import { connectServerCascadeTransport } from "./realtime-voice-cascade-transport.js";
 import type {
   RealtimeVoiceEvent,
   RealtimeVoiceToolDefinition,
@@ -34,10 +35,12 @@ export async function connectRealtimeVoiceTransport({
 }: ConnectRealtimeVoiceTransportOptions = {}): Promise<RealtimeVoiceTransport> {
   const session = await createAppsAiRealtimeSession(options);
   if ("kind" in session && session.kind === "server-cascade") {
-    // Phase 3: connectServerCascadeTransport(session, options)
-    throw new Error(
-      "Server-cascade realtime voice is not implemented yet for this client"
-    );
+    return await connectServerCascadeTransport(session, {
+      baseUrl: options.baseUrl,
+      onEvent: options.onEvent,
+      onVoiceEvent,
+      signal: options.signal,
+    });
   }
   const connection = await connectOpenAiRealtimeWebRtc({
     ...options,

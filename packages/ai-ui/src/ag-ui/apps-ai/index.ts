@@ -78,6 +78,11 @@ export {
   type RealtimeVoiceToolApprovalDecision,
 } from "./realtime-voice-backend-tools.js";
 export {
+  type ConnectServerCascadeTransportOptions,
+  cascadeServerMessageToVoiceEvent,
+  connectServerCascadeTransport,
+} from "./realtime-voice-cascade-transport.js";
+export {
   type RealtimeVoiceEvent,
   type RealtimeVoiceToolCallRequest,
   type RealtimeVoiceToolDefinition,

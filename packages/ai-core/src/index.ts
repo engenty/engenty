@@ -216,6 +216,12 @@ export {
   readObjectRenderMeta,
 } from "./objects/object-ref.js";
 export {
+  type CascadeClientMessage,
+  type CascadeServerMessage,
+  type CascadeToolCall,
+  parseCascadeMessage,
+} from "./realtime/cascade-protocol.js";
+export {
   composeVoiceInstructions,
   type VoiceRegister,
   voiceRegisterInstructions,
