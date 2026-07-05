@@ -122,13 +122,18 @@ export function InboxSidebarPanel() {
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <SidebarGroup>
+      {/* Pinned to the sidebar bottom (parent is a flex column), kept quiet. */}
+      <SidebarGroup className="mt-auto border-t pt-1 pb-2">
         <SidebarGroupContent>
           <SidebarNavList>
             <SidebarRow isActive={onSettings}>
-              <SidebarRowButton asChild isActive={onSettings}>
+              <SidebarRowButton
+                asChild
+                className="text-muted-foreground text-xs"
+                isActive={onSettings}
+              >
                 <Link to="/mdl/inbox/settings" {...shellSecondaryNavItemProps}>
-                  <Settings className="size-4" />
+                  <Settings className="size-3.5" />
                   <span>{t("actions.settings")}</span>
                 </Link>
               </SidebarRowButton>
