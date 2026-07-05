@@ -204,7 +204,10 @@ describe("ContactsSearchIndexProvider — backfill window", () => {
       }
       return builder;
     };
-    const schemaBuilder = { from: (table: string) => makeBuilder(table), rpc: vi.fn() };
+    const schemaBuilder = {
+      from: (table: string) => makeBuilder(table),
+      rpc: vi.fn(),
+    };
     return { chains, supabase: { schema: () => schemaBuilder } };
   }
 
