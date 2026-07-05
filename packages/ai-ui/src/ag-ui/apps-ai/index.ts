@@ -78,12 +78,26 @@ export {
   type RealtimeVoiceToolApprovalDecision,
 } from "./realtime-voice-backend-tools.js";
 export {
+  type RealtimeVoiceEvent,
+  type RealtimeVoiceToolCallRequest,
+  type RealtimeVoiceToolDefinition,
+  type RealtimeVoiceTranscript,
+  type RealtimeVoiceTranscriptMessage,
+  type RealtimeVoiceTranscriptSegment,
+  type RealtimeVoiceTransport,
+  realtimeVoiceTranscriptMessagesFromTranscript,
+} from "./realtime-voice-events.js";
+export {
   executeOpenAiRealtimeVoiceFrontendTool,
   normalizeRealtimeToolInput,
   openAiRealtimeVoiceFrontendToolName,
   openAiRealtimeVoiceToolsFromFrontendTools,
   resolveOpenAiRealtimeVoiceFrontendTool,
 } from "./realtime-voice-frontend-tools.js";
+export {
+  type ConnectRealtimeVoiceTransportOptions,
+  connectRealtimeVoiceTransport,
+} from "./realtime-voice-transport.js";
 export { resolveAppsAiFrontendTools } from "./resolve-apps-ai-frontend-tools.js";
 export { transcribeAudioViaAppsAi } from "./transcribe-audio.js";
 export {
@@ -113,6 +127,11 @@ export {
   realtimeVoiceTranscriptFromOpenAiEvent,
   useOpenAiRealtimeVoiceSession,
 } from "./use-openai-realtime-voice-session.js";
+export {
+  type RealtimeVoiceSessionState,
+  type UseRealtimeVoiceSessionOptions,
+  useRealtimeVoiceSession,
+} from "./use-realtime-voice-session.js";
 export {
   clearPendingVoiceConfirmation,
   getPendingVoiceConfirmation,

@@ -1,7 +1,9 @@
 import { realtimeCallErrorMessage } from "./openai-realtime-call-error.js";
 import {
+  type AppsAiRealtimeSessionResponse,
   type CreateAppsAiRealtimeSessionOptions,
   createAppsAiRealtimeSession,
+  isServerCascadeSession,
 } from "./realtime-session.js";
 
 const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
@@ -29,6 +31,8 @@ export interface ConnectOpenAiRealtimeWebRtcOptions
   createAudioElement?: () => HTMLAudioElement;
   onEvent?: (event: unknown) => void;
   realtimeCallsUrl?: string;
+  /** Pre-created session descriptor (skips the session POST). */
+  session?: AppsAiRealtimeSessionResponse;
 }
 
 export async function connectOpenAiRealtimeWebRtc({
@@ -36,6 +40,7 @@ export async function connectOpenAiRealtimeWebRtc({
   createAudioElement = () => document.createElement("audio"),
   onEvent,
   realtimeCallsUrl = OPENAI_REALTIME_CALLS_URL,
+  session,
   ...sessionOptions
 }: ConnectOpenAiRealtimeWebRtcOptions = {}): Promise<OpenAiRealtimeWebRtcConnection> {
   const peerConnection = new RTCPeerConnection();
@@ -77,7 +82,13 @@ export async function connectOpenAiRealtimeWebRtc({
       peerConnection.addTrack(track, localStream);
     }
 
-    const realtimeSession = await createAppsAiRealtimeSession(sessionOptions);
+    const realtimeSession =
+      session ?? (await createAppsAiRealtimeSession(sessionOptions));
+    if (isServerCascadeSession(realtimeSession)) {
+      throw new Error(
+        "Server-cascade realtime sessions require the cascade transport"
+      );
+    }
 
     dataChannel = peerConnection.createDataChannel("oai-events");
     dataChannel.addEventListener("open", () => {

@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAppsAiRealtimeSession } from "./realtime-session.js";
+import {
+  createAppsAiRealtimeSession,
+  isServerCascadeSession,
+} from "./realtime-session.js";
 
 describe("createAppsAiRealtimeSession", () => {
   afterEach(() => {
@@ -26,6 +29,9 @@ describe("createAppsAiRealtimeSession", () => {
       voice: "marin",
     });
 
+    if (isServerCascadeSession(result)) {
+      throw new Error("expected a webrtc-direct session");
+    }
     expect(result.client_secret.value).toBe("ek_test");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://ai.engenty_localhost/ai/v1/realtime/sessions",
@@ -60,6 +66,9 @@ describe("createAppsAiRealtimeSession", () => {
       visitorId: "visitor-1",
     });
 
+    if (isServerCascadeSession(result)) {
+      throw new Error("expected a webrtc-direct session");
+    }
     expect(result.client_secret.value).toBe("ek_public");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/public/chatbot/emb_test/realtime-session",
