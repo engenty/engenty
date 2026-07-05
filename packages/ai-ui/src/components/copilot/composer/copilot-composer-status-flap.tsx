@@ -2,7 +2,7 @@
 
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import { cn } from "@engenty/ui-core";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { MessageResponse } from "../../ai-elements/message.js";
 import { AgentStatusTicker } from "./agent-status-ticker/agent-status-ticker.js";
@@ -59,6 +59,10 @@ export interface CopilotComposerStatusFlapProps {
   chatStatus: "ready" | "streaming" | "submitted" | "error";
   closing: boolean;
   errorMessage?: string | null;
+  /** Pending HITL interrupt UI (approval / decision / feedback card). Rendered
+   *  always-visible and interactive inside the flap so compact surfaces
+   *  (floating launcher, bottom dock) can answer without opening the panel. */
+  interruptContent?: ReactNode;
   labels?: AgentStatusTickerLabels;
   messages: readonly AgentTurnMessageLike[];
   replyText: string;
@@ -74,6 +78,7 @@ export function CopilotComposerStatusFlap({
   chatStatus,
   closing,
   errorMessage = null,
+  interruptContent = null,
   labels,
   messages,
   replyText,
@@ -167,6 +172,18 @@ export function CopilotComposerStatusFlap({
           {/* Render markdown (tables, lists, code) the same way the transcript
               does, instead of dumping the raw source as plain text. */}
           <MessageResponse>{replyText}</MessageResponse>
+        </div>
+      ) : null}
+      {interruptContent ? (
+        <div
+          className="mt-1.5 max-h-80 cursor-auto touch-auto select-auto overflow-y-auto border-border/60 border-t pt-1.5"
+          // The flap root toggles expansion on pointer up — keep interactions
+          // with the interrupt card (buttons, inputs) from triggering it.
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+        >
+          {interruptContent}
         </div>
       ) : null}
     </div>

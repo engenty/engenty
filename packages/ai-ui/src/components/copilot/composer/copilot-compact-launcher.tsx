@@ -32,6 +32,8 @@ export interface CopilotCompactLauncherProps {
   contextOptions: CopilotCompactContextOption[];
   draft: string;
   dragHandleProps?: ComponentPropsWithoutRef<"div">;
+  /** Pending HITL interrupt UI, rendered in the status flap above the input. */
+  interruptContent?: ReactNode;
   onCollapseToCircle?: () => void;
   onSelectContext: (value: string) => void;
   /** Shell position menu (⋮); rendered before the drag handle when set. */
@@ -55,6 +57,7 @@ export function CopilotCompactLauncher({
   contextOptions,
   draft,
   dragHandleProps,
+  interruptContent = null,
   onCollapseToCircle,
   positionMenu,
   onSelectContext,
@@ -110,6 +113,7 @@ export function CopilotCompactLauncher({
       }
       chatStatus={status}
       errorMessage={agentTickerErrorMessage}
+      interruptContent={interruptContent}
       isMultiline={isMultiline}
       messages={agentTickerMessages}
       variant="dock"

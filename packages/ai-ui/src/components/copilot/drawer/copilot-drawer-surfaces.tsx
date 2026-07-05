@@ -20,9 +20,11 @@ import {
 } from "../composer/copilot-compact-launcher";
 import { CopilotComposerSection } from "../composer/copilot-composer-section";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
+import { CopilotOpenInterruptBanner } from "../interrupts/copilot-open-interrupt-banner";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph-layer";
 import { COMPACT_LAUNCHER_WIDTH } from "./copilot-drawer-constants";
+import type { CopilotDrawerInjectedLane } from "./copilot-drawer-injected-lane.js";
 import { CopilotDrawerSnapOverlays } from "./copilot-drawer-snap-overlays";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 import { shouldShowCopilotFab } from "./copilot-drawer-utils";
@@ -46,6 +48,8 @@ export interface CopilotDrawerSurfaceTreeProps {
     draft: string;
     error?: { message?: string | null } | null;
     messages: CopilotPanelContentProps["messages"];
+    openInterrupt?: CopilotDrawerInjectedLane["openInterrupt"];
+    resumeInterrupt?: CopilotDrawerInjectedLane["resumeInterrupt"];
     setDraft: CopilotPanelContentProps["setDraft"];
     status: CopilotPanelContentProps["status"];
     submitMessage: CopilotPanelContentProps["submitMessage"];
@@ -211,6 +215,48 @@ export function CopilotDrawerSurfaceTree({
     layout.handleDockPositionSelect("floating");
   }, [layout.handleDockPositionSelect]);
 
+  // Pending HITL interrupt for the compact surfaces (floating launcher,
+  // bottom dock): without this the approval/decision card only exists in the
+  // full panel transcript and the compact composer shows an unanswerable
+  // ticker chip. Rendered inside the composer status flap.
+  const openInterrupt = injected.openInterrupt ?? null;
+  const compactInterruptContent = openInterrupt ? (
+    <CopilotOpenInterruptBanner
+      onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) => {
+        injected.resumeInterrupt?.({
+          artifactId,
+          choiceId,
+          choiceLabel,
+          interruptId,
+        });
+      }}
+      onFeedbackSubmit={(artifactId, feedback, interruptId) => {
+        injected.resumeInterrupt?.({
+          artifactId,
+          choiceId: "feedback_submit",
+          choiceLabel: feedback,
+          interruptId,
+          payload: { feedback },
+        });
+      }}
+      onFrontendToolApprove={(open) => {
+        panelContentProps.onFrontendToolApprove?.(open);
+      }}
+      onFrontendToolReject={(open) => {
+        if (panelContentProps.onFrontendToolReject) {
+          panelContentProps.onFrontendToolReject(open);
+        } else if (open.tool_name && open.interrupt_id) {
+          injected.resumeInterrupt?.({
+            approved: false,
+            interruptId: open.interrupt_id,
+            toolName: open.tool_name,
+          });
+        }
+      }}
+      open={openInterrupt}
+    />
+  ) : null;
+
   const fabTrigger = showFab
     ? renderFabTrigger({
         layout,
@@ -287,6 +333,7 @@ export function CopilotDrawerSurfaceTree({
               onPointerUp: layout.handlePointerUp,
               role: "presentation",
             }}
+            interruptContent={compactInterruptContent}
             onSelectContext={handleCompactContextChange}
             positionMenu={copilotPositionDropdown}
             recentContextOptions={recentCompactContexts}
@@ -378,6 +425,7 @@ export function CopilotDrawerSurfaceTree({
             }
             chatStatus={injected.status}
             errorMessage={injected.error?.message ?? null}
+            interruptContent={compactInterruptContent}
             isMultiline={bottomIsMultiline}
             messages={injected.messages}
             threadId={injected.activeThreadId}

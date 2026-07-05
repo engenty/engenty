@@ -61,6 +61,9 @@ export interface CopilotCompactComposerShellProps {
   /** Force the active state (avatar + belowCard always visible). Use on the
    *  copilot start screen so the context chooser is always shown. */
   forceActive?: boolean;
+  /** Pending HITL interrupt UI (approval / decision / feedback card). While
+   *  set, the status flap is forced visible and renders it interactively. */
+  interruptContent?: ReactNode;
   /** Whether the textarea has wrapped to multiple lines. Controls the
    *  card's rounding and padding (capsule ↔ rounded rectangle). */
   isMultiline?: boolean;
@@ -241,6 +244,7 @@ export function CopilotCompactComposerShell({
   enableStatusFlap = true,
   errorMessage = null,
   forceActive = false,
+  interruptContent = null,
   labels,
   messages = [],
   runStatus = null,
@@ -276,7 +280,10 @@ export function CopilotCompactComposerShell({
     chatStatus === "ready" &&
     hadRunRef.current &&
     (replyText.length > 0 || tickerVisible);
-  const showStatus = showRunningFlap || showPostRunFlap;
+  const showStatus =
+    (enableStatusFlap && interruptContent != null) ||
+    showRunningFlap ||
+    showPostRunFlap;
   const { closing, rendered } = useAnimatedPresence(showStatus);
 
   const [isFocused, setIsFocused] = useState(false);
@@ -441,6 +448,7 @@ export function CopilotCompactComposerShell({
             chatStatus={chatStatus}
             closing={closing}
             errorMessage={errorMessage}
+            interruptContent={interruptContent}
             labels={labels}
             messages={messages}
             replyText={replyText}
