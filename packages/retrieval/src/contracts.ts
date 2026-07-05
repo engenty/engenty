@@ -60,8 +60,13 @@ export type SplitterConfig =
 export interface RetrievalDocument extends SearchDocument {
   /** Reserved for context-graph linking; stored, not yet queried. */
   entity_refs?: string[];
-  /** Flat, string-valued, filter-pushdown metadata (kb_id, connection_id, …). */
-  filter_metadata?: Record<string, string>;
+  /**
+   * Flat, filter-pushdown metadata (kb_id, connection_id, …). Values are
+   * strings or string arrays: jsonb containment in the fusion RPC matches
+   * array values as subsets, so multi-valued facets (contact roles) filter
+   * with `{ roles: ["client"] }` against a stored superset array.
+   */
+  filter_metadata?: Record<string, string | string[]>;
   /** Content time (email received_at, article updated_at) for time filters. */
   occurred_at?: string | null;
   /** Owner for `owner`/`user` visibility; null = org-visible. */
@@ -72,7 +77,9 @@ export interface RetrievalDocument extends SearchDocument {
 }
 
 export interface RetrievalQueryFilters {
-  metadata?: Record<string, string>;
+  /** Equality/containment filters on chunk metadata; array values match when
+   *  the stored array contains every listed element (jsonb `@>`). */
+  metadata?: Record<string, string | string[]>;
   modules?: string[];
   occurred_after?: string | null;
   occurred_before?: string | null;

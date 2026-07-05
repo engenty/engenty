@@ -3,13 +3,13 @@
  *
  * @see docs/content/dev/backend/dal.md
  *
- * Search/index/embedding access flows through the
- * `contacts.contact` SearchIndexProvider (see
- * `contacts-search-index-provider.ts` + `engenty.server.registerSearchIndexProvider`)
- * — no embedding/status/backfill methods live on this repo. The thin `search`
- * adapter below is here only because the legacy `/api/contacts/search` route
- * and the `listPaginated` fallback still expect the `ContactsSearchResponse`
- * shape; both delegate to the provider under the hood.
+ * Search/index/embedding access flows through the `contacts.contact`
+ * retrieval source (see `contacts-retrieval-source.ts` +
+ * `engenty.server.registerRetrievalSource`) — no embedding/status/backfill
+ * methods live on this repo. The thin `search` adapter below is here only
+ * because the legacy `/api/contacts/search` route and the `listPaginated`
+ * fallback still expect the `ContactsSearchResponse` shape; both delegate to
+ * the manufactured provider under the hood.
  */
 import type {
   Contact,
