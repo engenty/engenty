@@ -34,7 +34,6 @@ CLOSED_PREFIXES=(
   "modules/banking"
   "packages/banking"
   "packages/brand-assets"
-  "packages/csv-import"
   "packages/document-scanner"
   "packages/engenty-cli"
   "packages/pdf-service/assets/fonts/fontshare"
