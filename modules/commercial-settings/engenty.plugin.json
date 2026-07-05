@@ -1,0 +1,18 @@
+{
+  "id": "commercial-settings",
+  "name": "Commercial Settings",
+  "description": "Shared commercial defaults: currency, tax, units, disciplines",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.commercial-settings",
+    "module.commercial-settings.read",
+    "module.commercial-settings.write",
+    "ui.route.module.commercial-settings"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false
+  }
+}

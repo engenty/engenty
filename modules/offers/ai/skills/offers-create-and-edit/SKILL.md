@@ -1,0 +1,76 @@
+---
+name: offers-create-and-edit
+title: Create and edit offers
+description: Create new offers and edit metadata — title, billing type, dates, tax settings, reference, and status transitions.
+allowed-tools: engenty_tools_search engenty_tool_execute navigate offers_apply_draft_patch
+---
+
+# Create and Edit Offers
+
+Use this skill when the user wants to create a new offer or change offer metadata fields.
+
+## Tool Process
+
+1. Use `engenty_tools_search` with `moduleId: "offers"` to find operations.
+2. Prefer: `offers_create`, `offers_update`, `offers_get_next_number`.
+3. For live in-page editing, call the `offers_apply_draft_patch` tool directly (see below).
+
+## Creating an Offer
+
+Before creating, check if a similar offer already exists with `offers_list` and a `search` query.
+
+Use `offers_create` with at minimum `{ title: "..." }`. Optional fields at creation:
+- `billing_type`: `"fixed_price"` | `"time_and_materials"` | `"retainer"` | `"recurring"` (default: `"fixed_price"`)
+- `billing_interval`: `"monthly"` | `"quarterly"` | `"yearly"` (for retainer/recurring only)
+- `offer_date`: ISO date string (defaults to today)
+- `valid_until`: ISO date string (defaults to 30 days from offer_date)
+- `reference`: customer reference string
+- `currency`: ISO currency code (default: `"EUR"`)
+- `client_id`: contact ID if linking to a contact record
+- `recipient_name`, `recipient_email`, `recipient_address`: recipient info if no contact linked
+
+The `offer_number` is auto-generated. To show the user what the next number will be, call `offers_get_next_number` first.
+
+After creating, navigate to the new offer with the `navigate` tool: `/mdl/offers/<id>/draft`.
+
+## Editing an Offer
+
+### When user is NOT on the offer edit page
+
+Use `offers_update` with `{ id: "<offer-id>", ...patch }`. Send only the fields that should change.
+
+Editable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `valid_until`, `reference`, `currency`, `default_tax_rate`, `no_tax_reason`, `introduction`, `final_notes`, `phases_enabled`, `show_phase_index`, `show_phase_totals`, `show_tax_per_item`, `status`.
+
+### When user IS on the offer edit page (live update)
+
+When `offers_apply_draft_patch` is available in the frontend tools, prefer it for immediate visual feedback. Call the `offers_apply_draft_patch` tool directly:
+
+```
+offers_apply_draft_patch({
+  patch: [
+    { "op": "replace", "path": "/title", "value": "New Title" },
+    { "op": "replace", "path": "/billing_type", "value": "time_and_materials" }
+  ]
+})
+```
+
+Supported paths: `/title`, `/billing_type`, `/billing_interval`, `/offer_date`, `/valid_until`, `/reference`, `/currency`, `/default_tax_rate`, `/no_tax_reason`, `/introduction`, `/final_notes`.
+
+This updates the local editor draft only — the user saves explicitly. Inform the user that changes are staged and they need to save.
+
+## Status Transitions
+
+| From | To | Meaning |
+|------|----|---------|
+| `draft` | `done` | Mark as ready — offer is finalized |
+| `done` | `accepted` | Mark as accepted — client agreed |
+
+Use `offers_update` with `{ id: "<id>", status: "done" }` or `{ status: "accepted" }`.
+
+When on the edit page, status transitions go through `offers_update` directly (not through `offers_apply_draft_patch`) because a status change navigates the user to the detail page.
+
+## Safety Rules
+
+- Confirm before any status transition.
+- Confirm before multi-field writes that weren't all explicitly requested.
+- Never delete an offer using this skill; if the user asks to delete, warn that it is irreversible and require explicit confirmation before running `offers_delete`.

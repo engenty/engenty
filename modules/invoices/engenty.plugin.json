@@ -1,0 +1,29 @@
+{
+  "id": "invoices",
+  "name": "Invoices",
+  "description": "Invoice CRUD with SQLite and PDF export",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.invoices",
+    "module.invoices.read",
+    "module.invoices.write",
+    "ui.route.module.invoices"
+  ],
+  "optional": ["module.contacts"],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "frontendTools": false
+  },
+  "supabase": {
+    "storageBuckets": [
+      {
+        "name": "module-invoices-pdfs",
+        "public": false,
+        "fileSizeLimit": "50MiB",
+        "allowedMimeTypes": ["application/pdf"]
+      }
+    ]
+  }
+}

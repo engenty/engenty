@@ -1,0 +1,18 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "invoices.manager",
+  "name": "Invoices Manager",
+  "description": "Assemble, edit, and manage invoices.",
+  "module_id": "invoices",
+  "skills": [
+    "invoices-search-and-retrieve",
+    "invoices-create-and-edit",
+    "invoices-blocks-management"
+  ],
+  "tools": [
+    "engenty_tools_search",
+    "engenty_tool_execute",
+    "invoke_frontend_tool"
+  ],
+  "workspace": { "enabled": true, "preset": "staff" }
+}

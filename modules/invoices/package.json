@@ -1,0 +1,75 @@
+{
+  "name": "@engenty/invoices",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./schema": {
+      "types": "./dist/src/schema/index.d.ts",
+      "default": "./dist/src/schema/index.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    }
+  },
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/invoices-manager.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/invoices-manager.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/api-contracts": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
+    "@engenty/commercial-editor": "workspace:*",
+    "@engenty/commercial-settings": "workspace:*",
+    "@engenty/contacts": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
+    "@engenty/pdf-service": "workspace:*",
+    "@engenty/pdf-templates": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@hono/zod-openapi": "^1.4.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "commander": "^15.0.0",
+    "lucide-react": "^1.21.0",
+    "nuqs": "^2.8.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "sql.js": "^1.14.1",
+    "uuidv7": "^1.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3"
+  }
+}
