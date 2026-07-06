@@ -1,5 +1,6 @@
 import {
   createDefaultPdfTemplateSettings,
+  normalizePdfTemplateMarkup,
   type PdfTemplateInput,
   type PdfTemplateListItem,
   type PdfTemplateUpdateInput,
@@ -28,8 +29,11 @@ function rowToTemplate(row: Record<string, unknown>): PdfTemplateListItem {
     document_id: String(row.document_id),
     document_key: String(row.document_key ?? "default"),
     engine: "xml_liquid_v1",
-    document_template: String(row.document_template ?? ""),
-    stylesheet_template: String(row.stylesheet_template ?? ""),
+    // NULL markup = follow the module provider's built-in default.
+    document_template:
+      row.document_template == null ? null : String(row.document_template),
+    stylesheet_template:
+      row.stylesheet_template == null ? null : String(row.stylesheet_template),
     input_schema_json:
       (row.input_schema_json as Record<string, unknown> | null) ?? null,
     created_at: String(row.created_at),
@@ -191,6 +195,11 @@ export function createPdfTemplatesRepoSupabase(
         );
       }
 
+      const markup = normalizePdfTemplateMarkup(input.module_key, {
+        document_template: input.document_template,
+        stylesheet_template: input.stylesheet_template,
+      });
+
       const { error: documentError } = await documents().insert({
         id: documentId,
         tenant_id: tenantId,
@@ -198,8 +207,8 @@ export function createPdfTemplatesRepoSupabase(
         template_id: templateId,
         document_key: input.document_key,
         engine: input.engine,
-        document_template: input.document_template,
-        stylesheet_template: input.stylesheet_template,
+        document_template: markup.document_template ?? null,
+        stylesheet_template: markup.stylesheet_template ?? null,
         input_schema_json: null,
         created_at: now,
         updated_at: now,
@@ -276,12 +285,17 @@ export function createPdfTemplatesRepoSupabase(
         );
       }
 
+      const markup = normalizePdfTemplateMarkup(existing.module_key, {
+        document_template: patch.document_template,
+        stylesheet_template: patch.stylesheet_template,
+      });
+
       const documentPatch: Record<string, unknown> = { updated_at: now };
-      if (patch.document_template !== undefined) {
-        documentPatch.document_template = patch.document_template;
+      if (markup.document_template !== undefined) {
+        documentPatch.document_template = markup.document_template;
       }
-      if (patch.stylesheet_template !== undefined) {
-        documentPatch.stylesheet_template = patch.stylesheet_template;
+      if (markup.stylesheet_template !== undefined) {
+        documentPatch.stylesheet_template = markup.stylesheet_template;
       }
 
       if (Object.keys(documentPatch).length > 1) {

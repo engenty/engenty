@@ -21,6 +21,7 @@ import { OfferAcceptedState } from "../components/offer-accepted-state.js";
 import { OfferReadyState } from "../components/offer-ready-state.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
 import { useOffersDetailAgentUiSlice } from "../hooks/use-offers-agent-ui-slice.js";
+import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import { saveOfferPdf } from "../lib/offer-pdf.js";
 import { getContactsPluginApi, getProjectsPluginApi } from "../plugins.js";
 import {
@@ -83,12 +84,15 @@ export function OfferDetailPage() {
     ? (entities.find((e) => e.id === offer.client_id)?.contact_name ?? null)
     : null;
 
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useOffersModuleSecondaryShellNav();
+
   const breadcrumbs = useMemo(
     () => [
-      { label: t("menu.offers"), to: "/mdl/offers" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       { label: offer?.title ?? t("detail") },
     ],
-    [offer?.title, t]
+    [moduleRootCrumb, offer?.title, t]
   );
   const actions = useMemo(
     () => (
@@ -123,6 +127,8 @@ export function OfferDetailPage() {
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
   useOffersDetailAgentUiSlice(offer);

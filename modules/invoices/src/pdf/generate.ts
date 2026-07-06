@@ -11,11 +11,15 @@ import {
 import { defaultInvoiceTemplateXml } from "./defaultTemplate.js";
 import { toInvoiceTemplateData } from "./templateData.js";
 
-/** Tenant-managed template from the pdf-templates module. */
+/**
+ * Tenant-managed template from the pdf-templates module. NULL markup means
+ * the tenant never edited it — fall back to the provider defaults so
+ * provider improvements keep reaching untouched templates.
+ */
 export interface InvoicePdfTemplateOverride {
-  document_template: string;
+  document_template: string | null;
   settings_json?: Record<string, unknown> | null;
-  stylesheet_template: string;
+  stylesheet_template: string | null;
 }
 
 /**
@@ -32,14 +36,15 @@ export async function generateInvoicePdf(
   const data = toInvoiceTemplateData(invoice, blocks);
   const result = template
     ? await renderPdfTemplate({
-        documentTemplateXml: template.document_template,
+        documentTemplateXml:
+          template.document_template ?? defaultInvoiceTemplateXml,
         data: template.settings_json
           ? buildPdfTemplateRenderData(
               template.settings_json as PdfTemplateSettings,
               data
             )
           : data,
-        styling: template.stylesheet_template,
+        styling: template.stylesheet_template ?? defaultInvoiceStylingTemplate,
       })
     : await renderPdfTemplate({
         documentTemplateXml: defaultInvoiceTemplateXml,

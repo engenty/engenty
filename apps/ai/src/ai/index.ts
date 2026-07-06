@@ -14,8 +14,8 @@ import {
   createAgentSessionStore,
 } from "../dal/agent-sessions/index.js";
 import {
-  type AiChatSearchStore,
-  createAiChatSearchStore,
+  type ChatSearchRetrieval,
+  createChatSearchRetrieval,
 } from "../dal/chat-search/index.js";
 import {
   createRegistryStore,
@@ -196,14 +196,14 @@ export function createAgentRunStoreFromEnv(): AgentRunStore | null {
   return createAgentRunStore(client);
 }
 
-export function createAiChatSearchStoreFromEnv(): AiChatSearchStore | null {
+export function createChatSearchRetrievalFromEnv(): ChatSearchRetrieval | null {
   const client = createAiDatabaseAdapter(
     process.env as unknown as Record<string, unknown>
   );
   if (!client) {
     return null;
   }
-  return createAiChatSearchStore(client);
+  return createChatSearchRetrieval({ supabase: client });
 }
 
 export function createAiUsageStoreFromEnv(): AiUsageStore | null {

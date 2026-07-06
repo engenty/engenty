@@ -70,6 +70,19 @@ export function registerConnectionsOperations(
                 (o) => o.connection_id === connection.id
               ),
             })),
+          auth_kind: connector.auth.kind,
+          // Credential form fields for api_key connectors (labels only — never
+          // any submitted secret value).
+          credential_fields:
+            connector.auth.kind === "api_key"
+              ? connector.auth.apiKey.fields.map((field) => ({
+                  key: field.key,
+                  label: field.label,
+                  placeholder: field.placeholder ?? null,
+                  required: field.required ?? true,
+                  secret: field.secret ?? false,
+                }))
+              : null,
           description: connector.description,
           icon: connector.icon ?? null,
           id: connector.id,
@@ -136,6 +149,20 @@ export function registerConnectionsOperations(
         sharing?: "personal" | "org";
       };
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
+      if (parsed.sharing === "org") {
+        const connection = await repo.getConnection({
+          connectionId: parsed.connection_id,
+          tenantId: ctx.auth.tenantId,
+        });
+        const def = connection
+          ? getConnectorDefinition(connection.connector_id)
+          : undefined;
+        if (def?.auth.kind === "browser") {
+          throw new Error(
+            "browser connectors are device-local and cannot be shared org-wide"
+          );
+        }
+      }
       await repo.updateConnectionSettings({
         autonomousMode: parsed.autonomous_mode,
         connectionId: parsed.connection_id,

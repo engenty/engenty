@@ -128,6 +128,30 @@ export interface SearchProviderCapabilities {
   semantic?: boolean;
 }
 
+// Read-only snapshot of a managed source's effective retrieval config, surfaced
+// by the admin UI so operators can see *how* a source is indexed and queried
+// (thresholds, splitter, visibility) without reading code. Static values are
+// reported as numbers; a value resolved per-tenant at query time (e.g. KB reads
+// its similarity floor from kb_settings) is reported with `*Dynamic: true` and a
+// null literal, since there is no single value to show. Hand-rolled providers
+// leave this unset.
+export interface SearchIndexProviderConfig {
+  // Effective embedding model, or null when resolved per-tenant.
+  embeddingModel?: string | null;
+  embeddingModelDynamic?: boolean;
+  // Lexical fast-path term ceiling; null when the source has no fast path.
+  fastPathMaxTerms?: number | null;
+  // Splitter mode: "none" | "fixed" | "paragraph" | "custom".
+  splitter?: string;
+  // Title-trigram fuzzy matching enabled (contacts quick-search).
+  useTrigram?: boolean;
+  // Minimum cosine for a vector-only match, or null when resolved per-tenant.
+  vectorThreshold?: number | null;
+  vectorThresholdDynamic?: boolean;
+  // Row visibility model: "tenant" | "owner" | "user".
+  visibility?: string;
+}
+
 export interface SearchIndexProvider<
   TDocument extends SearchDocument = SearchDocument,
   TFilters = Record<string, never>,
@@ -136,6 +160,9 @@ export interface SearchIndexProvider<
   backfill?(input?: BackfillInput): Promise<unknown>;
   // Capabilities (auto-mode resolution and admin UI use this).
   readonly capabilities?: SearchProviderCapabilities;
+  // Effective retrieval config snapshot for the admin UI (managed sources fill
+  // this; hand-rolled providers may leave it unset).
+  readonly config?: SearchIndexProviderConfig;
   deleteDocument(input: DeleteDocumentInput): Promise<void>;
   // Optional helper for declarative re-index when the trigger payload only carries an id.
   getDocumentById?(input: {

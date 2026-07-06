@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { enabledModuleSlugSet } from "../../../scripts/lib/engenty-modules.mjs";
+import { resolveEnabledModules } from "../../../scripts/lib/engenty-modules.mjs";
 import {
   collectChangedGeneratedArtifacts,
   createUiCatalogSourceInfo,
@@ -63,10 +63,9 @@ function listPackageDirs(rootDir) {
 }
 
 function listWorkspacePackageDirs() {
-  const enabled = enabledModuleSlugSet(repoRootDir);
-  const moduleDirs = listPackageDirs(modulesDir).filter((dir) =>
-    enabled.has(path.basename(dir))
-  );
+  // Enabled modules resolved to their on-disk dir (top-level or nested
+  // modules/*/providers/*), so nested connector providers with UI are included.
+  const moduleDirs = resolveEnabledModules(repoRootDir).map((mod) => mod.dir);
   return [...moduleDirs, ...listPackageDirs(packagesDir)];
 }
 

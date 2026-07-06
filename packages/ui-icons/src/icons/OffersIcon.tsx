@@ -1,8 +1,9 @@
 import type { SVGProps } from "react";
 import { dockBrandFill } from "../lib/dock-brand-fills";
 
+/** Angebote — a proposal/quote document (folded-corner page) with a
+ *  highlighted total line. Distinct from the invoices receipt icon. */
 export function DockOffersIcon(props: SVGProps<SVGSVGElement>) {
-  const soft = 0.22;
   return (
     <svg
       fill="none"
@@ -14,50 +15,22 @@ export function DockOffersIcon(props: SVGProps<SVGSVGElement>) {
       {...props}
     >
       <title>Offers</title>
-      <path d="M2 12h20" />
-      <path d="M12 2v20" />
-      <rect
+      <path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
         fill={dockBrandFill.moss}
-        fillOpacity={soft}
-        height="6"
-        rx="1"
-        width="6"
-        x="4"
-        y="4"
+        fillOpacity={0.16}
       />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8" />
       <rect
-        fill={dockBrandFill.moss}
-        fillOpacity={soft}
-        height="6"
-        rx="1"
-        width="6"
-        x="14"
-        y="4"
-      />
-      <rect
-        fill={dockBrandFill.moss}
-        fillOpacity={soft}
-        height="6"
-        rx="1"
-        width="6"
-        x="4"
-        y="14"
-      />
-      <rect
-        fill={dockBrandFill.moss}
-        fillOpacity={soft}
-        height="6"
-        rx="1"
-        width="6"
-        x="14"
-        y="14"
-      />
-      <circle
-        cx="12"
-        cy="12"
         fill={dockBrandFill.emberStrong}
         fillOpacity={0.42}
-        r="3"
+        height="1.7"
+        rx="0.85"
+        stroke="none"
+        width="6"
+        x="8"
+        y="16.15"
       />
     </svg>
   );

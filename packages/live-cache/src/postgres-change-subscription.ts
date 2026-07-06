@@ -1,7 +1,7 @@
 import type { PostgresChangeSignal, PostgresChangeSpec } from "./types.js";
 
 export interface PostgresChangeRealtimeChannel {
-  on: (
+  on: ((
     event: "postgres_changes",
     config: {
       event: PostgresChangeSpec["event"];
@@ -10,9 +10,27 @@ export interface PostgresChangeRealtimeChannel {
       table: string;
     },
     callback: (payload: PostgresChangePayload) => void
+  ) => PostgresChangeRealtimeChannel) &
+    ((
+      event: "system",
+      config: Record<string, never>,
+      callback: (payload: SystemMessagePayload) => void
+    ) => PostgresChangeRealtimeChannel);
+  subscribe: (
+    callback?: (status: string, error?: Error) => void
   ) => PostgresChangeRealtimeChannel;
-  subscribe: () => PostgresChangeRealtimeChannel;
   unsubscribe?: () => Promise<unknown> | unknown;
+}
+
+/**
+ * Server-pushed channel status message. Realtime acknowledges a join and only
+ * afterwards reports postgres_changes setup failures here — supabase-js still
+ * says SUBSCRIBED, so without watching these the subscription fails silently.
+ */
+export interface SystemMessagePayload {
+  extension?: string;
+  message?: unknown;
+  status?: string;
 }
 
 export interface PostgresChangeRealtimeClient {
@@ -91,7 +109,22 @@ export function subscribePostgresChanges(params: {
       }
     );
   }
-  channel.subscribe();
+  channel = channel.on("system", {}, (payload) => {
+    if (payload.status === "error") {
+      console.warn(
+        `[live-cache] realtime postgres_changes setup failed on "${params.channelName}":`,
+        payload.message ?? payload
+      );
+    }
+  });
+  channel.subscribe((status, error) => {
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      console.warn(
+        `[live-cache] realtime channel "${params.channelName}" ${status}`,
+        error ?? ""
+      );
+    }
+  });
 
   return () => {
     if (params.client.removeChannel) {

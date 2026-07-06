@@ -32,8 +32,14 @@ export interface CopilotCompactLauncherProps {
   contextOptions: CopilotCompactContextOption[];
   draft: string;
   dragHandleProps?: ComponentPropsWithoutRef<"div">;
+  /** Pending HITL interrupt UI, rendered in the status flap above the input. */
+  interruptContent?: ReactNode;
   onCollapseToCircle?: () => void;
+  /** Start a fresh conversation (exposed in the composer (+) menu). */
+  onNewChat?: () => void;
   onSelectContext: (value: string) => void;
+  /** Optimistic user text while a run is in flight (flap "sending" preview). */
+  pendingUserText?: string | null;
   /** Shell position menu (⋮); rendered before the drag handle when set. */
   positionMenu?: ReactNode;
   recentContextOptions?: CopilotCompactContextOption[];
@@ -55,7 +61,10 @@ export function CopilotCompactLauncher({
   contextOptions,
   draft,
   dragHandleProps,
+  interruptContent = null,
   onCollapseToCircle,
+  onNewChat,
+  pendingUserText = null,
   positionMenu,
   onSelectContext,
   recentContextOptions,
@@ -110,8 +119,10 @@ export function CopilotCompactLauncher({
       }
       chatStatus={status}
       errorMessage={agentTickerErrorMessage}
+      interruptContent={interruptContent}
       isMultiline={isMultiline}
       messages={agentTickerMessages}
+      pendingUserText={pendingUserText}
       variant="dock"
     >
       <PromptInputProvider initialInput={draft}>
@@ -121,6 +132,7 @@ export function CopilotCompactLauncher({
           composerPlaceholder={composerPlaceholder}
           draft={draft}
           onMultilineChange={setIsMultiline}
+          onNewChat={onNewChat}
           setDraft={setDraft}
           showStarterPrompts={false}
           status={status}

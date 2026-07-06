@@ -47,6 +47,12 @@ export function registerAgentSessionRoutes(
   opts: {
     getUsageStore?: () => AiUsageStore | null;
     aiService: AiService;
+    /** Called after a single session is deleted (search-index cleanup). */
+    onSessionDeleted?: (params: {
+      threadId: string;
+      tenantId: string;
+      userId: string;
+    }) => Promise<void>;
     onSessionPersisted?: (params: {
       threadId: string;
       tenantId: string;
@@ -393,6 +399,11 @@ export function registerAgentSessionRoutes(
       if (!deleted) {
         return c.json({ error: "agent_threads.notFound" }, 404);
       }
+      await opts.onSessionDeleted?.({
+        threadId,
+        tenantId: scope.scope.tenantId,
+        userId: scope.scope.userId,
+      });
       return c.json({ ok: true });
     } catch (err) {
       return handleRouteError(

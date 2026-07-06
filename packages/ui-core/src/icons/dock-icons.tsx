@@ -8,6 +8,7 @@ export {
   DockEngentyIcon,
   DockExpensesIcon,
   DockInboxIcon,
+  DockInvoicesIcon,
   DockKnowledgeBaseIcon,
   DockLeadsIcon,
   DockOffersIcon,

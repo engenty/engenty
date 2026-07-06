@@ -13,7 +13,16 @@ export type ConnectionPolicy = "allow" | "ask" | "deny";
 export type ConnectionSharing = "personal" | "org";
 export type ConnectionAutonomousMode = "off" | "read_only" | "full";
 export type ConnectionStatus = "active" | "error" | "revoked";
+export type ConnectorAuthKind = "oauth2" | "api_key" | "browser";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
+
+export interface ConnectorCredentialField {
+  key: string;
+  label: string;
+  placeholder: string | null;
+  required: boolean;
+  secret: boolean;
+}
 
 export interface ConnectionPolicyOverride {
   connection_id: string;
@@ -50,7 +59,10 @@ export interface CatalogConnection {
 
 export interface CatalogConnector {
   actions: CatalogAction[];
+  auth_kind: ConnectorAuthKind;
   connections: CatalogConnection[];
+  /** Credential form fields (labels only) when `auth_kind === "api_key"`. */
+  credential_fields: ConnectorCredentialField[] | null;
   description: string;
   icon: string | null;
   id: string;

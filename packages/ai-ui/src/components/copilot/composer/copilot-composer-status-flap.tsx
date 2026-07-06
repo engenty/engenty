@@ -2,7 +2,8 @@
 
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import { cn } from "@engenty/ui-core";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { ChevronUp, MessageSquare } from "lucide-react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { MessageResponse } from "../../ai-elements/message.js";
 import { AgentStatusTicker } from "./agent-status-ticker/agent-status-ticker.js";
@@ -32,6 +33,39 @@ export function useAnimatedPresence(visible: boolean, exitMs = 220) {
   return { closing, rendered };
 }
 
+/** Text of the last user message — the "what am I waiting on" line shown in
+ *  the flap while a run is submitted/streaming with no assistant activity yet. */
+export function getLastUserMessageText(
+  messages: readonly AgentTurnMessageLike[]
+): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message?.role !== "user") {
+      continue;
+    }
+    const record = message as unknown as {
+      content?: unknown;
+      parts?: readonly unknown[];
+    };
+    if (typeof record.content === "string" && record.content.trim()) {
+      return record.content.trim();
+    }
+    const text = (record.parts ?? [])
+      .map((part) => {
+        const typed = part as { text?: unknown; type?: unknown };
+        return typed?.type === "text" && typeof typed.text === "string"
+          ? typed.text
+          : "";
+      })
+      .join("")
+      .trim();
+    if (text) {
+      return text;
+    }
+  }
+  return "";
+}
+
 /** Concatenated text parts of the last assistant message — empty when the
  *  run only executed commands/tools (no content reply). */
 export function getAssistantReplyText(
@@ -59,8 +93,21 @@ export interface CopilotComposerStatusFlapProps {
   chatStatus: "ready" | "streaming" | "submitted" | "error";
   closing: boolean;
   errorMessage?: string | null;
+  /** When the run is idle but the thread already has history, a single-line
+   *  preview of the last assistant reply — shown collapsed in place of the
+   *  status ticker so compact surfaces signal "there's a conversation here"
+   *  and can expand to read it. */
+  idlePreviewText?: string | null;
+  /** Pending HITL interrupt UI (approval / decision / feedback card). Rendered
+   *  always-visible and interactive inside the flap so compact surfaces
+   *  (floating launcher, bottom dock) can answer without opening the panel. */
+  interruptContent?: ReactNode;
   labels?: AgentStatusTickerLabels;
   messages: readonly AgentTurnMessageLike[];
+  /** Absolutely-positioned chrome anchored to the flap (e.g. the peeking blob
+   *  avatar) — rendered inside the flap root so it rides the flap's top edge
+   *  instead of overlapping its content. */
+  overlayAdornment?: ReactNode;
   replyText: string;
   runStatus?: AgentRunStatus | null;
   stale?: boolean;
@@ -74,8 +121,11 @@ export function CopilotComposerStatusFlap({
   chatStatus,
   closing,
   errorMessage = null,
+  idlePreviewText = null,
+  interruptContent = null,
   labels,
   messages,
+  overlayAdornment = null,
   replyText,
   runStatus = null,
   stale = false,
@@ -86,6 +136,16 @@ export function CopilotComposerStatusFlap({
   const canExpand = replyText.length > 0;
   const needsInput =
     runStatus === "waiting_for_input" || runStatus === "waiting_for_approval";
+  // Idle history: show the last reply as a 1-line preview instead of the
+  // status ticker (which would just read "Done"). Active/error runs keep the
+  // ticker so live progress stays visible.
+  const showIdlePreview =
+    chatStatus === "ready" &&
+    !errorMessage &&
+    runStatus !== "running" &&
+    runStatus !== "queued" &&
+    !needsInput &&
+    Boolean(idlePreviewText);
 
   // New run: collapse. Run finished with a content reply, or the agent is
   // waiting on the user: auto-expand so the message isn't missed.
@@ -150,23 +210,52 @@ export function CopilotComposerStatusFlap({
       onPointerUp={onPointerUp}
       role="status"
     >
-      <AgentStatusTicker
-        activityBaselineSignature={activityBaselineSignature}
-        chatStatus={chatStatus}
-        className="w-full min-w-0"
-        enableShimmer
-        errorMessage={errorMessage}
-        labels={labels}
-        messages={messages}
-        runStatus={runStatus}
-        stale={stale}
-        statusOnly
-      />
+      {overlayAdornment}
+      {showIdlePreview ? (
+        <div className="flex min-w-0 items-center gap-2 text-muted-foreground text-sm">
+          <MessageSquare aria-hidden className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{idlePreviewText}</span>
+          {canExpand ? (
+            <ChevronUp
+              aria-hidden
+              className={cn(
+                "size-3.5 shrink-0 opacity-60 transition-transform duration-200",
+                expanded && "rotate-180"
+              )}
+            />
+          ) : null}
+        </div>
+      ) : (
+        <AgentStatusTicker
+          activityBaselineSignature={activityBaselineSignature}
+          chatStatus={chatStatus}
+          className="w-full min-w-0"
+          enableShimmer
+          errorMessage={errorMessage}
+          labels={labels}
+          messages={messages}
+          runStatus={runStatus}
+          stale={stale}
+          statusOnly
+        />
+      )}
       {expanded && canExpand ? (
         <div className="mt-1.5 max-h-56 cursor-auto select-text overflow-y-auto border-border/60 border-t pt-1.5 text-muted-foreground text-sm">
           {/* Render markdown (tables, lists, code) the same way the transcript
               does, instead of dumping the raw source as plain text. */}
           <MessageResponse>{replyText}</MessageResponse>
+        </div>
+      ) : null}
+      {interruptContent ? (
+        <div
+          className="mt-1.5 max-h-80 cursor-auto touch-auto select-auto overflow-y-auto border-border/60 border-t pt-1.5"
+          // The flap root toggles expansion on pointer up — keep interactions
+          // with the interrupt card (buttons, inputs) from triggering it.
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+        >
+          {interruptContent}
         </div>
       ) : null}
     </div>

@@ -1,6 +1,7 @@
 {
   "menu": {
-    "offers": "Angebote"
+    "offers": "Angebote",
+    "settings": "Einstellungen"
   },
   "title": "Titel",
   "status": "Status",
@@ -431,5 +432,48 @@
   "selectAll": "Alle auswählen",
   "cancel": "Abbrechen",
   "deleteOfferConfirm": "Dieses Angebot löschen?",
-  "deleteOfferConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden."
+  "deleteOfferConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden.",
+  "previewPdf": "PDF-Vorschau",
+  "contactTab": "Angebote",
+  "contactTabCount": "{{count}} Angebot(e) für diesen Kontakt",
+  "contactTabEmpty": "Noch keine Angebote",
+  "contactTabEmptyDescription": "Mit diesem Kontakt verknüpfte Angebote erscheinen hier.",
+  "contactTabViewAll": "Alle Angebote",
+  "externalChange": "Dieses Angebot wurde außerhalb des Editors geändert (z. B. durch den Assistenten).",
+  "externalChangeAdopt": "Änderungen laden",
+  "externalChangeKeep": "Meine Version behalten",
+  "sidebar": {
+    "searchPlaceholder": "Angebote suchen…",
+    "searchAria": "Angebote suchen",
+    "clearSearch": "Suche leeren",
+    "listSettings": "Listeneinstellungen",
+    "groupBy": "Gruppieren nach",
+    "groupByNone": "Keine Gruppierung",
+    "groupByClient": "Kunde",
+    "groupByStatus": "Status",
+    "sortBy": "Sortieren nach",
+    "sortOrder": "Sortierreihenfolge",
+    "sort": {
+      "title": "Titel",
+      "offer_number": "Nummer",
+      "offer_date": "Angebotsdatum",
+      "created_at": "Erstellt"
+    },
+    "filterStatus": "Status",
+    "allStatuses": "Alle Status",
+    "filterClient": "Kunde",
+    "allClients": "Alle Kunden",
+    "ungrouped": "Ohne Kunde",
+    "noOffers": "Noch keine Angebote",
+    "noSearchResults": "Keine Angebote gefunden",
+    "offerMenuAria": "Angebotsaktionen",
+    "openOffer": "Angebot öffnen",
+    "deleteConfirm": "Dieses Angebot löschen?",
+    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden."
+  },
+  "statusShort": {
+    "draft": "Entwurf",
+    "ready": "Bereit",
+    "accepted": "Angenommen"
+  }
 }

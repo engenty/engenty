@@ -17,6 +17,12 @@ import {
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
+import { enabledModuleSlugSetFromDir } from "@engenty/environment";
+import {
+  createRetrievalService,
+  createWorkspaceSearchProvider,
+  type RetrievalSourceRegistration,
+} from "@engenty/retrieval";
 import type { SearchIndexRegistry } from "@engenty/search-index";
 import { createJiti } from "jiti";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
@@ -243,6 +249,12 @@ function createPluginApi(params: {
       }),
   });
 
+  const searchIndexHost = createSearchIndexHost({
+    events,
+    registry: params.searchIndexRegistry,
+    server: params.pluginApi.server,
+  });
+
   return {
     ai: {},
     capabilities: {
@@ -301,11 +313,63 @@ function createPluginApi(params: {
         }),
       registerContextGraphSource: (source) =>
         params.registry.contextGraphHost?.sources.register(source),
-      registerSearchIndexProvider: createSearchIndexHost({
-        events,
-        registry: params.searchIndexRegistry,
-        server: params.pluginApi.server,
-      }),
+      getRetrievalService: () => params.registry.retrievalService ?? null,
+      registerRetrievalSource: (registration: RetrievalSourceRegistration) => {
+        // One shared service per process; created on first use. The creating
+        // plugin also hosts the synthesized `core_workspace_search` tool —
+        // acceptable provenance until a core-owned boot registration exists.
+        let service = params.registry.retrievalService;
+        if (!service) {
+          const supabase = params.pluginApi.server.getDatabaseAdapter?.();
+          if (!supabase) {
+            throw new Error(
+              "registerRetrievalSource requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+            );
+          }
+          service = createRetrievalService({ supabase: supabase as never });
+          params.registry.retrievalService = service;
+        }
+        // Keep exactly one live `core_workspace_search`, re-homed to the
+        // latest registrant: plugin reload disposes the previous owner's
+        // receipts, so a boot-time one-shot would vanish on first HMR.
+        const previousWorkspaceReceipt = params.registry.workspaceSearchReceipt;
+        if (previousWorkspaceReceipt?.dispose) {
+          void previousWorkspaceReceipt.dispose();
+        }
+        params.registry.workspaceSearchReceipt = searchIndexHost(
+          createWorkspaceSearchProvider(service),
+          {
+            entityName: "workspace",
+            moduleId: "core",
+            operationOverrides: {
+              idempotent: true,
+              riskLevel: "low",
+              summary:
+                "Search across all indexed workspace content (mail, contacts, knowledge base, …) with module/source/time filters",
+            },
+          }
+        );
+        service.registerSource(registration);
+        const provider = service.getProvider(registration.source_type);
+        if (!provider) {
+          throw new Error(
+            `Retrieval source ${registration.source_type} produced no provider`
+          );
+        }
+        return searchIndexHost(provider, {
+          capabilities: provider.capabilities,
+          entityName: registration.operation.entityName,
+          ...(registration.operation.filtersSchema
+            ? { filtersSchema: registration.operation.filtersSchema as never }
+            : {}),
+          moduleId: registration.module_id,
+          ...(registration.onEvents ? { onEvents: registration.onEvents } : {}),
+          ...(registration.operation.overrides
+            ? { operationOverrides: registration.operation.overrides }
+            : {}),
+        });
+      },
+      registerSearchIndexProvider: searchIndexHost,
     },
     source: createPluginSourceInfo(params.record, "server.plugin"),
     ui: {},
@@ -757,6 +821,33 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
 
   if (discovery.candidates.length === 0) {
     logger.debug(`No plugins found in ${modulesDir} / ${packagesDir}`);
+  }
+
+  // Fail loud: an enabled workspace module with no discovered candidate is
+  // almost always a path-resolution regression (e.g. a nested provider the
+  // discovery scan missed), which would otherwise be a silent "never loaded".
+  try {
+    const discoveredModuleIds = new Set(
+      discovery.candidates
+        .filter((candidate) => candidate.sourceType === "module")
+        .map((candidate) => candidate.idHint)
+    );
+    for (const slug of enabledModuleSlugSetFromDir(modulesDir)) {
+      if (discoveredModuleIds.has(slug)) {
+        continue;
+      }
+      registry.diagnostics.push({
+        level: "error",
+        code: "plugin.discovery.missing",
+        pluginId: slug,
+        message: `Enabled module "${slug}" was not discovered under ${modulesDir} (checked modules/${slug} and modules/*/providers/*).`,
+        remediation:
+          "Confirm the module directory exists and its engenty.plugin.json id matches the enabled slug.",
+      });
+      logger.warn(`Enabled module "${slug}" was not discovered on disk`);
+    }
+  } catch {
+    // No resolvable repo root (some unit-test fixtures) — skip the guard.
   }
 
   for (const candidate of discovery.candidates) {

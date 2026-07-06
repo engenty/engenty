@@ -121,5 +121,6 @@
     "recentSection": "Recent",
     "noRecent": "No invoices yet.",
     "noSearchResults": "No matching invoices."
-  }
+  },
+  "previewPdf": "Preview PDF"
 }

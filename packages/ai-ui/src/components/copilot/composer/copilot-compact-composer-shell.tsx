@@ -20,6 +20,7 @@ import type {
 import {
   CopilotComposerStatusFlap,
   getAssistantReplyText,
+  getLastUserMessageText,
   useAnimatedPresence,
 } from "./copilot-composer-status-flap.js";
 import { CopilotComposerUsageMeter } from "./copilot-composer-usage-meter.js";
@@ -61,11 +62,17 @@ export interface CopilotCompactComposerShellProps {
   /** Force the active state (avatar + belowCard always visible). Use on the
    *  copilot start screen so the context chooser is always shown. */
   forceActive?: boolean;
+  /** Pending HITL interrupt UI (approval / decision / feedback card). While
+   *  set, the status flap is forced visible and renders it interactively. */
+  interruptContent?: ReactNode;
   /** Whether the textarea has wrapped to multiple lines. Controls the
    *  card's rounding and padding (capsule ↔ rounded rectangle). */
   isMultiline?: boolean;
   labels?: AgentStatusTickerLabels;
   messages?: readonly AgentTurnMessageLike[];
+  /** Optimistic user text while a run is in flight (not yet in `messages`) —
+   *  shown as the flap's one-line "sending" preview with the spinner. */
+  pendingUserText?: string | null;
   runStatus?: AgentRunStatus | null;
   showAvatar?: boolean;
   showUsageMeter?: boolean;
@@ -241,8 +248,10 @@ export function CopilotCompactComposerShell({
   enableStatusFlap = true,
   errorMessage = null,
   forceActive = false,
+  interruptContent = null,
   labels,
   messages = [],
+  pendingUserText = null,
   runStatus = null,
   showUsageMeter = true,
   stale = false,
@@ -256,13 +265,23 @@ export function CopilotCompactComposerShell({
     chatStatus,
     messages
   );
+  // The one-line "sending" preview: the message the user just submitted,
+  // shown with the ticker spinner while the run has produced nothing yet.
+  const isActiveRun = chatStatus === "submitted" || chatStatus === "streaming";
+  const sendingUserText = isActiveRun
+    ? pendingUserText?.trim() || getLastUserMessageText(messages)
+    : "";
   const showRunningFlap =
     enableStatusFlap &&
-    shouldShowRunningStatusFlap({
+    (shouldShowRunningStatusFlap({
       chatStatus,
       hasNewActivity,
       messages,
-    });
+    }) ||
+      // Without this, submitting into a thread that already has an assistant
+      // reply shows NO flap until new activity streams — the user stares at a
+      // bare composer wondering whether the send registered.
+      (isActiveRun && sendingUserText.length > 0));
   // Only persist the flap for runs that happened while this shell was mounted.
   const hadRunRef = useRef(false);
   if (chatStatus === "submitted" || chatStatus === "streaming") {
@@ -276,7 +295,20 @@ export function CopilotCompactComposerShell({
     chatStatus === "ready" &&
     hadRunRef.current &&
     (replyText.length > 0 || tickerVisible);
-  const showStatus = showRunningFlap || showPostRunFlap;
+  // Persistent history hint: whenever the thread already has a real
+  // back-and-forth (at least one user message) and a reply exists, keep the
+  // flap showing a 1-line preview — so reopening the launcher/dock on an
+  // existing conversation shows continuity, not a blank composer.
+  const hasConversation = messages.some((message) => message.role === "user");
+  const idlePreviewText =
+    enableStatusFlap && chatStatus === "ready" && hasConversation
+      ? replyText
+      : "";
+  const showStatus =
+    (enableStatusFlap && interruptContent != null) ||
+    showRunningFlap ||
+    showPostRunFlap ||
+    idlePreviewText.length > 0;
   const { closing, rendered } = useAnimatedPresence(showStatus);
 
   const [isFocused, setIsFocused] = useState(false);
@@ -308,6 +340,44 @@ export function CopilotCompactComposerShell({
       setHasInteracted(true);
     }
   }, [shouldShowAvatar]);
+
+  // Peeking blob avatar + drop shadow. Anchored to whichever surface is the
+  // visual top: rendered INSIDE the flap while it is open (so the avatar sits
+  // on the flap's top edge instead of overlapping its content/buttons), and
+  // directly above the composer card otherwise.
+  const avatarOverlay =
+    showAvatar && hasInteracted ? (
+      <>
+        {/* Shadow FIRST in DOM → paints behind the avatar (z-[15] < avatar z-20). */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute -top-1 right-10 z-[15] h-3 w-16",
+            shouldShowAvatar ? "shadow-enter-active" : "shadow-leave-active"
+          )}
+        >
+          <span className="absolute left-3 h-3 w-4/5 rounded-full bg-foreground/35 blur-[8px]" />
+        </span>
+        {/* Avatar SECOND in DOM → paints on top of the shadow. */}
+        <div
+          className={cn(
+            "avatar-animated-wrap",
+            shouldShowAvatar ? "avatar-enter-active" : "avatar-leave-active"
+          )}
+        >
+          <BlobAvatar
+            character={blobCharacter}
+            state={
+              chatStatus === "submitted"
+                ? "thinking"
+                : chatStatus === "streaming"
+                  ? "streaming"
+                  : "idle"
+            }
+          />
+        </div>
+      </>
+    ) : null;
 
   return (
     <div
@@ -441,45 +511,28 @@ export function CopilotCompactComposerShell({
             chatStatus={chatStatus}
             closing={closing}
             errorMessage={errorMessage}
-            labels={labels}
+            idlePreviewText={idlePreviewText || null}
+            interruptContent={interruptContent}
+            labels={
+              // Until the run produces activity, the ticker line is the just-
+              // sent user message (with spinner) instead of a generic
+              // "Waiting…" — so the send is visibly acknowledged.
+              sendingUserText
+                ? {
+                    ...labels,
+                    thinking: sendingUserText,
+                    waiting: sendingUserText,
+                  }
+                : labels
+            }
             messages={messages}
+            overlayAdornment={avatarOverlay}
             replyText={replyText}
             runStatus={runStatus}
             stale={stale}
           />
         ) : null}
-        {showAvatar && hasInteracted ? (
-          <>
-            {/* Shadow FIRST in DOM → paints behind the avatar (z-[15] < avatar z-20). */}
-            <span
-              aria-hidden="true"
-              className={cn(
-                "pointer-events-none absolute -top-1 right-10 z-[15] h-3 w-16",
-                shouldShowAvatar ? "shadow-enter-active" : "shadow-leave-active"
-              )}
-            >
-              <span className="absolute left-3 h-3 w-4/5 rounded-full bg-foreground/35 blur-[8px]" />
-            </span>
-            {/* Avatar SECOND in DOM → paints on top of the shadow. */}
-            <div
-              className={cn(
-                "avatar-animated-wrap",
-                shouldShowAvatar ? "avatar-enter-active" : "avatar-leave-active"
-              )}
-            >
-              <BlobAvatar
-                character={blobCharacter}
-                state={
-                  chatStatus === "submitted"
-                    ? "thinking"
-                    : chatStatus === "streaming"
-                      ? "streaming"
-                      : "idle"
-                }
-              />
-            </div>
-          </>
-        ) : null}
+        {rendered ? null : avatarOverlay}
         <div
           className={cn(
             "relative z-10 border-red transition-all duration-200",

@@ -11,6 +11,7 @@ import {
   setOfferSettings,
   updateOffer,
 } from "./api.js";
+import { ContactOffersTab } from "./components/contact-offers-tab.js";
 import { createOfferFromLead } from "./lib/create-offer-from-lead.js";
 import { offersLiveBinding } from "./offers-live-binding.js";
 import {
@@ -37,6 +38,17 @@ export default function plugin(engenty: EngentyPluginContext) {
       en: () => import("./locales/en.json").then((m) => m.default),
       de: () => import("./locales/de.json").then((m) => m.default),
     },
+  });
+
+  // Fills the "Angebote" slot on the contact detail page. Kept as a literal
+  // to avoid a static dep — the host constant is CONTACTS_DETAIL_SURFACE in
+  // @engenty/contacts' use-contact-tabs.ts.
+  engenty.UI.registerTab({
+    id: "offers",
+    surface: "contacts.detail",
+    component: ContactOffersTab,
+    labelKey: "offers:contactTab",
+    order: 200,
   });
 
   engenty.plugins.expose({
@@ -109,35 +121,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 118,
   });
 
-  engenty.UI.registerAdminMenuItem({
-    id: "offers_module_menu_draft",
-    parentId: "offers_module_menu",
-    section: "modules",
-    label: "Drafts",
-    labelKey: "offers:statusDraft",
-    to: "/mdl/offers?status=draft",
-    order: 1,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "offers_module_menu_ready",
-    parentId: "offers_module_menu",
-    section: "modules",
-    label: "Ready",
-    labelKey: "offers:statusReady",
-    to: "/mdl/offers?status=ready",
-    order: 2,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "offers_module_menu_accepted",
-    parentId: "offers_module_menu",
-    section: "modules",
-    label: "Accepted",
-    labelKey: "offers:statusAccepted",
-    to: "/mdl/offers?status=accepted",
-    order: 3,
-  });
+  // The former Drafts/Ready/Accepted quick links moved into the sidebar
+  // panel's status filter (OffersSidebarPanel — projects-style secondary nav).
 
   engenty.UI.registerSettingsItem({
     id: "offers_settings_menu",

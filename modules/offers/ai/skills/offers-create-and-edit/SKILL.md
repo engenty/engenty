@@ -2,7 +2,7 @@
 name: offers-create-and-edit
 title: Create and edit offers
 description: Create new offers and edit metadata — title, billing type, dates, tax settings, reference, and status transitions.
-allowed-tools: engenty_tools_search engenty_tool_execute navigate offers_apply_draft_patch
+allowed-tools: engenty_tools_search engenty_tool_execute navigate
 ---
 
 # Create and Edit Offers
@@ -13,7 +13,9 @@ Use this skill when the user wants to create a new offer or change offer metadat
 
 1. Use `engenty_tools_search` with `moduleId: "offers"` to find operations.
 2. Prefer: `offers_create`, `offers_update`, `offers_get_next_number`.
-3. For live in-page editing, call the `offers_apply_draft_patch` tool directly (see below).
+
+All writes go through backend operations. When the user has the offer open in
+the editor, changes appear there live (realtime) — no separate in-page tool.
 
 ## Creating an Offer
 
@@ -35,39 +37,39 @@ After creating, navigate to the new offer with the `navigate` tool: `/mdl/offers
 
 ## Editing an Offer
 
-### When user is NOT on the offer edit page
+Use `offers_update` with `{ id: "<offer-id>", patch: { ... } }`. Put only the fields that should change inside `patch`.
 
-Use `offers_update` with `{ id: "<offer-id>", ...patch }`. Send only the fields that should change.
+Patchable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `valid_until`, `reference`, `currency`, `default_tax_rate`, `no_tax_reason`, `introduction`, `final_notes`, `phases_enabled`, `show_phase_index`, `show_phase_totals`, `show_tax_per_item`, recipient fields, and `client_id`. For status changes use `offers_set_status` instead.
 
-Editable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `valid_until`, `reference`, `currency`, `default_tax_rate`, `no_tax_reason`, `introduction`, `final_notes`, `phases_enabled`, `show_phase_index`, `show_phase_totals`, `show_tax_per_item`, `status`.
+Edits persist immediately. If the user has the offer open in the editor, they see the change live; if they have unsaved local edits, the editor shows them a conflict banner — mention that their unsaved changes are preserved.
 
-### When user IS on the offer edit page (live update)
-
-When `offers_apply_draft_patch` is available in the frontend tools, prefer it for immediate visual feedback. Call the `offers_apply_draft_patch` tool directly:
-
-```
-offers_apply_draft_patch({
-  patch: [
-    { "op": "replace", "path": "/title", "value": "New Title" },
-    { "op": "replace", "path": "/billing_type", "value": "time_and_materials" }
-  ]
-})
-```
-
-Supported paths: `/title`, `/billing_type`, `/billing_interval`, `/offer_date`, `/valid_until`, `/reference`, `/currency`, `/default_tax_rate`, `/no_tax_reason`, `/introduction`, `/final_notes`.
-
-This updates the local editor draft only — the user saves explicitly. Inform the user that changes are staged and they need to save.
+**Act directly on drafts.** When the user asks for content ("write an
+introduction", "add final notes", "change the title"), write it into the
+offer with `offers_update` in the same turn — do NOT paste the drafted text
+into chat and ask "should I write this into the field?". The offer is a
+draft: writes are low-risk, the approval prompt (when configured) is the
+safety gate, and the user watches the result appear live in the editor.
+Asking first just doubles the round-trips. Only ask when the request itself
+is ambiguous (e.g. which of several offers to edit).
 
 ## Status Transitions
 
 | From | To | Meaning |
 |------|----|---------|
-| `draft` | `done` | Mark as ready — offer is finalized |
-| `done` | `accepted` | Mark as accepted — client agreed |
+| `draft` | `ready` | Mark as ready — offer is finalized |
+| `ready` | `accepted` | Mark as accepted — client agreed |
 
-Use `offers_update` with `{ id: "<id>", status: "done" }` or `{ status: "accepted" }`.
+Use `offers_set_status` with `{ id: "<id>", status: "ready" }` or `{ status: "accepted" }`.
 
-When on the edit page, status transitions go through `offers_update` directly (not through `offers_apply_draft_patch`) because a status change navigates the user to the detail page.
+Status transitions always go through `offers_set_status` — a status change moves the offer out of the draft editor.
+
+## Module Settings
+
+Read the offers module settings with `offers_settings_get`: number format
+(`offer_id_prefix` — supports `{year}` —, `offer_id_offset`,
+`offer_id_postfix`), `default_intro`, `default_final_notes`, and
+`valid_until_days`. Update them with `offers_settings_set` (partial patch,
+approval-gated). Changing the number format only affects future offers.
 
 ## Safety Rules
 

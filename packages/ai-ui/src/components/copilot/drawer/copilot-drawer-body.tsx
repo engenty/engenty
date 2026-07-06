@@ -542,48 +542,54 @@ export function CopilotDrawerBody({
       )
     ) : undefined;
 
-  // Pending decision / feedback chooser, docked directly above the composer
-  // (see CopilotPanelContent `dockedInterruptSurface`). Sandbox-command and
-  // frontend-tool interrupts keep their own inline confirm cards.
-  const dockedInterruptSurface = dockInterrupt ? (
-    <div className="px-3 pb-3">
-      <CopilotOpenInterruptBanner
-        onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) => {
-          session.respond?.(dockInterrupt.tool_call_id, {
-            artifactId,
-            choiceId,
-            choiceLabel,
-            interruptId,
+  // Pending decision / feedback / approval chooser, rendered above the
+  // composer. Built once from the authoritative, gated `dockInterrupt` and
+  // reused by BOTH the docked panel (`dockedInterruptSurface`) and the compact
+  // surfaces' status flap (`compactInterruptContent` → bottom dock + floating
+  // launcher). Sourcing both from the same node is what makes the approval card
+  // appear in the bottom dock — the compact surfaces have no transcript of
+  // their own to fall back on.
+  const interruptBanner = dockInterrupt ? (
+    <CopilotOpenInterruptBanner
+      onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) => {
+        session.respond?.(dockInterrupt.tool_call_id, {
+          artifactId,
+          choiceId,
+          choiceLabel,
+          interruptId,
+        });
+      }}
+      onFeedbackSubmit={(artifactId, feedback, interruptId) => {
+        session.respond?.(dockInterrupt.tool_call_id, {
+          artifactId,
+          choiceId: "feedback_submit",
+          choiceLabel: feedback,
+          interruptId,
+          payload: { feedback },
+        });
+      }}
+      onFrontendToolApprove={(open: AgUiOpenInterruptMetadata) => {
+        if (onFrontendToolInterruptApprove) {
+          void onFrontendToolInterruptApprove(open);
+        }
+      }}
+      onFrontendToolReject={(open: AgUiOpenInterruptMetadata) => {
+        if (onFrontendToolInterruptReject) {
+          onFrontendToolInterruptReject(open);
+        } else if (open.tool_name) {
+          session.resumeInterrupt?.({
+            approved: false,
+            interruptId: open.interrupt_id,
+            toolName: open.tool_name,
           });
-        }}
-        onFeedbackSubmit={(artifactId, feedback, interruptId) => {
-          session.respond?.(dockInterrupt.tool_call_id, {
-            artifactId,
-            choiceId: "feedback_submit",
-            choiceLabel: feedback,
-            interruptId,
-            payload: { feedback },
-          });
-        }}
-        onFrontendToolApprove={(open: AgUiOpenInterruptMetadata) => {
-          if (onFrontendToolInterruptApprove) {
-            void onFrontendToolInterruptApprove(open);
-          }
-        }}
-        onFrontendToolReject={(open: AgUiOpenInterruptMetadata) => {
-          if (onFrontendToolInterruptReject) {
-            onFrontendToolInterruptReject(open);
-          } else if (open.tool_name) {
-            session.resumeInterrupt?.({
-              approved: false,
-              interruptId: open.interrupt_id,
-              toolName: open.tool_name,
-            });
-          }
-        }}
-        open={dockInterrupt}
-      />
-    </div>
+        }
+      }}
+      open={dockInterrupt}
+    />
+  ) : null;
+
+  const dockedInterruptSurface = interruptBanner ? (
+    <div className="px-3 pb-3">{interruptBanner}</div>
   ) : null;
 
   const panelContent = (
@@ -665,6 +671,7 @@ export function CopilotDrawerBody({
       closeLabel={closeLabel}
       collapseToCompactLauncher={collapseToCompactLauncher}
       compactContextOptions={compactContextOptions}
+      compactInterruptContent={interruptBanner}
       composerPlaceholder={composerPlaceholder}
       copilotPositionDropdown={copilotPositionDropdown}
       copilotSidebarRef={copilotSidebarRef}

@@ -191,22 +191,104 @@ export function findEngentyRepoRootFrom(startDir: string): string {
   return path.resolve(startDir);
 }
 
-export function resolveModuleDir(repoRoot: string, slug: string): string {
-  return path.join(repoRoot, "modules", slug);
-}
-
-export function listWorkspaceModuleSlugsOnDisk(repoRoot: string): string[] {
+/**
+ * A workspace module lives at `modules/<slug>` (slug = dirname) or, for
+ * connector-style providers, at `modules/<parent>/providers/<child>` where the
+ * slug is taken from the nested `engenty.plugin.json` `id`. Only the literal
+ * `providers` segment is scanned one level deeper — never `src`, `ui`, `dist`,
+ * or `node_modules`.
+ *
+ * Fails loud (throws) on a nested manifest with a missing/invalid id, a slug
+ * that collides with another module, or a `package.json` name that disagrees
+ * with the manifest id — these would otherwise become silent "module missing"
+ * drops downstream.
+ */
+export function listWorkspaceModulesOnDisk(
+  repoRoot: string
+): Array<{ dir: string; slug: string }> {
   const modulesDir = path.join(repoRoot, "modules");
   if (!fs.existsSync(modulesDir)) {
     return [];
   }
-  return fs
-    .readdirSync(modulesDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .filter((slug) =>
-      fs.existsSync(path.join(modulesDir, slug, ENGENTY_PLUGIN_MANIFEST))
-    )
+  const results: Array<{ dir: string; slug: string }> = [];
+  const seen = new Map<string, string>();
+  const add = (slug: string, dir: string): void => {
+    const prior = seen.get(slug);
+    if (prior) {
+      throw new Error(
+        `Duplicate module slug "${slug}" on disk: ${prior} and ${dir}`
+      );
+    }
+    seen.set(slug, dir);
+    results.push({ slug, dir });
+  };
+
+  for (const entry of fs.readdirSync(modulesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const topDir = path.join(modulesDir, entry.name);
+    if (fs.existsSync(path.join(topDir, ENGENTY_PLUGIN_MANIFEST))) {
+      add(entry.name, topDir);
+    }
+    const providersDir = path.join(topDir, "providers");
+    if (
+      !(fs.existsSync(providersDir) && fs.statSync(providersDir).isDirectory())
+    ) {
+      continue;
+    }
+    for (const child of fs.readdirSync(providersDir, { withFileTypes: true })) {
+      if (!child.isDirectory()) {
+        continue;
+      }
+      const childDir = path.join(providersDir, child.name);
+      if (!fs.existsSync(path.join(childDir, ENGENTY_PLUGIN_MANIFEST))) {
+        continue;
+      }
+      const manifest = readPluginManifest(childDir);
+      const id =
+        manifest && typeof manifest.id === "string" ? manifest.id.trim() : "";
+      if (!(id && SLUG_REGEX.test(id))) {
+        throw new Error(
+          `Nested module ${childDir} must declare a valid kebab-case "id" in ${ENGENTY_PLUGIN_MANIFEST}`
+        );
+      }
+      const pkgPath = path.join(childDir, "package.json");
+      if (fs.existsSync(pkgPath)) {
+        const pkgName = (
+          JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as { name?: string }
+        ).name;
+        if (pkgName && pkgName !== modulePackageName(id)) {
+          throw new Error(
+            `Nested module ${childDir} package name "${pkgName}" must equal "${modulePackageName(
+              id
+            )}" (from manifest id "${id}")`
+          );
+        }
+      }
+      add(id, childDir);
+    }
+  }
+
+  return results.sort((a, b) =>
+    a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0
+  );
+}
+
+export function resolveModuleDir(repoRoot: string, slug: string): string {
+  const direct = path.join(repoRoot, "modules", slug);
+  if (fs.existsSync(path.join(direct, ENGENTY_PLUGIN_MANIFEST))) {
+    return direct;
+  }
+  const nested = listWorkspaceModulesOnDisk(repoRoot).find(
+    (mod) => mod.slug === slug
+  );
+  return nested?.dir ?? direct;
+}
+
+export function listWorkspaceModuleSlugsOnDisk(repoRoot: string): string[] {
+  return listWorkspaceModulesOnDisk(repoRoot)
+    .map((mod) => mod.slug)
     .sort();
 }
 
@@ -248,6 +330,9 @@ export function resolveEnabledModules(
 ): ResolvedEngentyModule[] {
   const { plugins, slugs } = readEngentyPluginsManifest(repoRoot);
   const strict = options.strict !== false;
+  const onDisk = new Map(
+    listWorkspaceModulesOnDisk(repoRoot).map((mod) => [mod.slug, mod.dir])
+  );
   const modules: ResolvedEngentyModule[] = [];
 
   for (const slug of slugs) {
@@ -263,11 +348,11 @@ export function resolveEnabledModules(
       }
       continue;
     }
-    const dir = resolveModuleDir(repoRoot, slug);
+    const dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
     if (!fs.existsSync(dir)) {
       if (strict) {
         throw new Error(
-          `engenty.plugins lists "${slug}" but modules/${slug}/ is missing on disk`
+          `engenty.plugins lists "${slug}" but neither modules/${slug}/ nor modules/*/providers/${slug}/ exists on disk`
         );
       }
       continue;
@@ -300,6 +385,21 @@ export function enabledModuleSlugSet(repoRoot: string): Set<string> {
 
 export function enabledModuleSlugSetFromDir(startDir: string): Set<string> {
   return enabledModuleSlugSet(findEngentyRepoRootFrom(startDir));
+}
+
+/**
+ * Enabled workspace modules resolved to their on-disk directory (top-level or
+ * nested `providers/*`), for plugin discovery that needs the real slug of a
+ * nested provider rather than its dirname.
+ */
+export function listEnabledModulesOnDiskFromDir(
+  startDir: string
+): Array<{ dir: string; slug: string }> {
+  const repoRoot = findEngentyRepoRootFrom(startDir);
+  const enabled = enabledModuleSlugSet(repoRoot);
+  return listWorkspaceModulesOnDisk(repoRoot).filter((mod) =>
+    enabled.has(mod.slug)
+  );
 }
 
 export function isEnabledModuleSlug(repoRoot: string, slug: string): boolean {

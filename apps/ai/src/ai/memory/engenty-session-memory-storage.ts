@@ -18,6 +18,10 @@ import type {
   AgentSessionStore,
   SessionMessageRole,
 } from "../../dal/agent-sessions/index.js";
+import {
+  TOOL_APPROVAL_GRANTS_METADATA_KEY,
+  TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
+} from "../sessions/tool-approval-grants.js";
 
 const DEFAULT_MESSAGE_LIMIT = 500;
 const UUID_PATTERN =
@@ -29,6 +33,14 @@ const MASTRA_THREAD_METADATA_KEYS = new Set([
   "summary",
   "workspace_key",
 ]);
+/** Session-metadata keys owned by the HITL routes (written via
+ *  `updateSessionForUser`) — on save these are always resolved from the
+ *  current DB row, never from Mastra's load-time snapshot. */
+const HITL_SESSION_METADATA_KEYS = [
+  AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+  TOOL_APPROVAL_GRANTS_METADATA_KEY,
+  TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
+] as const;
 
 export interface EngentySessionMemoryScope {
   tenantId: string;
@@ -94,23 +106,26 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     if (!isEngentySessionThreadId(thread.id)) {
       return thread;
     }
-    // Preserve OUR open-interrupt key across Mastra thread saves. Mastra's
-    // in-memory thread metadata never contains `ag_ui_open_interrupt`, so a save on
-    // abort/finish would otherwise CLOBBER an interrupt that `emitArtifactInterrupt`
-    // just persisted (decision/feedback/tool-approval HITL lives in thread
-    // metadata). Clearing is done via `updateSessionForUser` (bypasses this
-    // adapter), so carrying the current DB value forward is correct — and it's why
-    // a frontend-tool (parked, no final save) survived but decision/feedback didn't.
+    // HITL state (open interrupt + tool-approval grants) is owned by the
+    // routes/resume paths and written via `updateSessionForUser`, which
+    // bypasses this adapter — the DB row is authoritative for those keys.
+    // Mastra's in-memory thread metadata is a LOAD-TIME SNAPSHOT: on a parked
+    // tool-approval resume it still carries the interrupt that the resume just
+    // cleared, and a final save writing the snapshot back resurrected the
+    // approval card on every reload. So on every save, resolve these keys from
+    // the current DB row — never from the snapshot (neither adding nor
+    // removing based on in-memory state).
     const strippedMetadata = stripMastraThreadMetadata(thread.metadata);
-    if (strippedMetadata[AG_UI_OPEN_INTERRUPT_METADATA_KEY] === undefined) {
-      const current = await this.#store.getSession({
-        tenantId: this.#scope.tenantId,
-        threadId: thread.id,
-      });
-      const openInterrupt =
-        current?.metadata?.[AG_UI_OPEN_INTERRUPT_METADATA_KEY];
-      if (openInterrupt !== undefined) {
-        strippedMetadata[AG_UI_OPEN_INTERRUPT_METADATA_KEY] = openInterrupt;
+    const current = await this.#store.getSession({
+      tenantId: this.#scope.tenantId,
+      threadId: thread.id,
+    });
+    for (const key of HITL_SESSION_METADATA_KEYS) {
+      const value = current?.metadata?.[key];
+      if (value === undefined) {
+        delete strippedMetadata[key];
+      } else {
+        strippedMetadata[key] = value;
       }
     }
     const { session } = await this.#store.upsertSession({

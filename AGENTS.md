@@ -22,7 +22,7 @@ Default guide for contributors and coding agents in this repository.
 | `apps/ai` | Agent runtime (Mastra + AG-UI) |
 | `apps/docs` | Documentation site (Fumadocs) |
 | `packages/*` | Shared libraries (`ui-core`, `plugin-sdk`, `ai-core`, …) |
-| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, connections-google, connections-microsoft, connections-slack, contacts, engenty-coordinator, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking) |
+| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, contacts, engenty-coordinator, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking). Connector providers are nested workspace plugins under `modules/connections/providers/*` (google, microsoft, slack) yet keep flat slugs (`connections-google`, …) in `engenty.plugins`. |
 
 Core apps and packages must not depend on optional modules — use plugin hooks, events, and gateway methods instead.
 

@@ -313,6 +313,89 @@
         "confirmDescription": "This permanently removes all {{count}} orchestrator sessions and their runs for this tenant. There is no undo. Use this to start agents from a clean state."
       }
     },
+    "searchIndex": {
+      "title": "Search index",
+      "tabs": {
+        "overview": "Overview",
+        "parameters": "Parameters",
+        "test": "Test search"
+      },
+      "overview": {
+        "description": "Health and effective configuration of every registered search index, across the core and AI runtimes.",
+        "reloadProviders": "Reload providers",
+        "providersFailed": "Failed to load the provider list.",
+        "loading": "Loading providers…",
+        "empty": "No search index providers are registered.",
+        "systemBadge": "system",
+        "selfScopedHint": "Status and rebuild for this index are scoped to your own account (per-user content).",
+        "statusUnsupported": "This provider does not report indexing status.",
+        "refresh": "Refresh",
+        "rebuild": "Rebuild index",
+        "rebuildProgress": "Rebuilding {{done}} / {{total}}…",
+        "rebuildSummary": "Reindex processed {{processed}} documents. Failed: {{failed}}.",
+        "statusFailed": "Failed to load status for this provider.",
+        "rebuildFailed": "Rebuild failed."
+      },
+      "stats": {
+        "total": "Total",
+        "indexed": "Indexed",
+        "missing": "Missing",
+        "stale": "Stale",
+        "lastIndexedHint": "Last indexed {{when}}"
+      },
+      "config": {
+        "perTenant": "per tenant",
+        "none": "none",
+        "on": "on",
+        "off": "off",
+        "visibility": "Visibility",
+        "splitter": "Splitter",
+        "vectorThreshold": "Vector floor",
+        "fastPath": "Fast-path terms",
+        "trigram": "Title trigram",
+        "embeddingModel": "Embedding model",
+        "unavailable": "No retrieval config reported (hand-rolled provider)."
+      },
+      "params": {
+        "description": "Knowledge base is the one source with persisted, per-tenant search parameters. Changes to chunking or the embedding model apply to newly indexed content; rebuild to re-embed existing rows.",
+        "kbTitle": "Knowledge base parameters",
+        "loading": "Loading settings…",
+        "loadFailed": "Failed to load knowledge base settings.",
+        "vectorMinSimilarity": "Vector min similarity",
+        "vectorMinSimilarityHint": "Minimum cosine for a semantic-only match (0–1).",
+        "chunkStrategy": "Chunk strategy",
+        "chunkMaxLength": "Chunk max length",
+        "chunkOverlap": "Chunk overlap",
+        "verifierMinTerms": "Verifier min query terms",
+        "verifierMinTermsHint": "The LLM verifier runs only for queries with at least this many terms.",
+        "verifierMaxCandidates": "Verifier max candidates",
+        "embeddingModel": "Embedding model",
+        "embeddingModelHint": "Applies to newly indexed articles; rebuild to re-embed existing rows.",
+        "save": "Save",
+        "saved": "Saved.",
+        "saveFailed": "Failed to save settings.",
+        "constantsNote": "Inbox, contacts, and chat thresholds are compile-time constants — shown read-only on the Overview cards."
+      },
+      "test": {
+        "title": "Test search",
+        "description": "Run a query against any provider with tunable settings and inspect the ranked matches, per-signal scores, and round-trip latency.",
+        "provider": "Provider",
+        "strategy": "Strategy",
+        "strategy_hybrid": "Hybrid",
+        "strategy_lexical": "Lexical",
+        "strategy_semantic": "Semantic",
+        "limit": "Limit",
+        "minScore": "Min score",
+        "minScorePlaceholder": "optional",
+        "query": "Query",
+        "queryPlaceholder": "Enter a search query…",
+        "run": "Run search",
+        "failed": "Search failed.",
+        "summary": "{{count}} matches in {{ms}} ms.",
+        "empty": "No matches for this query.",
+        "fields": "Matched"
+      }
+    },
     "aiUsage": {
       "menuLabel": "AI usage",
       "title": "AI usage & limits",
@@ -422,6 +505,21 @@
     "newChat": "New chat",
     "newChatPickAgent": "Choose agent for new chat",
     "newChatStartWithAgent": "Start with another agent",
+    "decisionCard": {
+      "customPrefix": "Custom:",
+      "inputPlaceholder": "Type option number or custom response…",
+      "pressHintPrefix": "Press",
+      "pressHintSuffix": "or type and press",
+      "submit": "Submit ↵",
+      "submitting": "Submitting…"
+    },
+    "toolApproval": {
+      "title": "Approve {{action}}?",
+      "body": "This action requires your approval before it runs. Operation: {{operation}}",
+      "approveOnce": "Approve once",
+      "approveAlways": "Approve always (this chat)",
+      "deny": "Deny"
+    },
     "sidebar": {
       "title": "Chats",
       "searchPlaceholder": "Search chats",

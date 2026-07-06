@@ -241,10 +241,9 @@ export async function cancelInvoice(
 /**
  * Fetches the invoice PDF and triggers a download in the browser.
  */
-export async function downloadInvoicePdf(
-  id: string,
-  filename?: string
-): Promise<void> {
+export async function fetchInvoicePdf(
+  id: string
+): Promise<{ blob: Blob; suggestedFileName: string | null }> {
   const token = await getCurrentAccessToken();
   if (!token) {
     throw new Error("Not authenticated.");
@@ -260,12 +259,19 @@ export async function downloadInvoicePdf(
     throw new Error(`API ${response.status}: ${text || response.statusText}`);
   }
 
-  const blob = await response.blob();
   const disposition = response.headers.get("content-disposition");
-  const suggested =
-    disposition?.match(/filename="([^"]+)"/)?.[1] ??
-    filename ??
-    `invoice-${id}.pdf`;
+  return {
+    blob: await response.blob(),
+    suggestedFileName: disposition?.match(/filename="([^"]+)"/)?.[1] ?? null,
+  };
+}
+
+export async function downloadInvoicePdf(
+  id: string,
+  filename?: string
+): Promise<void> {
+  const { blob, suggestedFileName } = await fetchInvoicePdf(id);
+  const suggested = suggestedFileName ?? filename ?? `invoice-${id}.pdf`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

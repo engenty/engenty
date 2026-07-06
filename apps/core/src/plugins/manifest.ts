@@ -125,7 +125,15 @@ function readPackageJson(rootDir: string): Record<string, unknown> | undefined {
 export function isConventionalPluginRoot(rootDir: string): boolean {
   const abs = path.resolve(rootDir);
   const parent = path.basename(path.dirname(abs));
-  return parent === "modules" || parent === "packages";
+  if (parent === "modules" || parent === "packages") {
+    return true;
+  }
+  // Nested connector providers: modules/<parent>/providers/<child>
+  if (parent === "providers") {
+    const modulesDir = path.basename(path.dirname(path.dirname(path.dirname(abs))));
+    return modulesDir === "modules";
+  }
+  return false;
 }
 
 function derivePluginIdFromRoot(rootDir: string): string | undefined {

@@ -16,6 +16,7 @@ import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
 import { FeatureFlagsPage } from "@/pages/FeatureFlagsPage";
+import { SearchIndexSettingsPage } from "@/pages/SearchIndexSettingsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { TenantPluginsPage } from "@/pages/TenantPluginsPage";
 import { ChatLegacySessionRedirect } from "@/routes/chat-legacy-redirect.tsx";
@@ -87,6 +88,16 @@ export function AuthenticatedRoutes({
             )
           }
           path="/settings/features"
+        />
+        <Route
+          element={
+            isSuperAdmin ? (
+              <SearchIndexSettingsPage />
+            ) : (
+              <Navigate replace to={COPILOT_CHAT_ROOT} />
+            )
+          }
+          path="/settings/search-index"
         />
         <Route
           element={<Navigate replace to={COPILOT_CHAT_ROOT} />}

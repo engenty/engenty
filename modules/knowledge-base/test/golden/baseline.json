@@ -1,0 +1,471 @@
+{
+  "recorded_at": "2026-07-05T19:40:33.283Z",
+  "results": {
+    "fast-hosting": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.35,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-29cc-7129-ac14-0207d884545c",
+        "score": 0.35,
+        "title": "Phase 4: Manage App, Hosting & Betrieb"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.35,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      }
+    ],
+    "fast-moonshot": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.35,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-3eba-7973-9c9b-b88ba7fea17f",
+        "score": 0.35,
+        "title": "Phase 11: Moonshot – Agent generated Modules"
+      },
+      {
+        "article_id": "019f2231-25e8-724d-8d14-84ee670aa4da",
+        "score": 0.35,
+        "title": "Phase 3: Plugin Architektur"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.35,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      }
+    ],
+    "fast-fragen": [
+      {
+        "article_id": "019f224c-8670-7adc-854b-2a0e8afa067b",
+        "score": 0.499619777591907,
+        "title": "Fragen"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.35,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-31fd-71f7-8440-2c35351f46c5",
+        "score": 0.35,
+        "title": "Phase 7: Modul Knowledge Agent"
+      },
+      {
+        "article_id": "019f2231-3929-7d54-ab02-7d304ffb4764",
+        "score": 0.35,
+        "title": "Phase 9: Modul Brand and Marketing Agent"
+      }
+    ],
+    "fast-knowledge-agent": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.551508400497633,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.526348773861548,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.524198107577383,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.520576197408832,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.49935223468535,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "fast-plugin": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.530734316237615,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-25e8-724d-8d14-84ee670aa4da",
+        "score": 0.510894010816921,
+        "title": "Phase 3: Plugin Architektur"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.485657647592915,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.452596559791812,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-3eba-7973-9c9b-b88ba7fea17f",
+        "score": 0.35,
+        "title": "Phase 11: Moonshot – Agent generated Modules"
+      }
+    ],
+    "lex-user-testing": [
+      {
+        "article_id": "019f2231-3c29-73f3-bc87-47ee2c61f694",
+        "score": 0.492765405349986,
+        "title": "Phase 10: Documentation & User-Testing"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.478193335410688,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.457967575092682,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-3eba-7973-9c9b-b88ba7fea17f",
+        "score": 0.37553341157599923,
+        "title": "Phase 11: Moonshot – Agent generated Modules"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.35,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      }
+    ],
+    "lex-erstmigration": [
+      {
+        "article_id": "019f2231-22e9-7142-89a4-665cb5dede03",
+        "score": 0.657524282558667,
+        "title": "Phase 2: Technical Project Setup / Erstmigration"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.542577078543101,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.542425824125283,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-22e9-7142-89a4-665cb5dede03",
+        "score": 0.532515999155789,
+        "title": "Phase 2: Technical Project Setup / Erstmigration"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.511822318310839,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "lex-commercial": [
+      {
+        "article_id": "019f2231-35a6-722e-829d-e634482b87bf",
+        "score": 0.600500175129468,
+        "title": "Phase 8: Modul Commercial Agent"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.530606308662727,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.515573481042011,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.486331758023612,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-3929-7d54-ab02-7d304ffb4764",
+        "score": 0.46132610800009,
+        "title": "Phase 9: Modul Brand and Marketing Agent"
+      }
+    ],
+    "sem-framework-kosten": [
+      {
+        "article_id": "019f2231-2cda-7bc1-b78c-53bc3092c042",
+        "score": 0.650079853665841,
+        "title": "Phase 5: Agentic Framework"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.628067197492664,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.621262309146558,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.595004499636701,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.591940270543465,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "sem-hosting-phase": [
+      {
+        "article_id": "019f2231-29cc-7129-ac14-0207d884545c",
+        "score": 0.691171601107734,
+        "title": "Phase 4: Manage App, Hosting & Betrieb"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.607899574171909,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.57605343009481,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.554123460675727,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-29cc-7129-ac14-0207d884545c",
+        "score": 0.55407100762501,
+        "title": "Phase 4: Manage App, Hosting & Betrieb"
+      }
+    ],
+    "sem-mvp": [
+      {
+        "article_id": "019f224c-8670-7adc-854b-2a0e8afa067b",
+        "score": 0.537689703782949,
+        "title": "Fragen"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.467023891691225,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-1f33-79e5-9c61-14b689978ac1",
+        "score": 0.35,
+        "title": "Phase 1: Projektmanagement"
+      },
+      {
+        "article_id": "019f2231-3c29-73f3-bc87-47ee2c61f694",
+        "score": 0.35,
+        "title": "Phase 10: Documentation & User-Testing"
+      },
+      {
+        "article_id": "019f2231-3eba-7973-9c9b-b88ba7fea17f",
+        "score": 0.35,
+        "title": "Phase 11: Moonshot – Agent generated Modules"
+      }
+    ],
+    "sem-generated-modules": [
+      {
+        "article_id": "019f2231-3eba-7973-9c9b-b88ba7fea17f",
+        "score": 0.562158639835116,
+        "title": "Phase 11: Moonshot – Agent generated Modules"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.532501909298783,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.525612256827548,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.524603094002802,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.523784595252984,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "sem-phase-overview": [
+      {
+        "article_id": "019f2231-1f33-79e5-9c61-14b689978ac1",
+        "score": 0.58379161591377,
+        "title": "Phase 1: Projektmanagement"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.576379866573365,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.562535082585422,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.543522776864487,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.532526426608686,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "sem-branding": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.638707823787024,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-3929-7d54-ab02-7d304ffb4764",
+        "score": 0.579011345058654,
+        "title": "Phase 9: Modul Brand and Marketing Agent"
+      },
+      {
+        "article_id": "019f2231-3929-7d54-ab02-7d304ffb4764",
+        "score": 0.544081683899739,
+        "title": "Phase 9: Modul Brand and Marketing Agent"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.528799436137124,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.476680427084554,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "sem-coagents-ui": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.59707780383683,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-2f6b-76df-9b37-7f2b1e5ca684",
+        "score": 0.59358195988209,
+        "title": "Phase 6: Co-Agents UI"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.587692702102158,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.578713512606534,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.576806106055743,
+        "title": "Antrag 6619992 Final"
+      }
+    ],
+    "sem-knowledge-hours": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.663375479240927,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-31fd-71f7-8440-2c35351f46c5",
+        "score": 0.657095929439808,
+        "title": "Phase 7: Modul Knowledge Agent"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.625867113114571,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.614711859765699,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.606795846657762,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      }
+    ],
+    "sem-antrag-questions": [
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.540166888729172,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.478371827986138,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f224c-8670-7adc-854b-2a0e8afa067b",
+        "score": 0.460332397476857,
+        "title": "Fragen"
+      },
+      {
+        "article_id": "019f224c-8670-7adc-854b-2a0e8afa067b",
+        "score": 0.457175847917616,
+        "title": "Fragen"
+      },
+      {
+        "article_id": "019f2231-1f33-79e5-9c61-14b689978ac1",
+        "score": 0.35,
+        "title": "Phase 1: Projektmanagement"
+      }
+    ],
+    "sem-project-mgmt": [
+      {
+        "article_id": "019f2231-1f33-79e5-9c61-14b689978ac1",
+        "score": 0.622518798219279,
+        "title": "Phase 1: Projektmanagement"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.556602283393956,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.536827050089496,
+        "title": "Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f2231-dc66-7a73-94a4-0a4cbf2e301f",
+        "score": 0.508983934815121,
+        "title": "Phasen-Übersicht: Antrag 6619992 Final"
+      },
+      {
+        "article_id": "019f222b-4b0d-7a93-b63f-91f82fb21cea",
+        "score": 0.508940970465537,
+        "title": "Antrag 6619992 Final"
+      }
+    ]
+  }
+}

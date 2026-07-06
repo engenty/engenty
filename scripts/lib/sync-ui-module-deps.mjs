@@ -4,7 +4,11 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { resolveEnabledModules, resolveRepoRoot } from "./engenty-modules.mjs";
+import {
+  listWorkspaceModulesOnDisk,
+  resolveEnabledModules,
+  resolveRepoRoot,
+} from "./engenty-modules.mjs";
 
 const MODULE_DEP_PREFIX = "@engenty/";
 
@@ -16,24 +20,14 @@ function readJson(filePath) {
 }
 
 function listModulePackageNames(repoRoot) {
-  const modulesDir = path.join(repoRoot, "modules");
-  if (!fs.existsSync(modulesDir)) {
-    return new Set();
-  }
   const names = new Set();
-  for (const ent of fs.readdirSync(modulesDir, { withFileTypes: true })) {
-    if (!ent.isDirectory()) {
-      continue;
-    }
-    const pkgPath = path.join(modulesDir, ent.name, "package.json");
+  for (const { dir } of listWorkspaceModulesOnDisk(repoRoot)) {
+    const pkgPath = path.join(dir, "package.json");
     if (!fs.existsSync(pkgPath)) {
       continue;
     }
     const pkg = readJson(pkgPath);
-    if (
-      typeof pkg.name === "string" &&
-      pkg.name.startsWith(MODULE_DEP_PREFIX)
-    ) {
+    if (typeof pkg.name === "string" && pkg.name.startsWith(MODULE_DEP_PREFIX)) {
       names.add(pkg.name);
     }
   }

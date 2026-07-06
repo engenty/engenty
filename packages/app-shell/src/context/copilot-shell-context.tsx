@@ -35,10 +35,18 @@ function resolveEffectiveMode(
   isTablet: boolean
 ): CopilotDockMode {
   if (preferred != null) {
+    // The bottom dock is a centered, max-width card that clamps to the
+    // viewport, so it works at any width — honor an explicit `bottom`
+    // preference on tablet and mobile instead of forcing the side drawer.
+    if (preferred === "bottom") {
+      return "bottom";
+    }
     if (isMobile && preferred !== "drawer") {
       return "drawer";
     }
-    if (isTablet && (preferred === "sidebar" || preferred === "bottom")) {
+    // The inline `sidebar` needs horizontal room beside the main content;
+    // collapse it to the overlay drawer on tablet.
+    if (isTablet && preferred === "sidebar") {
       return "drawer";
     }
     return preferred;

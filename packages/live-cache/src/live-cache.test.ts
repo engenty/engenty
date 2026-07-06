@@ -270,8 +270,12 @@ describe("subscribePostgresChanges", () => {
   it("subscribes and forwards postgres payloads as signals", () => {
     let callback: ((payload: unknown) => void) | null = null;
     const channel: PostgresChangeRealtimeChannel = {
-      on: vi.fn((_event, _config, nextCallback) => {
-        callback = nextCallback;
+      on: vi.fn((event, _config, nextCallback) => {
+        // A "system" error listener is also registered; only capture the
+        // postgres_changes handler here.
+        if (event === "postgres_changes") {
+          callback = nextCallback as (payload: unknown) => void;
+        }
         return channel;
       }),
       subscribe: vi.fn(() => channel),

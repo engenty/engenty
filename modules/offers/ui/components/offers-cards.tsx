@@ -1,6 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { adminListCardsGridClassName, Badge } from "@engenty/ui-core";
+import { adminListCardsGridClassName } from "@engenty/ui-core";
 import type { OfferListItem } from "../api.js";
+import { OfferStatusBadge } from "./offer-status-badge.js";
 
 type TableSize = "compact" | "normal";
 
@@ -30,7 +31,7 @@ export function OffersCards({
         >
           <div className="flex items-start justify-between gap-3">
             <p className="font-medium">{offer.title}</p>
-            <Badge variant="outline">{offer.status}</Badge>
+            <OfferStatusBadge status={offer.status} />
           </div>
           <p
             className={`text-muted-foreground text-sm ${tableSize === "compact" ? "mt-1" : "mt-2"}`}

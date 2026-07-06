@@ -10,6 +10,7 @@ import { runInboxSync } from "./sync-service.js";
 
 function connection(overrides: Partial<ConnectionSummary>): ConnectionSummary {
   return {
+    auth_kind: "oauth2",
     autonomous_mode: "read_only",
     connector_id: "google-gmail",
     created_at: "2026-07-01T00:00:00Z",

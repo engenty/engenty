@@ -76,24 +76,54 @@ function discoverBucketOwners(parentDir, enabledModuleSlugs) {
   if (!(fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory())) {
     return [];
   }
+  const isModulesParent = parentDir.endsWith(`${path.sep}modules`);
   const owners = [];
+  const addOwner = (dir, name) => {
+    const manifest = readPluginManifest(dir);
+    const buckets = manifest?.supabase?.storageBuckets;
+    if (!Array.isArray(buckets) || buckets.length === 0) {
+      return;
+    }
+    owners.push({ name, buckets });
+  };
+
   for (const ent of fs.readdirSync(parentDir, { withFileTypes: true })) {
     if (!ent.isDirectory()) {
       continue;
     }
+    const ownerDir = path.join(parentDir, ent.name);
     if (
-      parentDir.endsWith(`${path.sep}modules`) &&
-      enabledModuleSlugs &&
-      !enabledModuleSlugs.has(ent.name)
+      !(isModulesParent && enabledModuleSlugs && !enabledModuleSlugs.has(ent.name))
+    ) {
+      addOwner(ownerDir, ent.name);
+    }
+    if (!isModulesParent) {
+      continue;
+    }
+    const providersDir = path.join(ownerDir, "providers");
+    if (
+      !(fs.existsSync(providersDir) && fs.statSync(providersDir).isDirectory())
     ) {
       continue;
     }
-    const manifest = readPluginManifest(path.join(parentDir, ent.name));
-    const buckets = manifest?.supabase?.storageBuckets;
-    if (!Array.isArray(buckets) || buckets.length === 0) {
-      continue;
+    for (const child of fs.readdirSync(providersDir, { withFileTypes: true })) {
+      if (!child.isDirectory()) {
+        continue;
+      }
+      const childDir = path.join(providersDir, child.name);
+      const manifest = readPluginManifest(childDir);
+      const slug =
+        typeof manifest?.id === "string" && manifest.id.trim()
+          ? manifest.id.trim()
+          : null;
+      if (!slug) {
+        continue;
+      }
+      if (enabledModuleSlugs && !enabledModuleSlugs.has(slug)) {
+        continue;
+      }
+      addOwner(childDir, slug);
     }
-    owners.push({ name: ent.name, buckets });
   }
   return owners;
 }

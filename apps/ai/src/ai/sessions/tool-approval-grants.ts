@@ -13,8 +13,8 @@
 //   - ONCE ("Approve once") — lives only until the next FRESH user turn, when the
 //     route clears it. Without persisting it, "once" was lost on the very next
 //     resume and the same op re-prompted repeatedly within one request.
-const TOOL_APPROVAL_GRANTS_METADATA_KEY = "engenty_tool_approval_grants";
-const TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY =
+export const TOOL_APPROVAL_GRANTS_METADATA_KEY = "engenty_tool_approval_grants";
+export const TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY =
   "engenty_tool_approval_grants_once";
 
 function readKey(

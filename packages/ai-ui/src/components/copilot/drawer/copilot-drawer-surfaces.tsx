@@ -35,6 +35,11 @@ export interface CopilotDrawerSurfaceTreeProps {
   closeLabel: string;
   collapseToCompactLauncher: () => void;
   compactContextOptions: CopilotCompactContextOption[];
+  /** Rendered HITL interrupt banner (approval / decision / feedback) for the
+   *  compact surfaces' status flap. Built by the drawer body from the gated
+   *  `dockInterrupt` so the bottom dock and floating launcher show the same
+   *  approval card the docked panel does. Null when nothing is pending. */
+  compactInterruptContent?: ReactNode;
   composerPlaceholder: string;
   copilotPositionDropdown: ReactNode;
   copilotSidebarRef: RefObject<HTMLDivElement | null> | undefined;
@@ -46,6 +51,7 @@ export interface CopilotDrawerSurfaceTreeProps {
     draft: string;
     error?: { message?: string | null } | null;
     messages: CopilotPanelContentProps["messages"];
+    pendingUserText?: string | null;
     setDraft: CopilotPanelContentProps["setDraft"];
     status: CopilotPanelContentProps["status"];
     submitMessage: CopilotPanelContentProps["submitMessage"];
@@ -168,6 +174,7 @@ export function CopilotDrawerSurfaceTree({
   closeLabel,
   collapseToCompactLauncher,
   compactContextOptions,
+  compactInterruptContent,
   composerPlaceholder,
   copilotPositionDropdown,
   copilotSidebarRef,
@@ -287,7 +294,10 @@ export function CopilotDrawerSurfaceTree({
               onPointerUp: layout.handlePointerUp,
               role: "presentation",
             }}
+            interruptContent={compactInterruptContent}
+            onNewChat={panelContentProps.onNewChat}
             onSelectContext={handleCompactContextChange}
+            pendingUserText={injected.pendingUserText ?? null}
             positionMenu={copilotPositionDropdown}
             recentContextOptions={recentCompactContexts}
             selectedContextId={selectedCompactContext?.id ?? "current"}
@@ -378,8 +388,10 @@ export function CopilotDrawerSurfaceTree({
             }
             chatStatus={injected.status}
             errorMessage={injected.error?.message ?? null}
+            interruptContent={compactInterruptContent}
             isMultiline={bottomIsMultiline}
             messages={injected.messages}
+            pendingUserText={injected.pendingUserText ?? null}
             threadId={injected.activeThreadId}
             variant="dock-tinted"
           >
@@ -392,6 +404,7 @@ export function CopilotDrawerSurfaceTree({
                 composerPlaceholder={composerPlaceholder}
                 draft={injected.draft}
                 onMultilineChange={setBottomIsMultiline}
+                onNewChat={panelContentProps.onNewChat}
                 setDraft={injected.setDraft}
                 showStarterPrompts={false}
                 status={injected.status}

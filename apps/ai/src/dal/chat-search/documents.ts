@@ -1,12 +1,21 @@
-import { compactSearchText, createSearchChunks } from "@engenty/search-index";
+// Canonical searchable text for a chat session (retrieval-service Phase 5a).
+//
+// One document per session: title + summary + role-prefixed transcript,
+// compacted through `compactSearchText`. The central retrieval service owns
+// chunking (paragraph splitter) and embedding; this module only decides what
+// text represents a session. Tool messages are excluded — they carry
+// machine payloads, not conversation content.
+
+import { compactSearchText } from "@engenty/search-index";
 import type {
   AgentSessionMessageRow,
   AgentSessionRow,
+  SessionMessageRole,
 } from "../agent-sessions/index.js";
-import type {
-  AiChatSearchDocument,
-  SearchableAgentSessionMessageRow,
-} from "./types.js";
+
+type SearchableAgentSessionMessageRow = AgentSessionMessageRow & {
+  role: Exclude<SessionMessageRole, "tool">;
+};
 
 function messagePartsToText(parts: unknown): string {
   if (typeof parts === "string") {
@@ -45,100 +54,23 @@ function isSearchableMessage(
   );
 }
 
-function buildBaseDocument(params: {
-  docId: string;
-  session: AgentSessionRow;
-  sourceCreatedAt: string | null;
-  sourceId: string;
-  sourceType: string;
-  sourceUpdatedAt: string;
-  text: string;
-  type: AiChatSearchDocument["document_type"];
-}): AiChatSearchDocument {
-  const {
-    docId,
-    session,
-    sourceCreatedAt,
-    sourceId,
-    sourceType,
-    sourceUpdatedAt,
-    text,
-    type,
-  } = params;
-  return {
-    agent_id: session.agent_id,
-    chunks: createSearchChunks({ doc_id: docId, text }),
-    doc_id: docId,
-    document_type: type,
-    metadata: {},
-    route_context: session.route_context,
-    scope_id: null,
-    thread_id: session.id,
-    session_status: session.status,
-    source_created_at: sourceCreatedAt,
-    source_id: sourceId,
-    source_type: sourceType,
-    source_updated_at: sourceUpdatedAt,
-    tenant_id: session.tenant_id,
-    text,
-    user_id: session.created_by_user_id,
-    workspace_key: session.workspace_key,
-  };
-}
-
-export function buildAiChatSearchDocumentsForSession(
+/**
+ * Build the canonical search text for one chat session. Returns an empty
+ * string when the session has no searchable content (the retrieval source
+ * treats that as "remove from index").
+ */
+export function buildChatSessionSearchText(
   session: AgentSessionRow,
   messages: AgentSessionMessageRow[]
-): AiChatSearchDocument[] {
-  const searchableMessages = messages
+): string {
+  const transcript = messages
     .filter(isSearchableMessage)
     .map((message) => ({
-      ...message,
+      role: message.role,
       text: messagePartsToText(message.parts),
     }))
-    .filter((message) => message.text.length > 0);
-  const transcript = searchableMessages
+    .filter((message) => message.text.length > 0)
     .map((message) => `${message.role}: ${message.text}`)
     .join("\n\n");
-  const sessionText = compactSearchText([
-    session.title,
-    session.summary,
-    transcript,
-  ]);
-  const documents: AiChatSearchDocument[] = [];
-  if (sessionText) {
-    const docId = `ai-chat-session:${session.id}`;
-    documents.push(
-      buildBaseDocument({
-        docId,
-        session,
-        sourceCreatedAt: session.created_at,
-        sourceId: session.id,
-        sourceType: "ai_chat_session",
-        sourceUpdatedAt: session.updated_at,
-        text: sessionText,
-        type: "session",
-      })
-    );
-  }
-  for (const message of searchableMessages) {
-    const docId = `ai-chat-message:${session.id}:${message.id}`;
-    documents.push({
-      ...buildBaseDocument({
-        docId,
-        session,
-        sourceCreatedAt: message.created_at,
-        sourceId: message.id,
-        sourceType: "ai_chat_message",
-        sourceUpdatedAt: message.created_at,
-        text: message.text,
-        type: "message",
-      }),
-      metadata: {
-        message_id: message.id,
-      },
-      role: message.role,
-    });
-  }
-  return documents;
+  return compactSearchText([session.title, session.summary, transcript]);
 }

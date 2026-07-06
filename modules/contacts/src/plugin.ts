@@ -9,8 +9,10 @@ import { contactsAiRegistration } from "../ai/registrar.js";
 import { registerContactsApi } from "./api/index.js";
 import { registerContactsContextGraph } from "./context-graph-registration.js";
 import {
+  CONTACTS_CONTACT_SOURCE_TYPE,
+  type ContactsSearchProvider,
   createContactRepoSupabase,
-  createContactsSearchIndexProvider,
+  createContactsRetrievalSource,
   type EmitContactEvent,
 } from "./dal/index.js";
 import { contactsProfilePolicy } from "./policies.js";
@@ -31,44 +33,26 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
   // adapter-agnostic (`unknown`); contacts is intentionally Supabase-bound.
   const supabase = supabaseRaw as SupabaseClient;
 
-  // One provider instance per plugin lifetime; tenant id flows through the
-  // request `filters` (synthesized op + admin route both inject from auth).
-  const searchProvider = createContactsSearchIndexProvider({ supabase });
-  // Auto-tool `contacts_contact_search`, declarative re-index from
-  // `contacts.contact.{created,updated,deleted}`, and admin status/backfill
-  // through `/api/search-index/providers/contacts.contact/*`.
-  server.registerSearchIndexProvider(searchProvider, {
-    capabilities: searchProvider.capabilities,
-    entityName: "contact",
-    moduleId: "contacts",
-    onEvents: [
-      {
-        action: "replace",
-        docId: (payload) =>
-          (payload as ContactEntityPayload).contact_id ?? null,
-        name: "contacts.contact.created",
-      },
-      {
-        action: "replace",
-        docId: (payload) =>
-          (payload as ContactEntityPayload).contact_id ?? null,
-        name: "contacts.contact.updated",
-      },
-      {
-        action: "delete",
-        docId: (payload) =>
-          (payload as ContactEntityPayload).contact_id ?? null,
-        name: "contacts.contact.deleted",
-      },
-    ],
-    operationOverrides: {
-      idempotent: true,
-      requiredCapabilities: ["module.contacts.read"],
-      riskLevel: "low",
-      summary:
-        "Search contacts by name, organization, role, email, location, or relationships",
-    },
-  });
+  // `contacts.contact` is a managed retrieval source (retrieval-service
+  // Phase 4): the central service owns embeddings/fusion/status/backfill;
+  // this module supplies the contact document builder (incl. relation
+  // texts), title-trigram fuzziness, type/role metadata filters, and
+  // hydration. The host manufactures the provider, synthesizes the
+  // unchanged `contacts_contact_search` tool, binds the
+  // `contacts.contact.{created,updated,deleted}` events, and serves
+  // `/api/search-index/providers/contacts.contact/*`.
+  if (!server.registerRetrievalSource || !server.getRetrievalService) {
+    throw new Error(
+      "Contacts module requires a host with the central retrieval service"
+    );
+  }
+  server.registerRetrievalSource(createContactsRetrievalSource({ supabase }));
+  const searchProvider = server
+    .getRetrievalService()
+    ?.getProvider(CONTACTS_CONTACT_SOURCE_TYPE) as ContactsSearchProvider | null;
+  if (!searchProvider) {
+    throw new Error("contacts.contact retrieval source produced no provider");
+  }
 
   const emitContactEvent: EmitContactEvent = async (verb, payload) => {
     const eventName = `contacts.contact.${verb}` as const;

@@ -6,13 +6,13 @@
 const tableHeaderBlock = `
               <View style="tableRow">
                 <Text style="posColHeader">Pos</Text>
-                <Text style="bezeichnungColHeader">Bezeichnung</Text>
-                <Text style="mengeColHeader">Menge</Text>
-                <Text style="preisColHeader">Preis</Text>
+                <Text style="bezeichnungColHeader">Beschreibung</Text>
+                <Text style="mengeColHeader">Menge / Einheit</Text>
+                <Text style="preisColHeader">Einzelpreis</Text>
                 {% if config.show_tax_per_item %}
                   <Text style="ustColHeader">USt.</Text>
                 {% endif %}
-                <Text style="summeColHeader">Summe</Text>
+                <Text style="summeColHeader">Gesamt</Text>
               </View>
 `;
 
@@ -102,6 +102,9 @@ const bundleHeadingRowBlock = `
                   </View>
 `;
 
+// NOTE: the styles engine resolves names against the stylesheet map only —
+// tailwind-style utility strings are silently dropped, so these rows use the
+// named subtotalRow/subtotalLabel/subtotalValue styles.
 const blockSubtotalRow = `
               {% if block.subtotal > 0 %}
                 {% assign showBlockSubtotal = true %}
@@ -109,9 +112,9 @@ const blockSubtotalRow = `
                   {% assign showBlockSubtotal = false %}
                 {% endif %}
                 {% if showBlockSubtotal %}
-                  <View style="flex flex-row justify-end mt-2 pt-1.5 border-t border-lines">
-                    <Text style="w-28 text-right text-xs text-muted">Zwischensumme:</Text>
-                    <Text style="w-24 text-right font-medium text-sm">{{ block.subtotal_formatted }}</Text>
+                  <View style="subtotalRow">
+                    <Text style="subtotalLabel">Zwischensumme</Text>
+                    <Text style="subtotalValue">{{ block.subtotal_formatted }}</Text>
                   </View>
                 {% endif %}
               {% endif %}
@@ -119,9 +122,9 @@ const blockSubtotalRow = `
 
 const phaseSubtotalRow = `
         {% if group.type == "phase" and config.show_phase_subtotals and group.subtotal > 0 %}
-          <View style="flex flex-row justify-end mt-2 pt-1.5 border-t border-lines">
-            <Text style="w-28 text-right text-xs text-muted">Zwischensumme Phase:</Text>
-            <Text style="w-24 text-right font-medium text-sm">{{ group.subtotal_formatted }}</Text>
+          <View style="subtotalRow">
+            <Text style="subtotalLabel">Phasen-Zwischensumme</Text>
+            <Text style="subtotalValue">{{ group.subtotal_formatted }}</Text>
           </View>
         {% endif %}
 `;

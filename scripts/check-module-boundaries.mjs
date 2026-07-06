@@ -16,7 +16,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { resolveRepoRoot } from "./lib/engenty-modules.mjs";
+import {
+  listWorkspaceModulesOnDisk,
+  resolveRepoRoot,
+} from "./lib/engenty-modules.mjs";
 
 const MODULE_DIR = "modules";
 const CONSUMER_DIRS = ["apps", "packages"];
@@ -53,12 +56,11 @@ function listDirs(absDir) {
     .map((entry) => entry.name);
 }
 
-/** Package names declared under modules/*. */
+/** Package names declared under top-level modules and nested providers. */
 function collectModulePackageNames(repoRoot) {
   const names = new Set();
-  const modulesAbs = path.join(repoRoot, MODULE_DIR);
-  for (const name of listDirs(modulesAbs)) {
-    const pkgPath = path.join(modulesAbs, name, "package.json");
+  for (const { dir } of listWorkspaceModulesOnDisk(repoRoot)) {
+    const pkgPath = path.join(dir, "package.json");
     if (!fs.existsSync(pkgPath)) {
       continue;
     }

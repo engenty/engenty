@@ -24,6 +24,7 @@ const ALLOWED_PATTERNS = [
   /^apps\/core\/src\/security\/audit-supabase/,
   /^apps\/core\/src\/security\/auth-stores\//,
   /^modules\/[^/]+\/src\/dal\//,
+  /^modules\/[^/]+\/providers\/[^/]+\/src\/dal\//,
   /^packages\/[^/]+\/src\/dal\//,
   /^packages\/[^/]+\/scripts\//, // ops/backfill scripts need a real client
   /^packages\/auth-ui\//, // the Supabase auth adapter package

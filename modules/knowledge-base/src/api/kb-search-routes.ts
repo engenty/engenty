@@ -1,4 +1,4 @@
-import type { KbArticlesSearchProvider } from "../dal/kb-articles-search-index-provider.js";
+import type { KbArticlesSearchProvider } from "../dal/kb-retrieval-source.js";
 import type { KbServerApi } from "./kb-api-shared.js";
 import { badRequest, qp } from "./kb-api-shared.js";
 

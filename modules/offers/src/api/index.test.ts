@@ -1,9 +1,14 @@
-import type { PluginHttpRoute, PluginServerApi } from "@engenty/plugin-sdk";
+import type {
+  PluginHttpRoute,
+  PluginServerApi,
+  PluginServerOperation,
+} from "@engenty/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import { registerOffersApi } from "./index.js";
 
 function makeMockApi() {
   const httpRoutes: PluginHttpRoute[] = [];
+  const serverOperations: PluginServerOperation[] = [];
 
   const server = {
     hasOperation: () => false,
@@ -11,12 +16,19 @@ function makeMockApi() {
     registerHttpRoute: (route: PluginHttpRoute) => {
       httpRoutes.push(route);
     },
+    registerOperation: (operation: PluginServerOperation) => {
+      serverOperations.push(operation);
+      return;
+    },
   } satisfies Pick<
     PluginServerApi,
-    "hasOperation" | "registerHttpRoute" | "callGatewayMethod"
+    | "hasOperation"
+    | "registerHttpRoute"
+    | "callGatewayMethod"
+    | "registerOperation"
   >;
 
-  return { api: server, httpRoutes };
+  return { api: server, httpRoutes, serverOperations };
 }
 
 function getRoute(
@@ -91,6 +103,70 @@ function makeMockRepo() {
 }
 
 describe("registerOffersApi", () => {
+  it("registers the agent-callable module operations", () => {
+    const { api, serverOperations } = makeMockApi();
+    registerOffersApi(api, makeMockRepo() as any);
+
+    const operationIds = serverOperations
+      .map((operation) => operation.operationId)
+      .sort();
+    expect(operationIds).toEqual([
+      "offers_create",
+      "offers_delete",
+      "offers_get",
+      "offers_get_blocks",
+      "offers_get_next_number",
+      "offers_list",
+      "offers_replace_blocks",
+      "offers_set_status",
+      "offers_settings_get",
+      "offers_settings_set",
+      "offers_update",
+      "offers_update_blocks",
+    ]);
+
+    const create = serverOperations.find(
+      (operation) => operation.operationId === "offers_create"
+    );
+    expect(create).toMatchObject({
+      moduleId: "offers",
+      requiredCapabilities: ["module.offers.write"],
+      riskLevel: "high",
+      requiresApproval: true,
+    });
+    const list = serverOperations.find(
+      (operation) => operation.operationId === "offers_list"
+    );
+    expect(list).toMatchObject({
+      moduleId: "offers",
+      requiredCapabilities: ["module.offers.read"],
+      riskLevel: "low",
+      idempotent: true,
+    });
+    const del = serverOperations.find(
+      (operation) => operation.operationId === "offers_delete"
+    );
+    expect(del).toMatchObject({
+      riskLevel: "critical",
+      requiresApproval: true,
+    });
+  });
+
+  it("resolves offers_get by id first, then by offer number", async () => {
+    const { api, serverOperations } = makeMockApi();
+    registerOffersApi(api, makeMockRepo() as any);
+    const get = serverOperations.find(
+      (operation) => operation.operationId === "offers_get"
+    );
+    if (!get) {
+      throw new Error("offers_get not registered");
+    }
+    const byNumber = await get.handler({ id: "ang-2026-1011" }, {
+      auth: undefined,
+    } as never);
+    expect(byNumber).toMatchObject({ id: "offer-2" });
+  });
+
   it("registers template settings routes", () => {
     const { api, httpRoutes } = makeMockApi();
     registerOffersApi(api, makeMockRepo() as any);

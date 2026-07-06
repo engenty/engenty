@@ -1,9 +1,9 @@
 import type { Contact } from "../schema/types.js";
 
-// Per-document embedding model is owned by the contacts SearchIndexProvider
-// (see `dal/contacts-search-index-provider.ts`). This module only owns the
-// canonical document-text builder, which is shared by the provider and any
-// future backfill / inspection tooling.
+// Per-document embedding is owned by the central retrieval service via the
+// `contacts.contact` source (see `dal/contacts-retrieval-source.ts`). This
+// module only owns the canonical document-text builder, which is shared by
+// the source's buildDocument and any future backfill / inspection tooling.
 
 export const DEFAULT_CONTACT_EMBEDDING_MODEL = "openai/text-embedding-3-small";
 

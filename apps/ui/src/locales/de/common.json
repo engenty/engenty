@@ -313,6 +313,89 @@
         "confirmDescription": "Dies entfernt unwiderruflich alle {{count}} Orchestrator-Sessions und ihre Runs für diesen Mandanten. Es gibt kein Rückgängig. Sinnvoll, um Agenten in einem sauberen Zustand zu starten."
       }
     },
+    "searchIndex": {
+      "title": "Suchindex",
+      "tabs": {
+        "overview": "Übersicht",
+        "parameters": "Parameter",
+        "test": "Testsuche"
+      },
+      "overview": {
+        "description": "Zustand und effektive Konfiguration jedes registrierten Suchindex – über Core- und KI-Laufzeit hinweg.",
+        "reloadProviders": "Provider neu laden",
+        "providersFailed": "Providerliste konnte nicht geladen werden.",
+        "loading": "Provider werden geladen…",
+        "empty": "Es sind keine Suchindex-Provider registriert.",
+        "systemBadge": "System",
+        "selfScopedHint": "Status und Neuaufbau dieses Index beziehen sich nur auf Ihr eigenes Konto (nutzerbezogene Inhalte).",
+        "statusUnsupported": "Dieser Provider meldet keinen Indexierungsstatus.",
+        "refresh": "Aktualisieren",
+        "rebuild": "Index neu aufbauen",
+        "rebuildProgress": "Neuaufbau {{done}} / {{total}}…",
+        "rebuildSummary": "Neuindizierung: {{processed}} Dokumente verarbeitet. Fehlgeschlagen: {{failed}}.",
+        "statusFailed": "Status für diesen Provider konnte nicht geladen werden.",
+        "rebuildFailed": "Neuaufbau fehlgeschlagen."
+      },
+      "stats": {
+        "total": "Gesamt",
+        "indexed": "Indexiert",
+        "missing": "Fehlend",
+        "stale": "Veraltet",
+        "lastIndexedHint": "Zuletzt indexiert {{when}}"
+      },
+      "config": {
+        "perTenant": "pro Tenant",
+        "none": "keine",
+        "on": "an",
+        "off": "aus",
+        "visibility": "Sichtbarkeit",
+        "splitter": "Splitter",
+        "vectorThreshold": "Vektor-Schwelle",
+        "fastPath": "Fast-Path-Begriffe",
+        "trigram": "Titel-Trigramm",
+        "embeddingModel": "Embedding-Modell",
+        "unavailable": "Keine Retrieval-Konfiguration gemeldet (manueller Provider)."
+      },
+      "params": {
+        "description": "Die Wissensdatenbank ist die einzige Quelle mit persistierten, pro-Tenant-Suchparametern. Änderungen an Chunking oder Embedding-Modell gelten für neu indexierte Inhalte; für bestehende Zeilen neu aufbauen.",
+        "kbTitle": "Wissensdatenbank-Parameter",
+        "loading": "Einstellungen werden geladen…",
+        "loadFailed": "Wissensdatenbank-Einstellungen konnten nicht geladen werden.",
+        "vectorMinSimilarity": "Min. Vektor-Ähnlichkeit",
+        "vectorMinSimilarityHint": "Minimaler Kosinus für einen rein semantischen Treffer (0–1).",
+        "chunkStrategy": "Chunk-Strategie",
+        "chunkMaxLength": "Max. Chunk-Länge",
+        "chunkOverlap": "Chunk-Überlappung",
+        "verifierMinTerms": "Verifier: Min. Suchbegriffe",
+        "verifierMinTermsHint": "Der LLM-Verifier läuft nur bei Anfragen mit mindestens so vielen Begriffen.",
+        "verifierMaxCandidates": "Verifier: Max. Kandidaten",
+        "embeddingModel": "Embedding-Modell",
+        "embeddingModelHint": "Gilt für neu indexierte Artikel; für bestehende Zeilen neu aufbauen.",
+        "save": "Speichern",
+        "saved": "Gespeichert.",
+        "saveFailed": "Einstellungen konnten nicht gespeichert werden.",
+        "constantsNote": "Schwellen für Posteingang, Kontakte und Chat sind Kompilierzeit-Konstanten – schreibgeschützt in den Übersichtskarten."
+      },
+      "test": {
+        "title": "Testsuche",
+        "description": "Führen Sie eine Anfrage gegen einen beliebigen Provider mit einstellbaren Optionen aus und prüfen Sie Treffer, Einzelsignal-Scores und Antwortzeit.",
+        "provider": "Provider",
+        "strategy": "Strategie",
+        "strategy_hybrid": "Hybrid",
+        "strategy_lexical": "Lexikalisch",
+        "strategy_semantic": "Semantisch",
+        "limit": "Limit",
+        "minScore": "Min. Score",
+        "minScorePlaceholder": "optional",
+        "query": "Anfrage",
+        "queryPlaceholder": "Suchanfrage eingeben…",
+        "run": "Suche ausführen",
+        "failed": "Suche fehlgeschlagen.",
+        "summary": "{{count}} Treffer in {{ms}} ms.",
+        "empty": "Keine Treffer für diese Anfrage.",
+        "fields": "Getroffen"
+      }
+    },
     "aiUsage": {
       "menuLabel": "KI-Nutzung",
       "title": "KI-Nutzung & Limits",
@@ -422,6 +505,21 @@
     "newChat": "Neuer Chat",
     "newChatPickAgent": "Agent für neuen Chat wählen",
     "newChatStartWithAgent": "Mit anderem Agent starten",
+    "decisionCard": {
+      "customPrefix": "Eigene Antwort:",
+      "inputPlaceholder": "Nummer eingeben oder eigene Antwort…",
+      "pressHintPrefix": "Drücke",
+      "pressHintSuffix": "oder tippe und drücke",
+      "submit": "Senden ↵",
+      "submitting": "Wird gesendet…"
+    },
+    "toolApproval": {
+      "title": "Freigeben: {{action}}?",
+      "body": "Diese Aktion erfordert deine Freigabe. Operation: {{operation}}",
+      "approveOnce": "Einmal erlauben",
+      "approveAlways": "Immer erlauben (dieser Chat)",
+      "deny": "Ablehnen"
+    },
     "sidebar": {
       "title": "Chats",
       "searchPlaceholder": "Chats suchen",

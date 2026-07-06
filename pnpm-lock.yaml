@@ -95,6 +95,9 @@ importers:
       '@engenty/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@engenty/search-index':
         specifier: workspace:*
         version: link:../../packages/search-index
@@ -219,6 +222,9 @@ importers:
       '@engenty/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@engenty/search-index':
         specifier: workspace:*
         version: link:../../packages/search-index
@@ -733,17 +739,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  modules/connections-google:
+  modules/connections/providers/google:
     dependencies:
       '@engenty/connections-sdk':
         specifier: workspace:*
-        version: link:../../packages/connections-sdk
+        version: link:../../../../packages/connections-sdk
       '@engenty/plugin-sdk':
         specifier: workspace:*
-        version: link:../../packages/plugin-sdk
+        version: link:../../../../packages/plugin-sdk
       '@engenty/telemetry':
         specifier: workspace:*
-        version: link:../../packages/telemetry
+        version: link:../../../../packages/telemetry
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -761,17 +767,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  modules/connections-microsoft:
+  modules/connections/providers/microsoft:
     dependencies:
       '@engenty/connections-sdk':
         specifier: workspace:*
-        version: link:../../packages/connections-sdk
+        version: link:../../../../packages/connections-sdk
       '@engenty/plugin-sdk':
         specifier: workspace:*
-        version: link:../../packages/plugin-sdk
+        version: link:../../../../packages/plugin-sdk
       '@engenty/telemetry':
         specifier: workspace:*
-        version: link:../../packages/telemetry
+        version: link:../../../../packages/telemetry
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -789,17 +795,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  modules/connections-slack:
+  modules/connections/providers/slack:
     dependencies:
       '@engenty/connections-sdk':
         specifier: workspace:*
-        version: link:../../packages/connections-sdk
+        version: link:../../../../packages/connections-sdk
       '@engenty/plugin-sdk':
         specifier: workspace:*
-        version: link:../../packages/plugin-sdk
+        version: link:../../../../packages/plugin-sdk
       '@engenty/telemetry':
         specifier: workspace:*
-        version: link:../../packages/telemetry
+        version: link:../../../../packages/telemetry
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -870,6 +876,9 @@ importers:
       '@engenty/query-client':
         specifier: workspace:*
         version: link:../../packages/query-client
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@engenty/search-index':
         specifier: workspace:*
         version: link:../../packages/search-index
@@ -1159,6 +1168,9 @@ importers:
       '@engenty/query-client':
         specifier: workspace:*
         version: link:../../packages/query-client
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@engenty/search-index':
         specifier: workspace:*
         version: link:../../packages/search-index
@@ -1177,6 +1189,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
+      ai:
+        specifier: 6.0.116
+        version: 6.0.116(zod@4.4.3)
       lucide-react:
         specifier: ^1.21.0
         version: 1.21.0(react@19.2.7)
@@ -1292,6 +1307,9 @@ importers:
       react-router-dom:
         specifier: ^7.18.0
         version: 7.18.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
@@ -1359,6 +1377,9 @@ importers:
       '@engenty/query-client':
         specifier: workspace:*
         version: link:../../packages/query-client
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@engenty/scoped-kv-settings':
         specifier: workspace:*
         version: link:../../packages/scoped-kv-settings
@@ -1549,6 +1570,9 @@ importers:
       react-router-dom:
         specifier: ^7.18.0
         version: 7.18.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       uuidv7:
         specifier: ^1.2.1
         version: 1.2.1
@@ -3120,6 +3144,9 @@ importers:
       '@engenty/feature-flags':
         specifier: workspace:*
         version: link:../feature-flags
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../retrieval
       '@engenty/search-index':
         specifier: workspace:*
         version: link:../search-index
@@ -3177,6 +3204,40 @@ importers:
         specifier: workspace:*
         version: link:../telemetry
     devDependencies:
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/retrieval:
+    dependencies:
+      '@engenty/search-index':
+        specifier: workspace:*
+        version: link:../search-index
+      '@engenty/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
+      '@supabase/supabase-js':
+        specifier: ^2.108.2
+        version: 2.108.2
+      ai:
+        specifier: 6.0.116
+        version: 6.0.116(zod@4.4.3)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@mastra/rag':
+        specifier: 2.3.0
+        version: 2.3.0(@mastra/core@1.48.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3))(zod@4.4.3)
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.0.0
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)

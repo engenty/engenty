@@ -100,7 +100,7 @@ export const defaultOfferPdfTemplate = `<Document>
     <View style="metaRow">
       <View style="metaCol"><Text style="metaLabel">Angebotsnummer</Text><Text style="metaValue">{{ offer.offer_number }}</Text></View>
       <View style="metaCol"><Text style="metaLabel">Angebotsdatum</Text><Text style="metaValue">{{ offer.created_at }}</Text></View>
-      <View style="metaCol"><Text style="metaLabel">Angebotsgültigkeit</Text><Text style="metaValue">{{ offer.valid_until }}</Text></View>
+      <View style="metaCol"><Text style="metaLabel">Gültig bis</Text><Text style="metaValue">{{ offer.valid_until }}</Text></View>
       <View style="metaCol"><Text style="metaLabel">Ihre Referenz</Text><Text style="metaValue">{{ offer.reference | default: "—" }}</Text></View>
     </View>
 
@@ -124,13 +124,13 @@ export const defaultOfferPdfTemplate = `<Document>
 
     <View style="totalsSection">
       <View style="totalRow">
-        <Text style="totalLabel">Zwischensumme</Text>
+        <Text style="totalLabel">Netto:</Text>
         <Text style="totalValue">{{ totals.subtotal_formatted }}</Text>
       </View>
       {% if totals.show_taxes %}
         {% for tax in totals.taxes %}
           <View style="totalRow">
-            <Text style="totalLabel">USt. {{ tax.rate_formatted }}</Text>
+            <Text style="totalLabel">Steuer {{ tax.rate_formatted }}:</Text>
             <Text style="totalValue">{{ tax.amount_formatted }}</Text>
           </View>
         {% endfor %}
@@ -140,7 +140,7 @@ export const defaultOfferPdfTemplate = `<Document>
         </View>
       {% endif %}
       <View style="grandTotalRow">
-        <Text style="grandTotalLabel">Gesamtsumme</Text>
+        <Text style="grandTotalLabel">Brutto:</Text>
         <Text style="grandTotalValue">{{ totals.total_formatted }}</Text>
       </View>
     </View>
@@ -246,14 +246,14 @@ export const defaultOfferPdfStylesheet = `{
   "tableRow": { "flexDirection": "row", "fontSize": "{{ settings.typography.text.size }}" },
   "posColHeader": { "width": "32pt", "paddingVertical": "8pt", "paddingRight": "4pt", "fontWeight": 600, "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "bezeichnungColHeader": { "flex": 1, "paddingVertical": "8pt", "paddingRight": "4pt", "fontWeight": 600, "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
-  "mengeColHeader": { "width": "48pt", "paddingVertical": "8pt", "paddingHorizontal": "4pt", "fontWeight": 600, "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
+  "mengeColHeader": { "width": "72pt", "paddingVertical": "8pt", "paddingHorizontal": "4pt", "fontWeight": 600, "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "preisColHeader": { "width": "72pt", "paddingVertical": "8pt", "paddingRight": "4pt", "fontWeight": 600, "textAlign": "right", "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "ustColHeader": { "width": "48pt", "paddingVertical": "8pt", "paddingRight": "4pt", "fontWeight": 600, "textAlign": "right", "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "summeColHeader": { "width": "72pt", "paddingVertical": "8pt", "paddingRight": "4pt", "fontWeight": 600, "textAlign": "right", "borderTopWidth": 1, "borderBottomWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "posCol": { "width": "32pt", "paddingVertical": "8pt", "paddingRight": "4pt", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "posColMuted": { "color": "{{ settings.colors.muted }}" },
   "bezeichnungCol": { "flex": 1, "paddingVertical": "8pt", "paddingRight": "4pt", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
-  "mengeCol": { "width": "48pt", "paddingVertical": "8pt", "paddingHorizontal": "4pt", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
+  "mengeCol": { "width": "72pt", "paddingVertical": "8pt", "paddingHorizontal": "4pt", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "preisCol": { "width": "72pt", "paddingVertical": "8pt", "paddingRight": "4pt", "textAlign": "right", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "ustCol": { "width": "48pt", "paddingVertical": "8pt", "paddingRight": "4pt", "textAlign": "right", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
   "summeCol": { "width": "72pt", "paddingVertical": "8pt", "paddingRight": "4pt", "textAlign": "right", "borderTopWidth": 1, "borderColor": "{{ settings.colors.lines }}" },
@@ -270,12 +270,15 @@ export const defaultOfferPdfStylesheet = `{
     "marginTop": "24pt",
     "paddingTop": "12pt"
   },
-  "totalRow": { "flexDirection": "row", "justifyContent": "space-between", "paddingVertical": "4pt", "fontSize": "11" },
-  "totalLabel": { "flex": 1 },
-  "totalValue": { "fontWeight": 500 },
-  "grandTotalRow": { "flexDirection": "row", "justifyContent": "space-between", "paddingTop": "8pt", "marginTop": "8pt", "borderTopWidth": 1, "borderTopColor": "{{ settings.colors.lines }}" },
-  "grandTotalLabel": { "fontWeight": 700 },
-  "grandTotalValue": { "fontWeight": 700, "color": "{{ settings.colors.accent }}" },
+  "totalRow": { "flexDirection": "row", "justifyContent": "flex-end", "paddingVertical": "4pt", "fontSize": "11" },
+  "totalLabel": { "textAlign": "right", "color": "{{ settings.colors.muted }}" },
+  "totalValue": { "width": "96pt", "textAlign": "right", "fontWeight": 500 },
+  "grandTotalRow": { "flexDirection": "row", "justifyContent": "flex-end", "paddingTop": "8pt", "marginTop": "8pt", "borderTopWidth": 1, "borderTopColor": "{{ settings.colors.lines }}" },
+  "grandTotalLabel": { "textAlign": "right", "fontWeight": 700 },
+  "grandTotalValue": { "width": "96pt", "textAlign": "right", "fontWeight": 700, "color": "{{ settings.colors.accent }}" },
+  "subtotalRow": { "flexDirection": "row", "justifyContent": "flex-end", "marginTop": "8pt", "paddingTop": "6pt", "borderTopWidth": 1, "borderTopColor": "{{ settings.colors.lines }}", "fontSize": "{{ settings.typography.text.size }}" },
+  "subtotalLabel": { "textAlign": "right", "color": "{{ settings.colors.muted }}" },
+  "subtotalValue": { "width": "96pt", "textAlign": "right", "fontWeight": 500 },
   "finalNotesBlock": { "marginTop": "24pt" },
   "footerBlock": {
     "marginTop": "32pt",

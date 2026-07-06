@@ -1,4 +1,5 @@
 import { type LiveCacheBinding, useLiveCache } from "@engenty/live-cache";
+import { useMemo } from "react";
 
 /**
  * One app-wide Supabase Realtime subscription that keeps every module's React
@@ -17,10 +18,13 @@ export function LiveDataSync({
   tenantId: string;
   userId: string;
 }) {
+  // Stable ctx identity: an inline object would re-run the subscribe effect on
+  // every shell render, tearing the channel down and missing events in between.
+  const ctx = useMemo(() => ({ tenantId, userId }), [tenantId, userId]);
   useLiveCache({
     bindings,
     channelName: `live-data:${tenantId}`,
-    ctx: { tenantId, userId },
+    ctx,
     enabled: Boolean(tenantId),
   });
   return null;

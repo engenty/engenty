@@ -9,6 +9,7 @@ export * from "./icons/EngentyAvatarIcon";
 export * from "./icons/EngentyIcon";
 export * from "./icons/ExpensesIcon";
 export * from "./icons/InboxIcon";
+export * from "./icons/InvoicesIcon";
 export * from "./icons/KnowledgeBaseIcon";
 export * from "./icons/LeadsIcon";
 export * from "./icons/OffersIcon";

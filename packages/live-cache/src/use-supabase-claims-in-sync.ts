@@ -75,8 +75,25 @@ export function useSupabaseClaimsInSync(
 
     void evaluateClaims();
 
+    // Re-evaluate whenever the auth session changes: the first evaluation can
+    // run before the session is hydrated (or before a tenant-switch refresh
+    // lands), and a one-shot check would latch `inSync: false` for the whole
+    // session — silently disabling realtime.
+    const client = getOptionalSupabaseAuthClient();
+    const listener = client?.auth.onAuthStateChange((event) => {
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "SIGNED_OUT" ||
+        event === "INITIAL_SESSION"
+      ) {
+        void evaluateClaims();
+      }
+    });
+
     return () => {
       cancelled = true;
+      listener?.data.subscription.unsubscribe();
     };
   }, [tenantId]);
 

@@ -50,28 +50,30 @@ function readPackageJson(dir) {
   }
 }
 
+function readManifestId(dir) {
+  const p = path.join(dir, "engenty.plugin.json");
+  if (!fs.existsSync(p)) {
+    return null;
+  }
+  try {
+    const id = JSON.parse(fs.readFileSync(p, "utf-8")).id;
+    return typeof id === "string" && id.trim() ? id.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function discoverMigrationOwners(parentDir, ownerKind, enabledModuleSlugs) {
   if (!(fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory())) {
     return [];
   }
-  const entries = fs.readdirSync(parentDir, { withFileTypes: true });
+  const isModulesParent =
+    ownerKind === "module" && parentDir.endsWith(`${path.sep}modules`);
   const owners = [];
-  for (const ent of entries) {
-    if (!ent.isDirectory()) {
-      continue;
-    }
-    if (
-      ownerKind === "module" &&
-      parentDir.endsWith(`${path.sep}modules`) &&
-      enabledModuleSlugs &&
-      !enabledModuleSlugs.has(ent.name)
-    ) {
-      continue;
-    }
-    const ownerDir = path.join(parentDir, ent.name);
+  const addOwner = (ownerDir, name) => {
     const pkg = readPackageJson(ownerDir);
     if (!pkg) {
-      continue;
+      return;
     }
     const migrationsDir = pkg.engenty?.migrationsDir ?? "supabase/migrations";
     const migrationsPath = path.resolve(ownerDir, migrationsDir);
@@ -81,14 +83,53 @@ function discoverMigrationOwners(parentDir, ownerKind, enabledModuleSlugs) {
         fs.statSync(migrationsPath).isDirectory()
       )
     ) {
-      continue;
+      return;
     }
     owners.push({
       kind: ownerKind,
-      name: ent.name,
+      name,
       packageName: pkg.name,
       migrationsPath,
     });
+  };
+
+  for (const ent of fs.readdirSync(parentDir, { withFileTypes: true })) {
+    if (!ent.isDirectory()) {
+      continue;
+    }
+    const ownerDir = path.join(parentDir, ent.name);
+    if (
+      !(
+        isModulesParent &&
+        enabledModuleSlugs &&
+        !enabledModuleSlugs.has(ent.name)
+      )
+    ) {
+      addOwner(ownerDir, ent.name);
+    }
+    if (!isModulesParent) {
+      continue;
+    }
+    const providersDir = path.join(ownerDir, "providers");
+    if (
+      !(fs.existsSync(providersDir) && fs.statSync(providersDir).isDirectory())
+    ) {
+      continue;
+    }
+    for (const child of fs.readdirSync(providersDir, { withFileTypes: true })) {
+      if (!child.isDirectory()) {
+        continue;
+      }
+      const childDir = path.join(providersDir, child.name);
+      const slug = readManifestId(childDir);
+      if (!slug) {
+        continue;
+      }
+      if (enabledModuleSlugs && !enabledModuleSlugs.has(slug)) {
+        continue;
+      }
+      addOwner(childDir, slug);
+    }
   }
   return owners.sort((a, b) => a.name.localeCompare(b.name));
 }

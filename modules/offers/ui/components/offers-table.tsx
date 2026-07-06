@@ -8,7 +8,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   DropdownMenuItem,
   DropdownMenuSeparator,
   STICKY_HEADER_CLASS,
@@ -30,6 +29,7 @@ import {
   type OfferStatus,
   updateOffer,
 } from "../api.js";
+import { OfferStatusBadge } from "./offer-status-badge.js";
 import type {
   OffersColumnVisibility,
   OffersSortColumn,
@@ -199,7 +199,7 @@ export function OffersTable({
                     key={key}
                   >
                     {key === "status" ? (
-                      <Badge variant="outline">{value}</Badge>
+                      <OfferStatusBadge status={offer.status} />
                     ) : (
                       value
                     )}

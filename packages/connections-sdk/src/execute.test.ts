@@ -15,6 +15,7 @@ function connection(
   overrides: Partial<ConnectionSummary> & { id: string }
 ): ConnectionSummary {
   return {
+    auth_kind: "oauth2",
     autonomous_mode: "off",
     connector_id: "google-gmail",
     created_at: "2026-07-04T00:00:00Z",
@@ -145,6 +146,41 @@ describe("executeConnectorAction", () => {
       },
       type: "connection.action_executed",
     });
+  });
+
+  it("runs browser-kind handlers with an empty token, no refresh", async () => {
+    const browserConnector = {
+      ...connector,
+      auth: { kind: "browser" },
+      id: "local-files",
+      moduleId: "connections-local-files",
+      toolPrefix: "local_files",
+    } as unknown as ConnectorDefinition;
+    const target = connection({
+      auth_kind: "browser",
+      connector_id: "local-files",
+      external_account: "Docs — Chrome",
+      id: "c-browser",
+    });
+    const { repo } = fakeRepo({ connections: [target] });
+    const withFresh = vi.spyOn(repo, "withFreshAccessToken");
+    const handler = vi.fn(async (_input, ctx) => ({ token: ctx.accessToken }));
+    const result = await executeConnectorAction({
+      action: makeAction({ handler, id: "list_directory" }),
+      connector: browserConnector,
+      input: {},
+      isAutonomous: false,
+      moduleId: "files",
+      principal: user,
+      repo,
+      tenantId: "tenant-1",
+    });
+    expect(result.output).toEqual({ token: "" });
+    expect(handler).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ accessToken: "" })
+    );
+    expect(withFresh).not.toHaveBeenCalled();
   });
 
   it("targets the account addressed via the account param", async () => {

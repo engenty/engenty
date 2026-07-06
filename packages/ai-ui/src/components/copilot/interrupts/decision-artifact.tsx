@@ -2,8 +2,19 @@
 
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isFrontendToolOpenInterrupt } from "@engenty/ag-ui-bridge";
+import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, Input } from "@engenty/ui-core";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+
+/** Server tool-approval artifacts use stable ids — localize their display
+ *  client-side (the server builds English strings; the choice labels SENT
+ *  back stay canonical so the model/audit trail is unaffected). */
+const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
+const TOOL_APPROVAL_CHOICE_LABEL_KEYS: Record<string, string> = {
+  approve_always: "copilot.toolApproval.approveAlways",
+  approve_once: "copilot.toolApproval.approveOnce",
+  deny: "copilot.toolApproval.deny",
+};
 
 export interface DecisionArtifactChoice {
   id: string;
@@ -176,12 +187,42 @@ export function DecisionArtifactCard(props: {
     customLabel?: string
   ) => void;
 }) {
+  const { t } = useTranslation("common");
   const [inputValue, setInputValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const choices = props.artifact.choices;
   const numChoices = choices.length;
+
+  // Localized DISPLAY strings for the server-built tool-approval artifact
+  // (title/body/choices arrive as English). Anything sent back on choose()
+  // keeps the canonical server label.
+  const toolApprovalOperation = props.artifact.artifactId.startsWith(
+    TOOL_APPROVAL_ARTIFACT_PREFIX
+  )
+    ? props.artifact.artifactId.slice(TOOL_APPROVAL_ARTIFACT_PREFIX.length)
+    : null;
+  const displayTitle = toolApprovalOperation
+    ? t("copilot.toolApproval.title", {
+        action: props.artifact.title
+          .replace(/^Approve\s+/, "")
+          .replace(/\?$/, ""),
+        defaultValue: props.artifact.title,
+      })
+    : props.artifact.title;
+  const displayBody = toolApprovalOperation
+    ? t("copilot.toolApproval.body", {
+        operation: toolApprovalOperation,
+        defaultValue: props.artifact.body ?? "",
+      })
+    : props.artifact.body;
+  const displayChoiceLabel = (choice: DecisionArtifactChoice) => {
+    const key = toolApprovalOperation
+      ? TOOL_APPROVAL_CHOICE_LABEL_KEYS[choice.id]
+      : undefined;
+    return key ? t(key, { defaultValue: choice.label }) : choice.label;
+  };
 
   // Optimistic: lock the card as soon as a choice is made so it reads as
   // "sending" instead of staying interactive until the server resolves.
@@ -277,18 +318,16 @@ export function DecisionArtifactCard(props: {
       )}
     >
       <div className="space-y-1">
-        <h3 className="font-medium text-foreground text-sm">
-          {props.artifact.title}
-        </h3>
-        {props.artifact.body ? (
-          <p className="text-muted-foreground text-sm">{props.artifact.body}</p>
+        <h3 className="font-medium text-foreground text-sm">{displayTitle}</h3>
+        {displayBody ? (
+          <p className="text-muted-foreground text-sm">{displayBody}</p>
         ) : null}
       </div>
 
       <div className="space-y-1.5">
         {choices.map((choice, index) => (
           <button
-            aria-label={choice.label}
+            aria-label={displayChoiceLabel(choice)}
             className={cn(
               "flex w-full items-center rounded-[4px] border px-3 py-2 text-left text-sm transition-colors",
               highlightedIdx === index
@@ -312,7 +351,7 @@ export function DecisionArtifactCard(props: {
             >
               {index + 1}
             </span>
-            <span className="font-medium">{choice.label}</span>
+            <span className="font-medium">{displayChoiceLabel(choice)}</span>
           </button>
         ))}
 
@@ -321,7 +360,12 @@ export function DecisionArtifactCard(props: {
             <span className="mr-2.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary font-mono text-primary-foreground text-xs">
               {numChoices + 1}
             </span>
-            <span className="font-medium">Custom: "{inputValue.trim()}"</span>
+            <span className="font-medium">
+              {t("copilot.decisionCard.customPrefix", {
+                defaultValue: "Custom:",
+              })}{" "}
+              "{inputValue.trim()}"
+            </span>
           </div>
         ) : null}
       </div>
@@ -332,18 +376,24 @@ export function DecisionArtifactCard(props: {
           disabled={submitting}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          placeholder="Type option number or custom response..."
+          placeholder={t("copilot.decisionCard.inputPlaceholder", {
+            defaultValue: "Type option number or custom response…",
+          })}
           ref={inputRef}
           type="text"
           value={inputValue}
         />
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground text-xxs">
-            Press{" "}
+            {t("copilot.decisionCard.pressHintPrefix", {
+              defaultValue: "Press",
+            })}{" "}
             <kbd className="rounded border bg-muted px-1 py-0.5 text-foreground">
               1-{numChoices}
             </kbd>{" "}
-            or type and press{" "}
+            {t("copilot.decisionCard.pressHintSuffix", {
+              defaultValue: "or type and press",
+            })}{" "}
             <kbd className="rounded border bg-muted px-1 py-0.5 text-foreground">
               Enter
             </kbd>
@@ -357,7 +407,11 @@ export function DecisionArtifactCard(props: {
             size="sm"
             type="button"
           >
-            {submitting ? "Submitting…" : "Submit ↵"}
+            {submitting
+              ? t("copilot.decisionCard.submitting", {
+                  defaultValue: "Submitting…",
+                })
+              : t("copilot.decisionCard.submit", { defaultValue: "Submit ↵" })}
           </Button>
         </div>
       </div>
