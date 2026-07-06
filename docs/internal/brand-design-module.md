@@ -1,3 +1,7 @@
+---
+title: "Brand Design Module — Concept & Scope (v3: grounded on Open Design)"
+---
+
 # Brand Design Module — Concept & Scope (v3: grounded on Open Design)
 
 Status: **planning** · Branch: `feat/brand-design` · 2026-07-02

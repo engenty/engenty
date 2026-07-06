@@ -1,3 +1,7 @@
+---
+title: "Daybreak implementation plan — modules/briefing on OpenUI"
+---
+
 # Daybreak implementation plan — `modules/briefing` on OpenUI
 
 Status: PLANNED 2026-07-05. Not started. Concept + UX contract:

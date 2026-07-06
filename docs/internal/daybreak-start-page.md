@@ -1,3 +1,7 @@
+---
+title: "Daybreak — the start page as briefing (design & plan)"
+---
+
 # Daybreak — the start page as briefing (design & plan)
 
 Status: CONCEPT AGREED 2026-07-05. Detailed implementation plan:
