@@ -67,8 +67,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Trigger Coolify redeploy
+      # Trigger the deploy over SSH instead of Coolify's HTTP API: the API is
+      # IP-allowlisted to the operator's addresses and GitHub runner IPs are
+      # dynamic. SSH (port 22) is not allowlisted; the key is pinned to a forced
+      # command on the VPS (see deploy/scripts/coolify-deploy.sh) so it can ONLY
+      # queue this app's deployment — no shell, no other action. The forced
+      # command ignores whatever command we send, so `true` is enough.
+      - name: Trigger Coolify deploy over SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ vars.VPS_DEPLOY_HOST }}
         run: |
-          curl -sfS -X POST \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            "${{ vars.COOLIFY_URL }}/api/v1/deploy?uuid=${{ vars.COOLIFY_APP_UUID }}"
+          test -n "$DEPLOY_SSH_KEY" || { echo "VPS_DEPLOY_SSH_KEY secret is not set"; exit 1; }
+          test -n "$DEPLOY_HOST"    || { echo "VPS_DEPLOY_HOST variable is not set"; exit 1; }
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/stdin ~/.ssh/ci_deploy_key <<< "$DEPLOY_SSH_KEY"
+          ssh -i ~/.ssh/ci_deploy_key \
+            -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=20 \
+            "root@${DEPLOY_HOST}" true
