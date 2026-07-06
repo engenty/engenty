@@ -9,6 +9,7 @@
 
 import type {
   SearchIndexProvider,
+  SearchIndexProviderConfig,
   SearchProviderCapabilities,
 } from "./contracts.js";
 
@@ -17,6 +18,9 @@ import type {
 // caches it so list/status/backfill routes do not need to walk plugin manifests.
 export interface SearchIndexRegistrationMetadata {
   capabilities: SearchProviderCapabilities;
+  // Effective retrieval config snapshot (managed sources); undefined for
+  // hand-rolled providers that do not report one.
+  config?: SearchIndexProviderConfig;
   // Singular noun the synthesized op uses (`contact`, `article`, `chat_thread`).
   entityName: string;
   // True for tenant-less / cross-tenant providers (e.g. core api-catalog).
@@ -78,6 +82,7 @@ export function createSearchIndexRegistry(): SearchIndexRegistry {
       }
       const resolved: SearchIndexRegistrationMetadata = {
         capabilities: metadata?.capabilities ?? provider.capabilities ?? {},
+        config: metadata?.config ?? provider.config,
         entityName: metadata?.entityName ?? id,
         isSystem: metadata?.isSystem ?? false,
         moduleId: metadata?.moduleId ?? id.split(".")[0] ?? id,

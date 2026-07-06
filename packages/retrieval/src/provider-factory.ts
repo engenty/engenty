@@ -7,22 +7,49 @@
 import type {
   SearchDocument,
   SearchIndexProvider,
+  SearchIndexProviderConfig,
   SearchIndexStatus,
   SearchRequest,
   SearchResponse,
 } from "@engenty/search-index";
-import type {
-  RetrievalDocument,
-  RetrievalQueryFilters,
-  RetrievalSourceRegistration,
+import { runBackfill } from "./backfill.js";
+import {
+  DEFAULT_RETRIEVAL_EMBEDDING_MODEL,
+  type RetrievalDocument,
+  type RetrievalQueryFilters,
+  type RetrievalSourceRegistration,
 } from "./contracts.js";
 import type { IngestDeps } from "./ingest.js";
 import { ingestDocument } from "./ingest.js";
-import { runBackfill } from "./backfill.js";
-import { runQuery, type QueryDeps } from "./query.js";
+import { type QueryDeps, runQuery } from "./query.js";
 import { scanIndexState } from "./status.js";
 
 const CAPABILITIES = { hybrid: true, lexical: true, semantic: true } as const;
+
+// Snapshot the source's effective retrieval config for the admin UI. Values
+// that resolve per-tenant at query time (KB's similarity floor, KB's embedding
+// model) cannot be shown as a single number, so they report `*Dynamic: true`
+// with a null literal rather than a misleading static value.
+function buildProviderConfig(
+  source: RetrievalSourceRegistration
+): SearchIndexProviderConfig {
+  const vectorThreshold = source.retriever?.vectorThreshold;
+  const staticModel = source.embedding?.model;
+  const modelDynamic =
+    !staticModel && typeof source.embedding?.resolveModel === "function";
+  return {
+    embeddingModel:
+      staticModel ?? (modelDynamic ? null : DEFAULT_RETRIEVAL_EMBEDDING_MODEL),
+    embeddingModelDynamic: modelDynamic,
+    fastPathMaxTerms: source.retriever?.fastPath?.maxTerms ?? null,
+    splitter: source.splitter.mode,
+    useTrigram: source.retriever?.useTrigram ?? false,
+    vectorThreshold:
+      typeof vectorThreshold === "number" ? vectorThreshold : null,
+    vectorThresholdDynamic: typeof vectorThreshold === "function",
+    visibility: source.visibility,
+  };
+}
 
 export function createManagedProvider(
   source: RetrievalSourceRegistration,
@@ -62,6 +89,7 @@ export function createManagedProvider(
       return runBackfill(deps.ingest, input ?? {});
     },
     capabilities: CAPABILITIES,
+    config: buildProviderConfig(source),
     deleteDocument: async (input) => {
       await deps.ready();
       await deps.ingest.store.deleteDocument({

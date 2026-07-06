@@ -56,6 +56,7 @@ function serializeRegistration(registration: SearchIndexRegistration) {
   const { metadata, provider } = registration;
   return {
     capabilities: metadata.capabilities,
+    config: metadata.config ?? null,
     entity_name: metadata.entityName,
     id: provider.id,
     is_system: metadata.isSystem,

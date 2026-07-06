@@ -145,7 +145,13 @@ export function buildNavigationSections(
     { to: "/settings/appearance", label: t("settings.appearanceTitle") },
     { to: "/settings/development", label: t("settings.development.title") },
     ...(isSuperAdmin
-      ? [{ to: "/settings/features", label: t("featureFlags.title") }]
+      ? [
+          { to: "/settings/features", label: t("featureFlags.title") },
+          {
+            to: "/settings/search-index",
+            label: t("settings.searchIndex.title"),
+          },
+        ]
       : []),
   ];
   const settingsChildren = [
