@@ -17,7 +17,10 @@ import {
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
-import { enabledModuleSlugSetFromDir } from "@engenty/environment";
+import {
+  enabledModuleSlugSetFromDir,
+  resolveModuleDir,
+} from "@engenty/environment";
 import {
   createRetrievalService,
   createWorkspaceSearchProvider,
@@ -827,13 +830,16 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
   // almost always a path-resolution regression (e.g. a nested provider the
   // discovery scan missed), which would otherwise be a silent "never loaded".
   try {
-    const discoveredModuleIds = new Set(
+    const repoRoot = path.dirname(modulesDir);
+    // Compare by on-disk directory, not package name — a module's package name
+    // (e.g. @engenty/files-ui) does not always match its enabled slug (files).
+    const discoveredRootDirs = new Set(
       discovery.candidates
         .filter((candidate) => candidate.sourceType === "module")
-        .map((candidate) => candidate.idHint)
+        .map((candidate) => path.resolve(candidate.rootDir))
     );
     for (const slug of enabledModuleSlugSetFromDir(modulesDir)) {
-      if (discoveredModuleIds.has(slug)) {
+      if (discoveredRootDirs.has(path.resolve(resolveModuleDir(repoRoot, slug)))) {
         continue;
       }
       registry.diagnostics.push({

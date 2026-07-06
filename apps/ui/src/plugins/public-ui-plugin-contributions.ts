@@ -7,6 +7,8 @@ import { resolveUiPlugins, type UiResolutionDiagnostic } from "./resolver";
 const emptyContributions: UiContributions = {
   routes: [],
   adminMenuItems: [],
+  // Background components never run in the unauthenticated/public shell.
+  backgroundComponents: [],
   copilotApps: [],
   copilotContributions: [],
   dashboardWidgets: [],

@@ -1,0 +1,14 @@
+{
+  "id": "connections-s3",
+  "name": "Connections — S3",
+  "description": "Read files from an S3-compatible bucket (AWS S3, Cloudflare R2, MinIO)",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": ["module.connections-s3"],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false,
+    "ui": false
+  }
+}

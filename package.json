@@ -18,7 +18,13 @@
       "connections-google": {
         "source": "workspace"
       },
+      "connections-local-files": {
+        "source": "workspace"
+      },
       "connections-microsoft": {
+        "source": "workspace"
+      },
+      "connections-s3": {
         "source": "workspace"
       },
       "connections-slack": {

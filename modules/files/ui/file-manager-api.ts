@@ -14,10 +14,14 @@ export interface FileSpaceOwnerRef {
 }
 
 export interface FileSpaceFolder {
+  /** Set on connector mount roots (a connected external folder). */
+  connectionId?: string;
   createdAt: string;
   id: string;
   name: string;
   parentId: string | null;
+  /** Virtual node inside a mount: browse/download only. */
+  readOnly?: boolean;
   source: string;
   updatedAt: string;
 }
@@ -28,6 +32,8 @@ export interface FileSpaceFile {
   id: string;
   mimeType: string;
   name: string;
+  /** Virtual node inside a mount: browse/download only. */
+  readOnly?: boolean;
   sizeBytes: number;
   source: string;
   storageKey?: string;
@@ -38,6 +44,27 @@ export interface FileSpaceListing {
   cursor?: string;
   files: FileSpaceFile[];
   folders: FileSpaceFolder[];
+  /** True when the listed level lives inside a read-only mount. */
+  readOnly?: boolean;
+}
+
+/** A connection that can be mounted as a file source. */
+export interface FileSourceSummary {
+  connectionId: string;
+  connectorIcon: string | null;
+  connectorId: string;
+  connectorName: string;
+  label: string;
+  sharing: string;
+}
+
+export interface SourceBrowseEntry {
+  kind: "file" | "folder";
+  mimeType: string | null;
+  modifiedAt: string | null;
+  name: string;
+  ref: string;
+  size: number | null;
 }
 
 interface UploadTicket {
@@ -128,6 +155,48 @@ export async function getSpaceFileUrl(
     { method: "GET" }
   );
   return res.url;
+}
+
+/* ── Connected sources (mounts) ── */
+
+export async function listFileSources(
+  signal?: AbortSignal
+): Promise<{ sources: FileSourceSummary[] }> {
+  return requestApiJson("/api/files/sources", { method: "GET", signal });
+}
+
+export async function browseFileSource(
+  connectionId: string,
+  opts?: { cursor?: string | null; folderRef?: string | null },
+  signal?: AbortSignal
+): Promise<{ cursor: string | null; entries: SourceBrowseEntry[] }> {
+  const params = new URLSearchParams();
+  if (opts?.folderRef) {
+    params.set("folderRef", opts.folderRef);
+  }
+  if (opts?.cursor) {
+    params.set("cursor", opts.cursor);
+  }
+  const qs = params.toString();
+  return requestApiJson(
+    `/api/files/sources/${encodeURIComponent(connectionId)}/browse${qs ? `?${qs}` : ""}`,
+    { method: "GET", signal }
+  );
+}
+
+export async function createMount(
+  owner: FileSpaceOwnerRef,
+  input: {
+    connectionId: string;
+    folderRef: string | null;
+    name: string;
+    parentId: string | null;
+  }
+): Promise<FileSpaceFolder> {
+  return requestApiJson<FileSpaceFolder>(`${spaceBase(owner)}/mounts`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 /* ── Upload (begin → signed PUT → finalize) ── */

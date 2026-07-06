@@ -26,6 +26,7 @@ import {
   Skeleton,
 } from "@engenty/ui-core";
 import {
+  Cable,
   ChevronRight,
   Download,
   File as FileIcon,
@@ -53,6 +54,7 @@ import {
   updateFolder,
   uploadFileToSpace,
 } from "./file-manager-api.js";
+import { AddSourceMenu } from "./components/add-source-menu.js";
 import {
   fileSpaceInvalidationKey,
   fileSpaceQueryOptions,
@@ -115,7 +117,7 @@ type RenameTarget =
   | { kind: "file"; id: string; name: string };
 
 type DeleteTarget =
-  | { kind: "folder"; id: string; name: string }
+  | { kind: "folder"; id: string; name: string; isMount?: boolean }
   | { kind: "file"; id: string; name: string };
 
 /* ── Component ── */
@@ -139,6 +141,10 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
   const { data, isLoading, error } = useQuery(
     fileSpaceQueryOptions(owner, { folderId: currentFolderId })
   );
+
+  // Inside a connector mount everything is a virtual read-only projection.
+  const insideMount = data?.readOnly === true;
+  const mutationsDisabled = Boolean(readOnly) || insideMount;
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({
@@ -250,14 +256,14 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragActive(false);
-      if (readOnly) {
+      if (mutationsDisabled) {
         return;
       }
       if (e.dataTransfer?.files?.length) {
         void uploadFiles(e.dataTransfer.files);
       }
     },
-    [readOnly, uploadFiles]
+    [mutationsDisabled, uploadFiles]
   );
 
   const handleDownload = useCallback(
@@ -297,7 +303,7 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
       className={`flex min-h-[32rem] w-full flex-col gap-3 ${className ?? ""}`}
       onDragLeave={() => setDragActive(false)}
       onDragOver={(e) => {
-        if (!readOnly) {
+        if (!mutationsDisabled) {
           e.preventDefault();
           setDragActive(true);
         }
@@ -328,8 +334,9 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
           ))}
         </nav>
 
-        {!readOnly && (
+        {!mutationsDisabled && (
           <div className="flex items-center gap-2">
+            <AddSourceMenu currentFolderId={currentFolderId} owner={owner} />
             <Button
               onClick={() => {
                 setNewFolderName("");
@@ -368,7 +375,7 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
             : "border-border"
         }`}
       >
-        {dragActive && !readOnly && (
+        {dragActive && !mutationsDisabled && (
           <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/80 text-sm">
             <UploadCloud className="size-8 text-primary" />
             {t("fileManager.dropHere")}
@@ -424,7 +431,13 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
                     {folder.name}
                   </span>
                 </button>
-                {!readOnly && (
+                {folder.connectionId && !folder.readOnly && (
+                  <Badge className="gap-1 text-xxs" variant="outline">
+                    <Cable className="size-2.5" />
+                    {t("fileManager.sources.connectedBadge")}
+                  </Badge>
+                )}
+                {!(readOnly || folder.readOnly) && (
                   <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <Button
                       className="size-6"
@@ -448,11 +461,16 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
                         setDeleteTarget({
                           kind: "folder",
                           id: folder.id,
+                          isMount: Boolean(folder.connectionId),
                           name: folder.name,
                         })
                       }
                       size="icon"
-                      title={t("fileManager.delete")}
+                      title={
+                        folder.connectionId
+                          ? t("fileManager.sources.removeSource")
+                          : t("fileManager.delete")
+                      }
                       variant="ghost"
                     >
                       <Trash2 className="size-3" />
@@ -497,37 +515,41 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
                       >
                         <Download className="size-3" />
                       </Button>
-                      <Button
-                        className="size-6"
-                        onClick={() => {
-                          setRenameTarget({
-                            kind: "file",
-                            id: file.id,
-                            name: file.name,
-                          });
-                          setRenameValue(file.name);
-                        }}
-                        size="icon"
-                        title={t("fileManager.rename")}
-                        variant="ghost"
-                      >
-                        <Pencil className="size-3" />
-                      </Button>
-                      <Button
-                        className="size-6 text-destructive"
-                        onClick={() =>
-                          setDeleteTarget({
-                            kind: "file",
-                            id: file.id,
-                            name: file.name,
-                          })
-                        }
-                        size="icon"
-                        title={t("fileManager.delete")}
-                        variant="ghost"
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
+                      {!file.readOnly && (
+                        <>
+                          <Button
+                            className="size-6"
+                            onClick={() => {
+                              setRenameTarget({
+                                kind: "file",
+                                id: file.id,
+                                name: file.name,
+                              });
+                              setRenameValue(file.name);
+                            }}
+                            size="icon"
+                            title={t("fileManager.rename")}
+                            variant="ghost"
+                          >
+                            <Pencil className="size-3" />
+                          </Button>
+                          <Button
+                            className="size-6 text-destructive"
+                            onClick={() =>
+                              setDeleteTarget({
+                                kind: "file",
+                                id: file.id,
+                                name: file.name,
+                              })
+                            }
+                            size="icon"
+                            title={t("fileManager.delete")}
+                            variant="ghost"
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -620,9 +642,13 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
             <AlertDialogTitle>{t("fileManager.delete")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.kind === "folder"
-                ? t("fileManager.confirmDeleteFolder", {
-                    name: deleteTarget?.name ?? "",
-                  })
+                ? deleteTarget.isMount
+                  ? t("fileManager.sources.confirmRemoveSource", {
+                      name: deleteTarget?.name ?? "",
+                    })
+                  : t("fileManager.confirmDeleteFolder", {
+                      name: deleteTarget?.name ?? "",
+                    })
                 : t("fileManager.confirmDeleteFile", {
                     name: deleteTarget?.name ?? "",
                   })}

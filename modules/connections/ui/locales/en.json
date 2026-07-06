@@ -124,5 +124,10 @@
     "deny": "Deny",
     "approved": "approved",
     "denied": "denied"
+  },
+  "credentials": {
+    "description": "Enter the credentials for this service. They are stored encrypted and never shown again.",
+    "optional": "(optional)",
+    "submit": "Connect"
   }
 }

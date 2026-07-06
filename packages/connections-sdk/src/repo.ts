@@ -266,6 +266,25 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       );
     },
 
+    /** Flip a connection's status (e.g. browser permission lost → error). */
+    async setConnectionStatus(params: {
+      connectionId: string;
+      errorMessage?: string | null;
+      status: "active" | "error" | "revoked";
+      tenantId: string;
+    }): Promise<void> {
+      throwOnError(
+        await db()
+          .from("connections")
+          .update({
+            error_message: params.errorMessage ?? null,
+            status: params.status,
+          })
+          .eq("id", params.connectionId)
+          .eq("tenant_id", params.tenantId)
+      );
+    },
+
     async upsertConnectionWithTokens(input: {
       accessToken: string;
       /** Defaults to `oauth2`. `api_key` stores encrypted credentials JSON. */

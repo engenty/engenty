@@ -19,9 +19,11 @@ the stable developer reference.
 packages/connections-sdk                 @engenty/connections-sdk — shared types + runtime
 modules/connections                      framework module: schema, OAuth routes,
                                          management operations, policy gate, UI
-modules/connections/providers/google     connectors: google-gmail, google-drive, google-calendar
-modules/connections/providers/microsoft  connectors: microsoft-outlook, microsoft-onedrive
-modules/connections/providers/slack      connector: slack
+modules/connections/providers/google       connectors: google-gmail, google-drive, google-calendar
+modules/connections/providers/microsoft    connectors: microsoft-outlook, microsoft-onedrive
+modules/connections/providers/slack        connector: slack
+modules/connections/providers/s3           connector: s3 (api_key auth, files capability)
+modules/connections/providers/local-files  connector: local-files (browser auth, FSA bridge)
 ```
 
 Connector providers are **nested workspace plugins** under
@@ -197,6 +199,60 @@ behind a proxy). Required env per provider is documented in `.env.example`
 Note for Slack-style providers: user scopes ride in `extraAuthParams`
 (`user_scope`) because the standard `scope` param would request bot scopes;
 the token parser already handles the nested `authed_user` response.
+
+## Auth kinds
+
+`ConnectorDefinition.auth` is a discriminated union:
+
+| Kind | Credential | Connect flow | `ctx.accessToken` |
+| --- | --- | --- | --- |
+| `oauth2` | refreshable bearer tokens | provider redirect (above) | fresh bearer token |
+| `api_key` | encrypted credentials JSON | generic form dialog → `POST /api/connections/:id/connect_credentials` | decrypted credentials JSON |
+| `browser` | none server-side | bespoke UI the connector registers (e.g. a folder picker) | `""` |
+
+`api_key` connectors declare `auth.apiKey.fields` (rendered by the shared
+credentials dialog; secrets as password inputs, never echoed back) and a
+`verify()` that validates against the provider and resolves the account label.
+Credentials are stored AES-256-GCM encrypted in the same token column as OAuth
+tokens with `token_expires_at = null`, so they flow through the DAL unchanged
+and are never refreshed. `browser` connectors hold no server-side secret —
+their action handlers bridge into the user's browser (see the local-files
+connector) — and are forced to `personal` sharing.
+
+## The files capability
+
+A connector may declare `files?: ConnectorFilesCapability` (sibling of
+`stream`): normalized read-only file access — `list`/`read`/`stat` and optional
+`search` over provider-native refs (Drive fileIds, Graph itemIds, S3 keys,
+local paths). `defineConnector` synthesizes `files_list` / `files_read` /
+`files_stat` / `files_search` as regular `read` actions from it, so policies,
+approvals, audit, and agent tools (`gdrive_files_list`, `s3_files_read`, …)
+all apply with zero extra gate code. `read` results are discriminated
+(`url` presigned passthrough | `base64` proxied bytes | `text`) so each
+provider returns its cheapest shape.
+
+Modules consume the capability through the connections module client
+(`listFileSources`, `filesList`, `filesRead`, `filesStat`) — the files module
+uses exactly this to mount connected folders into file spaces ("Connect
+folder" in any file manager, including the projects Files tab). Mounts are
+`module_files.file_folders` rows carrying `connection_id` +
+`source_folder_id`; everything beneath a mount is a virtual, read-only
+projection (`cnx:<connection>:<base64url-ref>` node ids — no rows).
+
+## Browser connectors: local-files
+
+`modules/connections/providers/local-files` grants agents read access to local
+directories the user picks in the browser (File System Access API,
+Chromium-only). Each granted directory is one `browser`-auth connection; the
+handle persists in IndexedDB per browser profile. Server-side actions
+round-trip into the tab over a durable bridge
+(`module_local_files.bridge_requests`): the always-mounted bridge component (a
+`backgroundComponents` UI contribution) heartbeats liveness, claims pending
+requests, executes them against the handle, and posts results back. When no
+tab holding the handle is online, actions fail fast with
+`local_files_browser_offline`; a revoked handle flips the connection to
+`error` until the user re-grants it (one click — Chromium often returns
+`prompt` after a restart, which is expected, not a bug).
 
 ## Operations reference
 

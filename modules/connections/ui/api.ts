@@ -125,6 +125,20 @@ async function invokeTool<T>(
   });
 }
 
+/** Connect an api_key connector by submitting its credential form. */
+export async function connectWithCredentials(
+  connectorId: string,
+  input: {
+    credentials: Record<string, string>;
+    sharing: ConnectionSharing;
+  }
+): Promise<{ connection_id: string }> {
+  return requestApiJson(
+    `/api/connections/${connectorId}/connect_credentials`,
+    { method: "POST", body: input }
+  );
+}
+
 export async function getConnectionsCatalog(
   signal?: AbortSignal
 ): Promise<ConnectionsCatalog> {

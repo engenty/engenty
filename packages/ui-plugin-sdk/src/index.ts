@@ -161,6 +161,21 @@ export interface UiDashboardWidgetContribution {
 }
 
 /**
+ * A component a module mounts once, invisibly, for the whole authenticated
+ * session — it stays mounted across navigation (rendered next to the app's own
+ * background workers, not on any route). Used for things that must keep running
+ * whenever the app is open, e.g. the local-files bridge that answers file-read
+ * requests from the browser tab that holds a granted directory handle.
+ */
+export interface UiBackgroundComponentContribution {
+  component: ComponentType;
+  id: string;
+  order?: number;
+  pluginId: UiPluginId;
+  sourceInfo?: PluginSourceInfo;
+}
+
+/**
  * Props passed to a contributed tab body. `surface` identifies the host tab
  * strip (e.g. `"projects.detail"`); `params` carries that host's context
  * (e.g. `{ projectId }`). The contributing module narrows `params` itself.
@@ -259,6 +274,7 @@ export interface UiLiveBindingContribution {
 
 export interface UiContributions {
   adminMenuItems: UiAdminMenuItemContribution[];
+  backgroundComponents: UiBackgroundComponentContribution[];
   copilotApps: UiCopilotAppContribution[];
   /**
    * Optional resolver a module can contribute to turn a (scope slug,
@@ -328,6 +344,7 @@ export const CONTRIBUTIONS_INVALIDATE_EVENT = "ui.contributions.invalidate";
  */
 export interface UiEventMap {
   "ui.adminMenuItems": UiAdminMenuItemContribution[];
+  "ui.backgroundComponents": UiBackgroundComponentContribution[];
   "ui.contributionsResolved": UiContributions;
   "ui.copilotApps": UiCopilotAppContribution[];
   "ui.copilotContributions": UiCopilotContribution[];
@@ -384,6 +401,11 @@ export interface EngentyUiApi {
   }) => void;
   registerCopilotArticleHrefResolver: (input: {
     resolve: (slug: string, articleIdOrSlug: string) => string;
+  }) => void;
+  registerBackgroundComponent: (input: {
+    component: ComponentType;
+    id: string;
+    order?: number;
   }) => void;
   registerCopilotContribution: (input: UiCopilotContribution) => void;
   registerDashboardWidget: (input: {
