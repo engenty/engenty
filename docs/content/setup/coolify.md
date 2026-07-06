@@ -154,6 +154,23 @@ Two extras are off by default and enabled with compose **profiles**:
   `ENGENTY_GATEWAY_STUDIO_BASIC_AUTH=operator:change-me`, then enable the
   `studio` profile. Studio is protected by HTTP basic auth.
 
+### Optional: build images in CI instead of on the server
+
+The steps above build the images on the VPS, which is simple but slow (~25 min)
+and heavy on a small box. To build once on GitHub Actions and have the server
+just **pull** (~2 min per deploy), point Coolify at
+`docker-compose.prebuilt.yaml` instead of `docker-compose.yaml` (base directory
+stays `/deploy`). The `.github/workflows/build-images.yml` workflow builds the
+`edge`, `ai`, and `sandbox` images on every push to `main` and pushes them to
+GHCR, then (optionally) triggers a Coolify redeploy over SSH — leaving Coolify's
+API IP-allowlist untouched. Full setup (repo variables, GHCR login, the SSH
+deploy key) is in [`deploy/DEPLOY.md`](https://github.com/engenty/engenty-pro/blob/main/deploy/DEPLOY.md)
+under **Prebuilt images via CI**.
+
+> **Watch out:** the `VITE_*` repo variables must live on the repo the workflow
+> actually runs in, and must be non-empty — an empty `VITE_SUPABASE_URL` builds a
+> UI that can't reach Supabase (login silently fails) with no build error.
+
 ## Step 5 — Verify it works
 
 Once Coolify reports the stack as healthy, check the basics from your terminal:
@@ -193,6 +210,10 @@ You can run these from the server (or trigger a redeploy in Coolify):
   inside the containers. A URL that works in your browser is not always routable
   from the Docker network — put Supabase on the same network or use an internal
   URL.
+- **The domain returns `504 Gateway Timeout` (often only after a redeploy).**
+  Traefik is routing to a Docker network the proxy can't reach. The
+  `engenty-edge` service carries a `traefik.docker.network=coolify` label to
+  pin this — keep it; if you removed it, add it back and redeploy.
 - **You changed a Supabase key or the app URL and nothing updated.** Those are
   `VITE_*` build-time values — **rebuild** the edge image so they're baked in.
 - **The AI service won't respond.** Confirm `AI_GATEWAY_API_KEY` and your LLM
