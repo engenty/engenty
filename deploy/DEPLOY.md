@@ -78,8 +78,8 @@ Optional flags in `deploy/.env`:
 From the **repository root**:
 
 ```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env build
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+docker compose -f deploy/docker-compose.yaml --env-file deploy/.env build
+docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d
 ```
 
 **Optional Studio** — set in `deploy/.env` first:
@@ -90,7 +90,7 @@ ENGENTY_GATEWAY_STUDIO_BASIC_AUTH=operator:change-me
 ```
 
 ```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile studio up -d
+docker compose -f deploy/docker-compose.yaml --env-file deploy/.env --profile studio up -d
 ```
 
 Open `https://<host>/studio` (browser prompts for basic auth). Studio calls `/ai` on the same origin.
@@ -99,7 +99,7 @@ Open `https://<host>/studio` (browser prompts for basic auth). Studio calls `/ai
 
 ```bash
 # ENGENTY_GATEWAY_DOCS_ENABLED=true in deploy/.env
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile docs up -d
+docker compose -f deploy/docker-compose.yaml --env-file deploy/.env --profile docs up -d
 ```
 
 Open `https://<host>/docs`.
@@ -108,7 +108,7 @@ Open `https://<host>/docs`.
 
 ## 4. Coolify
 
-1. Add a **Docker Compose** application; base directory = repo root; compose file = `deploy/docker-compose.yml`.
+1. Add a **Docker Compose** application; base directory = repo root; compose file = `deploy/docker-compose.yaml`.
 2. Paste env vars from `deploy/.env` (or upload as env file).
 3. Route the domain to service **`engenty-edge`**, port **8787**.
 4. Enable compose profiles in Coolify if you use **studio** or **docs** (match `ENGENTY_GATEWAY_*_ENABLED`).
@@ -136,7 +136,7 @@ Open `https://<host>/docs`.
 cp deploy/.env.example deploy/.env
 # PUBLIC_APP_URL=http://localhost:8787
 # VITE_* and SUPABASE_* pointing at local or remote Supabase
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build
+docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up --build
 ```
 
 ---
@@ -147,8 +147,8 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build
 |------|---------|
 | Logs (edge) | `docker logs -f engenty-edge` |
 | Logs (ai) | `docker logs -f engenty-ai` |
-| Restart stack | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env restart` |
-| Rebuild after code change | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build` |
+| Restart stack | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env restart` |
+| Rebuild after code change | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d --build` |
 | New module migrations | `bash deploy/scripts/migrate.sh` |
 
 ---
@@ -165,7 +165,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build
 
 | File | Purpose |
 |------|---------|
-| `docker-compose.yml` | Stack: edge, ai, gotenberg; profiles studio, docs |
+| `docker-compose.yaml` | Stack: edge, ai, gotenberg; profiles studio, docs |
 | `Dockerfile.edge` | Core API + prod gateway + UI static |
 | `Dockerfile.ai` | AI service |
 | `Dockerfile.sandbox` | Agent sandbox runtime image (build-only) |

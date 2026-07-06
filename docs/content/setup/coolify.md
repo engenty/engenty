@@ -103,7 +103,7 @@ In your Coolify dashboard:
 
 1. Create a new **Docker Compose** application.
 2. Set the **base directory** to the repository root and the **compose file** to
-   `deploy/docker-compose.yml`.
+   `deploy/docker-compose.yaml`.
 3. Paste the variables from your `deploy/.env` into Coolify's environment
    settings (or upload the file).
 4. Route your **domain** to the service **`engenty-edge`** on port **8787**.
@@ -151,7 +151,7 @@ You can run these from the server (or trigger a redeploy in Coolify):
 |------|---------|
 | View edge logs | `docker logs -f engenty-edge` |
 | View AI logs | `docker logs -f engenty-ai` |
-| Rebuild after a code or `VITE_*` change | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build` |
+| Rebuild after a code or `VITE_*` change | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d --build` |
 | Apply new module migrations | `bash deploy/scripts/migrate.sh` |
 
 ## Troubleshooting

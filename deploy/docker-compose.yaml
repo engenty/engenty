@@ -3,12 +3,12 @@
 #
 # Usage:
 #   cp deploy/.env.example deploy/.env
-#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env build
-#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#   docker compose -f deploy/docker-compose.yaml --env-file deploy/.env build
+#   docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d
 #
 # Optional profiles:
-#   docker compose -f deploy/docker-compose.yml --profile studio up -d
-#   docker compose -f deploy/docker-compose.yml --profile docs up -d
+#   docker compose -f deploy/docker-compose.yaml --profile studio up -d
+#   docker compose -f deploy/docker-compose.yaml --profile docs up -d
 
 name: engenty
 
