@@ -101,6 +101,7 @@ function serializeRegistration(registration: SearchIndexRegistration) {
   const { metadata, provider } = registration;
   return {
     capabilities: metadata.capabilities,
+    config: metadata.config ?? null,
     entity_name: metadata.entityName,
     id: provider.id,
     is_system: metadata.isSystem,
@@ -109,6 +110,7 @@ function serializeRegistration(registration: SearchIndexRegistration) {
     registered_at: metadata.registeredAt,
     supports: {
       backfill: typeof provider.backfill === "function",
+      search: typeof provider.search === "function",
       status: typeof provider.getStatus === "function",
     },
     version: metadata.version,
