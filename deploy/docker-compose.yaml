@@ -23,6 +23,12 @@ services:
         VITE_ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
     container_name: engenty-edge
     restart: unless-stopped
+    # Pin which network's IP Traefik targets: under Coolify this container sits
+    # on several networks and Traefik picks one arbitrarily per container start
+    # — landing on the internal `engenty` network (which the proxy can't reach)
+    # 504s the whole site. Inert outside Coolify/Traefik setups.
+    labels:
+      - traefik.docker.network=coolify
     ports:
       - "${EDGE_PUBLISH_PORT:-8787}:8787"
     environment:
