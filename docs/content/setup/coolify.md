@@ -71,6 +71,21 @@ it at your app:
    `migrate.sh` gathers all module SQL into `supabase/migrations/` and runs
    `supabase db push` for you.
 
+3. **Expose the Engenty schemas through the API.** Migrations create the
+   schemas but cannot change the project's API config, and by default hosted
+   Supabase only serves `public` — the AI service then crash-loops with
+   `Could not query the database for the schema cache`. In the dashboard under
+   **Settings → API → Exposed schemas** (or via the Management API), set the
+   list to match `[api].schemas` in `supabase/config.toml`:
+
+   ```
+   public, graphql_public, ai, context_graph, core,
+   module_commercial_settings, module_company_profile, module_connections,
+   module_contacts, module_files, module_inbox, module_invoices, module_kb,
+   module_local_files, module_offers, module_pdf_templates, module_projects,
+   module_tasks, module_team, module_time_tracking, search
+   ```
+
 > **Tip:** keep the Supabase **service role key**, **anon key**, and **URL**
 > handy — you'll need them in the next step.
 
@@ -102,10 +117,15 @@ Open `deploy/.env` and set at least these:
 In your Coolify dashboard:
 
 1. Create a new **Docker Compose** application.
-2. Set the **base directory** to the repository root and the **compose file** to
-   `deploy/docker-compose.yaml`.
+2. Set the **base directory** to `/deploy` and the **compose file** to
+   `docker-compose.yaml`. (Not the repo root: Coolify resolves the compose
+   file's relative paths against the base directory, so the `context: ..`
+   build contexts only land on the repo root when the base directory is
+   `/deploy`.)
 3. Paste the variables from your `deploy/.env` into Coolify's environment
-   settings (or upload the file).
+   settings (or upload the file). On a small VPS also add
+   `TURBO_BUILD_CONCURRENCY=4` — the two app images build in parallel and the
+   default concurrency of 10 each can freeze a 4-core host.
 4. Route your **domain** to the service **`engenty-edge`** on port **8787**.
 5. Make sure Supabase is reachable from the app's Docker network, and set
    `SUPABASE_URL` to a URL the **containers** can reach (not just your browser).
@@ -168,6 +188,13 @@ You can run these from the server (or trigger a redeploy in Coolify):
 - **The AI service won't respond.** Confirm `AI_GATEWAY_API_KEY` and your LLM
   provider credentials are set on the `engenty-edge` service, and check
   `docker logs -f engenty-ai`.
+- **The AI service crash-loops with `Could not query the database for the
+  schema cache`.** The Engenty schemas aren't exposed through the Supabase
+  API — see the exposed-schemas step in Step 2.
+- **Coolify rejects the deploy with `Invalid volume target: contains forbidden
+  character '${'`.** Coolify forbids variable substitution in compose volume
+  definitions; the sandbox mount in `deploy/docker-compose.yaml` is a literal
+  path for this reason — keep it that way.
 
 ## Reference
 
