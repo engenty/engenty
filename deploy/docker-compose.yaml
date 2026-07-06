@@ -91,7 +91,10 @@ services:
     volumes:
       # Mirror the host sandbox dir 1:1 (same path inside and outside the
       # container) so sibling sandbox containers can bind-mount staging dirs.
-      - ${ENGENTY_SANDBOX_HOST_DIR:-/opt/engenty/sandboxes}:${ENGENTY_SANDBOX_HOST_DIR:-/opt/engenty/sandboxes}
+      # Literal path (no ${ENGENTY_SANDBOX_HOST_DIR}) — Coolify's compose parser
+      # rejects variable substitution in volume definitions. If you change the
+      # sandbox dir, edit this line AND set ENGENTY_SANDBOX_HOST_DIR to match.
+      - /opt/engenty/sandboxes:/opt/engenty/sandboxes
       # Required when ENGENTY_SANDBOX_PROVIDER=docker — spawns sibling containers via Docker Engine.
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
