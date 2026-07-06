@@ -86,6 +86,16 @@ it at your app:
    module_tasks, module_team, module_time_tracking, search
    ```
 
+4. **Enable the custom access token hook.** Like exposed schemas, auth hooks
+   are project config that migrations cannot set — without it, JWTs lack the
+   `tenant_id` claim, realtime live updates silently stay off (console warning
+   `token claims do not match the workspace tenant`), and the client retries
+   session refreshes until Supabase rate-limits with 429s. Under
+   **Authentication → Hooks → Customize Access Token (JWT) Claims**, select the
+   Postgres function `core.custom_access_token_hook` (it ships with the
+   migrations, including its grants) — this mirrors `[auth.hook.custom_access_token]`
+   in `supabase/config.toml`. Users must sign out and back in after enabling.
+
 > **Tip:** keep the Supabase **service role key**, **anon key**, and **URL**
 > handy — you'll need them in the next step.
 
