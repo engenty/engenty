@@ -1,0 +1,130 @@
+# Engenty production stack — prebuilt-image variant for Coolify.
+#
+# Identical topology to docker-compose.yaml, but pulls images built by the
+# `build-images` GitHub Actions workflow from GHCR instead of building on the
+# server. Point Coolify's compose file at this one; keep docker-compose.yaml
+# for local/manual builds. The server's Docker daemon must be logged in to
+# ghcr.io with a token that has read:packages (the images are private).
+#
+# The optional studio/docs profile services still build locally on the server
+# (they are rarely enabled and small compared to edge/ai).
+
+name: engenty
+
+services:
+  engenty-edge:
+    image: ghcr.io/engenty/engenty-edge:latest
+    restart: unless-stopped
+    ports:
+      - "${EDGE_PUBLISH_PORT:-8787}:8787"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8787
+      ENGENTY_PROD_GATEWAY: "1"
+      ENGENTY_GATEWAY_UI_ROOT: /app/apps/ui/dist
+      ENGENTY_GATEWAY_MANAGE_ENABLED: ${ENGENTY_GATEWAY_MANAGE_ENABLED:-false}
+      ENGENTY_GATEWAY_DOCS_ENABLED: ${ENGENTY_GATEWAY_DOCS_ENABLED:-false}
+      ENGENTY_GATEWAY_STUDIO_ENABLED: ${ENGENTY_GATEWAY_STUDIO_ENABLED:-false}
+      ENGENTY_GATEWAY_STUDIO_BASIC_AUTH: ${ENGENTY_GATEWAY_STUDIO_BASIC_AUTH:-}
+      ENGENTY_GATEWAY_AI_URL: http://engenty-ai:8790
+      ENGENTY_GATEWAY_DOCS_URL: http://engenty-docs:3000
+      ENGENTY_GATEWAY_STUDIO_URL: http://engenty-studio:43111
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      GOTENBERG_URL: http://gotenberg:3000
+      CORS_ORIGIN: ${PUBLIC_APP_URL}
+      ENGENTY_UI_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_API_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_DOCS_BASE_URL: ${PUBLIC_APP_URL}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      engenty-ai:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
+    networks:
+      - engenty
+
+  engenty-ai:
+    image: ghcr.io/engenty/engenty-ai:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8790
+      ENGENTY_CORE_BASE_URL: http://engenty-edge:8787
+      ENGENTY_CORS_ORIGINS: ${ENGENTY_CORS_ORIGINS}
+      ENGENTY_WORKSPACE_FS: remote
+      ENGENTY_WORKSPACE_FS_PROVIDER: supabase
+      ENGENTY_SANDBOX_PROVIDER: docker
+      ENGENTY_SANDBOX_DOCKER_IMAGE: ${ENGENTY_SANDBOX_DOCKER_IMAGE:-ghcr.io/engenty/engenty-sandbox:latest}
+      # MUST equal the host bind path below — see docker-compose.yaml.
+      ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      # Literal path — Coolify rejects ${} in volume definitions; must match
+      # ENGENTY_LOCAL_WORKSPACE_ROOT above (see docker-compose.yaml).
+      - /opt/engenty/sandboxes:/opt/engenty/sandboxes
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - engenty
+
+  # Pull-only stand-in for the sandbox runtime image: `up` pulls it onto the
+  # host daemon so engenty-ai can launch sibling containers from it. It is not
+  # a network service (command exits 0 immediately).
+  engenty-sandbox:
+    image: ${ENGENTY_SANDBOX_DOCKER_IMAGE:-ghcr.io/engenty/engenty-sandbox:latest}
+    command: ["true"]
+    restart: "no"
+    networks:
+      - engenty
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    networks:
+      - engenty
+
+  engenty-studio:
+    profiles:
+      - studio
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.studio
+    restart: unless-stopped
+    environment:
+      MASTRA_STUDIO_BASE_PATH: /studio
+      MASTRA_SKIP_PEERDEP_CHECK: "1"
+      MASTRA_AI_HOST: engenty-ai
+    depends_on:
+      engenty-ai:
+        condition: service_healthy
+    networks:
+      - engenty
+
+  engenty-docs:
+    profiles:
+      - docs
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.docs
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      NEXT_PUBLIC_DOCS_SITE_URL: ${PUBLIC_APP_URL}
+    networks:
+      - engenty
+
+networks:
+  engenty:
+    driver: bridge
