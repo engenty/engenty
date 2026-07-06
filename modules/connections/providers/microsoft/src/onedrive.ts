@@ -1,8 +1,11 @@
-import type { ConnectorDefinition } from "@engenty/connections-sdk";
+import type {
+  ConnectorDefinition,
+  ConnectorFileEntry,
+} from "@engenty/connections-sdk";
 import { defineConnector } from "@engenty/connections-sdk";
 import { z } from "zod";
 import { action } from "./action.js";
-import { graphJson, graphRaw, MICROSOFT_OAUTH2 } from "./graph.js";
+import { GRAPH_BASE_URL, graphJson, graphRaw, MICROSOFT_OAUTH2 } from "./graph.js";
 
 const MAX_SEARCH_TOP = 25;
 const MAX_CONTENT_CHARS = 50_000;
@@ -49,6 +52,28 @@ const TEXTISH_MIME_TYPES = new Set([
   "application/rtf",
   "image/svg+xml",
 ]);
+
+function toCapabilityEntry(item: GraphDriveItem): ConnectorFileEntry {
+  return {
+    kind: item.folder ? "folder" : "file",
+    mime_type: item.file?.mimeType ?? null,
+    modified_at: item.lastModifiedDateTime ?? null,
+    name: item.name ?? "",
+    ref: item.id ?? "",
+    size: item.size ?? null,
+    web_url: item.webUrl ?? null,
+  };
+}
+
+/** Turn a Graph `@odata.nextLink` (a full URL) into a graphJson-relative path. */
+function nextLinkToCursor(nextLink: string | undefined): string | null {
+  if (!nextLink) {
+    return null;
+  }
+  return nextLink.startsWith(GRAPH_BASE_URL)
+    ? nextLink.slice(GRAPH_BASE_URL.length)
+    : nextLink;
+}
 
 function isTextishMimeType(mimeType: string): boolean {
   const normalized = mimeType.toLowerCase().split(";")[0].trim();
@@ -235,6 +260,94 @@ export const microsoftOneDriveConnector: ConnectorDefinition = defineConnector({
   auth: { kind: "oauth2", oauth2: MICROSOFT_OAUTH2 },
   description:
     "OneDrive files via Microsoft Graph: search, browse, read text file content, and upload text files.",
+  files: {
+    rootLabel: () => "OneDrive",
+
+    async list(ctx, input) {
+      // A cursor is a ready-to-follow @odata.nextLink path (already carries
+      // $top/$select/$skiptoken), so follow it verbatim.
+      const path = input.cursor
+        ? input.cursor
+        : `${
+            input.folder_ref
+              ? `/me/drive/items/${encodeURIComponent(input.folder_ref)}/children`
+              : "/me/drive/root/children"
+          }?$top=${input.limit ?? 100}&$select=${ITEM_SELECT}`;
+      const data = await graphJson<{
+        "@odata.nextLink"?: string;
+        value?: GraphDriveItem[];
+      }>(ctx, path);
+      return {
+        entries: (data.value ?? []).map(toCapabilityEntry),
+        next_cursor: nextLinkToCursor(data["@odata.nextLink"]),
+      };
+    },
+
+    async read(ctx, input) {
+      const encodedId = encodeURIComponent(input.file_ref);
+      const item = await graphJson<GraphDriveItem>(
+        ctx,
+        `/me/drive/items/${encodedId}?$select=${ITEM_SELECT}`
+      );
+      if (item.folder) {
+        throw new Error("onedrive_read: item is a folder");
+      }
+      const cap = input.max_bytes ?? 20_000_000;
+      if ((item.size ?? 0) > cap) {
+        throw new Error(
+          `onedrive_file_too_large: ${item.size} bytes exceeds the ${cap} byte cap`
+        );
+      }
+      // /content 302-redirects to a pre-authenticated download URL; fetch
+      // follows it transparently.
+      const res = await graphRaw(ctx, `/me/drive/items/${encodedId}/content`);
+      const mimeType = item.file?.mimeType ?? "application/octet-stream";
+      if (isTextishMimeType(mimeType)) {
+        const content = await res.text();
+        return {
+          content,
+          kind: "text" as const,
+          mime_type: mimeType,
+          name: item.name ?? null,
+          size: item.size ?? content.length,
+          truncated: false,
+        };
+      }
+      const buffer = new Uint8Array(await res.arrayBuffer());
+      return {
+        content_base64: Buffer.from(buffer).toString("base64"),
+        kind: "base64" as const,
+        mime_type: mimeType,
+        name: item.name ?? null,
+        size: item.size ?? buffer.byteLength,
+        truncated: false,
+      };
+    },
+
+    async search(ctx, input) {
+      const q = encodeURIComponent(input.query.replace(/'/g, "''"));
+      const base = input.folder_ref
+        ? `/me/drive/items/${encodeURIComponent(input.folder_ref)}`
+        : "/me/drive/root";
+      const data = await graphJson<{ value?: GraphDriveItem[] }>(
+        ctx,
+        `${base}/search(q='${q}')?$top=${input.limit ?? 100}&$select=${ITEM_SELECT}`
+      );
+      return {
+        entries: (data.value ?? []).map(toCapabilityEntry),
+        next_cursor: null,
+      };
+    },
+
+    async stat(ctx, input) {
+      const item = await graphJson<GraphDriveItem>(
+        ctx,
+        `/me/drive/items/${encodeURIComponent(input.ref)}?$select=${ITEM_SELECT}`
+      );
+      return toCapabilityEntry(item);
+    },
+  },
+  filesProviderScopes: ["Files.Read"],
   icon: "logo:microsoft-onedrive",
   id: "microsoft-onedrive",
   moduleId: "connections-microsoft",

@@ -4,6 +4,7 @@ import type { UiContributions } from "./index.js";
 const EMPTY_CONTRIBUTIONS: UiContributions = {
   routes: [],
   adminMenuItems: [],
+  backgroundComponents: [],
   copilotApps: [],
   copilotContributions: [],
   dashboardWidgets: [],

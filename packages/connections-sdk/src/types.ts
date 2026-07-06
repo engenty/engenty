@@ -192,11 +192,104 @@ export interface ConnectorStreamCapability {
   pull(ctx: StreamPullCtx, cursor: string | null): Promise<StreamPullResult>;
 }
 
+/**
+ * A provider-native filesystem node. `ref` is the provider's own id: a Google
+ * Drive fileId, a Graph itemId, an S3 object key / key prefix, or a local
+ * relative path. `null`-ish roots are addressed with `folder_ref: null`.
+ */
+export interface ConnectorFileEntry {
+  kind: "file" | "folder";
+  mime_type: string | null;
+  modified_at: string | null;
+  name: string;
+  ref: string;
+  size: number | null;
+  /** Optional "open in provider" URL (Drive webViewLink, Graph webUrl). */
+  web_url?: string | null;
+}
+
+export interface ConnectorFilesListInput {
+  cursor?: string | null;
+  /** `null` addresses the provider root (Drive "My Drive", S3 configured prefix). */
+  folder_ref: string | null;
+  /** Soft cap; providers may return fewer, never more. */
+  limit?: number;
+}
+
+export interface ConnectorFilesListResult {
+  entries: ConnectorFileEntry[];
+  next_cursor: string | null;
+}
+
+/**
+ * Read result — discriminated so each provider returns its cheapest shape:
+ * - `url`    presigned passthrough (S3) — no proxying, no size cap
+ * - `base64` proxied bytes (Drive/OneDrive), capped by `max_bytes`
+ * - `text`   already-textual content (local-files bridge, Drive exports)
+ */
+export type ConnectorFilesReadResult =
+  | {
+      kind: "url";
+      expires_at: string | null;
+      mime_type: string | null;
+      name: string | null;
+      size: number | null;
+      url: string;
+    }
+  | {
+      kind: "base64";
+      content_base64: string;
+      mime_type: string | null;
+      name: string | null;
+      size: number | null;
+      truncated: boolean;
+    }
+  | {
+      kind: "text";
+      content: string;
+      mime_type: string | null;
+      name: string | null;
+      size: number | null;
+      truncated: boolean;
+    };
+
+/**
+ * Normalized read-only file access for a connector. When present, the runtime
+ * synthesizes `files_list` / `files_read` / `files_stat` (+ `files_search` if
+ * provided) read actions from it, so policy, approvals, audit, and agent tools
+ * all apply with no extra gate code. Also consumed by the files module to mount
+ * a connected folder as a browsable source.
+ */
+export interface ConnectorFilesCapability {
+  list(
+    ctx: ConnectorActionContext,
+    input: ConnectorFilesListInput
+  ): Promise<ConnectorFilesListResult>;
+  read(
+    ctx: ConnectorActionContext,
+    input: { file_ref: string; max_bytes?: number }
+  ): Promise<ConnectorFilesReadResult>;
+  /** Default mount label (e.g. "My Drive", the bucket name). */
+  rootLabel?(connection: ConnectionSummary): string;
+  search?(
+    ctx: ConnectorActionContext,
+    input: { folder_ref?: string | null; limit?: number; query: string }
+  ): Promise<ConnectorFilesListResult>;
+  stat(
+    ctx: ConnectorActionContext,
+    input: { ref: string }
+  ): Promise<ConnectorFileEntry>;
+}
+
 export interface ConnectorDefinition {
   /** All actions, each projected as module operation `<toolPrefix>_<action.id>`. */
   actions: ConnectorAction[];
   auth: ConnectorAuth;
   description: string;
+  /** Read-only file access; synthesizes `files_*` actions and powers mounts. */
+  files?: ConnectorFilesCapability;
+  /** Provider scopes requested for the synthesized `files_*` read actions. */
+  filesProviderScopes?: string[];
   /** Icon hint for the UI (ui-core icon name or emoji fallback). */
   icon?: string;
   /** Stable connector id, kebab-case (e.g. `google-gmail`). */

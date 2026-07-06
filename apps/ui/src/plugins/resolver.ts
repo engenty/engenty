@@ -743,6 +743,13 @@ export async function resolveUiPlugins(params: {
       kind: "live binding",
     }
   );
+  const backgroundComponents = removeStaleOwnedContributions(
+    filtered.backgroundComponents ?? [],
+    {
+      ...cleanupParams,
+      kind: "background component",
+    }
+  );
 
   const routesNormalized = normalizeRoutes(routes);
   const menuNormalized = normalizeAdminMenuItems(adminMenuItems);
@@ -773,6 +780,7 @@ export async function resolveUiPlugins(params: {
     contributions: {
       routes: routesNormalized.items,
       adminMenuItems: menuNormalized.items,
+      backgroundComponents,
       copilotArticleHrefResolver: filtered.copilotArticleHrefResolver,
       copilotApps: copilotAppsNormalized.items,
       copilotContributions,

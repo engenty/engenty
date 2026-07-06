@@ -292,6 +292,9 @@ function App() {
               tenantId={workspaceContext.currentTenant?.id ?? ""}
               userId={workspaceContext.userId}
             />
+            {contributions.backgroundComponents.map((entry) => (
+              <entry.component key={entry.id} />
+            ))}
             <AppLayout
               appMenuActions={appMenuActions}
               currentUserId={workspaceContext.userId}

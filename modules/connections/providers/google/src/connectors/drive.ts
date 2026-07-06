@@ -1,5 +1,6 @@
 import {
   type ConnectorDefinition,
+  type ConnectorFileEntry,
   defineConnector,
 } from "@engenty/connections-sdk";
 import { z } from "zod";
@@ -45,6 +46,21 @@ function toFileSummary(f: DriveFile) {
 /** Escape a value for use inside single quotes in a Drive query. */
 function escapeDriveQueryValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+const FOLDER_MIME = "application/vnd.google-apps.folder";
+const ENTRY_FIELDS = "id,name,mimeType,modifiedTime,size,webViewLink";
+
+function toCapabilityEntry(f: DriveFile): ConnectorFileEntry {
+  return {
+    kind: f.mimeType === FOLDER_MIME ? "folder" : "file",
+    mime_type: f.mimeType ?? null,
+    modified_at: f.modifiedTime ?? null,
+    name: f.name ?? "",
+    ref: f.id,
+    size: f.size ? Number(f.size) : null,
+    web_url: f.webViewLink ?? null,
+  };
 }
 
 /** Export MIME type for Google Workspace documents, or null if not exportable as text. */
@@ -257,6 +273,114 @@ export const driveConnector: ConnectorDefinition = defineConnector({
   auth: { kind: "oauth2", oauth2: GOOGLE_OAUTH2 },
   description:
     "Search, read and create files in a connected Google Drive account.",
+  files: {
+    rootLabel: () => "My Drive",
+
+    async list(ctx, input) {
+      const parent = input.folder_ref ?? "root";
+      const url = new URL(`${DRIVE_API}/files`);
+      url.searchParams.set(
+        "q",
+        `'${escapeDriveQueryValue(parent)}' in parents and trashed = false`
+      );
+      url.searchParams.set("pageSize", String(input.limit ?? 100));
+      url.searchParams.set(
+        "fields",
+        `nextPageToken,files(${ENTRY_FIELDS})`
+      );
+      url.searchParams.set("orderBy", "folder,name");
+      if (input.cursor) {
+        url.searchParams.set("pageToken", input.cursor);
+      }
+      const data = await googleJson<{
+        files?: DriveFile[];
+        nextPageToken?: string;
+      }>(ctx, url.toString());
+      return {
+        entries: (data.files ?? []).map(toCapabilityEntry),
+        next_cursor: data.nextPageToken ?? null,
+      };
+    },
+
+    async read(ctx, input) {
+      const meta = await googleJson<DriveFile>(
+        ctx,
+        `${DRIVE_API}/files/${encodeURIComponent(input.file_ref)}?fields=id,name,mimeType,size`
+      );
+      const mimeType = meta.mimeType ?? "application/octet-stream";
+      const size = meta.size ? Number(meta.size) : null;
+      const cap = input.max_bytes ?? 20_000_000;
+      if (size !== null && size > cap) {
+        throw new Error(
+          `google_drive_file_too_large: ${size} bytes exceeds the ${cap} byte cap`
+        );
+      }
+      const exportMime = mimeType.startsWith("application/vnd.google-apps")
+        ? exportMimeFor(mimeType)
+        : null;
+      if (exportMime) {
+        const res = await googleFetch(
+          ctx,
+          `${DRIVE_API}/files/${encodeURIComponent(input.file_ref)}/export?mimeType=${encodeURIComponent(exportMime)}`
+        );
+        const content = await res.text();
+        return {
+          content,
+          kind: "text" as const,
+          mime_type: exportMime,
+          name: meta.name ?? null,
+          size: content.length,
+          truncated: false,
+        };
+      }
+      const res = await googleFetch(
+        ctx,
+        `${DRIVE_API}/files/${encodeURIComponent(input.file_ref)}?alt=media`
+      );
+      const buffer = new Uint8Array(await res.arrayBuffer());
+      const truncated = buffer.byteLength > cap;
+      const body = truncated ? buffer.subarray(0, cap) : buffer;
+      return {
+        content_base64: Buffer.from(body).toString("base64"),
+        kind: "base64" as const,
+        mime_type: mimeType,
+        name: meta.name ?? null,
+        size: size ?? buffer.byteLength,
+        truncated,
+      };
+    },
+
+    async search(ctx, input) {
+      const qParts = [
+        "trashed = false",
+        `name contains '${escapeDriveQueryValue(input.query)}'`,
+      ];
+      if (input.folder_ref) {
+        qParts.push(`'${escapeDriveQueryValue(input.folder_ref)}' in parents`);
+      }
+      const url = new URL(`${DRIVE_API}/files`);
+      url.searchParams.set("q", qParts.join(" and "));
+      url.searchParams.set("pageSize", String(input.limit ?? 100));
+      url.searchParams.set("fields", `files(${ENTRY_FIELDS})`);
+      const data = await googleJson<{ files?: DriveFile[] }>(
+        ctx,
+        url.toString()
+      );
+      return {
+        entries: (data.files ?? []).map(toCapabilityEntry),
+        next_cursor: null,
+      };
+    },
+
+    async stat(ctx, input) {
+      const f = await googleJson<DriveFile>(
+        ctx,
+        `${DRIVE_API}/files/${encodeURIComponent(input.ref)}?fields=${ENTRY_FIELDS}`
+      );
+      return toCapabilityEntry(f);
+    },
+  },
+  filesProviderScopes: [SCOPE_READONLY],
   icon: "logo:google-drive",
   id: "google-drive",
   moduleId: "connections-google",

@@ -7,7 +7,9 @@ export const fileSpaceParamsSchema = z.object({
 });
 
 export const fileSpaceItemParamsSchema = fileSpaceParamsSchema.extend({
-  id: z.string().uuid(),
+  // A DB row uuid or a virtual connector node id ("cnx:<uuid>:<base64url-ref>",
+  // long for deep provider paths). Shape-validated downstream.
+  id: z.string().min(1).max(2048),
 });
 
 export const fileSpaceUploadParamsSchema = fileSpaceParamsSchema.extend({
@@ -54,6 +56,8 @@ export const folderNodeSchema = z.object({
   name: z.string(),
   parentId: z.string().nullable(),
   source: z.string(),
+  connectionId: z.string().optional(),
+  readOnly: z.boolean().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -66,6 +70,7 @@ export const fileNodeSchema = z.object({
   sizeBytes: z.number(),
   source: z.string(),
   storageKey: z.string().optional(),
+  readOnly: z.boolean().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -74,6 +79,33 @@ export const listingSchema = z.object({
   folders: z.array(folderNodeSchema),
   files: z.array(fileNodeSchema),
   cursor: z.string().optional(),
+  readOnly: z.boolean().optional(),
+});
+
+export const createMountBodySchema = z.object({
+  connectionId: z.string().uuid(),
+  /** Provider folder ref to mount; null mounts the connection's root. */
+  folderRef: z.string().max(2048).nullable(),
+  name: z.string().trim().min(1).max(200),
+  parentId: z.string().uuid().nullish(),
+});
+
+export const fileSourceSummarySchema = z.object({
+  connectionId: z.string(),
+  connectorIcon: z.string().nullable(),
+  connectorId: z.string(),
+  connectorName: z.string(),
+  label: z.string(),
+  sharing: z.string(),
+});
+
+export const browseEntrySchema = z.object({
+  kind: z.enum(["file", "folder"]),
+  mimeType: z.string().nullable(),
+  modifiedAt: z.string().nullable(),
+  name: z.string(),
+  ref: z.string(),
+  size: z.number().nullable(),
 });
 
 export const uploadTicketSchema = z.object({

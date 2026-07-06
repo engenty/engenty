@@ -65,6 +65,11 @@ describe("connections-microsoft connectors", () => {
       "onedrive_list_children",
       "onedrive_read_file_content",
       "onedrive_upload_file",
+      // Synthesized from the files capability.
+      "onedrive_files_list",
+      "onedrive_files_read",
+      "onedrive_files_stat",
+      "onedrive_files_search",
     ]);
   });
 
@@ -98,8 +103,10 @@ describe("connections-microsoft connectors", () => {
 
   it("uses the shared Microsoft OAuth config on both connectors", () => {
     for (const connector of connectors) {
+      if (connector.auth.kind !== "oauth2") {
+        throw new Error(`expected oauth2 auth on ${connector.id}`);
+      }
       const oauth2 = connector.auth.oauth2;
-      expect(connector.auth.kind).toBe("oauth2");
       expect(oauth2.authUrl).toBe(
         "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
       );

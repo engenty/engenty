@@ -43,7 +43,15 @@ function readPackageJson(pkgDir) {
 function isConventionalWorkspaceRoot(pkgDir) {
   const abs = path.resolve(pkgDir);
   const parent = path.basename(path.dirname(abs));
-  return parent === "modules" || parent === "packages";
+  if (parent === "modules" || parent === "packages") {
+    return true;
+  }
+  // Nested connector providers: modules/<parent>/providers/<child>
+  if (parent === "providers") {
+    return path.basename(path.dirname(path.dirname(path.dirname(abs)))) ===
+      "modules";
+  }
+  return false;
 }
 
 /** Mirrors `resolveDefaultTailwindSources` in apps/core/src/plugins/manifest.ts */

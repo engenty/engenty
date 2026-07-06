@@ -21,6 +21,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { CatalogConnection, CatalogConnector } from "../api.js";
 import { ConnectButton } from "../components/connect-button.js";
+import { ConnectCredentialsDialog } from "../components/connect-credentials-dialog.js";
+import { getConnectorConnectButton } from "../extensions.js";
 import { StatusBadge } from "../components/connection-panel.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 
@@ -165,14 +167,56 @@ function ConnectorCard({
             {t("catalog.manage")}
           </Button>
         ) : null}
-        <ConnectButton
-          connectorId={connector.id}
-          hasConnections={hasConnection}
-          redirectTo={CONNECTIONS_SETTINGS_PATH}
-          variant={hasConnection ? "outline" : "default"}
+        <ConnectorConnectAffordance
+          connector={connector}
+          hasConnection={hasConnection}
         />
       </div>
     </Card>
+  );
+}
+
+/**
+ * OAuth connectors use the shared redirect ConnectButton; api_key connectors
+ * get the generic credentials dialog (form fields come from the catalog);
+ * browser connectors render whatever bespoke affordance their UI plugin
+ * registered (e.g. the local-files folder picker).
+ */
+function ConnectorConnectAffordance({
+  connector,
+  hasConnection,
+}: {
+  connector: CatalogConnector;
+  hasConnection: boolean;
+}) {
+  if (connector.auth_kind === "api_key") {
+    return (
+      <ConnectCredentialsDialog
+        connector={connector}
+        hasConnections={hasConnection}
+      />
+    );
+  }
+  if (connector.auth_kind !== "oauth2") {
+    const Custom = getConnectorConnectButton(connector.id);
+    if (Custom) {
+      return (
+        <Custom
+          connectorId={connector.id}
+          hasConnections={hasConnection}
+          redirectTo={CONNECTIONS_SETTINGS_PATH}
+        />
+      );
+    }
+    return null;
+  }
+  return (
+    <ConnectButton
+      connectorId={connector.id}
+      hasConnections={hasConnection}
+      redirectTo={CONNECTIONS_SETTINGS_PATH}
+      variant={hasConnection ? "outline" : "default"}
+    />
   );
 }
 

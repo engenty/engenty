@@ -52,6 +52,7 @@ export {
   registerConnectorModule,
   withAccountParam,
 } from "./runtime.js";
+export { filesCapabilityActions } from "./files-capability.js";
 export { decryptToken, encryptToken } from "./token-crypto.js";
 export {
   ACTION_GROUP_CONTRACTS,
@@ -70,6 +71,11 @@ export {
   type ConnectorAuth,
   type ConnectorAuthKind,
   type ConnectorDefinition,
+  type ConnectorFileEntry,
+  type ConnectorFilesCapability,
+  type ConnectorFilesListInput,
+  type ConnectorFilesListResult,
+  type ConnectorFilesReadResult,
   type ConnectorOAuth2Config,
   type ConnectorStreamCapability,
   connectorOperationId,
