@@ -87,9 +87,9 @@ export const CoreUserSchema = z.object({
 export const UserParamsSchema = z.object({ id: z.string().min(1) });
 export const UpdateUserBodySchema = z.object({
   email: z.string().optional(),
-  display_name: z.string().optional(),
-  phone: z.string().optional(),
-  initials: z.string().optional(),
+  display_name: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  initials: z.string().nullable().optional(),
   role: TenantRoleSchema.optional(),
   /** Admin-only: set another tenant user's auth password (not for self). */
   password: z.string().min(6).optional(),
@@ -99,7 +99,7 @@ export const CreateUserBodySchema = z.object({
   password: z.string().min(1),
   display_name: z.string().min(1),
   role: TenantRoleSchema.optional(),
-  phone: z.string().optional(),
+  phone: z.string().nullable().optional(),
 });
 
 export function readBearer(c: {

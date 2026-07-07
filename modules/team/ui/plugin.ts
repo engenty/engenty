@@ -50,6 +50,7 @@ interface UserManagementListHooksApi {
     icon?: UiIconComponent;
     key: string;
     label: string;
+    labelKey?: string;
     order?: number;
     renderCell: (context: {
       enrichments: Record<string, unknown>;
@@ -160,7 +161,8 @@ export default function plugin(engenty: EngentyPluginContext) {
 
   userManagementUi?.registerListColumn({
     key: "teamMember",
-    label: engenty.i18n.t("team:menu"),
+    label: engenty.i18n.t("team:menu", { defaultValue: "Team" }),
+    labelKey: "team:menu",
     icon: DockTeamMembersIcon,
     order: 15,
     defaultVisible: true,
