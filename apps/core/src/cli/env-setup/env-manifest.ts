@@ -481,7 +481,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     group: "Agent sandbox (Docker-only)",
     key: "ENGENTY_SANDBOX_DOCKER_IMAGE",
     obtain: { kind: "manual" },
-    required: "always",
+    required: "optional",
     scopes: ["deploy"],
     secret: false,
   },
