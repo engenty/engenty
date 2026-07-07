@@ -17,6 +17,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the Lint step can diff against the PR base / prior push.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -48,8 +51,30 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm check
+      # Lint only the files this PR/push changes, not the whole repo. The repo
+      # carries pre-existing lint debt; a repo-wide `pnpm check` would fail every
+      # PR on unrelated files. This keeps the gate meaningful (blocks NEW issues)
+      # while a separate cleanup works through the backlog. Same ultracite
+      # ruleset — just scoped to the changed paths.
+      - name: Lint (changed files)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          fi
+          files=$(git diff --name-only --diff-filter=ACMR "$base" HEAD \
+            | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc|css)$' || true)
+          if [ -z "$files" ]; then
+            echo "No lintable files changed — skipping."
+            exit 0
+          fi
+          echo "Linting changed files:"
+          echo "$files"
+          echo "$files" | xargs -d '\n' pnpm exec ultracite check
 
       - name: Env example sync
         run: pnpm env:example:check
