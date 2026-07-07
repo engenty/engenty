@@ -31,6 +31,16 @@ pnpm test
 
 Fix formatting with `pnpm fix` when needed.
 
+Don't bump the version or edit `CHANGELOG.md` / `changelog.json` in a PR — those
+are generated at release time. Just write [Conventional Commits](https://www.conventionalcommits.org)
+(`feat:`, `fix:`, …); the changelog is built from them.
+
+## Releasing (maintainers)
+
+Releases are cut with `pnpm release` and shipped by pushing the `v*` tag — see
+[Releasing & shipping](./README.md#releasing--shipping) in the README and the full
+[releases & versioning](./docs/content/dev/releases-and-versioning.md) doc.
+
 ## Issues
 
 - **Bugs** — [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml)

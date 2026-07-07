@@ -26,8 +26,9 @@ gives you exact build identity. A build surfaces as, e.g., `0.2.0 (a1b2c3d)`.
 
 ## Cutting a release
 
-Releases are **deliberate and local** — you run one command when you decide to
-cut one. Deploys are separate (see below), so a release never triggers a build.
+Cutting a release is **local and interactive** — one command bumps the version,
+writes the changelog, commits, and tags. Nothing is pushed or built yet;
+**pushing the tag** is the separate step that ships it (see [Shipping](#shipping-build--deploy)).
 
 ```bash
 pnpm release               # full: changelog + bump package.json + commit + tag
@@ -46,11 +47,40 @@ pnpm release --changelog   # just draft/write the changelog, no bump/commit/tag
    source for docs/website generation), then bumps `package.json`, commits
    `chore(release): vX.Y.Z`, and tags it.
 
-It never pushes, builds, or deploys. Afterwards:
-`git push origin main --follow-tags`, and deploy as its own step.
+`pnpm release` itself never pushes, builds, or deploys — it only writes the
+release commit and tag locally.
 
 The format and grouping live in [`cliff.toml`](https://git-cliff.org/docs/configuration);
 change the template there, not in the script.
+
+## Shipping (build & deploy)
+
+Deploys are **release-gated**: the image build + Coolify deploy run **only when a
+`v*` tag is pushed**, never on a plain push to `main`. So shipping is one push:
+
+```bash
+git push origin main --follow-tags
+```
+
+`--follow-tags` sends the release commit **and** the annotated tag `pnpm release`
+just made. That tag push triggers
+[`.github/workflows/build-images.yml`](https://github.com/engenty/engenty-pro/blob/main/.github/workflows/build-images.yml):
+
+1. Builds the `edge`, `ai`, and `sandbox` images on GitHub runners and pushes
+   them to GHCR — tagged `:latest`, `:vX.Y.Z`, and `:<sha>`.
+2. Triggers a Coolify redeploy over SSH, which pulls `:latest` and recreates the
+   containers on the VPS.
+
+Every push to `main` (tagged or not) also runs `ci.yml` (lint, typecheck, test) —
+that's the gate for code quality, independent of shipping.
+
+**Manual rebuild/redeploy:** run the workflow via
+`gh workflow run build-images.yml` (or the Actions tab → *Run workflow*) — e.g.
+after a `deploy/**` compose-only change that has no new tag.
+
+> Because builds only happen at release, a Docker-build break won't surface until
+> you tag. CI still catches code/lint/test issues on every push; if you need to
+> validate the image build before tagging, trigger a manual run first.
 
 ## Conventional Commits
 

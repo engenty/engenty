@@ -156,9 +156,20 @@ pnpm check               # lint / format (ultracite)
 Each module and package is an independent workspace member with its own `build`,
 `test`, and migrations. **`pnpm dev`** runs `dev:check` and `predev` first (Docker/Supabase checks, builds packages/modules, regenerates UI plugin artifacts).
 
-### Releasing
+## Releasing & shipping
 
-Cut releases only with **`pnpm release`** (interactive; git-cliff over Conventional Commits). It is the SSOT — never hand-edit `CHANGELOG.md`, `changelog.json`, the `package.json` version, or tags. `pnpm release:changelog` drafts the changelog without bumping. It never pushes/builds/deploys. Details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).
+Two steps: cut the release, then push it. **Pushing the `v*` tag is what builds and deploys** — a plain push to `main` never does.
+
+```bash
+pnpm release                        # interactive: bump + changelog + commit + annotated tag vX.Y.Z (local only)
+git push origin main --follow-tags  # push the commit AND the tag → triggers build + deploy
+```
+
+- **`pnpm release`** (git-cliff over [Conventional Commits](https://www.conventionalcommits.org)) is the **single source of truth** — it writes `CHANGELOG.md` + `changelog.json`, bumps `package.json`, commits `chore(release): vX.Y.Z`, and creates the tag. Never hand-edit those files or tags. Use `pnpm release:changelog` to draft the changelog only.
+- **Pushing the tag** triggers [`build-images.yml`](.github/workflows/build-images.yml): it builds the `edge` / `ai` / `sandbox` images, pushes them to GHCR, then triggers the Coolify deploy.
+- **Pushing `main` (no tag)** runs CI only — lint, typecheck, test (`ci.yml`). No build, no deploy.
+
+Full details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).
 
 ## Modules: in repo, wired (installed) and activation
 
