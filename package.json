@@ -121,6 +121,7 @@
     "purge": "bash scripts/purge.sh",
     "purge:light": "bash scripts/purge.sh --light",
     "push": "bash scripts/publish-open.sh",
+    "push:snapshot": "bash scripts/publish-open-snapshot.sh",
     "release": "node scripts/release.mjs",
     "release:changelog": "node scripts/release.mjs --changelog"
   },
