@@ -38,7 +38,7 @@ are generated at release time. Just write [Conventional Commits](https://www.con
 ## Releasing (maintainers)
 
 Releases are cut with `pnpm release` and shipped by pushing the `v*` tag — see
-[Releasing & shipping](./README.md#releasing--shipping) in the README and the full
+[Release & ship](./README.md#release--ship) in the README and the full
 [releases & versioning](./docs/content/dev/releases-and-versioning.md) doc.
 
 ## Issues
