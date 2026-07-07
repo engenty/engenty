@@ -9,7 +9,7 @@ export const LIVENESS_WINDOW_MS = 90_000;
 /** How often the browser bridge posts a heartbeat. */
 export const HEARTBEAT_MS = 30_000;
 /** How often the browser bridge claims pending requests (latency floor). */
-export const CLAIM_POLL_MS = 3_000;
+export const CLAIM_POLL_MS = 3000;
 
 export const LOCAL_FILES_ERROR = {
   browserOffline: "local_files_browser_offline",

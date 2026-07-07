@@ -63,7 +63,8 @@ describe("parseListResponse", () => {
   });
 
   it("handles single-element responses (parser returns objects, not arrays)", () => {
-    const single = `<ListBucketResult><Contents><Key>root/a.txt</Key><Size>1</Size></Contents></ListBucketResult>`;
+    const single =
+      "<ListBucketResult><Contents><Key>root/a.txt</Key><Size>1</Size></Contents></ListBucketResult>";
     const result = parseListResponse(single, "root/");
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]?.ref).toBe("a.txt");
@@ -129,9 +130,12 @@ describe("s3 files capability", () => {
     const fetchImpl = vi.fn(
       async () => new Response(LIST_XML, { status: 200 })
     ) as unknown as typeof fetch;
-    await expect(verifyS3Credentials(CREDS as never, fetchImpl)).resolves.toEqual(
-      { externalId: "my-bucket/root", label: "my-bucket/root" }
-    );
+    await expect(
+      verifyS3Credentials(CREDS as never, fetchImpl)
+    ).resolves.toEqual({
+      externalId: "my-bucket/root",
+      label: "my-bucket/root",
+    });
   });
 
   it("synthesizes the s3_files_* agent actions", () => {

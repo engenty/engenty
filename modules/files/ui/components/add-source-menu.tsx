@@ -187,7 +187,10 @@ export function AddSourceMenu({
               {picking?.label}
             </button>
             {path.map((crumb, index) => (
-              <span className="flex items-center gap-1" key={crumb.ref ?? index}>
+              <span
+                className="flex items-center gap-1"
+                key={crumb.ref ?? index}
+              >
                 <ChevronRight className="size-3.5 text-muted-foreground" />
                 <button
                   className={
@@ -253,7 +256,11 @@ export function AddSourceMenu({
             >
               {t("fileManager.cancel")}
             </Button>
-            <Button disabled={mounting} onClick={() => void mount()} type="button">
+            <Button
+              disabled={mounting}
+              onClick={() => void mount()}
+              type="button"
+            >
               {mounting
                 ? t("fileManager.sources.mounting")
                 : t("fileManager.sources.useThisFolder")}

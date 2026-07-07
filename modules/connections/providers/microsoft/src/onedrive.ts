@@ -5,7 +5,12 @@ import type {
 import { defineConnector } from "@engenty/connections-sdk";
 import { z } from "zod";
 import { action } from "./action.js";
-import { GRAPH_BASE_URL, graphJson, graphRaw, MICROSOFT_OAUTH2 } from "./graph.js";
+import {
+  GRAPH_BASE_URL,
+  graphJson,
+  graphRaw,
+  MICROSOFT_OAUTH2,
+} from "./graph.js";
 
 const MAX_SEARCH_TOP = 25;
 const MAX_CONTENT_CHARS = 50_000;

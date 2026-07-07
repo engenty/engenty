@@ -27,7 +27,10 @@ function listModulePackageNames(repoRoot) {
       continue;
     }
     const pkg = readJson(pkgPath);
-    if (typeof pkg.name === "string" && pkg.name.startsWith(MODULE_DEP_PREFIX)) {
+    if (
+      typeof pkg.name === "string" &&
+      pkg.name.startsWith(MODULE_DEP_PREFIX)
+    ) {
       names.add(pkg.name);
     }
   }

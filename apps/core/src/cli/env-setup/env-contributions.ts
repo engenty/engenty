@@ -55,7 +55,7 @@ function readManifestId(manifestPath: string): string | undefined {
       ? parsed.id.trim()
       : undefined;
   } catch {
-    return undefined;
+    return;
   }
 }
 

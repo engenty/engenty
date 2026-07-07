@@ -103,7 +103,9 @@ function listAiDirs() {
       // Nested connector providers: modules/<parent>/providers/<child>/ai.
       const providersDir = join(base, entry.name, "providers");
       if (existsSync(providersDir)) {
-        for (const child of readdirSync(providersDir, { withFileTypes: true })) {
+        for (const child of readdirSync(providersDir, {
+          withFileTypes: true,
+        })) {
           if (!child.isDirectory() || SKIP_DIRS.has(child.name)) {
             continue;
           }

@@ -26,7 +26,6 @@
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
-    
     "@engenty/search-index": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@supabase/supabase-js": "^2.108.2",

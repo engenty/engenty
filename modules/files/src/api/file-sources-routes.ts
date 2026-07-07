@@ -71,8 +71,7 @@ export function registerFileSourcesRoutes(
         tenantId: ctx.auth.tenantId,
       });
       const visible = all.filter(
-        (c) =>
-          c.sharing === "org" || c.owner_user_id === ctx.auth?.principalId
+        (c) => c.sharing === "org" || c.owner_user_id === ctx.auth?.principalId
       );
       return {
         sources: visible.map((c) => ({
@@ -197,10 +196,10 @@ export function registerFileSourcesRoutes(
         },
         type: "files.source_mounted",
       });
-      return new Response(
-        JSON.stringify({ ...mount, source: sourceKind }),
-        { headers: { "content-type": "application/json" }, status: 201 }
-      );
+      return new Response(JSON.stringify({ ...mount, source: sourceKind }), {
+        headers: { "content-type": "application/json" },
+        status: 201,
+      });
     },
   });
 
@@ -234,9 +233,7 @@ export function registerFileSourcesRoutes(
       }
       const bytes =
         result.kind === "base64"
-          ? Uint8Array.from(atob(result.content_base64), (c) =>
-              c.charCodeAt(0)
-            )
+          ? Uint8Array.from(atob(result.content_base64), (c) => c.charCodeAt(0))
           : new TextEncoder().encode(result.content);
       const filename = result.name ?? decoded.ref.split("/").pop() ?? "file";
       return new Response(bytes, {

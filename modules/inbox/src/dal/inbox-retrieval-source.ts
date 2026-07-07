@@ -15,10 +15,7 @@ import type {
   RetrievalMatch,
   RetrievalSourceRegistration,
 } from "@engenty/retrieval";
-import type {
-  SearchIndexProvider,
-  SearchResult,
-} from "@engenty/search-index";
+import type { SearchIndexProvider, SearchResult } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InboxMessage, InboxMessageStatus } from "../schema/types.js";
 import { buildMessageSearchDocument } from "../services/message-embed.js";
@@ -89,7 +86,9 @@ export function createInboxRetrievalSource(options: {
     );
   }
 
-  function matchReason(match: RetrievalMatch): InboxSearchMatch["match_reason"] {
+  function matchReason(
+    match: RetrievalMatch
+  ): InboxSearchMatch["match_reason"] {
     if (match.matched_fields.includes("text")) {
       return "text";
     }
@@ -202,7 +201,10 @@ export function createInboxRetrievalSource(options: {
       },
       mapFilters: (filters) => {
         const metadata: Record<string, string> = {};
-        if (typeof filters.connection_id === "string" && filters.connection_id) {
+        if (
+          typeof filters.connection_id === "string" &&
+          filters.connection_id
+        ) {
           metadata.connection_id = filters.connection_id;
         }
         if (typeof filters.status === "string" && filters.status) {

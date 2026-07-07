@@ -55,7 +55,7 @@ export async function ingestById(
   input: { doc_id: string; tenant_id: string }
 ): Promise<void> {
   const document = await deps.source.buildDocument(input);
-  if (!document || !document.text?.trim()) {
+  if (!(document && document.text?.trim())) {
     await deps.store.deleteDocument({
       docId: input.doc_id,
       sourceType: deps.source.source_type,

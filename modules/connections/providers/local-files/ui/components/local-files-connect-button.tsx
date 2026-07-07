@@ -4,9 +4,9 @@ import { FolderPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { registerDirectory } from "../api.js";
+import { isSupported, pickDirectory } from "../lib/fsa.js";
 import { putHandle } from "../lib/handle-store.js";
 import { deviceLabel, installationId } from "../lib/installation.js";
-import { isSupported, pickDirectory } from "../lib/fsa.js";
 
 const CATALOG_KEY = ["connections", "catalog"];
 
@@ -43,7 +43,9 @@ export function LocalFilesConnectButton() {
       } catch (storeError) {
         toast.error(
           `Could not persist the folder handle: ${
-            storeError instanceof Error ? storeError.message : String(storeError)
+            storeError instanceof Error
+              ? storeError.message
+              : String(storeError)
           }`
         );
       }

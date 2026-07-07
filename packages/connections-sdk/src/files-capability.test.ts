@@ -54,7 +54,9 @@ describe("files capability", () => {
       actions: [],
       auth: { kind: "browser" },
       description: "Local files",
-      files: capability({ search: vi.fn(async () => ({ entries: [], next_cursor: null })) }),
+      files: capability({
+        search: vi.fn(async () => ({ entries: [], next_cursor: null })),
+      }),
       id: "local-files",
       moduleId: "connections-local-files",
       name: "Local Files",

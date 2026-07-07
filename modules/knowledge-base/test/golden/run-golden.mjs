@@ -24,7 +24,9 @@ const TOP_N = 5;
 
 function loadEnvLocal() {
   const envPath = path.join(repoRoot, ".env.local");
-  if (!fs.existsSync(envPath)) return;
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
   for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
     const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
     if (match && !(match[1] in process.env)) {
@@ -136,7 +138,9 @@ async function run() {
     const accepted =
       spec.accept_new_top1 != null && next[0]?.title === spec.accept_new_top1;
     const pass = baseTop1 == null || nextTop3.includes(baseTop1) || accepted;
-    if (!pass) failures++;
+    if (!pass) {
+      failures++;
+    }
     const delta =
       base[0] && next[0] ? (next[0].score - base[0].score).toFixed(3) : "n/a";
     console.log(

@@ -336,10 +336,7 @@ export interface MountDbInput {
 }
 
 export interface FileMountStore {
-  create(
-    ctx: FileSourceContext,
-    input: MountDbInput
-  ): Promise<FileFolderRow>;
+  create(ctx: FileSourceContext, input: MountDbInput): Promise<FileFolderRow>;
   get(ctx: FileSourceContext, folderId: string): Promise<FileFolderRow | null>;
 }
 

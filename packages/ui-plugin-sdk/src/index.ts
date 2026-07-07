@@ -391,6 +391,11 @@ export interface EngentyUiApi {
     order?: number;
     useBadgeCount?: () => number | undefined;
   }) => void;
+  registerBackgroundComponent: (input: {
+    component: ComponentType;
+    id: string;
+    order?: number;
+  }) => void;
   registerCopilotApp: (input: {
     id: string;
     label: string;
@@ -401,11 +406,6 @@ export interface EngentyUiApi {
   }) => void;
   registerCopilotArticleHrefResolver: (input: {
     resolve: (slug: string, articleIdOrSlug: string) => string;
-  }) => void;
-  registerBackgroundComponent: (input: {
-    component: ComponentType;
-    id: string;
-    order?: number;
   }) => void;
   registerCopilotContribution: (input: UiCopilotContribution) => void;
   registerDashboardWidget: (input: {

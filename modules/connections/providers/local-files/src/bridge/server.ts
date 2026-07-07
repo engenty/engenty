@@ -1,9 +1,9 @@
 import type { ConnectionSummary } from "@engenty/connections-sdk";
 import {
+  type BridgeAction,
   LIVENESS_WINDOW_MS,
   LOCAL_FILES_ERROR,
   REQUEST_TIMEOUT_MS,
-  type BridgeAction,
 } from "../protocol.js";
 import type { LocalFilesRepo } from "../repo.js";
 

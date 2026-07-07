@@ -5,9 +5,9 @@
 //
 // Prereq: local stack up + retrieval_core migration applied.
 
+import { defineEmbedder } from "@engenty/search-index";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { defineEmbedder } from "@engenty/search-index";
 import type { RetrievalSourceRegistration } from "../src/contracts.js";
 import { createRetrievalService } from "../src/service.js";
 
@@ -32,8 +32,12 @@ function axisVector(axis: number): number[] {
 // Deterministic "embedding": text containing "alpha" → axis 0, "beta" →
 // axis 1, otherwise axis 2. Cosine(query alpha, doc alpha) = 1.0 exactly.
 function fakeEmbed(text: string): number[] {
-  if (text.includes("alpha")) return axisVector(0);
-  if (text.includes("beta")) return axisVector(1);
+  if (text.includes("alpha")) {
+    return axisVector(0);
+  }
+  if (text.includes("beta")) {
+    return axisVector(1);
+  }
   return axisVector(2);
 }
 
@@ -44,10 +48,10 @@ const fakeEmbedder = defineEmbedder(
 
 interface E2eDoc {
   doc_id: string;
+  occurred_at?: string;
   owner_user_id?: string | null;
   text: string;
   title?: string;
-  occurred_at?: string;
 }
 
 function makeE2eSource(input: {
@@ -59,7 +63,9 @@ function makeE2eSource(input: {
   return {
     buildDocument: ({ doc_id, tenant_id }) => {
       const doc = byId.get(doc_id);
-      if (!doc) return Promise.resolve(null);
+      if (!doc) {
+        return Promise.resolve(null);
+      }
       return Promise.resolve({
         doc_id,
         filter_metadata: { kind: "e2e" },
@@ -135,7 +141,9 @@ describe("retrieval E2E (local Supabase)", () => {
         ],
         { onConflict: "id" }
       );
-    if (error) throw new Error(`tenant setup failed: ${error.message}`);
+    if (error) {
+      throw new Error(`tenant setup failed: ${error.message}`);
+    }
 
     service = createRetrievalService({
       createEmbedder: () => fakeEmbedder,
@@ -212,7 +220,9 @@ describe("retrieval E2E (local Supabase)", () => {
       .map((r) => r.item)
       .find((item) => item.doc_id === "org-alpha");
     expect(alpha).toBeDefined();
-    if (!alpha) return;
+    if (!alpha) {
+      return;
+    }
     const { fts, trigram, vector } = alpha.source_scores;
     expect(vector).toBeCloseTo(1.0, 5);
     expect(fts).toBeGreaterThan(0);
@@ -228,27 +238,27 @@ describe("retrieval E2E (local Supabase)", () => {
       limit: 10,
       query: "alpha kickoff retrospective",
     });
-    expect(
-      asUser2.results.some((r) => r.item.doc_id === "personal-u1")
-    ).toBe(false);
+    expect(asUser2.results.some((r) => r.item.doc_id === "personal-u1")).toBe(
+      false
+    );
 
     const asUser1 = await service.search({
       filters: { tenant_id: TENANT_A, user_id: USER_1 },
       limit: 10,
       query: "alpha kickoff retrospective",
     });
-    expect(
-      asUser1.results.some((r) => r.item.doc_id === "personal-u1")
-    ).toBe(true);
+    expect(asUser1.results.some((r) => r.item.doc_id === "personal-u1")).toBe(
+      true
+    );
 
     const asService = await service.search({
       filters: { tenant_id: TENANT_A, user_id: null },
       limit: 10,
       query: "alpha kickoff retrospective",
     });
-    expect(
-      asService.results.some((r) => r.item.doc_id === "personal-u1")
-    ).toBe(true);
+    expect(asService.results.some((r) => r.item.doc_id === "personal-u1")).toBe(
+      true
+    );
   });
 
   it("tenant isolation: tenant B only sees its own rows", async () => {

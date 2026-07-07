@@ -48,8 +48,9 @@ function isConventionalWorkspaceRoot(pkgDir) {
   }
   // Nested connector providers: modules/<parent>/providers/<child>
   if (parent === "providers") {
-    return path.basename(path.dirname(path.dirname(path.dirname(abs)))) ===
-      "modules";
+    return (
+      path.basename(path.dirname(path.dirname(path.dirname(abs)))) === "modules"
+    );
   }
   return false;
 }

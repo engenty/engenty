@@ -41,7 +41,7 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
   // unchanged `contacts_contact_search` tool, binds the
   // `contacts.contact.{created,updated,deleted}` events, and serves
   // `/api/search-index/providers/contacts.contact/*`.
-  if (!server.registerRetrievalSource || !server.getRetrievalService) {
+  if (!(server.registerRetrievalSource && server.getRetrievalService)) {
     throw new Error(
       "Contacts module requires a host with the central retrieval service"
     );
@@ -49,7 +49,9 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
   server.registerRetrievalSource(createContactsRetrievalSource({ supabase }));
   const searchProvider = server
     .getRetrievalService()
-    ?.getProvider(CONTACTS_CONTACT_SOURCE_TYPE) as ContactsSearchProvider | null;
+    ?.getProvider(
+      CONTACTS_CONTACT_SOURCE_TYPE
+    ) as ContactsSearchProvider | null;
   if (!searchProvider) {
     throw new Error("contacts.contact retrieval source produced no provider");
   }

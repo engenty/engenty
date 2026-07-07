@@ -33,10 +33,7 @@ import type {
   RetrievalMatch,
   RetrievalSourceRegistration,
 } from "@engenty/retrieval";
-import type {
-  SearchIndexProvider,
-  SearchResult,
-} from "@engenty/search-index";
+import type { SearchIndexProvider, SearchResult } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Contact, ContactSearchMatch } from "../schema/types.js";
 import {

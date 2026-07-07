@@ -21,8 +21,8 @@ describe("read input schema", () => {
     expect(
       readInputSchema.safeParse({ max_bytes: 5_000_000, path: "a" }).success
     ).toBe(false);
-    expect(readInputSchema.safeParse({ max_bytes: 100, path: "a" }).success).toBe(
-      true
-    );
+    expect(
+      readInputSchema.safeParse({ max_bytes: 100, path: "a" }).success
+    ).toBe(true);
   });
 });

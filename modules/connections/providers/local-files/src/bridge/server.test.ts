@@ -25,7 +25,9 @@ function baseRepo(overrides: Partial<LocalFilesRepo> = {}): LocalFilesRepo {
       tenant_id: "tenant-1",
       user_id: "user-1",
     })),
-    insertRequest: vi.fn(async () => ({ id: "req-1", status: "pending" }) as BridgeRequestRow),
+    insertRequest: vi.fn(
+      async () => ({ id: "req-1", status: "pending" }) as BridgeRequestRow
+    ),
     getRequest: vi.fn(),
     expireRequest: vi.fn(async () => undefined),
     ...overrides,
@@ -53,11 +55,14 @@ describe("runBridgeAction", () => {
 
   it("returns the browser response on completion", async () => {
     const repo = baseRepo({
-      getRequest: vi.fn(async () => ({
-        id: "req-1",
-        response: { entries: [], truncated: false },
-        status: "completed",
-      }) as unknown as BridgeRequestRow),
+      getRequest: vi.fn(
+        async () =>
+          ({
+            id: "req-1",
+            response: { entries: [], truncated: false },
+            status: "completed",
+          }) as unknown as BridgeRequestRow
+      ),
     });
     const out = await runBridgeAction({
       action: "list",
@@ -71,12 +76,15 @@ describe("runBridgeAction", () => {
 
   it("maps a browser error back to its code", async () => {
     const repo = baseRepo({
-      getRequest: vi.fn(async () => ({
-        error: "gone",
-        error_code: LOCAL_FILES_ERROR.notFound,
-        id: "req-1",
-        status: "error",
-      }) as unknown as BridgeRequestRow),
+      getRequest: vi.fn(
+        async () =>
+          ({
+            error: "gone",
+            error_code: LOCAL_FILES_ERROR.notFound,
+            id: "req-1",
+            status: "error",
+          }) as unknown as BridgeRequestRow
+      ),
     });
     await expect(
       runBridgeAction({ action: "read", connection, input: {}, repo, ...fast })
@@ -85,7 +93,9 @@ describe("runBridgeAction", () => {
 
   it("times out and expires the request when the browser never answers", async () => {
     const repo = baseRepo({
-      getRequest: vi.fn(async () => ({ id: "req-1", status: "pending" }) as BridgeRequestRow),
+      getRequest: vi.fn(
+        async () => ({ id: "req-1", status: "pending" }) as BridgeRequestRow
+      ),
     });
     await expect(
       runBridgeAction({ action: "stat", connection, input: {}, repo, ...fast })

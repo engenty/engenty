@@ -22,8 +22,8 @@ import { toast } from "sonner";
 import type { CatalogConnection, CatalogConnector } from "../api.js";
 import { ConnectButton } from "../components/connect-button.js";
 import { ConnectCredentialsDialog } from "../components/connect-credentials-dialog.js";
-import { getConnectorConnectButton } from "../extensions.js";
 import { StatusBadge } from "../components/connection-panel.js";
+import { getConnectorConnectButton } from "../extensions.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 
 export const CONNECTIONS_SETTINGS_PATH = "/settings/connections";

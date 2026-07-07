@@ -93,7 +93,11 @@ function discoverBucketOwners(parentDir, enabledModuleSlugs) {
     }
     const ownerDir = path.join(parentDir, ent.name);
     if (
-      !(isModulesParent && enabledModuleSlugs && !enabledModuleSlugs.has(ent.name))
+      !(
+        isModulesParent &&
+        enabledModuleSlugs &&
+        !enabledModuleSlugs.has(ent.name)
+      )
     ) {
       addOwner(ownerDir, ent.name);
     }

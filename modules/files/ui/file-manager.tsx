@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AddSourceMenu } from "./components/add-source-menu.js";
 import {
   createFolder,
   deleteFolder,
@@ -54,7 +55,6 @@ import {
   updateFolder,
   uploadFileToSpace,
 } from "./file-manager-api.js";
-import { AddSourceMenu } from "./components/add-source-menu.js";
 import {
   fileSpaceInvalidationKey,
   fileSpaceQueryOptions,

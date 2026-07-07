@@ -343,16 +343,13 @@ export interface PluginRegistry {
     sourceInfo?: PluginSourceInfo;
     pluginConfig: Record<string, unknown>;
   }>;
+  // Shared central retrieval service (one per process). Created lazily by the
+  // first `registerRetrievalSource(...)` call; also owns `core_workspace_search`.
+  retrievalService?: RetrievalServiceWithProviders;
   // Shared registry of `SearchIndexProvider`s (chat-search, contacts, kb,
   // api-catalog). Populated by `engenty.server.registerSearchIndexProvider(...)`
   // and consumed by the unified `/api/search-index/*` operator surface.
   searchIndexRegistry?: SearchIndexRegistry;
-  // Shared central retrieval service (one per process). Created lazily by the
-  // first `registerRetrievalSource(...)` call; also owns `core_workspace_search`.
-  retrievalService?: RetrievalServiceWithProviders;
-  // Live receipt of the synthesized core_workspace_search op (re-homed on
-  // every registerRetrievalSource call — see loader).
-  workspaceSearchReceipt?: { dispose?: () => Promise<void> | void };
   services: Array<{
     pluginId: string;
     service: PluginService;
@@ -369,6 +366,9 @@ export interface PluginRegistry {
     sourceInfo?: PluginSourceInfo;
     pluginConfig: Record<string, unknown>;
   }>;
+  // Live receipt of the synthesized core_workspace_search op (re-homed on
+  // every registerRetrievalSource call — see loader).
+  workspaceSearchReceipt?: { dispose?: () => Promise<void> | void };
 }
 
 export interface RemoveOwnedRegistrationsResult {

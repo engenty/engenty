@@ -133,10 +133,10 @@ export async function connectWithCredentials(
     sharing: ConnectionSharing;
   }
 ): Promise<{ connection_id: string }> {
-  return requestApiJson(
-    `/api/connections/${connectorId}/connect_credentials`,
-    { method: "POST", body: input }
-  );
+  return requestApiJson(`/api/connections/${connectorId}/connect_credentials`, {
+    method: "POST",
+    body: input,
+  });
 }
 
 export async function getConnectionsCatalog(
