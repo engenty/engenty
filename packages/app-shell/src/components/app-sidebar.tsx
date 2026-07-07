@@ -245,12 +245,17 @@ export function AppSidebar({
         <div className={cn("space-y-2", compact ? "px-2 py-3" : "px-3 py-2")}>
           {shell.tenantSwitcher ? (
             <SidebarTenantSwitcher
+              aboutLabel={shell.tenantSwitcher.aboutLabel}
+              appVersion={shell.tenantSwitcher.appVersion}
               availableTenants={shell.tenantSwitcher.availableTenants}
               brandLabel={shell.tenantSwitcher.brandLabel}
               canSwitchTenant={shell.tenantSwitcher.canSwitchTenant}
               compact={compact}
               currentTenant={shell.tenantSwitcher.currentTenant}
+              logoUrl={shell.tenantSwitcher.logoUrl}
               noTenantLabel={shell.tenantSwitcher.noTenantLabel}
+              onAboutClick={shell.tenantSwitcher.onAboutClick}
+              onOpenSettings={shell.tenantSwitcher.onOpenSettings}
               onSwitchTenant={async (tenantId) => {
                 setSwitchingTenant(true);
                 try {
@@ -260,6 +265,7 @@ export function AppSidebar({
                 }
               }}
               planLabel={shell.tenantSwitcher.planLabel}
+              settingsLabel={shell.tenantSwitcher.settingsLabel}
               sidebarWidth={sidebarWidth}
               surface={surface}
               switchingTenant={switchingTenant}

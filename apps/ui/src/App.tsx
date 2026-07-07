@@ -24,12 +24,15 @@ import {
 import { isFullPageCopilotChatRoute } from "@engenty/engenty-copilot/paths";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
-import { type ReactNode, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import type { UiBrandInfo } from "@engenty/ui-plugin-sdk";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
+import { AboutDialog } from "@/components/AboutDialog";
 import { AppErrorCard } from "@/components/AppErrorCard";
 import { AppearanceBootstrap } from "@/components/AppearanceBootstrap";
 import { AppLoadingScreen } from "@/components/AppLoadingScreen";
+import { BrandProbe } from "@/components/BrandProbe";
 import { SidebarUserMenu } from "@/components/layout/SidebarUserMenu";
 import { LiveDataSync } from "@/components/live-data-sync";
 import { NavigationPrefetchRoot } from "@/components/navigation-prefetch-root";
@@ -115,8 +118,12 @@ function workspaceErrorToServiceUnavailableState(error: unknown) {
 function App() {
   const { t } = useTranslation("common");
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, loading, error } = useCoreAuthSession();
   const queryClient = useQueryClient();
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [brand, setBrand] = useState<UiBrandInfo>({});
+  const appVersion = import.meta.env.VITE_APP_VERSION ?? "";
   const isPortalPath = location.pathname.startsWith("/portal/");
   const publicContributions = usePublicUiPluginContributions(
     !(loading || isAuthenticated) || isPortalPath
@@ -138,6 +145,16 @@ function App() {
     () => buildLiveBindingMaps(contributions.liveBindings),
     [contributions.liveBindings]
   );
+
+  // Brand shown in the sidebar switcher + About dialog. A module (company-profile)
+  // contributes the tenant's own name/logo via `brandSource`; fall back to the
+  // product brand when none is set.
+  const handleBrandChange = useCallback(
+    (next: UiBrandInfo) => setBrand(next),
+    []
+  );
+  const brandName = brand.name?.trim() || t("sidebar.brand");
+  const brandLogoUrl = brand.logoUrl ?? undefined;
 
   const shellPersistenceEnabled =
     isAuthenticated &&
@@ -295,6 +312,12 @@ function App() {
             {contributions.backgroundComponents.map((entry) => (
               <entry.component key={entry.id} />
             ))}
+            {contributions.brandSource && (
+              <BrandProbe
+                onChange={handleBrandChange}
+                useBrand={contributions.brandSource}
+              />
+            )}
             <AppLayout
               appMenuActions={appMenuActions}
               currentUserId={workspaceContext.userId}
@@ -334,10 +357,16 @@ function App() {
                       queryKey: ["engenty-copilot", "agent-sessions"],
                     });
                   },
-                  brandLabel: t("sidebar.brand"),
+                  brandLabel: brandName,
+                  logoUrl: brandLogoUrl,
                   planLabel: t("sidebar.plan"),
                   noTenantLabel: t("sidebar.tenantSwitcher.noTenant"),
-                  switchTenantAriaLabel: "Switch tenant",
+                  switchTenantAriaLabel: t("sidebar.appMenu.aria"),
+                  appVersion,
+                  settingsLabel: t("sidebar.appMenu.settings"),
+                  onOpenSettings: () => navigate("/settings"),
+                  aboutLabel: t("sidebar.appMenu.about"),
+                  onAboutClick: () => setAboutOpen(true),
                 },
               }}
               shellUiHost={<CopilotShellUiHost />}
@@ -351,6 +380,12 @@ function App() {
                 isTenantAdmin={isTenantAdmin}
               />
             </AppLayout>
+            <AboutDialog
+              brandLabel={t("sidebar.brand")}
+              onOpenChange={setAboutOpen}
+              open={aboutOpen}
+              version={appVersion}
+            />
             <AgUiAgentInspectorWidget serviceBaseUrl={aiServiceBaseUrl} />
             <CopilotVoiceFab
               hidden={

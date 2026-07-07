@@ -2,9 +2,13 @@ import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { companyProfileLiveBinding } from "./company-profile-live-binding.js";
 import { companyProfileCopilotContribution } from "./copilot-contribution.js";
 import { CompanyProfileRootPage, CompanySettingsPage } from "./pages/index.js";
+import { useCompanyProfileBrand } from "./queries.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(companyProfileLiveBinding);
+
+  // Surface the tenant's brand (name + logo) to the app shell switcher.
+  engenty.UI.registerBrandSource({ useBrand: useCompanyProfileBrand });
 
   engenty.i18n.registerNamespace({
     pluginId: "company-profile",

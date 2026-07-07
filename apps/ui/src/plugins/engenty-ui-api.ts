@@ -5,6 +5,7 @@ import type {
   PluginSourceInfo,
   UiAdminMenuItemContribution,
   UiBackgroundComponentContribution,
+  UiBrandSource,
   UiContributions,
   UiCopilotAppContribution,
   UiCopilotContribution,
@@ -24,6 +25,7 @@ import { createHookEngine } from "./hook-engine";
 interface MutableUiContributions {
   adminMenuItems: UiAdminMenuItemContribution[];
   backgroundComponents: UiBackgroundComponentContribution[];
+  brandSource?: UiBrandSource;
   copilotApps: UiCopilotAppContribution[];
   copilotArticleHrefResolver?: (
     slug: string,
@@ -102,6 +104,7 @@ export function createUiPluginRuntime(
       routes: [],
       adminMenuItems: [],
       backgroundComponents: [],
+      brandSource: undefined,
       copilotArticleHrefResolver: undefined,
       copilotApps: [],
       copilotContributions: [],
@@ -226,6 +229,10 @@ export function createEngentyUiApi(
         order: input.order,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.tab"),
       });
+    },
+    registerBrandSource: (input) => {
+      // Last registration wins, mirroring a single-value contribution.
+      runtime.contributions.brandSource = input.useBrand;
     },
     registerCopilotArticleHrefResolver: (input) => {
       // Last registration wins, mirroring a single-value contribution.
@@ -383,6 +390,7 @@ export async function resolveUiContributions(
     routes,
     adminMenuItems,
     backgroundComponents,
+    brandSource: runtime.contributions.brandSource,
     copilotArticleHrefResolver:
       runtime.contributions.copilotArticleHrefResolver,
     copilotApps,
