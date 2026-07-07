@@ -14,6 +14,9 @@ name: engenty
 services:
   engenty-edge:
     image: ghcr.io/engenty/engenty-edge:latest
+    # Always pull :latest on deploy — without this, `docker compose up` reuses
+    # the stale image already cached on the VPS and a new release never goes live.
+    pull_policy: always
     restart: unless-stopped
     # Pin which network's IP Traefik targets — see docker-compose.yaml.
     labels:
@@ -55,6 +58,7 @@ services:
 
   engenty-ai:
     image: ghcr.io/engenty/engenty-ai:latest
+    pull_policy: always
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -88,6 +92,7 @@ services:
   # a network service (command exits 0 immediately).
   engenty-sandbox:
     image: ghcr.io/engenty/engenty-sandbox:latest
+    pull_policy: always
     command: ["true"]
     restart: "no"
     networks:
