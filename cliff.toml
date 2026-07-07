@@ -1,0 +1,56 @@
+# git-cliff configuration — drives `pnpm release`.
+# Compact changelog: each entry is `- Group: description`, grouped by type.
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to Engenty. Generated from [Conventional Commits](https://www.conventionalcommits.org/)
+by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
+bump is a notable or breaking change, **patch** is fixes and small features.
+"""
+# One release block. `version` is set when rendering a tagged release,
+# absent for the unreleased preview.
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}\
+{% for commit in commits %}\
+- {{ group }}: {{ commit.message | split(pat=": ") | last | upper_first | trim }}\
+{% if commit.breaking %} **[breaking]**{% endif %}
+{% endfor %}\
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "v[0-9]*"
+topo_order = false
+sort_commits = "newest"
+# Map conventional types → human-facing changelog groups (Keep-a-Changelog verbs).
+commit_parsers = [
+  { message = "^feat", group = "Added" },
+  { message = "^fix", group = "Fixed" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Changed" },
+  { message = "^deploy", group = "Deploy" },
+  { message = "^docs", group = "Docs" },
+  { message = "^(chore|ci|test|build|style)\\b", skip = true },
+  { message = ".*", group = "Other" },
+]
+
+[bump]
+# Pre-1.0: breaking changes bump minor (not major), features bump patch —
+# matches the alpha semantics. release.mjs lets you override the level anyway.
+features_always_bump_minor = false
+breaking_always_bump_major = false

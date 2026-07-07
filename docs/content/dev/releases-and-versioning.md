@@ -26,33 +26,48 @@ gives you exact build identity. A build surfaces as, e.g., `0.2.0 (a1b2c3d)`.
 
 ## Cutting a release
 
-Releases are **deliberate, not per-push**. Deploys still happen on every push to
-`main`; a release is an *annotation* over that stream.
+Releases are **deliberate and local** — you run one command when you decide to
+cut one. Deploys are separate (see below), so a release never triggers a build.
 
-1. Land work on `main` with **Conventional Commit** messages (see below).
-2. [release-please](https://github.com/googleapis/release-please) keeps a rolling
-   **"chore: release 0.x.y"** pull request open, updating `CHANGELOG.md` and the
-   version bump as commits land.
-3. When you want to cut a release, **merge that PR**. release-please then tags
-   `v0.x.y` and publishes a GitHub Release from the changelog.
+```bash
+pnpm release              # full: changelog + bump package.json + commit + tag
+pnpm release --changelog-only   # just draft/write the changelog, no bump/commit/tag
+```
 
-That merge is the only manual step — everything else is derived from commits.
+`pnpm release` (`scripts/release.mjs`) is an interactive stepper that:
+
+1. Reads the Conventional Commits since the last tag via
+   [git-cliff](https://git-cliff.org) and shows the **compact changelog** —
+   `- Added: …`, `- Fixed: …`.
+2. Asks **patch / minor / major** (it suggests one from the commit types; you
+   choose). It shows the resulting `vX.Y.Z`.
+3. Lets you **edit the entry** in `$EDITOR` before committing.
+4. Writes `CHANGELOG.md` (compact) **and** `changelog.json` (structured — the
+   source for docs/website generation), then bumps `package.json`, commits
+   `chore(release): vX.Y.Z`, and tags it.
+
+It never pushes, builds, or deploys. Afterwards:
+`git push origin main --follow-tags`, and deploy as its own step.
+
+The format and grouping live in [`cliff.toml`](https://git-cliff.org/docs/configuration);
+change the template there, not in the script.
 
 ## Conventional Commits
 
-The commit **type** drives the changelog section and the version bump:
+The commit **type** drives the changelog group and the suggested bump:
 
-| Type | Changelog section | Bump (pre-1.0) |
-|------|-------------------|----------------|
-| `feat:` | Features | patch |
-| `fix:` | Bug Fixes | patch |
+| Type | Changelog group | Suggested bump (pre-1.0) |
+|------|-----------------|--------------------------|
+| `feat:` | Added | patch |
+| `fix:` | Fixed | patch |
 | `perf:` | Performance | patch |
-| `deploy:` | Deployment & Ops | patch |
-| `docs:` | Documentation | patch |
-| `refactor:` / `chore:` / `test:` | (hidden) | patch |
+| `refactor:` | Changed | patch |
+| `deploy:` | Deploy | patch |
+| `docs:` | Docs | patch |
+| `chore:` / `ci:` / `test:` / `build:` / `style:` | (hidden) | — |
 | any type + `!` or `BREAKING CHANGE:` footer | — | **minor** |
 
-Example: `feat(inbox): add label filters` → a patch bump under **Features**;
+Example: `feat(inbox): add label filters` → `- Added: …`, patch;
 `feat(auth)!: drop legacy session cookie` → a **minor** bump.
 
 ## Pro / public
