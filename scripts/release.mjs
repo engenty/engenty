@@ -280,11 +280,14 @@ async function main() {
   // Annotated (not lightweight): `git push --follow-tags` only pushes annotated
   // tags, so the recommended push below carries the tag with the commit.
   git(`tag -a ${tag} -m "chore(release): ${tag}"`);
-  out(`\n${c.green("✔")} Released ${c.b(tag)} locally.`);
-  out(c.dim("  Push:   git push origin main --follow-tags"));
+  out(`\n${c.green("✔")} Released ${c.b(tag)} locally. Nothing pushed yet.`);
+  out(c.dim(`  Ship it:  git push origin main --follow-tags`));
   out(
-    c.dim("  Deploy: separate manual step (deploy is decoupled from releases).")
+    c.dim(
+      `  → pushing the ${tag} tag triggers the image build + Coolify deploy (build-images.yml).`
+    )
   );
+  out(c.dim("  Plain pushes to main run CI only — no build, no deploy."));
 }
 
 main().catch((e) => die(e?.message || String(e)));

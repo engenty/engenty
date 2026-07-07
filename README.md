@@ -80,39 +80,40 @@ Built on **[i18next](https://www.i18next.com/)** (`@engenty/i18n`), namespaced p
 - A container runtime for the local Supabase database — Docker Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory). On first `pnpm dev` you're prompted to pick one; the choice is saved to `engenty.containerRuntime` in `package.json` and the app is auto-started on later runs.
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 
-## Getting started
+## Develop
+
+**First run** — one command sets everything up, then start the stack:
 
 ```bash
-pnpm install                 # install dependencies + build workspace packages (postinstall)
-pnpm engenty setup --local   # pick plugins (interactive) → Supabase → migrations → .env.local
-pnpm dev                     # core + ui + ai + docs
+pnpm install                 # deps + build workspace packages
+pnpm engenty setup --local   # pick plugins → start Supabase → run migrations → write .env.local
+pnpm dev                     # runs core + ui + ai + docs together
 ```
 
-`setup --local` is the one-stop first-run command. It prompts to install workspace
-plugins, starts local Supabase, applies migrations, and initializes `.env.local`
-(each step is skippable; non-interactive shells take the safe default). Re-run it
-any time — it only prompts for plugins on a fresh workspace.
+Open **http://localhost:5173** — Vite serves the UI with hot reload and proxies
+`/api`, `/ai`, `/docs` to the other apps. `setup --local` is safe to re-run any time.
 
-Open **http://localhost:5173/** — the Vite dev server serves the UI with hot reload.
-`/api`, `/ai`, and `/docs` are proxied to the other apps on the same origin.
-
-### Daily work:
+**Every day:**
 
 ```bash
-pnpm dev
-
-# Module or SQL changed: 
-# stop / start dev 
-# new schemas require supabase restart
-pnpm engenty setup && pnpm db:migrate
-
-# Add a workspace module
-pnpm engenty plugins install <slug>
-
-# Trouble shoot / start fresh
-pnpm purge     # FULL LOCAL RESET
-pnpm db:reset  # WHIPES ALL DATA
+pnpm dev                                # start the whole stack
+pnpm engenty setup && pnpm db:migrate   # ONLY after changing installed modules or SQL (new schemas need a Supabase restart)
 ```
+
+**Before you commit** (this is exactly what CI checks — see [Release & ship](#release--ship)):
+
+```bash
+pnpm check       # lint + format   (pnpm fix auto-fixes)
+pnpm typecheck
+pnpm test
+```
+
+`pnpm dev` runs `dev:check` + `predev` first (Docker/Supabase checks, builds
+packages/modules, regenerates UI plugin artifacts). Each module/package is its own
+workspace member with its own `build` / `test`.
+
+**When stuck:** `pnpm purge` (full local reset, keeps data) · `pnpm db:reset`
+(⚠️ **wipes all local data**).
 
 ### Optional: HTTPS via Portless (recommended)
 
@@ -144,21 +145,20 @@ Use the same browser origin as your env block (`pnpm dev:urls:localhost` vs
 `.env.example` is generated from the env manifest (`pnpm env:example:write`); `pnpm dev:env:check`
 validates your local env against it.
 
-## Development
+## Release & ship
+
+Two steps: cut the release, then push it. **Pushing the `v*` tag is what builds and deploys** — a plain push to `main` never does.
 
 ```bash
-pnpm build               # build all packages
-pnpm test                # run the test suite
-pnpm typecheck
-pnpm check               # lint / format (ultracite)
+pnpm release                        # interactive: bump + changelog + commit + annotated tag vX.Y.Z (local only)
+git push origin main --follow-tags  # push the commit AND the tag → triggers build + deploy
 ```
 
-Each module and package is an independent workspace member with its own `build`,
-`test`, and migrations. **`pnpm dev`** runs `dev:check` and `predev` first (Docker/Supabase checks, builds packages/modules, regenerates UI plugin artifacts).
+- **`pnpm release`** (git-cliff over [Conventional Commits](https://www.conventionalcommits.org)) is the **single source of truth** — it writes `CHANGELOG.md` + `changelog.json`, bumps `package.json`, commits `chore(release): vX.Y.Z`, and creates the tag. Never hand-edit those files or tags. Use `pnpm release:changelog` to draft the changelog only.
+- **Pushing the tag** triggers [`build-images.yml`](.github/workflows/build-images.yml): it builds the `edge` / `ai` / `sandbox` images, pushes them to GHCR, then triggers the Coolify deploy.
+- **Pushing `main` (no tag)** runs CI only — lint, typecheck, test (`ci.yml`). No build, no deploy.
 
-### Releasing
-
-Cut releases only with **`pnpm release`** (interactive; git-cliff over Conventional Commits). It is the SSOT — never hand-edit `CHANGELOG.md`, `changelog.json`, the `package.json` version, or tags. `pnpm release:changelog` drafts the changelog without bumping. It never pushes/builds/deploys. Details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).
+Full details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).
 
 ## Modules: in repo, wired (installed) and activation
 
