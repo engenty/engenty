@@ -4,8 +4,9 @@ import {
   SettingsFormSection,
   Skeleton,
 } from "@engenty/ui-core";
+import { useUiContributions } from "@engenty/ui-plugin-sdk";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { BoxIcon, ChevronRightIcon } from "lucide-react";
+import { BoxIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { PluginListItem } from "@/lib/api/client";
@@ -14,20 +15,21 @@ import { usePluginsListQuery } from "@/lib/plugins-queries";
 /** Name prefix used by connection sub-modules (e.g. "Connections — Google"). */
 const CONNECTION_DASH = "Connections —";
 
+/** Platform modules that are effectively mandatory but not flagged as such. */
+const PLATFORM_MODULE_IDS = new Set([
+  "engenty-coordinator",
+  "files",
+]);
+
 interface CollapsedPlugin {
   id: string;
   name: string;
+  description?: string;
   enabled: boolean;
   children?: string[];
 }
 
 function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
-  // Platform modules that are effectively mandatory but not flagged as such
-  const PLATFORM_MODULE_IDS = new Set([
-    "engenty-coordinator",
-    "files",
-  ]);
-
   // 1. Filter out mandatory, packages, platform, and system plugins
   const userPlugins = plugins.filter((p) => {
     if (p.mandatory) return false;
@@ -55,7 +57,6 @@ function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
   for (const p of rest) {
     const displayName = p.name || p.id;
 
-    // If this is the parent "Connections" module, merge its children
     if (displayName === "Connections") {
       const childNames = connectionChildren
         .map((c) => (c.name || c.id).replace(`${CONNECTION_DASH} `, "").trim())
@@ -63,6 +64,7 @@ function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
       result.push({
         id: p.id,
         name: "Connections",
+        description: p.description,
         enabled: p.enabled,
         children: childNames,
       });
@@ -70,6 +72,7 @@ function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
       result.push({
         id: p.id,
         name: displayName,
+        description: p.description,
         enabled: p.enabled,
       });
     }
@@ -84,6 +87,7 @@ function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
     result.push({
       id: "connections-group",
       name: "Connections",
+      description: connectionChildren[0]?.description,
       enabled: connectionChildren.some((c) => c.enabled),
       children: childNames,
     });
@@ -97,11 +101,23 @@ export function TenantPluginsSettingsSection() {
   const { currentTenant } = useWorkspaceContext();
   const tenantId = currentTenant?.id ?? null;
   const pluginsQuery = usePluginsListQuery(tenantId);
+  const { contributions } = useUiContributions();
 
   const plugins = pluginsQuery.data ?? [];
   const isLoading = pluginsQuery.isLoading && !pluginsQuery.data;
 
   const collapsed = useMemo(() => collapsePlugins(plugins), [plugins]);
+
+  // Build a map of pluginId → icon from module admin menu contributions
+  const iconByPluginId = useMemo(() => {
+    const map = new Map<string, React.ComponentType<{ className?: string }>>();
+    for (const item of contributions.adminMenuItems) {
+      if (item.icon && !map.has(item.pluginId)) {
+        map.set(item.pluginId, item.icon);
+      }
+    }
+    return map;
+  }, [contributions.adminMenuItems]);
 
   return (
     <SettingsFormSection
@@ -113,8 +129,11 @@ export function TenantPluginsSettingsSection() {
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div className="flex items-center gap-3 px-4 py-3" key={i}>
-              <Skeleton className="size-5 rounded" />
-              <Skeleton className="h-4 w-40 flex-1" />
+              <Skeleton className="size-8 rounded-lg" />
+              <div className="flex flex-1 flex-col gap-1">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-56" />
+              </div>
               <Skeleton className="h-5 w-14" />
             </div>
           ))
@@ -123,27 +142,36 @@ export function TenantPluginsSettingsSection() {
             <p className="text-sm text-muted-foreground">No modules found.</p>
           </div>
         ) : (
-          collapsed.map((plugin) => (
-            <div
-              className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
-              key={plugin.id}
-            >
-              <BoxIcon className="size-4 shrink-0 text-muted-foreground/60" />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-medium text-foreground">
-                  {plugin.name}
-                </span>
-                {plugin.children && plugin.children.length > 0 && (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {plugin.children.join(", ")}
+          collapsed.map((plugin) => {
+            const Icon = iconByPluginId.get(plugin.id) ?? BoxIcon;
+            const description = plugin.children?.length
+              ? plugin.children.join(", ")
+              : plugin.description;
+
+            return (
+              <div
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
+                key={plugin.id}
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+                  <Icon className="size-4 text-muted-foreground" />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium text-foreground">
+                    {plugin.name}
                   </span>
-                )}
+                  {description && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {description}
+                    </span>
+                  )}
+                </div>
+                <Badge variant={plugin.enabled ? "default" : "secondary"} className="shrink-0">
+                  {plugin.enabled ? "Active" : "Inactive"}
+                </Badge>
               </div>
-              <Badge variant={plugin.enabled ? "default" : "secondary"} className="shrink-0">
-                {plugin.enabled ? "Active" : "Inactive"}
-              </Badge>
-            </div>
-          ))
+            );
+          })
         )}
         <Link
           className="flex items-center justify-center gap-2 px-4 py-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/5"
