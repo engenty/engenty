@@ -65,7 +65,10 @@ services:
       ENGENTY_WORKSPACE_FS: remote
       ENGENTY_WORKSPACE_FS_PROVIDER: supabase
       ENGENTY_SANDBOX_PROVIDER: docker
-      ENGENTY_SANDBOX_DOCKER_IMAGE: ${ENGENTY_SANDBOX_DOCKER_IMAGE:-ghcr.io/engenty/engenty-sandbox:latest}
+      # Hardcoded (not ${VAR:-default}) — Coolify's compose parser doesn't honor
+      # the :-default fallback, so an unset var collapsed this to the bare name
+      # `engenty-sandbox` and the deploy failed pulling it from Docker Hub.
+      ENGENTY_SANDBOX_DOCKER_IMAGE: ghcr.io/engenty/engenty-sandbox:latest
       # MUST equal the host bind path below — see docker-compose.yaml.
       ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
       SUPABASE_URL: ${SUPABASE_URL}
@@ -84,7 +87,7 @@ services:
   # host daemon so engenty-ai can launch sibling containers from it. It is not
   # a network service (command exits 0 immediately).
   engenty-sandbox:
-    image: ${ENGENTY_SANDBOX_DOCKER_IMAGE:-ghcr.io/engenty/engenty-sandbox:latest}
+    image: ghcr.io/engenty/engenty-sandbox:latest
     command: ["true"]
     restart: "no"
     networks:
