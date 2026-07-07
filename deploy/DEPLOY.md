@@ -16,6 +16,11 @@ Coolify (or any reverse proxy) terminates TLS and forwards to **engenty-edge** o
 
 Step-by-step walkthrough: [docs/content/setup/coolify.md](../docs/content/setup/coolify.md)
 
+**Guided setup:** `node deploy/scripts/deploy-wizard.mjs` — an interactive stepper
+that collects your Supabase + Coolify credentials, configures the exposed schemas
+and auth hook, writes `deploy/.env` (print or apply), then creates the Coolify app
+and deploys. `--dry-run` walks the flow without writing anything.
+
 ---
 
 ## Prerequisites

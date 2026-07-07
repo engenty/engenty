@@ -42,6 +42,14 @@ You'll need:
 - API keys: an `AI_GATEWAY_API_KEY` (Vercel AI Gateway) and credentials for your
   LLM provider.
 
+> **Fast path — the guided wizard.** Once you've cloned the repo (Step 1), you
+> can run `node deploy/scripts/deploy-wizard.mjs` instead of the manual steps
+> below. It's an interactive stepper that collects your Supabase + Coolify
+> credentials, sets the exposed schemas and auth hook, writes `deploy/.env`, and
+> creates + deploys the Coolify app — pausing for confirmation before each
+> change. `--dry-run` walks the whole flow writing nothing. The manual walkthrough
+> below is still the reference for what the wizard does under the hood.
+
 ## Step 1 — Get the code
 
 Clone the repository onto the machine you'll run migrations from:
