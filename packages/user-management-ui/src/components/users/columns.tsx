@@ -38,6 +38,7 @@ export function getUserTableColumns(): UserTableColumnConfig[] {
   const registeredColumns = getUserManagementListColumns().map((column) => ({
     key: column.key,
     label: column.label,
+    labelKey: column.labelKey,
     icon: column.icon,
     order: column.order ?? 100,
     defaultVisible: column.defaultVisible ?? true,

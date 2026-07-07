@@ -484,4 +484,43 @@ describe("user management routes", () => {
     expect(deleted.status).toBe(200);
     expect(del).toHaveBeenCalledWith("u-new", tenantId);
   });
+
+  it("allows phone to be null when creating a user", async () => {
+    const createUser = vi.fn(async () => ({
+      id: "u-new",
+      tenant_id: tenantId,
+      email: "new@example.com",
+      role: "member" as const,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+    const app = createApp(
+      makeDal({
+        createUser,
+      })
+    );
+
+    const res = await app.request("/api/users", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer supabase-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "new@example.com",
+        password: "pass",
+        display_name: "New User",
+        role: "member",
+        phone: null,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(createUser).toHaveBeenCalledWith(
+      tenantId,
+      expect.objectContaining({
+        phone: null,
+      })
+    );
+  });
 });

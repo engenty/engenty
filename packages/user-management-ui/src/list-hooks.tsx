@@ -14,6 +14,7 @@ export interface UserManagementListColumn {
   icon?: ComponentType<{ className?: string }>;
   key: string;
   label: string;
+  labelKey?: string;
   order?: number;
   renderCell: (context: UserManagementListCellContext) => ReactNode;
 }
