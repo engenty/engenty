@@ -611,7 +611,16 @@
     "search_placeholder": "Suchen",
     "tenantSwitcher": {
       "noTenant": "Kein Mandant"
+    },
+    "appMenu": {
+      "aria": "App-Menü",
+      "settings": "Einstellungen",
+      "about": "Über"
     }
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "tagline": "People & Agents. As One Team."
   },
   "profile": {
     "privateInfo": "Private Kontaktdaten",

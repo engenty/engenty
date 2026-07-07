@@ -107,7 +107,7 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
   // path, the verifier evaluator, and hydration. The host manufactures the
   // provider, synthesizes `knowledge_base_article_search`, binds the
   // article events, and serves `/api/search-index/providers/kb.article/*`.
-  if (!server.registerRetrievalSource || !server.getRetrievalService) {
+  if (!(server.registerRetrievalSource && server.getRetrievalService)) {
     throw new Error(
       "Knowledge-base requires a host with the central retrieval service"
     );

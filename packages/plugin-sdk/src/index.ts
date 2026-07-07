@@ -513,6 +513,21 @@ export interface PluginServerApi {
   getDatabaseAdapter?: () => unknown | null;
   /** Queue service for background job processing when the host wires pgmq. */
   getQueueService?: () => QueueServiceLike | null;
+  /**
+   * Register a `SearchIndexProvider` for this module. The host synthesizes a
+   * search operation (auto-tool), auto-subscribes declarative re-index
+   * triggers, and exposes status/backfill via `/api/search-index/*`.
+   */
+  /**
+   * Register a managed retrieval source with the central retrieval service
+   * (`@engenty/retrieval`). The host manufactures a `SearchIndexProvider`
+   * from it and routes it through `registerSearchIndexProvider`, so the
+   * synthesized tool, event bindings, and `/api/search-index/*` surface are
+   * identical to a hand-rolled provider. Optional: only hosts with the
+   * retrieval service wired provide it.
+   */
+  /** Shared retrieval service handle (null until the first source registers). */
+  getRetrievalService?: () => RetrievalServiceLike | null;
   /** Storage service for a bucket. Injected by core when database adapter is available. */
   getStorageService?: (bucket: string) => StorageService | null;
   /** Check whether a module operation is registered in the current backend registry. */
@@ -577,21 +592,6 @@ export interface PluginServerApi {
   ) => void;
   /** Register a merge policy for structured tool/operation results. */
   registerResultPolicy: (policy: PluginResultPolicy) => void;
-  /**
-   * Register a `SearchIndexProvider` for this module. The host synthesizes a
-   * search operation (auto-tool), auto-subscribes declarative re-index
-   * triggers, and exposes status/backfill via `/api/search-index/*`.
-   */
-  /**
-   * Register a managed retrieval source with the central retrieval service
-   * (`@engenty/retrieval`). The host manufactures a `SearchIndexProvider`
-   * from it and routes it through `registerSearchIndexProvider`, so the
-   * synthesized tool, event bindings, and `/api/search-index/*` surface are
-   * identical to a hand-rolled provider. Optional: only hosts with the
-   * retrieval service wired provide it.
-   */
-  /** Shared retrieval service handle (null until the first source registers). */
-  getRetrievalService?: () => RetrievalServiceLike | null;
   registerRetrievalSource?: (
     registration: RetrievalSourceRegistration
   ) => PluginRegistrationReceipt | undefined;

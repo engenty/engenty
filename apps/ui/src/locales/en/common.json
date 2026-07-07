@@ -611,7 +611,16 @@
     "search_placeholder": "Search",
     "tenantSwitcher": {
       "noTenant": "No tenant"
+    },
+    "appMenu": {
+      "aria": "App menu",
+      "settings": "Settings",
+      "about": "About"
     }
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "tagline": "People & Agents. As One Team."
   },
   "profile": {
     "privateInfo": "Private contact info",

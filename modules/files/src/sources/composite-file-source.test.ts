@@ -1,14 +1,9 @@
-import type {
-  FileSource,
-  FileSourceContext,
-} from "@engenty/file-storage";
+import type { FileSource, FileSourceContext } from "@engenty/file-storage";
 import { FileSourceReadOnlyError } from "@engenty/file-storage";
 import { describe, expect, it, vi } from "vitest";
 import { createCompositeFileSource } from "./composite-file-source.js";
 import type { ConnectorMountRow } from "./connector-file-source.js";
-import {
-  createConnectorFileSource,
-} from "./connector-file-source.js";
+import { createConnectorFileSource } from "./connector-file-source.js";
 import { encodeConnectorNodeId } from "./connector-ref.js";
 
 const ctx: FileSourceContext = {
@@ -172,7 +167,11 @@ describe("composite file source", () => {
   it("lets the mount row itself be renamed and removed (unmount)", async () => {
     const { composite, native } = build();
     await composite.renameFolder(ctx, MOUNT_ID, "New label");
-    expect(native.renameFolder).toHaveBeenCalledWith(ctx, MOUNT_ID, "New label");
+    expect(native.renameFolder).toHaveBeenCalledWith(
+      ctx,
+      MOUNT_ID,
+      "New label"
+    );
     await composite.deleteFolder(ctx, MOUNT_ID);
     expect(native.deleteFolder).toHaveBeenCalledWith(ctx, MOUNT_ID);
   });

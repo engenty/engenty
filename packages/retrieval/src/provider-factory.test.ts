@@ -79,9 +79,7 @@ describe("createManagedProvider", () => {
     });
     expect(embedCalls).toEqual([["content"]]);
     expect(
-      supabase
-        .tableFor("chunks")
-        .calls.some((call) => call.method === "upsert")
+      supabase.tableFor("chunks").calls.some((call) => call.method === "upsert")
     ).toBe(true);
 
     await provider.deleteDocument({ doc_id: "doc-7", tenant_id: "tenant-1" });

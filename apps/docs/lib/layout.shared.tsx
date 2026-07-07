@@ -5,5 +5,6 @@ export function baseOptions(): BaseLayoutProps {
     nav: {
       title: "Engenty",
     },
+    links: [{ text: "Changelog", url: "/changelog" }],
   };
 }

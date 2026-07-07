@@ -8,12 +8,12 @@
 // sources to lexical for that query instead of comparing incomparable vectors.
 
 import {
+  embedTexts,
   type SearchEmbedder,
   type SearchRequest,
   type SearchResponse,
   type SearchResult,
   type SearchStrategy,
-  embedTexts,
 } from "@engenty/search-index";
 import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -201,9 +201,7 @@ export async function runQuery(
       p_occurred_before: filters.occurred_before ?? null,
       p_offset: offset,
       p_query: query,
-      p_query_embedding: queryEmbedding
-        ? JSON.stringify(queryEmbedding)
-        : null,
+      p_query_embedding: queryEmbedding ? JSON.stringify(queryEmbedding) : null,
       p_scope_id: filters.scope_id?.trim() || "default",
       p_source_types: sources.map((source) => source.source_type),
       p_tenant_id: tenantId,

@@ -30,7 +30,9 @@ const respondBody = z.object({
   response: z.unknown().nullish(),
 });
 
-type Hono = { json: (data: unknown, status?: number) => unknown };
+interface Hono {
+  json: (data: unknown, status?: number) => unknown;
+}
 
 /**
  * Authenticated bridge + management routes for the local-files connector. The
@@ -58,7 +60,10 @@ export function registerLocalFilesRoutes(
       const body = ctx.body as z.infer<typeof registerDirBody>;
       const existing = await repo.getInstallation(body.installation_id);
       if (existing && existing.user_id !== ctx.auth.principalId) {
-        return hono.json({ error: "installation belongs to another user" }, 403);
+        return hono.json(
+          { error: "installation belongs to another user" },
+          403
+        );
       }
       await repo.upsertInstallationHeartbeat({
         deviceLabel: body.device_label ?? null,
@@ -142,7 +147,10 @@ export function registerLocalFilesRoutes(
       const body = ctx.body as z.infer<typeof heartbeatBody>;
       const existing = await repo.getInstallation(body.installation_id);
       if (existing && existing.user_id !== ctx.auth.principalId) {
-        return hono.json({ error: "installation belongs to another user" }, 403);
+        return hono.json(
+          { error: "installation belongs to another user" },
+          403
+        );
       }
       await repo.upsertInstallationHeartbeat({
         deviceLabel: body.device_label ?? null,
@@ -214,7 +222,8 @@ export function registerLocalFilesRoutes(
       if (!body.ok && body.error_code === LOCAL_FILES_ERROR.permissionLost) {
         await connectionsRepo.setConnectionStatus({
           connectionId: request.connection_id,
-          errorMessage: "Browser access to this folder was revoked; re-grant it.",
+          errorMessage:
+            "Browser access to this folder was revoked; re-grant it.",
           status: "error",
           tenantId: ctx.auth.tenantId,
         });

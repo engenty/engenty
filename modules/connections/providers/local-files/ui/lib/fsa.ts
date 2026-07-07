@@ -102,9 +102,9 @@ export async function listDirectory(
   const entries: LocalFileEntry[] = [];
   let truncated = false;
   // FileSystemDirectoryHandle is async-iterable over [name, handle].
-  for await (const [name, handle] of (
-    dir as unknown as AsyncIterable<[string, FileSystemHandle]>
-  )) {
+  for await (const [name, handle] of dir as unknown as AsyncIterable<
+    [string, FileSystemHandle]
+  >) {
     if (entries.length >= limit) {
       truncated = true;
       break;
@@ -123,7 +123,7 @@ export async function readFile(
     throw new Error("path is required");
   }
   const parent = await dirAt(root, segments.slice(0, -1));
-  const handle = await parent.getFileHandle(segments[segments.length - 1]);
+  const handle = await parent.getFileHandle(segments.at(-1));
   const file = await handle.getFile();
   const cap = Math.min(input.max_bytes ?? MAX_FILE_BYTES, MAX_FILE_BYTES);
   if (file.size > cap) {
@@ -156,10 +156,16 @@ export async function statPath(
 ): Promise<LocalFileEntry> {
   const segments = assertSafeRelativePath(input.path);
   if (segments.length === 0) {
-    return { kind: "directory", modified_at: null, name: "", path: "", size: null };
+    return {
+      kind: "directory",
+      modified_at: null,
+      name: "",
+      path: "",
+      size: null,
+    };
   }
   const parent = await dirAt(root, segments.slice(0, -1));
-  const leaf = segments[segments.length - 1];
+  const leaf = segments.at(-1);
   try {
     const dir = await parent.getDirectoryHandle(leaf);
     return entryFor(dir, input.path);
@@ -173,7 +179,10 @@ function matches(name: string, query: string): boolean {
   const q = query.toLowerCase();
   if (q.includes("*") || q.includes("?")) {
     const re = new RegExp(
-      `^${q.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`
+      `^${q
+        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*")
+        .replace(/\?/g, ".")}$`
     );
     return re.test(name.toLowerCase());
   }
@@ -196,9 +205,9 @@ export async function searchFiles(
     dir: FileSystemDirectoryHandle,
     prefix: string[]
   ): Promise<void> => {
-    for await (const [name, handle] of (
-      dir as unknown as AsyncIterable<[string, FileSystemHandle]>
-    )) {
+    for await (const [name, handle] of dir as unknown as AsyncIterable<
+      [string, FileSystemHandle]
+    >) {
       if (matchesOut.length >= limit || visited >= WALK_BUDGET) {
         truncated = true;
         return;

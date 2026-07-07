@@ -1,8 +1,12 @@
 // Service assembly: source registry, per-model embedder cache, lazy
 // source-visibility registration (awaited before any read/write via ready()).
 
-import type { SearchEmbedder, SearchIndexProvider } from "@engenty/search-index";
+import type {
+  SearchEmbedder,
+  SearchIndexProvider,
+} from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { runBackfill } from "./backfill.js";
 import type {
   RetrievalBackfillInput,
   RetrievalBackfillResult,
@@ -14,9 +18,8 @@ import { DEFAULT_RETRIEVAL_EMBEDDING_MODEL } from "./contracts.js";
 import { createAiSdkEmbedder } from "./embedder-ai.js";
 import type { IngestDeps } from "./ingest.js";
 import { ingestById } from "./ingest.js";
-import { runBackfill } from "./backfill.js";
 import { createManagedProvider } from "./provider-factory.js";
-import { runQuery, type QueryDeps } from "./query.js";
+import { type QueryDeps, runQuery } from "./query.js";
 import { scanIndexState } from "./status.js";
 import { createRetrievalStore } from "./store.js";
 

@@ -48,18 +48,16 @@ export function createLocalFilesRepo(supabase: SupabaseClient) {
       userId: string;
     }): Promise<void> {
       unwrap(
-        await db()
-          .from("installations")
-          .upsert(
-            {
-              device_label: input.deviceLabel,
-              installation_id: input.installationId,
-              last_seen_at: new Date().toISOString(),
-              tenant_id: input.tenantId,
-              user_id: input.userId,
-            },
-            { onConflict: "installation_id" }
-          )
+        await db().from("installations").upsert(
+          {
+            device_label: input.deviceLabel,
+            installation_id: input.installationId,
+            last_seen_at: new Date().toISOString(),
+            tenant_id: input.tenantId,
+            user_id: input.userId,
+          },
+          { onConflict: "installation_id" }
+        )
       );
     },
 

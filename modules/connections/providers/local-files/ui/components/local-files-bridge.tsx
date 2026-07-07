@@ -11,7 +11,6 @@ import {
   postHeartbeat,
   respondRequest,
 } from "../api.js";
-import { getHandle } from "../lib/handle-store.js";
 import {
   hasReadPermission,
   isSupported,
@@ -20,6 +19,7 @@ import {
   searchFiles,
   statPath,
 } from "../lib/fsa.js";
+import { getHandle } from "../lib/handle-store.js";
 import { deviceLabel, installationId } from "../lib/installation.js";
 
 async function fulfill(

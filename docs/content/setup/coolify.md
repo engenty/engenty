@@ -42,6 +42,14 @@ You'll need:
 - API keys: an `AI_GATEWAY_API_KEY` (Vercel AI Gateway) and credentials for your
   LLM provider.
 
+> **Fast path — the guided wizard.** Once you've cloned the repo (Step 1), you
+> can run `node deploy/scripts/deploy-wizard.mjs` instead of the manual steps
+> below. It's an interactive stepper that collects your Supabase + Coolify
+> credentials, sets the exposed schemas and auth hook, writes `deploy/.env`, and
+> creates + deploys the Coolify app — pausing for confirmation before each
+> change. `--dry-run` walks the whole flow writing nothing. The manual walkthrough
+> below is still the reference for what the wizard does under the hood.
+
 ## Step 1 — Get the code
 
 Clone the repository onto the machine you'll run migrations from:
@@ -70,6 +78,31 @@ it at your app:
 
    `migrate.sh` gathers all module SQL into `supabase/migrations/` and runs
    `supabase db push` for you.
+
+3. **Expose the Engenty schemas through the API.** Migrations create the
+   schemas but cannot change the project's API config, and by default hosted
+   Supabase only serves `public` — the AI service then crash-loops with
+   `Could not query the database for the schema cache`. In the dashboard under
+   **Settings → API → Exposed schemas** (or via the Management API), set the
+   list to match `[api].schemas` in `supabase/config.toml`:
+
+   ```
+   public, graphql_public, ai, context_graph, core,
+   module_commercial_settings, module_company_profile, module_connections,
+   module_contacts, module_files, module_inbox, module_invoices, module_kb,
+   module_local_files, module_offers, module_pdf_templates, module_projects,
+   module_tasks, module_team, module_time_tracking, search
+   ```
+
+4. **Enable the custom access token hook.** Like exposed schemas, auth hooks
+   are project config that migrations cannot set — without it, JWTs lack the
+   `tenant_id` claim, realtime live updates silently stay off (console warning
+   `token claims do not match the workspace tenant`), and the client retries
+   session refreshes until Supabase rate-limits with 429s. Under
+   **Authentication → Hooks → Customize Access Token (JWT) Claims**, select the
+   Postgres function `core.custom_access_token_hook` (it ships with the
+   migrations, including its grants) — this mirrors `[auth.hook.custom_access_token]`
+   in `supabase/config.toml`. Users must sign out and back in after enabling.
 
 > **Tip:** keep the Supabase **service role key**, **anon key**, and **URL**
 > handy — you'll need them in the next step.
@@ -102,10 +135,15 @@ Open `deploy/.env` and set at least these:
 In your Coolify dashboard:
 
 1. Create a new **Docker Compose** application.
-2. Set the **base directory** to the repository root and the **compose file** to
-   `deploy/docker-compose.yml`.
+2. Set the **base directory** to `/deploy` and the **compose file** to
+   `docker-compose.yaml`. (Not the repo root: Coolify resolves the compose
+   file's relative paths against the base directory, so the `context: ..`
+   build contexts only land on the repo root when the base directory is
+   `/deploy`.)
 3. Paste the variables from your `deploy/.env` into Coolify's environment
-   settings (or upload the file).
+   settings (or upload the file). On a small VPS also add
+   `TURBO_BUILD_CONCURRENCY=4` — the two app images build in parallel and the
+   default concurrency of 10 each can freeze a 4-core host.
 4. Route your **domain** to the service **`engenty-edge`** on port **8787**.
 5. Make sure Supabase is reachable from the app's Docker network, and set
    `SUPABASE_URL` to a URL the **containers** can reach (not just your browser).
@@ -123,6 +161,23 @@ Two extras are off by default and enabled with compose **profiles**:
 - **Studio** (`/studio`): set `ENGENTY_GATEWAY_STUDIO_ENABLED=true` and
   `ENGENTY_GATEWAY_STUDIO_BASIC_AUTH=operator:change-me`, then enable the
   `studio` profile. Studio is protected by HTTP basic auth.
+
+### Optional: build images in CI instead of on the server
+
+The steps above build the images on the VPS, which is simple but slow (~25 min)
+and heavy on a small box. To build once on GitHub Actions and have the server
+just **pull** (~2 min per deploy), point Coolify at
+`docker-compose.prebuilt.yaml` instead of `docker-compose.yaml` (base directory
+stays `/deploy`). The `.github/workflows/build-images.yml` workflow builds the
+`edge`, `ai`, and `sandbox` images on every push to `main` and pushes them to
+GHCR, then (optionally) triggers a Coolify redeploy over SSH — leaving Coolify's
+API IP-allowlist untouched. Full setup (repo variables, GHCR login, the SSH
+deploy key) is in [`deploy/DEPLOY.md`](https://github.com/engenty/engenty-pro/blob/main/deploy/DEPLOY.md)
+under **Prebuilt images via CI**.
+
+> **Watch out:** the `VITE_*` repo variables must live on the repo the workflow
+> actually runs in, and must be non-empty — an empty `VITE_SUPABASE_URL` builds a
+> UI that can't reach Supabase (login silently fails) with no build error.
 
 ## Step 5 — Verify it works
 
@@ -151,7 +206,7 @@ You can run these from the server (or trigger a redeploy in Coolify):
 |------|---------|
 | View edge logs | `docker logs -f engenty-edge` |
 | View AI logs | `docker logs -f engenty-ai` |
-| Rebuild after a code or `VITE_*` change | `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build` |
+| Rebuild after a code or `VITE_*` change | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d --build` |
 | Apply new module migrations | `bash deploy/scripts/migrate.sh` |
 
 ## Troubleshooting
@@ -163,11 +218,22 @@ You can run these from the server (or trigger a redeploy in Coolify):
   inside the containers. A URL that works in your browser is not always routable
   from the Docker network — put Supabase on the same network or use an internal
   URL.
+- **The domain returns `504 Gateway Timeout` (often only after a redeploy).**
+  Traefik is routing to a Docker network the proxy can't reach. The
+  `engenty-edge` service carries a `traefik.docker.network=coolify` label to
+  pin this — keep it; if you removed it, add it back and redeploy.
 - **You changed a Supabase key or the app URL and nothing updated.** Those are
   `VITE_*` build-time values — **rebuild** the edge image so they're baked in.
 - **The AI service won't respond.** Confirm `AI_GATEWAY_API_KEY` and your LLM
   provider credentials are set on the `engenty-edge` service, and check
   `docker logs -f engenty-ai`.
+- **The AI service crash-loops with `Could not query the database for the
+  schema cache`.** The Engenty schemas aren't exposed through the Supabase
+  API — see the exposed-schemas step in Step 2.
+- **Coolify rejects the deploy with `Invalid volume target: contains forbidden
+  character '${'`.** Coolify forbids variable substitution in compose volume
+  definitions; the sandbox mount in `deploy/docker-compose.yaml` is a literal
+  path for this reason — keep it that way.
 
 ## Reference
 

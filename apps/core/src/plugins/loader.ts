@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  enabledModuleSlugSetFromDir,
+  resolveModuleDir,
+} from "@engenty/environment";
+import {
   type ContextGraphHost,
   type ContextGraphSchemaRegistration,
   createPluginEventsRuntime,
@@ -17,10 +21,6 @@ import {
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
-import {
-  enabledModuleSlugSetFromDir,
-  resolveModuleDir,
-} from "@engenty/environment";
 import {
   createRetrievalService,
   createWorkspaceSearchProvider,
@@ -839,7 +839,9 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
         .map((candidate) => path.resolve(candidate.rootDir))
     );
     for (const slug of enabledModuleSlugSetFromDir(modulesDir)) {
-      if (discoveredRootDirs.has(path.resolve(resolveModuleDir(repoRoot, slug)))) {
+      if (
+        discoveredRootDirs.has(path.resolve(resolveModuleDir(repoRoot, slug)))
+      ) {
         continue;
       }
       registry.diagnostics.push({

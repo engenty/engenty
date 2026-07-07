@@ -9,6 +9,19 @@ import { ports } from "../ports.config.mjs";
 
 const appRoot = path.resolve(import.meta.dirname, ".");
 const repoRoot = path.resolve(import.meta.dirname, "../..");
+
+// App version surfaced in the shell (About dialog + app switcher). Sourced from
+// the root package.json — the single release version bumped by `pnpm release`.
+const appVersion: string = (() => {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")
+    ) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
 const appShell = path.join(repoRoot, "packages", "app-shell", "src");
 const aiUi = path.join(repoRoot, "packages", "ai-ui", "src");
 const authUi = path.join(repoRoot, "packages", "auth-ui", "src");
@@ -298,6 +311,7 @@ export default defineConfig(({ command }) => {
     plugins: [react(), tailwindcss()],
     define: {
       "process.env": {},
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
     },
     resolve: {
       alias: buildResolveAlias(isDev),

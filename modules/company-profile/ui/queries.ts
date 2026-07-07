@@ -4,6 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@engenty/query-client";
+import type { UiBrandInfo } from "@engenty/ui-plugin-sdk";
 import {
   getCompanyProfileSettings,
   setCompanyProfileSettings,
@@ -21,6 +22,20 @@ export const companyProfileSettingsOptions = queryOptions({
 
 export function useCompanyProfileSettingsQuery() {
   return useQuery(companyProfileSettingsOptions);
+}
+
+/**
+ * Brand-source hook contributed to the app shell so the sidebar switcher and
+ * About dialog display the tenant's own brand name and logo. Reads the same
+ * settings singleton as the profile form; refreshes live via the module binding.
+ */
+export function useCompanyProfileBrand(): UiBrandInfo {
+  const { data } = useQuery(companyProfileSettingsOptions);
+  return {
+    logoUrl: data?.logo_url ?? null,
+    name: data?.brand_name ?? data?.name ?? null,
+    tagLine: data?.tag_line ?? null,
+  };
 }
 
 export function useSetCompanyProfileSettingsMutation() {

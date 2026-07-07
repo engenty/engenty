@@ -47,7 +47,7 @@
   /* —— Floating overlays (menus, popovers) —— */
   --ui-canvas-floating-border-w: 0px;
   --ui-canvas-floating-border-c: transparent;
-  --ui-canvas-floating-shadow: var(--shadow-ember-elevated);
+  --ui-canvas-floating-shadow: var(--shadow-ember-overlay);
 }
 
 /* Dark: same hairline fields/rows as light; other surfaces keep ember shadow until sharp */
@@ -59,7 +59,7 @@
   --ui-canvas-shell-shadow: var(--shadow-ember-elevated);
   --ui-canvas-panel-shadow: var(--shadow-ember-elevated);
   --ui-canvas-raised-shadow: var(--shadow-ember-soft);
-  --ui-canvas-floating-shadow: var(--shadow-ember-elevated);
+  --ui-canvas-floating-shadow: var(--shadow-ember-overlay);
   --ui-canvas-row-divider-w: 1px;
   --ui-canvas-row-divider-c: var(--border);
 }

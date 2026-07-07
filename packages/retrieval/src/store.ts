@@ -2,8 +2,8 @@
 // All reads used for searching flow through the fusion RPC (query.ts); this
 // module owns document/chunk persistence and the status/backfill scans.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SearchChunk } from "@engenty/search-index";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RetrievalDocument, VisibilityKind } from "./contracts.js";
 
 const SCHEMA = "search";

@@ -781,6 +781,7 @@ export async function resolveUiPlugins(params: {
       routes: routesNormalized.items,
       adminMenuItems: menuNormalized.items,
       backgroundComponents,
+      brandSource: filtered.brandSource,
       copilotArticleHrefResolver: filtered.copilotArticleHrefResolver,
       copilotApps: copilotAppsNormalized.items,
       copilotContributions,

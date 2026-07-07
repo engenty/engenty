@@ -27,7 +27,9 @@ describe("connector node ids", () => {
 
   it("produces URL-safe ids", () => {
     const id = encodeConnectorNodeId(CONNECTION, "a/b+c?d=e&f");
-    expect(id).not.toMatch(/[+/=?&]/u.source.replace("?&", "") ? /[+/=]/ : /$^/);
+    expect(id).not.toMatch(
+      /[+/=?&]/u.source.replace("?&", "") ? /[+/=]/ : /$^/
+    );
     expect(id).toMatch(/^cnx:[0-9a-f-]+:[A-Za-z0-9_-]*$/);
   });
 

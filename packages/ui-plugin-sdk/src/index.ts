@@ -272,9 +272,28 @@ export interface UiLiveBindingContribution {
   sourceInfo?: PluginSourceInfo;
 }
 
+/** Brand identity a module (e.g. company-profile) surfaces to the app shell. */
+export interface UiBrandInfo {
+  logoUrl?: string | null;
+  name?: string | null;
+  tagLine?: string | null;
+}
+
+/**
+ * A React hook a module contributes so the shell can display the tenant's own
+ * brand (name + logo) without the app source-importing the module. Called once
+ * per render at the top level — must obey the rules of hooks. Last wins.
+ */
+export type UiBrandSource = () => UiBrandInfo;
+
 export interface UiContributions {
   adminMenuItems: UiAdminMenuItemContribution[];
   backgroundComponents: UiBackgroundComponentContribution[];
+  /**
+   * Optional brand-source hook (see {@link UiBrandSource}). Last registration
+   * wins, mirroring `copilotArticleHrefResolver`.
+   */
+  brandSource?: UiBrandSource;
   copilotApps: UiCopilotAppContribution[];
   /**
    * Optional resolver a module can contribute to turn a (scope slug,
@@ -391,6 +410,12 @@ export interface EngentyUiApi {
     order?: number;
     useBadgeCount?: () => number | undefined;
   }) => void;
+  registerBackgroundComponent: (input: {
+    component: ComponentType;
+    id: string;
+    order?: number;
+  }) => void;
+  registerBrandSource: (input: { useBrand: UiBrandSource }) => void;
   registerCopilotApp: (input: {
     id: string;
     label: string;
@@ -401,11 +426,6 @@ export interface EngentyUiApi {
   }) => void;
   registerCopilotArticleHrefResolver: (input: {
     resolve: (slug: string, articleIdOrSlug: string) => string;
-  }) => void;
-  registerBackgroundComponent: (input: {
-    component: ComponentType;
-    id: string;
-    order?: number;
   }) => void;
   registerCopilotContribution: (input: UiCopilotContribution) => void;
   registerDashboardWidget: (input: {

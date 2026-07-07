@@ -284,10 +284,7 @@ export const driveConnector: ConnectorDefinition = defineConnector({
         `'${escapeDriveQueryValue(parent)}' in parents and trashed = false`
       );
       url.searchParams.set("pageSize", String(input.limit ?? 100));
-      url.searchParams.set(
-        "fields",
-        `nextPageToken,files(${ENTRY_FIELDS})`
-      );
+      url.searchParams.set("fields", `nextPageToken,files(${ENTRY_FIELDS})`);
       url.searchParams.set("orderBy", "folder,name");
       if (input.cursor) {
         url.searchParams.set("pageToken", input.cursor);

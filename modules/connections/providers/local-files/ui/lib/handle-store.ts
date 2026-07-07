@@ -45,9 +45,9 @@ export async function putHandle(
 export async function getHandle(
   connectionId: string
 ): Promise<FileSystemDirectoryHandle | undefined> {
-  return tx("readonly", (store) =>
-    store.get(connectionId)
-  ) as Promise<FileSystemDirectoryHandle | undefined>;
+  return tx("readonly", (store) => store.get(connectionId)) as Promise<
+    FileSystemDirectoryHandle | undefined
+  >;
 }
 
 export async function deleteHandle(connectionId: string): Promise<void> {

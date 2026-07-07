@@ -21,6 +21,7 @@ export {
   type ExecuteConnectorActionParams,
   executeConnectorAction,
 } from "./execute.js";
+export { filesCapabilityActions } from "./files-capability.js";
 export {
   buildAuthorizationUrl,
   exchangeAuthorizationCode,
@@ -52,7 +53,6 @@ export {
   registerConnectorModule,
   withAccountParam,
 } from "./runtime.js";
-export { filesCapabilityActions } from "./files-capability.js";
 export { decryptToken, encryptToken } from "./token-crypto.js";
 export {
   ACTION_GROUP_CONTRACTS,

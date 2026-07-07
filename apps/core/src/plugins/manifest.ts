@@ -130,7 +130,9 @@ export function isConventionalPluginRoot(rootDir: string): boolean {
   }
   // Nested connector providers: modules/<parent>/providers/<child>
   if (parent === "providers") {
-    const modulesDir = path.basename(path.dirname(path.dirname(path.dirname(abs))));
+    const modulesDir = path.basename(
+      path.dirname(path.dirname(path.dirname(abs)))
+    );
     return modulesDir === "modules";
   }
   return false;

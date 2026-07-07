@@ -2,10 +2,7 @@
 // copies in contacts / knowledge-base / inbox. One embedder per (model, dims);
 // callers cache per model id (see service.ts).
 
-import {
-  defineEmbedder,
-  type SearchEmbedder,
-} from "@engenty/search-index";
+import { defineEmbedder, type SearchEmbedder } from "@engenty/search-index";
 import { embed, embedMany } from "ai";
 import { RETRIEVAL_VECTOR_DIM } from "./contracts.js";
 

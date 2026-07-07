@@ -131,17 +131,6 @@ export interface RetrievalEvaluator {
 export interface RetrievalSourceRetriever<TResult = unknown> {
   evaluators?: RetrievalEvaluator[];
   /**
-   * Translate the module tool's filter shape (operation.filtersSchema) into
-   * central query filters (metadata equality, time range, scope). Unmapped
-   * module filters are otherwise ignored.
-   */
-  mapFilters?(filters: Record<string, unknown>): Partial<
-    Pick<
-      RetrievalQueryFilters,
-      "metadata" | "occurred_after" | "occurred_before" | "scope_id"
-    >
-  >;
-  /**
    * Short-query lexical fast path: at or below `maxTerms` terms the query runs
    * lexical-only — no embedding call, no evaluators. The as-you-type guarantee.
    */
@@ -151,6 +140,19 @@ export interface RetrievalSourceRetriever<TResult = unknown> {
     matches: RetrievalMatch[],
     ctx: RetrievalEvaluatorContext
   ): Promise<SearchResult<TResult>[]>;
+  /**
+   * Translate the module tool's filter shape (operation.filtersSchema) into
+   * central query filters (metadata equality, time range, scope). Unmapped
+   * module filters are otherwise ignored.
+   */
+  mapFilters?(
+    filters: Record<string, unknown>
+  ): Partial<
+    Pick<
+      RetrievalQueryFilters,
+      "metadata" | "occurred_after" | "occurred_before" | "scope_id"
+    >
+  >;
   /** Final ordering tweaks (per-KB caps, time decay). Pure. */
   postRank?(
     results: SearchResult<TResult>[],

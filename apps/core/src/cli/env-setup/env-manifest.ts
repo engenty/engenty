@@ -477,7 +477,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   {
     defaultValue: { deploy: "engenty-sandbox:latest" },
     description:
-      "Prebaked agent sandbox runtime image (bun + python3 + uv). Build first: docker compose -f deploy/docker-compose.yml build.",
+      "Prebaked agent sandbox runtime image (bun + python3 + uv). Build first: docker compose -f deploy/docker-compose.yaml build.",
     group: "Agent sandbox (Docker-only)",
     key: "ENGENTY_SANDBOX_DOCKER_IMAGE",
     obtain: { kind: "manual" },

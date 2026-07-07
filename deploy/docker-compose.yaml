@@ -3,12 +3,12 @@
 #
 # Usage:
 #   cp deploy/.env.example deploy/.env
-#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env build
-#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#   docker compose -f deploy/docker-compose.yaml --env-file deploy/.env build
+#   docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d
 #
 # Optional profiles:
-#   docker compose -f deploy/docker-compose.yml --profile studio up -d
-#   docker compose -f deploy/docker-compose.yml --profile docs up -d
+#   docker compose -f deploy/docker-compose.yaml --profile studio up -d
+#   docker compose -f deploy/docker-compose.yaml --profile docs up -d
 
 name: engenty
 
@@ -23,6 +23,12 @@ services:
         VITE_ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
     container_name: engenty-edge
     restart: unless-stopped
+    # Pin which network's IP Traefik targets: under Coolify this container sits
+    # on several networks and Traefik picks one arbitrarily per container start
+    # — landing on the internal `engenty` network (which the proxy can't reach)
+    # 504s the whole site. Inert outside Coolify/Traefik setups.
+    labels:
+      - traefik.docker.network=coolify
     ports:
       - "${EDGE_PUBLISH_PORT:-8787}:8787"
     environment:
@@ -91,7 +97,10 @@ services:
     volumes:
       # Mirror the host sandbox dir 1:1 (same path inside and outside the
       # container) so sibling sandbox containers can bind-mount staging dirs.
-      - ${ENGENTY_SANDBOX_HOST_DIR:-/opt/engenty/sandboxes}:${ENGENTY_SANDBOX_HOST_DIR:-/opt/engenty/sandboxes}
+      # Literal path (no ${ENGENTY_SANDBOX_HOST_DIR}) — Coolify's compose parser
+      # rejects variable substitution in volume definitions. If you change the
+      # sandbox dir, edit this line AND set ENGENTY_SANDBOX_HOST_DIR to match.
+      - /opt/engenty/sandboxes:/opt/engenty/sandboxes
       # Required when ENGENTY_SANDBOX_PROVIDER=docker — spawns sibling containers via Docker Engine.
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

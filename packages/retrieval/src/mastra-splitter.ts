@@ -5,15 +5,9 @@
 // Options are resolved per document so per-tenant settings (KB chunk_strategy /
 // chunk_max_length / chunk_overlap) apply without rebuilding the registration.
 
+import { createSearchChunkId, type SearchChunk } from "@engenty/search-index";
 import { MDocument } from "@mastra/rag";
-import {
-  createSearchChunkId,
-  type SearchChunk,
-} from "@engenty/search-index";
-import type {
-  RetrievalDocument,
-  SplitterConfigCustom,
-} from "./contracts.js";
+import type { RetrievalDocument, SplitterConfigCustom } from "./contracts.js";
 
 export interface MastraSplitterOptions {
   maxSize: number;

@@ -1,8 +1,5 @@
 import { z } from "zod";
-import type {
-  ConnectorAction,
-  ConnectorFilesCapability,
-} from "./types.js";
+import type { ConnectorAction, ConnectorFilesCapability } from "./types.js";
 
 /**
  * Synthesize the read actions for a connector's files capability. Each is a

@@ -20,6 +20,10 @@ const logger = createLogger({ name: "apps/ai" });
 // Dedicated env var (not bare PORT) so core and ai never collide on a shared
 // PORT. Mirrors `ports.ai` in the repo-root ports.config.mjs.
 const port = Number(process.env.ENGENTY_AI_PORT ?? 8790);
+// Defaults to loopback for local dev; containers must set HOST=0.0.0.0 (as
+// deploy/docker-compose.yaml does) or the service is unreachable from the
+// gateway despite a passing localhost healthcheck.
+const hostname = process.env.ENGENTY_AI_HOST ?? process.env.HOST ?? "127.0.0.1";
 
 async function main() {
   // Gate on run-snapshot Postgres readiness BEFORE importing ./app.js. Mastra
@@ -41,11 +45,11 @@ async function main() {
     {
       fetch: app.fetch,
       port,
-      hostname: "127.0.0.1",
+      hostname,
     },
     (info) => {
       logger.info("apps/ai listening", {
-        bindUrl: `http://127.0.0.1:${info.port}`,
+        bindUrl: `http://${hostname}:${info.port}`,
         publicUrl:
           process.env.PORTLESS_URL?.trim() ||
           process.env.ENGENTY_AI_BASE_URL?.trim() ||

@@ -10,8 +10,8 @@
 
 # People & Agents. As One Team.
 
-We think agents belong in your apps - side by side with your team
- — not stuck in a dark terminal window.
+Agents side by side with your team
+ — not stuck in a terminal window.
 
 > engenty is early preview - we do not guarantee data migrations
 
@@ -155,6 +155,10 @@ pnpm check               # lint / format (ultracite)
 
 Each module and package is an independent workspace member with its own `build`,
 `test`, and migrations. **`pnpm dev`** runs `dev:check` and `predev` first (Docker/Supabase checks, builds packages/modules, regenerates UI plugin artifacts).
+
+### Releasing
+
+Cut releases only with **`pnpm release`** (interactive; git-cliff over Conventional Commits). It is the SSOT — never hand-edit `CHANGELOG.md`, `changelog.json`, the `package.json` version, or tags. `pnpm release:changelog` drafts the changelog without bumping. It never pushes/builds/deploys. Details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).
 
 ## Modules: in repo, wired (installed) and activation
 

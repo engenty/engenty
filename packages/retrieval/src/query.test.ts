@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RetrievalMatch } from "./contracts.js";
-import { isFastPathQuery, runQuery, type QueryDeps } from "./query.js";
+import { isFastPathQuery, type QueryDeps, runQuery } from "./query.js";
 import {
   createFakeEmbedder,
   createFakeSupabase,
@@ -114,7 +114,10 @@ describe("evaluators and hydrate (single-source only)", () => {
     });
     const { deps } = makeDeps({
       rpcData: {
-        matches: [rpcMatch(), rpcMatch({ chunk_id: "doc-2::chunk::0", doc_id: "doc-2" })],
+        matches: [
+          rpcMatch(),
+          rpcMatch({ chunk_id: "doc-2::chunk::0", doc_id: "doc-2" }),
+        ],
         total: 2,
       },
       sources: [source],

@@ -49,7 +49,7 @@ export async function runBackfill(
         doc_id: docId,
         tenant_id: tenantId,
       });
-      if (!document || !document.text?.trim()) {
+      if (!document?.text?.trim()) {
         await deps.store.deleteDocument({
           docId,
           sourceType: deps.source.source_type,

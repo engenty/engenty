@@ -181,7 +181,9 @@ export function createConnectionsModuleClientFromRepo(
         connectionId: params.connectionId,
         input: {
           file_ref: params.fileRef,
-          ...(params.maxBytes === undefined ? {} : { max_bytes: params.maxBytes }),
+          ...(params.maxBytes === undefined
+            ? {}
+            : { max_bytes: params.maxBytes }),
         },
         isAutonomous: false,
         principal: params.principal,

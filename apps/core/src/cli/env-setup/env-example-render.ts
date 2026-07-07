@@ -14,7 +14,7 @@ const GENERATED_HEADER = [
 const SCOPE_NOTES: Partial<Record<EnvScope, string[]>> = {
   deploy: [
     "# Copy to deploy/.env and set values before:",
-    "# docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d",
+    "# docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d",
     "# Full guide: deploy/DEPLOY.md",
   ],
   root: [

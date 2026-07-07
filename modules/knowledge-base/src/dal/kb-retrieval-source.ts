@@ -25,18 +25,15 @@ import type {
   RetrievalSourceRegistration,
 } from "@engenty/retrieval";
 import { mastraSplitter } from "@engenty/retrieval/mastra-splitter";
-import type {
-  SearchIndexProvider,
-  SearchResult,
-} from "@engenty/search-index";
+import type { SearchIndexProvider, SearchResult } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { kbArticlePath } from "../../ui/kb-paths.js";
+import type { Article, KbSearchResult } from "../schema/types.js";
 import {
   isKbSearchVerifierConfigured,
   shouldVerifyKbSearchQuery,
   verifyKbSearchResults,
 } from "../services/kb-search-verifier.js";
-import type { Article, KbSearchResult } from "../schema/types.js";
 import type { KbSettingsRepo } from "./contracts.js";
 import { DEFAULT_KB_SETTINGS, SCHEMA } from "./shared.js";
 
@@ -190,9 +187,7 @@ export function createKbRetrievalSource(
       Array.from(new Set(matches.map((match) => match.doc_id)))
     );
     const kbIds = Array.from(
-      new Set(
-        Array.from(articleRows.values()).map((row) => String(row.kb_id))
-      )
+      new Set(Array.from(articleRows.values()).map((row) => String(row.kb_id)))
     );
     const { data: kbRows } = kbIds.length
       ? await kbs().select("id, name, slug").in("id", kbIds)

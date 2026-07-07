@@ -27,15 +27,7 @@ function createFakeSupabase(tables: Record<string, unknown[]>) {
     const tableCalls = calls.get(name) ?? [];
     calls.set(name, tableCalls);
     const builder: Record<string, unknown> = {};
-    for (const method of [
-      "select",
-      "eq",
-      "in",
-      "is",
-      "or",
-      "order",
-      "limit",
-    ]) {
+    for (const method of ["select", "eq", "in", "is", "or", "order", "limit"]) {
       builder[method] = (...args: unknown[]) => {
         tableCalls.push({ args, method });
         return builder;
