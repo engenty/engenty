@@ -4,12 +4,12 @@
  *
  * Reads Conventional Commits since the last tag via git-cliff, shows the
  * compact changelog, lets you edit it, asks patch/minor/major, then writes
- * CHANGELOG.md + changelog.json and (unless --changelog-only) bumps
+ * CHANGELOG.md + changelog.json and (unless --changelog) bumps
  * package.json, commits, and tags vX.Y.Z. It does NOT push, build, or deploy
  * — those stay separate, on purpose.
  *
  *   pnpm release                  # full: changelog + version bump + commit + tag
- *   pnpm release --changelog-only # just draft/write the changelog, nothing else
+ *   pnpm release --changelog # just draft/write the changelog, nothing else
  *   pnpm release --help
  *
  * git-cliff owns parsing + the compact format (see cliff.toml). This script is
@@ -30,7 +30,7 @@ const ROOT = fileURLToPath(new URL("../", import.meta.url)).replace(/\/$/, "");
 const PKG = path.join(ROOT, "package.json");
 const CHANGELOG = path.join(ROOT, "CHANGELOG.md");
 const CHANGELOG_JSON = path.join(ROOT, "changelog.json");
-const CHANGELOG_ONLY = process.argv.includes("--changelog-only");
+const CHANGELOG_ONLY = process.argv.includes("--changelog");
 
 // ── tiny TUI ─────────────────────────────────────────────────────────────────
 const TTY = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -173,7 +173,7 @@ function help() {
 ${c.b("pnpm release")} — cut a release from Conventional Commits (via git-cliff)
 
   pnpm release                   full: changelog + bump package.json + commit + tag
-  pnpm release --changelog-only  only draft/write CHANGELOG.md, no bump/commit/tag
+  pnpm release --changelog  only draft/write CHANGELOG.md, no bump/commit/tag
   pnpm release --help
 
 Never pushes, builds, or deploys — do those separately.
@@ -197,7 +197,7 @@ async function main() {
     lastTag = "";
   }
   out(
-    `${c.dim("current")} ${c.b(`v${current}`)}   ${c.dim("last tag")} ${c.b(lastTag || "(none)")}${CHANGELOG_ONLY ? c.yellow("   [changelog-only]") : ""}`
+    `${c.dim("current")} ${c.b(`v${current}`)}   ${c.dim("last tag")} ${c.b(lastTag || "(none)")}${CHANGELOG_ONLY ? c.yellow("   [changelog]") : ""}`
   );
 
   // Unreleased context — bail if nothing to release.
@@ -262,7 +262,7 @@ async function main() {
   if (CHANGELOG_ONLY) {
     out(
       c.dim(
-        "  --changelog-only: no version bump, commit, or tag. Review, then run `pnpm release`."
+        "  --changelog: no version bump, commit, or tag. Review, then run `pnpm release`."
       )
     );
     return;

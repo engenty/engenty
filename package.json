@@ -122,7 +122,7 @@
     "purge:light": "bash scripts/purge.sh --light",
     "push": "bash scripts/publish-open.sh",
     "release": "node scripts/release.mjs",
-    "release:changelog": "node scripts/release.mjs --changelog-only"
+    "release:changelog": "node scripts/release.mjs --changelog"
   },
   "engines": {
     "node": ">=24.11.0"

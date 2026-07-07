@@ -30,8 +30,8 @@ Releases are **deliberate and local** — you run one command when you decide to
 cut one. Deploys are separate (see below), so a release never triggers a build.
 
 ```bash
-pnpm release              # full: changelog + bump package.json + commit + tag
-pnpm release --changelog-only   # just draft/write the changelog, no bump/commit/tag
+pnpm release               # full: changelog + bump package.json + commit + tag
+pnpm release --changelog   # just draft/write the changelog, no bump/commit/tag
 ```
 
 `pnpm release` (`scripts/release.mjs`) is an interactive stepper that:
