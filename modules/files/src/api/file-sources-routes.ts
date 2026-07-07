@@ -44,7 +44,9 @@ function principalOf(auth: PluginAuthContext): ConnectionPolicyPrincipal {
   return { principalId: auth.principalId, principalType: "user" };
 }
 
-type Hono = { json: (data: unknown, status?: number) => unknown };
+interface Hono {
+  json: (data: unknown, status?: number) => unknown;
+}
 
 export function registerFileSourcesRoutes(
   server: PluginServerApi,

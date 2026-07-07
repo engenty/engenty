@@ -123,7 +123,7 @@ export async function readFile(
     throw new Error("path is required");
   }
   const parent = await dirAt(root, segments.slice(0, -1));
-  const handle = await parent.getFileHandle(segments[segments.length - 1]);
+  const handle = await parent.getFileHandle(segments.at(-1));
   const file = await handle.getFile();
   const cap = Math.min(input.max_bytes ?? MAX_FILE_BYTES, MAX_FILE_BYTES);
   if (file.size > cap) {
@@ -165,7 +165,7 @@ export async function statPath(
     };
   }
   const parent = await dirAt(root, segments.slice(0, -1));
-  const leaf = segments[segments.length - 1];
+  const leaf = segments.at(-1);
   try {
     const dir = await parent.getDirectoryHandle(leaf);
     return entryFor(dir, input.path);

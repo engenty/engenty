@@ -30,7 +30,9 @@ const respondBody = z.object({
   response: z.unknown().nullish(),
 });
 
-type Hono = { json: (data: unknown, status?: number) => unknown };
+interface Hono {
+  json: (data: unknown, status?: number) => unknown;
+}
 
 /**
  * Authenticated bridge + management routes for the local-files connector. The

@@ -10,7 +10,9 @@ const connectBody = z.object({
   sharing: z.enum(["personal", "org"]).default("personal"),
 });
 
-type Hono = { json: (data: unknown, status?: number) => unknown };
+interface Hono {
+  json: (data: unknown, status?: number) => unknown;
+}
 
 /**
  * Connect flow for `api_key` connectors: the browser submits the credential
