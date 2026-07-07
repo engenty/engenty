@@ -277,7 +277,9 @@ async function main() {
     cwd: ROOT,
     stdio: "inherit",
   });
-  git(`tag ${tag}`);
+  // Annotated (not lightweight): `git push --follow-tags` only pushes annotated
+  // tags, so the recommended push below carries the tag with the commit.
+  git(`tag -a ${tag} -m "chore(release): ${tag}"`);
   out(`\n${c.green("✔")} Released ${c.b(tag)} locally.`);
   out(c.dim("  Push:   git push origin main --follow-tags"));
   out(
