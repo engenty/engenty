@@ -4,7 +4,7 @@ export {
   createDefaultUserColumnVisibility,
 } from "./components/users/types.js";
 export { useCurrentUserProfile } from "./hooks/use-current-user-profile.js";
-export { getUser } from "./lib/user-management-api.js";
+export { getUser, listUsers } from "./lib/user-management-api.js";
 export type {
   UserManagementListCellContext,
   UserManagementListColumn,
