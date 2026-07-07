@@ -14,6 +14,7 @@ COPY apps ./apps
 COPY packages ./packages
 COPY modules ./modules
 COPY docs/content ./docs/content
+COPY changelog.json ./changelog.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
@@ -30,6 +31,9 @@ COPY --from=build /app/apps/docs/.next ./.next
 COPY --from=build /app/apps/docs/public ./public
 COPY --from=build /app/apps/docs/package.json ./package.json
 COPY --from=deps /app/docs/content /app/docs/content
+# The changelog page reads this at build time (next build renders it static),
+# but kept in the runtime image too in case Next ever treats the route as dynamic.
+COPY --from=deps /app/changelog.json /app/changelog.json
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
