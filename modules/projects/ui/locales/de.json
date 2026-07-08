@@ -108,6 +108,7 @@
       "startDate": "Startdatum",
       "endDate": "Fälligkeitsdatum",
       "lead": "Verantwortlich",
+      "tasks": "Aufgaben",
       "team": "Team"
     },
     "sortByCreatedAt": "Erstellt"
@@ -335,6 +336,7 @@
   "deleteSelectedConfirm": "{{count}} ausgewählte Projekte löschen?",
   "deleteSelectedConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden.",
   "deleteProjectAlsoDeleteTasks": "Auch {{count}} verknüpfte Aufgabe(n) löschen",
+  "deleteProjectAlsoDeleteTasksGeneric": "Auch verknüpfte Aufgaben löschen",
   "deleteProjectAlsoDeleteTasksBulk": "Auch alle mit diesen Projekten verknüpften Aufgaben löschen",
   "deleting": "Wird gelöscht…",
   "itemsPerPage": "Einträge pro Seite",

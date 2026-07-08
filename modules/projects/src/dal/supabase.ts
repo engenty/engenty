@@ -2,9 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidv7 } from "uuidv7";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import {
+  countProjectAssociatedTasks,
   createProjectLinkedTask,
   deleteProjectLinkedTask,
   type InvokeTasksFn,
+  listProjectAssociatedTaskIds,
   listProjectLinkedTasks,
   listProjectTaskAssigneeUserIds,
   listProjectTasksPaginated,
@@ -555,14 +557,15 @@ export function createProjectRepoSupabase(
       }
 
       if (opts?.deleteTasks) {
-        const linked = await listProjectLinkedTasks(
+        const linkedTaskIds = await listProjectAssociatedTaskIds(
+          invokeTasks,
           supabase,
           tenantId,
           scopeId,
           id
         );
-        for (const task of linked) {
-          await deleteProjectLinkedTask(invokeTasks, id, task.id);
+        for (const taskId of linkedTaskIds) {
+          await deleteProjectLinkedTask(invokeTasks, id, taskId);
         }
       }
 
@@ -827,6 +830,16 @@ export function createProjectRepoSupabase(
         scopeId,
         params,
         assignedToUserId
+      );
+    },
+
+    async countAssociatedTasks(projectId: string): Promise<number> {
+      return countProjectAssociatedTasks(
+        invokeTasks,
+        supabase,
+        tenantId,
+        scopeId,
+        projectId
       );
     },
 

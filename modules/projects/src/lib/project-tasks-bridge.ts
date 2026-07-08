@@ -420,6 +420,65 @@ export async function deleteProjectLinkedTask(
   return true;
 }
 
+export async function listProjectAssociatedTaskIds(
+  invokeTasks: InvokeTasksFn,
+  supabase: SupabaseClient,
+  tenantId: string,
+  scopeId: string,
+  projectId: string
+): Promise<string[]> {
+  const ids = new Set<string>();
+
+  for (const task of await listProjectLinkedTasks(
+    supabase,
+    tenantId,
+    scopeId,
+    projectId
+  )) {
+    ids.add(task.id);
+  }
+
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  while ((page - 1) * 200 < total) {
+    const listResult = (await invokeTasks("tasks_list", {
+      page,
+      pageSize: 200,
+      project_id: projectId,
+    })) as {
+      data: Array<{ id: string }>;
+      total: number;
+    };
+    total = listResult.total ?? listResult.data?.length ?? 0;
+    for (const task of listResult.data ?? []) {
+      ids.add(task.id);
+    }
+    if ((listResult.data?.length ?? 0) < 200) {
+      break;
+    }
+    page += 1;
+  }
+
+  return [...ids];
+}
+
+export async function countProjectAssociatedTasks(
+  invokeTasks: InvokeTasksFn,
+  supabase: SupabaseClient,
+  tenantId: string,
+  scopeId: string,
+  projectId: string
+): Promise<number> {
+  const ids = await listProjectAssociatedTaskIds(
+    invokeTasks,
+    supabase,
+    tenantId,
+    scopeId,
+    projectId
+  );
+  return ids.length;
+}
+
 export async function listProjectTasksPaginated(
   invokeTasks: InvokeTasksFn,
   supabase: SupabaseClient,

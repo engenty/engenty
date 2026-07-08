@@ -49,6 +49,7 @@ import {
 } from "../components/projects-display-dialog.js";
 import { ProjectsTable } from "../components/projects-table.js";
 import { useProjectsListAgentUiSlice } from "../hooks/use-projects-agent-ui-slice.js";
+import { useProjectsListTaskProgress } from "../hooks/use-projects-list-task-progress.js";
 import { useProjectsModuleSecondaryShellNav } from "../hooks/use-projects-module-secondary-shell-nav.js";
 import { buildProjectsListGroups } from "../lib/project-list-grouping.js";
 import { getProjectsToolbarLabels } from "../lib/projects-toolbar-labels.js";
@@ -70,11 +71,13 @@ const PROJECTS_DISPLAY_DEFAULTS = {
     client: true,
     startDate: true,
     endDate: true,
+    tasks: true,
     team: true,
   } satisfies ProjectsColumnVisibility,
   columnOrder: [
     "title",
     "client",
+    "tasks",
     "startDate",
     "endDate",
     "team",
@@ -174,6 +177,13 @@ export function ProjectsListPage() {
   const effectiveColumnOrder = teamMembersEnabled
     ? columnOrder
     : columnOrder.filter((key) => key !== "team");
+  const showTasksColumn = effectiveColumnVisibility.tasks;
+  const projectIds = useMemo(
+    () => projects.map((project) => project.id),
+    [projects]
+  );
+  const { isLoading: taskProgressLoading, progressByProjectId } =
+    useProjectsListTaskProgress(projectIds, showTasksColumn);
   const total = projectsQuery.data?.total ?? 0;
   const isLoading = projectsQuery.isLoading && !projectsQuery.data;
   const error = projectsQuery.error
@@ -514,11 +524,13 @@ export function ProjectsListPage() {
                 onSelectOne={handleSelectOne}
                 onSortChange={handleSortChange}
                 onToggleGroup={toggleGroup}
+                progressByProjectId={progressByProjectId}
                 selectedIds={selectedIds}
                 showTeamMembers={teamMembersEnabled}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 tableSize={tableSize}
+                taskProgressLoading={taskProgressLoading}
                 teamMemberCatalog={teamMemberCatalog}
               />
             </AdminListTableView>

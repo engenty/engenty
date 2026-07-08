@@ -391,6 +391,9 @@ export function makeMockProjectRepo() {
       }
       return counts;
     },
+    async countAssociatedTasks(_projectId: string): Promise<number> {
+      return 0;
+    },
   };
 }
 

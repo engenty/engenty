@@ -14,6 +14,7 @@ import {
 import {
   Calendar,
   ListFilter,
+  ListTodo,
   MoreHorizontal,
   SlidersHorizontal,
   type SortOrder,
@@ -28,6 +29,7 @@ export interface ProjectsColumnVisibility {
   client: boolean;
   endDate: boolean;
   startDate: boolean;
+  tasks: boolean;
   team: boolean;
   title: boolean;
 }
@@ -79,6 +81,7 @@ interface ProjectsTableToolbarProps {
     startDate: string;
     endDate: string;
     team: string;
+    tasks: string;
     itemsPerPage: string;
   };
   onClearSelection?: () => void;
@@ -109,6 +112,7 @@ export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
     { key: "client", label: props.labels.client, icon: User },
     { key: "startDate", label: props.labels.startDate, icon: Calendar },
     { key: "endDate", label: props.labels.endDate, icon: Calendar },
+    { key: "tasks", label: props.labels.tasks, icon: ListTodo },
     { key: "team", label: props.labels.team, icon: User },
   ].filter((column) => props.showTeamColumn !== false || column.key !== "team");
 

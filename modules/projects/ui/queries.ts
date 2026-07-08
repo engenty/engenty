@@ -14,6 +14,7 @@ import type {
 import {
   createProject,
   deleteProject,
+  getAssociatedTaskCount,
   getProjectSettings,
   getProjects,
   getTaskCounts,
@@ -36,6 +37,8 @@ export const projectKeys = {
       "page" | "pageSize" | "sortBy" | "sortOrder"
     >
   ) => [...projectKeys.all, "tasks", "counts", params] as const,
+  associatedTaskCount: (projectId: string) =>
+    [...projectKeys.all, "associated-task-count", projectId] as const,
   createModalEntitySearch: (search: string) =>
     [...projectKeys.all, "create-modal", "entity-search", search] as const,
 };
@@ -84,6 +87,13 @@ export function projectTaskCountsOptions(
   return queryOptions({
     queryKey: projectKeys.taskCounts(params),
     queryFn: ({ signal }) => getTaskCounts(params, signal),
+  });
+}
+
+export function projectAssociatedTaskCountOptions(projectId: string) {
+  return queryOptions({
+    queryKey: projectKeys.associatedTaskCount(projectId),
+    queryFn: ({ signal }) => getAssociatedTaskCount(projectId, signal),
   });
 }
 

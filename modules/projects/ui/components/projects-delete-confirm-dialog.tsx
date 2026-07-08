@@ -1,19 +1,18 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  Button,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Label,
 } from "@engenty/ui-core";
-import { useEffect, useMemo, useState } from "react";
-import { projectTaskCountsOptions } from "../queries.js";
+import { useEffect, useState } from "react";
+import { projectAssociatedTaskCountOptions } from "../queries.js";
 
 export interface ProjectsDeleteConfirmDialogProps {
   isDeleting?: boolean;
@@ -38,18 +37,14 @@ export function ProjectsDeleteConfirmDialog({
   const [pending, setPending] = useState(false);
 
   const isBulk = selectedCount > 1;
-  const countsQuery = useQuery({
-    ...projectTaskCountsOptions({ project_id: projectId ?? "" }),
+  const countQuery = useQuery({
+    ...projectAssociatedTaskCountOptions(projectId ?? ""),
     enabled: open && !isBulk && !!projectId,
   });
 
-  const taskCount = useMemo(() => {
-    if (isBulk || !projectId) {
-      return null;
-    }
-    const counts = countsQuery.data ?? {};
-    return Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0);
-  }, [countsQuery.data, isBulk, projectId]);
+  const taskCount = isBulk ? null : (countQuery.data?.count ?? null);
+  const showTaskCheckbox = isBulk || Boolean(projectId);
+  const busy = isDeleting || pending;
 
   useEffect(() => {
     if (!open) {
@@ -57,9 +52,6 @@ export function ProjectsDeleteConfirmDialog({
       setPending(false);
     }
   }, [open]);
-
-  const showTaskCheckbox = isBulk || (taskCount !== null && taskCount > 0);
-  const busy = isDeleting || pending;
 
   const handleConfirm = async () => {
     setPending(true);
@@ -92,18 +84,33 @@ export function ProjectsDeleteConfirmDialog({
     ? t("deleteProjectAlsoDeleteTasksBulk", {
         defaultValue: "Also delete all tasks linked to these projects",
       })
-    : t("deleteProjectAlsoDeleteTasks", {
-        count: taskCount ?? 0,
-        defaultValue: `Also delete ${taskCount ?? 0} connected task(s)`,
-      });
+    : taskCount && taskCount > 0
+      ? t("deleteProjectAlsoDeleteTasks", {
+          count: taskCount,
+          defaultValue: `Also delete ${taskCount} connected task(s)`,
+        })
+      : t("deleteProjectAlsoDeleteTasksGeneric", {
+          defaultValue: "Also delete connected tasks",
+        });
 
   return (
-    <AlertDialog onOpenChange={(next) => !next && onClose()} open={open}>
-      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
+    <Dialog
+      onOpenChange={(next) => {
+        if (next || busy) {
+          return;
+        }
+        onClose();
+      }}
+      open={open}
+    >
+      <DialogContent
+        onClick={(e) => e.stopPropagation()}
+        showCloseButton={false}
+      >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         {showTaskCheckbox ? (
           <div className="flex items-start gap-2">
             <Checkbox
@@ -120,22 +127,26 @@ export function ProjectsDeleteConfirmDialog({
             </Label>
           </div>
         ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>
+        <DialogFooter>
+          <Button
+            disabled={busy}
+            onClick={onClose}
+            type="button"
+            variant="outline"
+          >
             {t("cancel", { defaultValue: "Cancel" })}
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             disabled={busy}
-            onClick={(event) => {
-              event.preventDefault();
-              void handleConfirm();
-            }}
+            onClick={() => void handleConfirm()}
+            type="button"
+            variant="destructive"
           >
             {busy ? t("deleting", { defaultValue: "Deleting…" }) : t("delete")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -32,6 +32,7 @@ export function getProjectsToolbarLabels(
   startDate: string;
   endDate: string;
   team: string;
+  tasks: string;
   itemsPerPage: string;
   viewModeGroup: string;
   toolbarMore: string;
@@ -66,6 +67,7 @@ export function getProjectsToolbarLabels(
     startDate: t("list.columns.startDate"),
     endDate: t("list.columns.endDate"),
     team: t("list.columns.team"),
+    tasks: t("list.columns.tasks"),
     itemsPerPage: t("itemsPerPage"),
     viewModeGroup: t("viewModeGroup"),
     toolbarMore: t("toolbarMore"),

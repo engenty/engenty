@@ -167,6 +167,10 @@ export const deleteProjectResponseSchema = z.object({
   id: z.string(),
 });
 
+export const projectAssociatedTaskCountResponseSchema = z.object({
+  count: z.number().int().nonnegative(),
+});
+
 export const projectsListQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().max(200).optional(),

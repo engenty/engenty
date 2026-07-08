@@ -24,7 +24,9 @@ import { Fragment, useState } from "react";
 import { deleteProject, type ProjectListItem } from "../api.js";
 import { getProjectDisplayProfiles } from "../lib/project-display-members.js";
 import type { ProjectsListGroup } from "../lib/project-list-grouping.js";
+import type { ProjectTaskProgressSummary } from "../lib/project-task-progress.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
+import { ProjectTasksProgressCell } from "./project-tasks-progress-cell.js";
 import { ProjectsDeleteConfirmDialog } from "./projects-delete-confirm-dialog.js";
 import type {
   ProjectsColumnVisibility,
@@ -74,11 +76,13 @@ interface ProjectsTableProps {
   onSelectOne: (id: string, checked: boolean) => void;
   onSortChange: (column: ProjectsSortColumn) => void;
   onToggleGroup: (id: string) => void;
+  progressByProjectId: Map<string, ProjectTaskProgressSummary>;
   selectedIds: Set<string>;
   showTeamMembers?: boolean;
   sortBy: ProjectsSortColumn;
   sortOrder: "asc" | "desc";
   tableSize: TableSize;
+  taskProgressLoading?: boolean;
   teamMemberCatalog: TeamMemberCatalogRow[];
 }
 
@@ -101,6 +105,8 @@ export function ProjectsTable({
   teamMemberCatalog,
   memberProfileMap,
   showTeamMembers = true,
+  progressByProjectId,
+  taskProgressLoading = false,
 }: ProjectsTableProps) {
   const { t } = useTranslation("projects");
 
@@ -137,6 +143,7 @@ export function ProjectsTable({
     client: t("list.columns.client"),
     startDate: t("list.columns.startDate"),
     endDate: t("list.columns.endDate"),
+    tasks: t("list.columns.tasks"),
     team: t("list.columns.team"),
   };
 
@@ -240,37 +247,43 @@ export function ProjectsTable({
                           return null;
                         }
                         const cell =
-                          key === "title"
-                            ? p.title
-                            : key === "client"
-                              ? (p.client_name ?? p.client_id ?? "—")
-                              : key === "startDate"
-                                ? formatDate(p.start_date)
-                                : key === "endDate"
-                                  ? formatDate(p.end_date)
-                                  : key === "team"
-                                    ? (() => {
-                                        if (!showTeamMembers) {
-                                          return "—";
-                                        }
-                                        const profiles =
-                                          getProjectDisplayProfiles(
-                                            p,
-                                            teamMemberCatalog,
-                                            memberProfileMap
-                                          );
-                                        if (profiles.length === 0) {
-                                          return "—";
-                                        }
-                                        return (
-                                          <AvatarStack
-                                            max={4}
-                                            profiles={profiles}
-                                            size="sm"
-                                          />
-                                        );
-                                      })()
-                                    : "—";
+                          key === "title" ? (
+                            p.title
+                          ) : key === "client" ? (
+                            (p.client_name ?? p.client_id ?? "—")
+                          ) : key === "startDate" ? (
+                            formatDate(p.start_date)
+                          ) : key === "endDate" ? (
+                            formatDate(p.end_date)
+                          ) : key === "tasks" ? (
+                            <ProjectTasksProgressCell
+                              isLoading={taskProgressLoading}
+                              summary={progressByProjectId.get(p.id)}
+                            />
+                          ) : key === "team" ? (
+                            (() => {
+                              if (!showTeamMembers) {
+                                return "—";
+                              }
+                              const profiles = getProjectDisplayProfiles(
+                                p,
+                                teamMemberCatalog,
+                                memberProfileMap
+                              );
+                              if (profiles.length === 0) {
+                                return "—";
+                              }
+                              return (
+                                <AvatarStack
+                                  max={4}
+                                  profiles={profiles}
+                                  size="sm"
+                                />
+                              );
+                            })()
+                          ) : (
+                            "—"
+                          );
                         return (
                           <TableCell
                             className={key === "title" ? "font-medium" : ""}

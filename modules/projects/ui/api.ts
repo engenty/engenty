@@ -411,6 +411,16 @@ export async function getTaskCounts(
   );
 }
 
+export async function getAssociatedTaskCount(
+  projectId: string,
+  signal?: AbortSignal
+) {
+  return request<{ count: number }>(
+    `/api/projects/${projectId}/associated-tasks/count`,
+    { method: "GET", signal }
+  );
+}
+
 export async function getProjectSettings(signal?: AbortSignal) {
   return request<ProjectSettings>("/api/projects/settings", {
     method: "GET",

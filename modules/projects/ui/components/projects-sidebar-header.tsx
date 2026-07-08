@@ -2,12 +2,15 @@ import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
+  cn,
   Input,
   SidebarHeader,
   SidebarNavList,
   SidebarRow,
   SidebarRowActions,
   SidebarRowButton,
+  sidebarColumnContentInsetClassName,
+  sidebarColumnContentInsetEndClassName,
 } from "@engenty/ui-core";
 import { DockProjectsIcon } from "@engenty/ui-icons";
 import { Plus, Search, type Settings, X } from "lucide-react";
@@ -96,7 +99,24 @@ export function ProjectsSidebarHeader({
 
   return (
     <SidebarHeader className="gap-0 p-0 pb-3">
-      <div className="flex min-w-0 items-center gap-1 pr-1 pl-2">
+      <SidebarNavList>
+        <SidebarNavRow
+          active={pathname === "/mdl/projects"}
+          createAriaLabel={t("list.addProject")}
+          icon={DockProjectsIcon}
+          label={t("menu.projects")}
+          onCreate={onCreateProject}
+          to="/mdl/projects"
+        />
+      </SidebarNavList>
+
+      <div
+        className={cn(
+          "flex min-w-0 items-center gap-1 pt-2",
+          sidebarColumnContentInsetClassName,
+          sidebarColumnContentInsetEndClassName
+        )}
+      >
         <div className="relative min-w-0 flex-1">
           <Search
             aria-hidden
@@ -131,38 +151,14 @@ export function ProjectsSidebarHeader({
           ) : null}
         </div>
         {isSearching ? null : (
-          <>
-            <ProjectsSidebarListSettings
-              clients={clients}
-              leads={leads}
-              prefs={prefs}
-              updatePrefs={updatePrefs}
-            />
-            <Button
-              aria-label={t("list.addProject")}
-              className="h-8 w-8 shrink-0 border-0 p-0 shadow-none"
-              onClick={onCreateProject}
-              title={t("list.addProject")}
-              type="button"
-              variant="ghost"
-              {...shellSecondaryNavItemProps}
-            >
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-            </Button>
-          </>
+          <ProjectsSidebarListSettings
+            clients={clients}
+            leads={leads}
+            prefs={prefs}
+            updatePrefs={updatePrefs}
+          />
         )}
       </div>
-
-      {isSearching ? null : (
-        <SidebarNavList className="pt-2">
-          <SidebarNavRow
-            active={pathname === "/mdl/projects"}
-            icon={DockProjectsIcon}
-            label={t("menu.projects")}
-            to="/mdl/projects"
-          />
-        </SidebarNavList>
-      )}
     </SidebarHeader>
   );
 }

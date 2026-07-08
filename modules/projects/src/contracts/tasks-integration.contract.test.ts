@@ -311,4 +311,97 @@ describe("projects task consumer contract", () => {
     expect(calls[0]?.input.collaborator_user_ids).toEqual(["user-assignee"]);
     expect(task.task_team?.map((m) => m.user_id)).toEqual(["user-assignee"]);
   });
+
+  it("listProjectAssociatedTaskIds unions context-linked and project_id tasks", async () => {
+    const projectId = "project-union";
+    const invokeTasks: InvokeTasksFn = async (operationId, input) => {
+      if (operationId !== "tasks_list") {
+        throw new Error(`Unexpected operation: ${operationId}`);
+      }
+      expect(input).toMatchObject({
+        project_id: projectId,
+        page: 1,
+        pageSize: 200,
+      });
+      return {
+        data: [{ id: "task-by-project-id" }],
+        total: 1,
+      };
+    };
+
+    const supabase = {
+      schema: () => ({
+        from: (table: string) => {
+          if (table === "task_contexts") {
+            const contextResult = Promise.resolve({
+              data: [
+                {
+                  task_id: "task-by-context",
+                  context_type: "project",
+                  context_id: projectId,
+                  metadata: {},
+                },
+              ],
+              error: null,
+            });
+            const chain = {
+              eq: () => chain,
+              then: contextResult.then.bind(contextResult),
+            };
+            return {
+              select: () => chain,
+            };
+          }
+          if (table === "tasks") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    in: () =>
+                      Promise.resolve({
+                        data: [
+                          {
+                            id: "task-by-context",
+                            tenant_id: "tenant-1",
+                            scope_id: "default",
+                            identifier: "ENG-1",
+                            title: "Context task",
+                            description: null,
+                            status: "todo",
+                            created_at: "2026-05-22T12:00:00.000Z",
+                            updated_at: "2026-05-22T12:00:00.000Z",
+                          },
+                        ],
+                        error: null,
+                      }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "task_collaborators") {
+            return {
+              select: () => ({
+                in: () => Promise.resolve({ data: [], error: null }),
+              }),
+            };
+          }
+          throw new Error(`Unexpected table: ${table}`);
+        },
+      }),
+    };
+
+    const { listProjectAssociatedTaskIds } = await import(
+      "../lib/project-tasks-bridge.js"
+    );
+    const ids = await listProjectAssociatedTaskIds(
+      invokeTasks,
+      supabase as never,
+      "tenant-1",
+      "default",
+      projectId
+    );
+
+    expect(ids.sort()).toEqual(["task-by-context", "task-by-project-id"]);
+  });
 });
