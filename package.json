@@ -76,6 +76,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",
     "engenty": "node scripts/engenty-cli.mjs",
+    "kill": "bash scripts/kill.sh",
     "build": "turbo run build",
     "predev": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/**",
     "dev:check": "bash scripts/predev-check.sh",
