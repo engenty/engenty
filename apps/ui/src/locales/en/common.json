@@ -418,6 +418,9 @@
         "fields": "Matched"
       }
     },
+    "aiModels": {
+      "menuLabel": "AI models"
+    },
     "aiUsage": {
       "menuLabel": "AI usage",
       "title": "AI usage & limits",

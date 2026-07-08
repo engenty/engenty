@@ -35,10 +35,11 @@
       "expensive": "Expensive"
     }
   },
-  "copilotInstructions": {
-    "title": "Copilot instructions",
-    "description": "Identity and tone live in the copilot agent (engenty.copilot). Edit AGENTS.md and SOUL.md in the agent instruction editor; they are no longer stored in AI settings.",
-    "openEditor": "Open instruction editor"
+  "copilotAdminLinks": {
+    "title": "Engenty",
+    "description": "Manage Copilot, agents, skills, and tools in the Engenty admin workspace.",
+    "copilotAgent": "Copilot",
+    "instructions": "Instructions"
   },
   "docConverter": {
     "providerLabel": "Preferred backend",

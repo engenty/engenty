@@ -418,6 +418,9 @@
         "fields": "Getroffen"
       }
     },
+    "aiModels": {
+      "menuLabel": "KI-Modelle"
+    },
     "aiUsage": {
       "menuLabel": "KI-Nutzung",
       "title": "KI-Nutzung & Limits",

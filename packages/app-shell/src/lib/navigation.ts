@@ -149,7 +149,11 @@ export function buildNavigationSections(
     (entry) => entry.section === "admin"
   );
   const coreSettingsChildren = [
-    { to: "/settings/ai", label: "AI", icon: Sparkles },
+    {
+      to: "/settings/ai",
+      label: t("settings.aiModels.menuLabel"),
+      icon: Sparkles,
+    },
     {
       to: "/settings/ai-usage",
       label: t("settings.aiUsage.menuLabel"),
