@@ -5,14 +5,14 @@ by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
 ## [0.1.5] - 2026-07-08
-- Added: Plugin list columns and group-by project
-- Added: Tasks column, sidebar layout, and linked-task counts
-- Added: Improve section headers with SPA entity links
-- Added: Confirm project delete with optional task cascade
-- Fixed: Resolve ui-plugin-sdk from workspace source in dev
-- Fixed: Publish-open without checkout credential helper
-- Fixed: Stabilize bootstrap and breadcrumb user picker
-- Fixed: Scope team catalog to tenant admins
+- Added **[tasks]**: Plugin list columns and group-by project
+- Added **[projects]**: Tasks column, sidebar layout, and linked-task counts
+- Added **[time-tracking]**: Improve section headers with SPA entity links
+- Added **[projects]**: Confirm project delete with optional task cascade
+- Fixed **[ui]**: Resolve ui-plugin-sdk from workspace source in dev
+- Fixed **[ci]**: Publish-open without checkout credential helper
+- Fixed **[time-tracking]**: Stabilize bootstrap and breadcrumb user picker
+- Fixed **[time-tracking]**: Scope team catalog to tenant admins
 
 ## [0.1.4] - 2026-07-08
 - Added: Enrich Engenty admin links with live counts
