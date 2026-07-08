@@ -13,8 +13,10 @@ export const SLOT_PX = (HOUR_PX * SNAP_MIN) / 60;
 export const GUTTER_PX = 48;
 /** Full grid height (24h). */
 export const GRID_PX = 24 * HOUR_PX;
-/** Default scroll position: start of the working day. */
-export const DAY_START_HOUR = 7;
+/** Default scroll position: start of the working day (~08:00–20:00 visible). */
+export const DAY_START_HOUR = 8;
+/** Width of the collapsed weekend column in the work-week view. */
+export const WEEKEND_COL_PX = 32;
 /** Minimum entry duration in minutes. */
 export const MIN_DURATION = SNAP_MIN;
 

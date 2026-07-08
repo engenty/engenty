@@ -62,6 +62,8 @@
     "unscheduled": "No time",
     "modeRows": "Recent",
     "moreRows": "More",
+    "expandWeekend": "Show weekend",
+    "collapseWeekend": "Hide weekend",
     "saveFailed": "Failed to save time entry"
   }
 }

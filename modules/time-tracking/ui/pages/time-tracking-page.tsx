@@ -125,12 +125,8 @@ export function TimeTrackingPage() {
             <CalendarDays className="h-3.5 w-3.5" />
           </button>
         </div>
-        <Button
-          className="h-8 gap-1.5 px-2.5 text-xs"
-          onClick={() => addRow.setAddRowOpen(true)}
-          size="sm"
-        >
-          <Plus className="h-3.5 w-3.5" />
+        <Button onClick={() => addRow.setAddRowOpen(true)} size="sm">
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
           {t("addTracking")}
         </Button>
       </div>

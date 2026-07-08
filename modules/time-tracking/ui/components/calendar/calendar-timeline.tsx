@@ -20,6 +20,8 @@ interface TimelineBar {
 interface CalendarTimelineProps {
   days: Date[];
   entries: TimeEntry[];
+  /** Shared column template so the lane aligns with the grid/header. */
+  gridTemplateColumns: string;
   trackingRows: TrackingRow[];
 }
 
@@ -31,6 +33,7 @@ interface CalendarTimelineProps {
 export function CalendarTimeline({
   days,
   entries,
+  gridTemplateColumns,
   trackingRows,
 }: CalendarTimelineProps) {
   const bars = useMemo((): TimelineBar[] => {
@@ -98,9 +101,7 @@ export function CalendarTimeline({
     <div className="max-h-[104px] overflow-y-auto border-b">
       <div
         className="grid gap-y-1 py-1.5"
-        style={{
-          gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
-        }}
+        style={{ gridTemplateColumns }}
       >
         {bars.map((bar) => {
           const color = projectColor(bar.colorKey);

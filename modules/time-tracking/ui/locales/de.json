@@ -62,6 +62,8 @@
     "unscheduled": "Ohne Zeit",
     "modeRows": "Zuletzt",
     "moreRows": "Mehr",
+    "expandWeekend": "Wochenende anzeigen",
+    "collapseWeekend": "Wochenende ausblenden",
     "saveFailed": "Zeiteintrag konnte nicht gespeichert werden"
   }
 }

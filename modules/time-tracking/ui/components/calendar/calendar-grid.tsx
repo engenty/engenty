@@ -1,5 +1,5 @@
 import { format, isSameDay, parseISO } from "date-fns";
-import { StickyNote } from "lucide-react";
+import { ChevronsLeft, StickyNote } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TimeEntry, TrackingRow } from "../types.js";
 import {
@@ -11,6 +11,7 @@ import {
   entryLabel,
   entryStartMin,
   formatDuration,
+  formatHours,
   GRID_PX,
   HOUR_PX,
   layoutDayBlocks,
@@ -19,6 +20,7 @@ import {
   projectColor,
   snapFloor,
   snapRound,
+  WEEKEND_COL_PX,
 } from "./calendar-utils.js";
 
 const DRAG_THRESHOLD_PX = 4;
@@ -56,6 +58,8 @@ interface CalendarGridProps {
   days: Date[];
   entries: TimeEntry[];
   onCreateRange: (day: Date, startMin: number, durationMin: number) => void;
+  /** When set, a collapsed weekend strip is rendered after the day columns. */
+  onExpandWeekend?: () => void;
   onMoveEntry: (entry: TimeEntry, day: Date, startMin: number) => void;
   onOpenEntry: (entry: TimeEntry) => void;
   onResizeEntry: (
@@ -65,6 +69,7 @@ interface CalendarGridProps {
   ) => void;
   savingEntryIds: Set<string>;
   trackingRows: TrackingRow[];
+  weekendHours?: number;
 }
 
 interface PointerPosition {
@@ -85,11 +90,13 @@ export function CalendarGrid({
   days,
   entries,
   onCreateRange,
+  onExpandWeekend,
   onMoveEntry,
   onOpenEntry,
   onResizeEntry,
   savingEntryIds,
   trackingRows,
+  weekendHours = 0,
 }: CalendarGridProps) {
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -425,7 +432,9 @@ export function CalendarGrid({
     <div
       className="grid select-none"
       style={{
-        gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))${
+          onExpandWeekend ? ` ${WEEKEND_COL_PX}px` : ""
+        }`,
         height: GRID_PX,
       }}
     >
@@ -541,6 +550,24 @@ export function CalendarGrid({
           </div>
         );
       })}
+
+      {/* Collapsed weekend strip */}
+      {onExpandWeekend ? (
+        <button
+          className="group flex flex-col justify-start border-l bg-muted/30 transition-colors hover:bg-accent/60"
+          onClick={onExpandWeekend}
+          type="button"
+        >
+          <div className="sticky top-2 flex flex-col items-center gap-1.5 py-2 text-muted-foreground group-hover:text-foreground">
+            <ChevronsLeft className="h-3 w-3" />
+            {weekendHours > 0 ? (
+              <span className="rounded-full bg-background px-1 py-0.5 font-medium text-[9px] tabular-nums shadow-xs [writing-mode:vertical-rl]">
+                {formatHours(weekendHours)}
+              </span>
+            ) : null}
+          </div>
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -9,7 +9,12 @@ import {
   startOfWeek,
   subWeeks,
 } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -32,6 +37,7 @@ import type {
   TimeEntry,
   TrackingRow,
 } from "../types.js";
+import { getTotalHoursForDay } from "../utils.js";
 import {
   CalendarEntryDialog,
   type EntryDialogDraft,
@@ -50,11 +56,15 @@ import {
   HOUR_PX,
   minutesToTime,
   projectColor,
+  WEEKEND_COL_PX,
 } from "./calendar-utils.js";
 
 type Span = 7 | 3 | 1;
 
 const SPAN_STORAGE_KEY = "engenty:time-tracking:calendar-span";
+const WEEKEND_STORAGE_KEY = "engenty:time-tracking:calendar-weekend";
+/** Below this main-area width the week view collapses Sat/Sun. */
+const FULL_WEEK_MIN_PX = 1400;
 
 function autoSpan(width: number): Span {
   if (width >= 900) {
@@ -132,15 +142,40 @@ export function TimeTrackingCalendar({
     todayIndex >= 0 ? todayIndex : 0
   );
 
+  const [weekendExpanded, setWeekendExpanded] = useState(() => {
+    try {
+      return window.localStorage.getItem(WEEKEND_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
   const span: Span = spanPref === "auto" ? autoSpan(containerWidth) : spanPref;
+  const narrowWeek = span === 7 && containerWidth < FULL_WEEK_MIN_PX;
+  const workweek = narrowWeek && !weekendExpanded;
   const startIndex = Math.min(Math.max(focusIndex, 0), 7 - span);
+  const dayCount = workweek ? 5 : span;
   const days = useMemo(
     () =>
-      Array.from({ length: span }, (_, i) =>
-        addDays(weekStart, startIndex + i)
+      Array.from({ length: dayCount }, (_, i) =>
+        addDays(weekStart, (workweek ? 0 : startIndex) + i)
       ),
-    [weekStart, startIndex, span]
+    [weekStart, startIndex, dayCount, workweek]
   );
+  const weekendDays = useMemo(
+    () =>
+      workweek ? [addDays(weekStart, 5), addDays(weekStart, 6)] : null,
+    [workweek, weekStart]
+  );
+
+  const toggleWeekend = (expanded: boolean) => {
+    setWeekendExpanded(expanded);
+    try {
+      window.localStorage.setItem(WEEKEND_STORAGE_KEY, expanded ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const el = containerRef.current;
@@ -396,25 +431,37 @@ export function TimeTrackingCalendar({
     return `${dayMonth.format(first)} – ${dayMonthYear.format(last)}`;
   }, [days, span, i18n.language]);
 
+  const weekendHours = useMemo(
+    () =>
+      weekendDays
+        ? weekendDays.reduce(
+            (sum, day) => sum + getTotalHoursForDay(day, renderedEntries),
+            0
+          )
+        : 0,
+    [weekendDays, renderedEntries]
+  );
+
   const headerPad = { paddingRight: scrollbarPad };
-  const gridTemplate = {
-    gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
-  };
+  const gridTemplateColumns = `48px repeat(${days.length}, minmax(0, 1fr))${
+    weekendDays ? ` ${WEEKEND_COL_PX}px` : ""
+  }`;
+  const gridTemplate = { gridTemplateColumns };
 
   return (
     <div className="flex min-w-0 flex-col" ref={containerRef}>
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Button onClick={() => navigate(-1)} size="icon" variant="outline">
+        <Button onClick={() => navigate(-1)} size="icon-sm" variant="outline">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button onClick={() => navigate(1)} size="icon" variant="outline">
+        <Button onClick={() => navigate(1)} size="icon-sm" variant="outline">
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <Button onClick={goToday} variant="outline">
+        <Button onClick={goToday} size="sm" variant="outline">
           {t("today")}
         </Button>
-        <div className="font-semibold text-base sm:text-lg">{rangeLabel}</div>
+        <div className="font-semibold text-sm sm:text-base">{rangeLabel}</div>
         <div className="ml-auto flex items-center rounded-md border p-0.5">
           {([7, 3, 1] as Span[]).map((value) => (
             <button
@@ -442,36 +489,75 @@ export function TimeTrackingCalendar({
             <div />
             {days.map((day, index) => {
               const isToday = isSameDay(day, new Date());
+              const isCollapsibleWeekendDay =
+                narrowWeek && weekendExpanded && index >= 5;
               return (
-                <button
-                  className="group flex flex-col items-center gap-0 border-l py-1.5 first-of-type:border-l-0"
+                <div
+                  className="relative border-l first-of-type:border-l-0"
                   key={format(day, "yyyy-MM-dd")}
-                  onClick={() => {
-                    if (span > 1) {
-                      setSpan(1);
-                      setFocusIndex(startIndex + index);
-                    }
-                  }}
-                  type="button"
                 >
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                    {new Intl.DateTimeFormat(i18n.language, {
-                      weekday: "short",
-                    }).format(day)}
-                  </span>
-                  <span
-                    className={[
-                      "flex h-6 w-6 items-center justify-center rounded-full font-semibold text-sm",
-                      isToday
-                        ? "bg-primary text-primary-foreground"
-                        : "text-foreground group-hover:bg-accent",
-                    ].join(" ")}
+                  <button
+                    className="group flex w-full flex-col items-center gap-0 py-1.5"
+                    onClick={() => {
+                      if (span > 1) {
+                        setSpan(1);
+                        setFocusIndex(
+                          (workweek ? 0 : startIndex) + index
+                        );
+                      }
+                    }}
+                    type="button"
                   >
-                    {format(day, "d")}
-                  </span>
-                </button>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                      {new Intl.DateTimeFormat(i18n.language, {
+                        weekday: "short",
+                      }).format(day)}
+                    </span>
+                    <span
+                      className={[
+                        "flex h-6 w-6 items-center justify-center rounded-full font-semibold text-sm",
+                        isToday
+                          ? "bg-primary text-primary-foreground"
+                          : "text-foreground group-hover:bg-accent",
+                      ].join(" ")}
+                    >
+                      {format(day, "d")}
+                    </span>
+                  </button>
+                  {isCollapsibleWeekendDay && index === days.length - 1 ? (
+                    <button
+                      aria-label={t("calendar.collapseWeekend")}
+                      className="absolute top-1 right-1 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => toggleWeekend(false)}
+                      title={t("calendar.collapseWeekend")}
+                      type="button"
+                    >
+                      <ChevronsRight className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                </div>
               );
             })}
+            {weekendDays ? (
+              <button
+                aria-label={t("calendar.expandWeekend")}
+                className="flex flex-col items-center justify-center gap-0.5 border-l bg-muted/30 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => toggleWeekend(true)}
+                title={t("calendar.expandWeekend")}
+                type="button"
+              >
+                <ChevronsLeft className="h-3 w-3" />
+                <span className="text-[9px] uppercase leading-none tracking-wide">
+                  {new Intl.DateTimeFormat(i18n.language, {
+                    weekday: "narrow",
+                  }).format(weekendDays[0])}
+                  ·
+                  {new Intl.DateTimeFormat(i18n.language, {
+                    weekday: "narrow",
+                  }).format(weekendDays[1])}
+                </span>
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -480,6 +566,7 @@ export function TimeTrackingCalendar({
           <CalendarTimeline
             days={days}
             entries={renderedEntries}
+            gridTemplateColumns={gridTemplateColumns}
             trackingRows={trackingRows}
           />
         </div>
@@ -522,6 +609,7 @@ export function TimeTrackingCalendar({
                   })}
                 </div>
               ))}
+              {weekendDays ? <div className="border-l" /> : null}
             </div>
           </div>
         )}
@@ -540,18 +628,27 @@ export function TimeTrackingCalendar({
               days={days}
               entries={renderedEntries}
               onCreateRange={handleCreateRange}
+              onExpandWeekend={
+                weekendDays ? () => toggleWeekend(true) : undefined
+              }
               onMoveEntry={handleMoveEntry}
               onOpenEntry={handleOpenEntry}
               onResizeEntry={handleResizeEntry}
               savingEntryIds={savingIds}
               trackingRows={trackingRows}
+              weekendHours={weekendHours}
             />
           )}
         </div>
 
         {/* Sums footer (same totals as the table view) */}
         <div style={headerPad}>
-          <CalendarSums days={days} weekEntries={renderedEntries} />
+          <CalendarSums
+            days={days}
+            gridTemplateColumns={gridTemplateColumns}
+            weekendHours={weekendDays ? weekendHours : null}
+            weekEntries={renderedEntries}
+          />
         </div>
       </div>
 
