@@ -12,6 +12,7 @@ export interface TimeEntry {
   phase_id: string | null;
   project_id: string | null;
   scope_id: string;
+  start_time: string | null;
   task_id: string | null;
   tenant_id: string;
   timesheet_row_id: string;
@@ -47,7 +48,7 @@ export type TimeEntryCreateInput = Omit<
 >;
 
 export type TimeEntryValueUpdateInput = Partial<
-  Pick<TimeEntryCreateInput, "discipline" | "hours" | "notes">
+  Pick<TimeEntryCreateInput, "discipline" | "hours" | "notes" | "start_time">
 >;
 
 export interface TimeEntryMoveInput {
@@ -58,6 +59,7 @@ export interface TimeEntryMoveInput {
   manual_task_title?: string | null;
   phase_id?: string | null;
   project_id?: string | null;
+  start_time?: string | null;
   task_id?: string | null;
   user_id?: string;
 }

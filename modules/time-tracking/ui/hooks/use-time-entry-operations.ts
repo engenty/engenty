@@ -22,6 +22,7 @@ import {
   type TrackingRow,
   updateTimeEntry,
 } from "../api.js";
+import { isLinkableEntityId } from "../components/tracking-entity-link.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,12 +44,14 @@ function textOrNull(value: string | null | undefined) {
  *  - Project/phase rows with real IDs → saved with those IDs
  *  - Fully manual rows (no IDs at any level) → saved with manual_* titles
  */
-function buildEntryIdentity(row: TrackingRow) {
+export function buildEntryIdentity(row: TrackingRow) {
   // Use IDs directly from the row — no conditional type-checking that could
-  // accidentally drop a real task_id or project_id.
-  const project_id = row.project_id ?? null;
-  const phase_id = row.phase_id ?? null;
-  const task_id = row.task_id ?? null;
+  // accidentally drop a real task_id or project_id. Grouping sentinels like
+  // "standalone_tasks" are not real entity ids and would violate the
+  // timesheet_rows FKs, so only UUID-shaped ids pass through.
+  const project_id = isLinkableEntityId(row.project_id) ? row.project_id : null;
+  const phase_id = isLinkableEntityId(row.phase_id) ? row.phase_id : null;
+  const task_id = isLinkableEntityId(row.task_id) ? row.task_id : null;
 
   if (project_id || phase_id || task_id) {
     // Linked row — save with real IDs, no manual titles.

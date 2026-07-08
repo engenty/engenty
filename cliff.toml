@@ -1,5 +1,7 @@
 # git-cliff configuration — drives `pnpm release`.
-# Compact changelog: each entry is `- Group: description`, grouped by type.
+# Compact changelog: `- Added [scope]: description` when the commit has a scope;
+# `- Added: description` when it does not. Scopes come from Conventional Commits
+# (`feat(tasks): …`, `fix(ci): …`). See docs/content/dev/releases-and-versioning.md.
 # https://git-cliff.org/docs/configuration
 
 [changelog]
@@ -20,7 +22,7 @@ body = """
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}\
 {% for commit in commits %}\
-- {{ group }}{% if commit.scope %} **[{{ commit.scope }}]**{% endif %}: {{ commit.message | upper_first | trim }}\
+- {{ group }}{% if commit.scope %} [{{ commit.scope }}]{% endif %}: {{ commit.message | upper_first | trim }}\
 {% if commit.breaking %} **[breaking]**{% endif %}
 {% endfor %}\
 {% endfor %}

@@ -54,6 +54,7 @@ const registerTimeTrackingPlugin: EngentyPluginFactory = (engenty) => {
           created_by: principalId,
           date: parsed.date,
           hours: parsed.hours,
+          start_time: parsed.start_time ?? null,
           notes: parsed.notes ?? null,
           project_id: parsed.project_id ?? null,
           phase_id: parsed.phase_id ?? null,

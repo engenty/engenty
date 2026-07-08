@@ -97,8 +97,41 @@ The commit **type** drives the changelog group and the suggested bump:
 | `chore:` / `ci:` / `test:` / `build:` / `style:` | (hidden) | — |
 | any type + `!` or `BREAKING CHANGE:` footer | — | **minor** |
 
-Example: `feat(inbox): add label filters` → `- Added: …`, patch;
+Example: `feat(inbox): add label filters` → `- Added [inbox]: …`, patch;
 `feat(auth)!: drop legacy session cookie` → a **minor** bump.
+
+### Scoped entries (module / area context)
+
+Put the module or area in the **Conventional Commit scope** — the part in
+parentheses:
+
+```text
+feat(tasks): plugin list columns and group-by project
+fix(time-tracking): stabilize bootstrap and breadcrumb user picker
+fix(ci): publish-open without checkout credential helper
+```
+
+`pnpm release` / [`cliff.toml`](../../../cliff.toml) turns that into changelog lines:
+
+```markdown
+- Added [tasks]: Plugin list columns and group-by project
+- Fixed [time-tracking]: Stabilize bootstrap and breadcrumb user picker
+- Fixed [ci]: Publish-open without checkout credential helper
+```
+
+If there is **no scope** (`feat: …`), the line stays `- Added: …` with no
+brackets.
+
+**Scope naming (convention):**
+
+| Scope | Use for |
+|-------|---------|
+| Module id | `tasks`, `projects`, `contacts`, `time-tracking`, … — match `modules/<name>/` |
+| App / package | `ui`, `settings`, `ai`, `app-shell`, … |
+| Infra | `ci`, `deploy`, `release` |
+
+`chore`, `ci`, `test`, `build`, and `style` commits are omitted from the
+changelog unless you use a type that maps to a group (e.g. `fix(ci): …`).
 
 ## Pro / public
 

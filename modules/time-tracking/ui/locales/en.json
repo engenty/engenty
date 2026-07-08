@@ -47,5 +47,23 @@
   "empty": {
     "title": "No time tracked this week",
     "description": "Add a task, project, or custom row to start logging hours for this week."
+  },
+  "calendar": {
+    "viewTable": "Table view",
+    "viewCalendar": "Calendar view",
+    "span7": "Week",
+    "span3": "3 days",
+    "span1": "Day",
+    "newEntry": "New entry",
+    "editEntry": "Edit entry",
+    "time": "Time",
+    "hours": "hours",
+    "noStartHint": "No start time — shown as unscheduled",
+    "unscheduled": "No time",
+    "modeRows": "Recent",
+    "moreRows": "More",
+    "expandWeekend": "Show weekend",
+    "collapseWeekend": "Hide weekend",
+    "saveFailed": "Failed to save time entry"
   }
 }
