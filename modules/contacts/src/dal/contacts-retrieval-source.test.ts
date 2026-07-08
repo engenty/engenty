@@ -33,6 +33,7 @@ function createFakeSupabase(tables: Record<string, unknown[]>) {
         return builder;
       };
     }
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable Supabase query mock
     builder.then = (
       resolve: (value: unknown) => unknown,
       reject?: (reason: unknown) => unknown

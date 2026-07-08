@@ -111,7 +111,7 @@ export function SidebarTenantSwitcher({
           type="button"
         >
           <div
-            className="flex size-7.5 shrink-0 items-center justify-center rounded-xl border border-sidebar-primary/30 bg-sidebar-primary/15 p-1"
+            className="flex size-7.5 shrink-0 items-center justify-center rounded-xl border border-sidebar-primary/30 bg-sidebar-primary/15 p-1.5"
             style={{
               transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
             }}
@@ -144,7 +144,7 @@ export function SidebarTenantSwitcher({
       >
         <DropdownMenuLabel className="p-2 pt-1 font-normal">
           <div className="flex items-center gap-3">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-lg border-[2.5px] border-slate-900/85 bg-emerald-100 p-0.5 dark:border-slate-200/85 dark:bg-emerald-950/45">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-lg border-[2.5px] border-slate-900/85 bg-emerald-100 p-1 dark:border-slate-200/85 dark:bg-emerald-950/45">
               <BrandMark
                 brandLabel={brandLabel}
                 className="size-full"

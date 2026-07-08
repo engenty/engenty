@@ -1,4 +1,4 @@
-import { cn, sidebarColumnGutterClassName } from "@engenty/ui-core";
+import { cn, Separator, sidebarColumnGutterClassName } from "@engenty/ui-core";
 import { usePageHeader } from "@engenty/ui-plugin-sdk";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -57,15 +57,33 @@ export function ModuleSecondaryNavPanel(props: {
     >
       {showShellItems ? (
         <div className="shrink-0 space-y-1">
-          {secondaryItems.map((item) => {
+          {secondaryItems.map((item, idx) => {
+            if (item.type === "separator") {
+              return (
+                <Separator
+                  className="mx-3 my-2 bg-border/40"
+                  key={`sep-${idx}`}
+                />
+              );
+            }
+
             const active = matchesPath(pathname, search, item.to);
             const isExternal =
               Boolean(item.external) || item.to.startsWith("http");
+            const Icon = item.icon;
+
             const itemClass = cn(
-              "block rounded-md px-3 py-2 text-sm transition-colors",
+              "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors",
               active
-                ? "font-medium text-foreground"
-                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                ? "bg-secondary font-medium text-foreground"
+                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+            );
+
+            const content = (
+              <>
+                {Icon && <Icon className="size-3.5 shrink-0" />}
+                <span className="truncate">{item.label}</span>
+              </>
             );
 
             if (isExternal) {
@@ -77,7 +95,7 @@ export function ModuleSecondaryNavPanel(props: {
                   onClick={onNavigate}
                   {...shellSecondaryNavItemProps}
                 >
-                  {item.label}
+                  {content}
                 </a>
               );
             }
@@ -89,7 +107,7 @@ export function ModuleSecondaryNavPanel(props: {
                 to={item.to}
                 {...shellSecondaryNavItemProps}
               >
-                {item.label}
+                {content}
               </Link>
             );
           })}

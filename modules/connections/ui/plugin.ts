@@ -1,5 +1,6 @@
 import { CONNECTIONS_ROOT_PATH } from "@engenty/ai-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { Blocks } from "lucide-react";
 import { ConnectionsSettingsPage } from "./pages/connections-settings-page.js";
 import {
   ConnectionsWorkspacePage,
@@ -62,6 +63,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Connections",
     labelKey: "connections:menu.connections",
     to: "/settings/connections",
+    icon: Blocks,
     order: 400,
   });
 }

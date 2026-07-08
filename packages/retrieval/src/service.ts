@@ -10,7 +10,6 @@ import { runBackfill } from "./backfill.js";
 import type {
   RetrievalBackfillInput,
   RetrievalBackfillResult,
-  RetrievalQueryFilters,
   RetrievalService,
   RetrievalSourceRegistration,
 } from "./contracts.js";
@@ -135,13 +134,16 @@ export function createRetrievalService(
       // Re-registration replaces (dev plugin reload re-runs module factories;
       // the manufactured provider is rebuilt against the fresh closures).
       sources.set(registration.source_type, registration);
-      visibilityRegistrations.push(
-        store.registerSourceVisibility(
-          registration.source_type,
-          registration.module_id,
-          registration.visibility
-        )
+      const visibilityTask = store.registerSourceVisibility(
+        registration.source_type,
+        registration.module_id,
+        registration.visibility
       );
+      // Boot registers sources before anything awaits `ready()`; attach a
+      // handler so a failed visibility upsert is not an unhandled rejection
+      // while tests or partial startup skip retrieval reads.
+      visibilityTask.catch(() => {});
+      visibilityRegistrations.push(visibilityTask);
       providers.set(
         registration.source_type,
         createManagedProvider(registration, {
@@ -184,4 +186,4 @@ export function createRetrievalService(
   };
 }
 
-export type { RetrievalQueryFilters };
+export type { RetrievalQueryFilters } from "./contracts.js";

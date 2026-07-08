@@ -41,6 +41,8 @@ pnpm fix                 # auto-fix
 
 CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`).
 
+**Developing & releasing:** pick a work mode (main / branch / worktree / worktree + dedicated DB) and ship the one correct way — see the [`release` skill](./.claude/skills/release/SKILL.md) (`/release`). TL;DR: land on `main`, then `pnpm release` + `git push origin main --follow-tags` (the `v*` tag builds, deploys, and syncs the public repo; a plain `main` push runs CI only). Never hand-edit `CHANGELOG.md` / `changelog.json` / the version / tags.
+
 - **Local setup:** `pnpm engenty setup` — compose config.toml, migrations aggregate, UI catalog from **`engenty.plugins`**
 - **First clone:** `pnpm engenty setup --local` — prompts for plugins, composes artifacts, starts Supabase, applies migrations, initializes `.env.local` (each step skippable; non-interactive takes the default)
 - **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)

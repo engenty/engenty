@@ -16,7 +16,6 @@ import {
 import {
   decodeConnectorNodeId,
   encodeConnectorNodeId,
-  isConnectorNodeId,
 } from "./connector-ref.js";
 
 /** A `file_folders` row that mounts a connector folder into the space. */
@@ -214,5 +213,3 @@ export function createConnectorFileSource(
     renameFolder: () => readOnly(),
   };
 }
-
-export { isConnectorNodeId };

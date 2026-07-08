@@ -1,4 +1,3 @@
-import { DockUsersIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import {
   registerUserManagementListColumn,
@@ -36,16 +35,6 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: "/settings/profile",
     component: ProfileSettingsPage,
     order: 204,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "user_management_menu",
-    section: "admin",
-    label: "Users",
-    labelKey: "menu.users",
-    to: "/admin/users",
-    icon: DockUsersIcon,
-    order: 130,
   });
 
   engenty.UI.registerSettingsItem({

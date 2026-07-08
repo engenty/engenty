@@ -1,9 +1,17 @@
-import { DockPluginsIcon, DockSettingsIcon } from "@engenty/ui-core";
+import { DockSettingsIcon } from "@engenty/ui-core";
 import type {
   UiContributions,
   UiCopilotAppContribution,
 } from "@engenty/ui-plugin-sdk";
-import { Box } from "lucide-react";
+import {
+  BarChart3,
+  Box,
+  Code2,
+  Flag,
+  Palette,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import type { NavigationItem, NavigationSection } from "../types/shell";
 
 type TranslateFn = (key: string) => string;
@@ -12,7 +20,6 @@ type AdminMenuEntry = UiContributions["adminMenuItems"][number];
 
 /** Synthetic admin rows (after contribution items). */
 const ADMIN_NAV_ORDER_SETTINGS = 140;
-const ADMIN_NAV_ORDER_PLUGINS = 150;
 
 /**
  * Canonical order for core admin menu contributions (by stable `id`).
@@ -102,7 +109,6 @@ function compareOrderedAdminRows(
 function buildAdminNavItems(
   adminEntries: AdminMenuEntry[],
   settingsItem: NavigationItem,
-  pluginsItem: NavigationItem,
   t: TranslateFn
 ): NavigationItem[] {
   const topLevel = adminEntries.filter((entry) => !entry.parentId);
@@ -115,7 +121,6 @@ function buildAdminNavItems(
   const merged = [
     ...fromContributions,
     { sortKey: ADMIN_NAV_ORDER_SETTINGS, item: settingsItem },
-    { sortKey: ADMIN_NAV_ORDER_PLUGINS, item: pluginsItem },
   ].sort(compareOrderedAdminRows);
   return merged.map((row) => row.item);
 }
@@ -139,23 +144,43 @@ export function buildNavigationSections(
   const adminMenuEntries = contributions.adminMenuItems.filter(
     (entry) => entry.section === "admin"
   );
-  const coreSettingsChildren: Array<{ to: string; label: string }> = [
-    { to: "/settings/ai", label: "AI" },
-    { to: "/settings/ai-usage", label: t("settings.aiUsage.menuLabel") },
-    { to: "/settings/appearance", label: t("settings.appearanceTitle") },
-    { to: "/settings/development", label: t("settings.development.title") },
+  const coreSettingsChildren = [
+    { to: "/settings/ai", label: "AI", icon: Sparkles },
+    {
+      to: "/settings/ai-usage",
+      label: t("settings.aiUsage.menuLabel"),
+      icon: BarChart3,
+    },
+    {
+      to: "/settings/appearance",
+      label: t("settings.appearanceTitle"),
+      icon: Palette,
+    },
+    {
+      to: "/settings/development",
+      label: t("settings.development.title"),
+      icon: Code2,
+    },
     ...(isSuperAdmin
       ? [
-          { to: "/settings/features", label: t("featureFlags.title") },
+          {
+            to: "/settings/features",
+            label: t("featureFlags.title"),
+            icon: Flag,
+          },
           {
             to: "/settings/search-index",
             label: t("settings.searchIndex.title"),
+            icon: Search,
           },
         ]
       : []),
   ];
   const settingsChildren = [
     ...coreSettingsChildren,
+    ...(contributions.settingsItems.length > 0
+      ? [{ to: "", label: "", type: "separator" as const }]
+      : []),
     ...contributions.settingsItems
       .filter(
         (item) => item.to !== "/settings/profile" && item.to !== "/settings/ai"
@@ -163,6 +188,7 @@ export function buildNavigationSections(
       .map((item) => ({
         to: item.to,
         label: resolveContributionLabel(item, t),
+        icon: item.icon,
       })),
   ];
 
@@ -194,17 +220,7 @@ export function buildNavigationSections(
           icon: DockSettingsIcon,
           children: settingsChildren.length > 0 ? settingsChildren : undefined,
         };
-        const pluginsItem = {
-          to: "/admin/plugins",
-          label: t("navigation.plugins"),
-          icon: DockPluginsIcon,
-        };
-        return buildAdminNavItems(
-          adminMenuEntries,
-          settingsItem,
-          pluginsItem,
-          t
-        );
+        return buildAdminNavItems(adminMenuEntries, settingsItem, t);
       })(),
     },
   ];

@@ -11,7 +11,9 @@ export interface NavigationItem {
   children?: Array<{
     to: string;
     label: string;
+    icon?: UiIconComponent;
     external?: boolean;
+    type?: "link" | "separator";
   }>;
   external?: boolean;
   icon: UiIconComponent;

@@ -26,8 +26,10 @@ export type AppLayoutFrameProps = Omit<
 
 export interface SecondaryNavLinkItem {
   external?: boolean;
+  icon?: any;
   label: string;
   to: string;
+  type?: "link" | "separator";
 }
 
 export interface ModuleNavHeaderIcon {

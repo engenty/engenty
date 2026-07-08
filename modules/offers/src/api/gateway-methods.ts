@@ -185,42 +185,50 @@ export function normalizeAgentBlock(input: {
       typeof next.description === "string"
     ) {
       next.content = next.description;
-      delete next.description;
     }
-    delete next.quantity;
-    delete next.unit_price;
-    delete next.price;
-    delete next.tax_rate;
-    return { content: next, type: input.type };
+    const {
+      description: _description,
+      quantity: _quantity,
+      unit_price: _unit_price,
+      price: _price,
+      tax_rate: _tax_rate,
+      ...content
+    } = next;
+    return { content, type: input.type };
   }
   if (
     input.type === "phase" ||
     input.type === "headline" ||
     input.type === "subheading"
   ) {
+    let content: Record<string, unknown> = next;
     if (
-      (typeof next.title !== "string" || next.title.length === 0) &&
-      typeof next.text === "string"
+      (typeof content.title !== "string" || content.title.length === 0) &&
+      typeof content.text === "string"
     ) {
-      next.title = next.text;
-      delete next.text;
+      const { text, ...rest } = content;
+      content = { ...rest, title: text };
     }
     if (input.type === "phase") {
-      return { content: { ...next, is_phase: true }, type: "headline" };
+      return { content: { ...content, is_phase: true }, type: "headline" };
     }
-    return { content: next, type: input.type };
+    return { content, type: input.type };
   }
   if (input.type === "text") {
-    if (typeof next.content !== "string" || next.content.length === 0) {
-      if (typeof next.text === "string" && next.text.length > 0) {
-        next.content = next.text;
-        delete next.text;
-      } else if (typeof next.title === "string" && next.title.length > 0) {
-        next.content = next.title;
-        delete next.title;
+    let content: Record<string, unknown> = next;
+    if (typeof content.content !== "string" || content.content.length === 0) {
+      if (typeof content.text === "string" && content.text.length > 0) {
+        const { text, ...rest } = content;
+        content = { ...rest, content: text };
+      } else if (
+        typeof content.title === "string" &&
+        content.title.length > 0
+      ) {
+        const { title, ...rest } = content;
+        content = { ...rest, content: title };
       }
     }
-    return { content: next, type: input.type };
+    return { content, type: input.type };
   }
   return { content: next, type: input.type };
 }

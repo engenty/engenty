@@ -30,7 +30,12 @@ export default defineConfig({
       "modules/**/*.test.tsx",
       "scripts/**/*.test.ts",
     ],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/*.d.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.d.ts",
+      "**/*.e2e.test.ts",
+    ],
     setupFiles: [
       path.join(repoRoot, "apps/core/test/vitest-setup-root-chdir.ts"),
       path.join(repoRoot, "test/setup.ts"),
