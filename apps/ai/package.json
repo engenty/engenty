@@ -35,7 +35,7 @@
     "@engenty/telemetry": "workspace:*",
     "@engenty/tenant-settings": "workspace:*",
     "@hono/node-server": "^2.0.5",
-    "@mastra/core": "1.48.0",
+    "@mastra/core": "1.49.0",
     "@mastra/docker": "0.4.0",
     "@mastra/editor": "^0.13.0",
     "@mastra/files-sdk": "^0.3.0",
