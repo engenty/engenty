@@ -12,6 +12,11 @@ import {
 } from "./hooks/use-team-catalog-query.js";
 import { tasksPaths, tasksRoutePatterns } from "./lib/tasks-routes.js";
 import { buildTaskAssigneeMemberOptions } from "./lib/team-catalog-ui.js";
+import {
+  registerTasksListColumn,
+  registerTasksListEnricher,
+  resetTasksListHooks,
+} from "./list-hooks.js";
 import { BriefingPage } from "./pages/briefing-page.js";
 import { GoalDetailPage } from "./pages/goal-detail-page.js";
 import { GoalEditPage } from "./pages/goal-edit-page.js";
@@ -46,6 +51,7 @@ const RESERVED_SEGMENTS = new Set([
 ]);
 
 export default function plugin(engenty: EngentyPluginContext) {
+  resetTasksListHooks();
   // Adds the tasks LIST page binding (detail keeps its own per-page mount).
   // module_tasks.tasks is published; root is taskKeys.all (["tasks"]).
   engenty.UI.registerLiveBinding({
@@ -59,6 +65,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     buildAssigneeProfileMap,
     buildTaskAssigneeMemberOptions,
     getTeamMembersPluginState,
+    registerListColumn: registerTasksListColumn,
+    registerListEnricher: registerTasksListEnricher,
     teamMembersCatalogQueryKey,
     teamMembersCatalogQueryOptions,
   });
