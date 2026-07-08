@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -76,6 +76,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",
     "engenty": "node scripts/engenty-cli.mjs",
+    "kill": "bash scripts/kill.sh",
     "build": "turbo run build",
     "predev": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/**",
     "dev:check": "bash scripts/predev-check.sh",
