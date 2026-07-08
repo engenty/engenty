@@ -32,6 +32,7 @@ describe("rowToTimeEntry", () => {
       user_id: "user-1",
       date: "2026-06-08",
       hours: 4.5,
+      start_time: null,
       notes: "test notes",
       project_id: "project-1",
       phase_id: "phase-1",
@@ -45,6 +46,20 @@ describe("rowToTimeEntry", () => {
       updated_at: "2026-06-08T00:00:00Z",
       timesheet_row_id: "row-1",
     });
+  });
+
+  it("normalizes start_time to HH:MM", () => {
+    const entry = rowToTimeEntry({
+      id: "entry-1",
+      date: "2026-06-08",
+      hours: 1,
+      start_time: "09:15:00",
+      created_by: "user-1",
+      created_at: "2026-06-08T00:00:00Z",
+      updated_at: "2026-06-08T00:00:00Z",
+      timesheet_row_id: "row-1",
+    });
+    expect(entry.start_time).toBe("09:15");
   });
 });
 

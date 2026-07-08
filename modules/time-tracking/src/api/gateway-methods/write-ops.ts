@@ -76,6 +76,7 @@ export function registerTimeTrackingWriteGatewayMethods(
         user_id: targetUserId,
         date: body.date,
         hours: body.hours,
+        start_time: body.start_time ?? null,
         notes: body.notes ?? null,
         project_id: body.project_id ?? null,
         phase_id: body.phase_id ?? null,
@@ -109,6 +110,9 @@ export function registerTimeTrackingWriteGatewayMethods(
           : { discipline: patch.discipline }),
         ...(patch.hours === undefined ? {} : { hours: patch.hours }),
         ...(patch.notes === undefined ? {} : { notes: patch.notes }),
+        ...(patch.start_time === undefined
+          ? {}
+          : { start_time: patch.start_time }),
       });
       if (!updated) {
         throw new Error("time_entry_not_found");

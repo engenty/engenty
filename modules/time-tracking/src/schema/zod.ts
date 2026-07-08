@@ -7,6 +7,7 @@ export const timeEntrySchema = z.object({
   user_id: z.string().min(1),
   date: z.string().min(1),
   hours: z.number().positive(),
+  start_time: z.string().nullable(),
   notes: z.string().nullable(),
   project_id: z.string().nullable(),
   phase_id: z.string().nullable(),
@@ -73,10 +74,15 @@ export const timeTrackingListResponseSchema = z.object({
   entries: z.array(timeEntrySchema),
 });
 
+const startTimeSchema = z
+  .string()
+  .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Expected HH:MM time");
+
 export const timeEntryInputSchema = z.object({
   date: z.string().min(1),
   user_id: z.string().min(1).optional(),
   hours: z.number().positive(),
+  start_time: startTimeSchema.nullable().optional(),
   notes: z.string().nullable().optional(),
   project_id: z.string().nullable().optional(),
   phase_id: z.string().nullable().optional(),
@@ -104,11 +110,13 @@ export const timeEntryUpdateSchema = timeEntryInputSchema
     discipline: true,
     hours: true,
     notes: true,
+    start_time: true,
   })
   .partial();
 
 export const timeEntryMoveSchema = z.object({
   date: z.string().min(1),
+  start_time: startTimeSchema.nullable().optional(),
   user_id: z.string().optional(),
   project_id: z.string().nullable().optional(),
   phase_id: z.string().nullable().optional(),

@@ -19,6 +19,7 @@ export interface TimeEntry {
   discipline?: string | null;
   hours: number;
   id: string;
+  start_time?: string | null;
   manual_phase_title?: string | null;
   manual_project_title?: string | null;
   manual_task_title?: string | null;
@@ -26,6 +27,7 @@ export interface TimeEntry {
   phase_id?: string | null;
   project_id?: string | null;
   task_id?: string | null;
+  timesheet_row_id: string;
   user_id: string;
 }
 
@@ -131,6 +133,7 @@ export async function addTrackingRow(input: {
 export async function createTimeEntry(input: {
   date: string;
   hours: number;
+  start_time?: string | null;
   notes?: string | null;
   discipline?: string | null;
   user_id?: string;
@@ -153,6 +156,7 @@ export async function updateTimeEntry(
     discipline: string | null;
     hours: number;
     notes: string | null;
+    start_time: string | null;
   }>
 ) {
   return request<TimeEntry>(`/api/time-tracking/entries/${id}`, {
@@ -165,6 +169,7 @@ export async function moveTimeEntry(
   id: string,
   patch: {
     date: string;
+    start_time?: string | null;
     discipline?: string | null;
     user_id?: string;
     project_id?: string | null;
