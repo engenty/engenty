@@ -93,6 +93,67 @@ describe("navigation", () => {
         "/settings/search-index",
       ]);
     });
+
+    it("keeps settings item icons and reuses module admin menu icons", () => {
+      const InvoicesIcon = () => null;
+      const TasksIcon = () => null;
+      const sections = buildNavigationSections({
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "invoices_module_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            section: "modules",
+            to: "/mdl/invoices",
+            icon: InvoicesIcon,
+          },
+          {
+            id: "tasks_module_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            section: "modules",
+            to: "/mdl/tasks",
+            icon: TasksIcon,
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [
+          {
+            id: "invoices_settings_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            to: "/mdl/invoices/settings",
+            icon: InvoicesIcon,
+          },
+          {
+            id: "tasks_settings_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            to: "/mdl/tasks/settings",
+          },
+        ],
+      });
+
+      const settingsChildren = sections
+        .flatMap((section) => section.items)
+        .find((item) => item.to === "/settings")?.children;
+
+      expect(
+        settingsChildren?.find((item) => item.to === "/mdl/invoices/settings")
+          ?.icon
+      ).toBe(InvoicesIcon);
+      expect(
+        settingsChildren?.find((item) => item.to === "/mdl/tasks/settings")
+          ?.icon
+      ).toBe(TasksIcon);
+    });
   });
 
   describe("matchesPath", () => {

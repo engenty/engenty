@@ -2,6 +2,7 @@ import { DockSettingsIcon } from "@engenty/ui-core";
 import type {
   UiContributions,
   UiCopilotAppContribution,
+  UiIconComponent,
 } from "@engenty/ui-plugin-sdk";
 import {
   BarChart3,
@@ -17,6 +18,33 @@ import type { NavigationItem, NavigationSection } from "../types/shell";
 type TranslateFn = (key: string) => string;
 
 type AdminMenuEntry = UiContributions["adminMenuItems"][number];
+type SettingsMenuEntry = UiContributions["settingsItems"][number];
+
+function moduleRootFromPath(path: string): string | null {
+  const match = path.match(/^\/mdl\/([^/]+)/);
+  return match?.[1] ?? null;
+}
+
+/** Reuse the module dock icon from admin menu when a settings row omits one. */
+function resolveSettingsItemIcon(
+  item: SettingsMenuEntry,
+  adminMenuItems: AdminMenuEntry[]
+): UiIconComponent | undefined {
+  if (item.icon) {
+    return item.icon;
+  }
+  const moduleRoot = moduleRootFromPath(item.to);
+  if (!moduleRoot) {
+    return undefined;
+  }
+  const prefix = `/mdl/${moduleRoot}`;
+  const moduleMenu = adminMenuItems.find(
+    (entry) =>
+      entry.section === "modules" &&
+      (entry.to === prefix || entry.to.startsWith(`${prefix}/`))
+  );
+  return moduleMenu?.icon;
+}
 
 /** Synthetic admin rows (after contribution items). */
 const ADMIN_NAV_ORDER_SETTINGS = 140;
@@ -200,7 +228,7 @@ export function buildNavigationSections(
       .map((item) => ({
         to: item.to,
         label: resolveContributionLabel(item, t),
-        icon: item.icon,
+        icon: resolveSettingsItemIcon(item, contributions.adminMenuItems),
       })),
   ];
 
