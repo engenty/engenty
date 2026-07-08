@@ -1,5 +1,6 @@
 import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import {
   GeneralTenantSettingsSection,
@@ -12,10 +13,13 @@ export function SettingsPage() {
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(t("navigation.settings"));
 
-  const breadcrumbs = useMemo(
-    () => (moduleRootCrumb ? [moduleRootCrumb] : []),
-    [moduleRootCrumb]
-  );
+  usePageConfig({
+    breadcrumbs: useMemo(
+      () => (moduleRootCrumb ? [moduleRootCrumb] : []),
+      [moduleRootCrumb]
+    ),
+    secondaryNavHeaderSlot,
+  });
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto bg-muted/20">
