@@ -6,6 +6,7 @@ import type { TeamMemberOption } from "../api.js";
 
 interface TimeTrackingUserSwitcherProps {
   currentUser: TeamMemberOption | null;
+  isAdmin: boolean;
   onSelect: (userId: string) => void;
   selectedUser: string;
   teamMembersAvailable: boolean;
@@ -17,6 +18,7 @@ export function TimeTrackingUserSwitcher({
   selectedUser,
   onSelect,
   currentUser,
+  isAdmin,
   teamMembersAvailable,
 }: TimeTrackingUserSwitcherProps) {
   const { t } = useTranslation("time-tracking");
@@ -67,7 +69,7 @@ export function TimeTrackingUserSwitcher({
     </div>
   ) : null;
 
-  if (!teamMembersAvailable || users.length <= 1) {
+  if (!(isAdmin && teamMembersAvailable) || users.length <= 1) {
     return <span className="font-medium text-foreground text-sm">{label}</span>;
   }
 

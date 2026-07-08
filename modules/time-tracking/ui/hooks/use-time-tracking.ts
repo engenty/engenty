@@ -46,45 +46,52 @@ export function useTimeTracking(selectedUser: string, currentWeek: Date) {
   const weekStartStr = format(weekStart, "yyyy-MM-dd");
   const effectiveUserId = selectedUser || currentUser?.id || "";
 
-  const loadContext = useCallback(async () => {
+  const loadBootstrap = useCallback(async (cancelled: () => boolean) => {
     const context = await getTimeTrackingContext();
+    if (cancelled()) {
+      return;
+    }
+
+    const self: TeamMemberOption = {
+      id: context.current_user.id,
+      full_name: context.current_user.full_name,
+      user_id: context.current_user.id,
+    };
+
     setIsAdmin(context.is_admin);
     setProjectsAvailable(context.projects_available);
     setTasksAvailable(context.tasks_available);
     setTeamMembersAvailable(context.team_available);
-    setCurrentUser({
-      id: context.current_user.id,
-      full_name: context.current_user.full_name,
-      user_id: context.current_user.id,
-    });
-  }, []);
+    setCurrentUser(self);
 
-  const loadMembers = useCallback(async () => {
-    if (!teamMembersAvailable) {
-      if (currentUser) {
-        setUsers([currentUser]);
+    if (context.team_available && context.is_admin) {
+      const members = await getTeamMembersCatalog();
+      if (!cancelled()) {
+        setUsers(members.length > 0 ? members : [self]);
       }
-      return;
+    } else if (!cancelled()) {
+      setUsers([self]);
     }
-    const members = await getTeamMembersCatalog();
-    setUsers(members);
-  }, [currentUser, teamMembersAvailable]);
 
-  const loadProjects = useCallback(async () => {
-    if (!projectsAvailable) {
+    if (context.projects_available) {
+      const projects = await getProjectsCatalog();
+      if (!cancelled()) {
+        setAllProjects(projects);
+      }
+    } else if (!cancelled()) {
       setAllProjects([]);
-      return;
     }
-    const projects = await getProjectsCatalog();
-    setAllProjects(projects);
-  }, [projectsAvailable]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+    const isCancelled = () => cancelled;
+
     setContextReady(false);
     setContextError(null);
+    setReferenceLoading(true);
 
-    loadContext()
+    loadBootstrap(isCancelled)
       .catch((error) => {
         if (!cancelled) {
           setContextError(
@@ -97,39 +104,14 @@ export function useTimeTracking(selectedUser: string, currentWeek: Date) {
       .finally(() => {
         if (!cancelled) {
           setContextReady(true);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadContext]);
-
-  useEffect(() => {
-    if (!(contextReady && effectiveUserId)) {
-      return;
-    }
-    let cancelled = false;
-    setReferenceLoading(true);
-    Promise.all([loadMembers(), loadProjects()])
-      .catch((error) => {
-        if (!cancelled) {
-          setContextError(
-            error instanceof Error
-              ? error.message
-              : "Failed to load time tracking data."
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
           setReferenceLoading(false);
         }
       });
+
     return () => {
       cancelled = true;
     };
-  }, [contextReady, effectiveUserId, loadMembers, loadProjects]);
+  }, [loadBootstrap]);
 
   // Week data on React Query so it joins the global live-cache (a time_entries
   // change anywhere invalidates ["time-tracking"] and refetches here).

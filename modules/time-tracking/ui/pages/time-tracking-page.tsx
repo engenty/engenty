@@ -35,6 +35,12 @@ export function TimeTrackingPage() {
 
   const userId = selectedUser || currentUser?.id || "";
   const showUserSelect = isAdmin && teamMembersAvailable && users.length > 0;
+  const teamMemberPickerReady =
+    !isLoading && isAdmin && teamMembersAvailable && users.length > 1;
+  const activeUserName =
+    users.find((u) => u.id === userId)?.full_name ||
+    currentUser?.full_name ||
+    "";
 
   const operations = useTimeEntryOperations(
     userId,
@@ -82,22 +88,34 @@ export function TimeTrackingPage() {
       { label: t("menu"), to: "/mdl/time-tracking" },
       {
         compactKept: true,
-        label: (
+        label: teamMemberPickerReady ? (
           <TimeTrackingUserSwitcher
             currentUser={currentUser}
+            isAdmin={isAdmin}
             onSelect={setSelectedUser}
             selectedUser={userId}
             teamMembersAvailable={teamMembersAvailable}
             users={users}
           />
+        ) : (
+          <span className="font-medium text-foreground text-sm">
+            {activeUserName}
+          </span>
         ),
-        menuLabel:
-          users.find((u) => u.id === userId)?.full_name ||
-          currentUser?.full_name ||
-          "",
+        menuLabel: activeUserName,
       },
     ],
-    [users, userId, currentUser, teamMembersAvailable, t]
+    [
+      users,
+      userId,
+      currentUser,
+      isAdmin,
+      teamMembersAvailable,
+      teamMemberPickerReady,
+      activeUserName,
+      isLoading,
+      t,
+    ]
   );
   usePageConfig({ breadcrumbs, actions: pageActions });
 
