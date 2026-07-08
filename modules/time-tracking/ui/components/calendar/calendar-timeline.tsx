@@ -99,10 +99,7 @@ export function CalendarTimeline({
 
   return (
     <div className="max-h-[104px] overflow-y-auto border-b">
-      <div
-        className="grid gap-y-1 py-1.5"
-        style={{ gridTemplateColumns }}
-      >
+      <div className="grid gap-y-1 py-1.5" style={{ gridTemplateColumns }}>
         {bars.map((bar) => {
           const color = projectColor(bar.colorKey);
           const dashed = bar.trackedHours <= 0;
@@ -116,7 +113,7 @@ export function CalendarTimeline({
               style={{
                 backgroundColor: dashed
                   ? "transparent"
-                  : `color-mix(in oklch, ${color} 14%, var(--card))`,
+                  : `color-mix(in oklch, ${color} 26%, var(--card))`,
                 borderColor: dashed
                   ? `color-mix(in oklch, ${color} 45%, transparent)`
                   : undefined,

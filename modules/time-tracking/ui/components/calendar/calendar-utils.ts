@@ -133,8 +133,8 @@ export function projectColor(key: string) {
 /** Tinted surface + accent styles for an entry block. */
 export function blockColorStyle(color: string): CSSProperties {
   return {
-    backgroundColor: `color-mix(in oklch, ${color} 14%, var(--card))`,
-    borderColor: `color-mix(in oklch, ${color} 45%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${color} 30%, var(--card))`,
+    borderColor: `color-mix(in oklch, ${color} 65%, transparent)`,
     // Consumers use this for the accent bar / dot.
     ["--entry-color" as string]: color,
   };

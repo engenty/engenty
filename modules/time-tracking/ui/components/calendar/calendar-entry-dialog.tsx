@@ -16,7 +16,15 @@ import {
   PopoverTrigger,
 } from "@engenty/ui-core";
 import { parseISO } from "date-fns";
-import { Check, ChevronRight, Clock, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   getAllTasksCatalog,
@@ -169,10 +177,10 @@ export function CalendarEntryDialog({
 
   // --- popover / ui state ----------------------------------------------------
   const [rowPickerOpen, setRowPickerOpen] = useState(false);
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [phaseOpen, setPhaseOpen] = useState(false);
   const [projectTaskOpen, setProjectTaskOpen] = useState(false);
-  const [disciplineOpen, setDisciplineOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -350,8 +358,6 @@ export function CalendarEntryDialog({
 
   const canSubmit = hasTarget && durationMin >= MIN_DURATION && Boolean(date);
 
-  const currentDiscipline = disciplines.find((d) => d.name === discipline);
-
   const dateLabel = date
     ? new Intl.DateTimeFormat(i18n.language, {
         weekday: "short",
@@ -432,97 +438,119 @@ export function CalendarEntryDialog({
             </p>
 
             {kind === "row" && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {recentRows.slice(0, 5).map((row) => (
+              <Popover onOpenChange={setRowPickerOpen} open={rowPickerOpen}>
+                <PopoverTrigger asChild>
                   <button
-                    className={[
-                      "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-                      rowId === row.id
-                        ? "border-transparent bg-accent font-medium text-accent-foreground"
-                        : "border-border text-muted-foreground hover:text-foreground",
-                    ].join(" ")}
-                    key={row.id}
-                    onClick={() => setRowId(row.id)}
+                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-accent/40"
                     type="button"
                   >
-                    <ColorDot colorKey={projectColorKey(row)} />
-                    <span className="truncate">{rowLabel(row)}</span>
+                    {selectedRow ? (
+                      <>
+                        <ColorDot colorKey={projectColorKey(selectedRow)} />
+                        <span className="truncate">
+                          {rowLabel(selectedRow)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("selectProject")}
+                      </span>
+                    )}
+                    <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50" />
                   </button>
-                ))}
-                {recentRows.length > 5 && (
-                  <Popover onOpenChange={setRowPickerOpen} open={rowPickerOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-muted-foreground text-xs transition-colors hover:border-border hover:text-foreground"
-                        type="button"
-                      >
-                        <Plus className="h-3 w-3" />
-                        {t("calendar.moreRows")}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-[320px] p-0">
-                      <Command>
-                        <CommandInput
-                          className="h-9"
-                          placeholder={t("searchProjects")}
-                        />
-                        <CommandList className="max-h-[260px] overflow-y-auto">
-                          <CommandEmpty className="py-4 text-center text-sm">
-                            {t("noProjectFound")}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {recentRows.map((row) => (
-                              <CommandItem
-                                key={row.id}
-                                onSelect={() => {
-                                  setRowId(row.id);
-                                  setRowPickerOpen(false);
-                                }}
-                                value={`${row.client_name} ${rowLabel(row)}`}
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 shrink-0 ${rowId === row.id ? "opacity-100" : "opacity-0"}`}
-                                />
-                                <ColorDot colorKey={projectColorKey(row)} />
-                                <span className="ml-1.5 truncate">
-                                  {rowLabel(row)}
-                                </span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                >
+                  <Command>
+                    <CommandInput
+                      className="h-9"
+                      placeholder={t("searchProjects")}
+                    />
+                    <CommandList className="max-h-[240px] overflow-y-auto">
+                      <CommandEmpty className="py-4 text-center text-sm">
+                        {t("noProjectFound")}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {recentRows.map((row) => (
+                          <CommandItem
+                            key={row.id}
+                            onSelect={() => {
+                              setRowId(row.id);
+                              setRowPickerOpen(false);
+                            }}
+                            value={`${row.client_name} ${rowLabel(row)}`}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 shrink-0 ${rowId === row.id ? "opacity-100" : "opacity-0"}`}
+                            />
+                            <ColorDot colorKey={projectColorKey(row)} />
+                            <span className="ml-1.5 truncate">
+                              {rowLabel(row)}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             )}
 
             {kind === "task" && (
-              <Command className="rounded-md border">
-                <CommandInput className="h-9" placeholder={t("searchTasks")} />
-                <CommandList className="max-h-[180px] overflow-y-auto">
-                  <CommandEmpty className="py-4 text-center text-sm">
-                    {t("noTaskFound")}
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {allTasks.map((task) => (
-                      <CommandItem
-                        key={task.id}
-                        onSelect={() =>
-                          setTaskId(taskId === task.id ? "" : task.id)
-                        }
-                        value={task.title}
-                      >
-                        <Check
-                          className={`mr-2 h-4 w-4 shrink-0 ${taskId === task.id ? "opacity-100" : "opacity-0"}`}
-                        />
-                        <span className="truncate">{task.title}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+              <Popover onOpenChange={setTaskPickerOpen} open={taskPickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-accent/40"
+                    type="button"
+                  >
+                    {taskId ? (
+                      <span className="truncate">
+                        {allTasks.find((task) => task.id === taskId)?.title}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("selectTask")}
+                      </span>
+                    )}
+                    <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                >
+                  <Command>
+                    <CommandInput
+                      className="h-9"
+                      placeholder={t("searchTasks")}
+                    />
+                    <CommandList className="max-h-[240px] overflow-y-auto">
+                      <CommandEmpty className="py-4 text-center text-sm">
+                        {t("noTaskFound")}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {allTasks.map((task) => (
+                          <CommandItem
+                            key={task.id}
+                            onSelect={() => {
+                              setTaskId(task.id);
+                              setTaskPickerOpen(false);
+                            }}
+                            value={task.title}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 shrink-0 ${taskId === task.id ? "opacity-100" : "opacity-0"}`}
+                            />
+                            <span className="truncate">{task.title}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             )}
 
             {kind === "project" && (
@@ -788,6 +816,43 @@ export function CalendarEntryDialog({
             placeholder={t("notesPlaceholder")}
             value={notes}
           />
+
+          {/* ── Discipline ────────────────────────────────── */}
+          <div>
+            <p className="mb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+              {t("discipline")}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                className={[
+                  "inline-flex items-center rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  discipline
+                    ? "border-border text-muted-foreground hover:text-foreground"
+                    : "border-transparent bg-accent font-medium text-accent-foreground",
+                ].join(" ")}
+                onClick={() => setDiscipline("")}
+                type="button"
+              >
+                {t("none")}
+              </button>
+              {disciplines.map((d) => (
+                <button
+                  className={[
+                    "inline-flex items-center rounded-full border px-2.5 py-1 text-xs transition-colors",
+                    discipline === d.name
+                      ? "border-transparent bg-accent font-medium text-accent-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                  key={d.name}
+                  onClick={() => setDiscipline(d.name)}
+                  title={d.name}
+                  type="button"
+                >
+                  {d.short}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── Footer ──────────────────────────────────────── */}
@@ -823,52 +888,6 @@ export function CalendarEntryDialog({
           </div>
 
           <div className="flex items-center gap-2">
-            <Popover onOpenChange={setDisciplineOpen} open={disciplineOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  className={[
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium text-xs transition-colors",
-                    discipline
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  ].join(" ")}
-                  type="button"
-                >
-                  {currentDiscipline
-                    ? currentDiscipline.short
-                    : t("disciplineOptional")}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-44 p-1">
-                <button
-                  className="w-full rounded px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => {
-                    setDiscipline("");
-                    setDisciplineOpen(false);
-                  }}
-                  type="button"
-                >
-                  — {t("none")}
-                </button>
-                {disciplines.map((d) => (
-                  <button
-                    className={[
-                      "w-full rounded px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-                      discipline === d.name ? "font-medium" : "",
-                    ].join(" ")}
-                    key={d.name}
-                    onClick={() => {
-                      setDiscipline(d.name);
-                      setDisciplineOpen(false);
-                    }}
-                    type="button"
-                  >
-                    {d.short} · {d.name}
-                  </button>
-                ))}
-              </PopoverContent>
-            </Popover>
-
             {isEdit && onDelete && (
               <Button
                 className="h-7 rounded-full px-2 text-xs"

@@ -76,6 +76,45 @@ function autoSpan(width: number): Span {
   return 1;
 }
 
+/**
+ * Animation progress for the weekend expand/collapse (0 = collapsed,
+ * 1 = expanded). Driven by rAF because browsers don't reliably interpolate
+ * grid-template-columns; the column template is computed from this value.
+ */
+function useWeekendProgress(expanded: boolean) {
+  const [progress, setProgress] = useState(expanded ? 1 : 0);
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+
+  useEffect(() => {
+    const target = expanded ? 1 : 0;
+    const from = progressRef.current;
+    if (from === target) {
+      return;
+    }
+    const startedAt = performance.now();
+    const duration = 300;
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - startedAt) / duration);
+      const eased = p < 0.5 ? 2 * p * p : 1 - ((-2 * p + 2) ** 2) / 2;
+      setProgress(from + (target - from) * eased);
+      if (p < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    // rAF doesn't fire in hidden tabs — make sure the final state still lands.
+    const failSafe = setTimeout(() => setProgress(target), duration + 50);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(failSafe);
+    };
+  }, [expanded]);
+
+  return progress;
+}
+
 function loadSpanPref(): Span | "auto" {
   try {
     const raw = window.localStorage.getItem(SPAN_STORAGE_KEY);
@@ -151,21 +190,18 @@ export function TimeTrackingCalendar({
   });
 
   const span: Span = spanPref === "auto" ? autoSpan(containerWidth) : spanPref;
+  // In the narrow week the weekend is collapsible: all 7 day columns stay
+  // mounted and only their track widths animate.
   const narrowWeek = span === 7 && containerWidth < FULL_WEEK_MIN_PX;
-  const workweek = narrowWeek && !weekendExpanded;
+  const weekendCollapsed = narrowWeek && !weekendExpanded;
+  const weekendProgress = useWeekendProgress(weekendExpanded);
   const startIndex = Math.min(Math.max(focusIndex, 0), 7 - span);
-  const dayCount = workweek ? 5 : span;
   const days = useMemo(
     () =>
-      Array.from({ length: dayCount }, (_, i) =>
-        addDays(weekStart, (workweek ? 0 : startIndex) + i)
+      Array.from({ length: span }, (_, i) =>
+        addDays(weekStart, startIndex + i)
       ),
-    [weekStart, startIndex, dayCount, workweek]
-  );
-  const weekendDays = useMemo(
-    () =>
-      workweek ? [addDays(weekStart, 5), addDays(weekStart, 6)] : null,
-    [workweek, weekStart]
+    [weekStart, startIndex, span]
   );
 
   const toggleWeekend = (expanded: boolean) => {
@@ -433,20 +469,27 @@ export function TimeTrackingCalendar({
 
   const weekendHours = useMemo(
     () =>
-      weekendDays
-        ? weekendDays.reduce(
+      narrowWeek
+        ? [addDays(weekStart, 5), addDays(weekStart, 6)].reduce(
             (sum, day) => sum + getTotalHoursForDay(day, renderedEntries),
             0
           )
         : 0,
-    [weekendDays, renderedEntries]
+    [narrowWeek, weekStart, renderedEntries]
   );
 
+  const isDayCollapsed = (index: number) => weekendCollapsed && index >= 5;
+
   const headerPad = { paddingRight: scrollbarPad };
-  const gridTemplateColumns = `48px repeat(${days.length}, minmax(0, 1fr))${
-    weekendDays ? ` ${WEEKEND_COL_PX}px` : ""
-  }`;
+  const innerWidth = Math.max(0, containerWidth - 2 - scrollbarPad - 48);
+  const stripW = (1 - weekendProgress) * WEEKEND_COL_PX;
+  const weekendW = weekendProgress * (innerWidth / 7);
+  const weekdayW = Math.max(0, (innerWidth - 2 * weekendW - stripW) / 5);
+  const gridTemplateColumns = narrowWeek
+    ? `48px ${Array(5).fill(`${weekdayW}px`).join(" ")} ${weekendW}px ${weekendW}px ${stripW}px`
+    : `48px repeat(${days.length}, minmax(0, 1fr))`;
   const gridTemplate = { gridTemplateColumns };
+  const animatedGrid = "grid";
 
   return (
     <div className="flex min-w-0 flex-col" ref={containerRef}>
@@ -485,15 +528,22 @@ export function TimeTrackingCalendar({
       <div className="flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-lg border bg-card">
         {/* Day headers */}
         <div className="border-b" style={headerPad}>
-          <div className="grid" style={gridTemplate}>
+          <div className={animatedGrid} style={gridTemplate}>
             <div />
             {days.map((day, index) => {
               const isToday = isSameDay(day, new Date());
-              const isCollapsibleWeekendDay =
-                narrowWeek && weekendExpanded && index >= 5;
+              const collapsed = isDayCollapsed(index);
+              const showCollapseToggle =
+                narrowWeek && !weekendCollapsed && index === days.length - 1;
               return (
                 <div
-                  className="relative border-l first-of-type:border-l-0"
+                  className={[
+                    "relative min-w-0 overflow-hidden border-l first-of-type:border-l-0",
+                    "transition-opacity duration-300",
+                    collapsed
+                      ? "pointer-events-none border-l-transparent opacity-0"
+                      : "opacity-100",
+                  ].join(" ")}
                   key={format(day, "yyyy-MM-dd")}
                 >
                   <button
@@ -501,11 +551,10 @@ export function TimeTrackingCalendar({
                     onClick={() => {
                       if (span > 1) {
                         setSpan(1);
-                        setFocusIndex(
-                          (workweek ? 0 : startIndex) + index
-                        );
+                        setFocusIndex(startIndex + index);
                       }
                     }}
+                    tabIndex={collapsed ? -1 : undefined}
                     type="button"
                   >
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -524,7 +573,7 @@ export function TimeTrackingCalendar({
                       {format(day, "d")}
                     </span>
                   </button>
-                  {isCollapsibleWeekendDay && index === days.length - 1 ? (
+                  {showCollapseToggle ? (
                     <button
                       aria-label={t("calendar.collapseWeekend")}
                       className="absolute top-1 right-1 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -532,29 +581,36 @@ export function TimeTrackingCalendar({
                       title={t("calendar.collapseWeekend")}
                       type="button"
                     >
-                      <ChevronsRight className="h-3 w-3" />
+                      <ChevronsLeft className="h-3 w-3" />
                     </button>
                   ) : null}
                 </div>
               );
             })}
-            {weekendDays ? (
+            {narrowWeek ? (
               <button
                 aria-label={t("calendar.expandWeekend")}
-                className="flex flex-col items-center justify-center gap-0.5 border-l bg-muted/30 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className={[
+                  "flex min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden border-l bg-muted/30 py-1.5 text-muted-foreground",
+                  "transition-opacity duration-300 hover:bg-accent hover:text-foreground",
+                  weekendCollapsed
+                    ? "opacity-100"
+                    : "pointer-events-none opacity-0",
+                ].join(" ")}
                 onClick={() => toggleWeekend(true)}
+                tabIndex={weekendCollapsed ? undefined : -1}
                 title={t("calendar.expandWeekend")}
                 type="button"
               >
-                <ChevronsLeft className="h-3 w-3" />
+                <ChevronsRight className="h-3 w-3" />
                 <span className="text-[9px] uppercase leading-none tracking-wide">
                   {new Intl.DateTimeFormat(i18n.language, {
                     weekday: "narrow",
-                  }).format(weekendDays[0])}
+                  }).format(addDays(weekStart, 5))}
                   ·
                   {new Intl.DateTimeFormat(i18n.language, {
                     weekday: "narrow",
-                  }).format(weekendDays[1])}
+                  }).format(addDays(weekStart, 6))}
                 </span>
               </button>
             ) : null}
@@ -574,13 +630,19 @@ export function TimeTrackingCalendar({
         {/* Unscheduled entries (no start time yet) */}
         {hasUnscheduled && (
           <div className="border-b bg-muted/20" style={headerPad}>
-            <div className="grid" style={gridTemplate}>
+            <div className={animatedGrid} style={gridTemplate}>
               <div className="px-1 py-1 text-right text-[9px] text-muted-foreground uppercase leading-tight tracking-wide">
                 {t("calendar.unscheduled")}
               </div>
               {days.map((day, index) => (
                 <div
-                  className="flex min-w-0 flex-wrap gap-1 border-l px-1 py-1 first-of-type:border-l-0"
+                  className={[
+                    "flex min-w-0 flex-wrap gap-1 overflow-hidden border-l px-1 py-1 first-of-type:border-l-0",
+                    "transition-opacity duration-300",
+                    isDayCollapsed(index)
+                      ? "pointer-events-none border-l-transparent opacity-0"
+                      : "opacity-100",
+                  ].join(" ")}
                   key={format(day, "yyyy-MM-dd")}
                 >
                   {unscheduledByDay[index].map((entry) => {
@@ -609,7 +671,7 @@ export function TimeTrackingCalendar({
                   })}
                 </div>
               ))}
-              {weekendDays ? <div className="border-l" /> : null}
+              {narrowWeek ? <div className="border-l" /> : null}
             </div>
           </div>
         )}
@@ -627,16 +689,22 @@ export function TimeTrackingCalendar({
             <CalendarGrid
               days={days}
               entries={renderedEntries}
+              gridTemplateColumns={gridTemplateColumns}
               onCreateRange={handleCreateRange}
-              onExpandWeekend={
-                weekendDays ? () => toggleWeekend(true) : undefined
-              }
               onMoveEntry={handleMoveEntry}
               onOpenEntry={handleOpenEntry}
               onResizeEntry={handleResizeEntry}
               savingEntryIds={savingIds}
               trackingRows={trackingRows}
-              weekendHours={weekendHours}
+              weekend={
+                narrowWeek
+                  ? {
+                      collapsed: weekendCollapsed,
+                      hours: weekendHours,
+                      onExpand: () => toggleWeekend(true),
+                    }
+                  : null
+              }
             />
           )}
         </div>
@@ -646,7 +714,11 @@ export function TimeTrackingCalendar({
           <CalendarSums
             days={days}
             gridTemplateColumns={gridTemplateColumns}
-            weekendHours={weekendDays ? weekendHours : null}
+            weekend={
+              narrowWeek
+                ? { collapsed: weekendCollapsed, hours: weekendHours }
+                : null
+            }
             weekEntries={renderedEntries}
           />
         </div>

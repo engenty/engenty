@@ -1,5 +1,5 @@
 import { format, isSameDay, parseISO } from "date-fns";
-import { ChevronsLeft, StickyNote } from "lucide-react";
+import { ChevronsRight, StickyNote } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TimeEntry, TrackingRow } from "../types.js";
 import {
@@ -20,7 +20,6 @@ import {
   projectColor,
   snapFloor,
   snapRound,
-  WEEKEND_COL_PX,
 } from "./calendar-utils.js";
 
 const DRAG_THRESHOLD_PX = 4;
@@ -57,9 +56,9 @@ type DragState =
 interface CalendarGridProps {
   days: Date[];
   entries: TimeEntry[];
+  /** Shared column template so the grid aligns with header/footer. */
+  gridTemplateColumns: string;
   onCreateRange: (day: Date, startMin: number, durationMin: number) => void;
-  /** When set, a collapsed weekend strip is rendered after the day columns. */
-  onExpandWeekend?: () => void;
   onMoveEntry: (entry: TimeEntry, day: Date, startMin: number) => void;
   onOpenEntry: (entry: TimeEntry) => void;
   onResizeEntry: (
@@ -69,7 +68,8 @@ interface CalendarGridProps {
   ) => void;
   savingEntryIds: Set<string>;
   trackingRows: TrackingRow[];
-  weekendHours?: number;
+  /** Present in the narrow week view — drives the collapsible weekend strip. */
+  weekend: { collapsed: boolean; hours: number; onExpand: () => void } | null;
 }
 
 interface PointerPosition {
@@ -89,14 +89,14 @@ function useNowMinutes() {
 export function CalendarGrid({
   days,
   entries,
+  gridTemplateColumns,
   onCreateRange,
-  onExpandWeekend,
   onMoveEntry,
   onOpenEntry,
   onResizeEntry,
   savingEntryIds,
   trackingRows,
-  weekendHours = 0,
+  weekend,
 }: CalendarGridProps) {
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -110,14 +110,15 @@ export function CalendarGrid({
       const rects = columnRefs.current
         .slice(0, days.length)
         .map((el) => el?.getBoundingClientRect() ?? null);
-      const first = rects.find(Boolean);
+      // Collapsed (zero-width) weekend columns can never be a drop target.
+      const first = rects.find((rect) => rect && rect.width > 20);
       if (!first) {
         return null;
       }
-      let dayIndex = 0;
+      let dayIndex = rects.indexOf(first);
       for (let i = 0; i < rects.length; i++) {
         const rect = rects[i];
-        if (!rect) {
+        if (!rect || rect.width <= 20) {
           continue;
         }
         if (clientX >= rect.left) {
@@ -431,12 +432,7 @@ export function CalendarGrid({
   return (
     <div
       className="grid select-none"
-      style={{
-        gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))${
-          onExpandWeekend ? ` ${WEEKEND_COL_PX}px` : ""
-        }`,
-        height: GRID_PX,
-      }}
+      style={{ gridTemplateColumns, height: GRID_PX }}
     >
       {/* Hour gutter */}
       <div className="relative border-r">
@@ -459,11 +455,15 @@ export function CalendarGrid({
             : dayEntries
         );
         const isToday = isSameDay(day, now);
+        const collapsed = Boolean(weekend?.collapsed && dayIndex >= 5);
         return (
           <div
             className={[
-              "relative border-r last:border-r-0",
+              "relative min-w-0 overflow-hidden border-r transition-opacity duration-300 last:border-r-0",
               isToday ? "bg-primary/[0.025]" : "",
+              collapsed
+                ? "pointer-events-none border-r-transparent opacity-0"
+                : "opacity-100",
             ].join(" ")}
             key={format(day, "yyyy-MM-dd")}
             onPointerDown={(event) => startCreate(event, dayIndex)}
@@ -552,17 +552,24 @@ export function CalendarGrid({
       })}
 
       {/* Collapsed weekend strip */}
-      {onExpandWeekend ? (
+      {weekend ? (
         <button
-          className="group flex flex-col justify-start border-l bg-muted/30 transition-colors hover:bg-accent/60"
-          onClick={onExpandWeekend}
+          className={[
+            "group flex min-w-0 flex-col justify-start overflow-hidden border-l bg-muted/30",
+            "transition-opacity duration-300 hover:bg-accent/60",
+            weekend.collapsed
+              ? "opacity-100"
+              : "pointer-events-none opacity-0",
+          ].join(" ")}
+          onClick={weekend.onExpand}
+          tabIndex={weekend.collapsed ? undefined : -1}
           type="button"
         >
           <div className="sticky top-2 flex flex-col items-center gap-1.5 py-2 text-muted-foreground group-hover:text-foreground">
-            <ChevronsLeft className="h-3 w-3" />
-            {weekendHours > 0 ? (
+            <ChevronsRight className="h-3 w-3" />
+            {weekend.hours > 0 ? (
               <span className="rounded-full bg-background px-1 py-0.5 font-medium text-[9px] tabular-nums shadow-xs [writing-mode:vertical-rl]">
-                {formatHours(weekendHours)}
+                {formatHours(weekend.hours)}
               </span>
             ) : null}
           </div>
