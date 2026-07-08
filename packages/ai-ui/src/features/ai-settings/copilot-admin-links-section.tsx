@@ -2,6 +2,7 @@ import { requestApiJson } from "@engenty/api-client";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import { SettingsFormSection } from "@engenty/ui-core";
+import type { LucideIcon } from "lucide-react";
 import {
   Bot,
   Cable,
@@ -12,10 +13,16 @@ import {
   MessagesSquare,
   Wrench,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import {
+  useAdminAiSessionsQuery,
+  useAiActionsQuery,
+  useAiAgentsQuery,
+  useAiSkillsQuery,
+  useAiToolsQuery,
+} from "../../lib/admin/ai-runtime-queries";
 import {
   countActions,
   countSkills,
@@ -30,28 +37,21 @@ import {
   buildSkillsCatalogPath,
   buildToolsPath,
 } from "../agents-workspace/agent-workspace-url-state";
-import {
-  useAdminAiSessionsQuery,
-  useAiActionsQuery,
-  useAiAgentsQuery,
-  useAiSkillsQuery,
-  useAiToolsQuery,
-} from "../../lib/admin/ai-runtime-queries";
 
 interface CopilotAdminLinksSectionProps {
   t: (key: string) => string;
 }
 
 interface AdminLinkRowProps {
-  Icon: LucideIcon;
   hint?: ReactNode;
+  Icon: LucideIcon;
   label: string;
   to: string;
 }
 
 interface AdminLinkConfig {
-  Icon: LucideIcon;
   hint?: ReactNode;
+  Icon: LucideIcon;
   labelKey: string;
   to: string;
 }

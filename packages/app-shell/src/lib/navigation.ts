@@ -35,7 +35,7 @@ function resolveSettingsItemIcon(
   }
   const moduleRoot = moduleRootFromPath(item.to);
   if (!moduleRoot) {
-    return undefined;
+    return;
   }
   const prefix = `/mdl/${moduleRoot}`;
   const moduleMenu = adminMenuItems.find(
