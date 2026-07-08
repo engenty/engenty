@@ -27,6 +27,7 @@ import { registerTimeTrackingGatewayMethods } from "./gateway-methods/index.js";
 import { getTimeTrackingContext } from "./gateway-methods/read-ops.js";
 import {
   getTimeTrackingRepo,
+  mapTeamCatalogRows,
   TEAM_TIME_TRACKING_LIST,
   teamMembersTimeTrackingBridgeAvailable,
 } from "./gateway-methods/shared.js";
@@ -510,6 +511,9 @@ export function registerTimeTrackingApi(
       if (!teamMembersTimeTrackingBridgeAvailable(gatewayDeps)) {
         return [];
       }
+      const repo = getRepo(repoOrFactory, ctx.auth);
+      const principalId = ctx.auth?.principalId ?? "";
+      const isAdmin = await repo.isPrincipalTenantAdmin(principalId);
       const raw = await invokeOperation(
         TEAM_TIME_TRACKING_LIST,
         {},
@@ -518,28 +522,13 @@ export function registerTimeTrackingApi(
       if (!Array.isArray(raw)) {
         return [];
       }
-      return raw
-        .map((row) => {
-          const r = row as Record<string, unknown>;
-          const userId = r.user_id == null ? null : String(r.user_id);
-          if (!userId) {
-            return null;
-          }
-          return {
-            id: userId,
-            user_id: userId,
-            full_name: String(r.full_name ?? ""),
-          };
-        })
-        .filter(
-          (
-            row
-          ): row is {
-            id: string;
-            user_id: string;
-            full_name: string;
-          } => row != null
-        );
+      const members = mapTeamCatalogRows(raw);
+      if (isAdmin) {
+        return members;
+      }
+      return members.filter(
+        (member) => member.id === principalId || member.user_id === principalId
+      );
     },
   });
 }

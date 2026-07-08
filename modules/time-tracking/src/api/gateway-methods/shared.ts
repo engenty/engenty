@@ -43,6 +43,32 @@ export function teamMembersTimeTrackingBridgeAvailable(
   );
 }
 
+export interface TeamCatalogRow {
+  full_name: string;
+  id: string;
+  user_id: string | null;
+}
+
+/** Map team bridge rows to time-tracking actor ids (linked user or profile id). */
+export function mapTeamCatalogRows(raw: unknown[]): TeamCatalogRow[] {
+  return raw
+    .map((row) => {
+      const r = row as Record<string, unknown>;
+      const teamMemberId = String(r.id ?? "");
+      const userId = r.user_id == null ? null : String(r.user_id);
+      const fullName = String(r.full_name ?? "").trim();
+      if (!(teamMemberId && fullName)) {
+        return null;
+      }
+      return {
+        id: userId ?? teamMemberId,
+        user_id: userId,
+        full_name: fullName,
+      };
+    })
+    .filter((row): row is TeamCatalogRow => row != null);
+}
+
 export function operationError(
   code: string,
   message: string,
