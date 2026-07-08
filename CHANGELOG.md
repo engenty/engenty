@@ -4,6 +4,16 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.5] - 2026-07-08
+- Added: Plugin list columns and group-by project
+- Added: Tasks column, sidebar layout, and linked-task counts
+- Added: Improve section headers with SPA entity links
+- Added: Confirm project delete with optional task cascade
+- Fixed: Resolve ui-plugin-sdk from workspace source in dev
+- Fixed: Publish-open without checkout credential helper
+- Fixed: Stabilize bootstrap and breadcrumb user picker
+- Fixed: Scope team catalog to tenant admins
+
 ## [0.1.4] - 2026-07-08
 - Added: Enrich Engenty admin links with live counts
 - Added: Rename AI models label and add Engenty admin links
