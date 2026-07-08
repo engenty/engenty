@@ -86,8 +86,8 @@ export function CopilotDrawerBody({
   floatingChatRouteBinding = false,
   headerChrome = "default",
   onChooserMenuAgentIdChange,
-  onFrontendToolInterruptApprove,
-  onFrontendToolInterruptReject,
+  onSandboxCommandInterruptApprove,
+  onSandboxCommandInterruptReject,
   openInterruptFromSession,
   recentSessionsChooser = false,
   registeredAgents = [],
@@ -468,14 +468,14 @@ export function CopilotDrawerBody({
     pendingInterruptToolCallIds: session.pendingInterruptToolCallIds,
     optimisticInterruptResults: session.optimisticInterruptResults,
     respond: session.respond,
-    onFrontendToolApprove: (open: AgUiOpenInterruptMetadata) => {
-      if (onFrontendToolInterruptApprove) {
-        void onFrontendToolInterruptApprove(open);
+    onSandboxCommandApprove: (open: AgUiOpenInterruptMetadata) => {
+      if (onSandboxCommandInterruptApprove) {
+        void onSandboxCommandInterruptApprove(open);
       }
     },
-    onFrontendToolReject: (open: AgUiOpenInterruptMetadata) => {
-      if (onFrontendToolInterruptReject) {
-        onFrontendToolInterruptReject(open);
+    onSandboxCommandReject: (open: AgUiOpenInterruptMetadata) => {
+      if (onSandboxCommandInterruptReject) {
+        onSandboxCommandInterruptReject(open);
       } else if (open.tool_name) {
         session.resumeInterrupt?.({
           approved: false,
@@ -568,14 +568,14 @@ export function CopilotDrawerBody({
           payload: { feedback },
         });
       }}
-      onFrontendToolApprove={(open: AgUiOpenInterruptMetadata) => {
-        if (onFrontendToolInterruptApprove) {
-          void onFrontendToolInterruptApprove(open);
+      onSandboxCommandApprove={(open: AgUiOpenInterruptMetadata) => {
+        if (onSandboxCommandInterruptApprove) {
+          void onSandboxCommandInterruptApprove(open);
         }
       }}
-      onFrontendToolReject={(open: AgUiOpenInterruptMetadata) => {
-        if (onFrontendToolInterruptReject) {
-          onFrontendToolInterruptReject(open);
+      onSandboxCommandReject={(open: AgUiOpenInterruptMetadata) => {
+        if (onSandboxCommandInterruptReject) {
+          onSandboxCommandInterruptReject(open);
         } else if (open.tool_name) {
           session.resumeInterrupt?.({
             approved: false,

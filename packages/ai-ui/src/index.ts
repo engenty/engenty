@@ -53,8 +53,6 @@ export {
   approveCopilotOpenInterrupt,
   type CopilotOpenInterruptExecuteFrontendTool,
   type CopilotOpenInterruptResumeInterrupt,
-  type RejectCopilotOpenInterruptParams,
-  rejectCopilotOpenInterrupt,
 } from "./copilot/approve-copilot-open-interrupt.js";
 export {
   COPILOT_CHAT_NEW,

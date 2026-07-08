@@ -25,11 +25,6 @@ export interface ApproveCopilotOpenInterruptParams {
   resumeInterrupt: CopilotOpenInterruptResumeInterrupt;
 }
 
-export interface RejectCopilotOpenInterruptParams {
-  open: AgUiOpenInterruptMetadata;
-  resumeInterrupt: CopilotOpenInterruptResumeInterrupt;
-}
-
 // Sandbox command interrupts resume on the server; browser frontend tools run locally first.
 export async function approveCopilotOpenInterrupt(
   params: ApproveCopilotOpenInterruptParams
@@ -60,7 +55,6 @@ export async function approveCopilotOpenInterrupt(
     const output = await executeFrontendTool({
       call_id: open.tool_call_id,
       input: open.tool_input ?? {},
-      requires_confirmation: true,
       run_id: activeThreadId ?? "",
       tool_name: open.tool_name,
     });
@@ -84,20 +78,4 @@ export async function approveCopilotOpenInterrupt(
       toolName: open.tool_name,
     });
   }
-}
-
-export function rejectCopilotOpenInterrupt(
-  params: RejectCopilotOpenInterruptParams
-): void {
-  const { open, resumeInterrupt } = params;
-
-  if (!open.tool_name) {
-    return;
-  }
-
-  resumeInterrupt({
-    approved: false,
-    interruptId: open.interrupt_id,
-    toolName: open.tool_name,
-  });
 }

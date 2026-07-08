@@ -36,7 +36,6 @@ function createAgentUi(): AgentUiRunContext {
         description: "Open the copilot.",
         parameters: { type: "object" },
         name: "openCopilot",
-        safety: "safe",
       }),
       createFrontendToolDefinition({
         availability: "enabled",
@@ -44,7 +43,6 @@ function createAgentUi(): AgentUiRunContext {
         parameters: { type: "object" },
         name: "contacts_apply_draft_patch",
         owner_module_id: "contacts",
-        safety: "requires_confirmation",
       }),
       createFrontendToolDefinition({
         availability: "enabled",
@@ -52,7 +50,6 @@ function createAgentUi(): AgentUiRunContext {
         parameters: { type: "object" },
         name: "leads.applyDraftPatch",
         owner_module_id: "leads",
-        safety: "requires_confirmation",
       }),
     ],
     state_snapshot: {

@@ -1,10 +1,7 @@
 "use client";
 
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
-import {
-  isFrontendToolOpenInterrupt,
-  isSandboxCommandOpenInterrupt,
-} from "@engenty/ag-ui-bridge";
+import { isSandboxCommandOpenInterrupt } from "@engenty/ag-ui-bridge";
 import {
   DecisionArtifactCard,
   decisionArtifactFromOpenInterrupt,
@@ -13,7 +10,6 @@ import {
   FeedbackArtifactCard,
   feedbackArtifactFromOpenInterrupt,
 } from "./feedback-artifact";
-import { FrontendToolConfirmCard } from "./frontend-tool-confirm-card";
 import { SandboxCommandConfirmCard } from "./sandbox-command-confirm-card";
 
 export function CopilotOpenInterruptBanner(props: {
@@ -29,33 +25,17 @@ export function CopilotOpenInterruptBanner(props: {
     feedback: string,
     interruptId?: string
   ) => void;
-  onFrontendToolApprove: (open: AgUiOpenInterruptMetadata) => void;
-  onFrontendToolReject: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   open: AgUiOpenInterruptMetadata;
 }) {
   if (isSandboxCommandOpenInterrupt(props.open)) {
-    const onApprove =
-      props.onSandboxCommandApprove ?? props.onFrontendToolApprove;
-    const onReject = props.onSandboxCommandReject ?? props.onFrontendToolReject;
+    const { onSandboxCommandApprove, onSandboxCommandReject } = props;
     return (
       <div className={props.className}>
         <SandboxCommandConfirmCard
-          onApprove={() => onApprove(props.open)}
-          onReject={() => onReject(props.open)}
-          open={props.open}
-        />
-      </div>
-    );
-  }
-
-  if (isFrontendToolOpenInterrupt(props.open)) {
-    return (
-      <div className={props.className}>
-        <FrontendToolConfirmCard
-          onApprove={() => props.onFrontendToolApprove(props.open)}
-          onReject={() => props.onFrontendToolReject(props.open)}
+          onApprove={() => onSandboxCommandApprove?.(props.open)}
+          onReject={() => onSandboxCommandReject?.(props.open)}
           open={props.open}
         />
       </div>

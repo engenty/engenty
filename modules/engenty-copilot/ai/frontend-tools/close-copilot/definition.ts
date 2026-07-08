@@ -8,7 +8,6 @@ export const CLOSE_COPILOT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description: "Close the Engenty copilot panel.",
   name: "closeCopilot",
-  safety: "safe",
   schema: z.object({}),
   title: "Close Copilot",
 });

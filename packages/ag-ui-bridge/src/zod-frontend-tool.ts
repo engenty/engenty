@@ -12,7 +12,6 @@ import {
   createFrontendToolDefinition,
   type FrontendToolAvailability,
   type FrontendToolDefinition,
-  type FrontendToolSafety,
 } from "./frontend-tools.js";
 import type { JsonValue } from "./json-value.js";
 
@@ -24,8 +23,6 @@ export interface EngentyFrontendToolSpec<TSchema extends z.ZodType> {
   name: string;
   /** Module owner for tenant/effective-state gating; omitted for core tools. */
   owner_module_id?: string;
-  /** Harness gating: `"safe"` runs directly, `"requires_confirmation"` is gated. */
-  safety: FrontendToolSafety;
   schema: TSchema;
   title?: string;
 }
@@ -51,7 +48,6 @@ export function buildFrontendToolDefinitionFromZod(
     name: spec.name,
     ...(spec.owner_module_id ? { owner_module_id: spec.owner_module_id } : {}),
     parameters,
-    safety: spec.safety,
     ...(spec.title ? { title: spec.title } : {}),
   });
 }

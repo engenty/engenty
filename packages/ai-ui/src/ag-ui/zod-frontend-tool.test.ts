@@ -21,7 +21,6 @@ const themeConfig = {
 const request = {
   call_id: "c1",
   input: { theme: "dark" },
-  requires_confirmation: false,
   run_id: "r1",
   tool_name: "shell_set_theme",
 };

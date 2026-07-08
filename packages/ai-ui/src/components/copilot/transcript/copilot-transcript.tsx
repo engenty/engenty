@@ -212,13 +212,13 @@ export function CopilotTranscript({
 function CopilotTranscriptSandboxInterruptInline(props: {
   open: AgUiOpenInterruptMetadata;
 }) {
-  const { onFrontendToolApprove, onFrontendToolReject } =
+  const { onSandboxCommandApprove, onSandboxCommandReject } =
     useCopilotToolCallActions();
 
   return (
     <SandboxCommandConfirmCard
-      onApprove={() => onFrontendToolApprove?.(props.open)}
-      onReject={() => onFrontendToolReject?.(props.open)}
+      onApprove={() => onSandboxCommandApprove?.(props.open)}
+      onReject={() => onSandboxCommandReject?.(props.open)}
       open={props.open}
     />
   );

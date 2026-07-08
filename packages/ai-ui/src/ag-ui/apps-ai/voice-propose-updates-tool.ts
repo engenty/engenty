@@ -53,7 +53,6 @@ export const PROPOSE_UPDATES_VOICE_TOOL = createFrontendToolDefinition({
     required: ["context_id", "context_type", "suggestions"],
     type: "object",
   },
-  safety: "safe",
   title: "Propose field updates",
 });
 

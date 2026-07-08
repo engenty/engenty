@@ -60,7 +60,6 @@ describe("Agent UI protocol validators", () => {
           },
           name: "navigate",
           owner_module_id: "contacts",
-          safety: "safe",
         }),
       ],
       state_snapshot: makeSnapshot(),
@@ -78,7 +77,6 @@ describe("Agent UI protocol validators", () => {
             description: "Broken tool.",
             input_schema: { type: "object" },
             name: "broken",
-            safety: "safe",
           },
         ],
         state_snapshot: makeSnapshot(),
@@ -103,7 +101,6 @@ describe("Agent UI protocol validators", () => {
         required: ["to"],
         type: "object",
       },
-      safety: "safe",
     });
     const input: RunAgentInput = {
       context: [{ description: "Current route", value: "/mdl/contacts" }],
@@ -135,7 +132,6 @@ describe("Agent UI protocol validators", () => {
         properties: { name: { type: "string" } },
         type: "object",
       },
-      safety: "requires_confirmation",
       title: "Patch contact",
     });
 
@@ -144,7 +140,6 @@ describe("Agent UI protocol validators", () => {
     expect(frontendTool.metadata.engenty).toEqual({
       availability: "remote",
       owner_module_id: "contacts",
-      safety: "requires_confirmation",
       title: "Patch contact",
     });
     expect(ToolSchema.parse(frontendTool)).toEqual(frontendTool);

@@ -23,7 +23,6 @@ export const VOICE_END_SESSION_TOOL = createFrontendToolDefinition({
     properties: {},
     type: "object",
   },
-  safety: "safe",
   title: "End voice session",
 });
 
@@ -38,7 +37,6 @@ export const VOICE_MUTE_TOOL = createFrontendToolDefinition({
     properties: {},
     type: "object",
   },
-  safety: "safe",
   title: "Mute microphone",
 });
 
@@ -53,7 +51,6 @@ export const VOICE_UNMUTE_TOOL = createFrontendToolDefinition({
     properties: {},
     type: "object",
   },
-  safety: "safe",
   title: "Unmute microphone",
 });
 
@@ -79,7 +76,6 @@ export const RESOLVE_PENDING_CONFIRMATION_TOOL = createFrontendToolDefinition({
     required: ["approved"],
     type: "object",
   },
-  safety: "safe",
   title: "Resolve pending confirmation",
 });
 

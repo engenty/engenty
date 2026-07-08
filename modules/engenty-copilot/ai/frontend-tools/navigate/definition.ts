@@ -9,7 +9,6 @@ export const NAVIGATE_SPEC = defineFrontendToolSpec({
   description:
     "Navigate to an internal Engenty application path and keep the copilot open beside the user in the current dock mode.",
   name: "navigate",
-  safety: "safe",
   schema: z.object({ to: z.string(), replace: z.boolean().optional() }),
   title: "Navigate",
 });

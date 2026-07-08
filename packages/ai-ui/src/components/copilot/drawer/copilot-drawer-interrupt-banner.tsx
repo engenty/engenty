@@ -6,17 +6,17 @@ import type { CopilotDrawerInjectedLane } from "./copilot-drawer-injected-lane.j
 
 export interface CopilotDrawerInterruptBannerProps {
   injected: CopilotDrawerInjectedLane;
-  onFrontendToolInterruptApprove?: (
+  onSandboxCommandInterruptApprove?: (
     open: AgUiOpenInterruptMetadata
   ) => void | Promise<void>;
-  onFrontendToolInterruptReject?: (open: AgUiOpenInterruptMetadata) => void;
+  onSandboxCommandInterruptReject?: (open: AgUiOpenInterruptMetadata) => void;
   openInterrupt: AgUiOpenInterruptMetadata;
 }
 
 export function CopilotDrawerInterruptBanner({
   injected,
-  onFrontendToolInterruptApprove,
-  onFrontendToolInterruptReject,
+  onSandboxCommandInterruptApprove,
+  onSandboxCommandInterruptReject,
   openInterrupt,
 }: CopilotDrawerInterruptBannerProps) {
   return (
@@ -30,14 +30,14 @@ export function CopilotDrawerInterruptBanner({
             interruptId,
           });
         }}
-        onFrontendToolApprove={(open) => {
-          if (onFrontendToolInterruptApprove) {
-            void onFrontendToolInterruptApprove(open);
+        onSandboxCommandApprove={(open) => {
+          if (onSandboxCommandInterruptApprove) {
+            void onSandboxCommandInterruptApprove(open);
           }
         }}
-        onFrontendToolReject={(open) => {
-          if (onFrontendToolInterruptReject) {
-            onFrontendToolInterruptReject(open);
+        onSandboxCommandReject={(open) => {
+          if (onSandboxCommandInterruptReject) {
+            onSandboxCommandInterruptReject(open);
           } else if (open.tool_name) {
             injected.resumeInterrupt?.({
               approved: false,

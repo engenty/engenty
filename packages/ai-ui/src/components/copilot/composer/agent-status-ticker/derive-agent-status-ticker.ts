@@ -3,7 +3,6 @@
  * keep in sync when copilot adds new part kinds.
  */
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
-import { isAwaitingFrontendToolConfirmationOutput } from "../../tool-call/frontend-tool-confirmation-output.js";
 import type {
   AgentRunOutcomeState,
   AgentRunStatus,
@@ -69,9 +68,6 @@ function getToolName(part: ToolPartLike): string {
 function getToolState(
   part: ToolPartLike
 ): "pending" | "running" | "completed" | "error" {
-  if (isAwaitingFrontendToolConfirmationOutput(part.output)) {
-    return "pending";
-  }
   switch (part.state) {
     case "approval-requested":
       return "pending";

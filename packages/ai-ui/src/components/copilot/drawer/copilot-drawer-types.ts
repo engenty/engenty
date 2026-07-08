@@ -92,12 +92,12 @@ export interface CopilotDrawerProps {
   onChooserMenuAgentIdChange?: (agentId: string | null) => void;
   /** Called after each assistant turn when `floatingChatRouteBinding` is enabled. */
   onFloatingChatFinish?: () => void;
-  onFrontendToolInterruptApprove?: (
-    open: AgUiOpenInterruptMetadata
-  ) => void | Promise<void>;
-  onFrontendToolInterruptReject?: (open: AgUiOpenInterruptMetadata) => void;
   onOpenChange: (open: boolean) => void;
   onPanelModeChange?: (mode: CopilotPanelMode) => void;
+  onSandboxCommandInterruptApprove?: (
+    open: AgUiOpenInterruptMetadata
+  ) => void | Promise<void>;
+  onSandboxCommandInterruptReject?: (open: AgUiOpenInterruptMetadata) => void;
   open: boolean;
   openInterruptFromSession?: AgUiOpenInterruptMetadata | null;
   panelMode?: CopilotPanelMode;

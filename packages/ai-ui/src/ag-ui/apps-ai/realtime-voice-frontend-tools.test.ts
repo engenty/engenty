@@ -1,7 +1,6 @@
 import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
-  isRealtimeVoiceFrontendToolGated,
   openAiRealtimeVoiceToolsFromFrontendTools,
   resolveOpenAiRealtimeVoiceFrontendTool,
 } from "./realtime-voice-frontend-tools.js";
@@ -12,7 +11,6 @@ const SAFE_TOOL = createFrontendToolDefinition({
   name: "navigate",
   owner_module_id: "shell",
   parameters: { properties: {}, type: "object" },
-  safety: "safe",
   title: "Navigate",
 });
 
@@ -22,7 +20,6 @@ const GATED_TOOL = createFrontendToolDefinition({
   name: "delete_record",
   owner_module_id: "shell",
   parameters: { properties: {}, type: "object" },
-  safety: "requires_confirmation",
   title: "Delete record",
 });
 
@@ -32,12 +29,11 @@ const DISABLED_TOOL = createFrontendToolDefinition({
   name: "hidden_tool",
   owner_module_id: "shell",
   parameters: { properties: {}, type: "object" },
-  safety: "safe",
   title: "Hidden",
 });
 
 describe("openAiRealtimeVoiceToolsFromFrontendTools", () => {
-  it("exposes both safe and requires_confirmation tools, skipping disabled", () => {
+  it("exposes enabled tools, skipping disabled", () => {
     const names = openAiRealtimeVoiceToolsFromFrontendTools([
       SAFE_TOOL,
       GATED_TOOL,
@@ -49,12 +45,6 @@ describe("openAiRealtimeVoiceToolsFromFrontendTools", () => {
   });
 });
 
-describe("isRealtimeVoiceFrontendToolGated", () => {
-  it("is true only for requires_confirmation tools", () => {
-    expect(isRealtimeVoiceFrontendToolGated(GATED_TOOL)).toBe(true);
-    expect(isRealtimeVoiceFrontendToolGated(SAFE_TOOL)).toBe(false);
-  });
-});
 
 describe("resolveOpenAiRealtimeVoiceFrontendTool", () => {
   it("resolves the definition from the realtime tool name", () => {

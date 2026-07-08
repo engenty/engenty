@@ -13,8 +13,8 @@ export interface CopilotDecisionInterruptFeedback {
 
 export interface CopilotToolCallActionsValue {
   awaitingInterrupt?: boolean;
-  onFrontendToolApprove?: (open: AgUiOpenInterruptMetadata) => void;
-  onFrontendToolReject?: (open: AgUiOpenInterruptMetadata) => void;
+  onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
+  onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   openInterrupt?: AgUiOpenInterruptMetadata | null;
   /** Optimistic resolved labels keyed by toolCallId, set on `respond` so the chooser collapses instantly. */
   optimisticInterruptResults?: Record<string, string>;
@@ -37,8 +37,8 @@ const EMPTY_RESULTS: Record<string, string> = {};
 export function CopilotToolCallActionsProvider({
   awaitingInterrupt = false,
   children,
-  onFrontendToolApprove,
-  onFrontendToolReject,
+  onSandboxCommandApprove,
+  onSandboxCommandReject,
   openInterrupt,
   pendingInterruptToolCallIds,
   optimisticInterruptResults,
@@ -47,8 +47,8 @@ export function CopilotToolCallActionsProvider({
 }: {
   awaitingInterrupt?: boolean;
   children: ReactNode;
-  onFrontendToolApprove?: (open: AgUiOpenInterruptMetadata) => void;
-  onFrontendToolReject?: (open: AgUiOpenInterruptMetadata) => void;
+  onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
+  onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   openInterrupt?: AgUiOpenInterruptMetadata | null;
   pendingInterruptToolCallIds?: ReadonlySet<string>;
   optimisticInterruptResults?: Record<string, string>;
@@ -61,8 +61,8 @@ export function CopilotToolCallActionsProvider({
   const value = useMemo(
     () => ({
       awaitingInterrupt,
-      onFrontendToolApprove,
-      onFrontendToolReject,
+      onSandboxCommandApprove,
+      onSandboxCommandReject,
       openInterrupt: openInterrupt ?? null,
       pendingInterruptToolCallIds: pendingInterruptToolCallIds ?? EMPTY_PENDING,
       optimisticInterruptResults: optimisticInterruptResults ?? EMPTY_RESULTS,
@@ -71,8 +71,8 @@ export function CopilotToolCallActionsProvider({
     }),
     [
       awaitingInterrupt,
-      onFrontendToolApprove,
-      onFrontendToolReject,
+      onSandboxCommandApprove,
+      onSandboxCommandReject,
       openInterrupt,
       pendingInterruptToolCallIds,
       optimisticInterruptResults,

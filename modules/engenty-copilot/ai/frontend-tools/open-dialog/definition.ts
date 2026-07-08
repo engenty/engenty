@@ -8,7 +8,6 @@ export const OPEN_DIALOG_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description: "Open a named dialog registered by the current page.",
   name: "openDialog",
-  safety: "safe",
   schema: z.object({
     dialog_id: z.string(),
     payload: z.record(z.string(), z.unknown()).optional(),

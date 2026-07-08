@@ -15,8 +15,7 @@ const FRONTEND_TOOL_ALIAS_PREFIX = "frontend_";
 export function openAiRealtimeVoiceToolsFromFrontendTools(
   tools: readonly FrontendToolDefinition[]
 ): OpenAiRealtimeVoiceToolDefinition[] {
-  // Expose both `safe` and `requires_confirmation` tools. Safe tools auto-run;
-  // gated tools are routed through the voice confirmation flow by the provider.
+  // All enabled frontend tools auto-run — no confirmation gating.
   return tools
     .filter((tool) => tool.metadata?.engenty?.availability === "enabled")
     .map((tool) => ({
@@ -34,13 +33,6 @@ export function resolveOpenAiRealtimeVoiceFrontendTool(
   return tools.find(
     (tool) => openAiRealtimeVoiceFrontendToolName(tool) === realtimeName
   );
-}
-
-/** True when the frontend tool must be confirmed before it runs. */
-export function isRealtimeVoiceFrontendToolGated(
-  tool: Pick<FrontendToolDefinition, "metadata">
-): boolean {
-  return tool.metadata?.engenty?.safety === "requires_confirmation";
 }
 
 export async function executeOpenAiRealtimeVoiceFrontendTool(params: {
@@ -63,7 +55,6 @@ export async function executeOpenAiRealtimeVoiceFrontendTool(params: {
   return params.executeFrontendTool({
     call_id: params.request.callId,
     input,
-    requires_confirmation: false,
     run_id: params.runId,
     tool_name: toolName,
   });

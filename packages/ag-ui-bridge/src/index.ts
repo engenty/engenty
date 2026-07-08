@@ -49,7 +49,6 @@ export type {
   FrontendToolCallRequest,
   FrontendToolCallResult,
   FrontendToolDefinition,
-  FrontendToolSafety,
 } from "./frontend-tools.js";
 export {
   createFrontendToolDefinition,
