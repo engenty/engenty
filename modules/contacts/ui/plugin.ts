@@ -183,6 +183,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Contacts",
     labelKey: "contacts:menu.contacts",
     to: "/mdl/contacts/settings",
+    icon: DockContactsIcon,
     order: 120,
   });
 

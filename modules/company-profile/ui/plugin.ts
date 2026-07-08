@@ -1,4 +1,5 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { Building2 } from "lucide-react";
 import { companyProfileLiveBinding } from "./company-profile-live-binding.js";
 import { companyProfileCopilotContribution } from "./copilot-contribution.js";
 import { CompanyProfileRootPage, CompanySettingsPage } from "./pages/index.js";
@@ -38,6 +39,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Company Profile",
     labelKey: "company-profile:menu",
     to: "/mdl/company-profile/settings",
+    icon: Building2,
     order: 0,
   });
 

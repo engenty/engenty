@@ -1,11 +1,9 @@
 import { useTranslation } from "@engenty/i18n/ui";
+import { Badge, SettingsFormSection, Skeleton } from "@engenty/ui-core";
 import {
-  Badge,
-  SettingsFormSection,
-  Skeleton,
-} from "@engenty/ui-core";
-import { useUiContributions } from "@engenty/ui-plugin-sdk";
-import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
+  useUiContributions,
+  useWorkspaceContext,
+} from "@engenty/ui-plugin-sdk";
 import { BoxIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -16,25 +14,28 @@ import { usePluginsListQuery } from "@/lib/plugins-queries";
 const CONNECTION_DASH = "Connections —";
 
 /** Platform modules that are effectively mandatory but not flagged as such. */
-const PLATFORM_MODULE_IDS = new Set([
-  "engenty-coordinator",
-  "files",
-]);
+const PLATFORM_MODULE_IDS = new Set(["engenty-coordinator", "files"]);
 
 interface CollapsedPlugin {
-  id: string;
-  name: string;
+  children?: string[];
   description?: string;
   enabled: boolean;
-  children?: string[];
+  id: string;
+  name: string;
 }
 
 function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
   // 1. Filter out mandatory, packages, platform, and system plugins
   const userPlugins = plugins.filter((p) => {
-    if (p.mandatory) return false;
-    if (p.sourceType === "package") return false;
-    if (PLATFORM_MODULE_IDS.has(p.id)) return false;
+    if (p.mandatory) {
+      return false;
+    }
+    if (p.sourceType === "package") {
+      return false;
+    }
+    if (PLATFORM_MODULE_IDS.has(p.id)) {
+      return false;
+    }
     return true;
   });
 
@@ -80,7 +81,10 @@ function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
 
   // If there were connection children but no parent "Connections" entry,
   // still show a collapsed group
-  if (connectionChildren.length > 0 && !rest.some((p) => (p.name || p.id) === "Connections")) {
+  if (
+    connectionChildren.length > 0 &&
+    !rest.some((p) => (p.name || p.id) === "Connections")
+  ) {
     const childNames = connectionChildren
       .map((c) => (c.name || c.id).replace(`${CONNECTION_DASH} `, "").trim())
       .sort();
@@ -122,8 +126,8 @@ export function TenantPluginsSettingsSection() {
   return (
     <SettingsFormSection
       cardVariant="flush"
-      description="Installed modules for your workspace."
-      title="Modules"
+      description={t("settings.plugins.description")}
+      title={t("settings.plugins.title")}
     >
       <div className="divide-y divide-border">
         {isLoading ? (
@@ -139,7 +143,9 @@ export function TenantPluginsSettingsSection() {
           ))
         ) : collapsed.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">No modules found.</p>
+            <p className="text-muted-foreground text-sm">
+              {t("settings.plugins.noModules")}
+            </p>
           </div>
         ) : (
           collapsed.map((plugin) => {
@@ -157,28 +163,33 @@ export function TenantPluginsSettingsSection() {
                   <Icon className="size-4 text-muted-foreground" />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium text-foreground">
+                  <span className="truncate font-medium text-foreground text-sm">
                     {plugin.name}
                   </span>
                   {description && (
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-muted-foreground text-xs">
                       {description}
                     </span>
                   )}
                 </div>
-                <Badge variant={plugin.enabled ? "default" : "secondary"} className="shrink-0">
-                  {plugin.enabled ? "Active" : "Inactive"}
+                <Badge
+                  className="shrink-0"
+                  variant={plugin.enabled ? "default" : "secondary"}
+                >
+                  {plugin.enabled
+                    ? t("plugins.enabled")
+                    : t("plugins.disabled")}
                 </Badge>
               </div>
             );
           })
         )}
         <Link
-          className="flex items-center justify-center gap-2 px-4 py-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/5"
+          className="flex items-center justify-center gap-2 px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
           to="/admin/plugins"
         >
           <BoxIcon className="size-3" />
-          Manage all plugins
+          {t("settings.plugins.manageAll")}
         </Link>
       </div>
     </SettingsFormSection>

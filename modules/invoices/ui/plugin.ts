@@ -68,6 +68,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Invoices",
     labelKey: "invoices:menu",
     to: "/mdl/invoices/settings",
+    icon: DockInvoicesIcon,
     order: 100,
   });
 }

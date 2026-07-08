@@ -76,7 +76,7 @@ export function createFakeSupabase(options?: {
     ]) {
       builder[method] = record(method);
     }
-    // Thenable: `await query` resolves the configured result.
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable Supabase query mock
     builder.then = (
       resolve: (value: FakeTable["result"]) => unknown,
       reject?: (reason: unknown) => unknown

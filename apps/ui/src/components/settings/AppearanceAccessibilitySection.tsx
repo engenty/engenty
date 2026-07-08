@@ -21,28 +21,30 @@ export function AppearanceAccessibilitySection({
   const { t } = useTranslation("common");
 
   const CONTRAST_OPTIONS = [
-    { id: "normal" as const, label: "Standard" },
-    { id: "high" as const, label: "High Contrast" },
+    { id: "normal" as const, label: t("settings.contrast.normal") },
+    { id: "high" as const, label: t("settings.contrast.high") },
   ];
 
   const COLORBLIND_OPTIONS = [
-    { id: "none" as const, label: "None" },
+    { id: "none" as const, label: t("common.none") },
     {
       id: "deuteranopia" as const,
-      label: "Protanopia / Deuteranopia (Red-Green)",
+      label: t("settings.colorBlind.redGreen"),
     },
-    { id: "tritanopia" as const, label: "Tritanopia (Blue-Yellow)" },
+    { id: "tritanopia" as const, label: t("settings.colorBlind.blueYellow") },
   ];
 
   return (
     <SettingsFormSection
-      description="Adjust contrast and color-blind filters for the interface."
-      title="Accessibility"
+      description={t("settings.accessibilityDescription")}
+      title={t("settings.accessibility")}
     >
       <div className="space-y-6 pt-2 sm:pt-0">
         {/* Contrast options */}
         <div className="space-y-2">
-          <div className="font-medium text-foreground text-sm">Contrast</div>
+          <div className="font-medium text-foreground text-sm">
+            {t("settings.contrastTitle")}
+          </div>
           <div className="flex gap-2">
             {CONTRAST_OPTIONS.map((opt) => {
               const isActive = contrast === opt.id;
@@ -71,7 +73,7 @@ export function AppearanceAccessibilitySection({
         {/* Color blindness options */}
         <div className="space-y-2">
           <div className="font-medium text-foreground text-sm">
-            Color Blindness
+            {t("settings.colorBlindTitle")}
           </div>
           <div className="flex flex-wrap gap-2">
             {COLORBLIND_OPTIONS.map((opt) => {

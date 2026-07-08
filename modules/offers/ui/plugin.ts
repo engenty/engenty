@@ -129,6 +129,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Offers",
     labelKey: "offers:menu.offers",
     to: "/mdl/offers/settings",
+    icon: DockOffersIcon,
     order: 118,
   });
 }

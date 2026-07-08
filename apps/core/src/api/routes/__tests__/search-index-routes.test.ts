@@ -136,7 +136,7 @@ describe("search-index admin routes — provider list", () => {
         providers: Array<{
           id: string;
           is_system: boolean;
-          supports: { backfill: boolean; status: boolean };
+          supports: { backfill: boolean; search: boolean; status: boolean };
         }>;
       };
     };
@@ -146,7 +146,7 @@ describe("search-index admin routes — provider list", () => {
     ]);
     expect(
       body.data.providers.find((p) => p.id === "contacts.contact")?.supports
-    ).toEqual({ backfill: true, status: true });
+    ).toEqual({ backfill: true, search: true, status: true });
   });
 
   it("rejects unauthenticated callers", async () => {

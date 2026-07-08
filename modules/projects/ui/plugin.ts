@@ -74,6 +74,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Projects",
     labelKey: "projects:menu.projects",
     to: "/mdl/projects/settings",
+    icon: DockProjectsIcon,
     order: 115,
   });
 

@@ -30,6 +30,7 @@
     "@engenty/commercial-editor": "workspace:*",
     "@engenty/context-graph": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
+    "@engenty/company-profile": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/generative-ui": "workspace:*",

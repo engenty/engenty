@@ -386,6 +386,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Knowledge Base",
     labelKey: "kb:menu.knowledge_base",
     to: "/settings/knowledge-base",
+    icon: DockKnowledgeBaseIcon,
     order: 390,
   });
 

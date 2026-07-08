@@ -122,6 +122,7 @@ export interface UiAdminMenuItemContribution {
 }
 
 export interface UiSettingsItemContribution {
+  icon?: UiIconComponent;
   id: string;
   label: string;
   labelKey?: string;
@@ -474,6 +475,7 @@ export interface EngentyUiApi {
     label: string;
     labelKey?: string;
     to: string;
+    icon?: UiIconComponent;
     order?: number;
   }) => void;
   registerTab: (input: {
