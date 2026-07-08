@@ -292,3 +292,103 @@ export async function getTeamMembersCatalog(signal?: AbortSignal) {
     signal,
   });
 }
+
+// --- Calendar overlay (external-calendar background layer) ---
+
+export interface CalendarOption {
+  id: string;
+  primary: boolean;
+  summary: string | null;
+}
+
+export interface CalendarSource {
+  calendars: CalendarOption[];
+  connection_id: string;
+  connector_id: string;
+  label: string;
+  sharing: "personal" | "org";
+}
+
+/** A user's chosen background calendar, persisted in user settings. */
+export interface OverlayTarget {
+  calendar_id?: string;
+  connection_id: string;
+}
+
+export interface OverlayEvent {
+  all_day: boolean;
+  calendar_id: string;
+  calendar_key: string;
+  connection_id: string;
+  end: string | null;
+  event_id: string;
+  html_link: string | null;
+  location: string | null;
+  start: string | null;
+  summary: string | null;
+}
+
+export async function getCalendarSources(signal?: AbortSignal) {
+  return request<{ sources: CalendarSource[] }>(
+    "/api/time-tracking/calendar/sources",
+    { method: "GET", signal }
+  );
+}
+
+export async function getCalendarOverlayEvents(
+  params: { time_min: string; time_max: string; calendars: OverlayTarget[] },
+  signal?: AbortSignal
+) {
+  const search = new URLSearchParams({
+    time_min: params.time_min,
+    time_max: params.time_max,
+    calendars: JSON.stringify(params.calendars),
+  });
+  return request<{
+    events: OverlayEvent[];
+    errors: {
+      connection_id: string;
+      calendar_id: string | null;
+      message: string;
+    }[];
+  }>(`/api/time-tracking/calendar/events?${search.toString()}`, {
+    method: "GET",
+    signal,
+  });
+}
+
+// Per-user overlay preferences live in platform user-settings (KV, dot-scoped).
+const OVERLAY_SETTINGS_NAME = "time-tracking.calendar.overlays";
+
+export interface OverlaySettings {
+  enabled: boolean;
+  targets: OverlayTarget[];
+}
+
+export async function getOverlaySettings(
+  signal?: AbortSignal
+): Promise<OverlaySettings> {
+  const res = await request<{ type?: string; value?: unknown }>(
+    `/api/user-settings/${encodeURIComponent(OVERLAY_SETTINGS_NAME)}`,
+    { method: "GET", signal }
+  );
+  const value = res?.value;
+  if (value && typeof value === "object") {
+    const v = value as Partial<OverlaySettings>;
+    return {
+      enabled: Boolean(v.enabled),
+      targets: Array.isArray(v.targets) ? v.targets : [],
+    };
+  }
+  return { enabled: false, targets: [] };
+}
+
+export async function setOverlaySettings(value: OverlaySettings) {
+  return request<unknown>(
+    `/api/user-settings/${encodeURIComponent(OVERLAY_SETTINGS_NAME)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ type: "json", value_jsonb: value }),
+    }
+  );
+}

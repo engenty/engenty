@@ -64,6 +64,13 @@
     "moreRows": "Mehr",
     "expandWeekend": "Wochenende anzeigen",
     "collapseWeekend": "Wochenende ausblenden",
-    "saveFailed": "Zeiteintrag konnte nicht gespeichert werden"
+    "saveFailed": "Zeiteintrag konnte nicht gespeichert werden",
+    "overlay": "Kalender",
+    "overlayTitle": "Kalender im Hintergrund",
+    "overlayShow": "Kalender im Hintergrund anzeigen",
+    "overlayLoading": "Kalender werden geladen…",
+    "overlayEmpty": "Kein Kalender verbunden. Verbinde Google Calendar unter Einstellungen → Verbindungen.",
+    "overlayNoCalendars": "Keine Kalender gefunden",
+    "overlayError": "Einige Kalender konnten nicht geladen werden"
   }
 }

@@ -1,7 +1,9 @@
+import { createConnectionsModuleClient } from "@engenty/connections-sdk";
 import {
   createPluginServerGatewayCaller,
   type EngentyPluginFactory,
 } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { z } from "zod";
 import { timeTrackingAiRegistration } from "../ai/registrar.js";
 import { registerTimeTrackingApi } from "./api/index.js";
@@ -22,7 +24,15 @@ const registerTimeTrackingPlugin: EngentyPluginFactory = (engenty) => {
   const repoOrFactory = (auth: { tenantId: string; scopeId: string }) =>
     createTimeTrackingRepoSupabase(supabase, auth.tenantId, auth.scopeId);
 
-  registerTimeTrackingApi(engenty.server, repoOrFactory);
+  // Read-only external-calendar overlay: fetch events through the connections
+  // framework's calendar connectors (Google Calendar today). Null-safe if the
+  // connections tables aren't present.
+  const connectionsClient = createConnectionsModuleClient(
+    supabase as SupabaseClient,
+    { moduleId: "time-tracking" }
+  );
+
+  registerTimeTrackingApi(engenty.server, repoOrFactory, { connectionsClient });
 
   engenty.server.registerAiRegistration(
     timeTrackingAiRegistration({ invokeTimeTrackingOperation: invokeOperation })

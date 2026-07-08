@@ -1,6 +1,7 @@
 import { format, isSameDay, parseISO } from "date-fns";
 import { ChevronsRight, StickyNote } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { OverlayEvent } from "../../api.js";
 import type { TimeEntry, TrackingRow } from "../types.js";
 import {
   blockColorStyle,
@@ -17,6 +18,9 @@ import {
   layoutDayBlocks,
   MIN_DURATION,
   minutesToTime,
+  overlayAllDayForDay,
+  overlayBlockStyle,
+  overlayTimedForDay,
   projectColor,
   snapFloor,
   snapRound,
@@ -66,6 +70,8 @@ interface CalendarGridProps {
     startMin: number,
     durationMin: number
   ) => void;
+  /** Read-only external-calendar events rendered muted behind entries. */
+  overlayEvents: OverlayEvent[];
   savingEntryIds: Set<string>;
   trackingRows: TrackingRow[];
   /** Present in the narrow week view — drives the collapsible weekend strip. */
@@ -94,6 +100,7 @@ export function CalendarGrid({
   onMoveEntry,
   onOpenEntry,
   onResizeEntry,
+  overlayEvents,
   savingEntryIds,
   trackingRows,
   weekend,
@@ -456,6 +463,8 @@ export function CalendarGrid({
             ? dayEntries.filter((entry) => entry.id !== drag.entry.id)
             : dayEntries
         );
+        const overlayTimed = overlayTimedForDay(overlayEvents, day);
+        const overlayAllDay = overlayAllDayForDay(overlayEvents, day);
         const isToday = isSameDay(day, now);
         const collapsed = Boolean(weekend?.collapsed && dayIndex >= 5);
         return (
@@ -485,6 +494,42 @@ export function CalendarGrid({
                   className="absolute right-0 left-0 border-border/30 border-t border-dashed"
                   style={{ top: hour * HOUR_PX + HOUR_PX / 2 }}
                 />
+              </div>
+            ))}
+
+            {/* Overlay: all-day external events, pinned muted at the top */}
+            {overlayAllDay.map((ev, i) => (
+              <div
+                className="pointer-events-none absolute right-0.5 left-0.5 z-0 truncate rounded border border-dashed px-1 text-[9px] text-muted-foreground leading-4"
+                key={`allday-${ev.calendar_key}:${ev.event_id}`}
+                style={{
+                  ...overlayBlockStyle(ev.calendar_key),
+                  top: 1 + i * 16,
+                }}
+                title={ev.summary ?? undefined}
+              >
+                {ev.summary ?? "—"}
+              </div>
+            ))}
+
+            {/* Overlay: timed external events, muted behind entry blocks */}
+            {overlayTimed.map((block) => (
+              <div
+                className="pointer-events-none absolute right-0.5 left-0.5 z-0 overflow-hidden rounded border border-dashed px-1 py-0.5"
+                key={block.key}
+                style={{
+                  ...overlayBlockStyle(block.calendarKey),
+                  height: Math.max(
+                    12,
+                    ((block.endMin - block.startMin) / 60) * HOUR_PX - 2
+                  ),
+                  top: (block.startMin / 60) * HOUR_PX + 1,
+                }}
+                title={`${minutesToTime(block.startMin)}–${minutesToTime(block.endMin)} ${block.summary ?? ""}`}
+              >
+                <span className="block truncate text-[9px] text-muted-foreground leading-tight">
+                  {minutesToTime(block.startMin)} {block.summary ?? ""}
+                </span>
               </div>
             ))}
 

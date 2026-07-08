@@ -42,6 +42,7 @@
     "@engenty/api-client": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
     "@engenty/app-shell": "workspace:*",
+    "@engenty/connections-sdk": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",

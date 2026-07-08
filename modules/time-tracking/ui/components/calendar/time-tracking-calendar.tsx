@@ -32,6 +32,7 @@ import {
   moveTimeEntry,
   updateTimeEntry,
 } from "../../api.js";
+import { useCalendarOverlay } from "../../hooks/use-calendar-overlay.js";
 import type {
   Discipline,
   ProjectOption,
@@ -45,6 +46,7 @@ import {
   type EntryDialogResult,
 } from "./calendar-entry-dialog.js";
 import { CalendarGrid } from "./calendar-grid.js";
+import { CalendarOverlayMenu } from "./calendar-overlay-menu.js";
 import { CalendarSums } from "./calendar-sums.js";
 import { CalendarTimeline } from "./calendar-timeline.js";
 import {
@@ -187,6 +189,11 @@ export function TimeTrackingCalendar({
       return false;
     }
   });
+
+  // External-calendar overlay (read-only background). Sources load lazily —
+  // only while the picker is open — since listing calendars hits the provider.
+  const [overlayMenuOpen, setOverlayMenuOpen] = useState(false);
+  const overlay = useCalendarOverlay(weekStart, overlayMenuOpen);
 
   const span: Span = spanPref === "auto" ? autoSpan(containerWidth) : spanPref;
   // In the narrow week the weekend is collapsible: all 7 day columns stay
@@ -506,22 +513,33 @@ export function TimeTrackingCalendar({
           {t("today")}
         </Button>
         <div className="font-semibold text-sm sm:text-base">{rangeLabel}</div>
-        <div className="ml-auto flex items-center rounded-md border p-0.5">
-          {([7, 3, 1] as Span[]).map((value) => (
-            <button
-              className={[
-                "rounded px-2 py-0.5 text-xs transition-colors",
-                span === value
-                  ? "bg-accent font-medium text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-              key={value}
-              onClick={() => setSpan(value)}
-              type="button"
-            >
-              {t(`calendar.span${value}`)}
-            </button>
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+          <CalendarOverlayMenu
+            hasErrors={overlay.hasErrors}
+            onOpenChange={setOverlayMenuOpen}
+            onSettingsChange={overlay.setSettings}
+            open={overlayMenuOpen}
+            settings={overlay.settings}
+            sources={overlay.sources}
+            sourcesLoading={overlay.sourcesLoading}
+          />
+          <div className="flex items-center rounded-md border p-0.5">
+            {([7, 3, 1] as Span[]).map((value) => (
+              <button
+                className={[
+                  "rounded px-2 py-0.5 text-xs transition-colors",
+                  span === value
+                    ? "bg-accent font-medium text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+                key={value}
+                onClick={() => setSpan(value)}
+                type="button"
+              >
+                {t(`calendar.span${value}`)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -695,6 +713,7 @@ export function TimeTrackingCalendar({
               onMoveEntry={handleMoveEntry}
               onOpenEntry={handleOpenEntry}
               onResizeEntry={handleResizeEntry}
+              overlayEvents={overlay.events}
               savingEntryIds={savingIds}
               trackingRows={trackingRows}
               weekend={

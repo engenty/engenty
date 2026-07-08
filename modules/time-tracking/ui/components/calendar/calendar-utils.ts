@@ -1,5 +1,6 @@
 import { isSameDay, parseISO } from "date-fns";
 import type { CSSProperties } from "react";
+import type { OverlayEvent } from "../../api.js";
 import { isLinkableEntityId } from "../tracking-entity-link.js";
 import type { TimeEntry, TrackingRow } from "../types.js";
 
@@ -186,6 +187,89 @@ export interface PositionedBlock {
   lane: number;
   lanes: number;
   startMin: number;
+}
+
+// ---------------------------------------------------------------------------
+// Calendar overlay — read-only background events from external calendars
+// ---------------------------------------------------------------------------
+
+export interface OverlayTimedBlock {
+  calendarKey: string;
+  endMin: number;
+  key: string;
+  startMin: number;
+  summary: string | null;
+}
+
+function overlayEventStart(ev: OverlayEvent): Date | null {
+  if (!ev.start) {
+    return null;
+  }
+  const d = parseISO(ev.start);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Timed overlay events that start on `day`, positioned in grid minutes. */
+export function overlayTimedForDay(
+  events: OverlayEvent[],
+  day: Date
+): OverlayTimedBlock[] {
+  const blocks: OverlayTimedBlock[] = [];
+  for (const ev of events) {
+    if (ev.all_day) {
+      continue;
+    }
+    const start = overlayEventStart(ev);
+    if (!(start && isSameDay(start, day))) {
+      continue;
+    }
+    const startMin = clampMinutes(start.getHours() * 60 + start.getMinutes());
+    let endMin = Math.min(24 * 60, startMin + 30);
+    if (ev.end) {
+      const end = parseISO(ev.end);
+      if (!Number.isNaN(end.getTime())) {
+        // Events crossing midnight clamp to the day edge.
+        endMin = isSameDay(end, day)
+          ? clampMinutes(end.getHours() * 60 + end.getMinutes())
+          : 24 * 60;
+      }
+    }
+    if (endMin <= startMin) {
+      endMin = Math.min(24 * 60, startMin + 30);
+    }
+    blocks.push({
+      key: `${ev.calendar_key}:${ev.event_id}`,
+      calendarKey: ev.calendar_key,
+      summary: ev.summary,
+      startMin,
+      endMin,
+    });
+  }
+  return blocks;
+}
+
+/** All-day overlay events on `day`. */
+export function overlayAllDayForDay(
+  events: OverlayEvent[],
+  day: Date
+): OverlayEvent[] {
+  return events.filter((ev) => {
+    if (!(ev.all_day && ev.start)) {
+      return false;
+    }
+    const d = parseISO(ev.start);
+    return !Number.isNaN(d.getTime()) && isSameDay(d, day);
+  });
+}
+
+/** Muted tinted surface for an overlay block — deliberately fainter than an
+ *  entry so tracked time always reads on top. */
+export function overlayBlockStyle(calendarKey: string): CSSProperties {
+  const color = projectColor(calendarKey);
+  return {
+    backgroundColor: `color-mix(in oklch, ${color} 10%, transparent)`,
+    borderColor: `color-mix(in oklch, ${color} 38%, transparent)`,
+  };
 }
 
 export function layoutDayBlocks(entries: TimeEntry[]): PositionedBlock[] {

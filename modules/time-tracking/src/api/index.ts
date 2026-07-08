@@ -1,3 +1,4 @@
+import type { ConnectionsModuleClient } from "@engenty/connections-sdk";
 import {
   createPluginServerGatewayCaller,
   type PluginAuthContext,
@@ -7,6 +8,9 @@ import { z } from "@hono/zod-openapi";
 import type { createTimeTrackingRepoSupabase } from "../dal/supabase.js";
 import {
   addTrackingRowInputSchema,
+  calendarEventsListInputSchema,
+  calendarEventsListResponseSchema,
+  calendarSourcesResponseSchema,
   phaseIdParamsSchema,
   projectIdParamsSchema,
   simpleOptionSchema,
@@ -108,7 +112,8 @@ export function registerTimeTrackingApi(
     | "registerOperation"
     | "callGatewayMethod"
   >,
-  repoOrFactory: RepoOrFactory
+  repoOrFactory: RepoOrFactory,
+  options: { connectionsClient?: ConnectionsModuleClient | null } = {}
 ) {
   const { invokeOperation } = createPluginServerGatewayCaller(
     server as PluginServerApi
@@ -118,7 +123,12 @@ export function registerTimeTrackingApi(
     invokeOperation,
   };
 
-  registerTimeTrackingGatewayMethods(server, repoOrFactory, gatewayDeps);
+  registerTimeTrackingGatewayMethods(
+    server,
+    repoOrFactory,
+    gatewayDeps,
+    options.connectionsClient ?? null
+  );
 
   const op = (read: boolean) => ({
     moduleId: "time-tracking",
@@ -173,6 +183,63 @@ export function registerTimeTrackingApi(
       } catch (error) {
         return operationHttpError(error);
       }
+    },
+  });
+
+  server.registerHttpRoute({
+    method: "get",
+    path: "/api/time-tracking/calendar/sources",
+    operation: { ...op(true) },
+    summary: "List overlay-capable calendar connections",
+    tags: ["time-tracking", "calendar"],
+    responses: {
+      200: {
+        description: "Calendar sources",
+        schema: calendarSourcesResponseSchema,
+      },
+    },
+    handler: async (ctx) =>
+      invokeOperation(
+        "time_tracking_calendar_sources_list",
+        {},
+        { auth: ctx.auth }
+      ),
+  });
+
+  server.registerHttpRoute({
+    method: "get",
+    path: "/api/time-tracking/calendar/events",
+    operation: { ...op(true) },
+    summary: "List overlay calendar events for a time window",
+    tags: ["time-tracking", "calendar"],
+    responses: {
+      200: {
+        description: "Overlay events",
+        schema: calendarEventsListResponseSchema,
+      },
+    },
+    handler: async (ctx) => {
+      const url = new URL(ctx.request.url);
+      const calendarsRaw = url.searchParams.get("calendars");
+      let calendars: { connection_id: string; calendar_id?: string }[] = [];
+      if (calendarsRaw) {
+        try {
+          const parsed = JSON.parse(calendarsRaw);
+          if (Array.isArray(parsed)) {
+            calendars = parsed;
+          }
+        } catch {
+          calendars = [];
+        }
+      }
+      const parsed = calendarEventsListInputSchema.parse({
+        time_min: url.searchParams.get("time_min") ?? undefined,
+        time_max: url.searchParams.get("time_max") ?? undefined,
+        calendars,
+      });
+      return invokeOperation("time_tracking_calendar_events_list", parsed, {
+        auth: ctx.auth,
+      });
     },
   });
 

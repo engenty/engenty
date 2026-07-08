@@ -64,6 +64,13 @@
     "moreRows": "More",
     "expandWeekend": "Show weekend",
     "collapseWeekend": "Hide weekend",
-    "saveFailed": "Failed to save time entry"
+    "saveFailed": "Failed to save time entry",
+    "overlay": "Calendars",
+    "overlayTitle": "Background calendars",
+    "overlayShow": "Show calendars in background",
+    "overlayLoading": "Loading calendars…",
+    "overlayEmpty": "No calendar connected. Connect Google Calendar under Settings → Connections.",
+    "overlayNoCalendars": "No calendars found",
+    "overlayError": "Some calendars couldn't be loaded"
   }
 }

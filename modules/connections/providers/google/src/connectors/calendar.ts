@@ -151,9 +151,9 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           .number()
           .int()
           .min(1)
-          .max(25)
+          .max(250)
           .optional()
-          .describe("Maximum number of events to return (1-25, default 10)."),
+          .describe("Maximum number of events to return (1-250, default 10)."),
         time_max: z
           .string()
           .optional()

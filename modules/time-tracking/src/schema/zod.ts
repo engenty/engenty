@@ -272,3 +272,63 @@ export const timeEntryMoveOperationInputSchema =
   timeEntryIdParamsSchema.merge(timeEntryMoveSchema);
 
 export const timeTrackingContextGetInputSchema = z.object({}).optional();
+
+// --- Calendar overlay (Phase 1: read-only external-calendar background) ---
+
+/** One background calendar the user chose to overlay. */
+export const calendarOverlayTargetSchema = z.object({
+  connection_id: z.string().min(1),
+  // Omitted ⇒ the connection's primary calendar.
+  calendar_id: z.string().min(1).optional(),
+});
+
+export const calendarEventsListInputSchema = z.object({
+  // Inclusive lower / exclusive upper ISO-8601 window bounds.
+  time_min: z.string().min(1),
+  time_max: z.string().min(1),
+  calendars: z.array(calendarOverlayTargetSchema).max(20),
+});
+
+export const calendarOverlayEventSchema = z.object({
+  event_id: z.string(),
+  connection_id: z.string(),
+  calendar_id: z.string(),
+  // Stable per-calendar key for deterministic overlay coloring.
+  calendar_key: z.string(),
+  summary: z.string().nullable(),
+  start: z.string().nullable(),
+  end: z.string().nullable(),
+  all_day: z.boolean(),
+  location: z.string().nullable(),
+  html_link: z.string().nullable(),
+});
+
+export const calendarEventsListResponseSchema = z.object({
+  events: z.array(calendarOverlayEventSchema),
+  // Per-calendar failures are isolated, not fatal — surfaced so the UI can hint.
+  errors: z.array(
+    z.object({
+      connection_id: z.string(),
+      calendar_id: z.string().nullable(),
+      message: z.string(),
+    })
+  ),
+});
+
+export const calendarSourceSchema = z.object({
+  connection_id: z.string(),
+  connector_id: z.string(),
+  label: z.string(),
+  sharing: z.enum(["personal", "org"]),
+  calendars: z.array(
+    z.object({
+      id: z.string(),
+      summary: z.string().nullable(),
+      primary: z.boolean(),
+    })
+  ),
+});
+
+export const calendarSourcesResponseSchema = z.object({
+  sources: z.array(calendarSourceSchema),
+});
