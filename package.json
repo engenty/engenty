@@ -71,7 +71,7 @@
         "source": "workspace"
       }
     },
-    "containerRuntime": "orbstack"
+    "containerRuntime": "docker"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",
