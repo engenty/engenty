@@ -912,9 +912,7 @@ export function CalendarEntryDialog({
         </div>
 
         {error ? (
-          <p className="border-t px-5 py-2 text-destructive text-xs">
-            {error}
-          </p>
+          <p className="border-t px-5 py-2 text-destructive text-xs">{error}</p>
         ) : null}
       </DialogContent>
     </Dialog>

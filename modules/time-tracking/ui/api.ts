@@ -19,13 +19,13 @@ export interface TimeEntry {
   discipline?: string | null;
   hours: number;
   id: string;
-  start_time?: string | null;
   manual_phase_title?: string | null;
   manual_project_title?: string | null;
   manual_task_title?: string | null;
   notes: string | null;
   phase_id?: string | null;
   project_id?: string | null;
+  start_time?: string | null;
   task_id?: string | null;
   timesheet_row_id: string;
   user_id: string;

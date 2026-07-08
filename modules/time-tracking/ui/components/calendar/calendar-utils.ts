@@ -87,7 +87,9 @@ const CHART_VARS = [
 function hashString(value: string) {
   let hash = 0;
   for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+    // Keep the running hash within Number.MAX_SAFE_INTEGER; only used
+    // mod CHART_VARS.length below, so this coarser wrap is fine.
+    hash = (hash * 31 + value.charCodeAt(i)) % 2 ** 31;
   }
   return Math.abs(hash);
 }
@@ -179,11 +181,11 @@ export function entryLabel(
 // ---------------------------------------------------------------------------
 
 export interface PositionedBlock {
-  entry: TimeEntry;
-  startMin: number;
   endMin: number;
+  entry: TimeEntry;
   lane: number;
   lanes: number;
+  startMin: number;
 }
 
 export function layoutDayBlocks(entries: TimeEntry[]): PositionedBlock[] {

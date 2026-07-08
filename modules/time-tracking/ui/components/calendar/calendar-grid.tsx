@@ -438,7 +438,7 @@ export function CalendarGrid({
       <div className="relative border-r">
         {hourMarks.map((hour) => (
           <span
-            className="-translate-y-1/2 absolute right-2 text-[10px] text-muted-foreground tabular-nums"
+            className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums"
             key={hour}
             style={{ top: hour * HOUR_PX }}
           >
@@ -450,7 +450,9 @@ export function CalendarGrid({
       {days.map((day, dayIndex) => {
         const dayEntries = entriesForDay(entries, day);
         const blocks = layoutDayBlocks(
-          drag?.kind === "move" || drag?.kind === "resize-end" || drag?.kind === "resize-start"
+          drag?.kind === "move" ||
+            drag?.kind === "resize-end" ||
+            drag?.kind === "resize-start"
             ? dayEntries.filter((entry) => entry.id !== drag.entry.id)
             : dayEntries
         );
@@ -557,9 +559,7 @@ export function CalendarGrid({
           className={[
             "group flex min-w-0 flex-col justify-start overflow-hidden border-l bg-muted/30",
             "transition-opacity duration-300 hover:bg-accent/60",
-            weekend.collapsed
-              ? "opacity-100"
-              : "pointer-events-none opacity-0",
+            weekend.collapsed ? "opacity-100" : "pointer-events-none opacity-0",
           ].join(" ")}
           onClick={weekend.onExpand}
           tabIndex={weekend.collapsed ? undefined : -1}

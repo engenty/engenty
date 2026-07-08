@@ -88,8 +88,7 @@ export function CalendarTimeline({
       });
     }
     return result.sort(
-      (a, b) =>
-        a.startIndex - b.startIndex || a.title.localeCompare(b.title)
+      (a, b) => a.startIndex - b.startIndex || a.title.localeCompare(b.title)
     );
   }, [days, entries, trackingRows]);
 

@@ -53,13 +53,13 @@ export type TimeEntryValueUpdateInput = Partial<
 
 export interface TimeEntryMoveInput {
   date: string;
-  start_time?: string | null;
   discipline?: string | null;
   manual_phase_title?: string | null;
   manual_project_title?: string | null;
   manual_task_title?: string | null;
   phase_id?: string | null;
   project_id?: string | null;
+  start_time?: string | null;
   task_id?: string | null;
   user_id?: string;
 }

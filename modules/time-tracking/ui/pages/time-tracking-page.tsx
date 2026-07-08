@@ -246,44 +246,44 @@ export function TimeTrackingPage() {
           userId={userId}
         />
       ) : (
-      <TimeTrackingTable
-        allProjects={allProjects}
-        currentWeek={currentWeek}
-        disciplines={disciplines}
-        getEntryForRowAndDate={(row, date) =>
-          operations.getEntryForRowAndDate(row, date, timeEntries)
-        }
-        isLoading={isLoading}
-        moveDate={operations.moveDate}
-        moveDiscipline={operations.moveDiscipline}
-        moveMode={operations.moveMode}
-        movePhase={operations.movePhase}
-        movePhases={operations.movePhases}
-        moveProject={operations.moveProject}
-        moveProjectComboOpen={operations.moveProjectComboOpen}
-        moveTask={operations.moveTask}
-        moveTasks={operations.moveTasks}
-        moveUser={operations.moveUser}
-        onAddTracking={() => addRow.setAddRowOpen(true)}
-        onDeleteEntry={operations.handleDeleteEntry}
-        onDeleteRow={operations.handleDeleteRow}
-        onMoveEntry={operations.handleMoveEntry}
-        onOpenMoveMode={operations.openMoveMode}
-        onSaveEntry={operations.handleSaveEntry}
-        projectSelectionEnabled={projectsAvailable}
-        setMoveDate={operations.setMoveDate}
-        setMoveDiscipline={operations.setMoveDiscipline}
-        setMoveMode={operations.setMoveMode}
-        setMovePhase={operations.setMovePhase}
-        setMoveProject={operations.setMoveProject}
-        setMoveProjectComboOpen={operations.setMoveProjectComboOpen}
-        setMoveTask={operations.setMoveTask}
-        setMoveUser={operations.setMoveUser}
-        showUserSelect={showUserSelect}
-        timeEntries={timeEntries}
-        trackingRows={trackingRows}
-        users={users}
-      />
+        <TimeTrackingTable
+          allProjects={allProjects}
+          currentWeek={currentWeek}
+          disciplines={disciplines}
+          getEntryForRowAndDate={(row, date) =>
+            operations.getEntryForRowAndDate(row, date, timeEntries)
+          }
+          isLoading={isLoading}
+          moveDate={operations.moveDate}
+          moveDiscipline={operations.moveDiscipline}
+          moveMode={operations.moveMode}
+          movePhase={operations.movePhase}
+          movePhases={operations.movePhases}
+          moveProject={operations.moveProject}
+          moveProjectComboOpen={operations.moveProjectComboOpen}
+          moveTask={operations.moveTask}
+          moveTasks={operations.moveTasks}
+          moveUser={operations.moveUser}
+          onAddTracking={() => addRow.setAddRowOpen(true)}
+          onDeleteEntry={operations.handleDeleteEntry}
+          onDeleteRow={operations.handleDeleteRow}
+          onMoveEntry={operations.handleMoveEntry}
+          onOpenMoveMode={operations.openMoveMode}
+          onSaveEntry={operations.handleSaveEntry}
+          projectSelectionEnabled={projectsAvailable}
+          setMoveDate={operations.setMoveDate}
+          setMoveDiscipline={operations.setMoveDiscipline}
+          setMoveMode={operations.setMoveMode}
+          setMovePhase={operations.setMovePhase}
+          setMoveProject={operations.setMoveProject}
+          setMoveProjectComboOpen={operations.setMoveProjectComboOpen}
+          setMoveTask={operations.setMoveTask}
+          setMoveUser={operations.setMoveUser}
+          showUserSelect={showUserSelect}
+          timeEntries={timeEntries}
+          trackingRows={trackingRows}
+          users={users}
+        />
       )}
 
       {loadError || projectsAvailable || tasksAvailable ? null : (

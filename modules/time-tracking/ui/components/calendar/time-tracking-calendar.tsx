@@ -3,6 +3,7 @@ import { Button } from "@engenty/ui-core";
 import {
   addDays,
   addWeeks,
+  differenceInCalendarDays,
   format,
   isSameDay,
   parseISO,
@@ -97,7 +98,7 @@ function useWeekendProgress(expanded: boolean) {
     let raf = 0;
     const tick = (now: number) => {
       const p = Math.min(1, (now - startedAt) / duration);
-      const eased = p < 0.5 ? 2 * p * p : 1 - ((-2 * p + 2) ** 2) / 2;
+      const eased = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
       setProgress(from + (target - from) * eased);
       if (p < 1) {
         raf = requestAnimationFrame(tick);
@@ -158,9 +159,7 @@ export function TimeTrackingCalendar({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
-  const [spanPref, setSpanPref] = useState<Span | "auto">(() =>
-    loadSpanPref()
-  );
+  const [spanPref, setSpanPref] = useState<Span | "auto">(() => loadSpanPref());
   const [scrollbarPad, setScrollbarPad] = useState(0);
 
   const weekStart = useMemo(
@@ -237,17 +236,20 @@ export function TimeTrackingCalendar({
     setScrollbarPad(el.offsetWidth - el.clientWidth);
   }, [days.length, isLoading]);
 
-  // Start the day at a sensible working hour, once the real grid is in place
-  // (while loading the scroller only contains the skeleton and cannot scroll).
-  const didInitialScroll = useRef(false);
+  // Start the day at a sensible working hour whenever the visible day range
+  // changes (initial load, week navigation, span switch). Keyed on
+  // weekStart + span so a weekend expand/collapse doesn't yank the scroll;
+  // runs only once the real grid is mounted (the skeleton can't scroll).
+  const scrollKey = `${format(weekStart, "yyyy-MM-dd")}:${span}`;
+  const scrolledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const el = scrollerRef.current;
-    if (isLoading || didInitialScroll.current || !el) {
+    if (isLoading || !el || scrolledKeyRef.current === scrollKey) {
       return;
     }
-    didInitialScroll.current = true;
+    scrolledKeyRef.current = scrollKey;
     el.scrollTop = DAY_START_HOUR * HOUR_PX;
-  }, [isLoading]);
+  }, [isLoading, scrollKey]);
 
   const setSpan = (next: Span | "auto") => {
     setSpanPref(next);
@@ -276,12 +278,12 @@ export function TimeTrackingCalendar({
   };
 
   const goToday = () => {
-    onWeekChange(new Date());
     const today = new Date();
+    onWeekChange(today);
     const monday = startOfWeek(today, { weekStartsOn: 1 });
-    setFocusIndex(
-      Math.round((today.getTime() - monday.getTime()) / 86_400_000)
-    );
+    // Calendar-day difference, not a ms/86400000 rounding (which lands on the
+    // next day every afternoon and can drift across DST).
+    setFocusIndex(differenceInCalendarDays(today, monday));
   };
 
   // --- optimistic overrides + saving state ----------------------------------
@@ -436,8 +438,7 @@ export function TimeTrackingCalendar({
     () =>
       days.map((day) =>
         renderedEntries.filter(
-          (entry) =>
-            !entry.start_time && isSameDay(parseISO(entry.date), day)
+          (entry) => !entry.start_time && isSameDay(parseISO(entry.date), day)
         )
       ),
     [days, renderedEntries]
@@ -486,7 +487,7 @@ export function TimeTrackingCalendar({
   const weekendW = weekendProgress * (innerWidth / 7);
   const weekdayW = Math.max(0, (innerWidth - 2 * weekendW - stripW) / 5);
   const gridTemplateColumns = narrowWeek
-    ? `48px ${Array(5).fill(`${weekdayW}px`).join(" ")} ${weekendW}px ${weekendW}px ${stripW}px`
+    ? `48px ${new Array(5).fill(`${weekdayW}px`).join(" ")} ${weekendW}px ${weekendW}px ${stripW}px`
     : `48px repeat(${days.length}, minmax(0, 1fr))`;
   const gridTemplate = { gridTemplateColumns };
   const animatedGrid = "grid";
@@ -714,12 +715,12 @@ export function TimeTrackingCalendar({
           <CalendarSums
             days={days}
             gridTemplateColumns={gridTemplateColumns}
+            weekEntries={renderedEntries}
             weekend={
               narrowWeek
                 ? { collapsed: weekendCollapsed, hours: weekendHours }
                 : null
             }
-            weekEntries={renderedEntries}
           />
         </div>
       </div>

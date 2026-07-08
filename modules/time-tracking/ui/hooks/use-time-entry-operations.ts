@@ -10,7 +10,6 @@
 import { format, parseISO } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { isLinkableEntityId } from "../components/tracking-entity-link.js";
 import {
   createTimeEntry,
   deleteTimeEntry,
@@ -23,6 +22,7 @@ import {
   type TrackingRow,
   updateTimeEntry,
 } from "../api.js";
+import { isLinkableEntityId } from "../components/tracking-entity-link.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

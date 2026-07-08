@@ -8,10 +8,10 @@ interface CalendarSumsProps {
   days: Date[];
   /** Shared column template so the footer aligns with the grid/header. */
   gridTemplateColumns: string;
-  /** Present in the narrow week view — mirrors the collapsible weekend. */
-  weekend: { collapsed: boolean; hours: number } | null;
   /** All entries of the loaded week — the grand total matches the table view. */
   weekEntries: TimeEntry[];
+  /** Present in the narrow week view — mirrors the collapsible weekend. */
+  weekend: { collapsed: boolean; hours: number } | null;
 }
 
 /** Sticky footer mirroring the table view's totals row. */
@@ -57,7 +57,7 @@ export function CalendarSums({
         )}
       </div>
       <div
-        className={`-translate-y-1/2 absolute top-1/2 flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-0.5 text-xs shadow-xs transition-all duration-300 ${
+        className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-1.5 rounded-full border bg-card px-2.5 py-0.5 text-xs shadow-xs transition-all duration-300 ${
           weekendCollapsed ? "right-11" : "right-2"
         }`}
       >
