@@ -45,6 +45,54 @@ describe("navigation", () => {
         "/mdl/contacts",
       ]);
     });
+
+    it("hides developer settings links unless developer mode is enabled", () => {
+      const contributions = {
+        routes: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+      const settingsChildren = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const hidden = settingsChildren(
+        buildNavigationSections(contributions, {
+          developerModeEnabled: false,
+          isSuperAdmin: true,
+        })
+      ).map((item) => item.to);
+
+      expect(hidden).not.toContain("/settings/development");
+      expect(hidden).not.toContain("/settings/features");
+      expect(hidden).not.toContain("/settings/search-index");
+
+      const visible = settingsChildren(
+        buildNavigationSections(contributions, {
+          developerModeEnabled: true,
+          isSuperAdmin: true,
+        })
+      ).map((item) => item.to);
+
+      expect(visible).toEqual([
+        "/settings/ai",
+        "/settings/ai-usage",
+        "/settings/appearance",
+        "/settings/development",
+        "/settings/features",
+        "/settings/search-index",
+      ]);
+    });
   });
 
   describe("matchesPath", () => {

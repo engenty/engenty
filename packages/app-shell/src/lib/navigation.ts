@@ -127,10 +127,14 @@ function buildAdminNavItems(
 
 export function buildNavigationSections(
   contributions: UiContributions,
-  options: { isSuperAdmin?: boolean } = {},
+  options: {
+    developerModeEnabled?: boolean;
+    isSuperAdmin?: boolean;
+  } = {},
   t: TranslateFn = (k: string) => k
 ): NavigationSection[] {
   const isSuperAdmin = options.isSuperAdmin === true;
+  const developerModeEnabled = options.developerModeEnabled === true;
   const tasksMenuItem = contributions.adminMenuItems.find(
     (entry) => entry.id === "tasks_module_menu"
   );
@@ -156,23 +160,27 @@ export function buildNavigationSections(
       label: t("settings.appearanceTitle"),
       icon: Palette,
     },
-    {
-      to: "/settings/development",
-      label: t("settings.development.title"),
-      icon: Code2,
-    },
-    ...(isSuperAdmin
+    ...(developerModeEnabled
       ? [
           {
-            to: "/settings/features",
-            label: t("featureFlags.title"),
-            icon: Flag,
+            to: "/settings/development",
+            label: t("settings.development.title"),
+            icon: Code2,
           },
-          {
-            to: "/settings/search-index",
-            label: t("settings.searchIndex.title"),
-            icon: Search,
-          },
+          ...(isSuperAdmin
+            ? [
+                {
+                  to: "/settings/features",
+                  label: t("featureFlags.title"),
+                  icon: Flag,
+                },
+                {
+                  to: "/settings/search-index",
+                  label: t("settings.searchIndex.title"),
+                  icon: Search,
+                },
+              ]
+            : []),
         ]
       : []),
   ];

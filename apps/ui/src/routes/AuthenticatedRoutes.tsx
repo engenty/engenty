@@ -11,6 +11,7 @@ import {
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
 import { AiUsagePage } from "@/pages/AiUsagePage";
 import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
@@ -32,6 +33,8 @@ export function AuthenticatedRoutes({
   isSuperAdmin,
   isTenantAdmin,
 }: AuthenticatedRoutesProps) {
+  const developerModeEnabled = useDeveloperModeEnabled();
+
   return (
     <UiContributionsProvider contributions={contributions}>
       <Routes>
@@ -76,12 +79,18 @@ export function AuthenticatedRoutes({
           path="/settings/ai-usage"
         />
         <Route
-          element={<DevelopmentSettingsPage />}
+          element={
+            developerModeEnabled ? (
+              <DevelopmentSettingsPage />
+            ) : (
+              <Navigate replace to="/settings" />
+            )
+          }
           path="/settings/development"
         />
         <Route
           element={
-            isSuperAdmin ? (
+            developerModeEnabled && isSuperAdmin ? (
               <FeatureFlagsPage />
             ) : (
               <Navigate replace to={COPILOT_CHAT_ROOT} />
@@ -91,7 +100,7 @@ export function AuthenticatedRoutes({
         />
         <Route
           element={
-            isSuperAdmin ? (
+            developerModeEnabled && isSuperAdmin ? (
               <SearchIndexSettingsPage />
             ) : (
               <Navigate replace to={COPILOT_CHAT_ROOT} />
