@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.6] - 2026-07-08
+- Added [time-tracking]: Calendar polish — animated weekend, dropdown pickers, vibrant entries
+- Added [time-tracking]: Work-week calendar with collapsible weekend, compact toolbar
+- Added [time-tracking]: Calendar view with drag-to-track time entries
+- Fixed [time-tracking]: Correct today navigation and week-switch scroll reset
+- Fixed [design-tokens]: Define missing --amber accent (--chart-4 resolved to nothing)
+
 ## [0.1.5] - 2026-07-08
 - Added **[tasks]**: Plugin list columns and group-by project
 - Added **[projects]**: Tasks column, sidebar layout, and linked-task counts
