@@ -26,6 +26,12 @@ export {
   type CopilotVoiceFabProps,
 } from "./components/copilot/voice-fab/index.js";
 export {
+  SessionStatusIcon,
+  type SessionStatusIconProps,
+  type SessionStatusIconSize,
+  sessionStatusBadgeClassName,
+} from "./components/session-status/session-status.js";
+export {
   ACTIVE_COPILOT_NEW_CHAT_GENERATION_STORAGE_KEY,
   type ActiveCopilotHostThreadIdInput,
   type ActiveCopilotHostThreadIdResult,

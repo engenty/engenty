@@ -270,6 +270,18 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     userId,
   });
 
+  // Surface which session this tab's drawer is bound to (falls back to the
+  // static copilot title for new/unbound chats).
+  const boundThreadTitle = useMemo(() => {
+    if (!binding.activeThreadId) {
+      return null;
+    }
+    const row = threads.threads.find(
+      (thread) => thread.id === binding.activeThreadId
+    );
+    return row?.title?.trim() || row?.summary?.trim() || null;
+  }, [binding.activeThreadId, threads.threads]);
+
   const chooserMenuSessions = useMemo(
     () =>
       threads.threads.map((row) => ({
@@ -405,7 +417,9 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         startMode={props.startMode}
         suggestedUpdatesLabel={t("copilot.suggestedUpdates")}
         thinkingLabel={t("copilot.thinking")}
-        title={props.contribution?.title ?? t("copilot.title")}
+        title={
+          boundThreadTitle ?? props.contribution?.title ?? t("copilot.title")
+        }
         triggerType={props.triggerType}
       />
     </CopilotSurfaceErrorBoundary>

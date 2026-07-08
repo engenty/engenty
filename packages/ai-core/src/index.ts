@@ -105,6 +105,7 @@ export {
 export type {
   ActionDefinition,
   AgentDefinition,
+  AgentSessionStatus,
   AiRegistration,
   InstructionDocumentDefinition,
   RoutineDefinition,

@@ -1,14 +1,13 @@
 import { Badge, Button } from "@engenty/ui-core";
-import { AnimatedLoaderIcon } from "@engenty/ui-icons";
+import { Trash2 } from "lucide-react";
 import {
-  CircleAlert,
-  CircleCheckBig,
-  CircleDashed,
-  CircleDot,
-  Trash2,
-} from "lucide-react";
+  SessionStatusIcon,
+  sessionStatusBadgeClassName,
+} from "../../components/session-status/session-status.js";
 import type { AiAdminSessionRow } from "../../lib/admin/ai-runtime-api";
 import { formatRelativeDate } from "./date-format";
+
+export { SessionStatusIcon } from "../../components/session-status/session-status.js";
 
 interface AgentSessionListItemProps {
   isSelected: boolean;
@@ -16,43 +15,6 @@ interface AgentSessionListItemProps {
   onSelect: (threadId: string) => void;
   session: AiAdminSessionRow;
   t: (key: string) => string;
-}
-
-const statusStyles: Record<AiAdminSessionRow["status"], string> = {
-  completed:
-    "border-transparent bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
-  failed:
-    "border-transparent bg-destructive/10 text-destructive dark:bg-destructive/20",
-  idle: "border-transparent bg-secondary text-secondary-foreground",
-  running:
-    "border-transparent bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
-  waiting:
-    "border-transparent bg-sky-500/15 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
-};
-
-export function SessionStatusIcon({
-  status,
-}: Pick<AiAdminSessionRow, "status">) {
-  switch (status) {
-    case "running":
-      return (
-        <AnimatedLoaderIcon
-          className="text-amber-600 dark:text-amber-300"
-          play="always"
-          size="xs"
-        />
-      );
-    case "completed":
-      return (
-        <CircleCheckBig className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
-      );
-    case "failed":
-      return <CircleAlert className="h-3.5 w-3.5 text-destructive" />;
-    case "waiting":
-      return <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />;
-    default:
-      return <CircleDot className="h-3.5 w-3.5 text-muted-foreground" />;
-  }
 }
 
 export function AgentSessionListItem({
@@ -86,7 +48,10 @@ export function AgentSessionListItem({
           <span className="font-mono text-[11px] text-muted-foreground">
             {session.id.slice(0, 8)}
           </span>
-          <Badge className={statusStyles[session.status]} variant="outline">
+          <Badge
+            className={sessionStatusBadgeClassName(session.status)}
+            variant="outline"
+          >
             {session.status}
           </Badge>
           <span className="ml-auto text-[11px] text-muted-foreground">

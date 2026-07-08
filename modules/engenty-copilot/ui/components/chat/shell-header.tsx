@@ -1,13 +1,58 @@
+import {
+  ENGENTY_COPILOT_HOST_KEY,
+  SessionStatusIcon,
+  useCopilotThreadBinding,
+  useEngentyThread,
+} from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 
+/** Sidebar/chrome header showing which session this tab's copilot is bound to. */
 export function ChatShellHeader() {
   const { t } = useTranslation("engenty-copilot");
+  const binding = useCopilotThreadBinding();
+  const thread = useEngentyThread(ENGENTY_COPILOT_HOST_KEY, {
+    threadId: binding.activeThreadId,
+  });
+
+  const status = binding.activeThreadId
+    ? (thread.session?.status ?? "idle")
+    : "draft";
+  const sessionLabel = binding.activeThreadId
+    ? thread.session?.title?.trim() ||
+      thread.session?.summary?.trim() ||
+      t("chat.draftSession")
+    : t("chat.draftSession");
 
   return (
     <div className="flex h-10 min-w-0 flex-1 items-center gap-2">
-      <span className="truncate font-medium text-foreground text-sm">
-        {t("menu.label")}
+      <SessionStatusIcon label={statusLabel(status, t)} status={status} />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-[13px] text-foreground leading-snug">
+          {sessionLabel}
+        </span>
+        <span className="truncate text-[11px] text-muted-foreground leading-tight">
+          {t("menu.label")}
+        </span>
       </span>
     </div>
   );
+}
+
+function statusLabel(status: string, t: (key: string) => string): string {
+  if (status === "running") {
+    return t("chat.statusRunning");
+  }
+  if (status === "draft") {
+    return t("chat.statusDraft");
+  }
+  if (status === "waiting") {
+    return t("chat.statusWaiting");
+  }
+  if (status === "failed") {
+    return t("chat.statusFailed");
+  }
+  if (status === "completed") {
+    return t("chat.statusCompleted");
+  }
+  return t("chat.statusIdle");
 }

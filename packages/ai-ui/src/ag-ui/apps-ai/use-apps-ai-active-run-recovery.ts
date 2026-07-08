@@ -362,8 +362,14 @@ export function useAppsAiActiveRunRecovery(
 
   useEffect(() => () => stopRecovery(), [stopRecovery]);
 
-  // Subscribe to ai.thread realtime — on status → running while mounted, attach.
-  // Covers "second tab triggered a run" without requiring the user to reload.
+  // Subscribe to ai.thread realtime for the bound thread. Covers same-session
+  // multi-tab sync without requiring the user to reload:
+  // - status → running: another tab started a run — attach to its stream.
+  // - status → terminal while not attached: a fast run started and finished in
+  //   another tab before this tab ever saw "running" — refetch and replay any
+  //   unflushed partial text.
+  // - every UPDATE: title/summary/metadata/archive changes from other tabs —
+  //   invalidate detail/messages/list queries so headers and transcript follow.
   useEffect(() => {
     const threadId = options.threadId?.trim() ?? "";
     if (!(options.realtimeClient && threadId)) {
@@ -379,15 +385,38 @@ export function useAppsAiActiveRunRecovery(
           schema: "ai",
           table: "thread",
         },
+        {
+          // Deleted elsewhere → invalidation 404s the detail query, which
+          // routes through stale-thread recovery (unbind + reset).
+          event: "DELETE",
+          filter: `id=eq.${threadId}`,
+          schema: "ai",
+          table: "thread",
+        },
       ],
       onSignal: (signal) => {
-        if (signal.record?.status === "running") {
+        options.invalidateQueries(threadId);
+        const status = signal.record?.status;
+        if (status === "running") {
+          resumeActiveRun();
+          return;
+        }
+        const isTerminal = status === "completed" || status === "failed";
+        const isLocallyStreaming =
+          recoveryRunningRef.current || options.submitInFlightRef.current;
+        if (isTerminal && !isLocallyStreaming) {
           resumeActiveRun();
         }
       },
     });
     return unsubscribe;
-  }, [options.realtimeClient, options.threadId, resumeActiveRun]);
+  }, [
+    options.invalidateQueries,
+    options.realtimeClient,
+    options.submitInFlightRef,
+    options.threadId,
+    resumeActiveRun,
+  ]);
 
   return { resumeActiveRun };
 }

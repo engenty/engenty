@@ -48,7 +48,7 @@ That contradicted the product goal: **one active copilot** that follows the user
 | 2b | **Sessions per user** | **Many** `ai.agent_session` rows per user; **one active `threadId` per `bindingKey`** (not one session ever per user). Session list switches which server session the lane binds. |
 | 3 | **Session while navigating** | **One ongoing transcript** — Contacts → Tasks → etc. updates `routeContext` only; **no** new server session on route change. New session only on explicit “new chat” or session-list selection |
 | 4 | **Full-page URL** | **One chat** — URL deep-links `threadId` on the shared `engenty:copilot` lane; drawer and full-page always show the same active session |
-| 5 | **Multi-window** | **Deferred** — each browser tab = own lane; no cross-tab sync in v1 |
+| 5 | **Multi-window** | **Resolved (post-v1)** — active-thread selection is per-tab (sessionStorage layer in `threads-active-storage.ts`; localStorage remains the new-tab seed). Lane key stays `engenty:copilot` — no per-tab binding keys, `host_key` grouping unchanged. Same-thread tabs sync via the per-thread `ai.thread` realtime watcher (running → attach, terminal → replay, any UPDATE/DELETE → query invalidation) |
 | 6 | **Visible UI slot** | **One slot at a time** — opening full-page chat **closes** floating drawer / floating card chrome; layout switches, lane unchanged |
 | 7 | **`contribution.requestedAgentId`** | **C — dev warn/block** on **`engenty:copilot`**. Ignored at runtime; starter prompts + apply still work. **`requestedAgentId` must not switch agent** on the main copilot binding. |
 | 8 | **Module action buttons** | **Not copilot** — task-run-style **action lanes** with semantic **`bindingKey`**: `{module}:action:{actionId}` or `{module}:action:{actionId}:{entityId}`. Retire **`copilotLaunchId`** / **`global-copilot:*`** store hijack on main lane. |
@@ -278,8 +278,8 @@ Today `resolveCopilotWorkContextStableSessionKey` includes normalized route scop
 
 ### Multiple “open chats” — two different products
 
-**A) Browser tabs (multi-window — deferred v1)**  
-Each browser tab = separate React tree = separate **`engenty:copilot`** lane instance. No sync. Same pattern as today, explicit in decision #5.
+**A) Browser tabs (multi-window — resolved post-v1)**  
+Each browser tab = separate React tree = separate **`engenty:copilot`** lane instance, and the **active thread selection is per-tab** (sessionStorage-first in `threads-active-storage.ts`, seeded once from localStorage so a new tab inherits the last session). Tabs bound to the same thread stay in sync through the per-thread `ai.thread` realtime watcher. See decision #5.
 
 **B) Multiple chats inside one browser tab (tabs / kanban — future)**  
 Mount **multiple** `<EngentyAgent bindingKey="…">` boundaries (or one dynamic registry entry per pane). Each binding:
