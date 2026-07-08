@@ -141,18 +141,12 @@ export function registerProjectsGatewayMethods(
     summary: "Delete project",
     ...op(false),
     riskLevel: "critical" as const,
-    inputSchema: projectIdParamsSchema.extend({
-      delete_tasks: z.boolean().optional(),
-    }),
+    inputSchema: projectIdParamsSchema,
     outputSchema: z.object({ deleted: z.boolean() }),
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = input as z.infer<typeof projectIdParamsSchema> & {
-        delete_tasks?: boolean;
-      };
-      const deleted = await repo.delete(params.id, {
-        deleteTasks: params.delete_tasks,
-      });
+      const params = input as z.infer<typeof projectIdParamsSchema>;
+      const deleted = await repo.delete(params.id);
       return { deleted };
     },
   });

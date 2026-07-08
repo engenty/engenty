@@ -41,7 +41,6 @@ import {
   type ProjectListFilterState,
 } from "../components/project-list-filters.js";
 import { ProjectsCards } from "../components/projects-cards.js";
-import { ProjectsDeleteConfirmDialog } from "../components/projects-delete-confirm-dialog.js";
 import {
   type ProjectsColumnVisibility,
   type ProjectsSortColumn,
@@ -111,8 +110,6 @@ export function ProjectsListPage() {
 
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [filters, setFilters] = useState<ProjectListFilterState>({
     groupBy: "none",
@@ -289,43 +286,24 @@ export function ProjectsListPage() {
     void projectsQuery.refetch();
   }, [projectsQuery]);
 
-  const handleDeleteOne = useCallback(
-    async ({ deleteTasks }: { deleteTasks: boolean }) => {
-      if (!deletingId) {
-        return;
-      }
-      try {
-        await deleteMutation.mutateAsync({ id: deletingId, deleteTasks });
-      } catch {
-        // Error surfaced by mutation
-      }
-    },
-    [deletingId, deleteMutation]
-  );
-
-  const handleBulkDelete = useCallback(
-    async ({ deleteTasks }: { deleteTasks: boolean }) => {
-      const ids = Array.from(selectedIds);
-      if (ids.length === 0) {
-        return;
-      }
-      try {
-        await Promise.all(
-          ids.map((id) => deleteMutation.mutateAsync({ id, deleteTasks }))
-        );
-        clearSelection();
-      } catch {
-        // Error surfaced by mutation
-      }
-    },
-    [selectedIds, clearSelection, deleteMutation]
-  );
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      return;
+    }
+    try {
+      await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
+      clearSelection();
+    } catch {
+      // Error surfaced by mutation
+    }
+  }, [selectedIds, clearSelection, deleteMutation]);
 
   const bulkActions = selectedIds.size > 0 && (
     <Button
       className="h-8 gap-1.5"
       disabled={deleteMutation.isPending}
-      onClick={() => setBulkDeleteOpen(true)}
+      onClick={() => void handleBulkDelete()}
       size="sm"
       variant="destructive"
     >
@@ -552,7 +530,9 @@ export function ProjectsListPage() {
                             onCardClick={(p) =>
                               navigate(`/mdl/projects/${p.id}`)
                             }
-                            onDelete={setDeletingId}
+                            onDelete={(id) =>
+                              void deleteMutation.mutateAsync(id)
+                            }
                             onSelectOne={handleSelectOne}
                             projects={group.projects}
                             selectedIds={selectedIds}
@@ -587,22 +567,6 @@ export function ProjectsListPage() {
         onOpenChange={setCreateOpen}
         onSuccess={handleCreateSuccess}
         open={createOpen}
-      />
-
-      <ProjectsDeleteConfirmDialog
-        isDeleting={deleteMutation.isPending}
-        onClose={() => setDeletingId(null)}
-        onConfirm={handleDeleteOne}
-        open={deletingId !== null}
-        projectId={deletingId}
-      />
-
-      <ProjectsDeleteConfirmDialog
-        isDeleting={deleteMutation.isPending}
-        onClose={() => setBulkDeleteOpen(false)}
-        onConfirm={handleBulkDelete}
-        open={bulkDeleteOpen}
-        selectedCount={selectedIds.size}
       />
     </section>
   );

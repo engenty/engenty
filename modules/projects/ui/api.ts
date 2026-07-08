@@ -272,12 +272,8 @@ export async function updateProject(id: string, patch: ProjectUpdateInput) {
   });
 }
 
-export async function deleteProject(
-  id: string,
-  options?: { deleteTasks?: boolean }
-) {
-  const query = options?.deleteTasks ? "?delete_tasks=true" : "";
-  return request<{ ok: boolean; id: string }>(`/api/projects/${id}${query}`, {
+export async function deleteProject(id: string) {
+  return request<{ ok: boolean; id: string }>(`/api/projects/${id}`, {
     method: "DELETE",
   });
 }

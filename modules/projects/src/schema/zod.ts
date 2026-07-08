@@ -93,13 +93,6 @@ export const projectIdParamsSchema = z.object({
   id: z.string().min(1),
 });
 
-export const projectDeleteQuerySchema = z.object({
-  delete_tasks: z
-    .string()
-    .optional()
-    .transform((value) => value === "true" || value === "1"),
-});
-
 export const projectPhaseSchema = z.object({
   id: z.string(),
   tenant_id: z.string(),

@@ -111,12 +111,7 @@ export function useCreateProjectMutation(params: ProjectsQueryParams) {
 export function useDeleteProjectMutation(params: ProjectsQueryParams) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: string | { id: string; deleteTasks?: boolean }) => {
-      const id = typeof input === "string" ? input : input.id;
-      const deleteTasks =
-        typeof input === "string" ? undefined : input.deleteTasks;
-      return deleteProject(id, { deleteTasks });
-    },
+    mutationFn: (id: string) => deleteProject(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: projectKeys.list(params),

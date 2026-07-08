@@ -201,10 +201,7 @@ export function makeMockProjectRepo() {
       }
       return withMembers(updated);
     },
-    async delete(
-      id: string,
-      _opts?: { deleteTasks?: boolean }
-    ): Promise<boolean> {
+    async delete(id: string): Promise<boolean> {
       projectMemberIds.delete(id);
       return projects.delete(id);
     },

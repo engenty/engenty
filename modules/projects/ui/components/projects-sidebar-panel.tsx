@@ -19,7 +19,7 @@ import { useProjectsSidebarPrefs } from "../lib/use-projects-sidebar-prefs.js";
 import { getContactsPluginApi } from "../plugins.js";
 import { useProjectsList } from "../queries.js";
 import { ProjectCreateModal } from "./project-create-modal.js";
-import { ProjectsDeleteConfirmDialog } from "./projects-delete-confirm-dialog.js";
+import { ProjectsSidebarDeleteDialog } from "./projects-sidebar-delete-dialog.js";
 import { ProjectsSidebarFooter } from "./projects-sidebar-footer.js";
 // Sub-components
 import { ProjectsSidebarHeader } from "./projects-sidebar-header.js";
@@ -119,9 +119,9 @@ export function ProjectsSidebarPanel() {
   }, [projectsQuery]);
 
   const handleDeleteProject = useCallback(
-    async (id: string, options?: { deleteTasks?: boolean }) => {
+    async (id: string) => {
       try {
-        await deleteProject(id, options);
+        await deleteProject(id);
         void projectsQuery.refetch();
         if (activeProjectId === id) {
           navigate("/mdl/projects");
@@ -201,15 +201,10 @@ export function ProjectsSidebarPanel() {
         open={createOpen}
       />
 
-      <ProjectsDeleteConfirmDialog
+      <ProjectsSidebarDeleteDialog
+        deletingId={deletingId}
         onClose={() => setDeletingId(null)}
-        onConfirm={({ deleteTasks }) =>
-          deletingId
-            ? handleDeleteProject(deletingId, { deleteTasks })
-            : Promise.resolve()
-        }
-        open={deletingId !== null}
-        projectId={deletingId}
+        onConfirm={handleDeleteProject}
       />
     </div>
   );

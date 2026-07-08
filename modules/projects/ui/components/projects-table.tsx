@@ -3,6 +3,14 @@ import type { AvatarStackProfile } from "@engenty/ui-core";
 import {
   AdminListGroupHeader,
   AdminListGroupPill,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   AvatarStack,
   cn,
   DropdownMenuItem,
@@ -25,7 +33,6 @@ import { deleteProject, type ProjectListItem } from "../api.js";
 import { getProjectDisplayProfiles } from "../lib/project-display-members.js";
 import type { ProjectsListGroup } from "../lib/project-list-grouping.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
-import { ProjectsDeleteConfirmDialog } from "./projects-delete-confirm-dialog.js";
 import type {
   ProjectsColumnVisibility,
   ProjectsSortColumn,
@@ -116,18 +123,13 @@ export function ProjectsTable({
     selectedIds.size > 0 && selectedIds.size < projects.length;
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDeleteOne = async (options: { deleteTasks: boolean }) => {
-    if (!deletingId) {
-      return;
-    }
-    setIsDeleting(true);
+  const handleDeleteOne = async (id: string) => {
+    setDeletingId(id);
     try {
-      await deleteProject(deletingId, { deleteTasks: options.deleteTasks });
+      await deleteProject(id);
       onDataChange();
     } finally {
-      setIsDeleting(false);
       setDeletingId(null);
     }
   };
@@ -311,13 +313,37 @@ export function ProjectsTable({
         })}
       </Table>
 
-      <ProjectsDeleteConfirmDialog
-        isDeleting={isDeleting}
-        onClose={() => setDeletingId(null)}
-        onConfirm={handleDeleteOne}
+      <AlertDialog
+        onOpenChange={(open) => !open && setDeletingId(null)}
         open={deletingId !== null}
-        projectId={deletingId}
-      />
+      >
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("deleteProjectConfirm", {
+                defaultValue: "Delete this project?",
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteProjectConfirmDescription", {
+                defaultValue: "This action cannot be undone.",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("cancel", { defaultValue: "Cancel" })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!deletingId}
+              onClick={() => deletingId && void handleDeleteOne(deletingId)}
+            >
+              {t("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
