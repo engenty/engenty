@@ -5,9 +5,7 @@ import {
 } from "@engenty/company-profile/ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
+  BrandLogoMark,
   Card,
   CardContent,
   EditableText,
@@ -74,7 +72,7 @@ export function GeneralTenantSettingsSection() {
     return (
       <Card className="flex flex-col items-center justify-center border-none bg-transparent pt-8 shadow-none sm:pt-12">
         <CardContent className="flex w-full flex-col items-center gap-6 p-0 text-center">
-          <Skeleton className="size-20 rounded-full sm:size-24" />
+          <Skeleton className="size-20 rounded-md sm:size-24" />
           <div className="flex flex-col items-center gap-2">
             <Skeleton className="h-10 w-48" />
             <Skeleton className="h-4 w-32" />
@@ -89,16 +87,16 @@ export function GeneralTenantSettingsSection() {
       <CardContent className="flex w-full flex-col items-center gap-4 p-0 text-center">
         {/* Logo with clean interaction and precise spacing */}
         <div className="group relative">
-          <Avatar className="size-20 bg-background p-2 ring-1 ring-border sm:size-24">
-            <AvatarImage className="object-contain" src={logoUrl || ""} />
-            <AvatarFallback className="bg-gradient-to-br from-primary/10 to-primary/5 font-bold text-3xl text-primary tracking-tight sm:text-4xl">
-              {brandName.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <BrandLogoMark
+            className="size-20 border-border bg-white p-2 shadow-sm ring-1 ring-border sm:size-24 dark:bg-card"
+            fallbackClassName="text-3xl tracking-tight sm:text-4xl"
+            label={brandName}
+            logoUrl={logoUrl}
+          />
 
           {/* Edit Overlay */}
           <button
-            className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity disabled:opacity-50 group-hover:opacity-100"
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-md bg-black/40 opacity-0 transition-opacity disabled:opacity-50 group-hover:opacity-100"
             disabled={uploadingLogo || saving}
             onClick={handleLogoClick}
             type="button"

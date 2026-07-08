@@ -5,6 +5,11 @@ export {
 export type { Profile as AvatarStackProfile } from "./shell/avatar-stack";
 export { AvatarStack } from "./shell/avatar-stack";
 export {
+  BrandLogoMark,
+  type BrandLogoMarkProps,
+  brandLogoInitials,
+} from "./shell/brand-logo-mark";
+export {
   type BreadcrumbContextMetaRow,
   BreadcrumbContextPicker,
   type BreadcrumbContextPickerProps,

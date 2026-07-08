@@ -79,9 +79,12 @@ export type { AvatarStackProfile } from "./components/layout";
 export {
   AvatarStack,
   attachSidebarListInsertDropHandlers,
+  BrandLogoMark,
+  type BrandLogoMarkProps,
   type BreadcrumbContextMetaRow,
   BreadcrumbContextPicker,
   type BreadcrumbContextPickerProps,
+  brandLogoInitials,
   type ContextPopoverFooter,
   type ContextPopoverItem,
   ContextPopoverList,
