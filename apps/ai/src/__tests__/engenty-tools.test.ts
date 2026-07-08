@@ -149,21 +149,36 @@ describe("Engenty Mastra tools helpers", () => {
   });
 
   it("searches and groups compact tool results", async () => {
-    const result = await searchEngentyTools(
-      { moduleId: "contacts", query: "list" },
-      {
-        apiCatalog: makeCatalog([contactsDeleteContract, contactsListContract]),
-      }
-    );
-
-    expect(result).toMatchObject({
-      ok: true,
-      matches: [
+    const originalGatewayKey = process.env.AI_GATEWAY_API_KEY;
+    Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
+    try {
+      const result = await searchEngentyTools(
+        { moduleId: "contacts", query: "list" },
         {
-          name: "contacts_list",
-        },
-      ],
-    });
+          apiCatalog: makeCatalog([
+            contactsDeleteContract,
+            contactsListContract,
+          ]),
+        }
+      );
+
+      expect(result).toMatchObject({
+        ok: true,
+        matches: [
+          {
+            name: "contacts_list",
+            description: "Fetch contacts with filters.",
+          },
+        ],
+      });
+      expect(result.matches).toHaveLength(1);
+    } finally {
+      if (originalGatewayKey === undefined) {
+        Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
+      } else {
+        process.env.AI_GATEWAY_API_KEY = originalGatewayKey;
+      }
+    }
   });
 
   it("discovers likely tools from a natural-language request", async () => {
@@ -205,31 +220,41 @@ describe("Engenty Mastra tools helpers", () => {
   it("falls back to module tools when a catalog query looks like app content", async () => {
     // BM25 matches on token overlap ("article" would hit kb_articles_list),
     // so the fallback only fires when no query token appears in any contract.
-    const result = await searchEngentyTools(
-      {
-        moduleId: "knowledge-base",
-        query: "quarterly pricing figures",
-      },
-      {
-        apiCatalog: makeCatalog([
-          contactsListContract,
-          kbArticlesListContract,
-          kbSearchContract,
-        ]),
-      }
-    );
+    const originalGatewayKey = process.env.AI_GATEWAY_API_KEY;
+    Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
+    try {
+      const result = await searchEngentyTools(
+        {
+          moduleId: "knowledge-base",
+          query: "quarterly pricing figures",
+        },
+        {
+          apiCatalog: makeCatalog([
+            contactsListContract,
+            kbArticlesListContract,
+            kbSearchContract,
+          ]),
+        }
+      );
 
-    expect(result).toMatchObject({
-      ok: true,
-      catalog_only: true,
-      matches: expect.arrayContaining([
-        expect.objectContaining({ name: "kb_search" }),
-        expect.objectContaining({ name: "kb_articles_list" }),
-      ]),
-      message:
-        "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search.",
-      next: expect.stringContaining("engenty_tool_execute"),
-    });
+      expect(result).toMatchObject({
+        ok: true,
+        catalog_only: true,
+        matches: expect.arrayContaining([
+          expect.objectContaining({ name: "kb_search" }),
+          expect.objectContaining({ name: "kb_articles_list" }),
+        ]),
+        message:
+          "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search.",
+        next: expect.stringContaining("engenty_tool_execute"),
+      });
+    } finally {
+      if (originalGatewayKey === undefined) {
+        Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
+      } else {
+        process.env.AI_GATEWAY_API_KEY = originalGatewayKey;
+      }
+    }
   });
 
   it("lists valid module ids from available tool contracts", async () => {

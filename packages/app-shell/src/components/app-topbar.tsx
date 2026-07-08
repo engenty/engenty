@@ -164,6 +164,17 @@ export function AppTopbar({
   // Show Engenty icon trigger: only when sidebar is auto-hidden AND not currently hovering in
   const showAppMenuTrigger = isSidebarHidden && !isSidebarHovering;
 
+  const suppressEmptyTopbar =
+    !topbarOverlap &&
+    hasSecondaryNav === true &&
+    secondaryNavOpen === true &&
+    secondaryNavHeaderSlot != null &&
+    !showAppMenuTrigger &&
+    agentsWorkspaceNav == null &&
+    moduleRootNavItem?.to == null &&
+    visibleBreadcrumbs.length === 0 &&
+    actions == null;
+
   const handleAppMenuSelect = useCallback(
     (to: string, external?: boolean) => {
       setAppMenuOpen(false);
@@ -209,6 +220,7 @@ export function AppTopbar({
     <nav
       className={cn(
         "z-20 flex min-w-0 items-center justify-between overflow-x-clip",
+        suppressEmptyTopbar && "hidden max-md:flex",
         /* When topbarOverlap, float above the content (absolute within non-scrolling column). */
         topbarOverlap ? "absolute inset-x-0 top-0" : "sticky top-0",
         contentBlend

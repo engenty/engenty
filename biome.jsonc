@@ -5,6 +5,7 @@
     "includes": [
       "!**/generated-catalog.ts",
       "!**/generated-tailwind-sources.css",
+      "!changelog.json",
       "!docs/dev/flows/index.html",
       "!docs/internal/daybreak",
       "!**/.devtools",

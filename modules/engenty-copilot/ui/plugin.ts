@@ -1,5 +1,6 @@
 import { DockChatIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { Brain } from "lucide-react";
 import { CopilotChatPage } from "./pages/chat-page.js";
 import { CopilotMemorySettingsPage } from "./pages/memory-settings-page.js";
 import { CopilotChatRootRedirect } from "./pages/root-redirect.js";
@@ -58,6 +59,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Assistant memory",
     labelKey: "engenty-copilot:memory.settingsItem",
     to: "/mdl/engenty-copilot/memory",
+    icon: Brain,
     order: 135,
   });
 

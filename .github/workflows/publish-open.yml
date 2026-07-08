@@ -1,0 +1,46 @@
+name: Publish open source
+
+# On every release tag, snapshot-publish the OPEN subset of engenty-pro to the
+# public mirror engenty/engenty, so the public repo (CHANGELOG, docs, code) stays
+# in lockstep with releases automatically. See scripts/publish-open-snapshot.sh
+# for the mechanics and the excluded (closed / pro-only) paths.
+#
+# Requires a repo secret PUBLIC_REPO_PUSH_TOKEN: a PAT (classic `repo`, or
+# fine-grained with Contents: write on engenty/engenty). Without it the job fails
+# fast with a clear message.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-open
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git + public remote
+        env:
+          PUBLIC_REPO_PUSH_TOKEN: ${{ secrets.PUBLIC_REPO_PUSH_TOKEN }}
+        run: |
+          test -n "$PUBLIC_REPO_PUSH_TOKEN" || { echo "PUBLIC_REPO_PUSH_TOKEN secret is not set"; exit 1; }
+          git config user.name  "engenty-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git remote add public "https://x-access-token:${PUBLIC_REPO_PUSH_TOKEN}@github.com/engenty/engenty.git"
+
+      - name: Publish open subset to engenty/engenty
+        env:
+          PUBLIC_REMOTE: public
+          MESSAGE: "chore: sync open source to ${{ github.ref_name }}"
+        run: bash scripts/publish-open-snapshot.sh HEAD

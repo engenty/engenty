@@ -82,13 +82,38 @@ describe("startScheduler", () => {
     expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(3);
   });
 
-  it("gives up after the bounded retries when core stays unreachable", async () => {
+  it("keeps retrying indefinitely with a capped backoff while core stays unreachable", async () => {
     resolveSchedulerServiceScope.mockResolvedValue(resolutionFailed);
     const { mastra, startWorkers } = fakeMastra();
     await startScheduler({ mastra });
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(1);
+
+    // Backoff grows 5s × attempt until it hits the 60s cap (attempt 12).
+    for (let retry = 1; retry <= 12; retry++) {
+      await vi.advanceTimersByTimeAsync(Math.min(5000 * retry, 60_000));
+      expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(retry + 1);
+    }
+
+    // Well past the old 4-attempt bound: the next retry fires exactly 60s
+    // later (capped — 65s uncapped), not never.
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(13);
+    resolveSchedulerServiceScope.mockResolvedValue({ ok: true, scope });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(14);
+    expect(startWorkers).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables permanently without retrying when core rejects the JWT with 401", async () => {
+    resolveSchedulerServiceScope.mockResolvedValue({
+      ...resolutionFailed,
+      error: "agent_threads.unauthorized",
+      status: 401,
+    });
+    const { mastra, startWorkers } = fakeMastra();
+    await startScheduler({ mastra });
     await vi.runAllTimersAsync();
-    // initial attempt + SCOPE_RETRIES deferred retries
-    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(4);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(1);
     expect(startWorkers).not.toHaveBeenCalled();
   });
 });

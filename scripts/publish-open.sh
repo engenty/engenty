@@ -201,7 +201,8 @@ validate_open_commit() {
 }
 
 run_verify() {
-  log "Running quality gates (fix → lint → typecheck → build → test)..."
+  log "Running quality gates (lockfile → fix → lint → typecheck → build → test)..."
+  pnpm lockfile:check
   pnpm fix
   pnpm lint
   pnpm typecheck

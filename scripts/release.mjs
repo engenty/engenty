@@ -281,7 +281,7 @@ async function main() {
   // tags, so the recommended push below carries the tag with the commit.
   git(`tag -a ${tag} -m "chore(release): ${tag}"`);
   out(`\n${c.green("✔")} Released ${c.b(tag)} locally. Nothing pushed yet.`);
-  out(c.dim(`  Ship it:  git push origin main --follow-tags`));
+  out(c.dim("  Ship it:  git push origin main --follow-tags"));
   out(
     c.dim(
       `  → pushing the ${tag} tag triggers the image build + Coolify deploy (build-images.yml).`

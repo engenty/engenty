@@ -4,13 +4,17 @@
   },
   "save": "Save",
   "saving": "Saving...",
+  "common": {
+    "none": "None"
+  },
   "actions": {
     "add": "Add",
     "cancel": "Cancel",
     "create": "Create",
     "creating": "Creating…",
     "save": "Save",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "edit": "Edit"
   },
   "shell": {
     "loading": "Loading session...",
@@ -210,6 +214,12 @@
   "settings": {
     "generalTitle": "General Settings",
     "generalDescription": "Placeholders for upcoming persisted app preferences.",
+    "general": {
+      "nameUpdated": "Workspace name updated",
+      "nameUpdateFailed": "Failed to update workspace name",
+      "logoUpdated": "Logo updated",
+      "logoUpdateFailed": "Failed to upload logo"
+    },
     "workspaceName": "Workspace name",
     "appLabel": "App label",
     "preview": "Preview",
@@ -221,6 +231,18 @@
     "initFailed": "Initialization failed.",
     "appearanceTitle": "Appearance",
     "appearanceDescription": "Choose your color mode (light / dark / system).",
+    "accessibility": "Accessibility",
+    "accessibilityDescription": "Adjust contrast and color-blind filters for the interface.",
+    "contrastTitle": "Contrast",
+    "colorBlindTitle": "Color Blindness",
+    "contrast": {
+      "normal": "Standard",
+      "high": "High Contrast"
+    },
+    "colorBlind": {
+      "redGreen": "Protanopia / Deuteranopia (Red-Green)",
+      "blueYellow": "Tritanopia (Blue-Yellow)"
+    },
     "colorTone": "Color tone",
     "colorToneDescription": "Base hue for the interface. All theme colors are derived from this value.",
     "resetToDefault": "Reset to default",
@@ -396,6 +418,9 @@
         "fields": "Matched"
       }
     },
+    "aiModels": {
+      "menuLabel": "AI models"
+    },
     "aiUsage": {
       "menuLabel": "AI usage",
       "title": "AI usage & limits",
@@ -429,6 +454,18 @@
       "feature": "Feature",
       "user": "User",
       "noUsage": "No usage in this period yet."
+    },
+    "users": {
+      "title": "Users",
+      "description": "Manage members and permissions for this workspace.",
+      "manageAll": "Manage all users",
+      "noTeamMember": "No team member"
+    },
+    "plugins": {
+      "title": "Modules",
+      "description": "Installed modules for your workspace.",
+      "manageAll": "Manage all plugins",
+      "noModules": "No modules found."
     }
   },
   "featureFlags": {

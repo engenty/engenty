@@ -35,10 +35,25 @@
       "expensive": "Teuer"
     }
   },
-  "copilotInstructions": {
-    "title": "Copilot-Instruktionen",
-    "description": "Identität und Ton liegen beim Copilot-Agenten (engenty.copilot). Bearbeite AGENTS.md und SOUL.md im Agenten-Instruktionseditor; sie werden nicht mehr in den KI-Einstellungen gespeichert.",
-    "openEditor": "Instruktionseditor öffnen"
+  "copilotAdminLinks": {
+    "title": "Engenty",
+    "description": "Copilot, Agenten, Skills und Tools im Engenty-Admin verwalten.",
+    "hints": {
+      "overview": "Dashboard, KPIs & Schnellaktionen",
+      "agents": "{{count}} im Katalog",
+      "agentsEmpty": "Noch keine Agenten",
+      "actions": "{{count}} registriert · {{custom}} eigene",
+      "actionsEmpty": "Noch keine Actions",
+      "skills": "{{managed}} verwaltet · {{custom}} eigene",
+      "skillsEmpty": "Noch keine Skills",
+      "tools": "{{module}} Modul · {{mcp}} MCP · {{custom}} eigene",
+      "toolsEmpty": "Noch keine Tools",
+      "connections": "{{count}} verbunden",
+      "connectionsEmpty": "Keine Verbindungen",
+      "activity": "{{count}} Sessions protokolliert",
+      "activityEmpty": "Noch keine Runs oder Sessions",
+      "loading": "Lädt…"
+    }
   },
   "docConverter": {
     "providerLabel": "Bevorzugtes Backend",

@@ -1,5 +1,6 @@
 import { PdfTemplatesSettingsPage } from "@engenty/pdf-templates";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { FileText } from "lucide-react";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.i18n.registerNamespace({
@@ -23,6 +24,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "PDF Templates",
     labelKey: "pdf-templates:menu",
     to: "/settings/pdf-templates",
+    icon: FileText,
     order: 215,
   });
 }

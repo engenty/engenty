@@ -13,7 +13,11 @@ import {
 const MODULE_DEP_PREFIX = "@engenty/";
 
 /** Legacy apps/ui shell imports — kept until copilot is fully plugin-only. */
-const UI_SHELL_PINNED_MODULE_DEPS = ["@engenty/engenty-copilot"];
+const UI_SHELL_PINNED_MODULE_DEPS = [
+  "@engenty/engenty-copilot",
+  // Settings shell imports company profile form sections directly.
+  "@engenty/company-profile",
+];
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf-8"));

@@ -216,6 +216,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Tasks",
     labelKey: "tasks:menu.tasks",
     to: tasksPaths.settings,
+    icon: ListTodo,
     order: 146,
   });
 

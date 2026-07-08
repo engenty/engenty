@@ -1,4 +1,5 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { CreditCard } from "lucide-react";
 import { CommercialSettingsPage } from "./pages/index.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
@@ -23,6 +24,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Commercial",
     labelKey: "commercial-settings:menu",
     to: "/mdl/commercial-settings/settings",
+    icon: CreditCard,
     order: 11,
   });
 }

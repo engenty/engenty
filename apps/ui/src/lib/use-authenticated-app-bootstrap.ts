@@ -7,6 +7,7 @@ import {
 } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
 import { getFeatureFlagsResolved } from "@/lib/api/client";
 import { useWorkspaceContextQuery } from "@/lib/workspace-context-query";
 import type { UiContributions } from "@/plugins";
@@ -71,6 +72,7 @@ export function useAuthenticatedAppBootstrap(isAuthenticated: boolean) {
   });
 
   const [moduleNamespacesLoaded, setModuleNamespacesLoaded] = useState(false);
+  const developerModeEnabled = useDeveloperModeEnabled();
 
   useEffect(() => {
     // While plugin contributions are still fetching, `contributions` is empty. Treating that as
@@ -96,10 +98,19 @@ export function useAuthenticatedAppBootstrap(isAuthenticated: boolean) {
     void moduleNamespacesLoaded; // re-run when namespaces load so t() resolves module labelKeys
     return buildNavigationSections(
       contributions as UiContributions,
-      { isSuperAdmin: workspaceContext?.isSuperAdmin === true },
+      {
+        developerModeEnabled,
+        isSuperAdmin: workspaceContext?.isSuperAdmin === true,
+      },
       t
     );
-  }, [contributions, t, workspaceContext, moduleNamespacesLoaded]);
+  }, [
+    contributions,
+    developerModeEnabled,
+    t,
+    workspaceContext,
+    moduleNamespacesLoaded,
+  ]);
 
   const fetchResolvedFeatureFlags = useCallback(
     () => getFeatureFlagsResolved().then((r) => r.resolved),

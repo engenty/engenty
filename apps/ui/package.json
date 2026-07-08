@@ -28,6 +28,7 @@
     "@engenty/audit-logs": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
     "@engenty/commercial-editor": "workspace:*",
+    "@engenty/company-profile": "workspace:*",
     "@engenty/context-graph": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",

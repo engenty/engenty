@@ -103,10 +103,25 @@ Example: `feat(inbox): add label filters` → `- Added: …`, patch;
 ## Pro / public
 
 The product version is **shared** across `engenty-pro` and the public
-`engenty` repo — the same release is tagged in both. The public `CHANGELOG.md`
+`engenty` repo — the same release is published to both. The public `CHANGELOG.md`
 is the curated, user-facing log; closed-source changes (Manage, licensed fonts)
 go in an internal addendum, but the **version string is one** so support and
 debugging line up regardless of which repo someone is on.
+
+**Publishing is automatic.** On every `v*` tag,
+[`publish-open.yml`](https://github.com/engenty/engenty-pro/blob/main/.github/workflows/publish-open.yml)
+snapshot-publishes the open subset of this repo to `engenty/engenty` — the same
+tag push that builds and deploys. The public repo is a **filtered snapshot**, not
+a commit-for-commit mirror: [`scripts/publish-open-snapshot.sh`](https://github.com/engenty/engenty-pro/blob/main/scripts/publish-open-snapshot.sh)
+replaces its tree with `origin/main` minus the closed/pro-only paths (Manage,
+banking, brand-assets, licensed fonts, the deploy workflow, …).
+
+- Needs a repo secret **`PUBLIC_REPO_PUSH_TOKEN`** (a PAT with `Contents: write`
+  on `engenty/engenty`).
+- To publish manually (or reconcile after drift): `pnpm push:snapshot`
+  (`DRY_RUN=1 pnpm push:snapshot` to preview).
+- `scripts/publish-open.sh` (`pnpm push`) still exists for publishing a **single**
+  open commit mid-development; the snapshot is the release-time / catch-up path.
 
 ## Package versions (separate track)
 

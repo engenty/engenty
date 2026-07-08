@@ -14,7 +14,7 @@ import { RotateCcw, RotateCcwSquare, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ClassifierSettingsCard } from "../features/ai-settings/classifier-settings-card";
-import { CopilotInstructionsInfoCard } from "../features/ai-settings/copilot-instructions-info-card";
+import { CopilotAdminLinksSection } from "../features/ai-settings/copilot-admin-links-section";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
 import { GeneralSettingsCard } from "../features/ai-settings/general-settings-card";
 import {
@@ -41,6 +41,7 @@ const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
 
 export function AiGeneralSettingsPage() {
   const { t } = useTranslation("ai-ui");
+  const { t: tCommon } = useTranslation("common");
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(t("breadcrumbs.settings"));
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,9 +136,9 @@ export function AiGeneralSettingsPage() {
   const breadcrumbs = useMemo(
     () => [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: t("menu.ai") },
+      { label: tCommon("settings.aiModels.menuLabel") },
     ],
-    [moduleRootCrumb, t]
+    [moduleRootCrumb, tCommon]
   );
 
   const pageActions = useMemo(
@@ -292,7 +293,7 @@ export function AiGeneralSettingsPage() {
               t={t}
               updateSettings={updateSettings}
             />
-            <CopilotInstructionsInfoCard t={t} />
+            <CopilotAdminLinksSection t={t} />
           </TabsContent>
 
           <TabsContent className="space-y-6" value="classifier">

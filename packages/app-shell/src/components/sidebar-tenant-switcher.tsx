@@ -1,4 +1,5 @@
 import {
+  BrandLogoMark,
   cn,
   DropdownMenu,
   DropdownMenuContent,
@@ -7,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { DockEngentyIcon } from "@engenty/ui-icons";
 import { Check, ChevronsUpDown, Info, Settings } from "lucide-react";
 import type { ShellTenant } from "../types/shell";
 
@@ -30,29 +30,6 @@ interface SidebarTenantSwitcherProps {
   surface?: "rail" | "panel";
   switchingTenant: boolean;
   switchTenantAriaLabel?: string;
-}
-
-function BrandMark({
-  logoUrl,
-  brandLabel,
-  className,
-}: {
-  logoUrl?: string;
-  brandLabel: string;
-  className: string;
-}) {
-  if (logoUrl) {
-    return (
-      <img
-        alt={brandLabel}
-        className={cn("rounded-lg object-contain", className)}
-        height={40}
-        src={logoUrl}
-        width={40}
-      />
-    );
-  }
-  return <DockEngentyIcon aria-hidden className={className} />;
 }
 
 export function SidebarTenantSwitcher({
@@ -89,6 +66,10 @@ export function SidebarTenantSwitcher({
   const showTenantList = canSwitchTenant && availableTenants.length > 1;
   const showActions = Boolean(onOpenSettings || onAboutClick);
 
+  const sidebarMarkClassName =
+    "size-7.5 rounded-sm border-white/35 bg-white p-1 shadow-sm dark:border-border/40 dark:bg-card";
+  const sidebarMarkFallbackClassName = "text-[10px] tracking-tight";
+
   return (
     // Modal: base-ui only renders its inline focus-guard + `aria-owns` owner
     // spans when NON-modal (`shouldRenderGuards = !modal && open`). Those spans
@@ -111,14 +92,14 @@ export function SidebarTenantSwitcher({
           type="button"
         >
           <div
-            className="flex size-7.5 shrink-0 items-center justify-center rounded-xl border border-sidebar-primary/30 bg-sidebar-primary/15 p-1"
             style={{
               transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
             }}
           >
-            <BrandMark
-              brandLabel={brandLabel}
-              className="size-full"
+            <BrandLogoMark
+              className={sidebarMarkClassName}
+              fallbackClassName={sidebarMarkFallbackClassName}
+              label={brandLabel}
               logoUrl={logoUrl}
             />
           </div>
@@ -144,13 +125,12 @@ export function SidebarTenantSwitcher({
       >
         <DropdownMenuLabel className="p-2 pt-1 font-normal">
           <div className="flex items-center gap-3">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-lg border-[2.5px] border-slate-900/85 bg-emerald-100 p-0.5 dark:border-slate-200/85 dark:bg-emerald-950/45">
-              <BrandMark
-                brandLabel={brandLabel}
-                className="size-full"
-                logoUrl={logoUrl}
-              />
-            </div>
+            <BrandLogoMark
+              className="size-6 rounded-sm border-white/35 bg-white p-1 shadow-sm dark:border-border/40 dark:bg-card"
+              fallbackClassName="text-[9px] tracking-tight"
+              label={brandLabel}
+              logoUrl={logoUrl}
+            />
             <div className="min-w-0">
               <p className="truncate font-medium text-sm">{primaryText}</p>
               <p className="truncate text-muted-foreground text-xs">

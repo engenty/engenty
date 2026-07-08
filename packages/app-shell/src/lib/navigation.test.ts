@@ -45,6 +45,115 @@ describe("navigation", () => {
         "/mdl/contacts",
       ]);
     });
+
+    it("hides developer settings links unless developer mode is enabled", () => {
+      const contributions = {
+        routes: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+      const settingsChildren = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const hidden = settingsChildren(
+        buildNavigationSections(contributions, {
+          developerModeEnabled: false,
+          isSuperAdmin: true,
+        })
+      ).map((item) => item.to);
+
+      expect(hidden).not.toContain("/settings/development");
+      expect(hidden).not.toContain("/settings/features");
+      expect(hidden).not.toContain("/settings/search-index");
+
+      const visible = settingsChildren(
+        buildNavigationSections(contributions, {
+          developerModeEnabled: true,
+          isSuperAdmin: true,
+        })
+      ).map((item) => item.to);
+
+      expect(visible).toEqual([
+        "/settings/ai",
+        "/settings/ai-usage",
+        "/settings/appearance",
+        "/settings/development",
+        "/settings/features",
+        "/settings/search-index",
+      ]);
+    });
+
+    it("keeps settings item icons and reuses module admin menu icons", () => {
+      const InvoicesIcon = () => null;
+      const TasksIcon = () => null;
+      const sections = buildNavigationSections({
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "invoices_module_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            section: "modules",
+            to: "/mdl/invoices",
+            icon: InvoicesIcon,
+          },
+          {
+            id: "tasks_module_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            section: "modules",
+            to: "/mdl/tasks",
+            icon: TasksIcon,
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [
+          {
+            id: "invoices_settings_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            to: "/mdl/invoices/settings",
+            icon: InvoicesIcon,
+          },
+          {
+            id: "tasks_settings_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            to: "/mdl/tasks/settings",
+          },
+        ],
+      });
+
+      const settingsChildren = sections
+        .flatMap((section) => section.items)
+        .find((item) => item.to === "/settings")?.children;
+
+      expect(
+        settingsChildren?.find((item) => item.to === "/mdl/invoices/settings")
+          ?.icon
+      ).toBe(InvoicesIcon);
+      expect(
+        settingsChildren?.find((item) => item.to === "/mdl/tasks/settings")
+          ?.icon
+      ).toBe(TasksIcon);
+    });
   });
 
   describe("matchesPath", () => {

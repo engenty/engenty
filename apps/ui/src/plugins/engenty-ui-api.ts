@@ -211,6 +211,7 @@ export function createEngentyUiApi(
         label: input.label.trim(),
         labelKey: input.labelKey?.trim(),
         to: normalizePath(input.to, "settings item"),
+        icon: input.icon,
         order: input.order,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.settingsItem"),
       });

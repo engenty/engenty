@@ -333,6 +333,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Team",
     labelKey: "team:menu",
     to: TEAM_GLOBAL_SETTINGS_TAXONOMIES_PATH,
+    icon: DockTeamMembersIcon,
     order: 125,
   });
 }
