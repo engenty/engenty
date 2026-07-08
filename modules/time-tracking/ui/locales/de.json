@@ -40,6 +40,10 @@
   "thisWeek": "Diese Woche",
   "today": "Heute",
   "total": "Summe",
+  "links": {
+    "openProject": "Projekt {{title}} oeffnen",
+    "openTask": "Aufgabe {{title}} oeffnen"
+  },
   "empty": {
     "title": "Diese Woche noch keine Zeit erfasst",
     "description": "Fuege eine Aufgabe, ein Projekt oder eine manuelle Zeile hinzu, um Stunden zu erfassen."

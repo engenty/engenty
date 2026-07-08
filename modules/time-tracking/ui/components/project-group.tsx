@@ -1,4 +1,11 @@
+import { useTranslation } from "@engenty/i18n/ui";
 import { Fragment } from "react";
+import {
+  isLinkableEntityId,
+  projectDetailPath,
+  TrackingEntityLink,
+  taskDetailPath,
+} from "./tracking-entity-link.js";
 import { TrackingRow } from "./tracking-row.js";
 import type { TimeEntry, TrackingRow as TrackingRowType } from "./types.js";
 
@@ -19,6 +26,7 @@ export function ProjectGroup({
   weekDays,
   timeEntries,
 }: ProjectGroupProps) {
+  const { t } = useTranslation("time-tracking");
   const phases = new Map<
     string,
     {
@@ -55,13 +63,21 @@ export function ProjectGroup({
     <Fragment key={projectId}>
       {/* Project Header */}
       <tr className="border-t-2 border-t-border bg-muted/50">
-        <td className="px-2 py-2 text-sm" colSpan={9}>
-          <div className="text-xs leading-tight lg:text-sm">
-            <span className="font-light text-muted-foreground text-xxs lg:text-xs">
+        <td className="px-2 py-2.5" colSpan={9}>
+          <div className="text-sm leading-tight lg:text-base">
+            <span className="font-light text-muted-foreground text-xs lg:text-sm">
               {clientName}
             </span>
             {" / "}
-            <span className="font-medium">{projectTitle}</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="font-semibold">{projectTitle}</span>
+              {isLinkableEntityId(projectId) ? (
+                <TrackingEntityLink
+                  ariaLabel={t("links.openProject", { title: projectTitle })}
+                  href={projectDetailPath(projectId)}
+                />
+              ) : null}
+            </span>
           </div>
         </td>
       </tr>
@@ -100,8 +116,16 @@ export function ProjectGroup({
                     className={`px-2 py-1 ${phaseKey === "__none__" ? "pl-6" : "pl-10"}`}
                     colSpan={9}
                   >
-                    <div className="font-medium text-foreground text-sm">
-                      {task.taskTitle}
+                    <div className="flex items-center gap-1 font-medium text-foreground text-sm">
+                      <span>{task.taskTitle}</span>
+                      {isLinkableEntityId(taskKey) ? (
+                        <TrackingEntityLink
+                          ariaLabel={t("links.openTask", {
+                            title: task.taskTitle,
+                          })}
+                          href={taskDetailPath(taskKey)}
+                        />
+                      ) : null}
                     </div>
                   </td>
                 </tr>

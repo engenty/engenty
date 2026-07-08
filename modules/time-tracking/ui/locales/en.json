@@ -40,6 +40,10 @@
   "thisWeek": "This week",
   "today": "Today",
   "total": "Total",
+  "links": {
+    "openProject": "Open project {{title}}",
+    "openTask": "Open task {{title}}"
+  },
   "empty": {
     "title": "No time tracked this week",
     "description": "Add a task, project, or custom row to start logging hours for this week."
