@@ -346,6 +346,7 @@ describe("projects task consumer contract", () => {
             });
             const chain = {
               eq: () => chain,
+              // biome-ignore lint/suspicious/noThenProperty: intentional thenable Supabase query mock
               then: contextResult.then.bind(contextResult),
             };
             return {

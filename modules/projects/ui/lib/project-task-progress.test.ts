@@ -22,15 +22,15 @@ describe("project task progress", () => {
   });
 
   it("classifies progress tone", () => {
-    expect(getProjectTaskProgressTone({ done: 6, open: 0, total: 6, ratio: 1 })).toBe(
-      "complete"
-    );
-    expect(getProjectTaskProgressTone({ done: 0, open: 6, total: 6, ratio: 0 })).toBe(
-      "open"
-    );
-    expect(getProjectTaskProgressTone({ done: 3, open: 3, total: 6, ratio: 0.5 })).toBe(
-      "inProgress"
-    );
+    expect(
+      getProjectTaskProgressTone({ done: 6, open: 0, total: 6, ratio: 1 })
+    ).toBe("complete");
+    expect(
+      getProjectTaskProgressTone({ done: 0, open: 6, total: 6, ratio: 0 })
+    ).toBe("open");
+    expect(
+      getProjectTaskProgressTone({ done: 3, open: 3, total: 6, ratio: 0.5 })
+    ).toBe("inProgress");
     expect(getProjectTaskProgressTone(undefined)).toBe("none");
   });
 });
