@@ -94,6 +94,7 @@
     "ai:check": "node scripts/ai-check.mjs",
     "lint": "pnpm run check",
     "fix": "ultracite fix",
+    "lockfile:check": "pnpm install --frozen-lockfile",
     "setup": "pnpm engenty setup",
     "dev:env": "pnpm engenty env",
     "dev:env:init": "pnpm engenty env --init",

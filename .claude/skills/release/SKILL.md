@@ -78,8 +78,9 @@ pnpm dev:portless --domain=x
 ## Step 3 — land on main, then release
 
 1. Get the change onto `main` (push directly for **a**, merge for **b/c/d**).
-2. Sanity check `main` is green in CI and the app runs.
-3. Ship it — the one rule at the top:
+2. After any merge, run `pnpm lockfile:check` (catches a broken `pnpm-lock.yaml` before CI).
+3. Sanity check `main` is green in CI and the app runs.
+4. Ship it — the one rule at the top:
    ```bash
    pnpm release
    git push origin main --follow-tags
