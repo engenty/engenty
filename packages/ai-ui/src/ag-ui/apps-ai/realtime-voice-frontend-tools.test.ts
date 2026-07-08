@@ -45,7 +45,6 @@ describe("openAiRealtimeVoiceToolsFromFrontendTools", () => {
   });
 });
 
-
 describe("resolveOpenAiRealtimeVoiceFrontendTool", () => {
   it("resolves the definition from the realtime tool name", () => {
     const tool = resolveOpenAiRealtimeVoiceFrontendTool("delete_record", [
