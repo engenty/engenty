@@ -545,10 +545,25 @@ export function createProjectRepoSupabase(
       return this.getById(id);
     },
 
-    async delete(id: string): Promise<boolean> {
+    async delete(
+      id: string,
+      opts?: { deleteTasks?: boolean }
+    ): Promise<boolean> {
       const existing = await this.getById(id);
       if (!existing) {
         return false;
+      }
+
+      if (opts?.deleteTasks) {
+        const linked = await listProjectLinkedTasks(
+          supabase,
+          tenantId,
+          scopeId,
+          id
+        );
+        for (const task of linked) {
+          await deleteProjectLinkedTask(invokeTasks, id, task.id);
+        }
       }
 
       // Preserve time entries that reference this project (or its phases) before
