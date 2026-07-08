@@ -38,8 +38,22 @@
   "copilotAdminLinks": {
     "title": "Engenty",
     "description": "Manage Copilot, agents, skills, and tools in the Engenty admin workspace.",
-    "copilotAgent": "Copilot",
-    "instructions": "Instructions"
+    "hints": {
+      "overview": "Dashboard, KPIs & quick actions",
+      "agents": "{{count}} in catalog",
+      "agentsEmpty": "No agents yet",
+      "actions": "{{count}} registered · {{custom}} custom",
+      "actionsEmpty": "No actions yet",
+      "skills": "{{managed}} managed · {{custom}} custom",
+      "skillsEmpty": "No skills yet",
+      "tools": "{{module}} module · {{mcp}} MCP · {{custom}} custom",
+      "toolsEmpty": "No tools yet",
+      "connections": "{{count}} connected",
+      "connectionsEmpty": "No connections",
+      "activity": "{{count}} sessions logged",
+      "activityEmpty": "No runs or sessions yet",
+      "loading": "Loading…"
+    }
   },
   "docConverter": {
     "providerLabel": "Preferred backend",
