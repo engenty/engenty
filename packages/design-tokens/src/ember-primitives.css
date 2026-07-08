@@ -84,6 +84,8 @@
   --cobalt-tint: var(--info-tint);
   --moss: var(--success);
   --moss-tint: var(--success-tint);
+  --amber: var(--warning);
+  --amber-tint: var(--warning-tint);
   --rose: oklch(
     from var(--raw-background) calc(0.64 - (0.05 * var(--contrast))) 0.2
       var(--hue-danger)
