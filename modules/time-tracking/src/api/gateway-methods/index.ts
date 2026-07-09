@@ -12,8 +12,8 @@ export function registerTimeTrackingGatewayMethods(
   server: Pick<PluginServerApi, "registerOperation" | "hasOperation">,
   repoOrFactory: TimeTrackingRepoOrFactory,
   deps: TimeTrackingGatewayDeps,
-  connectionsClient: ConnectionsModuleClient | null,
-  supabase: unknown
+  connectionsClient: ConnectionsModuleClient | null = null,
+  supabase: unknown = null
 ) {
   const calendarSync =
     connectionsClient && supabase ? { connectionsClient, supabase } : null;

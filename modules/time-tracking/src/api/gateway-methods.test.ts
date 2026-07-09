@@ -79,6 +79,11 @@ const EXPECTED_OPERATIONS = [
   "time_tracking_entries_delete",
   "time_tracking_rows_create",
   "time_tracking_rows_delete",
+  "time_tracking_calendar_sources_list",
+  "time_tracking_calendar_events_list",
+  "time_tracking_calendar_sync_settings_get",
+  "time_tracking_calendar_sync_settings_set",
+  "time_tracking_calendar_sync_run",
 ];
 
 describe("registerTimeTrackingGatewayMethods", () => {
