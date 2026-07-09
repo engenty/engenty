@@ -32,7 +32,10 @@ const registerTimeTrackingPlugin: EngentyPluginFactory = (engenty) => {
     { moduleId: "time-tracking" }
   );
 
-  registerTimeTrackingApi(engenty.server, repoOrFactory, { connectionsClient });
+  registerTimeTrackingApi(engenty.server, repoOrFactory, {
+    connectionsClient,
+    supabase,
+  });
 
   engenty.server.registerAiRegistration(
     timeTrackingAiRegistration({ invokeTimeTrackingOperation: invokeOperation })

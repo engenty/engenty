@@ -1,12 +1,17 @@
 import type { ConnectionsModuleClient } from "@engenty/connections-sdk";
 import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import type { z } from "@hono/zod-openapi";
+import { createCalendarSyncRepo } from "../../dal/calendar-sync.js";
 import {
   calendarEventsListInputSchema,
   calendarEventsListResponseSchema,
   calendarSourcesResponseSchema,
+  calendarSyncRunResponseSchema,
+  calendarSyncSettingsSchema,
+  calendarSyncSettingsSetInputSchema,
   timeTrackingContextGetInputSchema,
 } from "../../schema/zod.js";
+import { syncConnection } from "../../sync/calendar-sync-service.js";
 
 /**
  * Connector ids whose events can be overlaid on the time-tracking calendar.
@@ -20,6 +25,7 @@ const MAX_OVERLAY_EVENTS_PER_CALENDAR = 250;
 
 interface CalendarGatewayDeps {
   connectionsClient: ConnectionsModuleClient | null;
+  supabase: unknown;
 }
 
 /** The acting user for connection policy (owner-visibility + sharing clamp). */
@@ -39,6 +45,7 @@ interface GcalListCalendarsResult {
     id: string;
     primary?: boolean;
     summary?: string | null;
+    time_zone?: string | null;
   }[];
 }
 
@@ -63,12 +70,20 @@ export function registerTimeTrackingCalendarGatewayMethods(
   server: Pick<PluginServerApi, "registerOperation">,
   deps: CalendarGatewayDeps
 ) {
-  const { connectionsClient } = deps;
+  const { connectionsClient, supabase } = deps;
   const readOp = {
     moduleId: "time-tracking",
     requiredCapabilities: ["module.time-tracking.read"],
     riskLevel: "low" as const,
     idempotent: true,
+    dryRunSupported: false,
+    requiresApproval: false,
+  };
+  const writeOp = {
+    moduleId: "time-tracking",
+    requiredCapabilities: ["module.time-tracking.write"],
+    riskLevel: "medium" as const,
+    idempotent: false,
     dryRunSupported: false,
     requiresApproval: false,
   };
@@ -113,6 +128,7 @@ export function registerTimeTrackingCalendarGatewayMethods(
           id: string;
           summary: string | null;
           primary: boolean;
+          time_zone: string | null;
         }[] = [];
         try {
           const res = (await connectionsClient.callAction({
@@ -127,6 +143,7 @@ export function registerTimeTrackingCalendarGatewayMethods(
             id: cal.id,
             summary: cal.summary ?? null,
             primary: Boolean(cal.primary),
+            time_zone: cal.time_zone ?? null,
           }));
         } catch {
           // A single unreachable/denied account must not sink the whole list.
@@ -211,6 +228,133 @@ export function registerTimeTrackingCalendarGatewayMethods(
         }
       }
       return { events, errors };
+    },
+  });
+
+  // Current user's push-sync settings (which calendar entries are written to).
+  server.registerOperation({
+    operationId: "time_tracking_calendar_sync_settings_get",
+    summary: "Get the current user's calendar push-sync settings",
+    ...readOp,
+    inputSchema: timeTrackingContextGetInputSchema,
+    outputSchema: calendarSyncSettingsSchema,
+    handler: async (_input, ctx) => {
+      const tenantId = ctx.auth?.tenantId;
+      const userId = actingUserId(ctx.auth);
+      const empty = {
+        sync_enabled: false,
+        connection_id: null,
+        target_calendar_id: null,
+        time_zone: null,
+      };
+      if (!(supabase && tenantId && userId)) {
+        return empty;
+      }
+      const repo = createCalendarSyncRepo(supabase, tenantId);
+      const st = await repo.getOwnerSyncState(userId);
+      if (!st) {
+        return empty;
+      }
+      return {
+        sync_enabled: st.sync_enabled,
+        connection_id: st.connection_id,
+        target_calendar_id: st.target_calendar_id,
+        time_zone: st.time_zone,
+      };
+    },
+  });
+
+  server.registerOperation({
+    operationId: "time_tracking_calendar_sync_settings_set",
+    summary: "Enable/disable calendar push sync and pick the target calendar",
+    ...writeOp,
+    inputSchema: calendarSyncSettingsSetInputSchema,
+    outputSchema: calendarSyncSettingsSchema,
+    handler: async (input, ctx) => {
+      const body = input as z.infer<typeof calendarSyncSettingsSetInputSchema>;
+      const tenantId = ctx.auth?.tenantId;
+      const userId = actingUserId(ctx.auth);
+      const scopeId = ctx.auth?.scopeId ?? "default";
+      if (!(connectionsClient && supabase && tenantId && userId)) {
+        throw new Error("calendar_sync_unavailable");
+      }
+      const repo = createCalendarSyncRepo(supabase, tenantId);
+      await repo.upsertSyncState({
+        connection_id: body.connection_id,
+        scope_id: scopeId,
+        owner_user_id: userId,
+        sync_enabled: body.sync_enabled,
+        target_calendar_id: body.target_calendar_id,
+        time_zone: body.time_zone ?? null,
+      });
+      // Enable ⇒ backfill the user's scheduled entries now, as the live user
+      // (write policy proceeds without the autonomous-mode requirement).
+      // Fire-and-forget so the save returns immediately.
+      if (body.sync_enabled) {
+        const state = await repo.getSyncState(body.connection_id);
+        if (state) {
+          void syncConnection(
+            { connectionsClient, supabase },
+            {
+              principal: { principalId: userId, principalType: "user" },
+              isAutonomous: false,
+            },
+            { tenantId, state }
+          ).catch(() => undefined);
+        }
+      }
+      return {
+        sync_enabled: body.sync_enabled,
+        connection_id: body.connection_id,
+        target_calendar_id: body.target_calendar_id,
+        time_zone: body.time_zone ?? null,
+      };
+    },
+  });
+
+  // Reconcile pass — invoked by the apps/ai system job as the service
+  // principal (autonomous; needs the connection's autonomous_mode: full).
+  server.registerOperation({
+    operationId: "time_tracking_calendar_sync_run",
+    summary: "Reconcile enabled calendar-sync connections (backfill/repair)",
+    ...writeOp,
+    inputSchema: timeTrackingContextGetInputSchema,
+    outputSchema: calendarSyncRunResponseSchema,
+    handler: async (_input, ctx) => {
+      const tenantId = ctx.auth?.tenantId;
+      if (!(connectionsClient && supabase && tenantId)) {
+        return { connections: 0, pushed: 0, deleted: 0, errors: 0 };
+      }
+      const repo = createCalendarSyncRepo(supabase, tenantId);
+      const states = await repo.listEnabledSyncStates();
+      let pushed = 0;
+      let deleted = 0;
+      let errors = 0;
+      for (const state of states) {
+        try {
+          const summary = await syncConnection(
+            { connectionsClient, supabase },
+            {
+              principal: {
+                principalId: state.owner_user_id,
+                principalType: "service",
+              },
+              isAutonomous: true,
+            },
+            { tenantId, state }
+          );
+          pushed += summary.pushed;
+          deleted += summary.deleted;
+          errors += summary.errors;
+        } catch (error) {
+          errors += 1;
+          await repo.recordSyncResult(state.connection_id, {
+            last_error:
+              error instanceof Error ? error.message : "sync_run_failed",
+          });
+        }
+      }
+      return { connections: states.length, pushed, deleted, errors };
     },
   });
 }

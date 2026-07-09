@@ -518,10 +518,12 @@ export function TimeTrackingCalendar({
             hasErrors={overlay.hasErrors}
             onOpenChange={setOverlayMenuOpen}
             onSettingsChange={overlay.setSettings}
+            onSyncChange={overlay.setSyncSettings}
             open={overlayMenuOpen}
             settings={overlay.settings}
             sources={overlay.sources}
             sourcesLoading={overlay.sourcesLoading}
+            syncSettings={overlay.syncSettings}
           />
           <div className="flex items-center rounded-md border p-0.5">
             {([7, 3, 1] as Span[]).map((value) => (

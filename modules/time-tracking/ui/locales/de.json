@@ -71,6 +71,8 @@
     "overlayLoading": "Kalender werden geladen…",
     "overlayEmpty": "Kein Kalender verbunden. Verbinde Google Calendar unter Einstellungen → Verbindungen.",
     "overlayNoCalendars": "Keine Kalender gefunden",
-    "overlayError": "Einige Kalender konnten nicht geladen werden"
+    "overlayError": "Einige Kalender konnten nicht geladen werden",
+    "syncTitle": "Meine Stunden synchronisieren",
+    "syncHint": "Schreibe deine geplanten Zeiteinträge als Termine in einen Kalender. Hintergrund-Sync erfordert die Verbindung im autonomen Modus."
   }
 }

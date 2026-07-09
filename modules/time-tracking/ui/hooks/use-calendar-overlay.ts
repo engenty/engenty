@@ -3,26 +3,45 @@ import { addDays, startOfDay } from "date-fns";
 import { useCallback } from "react";
 import {
   type CalendarSource,
+  type CalendarSyncSettings,
   getCalendarOverlayEvents,
   getCalendarSources,
+  getCalendarSyncSettings,
   getOverlaySettings,
   type OverlayEvent,
   type OverlaySettings,
+  setCalendarSyncSettings,
   setOverlaySettings,
 } from "../api.js";
 
 const SETTINGS_KEY = ["time-tracking", "calendar-overlay", "settings"] as const;
+const SYNC_KEY = ["time-tracking", "calendar-sync", "settings"] as const;
 
 const EMPTY_SETTINGS: OverlaySettings = { enabled: false, targets: [] };
+const EMPTY_SYNC: CalendarSyncSettings = {
+  sync_enabled: false,
+  connection_id: null,
+  target_calendar_id: null,
+  time_zone: null,
+};
+
+export interface SetSyncInput {
+  connection_id: string;
+  sync_enabled: boolean;
+  target_calendar_id: string;
+  time_zone?: string | null;
+}
 
 export interface UseCalendarOverlayResult {
   events: OverlayEvent[];
   eventsLoading: boolean;
   hasErrors: boolean;
   setSettings: (next: OverlaySettings) => Promise<void>;
+  setSyncSettings: (input: SetSyncInput) => Promise<void>;
   settings: OverlaySettings;
   sources: CalendarSource[];
   sourcesLoading: boolean;
+  syncSettings: CalendarSyncSettings;
 }
 
 /**
@@ -86,6 +105,19 @@ export function useCalendarOverlay(
     [queryClient]
   );
 
+  const syncQuery = useQuery({
+    queryKey: SYNC_KEY,
+    queryFn: ({ signal }) => getCalendarSyncSettings(signal),
+  });
+
+  const setSyncSettings = useCallback(
+    async (input: SetSyncInput) => {
+      const res = await setCalendarSyncSettings(input);
+      queryClient.setQueryData(SYNC_KEY, res);
+    },
+    [queryClient]
+  );
+
   return {
     settings,
     setSettings,
@@ -94,5 +126,7 @@ export function useCalendarOverlay(
     hasErrors: (eventsQuery.data?.errors?.length ?? 0) > 0,
     sources: sourcesQuery.data?.sources ?? [],
     sourcesLoading: sourcesQuery.isLoading,
+    syncSettings: syncQuery.data ?? EMPTY_SYNC,
+    setSyncSettings,
   };
 }

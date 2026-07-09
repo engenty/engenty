@@ -12,9 +12,15 @@ export function registerTimeTrackingGatewayMethods(
   server: Pick<PluginServerApi, "registerOperation" | "hasOperation">,
   repoOrFactory: TimeTrackingRepoOrFactory,
   deps: TimeTrackingGatewayDeps,
-  connectionsClient: ConnectionsModuleClient | null
+  connectionsClient: ConnectionsModuleClient | null,
+  supabase: unknown
 ) {
+  const calendarSync =
+    connectionsClient && supabase ? { connectionsClient, supabase } : null;
   registerTimeTrackingReadGatewayMethods(server, repoOrFactory, deps);
-  registerTimeTrackingWriteGatewayMethods(server, repoOrFactory);
-  registerTimeTrackingCalendarGatewayMethods(server, { connectionsClient });
+  registerTimeTrackingWriteGatewayMethods(server, repoOrFactory, calendarSync);
+  registerTimeTrackingCalendarGatewayMethods(server, {
+    connectionsClient,
+    supabase,
+  });
 }

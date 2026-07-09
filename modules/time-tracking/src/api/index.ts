@@ -11,6 +11,8 @@ import {
   calendarEventsListInputSchema,
   calendarEventsListResponseSchema,
   calendarSourcesResponseSchema,
+  calendarSyncSettingsSchema,
+  calendarSyncSettingsSetInputSchema,
   phaseIdParamsSchema,
   projectIdParamsSchema,
   simpleOptionSchema,
@@ -113,7 +115,10 @@ export function registerTimeTrackingApi(
     | "callGatewayMethod"
   >,
   repoOrFactory: RepoOrFactory,
-  options: { connectionsClient?: ConnectionsModuleClient | null } = {}
+  options: {
+    connectionsClient?: ConnectionsModuleClient | null;
+    supabase?: unknown;
+  } = {}
 ) {
   const { invokeOperation } = createPluginServerGatewayCaller(
     server as PluginServerApi
@@ -127,7 +132,8 @@ export function registerTimeTrackingApi(
     server,
     repoOrFactory,
     gatewayDeps,
-    options.connectionsClient ?? null
+    options.connectionsClient ?? null,
+    options.supabase ?? null
   );
 
   const op = (read: boolean) => ({
@@ -241,6 +247,39 @@ export function registerTimeTrackingApi(
         auth: ctx.auth,
       });
     },
+  });
+
+  server.registerHttpRoute({
+    method: "get",
+    path: "/api/time-tracking/calendar/sync-settings",
+    operation: { ...op(true) },
+    summary: "Get calendar push-sync settings",
+    tags: ["time-tracking", "calendar"],
+    responses: {
+      200: { description: "Sync settings", schema: calendarSyncSettingsSchema },
+    },
+    handler: async (ctx) =>
+      invokeOperation(
+        "time_tracking_calendar_sync_settings_get",
+        {},
+        { auth: ctx.auth }
+      ),
+  });
+
+  server.registerHttpRoute({
+    method: "patch",
+    path: "/api/time-tracking/calendar/sync-settings",
+    operation: writeOp,
+    summary: "Set calendar push-sync settings",
+    tags: ["time-tracking", "calendar"],
+    request: { body: calendarSyncSettingsSetInputSchema },
+    responses: {
+      200: { description: "Sync settings", schema: calendarSyncSettingsSchema },
+    },
+    handler: async (ctx) =>
+      invokeOperation("time_tracking_calendar_sync_settings_set", ctx.body, {
+        auth: ctx.auth,
+      }),
   });
 
   server.registerHttpRoute({

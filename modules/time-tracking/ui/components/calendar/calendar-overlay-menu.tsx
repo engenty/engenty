@@ -13,19 +13,23 @@ import {
 import { CalendarClock } from "lucide-react";
 import type {
   CalendarSource,
+  CalendarSyncSettings,
   OverlaySettings,
   OverlayTarget,
 } from "../../api.js";
+import type { SetSyncInput } from "../../hooks/use-calendar-overlay.js";
 import { overlayBlockStyle } from "./calendar-utils.js";
 
 interface CalendarOverlayMenuProps {
   hasErrors: boolean;
   onOpenChange: (open: boolean) => void;
   onSettingsChange: (next: OverlaySettings) => void;
+  onSyncChange: (input: SetSyncInput) => void;
   open: boolean;
   settings: OverlaySettings;
   sources: CalendarSource[];
   sourcesLoading: boolean;
+  syncSettings: CalendarSyncSettings;
 }
 
 function sameTarget(
@@ -44,9 +48,11 @@ export function CalendarOverlayMenu({
   onOpenChange,
   settings,
   onSettingsChange,
+  onSyncChange,
   sources,
   sourcesLoading,
   hasErrors,
+  syncSettings,
 }: CalendarOverlayMenuProps) {
   const { t } = useTranslation("time-tracking");
   const activeCount = settings.targets.length;
@@ -156,6 +162,76 @@ export function CalendarOverlayMenu({
             )}
           </div>
         </ScrollArea>
+        <Separator />
+        <div className="px-3 py-2.5">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <Label className="font-medium text-sm">
+              {t("calendar.syncTitle")}
+            </Label>
+            <Switch
+              checked={syncSettings.sync_enabled}
+              disabled={!syncSettings.target_calendar_id}
+              onCheckedChange={(checked) => {
+                if (
+                  syncSettings.connection_id &&
+                  syncSettings.target_calendar_id
+                ) {
+                  onSyncChange({
+                    connection_id: syncSettings.connection_id,
+                    target_calendar_id: syncSettings.target_calendar_id,
+                    time_zone: syncSettings.time_zone,
+                    sync_enabled: checked,
+                  });
+                }
+              }}
+            />
+          </div>
+          <p className="mb-2 text-[11px] text-muted-foreground leading-snug">
+            {t("calendar.syncHint")}
+          </p>
+          {sources.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">
+              {t("calendar.overlayEmpty")}
+            </p>
+          ) : (
+            sources.map((source) => (
+              <div className="mb-1 last:mb-0" key={source.connection_id}>
+                <p className="mb-0.5 truncate font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                  {source.label}
+                </p>
+                {source.calendars.map((calendar) => {
+                  const selected =
+                    syncSettings.connection_id === source.connection_id &&
+                    syncSettings.target_calendar_id === calendar.id;
+                  return (
+                    <label
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-accent"
+                      key={calendar.id}
+                    >
+                      <input
+                        checked={selected}
+                        className="accent-primary"
+                        name="calendar-sync-target"
+                        onChange={() =>
+                          onSyncChange({
+                            connection_id: source.connection_id,
+                            target_calendar_id: calendar.id,
+                            time_zone: calendar.time_zone,
+                            sync_enabled: true,
+                          })
+                        }
+                        type="radio"
+                      />
+                      <span className="truncate text-sm">
+                        {calendar.summary ?? calendar.id}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </div>
         {hasErrors ? (
           <>
             <Separator />

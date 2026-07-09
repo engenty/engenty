@@ -325,10 +325,34 @@ export const calendarSourceSchema = z.object({
       id: z.string(),
       summary: z.string().nullable(),
       primary: z.boolean(),
+      time_zone: z.string().nullable(),
     })
   ),
 });
 
 export const calendarSourcesResponseSchema = z.object({
   sources: z.array(calendarSourceSchema),
+});
+
+// --- Calendar sync (Phase 2: push time entries → calendar) ---
+
+export const calendarSyncSettingsSchema = z.object({
+  sync_enabled: z.boolean(),
+  connection_id: z.string().nullable(),
+  target_calendar_id: z.string().nullable(),
+  time_zone: z.string().nullable(),
+});
+
+export const calendarSyncSettingsSetInputSchema = z.object({
+  connection_id: z.string().min(1),
+  target_calendar_id: z.string().min(1),
+  time_zone: z.string().nullable().optional(),
+  sync_enabled: z.boolean(),
+});
+
+export const calendarSyncRunResponseSchema = z.object({
+  connections: z.number().int().nonnegative(),
+  pushed: z.number().int().nonnegative(),
+  deleted: z.number().int().nonnegative(),
+  errors: z.number().int().nonnegative(),
 });

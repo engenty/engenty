@@ -299,6 +299,7 @@ export interface CalendarOption {
   id: string;
   primary: boolean;
   summary: string | null;
+  time_zone: string | null;
 }
 
 export interface CalendarSource {
@@ -390,5 +391,33 @@ export async function setOverlaySettings(value: OverlaySettings) {
       method: "PATCH",
       body: JSON.stringify({ type: "json", value_jsonb: value }),
     }
+  );
+}
+
+// --- Calendar push sync (entries → calendar) ---
+
+export interface CalendarSyncSettings {
+  connection_id: string | null;
+  sync_enabled: boolean;
+  target_calendar_id: string | null;
+  time_zone: string | null;
+}
+
+export async function getCalendarSyncSettings(signal?: AbortSignal) {
+  return request<CalendarSyncSettings>(
+    "/api/time-tracking/calendar/sync-settings",
+    { method: "GET", signal }
+  );
+}
+
+export async function setCalendarSyncSettings(input: {
+  connection_id: string;
+  target_calendar_id: string;
+  time_zone?: string | null;
+  sync_enabled: boolean;
+}) {
+  return request<CalendarSyncSettings>(
+    "/api/time-tracking/calendar/sync-settings",
+    { method: "PATCH", body: JSON.stringify(input) }
   );
 }

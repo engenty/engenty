@@ -1,4 +1,5 @@
-import type { PluginServerApi } from "@engenty/plugin-sdk";
+import type { ConnectionsModuleClient } from "@engenty/connections-sdk";
+import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import { type z as ZodType, z } from "@hono/zod-openapi";
 import {
   addTrackingRowInputSchema,
@@ -9,11 +10,41 @@ import {
   timeEntryUpdateOperationInputSchema,
   timesheetRowSchema,
 } from "../../schema/zod.js";
+import { pushTimeEntry } from "../../sync/calendar-sync-service.js";
 import { assertTimeTrackingEntryWriteAccess } from "../resolve-entry-filters.js";
 import {
   getTimeTrackingRepo,
   type TimeTrackingRepoOrFactory,
 } from "./shared.js";
+
+export interface CalendarSyncWriteDeps {
+  connectionsClient: ConnectionsModuleClient;
+  supabase: unknown;
+}
+
+/** Push a mutated entry to its calendar as the live user — best-effort, never
+ *  blocks or fails the write. */
+function firePush(
+  calendarSync: CalendarSyncWriteDeps | null,
+  auth: PluginAuthContext | undefined,
+  entryId: string
+) {
+  const tenantId = auth?.tenantId;
+  const actorUserId =
+    (auth as (PluginAuthContext & { userId?: string }) | undefined)?.userId ??
+    auth?.principalId;
+  if (!(calendarSync && tenantId && actorUserId)) {
+    return;
+  }
+  void pushTimeEntry(
+    calendarSync,
+    {
+      principal: { principalId: actorUserId, principalType: "user" },
+      isAutonomous: false,
+    },
+    { tenantId, entryId }
+  ).catch(() => undefined);
+}
 
 function hasTimeEntryIdentity(input: {
   manual_phase_title?: string | null;
@@ -43,7 +74,8 @@ function assertTimeEntryIdentity(
 
 export function registerTimeTrackingWriteGatewayMethods(
   server: Pick<PluginServerApi, "registerOperation">,
-  repoOrFactory: TimeTrackingRepoOrFactory
+  repoOrFactory: TimeTrackingRepoOrFactory,
+  calendarSync: CalendarSyncWriteDeps | null = null
 ) {
   const writeOp = {
     moduleId: "time-tracking",
@@ -72,7 +104,7 @@ export function registerTimeTrackingWriteGatewayMethods(
         }
       }
       assertTimeEntryIdentity(body);
-      return repo.create({
+      const created = await repo.create({
         user_id: targetUserId,
         date: body.date,
         hours: body.hours,
@@ -87,6 +119,8 @@ export function registerTimeTrackingWriteGatewayMethods(
         manual_task_title: body.manual_task_title ?? null,
         created_by: authUserId,
       });
+      firePush(calendarSync, ctx.auth, created.id);
+      return created;
     },
   });
 
@@ -117,6 +151,7 @@ export function registerTimeTrackingWriteGatewayMethods(
       if (!updated) {
         throw new Error("time_entry_not_found");
       }
+      firePush(calendarSync, ctx.auth, updated.id);
       return updated;
     },
   });
@@ -139,6 +174,7 @@ export function registerTimeTrackingWriteGatewayMethods(
       if (!moved) {
         throw new Error("time_entry_not_found");
       }
+      firePush(calendarSync, ctx.auth, moved.id);
       return moved;
     },
   });
@@ -156,6 +192,9 @@ export function registerTimeTrackingWriteGatewayMethods(
       const existing = await repo.getEntry(id);
       await assertTimeTrackingEntryWriteAccess(repo, ctx.auth, existing);
       await repo.delete(id);
+      // Push after the row is gone: pushTimeEntry sees no entry and removes the
+      // linked remote event.
+      firePush(calendarSync, ctx.auth, id);
       return { ok: true };
     },
   });
