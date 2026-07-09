@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.9] - 2026-07-09
+- Added [time-tracking]: Push time entries to calendar (Phase 2)
+- Added [time-tracking]: Calendar overlay (Phase 1)
+- Fixed [ci]: Drop stray .claude/worktrees gitlink breaking submodule checkout
+
 ## [0.1.8] - 2026-07-09
 - Added [deploy]: Apply Supabase migrations automatically on deploy
 - Added [authz]: Roles & capabilities authorization with member access gating
