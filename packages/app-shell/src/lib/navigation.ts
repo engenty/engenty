@@ -11,6 +11,7 @@ import {
   Flag,
   Palette,
   Search,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import type { NavigationItem, NavigationSection } from "../types/shell";
@@ -158,10 +159,13 @@ export function buildNavigationSections(
   options: {
     developerModeEnabled?: boolean;
     isSuperAdmin?: boolean;
+    isTenantAdmin?: boolean;
   } = {},
   t: TranslateFn = (k: string) => k
 ): NavigationSection[] {
   const isSuperAdmin = options.isSuperAdmin === true;
+  const isTenantAdmin = options.isTenantAdmin === true;
+  const isAdmin = isSuperAdmin || isTenantAdmin;
   const developerModeEnabled = options.developerModeEnabled === true;
   const tasksMenuItem = contributions.adminMenuItems.find(
     (entry) => entry.id === "tasks_module_menu"
@@ -173,25 +177,39 @@ export function buildNavigationSections(
     t
   );
   const copilotNavItems = buildCopilotNavItems(contributions.copilotApps, t);
-  const adminMenuEntries = contributions.adminMenuItems.filter(
-    (entry) => entry.section === "admin"
-  );
+  // Admin-section entries (/admin/* consoles: users, audit logs, files, agents
+  // workspace, context graph) are tenant-admin surfaces — hidden for members.
+  const adminMenuEntries = isAdmin
+    ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
+    : [];
   const coreSettingsChildren = [
-    {
-      to: "/settings/ai",
-      label: t("settings.aiModels.menuLabel"),
-      icon: Sparkles,
-    },
-    {
-      to: "/settings/ai-usage",
-      label: t("settings.aiUsage.menuLabel"),
-      icon: BarChart3,
-    },
-    {
-      to: "/settings/appearance",
-      label: t("settings.appearanceTitle"),
-      icon: Palette,
-    },
+    // Tenant configuration — admins only. Members are end users: their Settings
+    // holds no tenant-wide surfaces (Appearance here is the tenant branding
+    // editor; personal theme/language live in the user menu).
+    ...(isAdmin
+      ? [
+          {
+            to: "/settings/appearance",
+            label: t("settings.appearanceTitle"),
+            icon: Palette,
+          },
+          {
+            to: "/settings/ai",
+            label: t("settings.aiModels.menuLabel"),
+            icon: Sparkles,
+          },
+          {
+            to: "/settings/ai-usage",
+            label: t("settings.aiUsage.menuLabel"),
+            icon: BarChart3,
+          },
+          {
+            to: "/settings/roles",
+            label: t("settings.roles.menuLabel"),
+            icon: ShieldCheck,
+          },
+        ]
+      : []),
     ...(developerModeEnabled
       ? [
           {
@@ -225,6 +243,10 @@ export function buildNavigationSections(
       .filter(
         (item) => item.to !== "/settings/profile" && item.to !== "/settings/ai"
       )
+      // Module settings are tenant configuration — hidden from members, who see
+      // only genuinely personal surfaces (declared via `requiresAdmin: false`,
+      // e.g. Connections where a user links their own accounts).
+      .filter((item) => isAdmin || item.requiresAdmin === false)
       .map((item) => ({
         to: item.to,
         label: resolveContributionLabel(item, t),
@@ -255,6 +277,9 @@ export function buildNavigationSections(
       label: t("navigation.admin"),
       items: (() => {
         const settingsItem = {
+          // Keep the gear at /settings for everyone so the settings secondary
+          // nav resolves on every /settings/* page; the route guard redirects
+          // members off the admin-only General page to /settings/appearance.
           to: "/settings",
           label: t("navigation.settings"),
           icon: DockSettingsIcon,

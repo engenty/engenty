@@ -47,8 +47,9 @@ describe("renderExampleFile", () => {
       "ENGENTY_SANDBOX_DOCKER_IMAGE=engenty-sandbox:latest"
     );
     expect(text).toContain("ENGENTY_SECURITY_JWT_SECRET=");
-    // Local-dev-only vars stay out of the deploy template.
-    expect(text).not.toContain("SUPABASE_DB_URL");
+    // SUPABASE_DB_URL is in the deploy template — the migrate init-service
+    // needs a direct Postgres connection to apply migrations automatically.
+    expect(text).toContain("SUPABASE_DB_URL");
   });
 
   it("renders templates the document model parses cleanly (round-trip)", () => {

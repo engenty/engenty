@@ -161,11 +161,14 @@ describe("device flow", () => {
     expect(claims.tenant_id).toBe(TENANT);
   });
 
-  it("member approval clamps away module capabilities", async () => {
+  it("member approval grants module caps but clamps away core/superadmin", async () => {
     const { app } = buildApp(memberships);
+    // Members are module.*-capable (they use modules in the app), so a member
+    // device token must carry module caps too — but never core/superadmin.
     const { userCode } = await startFlow(app, [
       "module.write",
       "user-settings.read",
+      "core.superadmin",
     ]);
     const approve = await post(
       app,
@@ -176,7 +179,10 @@ describe("device flow", () => {
     const payload = (await approve.json()) as {
       granted: { capabilities: string[] };
     };
-    expect(payload.granted.capabilities).toEqual(["user-settings.read"]);
+    expect(payload.granted.capabilities).toEqual([
+      "module.write",
+      "user-settings.read",
+    ]);
   });
 
   it("approving a foreign tenant is rejected", async () => {

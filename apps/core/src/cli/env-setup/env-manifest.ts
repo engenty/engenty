@@ -148,12 +148,12 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
       root: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     },
     description:
-      "Direct Postgres connection for apps/ai Mastra framework storage (workflow/run snapshots, native suspend/resume). Chat sessions use SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY instead. Recommended for local dev; without it Mastra falls back to in-memory storage. Local default matches the Supabase CLI stack.",
+      "Direct Postgres connection string. Two uses: (1) apps/ai Mastra framework storage (workflow/run snapshots, native suspend/resume — without it Mastra falls back to in-memory); (2) the deploy migrate init-service applies pending migrations to it on each deploy. The service-role key can't run DDL, so this is REQUIRED for automatic migrations (unset ⇒ the migrate step is skipped and you apply migrations manually). Local default matches the Supabase CLI stack.",
     group: "Supabase",
     key: "SUPABASE_DB_URL",
     obtain: { kind: "supabase", statusKeys: ["DB_URL"] },
     required: "optional",
-    scopes: ["root"],
+    scopes: ["root", "deploy"],
     secret: true,
   },
   {

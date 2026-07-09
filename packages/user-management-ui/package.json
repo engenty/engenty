@@ -28,6 +28,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@engenty/api-client": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/i18n": "workspace:*",

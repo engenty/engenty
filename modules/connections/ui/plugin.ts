@@ -26,6 +26,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: "/settings/connections",
     component: ConnectionsSettingsPage,
     order: 400,
+    // Per-user surface: a member links their own accounts for agents to use.
+    requiresAdmin: false,
   });
 
   engenty.UI.registerRoute({
@@ -33,6 +35,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: "/settings/connections/:connectorId",
     component: ConnectorDetailPage,
     order: 401,
+    requiresAdmin: false,
   });
 
   // Main entry inside the /admin/engenty workspace; the sidebar row lives in
@@ -65,5 +68,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     to: "/settings/connections",
     icon: Blocks,
     order: 400,
+    // Personal surface — members manage their own connected accounts.
+    requiresAdmin: false,
   });
 }

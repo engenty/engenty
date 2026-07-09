@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1
+# Engenty migrate init image: applies pending Supabase migrations to the
+# deployment DB, then exits. Run as a one-shot init service the app depends_on
+# (see deploy/docker-compose.prebuilt.yaml). Self-contained: aggregates the
+# module + core migrations at build time and bundles the Supabase CLI.
+
+# --- Stage 1: aggregate owned migrations into supabase/migrations/ ---
+FROM node:24-bookworm-slim AS aggregate
+WORKDIR /app
+# Only what scripts/aggregate-module-migrations.mjs needs: the plugin SSOT
+# (root package.json engenty.plugins), the script + its lib, and every owner's
+# package.json + supabase/migrations. node_modules/dist are .dockerignore'd.
+COPY package.json pnpm-workspace.yaml ./
+COPY scripts ./scripts
+COPY apps ./apps
+COPY modules ./modules
+COPY packages ./packages
+RUN node scripts/aggregate-module-migrations.mjs
+
+# --- Stage 2: runtime — Supabase CLI + the aggregated migrations ---
+FROM node:24-bookworm-slim AS runtime
+# The `supabase` npm package's postinstall downloads the platform CLI binary.
+RUN npm install -g supabase@2.109.1
+WORKDIR /app
+COPY --from=aggregate /app/supabase/migrations ./supabase/migrations
+# `supabase db push` locates the project by supabase/config.toml; a minimal
+# project id is all it needs when targeting an explicit --db-url.
+RUN printf 'project_id = "engenty"\n' > supabase/config.toml
+COPY deploy/scripts/run-migrations.sh ./run-migrations.sh
+RUN chmod +x ./run-migrations.sh
+ENTRYPOINT ["/app/run-migrations.sh"]

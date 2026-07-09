@@ -3724,6 +3724,9 @@ importers:
       '@engenty/api-contracts':
         specifier: workspace:*
         version: link:../api-contracts
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../app-shell
       '@engenty/auth-ui':
         specifier: workspace:*
         version: link:../auth-ui

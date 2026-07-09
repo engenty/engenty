@@ -12,6 +12,20 @@
 name: engenty
 
 services:
+  # One-shot migration runner: applies pending Supabase migrations, then exits.
+  # The app services wait for it (service_completed_successfully) so no container
+  # ever serves against a stale schema. No-op (exits 0) when SUPABASE_DB_URL is
+  # unset — set it to enable automatic migrations (a direct Postgres URL; the
+  # service-role key can't run DDL). See deploy/scripts/run-migrations.sh.
+  engenty-migrate:
+    image: ghcr.io/engenty/engenty-migrate:latest
+    pull_policy: always
+    restart: "no"
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
+    networks:
+      - engenty
+
   engenty-edge:
     image: ghcr.io/engenty/engenty-edge:latest
     # Always pull :latest on deploy — without this, `docker compose up` reuses
@@ -49,6 +63,8 @@ services:
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
+      engenty-migrate:
+        condition: service_completed_successfully
       engenty-ai:
         condition: service_healthy
       gotenberg:
@@ -60,6 +76,9 @@ services:
     image: ghcr.io/engenty/engenty-ai:latest
     pull_policy: always
     restart: unless-stopped
+    depends_on:
+      engenty-migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

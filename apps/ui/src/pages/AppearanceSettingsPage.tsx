@@ -75,6 +75,7 @@ export function AppearanceSettingsPage() {
   usePageConfig({
     breadcrumbs,
     actions: pageActions,
+    topbarChrome: "contentBlend",
     secondaryNavHeaderSlot,
   });
 

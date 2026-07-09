@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.8] - 2026-07-09
+- Added [deploy]: Apply Supabase migrations automatically on deploy
+- Added [authz]: Roles & capabilities authorization with member access gating
+
 ## [0.1.7] - 2026-07-08
 - Fixed [copilot]: Restore pnpm kill script entry
 - Removed [copilot]: Frontend-tool confirmation

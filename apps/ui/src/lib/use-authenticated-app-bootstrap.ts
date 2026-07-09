@@ -101,6 +101,7 @@ export function useAuthenticatedAppBootstrap(isAuthenticated: boolean) {
       {
         developerModeEnabled,
         isSuperAdmin: workspaceContext?.isSuperAdmin === true,
+        isTenantAdmin: workspaceContext?.isTenantAdmin === true,
       },
       t
     );

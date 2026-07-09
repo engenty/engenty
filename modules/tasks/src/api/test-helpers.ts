@@ -356,6 +356,7 @@ export function makeMockApi() {
     registerAiRegistration: () => {},
     registerFeatureFlags: () => [],
     registerProfilePolicy: () => {},
+    registerRoleProfiles: () => {},
     registerResultPolicy: () => {},
     registerService: () => {},
     registerTestDataType: () => noopReceipt(),

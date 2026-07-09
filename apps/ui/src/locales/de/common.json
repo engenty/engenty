@@ -466,6 +466,10 @@
       "description": "Installierte Module für Ihren Arbeitsbereich.",
       "manageAll": "Alle Plugins verwalten",
       "noModules": "Keine Module gefunden."
+    },
+    "roles": {
+      "title": "Rollen & Berechtigungen",
+      "menuLabel": "Rollen & Berechtigungen"
     }
   },
   "featureFlags": {

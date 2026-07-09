@@ -1,3 +1,4 @@
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import type { PluginRegistry } from "../plugins/registry.js";
 import type { PrincipalContext } from "./auth.js";
 
@@ -21,20 +22,9 @@ export interface PolicyInput {
 }
 
 function hasCapability(auth: PrincipalContext, required: string): boolean {
-  if (auth.capabilities.includes("*")) {
-    return true;
-  }
-  if (
-    auth.capabilities.includes("core.superadmin") ||
-    auth.capabilities.includes("core.*")
-  ) {
-    return true;
-  }
-  if (auth.capabilities.includes(required)) {
-    return true;
-  }
-  const [prefix] = required.split(".");
-  return auth.capabilities.includes(`${prefix}.*`);
+  // Delegates to the shared plugin-sdk matcher — single source of truth so
+  // server enforcement can never drift from the clamp/UI tester.
+  return capabilityCovers(auth.capabilities, required);
 }
 
 function inferCapabilityFromOperation(operationId: string): string {

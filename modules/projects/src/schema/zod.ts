@@ -48,6 +48,7 @@ export const projectSchema = z.object({
   portal_enabled: z.boolean(),
   portal_password: z.string().nullable(),
   portal_intro_text: z.string().nullable(),
+  visibility: z.enum(["tenant", "members"]).default("tenant"),
   enabled_tabs: z.array(z.string()).nullable().optional(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),

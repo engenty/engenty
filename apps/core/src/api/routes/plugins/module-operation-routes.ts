@@ -686,6 +686,7 @@ export async function invokeOperation(params: {
         tenantId: auth.tenantId,
         scopeId: "default",
         principalId: auth.principalId,
+        capabilities: auth.capabilities,
       },
       recordAuditEvent,
     });
@@ -775,15 +776,30 @@ async function requireAuth(
   },
   authProvider: AuthProvider
 ) {
-  const auth = await authProvider.resolvePrincipal(
+  const resolved = await authProvider.resolvePrincipal(
     c.req.header("authorization")
   );
-  if (!auth) {
+  if (!resolved) {
     return {
       error: jsonApiError(c, 401, { message: "Unauthorized" }),
       auth: null,
     };
   }
+  // Phase 4: surface the driving agent + goal so the escalation policy can
+  // gate the band above the agent's grants. For an agent token the agent id IS
+  // the principal; for chat act-as-user, apps/ai forwards it via headers. These
+  // only ever ADD an approval requirement (never widen) — the token's own
+  // capabilities remain the hard ceiling, checked upstream.
+  const headerAgentId = c.req.header("x-engenty-agent-id");
+  const headerGoalId = c.req.header("x-engenty-goal-id");
+  const auth = {
+    ...resolved,
+    agentId:
+      resolved.principalType === "agent"
+        ? resolved.principalId
+        : (headerAgentId ?? resolved.agentId),
+    goalId: headerGoalId ?? resolved.goalId,
+  };
   return { error: null, auth };
 }
 
@@ -1161,6 +1177,7 @@ export async function executeModuleOperation(params: {
         tenantId: auth.tenantId,
         scopeId: "default",
         principalId: auth.principalId,
+        capabilities: auth.capabilities,
       },
       recordAuditEvent,
     });

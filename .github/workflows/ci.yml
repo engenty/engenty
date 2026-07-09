@@ -85,3 +85,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
           SUPABASE_ANON_KEY: test-anon-key
         run: pnpm test
+
+      # RLS coverage guard (Phase 0.3). Soft-skips when no Supabase DB is
+      # running — this job has none today, so it is a no-op until a migrated
+      # DB is added to CI, at which point it starts enforcing tenant-scoped
+      # RLS. Runnable locally (`pnpm check:rls-coverage`) against the dev DB.
+      - name: RLS coverage guard
+        run: pnpm check:rls-coverage

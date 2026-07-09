@@ -21,6 +21,19 @@ import {
 const FILE_MANAGER_BUCKET = "files";
 
 const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "files.viewer",
+      title: "Files viewer",
+      capabilities: ["module.files.read"],
+    },
+    {
+      id: "files.editor",
+      title: "Files editor",
+      capabilities: ["module.files.read", "module.files.write"],
+    },
+  ]);
   const { server } = engenty;
 
   // Core file storage/preview routes are wired directly in

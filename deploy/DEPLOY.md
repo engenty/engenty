@@ -40,16 +40,28 @@ Deploy Supabase separately (not in this compose file). In the Supabase dashboard
 - **Site URL:** `PUBLIC_APP_URL` (e.g. `https://app.example.com`)
 - **Redirect URLs:** `https://app.example.com`
 
-Link the CLI and apply Engenty schema:
+**Migrations run automatically on deploy.** Set `SUPABASE_DB_URL` (a direct
+Postgres connection string — the service-role key can't run DDL) in the deploy
+env and the `engenty-migrate` init service applies pending migrations before the
+app starts, on every deploy. The app waits for it (`depends_on:
+service_completed_successfully`), so no container ever serves a stale schema; a
+migration failure fails the deploy visibly instead.
+
+```bash
+# Supabase Cloud (Settings → Database → Connection string → URI):
+SUPABASE_DB_URL=postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres
+# Self-hosted: postgresql://postgres:<pw>@<db-host>:5432/postgres
+```
+
+If `SUPABASE_DB_URL` is unset the migrate step is skipped (non-breaking for
+existing installs) — apply the schema manually instead:
 
 ```bash
 supabase link --project-ref <your-ref>   # or self-hosted equivalent
-bash deploy/scripts/migrate.sh
+bash deploy/scripts/migrate.sh           # aggregate module SQL + supabase db push
 ```
 
-`migrate.sh` aggregates module SQL into `supabase/migrations/` then runs `supabase db push`.
-
-Two settings live in **project config, not migrations**, so `migrate.sh` cannot set them — do them once or they bite at runtime:
+Two settings live in **project config, not migrations**, so the migrate step cannot set them — do them once or they bite at runtime:
 
 - **Exposed schemas** (Supabase → Settings → API → Exposed schemas): add every schema listed under `[api].schemas` in `supabase/config.toml` (`ai`, `core`, `context_graph`, `search`, and the `module_*` schemas). Missing this → `engenty-ai` crash-loops with `Could not query the database for the schema cache`.
 - **Custom access token hook** (Supabase → Authentication → Hooks → Customize Access Token): select `core.custom_access_token_hook` (it ships in the migrations, grants included). Missing this → JWTs lack the `tenant_id` claim, realtime live updates silently stay off, and the client retries token refresh into `429`s. Users must sign out/in after enabling.

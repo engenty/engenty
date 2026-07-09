@@ -22,6 +22,19 @@ import { applyResolvedPersonNameToContactInput } from "./services/contact-input.
 type ContactEntityPayload = EntityEventPayload<"contact_id">;
 
 const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "contacts.viewer",
+      title: "Contacts viewer",
+      capabilities: ["module.contacts.read"],
+    },
+    {
+      id: "contacts.editor",
+      title: "Contacts editor",
+      capabilities: ["module.contacts.read", "module.contacts.write"],
+    },
+  ]);
   const { events, server } = engenty;
   const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
   if (!supabaseRaw) {
