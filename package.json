@@ -92,6 +92,7 @@
     "check": "ultracite check",
     "check:ui-core-imports": "node scripts/check-ui-core-imports.mjs",
     "check:supabase-imports": "node scripts/check-supabase-imports.mjs",
+    "check:rls-coverage": "node scripts/check-rls-coverage.mjs",
     "ai:check": "node scripts/ai-check.mjs",
     "lint": "pnpm run check",
     "fix": "ultracite fix",

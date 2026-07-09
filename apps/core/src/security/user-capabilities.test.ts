@@ -2,23 +2,26 @@ import { describe, expect, it } from "vitest";
 import { capabilitiesForUser, clampCapabilities } from "./user-capabilities.js";
 
 describe("capabilitiesForUser", () => {
-  it("matches the historical auth-provider fallback per role", () => {
+  it("derives each role's bundle from CORE_ROLE_PROFILES", () => {
     expect(
       capabilitiesForUser({ isSuperAdmin: false, tenantRole: "admin" })
     ).toEqual(["*"]);
+    // Members are capable staff: module.* plus their own + tenant settings.
+    // This must match the tenant.member profile the grants path resolves.
     expect(
       capabilitiesForUser({ isSuperAdmin: false, tenantRole: "member" })
     ).toEqual([
+      "module.*",
       "tenant-settings.read",
       "tenant-settings.write",
       "user-settings.read",
       "user-settings.write",
     ]);
+    // A user who is not a member of the tenant gets nothing (matches
+    // resolveGrants' base === null → empty).
     expect(
       capabilitiesForUser({ isSuperAdmin: false, tenantRole: null })
-    ).toEqual(
-      capabilitiesForUser({ isSuperAdmin: false, tenantRole: "member" })
-    );
+    ).toEqual([]);
   });
 
   it("superadmin gets core.superadmin", () => {
@@ -53,14 +56,16 @@ describe("clampCapabilities", () => {
     expect(clampCapabilities(["other.read"], ["module.*"])).toEqual([]);
   });
 
-  it("drops disjoint requests; member cannot gain module.write", () => {
+  it("clamps a member to their bundle: module.* yes, core.superadmin no", () => {
     const member = capabilitiesForUser({
       isSuperAdmin: false,
       tenantRole: "member",
     });
+    // module.write is covered by the member's module.* grant; core.superadmin
+    // is not, so it is dropped — a member can never clamp UP to superadmin.
     expect(
       clampCapabilities(["module.write", "core.superadmin"], member)
-    ).toEqual([]);
+    ).toEqual(["module.write"]);
     expect(clampCapabilities(["user-settings.read"], member)).toEqual([
       "user-settings.read",
     ]);

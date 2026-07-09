@@ -183,6 +183,7 @@ export function createEngentyUiApi(
         path,
         component: input.component,
         order: input.order,
+        requiresAdmin: input.requiresAdmin,
         scope: normalizeRouteScope(input.scope),
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.route"),
       });
@@ -213,6 +214,7 @@ export function createEngentyUiApi(
         to: normalizePath(input.to, "settings item"),
         icon: input.icon,
         order: input.order,
+        requiresAdmin: input.requiresAdmin,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.settingsItem"),
       });
     },

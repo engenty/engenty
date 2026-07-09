@@ -43,6 +43,22 @@ type CategoryEntityPayload = EntityEventPayload<"category_id"> & {
 type KbEntityPayload = EntityEventPayload<"kb_id">;
 
 const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "knowledge-base.viewer",
+      title: "Knowledge base viewer",
+      capabilities: ["module.knowledge-base.read"],
+    },
+    {
+      id: "knowledge-base.editor",
+      title: "Knowledge base editor",
+      capabilities: [
+        "module.knowledge-base.read",
+        "module.knowledge-base.write",
+      ],
+    },
+  ]);
   const { events, server } = engenty;
   const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
   if (!supabaseRaw) {

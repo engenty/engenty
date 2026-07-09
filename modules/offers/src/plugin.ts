@@ -5,6 +5,19 @@ import { createOfferRepoSupabase } from "./dal/supabase.js";
 import { registerOffersPdfTemplateServerProvider } from "./pdf-templates/provider.js";
 
 const registerOffersPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "offers.viewer",
+      title: "Offers viewer",
+      capabilities: ["module.offers.read"],
+    },
+    {
+      id: "offers.editor",
+      title: "Offers editor",
+      capabilities: ["module.offers.read", "module.offers.write"],
+    },
+  ]);
   const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
   if (!supabase) {
     return;

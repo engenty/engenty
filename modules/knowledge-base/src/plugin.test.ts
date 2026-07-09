@@ -77,6 +77,7 @@ function makePluginApi() {
         return { dispose: async () => {} };
       },
       registerTestDataType: () => {},
+      registerRoleProfiles: () => {},
     },
   } as unknown as EngentyPluginApi;
 

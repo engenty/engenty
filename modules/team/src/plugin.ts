@@ -11,6 +11,19 @@ import { teamMemberCreateInputSchema } from "./schema/zod.js";
 import { teamMemberInputForCreate } from "./services/team-member-input.js";
 
 const registerTeamMembersPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "team.viewer",
+      title: "Team viewer",
+      capabilities: ["module.team.read"],
+    },
+    {
+      id: "team.editor",
+      title: "Team editor",
+      capabilities: ["module.team.read", "module.team.write"],
+    },
+  ]);
   const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
   if (!supabase) {
     return;

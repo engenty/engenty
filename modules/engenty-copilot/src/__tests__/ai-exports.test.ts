@@ -57,6 +57,11 @@ describe("@engenty/engenty-copilot AI exports", () => {
     expect(ENGENTY_INSTRUCTIONS).toContain("/admin/files");
     expect(ENGENTY_INSTRUCTIONS).not.toContain("/mdl/files");
   });
+
+  it("instructs the copilot to persist durable user facts via updateWorkingMemory", () => {
+    expect(ENGENTY_INSTRUCTIONS).toContain("updateWorkingMemory");
+    expect(ENGENTY_INSTRUCTIONS).toContain("preferred_language");
+  });
 });
 
 describe("runNavigateFrontendTool", () => {

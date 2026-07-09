@@ -31,6 +31,7 @@ import { createJiti } from "jiti";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
 import { createDatabaseAdapter } from "../infra/index.js";
 import { createBootApiLogger, initEvlog } from "../observability/evlog.js";
+import { registerCoreRoleProfiles } from "../security/role-profiles.js";
 import { resolvePluginCapability } from "./capability-resolver.js";
 import {
   discoverPlugins,
@@ -819,6 +820,12 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
     logger,
   });
   registry.eventsRuntime = eventsRuntime;
+  // Seed core built-in role profiles (superadmin/admin/member/agent.base) so
+  // resolveGrants can map base roles → capability strings. Modules add their
+  // own via server.registerRoleProfiles during load.
+  if (registry.roleProfiles) {
+    registerCoreRoleProfiles(registry.roleProfiles);
+  }
 
   const discovery = discoverPlugins({ modulesDir, packagesDir });
 

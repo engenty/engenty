@@ -16,6 +16,19 @@ import { createInboxRepoSupabase } from "./dal/supabase.js";
 type InboxEntityPayload = EntityEventPayload<"message_id">;
 
 const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "inbox.viewer",
+      title: "Inbox viewer",
+      capabilities: ["module.inbox.read"],
+    },
+    {
+      id: "inbox.editor",
+      title: "Inbox editor",
+      capabilities: ["module.inbox.read", "module.inbox.write"],
+    },
+  ]);
   const { events, server } = engenty;
   const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
   if (!supabaseRaw) {

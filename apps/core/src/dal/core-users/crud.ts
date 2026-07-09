@@ -84,6 +84,16 @@ export async function updateUser(
   if (updated.error) {
     throw updated.error;
   }
+  // Keep core.user_tenant_roles (the canonical membership source) in sync when
+  // the primary role changes — role_assignments and resolveGrants FK/read
+  // against the join row, so a stale row would drift from core.users.role.
+  if (patch.role !== undefined) {
+    await upsertTenantMembership(client, {
+      userId: id,
+      tenantId,
+      role: coerceRole(patch.role),
+    });
+  }
   return {
     ...updated.data,
     role: coerceRole(updated.data.role),

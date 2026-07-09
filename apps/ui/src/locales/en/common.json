@@ -466,6 +466,10 @@
       "description": "Installed modules for your workspace.",
       "manageAll": "Manage all plugins",
       "noModules": "No modules found."
+    },
+    "roles": {
+      "title": "Roles & permissions",
+      "menuLabel": "Roles & permissions"
     }
   },
   "featureFlags": {

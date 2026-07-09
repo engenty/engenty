@@ -9,6 +9,19 @@ import { registerInvoicesPdfTemplateServerProvider } from "./pdf-templates/provi
 import { invoicesProfilePolicy, invoicesResultPolicy } from "./policies.js";
 
 const registerInvoicesPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "invoices.viewer",
+      title: "Invoices viewer",
+      capabilities: ["module.invoices.read"],
+    },
+    {
+      id: "invoices.editor",
+      title: "Invoices editor",
+      capabilities: ["module.invoices.read", "module.invoices.write"],
+    },
+  ]);
   const { server } = engenty;
   const baseDir = server.resolvePath("invoices");
   const supabase = server.getDatabaseAdapter?.() ?? null;

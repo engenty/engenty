@@ -12,6 +12,19 @@ const TIME_ENTRIES_SCHEMA_DESCRIPTION =
   "Time entry create schema (use snake_case). REQUIRED: date (YYYY-MM-DD string), hours (positive number). Optional: user_id (string), notes (string or null), project_id, phase_id, task_id, discipline, manual_project_title, manual_phase_title, manual_task_title (strings or null).";
 
 const registerTimeTrackingPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "time-tracking.viewer",
+      title: "Time tracking viewer",
+      capabilities: ["module.time-tracking.read"],
+    },
+    {
+      id: "time-tracking.editor",
+      title: "Time tracking editor",
+      capabilities: ["module.time-tracking.read", "module.time-tracking.write"],
+    },
+  ]);
   const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
   if (!supabase) {
     return;

@@ -33,8 +33,9 @@ import type {
   PluginSourceInfo,
   PluginTestDataRegistration,
   QueueDefinition,
+  RoleProfile,
 } from "@engenty/plugin-sdk";
-import { assertStrictToolId } from "@engenty/plugin-sdk";
+import { assertStrictToolId, RoleProfileRegistry } from "@engenty/plugin-sdk";
 import { createQueueService } from "@engenty/queue";
 import type { RetrievalServiceWithProviders } from "@engenty/retrieval";
 import type { SearchIndexRegistry } from "@engenty/search-index";
@@ -346,6 +347,13 @@ export interface PluginRegistry {
   // Shared central retrieval service (one per process). Created lazily by the
   // first `registerRetrievalSource(...)` call; also owns `core_workspace_search`.
   retrievalService?: RetrievalServiceWithProviders;
+  /**
+   * Role profiles (named capability bundles) contributed by core + plugins.
+   * A live registry keyed by role id, tracking the owning plugin so a plugin
+   * unload drops its profiles (see removeOwnedRegistrations). Consumed by
+   * `resolveGrants` to map assigned role ids → capability strings.
+   */
+  roleProfiles?: RoleProfileRegistry;
   // Shared registry of `SearchIndexProvider`s (chat-search, contacts, kb,
   // api-catalog). Populated by `engenty.server.registerSearchIndexProvider(...)`
   // and consumed by the unified `/api/search-index/*` operator surface.
@@ -605,6 +613,9 @@ export async function removeOwnedRegistrations(
       totalRemoved: 0,
     };
   }
+  // Role profiles live in a keyed registry rather than a provenance array, so
+  // they are removed by owner here (not counted in `removed`).
+  registry.roleProfiles?.removeByPlugin(pluginId);
   const removed = {
     aiRegistrations: removeAiRegistrationsByOwner(registry, {
       generationId: record?.generationId,
@@ -690,6 +701,7 @@ export function createPluginRegistry(params: CreateRegistryParams): {
     gatewayMethods: [],
     moduleOperations: [],
     profilePolicies: [],
+    roleProfiles: new RoleProfileRegistry(),
     resultPolicies: [],
     services: [],
     testDataTypes: [],
@@ -845,6 +857,20 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       dryRunSupported: operation.dryRunSupported ?? false,
       requiresApproval: operation.requiresApproval ?? false,
     } as const;
+    // Phase 5 audit: a gateway method with no explicit requiredCapabilities
+    // falls back to inferred module.read/module.write, which any default agent
+    // token satisfies. Surface these so they can be made explicit.
+    if (normalizedOperation.requiredCapabilities.length === 0) {
+      registry.diagnostics.push({
+        code: "plugin.operation.no_explicit_capability",
+        level: "warn",
+        message: `module operation "${operationId}" (${record.id}) declares no requiredCapabilities — enforcement falls back to an inferred module.read/write capability.`,
+        pluginId: record.id,
+        remediation:
+          "Declare requiredCapabilities explicitly on the gateway method.",
+        sourceInfo: sourceInfoFor(record, "server.moduleOperation"),
+      });
+    }
     const sourceInfo = sourceInfoFor(record, "server.moduleOperation");
     const receipt = createRegistrationReceipt({
       key: normalizedOperation.operationId,
@@ -1015,6 +1041,18 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       sourceInfo,
       pluginConfig,
     });
+  };
+
+  const registerRoleProfiles = (
+    record: PluginRecord,
+    profiles: RoleProfile[]
+  ) => {
+    if (!registry.roleProfiles) {
+      registry.roleProfiles = new RoleProfileRegistry();
+    }
+    for (const profile of profiles) {
+      registry.roleProfiles.register(record.id, profile);
+    }
   };
 
   const registerResultPolicy = (
@@ -1279,6 +1317,8 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       registerSearchIndexProvider: () => undefined,
       registerProfilePolicy: (policy) =>
         registerProfilePolicy(record, policy, pluginConfig),
+      registerRoleProfiles: (profiles) =>
+        registerRoleProfiles(record, profiles),
       registerQueue: registerQueueImpl,
       registerQueueHandler: registerQueueHandlerImpl,
       registerResultPolicy: (policy) =>

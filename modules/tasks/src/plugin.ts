@@ -15,6 +15,24 @@ import { registerTriggerWebhookRoute } from "./api/trigger-webhook-route.js";
 import { createTasksRepoSupabase } from "./dal/supabase.js";
 
 const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "tasks.viewer",
+      title: "Tasks viewer",
+      capabilities: ["module.tasks.read"],
+    },
+    {
+      id: "tasks.editor",
+      title: "Tasks editor",
+      capabilities: [
+        "module.tasks.read",
+        "module.tasks.write",
+        "module.goals.read",
+        "module.goals.write",
+      ],
+    },
+  ]);
   const { server } = engenty;
   const supabase = server.getDatabaseAdapter?.() ?? null;
   if (!supabase) {
