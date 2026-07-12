@@ -86,8 +86,8 @@ export function CopilotPanelContent({
   onStop,
   onPanelModeChange,
   onClose,
-  onFrontendToolApprove,
-  onFrontendToolReject,
+  onSandboxCommandApprove,
+  onSandboxCommandReject,
   attachLabel,
   detachLabel,
   closeLabel,
@@ -337,8 +337,8 @@ export function CopilotPanelContent({
               <ChatTranscriptErrorBoundary>
                 <CopilotToolCallActionsProvider
                   awaitingInterrupt={awaitingInterrupt}
-                  onFrontendToolApprove={onFrontendToolApprove}
-                  onFrontendToolReject={onFrontendToolReject}
+                  onSandboxCommandApprove={onSandboxCommandApprove}
+                  onSandboxCommandReject={onSandboxCommandReject}
                   openInterrupt={openInterrupt}
                   optimisticInterruptResults={optimisticInterruptResults}
                   pendingInterruptToolCallIds={pendingInterruptToolCallIds}

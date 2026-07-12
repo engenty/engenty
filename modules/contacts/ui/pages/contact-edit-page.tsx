@@ -72,7 +72,6 @@ const CONTACTS_APPLY_DRAFT_PATCH_TOOL = createFrontendToolDefinition({
   },
   name: "contacts_apply_draft_patch",
   owner_module_id: "contacts",
-  safety: "requires_confirmation",
   title: "Apply Contact Draft Patch",
 });
 

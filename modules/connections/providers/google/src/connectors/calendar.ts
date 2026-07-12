@@ -26,6 +26,8 @@ interface CalendarEvent {
   }[];
   description?: string;
   end?: { date?: string; dateTime?: string; timeZone?: string };
+  etag?: string;
+  extendedProperties?: { private?: Record<string, string> };
   htmlLink?: string;
   id: string;
   location?: string;
@@ -45,21 +47,45 @@ function toEventSummary(e: CalendarEvent) {
   return {
     all_day: Boolean(e.start?.date),
     end: eventTime(e.end),
+    etag: e.etag ?? null,
     event_id: e.id,
     html_link: e.htmlLink ?? null,
     location: e.location ?? null,
+    private_properties: e.extendedProperties?.private ?? null,
     start: eventTime(e.start),
     status: e.status ?? null,
     summary: e.summary ?? null,
   };
 }
 
-/** "2026-07-04" → { date }, full ISO timestamp → { dateTime }. */
+const privatePropertiesField = z
+  .record(z.string(), z.string())
+  .optional()
+  .describe(
+    "Private key/value metadata stored on the event (extendedProperties.private), not visible to attendees. Used to tag events created by an integration."
+  );
+
+/**
+ * "2026-07-04" → { date } (all-day); a timestamp → { dateTime }. When
+ * `timeZone` is given, a zone-less local timestamp is resolved by Google in
+ * that IANA zone (DST-safe) instead of requiring an explicit offset.
+ */
 function toEventDateTime(
-  value: string
-): { date: string } | { dateTime: string } {
-  return ALL_DAY_DATE.test(value) ? { date: value } : { dateTime: value };
+  value: string,
+  timeZone?: string
+): { date: string } | { dateTime: string; timeZone?: string } {
+  if (ALL_DAY_DATE.test(value)) {
+    return { date: value };
+  }
+  return timeZone ? { dateTime: value, timeZone } : { dateTime: value };
 }
+
+const timeZoneField = z
+  .string()
+  .optional()
+  .describe(
+    'IANA time zone (e.g. "Europe/Vienna") for timed start/end given without an offset. Optional when start/end already carry an offset.'
+  );
 
 const calendarIdField = z
   .string()
@@ -151,9 +177,9 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           .number()
           .int()
           .min(1)
-          .max(25)
+          .max(250)
           .optional()
-          .describe("Maximum number of events to return (1-25, default 10)."),
+          .describe("Maximum number of events to return (1-250, default 10)."),
         time_max: z
           .string()
           .optional()
@@ -212,12 +238,15 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
           {
             body: JSON.stringify({
-              end: toEventDateTime(input.end),
-              start: toEventDateTime(input.start),
+              end: toEventDateTime(input.end, input.time_zone),
+              start: toEventDateTime(input.start, input.time_zone),
               summary: input.summary,
               ...(input.description ? { description: input.description } : {}),
               ...(input.attendees?.length
                 ? { attendees: input.attendees.map((email) => ({ email })) }
+                : {}),
+              ...(input.private_properties
+                ? { extendedProperties: { private: input.private_properties } }
                 : {}),
             }),
             headers: { "Content-Type": "application/json" },
@@ -235,8 +264,10 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           .optional()
           .describe("Optional event description/notes."),
         end: endField,
+        private_properties: privatePropertiesField,
         start: startField,
         summary: z.string().describe("Event title."),
+        time_zone: timeZoneField,
       }),
       providerScopes: [SCOPE_EVENTS],
       summary: "Create a calendar event",
@@ -255,13 +286,16 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           patch.description = input.description;
         }
         if (input.start !== undefined) {
-          patch.start = toEventDateTime(input.start);
+          patch.start = toEventDateTime(input.start, input.time_zone);
         }
         if (input.end !== undefined) {
-          patch.end = toEventDateTime(input.end);
+          patch.end = toEventDateTime(input.end, input.time_zone);
         }
         if (input.attendees !== undefined) {
           patch.attendees = input.attendees.map((email) => ({ email }));
+        }
+        if (input.private_properties !== undefined) {
+          patch.extendedProperties = { private: input.private_properties };
         }
         const updated = await googleJson<CalendarEvent>(
           ctx,
@@ -285,14 +319,17 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
             .describe("New event description (replaces the existing one)."),
           end: endField.optional(),
           event_id: z.string().describe("Calendar event id to update."),
+          private_properties: privatePropertiesField,
           start: startField.optional(),
           summary: z.string().optional().describe("New event title."),
+          time_zone: timeZoneField,
         })
         .refine(
           (v) =>
             v.attendees !== undefined ||
             v.description !== undefined ||
             v.end !== undefined ||
+            v.private_properties !== undefined ||
             v.start !== undefined ||
             v.summary !== undefined,
           { message: "Provide at least one field to update." }

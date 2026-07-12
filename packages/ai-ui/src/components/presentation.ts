@@ -125,10 +125,6 @@ export {
   resolveFeedbackArtifactForToolCall,
 } from "./copilot/interrupts/feedback-artifact.js";
 export {
-  FrontendToolConfirmCard,
-  frontendToolConfirmFromOpenInterrupt,
-} from "./copilot/interrupts/frontend-tool-confirm-card.js";
-export {
   type FieldSuggestion,
   HitlApprovalCard,
 } from "./copilot/interrupts/hitl-approval-card.js";

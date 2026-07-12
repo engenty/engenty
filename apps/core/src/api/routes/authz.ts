@@ -10,6 +10,20 @@ interface RouteContext {
 
 export interface ResolvedRouteAuth {
   capabilities: string[];
+  /**
+   * A genuine platform superadmin (core.users.is_super_admin), NOT a tenant
+   * admin whose grants happen to include `*`. This is the ONLY signal that may
+   * authorize acting across tenants. Derived from the DB flag on the session
+   * path and from the `core.superadmin` capability (which only real superadmins
+   * carry — tenant admins get `*` without it) on the JWT path.
+   */
+  isPlatformSuperAdmin: boolean;
+  /**
+   * Holds a superadmin-tier capability (`*` / `core.*` / `core.superadmin`).
+   * A plain tenant admin resolves to `["*"]`, so this is TRUE for them too —
+   * use it only for "is this an all-powerful token", never for cross-tenant
+   * gating. For that, use {@link isPlatformSuperAdmin}.
+   */
   isSuperAdmin: boolean;
   principalType: "user" | "agent" | "service";
   tenantId: string | null;
@@ -45,6 +59,9 @@ export async function resolveRouteAuth(
       userId: jwtAuth.principalId,
       tenantId: jwtAuth.tenantId || null,
       isSuperAdmin: hasSuperCapability,
+      // Only real superadmins carry `core.superadmin`; a tenant admin gets `*`
+      // (and thus isSuperAdmin) but not this, so it can't cross tenants.
+      isPlatformSuperAdmin: jwtAuth.capabilities.includes("core.superadmin"),
       principalType: jwtAuth.principalType,
       capabilities: jwtAuth.capabilities,
     };
@@ -63,6 +80,8 @@ export async function resolveRouteAuth(
       userId: authUser.id,
       tenantId,
       isSuperAdmin,
+      // Session superadmin comes straight from the DB flag — authoritative.
+      isPlatformSuperAdmin: isSuperAdmin,
       principalType: "user",
       capabilities: [],
     };

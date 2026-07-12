@@ -114,8 +114,8 @@ describe("SandboxCommandConfirmToolCallCard", () => {
     render(
       <CopilotToolCallActionsProvider
         awaitingInterrupt
-        onFrontendToolApprove={onApprove}
-        onFrontendToolReject={onReject}
+        onSandboxCommandApprove={onApprove}
+        onSandboxCommandReject={onReject}
         openInterrupt={open}
       >
         <SandboxCommandConfirmToolCallCard

@@ -43,10 +43,7 @@ export interface AgentUiStateSnapshotV1 {
   observed_at: string;
   page?: Record<string, JsonValue>;
   permissions?: {
-    frontend_tools: Record<
-      string,
-      { available: boolean; requires_confirmation: boolean }
-    >;
+    frontend_tools: Record<string, { available: boolean }>;
   };
   route: AgentUiRouteSnapshot;
   selection?: AgentUiSelectionSnapshot;

@@ -7,6 +7,7 @@ export const timeEntrySchema = z.object({
   user_id: z.string().min(1),
   date: z.string().min(1),
   hours: z.number().positive(),
+  start_time: z.string().nullable(),
   notes: z.string().nullable(),
   project_id: z.string().nullable(),
   phase_id: z.string().nullable(),
@@ -73,10 +74,15 @@ export const timeTrackingListResponseSchema = z.object({
   entries: z.array(timeEntrySchema),
 });
 
+const startTimeSchema = z
+  .string()
+  .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Expected HH:MM time");
+
 export const timeEntryInputSchema = z.object({
   date: z.string().min(1),
   user_id: z.string().min(1).optional(),
   hours: z.number().positive(),
+  start_time: startTimeSchema.nullable().optional(),
   notes: z.string().nullable().optional(),
   project_id: z.string().nullable().optional(),
   phase_id: z.string().nullable().optional(),
@@ -104,11 +110,13 @@ export const timeEntryUpdateSchema = timeEntryInputSchema
     discipline: true,
     hours: true,
     notes: true,
+    start_time: true,
   })
   .partial();
 
 export const timeEntryMoveSchema = z.object({
   date: z.string().min(1),
+  start_time: startTimeSchema.nullable().optional(),
   user_id: z.string().optional(),
   project_id: z.string().nullable().optional(),
   phase_id: z.string().nullable().optional(),
@@ -264,3 +272,87 @@ export const timeEntryMoveOperationInputSchema =
   timeEntryIdParamsSchema.merge(timeEntryMoveSchema);
 
 export const timeTrackingContextGetInputSchema = z.object({}).optional();
+
+// --- Calendar overlay (Phase 1: read-only external-calendar background) ---
+
+/** One background calendar the user chose to overlay. */
+export const calendarOverlayTargetSchema = z.object({
+  connection_id: z.string().min(1),
+  // Omitted ⇒ the connection's primary calendar.
+  calendar_id: z.string().min(1).optional(),
+});
+
+export const calendarEventsListInputSchema = z.object({
+  // Inclusive lower / exclusive upper ISO-8601 window bounds.
+  time_min: z.string().min(1),
+  time_max: z.string().min(1),
+  calendars: z.array(calendarOverlayTargetSchema).max(20),
+});
+
+export const calendarOverlayEventSchema = z.object({
+  event_id: z.string(),
+  connection_id: z.string(),
+  calendar_id: z.string(),
+  // Stable per-calendar key for deterministic overlay coloring.
+  calendar_key: z.string(),
+  summary: z.string().nullable(),
+  start: z.string().nullable(),
+  end: z.string().nullable(),
+  all_day: z.boolean(),
+  location: z.string().nullable(),
+  html_link: z.string().nullable(),
+});
+
+export const calendarEventsListResponseSchema = z.object({
+  events: z.array(calendarOverlayEventSchema),
+  // Per-calendar failures are isolated, not fatal — surfaced so the UI can hint.
+  errors: z.array(
+    z.object({
+      connection_id: z.string(),
+      calendar_id: z.string().nullable(),
+      message: z.string(),
+    })
+  ),
+});
+
+export const calendarSourceSchema = z.object({
+  connection_id: z.string(),
+  connector_id: z.string(),
+  label: z.string(),
+  sharing: z.enum(["personal", "org"]),
+  calendars: z.array(
+    z.object({
+      id: z.string(),
+      summary: z.string().nullable(),
+      primary: z.boolean(),
+      time_zone: z.string().nullable(),
+    })
+  ),
+});
+
+export const calendarSourcesResponseSchema = z.object({
+  sources: z.array(calendarSourceSchema),
+});
+
+// --- Calendar sync (Phase 2: push time entries → calendar) ---
+
+export const calendarSyncSettingsSchema = z.object({
+  sync_enabled: z.boolean(),
+  connection_id: z.string().nullable(),
+  target_calendar_id: z.string().nullable(),
+  time_zone: z.string().nullable(),
+});
+
+export const calendarSyncSettingsSetInputSchema = z.object({
+  connection_id: z.string().min(1),
+  target_calendar_id: z.string().min(1),
+  time_zone: z.string().nullable().optional(),
+  sync_enabled: z.boolean(),
+});
+
+export const calendarSyncRunResponseSchema = z.object({
+  connections: z.number().int().nonnegative(),
+  pushed: z.number().int().nonnegative(),
+  deleted: z.number().int().nonnegative(),
+  errors: z.number().int().nonnegative(),
+});

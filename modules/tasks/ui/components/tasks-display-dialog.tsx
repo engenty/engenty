@@ -7,17 +7,10 @@ import {
   Tag,
   User,
 } from "lucide-react";
+import type { ComponentType } from "react";
 import type { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
 
-export interface TasksColumnVisibility {
-  assignee: boolean;
-  dueDate: boolean;
-  identifier: boolean;
-  priority: boolean;
-  status: boolean;
-  title: boolean;
-  updatedAt: boolean;
-}
+export type TasksColumnVisibility = Record<string, boolean>;
 
 export type TasksSortColumn =
   | "updated_at"
@@ -32,16 +25,17 @@ export type TableSize = "compact" | "normal";
 export type SortOrder = "asc" | "desc";
 
 export interface TaskColumnOption {
-  key: keyof TasksColumnVisibility;
+  icon?: ComponentType<{ className?: string }>;
+  key: string;
   label: string;
 }
 
 export interface TasksDisplayDialogProps {
-  columnOrder: (keyof TasksColumnVisibility)[];
+  columnOrder: string[];
   columns: TaskColumnOption[];
   columnVisibility: TasksColumnVisibility;
   labels: ReturnType<typeof getTasksToolbarLabels>;
-  setColumnOrder: (order: (keyof TasksColumnVisibility)[]) => void;
+  setColumnOrder: (order: string[]) => void;
   setColumnVisibility: (value: TasksColumnVisibility) => void;
   setSortBy: (column: TasksSortColumn) => void;
   setSortOrder: (order: SortOrder) => void;
@@ -54,10 +48,7 @@ export interface TasksDisplayDialogProps {
   viewMode: TasksViewMode;
 }
 
-const COLUMN_ICONS: Record<
-  keyof TasksColumnVisibility,
-  ColumnConfig<keyof TasksColumnVisibility>["icon"]
-> = {
+const BUILTIN_COLUMN_ICONS: Record<string, ColumnConfig<string>["icon"]> = {
   identifier: Tag,
   title: ListTodo,
   assignee: User,
@@ -84,15 +75,14 @@ export function TasksDisplayDialog({
   tableSize,
   viewMode,
 }: TasksDisplayDialogProps) {
-  const columnConfigs: ColumnConfig<keyof TasksColumnVisibility>[] =
-    columns.map((col) => ({
-      key: col.key,
-      label: col.label,
-      icon: COLUMN_ICONS[col.key] ?? ListTodo,
-    }));
+  const columnConfigs: ColumnConfig<string>[] = columns.map((col) => ({
+    key: col.key,
+    label: col.label,
+    icon: col.icon ?? BUILTIN_COLUMN_ICONS[col.key] ?? ListTodo,
+  }));
 
   return (
-    <ListDisplayConfigurator<keyof TasksColumnVisibility, TasksSortColumn>
+    <ListDisplayConfigurator<string, TasksSortColumn>
       columnOrder={columnOrder}
       columns={columnConfigs}
       columnVisibility={columnVisibility}

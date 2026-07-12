@@ -8,7 +8,6 @@ export const SET_COPILOT_DOCK_MODE_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description: "Set the copilot panel position.",
   name: "setCopilotDockMode",
-  safety: "safe",
   schema: z.object({
     dock_mode: z.enum([
       "floating",

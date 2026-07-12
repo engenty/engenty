@@ -5,8 +5,11 @@ import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { envBoolean, envNumber, envString } from "@engenty/environment/env";
 import { serve } from "@hono/node-server";
 import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
+import { createClient } from "@supabase/supabase-js";
 import { cors } from "hono/cors";
 import { z as zod } from "zod";
+import { listGoalGrantCapabilities } from "../dal/agent-goal-grants.js";
+import { resolveSupabaseConfig } from "../dal/supabase-config.js";
 import {
   createTenantPluginOverridesDal,
   type TenantPluginOverridesDal,
@@ -33,12 +36,31 @@ import { type LoadPluginsParams, loadPlugins } from "../plugins/loader.js";
 import { createGatedQueueHandlers } from "../plugins/queue-handler-gating.js";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { reloadBackendPlugin } from "../plugins/reload-executor.js";
+import { createAgentEscalationPolicy } from "../security/agent-escalation-policy.js";
 import { createApprovalService } from "../security/approval-service.js";
 import {
   createPersistentAuditLog,
   type SecurityAuditLogAdapter,
 } from "../security/audit-adapter.js";
 import { createSupabaseAuthProvider } from "../security/auth-provider.js";
+import { createGrantsService } from "../security/grants-service.js";
+import { registerAuthzRoutes } from "./routes/authz-routes.js";
+
+/** Phase 4 agent escalation policy is opt-in until apps/ai forwards agent/goal ids. */
+function isAgentEscalationEnabled(config: Record<string, unknown>): boolean {
+  return (
+    config.agentEscalationEnabled === true ||
+    process.env.ENGENTY_AGENT_ESCALATION === "true"
+  );
+}
+
+function createGoalGrantClient(config: Record<string, unknown>) {
+  const { url, serviceRoleKey } = resolveSupabaseConfig(config);
+  return createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 import {
   createSupabaseApproverRoleResolver,
   denyAllApproverRoleResolver,
@@ -198,7 +220,40 @@ export function createApiApp(params: CreateApiAppParams) {
   };
 
   const approvalService = createApprovalService();
-  const authProvider = createSupabaseAuthProvider(config);
+  const grantsService = createGrantsService(config, {
+    getRegistry: () => params.registry.roleProfiles,
+  });
+  const authProvider = createSupabaseAuthProvider(config, {
+    grants: grantsService,
+  });
+
+  // Phase 4 — agent escalation-to-approval policy (goal-scoped). Registered
+  // behind a flag: inert until apps/ai forwards an agent/goal id. Default off so
+  // no behavior change until the AI service opts in.
+  if (isAgentEscalationEnabled(config)) {
+    const escalationClient = createGoalGrantClient(config);
+    const escalationPolicy = createAgentEscalationPolicy({
+      resolveAgentCapabilities: (agentId, tenantId) =>
+        grantsService
+          .resolveGrants({ kind: "agent", id: agentId }, tenantId)
+          .then((g) => g.capabilities),
+      listGoalGrantCapabilities: (tenantId, goalId, agentId) =>
+        listGoalGrantCapabilities(escalationClient, {
+          tenantId,
+          goalId,
+          agentId,
+        }),
+    });
+    if (!params.registry.profilePolicies) {
+      params.registry.profilePolicies = [];
+    }
+    params.registry.profilePolicies.push({
+      pluginId: "core",
+      policy: escalationPolicy,
+      source: "core",
+      pluginConfig: {},
+    });
+  }
   const tenantPluginOverrides =
     params.tenantPluginOverrides ?? createTenantPluginOverridesDal(config);
   const securityAuditLog =
@@ -294,6 +349,13 @@ export function createApiApp(params: CreateApiAppParams) {
   registerSuperadminRoutes({
     app,
     config,
+  });
+  registerAuthzRoutes({
+    app,
+    config,
+    registry: params.registry,
+    grants: grantsService,
+    auditLog: securityAuditLog,
   });
 
   registerPluginHttpRoutes({

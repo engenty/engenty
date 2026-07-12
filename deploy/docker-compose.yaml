@@ -60,10 +60,25 @@ services:
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
+      engenty-migrate:
+        condition: service_completed_successfully
       engenty-ai:
         condition: service_healthy
       gotenberg:
         condition: service_started
+    networks:
+      - engenty
+
+  # One-shot migration runner — see docker-compose.prebuilt.yaml for the full
+  # note. No-op unless SUPABASE_DB_URL is set.
+  engenty-migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.migrate
+    container_name: engenty-migrate
+    restart: "no"
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
     networks:
       - engenty
 
@@ -73,6 +88,9 @@ services:
       dockerfile: deploy/Dockerfile.ai
     container_name: engenty-ai
     restart: unless-stopped
+    depends_on:
+      engenty-migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

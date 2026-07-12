@@ -801,13 +801,14 @@ async function stepSupabase() {
 
   out();
   infoLine(
-    "Reminder: apply the schema with  " +
-      paint("bash deploy/scripts/migrate.sh", c.cyan)
+    "Migrations: set " +
+      paint("SUPABASE_DB_URL", c.cyan) +
+      " and the engenty-migrate service applies them automatically each deploy."
   );
   note(
-    "(after supabase link --project-ref " +
+    "Manual fallback (if SUPABASE_DB_URL is unset): supabase link --project-ref " +
       state.supa.ref +
-      ") — the wizard does not run migrations."
+      " && bash deploy/scripts/migrate.sh"
   );
 }
 
@@ -1203,7 +1204,8 @@ function stepDone() {
   out();
   infoLine("Follow-ups it did NOT do (by design):");
   note(
-    "• Apply migrations:  supabase link --project-ref " +
+    "• Migrations: set SUPABASE_DB_URL for auto-migrate on deploy, or apply once with " +
+      "supabase link --project-ref " +
       (state.supa.ref || "<ref>") +
       " && bash deploy/scripts/migrate.sh"
   );

@@ -241,8 +241,6 @@ export function AgentUiStateProvider({
               tool.name,
               {
                 available: metadata.availability === "enabled",
-                requires_confirmation:
-                  metadata.safety === "requires_confirmation",
               },
             ];
           })

@@ -23,7 +23,7 @@ import {
   useState,
 } from "react";
 import { pendingInterruptFromTranscript } from "../../components/copilot/interrupts/pending-interrupt-from-transcript.js";
-import { useAutoResolveSafeFrontendTool } from "../../copilot/use-auto-resolve-safe-frontend-tool.js";
+import { useAutoResolveFrontendTool } from "../../copilot/use-auto-resolve-frontend-tool.js";
 import { cancelAiRun } from "../../lib/runtime/runs-api.js";
 import type { EngentyThreadsRealtimeClient } from "../../threads/engenty-threads-realtime.js";
 import { logCopilotChatNew } from "../chat-new-debug.js";
@@ -1025,12 +1025,11 @@ export function useEngentyAgUiAppsAiSession(
     return pendingInterruptFromTranscript(conversation.messages);
   }, [options.openInterruptFromSession, conversation.messages]);
 
-  // Safe frontend tools run with no UI: execute in the browser + resume the run.
-  useAutoResolveSafeFrontendTool({
+  // Frontend tools run with no UI: execute in the browser + resume the run.
+  useAutoResolveFrontendTool({
     activeThreadId,
     awaitingInterrupt,
     executeFrontendTool: options.executeFrontendTool,
-    frontendTools: options.frontendTools,
     openInterrupt: effectiveOpenInterrupt,
     resumeInterrupt,
   });

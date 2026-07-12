@@ -1,3 +1,4 @@
+import type { ConnectionsModuleClient } from "@engenty/connections-sdk";
 import {
   createPluginServerGatewayCaller,
   type PluginAuthContext,
@@ -7,6 +8,11 @@ import { z } from "@hono/zod-openapi";
 import type { createTimeTrackingRepoSupabase } from "../dal/supabase.js";
 import {
   addTrackingRowInputSchema,
+  calendarEventsListInputSchema,
+  calendarEventsListResponseSchema,
+  calendarSourcesResponseSchema,
+  calendarSyncSettingsSchema,
+  calendarSyncSettingsSetInputSchema,
   phaseIdParamsSchema,
   projectIdParamsSchema,
   simpleOptionSchema,
@@ -27,6 +33,7 @@ import { registerTimeTrackingGatewayMethods } from "./gateway-methods/index.js";
 import { getTimeTrackingContext } from "./gateway-methods/read-ops.js";
 import {
   getTimeTrackingRepo,
+  mapTeamCatalogRows,
   TEAM_TIME_TRACKING_LIST,
   teamMembersTimeTrackingBridgeAvailable,
 } from "./gateway-methods/shared.js";
@@ -107,7 +114,11 @@ export function registerTimeTrackingApi(
     | "registerOperation"
     | "callGatewayMethod"
   >,
-  repoOrFactory: RepoOrFactory
+  repoOrFactory: RepoOrFactory,
+  options: {
+    connectionsClient?: ConnectionsModuleClient | null;
+    supabase?: unknown;
+  } = {}
 ) {
   const { invokeOperation } = createPluginServerGatewayCaller(
     server as PluginServerApi
@@ -117,7 +128,13 @@ export function registerTimeTrackingApi(
     invokeOperation,
   };
 
-  registerTimeTrackingGatewayMethods(server, repoOrFactory, gatewayDeps);
+  registerTimeTrackingGatewayMethods(
+    server,
+    repoOrFactory,
+    gatewayDeps,
+    options.connectionsClient ?? null,
+    options.supabase ?? null
+  );
 
   const op = (read: boolean) => ({
     moduleId: "time-tracking",
@@ -173,6 +190,96 @@ export function registerTimeTrackingApi(
         return operationHttpError(error);
       }
     },
+  });
+
+  server.registerHttpRoute({
+    method: "get",
+    path: "/api/time-tracking/calendar/sources",
+    operation: { ...op(true) },
+    summary: "List overlay-capable calendar connections",
+    tags: ["time-tracking", "calendar"],
+    responses: {
+      200: {
+        description: "Calendar sources",
+        schema: calendarSourcesResponseSchema,
+      },
+    },
+    handler: async (ctx) =>
+      invokeOperation(
+        "time_tracking_calendar_sources_list",
+        {},
+        { auth: ctx.auth }
+      ),
+  });
+
+  server.registerHttpRoute({
+    method: "get",
+    path: "/api/time-tracking/calendar/events",
+    operation: { ...op(true) },
+    summary: "List overlay calendar events for a time window",
+    tags: ["time-tracking", "calendar"],
+    responses: {
+      200: {
+        description: "Overlay events",
+        schema: calendarEventsListResponseSchema,
+      },
+    },
+    handler: async (ctx) => {
+      const url = new URL(ctx.request.url);
+      const calendarsRaw = url.searchParams.get("calendars");
+      let calendars: { connection_id: string; calendar_id?: string }[] = [];
+      if (calendarsRaw) {
+        try {
+          const parsed = JSON.parse(calendarsRaw);
+          if (Array.isArray(parsed)) {
+            calendars = parsed;
+          }
+        } catch {
+          calendars = [];
+        }
+      }
+      const parsed = calendarEventsListInputSchema.parse({
+        time_min: url.searchParams.get("time_min") ?? undefined,
+        time_max: url.searchParams.get("time_max") ?? undefined,
+        calendars,
+      });
+      return invokeOperation("time_tracking_calendar_events_list", parsed, {
+        auth: ctx.auth,
+      });
+    },
+  });
+
+  server.registerHttpRoute({
+    method: "get",
+    path: "/api/time-tracking/calendar/sync-settings",
+    operation: { ...op(true) },
+    summary: "Get calendar push-sync settings",
+    tags: ["time-tracking", "calendar"],
+    responses: {
+      200: { description: "Sync settings", schema: calendarSyncSettingsSchema },
+    },
+    handler: async (ctx) =>
+      invokeOperation(
+        "time_tracking_calendar_sync_settings_get",
+        {},
+        { auth: ctx.auth }
+      ),
+  });
+
+  server.registerHttpRoute({
+    method: "patch",
+    path: "/api/time-tracking/calendar/sync-settings",
+    operation: writeOp,
+    summary: "Set calendar push-sync settings",
+    tags: ["time-tracking", "calendar"],
+    request: { body: calendarSyncSettingsSetInputSchema },
+    responses: {
+      200: { description: "Sync settings", schema: calendarSyncSettingsSchema },
+    },
+    handler: async (ctx) =>
+      invokeOperation("time_tracking_calendar_sync_settings_set", ctx.body, {
+        auth: ctx.auth,
+      }),
   });
 
   server.registerHttpRoute({
@@ -510,6 +617,9 @@ export function registerTimeTrackingApi(
       if (!teamMembersTimeTrackingBridgeAvailable(gatewayDeps)) {
         return [];
       }
+      const repo = getRepo(repoOrFactory, ctx.auth);
+      const principalId = ctx.auth?.principalId ?? "";
+      const isAdmin = await repo.isPrincipalTenantAdmin(principalId);
       const raw = await invokeOperation(
         TEAM_TIME_TRACKING_LIST,
         {},
@@ -518,28 +628,13 @@ export function registerTimeTrackingApi(
       if (!Array.isArray(raw)) {
         return [];
       }
-      return raw
-        .map((row) => {
-          const r = row as Record<string, unknown>;
-          const userId = r.user_id == null ? null : String(r.user_id);
-          if (!userId) {
-            return null;
-          }
-          return {
-            id: userId,
-            user_id: userId,
-            full_name: String(r.full_name ?? ""),
-          };
-        })
-        .filter(
-          (
-            row
-          ): row is {
-            id: string;
-            user_id: string;
-            full_name: string;
-          } => row != null
-        );
+      const members = mapTeamCatalogRows(raw);
+      if (isAdmin) {
+        return members;
+      }
+      return members.filter(
+        (member) => member.id === principalId || member.user_id === principalId
+      );
     },
   });
 }

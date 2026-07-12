@@ -58,7 +58,6 @@ export {
   useEngentyAiCopilotSessionQueries,
   useEngentyCopilot,
   useEngentyFrontendTool,
-  useEngentyHumanInTheLoop,
   useOpenAiRealtimeVoiceComposerControls,
 } from "./ag-ui/apps-ai/index.js";
 export {

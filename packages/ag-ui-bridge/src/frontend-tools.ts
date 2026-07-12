@@ -9,13 +9,11 @@ import type { JsonValue } from "./json-value.js";
 import { isJsonValue, isRecord } from "./json-value.js";
 
 export type FrontendToolAvailability = "enabled" | "disabled" | "remote";
-export type FrontendToolSafety = "safe" | "requires_confirmation";
 
 export interface EngentyFrontendToolMetadata {
   availability: FrontendToolAvailability;
   /** Module owner for tenant/effective-state gating; omitted for core tools. */
   owner_module_id?: string;
-  safety: FrontendToolSafety;
   title?: string;
 }
 
@@ -32,21 +30,19 @@ export interface CreateFrontendToolDefinitionInput {
   name: string;
   owner_module_id?: string;
   parameters: Record<string, JsonValue>;
-  safety: FrontendToolSafety;
   title?: string;
 }
 
 export function createFrontendToolDefinition(
   input: CreateFrontendToolDefinitionInput
 ): FrontendToolDefinition {
-  const { availability, owner_module_id, safety, title, ...tool } = input;
+  const { availability, owner_module_id, title, ...tool } = input;
   return {
     ...tool,
     metadata: {
       engenty: {
         availability,
         ...(owner_module_id ? { owner_module_id } : {}),
-        safety,
         ...(title ? { title } : {}),
       },
     },
@@ -65,7 +61,6 @@ export function toAgUiTool(tool: FrontendToolDefinition): Tool {
 export interface FrontendToolCallRequest {
   call_id: string;
   input: JsonValue;
-  requires_confirmation: boolean;
   run_id: string;
   tool_name: string;
 }
@@ -95,7 +90,6 @@ function isEngentyFrontendToolMetadata(
       value.availability === "remote") &&
     (value.owner_module_id === undefined ||
       typeof value.owner_module_id === "string") &&
-    (value.safety === "safe" || value.safety === "requires_confirmation") &&
     (value.title === undefined || typeof value.title === "string")
   );
 }

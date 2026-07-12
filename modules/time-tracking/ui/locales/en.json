@@ -40,8 +40,39 @@
   "thisWeek": "This week",
   "today": "Today",
   "total": "Total",
+  "links": {
+    "openProject": "Open project {{title}}",
+    "openTask": "Open task {{title}}"
+  },
   "empty": {
     "title": "No time tracked this week",
     "description": "Add a task, project, or custom row to start logging hours for this week."
+  },
+  "calendar": {
+    "viewTable": "Table view",
+    "viewCalendar": "Calendar view",
+    "span7": "Week",
+    "span3": "3 days",
+    "span1": "Day",
+    "newEntry": "New entry",
+    "editEntry": "Edit entry",
+    "time": "Time",
+    "hours": "hours",
+    "noStartHint": "No start time — shown as unscheduled",
+    "unscheduled": "No time",
+    "modeRows": "Recent",
+    "moreRows": "More",
+    "expandWeekend": "Show weekend",
+    "collapseWeekend": "Hide weekend",
+    "saveFailed": "Failed to save time entry",
+    "overlay": "Calendars",
+    "overlayTitle": "Background calendars",
+    "overlayShow": "Show calendars in background",
+    "overlayLoading": "Loading calendars…",
+    "overlayEmpty": "No calendar connected. Connect Google Calendar under Settings → Connections.",
+    "overlayNoCalendars": "No calendars found",
+    "overlayError": "Some calendars couldn't be loaded",
+    "syncTitle": "Sync my hours",
+    "syncHint": "Write your scheduled time entries to a calendar as events. Background sync needs the connection set to autonomous mode."
   }
 }

@@ -14,6 +14,7 @@ export {
   emitAutomationHook,
   registerAutomationHookListener,
 } from "./automation-hooks.js";
+export { capabilityCovers } from "./capability-match.js";
 export {
   type PluginCapabilityBlockedReason,
   type PluginCapabilityDiagnostic,
@@ -38,6 +39,7 @@ export type {
   ExternalRef,
   PluginContextGraphServerApi,
 } from "./context-graph-registration.js";
+export { ownershipPolicy } from "./ownership-policy.js";
 export {
   type CreatePluginEventsRuntimeOptions,
   createPluginEventsRuntime,
@@ -75,6 +77,10 @@ export {
   type PluginModuleEventsApi,
   type PluginOperationEventName,
 } from "./plugin-events.js";
+export {
+  type RoleProfile,
+  RoleProfileRegistry,
+} from "./role-profiles.js";
 export {
   bindSearchIndexProviderEvents,
   createSearchIndexHost,
@@ -117,6 +123,7 @@ import type {
   PluginContextGraphServerApi,
 } from "./context-graph-registration.js";
 import type { PluginEventsApi } from "./plugin-events.js";
+import type { RoleProfile } from "./role-profiles.js";
 import type { PluginSearchIndexRegistrationOptions } from "./search-index-registration.js";
 
 /** Context passed to CLI registrars when they add subcommands. */
@@ -180,6 +187,14 @@ export interface PluginHttpResponseSpec {
 export type PluginHttpResponseMode = "json" | "binary" | "stream" | "empty";
 
 export interface PluginAuthContext {
+  /**
+   * The principal's effective capability strings. Populated by the core HTTP
+   * operation host from the resolved principal so module handlers can make
+   * capability-based visibility decisions (e.g. a moderator seeing all rows).
+   * Optional because in-process gateway callers may omit it — read it as
+   * `capabilities ?? []` (absent ⇒ no elevated visibility, the safe default).
+   */
+  capabilities?: string[];
   principalId: string;
   scopeId: string;
   tenantId: string;
@@ -350,10 +365,16 @@ export interface PluginTestDataRegistration {
 export type PluginPolicyTransport = "gateway" | "module_ops" | "mcp" | "http";
 
 export interface PluginPolicyAuthContext {
+  /** Present when a principal is acting on behalf of a user (e.g. chat agent). */
+  actingForUserId?: string;
+  /** Agent driving this request (Phase 4), if any. */
+  agentId?: string;
   audience: string[];
   authMethod: "oauth" | "api_token" | "service_credential" | "unknown";
   capabilities: string[];
   delegationChain: string[];
+  /** Goal/objective the agent run is executing; scope for approval grants. */
+  goalId?: string;
   moduleIds: string[];
   permissions: string[];
   principalId: string;
@@ -595,6 +616,13 @@ export interface PluginServerApi {
   registerRetrievalSource?: (
     registration: RetrievalSourceRegistration
   ) => PluginRegistrationReceipt | undefined;
+  /**
+   * Register role profiles (named capability bundles) contributed by this
+   * plugin. Assignable to users/agents; resolved to capability strings by
+   * `resolveGrants`. Ids share a namespace — re-registering another plugin's
+   * id throws.
+   */
+  registerRoleProfiles: (profiles: RoleProfile[]) => void;
   registerSearchIndexProvider: (
     provider: SearchIndexProvider,
     options: PluginSearchIndexRegistrationOptions

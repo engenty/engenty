@@ -7,7 +7,6 @@ import {
   type CopilotPanelContentProps,
   formatCopilotRouteStatusLabel,
   pendingInterruptFromTranscript,
-  rejectCopilotOpenInterrupt,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useCopilotComposerDraftRecovery,
   useCopilotMessageQueue,
@@ -74,7 +73,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     return openInterruptFromSession;
   }, [openInterruptFromSession]);
 
-  const handleFrontendToolApprove = useCallback(
+  const handleSandboxCommandApprove = useCallback(
     async (open: NonNullable<typeof openInterrupt>) => {
       await approveCopilotOpenInterrupt({
         activeThreadId: binding.activeThreadId,
@@ -86,12 +85,15 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     [binding.activeThreadId, executeFrontendTool, host.resumeInterrupt]
   );
 
-  const handleFrontendToolReject = useCallback(
+  const handleSandboxCommandReject = useCallback(
     (open: NonNullable<typeof openInterrupt>) => {
-      rejectCopilotOpenInterrupt({
-        open,
-        resumeInterrupt: host.resumeInterrupt,
-      });
+      if (open.tool_name) {
+        host.resumeInterrupt?.({
+          approved: false,
+          interruptId: open.interrupt_id,
+          toolName: open.tool_name,
+        });
+      }
     },
     [host.resumeInterrupt]
   );
@@ -238,8 +240,8 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
             payload: { feedback },
           })
         }
-        onFrontendToolApprove={handleFrontendToolApprove}
-        onFrontendToolReject={handleFrontendToolReject}
+        onSandboxCommandApprove={handleSandboxCommandApprove}
+        onSandboxCommandReject={handleSandboxCommandReject}
         open={dockInterrupt}
       />
     </div>
@@ -288,8 +290,8 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     onStop: host.cancel,
     onClose: noop,
     onNewChat: () => startNewChat(),
-    onFrontendToolApprove: handleFrontendToolApprove,
-    onFrontendToolReject: handleFrontendToolReject,
+    onSandboxCommandApprove: handleSandboxCommandApprove,
+    onSandboxCommandReject: handleSandboxCommandReject,
     onPanelModeChange: noop,
     panelMode: "docked",
     pendingUserInsertIndex: host.pendingUserInsertIndex,

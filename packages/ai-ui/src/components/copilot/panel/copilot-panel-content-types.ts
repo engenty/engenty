@@ -98,13 +98,13 @@ export interface CopilotPanelContentProps {
   onClose: () => void;
   /** When user picks an agent from the @ mention list, sync shell agent selection (e.g. full-page chat). */
   onComposerMentionAgent?: (agentId: string) => void;
-  /** Approve a pending browser frontend tool (requires_confirmation). */
-  onFrontendToolApprove?: (open: AgUiOpenInterruptMetadata) => void;
-  /** Reject a pending browser frontend tool (requires_confirmation). */
-  onFrontendToolReject?: (open: AgUiOpenInterruptMetadata) => void;
   /** Header "new chat" action; may be wired to new-session-for-agent when using {@link agentSessionChooser}. */
   onNewChat: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
+  /** Approve a pending sandbox command (resumes on the server). */
+  onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
+  /** Reject a pending sandbox command. */
+  onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   onSelectContext?: (contextId: string) => void;
   /** Abort the in-flight AG-UI run from the composer stop control. */
   onStop?: () => void;

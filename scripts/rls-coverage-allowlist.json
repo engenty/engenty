@@ -1,0 +1,4 @@
+{
+  "comment": "Tables carrying a tenant_id column that are DELIBERATELY left without row-level security. Each entry MUST have a justification. The RLS coverage guard (scripts/check-rls-coverage.mjs) fails if any tenant-scoped table lacks RLS and is not listed here.",
+  "allow": []
+}

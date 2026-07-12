@@ -420,7 +420,6 @@ describe("realtime voice frontend tools", () => {
       metadata: {
         engenty: {
           availability: "enabled",
-          safety: "safe",
         },
       },
       name: "contacts.applyDraftPatch",
@@ -456,7 +455,6 @@ describe("realtime voice frontend tools", () => {
     expect(executeFrontendTool).toHaveBeenCalledWith({
       call_id: "call-1",
       input: { patch: [] },
-      requires_confirmation: false,
       run_id: "run-1",
       tool_name: "contacts.applyDraftPatch",
     });

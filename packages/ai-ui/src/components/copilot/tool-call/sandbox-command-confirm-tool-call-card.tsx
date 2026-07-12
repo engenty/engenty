@@ -110,8 +110,8 @@ function SandboxCommandResultBody({ output }: { output: string }) {
 export function SandboxCommandConfirmToolCallCard(props: ToolCallCardProps) {
   const {
     awaitingInterrupt,
-    onFrontendToolApprove,
-    onFrontendToolReject,
+    onSandboxCommandApprove,
+    onSandboxCommandReject,
     openInterrupt,
   } = useCopilotToolCallActions();
 
@@ -173,8 +173,8 @@ export function SandboxCommandConfirmToolCallCard(props: ToolCallCardProps) {
 
   return (
     <SandboxCommandConfirmCard
-      onApprove={() => onFrontendToolApprove?.(open)}
-      onReject={() => onFrontendToolReject?.(open)}
+      onApprove={() => onSandboxCommandApprove?.(open)}
+      onReject={() => onSandboxCommandReject?.(open)}
       open={open}
     />
   );

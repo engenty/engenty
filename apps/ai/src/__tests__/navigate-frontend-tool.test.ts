@@ -13,7 +13,6 @@ describe("navigate frontend tool catalog", () => {
       metadata: {
         engenty: {
           availability: "enabled",
-          safety: "safe",
           title: "Navigate",
         },
       },

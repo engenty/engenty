@@ -1,4 +1,7 @@
-import type { OrchestratorThreadRecord } from "../contracts.js";
+import type {
+  AgentSessionStatus,
+  OrchestratorThreadRecord,
+} from "../contracts.js";
 import type { ThreadStore } from "../threads/store.js";
 import { getThreadStore } from "../threads/store.js";
 
@@ -44,7 +47,7 @@ export async function upsertThreadState(params: {
   last_message_at?: string | null;
   route_context?: Record<string, unknown>;
   thread_id: string;
-  status?: "idle" | "running" | "waiting" | "failed" | "completed";
+  status?: AgentSessionStatus;
   store?: ThreadStore | null;
   summary?: string | null;
   tenant_id?: string | null;

@@ -1,3 +1,4 @@
+import type { AgentSessionStatus } from "../contracts.js";
 import type {
   InboundEvent,
   ResolvedThread,
@@ -51,7 +52,7 @@ export async function upsertThread(params: {
   session: ResolvedThread;
   store?: ThreadStore | null;
   summary?: string | null;
-  status?: "idle" | "running" | "waiting" | "failed" | "completed";
+  status?: AgentSessionStatus;
 }) {
   const { decision, session } = params;
   const threadId = session.thread_id;

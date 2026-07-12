@@ -40,8 +40,39 @@
   "thisWeek": "Diese Woche",
   "today": "Heute",
   "total": "Summe",
+  "links": {
+    "openProject": "Projekt {{title}} oeffnen",
+    "openTask": "Aufgabe {{title}} oeffnen"
+  },
   "empty": {
     "title": "Diese Woche noch keine Zeit erfasst",
     "description": "Fuege eine Aufgabe, ein Projekt oder eine manuelle Zeile hinzu, um Stunden zu erfassen."
+  },
+  "calendar": {
+    "viewTable": "Tabellenansicht",
+    "viewCalendar": "Kalenderansicht",
+    "span7": "Woche",
+    "span3": "3 Tage",
+    "span1": "Tag",
+    "newEntry": "Neuer Eintrag",
+    "editEntry": "Eintrag bearbeiten",
+    "time": "Zeit",
+    "hours": "Stunden",
+    "noStartHint": "Keine Startzeit — erscheint als ungeplant",
+    "unscheduled": "Ohne Zeit",
+    "modeRows": "Zuletzt",
+    "moreRows": "Mehr",
+    "expandWeekend": "Wochenende anzeigen",
+    "collapseWeekend": "Wochenende ausblenden",
+    "saveFailed": "Zeiteintrag konnte nicht gespeichert werden",
+    "overlay": "Kalender",
+    "overlayTitle": "Kalender im Hintergrund",
+    "overlayShow": "Kalender im Hintergrund anzeigen",
+    "overlayLoading": "Kalender werden geladen…",
+    "overlayEmpty": "Kein Kalender verbunden. Verbinde Google Calendar unter Einstellungen → Verbindungen.",
+    "overlayNoCalendars": "Keine Kalender gefunden",
+    "overlayError": "Einige Kalender konnten nicht geladen werden",
+    "syncTitle": "Meine Stunden synchronisieren",
+    "syncHint": "Schreibe deine geplanten Zeiteinträge als Termine in einen Kalender. Hintergrund-Sync erfordert die Verbindung im autonomen Modus."
   }
 }

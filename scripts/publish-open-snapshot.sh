@@ -50,6 +50,18 @@ tmp_index="$(mktemp)"
 trap 'rm -f "$tmp_index"' EXIT
 GIT_INDEX_FILE="$tmp_index" git read-tree "$SOURCE"
 GIT_INDEX_FILE="$tmp_index" git rm --cached -rq --ignore-unmatch "${EXCLUDES[@]}"
+
+# Never touch the public repo's .github/workflows/** — PUBLIC_REPO_PUSH_TOKEN is
+# Contents-scoped only, so GitHub rejects any push that creates/updates/deletes a
+# workflow file (no `workflow` scope). Mirror the public branch's own workflow
+# tree into our snapshot so those paths never appear in the push diff. The public
+# repo's CI is therefore managed directly on the mirror, not synced from here.
+GIT_INDEX_FILE="$tmp_index" git rm --cached -rq --ignore-unmatch .github/workflows
+pub_workflows="$(git rev-parse -q --verify "$PUBLIC_REMOTE/$PUBLIC_BRANCH:.github/workflows" 2>/dev/null || true)"
+if [[ -n "$pub_workflows" ]]; then
+  GIT_INDEX_FILE="$tmp_index" git read-tree --prefix=.github/workflows/ "$pub_workflows"
+fi
+
 tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
 
 # Safety: refuse if any excluded path survived into the tree.

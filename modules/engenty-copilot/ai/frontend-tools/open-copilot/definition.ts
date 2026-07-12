@@ -8,7 +8,6 @@ export const OPEN_COPILOT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description: "Open the Engenty copilot panel.",
   name: "openCopilot",
-  safety: "safe",
   schema: z.object({}),
   title: "Open Copilot",
 });

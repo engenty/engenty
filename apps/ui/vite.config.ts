@@ -269,6 +269,13 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
         "@engenty/i18n/ui": i18nUi,
         "@engenty/app-shell/navigation": path.join(appShell, "navigation.ts"),
         "@engenty/app-shell": path.join(appShell, "index.ts"),
+        "@engenty/ui-plugin-sdk": path.join(
+          repoRoot,
+          "packages",
+          "ui-plugin-sdk",
+          "src",
+          "index.ts"
+        ),
         "@engenty/generative-ui": path.join(generativeUi, "index.ts"),
         "@engenty/pdf-templates/core": path.join(pdfTemplates, "core.ts"),
         "@engenty/pdf-templates": path.join(pdfTemplates, "index.ts"),

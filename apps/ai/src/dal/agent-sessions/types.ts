@@ -1,15 +1,12 @@
+import type { AgentSessionStatus } from "@engenty/ai-core";
+
+export type { AgentSessionStatus } from "@engenty/ai-core";
+
 export type SessionPrincipalType = "user" | "group";
 
 export type SessionParticipantRole = "owner" | "member" | "viewer";
 
 export type SessionMessageRole = "system" | "user" | "assistant" | "tool";
-
-export type AgentSessionStatus =
-  | "idle"
-  | "running"
-  | "waiting"
-  | "failed"
-  | "completed";
 
 export interface AgentSessionRow {
   agent_id: string;

@@ -112,6 +112,10 @@ describe("registerTimeTrackingApi", () => {
     expect(httpRoutes.map((r) => `${r.method} ${r.path}`)).toEqual([
       "get /api/time-tracking/context",
       "get /api/time-tracking",
+      "get /api/time-tracking/calendar/sources",
+      "get /api/time-tracking/calendar/events",
+      "get /api/time-tracking/calendar/sync-settings",
+      "patch /api/time-tracking/calendar/sync-settings",
       "get /api/time-tracking/entries",
       "post /api/time-tracking/rows",
       "delete /api/time-tracking/rows/:id",
@@ -289,6 +293,46 @@ describe("registerTimeTrackingApi", () => {
         return null;
       },
     });
+    registerTimeTrackingApi(server, {
+      ...makeMockRepo(),
+      isPrincipalTenantAdmin: async () => true,
+    } as any);
+
+    const catalogRoute = httpRoutes.find(
+      (route) => route.path === "/api/time-tracking/catalog/team"
+    );
+    const rows = await catalogRoute?.handler({
+      auth: {
+        principalId: "user-1",
+        scopeId: "scope",
+        tenantId: "tenant",
+      },
+      request: new Request(
+        "https://engenty.localhost/api/time-tracking/catalog/team"
+      ),
+    } as any);
+
+    expect(rows).toEqual([
+      { id: "user-1", full_name: "Member One", user_id: "user-1" },
+      { id: "m2", full_name: "Member Two", user_id: null },
+    ]);
+  });
+
+  it("returns only the current principal for non-admin team catalog", async () => {
+    const { server, httpRoutes } = makeMockServer({
+      hasOperation: (operationId: string) =>
+        operationId === "team_time_tracking_list_catalog" ||
+        operationId === "team_time_tracking_actor_for_principal",
+      callGatewayMethod: async (methodName: string) => {
+        if (methodName === "team_time_tracking_list_catalog") {
+          return [
+            { id: "m1", full_name: "Member One", user_id: "user-1" },
+            { id: "m2", full_name: "Member Two", user_id: null },
+          ];
+        }
+        return null;
+      },
+    });
     registerTimeTrackingApi(server, makeMockRepo() as any);
 
     const catalogRoute = httpRoutes.find(
@@ -319,6 +363,11 @@ describe("registerTimeTrackingApi", () => {
       .sort();
     expect(operationIds).toEqual(
       [
+        "time_tracking_calendar_events_list",
+        "time_tracking_calendar_sources_list",
+        "time_tracking_calendar_sync_run",
+        "time_tracking_calendar_sync_settings_get",
+        "time_tracking_calendar_sync_settings_set",
         "time_tracking_context_get",
         "time_tracking_entries_create",
         "time_tracking_entries_delete",

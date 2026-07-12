@@ -18,6 +18,12 @@ export type PageTopbarChrome = "default" | "contentBlend";
 /** Paints the shell column + main for Ember paper stacks (`--paper` / `--paper-2`). */
 export type PageContentStackBackground = "default" | "paper";
 
+function isPrimitiveBreadcrumbLabel(
+  label: PageBreadcrumb["label"]
+): label is string | number {
+  return typeof label === "string" || typeof label === "number";
+}
+
 function arePageBreadcrumbLabelsEqual(
   a: PageBreadcrumb,
   b: PageBreadcrumb
@@ -25,7 +31,15 @@ function arePageBreadcrumbLabelsEqual(
   if (a.label === b.label) {
     return true;
   }
-  // Custom ReactNode labels (pickers) remount each render — compare stable menuLabel.
+  // ReactNode pickers get a new element when their props change — never collapse
+  // those updates via menuLabel alone (e.g. async team catalog loading).
+  if (
+    !(
+      isPrimitiveBreadcrumbLabel(a.label) && isPrimitiveBreadcrumbLabel(b.label)
+    )
+  ) {
+    return false;
+  }
   if (
     a.menuLabel != null &&
     b.menuLabel != null &&

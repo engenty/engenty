@@ -1,6 +1,8 @@
 import { createCoreUsersDal } from "../dal/core-users.js";
+import { log } from "../observability/evlog.js";
 import type { PrincipalContext } from "./auth.js";
 import { getSecuritySecret, verifyAccessToken } from "./auth.js";
+import type { GrantsService } from "./grants-service.js";
 import { capabilitiesForUser } from "./user-capabilities.js";
 
 /**
@@ -47,9 +49,11 @@ function readBearerToken(authHeader: string | undefined): string | null {
  * Supabase-backed auth provider. Uses core DAL for admin fallback (Supabase session -> core admin).
  */
 export function createSupabaseAuthProvider(
-  config: Record<string, unknown>
+  config: Record<string, unknown>,
+  deps?: { grants?: GrantsService }
 ): AuthProvider {
   const secret = getSecuritySecret(config);
+  const grants = deps?.grants;
 
   return {
     async verifyToken(authHeader: string | undefined) {
@@ -71,6 +75,46 @@ export function createSupabaseAuthProvider(
           return null;
         }
         const isAdmin = await dal.isAuthUserAdmin(sessionToken);
+        // Static built-in bundle: used when no grants service is wired
+        // (tests/CLI) and as a resilient fallback if grant resolution fails.
+        const staticGrants = () => ({
+          capabilities: capabilitiesForUser({
+            isSuperAdmin: false,
+            tenantRole: isAdmin ? "admin" : "member",
+          }),
+          roleProfiles: [] as string[],
+        });
+        // Resolve capabilities + role profiles through the grants system when
+        // available (base role ∪ DB role assignments). A grants failure (e.g.
+        // core.role_assignments missing before migrations run) must NOT nuke
+        // the principal into a 401 for every session user — fall back to the
+        // static bundle and log the cause loudly.
+        let resolved: { capabilities: string[]; roleProfiles: string[] };
+        if (grants) {
+          try {
+            resolved = await grants.resolveGrants(
+              {
+                kind: "user",
+                id: authUser.id,
+                isSuperAdmin: false,
+                tenantRole: isAdmin ? "admin" : "member",
+              },
+              tenantId
+            );
+          } catch (grantsError) {
+            log.error(
+              "auth-provider",
+              `resolveGrants failed; falling back to static capabilities: ${
+                grantsError instanceof Error
+                  ? grantsError.message
+                  : String(grantsError)
+              }`
+            );
+            resolved = staticGrants();
+          }
+        } else {
+          resolved = staticGrants();
+        }
         return {
           principalId: authUser.id,
           principalType: "user" as const,
@@ -82,11 +126,8 @@ export function createSupabaseAuthProvider(
           delegationChain: [],
           scopes: [],
           moduleIds: [],
-          capabilities: capabilitiesForUser({
-            isSuperAdmin: false,
-            tenantRole: isAdmin ? "admin" : "member",
-          }),
-          roleProfiles: [],
+          capabilities: resolved.capabilities,
+          roleProfiles: resolved.roleProfiles,
           audience: [],
           transport: "http" as const,
         };

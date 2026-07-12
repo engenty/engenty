@@ -25,11 +25,10 @@ describe("buildFrontendToolDefinitionFromZod", () => {
     expect(def.parameters).not.toHaveProperty("$schema");
   });
 
-  it("threads safety and title into engenty metadata; availability defaults to enabled", () => {
+  it("threads title into engenty metadata; availability defaults to enabled", () => {
     const def = buildFrontendToolDefinitionFromZod(themeSpec);
     expect(def.metadata.engenty).toMatchObject({
       availability: "enabled",
-      safety: "safe",
       title: "Set theme",
     });
   });
@@ -39,7 +38,6 @@ describe("buildFrontendToolDefinitionFromZod", () => {
       availability: "remote",
       description: "Navigate to an internal path.",
       name: "navigate",
-      safety: "safe",
       schema: z.object({ to: z.string(), replace: z.boolean().optional() }),
     });
     expect(def.parameters.required).toEqual(["to"]);

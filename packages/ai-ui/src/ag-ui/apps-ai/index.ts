@@ -6,10 +6,6 @@ export {
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
-export type {
-  HumanInTheLoopRenderProps,
-  HumanInTheLoopStatus,
-} from "../../copilot/human-in-the-loop-registry.js";
 export {
   resolvePendingUserInsertIndex,
   resolvePendingUserTextForTranscript,
@@ -31,10 +27,6 @@ export {
   type UseEngentyFrontendToolOptions,
   useEngentyFrontendTool,
 } from "../use-engenty-frontend-tool.js";
-export {
-  type EngentyHumanInTheLoopConfig,
-  useEngentyHumanInTheLoop,
-} from "../use-engenty-human-in-the-loop.js";
 export {
   APPS_AI_BASE_PATH,
   appsAiRequestHeaders,
@@ -87,7 +79,6 @@ export {
 } from "./realtime-voice-backend-tools.js";
 export {
   executeOpenAiRealtimeVoiceFrontendTool,
-  isRealtimeVoiceFrontendToolGated,
   normalizeRealtimeToolInput,
   openAiRealtimeVoiceFrontendToolName,
   openAiRealtimeVoiceToolsFromFrontendTools,
@@ -134,7 +125,6 @@ export {
   type VoiceBackendApprovalPendingConfirmation,
   type VoiceFieldSuggestion,
   type VoiceFieldSuggestionsPendingConfirmation,
-  type VoiceFrontendToolPendingConfirmation,
   type VoicePendingConfirmation,
 } from "./voice-pending-confirmation.js";
 export {

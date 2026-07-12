@@ -12,7 +12,6 @@ describe("offer_file_downloads frontend tool catalog", () => {
       metadata: {
         engenty: {
           availability: "enabled",
-          safety: "safe",
           title: "Offer File Downloads",
         },
       },

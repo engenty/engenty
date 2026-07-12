@@ -28,7 +28,7 @@ import { TasksDisplayDialog } from "./tasks-display-dialog.js";
 interface TasksToolbarProps {
   bulkActions?: React.ReactNode;
   clearSelectionLabel?: string;
-  columnOrder: (keyof TasksColumnVisibility)[];
+  columnOrder: string[];
   columns: TaskColumnOption[];
   columnVisibility: TasksColumnVisibility;
   filtersExpanded: boolean;
@@ -39,7 +39,7 @@ interface TasksToolbarProps {
   onSearchChange: (value: string) => void;
   searchQuery: string;
   selectedCount?: number;
-  setColumnOrder: (order: (keyof TasksColumnVisibility)[]) => void;
+  setColumnOrder: (order: string[]) => void;
   setColumnVisibility: (value: TasksColumnVisibility) => void;
   setSortBy: (column: TasksSortColumn) => void;
   setSortOrder: (order: "asc" | "desc") => void;

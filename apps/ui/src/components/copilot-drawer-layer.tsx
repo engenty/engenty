@@ -12,7 +12,6 @@ import {
   type CopilotRouteContext,
   ENGENTY_COPILOT_HOST_KEY,
   type FieldSuggestion,
-  rejectCopilotOpenInterrupt,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useAgentHost,
   useCopilotAssistantTurnFinish,
@@ -270,6 +269,18 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     userId,
   });
 
+  // Surface which session this tab's drawer is bound to (falls back to the
+  // static copilot title for new/unbound chats).
+  const boundThreadTitle = useMemo(() => {
+    if (!binding.activeThreadId) {
+      return null;
+    }
+    const row = threads.threads.find(
+      (thread) => thread.id === binding.activeThreadId
+    );
+    return row?.title?.trim() || row?.summary?.trim() || null;
+  }, [binding.activeThreadId, threads.threads]);
+
   const chooserMenuSessions = useMemo(
     () =>
       threads.threads.map((row) => ({
@@ -301,7 +312,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
 
   useCopilotAssistantTurnFinish(props.onCopilotAssistantTurnFinish);
 
-  const handleFrontendToolInterruptApprove = useCallback(
+  const handleSandboxCommandApprove = useCallback(
     async (open: import("@engenty/ag-ui-bridge").AgUiOpenInterruptMetadata) => {
       await approveCopilotOpenInterrupt({
         activeThreadId: binding.activeThreadId,
@@ -319,12 +330,15 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     ]
   );
 
-  const handleFrontendToolInterruptReject = useCallback(
+  const handleSandboxCommandReject = useCallback(
     (open: import("@engenty/ag-ui-bridge").AgUiOpenInterruptMetadata) => {
-      rejectCopilotOpenInterrupt({
-        open,
-        resumeInterrupt: host.resumeInterrupt,
-      });
+      if (open.tool_name) {
+        host.resumeInterrupt?.({
+          approved: false,
+          interruptId: open.interrupt_id,
+          toolName: open.tool_name,
+        });
+      }
     },
     [host.resumeInterrupt]
   );
@@ -379,9 +393,9 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
           props.hasApply ? props.onApplySuggestions : undefined
         }
         onAssistantTurnFinish={props.onCopilotAssistantTurnFinish}
-        onFrontendToolInterruptApprove={handleFrontendToolInterruptApprove}
-        onFrontendToolInterruptReject={handleFrontendToolInterruptReject}
         onOpenChange={props.setOpen}
+        onSandboxCommandInterruptApprove={handleSandboxCommandApprove}
+        onSandboxCommandInterruptReject={handleSandboxCommandReject}
         open={props.open}
         openInterruptFromSession={openInterruptFromSession}
         positionBottomLabel={t("copilot.position.bottom")}
@@ -405,7 +419,9 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         startMode={props.startMode}
         suggestedUpdatesLabel={t("copilot.suggestedUpdates")}
         thinkingLabel={t("copilot.thinking")}
-        title={props.contribution?.title ?? t("copilot.title")}
+        title={
+          boundThreadTitle ?? props.contribution?.title ?? t("copilot.title")
+        }
         triggerType={props.triggerType}
       />
     </CopilotSurfaceErrorBoundary>

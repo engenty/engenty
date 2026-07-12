@@ -1,6 +1,5 @@
 "use client";
 
-import { buildFrontendToolOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Dialog,
@@ -18,7 +17,6 @@ import {
   type VoiceFieldSuggestionsPendingConfirmation,
 } from "../../../ag-ui/apps-ai/voice-pending-confirmation.js";
 import { DecisionArtifactCard } from "./decision-artifact.js";
-import { FrontendToolConfirmCard } from "./frontend-tool-confirm-card.js";
 import {
   type FieldSuggestion,
   HitlApprovalCard,
@@ -49,9 +47,8 @@ export interface VoiceConfirmationHostProps {
 
 /**
  * Mounts the on-screen dialog for a voice HITL gate, reusing the same cards the
- * text copilot uses (decision card for backend ops, suggested-updates card for
- * field proposals, confirm card for frontend tools). The agent also asks out
- * loud; both channels resolve the same pending confirmation, and after a click
+ * text copilot uses (decision card for backend ops, suggested-updates card
+ * for field proposals). The agent also asks out loud; both channels resolve the same pending confirmation, and after a click
  * the outcome is injected back into the session so the agent narrates it.
  */
 export function VoiceConfirmationHost({
@@ -96,21 +93,8 @@ export function VoiceConfirmationHost({
         </DialogHeader>
         {pending.kind === "backend_approval" ? (
           <BackendApprovalBody onDecide={decide} pending={pending} />
-        ) : pending.kind === "field_suggestions" ? (
-          <FieldSuggestionsBody onDecide={decide} pending={pending} t={t} />
         ) : (
-          <FrontendToolConfirmCard
-            onApprove={() => void decide(true, false)}
-            onReject={() => void decide(false, false)}
-            open={buildFrontendToolOpenInterrupt({
-              artifact_id: pending.callId,
-              interrupt_id: `voice-${pending.callId}`,
-              title: pending.title,
-              tool_call_id: pending.callId,
-              tool_input: pending.input,
-              tool_name: pending.toolName,
-            })}
-          />
+          <FieldSuggestionsBody onDecide={decide} pending={pending} t={t} />
         )}
       </DialogContent>
     </Dialog>

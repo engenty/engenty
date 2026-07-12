@@ -8,12 +8,12 @@
 | **B — Message authority** | 5–7 | **Done** — snapshot replace, pending send UI, single hydrator |
 | **B — Shell stability** | **7b** | **Done** — no max update depth on shell surfaces |
 | **C — Local recovery** | 8 | **Partial** — composer draft `localStorage` v1 (env-gated); in-flight run buffer deferred |
-| **D — CopilotKit-shaped client** | — | **Active (WIP)** — one tool status, frontend-tool single flight, collapsed widgets; optional CopilotKit React v2 bridge later |
+| **D — CopilotKit-shaped client** | — | **Mostly done (2026-07 audit)** — one tool status ✓ (`tool-call-merge.ts`), frontend-tool single flight ✓ (`use-engenty-frontend-tool.ts`), single HITL surface ✓ (`pending-interrupt-from-transcript.ts`), no duplicate navigate rows ✓; **open:** collapsed generative-UI widgets (only `sub-agent-task-tool-call-card` collapses); optional CopilotKit React v2 bridge later |
 
 Track A removed the module fork (`use-chat-submit`, `useCopilotSession`, copilot naming). Track B fixes the **data model** we left broken: two authorities for the same transcript (optimistic `Message[]` + query hydrate + text dedupe).
 
 **Canonical product doc:** [docs/content/dev/ai-agents/ag-ui-apps-ai-session.md](../../../docs/content/dev/ai-agents/ag-ui-apps-ai-session.md)  
-**Track D (client polish / CopilotKit-shaped):** [docs/content/wip/ag-ui-copilotkit-alignment/index.md](../../../docs/content/wip/ag-ui-copilotkit-alignment/index.md)  
+**Track D (client polish / CopilotKit-shaped):** WIP docs under `docs/content/wip/ag-ui-copilotkit-alignment/` were removed; status lives in the table above (2026-07 audit)  
 **Official AG-UI:** [Messages](https://docs.ag-ui.com/concepts/messages), [Events (MessagesSnapshot)](https://docs.ag-ui.com/concepts/events)  
 **Historical migration note:** [docs/dev/ag-ui-ui-messages-migration.md](../../../docs/dev/ag-ui-ui-messages-migration.md) (complete — pointer only; no AI SDK stream compatibility)
 
@@ -110,15 +110,17 @@ Completed tracks are summarized here only — per-phase checklist files were rem
 |-------|-----|---------|
 | 8 | [phase-8-local-recovery-store.md](./phase-8-local-recovery-store.md) | Draft / interrupted-run recovery without polluting canonical messages |
 
-### Track D — CopilotKit-shaped client (active WIP)
+### Track D — CopilotKit-shaped client (mostly done — 2026-07 audit)
 
-Message authority (Track B) is done; **tool and widget lifecycle** is the remaining simplification gap. Task list lives in published WIP (not under `modules/engenty-copilot/dev/phase-*`):
+Message authority (Track B) is done. The WIP task docs under `docs/content/wip/ag-ui-copilotkit-alignment/` were removed; current status verified in code:
 
-| Doc | Outcome |
-|-----|---------|
-| [ag-ui-copilotkit-alignment/index.md](../../../docs/content/wip/ag-ui-copilotkit-alignment/index.md) | Hub: problem statement, Track A vs B, non-goals |
-| [track-a-copilotkit-shaped-client.md](../../../docs/content/wip/ag-ui-copilotkit-alignment/track-a-copilotkit-shaped-client.md) | **Default:** naming map, one tool status, `useEngentyFrontendTool`, generative UI collapse, single HITL |
-| [track-b-react-v2-bridge.md](../../../docs/content/wip/ag-ui-copilotkit-alignment/track-b-react-v2-bridge.md) | **Optional TBD:** CopilotKit React v2 behind `@engenty/ai-ui` after A1+A2 gates |
+| Item | Status | Evidence |
+|------|--------|----------|
+| One tool status | **Done** | `packages/ai-ui/src/ag-ui/tool-call-merge.ts` normalizes to one `DynamicToolPartState` per `toolCallId`; shared `interrupts/interactive-tool-status.ts` |
+| Frontend-tool single flight | **Done** | `use-engenty-frontend-tool.ts` — one handler per tool name via app-shell |
+| Single HITL surface | **Done** | one derivation `interrupts/pending-interrupt-from-transcript.ts`; one hook `use-engenty-human-in-the-loop.ts`; renderers differ only per modality |
+| No duplicate navigate rows | **Done** | `tool-call-merge.ts` merges by `toolCallId`; `resolve-transcript-tool-display.ts` renders navigate-class tools once |
+| Collapsed generative-UI widgets | **Open** | only `sub-agent-task-tool-call-card.tsx` collapses; generic widgets render expanded |
 
 **Implementer rule (Track D):** If the fix adds a new skip/stale guard without a task id in Track A, stop — implement the workstream instead.
 
@@ -140,7 +142,7 @@ Message authority (Track B) is done; **tool and widget lifecycle** is the remain
 
 ## Definition of done — Track D
 
-See [Track A definition of done](../../../docs/content/wip/ag-ui-copilotkit-alignment/track-a-copilotkit-shaped-client.md#definition-of-done-track-a). Track D is **not** required to call Track B “done,” but is required before declaring copilot **client polish** finished (no duplicate navigate rows, collapsed widgets, single HITL).
+See the Track D status table above (the WIP doc it used to link to was removed). Track D is **not** required to call Track B “done,” but is required before declaring copilot **client polish** finished. Remaining item: collapsed generative-UI widgets.
 
 ---
 

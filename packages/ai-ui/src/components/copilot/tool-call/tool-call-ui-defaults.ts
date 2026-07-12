@@ -9,14 +9,6 @@ import {
   FeedbackArtifactToolCallCard,
   matchesFeedbackArtifactOutput,
 } from "./feedback-artifact-tool-call-card";
-import {
-  FrontendToolConfirmToolCallCard,
-  matchesFrontendToolConfirmationOutput,
-} from "./frontend-tool-confirm-tool-call-card";
-import {
-  HumanInTheLoopToolCallCard,
-  matchesHumanInTheLoopToolCall,
-} from "./human-in-the-loop-tool-call-card";
 import { McpAppToolCallCard, readMcpAppMeta } from "./mcp-app-tool-call-card";
 import {
   matchesProposeUpdatesOutput,
@@ -74,19 +66,6 @@ export function registerDefaultToolCallUiCards() {
     priority: 52,
     match: (ctx) => matchesProposeUpdatesOutput(ctx.output),
     Card: ProposeUpdatesToolCallCard,
-  });
-  registerToolCallUi({
-    id: "core.human-in-the-loop",
-    // Above the binary confirm card (55): HITL tools render their own card.
-    priority: 56,
-    match: (ctx) => matchesHumanInTheLoopToolCall(ctx.output),
-    Card: HumanInTheLoopToolCallCard,
-  });
-  registerToolCallUi({
-    id: "core.frontend-tool-confirmation",
-    priority: 55,
-    match: (ctx) => matchesFrontendToolConfirmationOutput(ctx.output),
-    Card: FrontendToolConfirmToolCallCard,
   });
   registerToolCallUi({
     id: "core.sandbox-command-confirmation",

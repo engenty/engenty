@@ -46,6 +46,7 @@ export {
   resolveChatModelId,
   resolveSafeguardModelId,
 } from "./config/chat-model-id.js";
+export type { AgentSessionStatus } from "./contracts.js";
 export type {
   AgentConfig,
   AgentGuardrailsConfig,

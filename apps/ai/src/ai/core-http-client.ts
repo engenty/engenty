@@ -144,8 +144,17 @@ export class EngentyCoreHttpError extends Error {
 const DEFAULT_CORE_HTTP_TIMEOUT_MS = 60_000;
 
 export interface EngentyCoreClientOptions {
+  /**
+   * Phase 4: the agent driving these calls and the goal it is pursuing. When
+   * set, forwarded to core as x-engenty-agent-id / x-engenty-goal-id so the
+   * escalation policy can gate the band above the agent's grants and bind
+   * approvals to the goal. Purely additive — core ignores them unless the
+   * agent-escalation flag is on, and they can only add an approval requirement.
+   */
+  agentId?: string;
   coreBaseUrl: string;
   fetchImpl?: typeof fetch;
+  goalId?: string;
   requestTimeoutMs?: number;
   userAccessToken: string;
 }
@@ -256,6 +265,12 @@ export class EngentyCoreClient {
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${normalizeBearerToken(this.options.userAccessToken)}`,
+          ...(this.options.agentId
+            ? { "x-engenty-agent-id": this.options.agentId }
+            : {}),
+          ...(this.options.goalId
+            ? { "x-engenty-goal-id": this.options.goalId }
+            : {}),
           ...init.headers,
         },
       });

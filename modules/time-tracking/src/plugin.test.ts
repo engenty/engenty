@@ -17,6 +17,7 @@ function makePluginApi() {
       hasOperation: vi.fn(),
       registerHttpRoute: vi.fn(),
       registerOperation: vi.fn(),
+      registerRoleProfiles: vi.fn(),
       registerTestDataType: vi.fn(),
     },
   } as unknown as EngentyPluginApi;

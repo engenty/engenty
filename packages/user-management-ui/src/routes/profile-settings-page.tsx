@@ -1,4 +1,6 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useCoreAuthSession } from "@engenty/auth-ui";
+import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +17,9 @@ import { listUsers, updateUserProfile } from "../lib/user-management-api.js";
 type UpdateProfileFormValues = z.infer<typeof updateUserProfileSchema>;
 
 export function ProfileSettingsPage() {
+  const { t } = useTranslation("common");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("navigation.settings"));
   const { session } = useCoreAuthSession();
   const userId = session?.user?.id;
   const [member, setMember] = useState<UserRecord | null>(null);
@@ -97,13 +102,18 @@ export function ProfileSettingsPage() {
   );
 
   const breadcrumbs = useMemo(
-    () => [{ label: "Settings", to: "/settings" }, { label: "Profile" }],
-    []
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("menu.profile") },
+    ],
+    [moduleRootCrumb, t]
   );
 
   usePageConfig({
     breadcrumbs,
     actions: loading || !member ? null : pageActions,
+    topbarChrome: "contentBlend",
+    secondaryNavHeaderSlot,
   });
 
   if (loading) {

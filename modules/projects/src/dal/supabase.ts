@@ -2,9 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidv7 } from "uuidv7";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import {
+  countProjectAssociatedTasks,
   createProjectLinkedTask,
   deleteProjectLinkedTask,
   type InvokeTasksFn,
+  listProjectAssociatedTaskIds,
   listProjectLinkedTasks,
   listProjectTaskAssigneeUserIds,
   listProjectTasksPaginated,
@@ -62,6 +64,8 @@ function rowToProject(row: Record<string, unknown>): Project {
     portal_enabled: Boolean(row.portal_enabled),
     portal_password: (row.portal_password as string | null) ?? null,
     portal_intro_text: (row.portal_intro_text as string | null) ?? null,
+    visibility:
+      (row.visibility as "tenant" | "members" | undefined) ?? "tenant",
     enabled_tabs: (row.enabled_tabs as string[] | null) ?? null,
     created_by: (row.created_by as string | null) ?? null,
     created_at: String(row.created_at),
@@ -138,6 +142,14 @@ export interface ProjectRepoAuditOptions {
 export interface ProjectRepoDeps {
   audit?: ProjectRepoAuditOptions;
   invokeTasks: InvokeTasksFn;
+  /**
+   * Phase 2 project visibility. Service-role reads bypass RLS, so members-only
+   * projects must be filtered out of list results in the DAL. When
+   * `seesAllProjects` is false, listPaginated returns only tenant-visible
+   * projects plus those the viewer is a team member of. Omit (or set
+   * seesAllProjects) for admin/moderator/system callers.
+   */
+  viewer?: { userId: string; seesAllProjects: boolean };
 }
 
 export type ProjectRepoSupabase = ReturnType<typeof createProjectRepoSupabase>;
@@ -149,7 +161,7 @@ export function createProjectRepoSupabase(
   deps: ProjectRepoDeps
 ) {
   const supabase = adapter as SupabaseClient;
-  const { invokeTasks, audit } = deps;
+  const { invokeTasks, audit, viewer } = deps;
   const schema = "module_projects";
   const projects = () => supabase.schema(schema).from("projects");
   const phases = () => supabase.schema(schema).from("project_phases");
@@ -327,6 +339,15 @@ export function createProjectRepoSupabase(
       const { team_member_ids, ...projectFields } = input;
       const id = uuidv7();
       const now = new Date().toISOString();
+      const visibility = projectFields.visibility ?? "tenant";
+      const portalEnabled = projectFields.portal_enabled ?? false;
+      // A members-only project cannot expose the anon client portal — the
+      // portal is public-by-link, which would defeat the restriction.
+      if (visibility === "members" && portalEnabled) {
+        throw new Error(
+          "A members-only project cannot enable the client portal."
+        );
+      }
       const row = {
         id,
         tenant_id: tenantId,
@@ -338,9 +359,10 @@ export function createProjectRepoSupabase(
         briefing: projectFields.briefing ?? null,
         start_date: projectFields.start_date ?? null,
         end_date: projectFields.end_date ?? null,
-        portal_enabled: projectFields.portal_enabled ?? false,
+        portal_enabled: portalEnabled,
         portal_password: projectFields.portal_password ?? null,
         portal_intro_text: projectFields.portal_intro_text ?? null,
+        visibility,
         enabled_tabs: projectFields.enabled_tabs ?? null,
         created_by: projectFields.created_by ?? null,
         created_at: now,
@@ -388,6 +410,36 @@ export function createProjectRepoSupabase(
         .select("*, project_team(*)", { count: "exact", head: false })
         .eq("tenant_id", tenantId)
         .eq("scope_id", scopeId);
+
+      // Project visibility (Phase 2): a restricted viewer only sees
+      // tenant-visible projects plus those they are a team member of. Done as
+      // two queries because PostgREST can't take a subquery inside `in.(...)`.
+      if (viewer && !viewer.seesAllProjects) {
+        const { data: teamRows, error: teamError } = await projectTeamMembers()
+          .select("project_id")
+          .eq("user_id", viewer.userId);
+        if (teamError) {
+          throw new Error(
+            `Failed to resolve visible projects: ${teamError.message}`
+          );
+        }
+        const memberProjectIds = [
+          ...new Set(
+            (teamRows ?? []).map((r: { project_id: string }) =>
+              String(r.project_id)
+            )
+          ),
+        ];
+        const orParts = ["visibility.eq.tenant"];
+        if (memberProjectIds.length > 0) {
+          // Quote each id so ids with reserved chars survive the filter syntax.
+          const quoted = memberProjectIds
+            .map((id) => `"${id.replace(/"/g, '\\"')}"`)
+            .join(",");
+          orParts.push(`id.in.(${quoted})`);
+        }
+        query = query.or(orParts.join(","));
+      }
 
       if (params.search?.trim()) {
         const search = `%${params.search.trim()}%`;
@@ -494,6 +546,17 @@ export function createProjectRepoSupabase(
         return null;
       }
       const { team_member_ids, project_team, ...rest } = input;
+      // Guard the members-only × portal combination against the effective
+      // state (existing values overlaid with this patch).
+      const effectiveVisibility =
+        rest.visibility ?? existing.visibility ?? "tenant";
+      const effectivePortal =
+        rest.portal_enabled ?? existing.portal_enabled ?? false;
+      if (effectiveVisibility === "members" && effectivePortal) {
+        throw new Error(
+          "A members-only project cannot enable the client portal."
+        );
+      }
       const patchEntries = Object.entries(rest).filter(
         ([, v]) => v !== undefined
       );
@@ -545,10 +608,26 @@ export function createProjectRepoSupabase(
       return this.getById(id);
     },
 
-    async delete(id: string): Promise<boolean> {
+    async delete(
+      id: string,
+      opts?: { deleteTasks?: boolean }
+    ): Promise<boolean> {
       const existing = await this.getById(id);
       if (!existing) {
         return false;
+      }
+
+      if (opts?.deleteTasks) {
+        const linkedTaskIds = await listProjectAssociatedTaskIds(
+          invokeTasks,
+          supabase,
+          tenantId,
+          scopeId,
+          id
+        );
+        for (const taskId of linkedTaskIds) {
+          await deleteProjectLinkedTask(invokeTasks, id, taskId);
+        }
       }
 
       // Preserve time entries that reference this project (or its phases) before
@@ -805,6 +884,24 @@ export function createProjectRepoSupabase(
       params: ProjectTasksQueryParams,
       assignedToUserId?: string
     ): Promise<ProjectTasksPaginatedResponse> {
+      // Visibility (Phase 2): a restricted viewer must not enumerate tasks
+      // across ALL projects (that would leak members-only projects' tasks).
+      // Single-project listing is gated by the visibility policy, and the
+      // personal "mine" scope is filtered to the viewer's own tasks — only the
+      // cross-project "all" listing is the leak, so deny that one.
+      if (
+        viewer &&
+        !viewer.seesAllProjects &&
+        !params.project_id &&
+        params.scope !== "mine"
+      ) {
+        return {
+          data: [],
+          page: Math.max(params.page ?? 1, 1),
+          pageSize: Math.min(Math.max(params.pageSize ?? 25, 1), 200),
+          total: 0,
+        };
+      }
       return listProjectTasksPaginated(
         invokeTasks,
         supabase,
@@ -815,6 +912,16 @@ export function createProjectRepoSupabase(
       );
     },
 
+    async countAssociatedTasks(projectId: string): Promise<number> {
+      return countProjectAssociatedTasks(
+        invokeTasks,
+        supabase,
+        tenantId,
+        scopeId,
+        projectId
+      );
+    },
+
     async getTaskCountsByStatus(
       params: Omit<
         ProjectTasksQueryParams,
@@ -822,6 +929,16 @@ export function createProjectRepoSupabase(
       >,
       assignedToUserId?: string
     ): Promise<ProjectTaskCountsByStatus> {
+      // Same visibility guard as listTasksPaginated: a restricted viewer gets
+      // zero cross-project counts rather than a leak of members-only tallies.
+      if (
+        viewer &&
+        !viewer.seesAllProjects &&
+        !params.project_id &&
+        params.scope !== "mine"
+      ) {
+        return {};
+      }
       const settingsForCounts = await this.getSettings();
       const statuses = settingsForCounts.task_status_definitions.map(
         (d) => d.id

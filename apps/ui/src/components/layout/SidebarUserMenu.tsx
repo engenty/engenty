@@ -40,7 +40,10 @@ import { useNavigate } from "react-router-dom";
 import { setUserSetting } from "@/lib/api/client";
 import { APPEARANCE_KEYS } from "@/lib/appearance-constants";
 import { cn } from "@/lib/utils";
-import { workspaceContextOptions } from "@/lib/workspace-context-query";
+import {
+  useWorkspaceContextQuery,
+  workspaceContextOptions,
+} from "@/lib/workspace-context-query";
 
 interface SidebarUserMenuProps {
   compact: boolean;
@@ -81,7 +84,10 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
     email: userEmail,
   } = useCurrentUserProfile();
 
-  const showDeveloperMenu = isEngentyDevelopmentEnvironment();
+  // Developer mode is a superadmin tool — the toggle only appears for them.
+  const workspace = useWorkspaceContextQuery(true);
+  const showDeveloperMenu =
+    isEngentyDevelopmentEnvironment() && workspace.data?.isSuperAdmin === true;
   const [developerMode, setDeveloperMode] = useState(
     getDeveloperModePreference
   );

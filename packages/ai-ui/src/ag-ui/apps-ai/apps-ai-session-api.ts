@@ -1,7 +1,10 @@
 // Thread CRUD + TanStack query hooks against apps/ai `/ai/threads`.
 // Message hydration maps persisted rows to AG-UI `Message[]` for lane binding.
 
-import { buildAgUiMessagesFromSessionMessages } from "@engenty/ai-core/browser";
+import {
+  type AgentSessionStatus,
+  buildAgUiMessagesFromSessionMessages,
+} from "@engenty/ai-core/browser";
 import { useQuery } from "@engenty/query-client";
 import { useMemo } from "react";
 import type { EngentyAgUiMessage } from "../conversation.js";
@@ -11,13 +14,8 @@ import {
   withAppsAiSearchParams,
 } from "./apps-ai-api.js";
 
-export type AppsAiThreadStatus =
-  | "draft"
-  | "idle"
-  | "running"
-  | "waiting"
-  | "failed"
-  | "completed";
+/** Wire status plus the client-synthetic "draft" (unsaved session). */
+export type AppsAiThreadStatus = AgentSessionStatus | "draft";
 
 export interface AppsAiThreadRecord {
   agent_id: string;

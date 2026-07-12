@@ -1,3 +1,4 @@
+import { SessionStatusIcon } from "@engenty/ai-ui";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import {
   cn,
@@ -9,14 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@engenty/ui-core";
-import { AnimatedLoaderIcon } from "@engenty/ui-icons";
-import {
-  AlertCircle,
-  Check,
-  Clock3,
-  MoreHorizontal,
-  Pencil,
-} from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import type {
   AgentSessionDto,
   AgentSessionStatus,
@@ -66,50 +60,10 @@ export function SessionListItem(props: { row: AgentSessionDto }) {
 
 function SessionStatusIndicator(props: { status: AgentSessionStatus }) {
   const list = useSessionList();
-  const label = statusLabel(props.status, list.labels);
-  const className = "size-3 shrink-0";
-  if (props.status === "running") {
-    return <AnimatedLoaderIcon play="always" size="sm" />;
-  }
-  if (props.status === "draft") {
-    return (
-      <Pencil aria-label={label} className={cn(className, "text-primary")} />
-    );
-  }
-  if (props.status === "waiting") {
-    return (
-      <Clock3 aria-label={label} className={cn(className, "text-amber-600")} />
-    );
-  }
-  if (props.status === "failed") {
-    return (
-      <AlertCircle
-        aria-label={label}
-        className={cn(className, "text-destructive")}
-      />
-    );
-  }
-  if (props.status === "completed") {
-    return (
-      <span
-        aria-label={label}
-        className={cn(
-          "flex size-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
-        )}
-        role="img"
-      >
-        <Check className="size-2.5 stroke-[3]" />
-      </span>
-    );
-  }
   return (
-    <span
-      aria-label={label}
-      className={cn(
-        className,
-        "rounded-full border border-muted-foreground/35"
-      )}
-      role="img"
+    <SessionStatusIcon
+      label={statusLabel(props.status, list.labels)}
+      status={props.status}
     />
   );
 }

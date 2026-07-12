@@ -44,6 +44,8 @@ export interface Project {
   tenant_id: string;
   title: string;
   updated_at: string;
+  /** Project visibility: whole-tenant (default) or restricted to its team. */
+  visibility?: "tenant" | "members";
 }
 
 export interface ProjectPhase {

@@ -3,14 +3,6 @@ import type { AvatarStackProfile } from "@engenty/ui-core";
 import {
   AdminListGroupHeader,
   AdminListGroupPill,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AvatarStack,
   cn,
   DropdownMenuItem,
@@ -32,7 +24,10 @@ import { Fragment, useState } from "react";
 import { deleteProject, type ProjectListItem } from "../api.js";
 import { getProjectDisplayProfiles } from "../lib/project-display-members.js";
 import type { ProjectsListGroup } from "../lib/project-list-grouping.js";
+import type { ProjectTaskProgressSummary } from "../lib/project-task-progress.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
+import { ProjectTasksProgressCell } from "./project-tasks-progress-cell.js";
+import { ProjectsDeleteConfirmDialog } from "./projects-delete-confirm-dialog.js";
 import type {
   ProjectsColumnVisibility,
   ProjectsSortColumn,
@@ -81,11 +76,13 @@ interface ProjectsTableProps {
   onSelectOne: (id: string, checked: boolean) => void;
   onSortChange: (column: ProjectsSortColumn) => void;
   onToggleGroup: (id: string) => void;
+  progressByProjectId: Map<string, ProjectTaskProgressSummary>;
   selectedIds: Set<string>;
   showTeamMembers?: boolean;
   sortBy: ProjectsSortColumn;
   sortOrder: "asc" | "desc";
   tableSize: TableSize;
+  taskProgressLoading?: boolean;
   teamMemberCatalog: TeamMemberCatalogRow[];
 }
 
@@ -108,6 +105,8 @@ export function ProjectsTable({
   teamMemberCatalog,
   memberProfileMap,
   showTeamMembers = true,
+  progressByProjectId,
+  taskProgressLoading = false,
 }: ProjectsTableProps) {
   const { t } = useTranslation("projects");
 
@@ -123,13 +122,18 @@ export function ProjectsTable({
     selectedIds.size > 0 && selectedIds.size < projects.length;
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDeleteOne = async (id: string) => {
-    setDeletingId(id);
+  const handleDeleteOne = async (options: { deleteTasks: boolean }) => {
+    if (!deletingId) {
+      return;
+    }
+    setIsDeleting(true);
     try {
-      await deleteProject(id);
+      await deleteProject(deletingId, { deleteTasks: options.deleteTasks });
       onDataChange();
     } finally {
+      setIsDeleting(false);
       setDeletingId(null);
     }
   };
@@ -139,6 +143,7 @@ export function ProjectsTable({
     client: t("list.columns.client"),
     startDate: t("list.columns.startDate"),
     endDate: t("list.columns.endDate"),
+    tasks: t("list.columns.tasks"),
     team: t("list.columns.team"),
   };
 
@@ -242,37 +247,43 @@ export function ProjectsTable({
                           return null;
                         }
                         const cell =
-                          key === "title"
-                            ? p.title
-                            : key === "client"
-                              ? (p.client_name ?? p.client_id ?? "—")
-                              : key === "startDate"
-                                ? formatDate(p.start_date)
-                                : key === "endDate"
-                                  ? formatDate(p.end_date)
-                                  : key === "team"
-                                    ? (() => {
-                                        if (!showTeamMembers) {
-                                          return "—";
-                                        }
-                                        const profiles =
-                                          getProjectDisplayProfiles(
-                                            p,
-                                            teamMemberCatalog,
-                                            memberProfileMap
-                                          );
-                                        if (profiles.length === 0) {
-                                          return "—";
-                                        }
-                                        return (
-                                          <AvatarStack
-                                            max={4}
-                                            profiles={profiles}
-                                            size="sm"
-                                          />
-                                        );
-                                      })()
-                                    : "—";
+                          key === "title" ? (
+                            p.title
+                          ) : key === "client" ? (
+                            (p.client_name ?? p.client_id ?? "—")
+                          ) : key === "startDate" ? (
+                            formatDate(p.start_date)
+                          ) : key === "endDate" ? (
+                            formatDate(p.end_date)
+                          ) : key === "tasks" ? (
+                            <ProjectTasksProgressCell
+                              isLoading={taskProgressLoading}
+                              summary={progressByProjectId.get(p.id)}
+                            />
+                          ) : key === "team" ? (
+                            (() => {
+                              if (!showTeamMembers) {
+                                return "—";
+                              }
+                              const profiles = getProjectDisplayProfiles(
+                                p,
+                                teamMemberCatalog,
+                                memberProfileMap
+                              );
+                              if (profiles.length === 0) {
+                                return "—";
+                              }
+                              return (
+                                <AvatarStack
+                                  max={4}
+                                  profiles={profiles}
+                                  size="sm"
+                                />
+                              );
+                            })()
+                          ) : (
+                            "—"
+                          );
                         return (
                           <TableCell
                             className={key === "title" ? "font-medium" : ""}
@@ -313,37 +324,13 @@ export function ProjectsTable({
         })}
       </Table>
 
-      <AlertDialog
-        onOpenChange={(open) => !open && setDeletingId(null)}
+      <ProjectsDeleteConfirmDialog
+        isDeleting={isDeleting}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteOne}
         open={deletingId !== null}
-      >
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("deleteProjectConfirm", {
-                defaultValue: "Delete this project?",
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteProjectConfirmDescription", {
-                defaultValue: "This action cannot be undone.",
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("cancel", { defaultValue: "Cancel" })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={!deletingId}
-              onClick={() => deletingId && void handleDeleteOne(deletingId)}
-            >
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        projectId={deletingId}
+      />
     </>
   );
 }

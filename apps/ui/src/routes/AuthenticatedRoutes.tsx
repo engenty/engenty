@@ -17,6 +17,7 @@ import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
 import { FeatureFlagsPage } from "@/pages/FeatureFlagsPage";
+import { RolesSettingsPage } from "@/pages/RolesSettingsPage";
 import { SearchIndexSettingsPage } from "@/pages/SearchIndexSettingsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { TenantPluginsPage } from "@/pages/TenantPluginsPage";
@@ -28,12 +29,28 @@ interface AuthenticatedRoutesProps {
   isTenantAdmin: boolean;
 }
 
+// Settings pages that are genuinely per-user (not tenant config) and so stay
+// reachable by members even though they live under /settings/*. Appearance is
+// NOT here — it is the tenant-wide branding editor (writes tenant settings);
+// members change only their own theme/language via the user menu.
+const PERSONAL_SETTINGS_PREFIXES = [
+  "/settings/profile",
+  "/settings/connections",
+];
+
+// Where a member lands when they hit an admin-only settings page. Profile is
+// always present (user-management) and personal.
+const MEMBER_SETTINGS_HOME = "/settings/profile";
+
 export function AuthenticatedRoutes({
   contributions,
   isSuperAdmin,
   isTenantAdmin,
 }: AuthenticatedRoutesProps) {
   const developerModeEnabled = useDeveloperModeEnabled();
+  // Tenant admins and superadmins are the "admins"; members are end users who
+  // get personal settings + module apps but no tenant-config / admin consoles.
+  const isAdmin = isSuperAdmin || isTenantAdmin;
 
   return (
     <UiContributionsProvider contributions={contributions}>
@@ -53,9 +70,38 @@ export function AuthenticatedRoutes({
         />
         <Route element={<ChatLegacySessionRedirect />} path="/chat/:threadId" />
         <Route element={<DeviceApprovalPage />} path="/auth/device" />
-        <Route element={<TenantPluginsPage />} path="/admin/plugins" />
-        <Route element={<SettingsPage />} path="/settings" />
-        <Route element={<AiGeneralSettingsPage />} path="/settings/ai" />
+        <Route
+          element={
+            isAdmin ? (
+              <TenantPluginsPage />
+            ) : (
+              <Navigate replace to={COPILOT_CHAT_ROOT} />
+            )
+          }
+          path="/admin/plugins"
+        />
+        <Route
+          element={
+            isAdmin ? (
+              <SettingsPage />
+            ) : (
+              // Members can't open the tenant-admin General page — land them on
+              // their personal Profile.
+              <Navigate replace to={MEMBER_SETTINGS_HOME} />
+            )
+          }
+          path="/settings"
+        />
+        <Route
+          element={
+            isAdmin ? (
+              <AiGeneralSettingsPage />
+            ) : (
+              <Navigate replace to={MEMBER_SETTINGS_HOME} />
+            )
+          }
+          path="/settings/ai"
+        />
         <Route
           element={<Navigate replace to={AGENTS_WORKSPACE_ROOT_PATH} />}
           path="/settings/ai-instructions"
@@ -65,7 +111,15 @@ export function AuthenticatedRoutes({
           path="/settings/agents"
         />
         <Route
-          element={<AppearanceSettingsPage />}
+          element={
+            isAdmin ? (
+              // Tenant-wide branding (colors/fonts/sidebar) — admins only.
+              // Members change their own theme/language via the user menu.
+              <AppearanceSettingsPage />
+            ) : (
+              <Navigate replace to={MEMBER_SETTINGS_HOME} />
+            )
+          }
           path="/settings/appearance"
         />
         <Route
@@ -77,6 +131,16 @@ export function AuthenticatedRoutes({
             )
           }
           path="/settings/ai-usage"
+        />
+        <Route
+          element={
+            isSuperAdmin || isTenantAdmin ? (
+              <RolesSettingsPage />
+            ) : (
+              <Navigate replace to={COPILOT_CHAT_ROOT} />
+            )
+          }
+          path="/settings/roles"
         />
         <Route
           element={
@@ -122,9 +186,26 @@ export function AuthenticatedRoutes({
         />
         {contributions.routes.map((pluginRoute) => {
           const PluginPage = pluginRoute.component;
+          // Admin surfaces: any /admin/* console (agents workspace, users, audit
+          // logs, files, context graph) plus tenant-config /settings/* pages
+          // outside the personal allowlist. A contribution can override the
+          // default either way via `requiresAdmin`.
+          const isPersonalSettings = PERSONAL_SETTINGS_PREFIXES.some((prefix) =>
+            pluginRoute.path.startsWith(prefix)
+          );
+          const defaultAdminOnly =
+            pluginRoute.path.startsWith("/admin/") ||
+            (pluginRoute.path.startsWith("/settings/") && !isPersonalSettings);
+          const adminOnly = pluginRoute.requiresAdmin ?? defaultAdminOnly;
           return (
             <Route
-              element={<PluginPage />}
+              element={
+                adminOnly && !isAdmin ? (
+                  <Navigate replace to={COPILOT_CHAT_ROOT} />
+                ) : (
+                  <PluginPage />
+                )
+              }
               key={pluginRoute.id}
               path={pluginRoute.path}
             />

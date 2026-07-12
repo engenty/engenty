@@ -23,8 +23,6 @@ export function stripModuleOwnedAgentUiFrontendTools(
                 tool.name,
                 {
                   available: tool.metadata.engenty.availability === "enabled",
-                  requires_confirmation:
-                    tool.metadata.engenty.safety === "requires_confirmation",
                 },
               ])
             ),
@@ -95,8 +93,6 @@ export function filterAgentUiFrontendToolsByTenant(params: {
             tool.name,
             {
               available: tool.metadata.engenty.availability === "enabled",
-              requires_confirmation:
-                tool.metadata.engenty.safety === "requires_confirmation",
             },
           ])
         ),

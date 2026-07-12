@@ -48,6 +48,7 @@ export const projectSchema = z.object({
   portal_enabled: z.boolean(),
   portal_password: z.string().nullable(),
   portal_intro_text: z.string().nullable(),
+  visibility: z.enum(["tenant", "members"]).default("tenant"),
   enabled_tabs: z.array(z.string()).nullable().optional(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -91,6 +92,13 @@ export const projectUpdateSchema = projectInputSchema.partial().extend({
 
 export const projectIdParamsSchema = z.object({
   id: z.string().min(1),
+});
+
+export const projectDeleteQuerySchema = z.object({
+  delete_tasks: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
 });
 
 export const projectPhaseSchema = z.object({
@@ -158,6 +166,10 @@ export const notFoundSchema = z.object({
 export const deleteProjectResponseSchema = z.object({
   ok: z.literal(true),
   id: z.string(),
+});
+
+export const projectAssociatedTaskCountResponseSchema = z.object({
+  count: z.number().int().nonnegative(),
 });
 
 export const projectsListQuerySchema = z.object({

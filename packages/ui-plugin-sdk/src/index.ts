@@ -94,6 +94,14 @@ export interface UiRouteContribution {
   order?: number;
   path: string;
   pluginId: UiPluginId;
+  /**
+   * Whether only tenant admins / superadmins may open this route. Members are
+   * bounced to the app root. When omitted, the shell defaults admin surfaces
+   * (any `/admin/*` route, and tenant-config `/settings/*` routes outside the
+   * personal allowlist) to admin-only; set `false` to expose a personal route
+   * under those prefixes to members (e.g. Connections).
+   */
+  requiresAdmin?: boolean;
   scope?: UiRouteScope;
   sourceInfo?: PluginSourceInfo;
 }
@@ -128,6 +136,13 @@ export interface UiSettingsItemContribution {
   labelKey?: string;
   order?: number;
   pluginId: UiPluginId;
+  /**
+   * Whether this settings row is tenant configuration (admins only) or a
+   * personal surface a member may use. Module settings are admin-only by
+   * default; set `false` to keep a per-user surface (e.g. Connections) visible
+   * to members.
+   */
+  requiresAdmin?: boolean;
   sourceInfo?: PluginSourceInfo;
   to: string;
 }
@@ -468,6 +483,7 @@ export interface EngentyUiApi {
     path: string;
     component: ComponentType;
     order?: number;
+    requiresAdmin?: boolean;
     scope?: UiRouteScope;
   }) => void;
   registerSettingsItem: (input: {
@@ -477,6 +493,7 @@ export interface EngentyUiApi {
     to: string;
     icon?: UiIconComponent;
     order?: number;
+    requiresAdmin?: boolean;
   }) => void;
   registerTab: (input: {
     id: string;

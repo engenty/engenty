@@ -195,6 +195,7 @@ function mountPluginRoute(
                 tenantId: auth.tenantId,
                 scopeId,
                 principalId: auth.principalId,
+                capabilities: auth.capabilities,
               }
             : undefined,
           recordAuditEvent: () => {},
@@ -379,6 +380,7 @@ function mountPluginRoute(
           tenantId: auth!.tenantId,
           scopeId,
           principalId: auth!.principalId,
+          capabilities: auth!.capabilities,
         },
         recordAuditEvent,
       });

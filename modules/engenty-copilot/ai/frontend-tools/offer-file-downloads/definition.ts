@@ -9,7 +9,6 @@ export const OFFER_FILE_DOWNLOADS_SPEC = defineFrontendToolSpec({
   description:
     "Offer one or more generated files for download in the chat UI. Use after writing files to the agent workspace (tenant storage keys, often under ai/workspace/). Prefer this over pasting raw signed URLs.",
   name: "offer_file_downloads",
-  safety: "safe",
   schema: z.object({
     files: z
       .array(

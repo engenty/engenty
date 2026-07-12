@@ -1,5 +1,10 @@
 import { DockProjectsIcon } from "@engenty/ui-icons";
-import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import type {
+  EngentyPluginContext,
+  UiIconComponent,
+} from "@engenty/ui-plugin-sdk";
+import { FolderKanban } from "lucide-react";
+import { createElement, type MouseEvent as ReactMouseEvent } from "react";
 import {
   createProject,
   deleteProject,
@@ -20,6 +25,51 @@ import { setProjectsPluginsApi } from "./plugins.js";
 import { projectsLiveBinding } from "./projects-live-binding.js";
 import { projectsPublicUiContributions } from "./public-plugin.js";
 
+const PROJECTS_TASKS_LIST_ENRICHER_ID = "projects";
+
+interface ProjectLinkValue {
+  label: string;
+  to: string;
+}
+
+interface TasksListTaskRow {
+  id: string;
+  project_id: string | null;
+}
+
+// biome-ignore lint/style/useConsistentTypeDefinitions: type alias required for PluginMethodsRecord generic
+type TasksListHooksApi = {
+  registerListColumn: (column: {
+    defaultVisible?: boolean;
+    icon?: UiIconComponent;
+    key: string;
+    label: string;
+    labelKey?: string;
+    order?: number;
+    renderCell: (context: {
+      enrichments: Record<string, unknown>;
+      navigate: (to: string) => void;
+      task: TasksListTaskRow;
+    }) => ReturnType<typeof createElement> | string;
+  }) => void;
+  registerListEnricher: (enricher: {
+    enrich: (tasks: TasksListTaskRow[]) => Promise<Record<string, unknown>>;
+    id: string;
+  }) => void;
+  [key: string]: unknown;
+};
+
+function isProjectLinkValue(value: unknown): value is ProjectLinkValue {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "label" in value &&
+    "to" in value &&
+    typeof value.label === "string" &&
+    typeof value.to === "string"
+  );
+}
+
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(projectsLiveBinding);
   setProjectsPluginsApi(engenty.plugins);
@@ -36,6 +86,70 @@ export default function plugin(engenty: EngentyPluginContext) {
     deleteProject,
     getProjectSettings,
     setProjectSettings,
+  });
+
+  const tasksUi = engenty.plugins.get<TasksListHooksApi>("tasks");
+
+  tasksUi?.registerListEnricher({
+    id: PROJECTS_TASKS_LIST_ENRICHER_ID,
+    enrich: async (tasks) => {
+      const projectIds = new Set(
+        tasks
+          .map((task) => task.project_id)
+          .filter((projectId): projectId is string => Boolean(projectId))
+      );
+      if (projectIds.size === 0) {
+        return {};
+      }
+
+      const projects = await getProjects({ pageSize: 200 });
+      const projectsById = new Map(
+        projects.data.map((project) => [project.id, project.title])
+      );
+
+      return Object.fromEntries(
+        tasks
+          .filter((task) => task.project_id)
+          .map((task) => [
+            task.id,
+            {
+              label:
+                projectsById.get(task.project_id as string) ??
+                (task.project_id as string),
+              to: `/mdl/projects/${task.project_id}`,
+            } satisfies ProjectLinkValue,
+          ])
+      );
+    },
+  });
+
+  tasksUi?.registerListColumn({
+    key: "project",
+    label: engenty.i18n.t("tasks:detail.project", { defaultValue: "Project" }),
+    labelKey: "tasks:detail.project",
+    icon: FolderKanban,
+    order: 35,
+    defaultVisible: true,
+    renderCell: ({ enrichments, navigate }) => {
+      const link = enrichments[PROJECTS_TASKS_LIST_ENRICHER_ID];
+      if (!isProjectLinkValue(link)) {
+        return "—";
+      }
+
+      return createElement(
+        "button",
+        {
+          type: "button",
+          className:
+            "text-primary truncate text-sm underline-offset-4 hover:underline",
+          onClick: (event: ReactMouseEvent<HTMLButtonElement>) => {
+            event.stopPropagation();
+            navigate(link.to);
+          },
+        },
+        link.label
+      );
+    },
   });
 
   engenty.UI.registerRoute({

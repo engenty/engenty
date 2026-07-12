@@ -4,6 +4,38 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.9] - 2026-07-09
+- Added [time-tracking]: Push time entries to calendar (Phase 2)
+- Added [time-tracking]: Calendar overlay (Phase 1)
+- Fixed [ci]: Drop stray .claude/worktrees gitlink breaking submodule checkout
+
+## [0.1.8] - 2026-07-09
+- Added [deploy]: Apply Supabase migrations automatically on deploy
+- Added [authz]: Roles & capabilities authorization with member access gating
+
+## [0.1.7] - 2026-07-08
+- Fixed [copilot]: Restore pnpm kill script entry
+- Removed [copilot]: Frontend-tool confirmation
+- Added [copilot]: Per-tab agent session binding, realtime sync, and unified status UI
+- Fixed [projects]: Resolve lint failure blocking pnpm fix on main
+
+## [0.1.6] - 2026-07-08
+- Added [time-tracking]: Calendar polish — animated weekend, dropdown pickers, vibrant entries
+- Added [time-tracking]: Work-week calendar with collapsible weekend, compact toolbar
+- Added [time-tracking]: Calendar view with drag-to-track time entries
+- Fixed [time-tracking]: Correct today navigation and week-switch scroll reset
+- Fixed [design-tokens]: Define missing --amber accent (--chart-4 resolved to nothing)
+
+## [0.1.5] - 2026-07-08
+- Added **[tasks]**: Plugin list columns and group-by project
+- Added **[projects]**: Tasks column, sidebar layout, and linked-task counts
+- Added **[time-tracking]**: Improve section headers with SPA entity links
+- Added **[projects]**: Confirm project delete with optional task cascade
+- Fixed **[ui]**: Resolve ui-plugin-sdk from workspace source in dev
+- Fixed **[ci]**: Publish-open without checkout credential helper
+- Fixed **[time-tracking]**: Stabilize bootstrap and breadcrumb user picker
+- Fixed **[time-tracking]**: Scope team catalog to tenant admins
+
 ## [0.1.4] - 2026-07-08
 - Added: Enrich Engenty admin links with live counts
 - Added: Rename AI models label and add Engenty admin links

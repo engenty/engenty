@@ -31,9 +31,7 @@ import {
   useOpenAiRealtimeVoiceComposerControls,
 } from "../ag-ui/apps-ai/index.js";
 import {
-  isRealtimeVoiceFrontendToolGated,
   normalizeRealtimeToolInput,
-  resolveOpenAiRealtimeVoiceFrontendTool,
   openAiRealtimeVoiceToolsFromFrontendTools as voiceToolsFromDefs,
 } from "../ag-ui/apps-ai/realtime-voice-frontend-tools.js";
 import {
@@ -168,8 +166,8 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
   >(null);
 
   // Single resolution path for both channels (voice resolve tool + dialog
-  // buttons). Wires the frontend-tool executor and the backend approve +
-  // re-invoke injectors so a gated frontend tool or backend op resolves alike.
+  // buttons). Wires the backend approve + re-invoke injectors and the
+  // field-update apply path.
   const resolveVoiceConfirmation = useCallback(
     (
       approved: boolean,
@@ -203,17 +201,9 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
               ? { approvalGrantOnce: opts.approvalGrantOnce }
               : {}),
           }),
-        executeFrontendTool,
-        frontendTools,
         runId: binding.activeThreadId ?? `new-${host.threadResetKey}`,
       }),
-    [
-      binding.activeThreadId,
-      executeFrontendTool,
-      frontendTools,
-      host.threadResetKey,
-      serviceBaseUrl,
-    ]
+    [binding.activeThreadId, host.threadResetKey, serviceBaseUrl]
   );
 
   const executeRealtimeVoiceTool = useCallback(
@@ -316,29 +306,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // ---- Gated frontend tools: park for confirmation instead of running ----
-      const tool = resolveOpenAiRealtimeVoiceFrontendTool(
-        request.name,
-        frontendTools
-      );
-      if (tool && isRealtimeVoiceFrontendToolGated(tool)) {
-        setPendingVoiceConfirmation({
-          callId: request.callId,
-          input: normalizeRealtimeToolInput(request.arguments),
-          kind: "frontend_tool",
-          request,
-          title: tool.metadata?.engenty?.title ?? tool.name,
-          toolName: tool.name,
-        });
-        return {
-          message:
-            "A confirmation dialog is now shown to the user. Ask the user to confirm out loud (or note they can approve or reject in the dialog). When they agree, call resolve_pending_confirmation with approved=true; if they decline, call it with approved=false. Do not take any other action until then.",
-          status: "awaiting_confirmation",
-          tool: tool.name,
-        };
-      }
-
-      // ---- Safe frontend tools: run immediately ----
+      // ---- Frontend tools: run immediately (no confirmation gating) ----
       return executeOpenAiRealtimeVoiceFrontendTool({
         executeFrontendTool,
         request,

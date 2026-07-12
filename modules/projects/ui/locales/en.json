@@ -91,6 +91,7 @@
       "startDate": "Start date",
       "endDate": "End date",
       "lead": "Lead",
+      "tasks": "Tasks",
       "team": "Team"
     },
     "sortByCreatedAt": "Created"
@@ -315,6 +316,12 @@
   "viewProject": "View project",
   "deleteProjectConfirm": "Delete this project?",
   "deleteProjectConfirmDescription": "This action cannot be undone.",
+  "deleteSelectedConfirm": "Delete {{count}} selected projects?",
+  "deleteSelectedConfirmDescription": "This action cannot be undone.",
+  "deleteProjectAlsoDeleteTasks": "Also delete {{count}} connected task(s)",
+  "deleteProjectAlsoDeleteTasksGeneric": "Also delete connected tasks",
+  "deleteProjectAlsoDeleteTasksBulk": "Also delete all tasks linked to these projects",
+  "deleting": "Deleting…",
   "itemsPerPage": "Items per page",
   "selectedSummary": "{{selected}} selected",
   "viewModeGroup": "View mode",

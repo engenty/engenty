@@ -62,7 +62,6 @@ describe("AG-UI event adapter", () => {
     const frontendToolEvents = frontendToolCallToAgUiEvents({
       call_id: "call-1",
       input: { to: "/mdl/contacts" },
-      requires_confirmation: false,
       run_id: "run-1",
       tool_name: "navigate",
     });

@@ -1,4 +1,5 @@
 import { apiErrorResponseSchema } from "@engenty/api-contracts";
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import type { CoreUsersDal } from "../../../dal/core-users.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
@@ -137,12 +138,13 @@ export function hasManageCapability(auth: CoreAuthLike | null): boolean {
   if (!auth) {
     return false;
   }
-  return (
-    auth.principalType === "service" ||
-    auth.capabilities.includes("core.users.manage") ||
-    auth.capabilities.includes("core.*") ||
-    auth.capabilities.includes("*")
-  );
+  // NOTE: no `principalType === "service"` shortcut. Any service token that
+  // legitimately manages users must be minted with "core.users.manage" (or a
+  // broader wildcard). A bare service principal must NOT be able to create
+  // users or change roles just by virtue of being a service token. Uses the
+  // shared matcher so `core.superadmin` / `core.*` / `*` all cover management
+  // consistently with every other enforcement point.
+  return capabilityCovers(auth.capabilities, "core.users.manage");
 }
 
 export async function resolveTenantForSessionToken(

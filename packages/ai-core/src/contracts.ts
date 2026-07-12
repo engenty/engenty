@@ -210,6 +210,16 @@ export interface InstructionDocumentRecord {
   version: number;
 }
 
+/** Wire/DB status of an agent session (`agent_session_status_check`).
+ * Client-synthetic states (e.g. "draft" for unsaved sessions) are UI-layer
+ * extensions and must never appear on the wire. */
+export type AgentSessionStatus =
+  | "idle"
+  | "running"
+  | "waiting"
+  | "failed"
+  | "completed";
+
 /** Orchestrator thread (cross-agent session container). */
 export interface OrchestratorThreadRecord {
   current_agent_id: string | null;
@@ -217,7 +227,7 @@ export interface OrchestratorThreadRecord {
   last_action_id: string | null;
   last_message_at: string | null;
   route_context: Record<string, unknown>;
-  status: "idle" | "running" | "waiting" | "failed" | "completed";
+  status: AgentSessionStatus;
   summary: string | null;
   tenant_id: string;
   title: string | null;

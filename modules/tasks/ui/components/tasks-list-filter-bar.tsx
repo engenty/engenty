@@ -3,7 +3,13 @@ import { Button, cn, ListFilterChip } from "@engenty/ui-core";
 import { ListFilter } from "lucide-react";
 import type { Goal, TaskStatusDefinition } from "../../src/schema/types.js";
 
-export type TasksGroupBy = "none" | "status" | "priority" | "assignee" | "goal";
+export type TasksGroupBy =
+  | "none"
+  | "status"
+  | "priority"
+  | "assignee"
+  | "goal"
+  | "project";
 
 export interface TasksListFilterState {
   assignee: string; // "all" | "unassigned" | user_id
@@ -19,6 +25,7 @@ interface TasksListFilterBarProps {
   goalOptions: Goal[];
   hasActiveChipFilters: boolean;
   onChange: (next: TasksListFilterState) => void;
+  showProjectGroupBy?: boolean;
   statusOptions: TaskStatusDefinition[];
   value: TasksListFilterState;
 }
@@ -31,6 +38,7 @@ export function TasksListFilterBar({
   statusOptions,
   assigneeOptions,
   goalOptions,
+  showProjectGroupBy = false,
 }: TasksListFilterBarProps) {
   const { t } = useTranslation("tasks");
 
@@ -40,6 +48,9 @@ export function TasksListFilterBar({
     { value: "priority", label: t("sidebar.groupPriority", "Priority") },
     { value: "assignee", label: t("sidebar.groupAssignee", "Assignee") },
     { value: "goal", label: t("sidebar.groupGoal", "Goal") },
+    ...(showProjectGroupBy
+      ? [{ value: "project", label: t("sidebar.groupProject", "Project") }]
+      : []),
   ];
 
   const statusFilterOptions = [

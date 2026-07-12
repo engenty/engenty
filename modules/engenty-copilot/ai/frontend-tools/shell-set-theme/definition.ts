@@ -13,7 +13,6 @@ export const SHELL_SET_THEME_SPEC = defineFrontendToolSpec({
   description:
     "Switch the Engenty application color theme (light, dark, or system).",
   name: "shell_set_theme",
-  safety: "safe",
   schema: z.object({ theme: z.enum(["light", "dark", "system"]) }),
   title: "Set theme",
 });

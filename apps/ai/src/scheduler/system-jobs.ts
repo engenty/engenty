@@ -89,6 +89,30 @@ async function runInboxSync(): Promise<string> {
   }`;
 }
 
+/**
+ * Reconcile time-entry ⇄ calendar sync (backfill new entries, repair failures,
+ * delete orphaned events). Cron edge only — the work runs in the time-tracking
+ * module operation over the service JWT, where the connector registry lives.
+ */
+async function runCalendarSync(): Promise<string> {
+  const { createSchedulerOperationInvoker } = await import(
+    "./service-invoker.js"
+  );
+  const invoke = createSchedulerOperationInvoker();
+  const result = (await invoke("time_tracking_calendar_sync_run", {})) as {
+    connections?: number;
+    pushed?: number;
+    deleted?: number;
+    errors?: number;
+  } | null;
+  const pushed = result?.pushed ?? 0;
+  const deleted = result?.deleted ?? 0;
+  const errors = result?.errors ?? 0;
+  return `reconciled ${result?.connections ?? 0} connection(s): ${pushed} pushed, ${deleted} deleted${
+    errors > 0 ? `, ${errors} failed` : ""
+  }`;
+}
+
 export function listSystemJobs(): SystemJob[] {
   return [
     {
@@ -102,6 +126,12 @@ export function listSystemJobs(): SystemJob[] {
       name: "Inbox mail sync",
       schedule: "*/5 * * * *",
       execute: runInboxSync,
+    },
+    {
+      id: "calendar-sync",
+      name: "Time-tracking calendar sync",
+      schedule: "*/15 * * * *",
+      execute: runCalendarSync,
     },
   ];
 }

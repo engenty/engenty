@@ -1,9 +1,8 @@
 /**
- * Voice HITL gate. An action that needs the user's approval — a
- * `requires_confirmation` frontend tool, a gated backend op whose
- * `engenty_tool_execute` returned an approval decision artifact, or a set of
- * proposed field updates — parks here as the single active pending confirmation
- * while a dialog (and the agent's voice) asks the user to decide.
+ * Voice HITL gate. An action that needs the user's approval — a gated backend
+ * op whose `engenty_tool_execute` returned an approval decision artifact, or a
+ * set of proposed field updates — parks here as the single active pending
+ * confirmation while a dialog (and the agent's voice) asks the user to decide.
  *
  * Two resolution channels feed the same store, first-to-resolve wins:
  * - voice: the agent calls `resolve_pending_confirmation` after hearing yes/no;
@@ -13,16 +12,11 @@
  * synchronous step, so a racing second channel sees `no_pending` and no action
  * runs twice. Pure module (no React), subscribable for `useSyncExternalStore`.
  */
-import type {
-  FrontendToolCallRequest,
-  FrontendToolDefinition,
-  JsonValue,
-} from "@engenty/ag-ui-bridge";
+import type { JsonValue } from "@engenty/ag-ui-bridge";
 import type {
   PostRealtimeVoiceToolApproveOptions,
   RealtimeVoiceToolApprovalChoice,
 } from "./realtime-voice-backend-tools.js";
-import { executeOpenAiRealtimeVoiceFrontendTool } from "./realtime-voice-frontend-tools.js";
 import type { OpenAiRealtimeVoiceToolCallRequest } from "./use-openai-realtime-voice-session.js";
 
 export interface VoiceFieldSuggestionCandidate {
@@ -52,13 +46,6 @@ interface VoicePendingConfirmationBase {
   title: string;
 }
 
-export interface VoiceFrontendToolPendingConfirmation
-  extends VoicePendingConfirmationBase {
-  kind: "frontend_tool";
-  /** Resolved frontend tool name. */
-  toolName: string;
-}
-
 export interface VoiceBackendApprovalPendingConfirmation
   extends VoicePendingConfirmationBase {
   artifactId: string;
@@ -84,8 +71,7 @@ export interface VoiceFieldSuggestionsPendingConfirmation
 
 export type VoicePendingConfirmation =
   | VoiceBackendApprovalPendingConfirmation
-  | VoiceFieldSuggestionsPendingConfirmation
-  | VoiceFrontendToolPendingConfirmation;
+  | VoiceFieldSuggestionsPendingConfirmation;
 
 let active: VoicePendingConfirmation | null = null;
 const listeners = new Set<() => void>();
@@ -166,18 +152,14 @@ export interface ResolvePendingVoiceConfirmationParams {
     request: OpenAiRealtimeVoiceToolCallRequest,
     opts?: { approvalGrantOnce?: string }
   ) => Promise<unknown>;
-  executeFrontendTool: (
-    request: FrontendToolCallRequest
-  ) => Promise<JsonValue> | JsonValue;
-  frontendTools?: readonly FrontendToolDefinition[];
   runId: string;
 }
 
 /**
  * Resolve the active pending confirmation. Shared by both channels — the voice
  * resolve tool and the dialog buttons. On approval the gated action runs for
- * real (a frontend tool handler, a persisted backend grant + re-invoke, or an
- * applied field-update patch).
+ * real (a persisted backend grant + re-invoke, or an applied field-update
+ * patch).
  */
 export async function resolvePendingVoiceConfirmation(
   params: ResolvePendingVoiceConfirmationParams
@@ -189,19 +171,7 @@ export async function resolvePendingVoiceConfirmation(
   if (pending.kind === "backend_approval") {
     return resolveBackendApproval(pending, params);
   }
-  if (pending.kind === "field_suggestions") {
-    return resolveFieldSuggestions(pending, params);
-  }
-  if (!params.approved) {
-    return { status: "rejected", tool: pending.toolName };
-  }
-  const result = await executeOpenAiRealtimeVoiceFrontendTool({
-    executeFrontendTool: params.executeFrontendTool,
-    request: pending.request,
-    runId: params.runId,
-    tools: params.frontendTools,
-  });
-  return { result, status: "approved", tool: pending.toolName };
+  return resolveFieldSuggestions(pending, params);
 }
 
 async function resolveBackendApproval(

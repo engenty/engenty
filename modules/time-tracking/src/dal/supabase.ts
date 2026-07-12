@@ -173,6 +173,7 @@ export function createTimeTrackingRepoSupabase(
       user_id: input.user_id,
       date: input.date,
       hours: input.hours,
+      start_time: input.start_time ?? null,
       notes: input.notes ?? null,
       created_by: input.created_by,
     };
@@ -197,6 +198,7 @@ export function createTimeTrackingRepoSupabase(
         const { data: updated, error: updateErr } = await entries()
           .update({
             hours: input.hours,
+            start_time: input.start_time ?? null,
             notes: input.notes ?? null,
           })
           .eq("id", (existing as Record<string, unknown>).id as string)
@@ -365,10 +367,16 @@ export function createTimeTrackingRepoSupabase(
         manual_task_title?: string | null;
         discipline?: string | null;
       }) {
+        // Task rows are identified by the task alone — assignment rows carry
+        // grouping sentinels (e.g. project_id "standalone_tasks") that DB
+        // timesheet rows never store, so comparing all fields would split the
+        // same task into two rows.
+        if (row.task_id) {
+          return `task::${row.task_id}::${row.discipline ?? "null"}`;
+        }
         return [
           row.project_id ?? "null",
           row.phase_id ?? "null",
-          row.task_id ?? "null",
           row.manual_project_title ?? "null",
           row.manual_phase_title ?? "null",
           row.manual_task_title ?? "null",
@@ -405,6 +413,10 @@ export function createTimeTrackingRepoSupabase(
         if (proj) {
           projectTitle = String(proj.title);
           clientName = proj.client_name ? String(proj.client_name) : "Manual";
+        } else if (task) {
+          // Standalone task without project context — mirror assignment rows.
+          projectTitle = "Tasks";
+          clientName = "Internal";
         }
         if (phase) {
           phaseTitle = String(phase.title);
@@ -415,11 +427,16 @@ export function createTimeTrackingRepoSupabase(
             : String(task.title);
         }
 
+        // Task rows whose project reference doesn't resolve (e.g. task
+        // contexts pointing at non-project containers) present as standalone
+        // tasks — same as assignment rows do.
+        const danglingTaskProject = Boolean(task) && !proj;
+
         const tRow: TrackingRow = {
           id: dbRow.id,
           type,
-          project_id: dbRow.project_id,
-          phase_id: dbRow.phase_id,
+          project_id: danglingTaskProject ? null : dbRow.project_id,
+          phase_id: danglingTaskProject && !phase ? null : dbRow.phase_id,
           task_id: dbRow.task_id,
           project_title: projectTitle,
           phase_title: phaseTitle,
@@ -513,6 +530,9 @@ export function createTimeTrackingRepoSupabase(
       if (patch.notes !== undefined) {
         dbPatch.notes = patch.notes;
       }
+      if (patch.start_time !== undefined) {
+        dbPatch.start_time = patch.start_time;
+      }
       if (disciplineChanged) {
         dbPatch.timesheet_row_id = targetRowId;
       }
@@ -585,6 +605,9 @@ export function createTimeTrackingRepoSupabase(
           timesheet_row_id: targetRowId,
           date: patch.date,
           user_id: patch.user_id ?? existing.user_id,
+          ...(patch.start_time === undefined
+            ? {}
+            : { start_time: patch.start_time }),
         })
         .eq("id", id)
         .select()

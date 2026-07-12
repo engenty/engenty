@@ -1,5 +1,7 @@
+import { requestApiEnvelope } from "@engenty/api-client";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQuery } from "@engenty/query-client";
 import {
   AdminListPagination,
   AdminListTableView,
@@ -18,15 +20,20 @@ import { ListTodo, Pencil } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import type { Task, TasksQueryParams } from "../../src/schema/types.js";
+import type {
+  Task,
+  TasksQueryParams,
+  TaskUpdateInput,
+} from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { TasksBulkEditDialog } from "../components/tasks-bulk-edit-dialog.js";
-import type {
-  TasksColumnVisibility,
-  TasksSortColumn,
-} from "../components/tasks-display-dialog.js";
+import type { TasksSortColumn } from "../components/tasks-display-dialog.js";
 import { TasksGroupedList } from "../components/tasks-grouped-list.js";
 import { TasksKanbanBoard } from "../components/tasks-kanban-board.js";
+import {
+  createTasksDisplayDefaults,
+  getTasksListColumns,
+} from "../components/tasks-list-columns.js";
 import {
   TasksListFilterBar,
   type TasksListFilterState,
@@ -34,12 +41,13 @@ import {
 import { TasksListTable } from "../components/tasks-list-table.js";
 import { TasksToolbar } from "../components/tasks-toolbar.js";
 import { useTasksListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
+import { useTasksListEnrichments } from "../hooks/use-tasks-list-enrichments.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
 import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 import { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
-import { buildAssigneeProfileMap } from "../plugins.js";
+import { buildAssigneeProfileMap, getTasksPluginsApi } from "../plugins.js";
 import {
   useBulkUpdateTasksMutation,
   useDeleteTaskMutation,
@@ -51,42 +59,17 @@ import {
 
 const EMPTY_TASKS: Task[] = [];
 
-const TASKS_DISPLAY_DEFAULTS = {
-  viewMode: "table" as const,
-  tableSize: "normal" as const,
-  sortBy: "updated_at" as TasksSortColumn,
-  sortOrder: "desc" as const,
-  columnVisibility: {
-    identifier: true,
-    title: true,
-    assignee: true,
-    status: false,
-    priority: false,
-    dueDate: true,
-    updatedAt: false,
-  } satisfies TasksColumnVisibility,
-  columnOrder: [
-    "identifier",
-    "title",
-    "assignee",
-    "dueDate",
-    "status",
-    "priority",
-    "updatedAt",
-  ] as (keyof TasksColumnVisibility)[],
-};
-
 export function TasksListPage() {
   const { t } = useTranslation("tasks");
   const { setCopilotContext } = useCopilotShell();
   const navigate = useNavigate();
 
-  const display = useListDisplayState<
-    keyof TasksColumnVisibility,
-    TasksSortColumn
-  >({
+  const displayDefaults = useMemo(() => createTasksDisplayDefaults(), []);
+  const listColumns = useMemo(() => getTasksListColumns(), []);
+
+  const display = useListDisplayState<string, TasksSortColumn>({
     storageKey: "tasks-list",
-    defaults: TASKS_DISPLAY_DEFAULTS,
+    defaults: displayDefaults,
     validSortColumns: [
       "updated_at",
       "created_at",
@@ -190,6 +173,8 @@ export function TasksListPage() {
     return result;
   }, [tasks, filters.priority, filters.assignee]);
 
+  const enrichments = useTasksListEnrichments(filteredTasks);
+
   const selection = useTableSelection({ items: filteredTasks });
   const { selectedIds, handleSelectAll, handleSelectOne, clearSelection } =
     selection;
@@ -228,6 +213,27 @@ export function TasksListPage() {
   );
 
   const teamMembersEnabled = teamMembersCatalogQuery.pluginEnabled;
+  const projectsEnabled =
+    getTasksPluginsApi()?.isPluginEnabled("projects") ?? false;
+  const projectsCatalogQuery = useQuery({
+    queryKey: ["projects", "list-minimal"],
+    queryFn: async ({ signal }) => {
+      const response = await requestApiEnvelope<
+        Array<{ id: string; title: string }>
+      >("/api/projects?pageSize=200&sortBy=title&sortOrder=asc", {
+        method: "GET",
+        signal,
+      });
+      return response.data;
+    },
+    enabled: projectsEnabled && filters.groupBy === "project",
+    staleTime: 60_000,
+  });
+  const projectTitleById = useMemo(
+    () =>
+      new Map((projectsCatalogQuery.data ?? []).map((p) => [p.id, p.title])),
+    [projectsCatalogQuery.data]
+  );
   const assigneeProfiles = useMemo(
     () => buildAssigneeProfileMap(teamMembersCatalogQuery.data ?? []),
     [teamMembersCatalogQuery.data]
@@ -246,16 +252,14 @@ export function TasksListPage() {
 
   const columnOptions = useMemo(
     () =>
-      [
-        { key: "identifier", label: labels.identifier },
-        { key: "title", label: labels.title },
-        { key: "assignee", label: labels.assignee },
-        { key: "status", label: labels.status },
-        { key: "priority", label: labels.priority },
-        { key: "dueDate", label: labels.dueDate },
-        { key: "updatedAt", label: labels.updatedAt },
-      ] as const,
-    [labels]
+      listColumns.map((column) => ({
+        key: column.key,
+        label: column.labelKey
+          ? t(column.labelKey.replace(/^tasks:/, ""))
+          : column.label,
+        icon: column.icon,
+      })),
+    [listColumns, t]
   );
 
   const sortOptions = useMemo(
@@ -433,6 +437,7 @@ export function TasksListPage() {
           goalOptions={goals}
           hasActiveChipFilters={hasActiveFilters}
           onChange={handleFiltersChange}
+          showProjectGroupBy={projectsEnabled}
           statusOptions={taskStatusDefinitions}
           value={filters}
         />
@@ -515,14 +520,18 @@ export function TasksListPage() {
             <TasksListTable
               assigneeProfiles={assigneeProfiles}
               columnOrder={effectiveColumnOrder}
+              columns={listColumns}
               columnVisibility={effectiveColumnVisibility}
+              enrichments={enrichments}
               goals={goals}
               groupBy={filters.groupBy}
+              navigate={navigate}
               onDelete={handleTaskDelete}
               onEdit={handleTaskEdit}
               onRowClick={handleTaskClick}
               onSelectAll={handleSelectAll}
               onSelectOne={handleSelectOne}
+              projectTitleById={projectTitleById}
               selectedIds={selectedIds}
               showAssignee={teamMembersEnabled}
               tableSize={tableSize ?? "normal"}

@@ -31,25 +31,31 @@ import type {
   Task,
   TaskStatusDefinition,
 } from "../../src/schema/types.js";
+import type { TasksListEnrichmentState } from "../hooks/use-tasks-list-enrichments.js";
 import { TaskAssigneeLabel } from "./task-assignee-label.js";
 import { TaskStatusBadge } from "./task-status-badge.js";
+import type { TableSize } from "./tasks-display-dialog.js";
 import type {
-  TableSize,
-  TasksColumnVisibility,
-} from "./tasks-display-dialog.js";
+  TasksBuiltinColumnKey,
+  TasksListColumnConfig,
+} from "./tasks-list-columns.js";
 import type { TasksGroupBy } from "./tasks-list-filter-bar.js";
 
 interface TasksListTableProps {
   assigneeProfiles?: Map<string, { full_name: string; id: string }>;
-  columnOrder: (keyof TasksColumnVisibility)[];
-  columnVisibility: TasksColumnVisibility;
+  columnOrder: string[];
+  columns: TasksListColumnConfig[];
+  columnVisibility: Record<string, boolean>;
+  enrichments: TasksListEnrichmentState;
   goals?: Goal[];
   groupBy?: TasksGroupBy;
+  navigate: (to: string) => void;
   onDelete?: (taskId: string) => void | Promise<void>;
   onEdit?: (task: Task) => void;
   onRowClick: (task: Task) => void;
   onSelectAll: (checked: boolean | "indeterminate") => void;
   onSelectOne: (id: string, checked: boolean) => void;
+  projectTitleById?: ReadonlyMap<string, string>;
   selectedIds: Set<string>;
   showAssignee?: boolean;
   tableSize?: TableSize;
@@ -73,7 +79,7 @@ const groupCardChromeClass = cn(
   "[&>tr:last-child>td:last-child]:rounded-br-md"
 );
 
-const COLUMN_HEADERS: Record<keyof TasksColumnVisibility, string> = {
+const COLUMN_HEADERS: Record<TasksBuiltinColumnKey, string> = {
   identifier: "list.identifier",
   title: "list.titleColumn",
   assignee: "list.assignee",
@@ -83,16 +89,16 @@ const COLUMN_HEADERS: Record<keyof TasksColumnVisibility, string> = {
   updatedAt: "list.updated",
 };
 
-const COLUMN_WIDTH_CLASS: Partial<Record<keyof TasksColumnVisibility, string>> =
-  {
-    identifier: "w-[100px]",
-    title: "min-w-0 truncate",
-    assignee: "w-[140px]",
-    status: "w-[7rem] min-w-[7rem] max-w-[8.5rem] whitespace-nowrap",
-    priority: "w-[5.5rem] min-w-[5.5rem] max-w-[7rem] whitespace-nowrap",
-    dueDate: "w-[120px]",
-    updatedAt: "w-[120px]",
-  };
+const COLUMN_WIDTH_CLASS: Partial<Record<string, string>> = {
+  identifier: "w-[100px]",
+  title: "min-w-0 truncate",
+  assignee: "w-[140px]",
+  project: "w-[160px] min-w-[10rem] truncate",
+  status: "w-[7rem] min-w-[7rem] max-w-[8.5rem] whitespace-nowrap",
+  priority: "w-[5.5rem] min-w-[5.5rem] max-w-[7rem] whitespace-nowrap",
+  dueDate: "w-[120px]",
+  updatedAt: "w-[120px]",
+};
 
 interface TaskGroup {
   id: string;
@@ -108,8 +114,12 @@ function formatDueDate(due: string | null): string {
   return new Date(due).toLocaleDateString();
 }
 
-function renderCell(
-  key: keyof TasksColumnVisibility,
+function isBuiltinColumnKey(key: string): key is TasksBuiltinColumnKey {
+  return key in COLUMN_HEADERS;
+}
+
+function renderBuiltinCell(
+  key: TasksBuiltinColumnKey,
   task: Task,
   taskStatusDefinitions: TaskStatusDefinition[],
   assigneeProfiles: Map<string, { full_name: string; id: string }> | undefined,
@@ -195,11 +205,15 @@ export function TasksListTable({
   selectedIds,
   columnVisibility,
   columnOrder,
+  columns,
   assigneeProfiles,
+  enrichments,
+  navigate,
   showAssignee = true,
   tableSize = "normal",
   groupBy = "status",
   goals = [],
+  projectTitleById,
 }: TasksListTableProps) {
   const { t } = useTranslation("tasks");
   const [deletingTask, setDeletingTask] = useState<Task | null>(null);
@@ -207,6 +221,11 @@ export function TasksListTable({
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const showActions = Boolean(onEdit || onDelete);
   const compact = tableSize === "compact";
+
+  const columnsByKey = useMemo(
+    () => new Map(columns.map((column) => [column.key, column])),
+    [columns]
+  );
 
   const allSelected = tasks.length > 0 && selectedIds.size === tasks.length;
   const someSelected = selectedIds.size > 0 && selectedIds.size < tasks.length;
@@ -217,10 +236,48 @@ export function TasksListTable({
         if (key === "assignee" && !showAssignee) {
           return false;
         }
-        return columnVisibility[key];
+        return columnVisibility[key] && columnsByKey.has(key);
       }),
-    [columnOrder, columnVisibility, showAssignee]
+    [columnOrder, columnVisibility, showAssignee, columnsByKey]
   );
+
+  const renderCell = (key: string, task: Task) => {
+    const column = columnsByKey.get(key);
+    if (column?.renderCell) {
+      return (
+        <TableCell className={COLUMN_WIDTH_CLASS[key]}>
+          {column.renderCell({
+            task,
+            enrichments: enrichments[task.id] ?? {},
+            navigate,
+          })}
+        </TableCell>
+      );
+    }
+
+    if (isBuiltinColumnKey(key)) {
+      return renderBuiltinCell(
+        key,
+        task,
+        taskStatusDefinitions,
+        assigneeProfiles,
+        t
+      );
+    }
+
+    return <TableCell>—</TableCell>;
+  };
+
+  const renderHeader = (key: string) => {
+    const column = columnsByKey.get(key);
+    if (column?.labelKey) {
+      return t(column.labelKey.replace(/^tasks:/, ""));
+    }
+    if (isBuiltinColumnKey(key)) {
+      return t(COLUMN_HEADERS[key]);
+    }
+    return column?.label ?? key;
+  };
 
   const grouped = useMemo<TaskGroup[]>(() => {
     if (groupBy === "none") {
@@ -343,8 +400,43 @@ export function TasksListTable({
         });
     }
 
+    if (groupBy === "project") {
+      const byProject = new Map<string, Task[]>();
+      for (const task of tasks) {
+        const key = task.project_id ?? "none";
+        const list = byProject.get(key) ?? [];
+        list.push(task);
+        byProject.set(key, list);
+      }
+      return Array.from(byProject.entries())
+        .map(([key, groupTasks]) => {
+          let label = t("newTask.noProject", "No project");
+          if (key !== "none") {
+            label = projectTitleById?.get(key) ?? key;
+          }
+          return { id: key, label, tasks: groupTasks };
+        })
+        .sort((a, b) => {
+          if (a.id === "none") {
+            return 1;
+          }
+          if (b.id === "none") {
+            return -1;
+          }
+          return a.label.localeCompare(b.label);
+        });
+    }
+
     return [{ id: "all", label: "", tasks }];
-  }, [tasks, groupBy, taskStatusDefinitions, assigneeProfiles, goals, t]);
+  }, [
+    tasks,
+    groupBy,
+    taskStatusDefinitions,
+    assigneeProfiles,
+    goals,
+    projectTitleById,
+    t,
+  ]);
 
   const handleDelete = async () => {
     if (!(deletingTask && onDelete)) {
@@ -387,9 +479,9 @@ export function TasksListTable({
         id={task.id}
         onCheckedChange={onSelectOne}
       />
-      {visibleColumns.map((key) =>
-        renderCell(key, task, taskStatusDefinitions, assigneeProfiles, t)
-      )}
+      {visibleColumns.map((key) => (
+        <Fragment key={key}>{renderCell(key, task)}</Fragment>
+      ))}
       {showActions ? (
         <TableRowActions compact={compact}>
           {onEdit ? (
@@ -441,7 +533,7 @@ export function TasksListTable({
             />
             {visibleColumns.map((key) => (
               <TableHead className={COLUMN_WIDTH_CLASS[key]} key={key}>
-                {t(COLUMN_HEADERS[key])}
+                {renderHeader(key)}
               </TableHead>
             ))}
             {showActions ? <TableHead className="w-[40px] px-1" /> : null}

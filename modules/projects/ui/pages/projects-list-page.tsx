@@ -41,6 +41,7 @@ import {
   type ProjectListFilterState,
 } from "../components/project-list-filters.js";
 import { ProjectsCards } from "../components/projects-cards.js";
+import { ProjectsDeleteConfirmDialog } from "../components/projects-delete-confirm-dialog.js";
 import {
   type ProjectsColumnVisibility,
   type ProjectsSortColumn,
@@ -48,6 +49,7 @@ import {
 } from "../components/projects-display-dialog.js";
 import { ProjectsTable } from "../components/projects-table.js";
 import { useProjectsListAgentUiSlice } from "../hooks/use-projects-agent-ui-slice.js";
+import { useProjectsListTaskProgress } from "../hooks/use-projects-list-task-progress.js";
 import { useProjectsModuleSecondaryShellNav } from "../hooks/use-projects-module-secondary-shell-nav.js";
 import { buildProjectsListGroups } from "../lib/project-list-grouping.js";
 import { getProjectsToolbarLabels } from "../lib/projects-toolbar-labels.js";
@@ -69,11 +71,13 @@ const PROJECTS_DISPLAY_DEFAULTS = {
     client: true,
     startDate: true,
     endDate: true,
+    tasks: true,
     team: true,
   } satisfies ProjectsColumnVisibility,
   columnOrder: [
     "title",
     "client",
+    "tasks",
     "startDate",
     "endDate",
     "team",
@@ -110,6 +114,8 @@ export function ProjectsListPage() {
 
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [filters, setFilters] = useState<ProjectListFilterState>({
     groupBy: "none",
@@ -171,6 +177,13 @@ export function ProjectsListPage() {
   const effectiveColumnOrder = teamMembersEnabled
     ? columnOrder
     : columnOrder.filter((key) => key !== "team");
+  const showTasksColumn = effectiveColumnVisibility.tasks;
+  const projectIds = useMemo(
+    () => projects.map((project) => project.id),
+    [projects]
+  );
+  const { isLoading: taskProgressLoading, progressByProjectId } =
+    useProjectsListTaskProgress(projectIds, showTasksColumn);
   const total = projectsQuery.data?.total ?? 0;
   const isLoading = projectsQuery.isLoading && !projectsQuery.data;
   const error = projectsQuery.error
@@ -286,24 +299,43 @@ export function ProjectsListPage() {
     void projectsQuery.refetch();
   }, [projectsQuery]);
 
-  const handleBulkDelete = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) {
-      return;
-    }
-    try {
-      await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
-      clearSelection();
-    } catch {
-      // Error surfaced by mutation
-    }
-  }, [selectedIds, clearSelection, deleteMutation]);
+  const handleDeleteOne = useCallback(
+    async ({ deleteTasks }: { deleteTasks: boolean }) => {
+      if (!deletingId) {
+        return;
+      }
+      try {
+        await deleteMutation.mutateAsync({ id: deletingId, deleteTasks });
+      } catch {
+        // Error surfaced by mutation
+      }
+    },
+    [deletingId, deleteMutation]
+  );
+
+  const handleBulkDelete = useCallback(
+    async ({ deleteTasks }: { deleteTasks: boolean }) => {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) {
+        return;
+      }
+      try {
+        await Promise.all(
+          ids.map((id) => deleteMutation.mutateAsync({ id, deleteTasks }))
+        );
+        clearSelection();
+      } catch {
+        // Error surfaced by mutation
+      }
+    },
+    [selectedIds, clearSelection, deleteMutation]
+  );
 
   const bulkActions = selectedIds.size > 0 && (
     <Button
       className="h-8 gap-1.5"
       disabled={deleteMutation.isPending}
-      onClick={() => void handleBulkDelete()}
+      onClick={() => setBulkDeleteOpen(true)}
       size="sm"
       variant="destructive"
     >
@@ -492,11 +524,13 @@ export function ProjectsListPage() {
                 onSelectOne={handleSelectOne}
                 onSortChange={handleSortChange}
                 onToggleGroup={toggleGroup}
+                progressByProjectId={progressByProjectId}
                 selectedIds={selectedIds}
                 showTeamMembers={teamMembersEnabled}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 tableSize={tableSize}
+                taskProgressLoading={taskProgressLoading}
                 teamMemberCatalog={teamMemberCatalog}
               />
             </AdminListTableView>
@@ -530,9 +564,7 @@ export function ProjectsListPage() {
                             onCardClick={(p) =>
                               navigate(`/mdl/projects/${p.id}`)
                             }
-                            onDelete={(id) =>
-                              void deleteMutation.mutateAsync(id)
-                            }
+                            onDelete={setDeletingId}
                             onSelectOne={handleSelectOne}
                             projects={group.projects}
                             selectedIds={selectedIds}
@@ -567,6 +599,22 @@ export function ProjectsListPage() {
         onOpenChange={setCreateOpen}
         onSuccess={handleCreateSuccess}
         open={createOpen}
+      />
+
+      <ProjectsDeleteConfirmDialog
+        isDeleting={deleteMutation.isPending}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteOne}
+        open={deletingId !== null}
+        projectId={deletingId}
+      />
+
+      <ProjectsDeleteConfirmDialog
+        isDeleting={deleteMutation.isPending}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        open={bulkDeleteOpen}
+        selectedCount={selectedIds.size}
       />
     </section>
   );

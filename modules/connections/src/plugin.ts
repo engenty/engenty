@@ -14,6 +14,19 @@ import { createConnectionsProfilePolicy } from "./policy.js";
  * and the approval-request lifecycle.
  */
 const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
+  // Phase 5 — role bundles (named capability bundles assignable to users/agents).
+  engenty.server.registerRoleProfiles([
+    {
+      id: "connections.viewer",
+      title: "Connections viewer",
+      capabilities: ["module.connections.read"],
+    },
+    {
+      id: "connections.editor",
+      title: "Connections editor",
+      capabilities: ["module.connections.read", "module.connections.write"],
+    },
+  ]);
   const { events, server } = engenty;
   const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
   if (!supabaseRaw) {

@@ -272,8 +272,12 @@ export async function updateProject(id: string, patch: ProjectUpdateInput) {
   });
 }
 
-export async function deleteProject(id: string) {
-  return request<{ ok: boolean; id: string }>(`/api/projects/${id}`, {
+export async function deleteProject(
+  id: string,
+  options?: { deleteTasks?: boolean }
+) {
+  const query = options?.deleteTasks ? "?delete_tasks=true" : "";
+  return request<{ ok: boolean; id: string }>(`/api/projects/${id}${query}`, {
     method: "DELETE",
   });
 }
@@ -403,6 +407,16 @@ export async function getTaskCounts(
 ): Promise<ProjectTaskCountsByStatus> {
   return request<ProjectTaskCountsByStatus>(
     `/api/projects/tasks/counts${buildQuery(params as Record<string, unknown>)}`,
+    { method: "GET", signal }
+  );
+}
+
+export async function getAssociatedTaskCount(
+  projectId: string,
+  signal?: AbortSignal
+) {
+  return request<{ count: number }>(
+    `/api/projects/${projectId}/associated-tasks/count`,
     { method: "GET", signal }
   );
 }

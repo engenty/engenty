@@ -18,6 +18,8 @@ export function rowToTimeEntry(row: Record<string, unknown>): TimeEntry {
     user_id: String(row.user_id ?? tsRow.user_id ?? ""),
     date: String(row.date),
     hours: Number(row.hours ?? 0),
+    // Postgres returns time as HH:MM:SS — normalize to HH:MM for the UI.
+    start_time: row.start_time ? String(row.start_time).slice(0, 5) : null,
     notes: (row.notes as string | null) ?? null,
     project_id: (row.project_id ?? tsRow.project_id ?? null) as string | null,
     phase_id: (row.phase_id ?? tsRow.phase_id ?? null) as string | null,

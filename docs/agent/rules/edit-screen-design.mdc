@@ -13,7 +13,23 @@ Use this structure for edit and detail (read-only) pages so layout stays consist
 - AppLayout does NOT provide any paddings on purpose
 - Use `.p-page` class for page paddings which provides paddings for responsive states
 - You may use full with headers with card background
-- Single scrollable column, centered: `mx-auto max-w-4xl space-y-6`.
+- **The page owns its own scroll.** AppLayout gives the content pane a bounded
+  height but NO overflow, so a plain centered `<div>` will clip long content
+  instead of scrolling. Always wrap the page in a scroll container:
+  ```tsx
+  // ✅ outer scroll container + inner centered column
+  <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto">
+    <div className="mx-auto w-full max-w-4xl space-y-6 p-page">
+      {/* sections */}
+    </div>
+  </div>
+  // ❌ no scroll container — long pages clip, main area won't scroll
+  <div className="mx-auto max-w-4xl space-y-6 p-page">…</div>
+  ```
+  The `flex min-h-0 … overflow-auto` is what enables scrolling — without
+  `min-h-0` the flex child refuses to shrink and `overflow-auto` never engages.
+- Single scrollable column, centered: `mx-auto max-w-4xl space-y-6` (inside the
+  scroll container above).
 - Keep relevant info sticky when scrolling if needed for large pages
 - Edit pages: one `<Form>` wrapping one `<form className="space-y-6">`.
 

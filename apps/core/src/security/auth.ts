@@ -12,12 +12,20 @@ export type AuthMethod =
 
 export interface PrincipalContext {
   actingForUserId?: string;
+  /**
+   * Agent driving this request (Phase 4). Set when an agent acts — either an
+   * agent token (== principalId) or an agent acting for a user in chat
+   * (forwarded user token + x-engenty-agent-id). Enables goal-scoped escalation.
+   */
+  agentId?: string;
   audience: string[];
   authMethod: AuthMethod;
   capabilities: string[];
   clientId?: string;
   delegationChain: string[];
   expiresAt?: number;
+  /** Goal/objective the agent run is executing; scope for approval grants. */
+  goalId?: string;
   issuedAt?: number;
   issuer?: string;
   moduleIds: string[];

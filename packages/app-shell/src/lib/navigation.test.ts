@@ -85,9 +85,10 @@ describe("navigation", () => {
       ).map((item) => item.to);
 
       expect(visible).toEqual([
+        "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
-        "/settings/appearance",
+        "/settings/roles",
         "/settings/development",
         "/settings/features",
         "/settings/search-index",
@@ -97,49 +98,52 @@ describe("navigation", () => {
     it("keeps settings item icons and reuses module admin menu icons", () => {
       const InvoicesIcon = () => null;
       const TasksIcon = () => null;
-      const sections = buildNavigationSections({
-        routes: [],
-        adminMenuItems: [
-          {
-            id: "invoices_module_menu",
-            label: "Invoices",
-            pluginId: "invoices",
-            section: "modules",
-            to: "/mdl/invoices",
-            icon: InvoicesIcon,
-          },
-          {
-            id: "tasks_module_menu",
-            label: "Tasks",
-            pluginId: "tasks",
-            section: "modules",
-            to: "/mdl/tasks",
-            icon: TasksIcon,
-          },
-        ],
-        copilotApps: [],
-        copilotContributions: [],
-        dashboardWidgets: [],
-        developmentPanels: [],
-        i18nNamespaces: [],
-        liveBindings: [],
-        navigationPrefetch: [],
-        settingsItems: [
-          {
-            id: "invoices_settings_menu",
-            label: "Invoices",
-            pluginId: "invoices",
-            to: "/mdl/invoices/settings",
-            icon: InvoicesIcon,
-          },
-          {
-            id: "tasks_settings_menu",
-            label: "Tasks",
-            pluginId: "tasks",
-            to: "/mdl/tasks/settings",
-          },
-        ],
-      });
+      const sections = buildNavigationSections(
+        {
+          routes: [],
+          adminMenuItems: [
+            {
+              id: "invoices_module_menu",
+              label: "Invoices",
+              pluginId: "invoices",
+              section: "modules",
+              to: "/mdl/invoices",
+              icon: InvoicesIcon,
+            },
+            {
+              id: "tasks_module_menu",
+              label: "Tasks",
+              pluginId: "tasks",
+              section: "modules",
+              to: "/mdl/tasks",
+              icon: TasksIcon,
+            },
+          ],
+          copilotApps: [],
+          copilotContributions: [],
+          dashboardWidgets: [],
+          developmentPanels: [],
+          i18nNamespaces: [],
+          liveBindings: [],
+          navigationPrefetch: [],
+          settingsItems: [
+            {
+              id: "invoices_settings_menu",
+              label: "Invoices",
+              pluginId: "invoices",
+              to: "/mdl/invoices/settings",
+              icon: InvoicesIcon,
+            },
+            {
+              id: "tasks_settings_menu",
+              label: "Tasks",
+              pluginId: "tasks",
+              to: "/mdl/tasks/settings",
+            },
+          ],
+        },
+        { isTenantAdmin: true }
+      );
 
       const settingsChildren = sections
         .flatMap((section) => section.items)
@@ -153,6 +157,57 @@ describe("navigation", () => {
         settingsChildren?.find((item) => item.to === "/mdl/tasks/settings")
           ?.icon
       ).toBe(TasksIcon);
+    });
+
+    it("hides /admin/* consoles and the tenant General page from members", () => {
+      const contributions = {
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "user_management_menu",
+            label: "Users",
+            pluginId: "user-management",
+            section: "admin" as const,
+            to: "/admin/users",
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+
+      const memberSections = buildNavigationSections(contributions, {});
+      const memberTopLevel = memberSections
+        .flatMap((section) => section.items)
+        .map((item) => item.to);
+      // Members keep the Settings gear (at /settings, so the secondary nav
+      // resolves) but no /admin/* console.
+      expect(memberTopLevel).not.toContain("/admin/users");
+      expect(memberTopLevel).toContain("/settings");
+      // Their settings hold no tenant-wide surfaces — not even Appearance
+      // (that's the tenant branding editor); AI models/usage and roles are out
+      // too. Personal theme/language live in the user menu.
+      const memberSettingsChildren =
+        memberSections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")
+          ?.children?.map((child) => child.to) ?? [];
+      expect(memberSettingsChildren).not.toContain("/settings/appearance");
+      expect(memberSettingsChildren).not.toContain("/settings/ai");
+      expect(memberSettingsChildren).not.toContain("/settings/roles");
+
+      const adminTargets = buildNavigationSections(contributions, {
+        isTenantAdmin: true,
+      })
+        .flatMap((section) => section.items)
+        .map((item) => item.to);
+      expect(adminTargets).toContain("/admin/users");
+      expect(adminTargets).toContain("/settings");
     });
   });
 

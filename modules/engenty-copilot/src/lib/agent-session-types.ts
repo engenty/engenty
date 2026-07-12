@@ -1,12 +1,9 @@
+import type { AgentSessionStatus as WireAgentSessionStatus } from "@engenty/ai-core/browser";
+
 export const DEFAULT_COPILOT_AGENT_TYPE_KEY = "engenty.copilot";
 
-export type AgentSessionStatus =
-  | "draft"
-  | "idle"
-  | "running"
-  | "waiting"
-  | "failed"
-  | "completed";
+/** Wire status plus the client-synthetic "draft" (unsaved session). */
+export type AgentSessionStatus = WireAgentSessionStatus | "draft";
 
 export interface AgentSessionDto {
   agent_id: string;

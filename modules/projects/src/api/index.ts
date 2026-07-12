@@ -34,7 +34,9 @@ import {
   phaseTaskInputSchema,
   phaseTaskSchema,
   phaseTaskUpdateSchema,
+  projectAssociatedTaskCountResponseSchema,
   projectCreateInputSchema,
+  projectDeleteQuerySchema,
   projectIdParamsSchema,
   projectPhaseInputSchema,
   projectPhaseSchema,
@@ -346,7 +348,10 @@ export function registerProjectsApi(
     operation: { ...op(false), riskLevel: "critical" as const },
     summary: "Delete project",
     tags: ["projects"],
-    request: { params: projectIdParamsSchema },
+    request: {
+      params: projectIdParamsSchema,
+      query: projectDeleteQuerySchema,
+    },
     responses: {
       200: { description: "Deleted", schema: deleteProjectResponseSchema },
       404: { description: "Not found", schema: notFoundSchema },
@@ -354,7 +359,13 @@ export function registerProjectsApi(
     handler: async (ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const params = ctx.params as z.infer<typeof projectIdParamsSchema>;
-      const ok = await repo.delete(params.id);
+      const url = new URL(ctx.request.url);
+      const query = projectDeleteQuerySchema.parse({
+        delete_tasks: url.searchParams.get("delete_tasks") ?? undefined,
+      });
+      const ok = await repo.delete(params.id, {
+        deleteTasks: query.delete_tasks,
+      });
       if (!ok) {
         return new Response(JSON.stringify({ error: "Project not found" }), {
           status: 404,
@@ -362,6 +373,37 @@ export function registerProjectsApi(
         });
       }
       return { ok: true as const, id: params.id };
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "get",
+    path: `${PROJECT_BY_ID_PATH}/associated-tasks/count`,
+    operation: { ...op(true) },
+    summary: "Count tasks associated with a project",
+    tags: ["projects", "tasks"],
+    request: {
+      params: projectIdParamsSchema,
+    },
+    responses: {
+      200: {
+        description: "Associated task count",
+        schema: projectAssociatedTaskCountResponseSchema,
+      },
+      404: { description: "Not found", schema: notFoundSchema },
+    },
+    handler: async (ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = ctx.params as z.infer<typeof projectIdParamsSchema>;
+      const project = await repo.getById(params.id);
+      if (!project) {
+        return new Response(JSON.stringify({ error: "Project not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      const count = await repo.countAssociatedTasks(params.id);
+      return { count };
     },
   });
 

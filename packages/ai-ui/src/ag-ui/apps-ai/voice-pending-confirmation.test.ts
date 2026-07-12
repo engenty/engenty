@@ -1,4 +1,3 @@
-import type { FrontendToolCallRequest, JsonValue } from "@engenty/ag-ui-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearPendingVoiceConfirmation,
@@ -8,17 +7,6 @@ import {
   subscribePendingVoiceConfirmation,
   type VoicePendingConfirmation,
 } from "./voice-pending-confirmation.js";
-
-function pending(callId = "call-1"): VoicePendingConfirmation {
-  return {
-    callId,
-    input: { foo: "bar" },
-    kind: "frontend_tool",
-    request: { arguments: { foo: "bar" }, callId, name: "delete_record" },
-    title: "Delete record",
-    toolName: "delete_record",
-  };
-}
 
 function backendPending(callId = "call-b"): VoicePendingConfirmation {
   return {
@@ -66,16 +54,16 @@ describe("voice pending confirmation store", () => {
   it("sets, reads and notifies subscribers", () => {
     const listener = vi.fn();
     const unsubscribe = subscribePendingVoiceConfirmation(listener);
-    setPendingVoiceConfirmation(pending());
+    setPendingVoiceConfirmation(backendPending());
     const current = getPendingVoiceConfirmation();
-    expect(current?.kind).toBe("frontend_tool");
-    expect(current?.title).toBe("Delete record");
+    expect(current?.kind).toBe("backend_approval");
+    expect(current?.title).toBe("Approve contacts_contact_create?");
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
 
   it("clear only matches when the callId matches", () => {
-    setPendingVoiceConfirmation(pending("call-1"));
+    setPendingVoiceConfirmation(backendPending("call-1"));
     expect(clearPendingVoiceConfirmation("other")).toBeNull();
     expect(getPendingVoiceConfirmation()).not.toBeNull();
     expect(clearPendingVoiceConfirmation("call-1")?.callId).toBe("call-1");
@@ -88,64 +76,33 @@ describe("resolvePendingVoiceConfirmation", () => {
     clearPendingVoiceConfirmation();
   });
 
-  it("executes the gated tool on approval", async () => {
-    setPendingVoiceConfirmation(pending());
-    const executeFrontendTool = vi.fn(
-      (_request: FrontendToolCallRequest): JsonValue => ({ ok: true })
-    );
-    const outcome = await resolvePendingVoiceConfirmation({
-      approved: true,
-      executeFrontendTool,
-      runId: "thread-1",
-    });
-    expect(executeFrontendTool).toHaveBeenCalledTimes(1);
-    expect(outcome).toEqual({
-      result: { ok: true },
-      status: "approved",
-      tool: "delete_record",
-    });
-    expect(getPendingVoiceConfirmation()).toBeNull();
-  });
-
-  it("does not execute on rejection", async () => {
-    setPendingVoiceConfirmation(pending());
-    const executeFrontendTool = vi.fn();
-    const outcome = await resolvePendingVoiceConfirmation({
-      approved: false,
-      executeFrontendTool,
-      runId: "thread-1",
-    });
-    expect(executeFrontendTool).not.toHaveBeenCalled();
-    expect(outcome).toEqual({ status: "rejected", tool: "delete_record" });
-  });
-
   it("returns no_pending when nothing is parked", async () => {
     const outcome = await resolvePendingVoiceConfirmation({
       approved: true,
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(outcome).toEqual({ status: "no_pending" });
   });
 
   it("is first-wins: a racing second resolve finds nothing", async () => {
-    setPendingVoiceConfirmation(pending());
-    const executeFrontendTool = vi.fn(
-      (_request: FrontendToolCallRequest): JsonValue => ({ ok: true })
-    );
+    setPendingVoiceConfirmation(backendPending());
+    const approveBackendTool = vi.fn(async () => ({ granted: true }));
+    const executeBackendTool = vi.fn(async () => ({ ok: true }));
     const [first, second] = await Promise.all([
       resolvePendingVoiceConfirmation({
+        approveBackendTool,
         approved: true,
-        executeFrontendTool,
+        executeBackendTool,
         runId: "thread-1",
       }),
       resolvePendingVoiceConfirmation({
+        approveBackendTool,
         approved: true,
-        executeFrontendTool,
+        executeBackendTool,
         runId: "thread-1",
       }),
     ]);
-    expect(executeFrontendTool).toHaveBeenCalledTimes(1);
+    expect(executeBackendTool).toHaveBeenCalledTimes(1);
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual(["approved", "no_pending"]);
   });
@@ -164,7 +121,6 @@ describe("resolvePendingVoiceConfirmation — backend approval", () => {
       approved: true,
       approveBackendTool,
       executeBackendTool,
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(approveBackendTool).toHaveBeenCalledWith({
@@ -184,7 +140,6 @@ describe("resolvePendingVoiceConfirmation — backend approval", () => {
       approved: true,
       approveBackendTool,
       executeBackendTool: vi.fn(async () => ({})),
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(approveBackendTool).toHaveBeenCalledWith(
@@ -200,7 +155,6 @@ describe("resolvePendingVoiceConfirmation — backend approval", () => {
       approved: false,
       approveBackendTool,
       executeBackendTool,
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(approveBackendTool).toHaveBeenCalledWith(
@@ -222,7 +176,6 @@ describe("resolvePendingVoiceConfirmation — field suggestions", () => {
     const outcome = await resolvePendingVoiceConfirmation({
       applyFieldUpdates,
       approved: true,
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(applyFieldUpdates).toHaveBeenCalledWith({
@@ -243,7 +196,6 @@ describe("resolvePendingVoiceConfirmation — field suggestions", () => {
       applyFieldUpdates,
       approved: true,
       approvedFields: [{ field: "address_zip", value: "8952" }],
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(applyFieldUpdates).toHaveBeenCalledWith(
@@ -259,7 +211,6 @@ describe("resolvePendingVoiceConfirmation — field suggestions", () => {
     const outcome = await resolvePendingVoiceConfirmation({
       applyFieldUpdates,
       approved: false,
-      executeFrontendTool: vi.fn(),
       runId: "thread-1",
     });
     expect(applyFieldUpdates).not.toHaveBeenCalled();

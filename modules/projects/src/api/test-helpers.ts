@@ -201,7 +201,10 @@ export function makeMockProjectRepo() {
       }
       return withMembers(updated);
     },
-    async delete(id: string): Promise<boolean> {
+    async delete(
+      id: string,
+      _opts?: { deleteTasks?: boolean }
+    ): Promise<boolean> {
       projectMemberIds.delete(id);
       return projects.delete(id);
     },
@@ -388,6 +391,9 @@ export function makeMockProjectRepo() {
       }
       return counts;
     },
+    async countAssociatedTasks(_projectId: string): Promise<number> {
+      return 0;
+    },
   };
 }
 
@@ -417,6 +423,7 @@ export function makeMockApi() {
     registerAiRegistration: () => {},
     registerFeatureFlags: () => [],
     registerProfilePolicy: () => {},
+    registerRoleProfiles: () => {},
     registerResultPolicy: () => {},
     registerService: () => {},
     registerTestDataType: () => noopReceipt(),
