@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.10] - 2026-07-12
+- Fixed [ci]: Keep public repo workflows untouched in open-source snapshot
+
 ## [0.1.9] - 2026-07-09
 - Added [time-tracking]: Push time entries to calendar (Phase 2)
 - Added [time-tracking]: Calendar overlay (Phase 1)
