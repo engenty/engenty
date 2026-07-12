@@ -83,7 +83,14 @@ export function TasksToolbar({
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="relative w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+        <div
+          className={cn(
+            "relative w-full min-w-0 max-w-full",
+            hasSelection
+              ? "sm:max-w-xs md:max-w-[16rem]"
+              : "sm:max-w-md md:max-w-lg lg:max-w-xl"
+          )}
+        >
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => onSearchChange(e.target.value)}

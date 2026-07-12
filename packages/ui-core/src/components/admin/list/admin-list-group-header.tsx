@@ -14,6 +14,12 @@ export interface AdminListGroupHeaderProps {
   onToggle: () => void;
   /** Whether the group this header controls is expanded. */
   open: boolean;
+  /**
+   * Optional leading slot rendered before the toggle — e.g. a bulk-select
+   * checkbox for the group. Kept outside the toggle button so interacting
+   * with it doesn't collapse/expand the group.
+   */
+  selection?: React.ReactNode;
   /** Accessible label for the collapse/expand toggle. */
   toggleLabel?: string;
 }
@@ -34,6 +40,7 @@ export function AdminListGroupHeader({
   count,
   open,
   onToggle,
+  selection,
   toggleLabel,
 }: AdminListGroupHeaderProps) {
   return (
@@ -41,6 +48,9 @@ export function AdminListGroupHeader({
       className={cn("flex items-center py-2", className)}
       data-slot="admin-list-group-header"
     >
+      {selection == null ? null : (
+        <span className="mr-2 flex shrink-0 items-center">{selection}</span>
+      )}
       <button
         aria-expanded={open}
         aria-label={toggleLabel}
