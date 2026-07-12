@@ -5,6 +5,14 @@ import { useQuery } from "@engenty/query-client";
 import {
   AdminListPagination,
   AdminListTableView,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Empty,
   EmptyContent,
@@ -16,7 +24,7 @@ import {
   useTableSelection,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { ListTodo, Pencil } from "lucide-react";
+import { ListTodo, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -49,6 +57,7 @@ import { tasksPaths } from "../lib/tasks-routes.js";
 import { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
 import { buildAssigneeProfileMap, getTasksPluginsApi } from "../plugins.js";
 import {
+  useBulkDeleteTasksMutation,
   useBulkUpdateTasksMutation,
   useDeleteTaskMutation,
   useGoalsListQuery,
@@ -65,7 +74,7 @@ export function TasksListPage() {
   const navigate = useNavigate();
 
   const displayDefaults = useMemo(() => createTasksDisplayDefaults(), []);
-  const listColumns = useMemo(() => getTasksListColumns(), []);
+  const allListColumns = useMemo(() => getTasksListColumns(), []);
 
   const display = useListDisplayState<string, TasksSortColumn>({
     storageKey: "tasks-list",
@@ -180,7 +189,9 @@ export function TasksListPage() {
     selection;
 
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const bulkUpdateMutation = useBulkUpdateTasksMutation();
+  const bulkDeleteMutation = useBulkDeleteTasksMutation();
 
   const handleBulkEditSubmit = useCallback(
     async (input: TaskUpdateInput) => {
@@ -200,16 +211,43 @@ export function TasksListPage() {
     [selectedIds, bulkUpdateMutation, clearSelection, t]
   );
 
+  const handleBulkDelete = useCallback(async () => {
+    const taskIds = Array.from(selectedIds);
+    if (taskIds.length === 0) {
+      return;
+    }
+
+    try {
+      await bulkDeleteMutation.mutateAsync(taskIds);
+      toast.success(t("list.bulkDeleteSuccess"));
+      clearSelection();
+      setBulkDeleteOpen(false);
+    } catch {
+      toast.error(t("list.bulkDeleteFailed"));
+    }
+  }, [selectedIds, bulkDeleteMutation, clearSelection, t]);
+
   const bulkActions = selectedIds.size > 0 && (
-    <Button
-      className="gap-1.5"
-      onClick={() => setBulkEditOpen(true)}
-      size="sm"
-      variant="outline"
-    >
-      <Pencil className="h-3.5 w-3.5" />
-      {t("list.editSelected", { count: selectedIds.size })}
-    </Button>
+    <>
+      <Button
+        className="gap-1.5"
+        onClick={() => setBulkEditOpen(true)}
+        size="sm"
+        variant="outline"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+        {t("list.editSelected", { count: selectedIds.size })}
+      </Button>
+      <Button
+        className="gap-1.5 text-destructive hover:text-destructive"
+        onClick={() => setBulkDeleteOpen(true)}
+        size="sm"
+        variant="outline"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        {t("list.deleteSelected")}
+      </Button>
+    </>
   );
 
   const teamMembersEnabled = teamMembersCatalogQuery.pluginEnabled;
@@ -226,7 +264,9 @@ export function TasksListPage() {
       });
       return response.data;
     },
-    enabled: projectsEnabled && filters.groupBy === "project",
+    enabled:
+      projectsEnabled &&
+      (filters.groupBy === "project" || columnVisibility.project === true),
     staleTime: 60_000,
   });
   const projectTitleById = useMemo(
@@ -237,6 +277,13 @@ export function TasksListPage() {
   const assigneeProfiles = useMemo(
     () => buildAssigneeProfileMap(teamMembersCatalogQuery.data ?? []),
     [teamMembersCatalogQuery.data]
+  );
+  const listColumns = useMemo(
+    () =>
+      projectsEnabled
+        ? allListColumns
+        : allListColumns.filter((column) => column.key !== "project"),
+    [allListColumns, projectsEnabled]
   );
   const effectiveColumnVisibility = teamMembersEnabled
     ? columnVisibility
@@ -648,6 +695,36 @@ export function TasksListPage() {
         teamMembersEnabled={teamMembersEnabled}
         teamMembersLoading={teamMembersCatalogQuery.isLoading}
       />
+
+      <AlertDialog onOpenChange={setBulkDeleteOpen} open={bulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("list.bulkDeleteConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("list.bulkDeleteConfirmDescription", {
+                count: selectedIds.size,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>
+              {t("list.bulkDeleteCancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleBulkDelete();
+              }}
+            >
+              {t("list.bulkDeleteAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

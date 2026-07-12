@@ -2,6 +2,7 @@ import {
   CalendarClock,
   CircleDot,
   Flag,
+  FolderKanban,
   ListTodo,
   Tag,
   User,
@@ -18,6 +19,7 @@ export type TasksBuiltinColumnKey =
   | "dueDate"
   | "identifier"
   | "priority"
+  | "project"
   | "status"
   | "title"
   | "updatedAt";
@@ -66,6 +68,14 @@ const BUILTIN_COLUMNS: TasksListColumnConfig[] = [
     icon: CalendarClock,
     order: 40,
     defaultVisible: true,
+  },
+  {
+    key: "project",
+    labelKey: "tasks:list.project",
+    label: "Project",
+    icon: FolderKanban,
+    order: 45,
+    defaultVisible: false,
   },
   {
     key: "status",
