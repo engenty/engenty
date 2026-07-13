@@ -1,7 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
-import { resolveGatewayTarget } from "./gateway-paths.js";
+import {
+  manageCanonicalRedirect,
+  resolveGatewayTarget,
+} from "./gateway-paths.js";
 import { createReverseProxy } from "./reverse-proxy.js";
 
 const DEFAULT_UI_URL = "http://127.0.0.1:5173";
@@ -225,7 +228,14 @@ export function createDevGatewayHooks(logger?: {
       });
     },
     maybeHandleRequest(req, res, honoListener) {
-      const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
+      const url = new URL(req.url ?? "/", "http://127.0.0.1");
+      const pathname = url.pathname;
+      const manageRedirect = manageCanonicalRedirect(pathname, url.search);
+      if (manageRedirect) {
+        res.writeHead(308, { location: manageRedirect });
+        res.end();
+        return;
+      }
       const target = resolveGatewayTarget(pathname);
       if (target === null) {
         honoListener(req, res);

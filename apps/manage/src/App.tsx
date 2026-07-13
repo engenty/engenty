@@ -1,4 +1,8 @@
-import { AppLayout } from "@engenty/app-shell";
+import {
+  AppLayout,
+  COPILOT_LAYOUT_NOOP,
+  CopilotShellProvider,
+} from "@engenty/app-shell";
 import { useCoreAuthSession } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
@@ -49,26 +53,33 @@ function AuthenticatedApp() {
     "";
 
   return (
-    <AppLayout
-      defaultTopbarTitle={t("navigation.tenants")}
-      fetchResolvedFeatureFlags={async () => ({})}
-      sections={sections}
-      shell={{
-        appTitle: t("sidebar.brand"),
-        appSubtitle: t("sidebar.subtitle"),
-        searchPlaceholder: t("sidebar.search"),
-        userMenu: (compact) => (
-          <SidebarUserMenu
-            compact={compact}
-            displayName={displayName}
-            email={email}
-            initials={initials}
-          />
-        ),
-      }}
+    // Manage has no copilot; provide the shell context the layout requires with
+    // a no-op layout persistence and the dock kept closed (defaultDockMode null).
+    <CopilotShellProvider
+      copilotLayout={COPILOT_LAYOUT_NOOP}
+      defaultDockMode={null}
     >
-      <ManageRoutes />
-    </AppLayout>
+      <AppLayout
+        defaultTopbarTitle={t("navigation.tenants")}
+        fetchResolvedFeatureFlags={async () => ({})}
+        sections={sections}
+        shell={{
+          appTitle: t("sidebar.brand"),
+          appSubtitle: t("sidebar.subtitle"),
+          searchPlaceholder: t("sidebar.search"),
+          userMenu: (compact) => (
+            <SidebarUserMenu
+              compact={compact}
+              displayName={displayName}
+              email={email}
+              initials={initials}
+            />
+          ),
+        }}
+      >
+        <ManageRoutes />
+      </AppLayout>
+    </CopilotShellProvider>
   );
 }
 

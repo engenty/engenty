@@ -3,7 +3,11 @@ import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import { envBoolean, envString } from "@engenty/environment/env";
 import { shouldRegisterDevGateway } from "./dev-gateway.js";
-import { type GatewayTarget, resolveGatewayTarget } from "./gateway-paths.js";
+import {
+  type GatewayTarget,
+  manageCanonicalRedirect,
+  resolveGatewayTarget,
+} from "./gateway-paths.js";
 import { tryServeStatic } from "./prod-gateway-static.js";
 import { createReverseProxy } from "./reverse-proxy.js";
 
@@ -237,7 +241,14 @@ export function createProdGatewayHooks(
       });
     },
     maybeHandleRequest(req, res, honoListener) {
-      const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
+      const url = new URL(req.url ?? "/", "http://127.0.0.1");
+      const pathname = url.pathname;
+      const manageRedirect = manageCanonicalRedirect(pathname, url.search);
+      if (manageRedirect) {
+        res.writeHead(308, { location: manageRedirect });
+        res.end();
+        return;
+      }
       const target = resolveGatewayTarget(pathname);
       if (target === null) {
         honoListener(req, res);

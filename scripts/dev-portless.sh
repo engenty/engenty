@@ -155,4 +155,5 @@ pnpm exec turbo run "${TURBO_TASKS[@]}" \
   --filter=./apps/core \
   --filter=./apps/ui \
   --filter=./apps/ai \
-  --filter=./apps/docs
+  --filter=./apps/docs \
+  --filter=./apps/manage

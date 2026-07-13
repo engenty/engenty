@@ -5,8 +5,13 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Stand in for the heavy app shell: render only the nav so we test OUR gate +
-// section wiring, not app-shell internals (covered by its own tests).
+// section wiring, not app-shell internals (covered by its own tests). The
+// copilot provider/constant are pass-throughs — manage only needs them to
+// satisfy the layout's context requirement.
 vi.mock("@engenty/app-shell", () => ({
+  COPILOT_LAYOUT_NOOP: {},
+  CopilotShellProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
   AppLayout: ({
     sections,
   }: {
