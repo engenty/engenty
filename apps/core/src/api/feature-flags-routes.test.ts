@@ -72,6 +72,7 @@ function createApp(registry = createRegistry()) {
       supabaseUrl: "http://127.0.0.1:54321",
       supabaseServiceRoleKey: "test-service-role",
     },
+    resolvePackageFlags: async () => ({}),
   });
   return app;
 }
@@ -83,6 +84,7 @@ describe("feature flags routes", () => {
     mockFeatureFlagsDal.getManageData.mockResolvedValue({
       global: {},
       tenant: {},
+      package: {},
       resolved: {},
     });
     mockFeatureFlagsDal.setOverrides.mockResolvedValue(undefined);
@@ -139,7 +141,8 @@ describe("feature flags routes", () => {
       expect(body.data.resolved["test.feature_b"]).toBe(false);
       expect(mockFeatureFlagsDal.getResolved).toHaveBeenCalledWith(
         "tenant-1",
-        expect.any(Array)
+        expect.any(Array),
+        {}
       );
     });
   });
@@ -290,6 +293,7 @@ describe("feature flags routes", () => {
         getManageData: async (tenantId, defs) => ({
           global: scopedMap(null),
           tenant: scopedMap(tenantId),
+          package: {},
           resolved: resolveFor(tenantId, defs),
         }),
         setOverrides: async (updates) => {
@@ -319,6 +323,7 @@ describe("feature flags routes", () => {
           supabaseServiceRoleKey: "test-service-role",
         },
         createDal: () => dal,
+        resolvePackageFlags: async () => ({}),
       });
       return app;
     }
@@ -339,10 +344,9 @@ describe("feature flags routes", () => {
         }),
       });
 
-      const res = await app.request(
-        "/api/feature-flags/manage?tenantId=t1",
-        { headers }
-      );
+      const res = await app.request("/api/feature-flags/manage?tenantId=t1", {
+        headers,
+      });
       const body = (await res.json()) as {
         data: {
           global: Record<string, boolean>;

@@ -43,6 +43,27 @@ describe("mergeResolved", () => {
     expect(result["contacts.personal_accounts"]).toBe(true);
   });
 
+  it("package value sits between global and tenant (tenant > package > global > default)", () => {
+    // package overrides global + default
+    expect(
+      mergeResolved(
+        definitions,
+        { "contacts.organisation_accounts": false }, // global
+        {}, // tenant
+        { "contacts.organisation_accounts": true } // package
+      )["contacts.organisation_accounts"]
+    ).toBe(true);
+    // tenant still wins over package
+    expect(
+      mergeResolved(
+        definitions,
+        {},
+        { "contacts.organisation_accounts": false }, // tenant
+        { "contacts.organisation_accounts": true } // package
+      )["contacts.organisation_accounts"]
+    ).toBe(false);
+  });
+
   it("default used when no override exists", () => {
     const defs: FeatureFlagDefinition[] = [
       {
