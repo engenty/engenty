@@ -81,7 +81,7 @@ export function TaskPropertiesPanel({
   return (
     <section
       aria-label={t("detail.properties")}
-      className="flex min-w-[280px] flex-col gap-2"
+      className="flex min-w-0 flex-col gap-2"
     >
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild disabled={disabled}>

@@ -162,6 +162,17 @@ export {
   type DetailPageHeaderProps,
 } from "./components/layout/detail-page-header";
 export {
+  DOC_SIDEBAR_INLINE_MIN_WIDTH_PX,
+  DOC_SIDEBAR_WIDTH_PX,
+  DocSidebarLayout,
+  type DocSidebarLayoutProps,
+  type DocSidebarMode,
+  DocSidebarToggle,
+  type DocSidebarToggleProps,
+  type UseDocSidebarResult,
+  useDocSidebar,
+} from "./components/layout/doc-sidebar";
+export {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,

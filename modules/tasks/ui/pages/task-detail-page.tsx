@@ -13,6 +13,8 @@ import {
   AlertDialogTitle,
   Button,
   Card,
+  DocSidebarLayout,
+  DocSidebarToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -70,6 +72,8 @@ import {
   useTaskSettingsQuery,
   useUpdateTaskMutation,
 } from "../tasks-queries.js";
+
+const TASK_DETAIL_DOC_SIDEBAR_KEY = "tasks.detail";
 
 interface TaskDetailLoadedProps {
   activity: ReturnType<typeof useTaskActivityQuery>["data"];
@@ -142,7 +146,34 @@ function TaskDetailLoadedContent({
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_minmax(280px,280px)]">
+    <DocSidebarLayout
+      className="max-w-5xl"
+      sidebar={
+        <>
+          <TaskPropertiesPanel
+            assigneeCatalog={teamMembersCatalogQuery.data ?? []}
+            assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
+            assigneeProfiles={assigneeProfiles}
+            disabled={fieldsDisabled}
+            onAssigneeChange={onAssigneeChange}
+            onDueDateChange={onDueDateChange}
+            onGoalChange={onGoalChange}
+            onPriorityChange={onPriorityChange}
+            onStatusChange={onStatusChange}
+            task={task}
+            taskStatusDefinitions={taskStatusDefinitions}
+            teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
+          />
+          <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
+          <TaskLinkedSessionsPanel
+            isLoading={linkedSessionsQuery.isLoading}
+            sessions={linkedSessionsQuery.data ?? []}
+          />
+        </>
+      }
+      sidebarLabel={t("detail.sidebarLabel")}
+      storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
+    >
       <div className="space-y-4">
         <div className="space-y-2">
           <p className="flex flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
@@ -203,29 +234,7 @@ function TaskDetailLoadedContent({
           task={task}
         />
       </div>
-
-      <div className="flex min-w-[280px] flex-col gap-4">
-        <TaskPropertiesPanel
-          assigneeCatalog={teamMembersCatalogQuery.data ?? []}
-          assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
-          assigneeProfiles={assigneeProfiles}
-          disabled={fieldsDisabled}
-          onAssigneeChange={onAssigneeChange}
-          onDueDateChange={onDueDateChange}
-          onGoalChange={onGoalChange}
-          onPriorityChange={onPriorityChange}
-          onStatusChange={onStatusChange}
-          task={task}
-          taskStatusDefinitions={taskStatusDefinitions}
-          teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
-        />
-        <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
-        <TaskLinkedSessionsPanel
-          isLoading={linkedSessionsQuery.isLoading}
-          sessions={linkedSessionsQuery.data ?? []}
-        />
-      </div>
-    </div>
+    </DocSidebarLayout>
   );
 }
 
@@ -325,27 +334,33 @@ export function TaskDetailPage() {
 
   usePageConfig({
     actions: task ? (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={t("detail.actionsMenu")}
-            className={topbarIconButtonClassName}
-            size="sm"
-            variant="outline"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t("delete.action")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <>
+        <DocSidebarToggle
+          label={t("detail.toggleSidebar")}
+          storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("detail.actionsMenu")}
+              className={topbarIconButtonClassName}
+              size="sm"
+              variant="outline"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("delete.action")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>
     ) : null,
     breadcrumbs,
     secondaryNavAfterItems,

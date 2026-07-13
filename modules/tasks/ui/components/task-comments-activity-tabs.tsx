@@ -117,7 +117,9 @@ function TaskCommentItem({
 
   if (elevated) {
     return (
-      <li className="rounded-lg bg-card px-3 py-2.5 shadow-sm">{content}</li>
+      <li className="ui-canvas-raised rounded-md bg-card px-3 py-2.5">
+        {content}
+      </li>
     );
   }
 

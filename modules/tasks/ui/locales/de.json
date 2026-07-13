@@ -175,6 +175,8 @@
     "loadFailed": "Aufgabe konnte nicht geladen werden.",
     "descriptionPlaceholder": "Beschreibung hinzufügen…",
     "actionsMenu": "Aufgabenaktionen",
+    "sidebarLabel": "Details",
+    "toggleSidebar": "Detail-Seitenleiste umschalten",
     "noDescription": "Keine Beschreibung.",
     "comments": "Kommentare",
     "noComments": "Noch keine Kommentare.",
