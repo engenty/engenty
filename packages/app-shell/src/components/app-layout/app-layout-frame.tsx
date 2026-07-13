@@ -19,7 +19,10 @@ import type { AppLayoutFrameProps } from "./types";
 import { useCopilotInlineSidebarWidth } from "./use-copilot-inline-sidebar-width";
 import { useSecondaryNavLayout } from "./use-secondary-nav-layout";
 import { useSuppressPaneWidthTransition } from "./use-suppress-pane-width-transition";
-import { setWorkspaceEndPaneElement } from "./workspace-end-pane";
+import {
+  setWorkspaceEndPaneElement,
+  useWorkspaceEndPaneExpanded,
+} from "./workspace-end-pane";
 
 export function AppLayoutFrame({
   appMenuActions,
@@ -31,6 +34,7 @@ export function AppLayoutFrame({
 }: AppLayoutFrameProps & { children: ReactNode }) {
   const { contentStackBackground } = usePageHeader();
   const { dockMode, open: copilotOpen } = useCopilotShell();
+  const endPaneExpanded = useWorkspaceEndPaneExpanded();
   const suppressPaneWidthTransition = useSuppressPaneWidthTransition();
 
   const [forceHoverToggle, setForceHoverToggle] = useState(false);
@@ -402,7 +406,9 @@ export function AppLayoutFrame({
               <CopilotShellContentArea
                 className={cn(
                   "relative z-0 flex min-w-0 flex-1 flex-col overflow-hidden",
-                  contentStackBackground === "paper" && "bg-paper"
+                  contentStackBackground === "paper" && "bg-paper",
+                  // End pane expanded: main collapses, the slot takes the row.
+                  endPaneExpanded && "flex-[0_1_0px]"
                 )}
               >
                 <AppTopbar
@@ -446,12 +452,11 @@ export function AppLayoutFrame({
                 </div>
               </CopilotShellContentArea>
 
-              {/* No shrink-0: when pane content requests full width (expanded
-                  mode), this column absorbs the row and main collapses. */}
               <div
                 className={cn(
                   "flex h-full min-h-0",
-                  contentStackBackground === "paper" && "bg-paper"
+                  contentStackBackground === "paper" && "bg-paper",
+                  endPaneExpanded && "min-w-0 flex-1"
                 )}
                 ref={setWorkspaceEndPaneElement}
               />

@@ -15,10 +15,12 @@ import {
 } from "@engenty/ai-ui";
 import {
   PaneResizeHandle,
+  setWorkspaceEndPaneExpanded,
   usePersistedEwResizePaneWidth,
   useWorkspaceEndPaneTarget,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { cn } from "@engenty/ui-core";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -53,6 +55,13 @@ export function CopilotChatPage() {
   const { paneExpanded: artifactPaneExpanded, paneOpen: artifactPaneOpen } =
     useArtifacts(ENGENTY_COPILOT_HOST_KEY);
   const workspaceEndPaneTarget = useWorkspaceEndPaneTarget();
+
+  // Tell the shell to grow the end-pane column over the main area while the
+  // artifact pane is expanded; always reset when leaving the route.
+  useEffect(() => {
+    setWorkspaceEndPaneExpanded(artifactPaneExpanded && artifactPaneOpen);
+    return () => setWorkspaceEndPaneExpanded(false);
+  }, [artifactPaneExpanded, artifactPaneOpen]);
   const {
     displayedWidthPx: artifactPaneWidthPx,
     handleResizeKeyDown: handleArtifactResizeKeyDown,
@@ -279,10 +288,12 @@ export function CopilotChatPage() {
       {artifactPaneOpen && workspaceEndPaneTarget
         ? createPortal(
             <div
-              className="flex h-full min-h-0"
-              // Expanded: request the full row; the shell's end-pane column
-              // absorbs it and the main column collapses.
-              style={artifactPaneExpanded ? { width: "100dvw" } : undefined}
+              className={cn(
+                "flex h-full min-h-0",
+                // Expanded: fill the slot column — the shell grows it over
+                // the collapsed main area (see workspace-end-pane.ts).
+                artifactPaneExpanded && "min-w-0 flex-1"
+              )}
             >
               {artifactPaneExpanded ? null : (
                 <PaneResizeHandle
