@@ -73,6 +73,9 @@
       "team": {
         "source": "workspace"
       },
+      "team-hr": {
+        "source": "workspace"
+      },
       "time-tracking": {
         "source": "workspace"
       }

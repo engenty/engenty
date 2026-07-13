@@ -1,0 +1,34 @@
+{
+  "id": "team-hr",
+  "name": "Team HR",
+  "description": "HR & employment extension for the team module — employees, contracts, employment time, working hours, gallery photos",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.team-hr",
+    "module.team-hr.read",
+    "module.team-hr.write",
+    "ui.route.module.team-hr"
+  ],
+  "optional": ["module.team"],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false,
+    "ui": true
+  },
+  "supabase": {
+    "storageBuckets": [
+      {
+        "name": "module-team-contracts",
+        "public": false,
+        "fileSizeLimit": "10MiB",
+        "allowedMimeTypes": [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]
+      }
+    ]
+  }
+}

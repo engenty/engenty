@@ -33,6 +33,7 @@ CLOSED_PREFIXES=(
   "apps/manage"
   "docs/internal"
   "modules/banking"
+  "modules/team-hr"
   # time-tracking pulled back to pro-only 2026-07-13 (calendar-sync phase is
   # commercial; keep the whole module closed while it's in active pro dev).
   "modules/time-tracking"
