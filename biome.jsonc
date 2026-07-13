@@ -20,6 +20,11 @@
   },
   "overrides": [
     {
+      // The MV3 extension runs with the chrome.* extension APIs in scope.
+      "includes": ["apps/browser-extension/**"],
+      "javascript": { "globals": ["chrome"] }
+    },
+    {
       "includes": [
         "modules/**/src/dal/index.ts",
         "modules/**/ui/index.ts",
