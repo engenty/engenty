@@ -14,6 +14,10 @@ import {
   createAgentSessionStore,
 } from "../dal/agent-sessions/index.js";
 import {
+  type ArtifactStore,
+  createArtifactStore,
+} from "../dal/artifacts/index.js";
+import {
   type ChatSearchRetrieval,
   createChatSearchRetrieval,
 } from "../dal/chat-search/index.js";
@@ -184,6 +188,16 @@ export function createAgentSessionStoreFromEnv(): AgentSessionStore | null {
     return null;
   }
   return createAgentSessionStore(client);
+}
+
+export function createArtifactStoreFromEnv(): ArtifactStore | null {
+  const client = createAiDatabaseAdapter(
+    process.env as unknown as Record<string, unknown>
+  );
+  if (!client) {
+    return null;
+  }
+  return createArtifactStore(client);
 }
 
 export function createAgentRunStoreFromEnv(): AgentRunStore | null {
