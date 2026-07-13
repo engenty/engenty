@@ -6,6 +6,38 @@ import type {
   ResolvedEntitlements,
 } from "./types.js";
 
+/** Outcome of a seat-limit check before adding a member to a tenant. */
+export interface SeatCheckResult {
+  /** False only when the limit is reached AND enforcement is `enforce`. */
+  allowed: boolean;
+  /** True when the tenant is at/over its seat cap (regardless of mode). */
+  atLimit: boolean;
+  current: number;
+  limit: number | null;
+}
+
+/**
+ * Decide whether one more member may be added. A `null` cap is unlimited. When
+ * the cap is reached, `observe` mode still allows the add (only flags
+ * `atLimit`); `enforce` mode blocks it. Pure.
+ */
+export function checkSeatLimit(
+  currentUserCount: number,
+  appLimits: Pick<EntitlementAppLimits, "maxUsers" | "enforcement_mode">
+): SeatCheckResult {
+  const limit = appLimits.maxUsers;
+  if (limit === null) {
+    return { allowed: true, atLimit: false, limit, current: currentUserCount };
+  }
+  const atLimit = currentUserCount >= limit;
+  return {
+    allowed: !atLimit || appLimits.enforcement_mode !== "enforce",
+    atLimit,
+    limit,
+    current: currentUserCount,
+  };
+}
+
 /** AI policy applied to a tenant with no package: observe-only, no limits. */
 export const FREE_AI_USAGE_POLICY: EntitlementAiUsagePolicy = {
   period_mode: "calendar",

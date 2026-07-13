@@ -3,11 +3,13 @@ export {
   findEntitlementPackage,
 } from "./catalog.js";
 export {
+  checkSeatLimit,
   FREE_AI_USAGE_POLICY,
   FREE_APP_LIMITS,
   FREE_ENTITLEMENTS,
   isModuleLicensed,
   resolveEntitlements,
+  type SeatCheckResult,
 } from "./resolver.js";
 export {
   aiUsagePolicySchema,

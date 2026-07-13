@@ -1,4 +1,6 @@
+import { checkSeatLimit } from "@engenty/entitlements";
 import type { OpenAPIHono } from "@hono/zod-openapi";
+import { createPackagesDal } from "../../dal/packages.js";
 import { createSuperadminDal } from "../../dal/superadmin.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
@@ -22,8 +24,47 @@ export function registerSuperadminRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
   createDal?: typeof createSuperadminDal;
+  /** Resolve a tenant's seat entitlement. Injectable for tests. */
+  resolveSeatLimit?: (tenantId: string) => Promise<{
+    maxUsers: number | null;
+    enforcement_mode: "observe" | "enforce";
+  } | null>;
 }) {
   const getDal = () => (params.createDal ?? createSuperadminDal)(params.config);
+
+  const resolveSeatLimit =
+    params.resolveSeatLimit ??
+    (async (tenantId: string) => {
+      try {
+        const resolved = await createPackagesDal(
+          params.config
+        ).getResolvedEntitlements(tenantId);
+        return resolved.appLimits;
+      } catch {
+        return null; // fail open: never block on a resolution error
+      }
+    });
+
+  // Returns an error Response when the tenant is at its enforced seat cap, else
+  // null. Fails open (allows) when the limit can't be resolved.
+  const seatLimitError = async (
+    c: Parameters<typeof jsonApiError>[0],
+    tenantId: string
+  ) => {
+    const appLimits = await resolveSeatLimit(tenantId);
+    if (!appLimits || appLimits.maxUsers === null) {
+      return null;
+    }
+    const current = (await getDal().listTenantMembers(tenantId)).length;
+    const decision = checkSeatLimit(current, appLimits);
+    if (decision.allowed) {
+      return null;
+    }
+    return jsonApiError(c, 403, {
+      code: "seat_limit_reached",
+      message: `Seat limit reached for this tenant (${decision.current}/${decision.limit}). Upgrade the package or raise the maxUsers override.`,
+    });
+  };
 
   params.app.get("/api/superadmin/tenants", async (c) => {
     const authResult = await requireSuperAdmin(c, params.config);
@@ -188,6 +229,10 @@ export function registerSuperadminRoutes(params: {
         message: "email and tenant_id are required",
       });
     }
+    const seatErr = await seatLimitError(c, body.tenant_id);
+    if (seatErr) {
+      return seatErr;
+    }
     try {
       const user = await getDal().createUser({
         email: body.email,
@@ -271,6 +316,10 @@ export function registerSuperadminRoutes(params: {
     };
     if (!body.userId) {
       return jsonApiError(c, 400, { message: "userId is required" });
+    }
+    const seatErr = await seatLimitError(c, tenantId);
+    if (seatErr) {
+      return seatErr;
     }
     await getDal().assignUserToTenant({
       userId: body.userId,

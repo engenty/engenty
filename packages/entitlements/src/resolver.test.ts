@@ -4,6 +4,7 @@ import {
   findEntitlementPackage,
 } from "./catalog.js";
 import {
+  checkSeatLimit,
   FREE_ENTITLEMENTS,
   isModuleLicensed,
   resolveEntitlements,
@@ -78,6 +79,37 @@ describe("isModuleLicensed", () => {
   it("permits only listed modules otherwise", () => {
     expect(isModuleLicensed({ modules: ["contacts"] }, "contacts")).toBe(true);
     expect(isModuleLicensed({ modules: ["contacts"] }, "invoices")).toBe(false);
+  });
+});
+
+describe("checkSeatLimit", () => {
+  it("allows unlimited seats when maxUsers is null", () => {
+    const r = checkSeatLimit(9999, {
+      maxUsers: null,
+      enforcement_mode: "enforce",
+    });
+    expect(r.allowed).toBe(true);
+    expect(r.atLimit).toBe(false);
+  });
+
+  it("allows adds below the cap", () => {
+    const r = checkSeatLimit(4, { maxUsers: 5, enforcement_mode: "enforce" });
+    expect(r.allowed).toBe(true);
+    expect(r.atLimit).toBe(false);
+  });
+
+  it("blocks at/over the cap in enforce mode", () => {
+    const r = checkSeatLimit(5, { maxUsers: 5, enforcement_mode: "enforce" });
+    expect(r.allowed).toBe(false);
+    expect(r.atLimit).toBe(true);
+    expect(r.current).toBe(5);
+    expect(r.limit).toBe(5);
+  });
+
+  it("flags but still allows at the cap in observe mode", () => {
+    const r = checkSeatLimit(6, { maxUsers: 5, enforcement_mode: "observe" });
+    expect(r.allowed).toBe(true);
+    expect(r.atLimit).toBe(true);
   });
 });
 
