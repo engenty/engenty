@@ -50,7 +50,7 @@ export function AppLayoutFrame({
     }
   });
 
-  const sidebarWidth = sidebarMode === "extended" ? 220 : 64;
+  const sidebarWidth = sidebarMode === "extended" ? 220 : 48;
 
   const [isSidebarHidden, setIsSidebarHiddenState] = useState(() => {
     try {

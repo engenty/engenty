@@ -240,7 +240,12 @@ export function AppSidebar({
         )}
         style={style}
       >
-        <div className={cn("space-y-2", compact ? "px-1.5 py-3" : "px-3 py-2")}>
+        <div
+          className={cn(
+            "flex flex-col gap-2",
+            compact ? "px-1.5 py-3" : "px-3 py-2"
+          )}
+        >
           {shell.tenantSwitcher ? (
             <SidebarTenantSwitcher
               aboutLabel={shell.tenantSwitcher.aboutLabel}
