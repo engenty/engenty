@@ -247,6 +247,52 @@ export function WebSearchStep({
   );
 }
 
+const MAX_ARG_CHIPS = 4;
+const ARG_CHIP_VALUE_MAX = 40;
+
+/**
+ * Short scalar inputs as chips ("repoName: vercel/next.js") so a generic tool
+ * row shows what it acted on — mirrors the search step's result chips.
+ */
+function collectArgChips(
+  input: unknown
+): Array<{ key: string; value: string }> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return [];
+  }
+  // engenty_tool_execute wraps the real args: { id, input: {...} }.
+  const record = input as Record<string, unknown>;
+  const payload =
+    record.input && typeof record.input === "object" ? record.input : record;
+  const chips: Array<{ key: string; value: string }> = [];
+  for (const [key, value] of Object.entries(
+    payload as Record<string, unknown>
+  )) {
+    if (chips.length >= MAX_ARG_CHIPS) {
+      break;
+    }
+    if (key === "account" || value === null || value === undefined) {
+      continue;
+    }
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      const raw = String(value).trim();
+      if (!raw) {
+        continue;
+      }
+      const display =
+        raw.length > ARG_CHIP_VALUE_MAX
+          ? `${raw.slice(0, ARG_CHIP_VALUE_MAX - 1)}…`
+          : raw;
+      chips.push({ key, value: display });
+    }
+  }
+  return chips;
+}
+
 export function GenericToolStep({
   part,
   toolName,
@@ -264,6 +310,8 @@ export function GenericToolStep({
     typeof part.metadata === "string" && part.metadata.trim()
       ? part.metadata.trim()
       : undefined;
+  // Skip arg chips when the label already quotes the primary argument.
+  const argChips = label.includes('"') ? [] : collectArgChips(part.input);
 
   return (
     <ChainOfThoughtStep
@@ -272,6 +320,15 @@ export function GenericToolStep({
       label={label}
       status={status}
     >
+      {argChips.length > 0 ? (
+        <ChainOfThoughtSearchResults>
+          {argChips.map((chip) => (
+            <ChainOfThoughtSearchResult key={chip.key} title={chip.key}>
+              {chip.value}
+            </ChainOfThoughtSearchResult>
+          ))}
+        </ChainOfThoughtSearchResults>
+      ) : null}
       {isStreaming ? null : (
         <ToolStepBody
           errorMessage={errorMessage}
