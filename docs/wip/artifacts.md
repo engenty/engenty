@@ -1,6 +1,6 @@
 # Artifacts — Backend & Lifecycle Spec
 
-Status: **draft for discussion** (2026-07-13). The "proper artifact implementation" from
+Status: **draft for discussion** (2026-07-13). Implementation steps: [artifacts-implementation.md](./artifacts-implementation.md). The "proper artifact implementation" from
 [app-shell-unification.md](./app-shell-unification.md) Phase 2 — replaces the in-memory
 placeholder store behind `useArtifacts` without touching pane/tab consumers.
 
@@ -25,9 +25,10 @@ task/project/goal. Promotion is a **move with provenance** (one canonical row; t
 
 ## 2. Data model (grounded in existing conventions)
 
-New tables in the **`ai` schema** (core-owned, like `ai.agent_session` — artifacts are chat
+New tables in the **`ai` schema** (core-owned, like `ai.thread` — artifacts are chat
 infrastructure, always installed; module-schema alternative in open question 2). Ids are
-**uuidv7** per `ai.*` convention; `thread_id` FKs `ai.agent_session(id)`.
+**uuidv7** per `ai.*` convention; `thread_id` FKs `ai.thread(id)` (the sessions table —
+renamed from `agent_session`).
 
 ```sql
 ai.artifact
@@ -37,7 +38,7 @@ ai.artifact
   title            text not null
   scope_type       text not null check (scope_type in ('thread','task','project','goal'))
   scope_id         text not null              -- thread uuid | task id | project id | goal id
-  thread_id        uuid references ai.agent_session(id) on delete set null   -- origin, survives promotion
+  thread_id        uuid references ai.thread(id) on delete set null   -- origin, survives promotion
   created_by_kind  text not null check (created_by_kind in ('agent','user'))
   created_by       uuid                        -- user id when user-created/edited
   current_version  int not null default 1
@@ -106,7 +107,8 @@ ai.artifact_version
 
 Two registries, one per side:
 
-**Server — artifact type descriptors** (new `packages/artifacts`, contracts shared via zod):
+**Server — artifact type descriptors** (colocated in `apps/ai/src/ai/artifacts/` — extract
+to a `packages/artifacts` only when a second consumer exists):
 ```ts
 interface ArtifactTypeDescriptor {
   type: string;                    // 'markdown', 'html', 'table', ...
@@ -195,7 +197,7 @@ the tool output) — this lands the open-in-pane item from the shell plan with r
 connections `files` capability + `executeConnectorAction` + policy/audit
 (`packages/connections-sdk`, `modules/connections`) · S3/Drive/OneDrive/local-files
 connectors · `registerTab` projects.detail (worked example `modules/files/ui/plugin.ts:59`) ·
-`ai.agent_session` thread ids (uuidv7) + `workspace_key` · gateway operations +
+`ai.thread` thread ids (uuidv7) + `workspace_key` · gateway operations +
 `engenty_tool_execute` bridge (`modules/inbox/src/api/gateway-methods.ts`) ·
 `@engenty/tiptap-editor` (md↔JSON, RawHtml extension) · `@engenty/live-cache`
 `registerLiveBinding` · `@engenty/doc-converter` for exports.
