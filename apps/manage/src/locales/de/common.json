@@ -1,0 +1,182 @@
+{
+  "shell": {
+    "loading": "Sitzung wird geladen...",
+    "authSetupRequired": "Authentifizierung erforderlich",
+    "loadFailed": "Verwaltungskonsole konnte nicht geladen werden.",
+    "accessDenied": {
+      "title": "Super-Admin erforderlich",
+      "body": "Diese Konsole ist auf Plattform-Super-Administratoren beschränkt. Ihr Konto hat keinen Zugriff."
+    },
+    "signOut": "Abmelden"
+  },
+  "sidebar": {
+    "brand": "engenty manage",
+    "subtitle": "Meta-Admin",
+    "search": "Suchen",
+    "sectionManage": "Verwalten"
+  },
+  "navigation": {
+    "tenants": "Mandanten",
+    "users": "Benutzer",
+    "modules": "Module",
+    "featureFlags": "Feature-Flags"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "create": "Erstellen",
+    "edit": "Bearbeiten",
+    "remove": "Entfernen",
+    "delete": "Löschen",
+    "back": "Zurück",
+    "search": "Suchen",
+    "loading": "Wird geladen...",
+    "empty": "Noch nichts vorhanden.",
+    "error": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "confirm": "Bestätigen",
+    "close": "Schließen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "name": "Name",
+    "slug": "Kurzname",
+    "email": "E-Mail",
+    "role": "Rolle",
+    "created": "Erstellt",
+    "actions": "Aktionen"
+  },
+  "tenants": {
+    "title": "Mandanten",
+    "new": "Neuer Mandant",
+    "create": {
+      "title": "Mandant erstellen",
+      "nameLabel": "Name",
+      "slugLabel": "Kurzname",
+      "submit": "Mandant erstellen",
+      "success": "Mandant erstellt."
+    },
+    "fields": {
+      "tier": "Stufe",
+      "status": "Status"
+    },
+    "tier": {
+      "platform": "Plattform",
+      "satellite": "Satellit"
+    },
+    "status": {
+      "active": "Aktiv",
+      "suspended": "Gesperrt",
+      "provisioning": "Wird bereitgestellt",
+      "archived": "Archiviert"
+    },
+    "detail": {
+      "edit": "Bearbeiten",
+      "switchTo": "Zum Mandanten wechseln",
+      "switched": "Gewechselt. Öffnen Sie die App, um diesen Mandanten anzuzeigen.",
+      "statusMenu": "Status",
+      "suspend": "Sperren",
+      "reactivate": "Reaktivieren",
+      "archive": "Archivieren",
+      "confirmSuspend": "Diesen Mandanten sperren? Mitglieder verlieren den Zugriff bis zur Reaktivierung.",
+      "confirmReactivate": "Diesen Mandanten reaktivieren? Mitglieder erhalten sofort wieder Zugriff.",
+      "confirmArchive": "Diesen Mandanten archivieren? Er wird aus aktiven Listen ausgeblendet.",
+      "statusChanged": "Mandantenstatus aktualisiert."
+    },
+    "tabs": {
+      "members": "Mitglieder",
+      "modules": "Module",
+      "featureFlags": "Feature-Flags"
+    },
+    "members": {
+      "add": "Mitglied hinzufügen",
+      "addTitle": "Mitglied hinzufügen",
+      "removeTitle": "Mitglied entfernen",
+      "userLabel": "Benutzer",
+      "roleLabel": "Rolle",
+      "removeConfirm": "Dieses Mitglied aus dem Mandanten entfernen?",
+      "added": "Mitglied hinzugefügt.",
+      "removed": "Mitglied entfernt.",
+      "roleChanged": "Mitgliedsrolle aktualisiert."
+    },
+    "edit": {
+      "title": "Mandant bearbeiten",
+      "success": "Mandant aktualisiert."
+    }
+  },
+  "users": {
+    "title": "Benutzer",
+    "new": "Neuer Benutzer",
+    "superAdmin": "Super-Admin",
+    "primaryTenant": "Primärer Mandant",
+    "create": {
+      "title": "Benutzer erstellen",
+      "emailLabel": "E-Mail",
+      "nameLabel": "Anzeigename",
+      "tenantLabel": "Initialer Mandant",
+      "roleLabel": "Rolle",
+      "passwordLabel": "Passwort (optional)",
+      "superAdminLabel": "Super-Admin",
+      "submit": "Benutzer erstellen",
+      "success": "Benutzer erstellt."
+    },
+    "detail": {
+      "identities": "Anmeldemethoden",
+      "memberships": "Mitgliedschaften",
+      "addMembership": "Mitgliedschaft hinzufügen",
+      "superAdminToggle": "Super-Administrator",
+      "superAdminConfirm": "Super-Admin-Status für diesen Benutzer ändern?",
+      "updated": "Benutzer aktualisiert."
+    },
+    "edit": {
+      "title": "Benutzer bearbeiten",
+      "nameLabel": "Anzeigename",
+      "emailLabel": "E-Mail",
+      "password": "Passwort",
+      "setPassword": "Passwort setzen",
+      "generate": "Generieren",
+      "passwordSet": "Passwort aktualisiert.",
+      "success": "Benutzer aktualisiert."
+    }
+  },
+  "modules": {
+    "title": "Module",
+    "filterPlaceholder": "Module filtern",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "loaded": "Geladen",
+    "mandatory": "Pflicht",
+    "diagnostics": "{{count}} Diagnosen",
+    "restartRequired": "Moduländerungen erfordern einen API-Neustart, um wirksam zu werden.",
+    "toggleFailed": "Modulstatus konnte nicht geändert werden.",
+    "blocked": "Aktivierung für Mandant nicht möglich: {{reasons}}",
+    "detail": {
+      "package": "Paket",
+      "version": "Version",
+      "manifest": "Manifest",
+      "source": "Quelle",
+      "dependencies": "Abhängigkeiten",
+      "routes": "Routen",
+      "services": "Dienste",
+      "operations": "Operationen",
+      "loadError": "Ladefehler"
+    },
+    "tenant": {
+      "override": "Mandanten-Override",
+      "effective": "Effektiv",
+      "useGlobal": "Globalen Standard verwenden"
+    }
+  },
+  "featureFlags": {
+    "title": "Feature-Flags",
+    "tenantScope": "Mandant",
+    "globalScope": "Globaler Standard",
+    "default": "Standard",
+    "override": "Override",
+    "resolved": "Aufgelöst",
+    "on": "An",
+    "off": "Aus",
+    "save": "Änderungen speichern",
+    "saved": "Feature-Flags gespeichert.",
+    "selectTenant": "Mandant auswählen"
+  }
+}

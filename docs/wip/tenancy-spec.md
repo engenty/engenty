@@ -132,7 +132,9 @@ reference for the hard parts (fleet upgrades, identity).
 1. **Tenant box runtime** (Tier A isolation) — phases as previously planned; spike phase 0
    already chartered (`spike-tenant-box.md`).
 2. **Host-based tenancy**: subdomain → tenant resolution at the gateway + wildcard TLS.
-3. **Manage app v0**: tenant registry + Tier-A provisioning + domains.
+3. **Manage app v0** *(Phase 1 landed — see `manage-app.md`)*: `apps/manage` shell +
+   tenant/user/module/feature-flag management on the shared DB; `core.tenants` gained
+   `tier` + `status`. Remaining: Tier-A provisioning + domains.
 4. **Satellite v0**: parametrized compose stack + build-with-extra-modules pipeline +
    provisioning flow in the manage app (reuse the proven ghcr/Coolify deploy).
 5. **Metering/billing + tier migration.**

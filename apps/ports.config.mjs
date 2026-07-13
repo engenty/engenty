@@ -24,4 +24,5 @@ export const ports = {
   core: fromEnv("ENGENTY_CORE_PORT", 8787),
   ai: fromEnv("ENGENTY_AI_PORT", 8790),
   docs: fromEnv("ENGENTY_DOCS_PORT", 3002),
+  manage: fromEnv("ENGENTY_MANAGE_PORT", 5174),
 };

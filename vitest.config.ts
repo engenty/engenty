@@ -30,11 +30,14 @@ export default defineConfig({
       "modules/**/*.test.tsx",
       "scripts/**/*.test.ts",
     ],
+    // apps/manage has its own vitest project (its `@/` alias + happy-dom setup);
+    // run it via `pnpm --filter @engenty/manage test`.
     exclude: [
       "**/node_modules/**",
       "**/dist/**",
       "**/*.d.ts",
       "**/*.e2e.test.ts",
+      "apps/manage/**",
     ],
     setupFiles: [
       path.join(repoRoot, "apps/core/test/vitest-setup-root-chdir.ts"),

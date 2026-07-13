@@ -4,12 +4,21 @@ import { resolveSupabaseConfig } from "./supabase-config.js";
 
 export type TenantRole = "admin" | "member";
 
+export type TenantTier = "platform" | "satellite";
+export type TenantStatus =
+  | "active"
+  | "suspended"
+  | "provisioning"
+  | "archived";
+
 export interface CoreTenant {
   created_at: string;
   id: string;
   name: string;
   slug: string;
+  status: TenantStatus;
   tenant_connection_mode: "shared_instance" | "dedicated_instance";
+  tier: TenantTier;
   updated_at: string;
 }
 
@@ -79,6 +88,7 @@ export interface SuperadminDal {
     slug: string;
     name: string;
     tenant_connection_mode?: CoreTenant["tenant_connection_mode"];
+    tier?: TenantTier;
   }) => Promise<CoreTenant>;
   createUser: (input: {
     email: string;
@@ -117,7 +127,13 @@ export interface SuperadminDal {
   }) => Promise<void>;
   updateTenant: (
     id: string,
-    patch: Partial<Pick<CoreTenant, "slug" | "name" | "tenant_connection_mode">>
+    patch: Partial<
+      Pick<CoreTenant, "slug" | "name" | "tenant_connection_mode" | "tier">
+    >
+  ) => Promise<CoreTenant>;
+  updateTenantStatus: (
+    id: string,
+    status: TenantStatus
   ) => Promise<CoreTenant>;
   updateTenantMemberRole: (input: {
     userId: string;
@@ -142,6 +158,9 @@ function toTenantRole(value: unknown): TenantRole {
   return value === "admin" ? "admin" : "member";
 }
 
+const TENANT_COLUMNS =
+  "id, slug, name, tenant_connection_mode, tier, status, created_at, updated_at";
+
 export function createSuperadminDal(
   config: Record<string, unknown>
 ): SuperadminDal {
@@ -155,7 +174,7 @@ export function createSuperadminDal(
     const rows = await client
       .schema("core")
       .from("tenants")
-      .select("id, slug, name, tenant_connection_mode, created_at, updated_at")
+      .select(TENANT_COLUMNS)
       .order("name", { ascending: true });
     if (rows.error) {
       throw rows.error;
@@ -167,7 +186,7 @@ export function createSuperadminDal(
     const row = await client
       .schema("core")
       .from("tenants")
-      .select("id, slug, name, tenant_connection_mode, created_at, updated_at")
+      .select(TENANT_COLUMNS)
       .eq("id", id)
       .single();
     if (row.error || !row.data) {
@@ -180,6 +199,7 @@ export function createSuperadminDal(
     slug: string;
     name: string;
     tenant_connection_mode?: CoreTenant["tenant_connection_mode"];
+    tier?: TenantTier;
   }) {
     const created = await client
       .schema("core")
@@ -189,8 +209,9 @@ export function createSuperadminDal(
         name: input.name.trim(),
         tenant_connection_mode:
           input.tenant_connection_mode ?? "shared_instance",
+        ...(input.tier === undefined ? {} : { tier: input.tier }),
       })
-      .select("id, slug, name, tenant_connection_mode, created_at, updated_at")
+      .select(TENANT_COLUMNS)
       .single();
     if (created.error) {
       throw created.error;
@@ -200,7 +221,9 @@ export function createSuperadminDal(
 
   async function updateTenant(
     id: string,
-    patch: Partial<Pick<CoreTenant, "slug" | "name" | "tenant_connection_mode">>
+    patch: Partial<
+      Pick<CoreTenant, "slug" | "name" | "tenant_connection_mode" | "tier">
+    >
   ) {
     const updated = await client
       .schema("core")
@@ -211,10 +234,25 @@ export function createSuperadminDal(
         ...(patch.tenant_connection_mode === undefined
           ? {}
           : { tenant_connection_mode: patch.tenant_connection_mode }),
+        ...(patch.tier === undefined ? {} : { tier: patch.tier }),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select("id, slug, name, tenant_connection_mode, created_at, updated_at")
+      .select(TENANT_COLUMNS)
+      .single();
+    if (updated.error) {
+      throw updated.error;
+    }
+    return updated.data as CoreTenant;
+  }
+
+  async function updateTenantStatus(id: string, status: TenantStatus) {
+    const updated = await client
+      .schema("core")
+      .from("tenants")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select(TENANT_COLUMNS)
       .single();
     if (updated.error) {
       throw updated.error;
@@ -650,6 +688,7 @@ export function createSuperadminDal(
     getTenant,
     createTenant,
     updateTenant,
+    updateTenantStatus,
     listUsers,
     getUser,
     createUser,

@@ -1,0 +1,182 @@
+{
+  "shell": {
+    "loading": "Loading session...",
+    "authSetupRequired": "Auth setup required",
+    "loadFailed": "Failed to load management console.",
+    "accessDenied": {
+      "title": "Super admin required",
+      "body": "This console is restricted to platform super administrators. Your account does not have access."
+    },
+    "signOut": "Sign out"
+  },
+  "sidebar": {
+    "brand": "engenty manage",
+    "subtitle": "Meta admin",
+    "search": "Search",
+    "sectionManage": "Manage"
+  },
+  "navigation": {
+    "tenants": "Tenants",
+    "users": "Users",
+    "modules": "Modules",
+    "featureFlags": "Feature flags"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "remove": "Remove",
+    "delete": "Delete",
+    "back": "Back",
+    "search": "Search",
+    "loading": "Loading...",
+    "empty": "Nothing here yet.",
+    "error": "Something went wrong.",
+    "retry": "Retry",
+    "confirm": "Confirm",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied",
+    "name": "Name",
+    "slug": "Slug",
+    "email": "Email",
+    "role": "Role",
+    "created": "Created",
+    "actions": "Actions"
+  },
+  "tenants": {
+    "title": "Tenants",
+    "new": "New tenant",
+    "create": {
+      "title": "Create tenant",
+      "nameLabel": "Name",
+      "slugLabel": "Slug",
+      "submit": "Create tenant",
+      "success": "Tenant created."
+    },
+    "fields": {
+      "tier": "Tier",
+      "status": "Status"
+    },
+    "tier": {
+      "platform": "Platform",
+      "satellite": "Satellite"
+    },
+    "status": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "provisioning": "Provisioning",
+      "archived": "Archived"
+    },
+    "detail": {
+      "edit": "Edit",
+      "switchTo": "Switch to tenant",
+      "switched": "Switched. Open the app to view this tenant.",
+      "statusMenu": "Status",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "archive": "Archive",
+      "confirmSuspend": "Suspend this tenant? Members will lose access until reactivated.",
+      "confirmReactivate": "Reactivate this tenant? Members regain access immediately.",
+      "confirmArchive": "Archive this tenant? It will be hidden from active lists.",
+      "statusChanged": "Tenant status updated."
+    },
+    "tabs": {
+      "members": "Members",
+      "modules": "Modules",
+      "featureFlags": "Feature flags"
+    },
+    "members": {
+      "add": "Add member",
+      "addTitle": "Add member",
+      "removeTitle": "Remove member",
+      "userLabel": "User",
+      "roleLabel": "Role",
+      "removeConfirm": "Remove this member from the tenant?",
+      "added": "Member added.",
+      "removed": "Member removed.",
+      "roleChanged": "Member role updated."
+    },
+    "edit": {
+      "title": "Edit tenant",
+      "success": "Tenant updated."
+    }
+  },
+  "users": {
+    "title": "Users",
+    "new": "New user",
+    "superAdmin": "Super admin",
+    "primaryTenant": "Primary tenant",
+    "create": {
+      "title": "Create user",
+      "emailLabel": "Email",
+      "nameLabel": "Display name",
+      "tenantLabel": "Initial tenant",
+      "roleLabel": "Role",
+      "passwordLabel": "Password (optional)",
+      "superAdminLabel": "Super admin",
+      "submit": "Create user",
+      "success": "User created."
+    },
+    "detail": {
+      "identities": "Sign-in methods",
+      "memberships": "Memberships",
+      "addMembership": "Add membership",
+      "superAdminToggle": "Super administrator",
+      "superAdminConfirm": "Change super-admin status for this user?",
+      "updated": "User updated."
+    },
+    "edit": {
+      "title": "Edit user",
+      "nameLabel": "Display name",
+      "emailLabel": "Email",
+      "password": "Password",
+      "setPassword": "Set password",
+      "generate": "Generate",
+      "passwordSet": "Password updated.",
+      "success": "User updated."
+    }
+  },
+  "modules": {
+    "title": "Modules",
+    "filterPlaceholder": "Filter modules",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "loaded": "Loaded",
+    "mandatory": "Mandatory",
+    "diagnostics": "{{count}} diagnostics",
+    "restartRequired": "Module changes require an API restart to take effect.",
+    "toggleFailed": "Failed to change module state.",
+    "blocked": "Cannot enable for tenant: {{reasons}}",
+    "detail": {
+      "package": "Package",
+      "version": "Version",
+      "manifest": "Manifest",
+      "source": "Source",
+      "dependencies": "Dependencies",
+      "routes": "Routes",
+      "services": "Services",
+      "operations": "Operations",
+      "loadError": "Load error"
+    },
+    "tenant": {
+      "override": "Tenant override",
+      "effective": "Effective",
+      "useGlobal": "Use global default"
+    }
+  },
+  "featureFlags": {
+    "title": "Feature flags",
+    "tenantScope": "Tenant",
+    "globalScope": "Global default",
+    "default": "Default",
+    "override": "Override",
+    "resolved": "Resolved",
+    "on": "On",
+    "off": "Off",
+    "save": "Save changes",
+    "saved": "Feature flags saved.",
+    "selectTenant": "Select tenant"
+  }
+}

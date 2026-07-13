@@ -10,7 +10,7 @@ Single HTTPS origin (e.g. `https://app.example.com`) via the **production gatewa
 | `/docs` | Optional Fumadocs (`--profile docs`) |
 | `/studio` | Optional Mastra Studio (`--profile studio`) |
 
-The `/manage` route (closed-source Manage admin portal, `apps/manage`) is not part of this repository; the gateway keeps it disabled (`ENGENTY_GATEWAY_MANAGE_ENABLED=false`) and answers 404 on `/manage`.
+The `/manage` route (closed-source Manage admin portal, `apps/manage`) is not part of this repository; the gateway keeps it disabled (`ENGENTY_GATEWAY_MANAGE_ENABLED=false`) and answers 404 on `/manage`. In a PRO build that ships it, enable the portal by building the app (`pnpm --filter @engenty/manage build`), copying its `dist/` into the edge image at `ENGENTY_GATEWAY_MANAGE_ROOT` (default `/app/manage`), and setting `ENGENTY_GATEWAY_MANAGE_ENABLED=true` — the gateway then serves the static build (superadmin-gated) under `/manage`.
 
 Coolify (or any reverse proxy) terminates TLS and forwards to **engenty-edge** on port **8787**. Do not expose `engenty-ai` publicly unless debugging.
 

@@ -3,11 +3,27 @@ import { createSuperadminDal } from "../../dal/superadmin.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
 
+const TENANT_TIERS = ["platform", "satellite"] as const;
+const TENANT_STATUSES = [
+  "active",
+  "suspended",
+  "provisioning",
+  "archived",
+] as const;
+
+type TenantTier = (typeof TENANT_TIERS)[number];
+type TenantStatus = (typeof TENANT_STATUSES)[number];
+
+function isTenantTier(value: unknown): value is TenantTier {
+  return TENANT_TIERS.includes(value as TenantTier);
+}
+
 export function registerSuperadminRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
+  createDal?: typeof createSuperadminDal;
 }) {
-  const getDal = () => createSuperadminDal(params.config);
+  const getDal = () => (params.createDal ?? createSuperadminDal)(params.config);
 
   params.app.get("/api/superadmin/tenants", async (c) => {
     const authResult = await requireSuperAdmin(c, params.config);
@@ -40,14 +56,21 @@ export function registerSuperadminRoutes(params: {
       slug?: string;
       name?: string;
       tenant_connection_mode?: "shared_instance" | "dedicated_instance";
+      tier?: string;
     };
     if (!(body.slug && body.name)) {
       return jsonApiError(c, 400, { message: "slug and name are required" });
+    }
+    if (body.tier !== undefined && !isTenantTier(body.tier)) {
+      return jsonApiError(c, 400, {
+        message: `tier must be one of: ${TENANT_TIERS.join(", ")}`,
+      });
     }
     const tenant = await getDal().createTenant({
       slug: body.slug,
       name: body.name,
       tenant_connection_mode: body.tenant_connection_mode ?? "shared_instance",
+      ...(body.tier === undefined ? {} : { tier: body.tier as TenantTier }),
     });
     return jsonApiSuccess(c, tenant);
   });
@@ -62,12 +85,37 @@ export function registerSuperadminRoutes(params: {
       slug?: string;
       name?: string;
       tenant_connection_mode?: "shared_instance" | "dedicated_instance";
+      tier?: string;
     };
+    if (body.tier !== undefined && !isTenantTier(body.tier)) {
+      return jsonApiError(c, 400, {
+        message: `tier must be one of: ${TENANT_TIERS.join(", ")}`,
+      });
+    }
     const tenant = await getDal().updateTenant(tenantId, {
       slug: body.slug,
       name: body.name,
       tenant_connection_mode: body.tenant_connection_mode,
+      ...(body.tier === undefined ? {} : { tier: body.tier as TenantTier }),
     });
+    return jsonApiSuccess(c, tenant);
+  });
+
+  params.app.post("/api/superadmin/tenants/:id/status", async (c) => {
+    const authResult = await requireSuperAdmin(c, params.config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const body = (await c.req.json().catch(() => ({}))) as { status?: string };
+    if (!TENANT_STATUSES.includes(body.status as TenantStatus)) {
+      return jsonApiError(c, 400, {
+        message: `status must be one of: ${TENANT_STATUSES.join(", ")}`,
+      });
+    }
+    const tenant = await getDal().updateTenantStatus(
+      c.req.param("id"),
+      body.status as TenantStatus
+    );
     return jsonApiSuccess(c, tenant);
   });
 

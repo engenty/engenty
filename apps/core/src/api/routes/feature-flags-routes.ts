@@ -48,9 +48,10 @@ export function registerFeatureFlagsRoutes(params: {
   app: OpenAPIHono;
   registry: PluginRegistry;
   config: Record<string, unknown>;
+  createDal?: typeof createFeatureFlagsDal;
 }) {
   const { app, registry, config } = params;
-  const dal = createFeatureFlagsDal(config);
+  const dal = (params.createDal ?? createFeatureFlagsDal)(config);
 
   app.get("/api/feature-flags/catalog", async (c) => {
     const authResult = await requireAuth(c, config);
