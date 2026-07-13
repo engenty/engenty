@@ -77,6 +77,7 @@
     "overlaySuggested": "Suggested",
     "syncTitle": "Sync my hours",
     "syncHint": "Write your scheduled time entries to a calendar as events. Background sync needs the connection set to autonomous mode.",
+    "syncNoTargets": "Sync writes to Google Calendar only for now. Connect Google Calendar to sync your hours.",
     "syncScopeTitle": "Which entries to sync",
     "syncScopeAll": "All entries",
     "syncScopeFuture": "Only entries from today on"

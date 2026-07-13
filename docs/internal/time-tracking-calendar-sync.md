@@ -47,10 +47,20 @@ on `feat/calendar-sync-two-way` since 2026-07-13.
   - Deferred: a dedicated admin editor UI for company overlays (writes work
     today via the tenant-settings endpoint); pre-checking company overlays as
     live defaults (currently surfaced + toggleable, not auto-enabled).
-- [ ] **Outlook parity (carried over from Phase 1)**
-  - [ ] `list_calendars` action + `calendar_id` param on Outlook event
-        actions (Graph `/me/calendars/{id}/calendarView`); until then
-        Outlook is primary-calendar-only and push-only
+- [x] **Outlook overlay parity** — implemented 2026-07-13
+  - [x] Outlook connector gains `list_calendars` (Graph `/me/calendars`,
+        Google-compatible keys) + `calendar_id` param on `list_events`
+        (routes `/me/calendars/{id}/events` and `/calendarView`) and
+        `create_event`
+  - [x] module adds `microsoft-outlook` to the overlay set; events op resolves
+        each connection's provider and normalizes Outlook's native event shape
+        (`{id, subject, start.dateTime, isAllDay, webLink}`) to `OverlayEvent`
+  - Deferred (push/pull for Outlook): write-back needs a provider-neutral
+    calendar-write contract (Outlook uses subject/body_text, no etag /
+    private_properties) + connector_id plumbing through the in-request push;
+    pull-back needs Graph delta. Push-sync **targets** are gated Google-only
+    (server rejects a non-Google sync target; UI lists only Google as targets);
+    overlay works for both providers.
 
 Open product questions resolved 2026-07-13 — see **Decisions (resolved)** below.
 **Prerequisites (all shipped):** connections framework + multi-account

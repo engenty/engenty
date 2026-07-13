@@ -18,13 +18,15 @@ import {
 
 /**
  * Connector ids whose events can be overlaid on the time-tracking calendar.
- * Google-first for now: Outlook needs a `list_calendars` action and a
- * `calendar_id` param on its event actions before it can join (see
- * docs/wip/time-tracking-calendar-sync.md, Phase 1 touch-ups).
+ * Both Google Calendar and Outlook expose `list_calendars` + a `calendar_id`
+ * param on their event actions, so both can join the overlay. (Push-sync and
+ * pull-back remain Google-only for now — see the reconcile op.)
  */
-const OVERLAY_CONNECTOR_IDS = new Set(["google-calendar"]);
+const OVERLAY_CONNECTOR_IDS = new Set(["google-calendar", "microsoft-outlook"]);
 
 const MAX_OVERLAY_EVENTS_PER_CALENDAR = 250;
+// Microsoft Graph caps calendarView page size well below Google's.
+const MAX_OUTLOOK_EVENTS_PER_CALENDAR = 25;
 
 interface CalendarGatewayDeps {
   connectionsClient: ConnectionsModuleClient | null;
@@ -62,6 +64,18 @@ interface GcalListEventsResult {
     start?: string | null;
     status?: string | null;
     summary?: string | null;
+  }[];
+}
+
+interface OutlookListEventsResult {
+  events?: {
+    end?: { dateTime?: string | null } | null;
+    id?: string;
+    isAllDay?: boolean;
+    location?: string | null;
+    start?: { dateTime?: string | null } | null;
+    subject?: string | null;
+    webLink?: string | null;
   }[];
 }
 
@@ -189,38 +203,95 @@ export function registerTimeTrackingCalendarGatewayMethods(
       const errors: z.infer<typeof calendarEventsListResponseSchema>["errors"] =
         [];
 
+      // Resolve each connection's provider so we can shape the request and
+      // normalize the response per connector (Google vs Outlook differ).
+      const connectorById = new Map<string, string>();
+      try {
+        for (const conn of await connectionsClient.listConnections({
+          tenantId,
+        })) {
+          connectorById.set(conn.id, conn.connector_id);
+        }
+      } catch {
+        // No connections module — nothing to overlay.
+        return { events: [], errors: [] };
+      }
+
       for (const target of body.calendars) {
         const calendarId = target.calendar_id ?? "primary";
+        const connectorId = connectorById.get(target.connection_id);
+        const push = (e: {
+          event_id: string;
+          summary: string | null;
+          start: string | null;
+          end: string | null;
+          all_day: boolean;
+          location: string | null;
+          html_link: string | null;
+        }) =>
+          events.push({
+            ...e,
+            connection_id: target.connection_id,
+            calendar_id: calendarId,
+            calendar_key: `${target.connection_id}:${calendarId}`,
+          });
         try {
-          const res = (await connectionsClient.callAction({
-            connectionId: target.connection_id,
-            actionId: "list_events",
-            input: {
-              calendar_id: calendarId,
-              time_min: body.time_min,
-              time_max: body.time_max,
-              max_results: MAX_OVERLAY_EVENTS_PER_CALENDAR,
-            },
-            isAutonomous: false,
-            principal,
-            tenantId,
-          })) as GcalListEventsResult;
-          for (const e of res.events ?? []) {
-            if (e.status === "cancelled") {
-              continue;
+          if (connectorId === "microsoft-outlook") {
+            const res = (await connectionsClient.callAction({
+              connectionId: target.connection_id,
+              actionId: "list_events",
+              input: {
+                calendar_id: calendarId,
+                start: body.time_min,
+                end: body.time_max,
+                top: MAX_OUTLOOK_EVENTS_PER_CALENDAR,
+              },
+              isAutonomous: false,
+              principal,
+              tenantId,
+            })) as OutlookListEventsResult;
+            for (const e of res.events ?? []) {
+              if (!e.id) {
+                continue;
+              }
+              push({
+                event_id: e.id,
+                summary: e.subject ?? null,
+                start: e.start?.dateTime ?? null,
+                end: e.end?.dateTime ?? null,
+                all_day: Boolean(e.isAllDay),
+                location: e.location ?? null,
+                html_link: e.webLink ?? null,
+              });
             }
-            events.push({
-              event_id: e.event_id,
-              connection_id: target.connection_id,
-              calendar_id: calendarId,
-              calendar_key: `${target.connection_id}:${calendarId}`,
-              summary: e.summary ?? null,
-              start: e.start ?? null,
-              end: e.end ?? null,
-              all_day: Boolean(e.all_day),
-              location: e.location ?? null,
-              html_link: e.html_link ?? null,
-            });
+          } else {
+            const res = (await connectionsClient.callAction({
+              connectionId: target.connection_id,
+              actionId: "list_events",
+              input: {
+                calendar_id: calendarId,
+                time_min: body.time_min,
+                time_max: body.time_max,
+                max_results: MAX_OVERLAY_EVENTS_PER_CALENDAR,
+              },
+              isAutonomous: false,
+              principal,
+              tenantId,
+            })) as GcalListEventsResult;
+            for (const e of res.events ?? []) {
+              if (e.status === "cancelled") {
+                continue;
+              }
+              push({
+                event_id: e.event_id,
+                summary: e.summary ?? null,
+                start: e.start ?? null,
+                end: e.end ?? null,
+                all_day: Boolean(e.all_day),
+                location: e.location ?? null,
+                html_link: e.html_link ?? null,
+              });
+            }
           }
         } catch (error) {
           errors.push({
@@ -282,6 +353,26 @@ export function registerTimeTrackingCalendarGatewayMethods(
       const scopeId = ctx.auth?.scopeId ?? "default";
       if (!(connectionsClient && supabase && tenantId && userId)) {
         throw new Error("calendar_sync_unavailable");
+      }
+      // Push-sync is Google-only for now (Outlook can overlay but not yet
+      // receive entries). Reject a non-Google target so users don't silently
+      // pick one that would never sync.
+      if (body.sync_enabled) {
+        try {
+          const conns = await connectionsClient.listConnections({ tenantId });
+          const target = conns.find((c) => c.id === body.connection_id);
+          if (target && target.connector_id !== "google-calendar") {
+            throw new Error("calendar_sync_provider_unsupported");
+          }
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "calendar_sync_provider_unsupported"
+          ) {
+            throw error;
+          }
+          // Connections lookup failed — fall through and let the write proceed.
+        }
       }
       const repo = createCalendarSyncRepo(supabase, tenantId);
       // "future" scope stamps today's boundary; "all" (default) clears it.

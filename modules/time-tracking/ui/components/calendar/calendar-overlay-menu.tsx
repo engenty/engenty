@@ -73,6 +73,11 @@ export function CalendarOverlayMenu({
   const activeCount = settings.targets.length;
   const isActive = settings.enabled && activeCount > 0;
   const grouped = useMemo(() => groupSources(sources), [sources]);
+  // Push-sync targets are Google-only for now (Outlook is overlay-only).
+  const syncTargets = useMemo(
+    () => sources.filter((s) => s.connector_id === "google-calendar"),
+    [sources]
+  );
   // Derived push-scope choice: a boundary date means "future only".
   const backfillMode: CalendarSyncBackfillMode = syncSettings.backfill_from
     ? "future"
@@ -254,12 +259,14 @@ export function CalendarOverlayMenu({
           <p className="mb-2 text-[11px] text-muted-foreground leading-snug">
             {t("calendar.syncHint")}
           </p>
-          {sources.length === 0 ? (
+          {syncTargets.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">
-              {t("calendar.overlayEmpty")}
+              {sources.length === 0
+                ? t("calendar.overlayEmpty")
+                : t("calendar.syncNoTargets")}
             </p>
           ) : (
-            sources.map((source) => (
+            syncTargets.map((source) => (
               <div className="mb-1 last:mb-0" key={source.connection_id}>
                 <p className="mb-0.5 flex items-center gap-1.5 truncate font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
                   {source.label}

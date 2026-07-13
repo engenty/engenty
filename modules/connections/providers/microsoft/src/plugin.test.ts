@@ -43,6 +43,7 @@ describe("connections-microsoft connectors", () => {
       "outlook_search_messages",
       "outlook_get_message",
       "outlook_list_mail_folders",
+      "outlook_list_calendars",
       "outlook_list_events",
       "outlook_get_event",
       "outlook_create_draft",

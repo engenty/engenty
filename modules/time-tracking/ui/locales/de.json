@@ -77,6 +77,7 @@
     "overlaySuggested": "Empfohlen",
     "syncTitle": "Meine Stunden synchronisieren",
     "syncHint": "Schreibe deine geplanten Zeiteinträge als Termine in einen Kalender. Hintergrund-Sync erfordert die Verbindung im autonomen Modus.",
+    "syncNoTargets": "Sync schreibt vorerst nur in Google Calendar. Verbinde Google Calendar, um deine Stunden zu synchronisieren.",
     "syncScopeTitle": "Welche Einträge synchronisieren",
     "syncScopeAll": "Alle Einträge",
     "syncScopeFuture": "Nur Einträge ab heute"

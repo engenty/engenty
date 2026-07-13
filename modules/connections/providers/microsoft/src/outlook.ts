@@ -116,6 +116,27 @@ const topField = z
   .optional()
   .describe("Max results to return (1–25, default 10).");
 
+const calendarIdField = z
+  .string()
+  .optional()
+  .describe(
+    "Calendar id to target (from list_calendars). Defaults to the user's primary calendar."
+  );
+
+/** Event collection path for a calendar (primary when no id given). */
+function eventsPath(calendarId: string | undefined): string {
+  return calendarId
+    ? `/me/calendars/${encodeURIComponent(calendarId)}/events`
+    : "/me/events";
+}
+
+/** calendarView path (recurrence-expanded window) for a calendar. */
+function calendarViewPath(calendarId: string | undefined): string {
+  return calendarId
+    ? `/me/calendars/${encodeURIComponent(calendarId)}/calendarView`
+    : "/me/calendarView";
+}
+
 const messageDraftFields = {
   body_text: z.string().describe("Plain-text message body."),
   cc: z.array(z.string()).optional().describe("CC recipient email addresses."),
@@ -276,10 +297,38 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
     }),
     action({
       description:
-        "List calendar events. With start and end, expands recurring events in that window (calendarView); otherwise lists event definitions.",
+        "List the calendars the mailbox can see (id, name, primary flag) for use with the calendar_id parameter on the event actions.",
+      group: "read",
+      id: "list_calendars",
+      inputSchema: z.object({}),
+      providerScopes: ["Calendars.Read"],
+      run: async (_input, ctx) => {
+        const data = await graphJson<{
+          value?: Array<{
+            id?: string;
+            isDefaultCalendar?: boolean;
+            name?: string | null;
+          }>;
+        }>(ctx, "/me/calendars?$select=id,name,isDefaultCalendar");
+        return {
+          calendars: (data.value ?? []).map((c) => ({
+            id: c.id,
+            primary: Boolean(c.isDefaultCalendar),
+            summary: c.name ?? null,
+            // Graph exposes no per-calendar default zone on this projection.
+            time_zone: null,
+          })),
+        };
+      },
+      summary: "List Outlook calendars",
+    }),
+    action({
+      description:
+        "List calendar events from a calendar (default: primary). With start and end, expands recurring events in that window (calendarView); otherwise lists event definitions.",
       group: "read",
       id: "list_events",
       inputSchema: z.object({
+        calendar_id: calendarIdField,
         end: z
           .string()
           .optional()
@@ -301,11 +350,11 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
           $select: EVENT_SELECT,
           $top: String(clampTop(input.top, 10)),
         });
-        let path = `/me/events?${params.toString()}`;
+        let path = `${eventsPath(input.calendar_id)}?${params.toString()}`;
         if (input.start && input.end) {
           params.set("startDateTime", input.start);
           params.set("endDateTime", input.end);
-          path = `/me/calendarView?${params.toString()}`;
+          path = `${calendarViewPath(input.calendar_id)}?${params.toString()}`;
         }
         const data = await graphJson<{ value?: GraphEvent[] }>(ctx, path);
         return { events: (data.value ?? []).map(mapEventSummary) };
@@ -377,7 +426,8 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
       summary: "Move an Outlook message to a folder",
     }),
     action({
-      description: "Create a calendar event in the user's default calendar.",
+      description:
+        "Create a calendar event in the user's chosen calendar (default: primary).",
       group: "write",
       id: "create_event",
       inputSchema: z.object({
@@ -389,6 +439,7 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
           .string()
           .optional()
           .describe("Plain-text event description."),
+        calendar_id: calendarIdField,
         end: z
           .string()
           .describe(
@@ -407,7 +458,7 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
       }),
       providerScopes: ["Calendars.ReadWrite"],
       run: async (input, ctx) => {
-        const e = await graphJson<GraphEvent>(ctx, "/me/events", {
+        const e = await graphJson<GraphEvent>(ctx, eventsPath(input.calendar_id), {
           body: {
             ...(input.attendees?.length
               ? { attendees: toAttendees(input.attendees) }
