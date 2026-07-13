@@ -9,7 +9,7 @@ import {
   ToolCallFilter,
 } from "@mastra/core/processors";
 import type { Workspace } from "@mastra/core/workspace";
-import { gateway } from "ai";
+import { gateway, wrapLanguageModel } from "ai";
 import {
   engentyCodeModeInstructions,
   engentyCodeModeTool,
@@ -18,6 +18,7 @@ import { ENGENTY_TOOL_EXECUTE_TOOL_ID } from "../../../ai/tools/engenty-tools/en
 
 import { AiSessionError } from "../errors.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
+import { gatewayFileDataMiddleware } from "./gateway-file-data-middleware.js";
 import type { AgentConfig, AiRegistry, MastraToolDefinition } from "./types.js";
 
 export interface AssembleDynamicAgentOptions {
@@ -193,7 +194,11 @@ export function resolveAgentModel(
 ): MastraModelConfig {
   const modelId = resolveAgentModelId(config, modelConfig);
   return isGatewayModelId(modelId)
-    ? (gateway(modelId) as unknown as MastraModelConfig)
+    ? // File-part data must be bytes on the Gateway wire — see the middleware.
+      (wrapLanguageModel({
+        middleware: gatewayFileDataMiddleware,
+        model: gateway(modelId),
+      }) as unknown as MastraModelConfig)
     : modelId;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { SubmitMessageOptions } from "../agent-provider/types.js";
 
 // A client-side queue for messages the user composes WHILE a run is in flight.
 // The copilot composer otherwise locks during a run; this lets the user keep
@@ -11,6 +12,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface QueuedCopilotMessage {
   id: string;
+  /** Submit options captured at enqueue time (attachments, agent override). */
+  options?: SubmitMessageOptions;
   text: string;
 }
 
@@ -22,12 +25,12 @@ export interface UseCopilotMessageQueueParams {
   // Submit a message as a real run. MUST stop any in-flight run first — a real
   // server abort, not just a local stream detach — so "send now" = stop current
   // + send. The caller wraps host.cancel() + host.submitMessage() for this.
-  submit: (text: string) => void;
+  submit: (text: string, options?: SubmitMessageOptions) => void;
 }
 
 export interface CopilotMessageQueue {
-  /** Append a message to the queue (no-op for blank text). */
-  enqueue: (text: string) => void;
+  /** Append a message to the queue (no-op for blank text without attachments). */
+  enqueue: (text: string, options?: SubmitMessageOptions) => void;
   /** True while there is at least one queued message. */
   hasQueued: boolean;
   /** Move a queued message up/down (no-op at the ends). */
@@ -60,13 +63,23 @@ export function useCopilotMessageQueue(
   // Guards a single drain while status is still "ready" before `submit` flips it.
   const drainingRef = useRef(false);
 
-  const enqueue = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) {
-      return;
-    }
-    setQueued((q) => [...q, { id: nextQueueId(), text: trimmed }]);
-  }, []);
+  const enqueue = useCallback(
+    (text: string, options?: SubmitMessageOptions) => {
+      const trimmed = text.trim();
+      if (!(trimmed || options?.attachments?.length)) {
+        return;
+      }
+      setQueued((q) => [
+        ...q,
+        {
+          id: nextQueueId(),
+          text: trimmed,
+          ...(options ? { options } : {}),
+        },
+      ]);
+    },
+    []
+  );
 
   const remove = useCallback((id: string) => {
     setQueued((q) => q.filter((m) => m.id !== id));
@@ -108,7 +121,7 @@ export function useCopilotMessageQueue(
     }
     setQueued((q) => q.filter((m) => m.id !== id));
     // submit() aborts any in-flight run → "send now" = stop current + send.
-    submitRef.current(msg.text);
+    submitRef.current(msg.text, msg.options);
   }, []);
 
   // Auto-drain: when the thread returns to "ready" with messages queued, send the
@@ -125,7 +138,7 @@ export function useCopilotMessageQueue(
     drainingRef.current = true;
     const head = queued[0]!;
     setQueued((q) => q.slice(1));
-    submitRef.current(head.text);
+    submitRef.current(head.text, head.options);
   }, [params.status, queued]);
 
   return {

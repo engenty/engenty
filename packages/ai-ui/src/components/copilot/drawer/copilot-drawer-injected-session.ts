@@ -1,5 +1,6 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { Dispatch, SetStateAction } from "react";
+import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
@@ -70,6 +71,6 @@ export interface CopilotDrawerInjectedSession {
   >;
   setSelectedSuggestions: Dispatch<SetStateAction<Record<string, boolean>>>;
   status: CopilotPanelContentProps["status"];
-  submitMessage: (text: string) => void;
+  submitMessage: SubmitMessage;
   threadResetKey?: number;
 }

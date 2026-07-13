@@ -12,6 +12,7 @@ import {
   type CopilotRouteContext,
   ENGENTY_COPILOT_HOST_KEY,
   type FieldSuggestion,
+  type SubmitMessage,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useAgentHost,
   useCopilotAssistantTurnFinish,
@@ -124,14 +125,16 @@ function useDrawerInjectedSession(input: {
   const status =
     host.pendingSend && host.status === "ready" ? "submitted" : host.status;
 
-  const submitMessage = useCallback(
-    (text: string) => {
+  // MUST forward `options` (attachments, agent override) — a text-only wrapper
+  // here silently drops uploaded attachments. Attachment-only sends are valid.
+  const submitMessage = useCallback<SubmitMessage>(
+    (text, options) => {
       const trimmed = text.trim();
-      if (!trimmed) {
+      if (!(trimmed || options?.attachments?.length)) {
         return;
       }
       draftRecovery.clearDraft();
-      host.submitMessage(trimmed);
+      host.submitMessage(trimmed, options);
     },
     [host.submitMessage, draftRecovery.clearDraft]
   );

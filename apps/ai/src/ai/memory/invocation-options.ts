@@ -25,6 +25,9 @@ export interface EngentySessionMemoryRuntimeInput
   extends EngentyMemoryInvocationInput {
   agentId: string;
   store: AgentSessionStore;
+  // Durable attachment parts for the current user turn, appended to the user
+  // message on persist (Mastra saves the turn text-only). See the storage.
+  userAttachmentParts?: readonly unknown[];
 }
 
 export interface EngentyNativeMemoryAgent {
@@ -68,6 +71,9 @@ export function createEngentySessionMemoryRuntime(
     agentId: input.agentId,
     scope: input.scope,
     store: input.store,
+    ...(input.userAttachmentParts && input.userAttachmentParts.length > 0
+      ? { userAttachmentParts: input.userAttachmentParts }
+      : {}),
   });
   return {
     memory: createEngentySessionMastraMemory({ storage }),

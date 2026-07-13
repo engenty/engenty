@@ -528,6 +528,15 @@
   },
   "copilot": {
     "title": "Global Copilot",
+    "attachments": {
+      "add": "Add photos or files",
+      "uploading": "Uploading attachments…",
+      "uploadFailed": "Upload failed. Please try again.",
+      "unavailable": "Attachments are unavailable right now.",
+      "tooMany": "Too many files. Some were not added.",
+      "tooLarge": "File is too large (max 25 MB).",
+      "rejected": "That file type isn't supported."
+    },
     "agentChooser": {
       "emptySessions": "No sessions yet",
       "generalCopilot": "Engenty",

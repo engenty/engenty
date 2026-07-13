@@ -27,4 +27,6 @@ export type {
   EngentyAIProps,
   EngentyInterruptFeedback,
   HostConfig,
+  SubmitMessage,
+  SubmitMessageOptions,
 } from "./types.js";

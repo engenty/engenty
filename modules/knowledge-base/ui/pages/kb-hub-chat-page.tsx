@@ -12,6 +12,7 @@ import {
   EngentyAgent,
   readAgUiOpenInterrupt,
   resolveEngentyAiServiceBaseUrl,
+  type SubmitMessage,
   useAgentHostConfig,
   useAppsAiThreadMessagesQuery,
   useAppsAiThreadQuery,
@@ -330,14 +331,16 @@ function KbHubChatPageContent(props: {
   ]);
 
   const autoSubmitKey = `${qFromUrl}\u0000${chatKbParam}\u0000${hubRun}`;
-  const submitMessage = useCallback(
-    (text: string) => {
+  // MUST forward `options` (attachments) — a text-only wrapper silently drops
+  // uploaded attachments. Attachment-only sends are valid.
+  const submitMessage = useCallback<SubmitMessage>(
+    (text, options) => {
       const trimmed = text.trim();
-      if (!trimmed) {
+      if (!(trimmed || options?.attachments?.length)) {
         return;
       }
       setDraft("");
-      session.submitMessage(trimmed);
+      session.submitMessage(trimmed, options);
     },
     [session]
   );

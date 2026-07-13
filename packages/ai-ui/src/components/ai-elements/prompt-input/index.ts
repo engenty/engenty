@@ -1,5 +1,6 @@
 "use client";
 
+export * from "./prompt-input-attachments.js";
 export * from "./prompt-input-form.js";
 export * from "./prompt-input-layout.js";
 export * from "./prompt-input-local-context.js";

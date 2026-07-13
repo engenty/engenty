@@ -3,6 +3,7 @@ import type {
   AgUiOpenInterruptMetadata,
 } from "@engenty/ag-ui-bridge";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import type { StarterPromptItem } from "../composer/copilot-composer";
@@ -156,10 +157,7 @@ export interface CopilotPanelContentProps {
   subAgentFullViewLabel?: string;
   /** Input / output / log section titles on sub-agent cards + full-page monitor. */
   subAgentSectionLabels?: SubAgentRunSectionLabels;
-  submitMessage: (
-    text: string,
-    options?: { requestedAgentId?: string }
-  ) => void;
+  submitMessage: SubmitMessage;
   suggestedUpdatesLabel: string;
   thinkingLabel: string;
   /** Active apps/ai thread id for composer usage meter. */

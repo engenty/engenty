@@ -22,6 +22,7 @@ import { SandboxCommandConfirmCard } from "../interrupts/sandbox-command-confirm
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 import { transcriptHasActiveSandboxCommandToolPart } from "../tool-call/sandbox-command-transcript-utils";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
+import { CopilotAttachmentPreview } from "./copilot-attachment-preview.js";
 import { CopilotMessageContent } from "./copilot-message-content";
 import { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer";
 
@@ -130,6 +131,11 @@ export function CopilotTranscript({
       id={`message-${msg.id}`}
       key={msg.id}
     >
+      {/* Attachments render as separate tiles ABOVE the bubble (AI SDK
+          Elements message layout) — the bubble carries only the text. */}
+      {msg.role === "user" ? (
+        <CopilotAttachmentPreview parts={msg.parts ?? []} />
+      ) : null}
       <MessageContent
         className={cn(
           surface === "chat" &&

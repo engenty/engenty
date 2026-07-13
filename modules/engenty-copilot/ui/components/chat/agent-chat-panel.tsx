@@ -7,6 +7,7 @@ import {
   type CopilotPanelContentProps,
   formatCopilotRouteStatusLabel,
   pendingInterruptFromTranscript,
+  type SubmitMessage,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useCopilotComposerDraftRecovery,
   useCopilotMessageQueue,
@@ -128,12 +129,12 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   // whereas `host.submitMessage` only detaches the local stream and leaves the
   // server run burning tokens. When idle (auto-drain after a run finished) the
   // stop is a no-op and we just send.
-  const stopAndSubmit = useCallback(
-    (text: string) => {
+  const stopAndSubmit = useCallback<SubmitMessage>(
+    (text, options) => {
       if (status !== "ready") {
         host.cancel();
       }
-      host.submitMessage(text);
+      host.submitMessage(text, options);
     },
     [status, host.cancel, host.submitMessage]
   );
@@ -144,19 +145,22 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   // deletable / sendable-now (which STOPS the current run for real and sends).
   const queue = useCopilotMessageQueue({ status, submit: stopAndSubmit });
 
-  const submitMessage = useCallback(
-    (text: string) => {
+  // MUST forward `options` (attachments, agent override) — a text-only wrapper
+  // here silently drops uploaded attachments (they upload, then never reach the
+  // run input). Attachment-only sends (no text) are valid.
+  const submitMessage = useCallback<SubmitMessage>(
+    (text, options) => {
       const trimmed = text.trim();
-      if (!trimmed) {
+      if (!(trimmed || options?.attachments?.length)) {
         return;
       }
       draftRecovery.clearDraft();
       if (status !== "ready") {
         // A run is in flight — queue this turn instead of interrupting it.
-        queue.enqueue(trimmed);
+        queue.enqueue(trimmed, options);
         return;
       }
-      host.submitMessage(trimmed);
+      host.submitMessage(trimmed, options);
     },
     [status, queue.enqueue, host.submitMessage, draftRecovery.clearDraft]
   );

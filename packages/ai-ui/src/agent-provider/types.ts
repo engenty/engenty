@@ -17,8 +17,22 @@ import type {
 } from "../ag-ui/conversation.js";
 import type { EngentyAgUiRouteContext } from "../ag-ui/engenty-ag-ui-route-context.js";
 import type { CopilotPanelContentProps } from "../components/presentation.js";
+import type { ChatAttachmentPart } from "../lib/chat-attachment-part.js";
 
 export type EngentyAgentStatus = "ready" | "submitted" | "streaming" | "error";
+
+/** Per-send options for the composer → agent submit path. */
+export interface SubmitMessageOptions {
+  /** Uploaded photo/file attachments carried on the user turn (AG-UI content parts). */
+  attachments?: ChatAttachmentPart[];
+  /** Per-send agent override resolved from an `@mention` in the composer. */
+  requestedAgentId?: string;
+}
+
+export type SubmitMessage = (
+  text: string,
+  options?: SubmitMessageOptions
+) => void;
 
 export interface EngentyInterruptFeedback {
   artifactId: string;
@@ -113,7 +127,7 @@ export interface AgentHost {
   resumeInterrupt: (feedback: EngentyInterruptFeedback) => void;
   state: EngentyAgUiState;
   status: EngentyAgentStatus;
-  submitMessage: (text: string) => void;
+  submitMessage: SubmitMessage;
   threadId: string | null;
   threadResetKey: number;
 }
@@ -138,6 +152,8 @@ export interface EngentyAIContextValue {
   // registry, not via React Context — so it would otherwise not re-render
   // when the host's internal state updates).
   subscribeHost: (hostKey: string, listener: () => void) => () => void;
+  /** Active tenant id — used to build tenant-scoped storage keys for chat uploads. */
+  tenantId?: string | null;
   threadsRealtimeClient?:
     | import("../threads/engenty-threads-realtime.js").EngentyThreadsRealtimeClient
     | null;
