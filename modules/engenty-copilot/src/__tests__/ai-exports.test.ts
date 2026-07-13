@@ -44,6 +44,7 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "openDialog",
       "focusField",
       "offer_file_downloads",
+      "show_artifact",
     ]);
   });
 

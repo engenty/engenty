@@ -1,8 +1,47 @@
-import type {
-  AgUiOpenInterruptMetadata,
-  FrontendToolCallRequest,
-  JsonValue,
+import {
+  AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS,
+  type AgUiOpenInterruptMetadata,
+  type FrontendToolCallRequest,
+  type JsonValue,
 } from "@engenty/ag-ui-bridge";
+
+/**
+ * Upper bound on how long the browser waits for a frontend-tool handler before
+ * declaring it unresolved. A handler that never settles (or a tool whose
+ * executor is missing on this lane) would otherwise leave the run suspended
+ * indefinitely — this converts that into a "couldn't resolve" tool failure.
+ */
+class FrontendToolTimeoutError extends Error {
+  constructor(toolName: string) {
+    super(
+      `Frontend tool "${toolName}" did not resolve in time (couldn't run).`
+    );
+    this.name = "FrontendToolTimeoutError";
+  }
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  toolName: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new FrontendToolTimeoutError(toolName)),
+      ms
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
 
 export type CopilotOpenInterruptExecuteFrontendTool = (
   request: FrontendToolCallRequest
@@ -52,12 +91,18 @@ export async function approveCopilotOpenInterrupt(
   }
 
   try {
-    const output = await executeFrontendTool({
-      call_id: open.tool_call_id,
-      input: open.tool_input ?? {},
-      run_id: activeThreadId ?? "",
-      tool_name: open.tool_name,
-    });
+    const output = await withTimeout(
+      Promise.resolve(
+        executeFrontendTool({
+          call_id: open.tool_call_id,
+          input: open.tool_input ?? {},
+          run_id: activeThreadId ?? "",
+          tool_name: open.tool_name,
+        })
+      ),
+      AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS,
+      open.tool_name
+    );
     resumeInterrupt({
       approved: true,
       interruptId: open.interrupt_id,

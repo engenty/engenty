@@ -4,6 +4,16 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.15] - 2026-07-13
+- ADDED **[copilot]** Prefer artifacts for documents; bound frontend-tool interrupts
+- ADDED **[engenty-copilot]** Show_artifact frontend tool — open the pane on a specific artifact
+- ADDED **[ai-ui]** Real artifact pane — server-backed list, renderers, realtime, open-in-pane
+- ADDED **[ai]** Artifacts backend — DAL, HTTP routes, type registry, copilot tools
+- ADDED **[ai]** Ai.artifact + ai.artifact_version tables and realtime
+- DOCS **[artifacts]** Mark Phase A done with deviations + realtime gotcha
+- FIXED **[artifacts]** Review fixes — DAL atomicity, 4xx error mapping, pane/tool-call UI states, interrupt TTL rework
+- FIXED **[copilot]** Expose artifact tools to the model and thread-scope the chat runtime
+
 ## [0.1.14] - 2026-07-13
 - ADDED **[ai-ui]** Shared WorkspaceArtifactPane — tasks detail gets the artifact split
 - ADDED **[ai-ui]** Expand control on the artifact pane

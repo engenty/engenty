@@ -21,6 +21,12 @@ import {
   updateAppsAiThread,
 } from "../ag-ui/apps-ai/apps-ai-session-api.js";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
+import {
+  type ArtifactScopeType,
+  artifactsListQueryKey,
+  artifactsQueryRoot,
+} from "../artifacts/artifacts-api.js";
+import { createArtifactsRealtimeSubscription } from "../artifacts/artifacts-realtime.js";
 import { engentyThreadsListQueryKey } from "./engenty-threads-query-keys.js";
 import {
   createEngentyThreadsRealtimeSubscription,
@@ -306,6 +312,31 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
     });
     return () => subscription?.unsubscribe();
   }, [props.realtimeClient, props.tenantId, props.userId]);
+
+  useEffect(() => {
+    const subscription = createArtifactsRealtimeSubscription({
+      client: props.realtimeClient ?? null,
+      onArtifactsChange: (record) => {
+        // Confine the refetch to the changed artifact's scope when the event
+        // carries the row; fall back to the root for events without one. The
+        // version-keyed detail query refetches off the list's current_version.
+        const scopeType = record?.scope_type;
+        const scopeId = record?.scope_id;
+        void ai.queryClient?.invalidateQueries(
+          typeof scopeType === "string" && typeof scopeId === "string"
+            ? {
+                queryKey: artifactsListQueryKey(
+                  scopeType as ArtifactScopeType,
+                  scopeId
+                ),
+              }
+            : { queryKey: artifactsQueryRoot }
+        );
+      },
+      tenantId: props.tenantId,
+    });
+    return () => subscription?.unsubscribe();
+  }, [props.realtimeClient, props.tenantId, ai.queryClient]);
 
   const value = useMemo<EngentyThreadsContextValue>(
     () => ({

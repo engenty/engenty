@@ -324,6 +324,8 @@ export async function startConversationRun(
       // Interactive chat: a gated operation suspends the run for the user's
       // Approve/Deny (native HITL) instead of being denied outright.
       approvalPolicy: "suspend" as const,
+      // Thread-scoped tools (e.g. artifacts) read the active thread from here.
+      orchestratorThreadId: input.threadId,
       runId: input.runId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,

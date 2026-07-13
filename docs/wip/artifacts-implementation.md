@@ -1,5 +1,22 @@
 # Artifacts — Implementation Guide (Phase A + B)
 
+> **Phase A: DONE 2026-07-13** on `feat/artifacts-backend` (commits 3579f7c migration,
+> f26a146 backend, aee7a02 ai-ui). Live-verified end-to-end (create/version/promote/
+> tenant-isolation, markdown/html/table render, tabs, archive, auto-open, realtime
+> INSERT + live content update). Deviations from this guide, all deliberate:
+> - `thread_id` is a **soft reference (no FK)** — a hard FK broke artifact creation for
+>   not-yet-persisted draft threads and would erase provenance on thread deletion.
+> - The artifact list *is* the tabs (no client open-set); auto-open/reconcile extracted
+>   to `useArtifactListSync` for testability.
+> - Detail query is **keyed on `current_version`** so agent edits refetch live off the
+>   (reliable) list-realtime rather than the in-place UPDATE-invalidation path.
+> - Tool `execute` signature is `(input) => …` (positional), not `({context})`.
+> - **Dev gotcha:** after adding `ai.artifact` to `supabase_realtime`, the *running*
+>   realtime container had a stale publication cache — `docker restart
+>   supabase_realtime_<project>` (no data loss) was needed once. Fresh installs publish
+>   at boot, so no restart there.
+
+
 Step-by-step build plan for [artifacts.md](./artifacts.md). Written so an implementer can
 follow it without re-deriving decisions. Every step names the exact files, the pattern
 file to copy, and the acceptance check. **Do not deviate from names/paths without

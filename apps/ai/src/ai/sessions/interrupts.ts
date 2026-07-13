@@ -7,6 +7,7 @@ import type { JsonValue, RunAgentInput } from "@engenty/ag-ui-bridge";
 import {
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   type AgUiOpenInterruptMetadata,
+  agUiOpenInterruptTtlMsForKind,
   buildAgUiOpenInterruptExpiresAt,
   buildFrontendToolOpenInterrupt,
   buildSandboxCommandOpenInterrupt,
@@ -98,7 +99,12 @@ export function mergeAgUiOpenInterruptMetadata(
   if (open) {
     next[AG_UI_OPEN_INTERRUPT_METADATA_KEY] = {
       ...open,
-      expires_at: open.expires_at ?? buildAgUiOpenInterruptExpiresAt(),
+      expires_at:
+        open.expires_at ??
+        buildAgUiOpenInterruptExpiresAt(
+          Date.now(),
+          agUiOpenInterruptTtlMsForKind(open.kind)
+        ),
     };
   } else {
     const { [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: _removed, ...rest } = next;

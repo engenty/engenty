@@ -170,6 +170,8 @@ export async function resumeConversationRun(
         })
       ),
       approvalPolicy: "suspend" as const,
+      // Thread-scoped tools (e.g. artifacts) read the active thread from here.
+      orchestratorThreadId: input.threadId,
       runId: input.newRunId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,

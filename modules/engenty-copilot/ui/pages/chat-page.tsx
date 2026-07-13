@@ -5,9 +5,7 @@
 import {
   ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
-  PLACEHOLDER_ARTIFACT_TYPE,
   SubAgentRunFullPage,
-  seedPlaceholderArtifacts,
   selectSubAgentDelegationFromMessages,
   useCopilotSelectedThread,
   useCopilotThreadActions,
@@ -43,27 +41,6 @@ export function CopilotChatPage() {
   const { startNewChat } = useCopilotThreadActions();
   const location = useLocation();
   const navigate = useNavigate();
-  // Placeholder artifacts (dev only) so the pane UI is exercisable before
-  // the artifact backend lands — see docs/wip/app-shell-unification.md.
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      seedPlaceholderArtifacts(ENGENTY_COPILOT_HOST_KEY, [
-        {
-          id: "placeholder-doc",
-          payload:
-            "A document artifact would render here — rich content in its own tab.",
-          title: "Welcome document",
-          type: PLACEHOLDER_ARTIFACT_TYPE,
-        },
-        {
-          id: "placeholder-table",
-          payload: "A generated table or widget artifact would render here.",
-          title: "Sample table",
-          type: PLACEHOLDER_ARTIFACT_TYPE,
-        },
-      ]);
-    }
-  }, []);
   const moduleLabel = t("menu.label");
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);

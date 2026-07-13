@@ -8,6 +8,7 @@ import { OPEN_COPILOT_TOOL as openCopilotTool } from "./open-copilot/definition.
 import { OPEN_DIALOG_TOOL as openDialogTool } from "./open-dialog/definition.js";
 import { SET_COPILOT_DOCK_MODE_TOOL as setCopilotDockModeTool } from "./set-copilot-dock-mode/definition.js";
 import { SET_SHELL_THEME_TOOL as setShellThemeTool } from "./shell-set-theme/definition.js";
+import { SHOW_ARTIFACT_TOOL as showArtifactTool } from "./show-artifact/definition.js";
 
 // biome-ignore lint/performance/noBarrelFile: Public frontend-tool catalog entrypoint.
 export { CLOSE_COPILOT_TOOL } from "./close-copilot/definition.js";
@@ -19,6 +20,7 @@ export { OPEN_COPILOT_TOOL } from "./open-copilot/definition.js";
 export { OPEN_DIALOG_TOOL } from "./open-dialog/definition.js";
 export { SET_COPILOT_DOCK_MODE_TOOL } from "./set-copilot-dock-mode/definition.js";
 export { SET_SHELL_THEME_TOOL } from "./shell-set-theme/definition.js";
+export { SHOW_ARTIFACT_TOOL } from "./show-artifact/definition.js";
 
 export function getCopilotBaseFrontendTools(): FrontendToolDefinition[] {
   return [
@@ -31,5 +33,6 @@ export function getCopilotBaseFrontendTools(): FrontendToolDefinition[] {
     openDialogTool,
     focusFieldTool,
     offerFileDownloadsTool,
+    showArtifactTool,
   ];
 }
