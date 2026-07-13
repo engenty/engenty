@@ -31,11 +31,11 @@ const EMPTY_SYNC: CalendarSyncSettings = {
 };
 
 export interface SetSyncInput {
+  backfill_mode?: CalendarSyncBackfillMode;
   connection_id: string;
   sync_enabled: boolean;
   target_calendar_id: string;
   time_zone?: string | null;
-  backfill_mode?: CalendarSyncBackfillMode;
 }
 
 export interface UseCalendarOverlayResult {

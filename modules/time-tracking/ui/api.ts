@@ -399,12 +399,12 @@ export async function setOverlaySettings(value: OverlaySettings) {
 export type CalendarSyncBackfillMode = "all" | "future";
 
 export interface CalendarSyncSettings {
+  // null = all entries pushed; a "YYYY-MM-DD" = only entries on/after it.
+  backfill_from: string | null;
   connection_id: string | null;
   sync_enabled: boolean;
   target_calendar_id: string | null;
   time_zone: string | null;
-  // null = all entries pushed; a "YYYY-MM-DD" = only entries on/after it.
-  backfill_from: string | null;
 }
 
 export async function getCalendarSyncSettings(signal?: AbortSignal) {
