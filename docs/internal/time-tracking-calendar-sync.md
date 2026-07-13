@@ -10,7 +10,31 @@ title: "Time-tracking × calendar integration — design & plan"
 > `engenty/engenty`. Land the work directly on pro `main` (`git push origin main`),
 > not via `pnpm push`.
 
-Status: PLANNED 2026-07-08, not started.
+Status: Phases 1–2 SHIPPED (v0.1.10, merged to main); Phases 3–4 IN PROGRESS
+on `feat/calendar-sync-two-way` since 2026-07-13.
+
+## Remaining work (this branch)
+
+- [ ] **Phase 3 — pull-back (two-way sync)**
+  - [ ] gcal connector: `list_events` accepts/returns `sync_token`
+        (+ `updated_min` fallback); expiry → null-reset re-list
+  - [ ] extend `syncConnection`: incremental pull per synced connection,
+        cursor in `calendar_sync_state.cursor`
+  - [ ] match on `provider_event_id` (fallback: stamped entry UUID);
+        conflict rule `updated_at` vs event `updated`, newer wins;
+        loop prevention via `sync_hash`
+  - [ ] remote delete → `link.status = 'remote_deleted'` (never delete entry)
+  - [ ] guardrail: pull-back only touches entries with an existing link
+- [ ] **Phase 4 — settings page + company calendars**
+  - [ ] dedicated settings surface (route or settings-area section)
+  - [ ] `time-tracking.calendar.company_overlays` tenant default + admin UI
+  - [ ] overlay picker grouped Personal / Company
+  - [ ] team view: overlays stay viewer-scoped
+- [ ] **Outlook parity (carried over from Phase 1)**
+  - [ ] `list_calendars` action + `calendar_id` param on Outlook event
+        actions (Graph `/me/calendars/{id}/calendarView`); until then
+        Outlook is primary-calendar-only and push-only
+- [ ] Resolve the 4 open questions below before Phase 4 UI work.
 **Prerequisites (all shipped):** connections framework + multi-account
 (`docs/wip/connections-framework.md`, `connections-multi-account-groundwork.md`),
 inbox sync pattern (`docs/wip/inbox-module.md`), time-tracking calendar UI with
