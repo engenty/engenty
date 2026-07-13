@@ -175,6 +175,8 @@
     "loadFailed": "Failed to load task.",
     "descriptionPlaceholder": "Add a description…",
     "actionsMenu": "Task actions",
+    "sidebarLabel": "Details",
+    "toggleSidebar": "Toggle details sidebar",
     "noDescription": "No description.",
     "comments": "Comments",
     "noComments": "No comments yet.",

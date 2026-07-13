@@ -23,7 +23,7 @@ import {
   Check,
   LayoutTemplate,
   MessageSquare,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Plus,
   Settings,
@@ -128,7 +128,7 @@ export function CategoryActionsMenu(props: CategoryActionsMenuProps) {
           variant="ghost"
           {...(isTopbar ? {} : shellSecondaryNavItemProps)}
         >
-          <MoreHorizontal
+          <MoreVertical
             aria-hidden
             className={isTopbar ? "h-4 w-4" : "h-3.5 w-3.5"}
           />

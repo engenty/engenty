@@ -37,7 +37,7 @@ import {
   Languages,
   Link2,
   MessageSquare,
-  MoreHorizontal,
+  MoreVertical,
   Printer,
   ShieldCheck,
   Trash2,
@@ -258,7 +258,7 @@ export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
             type="button"
             variant={topbarTriggerVariant}
           >
-            <MoreHorizontal
+            <MoreVertical
               className={topbarTriggerClassName ? "h-3.5 w-3.5" : "h-4 w-4"}
             />
           </Button>

@@ -20,7 +20,7 @@ import {
   Clock,
   Mail,
   MapPin,
-  MoreHorizontal,
+  MoreVertical,
   Phone,
   SlidersHorizontal,
   User,
@@ -270,7 +270,7 @@ export function ContactsTableToolbar(props: ContactsTableToolbarProps) {
                   aria-label={props.labels.toolbarMore}
                   type="button"
                 >
-                  <MoreHorizontal />
+                  <MoreVertical />
                 </ListToolbarIconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

@@ -16,8 +16,23 @@ export {
   type ModuleSidebarHeaderLabelProps,
 } from "./components/app-layout/module-sidebar-header-label";
 export { useSettingsSecondaryShellNav } from "./components/app-layout/use-settings-secondary-shell-nav";
+export {
+  setWorkspaceEndPaneExpanded,
+  useWorkspaceEndPaneTarget,
+} from "./components/app-layout/workspace-end-pane";
 export { AppSidebar } from "./components/app-sidebar";
 export { type AppMenuActions, AppTopbar } from "./components/app-topbar";
+export {
+  Pane,
+  PaneGroup,
+  type PaneProps,
+  PaneResizeHandle,
+  type PaneResizeHandleProps,
+  type PaneTabItem,
+  PaneTabStrip,
+  type PaneTabStripProps,
+  PaneTopBar,
+} from "./components/pane/pane";
 export {
   type AgentUiBaseSnapshotInput,
   type AgentUiDialogOpener,

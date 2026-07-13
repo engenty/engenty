@@ -1,3 +1,8 @@
+import {
+  ArtifactPaneToggle,
+  ENGENTY_COPILOT_HOST_KEY,
+  WorkspaceArtifactPane,
+} from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useLiveCache } from "@engenty/live-cache";
@@ -13,6 +18,8 @@ import {
   AlertDialogTitle,
   Button,
   Card,
+  DocSidebarLayout,
+  DocSidebarToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -21,7 +28,7 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -70,6 +77,8 @@ import {
   useTaskSettingsQuery,
   useUpdateTaskMutation,
 } from "../tasks-queries.js";
+
+const TASK_DETAIL_DOC_SIDEBAR_KEY = "tasks.detail";
 
 interface TaskDetailLoadedProps {
   activity: ReturnType<typeof useTaskActivityQuery>["data"];
@@ -142,17 +151,51 @@ function TaskDetailLoadedContent({
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_minmax(280px,280px)]">
+    <DocSidebarLayout
+      className="max-w-5xl"
+      sidebar={
+        <>
+          <TaskPropertiesPanel
+            assigneeCatalog={teamMembersCatalogQuery.data ?? []}
+            assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
+            assigneeProfiles={assigneeProfiles}
+            disabled={fieldsDisabled}
+            onAssigneeChange={onAssigneeChange}
+            onDueDateChange={onDueDateChange}
+            onGoalChange={onGoalChange}
+            onPriorityChange={onPriorityChange}
+            onStatusChange={onStatusChange}
+            task={task}
+            taskStatusDefinitions={taskStatusDefinitions}
+            teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
+          />
+          <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
+          <TaskLinkedSessionsPanel
+            isLoading={linkedSessionsQuery.isLoading}
+            sessions={linkedSessionsQuery.data ?? []}
+          />
+        </>
+      }
+      sidebarLabel={t("detail.sidebarLabel")}
+      storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
+    >
       <div className="space-y-4">
         <div className="space-y-2">
-          <p className="flex flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
-            {task.identifier}
-            <TaskStatusBadge
-              compact
-              definitions={taskStatusDefinitions}
-              status={task.status}
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
+              {task.identifier}
+              <TaskStatusBadge
+                compact
+                definitions={taskStatusDefinitions}
+                status={task.status}
+              />
+            </p>
+            <DocSidebarToggle
+              className="-mr-1.5 shrink-0"
+              label={t("detail.toggleSidebar")}
+              storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
             />
-          </p>
+          </div>
           <GoalDocumentTitle
             disabled={fieldsDisabled}
             onBlur={onTitleBlur}
@@ -203,29 +246,7 @@ function TaskDetailLoadedContent({
           task={task}
         />
       </div>
-
-      <div className="flex min-w-[280px] flex-col gap-4">
-        <TaskPropertiesPanel
-          assigneeCatalog={teamMembersCatalogQuery.data ?? []}
-          assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
-          assigneeProfiles={assigneeProfiles}
-          disabled={fieldsDisabled}
-          onAssigneeChange={onAssigneeChange}
-          onDueDateChange={onDueDateChange}
-          onGoalChange={onGoalChange}
-          onPriorityChange={onPriorityChange}
-          onStatusChange={onStatusChange}
-          task={task}
-          taskStatusDefinitions={taskStatusDefinitions}
-          teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
-        />
-        <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
-        <TaskLinkedSessionsPanel
-          isLoading={linkedSessionsQuery.isLoading}
-          sessions={linkedSessionsQuery.data ?? []}
-        />
-      </div>
-    </div>
+    </DocSidebarLayout>
   );
 }
 
@@ -325,27 +346,30 @@ export function TaskDetailPage() {
 
   usePageConfig({
     actions: task ? (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={t("detail.actionsMenu")}
-            className={topbarIconButtonClassName}
-            size="sm"
-            variant="outline"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t("delete.action")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("detail.actionsMenu")}
+              className={topbarIconButtonClassName}
+              size="sm"
+              variant="outline"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("delete.action")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
+      </>
     ) : null,
     breadcrumbs,
     secondaryNavAfterItems,
@@ -491,6 +515,8 @@ export function TaskDetailPage() {
           />
         </TaskRunObserverProvider>
       )}
+
+      <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogContent>

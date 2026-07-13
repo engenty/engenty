@@ -71,12 +71,12 @@ export function SidebarTenantSwitcher({
   const sidebarMarkFallbackClassName = "text-[10px] tracking-tight";
 
   return (
-    // Modal: base-ui only renders its inline focus-guard + `aria-owns` owner
-    // spans when NON-modal (`shouldRenderGuards = !modal && open`). Those spans
-    // mount as siblings of the trigger inside the sidebar's `space-y-2` column
-    // and visibly grow/shift the brand icon. base-ui menus don't scroll-lock or
-    // render a backdrop, so modal adds no layout of its own — it just drops the
-    // guards.
+    // Modal keeps focus/scroll behavior contained. Note: base-ui (>=1.6) mounts
+    // inline focus-guard + `aria-owns` owner spans as siblings of the trigger
+    // even when modal, so the sidebar column that hosts this switcher must not
+    // use margin-based spacing (`space-y-*`) — a guard span inserted before the
+    // trigger would push it via `* + *`. The column uses flex `gap` instead;
+    // the guards are `position: fixed` (out of flow) so gap ignores them.
     <DropdownMenu modal={true}>
       <DropdownMenuTrigger asChild>
         <button

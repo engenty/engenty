@@ -240,7 +240,7 @@ export function TaskActivityRow({
     ) : null;
 
   return (
-    <li className="@container rounded-lg bg-card px-3 py-2.5 shadow-sm">
+    <li className="@container ui-canvas-raised rounded-md bg-card px-3 py-2.5">
       <div className={ACTIVITY_ROW_SHELL_CLASS}>
         <ActivityActorAvatar actor={actor} />
 

@@ -62,8 +62,8 @@ export function RoutineCard({
   return (
     <div
       className={cn(
-        "relative flex select-none items-center gap-4 rounded-lg border bg-card p-3 pr-28",
-        onClick && "cursor-pointer transition-colors hover:border-primary/50"
+        "ui-canvas-raised relative flex select-none items-center gap-4 rounded-md bg-card p-3 pr-28",
+        onClick && "cursor-pointer transition-shadow hover:shadow-[var(--e-3)]"
       )}
       onClick={handleCardClick}
       onKeyDown={(e) => {

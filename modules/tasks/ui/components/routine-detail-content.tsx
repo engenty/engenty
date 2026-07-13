@@ -113,7 +113,7 @@ export function RoutineDetailContent({
         <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           {t("routines.detail.triggers")}
         </h4>
-        <div className="flex items-center gap-2 rounded-lg border bg-card p-3">
+        <div className="ui-canvas-panel flex items-center gap-2 rounded-lg bg-card p-3">
           <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <RoutineTriggerChip

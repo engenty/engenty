@@ -89,9 +89,7 @@ export function AppSidebar({
     isPanel
       ? "text-foreground hover:bg-muted hover:text-foreground"
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-    compact
-      ? "mx-auto size-[40px] shrink-0 justify-center p-0"
-      : "w-full px-2 py-2"
+    compact ? "mx-auto size-9 shrink-0 justify-center p-0" : "w-full px-2 py-2"
   );
 
   const adminSectionIndex = sections.findIndex((s) =>
@@ -237,12 +235,17 @@ export function AppSidebar({
           isPanel
             ? "bg-card text-foreground"
             : "border-sidebar-border border-r bg-sidebar text-sidebar-foreground",
-          compact ? "w-16 shrink-0" : "w-full",
+          compact ? "w-12 shrink-0" : "w-full",
           className
         )}
         style={style}
       >
-        <div className={cn("space-y-2", compact ? "px-2 py-3" : "px-3 py-2")}>
+        <div
+          className={cn(
+            "flex flex-col gap-2",
+            compact ? "px-1.5 py-3" : "px-3 py-2"
+          )}
+        >
           {shell.tenantSwitcher ? (
             <SidebarTenantSwitcher
               aboutLabel={shell.tenantSwitcher.aboutLabel}
@@ -329,7 +332,12 @@ export function AppSidebar({
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 py-1">
+        <nav
+          className={cn(
+            "flex-1 overflow-y-auto py-1",
+            compact ? "px-1.5" : "px-2"
+          )}
+        >
           {mainSections.map((section, index) => {
             const sectionKey = section.label ?? `section-${index}`;
             return (
@@ -363,7 +371,7 @@ export function AppSidebar({
         </nav>
 
         {adminSection && (
-          <div className="mt-auto px-2 py-2">
+          <div className={cn("mt-auto py-2", compact ? "px-1.5" : "px-2")}>
             {compact ? (
               <div
                 aria-label={adminSection.label || "Admin"}

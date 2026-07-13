@@ -169,6 +169,7 @@
       "phases": "Phases",
       "newPhase": "New phase...",
       "fitAll": "Fit all to view",
+      "zoom": "Zoom: Day – Week – Month",
       "dueDate": "Due date"
     },
     "members": {
@@ -179,6 +180,7 @@
       "collapse": "Collapse",
       "manage": "Manage",
       "addAction": "Add members",
+      "addLink": "Add team member",
       "doneAdding": "Done",
       "loading": "Loading team members...",
       "listHeading": "Project Team",

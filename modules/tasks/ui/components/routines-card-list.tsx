@@ -89,7 +89,7 @@ export function RoutinesCardList({
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
           <div
-            className="flex items-center gap-4 rounded-lg border p-3"
+            className="ui-canvas-raised flex items-center gap-4 rounded-md bg-card p-3"
             key={i}
           >
             <Skeleton className="h-3 w-3 rounded-full" />
@@ -105,7 +105,7 @@ export function RoutinesCardList({
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border bg-card p-8 text-center">
+      <div className="ui-canvas-panel flex flex-col items-center justify-center gap-2 rounded-lg bg-card p-8 text-center">
         <AlertCircle className="h-8 w-8 text-destructive" />
         <p className="font-medium text-sm">{t("routines.loadFailed")}</p>
       </div>

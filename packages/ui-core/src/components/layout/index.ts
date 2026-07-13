@@ -2,6 +2,19 @@ export {
   DetailPageHeader,
   type DetailPageHeaderProps,
 } from "./detail-page-header";
+export {
+  DOC_SIDEBAR_INLINE_MIN_WIDTH_PX,
+  DOC_SIDEBAR_WIDTH_PX,
+  DocSidebarLayout,
+  type DocSidebarLayoutProps,
+  DocSidebarToggle,
+  type DocSidebarToggleProps,
+} from "./doc-sidebar/doc-sidebar";
+export {
+  type DocSidebarMode,
+  type UseDocSidebarResult,
+  useDocSidebar,
+} from "./doc-sidebar/doc-sidebar-store";
 export type { Profile as AvatarStackProfile } from "./shell/avatar-stack";
 export { AvatarStack } from "./shell/avatar-stack";
 export {

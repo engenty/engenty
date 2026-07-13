@@ -9,13 +9,7 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import {
-  BookUser,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Share2,
-} from "lucide-react";
+import { BookUser, MoreVertical, Plus, RefreshCw, Share2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { AskResult, EntityRow } from "../api.js";
@@ -107,7 +101,7 @@ export function ContextGraphPage() {
             size="sm"
             variant="outline"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

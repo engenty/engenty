@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import type { HTMLAttributes, ReactNode, Ref } from "react";
 
 export const taskPropertyRowClassName =
-  "flex w-full items-center gap-2.5 rounded-lg bg-card px-3 py-2.5 text-left shadow-sm transition-colors";
+  "ui-canvas-raised flex w-full items-center gap-2.5 rounded-md bg-card px-3 py-2.5 text-left transition-colors";
 
 interface TaskPropertyRowProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;

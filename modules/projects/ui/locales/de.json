@@ -186,6 +186,7 @@
       "phases": "Phasen",
       "newPhase": "Neue Phase...",
       "fitAll": "Alle anzeigen",
+      "zoom": "Zoom: Tag – Woche – Monat",
       "dueDate": "Fälligkeitsdatum"
     },
     "members": {
@@ -196,6 +197,7 @@
       "collapse": "Einklappen",
       "manage": "Verwalten",
       "addAction": "Mitglieder hinzufügen",
+      "addLink": "Teammitglied hinzufügen",
       "doneAdding": "Fertig",
       "loading": "Teammitglieder werden geladen...",
       "listHeading": "Projektteam",

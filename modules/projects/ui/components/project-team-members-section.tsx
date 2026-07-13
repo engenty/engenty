@@ -530,9 +530,35 @@ export function ProjectTeamMembersSection({
       </AlertDialog>
 
       {memberIds.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          {t("detail.members.emptyDescription")}
-        </p>
+        <div className="text-muted-foreground text-sm">
+          {t("detail.members.emptyDescription")}{" "}
+          {addOptions.length > 0 ? (
+            <MultiSelect
+              align="start"
+              className="inline-flex h-auto w-auto border-0 bg-transparent p-0 font-medium text-primary shadow-none hover:bg-transparent hover:text-primary/80 hover:underline"
+              deduplicateOptions
+              defaultValue={[]}
+              disabled={saving}
+              hideSelectAll
+              key={memberIds.join(",")}
+              onValueChange={(vals) => {
+                if (vals.length > 0) {
+                  handleAddFromMultiSelect(vals);
+                }
+              }}
+              options={addOptions}
+              placeholder={t("detail.members.addPlaceholder")}
+              popoverClassName="w-64 max-w-full"
+              triggerElement={
+                <span className="inline-flex items-center gap-1">
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("detail.members.addLink")}
+                </span>
+              }
+              variant="ghost"
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {listExpanded && memberRows.length > 0 ? (

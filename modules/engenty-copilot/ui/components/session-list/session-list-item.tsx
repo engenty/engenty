@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@engenty/ui-core";
-import { MoreHorizontal } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import type {
   AgentSessionDto,
   AgentSessionStatus,
@@ -108,7 +108,7 @@ function SessionListItemMenu(props: {
           showOnHover
           type="button"
         >
-          <MoreHorizontal className="size-4" />
+          <MoreVertical className="size-4" />
         </SidebarMenuAction>
       </DropdownMenuTrigger>
       <DropdownMenuContent
