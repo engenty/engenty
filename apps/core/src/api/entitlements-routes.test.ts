@@ -35,6 +35,7 @@ function createStatefulDal(): PackagesDal {
     id ? (catalog.find((p) => p.id === id) ?? null) : null;
 
   return {
+    applyAiUsagePolicy: async () => {},
     listPackages: async () => [...catalog],
     getPackage: async (id) => findPkg(id),
     syncCatalog: async () => ({ upserted: 0 }),

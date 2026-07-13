@@ -1,6 +1,9 @@
-import type { EntitlementPackage } from "@engenty/entitlements";
+import {
+  type EntitlementPackage,
+  resolveEntitlements,
+} from "@engenty/entitlements";
 import { describe, expect, it } from "vitest";
-import { selectStalePackages } from "./packages.js";
+import { selectStalePackages, toTenantUsagePolicyRow } from "./packages.js";
 
 function pkg(id: string, version: number): EntitlementPackage {
   return {
@@ -49,5 +52,29 @@ describe("selectStalePackages", () => {
       ["team", 9],
     ]);
     expect(selectStalePackages(existing, catalog)).toEqual([]);
+  });
+});
+
+describe("toTenantUsagePolicyRow", () => {
+  it("maps resolved entitlements to the ai.tenant_usage_policy columns", () => {
+    const resolved = resolveEntitlements(pkg("team", 1), {
+      aiUsagePolicy: {
+        hard_limit_cost_micros: 42,
+        enforcement_mode: "enforce",
+      },
+    });
+    const row = toTenantUsagePolicyRow("t1", resolved);
+    expect(row.tenant_id).toBe("t1");
+    // package id supersedes the free-text tier
+    expect(row.tier).toBe("team");
+    expect(row.hard_limit_cost_micros).toBe(42);
+    expect(row.enforcement_mode).toBe("enforce");
+    expect(row.period_unit).toBe("month");
+  });
+
+  it("uses tier 'free' when no package is assigned", () => {
+    const row = toTenantUsagePolicyRow("t1", resolveEntitlements(null));
+    expect(row.tier).toBe("free");
+    expect(row.enforcement_mode).toBe("observe");
   });
 });

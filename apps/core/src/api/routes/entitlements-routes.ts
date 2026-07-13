@@ -18,6 +18,17 @@ export function registerEntitlementsRoutes(params: {
   const { app, config } = params;
   const dal = (params.createDal ?? createPackagesDal)(config);
 
+  // Best-effort: propagate the resolved AI usage policy into the usage engine's
+  // store after an entitlement change. A failure here must not fail the
+  // entitlement write (the assignment already persisted).
+  const syncAiPolicy = async (tenantId: string) => {
+    try {
+      await dal.applyAiUsagePolicy(tenantId);
+    } catch {
+      // swallow: policy propagation is eventually-consistent, not transactional
+    }
+  };
+
   // Read-only synced catalog.
   app.get("/api/superadmin/packages", async (c) => {
     const authResult = await requireSuperAdmin(c, config);
@@ -94,6 +105,7 @@ export function registerEntitlementsRoutes(params: {
       }
     }
     await dal.setTenantPackage(tenantId, packageId);
+    await syncAiPolicy(tenantId);
     return jsonApiSuccess(c, { tenantId, packageId });
   });
 
@@ -114,6 +126,7 @@ export function registerEntitlementsRoutes(params: {
       });
     }
     await dal.setTenantOverride(tenantId, override);
+    await syncAiPolicy(tenantId);
     return jsonApiSuccess(c, { tenantId, override });
   });
 
@@ -125,6 +138,7 @@ export function registerEntitlementsRoutes(params: {
     }
     const tenantId = c.req.param("id");
     await dal.clearTenantOverride(tenantId);
+    await syncAiPolicy(tenantId);
     return jsonApiSuccess(c, { tenantId, cleared: true });
   });
 }
