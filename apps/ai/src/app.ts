@@ -23,7 +23,12 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { mastra } from "../ai/index.js";
 import { engentyToolsRunAls } from "../ai/tools/engenty-tools/lib/run-context.js";
+import { mirrorArtifactToBoundStorage } from "./ai/artifacts/artifact-mirror.js";
 import type { ExternalChannelConfig } from "./ai/channels.js";
+import {
+  EngentyCoreClient,
+  getEngentyCoreBaseUrlFromEnv,
+} from "./ai/core-http-client.js";
 import {
   createActionRequestStoreFromEnv,
   createAgentRunStoreFromEnv,
@@ -430,7 +435,29 @@ export async function createApp(options: CreateAppOptions = {}) {
     scopeResolver,
   });
   if (artifactStore) {
-    registerArtifactRoutes(app, { artifactStore, scopeResolver });
+    registerArtifactRoutes(app, {
+      artifactStore,
+      // Best-effort mirror to the scope's bound storage connection, executed
+      // through core's connections_files_write as the promoting user.
+      mirrorArtifact: async ({ artifact, authorization, tenantId }) => {
+        const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+        if (!(coreBaseUrl && authorization)) {
+          return;
+        }
+        const coreClient = new EngentyCoreClient({
+          coreBaseUrl,
+          userAccessToken: authorization,
+        });
+        await mirrorArtifactToBoundStorage({
+          artifact,
+          invokeTool: (toolId, input) => coreClient.invokeTool(toolId, input),
+          log: (message, data) => logger.warn(message, data ?? {}),
+          store: artifactStore,
+          tenantId,
+        });
+      },
+      scopeResolver,
+    });
   } else if (!("artifactStore" in options)) {
     logger.warn(
       "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"

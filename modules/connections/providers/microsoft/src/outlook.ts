@@ -458,20 +458,24 @@ export const microsoftOutlookConnector: ConnectorDefinition = defineConnector({
       }),
       providerScopes: ["Calendars.ReadWrite"],
       run: async (input, ctx) => {
-        const e = await graphJson<GraphEvent>(ctx, eventsPath(input.calendar_id), {
-          body: {
-            ...(input.attendees?.length
-              ? { attendees: toAttendees(input.attendees) }
-              : {}),
-            ...(input.body_text
-              ? { body: { content: input.body_text, contentType: "Text" } }
-              : {}),
-            end: { dateTime: input.end, timeZone: input.time_zone },
-            start: { dateTime: input.start, timeZone: input.time_zone },
-            subject: input.subject,
-          },
-          method: "POST",
-        });
+        const e = await graphJson<GraphEvent>(
+          ctx,
+          eventsPath(input.calendar_id),
+          {
+            body: {
+              ...(input.attendees?.length
+                ? { attendees: toAttendees(input.attendees) }
+                : {}),
+              ...(input.body_text
+                ? { body: { content: input.body_text, contentType: "Text" } }
+                : {}),
+              end: { dateTime: input.end, timeZone: input.time_zone },
+              start: { dateTime: input.start, timeZone: input.time_zone },
+              subject: input.subject,
+            },
+            method: "POST",
+          }
+        );
         return mapEventDetail(e);
       },
       summary: "Create a calendar event",

@@ -1,6 +1,11 @@
 import type { ConnectorActionContext } from "@engenty/connections-sdk";
 import { describe, expect, it, vi } from "vitest";
-import { parseListResponse, s3Connector, verifyS3Credentials } from "./s3.js";
+import {
+  composeFileRef,
+  parseListResponse,
+  s3Connector,
+  verifyS3Credentials,
+} from "./s3.js";
 
 const CREDS = {
   access_key_id: "AKIA_TEST",
@@ -144,6 +149,96 @@ describe("s3 files capability", () => {
       "files_read",
       "files_stat",
       "files_search",
+      "files_write",
+      "files_delete",
+      "files_move",
     ]);
+  });
+});
+
+describe("composeFileRef", () => {
+  it("joins folder refs and names regardless of trailing slash", () => {
+    expect(composeFileRef(null, "a.md")).toBe("a.md");
+    expect(composeFileRef("docs/", "a.md")).toBe("docs/a.md");
+    expect(composeFileRef("docs", "a.md")).toBe("docs/a.md");
+  });
+});
+
+describe("s3 storage capability", () => {
+  const storage = s3Connector.storage;
+  if (!storage) {
+    throw new Error("s3 connector must declare storage");
+  }
+
+  it("write PUTs prefixed key with content type and returns the entry", async () => {
+    const calls: Request[] = [];
+    const fetchImpl = vi.fn(async (req: Request) => {
+      calls.push(req);
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const entry = await storage.write(ctxWith(fetchImpl), {
+      content_text: "hello",
+      folder_ref: "docs/",
+      mime_type: "text/markdown",
+      name: "a.md",
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[0].url).toBe(
+      "https://s3.eu-central-1.amazonaws.com/my-bucket/root/docs/a.md"
+    );
+    expect(calls[0].headers.get("content-type")).toBe("text/markdown");
+    expect(entry).toMatchObject({
+      kind: "file",
+      name: "a.md",
+      ref: "docs/a.md",
+      size: 5,
+    });
+  });
+
+  it("delete issues DELETE on the prefixed key", async () => {
+    const calls: Request[] = [];
+    const fetchImpl = vi.fn(async (req: Request) => {
+      calls.push(req);
+      return new Response(null, { status: 204 });
+    }) as unknown as typeof fetch;
+
+    await expect(
+      storage.delete(ctxWith(fetchImpl), { ref: "docs/a.md" })
+    ).resolves.toEqual({ deleted: true, ref: "docs/a.md" });
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].url).toBe(
+      "https://s3.eu-central-1.amazonaws.com/my-bucket/root/docs/a.md"
+    );
+  });
+
+  it("move copies server-side then deletes the source", async () => {
+    const calls: Request[] = [];
+    const fetchImpl = vi.fn(async (req: Request) => {
+      calls.push(req);
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const moved = await storage.move?.(ctxWith(fetchImpl), {
+      new_name: "b.md",
+      ref: "docs/a.md",
+      to_folder_ref: "archive/",
+    });
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[0].url).toBe(
+      "https://s3.eu-central-1.amazonaws.com/my-bucket/root/archive/b.md"
+    );
+    expect(calls[0].headers.get("x-amz-copy-source")).toBe(
+      "/my-bucket/root/docs/a.md"
+    );
+    expect(calls[1].method).toBe("DELETE");
+    expect(calls[1].url).toBe(
+      "https://s3.eu-central-1.amazonaws.com/my-bucket/root/docs/a.md"
+    );
+    expect(moved).toMatchObject({ name: "b.md", ref: "archive/b.md" });
   });
 });

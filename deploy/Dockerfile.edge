@@ -10,12 +10,19 @@ FROM base AS deps
 # scripts/ is needed by the root postinstall hook; the build warm-up it does is
 # redundant here (turbo builds below), so skip it.
 ENV ENGENTY_SKIP_INSTALL_BUILD=1
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+# `pnpm fetch` resolves + downloads every dependency into the local store using
+# ONLY the lockfile (no package.json/source needed), so this layer stays cached
+# across ANY source change and only busts when pnpm-lock.yaml changes. Without
+# this split, copying full source before `pnpm install` invalidated the install
+# layer on every commit, forcing a full network re-resolve each build.
+COPY pnpm-lock.yaml ./
+RUN pnpm fetch
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY scripts ./scripts
 COPY apps ./apps
 COPY packages ./packages
 COPY modules ./modules
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --offline
 
 FROM deps AS build
 ARG VITE_SUPABASE_URL=http://127.0.0.1:54321

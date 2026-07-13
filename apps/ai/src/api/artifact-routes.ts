@@ -7,7 +7,7 @@ import {
   ArtifactUnknownTypeError,
 } from "../ai/artifacts/artifact-types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import type { ArtifactStore } from "../dal/artifacts/index.js";
+import type { ArtifactRow, ArtifactStore } from "../dal/artifacts/index.js";
 import {
   ArtifactContentTooLargeError,
   ArtifactVersionConflictError,
@@ -62,10 +62,27 @@ const storeBodySchema = z.object({
   scope_id: z.string().min(1).max(256),
 });
 
+const storageBindingBodySchema = z.object({
+  scope_type: promotableScopeSchema,
+  scope_id: z.string().min(1).max(256),
+  /** null clears the binding (back to platform storage only). */
+  connection_id: z.string().uuid().nullable(),
+  folder_ref: z.string().max(1024).nullish(),
+});
+
 export function registerArtifactRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     artifactStore: ArtifactStore;
+    /**
+     * Best-effort mirror of a just-promoted artifact to its scope's bound
+     * storage connection (never throws). Absent in tests / unconfigured envs.
+     */
+    mirrorArtifact?: (params: {
+      artifact: ArtifactRow;
+      authorization: string | null;
+      tenantId: string;
+    }) => Promise<void>;
     scopeResolver: AiScopeResolver;
   }
 ): void {
@@ -134,6 +151,70 @@ export function registerArtifactRoutes(
         c,
         "createArtifact failed",
         "artifacts.createFailed",
+        err
+      );
+    }
+  });
+
+  // Registered before the `/:artifactId` param routes so "storage-binding"
+  // never resolves as an artifact id.
+  app.get(`${base}/storage-binding`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const scopeType = promotableScopeSchema.safeParse(
+      c.req.query("scope_type")
+    );
+    const scopeId = z
+      .string()
+      .min(1)
+      .max(256)
+      .safeParse(c.req.query("scope_id"));
+    if (!(scopeType.success && scopeId.success)) {
+      return c.json({ error: "artifacts.invalidScope" }, 400);
+    }
+    try {
+      const binding = await opts.artifactStore.getStorageBinding({
+        tenantId: scope.scope.tenantId,
+        scopeType: scopeType.data,
+        scopeId: scopeId.data,
+      });
+      return c.json({ binding });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "getArtifactStorageBinding failed",
+        "artifacts.storageBindingFailed",
+        err
+      );
+    }
+  });
+
+  app.put(`${base}/storage-binding`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const body = storageBindingBodySchema.safeParse(await readJsonBody(c));
+    if (!body.success) {
+      return c.json({ error: "artifacts.invalidBody" }, 400);
+    }
+    try {
+      const binding = await opts.artifactStore.setStorageBinding({
+        tenantId: scope.scope.tenantId,
+        scopeType: body.data.scope_type,
+        scopeId: body.data.scope_id,
+        connectionId: body.data.connection_id,
+        folderRef: body.data.folder_ref ?? null,
+        createdBy: scope.scope.userId,
+      });
+      return c.json({ binding });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "setArtifactStorageBinding failed",
+        "artifacts.storageBindingFailed",
         err
       );
     }
@@ -231,6 +312,11 @@ export function registerArtifactRoutes(
       if (!artifact) {
         return c.json({ error: "artifacts.notFound" }, 404);
       }
+      await opts.mirrorArtifact?.({
+        artifact,
+        authorization: c.req.header("authorization") ?? null,
+        tenantId: scope.scope.tenantId,
+      });
       return c.json({ artifact });
     } catch (err) {
       return handleRouteError(

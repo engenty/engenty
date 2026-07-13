@@ -104,6 +104,49 @@ export function storeArtifact(params: {
   );
 }
 
+/** Where promoted artifacts of a scope are mirrored (null = platform only). */
+export interface ArtifactStorageBinding {
+  connection_id: string;
+  folder_ref: string | null;
+  scope_id: string;
+  scope_type: ArtifactScopeType;
+}
+
+export async function getArtifactStorageBinding(params: {
+  serviceBaseUrl: string;
+  scopeType: Exclude<ArtifactScopeType, "thread">;
+  scopeId: string;
+}): Promise<ArtifactStorageBinding | null> {
+  const search = new URLSearchParams({
+    scope_type: params.scopeType,
+    scope_id: params.scopeId,
+  });
+  const data = await requestJson<{ binding: ArtifactStorageBinding | null }>(
+    `${artifactsPath(params.serviceBaseUrl)}/storage-binding?${search.toString()}`
+  );
+  return data.binding;
+}
+
+export async function setArtifactStorageBinding(params: {
+  serviceBaseUrl: string;
+  scopeType: Exclude<ArtifactScopeType, "thread">;
+  scopeId: string;
+  connectionId: string | null;
+}): Promise<ArtifactStorageBinding | null> {
+  const data = await requestJson<{ binding: ArtifactStorageBinding | null }>(
+    `${artifactsPath(params.serviceBaseUrl)}/storage-binding`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        scope_type: params.scopeType,
+        scope_id: params.scopeId,
+        connection_id: params.connectionId,
+      }),
+    }
+  );
+  return data.binding;
+}
+
 export const artifactsQueryRoot = ["artifacts"] as const;
 
 export function artifactsListQueryKey(
@@ -111,6 +154,18 @@ export function artifactsListQueryKey(
   scopeId: string
 ) {
   return [...artifactsQueryRoot, "list", scopeType, scopeId] as const;
+}
+
+export function artifactStorageBindingQueryKey(
+  scopeType: ArtifactScopeType,
+  scopeId: string
+) {
+  return [
+    ...artifactsQueryRoot,
+    "storage-binding",
+    scopeType,
+    scopeId,
+  ] as const;
 }
 
 export function artifactDetailQueryKey(artifactId: string, version?: number) {
@@ -133,6 +188,24 @@ export function useArtifactsListQuery(
     enabled: Boolean(scopeId && serviceBaseUrl),
     queryFn: () =>
       listArtifacts({
+        serviceBaseUrl: serviceBaseUrl as string,
+        scopeType,
+        scopeId: scopeId as string,
+      }),
+  });
+}
+
+/** The scope's storage binding (null = platform storage only). */
+export function useArtifactStorageBindingQuery(
+  scopeType: Exclude<ArtifactScopeType, "thread">,
+  scopeId: string | null
+) {
+  const serviceBaseUrl = resolveEngentyAiServiceBaseUrl();
+  return useQuery({
+    queryKey: artifactStorageBindingQueryKey(scopeType, scopeId ?? "none"),
+    enabled: Boolean(scopeId && serviceBaseUrl),
+    queryFn: () =>
+      getArtifactStorageBinding({
         serviceBaseUrl: serviceBaseUrl as string,
         scopeType,
         scopeId: scopeId as string,

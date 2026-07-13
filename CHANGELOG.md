@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.19] - 2026-07-13
+- ADDED **[artifacts]** Phase C — external project storage
+- PERFORMANCE **[deploy]** Split pnpm install via pnpm fetch to fix Docker layer caching
+
 ## [0.1.18] - 2026-07-13
 - ADDED **[time-tracking]** Outlook calendar overlay parity
 - ADDED **[time-tracking]** Calendar sync settings — scope + company overlays (Phase 4)
