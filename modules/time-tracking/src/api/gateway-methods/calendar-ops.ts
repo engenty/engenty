@@ -11,7 +11,10 @@ import {
   calendarSyncSettingsSetInputSchema,
   timeTrackingContextGetInputSchema,
 } from "../../schema/zod.js";
-import { syncConnection } from "../../sync/calendar-sync-service.js";
+import {
+  pullConnection,
+  syncConnection,
+} from "../../sync/calendar-sync-service.js";
 
 /**
  * Connector ids whose events can be overlaid on the time-tracking calendar.
@@ -323,24 +326,67 @@ export function registerTimeTrackingCalendarGatewayMethods(
     handler: async (_input, ctx) => {
       const tenantId = ctx.auth?.tenantId;
       if (!(connectionsClient && supabase && tenantId)) {
-        return { connections: 0, pushed: 0, deleted: 0, errors: 0 };
+        return {
+          connections: 0,
+          pushed: 0,
+          deleted: 0,
+          pulled: 0,
+          unlinked: 0,
+          errors: 0,
+        };
       }
       const repo = createCalendarSyncRepo(supabase, tenantId);
       const states = await repo.listEnabledSyncStates();
+
+      // Pull-back is Google-only in v1 (Outlook lacks a delta feed); resolve
+      // which enabled connections are google-calendar so we only pull those.
+      let pullableConnectionIds = new Set<string>();
+      try {
+        const connections = await connectionsClient.listConnections({
+          tenantId,
+        });
+        pullableConnectionIds = new Set(
+          connections
+            .filter((c) => c.connector_id === "google-calendar")
+            .map((c) => c.id)
+        );
+      } catch {
+        // Connections module absent — skip pull-back, push still runs.
+      }
+
       let pushed = 0;
       let deleted = 0;
+      let pulled = 0;
+      let unlinked = 0;
       let errors = 0;
       for (const state of states) {
+        const actor = {
+          principal: {
+            principalId: state.owner_user_id,
+            principalType: "service" as const,
+          },
+          isAutonomous: true,
+        };
+        // Pull first so remote changes land before the push re-asserts local
+        // state; our own echoes are skipped by the sync-hash.
+        if (pullableConnectionIds.has(state.connection_id)) {
+          try {
+            const pull = await pullConnection(
+              { connectionsClient, supabase },
+              actor,
+              { tenantId, state }
+            );
+            pulled += pull.pulled;
+            unlinked += pull.unlinked;
+            errors += pull.errors;
+          } catch {
+            errors += 1;
+          }
+        }
         try {
           const summary = await syncConnection(
             { connectionsClient, supabase },
-            {
-              principal: {
-                principalId: state.owner_user_id,
-                principalType: "service",
-              },
-              isAutonomous: true,
-            },
+            actor,
             { tenantId, state }
           );
           pushed += summary.pushed;
@@ -354,7 +400,14 @@ export function registerTimeTrackingCalendarGatewayMethods(
           });
         }
       }
-      return { connections: states.length, pushed, deleted, errors };
+      return {
+        connections: states.length,
+        pushed,
+        deleted,
+        pulled,
+        unlinked,
+        errors,
+      };
     },
   });
 }

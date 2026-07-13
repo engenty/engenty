@@ -41,6 +41,7 @@ export interface SyncEntryRow {
   notes: string | null;
   scope_id: string;
   start_time: string | null;
+  updated_at: string | null;
   user_id: string;
 }
 
@@ -139,12 +140,19 @@ export function createCalendarSyncRepo(adapter: unknown, tenantId: string) {
 
     async recordSyncResult(
       connectionId: string,
-      patch: { last_error?: string | null; touch_synced_at?: boolean }
+      patch: {
+        cursor?: string | null;
+        last_error?: string | null;
+        touch_synced_at?: boolean;
+      }
     ): Promise<void> {
       const update: Record<string, unknown> = { updated_at: nowIso() };
       if (patch.last_error !== undefined) {
         update.last_error = patch.last_error;
         update.last_error_at = patch.last_error ? nowIso() : null;
+      }
+      if (patch.cursor !== undefined) {
+        update.cursor = patch.cursor;
       }
       if (patch.touch_synced_at) {
         update.last_synced_at = nowIso();
@@ -203,6 +211,72 @@ export function createCalendarSyncRepo(adapter: unknown, tenantId: string) {
         .eq("entry_id", entryId);
     },
 
+    /** Find a link by its remote event id (pull-back match by provider id). */
+    async getLinkByProviderEvent(
+      connectionId: string,
+      providerEventId: string
+    ): Promise<CalendarLink | null> {
+      const { data } = await links()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("connection_id", connectionId)
+        .eq("provider_event_id", providerEventId)
+        .maybeSingle();
+      return (data as CalendarLink | null) ?? null;
+    },
+
+    /** Remote event was deleted: flag the link, never touch the time entry. */
+    async markLinkRemoteDeleted(entryId: string): Promise<void> {
+      await links()
+        .update({
+          status: "remote_deleted",
+          last_error: null,
+          updated_at: nowIso(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("entry_id", entryId);
+    },
+
+    /**
+     * Re-stamp a link's fingerprint after a pull applied remote times, so the
+     * push side sees the entry as already-synced and doesn't echo it back.
+     */
+    async setLinkSyncHash(
+      entryId: string,
+      syncHash: string,
+      etag: string | null
+    ): Promise<void> {
+      await links()
+        .update({
+          sync_hash: syncHash,
+          etag,
+          status: "linked",
+          last_error: null,
+          last_synced_at: nowIso(),
+          updated_at: nowIso(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("entry_id", entryId);
+    },
+
+    /** Apply remote calendar times back onto the local time entry. */
+    async applyEntryTimes(
+      entryId: string,
+      times: { date: string; start_time: string; hours: number }
+    ): Promise<void> {
+      await supabase
+        .schema(SCHEMA)
+        .from("time_entries")
+        .update({
+          date: times.date,
+          start_time: `${times.start_time}:00`,
+          hours: times.hours,
+          updated_at: nowIso(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("id", entryId);
+    },
+
     async deleteLink(entryId: string): Promise<void> {
       await links().delete().eq("tenant_id", tenantId).eq("entry_id", entryId);
     },
@@ -213,7 +287,7 @@ export function createCalendarSyncRepo(adapter: unknown, tenantId: string) {
         .schema(SCHEMA)
         .from("time_entries")
         .select(
-          "id, scope_id, user_id, date, start_time, hours, notes, manual_project_title, manual_task_title"
+          "id, scope_id, user_id, date, start_time, hours, notes, manual_project_title, manual_task_title, updated_at"
         )
         .eq("tenant_id", tenantId)
         .eq("id", entryId)
@@ -233,6 +307,7 @@ export function createCalendarSyncRepo(adapter: unknown, tenantId: string) {
         manual_project_title:
           (row.manual_project_title as string | null) ?? null,
         manual_task_title: (row.manual_task_title as string | null) ?? null,
+        updated_at: (row.updated_at as string | null) ?? null,
       };
     },
 

@@ -354,5 +354,9 @@ export const calendarSyncRunResponseSchema = z.object({
   connections: z.number().int().nonnegative(),
   pushed: z.number().int().nonnegative(),
   deleted: z.number().int().nonnegative(),
+  // Phase 3 pull-back: entries updated from remote, and links flagged
+  // remote_deleted, during the reconcile pass.
+  pulled: z.number().int().nonnegative(),
+  unlinked: z.number().int().nonnegative(),
   errors: z.number().int().nonnegative(),
 });

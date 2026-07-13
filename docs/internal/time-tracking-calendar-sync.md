@@ -15,16 +15,22 @@ on `feat/calendar-sync-two-way` since 2026-07-13.
 
 ## Remaining work (this branch)
 
-- [ ] **Phase 3 — pull-back (two-way sync)**
-  - [ ] gcal connector: `list_events` accepts/returns `sync_token`
-        (+ `updated_min` fallback); expiry → null-reset re-list
-  - [ ] extend `syncConnection`: incremental pull per synced connection,
-        cursor in `calendar_sync_state.cursor`
-  - [ ] match on `provider_event_id` (fallback: stamped entry UUID);
-        conflict rule `updated_at` vs event `updated`, newer wins;
-        loop prevention via `sync_hash`
-  - [ ] remote delete → `link.status = 'remote_deleted'` (never delete entry)
-  - [ ] guardrail: pull-back only touches entries with an existing link
+- [x] **Phase 3 — pull-back (two-way sync)** — implemented 2026-07-13
+  - [x] gcal connector: `list_events` accepts `sync_token` + `return_sync_token`,
+        returns `next_sync_token`; 410 → `sync_token_expired` → full-window
+        re-list; drains pages (cap `MAX_SYNC_PAGES`); event `updated` exposed
+  - [x] new `pullConnection` in `calendar-sync-service.ts`: incremental pull
+        per synced connection, cursor in `calendar_sync_state.cursor`
+        (first pull / expiry seeds from a full window)
+  - [x] match on `provider_event_id`; conflict rule `updated_at` vs event
+        `updated`, newer wins; loop prevention via `sync_hash` re-stamp
+  - [x] remote `cancelled` → `link.status = 'remote_deleted'` (entry kept)
+  - [x] guardrail: foreign events (no link) never create entries; all-day /
+        zero-duration events skipped
+  - [x] reconcile op `time_tracking_calendar_sync_run` pulls Google
+        connections (Outlook has no delta feed) before pushing; response gains
+        `pulled` / `unlinked`
+  - No new migration — Phase 2's `calendar_sync_state.cursor` column reused.
 - [ ] **Phase 4 — settings page + company calendars**
   - [ ] dedicated settings surface (route or settings-area section)
   - [ ] `time-tracking.calendar.company_overlays` tenant default + admin UI

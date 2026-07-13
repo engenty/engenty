@@ -313,6 +313,212 @@ export async function syncConnection(
   return summary;
 }
 
+// --- Phase 3: pull-back (remote calendar → time entries) ---
+
+// Window used to seed the very first pull (no cursor yet) and to re-list after
+// a syncToken expires. Mirrors the push backfill horizon.
+const PULL_PAST_DAYS = 30;
+const PULL_FUTURE_DAYS = 90;
+const PULL_MAX_PER_PAGE = 250;
+
+interface PulledEvent {
+  all_day?: boolean;
+  end?: string | null;
+  event_id: string;
+  start?: string | null;
+  status?: string | null;
+  updated?: string | null;
+}
+
+interface ListEventsResult {
+  events?: PulledEvent[];
+  next_sync_token?: string | null;
+  sync_token_expired?: boolean;
+}
+
+export interface ConnectionPullSummary {
+  connectionId: string;
+  errors: number;
+  pulled: number;
+  unlinked: number;
+}
+
+/** RFC3339 → local wall-clock date + HH:MM (the pre-offset portion). */
+function localDateTimeParts(
+  iso: string | null | undefined
+): { date: string; hhmm: string } | null {
+  if (!iso) {
+    return null;
+  }
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  return m ? { date: m[1], hhmm: `${m[2]}:${m[3]}` } : null;
+}
+
+/**
+ * Derive entry times from a remote timed event. All-day events and events we
+ * can't parse a positive duration for are skipped (never pulled back).
+ */
+function eventToEntryTimes(
+  event: PulledEvent
+): { date: string; start_time: string; hours: number } | null {
+  if (event.all_day || !(event.start && event.end)) {
+    return null;
+  }
+  const parts = localDateTimeParts(event.start);
+  if (!parts) {
+    return null;
+  }
+  const startMs = Date.parse(event.start);
+  const endMs = Date.parse(event.end);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+    return null;
+  }
+  const hours = Math.round(((endMs - startMs) / 3_600_000) * 100) / 100;
+  return { date: parts.date, start_time: parts.hhmm, hours };
+}
+
+async function listCalendarChanges(
+  deps: CalendarSyncDeps,
+  actor: CalendarSyncActor,
+  params: { tenantId: string; state: CalendarSyncState }
+): Promise<ListEventsResult> {
+  const { state } = params;
+  const call = (input: Record<string, unknown>) =>
+    deps.connectionsClient.callAction({
+      connectionId: state.connection_id,
+      actionId: "list_events",
+      input: { calendar_id: state.target_calendar_id, ...input },
+      isAutonomous: actor.isAutonomous,
+      principal: actor.principal,
+      tenantId: params.tenantId,
+    }) as Promise<ListEventsResult>;
+
+  const fullWindow = () => {
+    const today = new Date();
+    return {
+      return_sync_token: true,
+      max_results: PULL_MAX_PER_PAGE,
+      time_min: `${format(addDays(today, -PULL_PAST_DAYS), "yyyy-MM-dd")}T00:00:00Z`,
+      time_max: `${format(addDays(today, PULL_FUTURE_DAYS), "yyyy-MM-dd")}T00:00:00Z`,
+    };
+  };
+
+  if (!state.cursor) {
+    return call(fullWindow());
+  }
+  const incremental = await call({
+    sync_token: state.cursor,
+    max_results: PULL_MAX_PER_PAGE,
+  });
+  // Expired token → re-seed with a full window list.
+  if (incremental.sync_token_expired) {
+    return call(fullWindow());
+  }
+  return incremental;
+}
+
+/**
+ * Pull remote calendar changes back onto linked time entries (Phase 3,
+ * Google-only). Guardrails: only events with an existing link are touched —
+ * foreign events never create entries; remote deletes flag the link but never
+ * delete tracked hours; newer-wins by comparing the entry's `updated_at` with
+ * the event's `updated`; our own echoes are skipped via the sync-hash.
+ */
+export async function pullConnection(
+  deps: CalendarSyncDeps,
+  actor: CalendarSyncActor,
+  params: { tenantId: string; state: CalendarSyncState }
+): Promise<ConnectionPullSummary> {
+  const repo = createCalendarSyncRepo(deps.supabase, params.tenantId);
+  const summary: ConnectionPullSummary = {
+    connectionId: params.state.connection_id,
+    pulled: 0,
+    unlinked: 0,
+    errors: 0,
+  };
+  if (!params.state.target_calendar_id) {
+    return summary;
+  }
+
+  let result: ListEventsResult;
+  try {
+    result = await listCalendarChanges(deps, actor, params);
+  } catch (error) {
+    summary.errors += 1;
+    await repo.recordSyncResult(params.state.connection_id, {
+      last_error: errorMessage(error),
+    });
+    return summary;
+  }
+
+  for (const event of result.events ?? []) {
+    try {
+      const link = await repo.getLinkByProviderEvent(
+        params.state.connection_id,
+        event.event_id
+      );
+      // Guardrail: foreign events (no link) never become time entries.
+      if (!link) {
+        continue;
+      }
+
+      // Remote deletion (or cancellation): flag the link, keep the entry.
+      if (event.status === "cancelled") {
+        if (link.status !== "remote_deleted") {
+          await repo.markLinkRemoteDeleted(link.entry_id);
+          summary.unlinked += 1;
+        }
+        continue;
+      }
+
+      const times = eventToEntryTimes(event);
+      if (!times) {
+        continue;
+      }
+      const entry = await repo.getEntryRow(link.entry_id);
+      if (!entry) {
+        // Entry gone — the push side reconciles the orphaned event.
+        continue;
+      }
+
+      const merged: SyncEntryRow = { ...entry, ...times };
+      const hash = syncHash(
+        merged,
+        buildTitle(entry),
+        params.state.target_calendar_id
+      );
+      // Loop prevention: the remote state equals what we last pushed → our own
+      // write echoed back, nothing to do.
+      if (link.sync_hash === hash) {
+        continue;
+      }
+      // Conflict rule: newer wins. If the local entry is at least as fresh as
+      // the event, leave it — the push side re-asserts local state.
+      if (
+        event.updated &&
+        entry.updated_at &&
+        Date.parse(event.updated) <= Date.parse(entry.updated_at)
+      ) {
+        continue;
+      }
+
+      await repo.applyEntryTimes(link.entry_id, times);
+      // Re-stamp so the push side treats the entry as already-synced.
+      await repo.setLinkSyncHash(link.entry_id, hash, link.etag);
+      summary.pulled += 1;
+    } catch {
+      summary.errors += 1;
+    }
+  }
+
+  await repo.recordSyncResult(params.state.connection_id, {
+    cursor: result.next_sync_token ?? null,
+    touch_synced_at: true,
+    last_error: summary.errors > 0 ? `${summary.errors} pull error(s)` : null,
+  });
+  return summary;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown_error";
 }
