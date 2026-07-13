@@ -3,6 +3,7 @@ import path from "node:path";
 import { unregisterAiRegistration } from "@engenty/ai-core";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
+import { createPackagesDal } from "../../../dal/packages.js";
 import {
   createTenantPluginOverridesDal,
   type TenantPluginOverridesDal,
@@ -173,10 +174,30 @@ export function registerPluginAdminRoutes(params: {
   logger: NonNullable<LoadPluginsParams["logger"]>;
   resolvePath: (path: string) => string;
   tenantPluginOverrides?: TenantPluginOverridesDal;
+  /**
+   * Resolve a tenant's licensed module allow-list (from its commercial
+   * package). `null` = no restriction. Injectable for tests; defaults to the
+   * packages DAL and fails open (returns null) so a resolution error never
+   * blocks activation.
+   */
+  resolvePackageAllowedModules?: (tenantId: string) => Promise<string[] | null>;
 }) {
   const tenantOverridesDal =
     params.tenantPluginOverrides ??
     createTenantPluginOverridesDal(params.config);
+
+  const resolvePackageAllowedModules =
+    params.resolvePackageAllowedModules ??
+    (async (tenantId: string) => {
+      try {
+        const resolved = await createPackagesDal(
+          params.config
+        ).getResolvedEntitlements(tenantId);
+        return resolved.modules;
+      } catch {
+        return null; // fail open: never block activation on a resolution error
+      }
+    });
 
   const executePackageLifecycleRoute = async (
     c: Context,
@@ -646,6 +667,8 @@ export function registerPluginAdminRoutes(params: {
 
     if (tenantId) {
       const overrides = await tenantOverridesDal.getOverrides(tenantId);
+      const packageAllowedModules =
+        await resolvePackageAllowedModules(tenantId);
       const effectiveState = resolvePluginEffectiveState({
         capability: `plugin.${plugin.id}`,
         contributionKind: "ui_contribution",
@@ -656,6 +679,7 @@ export function registerPluginAdminRoutes(params: {
           ...overrides,
           [plugin.id]: true,
         },
+        packageAllowedModules,
       });
       if (!effectiveState.allowed) {
         const lifecycle = await recordPluginLifecycleAudit({

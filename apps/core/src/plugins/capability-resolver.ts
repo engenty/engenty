@@ -8,6 +8,7 @@ export type PluginCapabilityBlockedReason =
   | "plugin_not_loaded"
   | "plugin_globally_disabled"
   | "plugin_tenant_disabled"
+  | "package_module_not_licensed"
   | "dependency_missing"
   | "dependency_disabled"
   | "capability_not_registered"
@@ -53,6 +54,12 @@ export type PluginCapabilityResolution =
 export interface ResolvePluginCapabilityParams {
   capability: string;
   contributionKind: PluginContributionKind;
+  /**
+   * Commercial-package module allow-list for the tenant. `null`/`undefined`
+   * means no package restriction (every module licensed); an array licenses
+   * only the listed module ids. Mandatory/core modules are always exempt.
+   */
+  packageAllowedModules?: string[] | null;
   pluginId: string;
   principal?: PrincipalContext;
   registeredCapabilities?: Iterable<string>;
@@ -131,6 +138,22 @@ function isTenantDisabled(
   tenantPluginOverrides: Record<string, boolean> | undefined
 ): boolean {
   return tenantPluginOverrides?.[pluginId] === false;
+}
+
+/**
+ * True when the module is licensed by the tenant's commercial package. A
+ * `null`/`undefined` allow-list (no package restriction) or a mandatory/core
+ * module is always licensed; otherwise the module id must be in the allow-list.
+ */
+function isModuleLicensed(
+  pluginId: string,
+  mandatory: boolean,
+  packageAllowedModules: string[] | null | undefined
+): boolean {
+  if (packageAllowedModules == null || mandatory) {
+    return true;
+  }
+  return packageAllowedModules.includes(pluginId);
 }
 
 function stateName(params: {
@@ -250,6 +273,25 @@ export function resolvePluginEffectiveState(
     );
   }
 
+  const moduleLicensed = isModuleLicensed(
+    plugin.id,
+    Boolean(mandatoryDeclaration),
+    params.packageAllowedModules
+  );
+  if (!moduleLicensed) {
+    blockedReasons.push("package_module_not_licensed");
+    diagnostics.push(
+      diagnostic({
+        code: "plugin.capability.package_module_not_licensed",
+        message: `Module is not licensed by the tenant's package: ${plugin.id}`,
+        plugin,
+        pluginId: plugin.id,
+        remediation:
+          "Assign a commercial package that includes this module, or add it to the tenant's entitlement override.",
+      })
+    );
+  }
+
   for (const dependency of requiredDependencies(plugin)) {
     const dependencyPlugin = findDependencyPlugin(params.registry, dependency);
     if (!dependencyPlugin) {
@@ -328,6 +370,7 @@ export function resolvePluginEffectiveState(
     loaded &&
     globallyEnabled &&
     tenantEnabled &&
+    moduleLicensed &&
     dependencySatisfied &&
     capabilityAvailable;
 
@@ -349,14 +392,16 @@ export function resolvePluginEffectiveState(
     pluginId: plugin.id,
     state: allowed
       ? "capability_enabled"
-      : stateName({
-          capabilityAvailable,
-          dependencySatisfied,
-          globallyEnabled,
-          installed: true,
-          loaded,
-          tenantEnabled,
-        }),
+      : moduleLicensed
+        ? stateName({
+            capabilityAvailable,
+            dependencySatisfied,
+            globallyEnabled,
+            installed: true,
+            loaded,
+            tenantEnabled,
+          })
+        : "blocked",
     tenantEnabled,
   };
 }

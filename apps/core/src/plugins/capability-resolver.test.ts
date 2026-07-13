@@ -112,3 +112,45 @@ describe("resolvePluginEffectiveState", () => {
     });
   });
 });
+
+describe("resolvePluginEffectiveState — package module licensing", () => {
+  it("allows any module when the package allow-list is null (no restriction)", () => {
+    const state = resolvePluginEffectiveState({
+      capability: "plugin.invoices",
+      contributionKind: "ui_contribution",
+      pluginId: "invoices",
+      registry: registry([plugin("invoices")]),
+      tenantPluginOverrides: {},
+      packageAllowedModules: null,
+    });
+    expect(state.allowed).toBe(true);
+    expect(state.blockedReasons).not.toContain("package_module_not_licensed");
+  });
+
+  it("blocks a module absent from the package allow-list", () => {
+    const state = resolvePluginEffectiveState({
+      capability: "plugin.invoices",
+      contributionKind: "ui_contribution",
+      pluginId: "invoices",
+      registry: registry([plugin("invoices")]),
+      tenantPluginOverrides: {},
+      packageAllowedModules: ["contacts", "tasks"],
+    });
+    expect(state.allowed).toBe(false);
+    expect(state.blockedReasons).toContain("package_module_not_licensed");
+    expect(state.state).toBe("blocked");
+  });
+
+  it("permits a module present in the package allow-list", () => {
+    const state = resolvePluginEffectiveState({
+      capability: "plugin.contacts",
+      contributionKind: "ui_contribution",
+      pluginId: "contacts",
+      registry: registry([plugin("contacts")]),
+      tenantPluginOverrides: {},
+      packageAllowedModules: ["contacts", "tasks"],
+    });
+    expect(state.allowed).toBe(true);
+    expect(state.blockedReasons).not.toContain("package_module_not_licensed");
+  });
+});
