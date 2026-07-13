@@ -30,11 +30,15 @@ on `feat/calendar-sync-two-way` since 2026-07-13.
   - [ ] `time-tracking.calendar.company_overlays` tenant default + admin UI
   - [ ] overlay picker grouped Personal / Company
   - [ ] team view: overlays stay viewer-scoped
+  - [ ] enable-sync prompt: **All vs All-future** → `calendar_sync_state.backfill_from`
+        (migration: add nullable `backfill_from date`); backfill + reconcile
+        skip entries with `date < backfill_from` (decision 2 below)
 - [ ] **Outlook parity (carried over from Phase 1)**
   - [ ] `list_calendars` action + `calendar_id` param on Outlook event
         actions (Graph `/me/calendars/{id}/calendarView`); until then
         Outlook is primary-calendar-only and push-only
-- [ ] Resolve the 4 open questions below before Phase 4 UI work.
+
+Open product questions resolved 2026-07-13 — see **Decisions (resolved)** below.
 **Prerequisites (all shipped):** connections framework + multi-account
 (`docs/wip/connections-framework.md`, `connections-multi-account-groundwork.md`),
 inbox sync pattern (`docs/wip/inbox-module.md`), time-tracking calendar UI with
@@ -226,16 +230,21 @@ calendars pre-checked for everyone (admin-managed).
    stay **viewer-scoped** (you see *your* calendars, or none) — never another
    user's personal calendar.
 
-## Open questions (user)
+## Decisions (resolved 2026-07-13)
 
-1. Overlay in day/3-day/week only, or also a dot/strip in the table view?
-   (Assume calendar view only.)
-2. Push scope: sync **all** scheduled entries of a user, or opt-in per entry?
-   (Plan assumes all-with-start_time once enabled.)
-3. Outlook parity in v1 or Google-first? (Plan: overlay+push both providers,
-   pull-back Google-first.)
-4. Should deleting a *linked calendar event* in the UI offer "delete remote
-   event too"? (Plan: yes via the reconcile delete, subject to consent.)
+1. **Overlay scope:** calendar view only (day / 3-day / week). **No** dot/strip
+   in the table view.
+2. **Push scope:** sync **all** scheduled entries once enabled — but at
+   enable-time **ask the user "All" vs "All future only"** (a boundary date;
+   "All future" only pushes entries with `date >= today`, older entries are
+   left unlinked). Store the choice on `calendar_sync_state` (e.g.
+   `backfill_from` date, null = all). Backfill + reconcile honor it.
+3. **Provider parity:** as planned — overlay + push for **both** Google and
+   Outlook; pull-back (Phase 3) **Google-first**, Outlook pull-back deferred
+   until Graph delta lands.
+4. **Delete linked event:** as planned — deleting a linked calendar event in
+   the UI offers "delete remote event too", executed via the reconcile delete
+   path, subject to the connection consent posture (`destructive` → `ask`).
 
 ## Effort sketch
 
