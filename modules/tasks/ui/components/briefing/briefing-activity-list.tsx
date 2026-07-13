@@ -39,11 +39,11 @@ export function BriefingActivityList({
         {title}
       </h3>
       {items.length === 0 ? (
-        <div className="rounded-lg border border-border p-4">
+        <div className="ui-canvas-panel rounded-lg bg-card p-4">
           <p className="text-muted-foreground text-sm">{emptyLabel}</p>
         </div>
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        <div className="ui-canvas-elevated divide-y divide-border overflow-hidden rounded-lg bg-card">
           {items.map(({ activity, task_identifier, task_title }) => {
             const actor = resolveActivityActor(activity, undefined, t);
             const message = buildActivityMessage(activity, {

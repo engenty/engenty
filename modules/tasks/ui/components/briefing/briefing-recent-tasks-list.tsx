@@ -28,11 +28,11 @@ export function BriefingRecentTasksList({
         {title}
       </h3>
       {tasks.length === 0 ? (
-        <div className="rounded-lg border border-border p-4">
+        <div className="ui-canvas-panel rounded-lg bg-card p-4">
           <p className="text-muted-foreground text-sm">{emptyLabel}</p>
         </div>
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        <div className="ui-canvas-elevated divide-y divide-border overflow-hidden rounded-lg bg-card">
           {tasks.map((task) => (
             <Link
               className="block px-4 py-3 text-sm transition-colors hover:bg-accent/50"

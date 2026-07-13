@@ -78,7 +78,7 @@ export function InboxList({
         return (
           <li
             className={cn(
-              "flex items-start gap-3 rounded-lg border p-3",
+              "ui-canvas-raised flex items-start gap-3 rounded-md p-3",
               unseen ? "bg-card" : "bg-muted/30"
             )}
             key={notification.id}

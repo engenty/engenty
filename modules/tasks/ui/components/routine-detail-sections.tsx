@@ -26,7 +26,7 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
           <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
             {t("routines.detail.agent")}
           </h4>
-          <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
+          <div className="ui-canvas-panel flex items-center justify-between rounded-lg bg-card p-3 text-sm">
             <span className="min-w-0 font-medium font-mono text-foreground">
               {routine.agent_id}
             </span>
@@ -49,7 +49,7 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
           <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
             {t("routines.detail.lastExecution")}
           </h4>
-          <div className="space-y-2.5 rounded-lg border bg-card p-4">
+          <div className="ui-canvas-panel space-y-2.5 rounded-lg bg-card p-4">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
                 {routine.last_run_at

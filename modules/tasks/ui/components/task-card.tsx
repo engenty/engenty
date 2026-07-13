@@ -145,9 +145,10 @@ export function TaskCard({
     <>
       <div
         className={cn(
-          "relative flex select-none items-center gap-4 rounded-lg border bg-card p-3",
+          "ui-canvas-raised relative flex select-none items-center gap-4 rounded-md bg-card p-3",
           showActions ? "pr-20" : "pr-4",
-          onClick && "cursor-pointer transition-colors hover:border-primary/50"
+          onClick &&
+            "cursor-pointer transition-shadow hover:shadow-[var(--e-3)]"
         )}
         onClick={handleCardClick}
         onKeyDown={(e) => {
