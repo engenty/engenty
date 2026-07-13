@@ -4,6 +4,28 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.14] - 2026-07-13
+- ADDED **[ai-ui]** Shared WorkspaceArtifactPane — tasks detail gets the artifact split
+- ADDED **[ai-ui]** Expand control on the artifact pane
+- ADDED **[app-shell]** Workspace end-pane slot — artifact pane spans full workspace height
+- ADDED **[ai-ui]** Artifact pane + pane primitives — copilot chat split view
+- ADDED **[projects]** Collapsible time plan, zoom slider fix, add-member link
+- ADDED **[ui-core]** DocSidebar — responsive document sidebar; adopt on task detail
+- CHANGED **[tasks]** Card surfaces on ui-canvas classes per DESIGN.md
+- DOCS **[artifacts]** Implementation guide for phases A+B with outcome-test plan
+- DOCS **[artifacts]** Files-sdk as storage adapter layer, connections as credential layer
+- DOCS Artifacts backend & lifecycle spec (wip)
+- DOCS Record workspace end-pane layout decision
+- DOCS Phase 2 foundation status in app-shell unification doc
+- DOCS Phase 1 status in app-shell unification doc
+- DOCS **[release]** Uppercase change groups, bold module scopes
+- DOCS App shell unification concept (wip)
+- FIXED **[app-shell]** Narrow compact sidebar rail to 48px and stop menu-open shift
+- FIXED **[app-shell]** Expanded end pane stays within the workspace row
+- FIXED **[engenty-copilot]** Topbar action order — CTA, menu, pane toggle
+- FIXED **[release]** Raise git-cliff maxBuffer to avoid ENOBUFS
+- OTHER Migrate HR & employment module into pro (closed) (#14)
+
 ## [0.1.13] - 2026-07-13
 - ADDED **[ai-ui]** Richer transcript rows for external connector tools
 - ADDED **[browser-bridge]** Agent-controlled browser window via companion extension
