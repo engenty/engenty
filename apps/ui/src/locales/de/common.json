@@ -528,6 +528,15 @@
   },
   "copilot": {
     "title": "Globaler Copilot",
+    "attachments": {
+      "add": "Fotos oder Dateien hinzufügen",
+      "uploading": "Anhänge werden hochgeladen…",
+      "uploadFailed": "Upload fehlgeschlagen. Bitte erneut versuchen.",
+      "unavailable": "Anhänge sind derzeit nicht verfügbar.",
+      "tooMany": "Zu viele Dateien. Einige wurden nicht hinzugefügt.",
+      "tooLarge": "Datei ist zu groß (max. 25 MB).",
+      "rejected": "Dieser Dateityp wird nicht unterstützt."
+    },
     "agentChooser": {
       "emptySessions": "Keine Sitzungen",
       "generalCopilot": "Engenty",

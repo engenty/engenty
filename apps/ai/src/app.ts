@@ -445,6 +445,7 @@ export async function createApp(options: CreateAppOptions = {}) {
         moduleLoader: moduleCapabilityLoader,
         tenantId: scope.tenantId,
       }),
+    coreBaseUrl: options.coreBaseUrl,
     debugEvents: agUiDebugEvents,
     getRunStore: () => agentRunStore,
     getStore: () => agentSessionStore ?? null,

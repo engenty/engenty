@@ -27,8 +27,10 @@ import {
   useRef,
   useState,
 } from "react";
+import type { SubmitMessageOptions } from "../../agent-provider/types.js";
 import { pendingInterruptFromTranscript } from "../../components/copilot/interrupts/pending-interrupt-from-transcript.js";
 import { useAutoResolveFrontendTool } from "../../copilot/use-auto-resolve-frontend-tool.js";
+import type { ChatAttachmentPart } from "../../lib/chat-attachment-part.js";
 import { cancelAiRun } from "../../lib/runtime/runs-api.js";
 import type { EngentyThreadsRealtimeClient } from "../../threads/engenty-threads-realtime.js";
 import { logCopilotChatNew } from "../chat-new-debug.js";
@@ -110,11 +112,18 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
   transportBlocker: "scope" | "ai_base_url" | null;
 }
 
-function createUserMessage(text: string): EngentyAgUiMessage {
+function createUserMessage(
+  text: string,
+  attachments: readonly ChatAttachmentPart[] = []
+): EngentyAgUiMessage {
+  const content = [
+    ...(text ? [{ type: "text" as const, text }] : []),
+    ...attachments,
+  ];
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `user-${Date.now()}`,
     role: "user",
-    content: [{ type: "text", text }],
+    content: content as EngentyAgUiMessage["content"],
   };
 }
 
@@ -762,9 +771,10 @@ export function useEngentyAgUiAppsAiSession(
   );
 
   const submitMessage = useCallback(
-    async (text: string) => {
+    async (text: string, opts?: SubmitMessageOptions) => {
       const trimmed = text.trim();
-      if (!trimmed || submitInFlightRef.current) {
+      const attachments = opts?.attachments ?? [];
+      if ((!trimmed && attachments.length === 0) || submitInFlightRef.current) {
         return;
       }
       if (!options.isTransportReady) {
@@ -787,7 +797,7 @@ export function useEngentyAgUiAppsAiSession(
       abortRef.current = abortController;
 
       let threadId = resolveActiveSessionId();
-      const userMessage = createUserMessage(trimmed);
+      const userMessage = createUserMessage(trimmed, attachments);
       logCopilotChatNew("pendingSend set", {
         textLen: trimmed.length,
         transcriptInsertIndex: messagesRef.current.length,
@@ -1036,8 +1046,8 @@ export function useEngentyAgUiAppsAiSession(
   }, [clearPendingSend, options.threadId]);
 
   const submitMessageSync = useCallback(
-    (text: string) => {
-      void submitMessage(text);
+    (text: string, opts?: SubmitMessageOptions) => {
+      void submitMessage(text, opts);
     },
     [submitMessage]
   );

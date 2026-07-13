@@ -4,6 +4,7 @@ import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import { Button, cn, useBlobCharacterCycle } from "@engenty/ui-core";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import { PromptInputProvider } from "../../ai-elements/prompt-input";
 import { CopilotCompactComposerShell } from "../composer/copilot-compact-composer-shell";
@@ -63,10 +64,7 @@ export function CopilotPanelComposerBlock({
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";
   threadId?: string | null;
-  submitMessage: (
-    text: string,
-    options?: { requestedAgentId?: string }
-  ) => void;
+  submitMessage: SubmitMessage;
   transcribeAudio?: TranscribeSpeechAudio;
   voiceInputEnabled?: boolean;
   voiceInputLang?: string;

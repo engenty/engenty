@@ -3,22 +3,31 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, DropdownMenuSeparator } from "@engenty/ui-core";
 import { AnimatedSendIcon } from "@engenty/ui-icons";
-import { MessageSquarePlus, Mic, MicOff, XIcon } from "lucide-react";
+import { ImageIcon, MessageSquarePlus, Mic, MicOff, XIcon } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
+import type { SubmitMessage } from "../../../agent-provider/types.js";
 import {
   resolveCopilotSpeechScopeRoot,
   useCopilotVoiceInputHotkey,
 } from "../../../lib/speech/use-copilot-voice-input-hotkey.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import {
+  CHAT_ATTACHMENT_MAX_BYTES,
+  CHAT_ATTACHMENT_MAX_FILES,
+  uploadChatAttachmentParts,
+} from "../../../lib/upload-chat-attachment.js";
+import {
   PromptInput,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
   PromptInputActionMenuItem,
   PromptInputActionMenuTrigger,
+  PromptInputAttachments,
   PromptInputBody,
   PromptInputFooter,
+  type PromptInputMessage,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -53,10 +62,7 @@ export interface CopilotComposerSectionProps {
   showStarterPrompts: boolean;
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";
-  submitMessage: (
-    text: string,
-    options?: { requestedAgentId?: string }
-  ) => void;
+  submitMessage: SubmitMessage;
   transcribeAudio?: TranscribeSpeechAudio;
   voiceInputEnabled?: boolean;
   /** Toggle voice input with Mod+. in the copilot (default on). */
@@ -92,6 +98,10 @@ export function CopilotComposerSection({
   const { t } = useTranslation("common");
   const attachments = usePromptInputAttachments();
   const controller = usePromptInputController();
+  const aiContext = useContext(EngentyAIContext);
+  const tenantId = aiContext?.tenantId ?? null;
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   useEffect(() => {
     controller.textInput.setInput(draft);
   }, [draft, controller.textInput]);
@@ -154,9 +164,23 @@ export function CopilotComposerSection({
   const handleAddAttachments = useCallback(
     (event: Event) => {
       event.preventDefault();
+      setAttachmentError(null);
       attachments.openFileDialog();
     },
     [attachments]
+  );
+
+  const handleAttachmentError = useCallback(
+    (err: { code: "max_files" | "max_file_size" | "accept" }) => {
+      if (err.code === "max_files") {
+        setAttachmentError(t("copilot.attachments.tooMany"));
+      } else if (err.code === "max_file_size") {
+        setAttachmentError(t("copilot.attachments.tooLarge"));
+      } else {
+        setAttachmentError(t("copilot.attachments.rejected"));
+      }
+    },
+    [t]
   );
 
   const handleNewChatSelect = useCallback(
@@ -168,26 +192,48 @@ export function CopilotComposerSection({
   );
 
   const handleSubmit = useCallback(
-    (message: { text: string; files: unknown[] }) => {
-      let text = message.text?.trim();
-      if (!text) {
+    async (message: PromptInputMessage) => {
+      let text = message.text?.trim() ?? "";
+      const files = message.files ?? [];
+      if (!text && files.length === 0) {
         return;
       }
       const resolved = mention.resolveSubmitAgentOverride(text);
       text = resolved.text;
-      if (!text) {
+      if (!text && files.length === 0) {
         return;
       }
-      submitMessage(
-        text,
-        resolved.requestedAgentId
+
+      let attachments: Awaited<ReturnType<typeof uploadChatAttachmentParts>> =
+        [];
+      if (files.length > 0) {
+        if (!tenantId) {
+          setAttachmentError(t("copilot.attachments.unavailable"));
+          // Throw so PromptInput keeps the draft + attachments for a retry.
+          throw new Error("chat_attachment_tenant_unavailable");
+        }
+        setAttachmentError(null);
+        setIsUploadingAttachments(true);
+        try {
+          attachments = await uploadChatAttachmentParts({ files, tenantId });
+        } catch {
+          setAttachmentError(t("copilot.attachments.uploadFailed"));
+          throw new Error("chat_attachment_upload_failed");
+        } finally {
+          setIsUploadingAttachments(false);
+        }
+      }
+
+      submitMessage(text, {
+        ...(resolved.requestedAgentId
           ? { requestedAgentId: resolved.requestedAgentId }
-          : undefined
-      );
+          : {}),
+        ...(attachments.length > 0 ? { attachments } : {}),
+      });
       setDraft("");
       mention.clearMentionOnSubmit();
     },
-    [mention, setDraft, submitMessage]
+    [mention, setDraft, submitMessage, t, tenantId]
   );
 
   const handleSilenceAutoSend = useCallback(
@@ -248,14 +294,16 @@ export function CopilotComposerSection({
   }, [compact, mention.mentionComposerWrapRef, onMultilineChange]);
 
   const isGenerating = status === "submitted" || status === "streaming";
-  // Empty draft: the action button becomes the voice trigger; typing turns it
-  // into send. While listening it stays a stop-voice control even as the
-  // transcript fills the draft.
+  // Empty draft: the action button becomes the voice trigger; typing (or adding
+  // an attachment) turns it into send. While listening it stays a stop-voice
+  // control even as the transcript fills the draft.
   const showVoiceButton =
     voiceInputEnabled !== false &&
     speech.isSupported &&
     status === "ready" &&
-    (speech.isListening || speech.isProcessing || draft.trim().length === 0);
+    (speech.isListening ||
+      speech.isProcessing ||
+      (draft.trim().length === 0 && attachments.files.length === 0));
 
   const submitIcon =
     status === "error" ? (
@@ -273,6 +321,32 @@ export function CopilotComposerSection({
       stopLabel={t("copilot.voiceInput.stop")}
     />
   );
+
+  // Shared across both layouts: chips row + upload/error status line. Renders
+  // inside PromptInputProvider so it can read the live attachment state.
+  const attachmentsPreview = (
+    <>
+      <PromptInputAttachments />
+      {isUploadingAttachments || attachmentError ? (
+        <div
+          className={cn(
+            "px-1 pt-1 text-xs",
+            attachmentError ? "text-destructive" : "text-muted-foreground"
+          )}
+        >
+          {attachmentError ?? t("copilot.attachments.uploading")}
+        </div>
+      ) : null}
+    </>
+  );
+
+  // Any file type is accepted — non-model files still land in the Vault.
+  const attachmentInputProps = {
+    maxFileSize: CHAT_ATTACHMENT_MAX_BYTES,
+    maxFiles: CHAT_ATTACHMENT_MAX_FILES,
+    multiple: true,
+    onError: handleAttachmentError,
+  } as const;
 
   if (composerOverride) {
     return (
@@ -306,7 +380,7 @@ export function CopilotComposerSection({
             </>
           ) : null}
           <PromptInputActionMenuItem onSelect={handleAddAttachments}>
-            Add photos or files
+            {t("copilot.attachments.add")}
           </PromptInputActionMenuItem>
           <PromptInputActionMenuItem disabled>
             Add current page
@@ -379,7 +453,9 @@ export function CopilotComposerSection({
           className="h-auto bg-transparent dark:bg-transparent"
           onSubmit={handleSubmit}
           plain
+          {...attachmentInputProps}
         >
+          {attachmentsPreview}
           {singleRow ? (
             <PromptInputBody>
               {/* Single line: clear the grip overlay (pr-7). Multiline: the
@@ -468,7 +544,8 @@ export function CopilotComposerSection({
           </div>
         </div>
       )}
-      <PromptInput onSubmit={handleSubmit}>
+      <PromptInput onSubmit={handleSubmit} {...attachmentInputProps}>
+        {attachmentsPreview}
         <PromptInputBody>
           <PromptInputTextarea
             className="min-h-[88px]"
@@ -477,7 +554,23 @@ export function CopilotComposerSection({
           />
         </PromptInputBody>
         <PromptInputFooter className="pt-2">
-          <PromptInputTools>{speechControl}</PromptInputTools>
+          <PromptInputTools>
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger
+                aria-label={t("copilot.attachments.add")}
+                className="size-8 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                size="icon-sm"
+              >
+                <ImageIcon className="size-4" />
+              </PromptInputActionMenuTrigger>
+              <PromptInputActionMenuContent align="start" className="w-56">
+                <PromptInputActionMenuItem onSelect={handleAddAttachments}>
+                  {t("copilot.attachments.add")}
+                </PromptInputActionMenuItem>
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            {speechControl}
+          </PromptInputTools>
           <PromptInputSubmit
             className={
               isGenerating && onStop

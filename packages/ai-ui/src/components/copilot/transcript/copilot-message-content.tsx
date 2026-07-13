@@ -23,6 +23,7 @@ import { parseFeedbackResolution } from "../interrupts/feedback-artifact.js";
 import { ToolCallCard } from "../tool-call/tool-call-card";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
 import { GenericToolStep, WebSearchStep } from "./chain-of-thought-steps";
+import { CopilotAttachmentPreview } from "./copilot-attachment-preview.js";
 import {
   getToolDisplayLabel,
   getToolName,
@@ -350,6 +351,8 @@ export function CopilotMessageContent({
 
   return (
     <>
+      {msg.role === "user" ? <CopilotAttachmentPreview parts={parts} /> : null}
+
       {showChainOfThought ? (
         <ChainOfThought
           className="mb-1.5 w-full"

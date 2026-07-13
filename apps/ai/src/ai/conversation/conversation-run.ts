@@ -101,6 +101,14 @@ export interface StartConversationRunInput {
   // Operation ids the user already approved for this chat (Phase 3.2c). Threaded
   // into the engenty-tools run context so the execute-boundary gate skips them.
   approvalGrants?: readonly string[];
+  // Photo/file attachments on the user turn, already resolved to base64 by the
+  // run route. Forwarded to the model as multimodal input (`session.sendMessage`
+  // `files`); non-model MIME types are filtered out before they reach here.
+  attachments?: ReadonlyArray<{
+    data: string;
+    filename?: string;
+    mediaType: string;
+  }>;
   modelConfig?: RuntimeModelConfig | null;
   modelId?: string | null;
   prompt: string;
@@ -335,7 +343,12 @@ export async function startConversationRun(
     };
     const sendDone = engentyToolsRunAls
       .run(toolsRunContext, () =>
-        session.sendMessage({ content: input.prompt })
+        session.sendMessage({
+          content: input.prompt,
+          ...(input.attachments && input.attachments.length > 0
+            ? { files: [...input.attachments] }
+            : {}),
+        })
       )
       .catch((error: unknown) => {
         if (!runError) {

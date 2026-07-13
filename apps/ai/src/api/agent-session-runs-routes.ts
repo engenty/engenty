@@ -50,6 +50,7 @@ import {
 } from "../ai/sessions/tool-approval-grants.js";
 import { readDecisionResumeChoice } from "../ai/sessions/transcript.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
+import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type {
   AgentRunStore,
@@ -125,6 +126,107 @@ function latestUserText(input: RunAgentInput): string {
   return "";
 }
 
+interface UserAttachmentRef {
+  filename?: string;
+  mimeType: string;
+  storageKey: string;
+}
+
+// MIME types the model can actually ingest. Everything else still lives in the
+// Vault (referenced on the message) but is not fed into the multimodal input.
+export function isModelFeedableMime(mimeType: string): boolean {
+  return mimeType.startsWith("image/") || mimeType === "application/pdf";
+}
+
+// Attachment references carried on the latest user turn's `image`/`document`
+// content parts (see `@engenty/ai-ui` chat-attachment-part). The storage key is
+// resolved to bytes below; the parts themselves carry no base64.
+export function latestUserAttachments(
+  input: RunAgentInput
+): UserAttachmentRef[] {
+  const messages = Array.isArray(input.messages) ? input.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i] as { content?: unknown; role?: string };
+    if (message?.role !== "user") {
+      continue;
+    }
+    const content = message.content;
+    if (!Array.isArray(content)) {
+      return [];
+    }
+    const refs: UserAttachmentRef[] = [];
+    for (const part of content) {
+      if (!part || typeof part !== "object") {
+        continue;
+      }
+      const partType = (part as { type?: unknown }).type;
+      if (partType !== "image" && partType !== "document") {
+        continue;
+      }
+      const meta = (part as { metadata?: { engenty_attachment?: unknown } })
+        .metadata?.engenty_attachment as
+        | { filename?: unknown; mimeType?: unknown; storageKey?: unknown }
+        | undefined;
+      if (!meta || typeof meta.storageKey !== "string" || !meta.storageKey) {
+        continue;
+      }
+      refs.push({
+        filename: typeof meta.filename === "string" ? meta.filename : undefined,
+        mimeType: typeof meta.mimeType === "string" ? meta.mimeType : "",
+        storageKey: meta.storageKey,
+      });
+    }
+    return refs;
+  }
+  return [];
+}
+
+// Download + base64-encode the model-feedable attachments on the current turn so
+// they can be handed to `session.sendMessage({ files })`. Best-effort: a failed
+// download is logged and skipped rather than failing the whole run.
+async function resolveModelAttachments(params: {
+  coreBaseUrl?: string;
+  input: RunAgentInput;
+  userAccessToken?: string;
+}): Promise<Array<{ data: string; filename?: string; mediaType: string }>> {
+  const { coreBaseUrl, userAccessToken } = params;
+  if (!(coreBaseUrl && userAccessToken)) {
+    return [];
+  }
+  const refs = latestUserAttachments(params.input).filter((ref) =>
+    isModelFeedableMime(ref.mimeType)
+  );
+  if (refs.length === 0) {
+    return [];
+  }
+  const fileClient = createEngentyCoreFileStorageClient({
+    bucket: "files",
+    coreBaseUrl,
+    userAccessToken,
+  });
+  const resolved: Array<{
+    data: string;
+    filename?: string;
+    mediaType: string;
+  }> = [];
+  for (const ref of refs) {
+    try {
+      const bytes = await fileClient.download(ref.storageKey);
+      if (!bytes) {
+        continue;
+      }
+      resolved.push({
+        data: Buffer.from(bytes).toString("base64"),
+        mediaType: ref.mimeType,
+        ...(ref.filename ? { filename: ref.filename } : {}),
+      });
+    } catch (err) {
+      console.error("conversation attachment resolve failed", err);
+    }
+  }
+  return resolved;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -158,6 +260,8 @@ export function registerAgentSessionRunRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     createRegistry?: (scope: AiSessionScope) => AiRegistry;
+    /** Core service base URL — used to resolve chat attachment bytes for the model. */
+    coreBaseUrl?: string;
     getRunStore?: () => AgentRunStore | null;
     getStore?: () => AgentSessionStore | null;
     getUsageStore?: () => AiUsageStore | null;
@@ -487,9 +591,19 @@ export function registerAgentSessionRunRoutes(
       const hsConnectionGrants = await loadConnectionApprovalGrants({
         userAccessToken: scope.scope.userAccessToken,
       });
+      // Photo/PDF attachments on this turn → base64 for the model. An artifact
+      // resume carries no new user message, so there is nothing to resolve.
+      const hsAttachments = isArtifactResume
+        ? []
+        : await resolveModelAttachments({
+            coreBaseUrl: opts.coreBaseUrl,
+            input: body.data,
+            userAccessToken: scope.scope.userAccessToken,
+          });
       void startConversationRun({
         agentId: session.agent_id,
         agentUi: agentUi ?? null,
+        attachments: hsAttachments,
         approvalGrants: mergeApprovalGrants(
           hsApprovalGrants,
           hsConnectionGrants
