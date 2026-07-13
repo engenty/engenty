@@ -98,6 +98,7 @@ import { registerDeviceFlowRoutes } from "./routes/auth/device-flow-routes.js";
 import { registerCoreAiRemovedRoutes } from "./routes/core-ai-removed-routes.js";
 import { registerDashboardRoutes } from "./routes/dashboard/index.js";
 import { registerDesktopBootstrapRoutes } from "./routes/desktop-bootstrap-routes.js";
+import { registerEntitlementsRoutes } from "./routes/entitlements-routes.js";
 import { registerEvlogIngestRoutes } from "./routes/evlog-ingest-routes.js";
 import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
 import { registerFileStorageRoutes } from "./routes/file-storage-routes.js";
@@ -329,6 +330,7 @@ export function createApiApp(params: CreateApiAppParams) {
     registry: params.registry,
     config,
   });
+  registerEntitlementsRoutes({ app, config });
   const authStores = params.authStores ?? createAuthStores(config);
   // Revocation survives restarts: persisted revoked api-token ids re-enter the
   // in-memory revocation set used by verifyAccessToken.
