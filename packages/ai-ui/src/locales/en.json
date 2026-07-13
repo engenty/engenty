@@ -976,5 +976,12 @@
       "aiSettings": "AI settings",
       "operations": "Operations cockpit"
     }
+  },
+  "artifacts": {
+    "paneLabel": "Artifacts",
+    "empty": "Artifacts published in this session appear here.",
+    "closeTab": "Close artifact",
+    "closePane": "Close artifact panel",
+    "placeholderHint": "Placeholder artifact — real artifact types arrive with the artifact backend."
   }
 }

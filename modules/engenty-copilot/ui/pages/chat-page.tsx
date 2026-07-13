@@ -3,15 +3,25 @@
 // list state; this page registers shell chrome and renders panels.
 
 import {
+  ArtifactPane,
+  ENGENTY_COPILOT_HOST_KEY,
+  PLACEHOLDER_ARTIFACT_TYPE,
   SubAgentRunFullPage,
+  seedPlaceholderArtifacts,
   selectSubAgentDelegationFromMessages,
+  useArtifacts,
   useCopilotSelectedThread,
   useCopilotThreadActions,
 } from "@engenty/ai-ui";
+import {
+  PaneResizeHandle,
+  usePersistedEwResizePaneWidth,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ArtifactPaneToggle } from "../components/chat/artifact-pane-toggle.js";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
 import { ChatShellHeader } from "../components/chat/shell-header.js";
@@ -38,6 +48,41 @@ export function CopilotChatPage() {
   const { startNewChat } = useCopilotThreadActions();
   const location = useLocation();
   const navigate = useNavigate();
+  const { paneOpen: artifactPaneOpen } = useArtifacts(ENGENTY_COPILOT_HOST_KEY);
+  const {
+    displayedWidthPx: artifactPaneWidthPx,
+    handleResizeKeyDown: handleArtifactResizeKeyDown,
+    handleResizePointerDown: handleArtifactResizePointerDown,
+    isResizing: isResizingArtifactPane,
+  } = usePersistedEwResizePaneWidth({
+    defaultPx: 480,
+    invert: true,
+    maxPx: 880,
+    minPx: 320,
+    storageKey: "engenty.copilot.artifact_pane.width_px",
+  });
+
+  // Placeholder artifacts (dev only) so the pane UI is exercisable before
+  // the artifact backend lands — see docs/wip/app-shell-unification.md.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      seedPlaceholderArtifacts(ENGENTY_COPILOT_HOST_KEY, [
+        {
+          id: "placeholder-doc",
+          payload:
+            "A document artifact would render here — rich content in its own tab.",
+          title: "Welcome document",
+          type: PLACEHOLDER_ARTIFACT_TYPE,
+        },
+        {
+          id: "placeholder-table",
+          payload: "A generated table or widget artifact would render here.",
+          title: "Sample table",
+          type: PLACEHOLDER_ARTIFACT_TYPE,
+        },
+      ]);
+    }
+  }, []);
   const moduleLabel = t("menu.label");
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
@@ -142,7 +187,15 @@ export function CopilotChatPage() {
     tc,
     thread.session,
   ]);
-  const topbarActions = useMemo(() => <ChatTopbarActions />, []);
+  const topbarActions = useMemo(
+    () => (
+      <>
+        <ArtifactPaneToggle />
+        <ChatTopbarActions />
+      </>
+    ),
+    []
+  );
   const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
   const secondaryNavHeaderSlot = useMemo(() => <ChatShellHeader />, []);
 
@@ -205,19 +258,36 @@ export function CopilotChatPage() {
       title={t("chat.moduleErrorTitle")}
     >
       <div
-        className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-transparent"
+        className="relative flex h-full min-h-0 w-full flex-1 flex-row overflow-hidden bg-transparent"
         key={host.threadResetKey}
       >
-        {subRunToolCallId ? (
-          <SubAgentRunFullPage
-            labels={subRunLabels}
-            messages={host.copilotMessages}
-            onBack={handleSubRunBack}
-            toolCallId={subRunToolCallId}
-          />
-        ) : (
-          <ChatPanel />
-        )}
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {subRunToolCallId ? (
+            <SubAgentRunFullPage
+              labels={subRunLabels}
+              messages={host.copilotMessages}
+              onBack={handleSubRunBack}
+              toolCallId={subRunToolCallId}
+            />
+          ) : (
+            <ChatPanel />
+          )}
+        </div>
+        {artifactPaneOpen ? (
+          <>
+            <PaneResizeHandle
+              isResizing={isResizingArtifactPane}
+              label={t("chat.resizeArtifacts")}
+              onKeyDown={handleArtifactResizeKeyDown}
+              onPointerDown={handleArtifactResizePointerDown}
+            />
+            <ArtifactPane
+              className="my-2 mr-2"
+              hostKey={ENGENTY_COPILOT_HOST_KEY}
+              style={{ width: artifactPaneWidthPx }}
+            />
+          </>
+        ) : null}
       </div>
     </CopilotModuleErrorBoundary>
   );

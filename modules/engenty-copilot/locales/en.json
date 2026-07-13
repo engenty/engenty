@@ -120,7 +120,9 @@
         "label": "What is this?",
         "prompt": "What can you do in Copilot chat?"
       }
-    }
+    },
+    "toggleArtifacts": "Toggle artifact panel",
+    "resizeArtifacts": "Resize artifact panel"
   },
   "subAgent": {
     "backToChat": "Back to chat",

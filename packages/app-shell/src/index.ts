@@ -19,6 +19,17 @@ export { useSettingsSecondaryShellNav } from "./components/app-layout/use-settin
 export { AppSidebar } from "./components/app-sidebar";
 export { type AppMenuActions, AppTopbar } from "./components/app-topbar";
 export {
+  Pane,
+  PaneGroup,
+  type PaneProps,
+  PaneResizeHandle,
+  type PaneResizeHandleProps,
+  type PaneTabItem,
+  PaneTabStrip,
+  type PaneTabStripProps,
+  PaneTopBar,
+} from "./components/pane/pane";
+export {
   type AgentUiBaseSnapshotInput,
   type AgentUiDialogOpener,
   type AgentUiFieldFocusHandler,

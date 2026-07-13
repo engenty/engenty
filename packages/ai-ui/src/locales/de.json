@@ -989,5 +989,12 @@
       "aiSettings": "KI-Einstellungen",
       "operations": "Operations-Cockpit"
     }
+  },
+  "artifacts": {
+    "paneLabel": "Artefakte",
+    "empty": "In dieser Sitzung veröffentlichte Artefakte werden hier angezeigt.",
+    "closeTab": "Artefakt schließen",
+    "closePane": "Artefakt-Panel schließen",
+    "placeholderHint": "Platzhalter-Artefakt — echte Artefakttypen kommen mit dem Artefakt-Backend."
   }
 }

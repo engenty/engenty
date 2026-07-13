@@ -120,7 +120,9 @@
         "label": "Was ist das?",
         "prompt": "Was kannst du im Copilot-Chat tun?"
       }
-    }
+    },
+    "toggleArtifacts": "Artefakt-Panel umschalten",
+    "resizeArtifacts": "Artefakt-Panel-Größe ändern"
   },
   "subAgent": {
     "backToChat": "Zurück zum Chat",
