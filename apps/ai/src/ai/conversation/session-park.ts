@@ -26,6 +26,22 @@ interface ParkedSessionRun {
 
 const parkedSessionRuns = new Map<string, ParkedSessionRun>();
 
+// Run ids whose parked session was TAKEN for a resume that has not yet
+// completed (re-parked or finished). A second approval click landing in this
+// window must be rejected as "resume in progress" — NOT "no longer in memory"
+// (which reads as a server restart and, worse, used to race the live resume).
+const inFlightResumes = new Set<string>();
+
+/** Whether a resume for this suspended run id is currently executing. */
+export function isParkedResumeInFlight(runId: string): boolean {
+  return inFlightResumes.has(runId);
+}
+
+/** Mark the resume for this suspended run id as finished (success or error). */
+export function finishParkedResume(runId: string): void {
+  inFlightResumes.delete(runId);
+}
+
 export function parkSessionRun(
   runId: string,
   run: {
@@ -49,6 +65,8 @@ export function parkSessionRun(
   }, PARKED_TTL_MS);
   (timer as { unref?: () => void }).unref?.();
   parkedSessionRuns.set(runId, { ...run, timer });
+  // A (re-)park completes any in-flight resume transition for this run id.
+  inFlightResumes.delete(runId);
 }
 
 export function takeParkedSessionRun(
@@ -60,5 +78,8 @@ export function takeParkedSessionRun(
   }
   clearTimeout(parked.timer);
   parkedSessionRuns.delete(runId);
+  // The caller is about to drive the resume; until it re-parks or finishes,
+  // duplicate resume attempts for this run id must be turned away.
+  inFlightResumes.add(runId);
   return parked;
 }

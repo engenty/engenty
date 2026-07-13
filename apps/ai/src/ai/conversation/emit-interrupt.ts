@@ -14,6 +14,7 @@ import type {
   AgUiOpenInterruptMetadata,
   FrontendToolDefinition,
 } from "@engenty/ag-ui-bridge";
+import { ENGENTY_OPEN_INTERRUPT_EVENT } from "@engenty/ag-ui-bridge";
 import {
   buildToolApprovalArtifact,
   type ToolApprovalSuspendPayload,
@@ -31,6 +32,22 @@ import {
   isFeedbackArtifactPayload,
 } from "../sessions/transcript.js";
 import type { AiSessionScope } from "../sessions/types.js";
+
+// The RUN_FINISHED interrupt outcome schema strips unknown fields, so the full
+// interrupt artifact rides a CUSTOM side-channel event; the client uses it to
+// render the NEXT approval card immediately instead of re-showing the previous
+// one until the lagging session-metadata refetch lands (the "same card
+// re-asks" bug with parallel approval-gated tool calls).
+function emitOpenInterruptEvent(
+  emit: (event: AGUIEvent) => void,
+  open: AgUiOpenInterruptMetadata
+): void {
+  emit({
+    name: ENGENTY_OPEN_INTERRUPT_EVENT,
+    type: "CUSTOM",
+    value: open,
+  } as never);
+}
 
 export interface SuspendChunkPayload {
   args?: unknown;
@@ -79,12 +96,10 @@ export async function emitFrontendToolInterrupt(input: {
     toolInput: input.payload.args as FrontendToolInterruptPayload["toolInput"],
     toolName,
   };
+  const open = buildFrontendToolOpenInterruptFromPayload(interrupt);
   try {
     await input.store.updateSessionForUser({
-      metadata: mergeAgUiOpenInterruptMetadata(
-        input.sessionMetadata,
-        buildFrontendToolOpenInterruptFromPayload(interrupt)
-      ),
+      metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, open),
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
       userId: input.scope.userId,
@@ -95,6 +110,7 @@ export async function emitFrontendToolInterrupt(input: {
       error
     );
   }
+  emitOpenInterruptEvent(input.emit, open);
   input.emit({
     outcome: buildSessionInterruptOutcome(interrupt),
     runId: input.busRunId,
@@ -135,22 +151,21 @@ export async function emitToolApprovalInterrupt(input: {
     kind: "decision",
     toolCallId: input.toolCallId,
   };
-  try {
-    await input.store.updateSessionForUser({
-      metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, {
-        ...artifactOpenInterrupt(interrupt),
-        run_id: input.resumeRunId,
-      }),
-      tenantId: input.scope.tenantId,
-      threadId: input.threadId,
-      userId: input.scope.userId,
-    });
-  } catch (error) {
-    console.error(
-      `[conversation ${input.resumeRunId}] failed to persist tool-approval interrupt:`,
-      error
-    );
-  }
+  const open: AgUiOpenInterruptMetadata = {
+    ...artifactOpenInterrupt(interrupt),
+    run_id: input.resumeRunId,
+  };
+  // The persisted open interrupt is what the resume route validates and routes
+  // by — if this write fails, the interrupt is NOT resumable, so fail the run
+  // loudly (the caller emits RUN_ERROR) instead of emitting an approval card
+  // whose answer can never be applied.
+  await input.store.updateSessionForUser({
+    metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, open),
+    tenantId: input.scope.tenantId,
+    threadId: input.threadId,
+    userId: input.scope.userId,
+  });
+  emitOpenInterruptEvent(input.emit, open);
   input.emit({
     outcome: buildSessionInterruptOutcome(interrupt),
     runId: input.busRunId,

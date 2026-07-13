@@ -96,6 +96,8 @@ export interface AgentHost {
   events: EngentyAgUiEvent[];
   hostKey: string;
   messages: EngentyAgUiMessage[];
+  /** Freshly-opened interrupt from the live stream — authoritative over the (lagging) session-metadata copy while set. */
+  openInterruptFromStream: AgUiOpenInterruptMetadata | null;
   /** Optimistic resolved labels keyed by toolCallId, set on `respond` so the chooser collapses instantly. */
   optimisticInterruptResults: Record<string, string>;
   /** Tool call ids the agent is currently suspended on (CopilotKit-shaped HITL status, from the stream). */

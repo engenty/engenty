@@ -20,6 +20,7 @@ import {
 } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
+import { isParkedResumeInFlight } from "../ai/conversation/session-park.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
@@ -293,6 +294,45 @@ export function registerAgentSessionRunRoutes(
       openInterrupt != null &&
       (openInterrupt.kind === "decision" || openInterrupt.kind === "feedback");
     if (canRunConversation && conversationStore && isParkedResume) {
+      // The client answered a SPECIFIC interrupt. If it names a different one
+      // than the currently open interrupt (a stale card answered after the run
+      // already moved on to the NEXT approval — e.g. parallel gated tool calls
+      // resolving one at a time), applying the answer to whatever happens to be
+      // open would approve an action the user never looked at. Reject instead;
+      // the client re-syncs and shows the real card.
+      const answeredInterruptId = resumeEntries[0]?.interruptId;
+      if (
+        answeredInterruptId &&
+        openInterrupt?.interrupt_id &&
+        answeredInterruptId !== openInterrupt.interrupt_id
+      ) {
+        return c.json(
+          {
+            error: "agent_threads.interruptMismatch",
+            message:
+              "The answered interrupt is no longer the open one; reload the pending approval and answer it.",
+            open_interrupt_id: openInterrupt.interrupt_id,
+          },
+          409
+        );
+      }
+      // A duplicate answer while the previous resume is still executing must
+      // not race it (the parked session was already taken; letting this run
+      // would surface a bogus "no longer in memory" error and abandon the
+      // suspended tools). The in-flight resume will re-park or finish.
+      if (
+        openInterrupt?.run_id &&
+        isParkedResumeInFlight(openInterrupt.run_id)
+      ) {
+        return c.json(
+          {
+            error: "agent_threads.resumeInProgress",
+            message:
+              "A resume for this approval is already in progress; wait for it to finish.",
+          },
+          409
+        );
+      }
       markRunLive(runId);
       let resumeData: FrontendToolResumeData | ToolApprovalResumeData =
         toFrontendToolResumeData(resumeEntries[0]);

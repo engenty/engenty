@@ -395,8 +395,15 @@ export function CopilotDrawerBody({
           setPanelMode(mode);
         };
 
+  // The live stream value wins while set: after an approval, the persisted
+  // session metadata still names the PREVIOUS interrupt until the refetch
+  // lands, and rendering it re-shows an already-answered card (the "same
+  // approval card re-asks" bug with chained/parallel gated tool calls).
   const resolvedOpenInterrupt =
-    openInterruptFromSession ?? session.openInterruptFromSession ?? null;
+    session.openInterruptFromStream ??
+    openInterruptFromSession ??
+    session.openInterruptFromSession ??
+    null;
 
   const drawerMessages = useMemo(
     () => [...session.messages, ...realtimeVoice.transcriptMessages],

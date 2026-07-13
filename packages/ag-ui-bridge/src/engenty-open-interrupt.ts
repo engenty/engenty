@@ -3,6 +3,16 @@ import { isJsonValue } from "./json-value.js";
 
 export const AG_UI_OPEN_INTERRUPT_METADATA_KEY = "ag_ui_open_interrupt";
 
+/**
+ * CUSTOM AG-UI event name carrying a freshly-opened interrupt (the full
+ * {@link AgUiOpenInterruptMetadata} as `value`). Emitted just before the
+ * RUN_FINISHED interrupt outcome so the client can render the new approval
+ * card immediately — the persisted session metadata only catches up after a
+ * refetch, and until then it still names the PREVIOUS interrupt (which made
+ * chained approvals re-show the already-answered card).
+ */
+export const ENGENTY_OPEN_INTERRUPT_EVENT = "engenty.open_interrupt";
+
 /** Default TTL for open decision interrupts (ms). */
 export const AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -130,6 +140,16 @@ export function readAgUiOpenInterrupt(
       ? { tool_input: toolInput }
       : {}),
   };
+}
+
+/** Parse the open interrupt from a CUSTOM `engenty.open_interrupt` event value. */
+export function readAgUiOpenInterruptEventValue(
+  value: unknown
+): AgUiOpenInterruptMetadata | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return readAgUiOpenInterrupt({ [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: value });
 }
 
 export function isFrontendToolOpenInterrupt(

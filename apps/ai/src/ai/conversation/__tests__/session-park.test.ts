@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { parkSessionRun, takeParkedSessionRun } from "../session-park.js";
+import {
+  finishParkedResume,
+  isParkedResumeInFlight,
+  parkSessionRun,
+  takeParkedSessionRun,
+} from "../session-park.js";
 
 // Minimal controller/session stand-ins — the park map only stores them and
 // calls controller.destroy().
@@ -50,6 +55,33 @@ describe("session park map", () => {
     });
     const taken = takeParkedSessionRun("run-2");
     expect(taken?.session).toBe(b);
+  });
+
+  it("tracks an in-flight resume from take until re-park or finish", () => {
+    parkSessionRun("run-4", {
+      controller: fakeController(),
+      mergedDefinitions: [],
+      session: fakeSession(),
+      threadId: "t",
+    });
+    expect(isParkedResumeInFlight("run-4")).toBe(false);
+    takeParkedSessionRun("run-4");
+    // A duplicate approval click landing now must be told a resume is running.
+    expect(isParkedResumeInFlight("run-4")).toBe(true);
+    // Re-parking (the continuation suspended again) completes the transition.
+    parkSessionRun("run-4", {
+      controller: fakeController(),
+      mergedDefinitions: [],
+      session: fakeSession(),
+      threadId: "t",
+    });
+    expect(isParkedResumeInFlight("run-4")).toBe(false);
+
+    takeParkedSessionRun("run-4");
+    expect(isParkedResumeInFlight("run-4")).toBe(true);
+    // A finished (or errored) resume also completes the transition.
+    finishParkedResume("run-4");
+    expect(isParkedResumeInFlight("run-4")).toBe(false);
   });
 
   it("carries the merged frontend-tool definitions for a re-suspend", () => {

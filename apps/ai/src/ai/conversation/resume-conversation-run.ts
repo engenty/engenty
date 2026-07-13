@@ -34,7 +34,12 @@ import {
   emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
-import { parkSessionRun, takeParkedSessionRun } from "./session-park.js";
+import {
+  finishParkedResume,
+  isParkedResumeInFlight,
+  parkSessionRun,
+  takeParkedSessionRun,
+} from "./session-park.js";
 
 /** A second tool that suspended within the resumed continuation. */
 interface SuspendedAgain {
@@ -78,8 +83,39 @@ export async function resumeConversationRun(
   let reParked = false;
   try {
     if (!parked) {
+      // Distinguish a duplicate answer racing the live resume (recoverable —
+      // the in-flight resume will re-park or finish) from a lost park (server
+      // restart / TTL expiry — the suspended state is genuinely gone).
+      if (
+        input.suspendedRunId &&
+        isParkedResumeInFlight(input.suspendedRunId)
+      ) {
+        throw new Error(
+          `A resume for run ${input.suspendedRunId} is already in progress; this duplicate answer was ignored.`
+        );
+      }
       throw new Error(
         `Session run ${input.suspendedRunId || "(missing)"} is no longer in memory; cannot resume the suspended tool (the server may have restarted).`
+      );
+    }
+    // The tool call must actually be parked in the session. Responding to a
+    // toolCallId Mastra does not know is a SILENT no-op (respondToToolSuspension
+    // resolves without resuming anything) — the old code then cleared the open
+    // interrupt and reported RUN_FINISHED while the run stayed suspended
+    // forever. Surface it as an error and KEEP the park so the real interrupt
+    // stays resumable.
+    if (
+      !parked.session.suspensions.has({ toolCallId: input.resolvedToolCallId })
+    ) {
+      parkSessionRun(input.suspendedRunId, {
+        controller: parked.controller,
+        mergedDefinitions: parked.mergedDefinitions,
+        session: parked.session,
+        threadId: parked.threadId,
+      });
+      reParked = true;
+      throw new Error(
+        `Tool call ${input.resolvedToolCallId || "(missing)"} is not suspended on run ${input.suspendedRunId}; it may already have been resumed.`
       );
     }
     const converter = new SessionAgUiConverter();
@@ -241,10 +277,29 @@ export async function resumeConversationRun(
     emit({ message, type: "RUN_ERROR" });
   } finally {
     markRunDone(input.newRunId);
+    // Only the resume that actually TOOK the parked run owns the in-flight
+    // marker — a duplicate that found nothing parked must not clear the
+    // marker out from under the live resume.
+    if (parked && input.suspendedRunId) {
+      finishParkedResume(input.suspendedRunId);
+    }
     if (!reParked) {
-      await parked?.controller.destroy().catch(() => {
-        // best-effort cleanup
-      });
+      // An errored resume must not destroy a session that still holds parked
+      // suspensions — that would strand the open interrupt forever (spinners
+      // never resolve, no way to approve). Re-park so the user can retry;
+      // the park TTL owns the eventual cleanup.
+      if (parked?.session.suspensions.hasPending()) {
+        parkSessionRun(input.suspendedRunId, {
+          controller: parked.controller,
+          mergedDefinitions: parked.mergedDefinitions,
+          session: parked.session,
+          threadId: parked.threadId,
+        });
+      } else {
+        await parked?.controller.destroy().catch(() => {
+          // best-effort cleanup
+        });
+      }
     }
   }
   return { runId: input.newRunId };
