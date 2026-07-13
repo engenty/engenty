@@ -13,8 +13,25 @@ export const AG_UI_OPEN_INTERRUPT_METADATA_KEY = "ag_ui_open_interrupt";
  */
 export const ENGENTY_OPEN_INTERRUPT_EVENT = "engenty.open_interrupt";
 
-/** Default TTL for open decision interrupts (ms). */
+/** Default TTL for open decision interrupts (ms). Human approvals may take days. */
 export const AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * TTL for frontend-tool interrupts (ms). These are resolved by the browser near
+ * instantly (or after a short confirm). A tight TTL means an interrupt the
+ * foreground lane can't resolve (wrong lane, no executor) is treated as expired
+ * quickly, so it fails as "couldn't resolve" instead of spinning for days.
+ */
+export const AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS = 3 * 60 * 1000;
+
+/** TTL for the interrupt kind: short for browser frontend tools, long otherwise. */
+export function agUiOpenInterruptTtlMsForKind(
+  kind: AgUiOpenInterruptKind
+): number {
+  return kind === "frontend_tool"
+    ? AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS
+    : AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS;
+}
 
 export type AgUiOpenInterruptKind =
   | "decision"

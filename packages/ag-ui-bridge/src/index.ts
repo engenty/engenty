@@ -29,8 +29,10 @@ export type {
   AgUiOpenInterruptMetadata,
 } from "./engenty-open-interrupt.js";
 export {
+  AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS,
   AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS,
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+  agUiOpenInterruptTtlMsForKind,
   buildAgUiOpenInterruptExpiresAt,
   buildFrontendToolOpenInterrupt,
   buildSandboxCommandOpenInterrupt,
