@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
 import { StatusBadge, TierBadge } from "@/components/tenant-badges";
+import { TenantEntitlementsTab } from "@/features/entitlements/TenantEntitlementsTab";
 import { FeatureFlagsEditor } from "@/features/feature-flags/FeatureFlagsEditor";
 import { TenantModuleOverrides } from "@/features/modules/TenantModuleOverrides";
 import { TenantMembersTab } from "@/features/tenants/TenantMembersTab";
@@ -28,7 +29,7 @@ import {
 } from "@/lib/api/tenants";
 import { tenantQuery } from "@/lib/queries/tenants";
 
-const TABS = new Set(["members", "modules", "featureFlags"]);
+const TABS = new Set(["members", "modules", "featureFlags", "entitlements"]);
 
 export function TenantDetailPage() {
   const { t } = useTranslation("common");
@@ -157,6 +158,9 @@ export function TenantDetailPage() {
                   <TabsTrigger value="featureFlags">
                     {t("tenants.tabs.featureFlags")}
                   </TabsTrigger>
+                  <TabsTrigger value="entitlements">
+                    {t("tenants.tabs.entitlements")}
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="members">
                   <TenantMembersTab tenantId={id} />
@@ -166,6 +170,9 @@ export function TenantDetailPage() {
                 </TabsContent>
                 <TabsContent value="featureFlags">
                   <FeatureFlagsEditor tenantId={id} />
+                </TabsContent>
+                <TabsContent value="entitlements">
+                  <TenantEntitlementsTab tenantId={id} />
                 </TabsContent>
               </Tabs>
             </>

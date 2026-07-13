@@ -19,7 +19,8 @@
     "tenants": "Mandanten",
     "users": "Benutzer",
     "modules": "Module",
-    "featureFlags": "Feature-Flags"
+    "featureFlags": "Feature-Flags",
+    "packages": "Pakete"
   },
   "common": {
     "save": "Speichern",
@@ -43,7 +44,8 @@
     "email": "E-Mail",
     "role": "Rolle",
     "created": "Erstellt",
-    "actions": "Aktionen"
+    "actions": "Aktionen",
+    "saving": "Speichern…"
   },
   "tenants": {
     "title": "Mandanten",
@@ -85,7 +87,8 @@
     "tabs": {
       "members": "Mitglieder",
       "modules": "Module",
-      "featureFlags": "Feature-Flags"
+      "featureFlags": "Feature-Flags",
+      "entitlements": "Berechtigungen"
     },
     "members": {
       "add": "Mitglied hinzufügen",
@@ -178,5 +181,40 @@
     "save": "Änderungen speichern",
     "saved": "Feature-Flags gespeichert.",
     "selectTenant": "Mandant auswählen"
+  },
+  "packages": {
+    "title": "Pakete",
+    "subtitle": "Kommerzielle Pakete werden im Code definiert und hierher synchronisiert. Weise sie Mandanten auf der Mandantendetailseite zu.",
+    "resync": "Standard neu synchronisieren",
+    "resynced": "{{count}} Paket(e) synchronisiert",
+    "allModules": "Alle",
+    "columns": {
+      "package": "Paket",
+      "modules": "Module",
+      "seats": "Plätze",
+      "aiLimit": "KI-Hartlimit",
+      "enforcement": "Durchsetzung"
+    },
+    "mode": {
+      "observe": "Beobachten",
+      "enforce": "Erzwingen"
+    }
+  },
+  "entitlements": {
+    "packageLabel": "Paket",
+    "noPackage": "Kein Paket (frei)",
+    "packageSaved": "Paket aktualisiert",
+    "resolvedLabel": "Aufgelöste Berechtigungen",
+    "modules": "Module",
+    "seats": "Plätze",
+    "aiLimit": "KI-Hartlimit",
+    "enforcement": "Durchsetzung",
+    "overrideLabel": "Überschreibungen",
+    "maxUsers": "Max. Benutzer",
+    "inherit": "Erben",
+    "saveOverride": "Überschreibung speichern",
+    "clearOverride": "Überschreibung entfernen",
+    "overrideSaved": "Überschreibung gespeichert",
+    "overrideCleared": "Überschreibung entfernt"
   }
 }

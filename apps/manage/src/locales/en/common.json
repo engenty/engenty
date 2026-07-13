@@ -19,7 +19,8 @@
     "tenants": "Tenants",
     "users": "Users",
     "modules": "Modules",
-    "featureFlags": "Feature flags"
+    "featureFlags": "Feature flags",
+    "packages": "Packages"
   },
   "common": {
     "save": "Save",
@@ -43,7 +44,8 @@
     "email": "Email",
     "role": "Role",
     "created": "Created",
-    "actions": "Actions"
+    "actions": "Actions",
+    "saving": "Saving…"
   },
   "tenants": {
     "title": "Tenants",
@@ -85,7 +87,8 @@
     "tabs": {
       "members": "Members",
       "modules": "Modules",
-      "featureFlags": "Feature flags"
+      "featureFlags": "Feature flags",
+      "entitlements": "Entitlements"
     },
     "members": {
       "add": "Add member",
@@ -178,5 +181,40 @@
     "save": "Save changes",
     "saved": "Feature flags saved.",
     "selectTenant": "Select tenant"
+  },
+  "packages": {
+    "title": "Packages",
+    "subtitle": "Commercial packages are authored in code and synced here. Assign them to tenants from the tenant detail page.",
+    "resync": "Resync defaults",
+    "resynced": "Synced {{count}} package(s)",
+    "allModules": "All",
+    "columns": {
+      "package": "Package",
+      "modules": "Modules",
+      "seats": "Seats",
+      "aiLimit": "AI hard limit",
+      "enforcement": "Enforcement"
+    },
+    "mode": {
+      "observe": "Observe",
+      "enforce": "Enforce"
+    }
+  },
+  "entitlements": {
+    "packageLabel": "Package",
+    "noPackage": "No package (free)",
+    "packageSaved": "Package updated",
+    "resolvedLabel": "Resolved entitlements",
+    "modules": "Modules",
+    "seats": "Seats",
+    "aiLimit": "AI hard limit",
+    "enforcement": "Enforcement",
+    "overrideLabel": "Overrides",
+    "maxUsers": "Max users",
+    "inherit": "Inherit",
+    "saveOverride": "Save override",
+    "clearOverride": "Clear override",
+    "overrideSaved": "Override saved",
+    "overrideCleared": "Override cleared"
   }
 }

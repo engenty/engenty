@@ -1,6 +1,6 @@
 import type { NavigationSection } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { LayoutGrid, Puzzle, ToggleRight, Users } from "lucide-react";
+import { LayoutGrid, Package, Puzzle, ToggleRight, Users } from "lucide-react";
 
 export function useManageSections(): NavigationSection[] {
   const { t } = useTranslation("common");
@@ -16,6 +16,7 @@ export function useManageSections(): NavigationSection[] {
           label: t("navigation.featureFlags"),
           to: "/feature-flags",
         },
+        { icon: Package, label: t("navigation.packages"), to: "/packages" },
       ],
     },
   ];
