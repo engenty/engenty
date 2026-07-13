@@ -326,11 +326,11 @@ export function CopilotComposerSection({
   // inside PromptInputProvider so it can read the live attachment state.
   const attachmentsPreview = (
     <>
-      <PromptInputAttachments />
+      <PromptInputAttachments className="mx-1 mb-2" />
       {isUploadingAttachments || attachmentError ? (
         <div
           className={cn(
-            "px-1 pt-1 text-xs",
+            "mx-1 px-2 py-1.5 text-xs rounded",
             attachmentError ? "text-destructive" : "text-muted-foreground"
           )}
         >
