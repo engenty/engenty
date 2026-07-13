@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.16] - 2026-07-13
+- ADDED **[ai-ui]** File & photo upload in chat composer (all surfaces)
+- CHANGED **[ai-ui]** Improve attachment preview margins in composer
+- FIXED **[chat-upload]** Widen submitMessage to carry attachments, redesign attachment tiles, separate attachments from bubble
+- FIXED **[chat-upload]** Resolve coreBaseUrl fallback, durable attachment persistence, and Gateway file-part encoding
+- FIXED **[chat-upload]** Feed model + persist attachments; AI SDK tile variants
+
 ## [0.1.15] - 2026-07-13
 - ADDED **[copilot]** Prefer artifacts for documents; bound frontend-tool interrupts
 - ADDED **[engenty-copilot]** Show_artifact frontend tool — open the pane on a specific artifact
