@@ -1,4 +1,10 @@
 export {
+  type BillingUsage,
+  computeInvoiceLines,
+  type InvoiceComputation,
+  type InvoiceLine,
+} from "./billing.js";
+export {
   DEFAULT_ENTITLEMENT_PACKAGES,
   findEntitlementPackage,
 } from "./catalog.js";
@@ -24,5 +30,6 @@ export type {
   EntitlementEnforcementMode,
   EntitlementOverride,
   EntitlementPackage,
+  EntitlementPricing,
   ResolvedEntitlements,
 } from "./types.js";

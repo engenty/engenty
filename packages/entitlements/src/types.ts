@@ -45,6 +45,19 @@ export interface EntitlementAppLimits {
   maxUsers: number | null;
 }
 
+/**
+ * Billing price + overage rules for a package. Costs in `_micros`. Used by the
+ * billing computation to turn a period's metered usage into invoice lines.
+ */
+export interface EntitlementPricing {
+  /** Recurring base price for the period. */
+  base_micros: number;
+  currency: string;
+  /** Seats included in the base; extra seats bill at `perExtraUser_micros`. */
+  includedUsers: number | null;
+  perExtraUser_micros: number;
+}
+
 /** An authored commercial package (one catalog entry). */
 export interface EntitlementPackage {
   aiUsagePolicy: EntitlementAiUsagePolicy;
@@ -60,6 +73,8 @@ export interface EntitlementPackage {
    * always allowed regardless — the enforcement point exempts them.
    */
   modules: string[] | null;
+  /** Billing rules. Optional — a package with no `pricing` bills nothing. */
+  pricing?: EntitlementPricing;
   /** Bumped on any change to this entry; the DB sync upserts on a higher version. */
   version: number;
 }

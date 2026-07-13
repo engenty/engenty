@@ -14,7 +14,7 @@ import type { EntitlementPackage } from "./types.js";
 export const DEFAULT_ENTITLEMENT_PACKAGES: readonly EntitlementPackage[] = [
   {
     id: "free",
-    version: 1,
+    version: 2,
     label: "Free",
     modules: ["contacts", "tasks", "files"],
     featureFlags: {},
@@ -29,10 +29,16 @@ export const DEFAULT_ENTITLEMENT_PACKAGES: readonly EntitlementPackage[] = [
       allowed_models: null,
     },
     appLimits: { maxUsers: 3, enforcement_mode: "enforce" },
+    pricing: {
+      base_micros: 0,
+      currency: "usd",
+      includedUsers: 3,
+      perExtraUser_micros: 0,
+    },
   },
   {
     id: "team",
-    version: 1,
+    version: 2,
     label: "Team",
     modules: [
       "contacts",
@@ -55,10 +61,16 @@ export const DEFAULT_ENTITLEMENT_PACKAGES: readonly EntitlementPackage[] = [
       allowed_models: null,
     },
     appLimits: { maxUsers: 25, enforcement_mode: "enforce" },
+    pricing: {
+      base_micros: 49_000_000,
+      currency: "usd",
+      includedUsers: 25,
+      perExtraUser_micros: 5_000_000,
+    },
   },
   {
     id: "business",
-    version: 1,
+    version: 2,
     label: "Business",
     modules: [
       "contacts",
@@ -85,10 +97,16 @@ export const DEFAULT_ENTITLEMENT_PACKAGES: readonly EntitlementPackage[] = [
       allowed_models: null,
     },
     appLimits: { maxUsers: 100, enforcement_mode: "enforce" },
+    pricing: {
+      base_micros: 199_000_000,
+      currency: "usd",
+      includedUsers: 100,
+      perExtraUser_micros: 4_000_000,
+    },
   },
   {
     id: "enterprise",
-    version: 1,
+    version: 2,
     label: "Enterprise",
     // null = no module restriction (every module allowed).
     modules: null,
@@ -105,6 +123,12 @@ export const DEFAULT_ENTITLEMENT_PACKAGES: readonly EntitlementPackage[] = [
       allowed_models: null,
     },
     appLimits: { maxUsers: null, enforcement_mode: "observe" },
+    pricing: {
+      base_micros: 0,
+      currency: "usd",
+      includedUsers: null,
+      perExtraUser_micros: 0,
+    },
   },
 ];
 

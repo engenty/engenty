@@ -60,6 +60,7 @@ interface PackageRow {
   id: string;
   label: string;
   modules: string[] | null;
+  pricing: EntitlementPackage["pricing"] | null;
   version: number;
 }
 
@@ -72,6 +73,7 @@ function rowToPackage(row: PackageRow): EntitlementPackage {
     featureFlags: row.feature_flags ?? {},
     aiUsagePolicy: row.ai_usage_policy,
     appLimits: row.app_limits,
+    ...(row.pricing ? { pricing: row.pricing } : {}),
   };
 }
 
@@ -86,6 +88,7 @@ function packageToRow(pkg: EntitlementPackage): PackageRow & {
     feature_flags: pkg.featureFlags,
     ai_usage_policy: pkg.aiUsagePolicy,
     app_limits: pkg.appLimits,
+    pricing: pkg.pricing ?? null,
     updated_at: new Date().toISOString(),
   };
 }

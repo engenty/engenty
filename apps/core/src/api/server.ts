@@ -95,6 +95,7 @@ import { registerAgentAuthDiscoveryRoutes } from "./routes/auth/agent-auth-disco
 import { registerAuthRoutes } from "./routes/auth/auth-routes.js";
 import { registerDevLoginRoutes } from "./routes/auth/dev-login-routes.js";
 import { registerDeviceFlowRoutes } from "./routes/auth/device-flow-routes.js";
+import { registerBillingRoutes } from "./routes/billing-routes.js";
 import { registerCoreAiRemovedRoutes } from "./routes/core-ai-removed-routes.js";
 import { registerDashboardRoutes } from "./routes/dashboard/index.js";
 import { registerDesktopBootstrapRoutes } from "./routes/desktop-bootstrap-routes.js";
@@ -333,6 +334,7 @@ export function createApiApp(params: CreateApiAppParams) {
   });
   registerEntitlementsRoutes({ app, config });
   registerSatellitesRoutes({ app, config });
+  registerBillingRoutes({ app, config });
   const authStores = params.authStores ?? createAuthStores(config);
   // Revocation survives restarts: persisted revoked api-token ids re-enter the
   // in-memory revocation set used by verifyAccessToken.

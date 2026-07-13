@@ -89,7 +89,8 @@
       "members": "Mitglieder",
       "modules": "Module",
       "featureFlags": "Feature-Flags",
-      "entitlements": "Berechtigungen"
+      "entitlements": "Berechtigungen",
+      "billing": "Abrechnung"
     },
     "members": {
       "add": "Mitglied hinzufügen",
@@ -252,6 +253,23 @@
       "studioUrl": "Studio-URL",
       "apiUrl": "API-URL",
       "submit": "Registrieren"
+    }
+  },
+  "billing": {
+    "subtitle": "Rechnungen aus der Paketpreisgestaltung des Mandanten und der gemessenen Nutzung.",
+    "generate": "Rechnung erstellen",
+    "generated": "Rechnung erstellt",
+    "columns": {
+      "period": "Zeitraum",
+      "package": "Paket",
+      "total": "Summe",
+      "status": "Status"
+    },
+    "status": {
+      "draft": "Entwurf",
+      "open": "Offen",
+      "paid": "Bezahlt",
+      "void": "Storniert"
     }
   }
 }

@@ -89,7 +89,8 @@
       "members": "Members",
       "modules": "Modules",
       "featureFlags": "Feature flags",
-      "entitlements": "Entitlements"
+      "entitlements": "Entitlements",
+      "billing": "Billing"
     },
     "members": {
       "add": "Add member",
@@ -252,6 +253,23 @@
       "studioUrl": "Studio URL",
       "apiUrl": "API URL",
       "submit": "Register"
+    }
+  },
+  "billing": {
+    "subtitle": "Invoices generated from the tenant's package pricing and metered usage.",
+    "generate": "Generate invoice",
+    "generated": "Invoice generated",
+    "columns": {
+      "period": "Period",
+      "package": "Package",
+      "total": "Total",
+      "status": "Status"
+    },
+    "status": {
+      "draft": "Draft",
+      "open": "Open",
+      "paid": "Paid",
+      "void": "Void"
     }
   }
 }
