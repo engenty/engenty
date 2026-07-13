@@ -35,6 +35,7 @@ interface CalendarEvent {
   start?: { date?: string; dateTime?: string; timeZone?: string };
   status?: string;
   summary?: string;
+  updated?: string;
 }
 
 function eventTime(
@@ -55,8 +56,13 @@ function toEventSummary(e: CalendarEvent) {
     start: eventTime(e.start),
     status: e.status ?? null,
     summary: e.summary ?? null,
+    // RFC3339 last-modified stamp; drives the pull-back conflict rule.
+    updated: e.updated ?? null,
   };
 }
+
+/** Bounds the incremental-sync page walk so a huge changelog can't hang. */
+const MAX_SYNC_PAGES = 20;
 
 const privatePropertiesField = z
   .record(z.string(), z.string())
@@ -142,29 +148,104 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
     }),
     connectorAction({
       description:
-        "List events from a calendar in a time window, ordered by start time (recurring events expanded to single instances).",
+        "List events from a calendar in a time window, ordered by start time (recurring events expanded to single instances). For incremental two-way sync, pass a prior `sync_token` to fetch only changes since then, or set `return_sync_token` to receive a `next_sync_token` for the next incremental pull.",
       group: "read",
       handler: async (input, ctx) => {
         const calendarId = input.calendar_id ?? "primary";
-        const url = new URL(
-          `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`
-        );
-        url.searchParams.set("singleEvents", "true");
-        url.searchParams.set("orderBy", "startTime");
-        url.searchParams.set("maxResults", String(input.max_results ?? 10));
-        if (input.time_min) {
-          url.searchParams.set("timeMin", input.time_min);
+        const eventsUrl = `${CALENDAR_API}/calendars/${encodeURIComponent(
+          calendarId
+        )}/events`;
+        // Sync mode: a token was supplied, or the caller wants one back. Both
+        // require draining every page so the terminal nextSyncToken is captured
+        // (Google only returns it on the last page of a completed sync).
+        const syncMode =
+          input.sync_token !== undefined || input.return_sync_token === true;
+
+        if (!syncMode) {
+          const url = new URL(eventsUrl);
+          url.searchParams.set("singleEvents", "true");
+          url.searchParams.set("orderBy", "startTime");
+          url.searchParams.set("maxResults", String(input.max_results ?? 10));
+          if (input.time_min) {
+            url.searchParams.set("timeMin", input.time_min);
+          }
+          if (input.time_max) {
+            url.searchParams.set("timeMax", input.time_max);
+          }
+          const data = await googleJson<{ items?: CalendarEvent[] }>(
+            ctx,
+            url.toString()
+          );
+          return {
+            calendar_id: calendarId,
+            next_sync_token: null,
+            sync_token_expired: false,
+            events: (data.items ?? []).map((e) => ({
+              ...toEventSummary(e),
+              attendee_count: e.attendees?.length ?? 0,
+            })),
+          };
         }
-        if (input.time_max) {
-          url.searchParams.set("timeMax", input.time_max);
+
+        const items: CalendarEvent[] = [];
+        let pageToken: string | undefined;
+        let nextSyncToken: string | null = null;
+        for (let page = 0; page < MAX_SYNC_PAGES; page += 1) {
+          const url = new URL(eventsUrl);
+          // singleEvents must stay constant across a sync series; syncToken is
+          // incompatible with orderBy/timeMin/timeMax (they only seed the
+          // initial full sync when no token is present).
+          url.searchParams.set("singleEvents", "true");
+          url.searchParams.set("maxResults", String(input.max_results ?? 250));
+          if (input.sync_token) {
+            url.searchParams.set("syncToken", input.sync_token);
+          } else {
+            url.searchParams.set("orderBy", "startTime");
+            if (input.time_min) {
+              url.searchParams.set("timeMin", input.time_min);
+            }
+            if (input.time_max) {
+              url.searchParams.set("timeMax", input.time_max);
+            }
+          }
+          if (pageToken) {
+            url.searchParams.set("pageToken", pageToken);
+          }
+          const res = await ctx.fetchImpl(url.toString(), {
+            headers: { Authorization: `Bearer ${ctx.accessToken}` },
+          });
+          // 410 GONE ⇒ the sync token expired; the caller must re-list in full.
+          if (res.status === 410) {
+            return {
+              calendar_id: calendarId,
+              next_sync_token: null,
+              sync_token_expired: true,
+              events: [],
+            };
+          }
+          if (!res.ok) {
+            const body = (await res.text().catch(() => "")).slice(0, 200);
+            throw new Error(`google_api_error (${res.status}): ${body}`);
+          }
+          const data = (await res.json()) as {
+            items?: CalendarEvent[];
+            nextPageToken?: string;
+            nextSyncToken?: string;
+          };
+          items.push(...(data.items ?? []));
+          if (data.nextSyncToken) {
+            nextSyncToken = data.nextSyncToken;
+          }
+          if (!data.nextPageToken) {
+            break;
+          }
+          pageToken = data.nextPageToken;
         }
-        const data = await googleJson<{ items?: CalendarEvent[] }>(
-          ctx,
-          url.toString()
-        );
         return {
           calendar_id: calendarId,
-          events: (data.items ?? []).map((e) => ({
+          next_sync_token: nextSyncToken,
+          sync_token_expired: false,
+          events: items.map((e) => ({
             ...toEventSummary(e),
             attendee_count: e.attendees?.length ?? 0,
           })),
@@ -180,6 +261,18 @@ export const calendarConnector: ConnectorDefinition = defineConnector({
           .max(250)
           .optional()
           .describe("Maximum number of events to return (1-250, default 10)."),
+        return_sync_token: z
+          .boolean()
+          .optional()
+          .describe(
+            "Drain all pages and return a `next_sync_token` to seed the next incremental pull (used for two-way sync)."
+          ),
+        sync_token: z
+          .string()
+          .optional()
+          .describe(
+            "Incremental sync token from a prior `next_sync_token`. Returns only events changed since then (incompatible with time_min/time_max/order). If expired, the response sets `sync_token_expired`."
+          ),
         time_max: z
           .string()
           .optional()
