@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.18] - 2026-07-13
+- ADDED **[time-tracking]** Outlook calendar overlay parity
+- ADDED **[time-tracking]** Calendar sync settings — scope + company overlays (Phase 4)
+- ADDED **[time-tracking]** Calendar pull-back / two-way sync (Phase 3)
+- DOCS **[time-tracking]** Resolve calendar-sync open questions (overlay=calendar-only, push=all/all-future prompt, provider+delete as planned)
+- DOCS **[time-tracking]** Mark calendar-sync phases 1-2 shipped, task list for phases 3-4 + Outlook parity
+
 ## [0.1.17] - 2026-07-13
 - ADDED **[artifacts]** Phase B — promotion + surfaces
 
