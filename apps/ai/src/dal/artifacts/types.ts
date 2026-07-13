@@ -26,6 +26,19 @@ export interface ArtifactRow {
   updated_at: string;
 }
 
+/** Row shape of ai.artifact_storage_binding (snake_case, 1:1 with the table). */
+export interface ArtifactStorageBindingRow {
+  connection_id: string;
+  created_at: string;
+  created_by: string | null;
+  folder_ref: string | null;
+  id: string;
+  scope_id: string;
+  scope_type: ArtifactScopeType;
+  tenant_id: string;
+  updated_at: string;
+}
+
 /** Row shape of ai.artifact_version (snake_case, 1:1 with the table). */
 export interface ArtifactVersionRow {
   artifact_id: string;

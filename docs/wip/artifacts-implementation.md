@@ -1,5 +1,41 @@
 # Artifacts — Implementation Guide (Phase A + B)
 
+> **Phase C: DONE 2026-07-14** on `feat/artifacts-external-storage`. External project
+> storage per [artifacts.md](./artifacts.md) §2/§6-C, live-verified end-to-end against
+> local Supabase's S3-compatible endpoint (connect → bind → promote → object lands in
+> the bucket with correct content/mime; metadata.external_mirror recorded). Pieces:
+> - **connections-sdk `ConnectorStorageCapability`** (write/delete/optional move) —
+>   `storageCapabilityActions()` synthesizes `files_write` (group `write`),
+>   `files_delete` (group `destructive`), `files_move` via `defineConnector`, so
+>   ask-by-default policy, approvals, and audit apply like any action. S3 connector
+>   implements it hand-rolled with aws4fetch beside its read capability.
+>   **Deviation from the files-sdk-bridge plan, deliberate:** a files-sdk s3 adapter
+>   would drag in @aws-sdk/client-s3 AND produce absolute-key refs inconsistent with
+>   the read capability's prefix-relative refs. The bridge idea stays on the table for
+>   Drive/OneDrive (their write actions already exist as hand-written actions).
+> - **`ai.artifact_storage_binding`** (migration 20260714010000): per-scope
+>   (task/project/goal) → connection_id (+folder_ref) soft ref, unique per scope.
+>   DAL get/setStorageBinding (null clears), routes GET/PUT `/ai/artifacts/storage-binding`
+>   (registered BEFORE `/:artifactId` — Hono route order).
+> - **`connections_storage_targets`** + **`connections_files_write`** operations in
+>   modules/connections: the first lists active, caller-visible connections whose
+>   connector declares `storage` (feeds the picker); the second writes to an EXPLICIT
+>   connection_id (bindings store ids, account-label addressing can't target them) with
+>   the action policy still enforced inside executeConnectorAction.
+> - **`ArtifactStoragePicker`** (ai-ui) rendered on the project Artifacts tab: platform
+>   default + storage targets via `/api/tools/connections_storage_targets/invoke`.
+> - **Mirror-on-promote**: `mirrorArtifactToBoundStorage` (apps/ai) called from the
+>   `/store` route (injectable `mirrorArtifact` opt — absent in tests) and the
+>   `artifact_store` tool (via the run's user token / EngentyCoreClient). Best-effort:
+>   failures log and return; platform storage stays the render source of truth; success
+>   recorded in `artifact.metadata.external_mirror` (+ tool output `mirrored`/`mirror_ref`).
+> - E2E trick for dev: local Supabase exposes an S3 endpoint
+>   (`supabase status` → S3_PROTOCOL_* keys, endpoint `http://127.0.0.1:54321/storage/v1/s3`,
+>   region `local`) — an S3 connection against bucket `files` verifies and takes writes.
+> - NOT built (still open): Drive/OneDrive storage capability, per-folder picker
+>   (binding.folder_ref is stored/honored but has no UI), re-mirror on later versions
+>   (only promote-time mirrors), mirror status surfaced in UI.
+
 > **Phase B: DONE 2026-07-13** on `feat/artifacts-promotion` (merged into main v0.1.15+).
 > Live-verified end-to-end: pin menu → store to project (tab leaves the chat, pane closes),
 > project "Artifacts" tab lists + opens a project-scoped pane with scope badge, agent

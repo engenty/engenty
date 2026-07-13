@@ -8,25 +8,33 @@ import { executeConnectorAction } from "./execute.js";
 import { filesCapabilityActions } from "./files-capability.js";
 import { registerConnectorDefinition } from "./registry.js";
 import { createConnectionsRepo } from "./repo.js";
+import { storageCapabilityActions } from "./storage-capability.js";
 import type { ConnectorAction, ConnectorDefinition } from "./types.js";
 import { ACTION_GROUP_CONTRACTS, connectorOperationId } from "./types.js";
 
 /**
  * Finalize a connector definition. When it declares a `files` capability, the
  * read actions (`files_list`/`files_read`/`files_stat`/`files_search`) are
- * synthesized and appended, so they project as gateway operations exactly like
- * hand-written actions. The registry's duplicate-id guard protects against a
- * connector also hand-declaring a `files_*` action.
+ * synthesized and appended; a `storage` capability likewise synthesizes the
+ * write actions (`files_write`/`files_delete`/`files_move`). They project as
+ * gateway operations exactly like hand-written actions. The registry's
+ * duplicate-id guard protects against a connector also hand-declaring a
+ * `files_*` action.
  */
 export function defineConnector(def: ConnectorDefinition): ConnectorDefinition {
-  if (!def.files) {
+  if (!(def.files || def.storage)) {
     return def;
   }
   return {
     ...def,
     actions: [
       ...def.actions,
-      ...filesCapabilityActions(def.files, def.filesProviderScopes),
+      ...(def.files
+        ? filesCapabilityActions(def.files, def.filesProviderScopes)
+        : []),
+      ...(def.storage
+        ? storageCapabilityActions(def.storage, def.storageProviderScopes)
+        : []),
     ],
   };
 }
