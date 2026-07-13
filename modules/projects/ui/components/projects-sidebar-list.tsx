@@ -15,7 +15,7 @@ import {
   Skeleton,
   sidebarColumnContentInsetClassName,
 } from "@engenty/ui-core";
-import { ExternalLink, MoreHorizontal, Trash2 } from "lucide-react";
+import { ExternalLink, MoreVertical, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ProjectListItem } from "../api.js";
@@ -85,7 +85,7 @@ export function ProjectSidebarRow({
               variant="ghost"
               {...shellSecondaryNavItemProps}
             >
-              <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+              <MoreVertical aria-hidden className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent

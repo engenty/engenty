@@ -14,13 +14,7 @@ import {
   TabsContent,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import {
-  MoreHorizontal,
-  Pencil,
-  Printer,
-  Trash2,
-  UserCheck,
-} from "lucide-react";
+import { MoreVertical, Pencil, Printer, Trash2, UserCheck } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { deleteTeamMember, type TeamMemberListItem } from "../api.js";
@@ -154,7 +148,7 @@ export function TeamMemberDetailPage() {
               size="icon"
               variant="ghost"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

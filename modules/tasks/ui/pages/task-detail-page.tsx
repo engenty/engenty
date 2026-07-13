@@ -23,7 +23,7 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -347,7 +347,7 @@ export function TaskDetailPage() {
               size="sm"
               variant="outline"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

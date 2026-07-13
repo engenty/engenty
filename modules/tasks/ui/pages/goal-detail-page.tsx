@@ -19,7 +19,7 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { GoalStatus } from "../../src/schema/types.js";
@@ -97,7 +97,7 @@ export function GoalDetailPage() {
             size="sm"
             variant="outline"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

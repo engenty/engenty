@@ -38,7 +38,7 @@ import {
   FileText,
   GripVertical,
   Link2,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Plus,
   Printer,
@@ -364,7 +364,7 @@ function ArticleRowChrome(props: ArticleRowChromeProps) {
               variant="ghost"
               {...shellSecondaryNavItemProps}
             >
-              <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+              <MoreVertical aria-hidden className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent

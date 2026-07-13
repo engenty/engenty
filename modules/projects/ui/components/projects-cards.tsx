@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { ProjectListItem } from "../api.js";
 import { getProjectDisplayProfiles } from "../lib/project-display-members.js";
@@ -121,7 +121,7 @@ function ProjectCard({
               )}
               type="button"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

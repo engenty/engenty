@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { MessageSquarePlus, MoreHorizontal } from "lucide-react";
+import { MessageSquarePlus, MoreVertical } from "lucide-react";
 import { useState } from "react";
 import { CopilotSandboxesMenuSection } from "./copilot-sandboxes-menu-section.js";
 
@@ -70,7 +70,7 @@ export function ChatTopbarActions() {
               type="button"
               variant="ghost"
             >
-              <MoreHorizontal className="size-4" />
+              <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">

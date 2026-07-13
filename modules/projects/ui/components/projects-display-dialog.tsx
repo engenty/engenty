@@ -15,7 +15,7 @@ import {
   Calendar,
   ListFilter,
   ListTodo,
-  MoreHorizontal,
+  MoreVertical,
   SlidersHorizontal,
   type SortOrder,
   type TableSize,
@@ -284,7 +284,7 @@ export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
                   aria-label={props.labels.toolbarMore}
                   type="button"
                 >
-                  <MoreHorizontal />
+                  <MoreVertical />
                 </ListToolbarIconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
