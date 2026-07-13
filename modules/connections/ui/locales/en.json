@@ -123,7 +123,8 @@
     "approveAlways": "Approve always",
     "deny": "Deny",
     "approved": "approved",
-    "denied": "denied"
+    "denied": "denied",
+    "importConnector": "Import connector"
   },
   "credentials": {
     "description": "Enter the credentials for this service. They are stored encrypted and never shown again.",

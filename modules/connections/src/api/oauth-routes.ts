@@ -86,7 +86,7 @@ export function registerConnectionsOAuthRoutes(
         tenant_id: ctx.auth.tenantId,
         user_id: ctx.auth.principalId,
       });
-      const authUrl = buildAuthorizationUrl({
+      const authUrl = await buildAuthorizationUrl({
         connector,
         redirectUri: redirectUri(),
         scopes,

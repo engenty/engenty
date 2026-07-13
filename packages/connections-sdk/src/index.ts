@@ -28,6 +28,7 @@ export {
   type OAuth2Env,
   type OAuth2Tokens,
   refreshAccessToken,
+  resolveOAuth2Credentials,
   resolveOAuth2Env,
 } from "./oauth2.js";
 export {
@@ -41,6 +42,7 @@ export {
   getConnectorDefinition,
   listConnectorDefinitions,
   registerConnectorDefinition,
+  removeConnectorDefinition,
   resolveConnectorOperation,
 } from "./registry.js";
 export {

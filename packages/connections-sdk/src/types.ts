@@ -83,8 +83,10 @@ export interface ConnectorOAuth2Config {
   authUrl: string;
   /** Base scopes always requested (e.g. identity/email). */
   baseScopes: string[];
-  clientIdEnv: string;
-  clientSecretEnv: string;
+  /** Env var names for the OAuth client (built-in connectors). Either the
+   *  env pair or `resolveClientCredentials` must be provided. */
+  clientIdEnv?: string;
+  clientSecretEnv?: string;
   /** Extra static query params for the authorization URL. */
   extraAuthParams?: Record<string, string>;
   /**
@@ -95,6 +97,15 @@ export interface ConnectorOAuth2Config {
     accessToken: string,
     fetchImpl: typeof fetch
   ) => Promise<{ externalId?: string; label: string }>;
+  /**
+   * Alternative to the env pair: resolve the OAuth client credentials at flow
+   * time. Imported connectors store per-connector clients encrypted in the DB
+   * and cannot mint env vars. Takes precedence over `clientIdEnv`/`clientSecretEnv`.
+   */
+  resolveClientCredentials?: () => Promise<{
+    clientId: string;
+    clientSecret: string;
+  }>;
   /** Scope string separator; Google/MS use " " (default), Slack uses ",". */
   scopeSeparator?: string;
   tokenUrl: string;

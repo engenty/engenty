@@ -1,0 +1,33 @@
+{
+  "id": "connections-external",
+  "name": "Connections — External (imported)",
+  "description": "Import any external service as a connector from OpenAPI specs, MCP servers, or the integrations.sh registry",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": ["module.connections-external"],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false,
+    "ui": true
+  },
+  "env": {
+    "feature": {
+      "id": "connections-external",
+      "label": "External connector imports",
+      "description": "Import connectors from OpenAPI specs, MCP servers, or the integrations.sh registry"
+    },
+    "vars": [
+      {
+        "description": "Base URL of the integrations.sh-compatible registry used for connector discovery. Only contacted during admin import/refresh, never at agent runtime. Defaults to https://integrations.sh.",
+        "feature": "connections-external",
+        "group": "Connections — External",
+        "key": "ENGENTY_INTEGRATIONS_REGISTRY_URL",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      }
+    ]
+  }
+}
