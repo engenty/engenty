@@ -7,6 +7,10 @@ import {
   registerToolCallUi,
 } from "@engenty/ai-ui";
 import {
+  ArtifactToolCallCard,
+  matchesArtifactToolCall,
+} from "./components/chat/artifact-tool-call-card.js";
+import {
   matchesGenerativeUiOutput,
   matchesSubAgentSessionOutput,
   SubAgentSessionToolCallCard,
@@ -41,5 +45,12 @@ export function registerEngentyCopilotToolCallUi() {
     priority: 45,
     match: (ctx) => matchesFileDownloadsToolCall(ctx),
     Card: FileDownloadsToolCallCard,
+  });
+
+  registerToolCallUi({
+    id: "engenty-copilot.artifact",
+    priority: 45,
+    match: (ctx) => matchesArtifactToolCall(ctx.toolName),
+    Card: ArtifactToolCallCard,
   });
 }

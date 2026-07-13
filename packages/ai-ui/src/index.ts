@@ -10,23 +10,27 @@ export {
 } from "./artifacts/artifact-pane.js";
 export {
   type ArtifactViewProps,
-  PLACEHOLDER_ARTIFACT_TYPE,
   registerArtifactRenderer,
   resolveArtifactRenderer,
 } from "./artifacts/artifact-renderers.js";
 export {
-  type ArtifactsState,
+  type ArtifactPaneState,
   activateArtifact,
   clearArtifactsForTests,
-  closeArtifact,
-  type EngentyArtifact,
-  openArtifact,
-  seedPlaceholderArtifacts,
+  setActiveArtifact,
   setArtifactPaneExpanded,
   setArtifactPaneOpen,
-  type UseArtifactsResult,
+  type UseArtifactPaneResult,
   useArtifacts,
 } from "./artifacts/artifact-store.js";
+export {
+  type ArtifactScopeType,
+  type ArtifactSummary,
+  type ArtifactWithContent,
+  artifactsQueryRoot,
+  useArtifactDetailQuery,
+  useArtifactsListQuery,
+} from "./artifacts/artifacts-api.js";
 export {
   ArtifactPaneToggle,
   WorkspaceArtifactPane,

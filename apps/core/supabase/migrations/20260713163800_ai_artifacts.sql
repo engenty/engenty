@@ -15,7 +15,9 @@ create table if not exists ai.artifact (
   title text not null,
   scope_type text not null check (scope_type in ('thread', 'task', 'project', 'goal')),
   scope_id text not null,
-  thread_id uuid references ai.thread(id) on delete set null,
+  -- Origin thread as a soft reference (no FK): provenance must survive thread
+  -- deletion, and an artifact may be created before a draft thread is persisted.
+  thread_id uuid,
   created_by_kind text not null check (created_by_kind in ('agent', 'user')),
   created_by uuid,
   current_version integer not null default 1,
