@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.12] - 2026-07-13
+- Changed: Make time-tracking module pro-only
+
+## [0.1.11] - 2026-07-12
+- Added [tasks]: Bulk delete, project column, and group-level select in task list
+
 ## [0.1.10] - 2026-07-12
 - Fixed [ci]: Keep public repo workflows untouched in open-source snapshot
 

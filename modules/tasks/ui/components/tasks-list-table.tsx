@@ -10,6 +10,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Checkbox,
   cn,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -83,6 +84,7 @@ const COLUMN_HEADERS: Record<TasksBuiltinColumnKey, string> = {
   identifier: "list.identifier",
   title: "list.titleColumn",
   assignee: "list.assignee",
+  project: "list.project",
   status: "list.status",
   priority: "list.priority",
   dueDate: "list.dueDate",
@@ -123,6 +125,7 @@ function renderBuiltinCell(
   task: Task,
   taskStatusDefinitions: TaskStatusDefinition[],
   assigneeProfiles: Map<string, { full_name: string; id: string }> | undefined,
+  projectTitleById: ReadonlyMap<string, string> | undefined,
   t: (key: string) => string
 ) {
   switch (key) {
@@ -144,6 +147,19 @@ function renderBuiltinCell(
       return (
         <TableCell className={COLUMN_WIDTH_CLASS.assignee}>
           <TaskAssigneeLabel assigneeProfiles={assigneeProfiles} task={task} />
+        </TableCell>
+      );
+    case "project":
+      return (
+        <TableCell
+          className={cn(
+            "text-muted-foreground text-sm",
+            COLUMN_WIDTH_CLASS.project
+          )}
+        >
+          {task.project_id
+            ? (projectTitleById?.get(task.project_id) ?? "—")
+            : "—"}
         </TableCell>
       );
     case "status":
@@ -261,6 +277,7 @@ export function TasksListTable({
         task,
         taskStatusDefinitions,
         assigneeProfiles,
+        projectTitleById,
         t
       );
     }
@@ -438,6 +455,35 @@ export function TasksListTable({
     t,
   ]);
 
+  const getGroupSelectionState = (
+    groupTasks: Task[]
+  ): boolean | "indeterminate" => {
+    if (groupTasks.length === 0) {
+      return false;
+    }
+    const selectedCount = groupTasks.reduce(
+      (count, task) => count + (selectedIds.has(task.id) ? 1 : 0),
+      0
+    );
+    if (selectedCount === 0) {
+      return false;
+    }
+    if (selectedCount === groupTasks.length) {
+      return true;
+    }
+    return "indeterminate";
+  };
+
+  const handleSelectGroup = (
+    groupTasks: Task[],
+    checked: boolean | "indeterminate"
+  ) => {
+    const shouldSelect = checked === true || checked === "indeterminate";
+    for (const task of groupTasks) {
+      onSelectOne(task.id, shouldSelect);
+    }
+  };
+
   const handleDelete = async () => {
     if (!(deletingTask && onDelete)) {
       return;
@@ -561,6 +607,19 @@ export function TasksListTable({
                           }))
                         }
                         open={open}
+                        selection={
+                          <span className="flex w-[30px] justify-center">
+                            <Checkbox
+                              aria-label={t("list.selectGroup", {
+                                defaultValue: "Select group",
+                              })}
+                              checked={getGroupSelectionState(group.tasks)}
+                              onCheckedChange={(checked) =>
+                                handleSelectGroup(group.tasks, checked)
+                              }
+                            />
+                          </span>
+                        }
                         toggleLabel={t("list.toggleGroup", {
                           defaultValue: "Toggle group",
                         })}

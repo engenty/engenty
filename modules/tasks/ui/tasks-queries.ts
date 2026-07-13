@@ -282,6 +282,18 @@ export function useDeleteTaskMutation() {
   });
 }
 
+export function useBulkDeleteTasksMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      await Promise.all(taskIds.map((id) => deleteTask(id)));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
 export function useBulkUpdateTasksMutation() {
   const queryClient = useQueryClient();
   return useMutation({
