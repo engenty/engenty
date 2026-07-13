@@ -330,7 +330,7 @@ export function CopilotComposerSection({
       {isUploadingAttachments || attachmentError ? (
         <div
           className={cn(
-            "mx-1 px-2 py-1.5 text-xs rounded",
+            "mx-1 rounded px-2 py-1.5 text-xs",
             attachmentError ? "text-destructive" : "text-muted-foreground"
           )}
         >

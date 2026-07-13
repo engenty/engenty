@@ -2,9 +2,13 @@
 
 // Presentational attachment tiles shared by the composer preview and the chat
 // transcript, mirroring the AI SDK Elements Attachments component:
-//   - grid variant  → square image thumbnails (`AttachmentImageTile`)
-//   - inline variant → file badge pills (`AttachmentFileBadge`)
-// Both accept an optional `onRemove` (composer) or `href` (transcript link).
+//   - grid variant  → separated square tiles: image thumbnails
+//     (`AttachmentImageTile`) and icon file tiles (`AttachmentFileTile`) —
+//     used in messages
+//   - inline variant → compact file badge pills (`AttachmentFileBadge`) —
+//     used in the composer input area
+// All accept an optional `onRemove` (composer) or `href` (transcript link).
+// `size` picks the square edge: "sm" (64px, composer) or "lg" (112px, thread).
 
 import { cn } from "@engenty/ui-core";
 import { FileText, Film, Music, X } from "lucide-react";
@@ -51,12 +55,21 @@ function RemoveButton({
   );
 }
 
+export type AttachmentTileSize = "lg" | "sm";
+
+const TILE_SIZE_CLASS: Record<AttachmentTileSize, string> = {
+  lg: "size-28 rounded-xl",
+  sm: "size-16 rounded-lg",
+};
+const TILE_SIZE_PX: Record<AttachmentTileSize, number> = { lg: 112, sm: 64 };
+
 export interface AttachmentTileProps {
   className?: string;
   href?: string;
   label: string;
   mediaType?: string;
   onRemove?: () => void;
+  size?: AttachmentTileSize;
   url?: string;
 }
 
@@ -66,18 +79,20 @@ export function AttachmentImageTile({
   href,
   label,
   onRemove,
+  size = "sm",
   url,
 }: AttachmentTileProps) {
   const image = (
     <img
       alt={label}
       className={cn(
-        "size-16 rounded-lg border border-border bg-muted object-cover",
+        TILE_SIZE_CLASS[size],
+        "border border-border bg-muted object-cover",
         className
       )}
-      height={64}
+      height={TILE_SIZE_PX[size]}
       src={url ?? undefined}
-      width={64}
+      width={TILE_SIZE_PX[size]}
     />
   );
   return (
@@ -88,6 +103,44 @@ export function AttachmentImageTile({
         </a>
       ) : (
         image
+      )}
+      {onRemove ? <RemoveButton label={label} onRemove={onRemove} /> : null}
+    </div>
+  );
+}
+
+/** Grid variant — a square file tile (centered type icon, like the image tile). */
+export function AttachmentFileTile({
+  className,
+  href,
+  label,
+  mediaType,
+  onRemove,
+  size = "sm",
+}: AttachmentTileProps) {
+  const Icon = fileIcon(mediaType);
+  const tileClass = cn(
+    TILE_SIZE_CLASS[size],
+    "flex items-center justify-center border border-border bg-muted/50",
+    href && "hover:bg-muted",
+    className
+  );
+  const icon = (
+    <Icon
+      className={cn(
+        size === "lg" ? "size-7" : "size-5",
+        "text-muted-foreground"
+      )}
+    />
+  );
+  return (
+    <div className="group relative" title={label}>
+      {href ? (
+        <a className={tileClass} href={href} rel="noreferrer" target="_blank">
+          {icon}
+        </a>
+      ) : (
+        <div className={tileClass}>{icon}</div>
       )}
       {onRemove ? <RemoveButton label={label} onRemove={onRemove} /> : null}
     </div>

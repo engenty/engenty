@@ -109,6 +109,8 @@ export {
   type HostConfig,
   resolveCopilotWorkContextStableSessionKey,
   resolveEngentyAgentAffinityStableSessionKey,
+  type SubmitMessage,
+  type SubmitMessageOptions,
   useAgentHost,
   useAgentHostConfig,
   useEngentyAIContext,

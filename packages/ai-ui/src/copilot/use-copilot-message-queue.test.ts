@@ -78,7 +78,7 @@ describe("useCopilotMessageQueue", () => {
     });
     const bId = result.current.queued[1]!.id;
     act(() => result.current.sendNow(bId));
-    expect(submit).toHaveBeenCalledWith("b");
+    expect(submit).toHaveBeenCalledWith("b", undefined);
     expect(result.current.queued.map((m) => m.text)).toEqual(["a"]);
   });
 
@@ -93,13 +93,13 @@ describe("useCopilotMessageQueue", () => {
 
     // Run finishes → head sent, removed from the queue.
     act(() => rerender({ status: "ready" }));
-    expect(submit).toHaveBeenNthCalledWith(1, "one");
+    expect(submit).toHaveBeenNthCalledWith(1, "one", undefined);
     expect(result.current.queued.map((m) => m.text)).toEqual(["two"]);
 
     // Next run runs then finishes → second drains.
     act(() => rerender({ status: "streaming" }));
     act(() => rerender({ status: "ready" }));
-    expect(submit).toHaveBeenNthCalledWith(2, "two");
+    expect(submit).toHaveBeenNthCalledWith(2, "two", undefined);
     expect(result.current.queued).toHaveLength(0);
   });
 

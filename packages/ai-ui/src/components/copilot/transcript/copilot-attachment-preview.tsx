@@ -8,7 +8,7 @@ import {
 } from "../../../lib/chat-attachment-part.js";
 import { getFileStorageSignedUrl } from "../../../lib/file-storage-signed-url.js";
 import {
-  AttachmentFileBadge,
+  AttachmentFileTile,
   AttachmentImageTile,
 } from "../../ai-elements/attachment/attachment-tiles.js";
 
@@ -49,24 +49,24 @@ function useResolvedAttachmentUrl(
   return resolved;
 }
 
-function ImageAttachment({ attachment }: { attachment: ResolvedAttachment }) {
+function AttachmentTile({ attachment }: { attachment: ResolvedAttachment }) {
   const url = useResolvedAttachmentUrl(attachment);
+  if (isImageMimeType(attachment.mimeType)) {
+    return (
+      <AttachmentImageTile
+        href={url ?? undefined}
+        label={attachment.filename || "image"}
+        size="lg"
+        url={url ?? undefined}
+      />
+    );
+  }
   return (
-    <AttachmentImageTile
-      href={url ?? undefined}
-      label={attachment.filename || "image"}
-      url={url ?? undefined}
-    />
-  );
-}
-
-function FileAttachment({ attachment }: { attachment: ResolvedAttachment }) {
-  const url = useResolvedAttachmentUrl(attachment);
-  return (
-    <AttachmentFileBadge
+    <AttachmentFileTile
       href={url ?? undefined}
       label={attachment.filename || "file"}
       mediaType={attachment.mimeType}
+      size="lg"
     />
   );
 }
@@ -77,9 +77,9 @@ export interface CopilotAttachmentPreviewProps {
 }
 
 /**
- * Render the attachments carried on a user message: images as square grid
- * thumbnails first, then files as inline badges, right-aligned to sit above the
- * user bubble.
+ * Render the attachments carried on a user message: one right-aligned row of
+ * separated square tiles above the user bubble — image thumbnails first, then
+ * icon file tiles (AI SDK Elements grid variant).
  */
 export function CopilotAttachmentPreview({
   parts,
@@ -92,31 +92,19 @@ export function CopilotAttachmentPreview({
     return null;
   }
 
-  const images = attachments.filter((a) => isImageMimeType(a.mimeType));
-  const files = attachments.filter((a) => !isImageMimeType(a.mimeType));
+  const ordered = [
+    ...attachments.filter((a) => isImageMimeType(a.mimeType)),
+    ...attachments.filter((a) => !isImageMimeType(a.mimeType)),
+  ];
 
   return (
-    <div className="mb-1.5 flex flex-col items-end gap-2">
-      {images.length > 0 ? (
-        <div className="flex flex-wrap justify-end gap-2">
-          {images.map((attachment, index) => (
-            <ImageAttachment
-              attachment={attachment}
-              key={`${attachment.storageKey || attachment.url || "img"}-${index}`}
-            />
-          ))}
-        </div>
-      ) : null}
-      {files.length > 0 ? (
-        <div className="flex flex-wrap justify-end gap-2">
-          {files.map((attachment, index) => (
-            <FileAttachment
-              attachment={attachment}
-              key={`${attachment.storageKey || attachment.url || "file"}-${index}`}
-            />
-          ))}
-        </div>
-      ) : null}
+    <div className="flex flex-wrap justify-end gap-2">
+      {ordered.map((attachment, index) => (
+        <AttachmentTile
+          attachment={attachment}
+          key={`${attachment.storageKey || attachment.url || "att"}-${index}`}
+        />
+      ))}
     </div>
   );
 }
