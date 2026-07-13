@@ -378,5 +378,6 @@
     "searchLoading": "Suche läuft...",
     "noSearchResults": "Keine Projekte entsprechen Ihrer Suche",
     "projectsSection": "Projekte"
-  }
+  },
+  "artifactsTab": "Artefakte"
 }

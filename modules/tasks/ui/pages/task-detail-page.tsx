@@ -43,6 +43,7 @@ import type { Task, TaskPriority, TaskStatus } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { GoalDocumentTitle } from "../components/goal-document-title.js";
 import { LiveTaskRunsPanel } from "../components/live-task-runs-panel.js";
+import { TaskArtifactsPanel } from "../components/task-artifacts-panel.js";
 import type { TaskAssigneeValue } from "../components/task-assignee-picker.js";
 import { TaskCommentsActivityTabs } from "../components/task-comments-activity-tabs.js";
 import { TaskLinkedSessionsPanel } from "../components/task-linked-sessions-panel.js";
@@ -174,6 +175,7 @@ function TaskDetailLoadedContent({
             isLoading={linkedSessionsQuery.isLoading}
             sessions={linkedSessionsQuery.data ?? []}
           />
+          <TaskArtifactsPanel taskId={task.id} />
         </>
       }
       sidebarLabel={t("detail.sidebarLabel")}
@@ -516,7 +518,11 @@ export function TaskDetailPage() {
         </TaskRunObserverProvider>
       )}
 
-      <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
+      {/* Merge the task's stored artifacts into the chat pane so sidebar rows can open. */}
+      <WorkspaceArtifactPane
+        extraScope={task ? { type: "task", id: task.id } : null}
+        hostKey={ENGENTY_COPILOT_HOST_KEY}
+      />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogContent>

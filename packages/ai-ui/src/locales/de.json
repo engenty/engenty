@@ -998,6 +998,18 @@
     "expandPane": "Artefakt-Panel maximieren",
     "collapsePane": "Artefakt-Panel verkleinern",
     "openPane": "Artefakt-Panel öffnen",
-    "resizePane": "Artefakt-Panel-Größe ändern"
+    "resizePane": "Artefakt-Panel-Größe ändern",
+    "storeAction": "Artefakt ablegen",
+    "storeSearch": "Ablageziel suchen…",
+    "storeNoMatch": "Keine Treffer.",
+    "storeToTask": "In Aufgabe ablegen",
+    "storeToProject": "In Projekt ablegen",
+    "storeNoProjects": "Keine Projekte verfügbar.",
+    "projectEmpty": "Für dieses Projekt sind noch keine Artefakte abgelegt.",
+    "scope": {
+      "task": "Aufgabe",
+      "project": "Projekt",
+      "goal": "Ziel"
+    }
   }
 }

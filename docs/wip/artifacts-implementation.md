@@ -1,5 +1,29 @@
 # Artifacts — Implementation Guide (Phase A + B)
 
+> **Phase B: DONE 2026-07-13** on `feat/artifacts-promotion` (merged into main v0.1.15+).
+> Live-verified end-to-end: pin menu → store to project (tab leaves the chat, pane closes),
+> project "Artifacts" tab lists + opens a project-scoped pane with scope badge, agent
+> `artifact_store` tool (create → store in one turn), task DocSidebar section with live
+> realtime update, row click opens the merged pane, task offered as one-click pin target.
+> Deviations from §7, all deliberate:
+> - `WorkspaceArtifactPane` generalized instead of a bespoke projects list-only panel:
+>   optional `scope` (replaces the thread binding; used by the project tab) and
+>   `extraScope` (merged after primary; task page passes `('task', taskId)`) — stored
+>   artifacts must be openable in a pane, and tabs are the server list, so the pane needs
+>   non-thread scopes. `useArtifactListSync` re-seeds on a combined `scopeKey`.
+> - Pin menu is a Popover+Command (one surface for task target + project picker), not a
+>   DropdownMenu; projects fetched via `/api/projects` (graceful empty state when the
+>   projects module is absent). Task target read from `useCopilotShell().copilotContext
+>   .scope.task_id/task_title` (set by task detail routes).
+> - Scope badge renders only for non-thread scopes (a "Chat" badge on every chat tab is
+>   noise).
+> - Contributed project-detail tabs are per-project **opt-in** via the "Tabs konfigurieren"
+>   dialog (host-page behavior, same as the files tab) — the Artifacts tab appears in the
+>   catalog, not automatically in the strip.
+> - Realtime invalidation reverted to whole-`artifactsQueryRoot`: an UPDATE event only
+>   carries the NEW scope, so the Phase-A scope-confined invalidation missed the list an
+>   artifact left on promotion (tab stayed in the chat until reload).
+
 > **Phase A: DONE 2026-07-13** on `feat/artifacts-backend` (commits 3579f7c migration,
 > f26a146 backend, aee7a02 ai-ui). Live-verified end-to-end (create/version/promote/
 > tenant-isolation, markdown/html/table render, tabs, archive, auto-open, realtime
