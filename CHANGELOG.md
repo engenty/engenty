@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.17] - 2026-07-13
+- ADDED **[artifacts]** Phase B — promotion + surfaces
+
 ## [0.1.16] - 2026-07-13
 - ADDED **[ai-ui]** File & photo upload in chat composer (all surfaces)
 - CHANGED **[ai-ui]** Improve attachment preview margins in composer
