@@ -249,6 +249,7 @@ export function registerTimeTrackingCalendarGatewayMethods(
         connection_id: null,
         target_calendar_id: null,
         time_zone: null,
+        backfill_from: null,
       };
       if (!(supabase && tenantId && userId)) {
         return empty;
@@ -263,6 +264,7 @@ export function registerTimeTrackingCalendarGatewayMethods(
         connection_id: st.connection_id,
         target_calendar_id: st.target_calendar_id,
         time_zone: st.time_zone,
+        backfill_from: st.backfill_from,
       };
     },
   });
@@ -282,6 +284,11 @@ export function registerTimeTrackingCalendarGatewayMethods(
         throw new Error("calendar_sync_unavailable");
       }
       const repo = createCalendarSyncRepo(supabase, tenantId);
+      // "future" scope stamps today's boundary; "all" (default) clears it.
+      const backfillFrom =
+        body.backfill_mode === "future"
+          ? new Date().toISOString().slice(0, 10)
+          : null;
       await repo.upsertSyncState({
         connection_id: body.connection_id,
         scope_id: scopeId,
@@ -289,6 +296,7 @@ export function registerTimeTrackingCalendarGatewayMethods(
         sync_enabled: body.sync_enabled,
         target_calendar_id: body.target_calendar_id,
         time_zone: body.time_zone ?? null,
+        backfill_from: backfillFrom,
       });
       // Enable ⇒ backfill the user's scheduled entries now, as the live user
       // (write policy proceeds without the autonomous-mode requirement).
@@ -311,6 +319,7 @@ export function registerTimeTrackingCalendarGatewayMethods(
         connection_id: body.connection_id,
         target_calendar_id: body.target_calendar_id,
         time_zone: body.time_zone ?? null,
+        backfill_from: backfillFrom,
       };
     },
   });

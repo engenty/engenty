@@ -175,6 +175,10 @@ export async function pushTimeEntry(
   if (!target?.target_calendar_id) {
     return { status: "skipped", reason: "no_target" };
   }
+  // "All future" push scope: entries before the chosen boundary stay unlinked.
+  if (target.backfill_from && entry.date < target.backfill_from) {
+    return { status: "skipped", reason: "before_backfill_from" };
+  }
   const existing = await repo.getLink(params.entryId);
 
   // Unscheduled entries aren't placed on the calendar; drop a prior event.
@@ -258,9 +262,14 @@ export async function syncConnection(
   const linkedEntryIds = new Set(linkRows.map((l) => l.entry_id));
 
   // Backfill: scheduled entries in the window that were created while sync was
-  // off (no link yet). Bounded; the in-request push handles fresh edits.
+  // off (no link yet). Bounded; the in-request push handles fresh edits. The
+  // "All future" scope raises the floor to the chosen boundary date.
   const today = new Date();
-  const from = format(addDays(today, -BACKFILL_PAST_DAYS), "yyyy-MM-dd");
+  const windowFrom = format(addDays(today, -BACKFILL_PAST_DAYS), "yyyy-MM-dd");
+  const from =
+    params.state.backfill_from && params.state.backfill_from > windowFrom
+      ? params.state.backfill_from
+      : windowFrom;
   const to = format(addDays(today, BACKFILL_FUTURE_DAYS), "yyyy-MM-dd");
   const scheduled = await repo.listScheduledEntryIdsForOwner(
     params.state.owner_user_id,

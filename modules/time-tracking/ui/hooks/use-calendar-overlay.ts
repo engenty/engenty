@@ -3,19 +3,23 @@ import { addDays, startOfDay } from "date-fns";
 import { useCallback } from "react";
 import {
   type CalendarSource,
+  type CalendarSyncBackfillMode,
   type CalendarSyncSettings,
   getCalendarOverlayEvents,
   getCalendarSources,
   getCalendarSyncSettings,
+  getCompanyOverlays,
   getOverlaySettings,
   type OverlayEvent,
   type OverlaySettings,
+  type OverlayTarget,
   setCalendarSyncSettings,
   setOverlaySettings,
 } from "../api.js";
 
 const SETTINGS_KEY = ["time-tracking", "calendar-overlay", "settings"] as const;
 const SYNC_KEY = ["time-tracking", "calendar-sync", "settings"] as const;
+const COMPANY_KEY = ["time-tracking", "calendar-overlay", "company"] as const;
 
 const EMPTY_SETTINGS: OverlaySettings = { enabled: false, targets: [] };
 const EMPTY_SYNC: CalendarSyncSettings = {
@@ -23,6 +27,7 @@ const EMPTY_SYNC: CalendarSyncSettings = {
   connection_id: null,
   target_calendar_id: null,
   time_zone: null,
+  backfill_from: null,
 };
 
 export interface SetSyncInput {
@@ -30,9 +35,11 @@ export interface SetSyncInput {
   sync_enabled: boolean;
   target_calendar_id: string;
   time_zone?: string | null;
+  backfill_mode?: CalendarSyncBackfillMode;
 }
 
 export interface UseCalendarOverlayResult {
+  companyTargets: OverlayTarget[];
   events: OverlayEvent[];
   eventsLoading: boolean;
   hasErrors: boolean;
@@ -110,6 +117,14 @@ export function useCalendarOverlay(
     queryFn: ({ signal }) => getCalendarSyncSettings(signal),
   });
 
+  // Tenant-suggested org calendars, loaded lazily alongside the picker.
+  const companyQuery = useQuery({
+    queryKey: COMPANY_KEY,
+    queryFn: ({ signal }) => getCompanyOverlays(signal),
+    enabled: sourcesEnabled,
+    staleTime: 60_000,
+  });
+
   const setSyncSettings = useCallback(
     async (input: SetSyncInput) => {
       const res = await setCalendarSyncSettings(input);
@@ -128,5 +143,6 @@ export function useCalendarOverlay(
     sourcesLoading: sourcesQuery.isLoading,
     syncSettings: syncQuery.data ?? EMPTY_SYNC,
     setSyncSettings,
+    companyTargets: companyQuery.data?.targets ?? [],
   };
 }

@@ -11,8 +11,10 @@ import {
   Switch,
 } from "@engenty/ui-core";
 import { CalendarClock } from "lucide-react";
+import { useMemo } from "react";
 import type {
   CalendarSource,
+  CalendarSyncBackfillMode,
   CalendarSyncSettings,
   OverlaySettings,
   OverlayTarget,
@@ -21,6 +23,7 @@ import type { SetSyncInput } from "../../hooks/use-calendar-overlay.js";
 import { overlayBlockStyle } from "./calendar-utils.js";
 
 interface CalendarOverlayMenuProps {
+  companyTargets: OverlayTarget[];
   hasErrors: boolean;
   onOpenChange: (open: boolean) => void;
   onSettingsChange: (next: OverlaySettings) => void;
@@ -43,6 +46,17 @@ function sameTarget(
   );
 }
 
+/** Split the connection list into personal vs org-shared (company) groups. */
+function groupSources(sources: CalendarSource[]): {
+  personal: CalendarSource[];
+  company: CalendarSource[];
+} {
+  return {
+    personal: sources.filter((s) => s.sharing !== "org"),
+    company: sources.filter((s) => s.sharing === "org"),
+  };
+}
+
 export function CalendarOverlayMenu({
   open,
   onOpenChange,
@@ -53,10 +67,21 @@ export function CalendarOverlayMenu({
   sourcesLoading,
   hasErrors,
   syncSettings,
+  companyTargets,
 }: CalendarOverlayMenuProps) {
   const { t } = useTranslation("time-tracking");
   const activeCount = settings.targets.length;
   const isActive = settings.enabled && activeCount > 0;
+  const grouped = useMemo(() => groupSources(sources), [sources]);
+  // Derived push-scope choice: a boundary date means "future only".
+  const backfillMode: CalendarSyncBackfillMode = syncSettings.backfill_from
+    ? "future"
+    : "all";
+
+  const isCompanySuggested = (connectionId: string, calendarId: string) =>
+    companyTargets.some((target) =>
+      sameTarget(target, connectionId, calendarId)
+    );
 
   const toggleCalendar = (connectionId: string, calendarId: string) => {
     const exists = settings.targets.some((target) =>
@@ -75,6 +100,75 @@ export function CalendarOverlayMenu({
       enabled: targets.length > 0 ? true : settings.enabled,
       targets,
     });
+  };
+
+  // Re-emit sync settings when the target calendar or the push scope changes.
+  const emitSync = (
+    next: Partial<Pick<SetSyncInput, "backfill_mode">> & {
+      connection_id: string;
+      target_calendar_id: string;
+      time_zone?: string | null;
+      sync_enabled: boolean;
+    }
+  ) => {
+    onSyncChange({ backfill_mode: backfillMode, ...next });
+  };
+
+  const renderOverlayGroup = (group: CalendarSource[], label: string) => {
+    if (group.length === 0) {
+      return null;
+    }
+    return (
+      <div className="mb-2 last:mb-0">
+        <p className="mb-1 px-1 font-semibold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
+          {label}
+        </p>
+        {group.map((source) => (
+          <div className="mb-2 last:mb-0" key={source.connection_id}>
+            <p className="mb-1 truncate font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+              {source.label}
+            </p>
+            {source.calendars.length === 0 ? (
+              <p className="px-1 text-[11px] text-muted-foreground">
+                {t("calendar.overlayNoCalendars")}
+              </p>
+            ) : (
+              source.calendars.map((calendar) => {
+                const checked = settings.targets.some((target) =>
+                  sameTarget(target, source.connection_id, calendar.id)
+                );
+                const swatchKey = `${source.connection_id}:${calendar.id}`;
+                return (
+                  <label
+                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-accent"
+                    key={calendar.id}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() =>
+                        toggleCalendar(source.connection_id, calendar.id)
+                      }
+                    />
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-sm border"
+                      style={overlayBlockStyle(swatchKey)}
+                    />
+                    <span className="truncate text-sm">
+                      {calendar.summary ?? calendar.id}
+                    </span>
+                    {isCompanySuggested(source.connection_id, calendar.id) ? (
+                      <span className="ml-auto shrink-0 rounded-full bg-primary/10 px-1.5 text-[9px] text-primary">
+                        {t("calendar.overlaySuggested")}
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -120,45 +214,16 @@ export function CalendarOverlayMenu({
                 {t("calendar.overlayEmpty")}
               </p>
             ) : (
-              sources.map((source) => (
-                <div className="mb-2 last:mb-0" key={source.connection_id}>
-                  <p className="mb-1 truncate font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
-                    {source.label}
-                  </p>
-                  {source.calendars.length === 0 ? (
-                    <p className="px-1 text-[11px] text-muted-foreground">
-                      {t("calendar.overlayNoCalendars")}
-                    </p>
-                  ) : (
-                    source.calendars.map((calendar) => {
-                      const checked = settings.targets.some((target) =>
-                        sameTarget(target, source.connection_id, calendar.id)
-                      );
-                      const swatchKey = `${source.connection_id}:${calendar.id}`;
-                      return (
-                        <label
-                          className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-accent"
-                          key={calendar.id}
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={() =>
-                              toggleCalendar(source.connection_id, calendar.id)
-                            }
-                          />
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-sm border"
-                            style={overlayBlockStyle(swatchKey)}
-                          />
-                          <span className="truncate text-sm">
-                            {calendar.summary ?? calendar.id}
-                          </span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              ))
+              <>
+                {renderOverlayGroup(
+                  grouped.personal,
+                  t("calendar.overlayGroupPersonal")
+                )}
+                {renderOverlayGroup(
+                  grouped.company,
+                  t("calendar.overlayGroupCompany")
+                )}
+              </>
             )}
           </div>
         </ScrollArea>
@@ -176,7 +241,7 @@ export function CalendarOverlayMenu({
                   syncSettings.connection_id &&
                   syncSettings.target_calendar_id
                 ) {
-                  onSyncChange({
+                  emitSync({
                     connection_id: syncSettings.connection_id,
                     target_calendar_id: syncSettings.target_calendar_id,
                     time_zone: syncSettings.time_zone,
@@ -196,8 +261,13 @@ export function CalendarOverlayMenu({
           ) : (
             sources.map((source) => (
               <div className="mb-1 last:mb-0" key={source.connection_id}>
-                <p className="mb-0.5 truncate font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                <p className="mb-0.5 flex items-center gap-1.5 truncate font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
                   {source.label}
+                  {source.sharing === "org" ? (
+                    <span className="rounded-full bg-muted px-1 text-[9px] normal-case tracking-normal">
+                      {t("calendar.overlayGroupCompany")}
+                    </span>
+                  ) : null}
                 </p>
                 {source.calendars.map((calendar) => {
                   const selected =
@@ -213,7 +283,7 @@ export function CalendarOverlayMenu({
                         className="accent-primary"
                         name="calendar-sync-target"
                         onChange={() =>
-                          onSyncChange({
+                          emitSync({
                             connection_id: source.connection_id,
                             target_calendar_id: calendar.id,
                             time_zone: calendar.time_zone,
@@ -231,6 +301,45 @@ export function CalendarOverlayMenu({
               </div>
             ))
           )}
+          {syncSettings.target_calendar_id ? (
+            <div className="mt-2 rounded-md border bg-muted/30 px-2 py-1.5">
+              <p className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
+                {t("calendar.syncScopeTitle")}
+              </p>
+              {(["all", "future"] as CalendarSyncBackfillMode[]).map((mode) => (
+                <label
+                  className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-accent"
+                  key={mode}
+                >
+                  <input
+                    checked={backfillMode === mode}
+                    className="accent-primary"
+                    name="calendar-sync-scope"
+                    onChange={() => {
+                      if (
+                        syncSettings.connection_id &&
+                        syncSettings.target_calendar_id
+                      ) {
+                        onSyncChange({
+                          connection_id: syncSettings.connection_id,
+                          target_calendar_id: syncSettings.target_calendar_id,
+                          time_zone: syncSettings.time_zone,
+                          sync_enabled: syncSettings.sync_enabled,
+                          backfill_mode: mode,
+                        });
+                      }
+                    }}
+                    type="radio"
+                  />
+                  <span className="text-xs">
+                    {mode === "all"
+                      ? t("calendar.syncScopeAll")
+                      : t("calendar.syncScopeFuture")}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : null}
         </div>
         {hasErrors ? (
           <>

@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const SCHEMA = "module_time_tracking";
 
 export interface CalendarSyncState {
+  // Push scope floor: NULL = all entries, a date = only entries on/after it.
+  backfill_from: string | null;
   connection_id: string;
   cursor: string | null;
   last_error: string | null;
@@ -46,6 +48,7 @@ export interface SyncEntryRow {
 }
 
 export interface UpsertSyncStateInput {
+  backfill_from: string | null;
   connection_id: string;
   owner_user_id: string;
   scope_id: string;
@@ -132,6 +135,7 @@ export function createCalendarSyncRepo(adapter: unknown, tenantId: string) {
           sync_enabled: input.sync_enabled,
           target_calendar_id: input.target_calendar_id,
           time_zone: input.time_zone,
+          backfill_from: input.backfill_from,
           updated_at: nowIso(),
         },
         { onConflict: "connection_id" }

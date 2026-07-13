@@ -31,14 +31,22 @@ on `feat/calendar-sync-two-way` since 2026-07-13.
         connections (Outlook has no delta feed) before pushing; response gains
         `pulled` / `unlinked`
   - No new migration — Phase 2's `calendar_sync_state.cursor` column reused.
-- [ ] **Phase 4 — settings page + company calendars**
-  - [ ] dedicated settings surface (route or settings-area section)
-  - [ ] `time-tracking.calendar.company_overlays` tenant default + admin UI
-  - [ ] overlay picker grouped Personal / Company
-  - [ ] team view: overlays stay viewer-scoped
-  - [ ] enable-sync prompt: **All vs All-future** → `calendar_sync_state.backfill_from`
-        (migration: add nullable `backfill_from date`); backfill + reconcile
-        skip entries with `date < backfill_from` (decision 2 below)
+- [x] **Phase 4 — settings + company calendars** — implemented 2026-07-13
+  - [x] settings surface: enhanced the calendar toolbar overlay/sync menu
+        (the settings-area section option); dedicated full-page route deferred
+  - [x] `time-tracking.calendar.company_overlays` tenant default — stored in
+        tenant-settings (read by all via `tenant-settings.read`, written by
+        admins via the platform `/api/tenant-settings/:name` PATCH,
+        `tenant-settings.write`); surfaced as "Suggested" company overlays
+  - [x] overlay picker grouped **Personal / Company** (by connection `sharing`)
+  - [x] team view: overlays stay viewer-scoped — overlay hook only ever uses
+        the acting user's settings/connections, never the switched-to user
+  - [x] enable-sync prompt: **All vs All-future** → `calendar_sync_state.backfill_from`
+        (migration `20260713170000` adds nullable `backfill_from date`);
+        backfill + in-request push skip entries with `date < backfill_from`
+  - Deferred: a dedicated admin editor UI for company overlays (writes work
+    today via the tenant-settings endpoint); pre-checking company overlays as
+    live defaults (currently surfaced + toggleable, not auto-enabled).
 - [ ] **Outlook parity (carried over from Phase 1)**
   - [ ] `list_calendars` action + `calendar_id` param on Outlook event
         actions (Graph `/me/calendars/{id}/calendarView`); until then

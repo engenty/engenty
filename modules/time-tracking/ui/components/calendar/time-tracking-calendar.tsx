@@ -515,6 +515,7 @@ export function TimeTrackingCalendar({
         <div className="font-semibold text-sm sm:text-base">{rangeLabel}</div>
         <div className="ml-auto flex items-center gap-2">
           <CalendarOverlayMenu
+            companyTargets={overlay.companyTargets}
             hasErrors={overlay.hasErrors}
             onOpenChange={setOverlayMenuOpen}
             onSettingsChange={overlay.setSettings}

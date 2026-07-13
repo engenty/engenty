@@ -341,6 +341,8 @@ export const calendarSyncSettingsSchema = z.object({
   connection_id: z.string().nullable(),
   target_calendar_id: z.string().nullable(),
   time_zone: z.string().nullable(),
+  // Push scope: null = all entries, a "YYYY-MM-DD" = only entries on/after it.
+  backfill_from: z.string().nullable(),
 });
 
 export const calendarSyncSettingsSetInputSchema = z.object({
@@ -348,6 +350,9 @@ export const calendarSyncSettingsSetInputSchema = z.object({
   target_calendar_id: z.string().min(1),
   time_zone: z.string().nullable().optional(),
   sync_enabled: z.boolean(),
+  // "all" pushes every scheduled entry; "future" pushes only entries dated
+  // today or later (server stamps the boundary). Defaults to "all".
+  backfill_mode: z.enum(["all", "future"]).optional(),
 });
 
 export const calendarSyncRunResponseSchema = z.object({

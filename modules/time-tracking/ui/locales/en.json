@@ -72,7 +72,13 @@
     "overlayEmpty": "No calendar connected. Connect Google Calendar under Settings → Connections.",
     "overlayNoCalendars": "No calendars found",
     "overlayError": "Some calendars couldn't be loaded",
+    "overlayGroupPersonal": "Personal",
+    "overlayGroupCompany": "Company",
+    "overlaySuggested": "Suggested",
     "syncTitle": "Sync my hours",
-    "syncHint": "Write your scheduled time entries to a calendar as events. Background sync needs the connection set to autonomous mode."
+    "syncHint": "Write your scheduled time entries to a calendar as events. Background sync needs the connection set to autonomous mode.",
+    "syncScopeTitle": "Which entries to sync",
+    "syncScopeAll": "All entries",
+    "syncScopeFuture": "Only entries from today on"
   }
 }

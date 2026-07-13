@@ -396,11 +396,15 @@ export async function setOverlaySettings(value: OverlaySettings) {
 
 // --- Calendar push sync (entries → calendar) ---
 
+export type CalendarSyncBackfillMode = "all" | "future";
+
 export interface CalendarSyncSettings {
   connection_id: string | null;
   sync_enabled: boolean;
   target_calendar_id: string | null;
   time_zone: string | null;
+  // null = all entries pushed; a "YYYY-MM-DD" = only entries on/after it.
+  backfill_from: string | null;
 }
 
 export async function getCalendarSyncSettings(signal?: AbortSignal) {
@@ -415,9 +419,44 @@ export async function setCalendarSyncSettings(input: {
   target_calendar_id: string;
   time_zone?: string | null;
   sync_enabled: boolean;
+  backfill_mode?: CalendarSyncBackfillMode;
 }) {
   return request<CalendarSyncSettings>(
     "/api/time-tracking/calendar/sync-settings",
     { method: "PATCH", body: JSON.stringify(input) }
+  );
+}
+
+// --- Company overlay defaults (tenant-managed; admins write, everyone reads) ---
+// Org calendars an admin suggests as pre-checked overlays for the whole tenant.
+const COMPANY_OVERLAYS_NAME = "time-tracking.calendar.company_overlays";
+
+export interface CompanyOverlaySettings {
+  targets: OverlayTarget[];
+}
+
+export async function getCompanyOverlays(
+  signal?: AbortSignal
+): Promise<CompanyOverlaySettings> {
+  const res = await request<{ value?: unknown }>(
+    `/api/tenant-settings/${encodeURIComponent(COMPANY_OVERLAYS_NAME)}`,
+    { method: "GET", signal }
+  );
+  const value = res?.value;
+  if (value && typeof value === "object") {
+    const v = value as Partial<CompanyOverlaySettings>;
+    return { targets: Array.isArray(v.targets) ? v.targets : [] };
+  }
+  return { targets: [] };
+}
+
+/** Requires `tenant-settings.write` (admins); non-admins get a 403. */
+export async function setCompanyOverlays(value: CompanyOverlaySettings) {
+  return request<unknown>(
+    `/api/tenant-settings/${encodeURIComponent(COMPANY_OVERLAYS_NAME)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ type: "json", value_jsonb: value }),
+    }
   );
 }

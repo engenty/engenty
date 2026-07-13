@@ -72,7 +72,13 @@
     "overlayEmpty": "Kein Kalender verbunden. Verbinde Google Calendar unter Einstellungen → Verbindungen.",
     "overlayNoCalendars": "Keine Kalender gefunden",
     "overlayError": "Einige Kalender konnten nicht geladen werden",
+    "overlayGroupPersonal": "Persönlich",
+    "overlayGroupCompany": "Firma",
+    "overlaySuggested": "Empfohlen",
     "syncTitle": "Meine Stunden synchronisieren",
-    "syncHint": "Schreibe deine geplanten Zeiteinträge als Termine in einen Kalender. Hintergrund-Sync erfordert die Verbindung im autonomen Modus."
+    "syncHint": "Schreibe deine geplanten Zeiteinträge als Termine in einen Kalender. Hintergrund-Sync erfordert die Verbindung im autonomen Modus.",
+    "syncScopeTitle": "Welche Einträge synchronisieren",
+    "syncScopeAll": "Alle Einträge",
+    "syncScopeFuture": "Nur Einträge ab heute"
   }
 }
