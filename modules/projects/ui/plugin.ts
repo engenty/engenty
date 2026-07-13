@@ -3,7 +3,7 @@ import type {
   EngentyPluginContext,
   UiIconComponent,
 } from "@engenty/ui-plugin-sdk";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban, Shapes } from "lucide-react";
 import { createElement, type MouseEvent as ReactMouseEvent } from "react";
 import {
   createProject,
@@ -15,7 +15,9 @@ import {
   updateProject,
 } from "./api.js";
 import { ProjectsShortcutsWidget } from "./components/dashboard/projects-shortcuts-widget.js";
+import { ProjectArtifactsTab } from "./components/project-artifacts-tab.js";
 import { projectsCopilotContribution } from "./copilot-contribution.js";
+import { PROJECTS_DETAIL_SURFACE } from "./hooks/use-project-tabs.js";
 import {
   ProjectDetailPage,
   ProjectsListPage,
@@ -190,6 +192,17 @@ export default function plugin(engenty: EngentyPluginContext) {
     to: "/mdl/projects/settings",
     icon: DockProjectsIcon,
     order: 115,
+  });
+
+  // Artifacts stored (promoted) to a project from chats — panel lives in ai-ui.
+  engenty.UI.registerTab({
+    id: "artifacts",
+    surface: PROJECTS_DETAIL_SURFACE,
+    component: ProjectArtifactsTab,
+    label: "Artifacts",
+    labelKey: "projects:artifactsTab",
+    icon: Shapes,
+    order: 310,
   });
 
   engenty.UI.registerCopilotContribution(projectsCopilotContribution);

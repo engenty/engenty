@@ -1,8 +1,12 @@
 import { Pane, PaneTabStrip, PaneTopBar } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, Spinner } from "@engenty/ui-core";
+import { Badge, Button, cn, Spinner } from "@engenty/ui-core";
 import { Maximize2, Minimize2, Shapes, X } from "lucide-react";
 import type { CSSProperties } from "react";
+import {
+  ArtifactPinMenu,
+  type ArtifactStoreTarget,
+} from "./artifact-pin-menu.js";
 import { resolveArtifactRenderer } from "./artifact-renderers.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
 
@@ -16,7 +20,12 @@ export interface ArtifactPaneProps {
   onClose: (id: string) => void;
   onSetExpanded: (expanded: boolean) => void;
   onSetPaneOpen: (open: boolean) => void;
+  /** Store ("pin") the active artifact to a task/project scope; omitting hides the pin menu. */
+  onStore?: (target: ArtifactStoreTarget & { artifactId: string }) => void;
   paneExpanded: boolean;
+  storePending?: boolean;
+  /** Task offered as a one-click store target (set on task detail routes). */
+  storeTaskTarget?: { id: string; title?: string } | null;
   style?: CSSProperties;
 }
 
@@ -36,7 +45,10 @@ export function ArtifactPane({
   onClose,
   onSetExpanded,
   onSetPaneOpen,
+  onStore,
   paneExpanded,
+  storePending,
+  storeTaskTarget,
   style,
 }: ArtifactPaneProps) {
   const { t } = useTranslation("ai-ui");
@@ -54,6 +66,15 @@ export function ArtifactPane({
         <PaneTopBar
           actions={
             <>
+              {active && onStore ? (
+                <ArtifactPinMenu
+                  disabled={storePending}
+                  onStore={(target) =>
+                    onStore({ ...target, artifactId: active.id })
+                  }
+                  taskTarget={storeTaskTarget}
+                />
+              ) : null}
               <Button
                 aria-label={
                   paneExpanded
@@ -84,6 +105,12 @@ export function ArtifactPane({
             onActivate={onActivate}
             onClose={onClose}
           />
+          {/* Stored artifacts carry their home scope; thread scope is implied. */}
+          {active && active.scope_type !== "thread" ? (
+            <Badge className="ml-1 shrink-0" variant="secondary">
+              {t(`artifacts.scope.${active.scope_type}`)}
+            </Badge>
+          ) : null}
         </PaneTopBar>
       }
     >

@@ -9,6 +9,10 @@ export {
   type ArtifactPaneProps,
 } from "./artifacts/artifact-pane.js";
 export {
+  ArtifactPinMenu,
+  type ArtifactStoreTarget,
+} from "./artifacts/artifact-pin-menu.js";
+export {
   type ArtifactViewProps,
   registerArtifactRenderer,
   resolveArtifactRenderer,
@@ -32,8 +36,14 @@ export {
   useArtifactsListQuery,
 } from "./artifacts/artifacts-api.js";
 export {
+  ENGENTY_PROJECT_ARTIFACTS_HOST_KEY,
+  ProjectArtifactsPanel,
+} from "./artifacts/project-artifacts-panel.js";
+export {
+  type ArtifactPaneScope,
   ArtifactPaneToggle,
   WorkspaceArtifactPane,
+  type WorkspaceArtifactPaneProps,
 } from "./artifacts/workspace-artifact-pane.js";
 // --- Dev tooling (not embed API) ---
 export {

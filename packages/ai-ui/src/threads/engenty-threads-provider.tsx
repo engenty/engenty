@@ -21,11 +21,7 @@ import {
   updateAppsAiThread,
 } from "../ag-ui/apps-ai/apps-ai-session-api.js";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
-import {
-  type ArtifactScopeType,
-  artifactsListQueryKey,
-  artifactsQueryRoot,
-} from "../artifacts/artifacts-api.js";
+import { artifactsQueryRoot } from "../artifacts/artifacts-api.js";
 import { createArtifactsRealtimeSubscription } from "../artifacts/artifacts-realtime.js";
 import { engentyThreadsListQueryKey } from "./engenty-threads-query-keys.js";
 import {
@@ -316,22 +312,15 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
   useEffect(() => {
     const subscription = createArtifactsRealtimeSubscription({
       client: props.realtimeClient ?? null,
-      onArtifactsChange: (record) => {
-        // Confine the refetch to the changed artifact's scope when the event
-        // carries the row; fall back to the root for events without one. The
+      onArtifactsChange: () => {
+        // Always invalidate the whole artifacts root: an UPDATE only carries
+        // the NEW scope, so a scope-confined refetch would miss the list the
+        // artifact just left (promotion moves thread → task/project). Events
+        // are rare enough that the broad invalidation is fine; the
         // version-keyed detail query refetches off the list's current_version.
-        const scopeType = record?.scope_type;
-        const scopeId = record?.scope_id;
-        void ai.queryClient?.invalidateQueries(
-          typeof scopeType === "string" && typeof scopeId === "string"
-            ? {
-                queryKey: artifactsListQueryKey(
-                  scopeType as ArtifactScopeType,
-                  scopeId
-                ),
-              }
-            : { queryKey: artifactsQueryRoot }
-        );
+        void ai.queryClient?.invalidateQueries({
+          queryKey: artifactsQueryRoot,
+        });
       },
       tenantId: props.tenantId,
     });

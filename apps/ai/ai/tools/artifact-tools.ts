@@ -42,9 +42,9 @@ function requireThreadScope() {
 }
 
 /**
- * Returns the four artifact tools. Artifacts are created thread-scoped (the
- * current chat); promotion to a task/project/goal happens via `artifact_store`
- * (Phase B). Wire into createEngentyCopilotAgentTools().
+ * Returns the artifact tools. Artifacts are created thread-scoped (the
+ * current chat); `artifact_store` promotes one to a task/project/goal, which
+ * moves it out of the chat's tab list. Wire into createEngentyCopilotAgentTools().
  */
 export function createArtifactTools(deps?: { store?: ArtifactStore | null }) {
   const store = () => resolveStore(deps?.store);
@@ -156,6 +156,41 @@ export function createArtifactTools(deps?: { store?: ArtifactStore | null }) {
     },
   });
 
+  const artifactStoreTool = createTool({
+    id: "artifact_store",
+    description:
+      "Store an artifact permanently on a task, project, or goal so it stays available outside this chat. This moves the artifact out of the chat's tab list. Ask the user which target to store to if it is unclear.",
+    inputSchema: z.object({
+      artifact_id: z.string().min(1),
+      scope_type: z.enum(["task", "project", "goal"]),
+      scope_id: z.string().min(1),
+    }),
+    outputSchema: z.object({
+      artifact_id: z.string(),
+      scope_type: z.string(),
+      scope_id: z.string(),
+    }),
+    execute: async (input) => {
+      const { tenantId } = requireThreadScope();
+      const artifact = await store().updateScope({
+        tenantId,
+        artifactId: input.artifact_id,
+        scopeType: input.scope_type,
+        scopeId: input.scope_id,
+      });
+      if (!artifact) {
+        throw new Error(
+          `artifact_store: artifact ${input.artifact_id} not found`
+        );
+      }
+      return {
+        artifact_id: artifact.id,
+        scope_type: artifact.scope_type,
+        scope_id: artifact.scope_id,
+      };
+    },
+  });
+
   const artifactList = createTool({
     id: "artifact_list",
     description:
@@ -194,5 +229,6 @@ export function createArtifactTools(deps?: { store?: ArtifactStore | null }) {
     artifact_update: artifactUpdate,
     artifact_get: artifactGet,
     artifact_list: artifactList,
+    artifact_store: artifactStoreTool,
   };
 }

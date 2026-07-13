@@ -207,7 +207,9 @@
       "linkedSessionsEmpty": "No Copilot sessions for this task yet.",
       "linkedSessionUntitled": "{{agent}} session",
       "checkoutConflict": "Another agent holds checkout on this task. Pick a different task or wait for it to be released.",
-      "checkedOut": "Checked out"
+      "checkedOut": "Checked out",
+      "artifacts": "Artifacts",
+      "artifactsEmpty": "No artifacts stored on this task."
     },
     "noCollaborators": "No collaborators",
     "liveRuns": "Live runs",

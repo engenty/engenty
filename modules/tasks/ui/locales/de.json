@@ -207,7 +207,9 @@
       "linkedSessionsEmpty": "Noch keine Copilot-Sitzungen für diese Aufgabe.",
       "linkedSessionUntitled": "{{agent}}-Sitzung",
       "checkoutConflict": "Ein anderer Agent hat diese Aufgabe ausgecheckt. Wähle eine andere Aufgabe oder warte auf die Freigabe.",
-      "checkedOut": "Ausgecheckt"
+      "checkedOut": "Ausgecheckt",
+      "artifacts": "Artefakte",
+      "artifactsEmpty": "Für diese Aufgabe sind keine Artefakte abgelegt."
     },
     "noCollaborators": "Keine Mitwirkenden",
     "liveRuns": "Live-Läufe",
