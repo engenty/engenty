@@ -997,6 +997,11 @@
       "task": "Task",
       "project": "Project",
       "goal": "Goal"
-    }
+    },
+    "storageLabel": "Storage",
+    "storageHeading": "Store promoted artifacts in",
+    "storagePlatform": "Platform storage (default)",
+    "storageConnected": "Connected storage",
+    "storageNoTargets": "No storage-capable connections."
   }
 }

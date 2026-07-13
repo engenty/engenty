@@ -3,6 +3,7 @@ import {
   ACTION_GROUP_DEFAULT_POLICY,
   connectionAccountLabel,
   connectorOperationId,
+  executeConnectorAction,
   getConnectorDefinition,
   grantedOperationIds,
   listConnectorDefinitions,
@@ -122,6 +123,129 @@ export function registerConnectionsOperations(
         tenantId: ctx.auth.tenantId,
       });
       return { accounts: candidates.map(connectionAccountLabel) };
+    },
+  });
+
+  // ── Storage targets for artifact/project storage pickers ─────────────────
+  api.registerOperation({
+    operationId: "connections_storage_targets",
+    moduleId: "connections",
+    summary: "List connections that can store files (write capability)",
+    description:
+      "Active, caller-visible connections whose connector declares the storage (write) capability. Used to pick where project artifacts are mirrored.",
+    idempotent: true,
+    riskLevel: "low",
+    requiredCapabilities: ["module.connections.read"],
+    inputSchema: z.object({}).optional(),
+    handler: async (_input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      const { principalId, tenantId } = ctx.auth;
+      const connections = await repo.listConnections({ tenantId });
+      const targets: {
+        connection_id: string;
+        connector_icon: string | null;
+        connector_id: string;
+        connector_name: string;
+        label: string;
+      }[] = [];
+      for (const connection of connections) {
+        if (connection.status !== "active") {
+          continue;
+        }
+        if (
+          !(
+            connection.sharing === "org" ||
+            connection.owner_user_id === principalId
+          )
+        ) {
+          continue;
+        }
+        const def = getConnectorDefinition(connection.connector_id);
+        if (!def?.storage) {
+          continue;
+        }
+        targets.push({
+          connection_id: connection.id,
+          connector_icon: def.icon ?? null,
+          connector_id: def.id,
+          connector_name: def.name,
+          label:
+            connection.display_name ?? connection.external_account ?? def.name,
+        });
+      }
+      return { targets };
+    },
+  });
+
+  // ── Connection-addressed file write (artifact mirroring) ─────────────────
+  // Unlike the per-connector `<prefix>_files_write` projections (which resolve
+  // the connection by account label), this targets an explicit connection id —
+  // the shape stored in artifact storage bindings. The connector's action
+  // policy still gates the write inside executeConnectorAction.
+  api.registerOperation({
+    operationId: "connections_files_write",
+    moduleId: "connections",
+    summary: "Write a file to a specific storage-capable connection",
+    description:
+      "Write (create or overwrite) a file on the storage of one connection, addressed by connection id. Used to mirror promoted artifacts to configured project storage.",
+    idempotent: false,
+    riskLevel: "medium",
+    requiredCapabilities: ["module.connections.write"],
+    inputSchema: z.object({
+      connection_id: z.string().uuid(),
+      content_base64: z.string().optional(),
+      content_text: z.string().optional(),
+      folder_ref: z.string().nullish(),
+      mime_type: z.string().nullish(),
+      name: z.string().min(1).max(512),
+    }),
+    handler: async (input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      const parsed = input as {
+        connection_id: string;
+        content_base64?: string;
+        content_text?: string;
+        folder_ref?: string | null;
+        mime_type?: string | null;
+        name: string;
+      };
+      const connection = await repo.getConnection({
+        connectionId: parsed.connection_id,
+        tenantId: ctx.auth.tenantId,
+      });
+      if (!connection) {
+        throw new Error("connection_not_found");
+      }
+      const connector = getConnectorDefinition(connection.connector_id);
+      const action = connector?.actions.find((a) => a.id === "files_write");
+      if (!(connector && action)) {
+        throw new Error("connection_not_storage_capable");
+      }
+      const { output } = await executeConnectorAction({
+        action,
+        connectionId: parsed.connection_id,
+        connector,
+        input: {
+          content_base64: parsed.content_base64,
+          content_text: parsed.content_text,
+          folder_ref: parsed.folder_ref ?? null,
+          mime_type: parsed.mime_type ?? null,
+          name: parsed.name,
+        },
+        isAutonomous: false,
+        principal: {
+          principalId: ctx.auth.principalId,
+          principalType: "user",
+        },
+        recordAuditEvent: (event) => ctx.recordAuditEvent?.(event),
+        repo,
+        tenantId: ctx.auth.tenantId,
+      });
+      return output;
     },
   });
 

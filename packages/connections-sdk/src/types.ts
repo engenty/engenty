@@ -292,6 +292,40 @@ export interface ConnectorFilesCapability {
   ): Promise<ConnectorFileEntry>;
 }
 
+export interface ConnectorStorageWriteInput {
+  /** Exactly one of content_base64 / content_text (validated by the handler). */
+  content_base64?: string;
+  content_text?: string;
+  /** Folder ref to write into; null targets the connection root. */
+  folder_ref: string | null;
+  mime_type?: string | null;
+  name: string;
+}
+
+/**
+ * Write access to a connector's file storage — the counterpart of
+ * {@link ConnectorFilesCapability}. When present, the runtime synthesizes
+ * `files_write` (group `write`) / `files_delete` (group `destructive`)
+ * (+ `files_move` if provided) actions, so the ask-by-default policy,
+ * approvals, and audit apply with no extra gate code. Refs MUST share the
+ * read capability's semantics (provider-relative to the connection root).
+ * Powers project artifact storage (mirror-on-promote) and agent writes.
+ */
+export interface ConnectorStorageCapability {
+  delete(
+    ctx: ConnectorActionContext,
+    input: { ref: string }
+  ): Promise<{ deleted: boolean; ref: string }>;
+  move?(
+    ctx: ConnectorActionContext,
+    input: { new_name?: string; ref: string; to_folder_ref: string | null }
+  ): Promise<ConnectorFileEntry>;
+  write(
+    ctx: ConnectorActionContext,
+    input: ConnectorStorageWriteInput
+  ): Promise<ConnectorFileEntry>;
+}
+
 export interface ConnectorDefinition {
   /** All actions, each projected as module operation `<toolPrefix>_<action.id>`. */
   actions: ConnectorAction[];
@@ -308,6 +342,10 @@ export interface ConnectorDefinition {
   /** Owning module id (e.g. `connections-google`). */
   moduleId: string;
   name: string;
+  /** Write file access; synthesizes `files_write`/`files_delete`/`files_move`. */
+  storage?: ConnectorStorageCapability;
+  /** Provider scopes requested for the synthesized storage write actions. */
+  storageProviderScopes?: string[];
   /** Optional inbound stream (module consumption API only). */
   stream?: ConnectorStreamCapability;
   /** Operation/tool id prefix, snake_case (e.g. `gmail`). */

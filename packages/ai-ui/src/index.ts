@@ -17,6 +17,7 @@ export {
   registerArtifactRenderer,
   resolveArtifactRenderer,
 } from "./artifacts/artifact-renderers.js";
+export { ArtifactStoragePicker } from "./artifacts/artifact-storage-picker.js";
 export {
   type ArtifactPaneState,
   activateArtifact,

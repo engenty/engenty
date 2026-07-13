@@ -5,6 +5,7 @@ import type {
   ArtifactCreatorKind,
   ArtifactRow,
   ArtifactScopeType,
+  ArtifactStorageBindingRow,
   ArtifactVersionRow,
 } from "./types.js";
 
@@ -274,6 +275,93 @@ export function createArtifactStore(client: SupabaseClient) {
         throw new Error(`artifact scope update: ${error.message}`);
       }
       return (data as ArtifactRow | null) ?? null;
+    },
+
+    /** Shallow-merge into artifact.metadata (read-modify-write; last writer wins). */
+    async mergeMetadata(params: {
+      tenantId: string;
+      artifactId: string;
+      patch: Record<string, unknown>;
+    }): Promise<ArtifactRow | null> {
+      const row = await getArtifactRow(params);
+      if (!row) {
+        return null;
+      }
+      const { data, error } = await db
+        .from("artifact")
+        .update({
+          metadata: { ...row.metadata, ...params.patch },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", params.tenantId)
+        .eq("id", params.artifactId)
+        .select()
+        .maybeSingle();
+      if (error) {
+        throw new Error(`artifact metadata update: ${error.message}`);
+      }
+      return (data as ArtifactRow | null) ?? null;
+    },
+
+    async getStorageBinding(params: {
+      tenantId: string;
+      scopeType: ArtifactScopeType;
+      scopeId: string;
+    }): Promise<ArtifactStorageBindingRow | null> {
+      const { data, error } = await db
+        .from("artifact_storage_binding")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("scope_type", params.scopeType)
+        .eq("scope_id", params.scopeId)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`artifact storage binding select: ${error.message}`);
+      }
+      return (data as ArtifactStorageBindingRow | null) ?? null;
+    },
+
+    /** Upsert the scope's storage binding; a null connectionId clears it. */
+    async setStorageBinding(params: {
+      tenantId: string;
+      scopeType: ArtifactScopeType;
+      scopeId: string;
+      connectionId: string | null;
+      folderRef?: string | null;
+      createdBy?: string | null;
+    }): Promise<ArtifactStorageBindingRow | null> {
+      if (!params.connectionId) {
+        const { error } = await db
+          .from("artifact_storage_binding")
+          .delete()
+          .eq("tenant_id", params.tenantId)
+          .eq("scope_type", params.scopeType)
+          .eq("scope_id", params.scopeId);
+        if (error) {
+          throw new Error(`artifact storage binding delete: ${error.message}`);
+        }
+        return null;
+      }
+      const { data, error } = await db
+        .from("artifact_storage_binding")
+        .upsert(
+          {
+            tenant_id: params.tenantId,
+            scope_type: params.scopeType,
+            scope_id: params.scopeId,
+            connection_id: params.connectionId,
+            folder_ref: params.folderRef ?? null,
+            created_by: params.createdBy ?? null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "tenant_id,scope_type,scope_id" }
+        )
+        .select()
+        .single();
+      if (error) {
+        throw new Error(`artifact storage binding upsert: ${error.message}`);
+      }
+      return data as ArtifactStorageBindingRow;
     },
 
     async setStatus(params: {

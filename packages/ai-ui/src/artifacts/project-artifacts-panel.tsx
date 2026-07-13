@@ -1,6 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, Button, Spinner } from "@engenty/ui-core";
 import { Shapes } from "lucide-react";
+import { ArtifactStoragePicker } from "./artifact-storage-picker.js";
 import { activateArtifact } from "./artifact-store.js";
 import { useArtifactsListQuery } from "./artifacts-api.js";
 import { WorkspaceArtifactPane } from "./workspace-artifact-pane.js";
@@ -24,6 +25,9 @@ export function ProjectArtifactsPanel({ projectId }: { projectId: string }) {
 
   return (
     <section aria-label={t("artifacts.paneLabel")} className="mt-4">
+      <div className="mb-2 flex justify-end">
+        <ArtifactStoragePicker scopeId={projectId} scopeType="project" />
+      </div>
       {listQuery.isLoading ? (
         <div className="flex justify-center py-8">
           <Spinner />

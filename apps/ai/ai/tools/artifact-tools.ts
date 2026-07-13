@@ -1,11 +1,13 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { mirrorArtifactToBoundStorage } from "../../src/ai/artifacts/artifact-mirror.js";
 import { ARTIFACT_TYPE_IDS } from "../../src/ai/artifacts/artifact-types.js";
 import {
   type ArtifactStore,
   ArtifactVersionConflictError,
   createArtifactStoreFromEnv,
 } from "../../src/dal/artifacts/index.js";
+import { getCurrentEngentyToolsClient } from "./engenty-tools/lib/client.js";
 import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
 
 const artifactTypeSchema = z.enum(ARTIFACT_TYPE_IDS);
@@ -169,6 +171,8 @@ export function createArtifactTools(deps?: { store?: ArtifactStore | null }) {
       artifact_id: z.string(),
       scope_type: z.string(),
       scope_id: z.string(),
+      mirrored: z.boolean().optional(),
+      mirror_ref: z.string().optional(),
     }),
     execute: async (input) => {
       const { tenantId } = requireThreadScope();
@@ -183,10 +187,24 @@ export function createArtifactTools(deps?: { store?: ArtifactStore | null }) {
           `artifact_store: artifact ${input.artifact_id} not found`
         );
       }
+      // Best-effort mirror to the scope's bound storage connection (Phase C);
+      // platform storage stays the render source, so failures don't fail the
+      // store.
+      const client = getCurrentEngentyToolsClient();
+      const mirror = client.ok
+        ? await mirrorArtifactToBoundStorage({
+            artifact,
+            invokeTool: (toolId, mirrorInput) =>
+              client.client.invokeTool(toolId, mirrorInput),
+            store: store(),
+            tenantId,
+          })
+        : null;
       return {
         artifact_id: artifact.id,
         scope_type: artifact.scope_type,
         scope_id: artifact.scope_id,
+        ...(mirror?.mirrored ? { mirrored: true, mirror_ref: mirror.ref } : {}),
       };
     },
   });

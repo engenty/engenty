@@ -30,6 +30,11 @@ vi.mock("./workspace-artifact-pane.js", () => ({
   WorkspaceArtifactPane: () => null,
 }));
 
+// Storage picker needs a QueryClient + connections API; covered separately.
+vi.mock("./artifact-storage-picker.js", () => ({
+  ArtifactStoragePicker: () => null,
+}));
+
 describe("ProjectArtifactsPanel", () => {
   it("lists via the ('project', projectId) scope and renders the rows", () => {
     render(<ProjectArtifactsPanel projectId="p1" />);

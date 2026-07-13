@@ -13,6 +13,7 @@ export type {
   ArtifactRow,
   ArtifactScopeType,
   ArtifactStatus,
+  ArtifactStorageBindingRow,
   ArtifactStorageKind,
   ArtifactVersionRow,
 } from "./types.js";

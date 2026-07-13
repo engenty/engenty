@@ -55,6 +55,7 @@ export {
   registerConnectorModule,
   withAccountParam,
 } from "./runtime.js";
+export { storageCapabilityActions } from "./storage-capability.js";
 export { decryptToken, encryptToken } from "./token-crypto.js";
 export {
   ACTION_GROUP_CONTRACTS,
@@ -79,6 +80,8 @@ export {
   type ConnectorFilesListResult,
   type ConnectorFilesReadResult,
   type ConnectorOAuth2Config,
+  type ConnectorStorageCapability,
+  type ConnectorStorageWriteInput,
   type ConnectorStreamCapability,
   connectorOperationId,
   type InboundMessage,

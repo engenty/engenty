@@ -72,16 +72,37 @@ async function s3Fetch(
   ctx: ConnectorActionContext,
   creds: S3Credentials,
   url: string,
-  init?: { method?: string }
+  init?: { body?: BodyInit; headers?: Record<string, string>; method?: string }
 ): Promise<Response> {
   const client = clientFor(creds);
-  const signed = await client.sign(url, { method: init?.method ?? "GET" });
+  const signed = await client.sign(url, {
+    method: init?.method ?? "GET",
+    ...(init?.body === undefined ? {} : { body: init.body }),
+    ...(init?.headers ? { headers: init.headers } : {}),
+  });
   const res = await ctx.fetchImpl(signed);
   if (!res.ok) {
     const body = (await res.text()).slice(0, 400);
     throw new Error(`s3_api_error (${res.status}): ${body}`);
   }
   return res;
+}
+
+/** Bucket URL for one object key, each path segment encoded. */
+function objectUrl(creds: S3Credentials, key: string): string {
+  return `${bucketUrl(creds)}/${key
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/")}`;
+}
+
+/** Compose a connection-relative file ref from a folder ref + file name. */
+export function composeFileRef(folderRef: string | null, name: string): string {
+  const folder = (folderRef ?? "").replace(/^\/+/, "");
+  if (!folder) {
+    return name;
+  }
+  return folder.endsWith("/") ? `${folder}${name}` : `${folder}/${name}`;
 }
 
 interface ListedObject {
@@ -210,7 +231,7 @@ export const s3Connector: ConnectorDefinition = defineConnector({
     },
   },
   description:
-    "Browse and read objects in an S3-compatible bucket (AWS S3, Cloudflare R2, MinIO). Read-only.",
+    "Browse, read, and write objects in an S3-compatible bucket (AWS S3, Cloudflare R2, MinIO). Writes require approval by default.",
   files: {
     rootLabel: (connection) => connection.external_account ?? "S3 bucket",
 
@@ -313,5 +334,67 @@ export const s3Connector: ConnectorDefinition = defineConnector({
   id: "s3",
   moduleId: "connections-s3",
   name: "S3 Bucket",
+  storage: {
+    async write(ctx, input) {
+      const creds = parseCredentials(ctx.accessToken);
+      const root = normalizedPrefix(creds);
+      const ref = composeFileRef(input.folder_ref, input.name);
+      const bytes =
+        typeof input.content_base64 === "string"
+          ? Buffer.from(input.content_base64, "base64")
+          : Buffer.from(input.content_text ?? "", "utf8");
+      const mime = input.mime_type ?? "application/octet-stream";
+      await s3Fetch(ctx, creds, objectUrl(creds, `${root}${ref}`), {
+        body: new Uint8Array(bytes),
+        headers: { "content-type": mime },
+        method: "PUT",
+      });
+      return {
+        kind: "file" as const,
+        mime_type: mime,
+        modified_at: new Date().toISOString(),
+        name: input.name,
+        ref,
+        size: bytes.length,
+      };
+    },
+
+    async delete(ctx, input) {
+      const creds = parseCredentials(ctx.accessToken);
+      const root = normalizedPrefix(creds);
+      await s3Fetch(ctx, creds, objectUrl(creds, `${root}${input.ref}`), {
+        method: "DELETE",
+      });
+      return { deleted: true, ref: input.ref };
+    },
+
+    async move(ctx, input) {
+      const creds = parseCredentials(ctx.accessToken);
+      const root = normalizedPrefix(creds);
+      const name = input.new_name ?? (input.ref.split("/").pop() || input.ref);
+      const toRef = composeFileRef(input.to_folder_ref, name);
+      // S3 has no native move: server-side copy, then delete the source.
+      await s3Fetch(ctx, creds, objectUrl(creds, `${root}${toRef}`), {
+        headers: {
+          "x-amz-copy-source": `/${creds.bucket}/${`${root}${input.ref}`
+            .split("/")
+            .map(encodeURIComponent)
+            .join("/")}`,
+        },
+        method: "PUT",
+      });
+      await s3Fetch(ctx, creds, objectUrl(creds, `${root}${input.ref}`), {
+        method: "DELETE",
+      });
+      return {
+        kind: "file" as const,
+        mime_type: null,
+        modified_at: new Date().toISOString(),
+        name,
+        ref: toRef,
+        size: null,
+      };
+    },
+  },
   toolPrefix: "s3",
 });

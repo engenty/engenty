@@ -1010,6 +1010,11 @@
       "task": "Aufgabe",
       "project": "Projekt",
       "goal": "Ziel"
-    }
+    },
+    "storageLabel": "Ablage",
+    "storageHeading": "Abgelegte Artefakte speichern in",
+    "storagePlatform": "Plattform-Speicher (Standard)",
+    "storageConnected": "Verbundener Speicher",
+    "storageNoTargets": "Keine speicherfähigen Verbindungen."
   }
 }
