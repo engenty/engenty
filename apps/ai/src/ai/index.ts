@@ -13,6 +13,9 @@ import {
   createAgentRunStore,
   createAgentSessionStore,
 } from "../dal/agent-sessions/index.js";
+
+export { createArtifactStoreFromEnv } from "../dal/artifacts/index.js";
+
 import {
   type ChatSearchRetrieval,
   createChatSearchRetrieval,

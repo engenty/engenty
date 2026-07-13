@@ -15,6 +15,7 @@ import {
   type CopilotThemeMode,
   useRegisterShellSetThemeFrontendTool,
 } from "./shell-set-theme/register.js";
+import { useRegisterShowArtifactFrontendTool } from "./show-artifact/register.js";
 
 export interface RegisterCopilotFrontendToolsOptions {
   changeLanguage: (locale: CopilotLocale) => Promise<unknown>;
@@ -34,6 +35,7 @@ export function useRegisterCopilotFrontendTools(
     openCopilotShell: options.openCopilotShell,
   });
   useRegisterOfferFileDownloadsFrontendTool();
+  useRegisterShowArtifactFrontendTool();
   useRegisterOpenCopilotFrontendTool({
     openCopilotShell: options.openCopilotShell,
   });
@@ -84,3 +86,4 @@ export {
   type CopilotThemeMode,
   useRegisterShellSetThemeFrontendTool,
 } from "./shell-set-theme/register.js";
+export { useRegisterShowArtifactFrontendTool } from "./show-artifact/register.js";

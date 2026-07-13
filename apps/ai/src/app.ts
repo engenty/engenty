@@ -30,6 +30,7 @@ import {
   createAgentSessionStoreFromEnv,
   createAiService,
   createAiUsageStoreFromEnv,
+  createArtifactStoreFromEnv,
   createChatSearchRetrievalFromEnv,
   createDefaultAiRegistry,
   createDefaultModuleCapabilityLoader,
@@ -39,6 +40,7 @@ import { registerActionRoutes } from "./api/action-routes.js";
 import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
 import { registerAgentSessionRunRoutes } from "./api/agent-session-runs-routes.js";
 import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
+import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
 import {
   createAgUiDebugEventBus,
@@ -73,6 +75,7 @@ import type {
   AgentSessionStore,
 } from "./dal/agent-sessions/index.js";
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
+import type { ArtifactStore } from "./dal/artifacts/index.js";
 import type { ChatSearchRetrieval } from "./dal/chat-search/index.js";
 import { seedAiUsageModelPricing } from "./dal/usage/index.js";
 import {
@@ -93,6 +96,7 @@ let dispatchQueueService: QueueService | null = null;
 export interface CreateAppOptions {
   agentRunStore?: AgentRunStore | null;
   agentSessionStore?: AgentSessionStore | null;
+  artifactStore?: ArtifactStore | null;
   chatSearchRetrieval?: ChatSearchRetrieval | null;
   coreBaseUrl?: string;
   coreFetch?: typeof fetch;
@@ -193,6 +197,10 @@ export async function createApp(options: CreateAppOptions = {}) {
       ? options.agentRunStore
       : createAgentRunStoreFromEnv();
   const actionRequestStore = createActionRequestStoreFromEnv();
+  const artifactStore =
+    "artifactStore" in options
+      ? options.artifactStore
+      : createArtifactStoreFromEnv();
   if (agentSessionStore) {
     logger.info("agent session store ready", { schema: "ai" });
   } else if (!("agentSessionStore" in options)) {
@@ -421,6 +429,13 @@ export async function createApp(options: CreateAppOptions = {}) {
     onSessionPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
+  if (artifactStore) {
+    registerArtifactRoutes(app, { artifactStore, scopeResolver });
+  } else if (!("artifactStore" in options)) {
+    logger.warn(
+      "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+    );
+  }
   registerAgentSessionRunRoutes(app, {
     // Registry + store for the streaming chat runtimes (harness_session default,
     // conversation executor).

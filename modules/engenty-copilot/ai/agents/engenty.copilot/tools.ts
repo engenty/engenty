@@ -18,6 +18,16 @@ export const ENGENTY_VAULT_TOOL_IDS = [
   "vault_upload_file",
 ];
 
+// Artifact tools — AI-generated documents rendered in the artifact panel.
+// Implementations live in apps/ai (createArtifactTools) and are resolved by the
+// builtin registry; these ids gate what the copilot model may call.
+export const ENGENTY_ARTIFACT_TOOL_IDS = [
+  "artifact_create",
+  "artifact_update",
+  "artifact_get",
+  "artifact_list",
+];
+
 // AG-UI frontend tools are NOT listed here: they are registered per-run as native
 // Mastra tools (the LLM calls them by name; they suspend the run and the browser
 // executes/resumes). No invoke_frontend_tool meta-tool. See
@@ -29,6 +39,7 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   "web_search",
   ...ENGENTY_CATALOG_TOOL_IDS,
   ...ENGENTY_VAULT_TOOL_IDS,
+  ...ENGENTY_ARTIFACT_TOOL_IDS,
 ];
 
 export interface EngentyCopilotRuntimeTools {

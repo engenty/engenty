@@ -982,7 +982,6 @@
     "empty": "Artifacts published in this session appear here.",
     "closeTab": "Close artifact",
     "closePane": "Close artifact panel",
-    "placeholderHint": "Placeholder artifact — real artifact types arrive with the artifact backend.",
     "expandPane": "Expand artifact panel",
     "collapsePane": "Restore artifact panel size",
     "openPane": "Open artifact panel",

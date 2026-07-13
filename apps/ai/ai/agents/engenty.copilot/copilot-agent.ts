@@ -9,6 +9,7 @@ import {
   createEngentyCopilotAgent,
 } from "@engenty/engenty-copilot/ai";
 import { createTool } from "@mastra/core/tools";
+import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
@@ -38,6 +39,7 @@ export function createEngentyCopilotAgentTools() {
     set_state: setStateTool,
     ...createEngentyCatalogTools(),
     ...createVaultFileTools(),
+    ...createArtifactTools(),
   };
 }
 

@@ -5,22 +5,59 @@ import {
   useWorkspaceEndPaneTarget,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useMutation, useQueryClient } from "@engenty/query-client";
 import { Button, cn, topbarIconButtonClassName } from "@engenty/ui-core";
 import { PanelRightOpen } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ArtifactPane } from "./artifact-pane";
-import { useArtifacts } from "./artifact-store";
+import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
+import { ArtifactPane } from "./artifact-pane.js";
+import { useArtifactListSync, useArtifacts } from "./artifact-store.js";
+import {
+  archiveArtifact,
+  artifactsQueryRoot,
+  resolveEngentyAiServiceBaseUrlSafe,
+  useArtifactDetailQuery,
+  useArtifactsListQuery,
+} from "./artifacts-api.js";
 
 /**
- * Route-level artifact pane: portals an ArtifactPane (plus resize handle and
- * expanded handling) into the shell's workspace end-pane slot. Render once
- * per route that supports artifacts, paired with `ArtifactPaneToggle` in the
- * page topbar actions.
+ * Route-level artifact pane. Always mounted on the route: it fetches the
+ * active thread's artifacts (the tabs), auto-opens when the agent creates a
+ * new one, reconciles the active tab, and portals the ArtifactPane into the
+ * shell's workspace end-pane slot. Pair with `ArtifactPaneToggle` in the page
+ * topbar actions.
  */
 export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
   const { t } = useTranslation("ai-ui");
-  const { paneExpanded, paneOpen } = useArtifacts(hostKey);
+  const queryClient = useQueryClient();
+  const { activeThreadId } = useCopilotThreadBinding();
+  const threadId = activeThreadId?.trim() || null;
+
+  const {
+    activeId,
+    paneExpanded,
+    paneOpen,
+    activate,
+    setPaneExpanded,
+    setPaneOpen,
+  } = useArtifacts(hostKey);
+
+  const listQuery = useArtifactsListQuery("thread", threadId);
+  const artifacts = listQuery.data ?? [];
+
+  useArtifactListSync({
+    hostKey,
+    threadId,
+    ids: artifacts.map((a) => a.id),
+    isReady: listQuery.isSuccess,
+  });
+
+  const activeVersion = artifacts.find(
+    (a) => a.id === activeId
+  )?.current_version;
+  const detailQuery = useArtifactDetailQuery(activeId, activeVersion);
+
   const target = useWorkspaceEndPaneTarget();
   const {
     displayedWidthPx,
@@ -35,8 +72,18 @@ export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
     storageKey: "engenty.artifact_pane.width_px",
   });
 
-  // Grow the end-pane column over the main area while expanded; always
-  // reset when leaving the route.
+  const archive = useMutation({
+    mutationFn: (artifactId: string) =>
+      archiveArtifact({
+        serviceBaseUrl: resolveEngentyAiServiceBaseUrlSafe(),
+        artifactId,
+      }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: artifactsQueryRoot }),
+  });
+
+  // Grow the end-pane column over the main area while expanded; always reset
+  // when leaving the route.
   const expandRow = paneExpanded && paneOpen;
   useEffect(() => {
     setWorkspaceEndPaneExpanded(expandRow);
@@ -49,12 +96,7 @@ export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
 
   return createPortal(
     <div
-      className={cn(
-        "flex h-full min-h-0",
-        // Expanded: fill the slot column (the shell grows it over the
-        // collapsed main area — see workspace-end-pane.ts).
-        paneExpanded && "min-w-0 flex-1"
-      )}
+      className={cn("flex h-full min-h-0", paneExpanded && "min-w-0 flex-1")}
     >
       {paneExpanded ? null : (
         <PaneResizeHandle
@@ -65,8 +107,16 @@ export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
         />
       )}
       <ArtifactPane
+        activeContent={detailQuery.data?.version.content ?? null}
+        activeId={activeId}
+        artifacts={artifacts}
         className={paneExpanded ? "my-2 mr-2 ml-2 min-w-0 flex-1" : "my-2 mr-2"}
-        hostKey={hostKey}
+        isContentLoading={detailQuery.isLoading}
+        onActivate={activate}
+        onClose={(id) => archive.mutate(id)}
+        onSetExpanded={setPaneExpanded}
+        onSetPaneOpen={setPaneOpen}
+        paneExpanded={paneExpanded}
         style={paneExpanded ? undefined : { width: displayedWidthPx }}
       />
     </div>,
