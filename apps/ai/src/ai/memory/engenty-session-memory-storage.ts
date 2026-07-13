@@ -316,16 +316,24 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
         : mastraRoleToSessionRole(message.role);
       const authorUserId =
         role === "user" ? (message.resourceId ?? this.#scope.userId) : null;
-      // Fold this turn's attachment parts onto the first persisted user message
-      // (Mastra hands us text-only). One-shot: later re-saves are ignored by the
-      // upsert's `ignoreDuplicates`, so the enriched first insert wins.
+      // Fold this turn's attachment parts onto the first persisted user message.
+      // One-shot: later re-saves are ignored by the upsert's `ignoreDuplicates`,
+      // so the enriched first insert wins. Mastra also turns the `files` handed
+      // to sendMessage into `file` parts carrying the FULL inline base64 — drop
+      // those (the durable part references the storage key instead; inline
+      // base64 would bloat the DB and re-enter every future prompt via recall).
       let parts = message.content.parts as unknown[];
       if (
         role === "user" &&
         !this.#userAttachmentsSaved &&
         this.#userAttachmentParts.length > 0
       ) {
-        parts = [...parts, ...this.#userAttachmentParts];
+        parts = [
+          ...parts.filter(
+            (part) => (part as { type?: unknown } | null)?.type !== "file"
+          ),
+          ...this.#userAttachmentParts,
+        ];
         this.#userAttachmentsSaved = true;
       }
       const { message: row } = await this.#store.appendMessage({
@@ -556,13 +564,31 @@ function sessionRoleToMastraRole(
   return role;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+// AG-UI attachment parts (image/document with engenty_attachment metadata) are
+// transcript-only: they carry a storage key + signed URL, not a model-readable
+// shape. Keep them OUT of Mastra recall or they break the provider request; the
+// AG-UI transcript reads the DB rows directly and still renders them.
+function isEngentyAttachmentPart(part: unknown): boolean {
+  if (!isRecord(part) || (part.type !== "image" && part.type !== "document")) {
+    return false;
+  }
+  const meta = part.metadata;
+  return isRecord(meta) && "engenty_attachment" in meta;
+}
+
 function sessionPartsToMastraParts(
   row: AgentSessionMessageRow
 ): MastraDBMessage["content"]["parts"] {
   if (!Array.isArray(row.parts)) {
     return [{ type: "text", text: partsToText(row.parts) }];
   }
-  return row.parts as MastraDBMessage["content"]["parts"];
+  return row.parts.filter(
+    (part) => !isEngentyAttachmentPart(part)
+  ) as MastraDBMessage["content"]["parts"];
 }
 
 function mergeMastraMessageContent(

@@ -252,7 +252,10 @@ async function resolveModelAttachments(params: {
         continue;
       }
       resolved.push({
-        data: Buffer.from(bytes).toString("base64"),
+        // Data-URL form — Mastra passes `data` verbatim into the model `file`
+        // part, and the AI SDK only reliably decodes data URLs (a raw base64
+        // string reaches the Gateway as-is and is rejected: "Invalid input").
+        data: `data:${ref.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
         mediaType: ref.mimeType,
         ...(ref.filename ? { filename: ref.filename } : {}),
       });
