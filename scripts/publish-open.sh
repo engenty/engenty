@@ -46,6 +46,7 @@ CLOSED_PREFIXES=(
   "packages/brand-assets"
   "packages/document-scanner"
   "packages/engenty-cli"
+  "packages/entitlements"
   "packages/pdf-service/assets/fonts/fontshare"
   "packages/plate-editor"
 )
