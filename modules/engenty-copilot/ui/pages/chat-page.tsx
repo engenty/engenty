@@ -16,10 +16,12 @@ import {
 import {
   PaneResizeHandle,
   usePersistedEwResizePaneWidth,
+  useWorkspaceEndPaneTarget,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArtifactPaneToggle } from "../components/chat/artifact-pane-toggle.js";
 import { ChatPanel } from "../components/chat/chat-panel.js";
@@ -49,6 +51,7 @@ export function CopilotChatPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { paneOpen: artifactPaneOpen } = useArtifacts(ENGENTY_COPILOT_HOST_KEY);
+  const workspaceEndPaneTarget = useWorkspaceEndPaneTarget();
   const {
     displayedWidthPx: artifactPaneWidthPx,
     handleResizeKeyDown: handleArtifactResizeKeyDown,
@@ -258,37 +261,38 @@ export function CopilotChatPage() {
       title={t("chat.moduleErrorTitle")}
     >
       <div
-        className="relative flex h-full min-h-0 w-full flex-1 flex-row overflow-hidden bg-transparent"
+        className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-transparent"
         key={host.threadResetKey}
       >
-        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {subRunToolCallId ? (
-            <SubAgentRunFullPage
-              labels={subRunLabels}
-              messages={host.copilotMessages}
-              onBack={handleSubRunBack}
-              toolCallId={subRunToolCallId}
-            />
-          ) : (
-            <ChatPanel />
-          )}
-        </div>
-        {artifactPaneOpen ? (
-          <>
-            <PaneResizeHandle
-              isResizing={isResizingArtifactPane}
-              label={t("chat.resizeArtifacts")}
-              onKeyDown={handleArtifactResizeKeyDown}
-              onPointerDown={handleArtifactResizePointerDown}
-            />
-            <ArtifactPane
-              className="my-2 mr-2"
-              hostKey={ENGENTY_COPILOT_HOST_KEY}
-              style={{ width: artifactPaneWidthPx }}
-            />
-          </>
-        ) : null}
+        {subRunToolCallId ? (
+          <SubAgentRunFullPage
+            labels={subRunLabels}
+            messages={host.copilotMessages}
+            onBack={handleSubRunBack}
+            toolCallId={subRunToolCallId}
+          />
+        ) : (
+          <ChatPanel />
+        )}
       </div>
+      {artifactPaneOpen && workspaceEndPaneTarget
+        ? createPortal(
+            <div className="flex h-full min-h-0">
+              <PaneResizeHandle
+                isResizing={isResizingArtifactPane}
+                label={t("chat.resizeArtifacts")}
+                onKeyDown={handleArtifactResizeKeyDown}
+                onPointerDown={handleArtifactResizePointerDown}
+              />
+              <ArtifactPane
+                className="my-2 mr-2"
+                hostKey={ENGENTY_COPILOT_HOST_KEY}
+                style={{ width: artifactPaneWidthPx }}
+              />
+            </div>,
+            workspaceEndPaneTarget
+          )
+        : null}
     </CopilotModuleErrorBoundary>
   );
 }

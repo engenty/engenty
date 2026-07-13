@@ -19,6 +19,7 @@ import type { AppLayoutFrameProps } from "./types";
 import { useCopilotInlineSidebarWidth } from "./use-copilot-inline-sidebar-width";
 import { useSecondaryNavLayout } from "./use-secondary-nav-layout";
 import { useSuppressPaneWidthTransition } from "./use-suppress-pane-width-transition";
+import { setWorkspaceEndPaneElement } from "./workspace-end-pane";
 
 export function AppLayoutFrame({
   appMenuActions,
@@ -444,6 +445,14 @@ export function AppLayoutFrame({
                   </CopilotShellMain>
                 </div>
               </CopilotShellContentArea>
+
+              <div
+                className={cn(
+                  "flex h-full min-h-0 shrink-0",
+                  contentStackBackground === "paper" && "bg-paper"
+                )}
+                ref={setWorkspaceEndPaneElement}
+              />
 
               {showInlineCopilotSidebar ? (
                 <div
