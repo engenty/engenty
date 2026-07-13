@@ -32,6 +32,8 @@ EXCLUDES=(
   apps/manage
   docs/internal
   modules/banking
+  # time-tracking pulled back to pro-only 2026-07-13 (see publish-open.sh)
+  modules/time-tracking
   packages/banking
   packages/brand-assets
   packages/document-scanner
