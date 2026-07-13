@@ -1951,6 +1951,9 @@ importers:
       '@engenty/ai-core':
         specifier: workspace:*
         version: link:../../packages/ai-core
+      '@engenty/ai-ui':
+        specifier: workspace:*
+        version: link:../../packages/ai-ui
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client

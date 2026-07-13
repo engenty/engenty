@@ -50,7 +50,7 @@ describe("artifact list sync", () => {
       ({ ids }: { ids: string[] }) => {
         useArtifactListSync({
           hostKey: HOST,
-          threadId: "t1",
+          scopeKey: "t1",
           ids,
           isReady: true,
         });
@@ -67,7 +67,7 @@ describe("artifact list sync", () => {
       ({ ids }: { ids: string[] }) => {
         useArtifactListSync({
           hostKey: HOST,
-          threadId: "t1",
+          scopeKey: "t1",
           ids,
           isReady: true,
         });
@@ -87,7 +87,7 @@ describe("artifact list sync", () => {
       ({ ids }: { ids: string[] }) => {
         useArtifactListSync({
           hostKey: HOST,
-          threadId: "t1",
+          scopeKey: "t1",
           ids,
           isReady: true,
         });
@@ -107,7 +107,7 @@ describe("artifact list sync", () => {
       ({ ids }: { ids: string[] }) => {
         useArtifactListSync({
           hostKey: HOST,
-          threadId: "t1",
+          scopeKey: "t1",
           ids,
           isReady: true,
         });

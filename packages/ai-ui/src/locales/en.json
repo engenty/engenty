@@ -985,6 +985,18 @@
     "expandPane": "Expand artifact panel",
     "collapsePane": "Restore artifact panel size",
     "openPane": "Open artifact panel",
-    "resizePane": "Resize artifact panel"
+    "resizePane": "Resize artifact panel",
+    "storeAction": "Store artifact",
+    "storeSearch": "Search store targets…",
+    "storeNoMatch": "No matches.",
+    "storeToTask": "Store to task",
+    "storeToProject": "Store to project",
+    "storeNoProjects": "No projects available.",
+    "projectEmpty": "No artifacts stored on this project yet.",
+    "scope": {
+      "task": "Task",
+      "project": "Project",
+      "goal": "Goal"
+    }
   }
 }

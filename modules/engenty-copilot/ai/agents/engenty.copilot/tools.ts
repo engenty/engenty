@@ -26,6 +26,7 @@ export const ENGENTY_ARTIFACT_TOOL_IDS = [
   "artifact_update",
   "artifact_get",
   "artifact_list",
+  "artifact_store",
 ];
 
 // AG-UI frontend tools are NOT listed here: they are registered per-run as native

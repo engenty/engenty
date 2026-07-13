@@ -361,5 +361,6 @@
     "searchLoading": "Searching...",
     "noSearchResults": "No projects match your search",
     "projectsSection": "Projects"
-  }
+  },
+  "artifactsTab": "Artifacts"
 }

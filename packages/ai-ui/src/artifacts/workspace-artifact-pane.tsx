@@ -1,6 +1,7 @@
 import {
   PaneResizeHandle,
   setWorkspaceEndPaneExpanded,
+  useCopilotShell,
   usePersistedEwResizePaneWidth,
   useWorkspaceEndPaneTarget,
 } from "@engenty/app-shell";
@@ -12,27 +13,72 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
 import { ArtifactPane } from "./artifact-pane.js";
+import type { ArtifactStoreTarget } from "./artifact-pin-menu.js";
 import { useArtifactListSync, useArtifacts } from "./artifact-store.js";
 import {
+  type ArtifactScopeType,
+  type ArtifactSummary,
   archiveArtifact,
   artifactsQueryRoot,
   resolveEngentyAiServiceBaseUrlSafe,
+  storeArtifact,
   useArtifactDetailQuery,
   useArtifactsListQuery,
 } from "./artifacts-api.js";
 
+/** One tab source for the pane; a null id disables the query (no tabs). */
+export interface ArtifactPaneScope {
+  id: string | null;
+  type: ArtifactScopeType;
+}
+
+export interface WorkspaceArtifactPaneProps {
+  /**
+   * Second tab source merged after the primary, e.g. the task a detail page
+   * shows: chat artifacts and the task's stored artifacts share one pane.
+   */
+  extraScope?: ArtifactPaneScope | null;
+  hostKey: string;
+  /**
+   * Primary tab source. Defaults to the bound copilot thread — pass an
+   * explicit scope on surfaces without a chat (e.g. the project Artifacts tab).
+   */
+  scope?: ArtifactPaneScope;
+}
+
+function mergeArtifacts(
+  primary: ArtifactSummary[],
+  extra: ArtifactSummary[]
+): ArtifactSummary[] {
+  if (extra.length === 0) {
+    return primary;
+  }
+  const seen = new Set(primary.map((a) => a.id));
+  return [...primary, ...extra.filter((a) => !seen.has(a.id))];
+}
+
 /**
  * Route-level artifact pane. Always mounted on the route: it fetches the
- * active thread's artifacts (the tabs), auto-opens when the agent creates a
- * new one, reconciles the active tab, and portals the ArtifactPane into the
- * shell's workspace end-pane slot. Pair with `ArtifactPaneToggle` in the page
- * topbar actions.
+ * scope's artifacts (the tabs), auto-opens when the agent creates a new one,
+ * reconciles the active tab, and portals the ArtifactPane into the shell's
+ * workspace end-pane slot. Pair with `ArtifactPaneToggle` in the page topbar
+ * actions.
  */
-export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
+export function WorkspaceArtifactPane({
+  hostKey,
+  scope,
+  extraScope,
+}: WorkspaceArtifactPaneProps) {
   const { t } = useTranslation("ai-ui");
   const queryClient = useQueryClient();
   const { activeThreadId } = useCopilotThreadBinding();
   const threadId = activeThreadId?.trim() || null;
+  const { copilotContext } = useCopilotShell();
+
+  const primaryScope: ArtifactPaneScope = scope ?? {
+    type: "thread",
+    id: threadId,
+  };
 
   const {
     activeId,
@@ -43,14 +89,25 @@ export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
     setPaneOpen,
   } = useArtifacts(hostKey);
 
-  const listQuery = useArtifactsListQuery("thread", threadId);
-  const artifacts = listQuery.data ?? [];
+  const primaryQuery = useArtifactsListQuery(
+    primaryScope.type,
+    primaryScope.id
+  );
+  const extraQuery = useArtifactsListQuery(
+    extraScope?.type ?? "task",
+    extraScope?.id ?? null
+  );
+  const artifacts = mergeArtifacts(
+    primaryQuery.data ?? [],
+    extraQuery.data ?? []
+  );
 
   useArtifactListSync({
     hostKey,
-    threadId,
+    scopeKey: `${primaryScope.type}:${primaryScope.id ?? "none"}|${extraScope?.type ?? "-"}:${extraScope?.id ?? "-"}`,
     ids: artifacts.map((a) => a.id),
-    isReady: listQuery.isSuccess,
+    isReady:
+      primaryQuery.isSuccess && (!extraScope?.id || extraQuery.isSuccess),
   });
 
   const activeVersion = artifacts.find(
@@ -81,6 +138,29 @@ export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: artifactsQueryRoot }),
   });
+
+  const storeMutation = useMutation({
+    mutationFn: (params: ArtifactStoreTarget & { artifactId: string }) =>
+      storeArtifact({
+        serviceBaseUrl: resolveEngentyAiServiceBaseUrlSafe(),
+        artifactId: params.artifactId,
+        scopeType: params.scopeType,
+        scopeId: params.scopeId,
+      }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: artifactsQueryRoot }),
+  });
+
+  // Task detail routes publish their task into the copilot scope — offer it
+  // as the one-click store target in the pin menu.
+  const ctxScope = copilotContext?.scope as Record<string, unknown> | undefined;
+  const ctxTaskId =
+    typeof ctxScope?.task_id === "string" ? ctxScope.task_id : null;
+  const ctxTaskTitle =
+    typeof ctxScope?.task_title === "string" ? ctxScope.task_title : undefined;
+  const storeTaskTarget = ctxTaskId
+    ? { id: ctxTaskId, title: ctxTaskTitle }
+    : null;
 
   // Grow the end-pane column over the main area while expanded; always reset
   // when leaving the route.
@@ -116,7 +196,10 @@ export function WorkspaceArtifactPane({ hostKey }: { hostKey: string }) {
         onClose={(id) => archive.mutate(id)}
         onSetExpanded={setPaneExpanded}
         onSetPaneOpen={setPaneOpen}
+        onStore={(params) => storeMutation.mutate(params)}
         paneExpanded={paneExpanded}
+        storePending={storeMutation.isPending}
+        storeTaskTarget={storeTaskTarget}
         style={paneExpanded ? undefined : { width: displayedWidthPx }}
       />
     </div>,
