@@ -123,6 +123,10 @@ function cliff(args) {
     {
       cwd: ROOT,
       encoding: "utf8",
+      // `--context` emits the full structured JSON of every commit since the
+      // last tag, which blows past execFileSync's 1 MB default and throws
+      // ENOBUFS on repos with long histories. Give it plenty of room.
+      maxBuffer: 256 * 1024 * 1024,
     }
   );
 }
