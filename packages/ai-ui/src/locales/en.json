@@ -984,6 +984,8 @@
     "closePane": "Close artifact panel",
     "placeholderHint": "Placeholder artifact — real artifact types arrive with the artifact backend.",
     "expandPane": "Expand artifact panel",
-    "collapsePane": "Restore artifact panel size"
+    "collapsePane": "Restore artifact panel size",
+    "openPane": "Open artifact panel",
+    "resizePane": "Resize artifact panel"
   }
 }

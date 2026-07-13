@@ -997,6 +997,8 @@
     "closePane": "Artefakt-Panel schließen",
     "placeholderHint": "Platzhalter-Artefakt — echte Artefakttypen kommen mit dem Artefakt-Backend.",
     "expandPane": "Artefakt-Panel maximieren",
-    "collapsePane": "Artefakt-Panel verkleinern"
+    "collapsePane": "Artefakt-Panel verkleinern",
+    "openPane": "Artefakt-Panel öffnen",
+    "resizePane": "Artefakt-Panel-Größe ändern"
   }
 }

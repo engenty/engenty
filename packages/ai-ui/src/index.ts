@@ -27,6 +27,10 @@ export {
   type UseArtifactsResult,
   useArtifacts,
 } from "./artifacts/artifact-store.js";
+export {
+  ArtifactPaneToggle,
+  WorkspaceArtifactPane,
+} from "./artifacts/workspace-artifact-pane.js";
 // --- Dev tooling (not embed API) ---
 export {
   AgUiAgentInspectorWidget,

@@ -3,29 +3,20 @@
 // list state; this page registers shell chrome and renders panels.
 
 import {
-  ArtifactPane,
+  ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
   PLACEHOLDER_ARTIFACT_TYPE,
   SubAgentRunFullPage,
   seedPlaceholderArtifacts,
   selectSubAgentDelegationFromMessages,
-  useArtifacts,
   useCopilotSelectedThread,
   useCopilotThreadActions,
+  WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
-import {
-  PaneResizeHandle,
-  setWorkspaceEndPaneExpanded,
-  usePersistedEwResizePaneWidth,
-  useWorkspaceEndPaneTarget,
-} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn } from "@engenty/ui-core";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArtifactPaneToggle } from "../components/chat/artifact-pane-toggle.js";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
 import { ChatShellHeader } from "../components/chat/shell-header.js";
@@ -52,29 +43,6 @@ export function CopilotChatPage() {
   const { startNewChat } = useCopilotThreadActions();
   const location = useLocation();
   const navigate = useNavigate();
-  const { paneExpanded: artifactPaneExpanded, paneOpen: artifactPaneOpen } =
-    useArtifacts(ENGENTY_COPILOT_HOST_KEY);
-  const workspaceEndPaneTarget = useWorkspaceEndPaneTarget();
-
-  // Tell the shell to grow the end-pane column over the main area while the
-  // artifact pane is expanded; always reset when leaving the route.
-  useEffect(() => {
-    setWorkspaceEndPaneExpanded(artifactPaneExpanded && artifactPaneOpen);
-    return () => setWorkspaceEndPaneExpanded(false);
-  }, [artifactPaneExpanded, artifactPaneOpen]);
-  const {
-    displayedWidthPx: artifactPaneWidthPx,
-    handleResizeKeyDown: handleArtifactResizeKeyDown,
-    handleResizePointerDown: handleArtifactResizePointerDown,
-    isResizing: isResizingArtifactPane,
-  } = usePersistedEwResizePaneWidth({
-    defaultPx: 480,
-    invert: true,
-    maxPx: 880,
-    minPx: 320,
-    storageKey: "engenty.copilot.artifact_pane.width_px",
-  });
-
   // Placeholder artifacts (dev only) so the pane UI is exercisable before
   // the artifact backend lands — see docs/wip/app-shell-unification.md.
   useEffect(() => {
@@ -204,7 +172,7 @@ export function CopilotChatPage() {
     () => (
       <>
         <ChatTopbarActions />
-        <ArtifactPaneToggle />
+        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       </>
     ),
     []
@@ -285,41 +253,7 @@ export function CopilotChatPage() {
           <ChatPanel />
         )}
       </div>
-      {artifactPaneOpen && workspaceEndPaneTarget
-        ? createPortal(
-            <div
-              className={cn(
-                "flex h-full min-h-0",
-                // Expanded: fill the slot column — the shell grows it over
-                // the collapsed main area (see workspace-end-pane.ts).
-                artifactPaneExpanded && "min-w-0 flex-1"
-              )}
-            >
-              {artifactPaneExpanded ? null : (
-                <PaneResizeHandle
-                  isResizing={isResizingArtifactPane}
-                  label={t("chat.resizeArtifacts")}
-                  onKeyDown={handleArtifactResizeKeyDown}
-                  onPointerDown={handleArtifactResizePointerDown}
-                />
-              )}
-              <ArtifactPane
-                className={
-                  artifactPaneExpanded
-                    ? "my-2 mr-2 ml-2 min-w-0 flex-1"
-                    : "my-2 mr-2"
-                }
-                hostKey={ENGENTY_COPILOT_HOST_KEY}
-                style={
-                  artifactPaneExpanded
-                    ? undefined
-                    : { width: artifactPaneWidthPx }
-                }
-              />
-            </div>,
-            workspaceEndPaneTarget
-          )
-        : null}
+      <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
     </CopilotModuleErrorBoundary>
   );
 }

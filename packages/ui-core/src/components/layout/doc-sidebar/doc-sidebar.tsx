@@ -3,7 +3,6 @@ import { type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../../ui/sheet";
-import { topbarIconButtonClassName } from "../shell/topbar-action-label";
 import {
   setDocSidebarMode,
   setDocSidebarOverlayOpen,
@@ -126,8 +125,9 @@ export interface DocSidebarToggleProps {
 }
 
 /**
- * Icon toggle for a `DocSidebarLayout` with the same `storageKey`. Sits in
- * the page top bar's action area (right edge), like a pane's sidebar toggle.
+ * Icon toggle for a `DocSidebarLayout` with the same `storageKey`. Belongs
+ * to the document it sidebars — place it at the right edge of the document
+ * header, not in the workspace topbar (that edge hosts pane-level toggles).
  */
 export function DocSidebarToggle({
   className,
@@ -140,12 +140,12 @@ export function DocSidebarToggle({
     <Button
       aria-expanded={open}
       aria-label={label}
-      className={cn(topbarIconButtonClassName, className)}
+      className={cn("text-muted-foreground", className)}
       onClick={toggle}
-      size="sm"
-      variant="outline"
+      size="icon-sm"
+      variant="ghost"
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="size-4" />
     </Button>
   );
 }
