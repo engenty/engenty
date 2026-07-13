@@ -245,6 +245,19 @@ export function extractProseSnippet(output: unknown): string | null {
       }
     }
   }
+  // MCP tool results carry text under `content: [{type:"text", text}]`
+  // (imported external connectors, MCP apps) — surface the first text block.
+  if (Array.isArray(record.content)) {
+    for (const item of record.content) {
+      const block = asRecord(item);
+      if (block?.type === "text" && typeof block.text === "string") {
+        const trimmed = block.text.trim();
+        if (trimmed && /\s/.test(trimmed)) {
+          return trimmed;
+        }
+      }
+    }
+  }
   return null;
 }
 
@@ -323,6 +336,20 @@ export function collectToolImages(
         recordUrl as string,
         findFirstStringDeep(record, IMAGE_CAPTION_KEYS)
       );
+    }
+    // MCP image content blocks carry inline base64: {type:"image", data, mimeType}
+    // (imported external connectors, MCP apps).
+    if (
+      record.type === "image" &&
+      typeof record.data === "string" &&
+      record.data.length > 0 &&
+      !record.data.startsWith("data:")
+    ) {
+      const mimeType =
+        typeof record.mimeType === "string" && record.mimeType
+          ? record.mimeType
+          : "image/png";
+      push(`data:${mimeType};base64,${record.data}`, null);
     }
 
     for (const [key, child] of Object.entries(record)) {

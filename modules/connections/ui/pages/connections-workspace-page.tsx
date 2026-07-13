@@ -12,6 +12,7 @@ import {
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
+  Button,
   Card,
   Empty,
   EmptyDescription,
@@ -52,15 +53,26 @@ export function ConnectionsWorkspacePage() {
   const nav = useWorkspaceNavData();
   const shellNav = useAgentsWorkspaceShellNav({ ...nav, selectedAgentId: "" });
   const catalogQuery = useConnectionsCatalogQuery();
+  const navigate = useNavigate();
 
   useConnectResultToast();
 
   usePageConfig({
     actions: (
-      <NewConnectionButton
-        connectors={catalogQuery.data?.connectors ?? []}
-        redirectTo={CONNECTIONS_ROOT_PATH}
-      />
+      <div className="flex items-center gap-2">
+        {/* Import console is superadmin-gated on its own page and API. */}
+        <Button
+          onClick={() => navigate(`${CONNECTIONS_ROOT_PATH}/import`)}
+          size="sm"
+          variant="outline"
+        >
+          {t("admin.importConnector")}
+        </Button>
+        <NewConnectionButton
+          connectors={catalogQuery.data?.connectors ?? []}
+          redirectTo={CONNECTIONS_ROOT_PATH}
+        />
+      </div>
     ),
     breadcrumbs: [
       { label: tAi("menu.engenty"), to: AGENTS_WORKSPACE_ROOT_PATH },

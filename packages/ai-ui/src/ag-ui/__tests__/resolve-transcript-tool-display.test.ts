@@ -304,6 +304,19 @@ describe("resolveTranscriptToolDisplay", () => {
     });
   });
 
+  it("shows the full operation id for unknown compound tool names (imported connectors)", () => {
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "mcp_deepwiki_com_read_wiki_structure",
+        input: { repoName: "vercel/next.js" },
+      })
+    ).toEqual({
+      resolvedToolName: "mcp_deepwiki_com_read_wiki_structure",
+      displayLabel: "Structure",
+      metadata: "mcp_deepwiki_com_read_wiki_structure",
+    });
+  });
+
   it("labels custom unstructured tools with common arguments", () => {
     expect(
       resolveTranscriptToolDisplay({

@@ -50,6 +50,20 @@ describe("extractProseSnippet", () => {
     ).toBeNull();
     expect(extractProseSnippet({ summary: "019ed1d2-9a51" })).toBeNull();
   });
+
+  it("unwraps MCP-style content arrays (imported connectors, MCP apps)", () => {
+    expect(
+      extractProseSnippet({
+        content: [
+          { type: "image", data: "…" },
+          { type: "text", text: "Available pages for vercel/next.js:\n- 1" },
+        ],
+      })
+    ).toBe("Available pages for vercel/next.js:\n- 1");
+    expect(
+      extractProseSnippet({ content: [{ type: "text", text: "id1" }] })
+    ).toBeNull();
+  });
 });
 
 describe("collectToolImages", () => {

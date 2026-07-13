@@ -1,12 +1,15 @@
 {
   "name": "engenty",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
   "packageManager": "pnpm@10.23.0",
   "engenty": {
     "plugins": {
+      "browser-bridge": {
+        "source": "workspace"
+      },
       "commercial-settings": {
         "source": "workspace"
       },
@@ -14,6 +17,9 @@
         "source": "workspace"
       },
       "connections": {
+        "source": "workspace"
+      },
+      "connections-external": {
         "source": "workspace"
       },
       "connections-google": {
@@ -155,6 +161,8 @@
       "picomatch": "4.0.4",
       "yaml": "2.9.0",
       "zod": "4.4.3",
+      "@executor-js/plugin-openapi": "1.5.29",
+      "effect": "4.0.0-beta.59",
       "protobufjs": ">=7.5.8",
       "@protobufjs/utf8": ">=1.1.1",
       "axios": ">=1.16.0",

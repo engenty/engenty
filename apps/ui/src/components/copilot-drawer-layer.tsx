@@ -208,6 +208,7 @@ function useDrawerInjectedSession(input: {
     applyError,
     artifactError: null,
     awaitingInterrupt: host.awaitingInterrupt,
+    openInterruptFromStream: host.openInterruptFromStream,
     pendingInterruptToolCallIds: host.pendingInterruptToolCallIds,
     optimisticInterruptResults: host.optimisticInterruptResults,
     respond: host.respond,

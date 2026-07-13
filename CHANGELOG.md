@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.13] - 2026-07-13
+- Added [ai-ui]: Richer transcript rows for external connector tools
+- Added [browser-bridge]: Agent-controlled browser window via companion extension
+- Added [connections]: Import external connectors from OpenAPI specs, MCP servers, and the integrations.sh registry
+- Fixed [docs]: Add required title frontmatter to internal time-tracking doc
+- Fixed [ai]: Serialize parallel tool-approval suspensions and resume reliably
+
 ## [0.1.12] - 2026-07-13
 - Changed: Make time-tracking module pro-only
 

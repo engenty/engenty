@@ -304,6 +304,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
     (): AgentHost => ({
       activeThreadId: session.activeThreadId,
       awaitingInterrupt: session.awaitingInterrupt,
+      openInterruptFromStream: session.openInterruptFromStream,
       pendingInterruptToolCallIds: session.pendingInterruptToolCallIds,
       optimisticInterruptResults: session.optimisticInterruptResults,
       respond: session.respond,
@@ -334,6 +335,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
       pendingUserInsertIndex,
       session.activeThreadId,
       session.awaitingInterrupt,
+      session.openInterruptFromStream,
       session.pendingInterruptToolCallIds,
       session.optimisticInterruptResults,
       session.respond,

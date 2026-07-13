@@ -22,6 +22,8 @@ export interface CopilotDrawerInjectedSession {
   lifecycle: string;
   messages: CopilotPanelContentProps["messages"];
   openInterruptFromSession?: AgUiOpenInterruptMetadata | null;
+  /** Freshly-opened interrupt from the live stream — wins over the (lagging) session-metadata copy. */
+  openInterruptFromStream?: AgUiOpenInterruptMetadata | null;
   /** Optimistic resolved labels keyed by toolCallId (set on `respond`). */
   optimisticInterruptResults?: Record<string, string>;
   pauseRun: () => void;

@@ -1,6 +1,11 @@
 import { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
+import {
+  finishParkedResume,
+  parkSessionRun,
+  takeParkedSessionRun,
+} from "../ai/conversation/session-park.js";
 import { AiSessionError } from "../ai/errors.js";
 import { registerAgentSessionRunRoutes } from "../api/agent-session-runs-routes.js";
 import { registerAgentSessionRoutes } from "../api/agent-sessions-routes.js";
@@ -81,6 +86,7 @@ function makeGenerateRouteHarness(
 
 function makeRunRouteHarness({
   assertNativeMemoryAvailable = vi.fn(async () => {}),
+  conversation = false,
   debugEvents,
   getSession = vi.fn(async () => ({ session: makeSession() })),
   onSessionPersisted = vi.fn(async () => {}),
@@ -92,6 +98,8 @@ function makeRunRouteHarness({
   }),
 }: {
   assertNativeMemoryAvailable?: ReturnType<typeof vi.fn>;
+  /** Enable the conversation-substrate branch (createRegistry + getStore). */
+  conversation?: boolean;
   debugEvents?: AgUiDebugEventBus;
   getSession?: ReturnType<typeof vi.fn>;
   onSessionPersisted?: ReturnType<typeof vi.fn>;
@@ -109,6 +117,12 @@ function makeRunRouteHarness({
     } as never,
     onSessionPersisted,
     scopeResolver,
+    ...(conversation
+      ? {
+          createRegistry: () => ({}) as never,
+          getStore: () => ({}) as never,
+        }
+      : {}),
   });
   return {
     app,
@@ -346,5 +360,92 @@ describe("apps/ai session routes", () => {
       error: "agent_threads.resumeWithMessages",
     });
     expect(streamGenerate).not.toHaveBeenCalled();
+  });
+
+  // Parked tool-approval resumes (native HITL). With parallel gated tool calls
+  // the approvals chain one interrupt at a time; a stale or duplicate answer
+  // must be rejected up front instead of being applied to whatever interrupt
+  // happens to be open (or racing the live resume).
+  describe("parked approval resume guards", () => {
+    const suspendedRunId = "11111111-1111-4111-8111-000000000001";
+
+    function makeParkedApprovalSession(): AgentSessionRow {
+      return {
+        ...makeSession(),
+        metadata: {
+          ag_ui_open_interrupt: {
+            artifact_id: "tool-approval|op_a",
+            choices: [{ id: "approve_once", label: "Approve once" }],
+            interrupt_id: "tool-approval|op_a",
+            kind: "decision",
+            run_id: suspendedRunId,
+            title: "Approve op_a?",
+            tool_call_id: "call-a",
+          },
+        },
+      };
+    }
+
+    function makeParkedResumeHarness() {
+      return makeRunRouteHarness({
+        conversation: true,
+        getSession: vi.fn(async () => ({
+          session: makeParkedApprovalSession(),
+        })),
+      });
+    }
+
+    function postResume(app: Hono, interruptId: string) {
+      return app.request(`http://localhost/ai/v1/threads/${threadId}/runs`, {
+        body: JSON.stringify(
+          makeRunInput({
+            messages: [],
+            resume: [
+              {
+                interruptId,
+                payload: { choice_id: "approve_once" },
+                status: "resolved",
+              },
+            ],
+          })
+        ),
+        headers: {
+          Authorization: "Bearer token",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+    }
+
+    it("rejects a resume that answers a different interrupt than the open one", async () => {
+      const { app } = makeParkedResumeHarness();
+      const res = await postResume(app as Hono, "tool-approval|op_STALE");
+      expect(res.status).toBe(409);
+      await expect(res.json()).resolves.toMatchObject({
+        error: "agent_threads.interruptMismatch",
+        open_interrupt_id: "tool-approval|op_a",
+      });
+    });
+
+    it("rejects a duplicate answer while a resume is already in flight", async () => {
+      const { app } = makeParkedResumeHarness();
+      // Simulate the live resume having taken the parked run.
+      parkSessionRun(suspendedRunId, {
+        controller: { destroy: vi.fn(async () => {}) } as never,
+        mergedDefinitions: [],
+        session: { suspensions: { has: () => true } } as never,
+        threadId,
+      });
+      expect(takeParkedSessionRun(suspendedRunId)).toBeTruthy();
+      try {
+        const res = await postResume(app as Hono, "tool-approval|op_a");
+        expect(res.status).toBe(409);
+        await expect(res.json()).resolves.toMatchObject({
+          error: "agent_threads.resumeInProgress",
+        });
+      } finally {
+        finishParkedResume(suspendedRunId);
+      }
+    });
   });
 });

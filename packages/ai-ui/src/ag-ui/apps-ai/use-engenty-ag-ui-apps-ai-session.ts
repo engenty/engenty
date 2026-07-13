@@ -11,7 +11,12 @@ import type {
   RunAgentInput,
   RunFinishedEvent,
 } from "@engenty/ag-ui-bridge";
-import { EventType, isAgUiOpenInterruptExpired } from "@engenty/ag-ui-bridge";
+import {
+  ENGENTY_OPEN_INTERRUPT_EVENT,
+  EventType,
+  isAgUiOpenInterruptExpired,
+  readAgUiOpenInterruptEventValue,
+} from "@engenty/ag-ui-bridge";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import {
@@ -367,6 +372,15 @@ export function useEngentyAgUiAppsAiSession(
   const [optimisticInterruptResults, setOptimisticInterruptResults] = useState<
     Record<string, string>
   >({});
+  // The freshly-opened interrupt from the live stream (CUSTOM
+  // `engenty.open_interrupt`, emitted just before a RUN_FINISHED interrupt
+  // outcome). Authoritative over `openInterruptFromSession` while set: the
+  // persisted metadata only catches up after a refetch, and until then it
+  // still names the PREVIOUS interrupt — rendering it re-shows an
+  // already-answered approval card (chained approvals from parallel gated
+  // tool calls re-asked the same card).
+  const [openInterruptFromStream, setOpenInterruptFromStream] =
+    useState<AgUiOpenInterruptMetadata | null>(null);
 
   const clearPendingSend = useCallback(() => {
     logCopilotChatNew("pendingSend clear");
@@ -647,6 +661,17 @@ export function useEngentyAgUiAppsAiSession(
               options.onMessagesSnapshot?.();
               return;
             }
+            if (event.type === EventType.CUSTOM) {
+              const name = readEventString(event, "name");
+              if (name === ENGENTY_OPEN_INTERRUPT_EVENT) {
+                const open = readAgUiOpenInterruptEventValue(
+                  (event as { value?: unknown }).value
+                );
+                if (open) {
+                  setOpenInterruptFromStream(open);
+                }
+              }
+            }
             if (event.type === EventType.RUN_FINISHED) {
               const outcome = (event as RunFinishedEvent).outcome;
               const isInterrupt = outcome?.type === "interrupt";
@@ -654,6 +679,9 @@ export function useEngentyAgUiAppsAiSession(
               setPendingInterruptToolCallIds(
                 isInterrupt ? pendingToolCallIdsFromOutcome(outcome) : new Set()
               );
+              if (!isInterrupt) {
+                setOpenInterruptFromStream(null);
+              }
               submitInFlightRef.current = false;
               setSubmitStatus("ready");
               clearPendingSend();
@@ -669,6 +697,7 @@ export function useEngentyAgUiAppsAiSession(
               });
               setAwaitingInterrupt(false);
               setPendingInterruptToolCallIds(new Set());
+              setOpenInterruptFromStream(null);
               applyEventRef.current({
                 ...(event as Record<string, unknown>),
                 message: runErrorMessage,
@@ -721,6 +750,10 @@ export function useEngentyAgUiAppsAiSession(
           options.formatRequestError(formatCopilotRunError(errorMessage(error)))
         );
         setSubmitStatus("error");
+        // A failed resume POST (e.g. 409 interruptMismatch on a stale card)
+        // leaves the server's open interrupt unresolved — re-sync the session
+        // metadata so the REAL pending card re-renders instead of wedging.
+        invalidateQueries(params.threadId);
       } finally {
         activeRunIdRef.current = null;
       }
@@ -770,6 +803,7 @@ export function useEngentyAgUiAppsAiSession(
       setAwaitingInterrupt(false);
       setPendingInterruptToolCallIds(new Set());
       setOptimisticInterruptResults({});
+      setOpenInterruptFromStream(null);
 
       try {
         if (!threadId) {
@@ -997,6 +1031,7 @@ export function useEngentyAgUiAppsAiSession(
     setAwaitingInterrupt(false);
     setPendingInterruptToolCallIds(new Set());
     setOptimisticInterruptResults({});
+    setOpenInterruptFromStream(null);
     setSessionResetKey((current) => current + 1);
   }, [clearPendingSend, options.threadId]);
 
@@ -1014,16 +1049,27 @@ export function useEngentyAgUiAppsAiSession(
 
   const activeThreadId = resolveActiveSessionId();
 
-  // Effective open interrupt: prefer the persisted session metadata; otherwise
-  // derive it from the live transcript (the just-suspended tool call) so safe
-  // tools auto-resolve immediately without waiting for the metadata refetch.
+  // Effective open interrupt: prefer the LIVE stream value (fresh, emitted with
+  // the interrupt outcome), then the persisted session metadata, then the
+  // transcript (the just-suspended tool call) so safe tools auto-resolve
+  // immediately without waiting for the metadata refetch.
   const effectiveOpenInterrupt = useMemo(() => {
+    if (
+      openInterruptFromStream &&
+      !isAgUiOpenInterruptExpired(openInterruptFromStream)
+    ) {
+      return openInterruptFromStream;
+    }
     const fromSession = options.openInterruptFromSession;
     if (fromSession && !isAgUiOpenInterruptExpired(fromSession)) {
       return fromSession;
     }
     return pendingInterruptFromTranscript(conversation.messages);
-  }, [options.openInterruptFromSession, conversation.messages]);
+  }, [
+    openInterruptFromStream,
+    options.openInterruptFromSession,
+    conversation.messages,
+  ]);
 
   // Frontend tools run with no UI: execute in the browser + resume the run.
   useAutoResolveFrontendTool({
@@ -1037,6 +1083,7 @@ export function useEngentyAgUiAppsAiSession(
   return {
     activeThreadId,
     awaitingInterrupt,
+    openInterruptFromStream,
     pendingInterruptToolCallIds,
     optimisticInterruptResults,
     respond,

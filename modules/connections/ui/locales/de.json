@@ -123,7 +123,8 @@
     "approveAlways": "Immer freigeben",
     "deny": "Ablehnen",
     "approved": "freigegeben",
-    "denied": "abgelehnt"
+    "denied": "abgelehnt",
+    "importConnector": "Connector importieren"
   },
   "credentials": {
     "description": "Zugangsdaten für diesen Dienst eingeben. Sie werden verschlüsselt gespeichert und nie wieder angezeigt.",

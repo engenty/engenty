@@ -187,6 +187,12 @@ function verbForAction(action: string): string {
   return ACTION_VERB_MAP[normalized] ?? titleCaseAction(action);
 }
 
+/** Whether the parsed action maps to a curated verb (vs. titlecase fallback). */
+function isKnownActionVerb(action: string): boolean {
+  const normalized = action.replace(/[_-]+/g, "").toLowerCase();
+  return normalized in ACTION_VERB_MAP;
+}
+
 function readExecutePayloadInput(inputRecord: Record<string, unknown> | null) {
   if (!inputRecord) {
     return null;
@@ -206,10 +212,17 @@ function resolveOperationTranscript(
   const verb = verbForAction(action);
   const payloadInput = isRecord(input) ? readExecutePayloadInput(input) : null;
   const quoted = readQuotedArg(payloadInput);
+  // Unknown compound tool names (imported connectors, e.g.
+  // deepwiki_read_wiki_structure) parse into a misleading last-two-words
+  // split — show the full operation id as the descriptor so the row stays
+  // identifiable. Curated verbs keep the compact scope descriptor.
+  const metadata = isKnownActionVerb(action)
+    ? (scope ?? undefined)
+    : operationId;
   return formatTranscriptToolRow({
     verb,
     quoted: quoted ?? undefined,
-    metadata: scope ?? undefined,
+    metadata,
     metadataMode: "always",
   });
 }

@@ -34,6 +34,15 @@ export function registerConnectorDefinition(def: ConnectorDefinition): void {
   registry().set(def.id, def);
 }
 
+/**
+ * Remove a definition (imported-connector delete). Already-registered gateway
+ * operations cannot be unregistered — they dead-end at policy resolution once
+ * the definition is gone; a restart fully clears them.
+ */
+export function removeConnectorDefinition(id: string): void {
+  registry().delete(id);
+}
+
 export function getConnectorDefinition(
   id: string
 ): ConnectorDefinition | undefined {
