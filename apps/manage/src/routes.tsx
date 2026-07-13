@@ -4,6 +4,7 @@ import { ModuleDetailPage } from "@/pages/modules/ModuleDetailPage";
 import { ModulesListPage } from "@/pages/modules/ModulesListPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PackagesListPage } from "@/pages/packages/PackagesListPage";
+import { SatellitesListPage } from "@/pages/satellites/SatellitesListPage";
 import { TenantDetailPage } from "@/pages/tenants/TenantDetailPage";
 import { TenantEditPage } from "@/pages/tenants/TenantEditPage";
 import { TenantsListPage } from "@/pages/tenants/TenantsListPage";
@@ -25,6 +26,7 @@ export function ManageRoutes() {
       <Route element={<ModuleDetailPage />} path="/modules/:id" />
       <Route element={<FeatureFlagsPage />} path="/feature-flags" />
       <Route element={<PackagesListPage />} path="/packages" />
+      <Route element={<SatellitesListPage />} path="/satellites" />
       <Route element={<NotFoundPage />} path="*" />
     </Routes>
   );

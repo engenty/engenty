@@ -20,7 +20,8 @@
     "users": "Benutzer",
     "modules": "Module",
     "featureFlags": "Feature-Flags",
-    "packages": "Pakete"
+    "packages": "Pakete",
+    "satellites": "Satelliten"
   },
   "common": {
     "save": "Speichern",
@@ -216,5 +217,41 @@
     "clearOverride": "Überschreibung entfernen",
     "overrideSaved": "Überschreibung gespeichert",
     "overrideCleared": "Überschreibung entfernt"
+  },
+  "satellites": {
+    "title": "Satelliten",
+    "subtitle": "Mandantenspezifische Satelliten-Stacks (eigenes Supabase + KI). Endpunkte registrieren, Zustand prüfen und das Studio jedes Satelliten öffnen. Provisionierung erfolgt über die Deploy-Pipeline.",
+    "new": "Satellit registrieren",
+    "created": "Satellit registriert",
+    "deleted": "Satellit entfernt",
+    "probed": "Zustand: {{status}}",
+    "openStudio": "Studio öffnen",
+    "probe": "Prüfen",
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "health": "Zustand",
+      "version": "Version"
+    },
+    "status": {
+      "provisioning": "Wird bereitgestellt",
+      "active": "Aktiv",
+      "suspended": "Ausgesetzt",
+      "error": "Fehler",
+      "archived": "Archiviert"
+    },
+    "health": {
+      "unknown": "Unbekannt",
+      "healthy": "Gesund",
+      "degraded": "Beeinträchtigt",
+      "down": "Ausgefallen"
+    },
+    "create": {
+      "title": "Satellit registrieren",
+      "nameLabel": "Name",
+      "studioUrl": "Studio-URL",
+      "apiUrl": "API-URL",
+      "submit": "Registrieren"
+    }
   }
 }

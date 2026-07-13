@@ -113,6 +113,7 @@ import { registerPluginAdminRoutes } from "./routes/plugins/plugin-admin-routes.
 import { registerPluginDevReloadEventsRoutes } from "./routes/plugins/plugin-dev-reload-events-routes.js";
 import { registerPluginHttpRoutes } from "./routes/plugins/plugin-http-routes.js";
 import { registerQueueRoutes } from "./routes/queue-routes.js";
+import { registerSatellitesRoutes } from "./routes/satellites-routes.js";
 import { registerSearchIndexRoutes } from "./routes/search-index-routes.js";
 import { registerSettingsRoutes } from "./routes/settings-routes.js";
 import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
@@ -331,6 +332,7 @@ export function createApiApp(params: CreateApiAppParams) {
     config,
   });
   registerEntitlementsRoutes({ app, config });
+  registerSatellitesRoutes({ app, config });
   const authStores = params.authStores ?? createAuthStores(config);
   // Revocation survives restarts: persisted revoked api-token ids re-enter the
   // in-memory revocation set used by verifyAccessToken.

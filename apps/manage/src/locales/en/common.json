@@ -20,7 +20,8 @@
     "users": "Users",
     "modules": "Modules",
     "featureFlags": "Feature flags",
-    "packages": "Packages"
+    "packages": "Packages",
+    "satellites": "Satellites"
   },
   "common": {
     "save": "Save",
@@ -216,5 +217,41 @@
     "clearOverride": "Clear override",
     "overrideSaved": "Override saved",
     "overrideCleared": "Override cleared"
+  },
+  "satellites": {
+    "title": "Satellites",
+    "subtitle": "Per-tenant satellite stacks (own Supabase + AI). Register endpoints, probe health, and open each satellite's Studio. Provisioning is managed by the deploy pipeline.",
+    "new": "Register satellite",
+    "created": "Satellite registered",
+    "deleted": "Satellite removed",
+    "probed": "Health: {{status}}",
+    "openStudio": "Open Studio",
+    "probe": "Probe",
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "health": "Health",
+      "version": "Version"
+    },
+    "status": {
+      "provisioning": "Provisioning",
+      "active": "Active",
+      "suspended": "Suspended",
+      "error": "Error",
+      "archived": "Archived"
+    },
+    "health": {
+      "unknown": "Unknown",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down"
+    },
+    "create": {
+      "title": "Register satellite",
+      "nameLabel": "Name",
+      "studioUrl": "Studio URL",
+      "apiUrl": "API URL",
+      "submit": "Register"
+    }
   }
 }
