@@ -5,92 +5,92 @@ by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
 ## [0.1.13] - 2026-07-13
-- Added [ai-ui]: Richer transcript rows for external connector tools
-- Added [browser-bridge]: Agent-controlled browser window via companion extension
-- Added [connections]: Import external connectors from OpenAPI specs, MCP servers, and the integrations.sh registry
-- Fixed [docs]: Add required title frontmatter to internal time-tracking doc
-- Fixed [ai]: Serialize parallel tool-approval suspensions and resume reliably
+- ADDED **[ai-ui]** Richer transcript rows for external connector tools
+- ADDED **[browser-bridge]** Agent-controlled browser window via companion extension
+- ADDED **[connections]** Import external connectors from OpenAPI specs, MCP servers, and the integrations.sh registry
+- FIXED **[docs]** Add required title frontmatter to internal time-tracking doc
+- FIXED **[ai]** Serialize parallel tool-approval suspensions and resume reliably
 
 ## [0.1.12] - 2026-07-13
-- Changed: Make time-tracking module pro-only
+- CHANGED Make time-tracking module pro-only
 
 ## [0.1.11] - 2026-07-12
-- Added [tasks]: Bulk delete, project column, and group-level select in task list
+- ADDED **[tasks]** Bulk delete, project column, and group-level select in task list
 
 ## [0.1.10] - 2026-07-12
-- Fixed [ci]: Keep public repo workflows untouched in open-source snapshot
+- FIXED **[ci]** Keep public repo workflows untouched in open-source snapshot
 
 ## [0.1.9] - 2026-07-09
-- Added [time-tracking]: Push time entries to calendar (Phase 2)
-- Added [time-tracking]: Calendar overlay (Phase 1)
-- Fixed [ci]: Drop stray .claude/worktrees gitlink breaking submodule checkout
+- ADDED **[time-tracking]** Push time entries to calendar (Phase 2)
+- ADDED **[time-tracking]** Calendar overlay (Phase 1)
+- FIXED **[ci]** Drop stray .claude/worktrees gitlink breaking submodule checkout
 
 ## [0.1.8] - 2026-07-09
-- Added [deploy]: Apply Supabase migrations automatically on deploy
-- Added [authz]: Roles & capabilities authorization with member access gating
+- ADDED **[deploy]** Apply Supabase migrations automatically on deploy
+- ADDED **[authz]** Roles & capabilities authorization with member access gating
 
 ## [0.1.7] - 2026-07-08
-- Fixed [copilot]: Restore pnpm kill script entry
-- Removed [copilot]: Frontend-tool confirmation
-- Added [copilot]: Per-tab agent session binding, realtime sync, and unified status UI
-- Fixed [projects]: Resolve lint failure blocking pnpm fix on main
+- FIXED **[copilot]** Restore pnpm kill script entry
+- REMOVED **[copilot]** Frontend-tool confirmation
+- ADDED **[copilot]** Per-tab agent session binding, realtime sync, and unified status UI
+- FIXED **[projects]** Resolve lint failure blocking pnpm fix on main
 
 ## [0.1.6] - 2026-07-08
-- Added [time-tracking]: Calendar polish — animated weekend, dropdown pickers, vibrant entries
-- Added [time-tracking]: Work-week calendar with collapsible weekend, compact toolbar
-- Added [time-tracking]: Calendar view with drag-to-track time entries
-- Fixed [time-tracking]: Correct today navigation and week-switch scroll reset
-- Fixed [design-tokens]: Define missing --amber accent (--chart-4 resolved to nothing)
+- ADDED **[time-tracking]** Calendar polish — animated weekend, dropdown pickers, vibrant entries
+- ADDED **[time-tracking]** Work-week calendar with collapsible weekend, compact toolbar
+- ADDED **[time-tracking]** Calendar view with drag-to-track time entries
+- FIXED **[time-tracking]** Correct today navigation and week-switch scroll reset
+- FIXED **[design-tokens]** Define missing --amber accent (--chart-4 resolved to nothing)
 
 ## [0.1.5] - 2026-07-08
-- Added **[tasks]**: Plugin list columns and group-by project
-- Added **[projects]**: Tasks column, sidebar layout, and linked-task counts
-- Added **[time-tracking]**: Improve section headers with SPA entity links
-- Added **[projects]**: Confirm project delete with optional task cascade
-- Fixed **[ui]**: Resolve ui-plugin-sdk from workspace source in dev
-- Fixed **[ci]**: Publish-open without checkout credential helper
-- Fixed **[time-tracking]**: Stabilize bootstrap and breadcrumb user picker
-- Fixed **[time-tracking]**: Scope team catalog to tenant admins
+- ADDED **[tasks]** Plugin list columns and group-by project
+- ADDED **[projects]** Tasks column, sidebar layout, and linked-task counts
+- ADDED **[time-tracking]** Improve section headers with SPA entity links
+- ADDED **[projects]** Confirm project delete with optional task cascade
+- FIXED **[ui]** Resolve ui-plugin-sdk from workspace source in dev
+- FIXED **[ci]** Publish-open without checkout credential helper
+- FIXED **[time-tracking]** Stabilize bootstrap and breadcrumb user picker
+- FIXED **[time-tracking]** Scope team catalog to tenant admins
 
 ## [0.1.4] - 2026-07-08
-- Added: Enrich Engenty admin links with live counts
-- Added: Rename AI models label and add Engenty admin links
-- Added: Use squared logo tiles with initials fallback
-- Docs: Add unreleased changelog entries
-- Fixed: Show module icons in settings sidebar
-- Fixed: Gate developer settings behind developer mode
-- Fixed: Restore root label and hide empty topbar
-- Fixed: Pin company-profile in apps/ui deps for settings shell imports
-- Fixed: Repair pnpm-lock.yaml after merge and add lockfile gate
+- ADDED Enrich Engenty admin links with live counts
+- ADDED Rename AI models label and add Engenty admin links
+- ADDED Use squared logo tiles with initials fallback
+- DOCS Add unreleased changelog entries
+- FIXED Show module icons in settings sidebar
+- FIXED Gate developer settings behind developer mode
+- FIXED Restore root label and hide empty topbar
+- FIXED Pin company-profile in apps/ui deps for settings shell imports
+- FIXED Repair pnpm-lock.yaml after merge and add lockfile gate
 
 ## [Unreleased]
-- Fixed: Restore root label and hide empty topbar
-- Fixed: Pin company-profile in apps/ui deps for settings shell imports
-- Fixed: Repair pnpm-lock.yaml after merge and add lockfile gate
+- FIXED Restore root label and hide empty topbar
+- FIXED Pin company-profile in apps/ui deps for settings shell imports
+- FIXED Repair pnpm-lock.yaml after merge and add lockfile gate
 
 ## [0.1.3] - 2026-07-08
-- Added: Overhaul settings page with modules, users, and plugins
-- Added: Wire real plugins with filtering and collapsed connections
-- Added: Wire real users with role and team member status
-- Changed: Redesign settings page with identity header and stacked layout
-- Docs: Add /release skill steering work modes + release flow
-- Docs: Consolidate scattered dev sections into one clear Develop block
-- Fixed: Stabilize tests and finish settings overhaul polish
-- Fixed: Use module icons from contributions and descriptions from manifest
-- Fixed: Pull_policy: always so the VPS pulls new :latest images
-- Fixed: Correct post-release hint — pushing the tag builds+deploys
+- ADDED Overhaul settings page with modules, users, and plugins
+- ADDED Wire real plugins with filtering and collapsed connections
+- ADDED Wire real users with role and team member status
+- CHANGED Redesign settings page with identity header and stacked layout
+- DOCS Add /release skill steering work modes + release flow
+- DOCS Consolidate scattered dev sections into one clear Develop block
+- FIXED Stabilize tests and finish settings overhaul polish
+- FIXED Use module icons from contributions and descriptions from manifest
+- FIXED Pull_policy: always so the VPS pulls new :latest images
+- FIXED Correct post-release hint — pushing the tag builds+deploys
 
 ## [0.1.2] - 2026-07-07
-- Docs: Clarify dev + release/ship flow across README, CONTRIBUTING, dev doc
-- Fixed: Create annotated tag so --follow-tags pushes it
+- DOCS Clarify dev + release/ship flow across README, CONTRIBUTING, dev doc
+- FIXED Create annotated tag so --follow-tags pushes it
 
 ## [0.1.1] - 2026-07-07
-- Added: App menu with brand, version, settings and about
-- Added: Render CHANGELOG at /changelog from changelog.json
-- Fixed: Hardcode GHCR sandbox image in prebuilt compose
+- ADDED App menu with brand, version, settings and about
+- ADDED Render CHANGELOG at /changelog from changelog.json
+- FIXED Hardcode GHCR sandbox image in prebuilt compose
 
 ## [0.1.0] - 2026-07-07
 
-- Added: Coolify deploy pipeline — prebuilt GHCR images with SSH-triggered auto-deploy
-- Added: Guided deploy wizard (`deploy/scripts/deploy-wizard.mjs`)
-- Added: Docs — Coolify setup guide covering exposed schemas, auth hook, and the Traefik network pin
+- ADDED Coolify deploy pipeline — prebuilt GHCR images with SSH-triggered auto-deploy
+- ADDED Guided deploy wizard (`deploy/scripts/deploy-wizard.mjs`)
+- ADDED Docs — Coolify setup guide covering exposed schemas, auth hook, and the Traefik network pin
