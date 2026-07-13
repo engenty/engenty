@@ -1,3 +1,7 @@
+---
+title: "Time-tracking × calendar integration — design & plan"
+---
+
 # Time-tracking × calendar integration — design & plan
 
 > **Pro-only (closed).** The `time-tracking` module was pulled back to
