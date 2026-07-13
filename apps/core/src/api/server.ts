@@ -703,6 +703,26 @@ export async function startApiServer(
           gateway?.logEnabled();
           logger.info(`API server listening on http://${host}:${port}`);
 
+          // Sync the authored entitlements catalog into core.packages
+          // (version-based upsert, non-fatal). Mirrors the AI model-pricing
+          // seed at boot so operators see the shipped packages immediately.
+          if (supabaseUrl && supabaseServiceRoleKey) {
+            try {
+              const { createPackagesDal } = await import("../dal/packages.js");
+              const { upserted } =
+                await createPackagesDal(effectiveConfig).syncCatalog();
+              if (upserted > 0) {
+                logger.info(
+                  `Entitlement packages synced (${upserted} upserted)`
+                );
+              }
+            } catch (err) {
+              logger.info(
+                `Entitlement package sync skipped (${err instanceof Error ? err.message : "unavailable"})`
+              );
+            }
+          }
+
           // Start queue worker if plugins registered any queue handlers
           if (registry.queueHandlers.size > 0) {
             try {

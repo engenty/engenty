@@ -38,6 +38,7 @@
     "@engenty/api-contracts": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
     "@engenty/doc-converter": "workspace:*",
+    "@engenty/entitlements": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/feature-flags": "workspace:*",
     "@engenty/file-storage": "workspace:*",
