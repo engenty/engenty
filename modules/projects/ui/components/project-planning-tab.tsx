@@ -5,8 +5,9 @@ import {
   type useSensors,
 } from "@dnd-kit/core";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button } from "@engenty/ui-core";
-import { Plus } from "lucide-react";
+import { Button, cn } from "@engenty/ui-core";
+import { ChevronRight, Plus } from "lucide-react";
+import { useState } from "react";
 import type {
   PhaseTask,
   ProjectPhase,
@@ -91,6 +92,7 @@ export function ProjectPlanningTab({
   taskStatusDefinitions,
 }: ProjectPlanningTabProps) {
   const { t } = useTranslation("projects");
+  const [timePlanCollapsed, setTimePlanCollapsed] = useState(false);
 
   return (
     <DndContext
@@ -138,33 +140,67 @@ export function ProjectPlanningTab({
         )}
 
         <section className="space-y-3">
-          <h3 className="font-medium text-lg">{t("detail.timePlan")}</h3>
-          <ProjectDatesRow
-            endDate={project.end_date}
-            locale={dateLocale}
-            startDate={project.start_date}
-          />
-          <PhaseTimeline
-            onPhaseCreate={viewMode === "internal" ? onPhaseCreate : undefined}
-            onPhaseTitleUpdate={
-              viewMode === "internal" ? onPhaseTitleUpdate : undefined
-            }
-            onPhaseUpdate={viewMode === "internal" ? onPhaseUpdate : undefined}
-            phases={filteredPhases}
-            projectDueDate={project.end_date}
-            projectStartDate={project.start_date}
-            readOnly={viewMode === "external"}
-          />
-        </section>
-
-        {viewMode === "internal" && (
-          <div>
-            <Button onClick={onPhaseFormOpen} size="sm" variant="outline">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("detail.addPhase")}
-            </Button>
+          <button
+            aria-expanded={!timePlanCollapsed}
+            className="flex items-center gap-2 font-medium text-lg"
+            onClick={() => setTimePlanCollapsed((v) => !v)}
+            type="button"
+          >
+            <ChevronRight
+              className={cn(
+                "h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-in-out",
+                !timePlanCollapsed && "rotate-90"
+              )}
+            />
+            {t("detail.timePlan")}
+            {timePlanCollapsed && (
+              <ProjectDatesRow
+                endDate={project.end_date}
+                locale={dateLocale}
+                startDate={project.start_date}
+              />
+            )}
+          </button>
+          <div
+            className={cn(
+              "grid transition-[grid-template-rows,opacity] duration-300 ease-in-out",
+              timePlanCollapsed
+                ? "grid-rows-[0fr] opacity-0"
+                : "grid-rows-[1fr] opacity-100"
+            )}
+          >
+            <div className="min-h-0 space-y-3 overflow-hidden">
+              <ProjectDatesRow
+                endDate={project.end_date}
+                locale={dateLocale}
+                startDate={project.start_date}
+              />
+              <PhaseTimeline
+                onPhaseCreate={
+                  viewMode === "internal" ? onPhaseCreate : undefined
+                }
+                onPhaseTitleUpdate={
+                  viewMode === "internal" ? onPhaseTitleUpdate : undefined
+                }
+                onPhaseUpdate={
+                  viewMode === "internal" ? onPhaseUpdate : undefined
+                }
+                phases={filteredPhases}
+                projectDueDate={project.end_date}
+                projectStartDate={project.start_date}
+                readOnly={viewMode === "external"}
+              />
+              {viewMode === "internal" && (
+                <div>
+                  <Button onClick={onPhaseFormOpen} size="sm" variant="outline">
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    {t("detail.addPhase")}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </section>
 
         <GeneralTasksSection
           onAddTask={onTaskAdd}

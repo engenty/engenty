@@ -288,58 +288,51 @@ export function PhaseTimeline({
     setRangeOffset({ before: 0, after: 0 });
   };
 
-  // Fit all phases into view
+  // Zoom out to show the whole project timeframe (project dates + all phases).
+  // The visible window is clamped between 1 month (min) and 1 year (max).
   const fitAllToView = () => {
-    // Find the earliest and latest dates from all phases
-    const phasesWithDates = phases.filter((p) => p.start_date || p.end_date);
-    if (phasesWithDates.length === 0) {
-      return;
-    }
+    const MIN_SPAN_DAYS = 30;
+    const MAX_SPAN_DAYS = 365;
 
-    let earliest: Date | null = null;
-    let latest: Date | null = null;
-
-    phasesWithDates.forEach((phase) => {
-      const start = phase.start_date ? parseISO(phase.start_date) : null;
-      const end = phase.end_date ? parseISO(phase.end_date) : null;
-
-      if (start && (!earliest || start < earliest)) {
-        earliest = start;
-      }
-      if (end && (!latest || end > latest)) {
-        latest = end;
-      }
-      if (start && (!latest || start > latest)) {
-        latest = start;
-      }
-      if (end && (!earliest || end < earliest)) {
-        earliest = end;
-      }
-    });
-
+    // Whole timeframe = explicit project dates expanded to include all phases.
+    const { start: rawStart, end: rawEnd } = getEffectiveProjectDates();
+    const earliest = rawStart ?? rawEnd;
+    const latest = rawEnd ?? rawStart;
     if (!(earliest && latest)) {
       return;
     }
 
-    // Calculate the span in days
-    const spanDays = differenceInDays(latest, earliest) + 1;
+    // Clamp the span around its center: at least 1 month, at most 1 year.
+    const actualSpan = Math.max(1, differenceInDays(latest, earliest) + 1);
+    const clampedSpan = Math.min(
+      MAX_SPAN_DAYS,
+      Math.max(MIN_SPAN_DAYS, actualSpan)
+    );
+    const center = addDays(earliest, Math.floor(actualSpan / 2));
+    const windowStart = addDays(center, -Math.floor(clampedSpan / 2));
+    const windowEnd = addDays(windowStart, clampedSpan - 1);
 
-    // Choose appropriate density based on span
-    let newDensity: DensityMode;
-    if (spanDays <= 28) {
-      newDensity = "day";
-    } else if (spanDays <= 180) {
-      newDensity = "week";
+    // Pick a density that reads well at this zoom level.
+    const newDensity: DensityMode = clampedSpan <= 90 ? "week" : "month";
+
+    // Expand the visible range so the whole window fits, plus a small pad.
+    let after: number;
+    if (newDensity === "week") {
+      const weeksNeeded = Math.ceil(clampedSpan / 7);
+      // Base week range shows 8 weeks.
+      after = Math.max(0, weeksNeeded - 8 + 1);
     } else {
-      newDensity = "month";
+      const monthsNeeded =
+        (windowEnd.getFullYear() - windowStart.getFullYear()) * 12 +
+        (windowEnd.getMonth() - windowStart.getMonth()) +
+        1;
+      // Base month range shows 6 months.
+      after = Math.max(0, monthsNeeded - 6 + 1);
     }
 
-    // Set the current date to center around the phases
-    const centerDate = addDays(earliest, Math.floor(spanDays / 2));
-
     setDensity(newDensity);
-    setCurrentDate(centerDate);
-    setRangeOffset({ before: 0, after: 0 });
+    setCurrentDate(windowStart);
+    setRangeOffset({ before: 0, after });
   };
 
   // Calculate effective project dates (explicit or derived from phases)
@@ -882,17 +875,21 @@ export function PhaseTimeline({
           )}
         </div>
 
-        {/* Density slider - hide in readOnly mode */}
+        {/* Density / zoom slider - hide in readOnly mode */}
         {!readOnly && (
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2"
+            title={t("detail.timeline.zoom")}
+          >
             <span className="font-medium text-muted-foreground text-xs">T</span>
-            <Slider
-              className="w-16"
-              max={2}
-              onValueChange={handleDensityChange}
-              step={1}
-              value={[getDensityValue()]}
-            />
+            <div className="w-24">
+              <Slider
+                max={2}
+                onValueChange={handleDensityChange}
+                step={1}
+                value={[getDensityValue()]}
+              />
+            </div>
             <span className="font-medium text-muted-foreground text-xs">M</span>
           </div>
         )}
