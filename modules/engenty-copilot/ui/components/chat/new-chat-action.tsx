@@ -41,6 +41,17 @@ export function ChatTopbarActions() {
 
   return (
     <div className="flex items-center gap-1.5">
+      <Button
+        aria-label={tc("copilot.newChat")}
+        disabled={!isTransportReady}
+        onClick={() => startNewChat()}
+        size="sm"
+        type="button"
+        variant="default"
+      >
+        <MessageSquarePlus className="mr-1.5 size-4" />
+        {tc("copilot.newChat")}
+      </Button>
       <AlertDialog
         onOpenChange={(open) => {
           setClearAllOpen(open);
@@ -110,17 +121,6 @@ export function ChatTopbarActions() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Button
-        aria-label={tc("copilot.newChat")}
-        disabled={!isTransportReady}
-        onClick={() => startNewChat()}
-        size="sm"
-        type="button"
-        variant="default"
-      >
-        <MessageSquarePlus className="mr-1.5 size-4" />
-        {tc("copilot.newChat")}
-      </Button>
     </div>
   );
 }

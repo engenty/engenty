@@ -193,8 +193,8 @@ export function CopilotChatPage() {
   const topbarActions = useMemo(
     () => (
       <>
-        <ArtifactPaneToggle />
         <ChatTopbarActions />
+        <ArtifactPaneToggle />
       </>
     ),
     []
