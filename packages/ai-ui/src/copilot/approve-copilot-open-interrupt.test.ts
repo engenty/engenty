@@ -1,4 +1,4 @@
-import { AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS } from "@engenty/ag-ui-bridge";
+import { AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS } from "@engenty/ag-ui-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { approveCopilotOpenInterrupt } from "./approve-copilot-open-interrupt.js";
 
@@ -41,7 +41,9 @@ describe("approveCopilotOpenInterrupt (frontend tool)", () => {
       open: frontendInterrupt(),
       resumeInterrupt,
     });
-    await vi.advanceTimersByTimeAsync(AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS + 1);
+    await vi.advanceTimersByTimeAsync(
+      AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS + 1
+    );
     await promise;
 
     expect(resumeInterrupt).toHaveBeenCalledTimes(1);

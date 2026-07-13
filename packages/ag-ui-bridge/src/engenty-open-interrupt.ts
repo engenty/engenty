@@ -17,12 +17,20 @@ export const ENGENTY_OPEN_INTERRUPT_EVENT = "engenty.open_interrupt";
 export const AG_UI_OPEN_INTERRUPT_DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * TTL for frontend-tool interrupts (ms). These are resolved by the browser near
- * instantly (or after a short confirm). A tight TTL means an interrupt the
- * foreground lane can't resolve (wrong lane, no executor) is treated as expired
- * quickly, so it fails as "couldn't resolve" instead of spinning for days.
+ * TTL for frontend-tool interrupts (ms). Matches the server's parked-run
+ * window (session-park PARKED_TTL_MS): while the suspended run can still be
+ * resumed, a returning browser may run the tool; past it, resume is impossible
+ * anyway, so the interrupt fails as "couldn't resolve" instead of spinning
+ * for days.
  */
-export const AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS = 3 * 60 * 1000;
+export const AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * How long the browser waits for a frontend-tool handler to settle before
+ * resuming with a "couldn't resolve" failure. Deliberately shorter than the
+ * interrupt TTL: it bounds a hung/missing executor, not the user's absence.
+ */
+export const AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS = 3 * 60 * 1000;
 
 /** TTL for the interrupt kind: short for browser frontend tools, long otherwise. */
 export function agUiOpenInterruptTtlMsForKind(

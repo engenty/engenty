@@ -6,6 +6,7 @@ export {
   ArtifactVersionConflictError,
   type CreateArtifactInput,
   createArtifactStore,
+  createArtifactStoreFromEnv,
 } from "./artifact-store.js";
 export type {
   ArtifactCreatorKind,

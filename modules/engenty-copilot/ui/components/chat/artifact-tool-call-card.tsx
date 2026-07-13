@@ -17,8 +17,17 @@ function readArtifactId(output: unknown): string | null {
   return null;
 }
 
-export function matchesArtifactToolCall(toolName: string): boolean {
-  return toolName === "artifact_create" || toolName === "artifact_update";
+// Only claim calls that produced an artifact — pending/failed calls fall
+// through to the generic card so its spinner and error state still render.
+export function matchesArtifactToolCall(ctx: {
+  output?: unknown;
+  toolName: string;
+}): boolean {
+  return (
+    (ctx.toolName === "artifact_create" ||
+      ctx.toolName === "artifact_update") &&
+    readArtifactId(ctx.output) !== null
+  );
 }
 
 /** Compact card for artifact_create / artifact_update: opens it in the pane. */

@@ -39,8 +39,7 @@ export function useAutoResolveFrontendTool(params: {
       !(
         awaitingInterrupt &&
         openInterrupt &&
-        isFrontendToolOpenInterrupt(openInterrupt) &&
-        !isAgUiOpenInterruptExpired(openInterrupt)
+        isFrontendToolOpenInterrupt(openInterrupt)
       )
     ) {
       return;
@@ -50,6 +49,18 @@ export function useAutoResolveFrontendTool(params: {
       return;
     }
     handledRef.current.add(key);
+    if (isAgUiOpenInterruptExpired(openInterrupt)) {
+      // Too late to run the tool — resume with a failure so the suspended run
+      // gets a "couldn't resolve" tool error instead of staying wedged until
+      // the metadata sweep silently discards the interrupt.
+      resumeInterrupt({
+        approved: false,
+        error: `Frontend tool "${openInterrupt.tool_name ?? "unknown"}" expired before the browser could run it.`,
+        interruptId: openInterrupt.interrupt_id,
+        toolName: openInterrupt.tool_name ?? "unknown",
+      });
+      return;
+    }
     void approveCopilotOpenInterrupt({
       activeThreadId,
       executeFrontendTool,

@@ -40,9 +40,11 @@ export function getArtifactType(type: string): ArtifactTypeDescriptor {
   return descriptor;
 }
 
-export function listArtifactTypes(): string[] {
-  return [...TYPES.keys()];
-}
+/**
+ * The registered built-in types, for deriving input schemas (tool + route
+ * zod enums) from one source. Extend here when adding a type.
+ */
+export const ARTIFACT_TYPE_IDS = ["markdown", "html", "table"] as const;
 
 function assertNonEmpty(content: string, label: string): void {
   if (typeof content !== "string" || content.trim().length === 0) {

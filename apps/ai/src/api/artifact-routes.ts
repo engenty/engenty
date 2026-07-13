@@ -1,9 +1,17 @@
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { z } from "zod";
+import {
+  ARTIFACT_TYPE_IDS,
+  ArtifactInvalidContentError,
+  ArtifactUnknownTypeError,
+} from "../ai/artifacts/artifact-types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { ArtifactStore } from "../dal/artifacts/index.js";
-import { ArtifactVersionConflictError } from "../dal/artifacts/index.js";
+import {
+  ArtifactContentTooLargeError,
+  ArtifactVersionConflictError,
+} from "../dal/artifacts/index.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -14,17 +22,40 @@ const scopeTypeSchema = z.enum(["thread", "task", "project", "goal"]);
 const promotableScopeSchema = z.enum(["task", "project", "goal"]);
 
 const createBodySchema = z.object({
-  type: z.enum(["markdown", "html", "table"]),
+  type: z.enum(ARTIFACT_TYPE_IDS),
   title: z.string().min(1).max(512),
   scope_id: z.string().min(1).max(256),
-  content: z.string(),
+  content: z.string().min(1),
 });
 
 const addVersionBodySchema = z.object({
-  content: z.string(),
+  content: z.string().min(1),
   expected_version: z.number().int().min(1),
   summary: z.string().max(2000).optional(),
 });
+
+/** Malformed JSON is a client error, not a 500 from Hono's default handler. */
+async function readJsonBody(c: Context): Promise<unknown> {
+  try {
+    return await c.req.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Content/type failures from the store are client errors — map them to 4xx. */
+function clientErrorResponse(c: Context, err: unknown) {
+  if (err instanceof ArtifactContentTooLargeError) {
+    return c.json({ error: "artifacts.contentTooLarge" }, 413);
+  }
+  if (
+    err instanceof ArtifactInvalidContentError ||
+    err instanceof ArtifactUnknownTypeError
+  ) {
+    return c.json({ error: "artifacts.invalidContent" }, 400);
+  }
+  return null;
+}
 
 const storeBodySchema = z.object({
   scope_type: promotableScopeSchema,
@@ -76,7 +107,7 @@ export function registerArtifactRoutes(
     if (!scope.ok) {
       return scope.response;
     }
-    const body = createBodySchema.safeParse(await c.req.json());
+    const body = createBodySchema.safeParse(await readJsonBody(c));
     if (!body.success) {
       return c.json({ error: "artifacts.invalidBody" }, 400);
     }
@@ -95,6 +126,10 @@ export function registerArtifactRoutes(
       });
       return c.json(result, 201);
     } catch (err) {
+      const clientError = clientErrorResponse(c, err);
+      if (clientError) {
+        return clientError;
+      }
       return handleRouteError(
         c,
         "createArtifact failed",
@@ -139,7 +174,7 @@ export function registerArtifactRoutes(
     if (!scope.ok) {
       return scope.response;
     }
-    const body = addVersionBodySchema.safeParse(await c.req.json());
+    const body = addVersionBodySchema.safeParse(await readJsonBody(c));
     if (!body.success) {
       return c.json({ error: "artifacts.invalidBody" }, 400);
     }
@@ -164,6 +199,10 @@ export function registerArtifactRoutes(
           409
         );
       }
+      const clientError = clientErrorResponse(c, err);
+      if (clientError) {
+        return clientError;
+      }
       return handleRouteError(
         c,
         "addArtifactVersion failed",
@@ -178,7 +217,7 @@ export function registerArtifactRoutes(
     if (!scope.ok) {
       return scope.response;
     }
-    const body = storeBodySchema.safeParse(await c.req.json());
+    const body = storeBodySchema.safeParse(await readJsonBody(c));
     if (!body.success) {
       return c.json({ error: "artifacts.invalidBody" }, 400);
     }

@@ -431,6 +431,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   if (artifactStore) {
     registerArtifactRoutes(app, { artifactStore, scopeResolver });
+  } else if (!("artifactStore" in options)) {
+    logger.warn(
+      "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+    );
   }
   registerAgentSessionRunRoutes(app, {
     // Registry + store for the streaming chat runtimes (harness_session default,

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getArtifactType } from "../../ai/artifacts/artifact-types.js";
+import { createAiDatabaseAdapter } from "../../infra/database.js";
 import type {
   ArtifactCreatorKind,
   ArtifactRow,
@@ -121,6 +122,13 @@ export function createArtifactStore(client: SupabaseClient) {
         .select()
         .single();
       if (vError) {
+        // No transaction spans the two inserts — roll back the artifact row so
+        // a failed version insert can't leave an unopenable orphan in listings.
+        await db
+          .from("artifact")
+          .delete()
+          .eq("tenant_id", input.tenantId)
+          .eq("id", artifactRow.id);
         throw new Error(`artifact_version insert: ${vError.message}`);
       }
       return { artifact: artifactRow, version: version as ArtifactVersionRow };
@@ -193,6 +201,9 @@ export function createArtifactStore(client: SupabaseClient) {
       assertInlineSize(input.content);
 
       const nextVersion = input.expectedVersion + 1;
+      // The unique (artifact_id, version) constraint is the concurrency gate:
+      // of two writers racing past the pre-check above, the loser fails here
+      // and gets the version_conflict retry signal, not a generic error.
       const { data: version, error: vError } = await db
         .from("artifact_version")
         .insert({
@@ -207,8 +218,16 @@ export function createArtifactStore(client: SupabaseClient) {
         .select()
         .single();
       if (vError) {
+        if (vError.code === "23505") {
+          const current = await getArtifactRow(input);
+          throw new ArtifactVersionConflictError(
+            current?.current_version ?? nextVersion
+          );
+        }
         throw new Error(`artifact_version insert: ${vError.message}`);
       }
+      // Monotonic pointer bump: `< nextVersion` keeps a slow writer from
+      // regressing current_version below a later writer's already-landed bump.
       const { data: updated, error: uError } = await db
         .from("artifact")
         .update({
@@ -217,13 +236,19 @@ export function createArtifactStore(client: SupabaseClient) {
         })
         .eq("tenant_id", input.tenantId)
         .eq("id", artifact.id)
+        .lt("current_version", nextVersion)
         .select()
-        .single();
+        .maybeSingle();
       if (uError) {
         throw new Error(`artifact update: ${uError.message}`);
       }
+      const artifactRow =
+        (updated as ArtifactRow | null) ?? (await getArtifactRow(input));
+      if (!artifactRow) {
+        throw new Error("artifact update: row missing");
+      }
       return {
-        artifact: updated as ArtifactRow,
+        artifact: artifactRow,
         version: version as ArtifactVersionRow,
       };
     },
@@ -275,3 +300,20 @@ export function createArtifactStore(client: SupabaseClient) {
 }
 
 export type ArtifactStore = ReturnType<typeof createArtifactStore>;
+
+let envStore: ArtifactStore | null | undefined;
+
+/**
+ * Store built (once) from SUPABASE_* env; null when unconfigured. Lives in the
+ * DAL (not the ai/index barrel) so agent tools can share it without a
+ * barrel → copilot-agent → tools import cycle.
+ */
+export function createArtifactStoreFromEnv(): ArtifactStore | null {
+  if (envStore === undefined) {
+    const client = createAiDatabaseAdapter(
+      process.env as unknown as Record<string, unknown>
+    );
+    envStore = client ? createArtifactStore(client) : null;
+  }
+  return envStore;
+}

@@ -1,5 +1,5 @@
 import {
-  AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS,
+  AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS,
   type AgUiOpenInterruptMetadata,
   type FrontendToolCallRequest,
   type JsonValue,
@@ -100,7 +100,7 @@ export async function approveCopilotOpenInterrupt(
           tool_name: open.tool_name,
         })
       ),
-      AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS,
+      AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS,
       open.tool_name
     );
     resumeInterrupt({

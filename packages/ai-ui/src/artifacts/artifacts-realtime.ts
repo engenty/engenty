@@ -14,7 +14,8 @@ export interface ArtifactsRealtimeSubscription {
  */
 export function createArtifactsRealtimeSubscription(params: {
   client: PostgresChangeRealtimeClient | null;
-  onArtifactsChange: () => void;
+  /** Receives the changed artifact row (replica identity full) when available. */
+  onArtifactsChange: (record: Record<string, unknown> | null) => void;
   tenantId: string;
 }): ArtifactsRealtimeSubscription | null {
   if (!(params.client && params.tenantId)) {
@@ -31,8 +32,8 @@ export function createArtifactsRealtimeSubscription(params: {
         table: "artifact",
       },
     ],
-    onSignal: () => {
-      params.onArtifactsChange();
+    onSignal: (signal) => {
+      params.onArtifactsChange(signal.record ?? null);
     },
   });
   return { unsubscribe };

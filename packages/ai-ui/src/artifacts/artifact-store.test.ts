@@ -101,4 +101,25 @@ describe("artifact list sync", () => {
     act(() => rerender({ ids: ["a1"] }));
     expect(result.current.activeId).toBe("a1");
   });
+
+  it("closing (archiving) the last tab closes the pane", () => {
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: string[] }) => {
+        useArtifactListSync({
+          hostKey: HOST,
+          threadId: "t1",
+          ids,
+          isReady: true,
+        });
+        return useArtifacts(HOST);
+      },
+      { initialProps: { ids: ["a1"] } }
+    );
+    act(() => activateArtifact(HOST, "a1"));
+    expect(result.current.paneOpen).toBe(true);
+
+    act(() => rerender({ ids: [] }));
+    expect(result.current.paneOpen).toBe(false);
+    expect(result.current.activeId).toBeNull();
+  });
 });

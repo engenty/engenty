@@ -1,31 +1,29 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { ARTIFACT_TYPE_IDS } from "../../src/ai/artifacts/artifact-types.js";
 import {
   type ArtifactStore,
   ArtifactVersionConflictError,
-  createArtifactStore,
+  createArtifactStoreFromEnv,
 } from "../../src/dal/artifacts/index.js";
-import { createAiDatabaseAdapter } from "../../src/infra/database.js";
 import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
 
-const artifactTypeSchema = z.enum(["markdown", "html", "table"]);
+const artifactTypeSchema = z.enum(ARTIFACT_TYPE_IDS);
 
-// Build the store directly from the DB adapter (not the ai/index barrel) to
-// avoid a circular import: the copilot agent imports this module, and the
-// barrel imports the copilot agent.
+// The DAL factory (not the ai/index barrel — that would be a circular import:
+// the copilot agent imports this module, and the barrel imports the copilot
+// agent) memoizes one service-role store per process.
 function resolveStore(injected?: ArtifactStore | null): ArtifactStore {
   if (injected) {
     return injected;
   }
-  const client = createAiDatabaseAdapter(
-    process.env as unknown as Record<string, unknown>
-  );
-  if (!client) {
+  const store = createArtifactStoreFromEnv();
+  if (!store) {
     throw new Error(
       "artifact tools: store unavailable — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
     );
   }
-  return createArtifactStore(client);
+  return store;
 }
 
 function requireThreadScope() {

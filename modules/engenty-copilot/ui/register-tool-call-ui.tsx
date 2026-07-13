@@ -50,7 +50,7 @@ export function registerEngentyCopilotToolCallUi() {
   registerToolCallUi({
     id: "engenty-copilot.artifact",
     priority: 45,
-    match: (ctx) => matchesArtifactToolCall(ctx.toolName),
+    match: (ctx) => matchesArtifactToolCall(ctx),
     Card: ArtifactToolCallCard,
   });
 }
