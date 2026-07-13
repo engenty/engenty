@@ -226,25 +226,38 @@ async function main() {
     // keep default
   }
   const levels = ["patch", "minor", "major"];
+  // Non-interactive path (automation/CI): RELEASE_BUMP=patch|minor|major
+  // skips the picker and accepts the rendered entry as-is.
+  const envBump = process.env.RELEASE_BUMP;
+  if (envBump && !levels.includes(envBump)) {
+    die(`RELEASE_BUMP must be one of: ${levels.join(", ")}`);
+  }
   const ordered = [suggested, ...levels.filter((l) => l !== suggested)];
-  const level = await select(
-    `Version bump  ${c.dim(`(suggested: ${suggested})`)}`,
-    ordered.map((l) => ({
-      label: `${l.padEnd(6)} → v${bump(current, l)}`,
-      value: l,
-      hint: l === suggested ? "suggested" : "",
-    }))
-  );
+  const level =
+    envBump ??
+    (await select(
+      `Version bump  ${c.dim(`(suggested: ${suggested})`)}`,
+      ordered.map((l) => ({
+        label: `${l.padEnd(6)} → v${bump(current, l)}`,
+        value: l,
+        hint: l === suggested ? "suggested" : "",
+      }))
+    ));
   const version = bump(current, level);
   const tag = `v${version}`;
 
   // Render the release block, offer to edit it.
   let block = cliff(["--unreleased", "--tag", tag, "--strip", "all"]).trim();
-  const choice = await select(`Release ${c.b(tag)} — the entry below`, [
-    { label: "Accept as-is", value: "accept" },
-    { label: `Edit in $EDITOR (${process.env.EDITOR || "vi"})`, value: "edit" },
-    { label: "Cancel", value: "cancel" },
-  ]);
+  const choice = envBump
+    ? "accept"
+    : await select(`Release ${c.b(tag)} — the entry below`, [
+        { label: "Accept as-is", value: "accept" },
+        {
+          label: `Edit in $EDITOR (${process.env.EDITOR || "vi"})`,
+          value: "edit",
+        },
+        { label: "Cancel", value: "cancel" },
+      ]);
   if (choice === "cancel") {
     die("Cancelled — nothing written.");
   }
