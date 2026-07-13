@@ -84,6 +84,8 @@ Key insight from the survey: the copilot `sidebar` dock mode **is already the Wo
 Agree on the vocabulary above; encode it in `packages/app-shell/docs/shell-layout.md` and `DESIGN.md`. Decide: Sheet vs SidePanel naming (SidePanel wraps Sheet — probably keep Sheet as low-level primitive, DocSidebar as the product-level component).
 
 ### Phase 1 — Tasks view cleanup (near-term goal)
+
+> **Status 2026-07-13:** steps 1–2 implemented on `feat/doc-sidebar` (`DocSidebarLayout`/`DocSidebarToggle` in `packages/ui-core/src/components/layout/doc-sidebar/`, tasks detail migrated, property-row surfaces on `.ui-canvas-raised`), live-verified. Open: manual check of the mode switch alongside the copilot `sidebar` dock; tasks list-page card sweep.
 1. **Build `DocSidebar`** in `ui-core` (or app-shell if it needs shell width context): inline-when-wide / sheet-when-narrow / toggle button / persisted per-module key. API roughly: `<DocSidebar storageKey="tasks.detail" header actions>{sections}</DocSidebar>` + a `DocSidebarLayout` grid wrapper for the detail page body.
 2. **Migrate tasks detail** to it: replace the hand-rolled `grid-cols-[1fr_280px]` + `TaskPropertiesPanel` section wrapper; restyle property rows to DESIGN.md (keep the row/dropdown UX, fix surfaces via `.ui-canvas-*`).
 3. **Bring tasks detail closer to the copilot chat view**: document-centric column (like `chat-page.tsx`'s single-surface layout), `DetailPageHeader` or the doc-header pattern for the title strip, and verify the **copilot `sidebar` dock works well on the task detail page** — that *is* the near-term "split" (task doc left, chat right), no new machinery needed.
