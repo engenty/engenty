@@ -21,6 +21,7 @@ import {
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
 import { isParkedResumeInFlight } from "../ai/conversation/session-park.js";
+import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
@@ -181,6 +182,38 @@ export function latestUserAttachments(
   return [];
 }
 
+// The raw `image`/`document` content parts on the latest user turn (verbatim,
+// with their `engenty_attachment` metadata). Mastra persists the user turn as
+// text-only, so these are handed to the memory storage to append to the durable
+// user message — this is what makes attachments survive a thread reload.
+export function latestUserAttachmentParts(input: RunAgentInput): unknown[] {
+  const messages = Array.isArray(input.messages) ? input.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i] as { content?: unknown; role?: string };
+    if (message?.role !== "user") {
+      continue;
+    }
+    const content = message.content;
+    if (!Array.isArray(content)) {
+      return [];
+    }
+    return content.filter((part) => {
+      if (!part || typeof part !== "object") {
+        return false;
+      }
+      const partType = (part as { type?: unknown }).type;
+      if (partType !== "image" && partType !== "document") {
+        return false;
+      }
+      const key = (
+        part as { metadata?: { engenty_attachment?: { storageKey?: unknown } } }
+      ).metadata?.engenty_attachment?.storageKey;
+      return typeof key === "string" && key.length > 0;
+    });
+  }
+  return [];
+}
+
 // Download + base64-encode the model-feedable attachments on the current turn so
 // they can be handed to `session.sendMessage({ files })`. Best-effort: a failed
 // download is logged and skipped rather than failing the whole run.
@@ -189,7 +222,10 @@ async function resolveModelAttachments(params: {
   input: RunAgentInput;
   userAccessToken?: string;
 }): Promise<Array<{ data: string; filename?: string; mediaType: string }>> {
-  const { coreBaseUrl, userAccessToken } = params;
+  const { userAccessToken } = params;
+  // Prefer the app-wired base URL; fall back to the env the rest of apps/ai
+  // uses (createApp() is booted without an explicit coreBaseUrl in prod).
+  const coreBaseUrl = params.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
   if (!(coreBaseUrl && userAccessToken)) {
     return [];
   }
@@ -600,10 +636,16 @@ export function registerAgentSessionRunRoutes(
             input: body.data,
             userAccessToken: scope.scope.userAccessToken,
           });
+      // Durable transcript parts for this turn (persisted so attachments render
+      // on reload); empty on an artifact resume (no new user message).
+      const hsAttachmentParts = isArtifactResume
+        ? []
+        : latestUserAttachmentParts(body.data);
       void startConversationRun({
         agentId: session.agent_id,
         agentUi: agentUi ?? null,
         attachments: hsAttachments,
+        attachmentParts: hsAttachmentParts,
         approvalGrants: mergeApprovalGrants(
           hsApprovalGrants,
           hsConnectionGrants

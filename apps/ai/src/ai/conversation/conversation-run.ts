@@ -101,6 +101,12 @@ export interface StartConversationRunInput {
   // Operation ids the user already approved for this chat (Phase 3.2c). Threaded
   // into the engenty-tools run context so the execute-boundary gate skips them.
   approvalGrants?: readonly string[];
+  // Durable AG-UI `image`/`document` parts for the user turn (with their
+  // `engenty_attachment` metadata). Mastra persists the turn as text-only, so
+  // these are appended to the durable user message by the memory storage so
+  // attachments survive a thread reload. Separate from `attachments` (base64
+  // for the model): these carry only the storage key + signed URL.
+  attachmentParts?: readonly unknown[];
   // Photo/file attachments on the user turn, already resolved to base64 by the
   // run route. Forwarded to the model as multimodal input (`session.sendMessage`
   // `files`); non-model MIME types are filtered out before they reach here.
@@ -163,6 +169,9 @@ export async function startConversationRun(
       scope: input.scope,
       store: input.store,
       threadId: input.threadId,
+      ...(input.attachmentParts && input.attachmentParts.length > 0
+        ? { userAttachmentParts: input.attachmentParts }
+        : {}),
     });
     const mergedDefinitions = mergeFrontendToolDefinitions(
       input.agentUi?.frontend_tools,

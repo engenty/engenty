@@ -2,6 +2,7 @@ import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
   isModelFeedableMime,
+  latestUserAttachmentParts,
   latestUserAttachments,
 } from "../api/agent-session-runs-routes.js";
 
@@ -74,5 +75,60 @@ describe("latestUserAttachments", () => {
     expect(isModelFeedableMime("application/pdf")).toBe(true);
     expect(isModelFeedableMime("application/zip")).toBe(false);
     expect(isModelFeedableMime("text/plain")).toBe(false);
+  });
+});
+
+describe("latestUserAttachmentParts", () => {
+  it("returns the raw image/document parts verbatim (for durable persistence)", () => {
+    const parts = latestUserAttachmentParts(
+      runInput([
+        {
+          role: "user",
+          content: [{ type: "text", text: "look" }, imagePart],
+        },
+      ])
+    );
+    expect(parts).toEqual([imagePart]);
+  });
+
+  it("keeps non-model files too (they still render in the transcript)", () => {
+    const zipPart = {
+      type: "document",
+      source: {
+        type: "url",
+        value: "https://x/a.zip",
+        mimeType: "application/zip",
+      },
+      metadata: {
+        engenty_attachment: {
+          filename: "a.zip",
+          mimeType: "application/zip",
+          size: 5,
+          storageKey: "tenants/t1/chat/uploads/2_a.zip",
+        },
+      },
+    };
+    const parts = latestUserAttachmentParts(
+      runInput([{ role: "user", content: [imagePart, zipPart] }])
+    );
+    expect(parts).toEqual([imagePart, zipPart]);
+  });
+
+  it("drops parts without an engenty storage key", () => {
+    const parts = latestUserAttachmentParts(
+      runInput([
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "hi" },
+            {
+              type: "image",
+              source: { type: "url", value: "https://x/z.png" },
+            },
+          ],
+        },
+      ])
+    );
+    expect(parts).toEqual([]);
   });
 });

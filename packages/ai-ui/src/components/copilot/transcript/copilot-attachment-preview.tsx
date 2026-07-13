@@ -1,7 +1,5 @@
 "use client";
 
-import { cn } from "@engenty/ui-core";
-import { Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   type ChatAttachmentMeta,
@@ -9,6 +7,10 @@ import {
   readChatAttachmentPart,
 } from "../../../lib/chat-attachment-part.js";
 import { getFileStorageSignedUrl } from "../../../lib/file-storage-signed-url.js";
+import {
+  AttachmentFileBadge,
+  AttachmentImageTile,
+} from "../../ai-elements/attachment/attachment-tiles.js";
 
 type ResolvedAttachment = ChatAttachmentMeta & { url?: string };
 
@@ -47,46 +49,25 @@ function useResolvedAttachmentUrl(
   return resolved;
 }
 
-function AttachmentTile({ attachment }: { attachment: ResolvedAttachment }) {
+function ImageAttachment({ attachment }: { attachment: ResolvedAttachment }) {
   const url = useResolvedAttachmentUrl(attachment);
-  const label = attachment.filename || "attachment";
-  const image = isImageMimeType(attachment.mimeType);
-
-  if (image) {
-    const tile = (
-      <img
-        alt={label}
-        className="max-h-48 w-auto max-w-full rounded-lg border border-border object-cover"
-        height={192}
-        src={url ?? undefined}
-        width={256}
-      />
-    );
-    return url ? (
-      <a href={url} rel="noreferrer" target="_blank">
-        {tile}
-      </a>
-    ) : (
-      tile
-    );
-  }
-
   return (
-    <a
-      className={cn(
-        "flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm",
-        "hover:bg-muted/70"
-      )}
+    <AttachmentImageTile
       href={url ?? undefined}
-      rel="noreferrer"
-      target="_blank"
-    >
-      <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <span className="max-w-56 truncate" title={label}>
-        {label}
-      </span>
-      <Download className="size-3.5 shrink-0 text-muted-foreground" />
-    </a>
+      label={attachment.filename || "image"}
+      url={url ?? undefined}
+    />
+  );
+}
+
+function FileAttachment({ attachment }: { attachment: ResolvedAttachment }) {
+  const url = useResolvedAttachmentUrl(attachment);
+  return (
+    <AttachmentFileBadge
+      href={url ?? undefined}
+      label={attachment.filename || "file"}
+      mediaType={attachment.mimeType}
+    />
   );
 }
 
@@ -95,7 +76,11 @@ export interface CopilotAttachmentPreviewProps {
   parts: readonly unknown[];
 }
 
-/** Render the image/file attachments carried on a user message. */
+/**
+ * Render the attachments carried on a user message: images as square grid
+ * thumbnails first, then files as inline badges, right-aligned to sit above the
+ * user bubble.
+ */
 export function CopilotAttachmentPreview({
   parts,
 }: CopilotAttachmentPreviewProps) {
@@ -107,14 +92,31 @@ export function CopilotAttachmentPreview({
     return null;
   }
 
+  const images = attachments.filter((a) => isImageMimeType(a.mimeType));
+  const files = attachments.filter((a) => !isImageMimeType(a.mimeType));
+
   return (
-    <div className="mb-1.5 flex flex-wrap gap-2">
-      {attachments.map((attachment, index) => (
-        <AttachmentTile
-          attachment={attachment}
-          key={`${attachment.storageKey || attachment.url || "att"}-${index}`}
-        />
-      ))}
+    <div className="mb-1.5 flex flex-col items-end gap-2">
+      {images.length > 0 ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          {images.map((attachment, index) => (
+            <ImageAttachment
+              attachment={attachment}
+              key={`${attachment.storageKey || attachment.url || "img"}-${index}`}
+            />
+          ))}
+        </div>
+      ) : null}
+      {files.length > 0 ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          {files.map((attachment, index) => (
+            <FileAttachment
+              attachment={attachment}
+              key={`${attachment.storageKey || attachment.url || "file"}-${index}`}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

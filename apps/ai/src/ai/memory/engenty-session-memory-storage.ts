@@ -51,6 +51,10 @@ export interface EngentySessionMemoryStorageOptions {
   agentId: string;
   scope: EngentySessionMemoryScope;
   store: AgentSessionStore;
+  // Durable AG-UI `image`/`document` parts for the current user turn. Mastra
+  // saves the user turn text-only, so these are appended (once) to the durable
+  // user message so attachments survive a thread reload.
+  userAttachmentParts?: readonly unknown[];
 }
 
 export function createEngentySessionMemoryStorage(
@@ -63,12 +67,18 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   readonly #agentId: string;
   readonly #scope: EngentySessionMemoryScope;
   readonly #store: AgentSessionStore;
+  // Attachment parts for the current turn + a one-shot guard so they are folded
+  // onto the first persisted user message only (the insert wins; later re-saves
+  // are ignored via `ignoreDuplicates`).
+  readonly #userAttachmentParts: readonly unknown[];
+  #userAttachmentsSaved = false;
 
   constructor(options: EngentySessionMemoryStorageOptions) {
     super();
     this.#agentId = options.agentId;
     this.#scope = options.scope;
     this.#store = options.store;
+    this.#userAttachmentParts = options.userAttachmentParts ?? [];
   }
 
   async dangerouslyClearAll(): Promise<void> {
@@ -306,11 +316,23 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
         : mastraRoleToSessionRole(message.role);
       const authorUserId =
         role === "user" ? (message.resourceId ?? this.#scope.userId) : null;
+      // Fold this turn's attachment parts onto the first persisted user message
+      // (Mastra hands us text-only). One-shot: later re-saves are ignored by the
+      // upsert's `ignoreDuplicates`, so the enriched first insert wins.
+      let parts = message.content.parts as unknown[];
+      if (
+        role === "user" &&
+        !this.#userAttachmentsSaved &&
+        this.#userAttachmentParts.length > 0
+      ) {
+        parts = [...parts, ...this.#userAttachmentParts];
+        this.#userAttachmentsSaved = true;
+      }
       const { message: row } = await this.#store.appendMessage({
         tenantId: this.#scope.tenantId,
         threadId: message.threadId,
         role,
-        parts: message.content.parts,
+        parts,
         authorUserId,
         // Preserve the Mastra message id (a uuid) so re-saves are idempotent
         // and updateMessages can match by id — fixes durable-run duplicate rows.
