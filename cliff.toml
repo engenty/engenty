@@ -32,22 +32,33 @@ footer = ""
 
 [git]
 conventional_commits = true
-filter_unconventional = true
+# Keep unconventional commits instead of dropping them silently. Every commit
+# then flows through `commit_parsers` below: the truly-ignorable ones (merges,
+# release/chore noise) are skipped on purpose, and anything meaningful that
+# predates — or forgets — the Conventional Commits convention lands in "Other"
+# rather than vanishing with a "N commit(s) skipped due to parse error(s)" warn.
+filter_unconventional = false
 split_commits = false
 protect_breaking_commits = true
 filter_commits = false
 tag_pattern = "v[0-9]*"
 topo_order = false
 sort_commits = "newest"
-# Map conventional types → human-facing changelog groups (Keep-a-Changelog verbs).
+# Map commit types → human-facing changelog groups (Keep-a-Changelog verbs).
+# Parsers run top-to-bottom, first match wins; the trailing `.*` is the
+# catch-all for non-conventional messages so nothing is dropped unintentionally.
 commit_parsers = [
+  # Intentionally dropped noise — silent, on purpose (not parse errors).
+  { message = "^Merge ", skip = true },
+  { message = "^(chore|ci|test|build|style)(\\(.*\\))?!?:", skip = true },
+  # Conventional types → grouped changelog entries.
   { message = "^feat", group = "Added" },
   { message = "^fix", group = "Fixed" },
   { message = "^perf", group = "Performance" },
   { message = "^refactor", group = "Changed" },
   { message = "^deploy", group = "Deploy" },
   { message = "^docs", group = "Docs" },
-  { message = "^(chore|ci|test|build|style)\\b", skip = true },
+  # Everything else (pre-convention or malformed) — captured, not lost.
   { message = ".*", group = "Other" },
 ]
 
