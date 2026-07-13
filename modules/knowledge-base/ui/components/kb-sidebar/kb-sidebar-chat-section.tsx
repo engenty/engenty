@@ -23,13 +23,7 @@ import {
   sidebarDenseMenuItemClassName,
   sidebarSectionLabelPlAlignToRootRowIconClassName,
 } from "@engenty/ui-core";
-import {
-  Edit2,
-  MessageSquare,
-  MoreHorizontal,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Edit2, MessageSquare, MoreVertical, Plus, Trash2 } from "lucide-react";
 import {
   Link,
   useLocation,
@@ -183,7 +177,7 @@ export function KbSidebarChatSection({ kbSlug }: { kbSlug: string }) {
                           variant="ghost"
                           {...shellSecondaryNavItemProps}
                         >
-                          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+                          <MoreVertical aria-hidden className="h-3.5 w-3.5" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent

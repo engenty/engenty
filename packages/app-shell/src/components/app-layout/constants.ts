@@ -8,4 +8,4 @@ export const COPILOT_SIDEBAR_MAX_WIDTH = 720;
 export const SECONDARY_NAV_HOVER_PREVIEW_SUPPRESS_MS = 400;
 
 /** Compact primary rail (matches desktop `AppSidebar` compact width). */
-export const MOBILE_NAV_RAIL_WIDTH_CLASS = "w-16";
+export const MOBILE_NAV_RAIL_WIDTH_CLASS = "w-12";

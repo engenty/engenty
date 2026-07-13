@@ -4,6 +4,33 @@
 // Tier 2 (product): ActiveCopilotProvider, copilot thread binding, admin routes, local recovery.
 // Tier 3 (transitional ui-core re-exports): removed — copilot + AI Elements live in ai-ui (Phase 2).
 
+export {
+  ArtifactPane,
+  type ArtifactPaneProps,
+} from "./artifacts/artifact-pane.js";
+export {
+  type ArtifactViewProps,
+  PLACEHOLDER_ARTIFACT_TYPE,
+  registerArtifactRenderer,
+  resolveArtifactRenderer,
+} from "./artifacts/artifact-renderers.js";
+export {
+  type ArtifactsState,
+  activateArtifact,
+  clearArtifactsForTests,
+  closeArtifact,
+  type EngentyArtifact,
+  openArtifact,
+  seedPlaceholderArtifacts,
+  setArtifactPaneExpanded,
+  setArtifactPaneOpen,
+  type UseArtifactsResult,
+  useArtifacts,
+} from "./artifacts/artifact-store.js";
+export {
+  ArtifactPaneToggle,
+  WorkspaceArtifactPane,
+} from "./artifacts/workspace-artifact-pane.js";
 // --- Dev tooling (not embed API) ---
 export {
   AgUiAgentInspectorWidget,

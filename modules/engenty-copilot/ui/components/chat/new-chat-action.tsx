@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { MessageSquarePlus, MoreHorizontal } from "lucide-react";
+import { MessageSquarePlus, MoreVertical } from "lucide-react";
 import { useState } from "react";
 import { CopilotSandboxesMenuSection } from "./copilot-sandboxes-menu-section.js";
 
@@ -41,6 +41,17 @@ export function ChatTopbarActions() {
 
   return (
     <div className="flex items-center gap-1.5">
+      <Button
+        aria-label={tc("copilot.newChat")}
+        disabled={!isTransportReady}
+        onClick={() => startNewChat()}
+        size="sm"
+        type="button"
+        variant="default"
+      >
+        <MessageSquarePlus className="mr-1.5 size-4" />
+        {tc("copilot.newChat")}
+      </Button>
       <AlertDialog
         onOpenChange={(open) => {
           setClearAllOpen(open);
@@ -59,7 +70,7 @@ export function ChatTopbarActions() {
               type="button"
               variant="ghost"
             >
-              <MoreHorizontal className="size-4" />
+              <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
@@ -110,17 +121,6 @@ export function ChatTopbarActions() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Button
-        aria-label={tc("copilot.newChat")}
-        disabled={!isTransportReady}
-        onClick={() => startNewChat()}
-        size="sm"
-        type="button"
-        variant="default"
-      >
-        <MessageSquarePlus className="mr-1.5 size-4" />
-        {tc("copilot.newChat")}
-      </Button>
     </div>
   );
 }

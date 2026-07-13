@@ -17,6 +17,8 @@ const RESIZE_STEP_PX = 16;
 
 export interface PersistedEwResizePaneWidthOptions {
   defaultPx: number;
+  /** Flip drag/arrow direction for panes on the trailing (right) edge. */
+  invert?: boolean;
   maxPx: number;
   minPx: number;
   storageKey: string;
@@ -25,6 +27,7 @@ export interface PersistedEwResizePaneWidthOptions {
 export function usePersistedEwResizePaneWidth({
   storageKey,
   defaultPx,
+  invert = false,
   minPx,
   maxPx,
 }: PersistedEwResizePaneWidthOptions) {
@@ -58,7 +61,8 @@ export function usePersistedEwResizePaneWidth({
       if (!session) {
         return;
       }
-      const next = clamp(session.startWidth + (event.clientX - session.startX));
+      const deltaX = event.clientX - session.startX;
+      const next = clamp(session.startWidth + (invert ? -deltaX : deltaX));
       latestWidthRef.current = next;
       setResizePreviewPx(next);
     };
@@ -83,7 +87,7 @@ export function usePersistedEwResizePaneWidth({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [clamp, defaultPx, maxPx, minPx, storageKey]);
+  }, [clamp, defaultPx, invert, maxPx, minPx, storageKey]);
 
   const handleResizePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -102,23 +106,24 @@ export function usePersistedEwResizePaneWidth({
 
   const handleResizeKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      const step = invert ? -RESIZE_STEP_PX : RESIZE_STEP_PX;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         setWidthPxState((current) => {
-          const next = clamp(current - RESIZE_STEP_PX);
+          const next = clamp(current - step);
           persistPaneWidthPx(storageKey, next, minPx, maxPx, defaultPx);
           return next;
         });
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
         setWidthPxState((current) => {
-          const next = clamp(current + RESIZE_STEP_PX);
+          const next = clamp(current + step);
           persistPaneWidthPx(storageKey, next, minPx, maxPx, defaultPx);
           return next;
         });
       }
     },
-    [clamp, defaultPx, maxPx, minPx, storageKey]
+    [clamp, defaultPx, invert, maxPx, minPx, storageKey]
   );
 
   const displayedWidthPx = resizePreviewPx ?? widthPx;

@@ -3,10 +3,15 @@
 // list state; this page registers shell chrome and renders panels.
 
 import {
+  ArtifactPaneToggle,
+  ENGENTY_COPILOT_HOST_KEY,
+  PLACEHOLDER_ARTIFACT_TYPE,
   SubAgentRunFullPage,
+  seedPlaceholderArtifacts,
   selectSubAgentDelegationFromMessages,
   useCopilotSelectedThread,
   useCopilotThreadActions,
+  WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
@@ -38,6 +43,27 @@ export function CopilotChatPage() {
   const { startNewChat } = useCopilotThreadActions();
   const location = useLocation();
   const navigate = useNavigate();
+  // Placeholder artifacts (dev only) so the pane UI is exercisable before
+  // the artifact backend lands — see docs/wip/app-shell-unification.md.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      seedPlaceholderArtifacts(ENGENTY_COPILOT_HOST_KEY, [
+        {
+          id: "placeholder-doc",
+          payload:
+            "A document artifact would render here — rich content in its own tab.",
+          title: "Welcome document",
+          type: PLACEHOLDER_ARTIFACT_TYPE,
+        },
+        {
+          id: "placeholder-table",
+          payload: "A generated table or widget artifact would render here.",
+          title: "Sample table",
+          type: PLACEHOLDER_ARTIFACT_TYPE,
+        },
+      ]);
+    }
+  }, []);
   const moduleLabel = t("menu.label");
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
@@ -142,7 +168,15 @@ export function CopilotChatPage() {
     tc,
     thread.session,
   ]);
-  const topbarActions = useMemo(() => <ChatTopbarActions />, []);
+  const topbarActions = useMemo(
+    () => (
+      <>
+        <ChatTopbarActions />
+        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
+      </>
+    ),
+    []
+  );
   const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
   const secondaryNavHeaderSlot = useMemo(() => <ChatShellHeader />, []);
 
@@ -219,6 +253,7 @@ export function CopilotChatPage() {
           <ChatPanel />
         )}
       </div>
+      <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
     </CopilotModuleErrorBoundary>
   );
 }

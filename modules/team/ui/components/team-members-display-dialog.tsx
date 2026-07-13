@@ -18,7 +18,7 @@ import {
   Briefcase,
   ListFilter,
   MapPin,
-  MoreHorizontal,
+  MoreVertical,
   Phone,
   SlidersHorizontal,
   User,
@@ -304,7 +304,7 @@ export function TeamMembersTableToolbar(props: TeamMembersTableToolbarProps) {
                   aria-label={props.labels.toolbarMore}
                   type="button"
                 >
-                  <MoreHorizontal />
+                  <MoreVertical />
                 </ListToolbarIconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

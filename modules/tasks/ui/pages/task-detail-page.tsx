@@ -1,3 +1,8 @@
+import {
+  ArtifactPaneToggle,
+  ENGENTY_COPILOT_HOST_KEY,
+  WorkspaceArtifactPane,
+} from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useLiveCache } from "@engenty/live-cache";
@@ -23,7 +28,7 @@ import {
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -176,14 +181,21 @@ function TaskDetailLoadedContent({
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <p className="flex flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
-            {task.identifier}
-            <TaskStatusBadge
-              compact
-              definitions={taskStatusDefinitions}
-              status={task.status}
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
+              {task.identifier}
+              <TaskStatusBadge
+                compact
+                definitions={taskStatusDefinitions}
+                status={task.status}
+              />
+            </p>
+            <DocSidebarToggle
+              className="-mr-1.5 shrink-0"
+              label={t("detail.toggleSidebar")}
+              storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
             />
-          </p>
+          </div>
           <GoalDocumentTitle
             disabled={fieldsDisabled}
             onBlur={onTitleBlur}
@@ -335,10 +347,6 @@ export function TaskDetailPage() {
   usePageConfig({
     actions: task ? (
       <>
-        <DocSidebarToggle
-          label={t("detail.toggleSidebar")}
-          storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
-        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -347,7 +355,7 @@ export function TaskDetailPage() {
               size="sm"
               variant="outline"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -360,6 +368,7 @@ export function TaskDetailPage() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       </>
     ) : null,
     breadcrumbs,
@@ -506,6 +515,8 @@ export function TaskDetailPage() {
           />
         </TaskRunObserverProvider>
       )}
+
+      <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogContent>
