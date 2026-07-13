@@ -1,5 +1,11 @@
 # Time-tracking × calendar integration — design & plan
 
+> **Pro-only (closed).** The `time-tracking` module was pulled back to
+> engenty-pro on 2026-07-13; develop this phase in engenty-pro, not the public
+> mirror. This doc lives under `docs/internal/` so it never syncs to
+> `engenty/engenty`. Land the work directly on pro `main` (`git push origin main`),
+> not via `pnpm push`.
+
 Status: PLANNED 2026-07-08, not started.
 **Prerequisites (all shipped):** connections framework + multi-account
 (`docs/wip/connections-framework.md`, `connections-multi-account-groundwork.md`),
