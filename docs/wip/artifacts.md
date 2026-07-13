@@ -78,14 +78,29 @@ ai.artifact_version
   `FileStorageService` (Supabase provider, bucket `files`, `assertTenantScopedStorageKey`).
   Promotion changes only DB scope — blobs never move. Tenant > project > task scoping is
   enforced in the DB row + API authz, not by path shape.
-- **External storage (Phase C)**: a project can connect a storage backend (S3, GDrive,
-  local-files, …) through the **connections framework's `files` capability**. Gap: that
-  capability is **read-only today** (`files_list/read/stat/search`) — Phase C adds
-  `files_write` (+ `files_delete`) connector actions, S3 first. On promotion to a project
-  with connected storage, content is **mirrored** to the connection; platform storage stays
-  the fallback and source of truth for rendering. Model: start with **one connection per
-  project** (`project settings → artifact storage`), schema already allows many later
-  (`storage_connection_id` per artifact).
+- **External storage (Phase C) — files-sdk as the adapter layer, connections as the
+  credential layer** (decision 2026-07-13). [`files-sdk`](https://github.com/haydenbleasel/files-sdk)
+  (already a dependency: workspace FS + the Supabase provider wrap it) provides full CRUD
+  (`upload/download/delete/copy/move/list/url/signedUploadUrl`) over S3-compatibles, cloud
+  blobs, Supabase, and consumer providers (Google Drive, OneDrive, Dropbox, Box). It does
+  **no auth management** — adapters are constructor-configured with raw credentials or
+  OAuth access tokens. That is precisely what the connections framework already owns
+  (encrypted secrets, `withFreshAccessToken` refresh, allow/ask/deny policy, audit,
+  multi-account). **No separate connection settings**: a connector gains a
+  `storage` capability implemented ONCE as a files-sdk bridge —
+  `filesSdkStorageCapability(adapterFactory)` — where each connector only supplies
+  `adapterFactory(ctx)` (S3: keys/bucket from connection config; Drive/OneDrive: fresh
+  access token). The bridge synthesizes full-CRUD gateway ops (`files_write`,
+  `files_delete`, `files_move`, … alongside the existing read ops), inheriting policy
+  gates (writes default to `ask`) and audit for free. Project artifact storage settings =
+  **pick an existing connection** (filtered to storage-capable connectors). Exception:
+  `local-files` (browser FSA bridge) stays a special case — it is browser-side, not a
+  server adapter. On promotion to a project with connected storage, content is
+  **mirrored** to the connection; platform storage stays the fallback and source of truth
+  for rendering. Model: start with **one connection per project**, schema already allows
+  many later (`storage_connection_id` per artifact). Follow-ups: bump `files-sdk` to a
+  version shipping the consumer adapters; optionally migrate the hand-rolled read-only
+  `ConnectorFilesCapability` handlers (Drive/Graph/S3) onto the same bridge.
 
 ## 3. Type extensibility — the provider interface
 
@@ -151,8 +166,10 @@ the tool output) — this lands the open-in-pane item from the shell plan with r
   markdown/html/table renderers, open-in-pane from tool cards, realtime bindings.
 - **B — Promotion + surfaces**: `artifact_store` + pin UI, task/project/goal scopes,
   projects "Artefacts" tab, task DocSidebar section.
-- **C — External project storage**: `files_write` on the connector files capability (S3
-  first), project storage settings (one connection), mirror-on-promote, supabase fallback.
+- **C — External project storage**: files-sdk-backed `storage` capability bridge on the
+  connections framework (one implementation, per-connector adapter factories; S3 first,
+  Drive/OneDrive next), project storage settings (pick a connection), mirror-on-promote,
+  supabase fallback.
 - **D — Types & editing**: react sandbox, slides, exports via doc-converter, tiptap user
   editing for markdown, retrieval-service indexing.
 
