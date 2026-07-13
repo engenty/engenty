@@ -8,6 +8,7 @@ import {
   type EngentyArtifact,
   openArtifact,
   seedPlaceholderArtifacts,
+  setArtifactPaneExpanded,
   setArtifactPaneOpen,
   useArtifacts,
 } from "./artifact-store";
@@ -87,6 +88,30 @@ describe("artifact store", () => {
 
     act(() => seedPlaceholderArtifacts(HOST, [artifact("s3")]));
     expect(result.current.artifacts.map((a) => a.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("expand requires an open pane and resets on close", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+
+    act(() => result.current.setPaneExpanded(true));
+    expect(result.current.paneExpanded).toBe(false);
+
+    act(() => {
+      openArtifact(HOST, artifact("a"));
+      setArtifactPaneExpanded(HOST, true);
+    });
+    expect(result.current.paneExpanded).toBe(true);
+
+    act(() => setArtifactPaneOpen(HOST, false));
+    expect(result.current.paneExpanded).toBe(false);
+
+    act(() => {
+      setArtifactPaneOpen(HOST, true);
+      setArtifactPaneExpanded(HOST, true);
+      closeArtifact(HOST, "a");
+    });
+    expect(result.current.paneOpen).toBe(false);
+    expect(result.current.paneExpanded).toBe(false);
   });
 
   it("toggling the pane keeps tabs", () => {

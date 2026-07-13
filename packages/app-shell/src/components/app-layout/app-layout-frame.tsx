@@ -446,9 +446,11 @@ export function AppLayoutFrame({
                 </div>
               </CopilotShellContentArea>
 
+              {/* No shrink-0: when pane content requests full width (expanded
+                  mode), this column absorbs the row and main collapses. */}
               <div
                 className={cn(
-                  "flex h-full min-h-0 shrink-0",
+                  "flex h-full min-h-0",
                   contentStackBackground === "paper" && "bg-paper"
                 )}
                 ref={setWorkspaceEndPaneElement}

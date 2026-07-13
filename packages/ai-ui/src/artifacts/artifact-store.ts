@@ -26,6 +26,8 @@ export interface ArtifactsState {
   activeId: string | null;
   /** Open artifacts in tab order. */
   artifacts: EngentyArtifact[];
+  /** Pane maximized over the main area. Always false while closed. */
+  paneExpanded: boolean;
   paneOpen: boolean;
 }
 
@@ -37,6 +39,7 @@ interface ArtifactsStore {
 const EMPTY_STATE: ArtifactsState = {
   activeId: null,
   artifacts: [],
+  paneExpanded: false,
   paneOpen: false,
 };
 
@@ -64,6 +67,7 @@ export function openArtifact(hostKey: string, artifact: EngentyArtifact) {
   const { state } = getStore(hostKey);
   const exists = state.artifacts.some((a) => a.id === artifact.id);
   setState(hostKey, {
+    ...state,
     activeId: artifact.id,
     artifacts: exists ? state.artifacts : [...state.artifacts, artifact],
     paneOpen: true,
@@ -90,10 +94,12 @@ export function closeArtifact(hostKey: string, id: string) {
     state.activeId === id
       ? (artifacts[Math.min(index, artifacts.length - 1)]?.id ?? null)
       : state.activeId;
+  const paneOpen = artifacts.length > 0 && state.paneOpen;
   setState(hostKey, {
     activeId,
     artifacts,
-    paneOpen: artifacts.length > 0 && state.paneOpen,
+    paneExpanded: paneOpen && state.paneExpanded,
+    paneOpen,
   });
 }
 
@@ -102,7 +108,19 @@ export function setArtifactPaneOpen(hostKey: string, open: boolean) {
   if (state.paneOpen === open) {
     return;
   }
-  setState(hostKey, { ...state, paneOpen: open });
+  setState(hostKey, {
+    ...state,
+    paneExpanded: open && state.paneExpanded,
+    paneOpen: open,
+  });
+}
+
+export function setArtifactPaneExpanded(hostKey: string, expanded: boolean) {
+  const { state } = getStore(hostKey);
+  if (!state.paneOpen || state.paneExpanded === expanded) {
+    return;
+  }
+  setState(hostKey, { ...state, paneExpanded: expanded });
 }
 
 /**
@@ -118,9 +136,9 @@ export function seedPlaceholderArtifacts(
     return;
   }
   setState(hostKey, {
+    ...state,
     activeId: artifacts[0]?.id ?? null,
     artifacts,
-    paneOpen: state.paneOpen,
   });
 }
 
@@ -132,6 +150,7 @@ export interface UseArtifactsResult extends ArtifactsState {
   activate: (id: string) => void;
   close: (id: string) => void;
   open: (artifact: EngentyArtifact) => void;
+  setPaneExpanded: (expanded: boolean) => void;
   setPaneOpen: (open: boolean) => void;
   togglePane: () => void;
 }
@@ -156,6 +175,8 @@ export function useArtifacts(hostKey: string): UseArtifactsResult {
       activate: (id: string) => activateArtifact(hostKey, id),
       close: (id: string) => closeArtifact(hostKey, id),
       open: (artifact: EngentyArtifact) => openArtifact(hostKey, artifact),
+      setPaneExpanded: (expanded: boolean) =>
+        setArtifactPaneExpanded(hostKey, expanded),
       setPaneOpen: (open: boolean) => setArtifactPaneOpen(hostKey, open),
       togglePane: () =>
         setArtifactPaneOpen(hostKey, !getStore(hostKey).state.paneOpen),

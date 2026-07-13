@@ -50,7 +50,8 @@ export function CopilotChatPage() {
   const { startNewChat } = useCopilotThreadActions();
   const location = useLocation();
   const navigate = useNavigate();
-  const { paneOpen: artifactPaneOpen } = useArtifacts(ENGENTY_COPILOT_HOST_KEY);
+  const { paneExpanded: artifactPaneExpanded, paneOpen: artifactPaneOpen } =
+    useArtifacts(ENGENTY_COPILOT_HOST_KEY);
   const workspaceEndPaneTarget = useWorkspaceEndPaneTarget();
   const {
     displayedWidthPx: artifactPaneWidthPx,
@@ -277,17 +278,32 @@ export function CopilotChatPage() {
       </div>
       {artifactPaneOpen && workspaceEndPaneTarget
         ? createPortal(
-            <div className="flex h-full min-h-0">
-              <PaneResizeHandle
-                isResizing={isResizingArtifactPane}
-                label={t("chat.resizeArtifacts")}
-                onKeyDown={handleArtifactResizeKeyDown}
-                onPointerDown={handleArtifactResizePointerDown}
-              />
+            <div
+              className="flex h-full min-h-0"
+              // Expanded: request the full row; the shell's end-pane column
+              // absorbs it and the main column collapses.
+              style={artifactPaneExpanded ? { width: "100dvw" } : undefined}
+            >
+              {artifactPaneExpanded ? null : (
+                <PaneResizeHandle
+                  isResizing={isResizingArtifactPane}
+                  label={t("chat.resizeArtifacts")}
+                  onKeyDown={handleArtifactResizeKeyDown}
+                  onPointerDown={handleArtifactResizePointerDown}
+                />
+              )}
               <ArtifactPane
-                className="my-2 mr-2"
+                className={
+                  artifactPaneExpanded
+                    ? "my-2 mr-2 ml-2 min-w-0 flex-1"
+                    : "my-2 mr-2"
+                }
                 hostKey={ENGENTY_COPILOT_HOST_KEY}
-                style={{ width: artifactPaneWidthPx }}
+                style={
+                  artifactPaneExpanded
+                    ? undefined
+                    : { width: artifactPaneWidthPx }
+                }
               />
             </div>,
             workspaceEndPaneTarget

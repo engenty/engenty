@@ -1,7 +1,7 @@
 import { Pane, PaneTabStrip, PaneTopBar } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
-import { Shapes, X } from "lucide-react";
+import { Maximize2, Minimize2, Shapes, X } from "lucide-react";
 import type { CSSProperties } from "react";
 import { resolveArtifactRenderer } from "./artifact-renderers";
 import { useArtifacts } from "./artifact-store";
@@ -19,8 +19,16 @@ export interface ArtifactPaneProps {
  */
 export function ArtifactPane({ className, hostKey, style }: ArtifactPaneProps) {
   const { t } = useTranslation("ai-ui");
-  const { activate, activeId, artifacts, close, setPaneOpen } =
-    useArtifacts(hostKey);
+  const {
+    activate,
+    activeId,
+    artifacts,
+    close,
+    paneExpanded,
+    setPaneExpanded,
+    setPaneOpen,
+  } = useArtifacts(hostKey);
+  const ExpandIcon = paneExpanded ? Minimize2 : Maximize2;
 
   const active = artifacts.find((a) => a.id === activeId) ?? null;
   const Renderer = active ? resolveArtifactRenderer(active.type) : null;
@@ -33,14 +41,28 @@ export function ArtifactPane({ className, hostKey, style }: ArtifactPaneProps) {
       topBar={
         <PaneTopBar
           actions={
-            <Button
-              aria-label={t("artifacts.closePane")}
-              onClick={() => setPaneOpen(false)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <>
+              <Button
+                aria-label={
+                  paneExpanded
+                    ? t("artifacts.collapsePane")
+                    : t("artifacts.expandPane")
+                }
+                onClick={() => setPaneExpanded(!paneExpanded)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ExpandIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                aria-label={t("artifacts.closePane")}
+                onClick={() => setPaneOpen(false)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </>
           }
         >
           <PaneTabStrip

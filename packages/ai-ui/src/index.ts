@@ -22,6 +22,7 @@ export {
   type EngentyArtifact,
   openArtifact,
   seedPlaceholderArtifacts,
+  setArtifactPaneExpanded,
   setArtifactPaneOpen,
   type UseArtifactsResult,
   useArtifacts,
