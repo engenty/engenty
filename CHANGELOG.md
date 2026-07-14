@@ -4,6 +4,16 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.20] - 2026-07-14
+- ADDED **[artifacts]** Project artifacts tab uses standard list views
+- ADDED **[artifacts]** Phase D core — editing, download, search indexing
+- FIXED **[app-shell]** Widen modules rail and align dock iconography
+- OTHER Improve copilot FAB prompt launcher UX and status flap behavior.
+
+Unify Float and Prompt into one speed-dial action that restores the last compact mode, make dial rows fully clickable, fix floating drag bounds to use measured launcher size, and animate status flap expand/collapse with persisted height.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
 ## [0.1.19] - 2026-07-13
 - ADDED **[artifacts]** Phase C — external project storage
 - PERFORMANCE **[deploy]** Split pnpm install via pnpm fetch to fix Docker layer caching
