@@ -29,6 +29,7 @@ export interface CopilotCompactLauncherProps {
   composerPlaceholder: string;
   /** When set, replaces the route context dropdown beside the composer. */
   contextControlOverride?: ReactNode;
+  compactStatusFlapHeight?: number;
   contextOptions: CopilotCompactContextOption[];
   draft: string;
   dragHandleProps?: ComponentPropsWithoutRef<"div">;
@@ -37,6 +38,7 @@ export interface CopilotCompactLauncherProps {
   onCollapseToCircle?: () => void;
   /** Start a fresh conversation (exposed in the composer (+) menu). */
   onNewChat?: () => void;
+  onCompactStatusFlapHeightChange?: (height: number) => void;
   onSelectContext: (value: string) => void;
   /** Optimistic user text while a run is in flight (flap "sending" preview). */
   pendingUserText?: string | null;
@@ -58,12 +60,14 @@ export function CopilotCompactLauncher({
   collapseToCircleLabel = "Very compact",
   contextControlOverride,
   composerPlaceholder,
+  compactStatusFlapHeight,
   contextOptions,
   draft,
   dragHandleProps,
   interruptContent = null,
   onCollapseToCircle,
   onNewChat,
+  onCompactStatusFlapHeightChange,
   pendingUserText = null,
   positionMenu,
   onSelectContext,
@@ -118,10 +122,12 @@ export function CopilotCompactLauncher({
         )
       }
       chatStatus={status}
+      compactStatusFlapHeight={compactStatusFlapHeight}
       errorMessage={agentTickerErrorMessage}
       interruptContent={interruptContent}
       isMultiline={isMultiline}
       messages={agentTickerMessages}
+      onCompactStatusFlapHeightChange={onCompactStatusFlapHeightChange}
       pendingUserText={pendingUserText}
       variant="dock"
     >

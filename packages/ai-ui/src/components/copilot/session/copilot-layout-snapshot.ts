@@ -113,6 +113,11 @@ export function parseCopilotLayoutSnapshot(
     };
   }
 
+  let compactStatusFlapHeight: number | undefined;
+  if (isFiniteNumber(o.compactStatusFlapHeight)) {
+    compactStatusFlapHeight = o.compactStatusFlapHeight;
+  }
+
   const collapseToCircle =
     typeof o.collapseToCircle === "boolean" ? o.collapseToCircle : undefined;
   const panelMode =
@@ -128,6 +133,7 @@ export function parseCopilotLayoutSnapshot(
     fabPosition,
     floatingPosition,
     floatingSize,
+    compactStatusFlapHeight,
     collapseToCircle,
     panelMode,
   });
@@ -161,6 +167,10 @@ export function mergeCopilotLayoutSnapshot(
         : patch.floatingPosition,
     floatingSize:
       patch.floatingSize === undefined ? base.floatingSize : patch.floatingSize,
+    compactStatusFlapHeight:
+      patch.compactStatusFlapHeight === undefined
+        ? base.compactStatusFlapHeight
+        : patch.compactStatusFlapHeight,
     collapseToCircle:
       patch.collapseToCircle === undefined
         ? base.collapseToCircle

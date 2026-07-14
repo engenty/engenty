@@ -5,6 +5,9 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot";
 import { reconcileCopilotLayoutSnapshot } from "../session/copilot-layout-snapshot";
 import {
+  COMPACT_STATUS_FLAP_DEFAULT_HEIGHT,
+  COMPACT_STATUS_FLAP_MAX_HEIGHT,
+  COMPACT_STATUS_FLAP_MIN_HEIGHT,
   FLOATING_MAX_HEIGHT,
   FLOATING_MAX_WIDTH,
   FLOATING_MIN_HEIGHT,
@@ -14,12 +17,14 @@ import type { CopilotPanelMode } from "./copilot-drawer-types";
 
 export function useCopilotDrawerLayoutPersistence(input: {
   collapseToCircle: boolean;
+  compactStatusFlapHeight: number;
   copilotLayout: CopilotLayoutPersistenceApi | null;
   floatingPosition: { x: number; y: number };
   floatingSize: { height: number; width: number };
   internalPanelMode: CopilotPanelMode;
   isPanelModeControlled: boolean;
   setCollapseToCircle: Dispatch<SetStateAction<boolean>>;
+  setCompactStatusFlapHeight: Dispatch<SetStateAction<number>>;
   setFloatingPosition: Dispatch<SetStateAction<{ x: number; y: number }>>;
   setFloatingSize: Dispatch<SetStateAction<{ height: number; width: number }>>;
   setInternalPanelMode: Dispatch<SetStateAction<CopilotPanelMode>>;
@@ -63,6 +68,13 @@ export function useCopilotDrawerLayoutPersistence(input: {
           height: s.floatingSize.height,
         });
       }
+      if (
+        s.compactStatusFlapHeight != null &&
+        s.compactStatusFlapHeight >= COMPACT_STATUS_FLAP_MIN_HEIGHT &&
+        s.compactStatusFlapHeight <= COMPACT_STATUS_FLAP_MAX_HEIGHT
+      ) {
+        input.setCompactStatusFlapHeight(s.compactStatusFlapHeight);
+      }
       if (typeof s.collapseToCircle === "boolean") {
         input.setCollapseToCircle(s.collapseToCircle);
       }
@@ -76,6 +88,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
     input.copilotLayout?.snapshot,
     input.isPanelModeControlled,
     input.setCollapseToCircle,
+    input.setCompactStatusFlapHeight,
     input.setFloatingPosition,
     input.setFloatingSize,
     input.setInternalPanelMode,
@@ -89,6 +102,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
     const timer = window.setTimeout(() => {
       mergeLayout({
         collapseToCircle: input.collapseToCircle,
+        compactStatusFlapHeight: input.compactStatusFlapHeight,
         floatingPosition: input.floatingPosition,
         floatingSize: input.floatingSize,
         ...(input.isPanelModeControlled
@@ -99,6 +113,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
     return () => window.clearTimeout(timer);
   }, [
     input.collapseToCircle,
+    input.compactStatusFlapHeight,
     input.copilotLayout,
     input.floatingPosition.x,
     input.floatingPosition.y,

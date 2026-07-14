@@ -273,6 +273,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     closeLabel: tc("copilot.position.heading"),
     compactContextControl: props.compactContextControl,
     composerDockStyle: true,
+    enableStatusFlap: false,
     composerLeadingControl,
     composerPlaceholder: props.composerPlaceholder,
     composerWrapperClassName: "mx-auto w-full max-w-[42rem]",

@@ -37,6 +37,8 @@ export interface CopilotLayoutSnapshotV1 {
   fabPosition?: { x: number; y: number };
   floatingPosition?: { x: number; y: number };
   floatingSize?: { width: number; height: number };
+  /** Expanded status-flap content height (px) on compact floating/dock surfaces. */
+  compactStatusFlapHeight?: number;
   open: boolean;
   panelMode?: CopilotPersistedPanelMode;
   preferredDockMode: CopilotLayoutPersistDockMode | null;

@@ -25,7 +25,10 @@ import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph
 import { COMPACT_LAUNCHER_WIDTH } from "./copilot-drawer-constants";
 import { CopilotDrawerSnapOverlays } from "./copilot-drawer-snap-overlays";
 import type { CopilotDockMode } from "./copilot-drawer-types";
-import { shouldShowCopilotFab } from "./copilot-drawer-utils";
+import {
+  resolveCompactPromptDockMode,
+  shouldShowCopilotFab,
+} from "./copilot-drawer-utils";
 import { CopilotFabTrigger } from "./copilot-fab-trigger";
 import type { UseCopilotDrawerLayoutResult } from "./use-copilot-drawer-layout";
 
@@ -63,6 +66,7 @@ export interface CopilotDrawerSurfaceTreeProps {
   open: boolean;
   panelContent: ReactNode;
   panelContentProps: CopilotPanelContentProps;
+  preferredDockMode?: CopilotDockMode | null;
   recentCompactContexts: CopilotCompactContextOption[];
   renderCopilotThreadChooser: (variant: "compact" | "panel") => ReactNode;
   selectedCompactContext: CopilotCompactContextOption | undefined;
@@ -77,7 +81,6 @@ export interface CopilotDrawerSurfaceTreeProps {
 
 function renderFabTrigger(input: {
   layout: UseCopilotDrawerLayoutResult;
-  onOpenFloat?: () => void;
   onOpenPrompt?: () => void;
   onStartVoice?: () => void;
   open: boolean;
@@ -96,7 +99,6 @@ function renderFabTrigger(input: {
       isActive={input.open}
       isDragging={input.layout.isIconDragging}
       onClick={input.layout.handleFabTriggerClick}
-      onOpenFloat={input.onOpenFloat}
       onOpenPrompt={input.onOpenPrompt}
       onPointerDown={input.layout.handleFabTriggerPointerDown}
       onPointerLeave={input.layout.handleFabTriggerPointerLeave}
@@ -187,6 +189,7 @@ export function CopilotDrawerSurfaceTree({
   open,
   panelContent,
   panelContentProps,
+  preferredDockMode = null,
   recentCompactContexts,
   renderCopilotThreadChooser,
   selectedCompactContext,
@@ -210,18 +213,23 @@ export function CopilotDrawerSurfaceTree({
   });
 
   const handleOpenPrompt = useCallback(() => {
-    setPreferredDockMode?.("bottom");
-    onOpenChange(true);
-  }, [setPreferredDockMode, onOpenChange]);
-
-  const handleOpenFloat = useCallback(() => {
+    const mode = resolveCompactPromptDockMode(preferredDockMode);
+    if (mode === "bottom") {
+      setPreferredDockMode?.("bottom");
+      onOpenChange(true);
+      return;
+    }
     layout.handleDockPositionSelect("floating");
-  }, [layout.handleDockPositionSelect]);
+  }, [
+    layout.handleDockPositionSelect,
+    onOpenChange,
+    preferredDockMode,
+    setPreferredDockMode,
+  ]);
 
   const fabTrigger = showFab
     ? renderFabTrigger({
         layout,
-        onOpenFloat: handleOpenFloat,
         onOpenPrompt: handleOpenPrompt,
         onStartVoice: voiceSession.start,
         open,
@@ -279,12 +287,9 @@ export function CopilotDrawerSurfaceTree({
           <CopilotCompactLauncher
             agentTickerErrorMessage={injected.error?.message ?? null}
             agentTickerMessages={injected.messages}
+            compactStatusFlapHeight={layout.compactStatusFlapHeight}
             composerPlaceholder={composerPlaceholder}
-            contextControlOverride={
-              threadChooserEnabled
-                ? renderCopilotThreadChooser("compact")
-                : undefined
-            }
+            contextControlOverride={panelContentProps.composerLeadingControl}
             contextOptions={compactContextOptions}
             draft={injected.draft}
             dragHandleProps={{
@@ -295,6 +300,7 @@ export function CopilotDrawerSurfaceTree({
               role: "presentation",
             }}
             interruptContent={compactInterruptContent}
+            onCompactStatusFlapHeightChange={layout.setCompactStatusFlapHeight}
             onNewChat={panelContentProps.onNewChat}
             onSelectContext={handleCompactContextChange}
             pendingUserText={injected.pendingUserText ?? null}
@@ -372,8 +378,6 @@ export function CopilotDrawerSurfaceTree({
             belowCard={
               panelContentProps.composerLeadingControl ? (
                 panelContentProps.composerLeadingControl
-              ) : threadChooserEnabled ? (
-                renderCopilotThreadChooser("compact")
               ) : (
                 <CopilotContextDropdown
                   contextLabel="Context"
@@ -387,10 +391,12 @@ export function CopilotDrawerSurfaceTree({
               )
             }
             chatStatus={injected.status}
+            compactStatusFlapHeight={layout.compactStatusFlapHeight}
             errorMessage={injected.error?.message ?? null}
             interruptContent={compactInterruptContent}
             isMultiline={bottomIsMultiline}
             messages={injected.messages}
+            onCompactStatusFlapHeightChange={layout.setCompactStatusFlapHeight}
             pendingUserText={injected.pendingUserText ?? null}
             threadId={injected.activeThreadId}
             variant="dock-tinted"

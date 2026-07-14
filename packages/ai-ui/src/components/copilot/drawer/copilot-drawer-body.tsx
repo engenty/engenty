@@ -533,20 +533,16 @@ export function CopilotDrawerBody({
   }, [effectiveMode]);
 
   const sidebarDockContextControl =
-    effectiveMode === "sidebar" ? (
-      agentSessionChooserEnabled ? (
-        renderAgentSessionChooser("compact")
-      ) : (
-        <CopilotContextDropdown
-          contextLabel="Context"
-          onSelect={handleCompactContextChange}
-          options={compactContextOptions}
-          recentLabel="Recent"
-          recentOptions={recentCompactContexts}
-          selectedId={selectedCompactContextId}
-          variant="compact"
-        />
-      )
+    effectiveMode === "sidebar" && !agentSessionChooserEnabled ? (
+      <CopilotContextDropdown
+        contextLabel="Context"
+        onSelect={handleCompactContextChange}
+        options={compactContextOptions}
+        recentLabel="Recent"
+        recentOptions={recentCompactContexts}
+        selectedId={selectedCompactContextId}
+        variant="compact"
+      />
     ) : undefined;
 
   // Pending decision / feedback / approval chooser, rendered above the
@@ -608,6 +604,7 @@ export function CopilotDrawerBody({
       composerDockStyle={
         effectiveMode === "sidebar" || effectiveMode === "drawer"
       }
+      enableStatusFlap={false}
       dockedInterruptSurface={dockedInterruptSurface}
       dockedInterruptToolCallId={dockInterrupt?.tool_call_id ?? null}
       headerVariant={isFloatingStyle ? "floating" : "docked"}
@@ -693,6 +690,7 @@ export function CopilotDrawerBody({
       open={open}
       panelContent={panelContent}
       panelContentProps={panelContentProps as CopilotPanelContentProps}
+      preferredDockMode={preferredDockMode}
       recentCompactContexts={recentCompactContexts}
       renderCopilotThreadChooser={renderAgentSessionChooser}
       selectedCompactContext={selectedCompactContext}

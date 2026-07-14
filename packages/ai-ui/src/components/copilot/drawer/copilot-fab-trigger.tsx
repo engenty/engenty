@@ -7,7 +7,7 @@ import {
   cn,
   useBlobCharacterCycle,
 } from "@engenty/ui-core";
-import { AppWindow, Keyboard, MessageSquarePlus, Radio } from "lucide-react";
+import { Keyboard, MessageSquarePlus, Radio } from "lucide-react";
 import type { CSSProperties, PointerEvent } from "react";
 import {
   useCallback,
@@ -52,9 +52,8 @@ const fabMenuStyles = `
 /** Speed dial items — order is closest-to-FAB first. */
 const SPEED_DIAL_ITEMS = [
   { key: "chat", icon: MessageSquarePlus, label: "Chat" },
-  { key: "voice", icon: Radio, label: "Voice" },
   { key: "prompt", icon: Keyboard, label: "Prompt" },
-  { key: "float", icon: AppWindow, label: "Float" },
+  { key: "voice", icon: Radio, label: "Voice" },
 ] as const;
 
 /** Speed dial circle size (px). */
@@ -119,9 +118,7 @@ export interface CopilotFabTriggerProps {
   isActive?: boolean;
   isDragging: boolean;
   onClick: () => void;
-  /** Callback to open the copilot in floating modal mode. */
-  onOpenFloat?: () => void;
-  /** Callback to open the copilot prompt surface (bottom or floating dock). */
+  /** Callback to open the compact prompt surface (bottom dock or floating launcher). */
   onOpenPrompt?: () => void;
   onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
   onPointerLeave: (event: PointerEvent<HTMLButtonElement>) => void;
@@ -144,7 +141,6 @@ export function CopilotFabTrigger({
   isActive = false,
   isDragging,
   onClick,
-  onOpenFloat,
   onPointerDown,
   onPointerLeave,
   onPointerMove,
@@ -242,11 +238,6 @@ export function CopilotFabTrigger({
     onOpenPrompt?.();
   }, [onOpenPrompt]);
 
-  const handleOpenFloat = useCallback(() => {
-    setMenuOpen(false);
-    onOpenFloat?.();
-  }, [onOpenFloat]);
-
   const useDragPosition = isDragging && dragPosition != null;
   const style: CSSProperties | undefined = useDragPosition
     ? {
@@ -263,7 +254,6 @@ export function CopilotFabTrigger({
     chat: handleNewChat,
     voice: handleNewVoiceChat,
     prompt: handleOpenPrompt,
-    float: handleOpenFloat,
   };
 
   // Compute FAB center for radial speed dial

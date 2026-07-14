@@ -16,6 +16,10 @@ export const MINI_FLOATING_WIDTH = 360;
 export const MINI_FLOATING_HEIGHT = 200;
 export const COMPACT_LAUNCHER_WIDTH = 380;
 export const COMPACT_LAUNCHER_HEIGHT = 148;
+/** Default expanded status-flap body height (matches prior `max-h-56`). */
+export const COMPACT_STATUS_FLAP_DEFAULT_HEIGHT = 224;
+export const COMPACT_STATUS_FLAP_MIN_HEIGHT = 96;
+export const COMPACT_STATUS_FLAP_MAX_HEIGHT = 480;
 export const SIDEBAR_WIDTH = 420;
 /** Bottom composer card height (measured). */
 export const BOTTOM_DOCK_WIDGET_HEIGHT = 82;
