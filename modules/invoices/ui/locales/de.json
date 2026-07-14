@@ -76,6 +76,7 @@
   "settingsAction": "Einstellungen",
   "settingsPanelTitle": "Rechnungseinstellungen",
   "settingsPanelDescription": "Rechnungsdetails, Empfänger und Phasen konfigurieren.",
+  "toggleInvoiceSettings": "Rechnungseinstellungen-Seitenleiste umschalten",
   "settingsDetailsTitle": "Rechnungsdetails",
   "settingsDetailsDescription": "Zusammenfassung dieser Rechnung und aktueller Status.",
   "settingsMetadataTitle": "Abrechnung & Metadaten",

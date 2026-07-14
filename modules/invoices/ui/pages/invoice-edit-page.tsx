@@ -13,12 +13,15 @@ import {
   Button,
   Card,
   CardContent,
+  DocSidebarLayout,
+  DocSidebarToggle,
   Skeleton,
   TopbarActionLabel,
   topbarIconButtonClassName,
+  useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Check, FileText, Save, Settings } from "lucide-react";
+import { Check, FileText, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -41,6 +44,8 @@ import {
   useReplaceInvoiceBlocksMutation,
   useUpdateInvoiceMutation,
 } from "../queries.js";
+
+const INVOICE_DRAFT_DOC_SIDEBAR_KEY = "invoices.draft";
 
 function toCommercialBlocks(
   blocks:
@@ -101,7 +106,14 @@ export function InvoiceEditPage() {
   const [blocks, setBlocks] = useState<CommercialBlock[]>([]);
   const [editingIntro, setEditingIntro] = useState(false);
   const [editingFinalNotes, setEditingFinalNotes] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsSidebar = useDocSidebar(INVOICE_DRAFT_DOC_SIDEBAR_KEY);
+  const settingsSidebarOpen = settingsSidebar.open;
+  const settingsSidebarToggle = settingsSidebar.toggle;
+  const openSettings = useCallback(() => {
+    if (!settingsSidebarOpen) {
+      settingsSidebarToggle();
+    }
+  }, [settingsSidebarOpen, settingsSidebarToggle]);
   const syncedRef = useRef(false);
 
   // Optimistic local edit + fire-and-forget update for settings/header fields.
@@ -220,15 +232,6 @@ export function InvoiceEditPage() {
       <div className="flex items-center gap-2">
         <Button
           className={topbarIconButtonClassName}
-          onClick={() => setSettingsOpen(true)}
-          size="sm"
-          variant="outline"
-        >
-          <Settings className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>{t("settingsAction")}</TopbarActionLabel>
-        </Button>
-        <Button
-          className={topbarIconButtonClassName}
           disabled={saving}
           onClick={handleSave}
           size="sm"
@@ -250,31 +253,9 @@ export function InvoiceEditPage() {
             {t("issueAction", { defaultValue: "Issue invoice" })}
           </TopbarActionLabel>
         </Button>
-        <Button
-          className={topbarIconButtonClassName}
-          disabled={saving || previewLoading}
-          onClick={handlePreviewPdf}
-          size="sm"
-          variant="outline"
-        >
-          <FileText className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>
-            {previewLoading
-              ? t("saving")
-              : t("previewPdf", { defaultValue: "Preview PDF" })}
-          </TopbarActionLabel>
-        </Button>
       </div>
     ),
-    [
-      handleIssue,
-      handlePreviewPdf,
-      handleSave,
-      issueMutation.isPending,
-      previewLoading,
-      saving,
-      t,
-    ]
+    [handleIssue, handleSave, issueMutation.isPending, saving, t]
   );
 
   const breadcrumbs = useMemo(
@@ -328,7 +309,7 @@ export function InvoiceEditPage() {
       <InvoiceDocumentHeader
         clientId={contactsPlugin ? invoice.clientId : null}
         clientName={clientName}
-        onChangeClient={() => setSettingsOpen(true)}
+        onChangeClient={openSettings}
         onTitleBlur={() => patchInvoice({ title: invoice.title ?? "" })}
         onTitleChange={(title) =>
           setInvoice((cur) => (cur ? { ...cur, title } : cur))
@@ -340,105 +321,136 @@ export function InvoiceEditPage() {
         titlePlaceholder={t("invoiceTitle", { defaultValue: "Invoice title" })}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <section className="mx-auto w-full max-w-5xl space-y-4 p-page">
-          <Card className="w-full bg-card">
-            <CardContent className="space-y-5 p-6">
-              <DocumentIntroductionBlock
-                content={invoice.introduction ?? ""}
-                documentType="invoice"
-                isEditing={editingIntro}
-                onChange={(content) =>
-                  setInvoice((cur) =>
-                    cur
-                      ? {
-                          ...cur,
-                          introduction:
-                            stripHtmlTags(content).trim() === "" ? "" : content,
-                        }
-                      : cur
-                  )
-                }
-                onEditingChange={setEditingIntro}
-                resolvedContent={invoice.introduction ?? ""}
+      <div className="flex min-h-0 flex-1 flex-col bg-card/30">
+        <div className="flex h-10 shrink-0 items-center border-border/60 border-b">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-end gap-1 px-page">
+            <Button
+              className="text-muted-foreground"
+              disabled={saving || previewLoading}
+              onClick={handlePreviewPdf}
+              size="sm"
+              variant="ghost"
+            >
+              <FileText className="mr-1.5 h-4 w-4" />
+              {previewLoading
+                ? t("saving")
+                : t("previewPdf", { defaultValue: "Preview PDF" })}
+            </Button>
+            <DocSidebarToggle
+              label={t("toggleInvoiceSettings")}
+              storageKey={INVOICE_DRAFT_DOC_SIDEBAR_KEY}
+            />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <DocSidebarLayout
+            className="max-w-7xl gap-8 p-page"
+            sidebar={
+              <InvoiceSettingsPanel
+                entities={entities}
+                entitiesAvailable={Boolean(contactsPlugin)}
+                invoice={invoice}
+                onChange={patchInvoice}
+                onDelete={handleDelete}
+                settingsTaxRates={taxRates}
               />
+            }
+            sidebarLabel={t("settingsPanelTitle")}
+            storageKey={INVOICE_DRAFT_DOC_SIDEBAR_KEY}
+          >
+            <section className="w-full space-y-4">
+              <Card className="w-full bg-card">
+                <CardContent className="space-y-5 p-6">
+                  <DocumentIntroductionBlock
+                    content={invoice.introduction ?? ""}
+                    documentType="invoice"
+                    isEditing={editingIntro}
+                    onChange={(content) =>
+                      setInvoice((cur) =>
+                        cur
+                          ? {
+                              ...cur,
+                              introduction:
+                                stripHtmlTags(content).trim() === ""
+                                  ? ""
+                                  : content,
+                            }
+                          : cur
+                      )
+                    }
+                    onEditingChange={setEditingIntro}
+                    resolvedContent={invoice.introduction ?? ""}
+                  />
 
-              <BlockEditor
-                blocks={blocks}
-                currency={currency}
-                documentStatus={invoice.status}
-                documentType="invoice"
-                offerSettings={{
-                  show_phase_index: invoice.showPhaseIndex,
-                  phase_index_pattern: invoice.phaseIndexPattern,
-                  show_tax_per_item: invoice.showTaxPerItem,
-                  default_tax_rate: defaultTaxRate,
-                  show_phase_totals: invoice.showPhaseTotals,
-                }}
-                onChange={setBlocks}
-                taxRates={taxRates}
-              />
+                  <BlockEditor
+                    blocks={blocks}
+                    currency={currency}
+                    documentStatus={invoice.status}
+                    documentType="invoice"
+                    offerSettings={{
+                      show_phase_index: invoice.showPhaseIndex,
+                      phase_index_pattern: invoice.phaseIndexPattern,
+                      show_tax_per_item: invoice.showTaxPerItem,
+                      default_tax_rate: defaultTaxRate,
+                      show_phase_totals: invoice.showPhaseTotals,
+                    }}
+                    onChange={setBlocks}
+                    taxRates={taxRates}
+                  />
 
-              <CommercialBlockTotals
-                blocks={blocks as never}
-                currency={currency}
-                defaultTaxRate={defaultTaxRate}
-                documentType="invoice"
-                hideWhenNoItems={false}
-                locale="de-DE"
-                phaseIndexPattern={invoice.phaseIndexPattern ?? "1."}
-                showPhaseIndex={invoice.showPhaseIndex ?? true}
-                showPhaseTotals={
-                  (invoice.phasesEnabled ?? false) &&
-                  (invoice.showPhaseTotals ?? false)
-                }
-                showTaxPerItem={invoice.showTaxPerItem ?? true}
-              />
+                  <CommercialBlockTotals
+                    blocks={blocks as never}
+                    currency={currency}
+                    defaultTaxRate={defaultTaxRate}
+                    documentType="invoice"
+                    hideWhenNoItems={false}
+                    locale="de-DE"
+                    phaseIndexPattern={invoice.phaseIndexPattern ?? "1."}
+                    showPhaseIndex={invoice.showPhaseIndex ?? true}
+                    showPhaseTotals={
+                      (invoice.phasesEnabled ?? false) &&
+                      (invoice.showPhaseTotals ?? false)
+                    }
+                    showTaxPerItem={invoice.showTaxPerItem ?? true}
+                  />
 
-              <DocumentFinalNotesBlock
-                content={invoice.finalNotes ?? ""}
-                documentType="invoice"
-                isEditing={editingFinalNotes}
-                onChange={(content: string) =>
-                  setInvoice((cur) =>
-                    cur
-                      ? {
-                          ...cur,
-                          finalNotes:
-                            stripHtmlTags(content).trim() === "" ? "" : content,
-                        }
-                      : cur
-                  )
-                }
-                onEditingChange={setEditingFinalNotes}
-                resolvedContent={invoice.finalNotes ?? ""}
-                showBorder={false}
-              />
+                  <DocumentFinalNotesBlock
+                    content={invoice.finalNotes ?? ""}
+                    documentType="invoice"
+                    isEditing={editingFinalNotes}
+                    onChange={(content: string) =>
+                      setInvoice((cur) =>
+                        cur
+                          ? {
+                              ...cur,
+                              finalNotes:
+                                stripHtmlTags(content).trim() === ""
+                                  ? ""
+                                  : content,
+                            }
+                          : cur
+                      )
+                    }
+                    onEditingChange={setEditingFinalNotes}
+                    resolvedContent={invoice.finalNotes ?? ""}
+                    showBorder={false}
+                  />
 
-              <p className="text-muted-foreground text-xs">
-                {t("draftTotalsHint", {
-                  defaultValue:
-                    "Totals: {{net}} net · {{tax}} tax · {{gross}} gross",
-                  net: totals.net.toFixed(2),
-                  tax: totals.tax.toFixed(2),
-                  gross: totals.gross.toFixed(2),
-                })}
-              </p>
-            </CardContent>
-          </Card>
-        </section>
+                  <p className="text-muted-foreground text-xs">
+                    {t("draftTotalsHint", {
+                      defaultValue:
+                        "Totals: {{net}} net · {{tax}} tax · {{gross}} gross",
+                      net: totals.net.toFixed(2),
+                      tax: totals.tax.toFixed(2),
+                      gross: totals.gross.toFixed(2),
+                    })}
+                  </p>
+                </CardContent>
+              </Card>
+            </section>
+          </DocSidebarLayout>
+        </div>
       </div>
-
-      <InvoiceSettingsPanel
-        entities={entities}
-        entitiesAvailable={Boolean(contactsPlugin)}
-        invoice={invoice}
-        onChange={patchInvoice}
-        onDelete={handleDelete}
-        onOpenChange={setSettingsOpen}
-        open={settingsOpen}
-        settingsTaxRates={taxRates}
-      />
 
       <PdfPreviewSheet
         blob={previewBlob}

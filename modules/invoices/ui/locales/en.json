@@ -76,6 +76,7 @@
   "settingsAction": "Settings",
   "settingsPanelTitle": "Invoice settings",
   "settingsPanelDescription": "Configure invoice details, recipient and phases.",
+  "toggleInvoiceSettings": "Toggle invoice settings sidebar",
   "settingsDetailsTitle": "Invoice details",
   "settingsDetailsDescription": "Summary of this invoice and current status.",
   "settingsMetadataTitle": "Billing & metadata",
