@@ -245,6 +245,23 @@ Do **not** apply `formFieldSingleLineMetricsClassName` or toolbar `h-8` field st
 - Content inner: `mx-auto w-full max-w-5xl` (content width limit)
 - The `border-b` separator belongs on the inner `max-w-5xl` wrapper, not on the full-width header, so it aligns with the content.
 
+### Doc sidebar (document settings / properties)
+
+The **doc sidebar** is the settings/properties panel that belongs to a document or detail view (offer & invoice drafts, task properties). One shared, responsive component — never a bespoke Sheet or hand-rolled grid rail.
+
+- **Components** (`@engenty/ui-core`): `DocSidebarLayout` wraps the document + sidebar; `DocSidebarToggle` toggles it; `useDocSidebar(storageKey)` reads state. Same `storageKey` on all three. Visibility persists per user at `localStorage["engenty.doc_sidebar:<key>"]`; the overlay-open state is transient (a page never loads with the Sheet already open).
+- **Inline vs overlay** is measured on the **full available width** (an outer full-width wrapper), *independent* of the content max-width cap — so a page may narrow its content when the sidebar is closed without that cap forcing overlay mode. Default threshold `DOC_SIDEBAR_INLINE_MIN_WIDTH_PX` = **800px**; inline column `DOC_SIDEBAR_WIDTH_PX` = **280px**; overlay is a right-side Sheet at **`sm:max-w-sm`** (384px). Wide documents raise the threshold via `inlineMinWidth` — offers/invoices use **1200** so the document keeps ~920px beside the 280px column, else it drops to the drawer.
+- **Content width follows sidebar state**: cap the document at **`max-w-6xl`** when the sidebar is closed/overlay and **`max-w-7xl`** only when it is inline-open (`mode === "inline" && open`). Apply the same conditional cap to the document toolbar row so its edge aligns with the sidebar. Gap between document and inline column: `gap-8`.
+- **The toggle belongs to the document, not the shell topbar.** Place `DocSidebarToggle` at the right edge of the document toolbar (the shell topbar's right edge is for workspace/pane controls). Pass `text` for a visible desktop label (`hidden sm:inline`); the icon alone remains on narrow screens.
+- **Sidebar contents**: `SettingsSection` (heading block `space-y-2`, `text-sm` heading, `text-xs` description) stacked at `gap-5`; cards use **`.ui-canvas-raised`** (soft shadow, **no border**) — see Card surfaces. Never give a settings card its own `border`.
+
+### Blended document header
+
+Draft/detail documents (offers, invoices) use a **blended** header so the transparent topbar merges into one white band:
+
+- Header surface: `w-full border-border border-b bg-card` with inner `pt-14` (clears the ~44px floating topbar). Pair with `usePageConfig({ topbarChrome: "contentBlend", topbarOverlap: true })`.
+- **Compact-on-scroll**: the header sits *outside* the scroll container and collapses to a single line (compact status badge + a smaller `text-xl` title) once the content scrolls past a small threshold. Drive `collapsed` from `useScrollCollapse()` (attach its `scrollRef` + `onScroll` to the scroll container). Because the header is outside the scroll area, collapsing it never moves the scroll position — a single threshold is flicker-free. Animate the full↔compact swap with the CSS `grid-rows-[1fr]/[0fr]` cross-fade (no JS height measurement).
+
 ### List pages
 
 Two supported combinations:

@@ -48,7 +48,7 @@ export const RecipientSettingsCard = ({
   const placeholderKey = `${documentType}s.settings.recipientCustomInfoPlaceholder`;
 
   return (
-    <div className="relative overflow-hidden rounded-lg border bg-card p-4">
+    <div className="ui-canvas-raised relative overflow-hidden rounded-lg bg-card p-4">
       <div className="absolute top-2 right-2 flex gap-1">
         {onChangeClient && (
           <Button

@@ -25,6 +25,8 @@
   "settings": "Settings",
   "offerSettingsTitle": "Offer settings",
   "offerSettingsDescription": "Configure offer details and phases",
+  "toggleOfferSettings": "Toggle offer settings sidebar",
+  "actionsMenu": "Actions",
   "downloadPdf": "Download PDF",
   "settingsDetailsTitle": "Offer details",
   "settingsDetailsDescription": "Summary of this offer and current state.",

@@ -32,11 +32,17 @@ export interface DocSidebarLayoutProps {
 /**
  * Detail-page layout with a sidebar belonging to the document ("doc
  * sidebar"): properties, settings, metadata. Renders the sidebar as an
- * inline column while the layout's own width allows it, and as a right-side
+ * inline column while the available width allows it, and as a right-side
  * overlay sheet when it does not (narrow viewport, or the page sharing the
  * shell with a docked copilot pane). Visibility is toggled via
  * `DocSidebarToggle` (same `storageKey`), typically registered in the page
  * top bar through `usePageConfig` actions.
+ *
+ * The inline/overlay decision is measured on a full-width outer wrapper, not
+ * on the (`className`-capped) content column — so a page may narrow the
+ * visible content when the sidebar is closed without that cap forcing the
+ * layout into overlay mode. `inlineMinWidth` is therefore compared against
+ * the space actually available to the page, independent of the max-width.
  */
 export function DocSidebarLayout({
   children,
@@ -46,11 +52,11 @@ export function DocSidebarLayout({
   sidebarLabel,
   storageKey,
 }: DocSidebarLayoutProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const { mode, open, setOverlayOpen } = useDocSidebar(storageKey);
 
   useLayoutEffect(() => {
-    const element = containerRef.current;
+    const element = measureRef.current;
     if (!element) {
       return;
     }
@@ -81,39 +87,40 @@ export function DocSidebarLayout({
   const inlineOpen = mode === "inline" && open;
 
   return (
-    <div
-      className={cn("mx-auto grid w-full gap-4", className)}
-      ref={containerRef}
-      style={
-        inlineOpen
-          ? {
-              gridTemplateColumns: `minmax(0,1fr) ${DOC_SIDEBAR_WIDTH_PX}px`,
-            }
-          : undefined
-      }
-    >
-      <div className="min-w-0">{children}</div>
-      {inlineOpen ? (
-        <aside
-          aria-label={sidebarLabel}
-          className="flex min-w-0 flex-col gap-4"
-        >
-          {sidebar}
-        </aside>
-      ) : null}
-      {mode === "overlay" ? (
-        <Sheet onOpenChange={setOverlayOpen} open={open}>
-          <SheetContent
-            className="w-full gap-0 overflow-y-auto sm:max-w-sm"
-            side="right"
+    <div className="w-full" ref={measureRef}>
+      <div
+        className={cn("mx-auto grid w-full gap-4", className)}
+        style={
+          inlineOpen
+            ? {
+                gridTemplateColumns: `minmax(0,1fr) ${DOC_SIDEBAR_WIDTH_PX}px`,
+              }
+            : undefined
+        }
+      >
+        <div className="min-w-0">{children}</div>
+        {inlineOpen ? (
+          <aside
+            aria-label={sidebarLabel}
+            className="flex min-w-0 flex-col gap-4"
           >
-            <SheetHeader>
-              <SheetTitle>{sidebarLabel}</SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col gap-4 p-4 pt-0">{sidebar}</div>
-          </SheetContent>
-        </Sheet>
-      ) : null}
+            {sidebar}
+          </aside>
+        ) : null}
+        {mode === "overlay" ? (
+          <Sheet onOpenChange={setOverlayOpen} open={open}>
+            <SheetContent
+              className="w-full gap-0 overflow-y-auto sm:max-w-sm"
+              side="right"
+            >
+              <SheetHeader>
+                <SheetTitle>{sidebarLabel}</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-4 p-4 pt-0">{sidebar}</div>
+            </SheetContent>
+          </Sheet>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -122,6 +129,12 @@ export interface DocSidebarToggleProps {
   className?: string;
   label: string;
   storageKey: string;
+  /**
+   * Optional visible text shown next to the icon on wider viewports (the
+   * icon stays the sole affordance on small screens). `label` remains the
+   * accessible name regardless.
+   */
+  text?: string;
 }
 
 /**
@@ -133,6 +146,7 @@ export function DocSidebarToggle({
   className,
   label,
   storageKey,
+  text,
 }: DocSidebarToggleProps) {
   const { open, toggle } = useDocSidebar(storageKey);
   const Icon = open ? PanelRightClose : PanelRightOpen;
@@ -142,9 +156,10 @@ export function DocSidebarToggle({
       aria-label={label}
       className={cn("text-muted-foreground", className)}
       onClick={toggle}
-      size="icon-sm"
+      size={text ? "sm" : "icon-sm"}
       variant="ghost"
     >
+      {text ? <span className="mr-1.5 hidden sm:inline">{text}</span> : null}
       <Icon className="size-4" />
     </Button>
   );

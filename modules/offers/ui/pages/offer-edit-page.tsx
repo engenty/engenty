@@ -18,15 +18,41 @@ import type { CompanyProfileSettings } from "@engenty/company-profile/ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { PdfPreviewSheet } from "@engenty/pdf-templates";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
+  buttonVariants,
   Card,
   CardContent,
+  cn,
+  DocSidebarLayout,
+  DocSidebarToggle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Skeleton,
   TopbarActionLabel,
   topbarIconButtonClassName,
+  useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { Check, FileText, Save, Settings } from "lucide-react";
+import {
+  Check,
+  Download,
+  FileText,
+  MoreVertical,
+  Save,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -39,6 +65,7 @@ import { OfferMetadataInline } from "../components/offer-metadata-inline.js";
 import { OfferRecipientBlock } from "../components/offer-recipient-block.js";
 import { OfferSenderBlock } from "../components/offer-sender-block.js";
 import { OfferSettingsPanel } from "../components/offer-settings-panel.js";
+import { OfferStatusBadge } from "../components/offer-status-badge.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
 import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import {
@@ -46,6 +73,8 @@ import {
   resolveDefaultTaxRateFromCommercial,
 } from "../lib/commercial-tax-rates.js";
 import { formatContactSnapshot } from "../lib/contact-snapshot.js";
+import { saveOfferPdf } from "../lib/offer-pdf.js";
+import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import { getContactsPluginApi } from "../plugins.js";
 import {
   useDeleteOfferMutation,
@@ -54,6 +83,8 @@ import {
   useReplaceOfferBlocksMutation,
   useUpdateOfferMutation,
 } from "../queries.js";
+
+const OFFER_DRAFT_DOC_SIDEBAR_KEY = "offers.draft";
 
 // The former offers_apply_draft_patch / offers_apply_blocks_patch frontend
 // tools were removed deliberately: agents edit offers through the backend
@@ -195,7 +226,27 @@ export function OfferEditPage() {
     useState<CompanyProfileSettings | null>(null);
   const [commercialSettings, setCommercialSettings] =
     useState<CommercialSettings | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const settingsSidebar = useDocSidebar(OFFER_DRAFT_DOC_SIDEBAR_KEY);
+  const settingsSidebarOpen = settingsSidebar.open;
+  const settingsSidebarToggle = settingsSidebar.toggle;
+  const openSettings = useCallback(() => {
+    if (!settingsSidebarOpen) {
+      settingsSidebarToggle();
+    }
+  }, [settingsSidebarOpen, settingsSidebarToggle]);
+  // Only widen the content column when the sidebar actually occupies an
+  // inline column; when it's closed (or an overlay) the document keeps its
+  // natural reading width.
+  const settingsInlineOpen =
+    settingsSidebar.mode === "inline" && settingsSidebarOpen;
+  const contentMaxWidthClass = settingsInlineOpen ? "max-w-7xl" : "max-w-6xl";
+  const {
+    collapsed: headerCollapsed,
+    onScroll,
+    scrollRef,
+  } = useScrollCollapse();
   const [editingIntro, setEditingIntro] = useState(false);
   const [editingFinalNotes, setEditingFinalNotes] = useState(false);
   const initialSyncedRef = useRef(false);
@@ -372,6 +423,28 @@ export function OfferEditPage() {
     }
   }, [offer, persistDraft]);
 
+  const handleDownloadPdf = useCallback(async () => {
+    if (!offer) {
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      await saveOfferPdf(offer.id, `${offer.offer_number ?? "offer"}.pdf`);
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [offer]);
+
+  const handleDeleteConfirmed = useCallback(async () => {
+    if (!offer) {
+      return;
+    }
+    await deleteMutation.mutateAsync(offer.id);
+    navigate("/mdl/offers");
+  }, [deleteMutation, navigate, offer]);
+
   const actions = useMemo(
     () => (
       <div className="flex items-center gap-2">
@@ -398,31 +471,65 @@ export function OfferEditPage() {
           <Check className="mr-1.5 h-4 w-4" />
           <TopbarActionLabel>{t("markAsReady")}</TopbarActionLabel>
         </Button>
-        <Button
-          className={topbarIconButtonClassName}
-          disabled={saving || previewLoading}
-          onClick={handlePreviewPdf}
-          size="sm"
-          variant="outline"
-        >
-          <FileText className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>
-            {previewLoading ? t("saving") : t("previewPdf")}
-          </TopbarActionLabel>
-        </Button>
-        <Button
-          className={topbarIconButtonClassName}
-          onClick={() => setSettingsOpen(true)}
-          size="sm"
-          variant="outline"
-        >
-          <Settings className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>{t("settings")}</TopbarActionLabel>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("actionsMenu")}
+              className={topbarIconButtonClassName}
+              size="sm"
+              variant="outline"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={saving} onClick={handleMarkAsReady}>
+              <Check className="mr-2 h-4 w-4" />
+              {t("markAsReady")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={saving || previewLoading}
+              onClick={handlePreviewPdf}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {t("previewPdf")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={downloadingPdf}
+              onClick={handleDownloadPdf}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {t("downloadPdf")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openSettings}>
+              <Settings className="mr-2 h-4 w-4" />
+              {t("settings")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     ),
-    [handleMarkAsReady, handlePreviewPdf, handleSave, previewLoading, saving, t]
+    [
+      downloadingPdf,
+      handleDownloadPdf,
+      handleMarkAsReady,
+      handlePreviewPdf,
+      handleSave,
+      openSettings,
+      previewLoading,
+      saving,
+      t,
+    ]
   );
+
   usePageConfig({
     actions,
     breadcrumbs,
@@ -430,6 +537,8 @@ export function OfferEditPage() {
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white DocumentHeader so they blend.
+    topbarOverlap: true,
   });
 
   useRegisterAgentUiSlice(
@@ -601,7 +710,11 @@ export function OfferEditPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DocumentHeader>
+      <DocumentHeader
+        collapsed={headerCollapsed}
+        compactStatus={<OfferStatusBadge status={offer.status} />}
+        compactTitle={offer.title || t("offerTitle")}
+      >
         <ClientTopline
           clientId={contactsPlugin ? offer.client_id : null}
           clientName={
@@ -611,7 +724,7 @@ export function OfferEditPage() {
               : undefined)
           }
           isReadOnly={isReadOnly}
-          onChangeClient={() => setSettingsOpen(true)}
+          onChangeClient={openSettings}
           showChangeClient={!isReadOnly && offer.status === "draft"}
           showLinkToClient={Boolean(contactsPlugin)}
         />
@@ -662,147 +775,180 @@ export function OfferEditPage() {
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <section className="mx-auto w-full max-w-6xl space-y-4 bg-card/30 p-page">
-          <Card className="w-full bg-card">
-            <CardContent className="space-y-5 p-6">
-              <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
-                <div className="flex min-h-0 flex-col justify-end">
-                  <OfferRecipientBlock
-                    clientContactName={clientContactName}
-                    clientId={contactsPlugin ? offer.client_id : null}
-                    isReadOnly={isReadOnly}
-                    offer={offer}
-                    onChangeClient={() => setSettingsOpen(true)}
-                    showChangeClient={!isReadOnly && offer.status === "draft"}
-                    showLinkToClient={Boolean(contactsPlugin)}
-                  />
-                </div>
-                <OfferSenderBlock
-                  companyProfile={companyProfile}
-                  fallbackName={currentTenant?.name}
-                />
-              </div>
-
-              <OfferMetadataInline
-                disabled={isReadOnly}
+      <div className="flex min-h-0 flex-1 flex-col bg-card/30">
+        <div className="flex h-11 shrink-0 items-center">
+          <div
+            className={cn(
+              "mx-auto flex w-full items-center justify-end px-page",
+              contentMaxWidthClass
+            )}
+          >
+            <DocSidebarToggle
+              label={t("toggleOfferSettings")}
+              storageKey={OFFER_DRAFT_DOC_SIDEBAR_KEY}
+              text={t("settings")}
+            />
+          </div>
+        </div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          onScroll={onScroll}
+          ref={scrollRef}
+        >
+          <DocSidebarLayout
+            className={cn("gap-8 p-page", contentMaxWidthClass)}
+            inlineMinWidth={1200}
+            sidebar={
+              <OfferSettingsPanel
+                entities={entities}
+                entitiesAvailable={Boolean(contactsPlugin)}
                 offer={offer}
-                onChange={(patch) => {
+                onChange={(patch: Partial<OfferListItem>) => {
                   setOffer((current) =>
                     current ? { ...current, ...patch } : current
                   );
                   updateMutation.mutate(patch);
                 }}
+                onClientSelect={contactsPlugin ? handleClientSelect : undefined}
+                onDelete={() => setDeleteConfirmOpen(true)}
+                settingsTaxRates={normalizedEditorTaxRates}
               />
-
-              <DocumentTitleBlock
-                isReadOnly={isReadOnly}
-                onChange={(title) =>
-                  setOffer((current) =>
-                    current ? { ...current, title } : current
-                  )
-                }
-                placeholder={t("offerTitle")}
-                value={offer.title}
-              />
-
-              <DocumentIntroductionBlock
-                content={offer.introduction ?? ""}
-                documentType="offer"
-                isEditing={editingIntro}
-                isReadOnly={isReadOnly}
-                onChange={(content) =>
-                  setOffer((current) =>
-                    current
-                      ? {
-                          ...current,
-                          introduction:
-                            stripHtmlTags(content).trim() === "" ? "" : content,
+            }
+            sidebarLabel={t("offerSettingsTitle")}
+            storageKey={OFFER_DRAFT_DOC_SIDEBAR_KEY}
+          >
+            <section className="w-full space-y-4">
+              <Card className="w-full bg-card">
+                <CardContent className="space-y-5 p-6">
+                  <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
+                    <div className="flex min-h-0 flex-col justify-end">
+                      <OfferRecipientBlock
+                        clientContactName={clientContactName}
+                        clientId={contactsPlugin ? offer.client_id : null}
+                        isReadOnly={isReadOnly}
+                        offer={offer}
+                        onChangeClient={openSettings}
+                        showChangeClient={
+                          !isReadOnly && offer.status === "draft"
                         }
-                      : current
-                  )
-                }
-                onEditingChange={setEditingIntro}
-                resolvedContent={resolvedIntro}
-                showPlaceholderHelper={!isReadOnly}
-              />
+                        showLinkToClient={Boolean(contactsPlugin)}
+                      />
+                    </div>
+                    <OfferSenderBlock
+                      companyProfile={companyProfile}
+                      fallbackName={currentTenant?.name}
+                    />
+                  </div>
 
-              <BlockEditor
-                blocks={blocks}
-                currency={offer.currency || "EUR"}
-                documentStatus={offer.status}
-                documentType="offer"
-                offerSettings={{
-                  show_phase_index: offer.show_phase_index,
-                  phase_index_pattern: offer.phase_index_pattern,
-                  show_tax_per_item: offer.show_tax_per_item,
-                  default_tax_rate: offer.default_tax_rate,
-                  show_phase_totals: offer.show_phase_totals,
-                }}
-                onChange={setBlocks}
-                taxRates={normalizedEditorTaxRates}
-                units={editorUnits}
-              />
+                  <OfferMetadataInline
+                    disabled={isReadOnly}
+                    offer={offer}
+                    onChange={(patch) => {
+                      setOffer((current) =>
+                        current ? { ...current, ...patch } : current
+                      );
+                      updateMutation.mutate(patch);
+                    }}
+                  />
 
-              <CommercialBlockTotals
-                blocks={blocks as any}
-                currency={offer.currency ?? "EUR"}
-                defaultTaxRate={offer.default_tax_rate ?? tenantFallbackTaxRate}
-                documentType="offer"
-                hideWhenNoItems={false}
-                locale="de-DE"
-                phaseIndexPattern={offer.phase_index_pattern ?? "1."}
-                showPhaseIndex={offer.show_phase_index ?? true}
-                showPhaseTotals={
-                  (offer.phases_enabled ?? false) &&
-                  (offer.show_phase_totals ?? false)
-                }
-                showTaxPerItem={offer.show_tax_per_item ?? true}
-              />
+                  <DocumentTitleBlock
+                    isReadOnly={isReadOnly}
+                    onChange={(title) =>
+                      setOffer((current) =>
+                        current ? { ...current, title } : current
+                      )
+                    }
+                    placeholder={t("offerTitle")}
+                    value={offer.title}
+                  />
 
-              <DocumentFinalNotesBlock
-                content={offer.final_notes ?? ""}
-                documentType="offer"
-                isEditing={editingFinalNotes}
-                isReadOnly={isReadOnly}
-                onChange={(content: string) =>
-                  setOffer((current) =>
-                    current
-                      ? {
-                          ...current,
-                          final_notes:
-                            stripHtmlTags(content).trim() === "" ? "" : content,
-                        }
-                      : current
-                  )
-                }
-                onEditingChange={setEditingFinalNotes}
-                resolvedContent={resolvedFinalNotes}
-                showBorder={false}
-                showPlaceholderHelper={!isReadOnly}
-              />
-            </CardContent>
-          </Card>
-        </section>
+                  <DocumentIntroductionBlock
+                    content={offer.introduction ?? ""}
+                    documentType="offer"
+                    isEditing={editingIntro}
+                    isReadOnly={isReadOnly}
+                    onChange={(content) =>
+                      setOffer((current) =>
+                        current
+                          ? {
+                              ...current,
+                              introduction:
+                                stripHtmlTags(content).trim() === ""
+                                  ? ""
+                                  : content,
+                            }
+                          : current
+                      )
+                    }
+                    onEditingChange={setEditingIntro}
+                    resolvedContent={resolvedIntro}
+                    showPlaceholderHelper={!isReadOnly}
+                  />
+
+                  <BlockEditor
+                    blocks={blocks}
+                    currency={offer.currency || "EUR"}
+                    documentStatus={offer.status}
+                    documentType="offer"
+                    offerSettings={{
+                      show_phase_index: offer.show_phase_index,
+                      phase_index_pattern: offer.phase_index_pattern,
+                      show_tax_per_item: offer.show_tax_per_item,
+                      default_tax_rate: offer.default_tax_rate,
+                      show_phase_totals: offer.show_phase_totals,
+                    }}
+                    onChange={setBlocks}
+                    taxRates={normalizedEditorTaxRates}
+                    units={editorUnits}
+                  />
+
+                  <CommercialBlockTotals
+                    blocks={blocks as any}
+                    currency={offer.currency ?? "EUR"}
+                    defaultTaxRate={
+                      offer.default_tax_rate ?? tenantFallbackTaxRate
+                    }
+                    documentType="offer"
+                    hideWhenNoItems={false}
+                    locale="de-DE"
+                    phaseIndexPattern={offer.phase_index_pattern ?? "1."}
+                    showPhaseIndex={offer.show_phase_index ?? true}
+                    showPhaseTotals={
+                      (offer.phases_enabled ?? false) &&
+                      (offer.show_phase_totals ?? false)
+                    }
+                    showTaxPerItem={offer.show_tax_per_item ?? true}
+                  />
+
+                  <DocumentFinalNotesBlock
+                    content={offer.final_notes ?? ""}
+                    documentType="offer"
+                    isEditing={editingFinalNotes}
+                    isReadOnly={isReadOnly}
+                    onChange={(content: string) =>
+                      setOffer((current) =>
+                        current
+                          ? {
+                              ...current,
+                              final_notes:
+                                stripHtmlTags(content).trim() === ""
+                                  ? ""
+                                  : content,
+                            }
+                          : current
+                      )
+                    }
+                    onEditingChange={setEditingFinalNotes}
+                    resolvedContent={resolvedFinalNotes}
+                    showBorder={false}
+                    showPlaceholderHelper={!isReadOnly}
+                  />
+                </CardContent>
+              </Card>
+            </section>
+          </DocSidebarLayout>
+        </div>
       </div>
-
-      <OfferSettingsPanel
-        entities={entities}
-        entitiesAvailable={Boolean(contactsPlugin)}
-        offer={offer}
-        onChange={(patch: Partial<OfferListItem>) => {
-          setOffer((current) => (current ? { ...current, ...patch } : current));
-          updateMutation.mutate(patch);
-        }}
-        onClientSelect={contactsPlugin ? handleClientSelect : undefined}
-        onDelete={async () => {
-          await deleteMutation.mutateAsync(offer.id);
-          navigate("/mdl/offers");
-        }}
-        onOpenChange={setSettingsOpen}
-        open={settingsOpen}
-        settingsTaxRates={normalizedEditorTaxRates}
-      />
 
       <PdfPreviewSheet
         blob={previewBlob}
@@ -812,6 +958,28 @@ export function OfferEditPage() {
         open={previewOpen}
         title={offer.title ?? t("previewPdf")}
       />
+
+      <AlertDialog onOpenChange={setDeleteConfirmOpen} open={deleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteOfferConfirm")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteOfferConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={() => {
+                handleDeleteConfirmed();
+              }}
+            >
+              {t("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

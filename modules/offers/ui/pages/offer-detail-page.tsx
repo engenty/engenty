@@ -19,10 +19,12 @@ import { DocumentHeader } from "../components/document-header.js";
 import { DocumentTitle } from "../components/document-title.js";
 import { OfferAcceptedState } from "../components/offer-accepted-state.js";
 import { OfferReadyState } from "../components/offer-ready-state.js";
+import { OfferStatusBadge } from "../components/offer-status-badge.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
 import { useOffersDetailAgentUiSlice } from "../hooks/use-offers-agent-ui-slice.js";
 import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import { saveOfferPdf } from "../lib/offer-pdf.js";
+import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import { getContactsPluginApi, getProjectsPluginApi } from "../plugins.js";
 import {
   useCreateOfferVersionMutation,
@@ -55,6 +57,11 @@ export function OfferDetailPage() {
   const createVersionMutation = useCreateOfferVersionMutation();
   const [actionBusy, setActionBusy] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const {
+    collapsed: headerCollapsed,
+    onScroll,
+    scrollRef,
+  } = useScrollCollapse();
 
   const offer = data?.offer ?? null;
   const blocks = useMemo(
@@ -130,6 +137,8 @@ export function OfferDetailPage() {
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white DocumentHeader so they blend.
+    topbarOverlap: true,
   });
   useOffersDetailAgentUiSlice(offer);
 
@@ -196,7 +205,11 @@ export function OfferDetailPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DocumentHeader>
+      <DocumentHeader
+        collapsed={headerCollapsed}
+        compactStatus={<OfferStatusBadge status={offer.status} />}
+        compactTitle={offer.title || t("offerTitle")}
+      >
         <ClientTopline
           clientId={contactsPlugin ? offer.client_id : null}
           clientName={clientName ?? undefined}
@@ -213,7 +226,11 @@ export function OfferDetailPage() {
         <OfferStatusStepper status={offer.status} />
       </DocumentHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={onScroll}
+        ref={scrollRef}
+      >
         {offer.status === "accepted" ? (
           <OfferAcceptedState
             {...summaryProps}

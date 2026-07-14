@@ -1,12 +1,5 @@
 import type { TaxRate } from "@engenty/commercial-editor";
 import { useTranslation } from "@engenty/i18n/ui";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@engenty/ui-core";
 import { useEffect, useState } from "react";
 import type { InvoiceListItem } from "../api.js";
 import {
@@ -27,19 +20,17 @@ interface InvoiceSettingsPanelProps {
   invoice: InvoiceListItem;
   onChange: (patch: Partial<InvoiceListItem>) => void;
   onDelete: () => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
   settingsTaxRates: TaxRate[];
 }
 
 /**
- * Right-side settings sheet for an invoice draft — details, recipient, metadata,
- * tax, phases, danger zone. Mirrors the offers settings panel, scoped to the
- * fields the invoice update API actually persists.
+ * Invoice settings sections for the draft page's doc sidebar
+ * (`DocSidebarLayout` renders it inline when wide, as an overlay sheet when
+ * narrow). Mirrors the offers settings panel, scoped to the fields the
+ * invoice update API actually persists. Mounts only while the sidebar is
+ * visible.
  */
 export function InvoiceSettingsPanel({
-  open,
-  onOpenChange,
   invoice,
   entities,
   entitiesAvailable,
@@ -76,49 +67,37 @@ export function InvoiceSettingsPanel({
   };
 
   return (
-    <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg" side="right">
-        <SheetHeader>
-          <SheetTitle>{t("settingsPanelTitle")}</SheetTitle>
-          <SheetDescription>{t("settingsPanelDescription")}</SheetDescription>
-        </SheetHeader>
+    <div className="flex flex-col gap-6">
+      <InvoiceSettingsDetailsSection invoice={invoice} />
+      <InvoiceSettingsRecipientSection
+        canChange={entitiesAvailable}
+        entities={entities}
+        invoice={invoice}
+        onOpenClientDialog={() => setChangeClientOpen(true)}
+      />
+      <InvoiceSettingsMetadataSection invoice={invoice} onChange={onChange} />
+      <InvoiceSettingsTaxSection
+        invoice={invoice}
+        onDisplaySettingChange={handleDisplaySettingChange}
+        taxRates={settingsTaxRates}
+      />
+      <InvoiceSettingsPhasesSection
+        invoice={invoice}
+        onChange={onChange}
+        onDisplaySettingChange={handleDisplaySettingChange}
+      />
+      <InvoiceSettingsDangerSection onDelete={onDelete} />
 
-        <div className="space-y-6 px-4 pb-4">
-          <InvoiceSettingsDetailsSection invoice={invoice} />
-          <InvoiceSettingsRecipientSection
-            canChange={entitiesAvailable}
-            entities={entities}
-            invoice={invoice}
-            onOpenClientDialog={() => setChangeClientOpen(true)}
-          />
-          <InvoiceSettingsMetadataSection
-            invoice={invoice}
-            onChange={onChange}
-          />
-          <InvoiceSettingsTaxSection
-            invoice={invoice}
-            onDisplaySettingChange={handleDisplaySettingChange}
-            taxRates={settingsTaxRates}
-          />
-          <InvoiceSettingsPhasesSection
-            invoice={invoice}
-            onChange={onChange}
-            onDisplaySettingChange={handleDisplaySettingChange}
-          />
-          <InvoiceSettingsDangerSection onDelete={onDelete} />
-        </div>
-
-        {entitiesAvailable ? (
-          <ChangeClientDialog
-            entities={entities}
-            onOpenChange={setChangeClientOpen}
-            onSave={handleClientSave}
-            onSelectedClientIdChange={setSelectedClientId}
-            open={changeClientOpen}
-            selectedClientId={selectedClientId}
-          />
-        ) : null}
-      </SheetContent>
-    </Sheet>
+      {entitiesAvailable ? (
+        <ChangeClientDialog
+          entities={entities}
+          onOpenChange={setChangeClientOpen}
+          onSave={handleClientSave}
+          onSelectedClientIdChange={setSelectedClientId}
+          open={changeClientOpen}
+          selectedClientId={selectedClientId}
+        />
+      ) : null}
+    </div>
   );
 }

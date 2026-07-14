@@ -6,7 +6,12 @@ interface SettingsCardProps {
 }
 
 export const SettingsCard = ({ children, className }: SettingsCardProps) => (
-  <div className={cn("overflow-hidden rounded-lg border bg-card", className)}>
+  <div
+    className={cn(
+      "ui-canvas-raised overflow-hidden rounded-lg bg-card",
+      className
+    )}
+  >
     {children}
   </div>
 );

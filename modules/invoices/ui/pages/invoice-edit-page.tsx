@@ -10,15 +10,41 @@ import {
 import { useTranslation } from "@engenty/i18n/ui";
 import { PdfPreviewSheet } from "@engenty/pdf-templates";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
+  buttonVariants,
   Card,
   CardContent,
+  cn,
+  DocSidebarLayout,
+  DocSidebarToggle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Skeleton,
   TopbarActionLabel,
   topbarIconButtonClassName,
+  useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Check, FileText, Save, Settings } from "lucide-react";
+import {
+  Check,
+  Download,
+  FileText,
+  MoreVertical,
+  Save,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -27,10 +53,12 @@ import type {
   InvoiceBlockType,
   InvoiceListItem,
 } from "../api.js";
-import { fetchInvoicePdf } from "../api.js";
+import { downloadInvoicePdf, fetchInvoicePdf } from "../api.js";
 import { InvoiceDocumentHeader } from "../components/invoice-document-header.js";
 import { InvoiceSettingsPanel } from "../components/invoice-settings-panel.js";
+import { InvoiceStatusBadge } from "../components/invoice-status-badge.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
+import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import { getContactsPluginApi } from "../plugins.js";
 import {
   useDeleteInvoiceMutation,
@@ -41,6 +69,8 @@ import {
   useReplaceInvoiceBlocksMutation,
   useUpdateInvoiceMutation,
 } from "../queries.js";
+
+const INVOICE_DRAFT_DOC_SIDEBAR_KEY = "invoices.draft";
 
 function toCommercialBlocks(
   blocks:
@@ -101,7 +131,25 @@ export function InvoiceEditPage() {
   const [blocks, setBlocks] = useState<CommercialBlock[]>([]);
   const [editingIntro, setEditingIntro] = useState(false);
   const [editingFinalNotes, setEditingFinalNotes] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const settingsSidebar = useDocSidebar(INVOICE_DRAFT_DOC_SIDEBAR_KEY);
+  const settingsSidebarOpen = settingsSidebar.open;
+  const settingsSidebarToggle = settingsSidebar.toggle;
+  const openSettings = useCallback(() => {
+    if (!settingsSidebarOpen) {
+      settingsSidebarToggle();
+    }
+  }, [settingsSidebarOpen, settingsSidebarToggle]);
+  // Only widen the content column when the sidebar occupies an inline column.
+  const settingsInlineOpen =
+    settingsSidebar.mode === "inline" && settingsSidebarOpen;
+  const contentMaxWidthClass = settingsInlineOpen ? "max-w-7xl" : "max-w-6xl";
+  const {
+    collapsed: headerCollapsed,
+    onScroll,
+    scrollRef,
+  } = useScrollCollapse();
   const syncedRef = useRef(false);
 
   // Optimistic local edit + fire-and-forget update for settings/header fields.
@@ -181,7 +229,7 @@ export function InvoiceEditPage() {
     }
   }, [invoice, persist, issueMutation, navigate]);
 
-  const handleDelete = useCallback(async () => {
+  const handleDeleteConfirmed = useCallback(async () => {
     if (!invoice) {
       return;
     }
@@ -192,6 +240,23 @@ export function InvoiceEditPage() {
       // surfaced via mutation state
     }
   }, [invoice, deleteMutation, navigate]);
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!invoice) {
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      await downloadInvoicePdf(
+        invoice.id,
+        `${invoice.number ?? "invoice"}.pdf`
+      );
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [invoice]);
 
   // Draft-phase PDF preview (legacy engency parity): persist what's on
   // screen, render server-side, show in the in-app sheet.
@@ -220,15 +285,6 @@ export function InvoiceEditPage() {
       <div className="flex items-center gap-2">
         <Button
           className={topbarIconButtonClassName}
-          onClick={() => setSettingsOpen(true)}
-          size="sm"
-          variant="outline"
-        >
-          <Settings className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>{t("settingsAction")}</TopbarActionLabel>
-        </Button>
-        <Button
-          className={topbarIconButtonClassName}
           disabled={saving}
           onClick={handleSave}
           size="sm"
@@ -250,27 +306,63 @@ export function InvoiceEditPage() {
             {t("issueAction", { defaultValue: "Issue invoice" })}
           </TopbarActionLabel>
         </Button>
-        <Button
-          className={topbarIconButtonClassName}
-          disabled={saving || previewLoading}
-          onClick={handlePreviewPdf}
-          size="sm"
-          variant="outline"
-        >
-          <FileText className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>
-            {previewLoading
-              ? t("saving")
-              : t("previewPdf", { defaultValue: "Preview PDF" })}
-          </TopbarActionLabel>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("actionsMenu", { defaultValue: "Actions" })}
+              className={topbarIconButtonClassName}
+              size="sm"
+              variant="outline"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              disabled={saving || issueMutation.isPending}
+              onClick={handleIssue}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              {t("issueAction", { defaultValue: "Issue invoice" })}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={saving || previewLoading}
+              onClick={handlePreviewPdf}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {t("previewPdf", { defaultValue: "Preview PDF" })}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={downloadingPdf}
+              onClick={handleDownloadPdf}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {t("downloadPdf")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openSettings}>
+              <Settings className="mr-2 h-4 w-4" />
+              {t("settingsAction")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("delete", { defaultValue: "Delete" })}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     ),
     [
+      downloadingPdf,
+      handleDownloadPdf,
       handleIssue,
       handlePreviewPdf,
       handleSave,
       issueMutation.isPending,
+      openSettings,
       previewLoading,
       saving,
       t,
@@ -292,6 +384,8 @@ export function InvoiceEditPage() {
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white DocumentHeader so they blend.
+    topbarOverlap: true,
   });
 
   if (isLoading) {
@@ -328,7 +422,14 @@ export function InvoiceEditPage() {
       <InvoiceDocumentHeader
         clientId={contactsPlugin ? invoice.clientId : null}
         clientName={clientName}
-        onChangeClient={() => setSettingsOpen(true)}
+        collapsed={headerCollapsed}
+        compactStatus={<InvoiceStatusBadge status={invoice.status} />}
+        compactTitle={
+          invoice.title ||
+          invoice.number ||
+          t("invoiceTitle", { defaultValue: "Invoice title" })
+        }
+        onChangeClient={openSettings}
         onTitleBlur={() => patchInvoice({ title: invoice.title ?? "" })}
         onTitleChange={(title) =>
           setInvoice((cur) => (cur ? { ...cur, title } : cur))
@@ -340,105 +441,135 @@ export function InvoiceEditPage() {
         titlePlaceholder={t("invoiceTitle", { defaultValue: "Invoice title" })}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <section className="mx-auto w-full max-w-5xl space-y-4 p-page">
-          <Card className="w-full bg-card">
-            <CardContent className="space-y-5 p-6">
-              <DocumentIntroductionBlock
-                content={invoice.introduction ?? ""}
-                documentType="invoice"
-                isEditing={editingIntro}
-                onChange={(content) =>
-                  setInvoice((cur) =>
-                    cur
-                      ? {
-                          ...cur,
-                          introduction:
-                            stripHtmlTags(content).trim() === "" ? "" : content,
-                        }
-                      : cur
-                  )
-                }
-                onEditingChange={setEditingIntro}
-                resolvedContent={invoice.introduction ?? ""}
+      <div className="flex min-h-0 flex-1 flex-col bg-card/30">
+        <div className="flex h-11 shrink-0 items-center">
+          <div
+            className={cn(
+              "mx-auto flex w-full items-center justify-end px-page",
+              contentMaxWidthClass
+            )}
+          >
+            <DocSidebarToggle
+              label={t("toggleInvoiceSettings")}
+              storageKey={INVOICE_DRAFT_DOC_SIDEBAR_KEY}
+              text={t("settingsAction")}
+            />
+          </div>
+        </div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          onScroll={onScroll}
+          ref={scrollRef}
+        >
+          <DocSidebarLayout
+            className={cn("gap-8 p-page", contentMaxWidthClass)}
+            inlineMinWidth={1200}
+            sidebar={
+              <InvoiceSettingsPanel
+                entities={entities}
+                entitiesAvailable={Boolean(contactsPlugin)}
+                invoice={invoice}
+                onChange={patchInvoice}
+                onDelete={() => setDeleteConfirmOpen(true)}
+                settingsTaxRates={taxRates}
               />
+            }
+            sidebarLabel={t("settingsPanelTitle")}
+            storageKey={INVOICE_DRAFT_DOC_SIDEBAR_KEY}
+          >
+            <section className="w-full space-y-4">
+              <Card className="w-full bg-card">
+                <CardContent className="space-y-5 p-6">
+                  <DocumentIntroductionBlock
+                    content={invoice.introduction ?? ""}
+                    documentType="invoice"
+                    isEditing={editingIntro}
+                    onChange={(content) =>
+                      setInvoice((cur) =>
+                        cur
+                          ? {
+                              ...cur,
+                              introduction:
+                                stripHtmlTags(content).trim() === ""
+                                  ? ""
+                                  : content,
+                            }
+                          : cur
+                      )
+                    }
+                    onEditingChange={setEditingIntro}
+                    resolvedContent={invoice.introduction ?? ""}
+                  />
 
-              <BlockEditor
-                blocks={blocks}
-                currency={currency}
-                documentStatus={invoice.status}
-                documentType="invoice"
-                offerSettings={{
-                  show_phase_index: invoice.showPhaseIndex,
-                  phase_index_pattern: invoice.phaseIndexPattern,
-                  show_tax_per_item: invoice.showTaxPerItem,
-                  default_tax_rate: defaultTaxRate,
-                  show_phase_totals: invoice.showPhaseTotals,
-                }}
-                onChange={setBlocks}
-                taxRates={taxRates}
-              />
+                  <BlockEditor
+                    blocks={blocks}
+                    currency={currency}
+                    documentStatus={invoice.status}
+                    documentType="invoice"
+                    offerSettings={{
+                      show_phase_index: invoice.showPhaseIndex,
+                      phase_index_pattern: invoice.phaseIndexPattern,
+                      show_tax_per_item: invoice.showTaxPerItem,
+                      default_tax_rate: defaultTaxRate,
+                      show_phase_totals: invoice.showPhaseTotals,
+                    }}
+                    onChange={setBlocks}
+                    taxRates={taxRates}
+                  />
 
-              <CommercialBlockTotals
-                blocks={blocks as never}
-                currency={currency}
-                defaultTaxRate={defaultTaxRate}
-                documentType="invoice"
-                hideWhenNoItems={false}
-                locale="de-DE"
-                phaseIndexPattern={invoice.phaseIndexPattern ?? "1."}
-                showPhaseIndex={invoice.showPhaseIndex ?? true}
-                showPhaseTotals={
-                  (invoice.phasesEnabled ?? false) &&
-                  (invoice.showPhaseTotals ?? false)
-                }
-                showTaxPerItem={invoice.showTaxPerItem ?? true}
-              />
+                  <CommercialBlockTotals
+                    blocks={blocks as never}
+                    currency={currency}
+                    defaultTaxRate={defaultTaxRate}
+                    documentType="invoice"
+                    hideWhenNoItems={false}
+                    locale="de-DE"
+                    phaseIndexPattern={invoice.phaseIndexPattern ?? "1."}
+                    showPhaseIndex={invoice.showPhaseIndex ?? true}
+                    showPhaseTotals={
+                      (invoice.phasesEnabled ?? false) &&
+                      (invoice.showPhaseTotals ?? false)
+                    }
+                    showTaxPerItem={invoice.showTaxPerItem ?? true}
+                  />
 
-              <DocumentFinalNotesBlock
-                content={invoice.finalNotes ?? ""}
-                documentType="invoice"
-                isEditing={editingFinalNotes}
-                onChange={(content: string) =>
-                  setInvoice((cur) =>
-                    cur
-                      ? {
-                          ...cur,
-                          finalNotes:
-                            stripHtmlTags(content).trim() === "" ? "" : content,
-                        }
-                      : cur
-                  )
-                }
-                onEditingChange={setEditingFinalNotes}
-                resolvedContent={invoice.finalNotes ?? ""}
-                showBorder={false}
-              />
+                  <DocumentFinalNotesBlock
+                    content={invoice.finalNotes ?? ""}
+                    documentType="invoice"
+                    isEditing={editingFinalNotes}
+                    onChange={(content: string) =>
+                      setInvoice((cur) =>
+                        cur
+                          ? {
+                              ...cur,
+                              finalNotes:
+                                stripHtmlTags(content).trim() === ""
+                                  ? ""
+                                  : content,
+                            }
+                          : cur
+                      )
+                    }
+                    onEditingChange={setEditingFinalNotes}
+                    resolvedContent={invoice.finalNotes ?? ""}
+                    showBorder={false}
+                  />
 
-              <p className="text-muted-foreground text-xs">
-                {t("draftTotalsHint", {
-                  defaultValue:
-                    "Totals: {{net}} net · {{tax}} tax · {{gross}} gross",
-                  net: totals.net.toFixed(2),
-                  tax: totals.tax.toFixed(2),
-                  gross: totals.gross.toFixed(2),
-                })}
-              </p>
-            </CardContent>
-          </Card>
-        </section>
+                  <p className="text-muted-foreground text-xs">
+                    {t("draftTotalsHint", {
+                      defaultValue:
+                        "Totals: {{net}} net · {{tax}} tax · {{gross}} gross",
+                      net: totals.net.toFixed(2),
+                      tax: totals.tax.toFixed(2),
+                      gross: totals.gross.toFixed(2),
+                    })}
+                  </p>
+                </CardContent>
+              </Card>
+            </section>
+          </DocSidebarLayout>
+        </div>
       </div>
-
-      <InvoiceSettingsPanel
-        entities={entities}
-        entitiesAvailable={Boolean(contactsPlugin)}
-        invoice={invoice}
-        onChange={patchInvoice}
-        onDelete={handleDelete}
-        onOpenChange={setSettingsOpen}
-        open={settingsOpen}
-        settingsTaxRates={taxRates}
-      />
 
       <PdfPreviewSheet
         blob={previewBlob}
@@ -450,6 +581,36 @@ export function InvoiceEditPage() {
           invoice.number ?? t("previewPdf", { defaultValue: "Preview PDF" })
         }
       />
+
+      <AlertDialog onOpenChange={setDeleteConfirmOpen} open={deleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("deleteInvoiceConfirm", {
+                defaultValue: "Delete this invoice?",
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteInvoiceConfirmDescription", {
+                defaultValue: "This action cannot be undone.",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("cancel", { defaultValue: "Cancel" })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={() => {
+                handleDeleteConfirmed();
+              }}
+            >
+              {t("delete", { defaultValue: "Delete" })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

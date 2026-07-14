@@ -103,7 +103,7 @@ Agree on the vocabulary above; encode it in `packages/app-shell/docs/shell-layou
 ### Phase 3 — Consolidation backlog (parallelizable, mechanical)
 - Extract shared **secondary-nav record list** component (kills ~7 bespoke panels; start by unifying the contacts/invoices clones).
 - Converge offers/invoices/KB document headers on `DetailPageHeader` (extend it if document-y needs aren't met).
-- Migrate offers/invoices settings Sheets → `DocSidebar`.
+- Migrate offers/invoices settings Sheets → `DocSidebar`. *Done 2026-07-14: offers (`offers.draft` key) and invoices (`invoices.draft` key), toggle in each draft editor's toolbar row.*
 - Card-surface sweep per module (KB → projects → team → files) toward `.ui-canvas-*`.
 - Extract shared detail sub-nav tabs; fix stale ui-core docs (Radix → Base UI); consider a kitchen-sink/styleguide route so drift is visible.
 

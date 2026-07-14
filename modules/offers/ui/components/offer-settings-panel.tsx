@@ -1,12 +1,5 @@
 import type { TaxRate } from "@engenty/commercial-editor";
 import { useTranslation } from "@engenty/i18n/ui";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@engenty/ui-core";
 import { useEffect, useState } from "react";
 import type { OfferListItem } from "../api.js";
 import { mapDisplaySettingPatch } from "../lib/offer-settings-mappers.js";
@@ -40,14 +33,15 @@ interface OfferSettingsPanelProps {
   onChange: (patch: Partial<OfferListItem>) => void;
   onClientSelect?: (clientId: string) => Promise<ClientSnapshot | null>;
   onDelete: () => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
   settingsTaxRates: TaxRate[];
 }
 
+/**
+ * Offer settings sections for the draft page's doc sidebar
+ * (`DocSidebarLayout` renders it inline when wide, as an overlay sheet when
+ * narrow). Mounts only while the sidebar is visible.
+ */
 export function OfferSettingsPanel({
-  open,
-  onOpenChange,
   offer,
   entities,
   entitiesAvailable,
@@ -63,7 +57,7 @@ export function OfferSettingsPanel({
   const [selectedClientId, setSelectedClientId] = useState<string>("__none__");
 
   const { data: templates = [], isLoading: loadingTemplates } =
-    useOfferTemplatesQuery(open);
+    useOfferTemplatesQuery();
   const setDefaultTemplateMutation = useSetDefaultOfferTemplateMutation();
 
   useEffect(() => {
@@ -124,68 +118,55 @@ export function OfferSettingsPanel({
   };
 
   return (
-    <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg" side="right">
-        <SheetHeader>
-          <SheetTitle>{t("offerSettingsTitle")}</SheetTitle>
-          <SheetDescription>{t("offerSettingsDescription")}</SheetDescription>
-        </SheetHeader>
+    <div className="flex flex-col gap-5">
+      <OfferSettingsDetailsSection offer={offer} onChange={onChange} t={t} />
+      <OfferSettingsRecipientSection
+        entities={entities}
+        entitiesAvailable={entitiesAvailable}
+        offer={offer}
+        onChange={onChange}
+        onOpenClientDialog={() => setChangeClientOpen(true)}
+        onRefreshClientSnapshot={handleRefreshClientSnapshot}
+        t={t}
+      />
+      <OfferSettingsBillingSection offer={offer} onChange={onChange} />
+      <OfferSettingsTaxSection
+        offer={offer}
+        onChange={onChange}
+        onDisplaySettingChange={handleDisplaySettingChange}
+        taxRates={settingsTaxRates}
+      />
+      <OfferSettingsTemplateSection
+        loadingTemplates={loadingTemplates}
+        offer={offer}
+        onDisplaySettingChange={handleDisplaySettingChange}
+        onTemplateChange={(id) => {
+          handleTemplateChange(id);
+        }}
+        templates={templates}
+      />
+      <OfferSettingsPhasesSection
+        offer={offer}
+        onChange={onChange}
+        onDisplaySettingChange={handleDisplaySettingChange}
+      />
+      <OfferSettingsDangerSection onDelete={onDelete} />
 
-        <div className="space-y-6 px-4 pb-4">
-          <OfferSettingsDetailsSection
-            offer={offer}
-            onChange={onChange}
-            t={t}
-          />
-          <OfferSettingsRecipientSection
-            entities={entities}
-            entitiesAvailable={entitiesAvailable}
-            offer={offer}
-            onChange={onChange}
-            onOpenClientDialog={() => setChangeClientOpen(true)}
-            onRefreshClientSnapshot={handleRefreshClientSnapshot}
-            t={t}
-          />
-          <OfferSettingsBillingSection offer={offer} onChange={onChange} />
-          <OfferSettingsTaxSection
-            offer={offer}
-            onChange={onChange}
-            onDisplaySettingChange={handleDisplaySettingChange}
-            taxRates={settingsTaxRates}
-          />
-          <OfferSettingsTemplateSection
-            loadingTemplates={loadingTemplates}
-            offer={offer}
-            onDisplaySettingChange={handleDisplaySettingChange}
-            onTemplateChange={(id) => {
-              handleTemplateChange(id);
-            }}
-            templates={templates}
-          />
-          <OfferSettingsPhasesSection
-            offer={offer}
-            onChange={onChange}
-            onDisplaySettingChange={handleDisplaySettingChange}
-          />
-          <OfferSettingsDangerSection onDelete={onDelete} />
-        </div>
-
-        {entitiesAvailable ? (
-          <ChangeClientDialog
-            ContactChooser={ContactChooser}
-            entities={entities}
-            onOpenChange={setChangeClientOpen}
-            onSave={() => {
-              handleClientChange(selectedClientId);
-              setChangeClientOpen(false);
-            }}
-            onSelectedClientIdChange={setSelectedClientId}
-            open={changeClientOpen}
-            selectedClientId={selectedClientId}
-            t={t}
-          />
-        ) : null}
-      </SheetContent>
-    </Sheet>
+      {entitiesAvailable ? (
+        <ChangeClientDialog
+          ContactChooser={ContactChooser}
+          entities={entities}
+          onOpenChange={setChangeClientOpen}
+          onSave={() => {
+            handleClientChange(selectedClientId);
+            setChangeClientOpen(false);
+          }}
+          onSelectedClientIdChange={setSelectedClientId}
+          open={changeClientOpen}
+          selectedClientId={selectedClientId}
+          t={t}
+        />
+      ) : null}
+    </div>
   );
 }
