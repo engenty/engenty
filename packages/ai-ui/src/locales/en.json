@@ -1008,6 +1008,9 @@
     "saveEdit": "Save",
     "cancelEdit": "Cancel",
     "saveConflict": "The artifact changed while you were editing (likely by the agent). Copy your changes, reload the tab, and edit again.",
-    "saveFailed": "Saving failed. Please try again."
+    "saveFailed": "Saving failed. Please try again.",
+    "viewLabel": "View",
+    "viewRows": "Rows",
+    "viewCards": "Cards"
   }
 }
