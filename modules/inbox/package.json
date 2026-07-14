@@ -35,6 +35,7 @@
     "@engenty/search-index": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
     "@supabase/supabase-js": "^2.108.2",
