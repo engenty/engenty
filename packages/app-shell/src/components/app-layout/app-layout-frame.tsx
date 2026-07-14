@@ -12,6 +12,7 @@ import { useShellSecondaryNavWidth } from "../../hooks/use-shell-secondary-nav-w
 import { COPILOT_BOTTOM_DOCK_HEIGHT } from "../../types/copilot-layout";
 import { AppSidebar } from "../app-sidebar";
 import { AppTopbar } from "../app-topbar";
+import { COMPACT_SIDEBAR_WIDTH_PX } from "./constants";
 import { MobileNavSheet } from "./mobile-nav-sheet";
 import { ModuleSecondaryNavColumnShell } from "./module-secondary-nav-column-shell";
 import { SecondaryNavColumn } from "./secondary-nav-column";
@@ -50,7 +51,8 @@ export function AppLayoutFrame({
     }
   });
 
-  const sidebarWidth = sidebarMode === "extended" ? 220 : 48;
+  const sidebarWidth =
+    sidebarMode === "extended" ? 220 : COMPACT_SIDEBAR_WIDTH_PX;
 
   const [isSidebarHidden, setIsSidebarHiddenState] = useState(() => {
     try {

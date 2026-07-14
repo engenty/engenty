@@ -1,5 +1,5 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
-import { Mail } from "lucide-react";
+import { DockInboxIcon } from "@engenty/ui-icons";
 import { InboxClientPage } from "./pages/inbox-client-page.js";
 import { InboxSettingsPage } from "./pages/inbox-settings-page.js";
 
@@ -47,7 +47,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     section: "modules",
     label: "Inbox",
     labelKey: "inbox:menu.inbox",
-    icon: Mail,
+    icon: DockInboxIcon,
     to: "/mdl/inbox",
     order: 150,
   });

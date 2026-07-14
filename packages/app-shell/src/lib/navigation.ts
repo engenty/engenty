@@ -170,9 +170,15 @@ export function buildNavigationSections(
   const tasksMenuItem = contributions.adminMenuItems.find(
     (entry) => entry.id === "tasks_module_menu"
   );
+  const projectsMenuItem = contributions.adminMenuItems.find(
+    (entry) => entry.id === "projects_module_menu"
+  );
   const moduleItems = buildSectionItems(
     contributions.adminMenuItems.filter(
-      (entry) => entry.section === "modules" && entry.id !== "tasks_module_menu"
+      (entry) =>
+        entry.section === "modules" &&
+        entry.id !== "tasks_module_menu" &&
+        entry.id !== "projects_module_menu"
     ),
     t
   );
@@ -262,6 +268,15 @@ export function buildNavigationSections(
           ? [
               mapTopLevelEntryToNavItem(
                 tasksMenuItem,
+                contributions.adminMenuItems,
+                t
+              ),
+            ]
+          : []),
+        ...(projectsMenuItem
+          ? [
+              mapTopLevelEntryToNavItem(
+                projectsMenuItem,
                 contributions.adminMenuItems,
                 t
               ),
