@@ -3,9 +3,10 @@ import {
   COPILOT_LAYOUT_NOOP,
   CopilotShellProvider,
 } from "@engenty/app-shell";
-import { useCoreAuthSession } from "@engenty/auth-ui";
+import { getSupabaseAuthClient, useCoreAuthSession } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { CenteredMessage } from "@/components/CenteredMessage";
 import { SidebarUserMenu } from "@/components/shell/SidebarUserMenu";
@@ -14,12 +15,42 @@ import { workspaceContextQuery } from "@/lib/queries/workspace";
 import { ManageRoutes } from "@/routes";
 import { UnauthenticatedRoutes } from "@/routes/UnauthenticatedRoutes";
 
+/**
+ * True when an API error means the stored session is no longer valid (a 401, or
+ * GoTrue reporting the JWT's session is gone after a server restart). Such a
+ * token can never recover, so the app should sign out rather than show a
+ * dead-end error card.
+ */
+function isSessionExpired(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  if ((error as { status?: number }).status === 401) {
+    return true;
+  }
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return message.includes("session") || message.includes("jwt");
+}
+
 function AuthenticatedApp() {
   const { t } = useTranslation("common");
   const sections = useManageSections();
   const workspaceQuery = useQuery(workspaceContextQuery);
+  const sessionExpired = isSessionExpired(workspaceQuery.error);
 
-  if (workspaceQuery.isLoading) {
+  // A stale/invalid token can't recover: clear it locally so the login screen
+  // shows. `onAuthStateChange` flips `isAuthenticated` -> false in App.
+  useEffect(() => {
+    if (sessionExpired) {
+      try {
+        void getSupabaseAuthClient().auth.signOut({ scope: "local" });
+      } catch {
+        // ignore — worst case the message card below still shows.
+      }
+    }
+  }, [sessionExpired]);
+
+  if (workspaceQuery.isLoading || sessionExpired) {
     return <CenteredMessage title={t("shell.loading")} />;
   }
 
