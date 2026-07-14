@@ -37,6 +37,36 @@ export function resolveArtifactRenderer(
   return renderers.get(type) ?? null;
 }
 
+/**
+ * Editor registry: artifact `type` → editing component. A registered editor
+ * makes the pane offer an Edit mode; saving posts a new version. Editors hold
+ * no persistence themselves — they report the draft source via `onChange`.
+ */
+export interface ArtifactEditorProps {
+  artifact: ArtifactSummary;
+  /** The version content the edit session started from. */
+  initialContent: string;
+  onChange: (content: string) => void;
+}
+
+const editors = new Map<string, ComponentType<ArtifactEditorProps>>();
+
+export function registerArtifactEditor(
+  type: string,
+  Component: ComponentType<ArtifactEditorProps>
+): () => void {
+  editors.set(type, Component);
+  return () => {
+    editors.delete(type);
+  };
+}
+
+export function resolveArtifactEditor(
+  type: string
+): ComponentType<ArtifactEditorProps> | null {
+  return editors.get(type) ?? null;
+}
+
 function MarkdownArtifactView({ content }: ArtifactViewProps) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-6">
@@ -126,6 +156,23 @@ function TableArtifactView({ content }: ArtifactViewProps) {
   );
 }
 
+function MarkdownArtifactEditor({
+  initialContent,
+  onChange,
+}: ArtifactEditorProps) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-6">
+      <RichEditor
+        editable
+        markdown={initialContent}
+        onChange={(_json, markdown) => onChange(markdown)}
+        showToolbar
+      />
+    </div>
+  );
+}
+
 registerArtifactRenderer("markdown", MarkdownArtifactView);
 registerArtifactRenderer("html", HtmlArtifactView);
 registerArtifactRenderer("table", TableArtifactView);
+registerArtifactEditor("markdown", MarkdownArtifactEditor);

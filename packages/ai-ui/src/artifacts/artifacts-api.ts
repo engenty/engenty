@@ -86,6 +86,27 @@ export function archiveArtifact(params: {
   );
 }
 
+/** Post a new version (user edit). Throws with `status: 409` on a version conflict. */
+export function createArtifactVersion(params: {
+  serviceBaseUrl: string;
+  artifactId: string;
+  content: string;
+  expectedVersion: number;
+  summary?: string;
+}): Promise<ArtifactWithContent> {
+  return requestJson<ArtifactWithContent>(
+    `${artifactsPath(params.serviceBaseUrl)}/${encodeURIComponent(params.artifactId)}/versions`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        content: params.content,
+        expected_version: params.expectedVersion,
+        ...(params.summary ? { summary: params.summary } : {}),
+      }),
+    }
+  );
+}
+
 export function storeArtifact(params: {
   serviceBaseUrl: string;
   artifactId: string;

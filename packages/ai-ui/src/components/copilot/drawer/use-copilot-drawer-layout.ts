@@ -25,6 +25,7 @@ import {
   BUTTON_SNAP_FAB_WIDTH,
   COMPACT_LAUNCHER_HEIGHT,
   COMPACT_LAUNCHER_WIDTH,
+  COMPACT_STATUS_FLAP_DEFAULT_HEIGHT,
   FLOATING_DEFAULT_HEIGHT,
   FLOATING_DEFAULT_MARGIN,
   FLOATING_DEFAULT_WIDTH,
@@ -120,6 +121,9 @@ export function useCopilotDrawerLayout({
     width: FLOATING_DEFAULT_WIDTH,
     height: FLOATING_DEFAULT_HEIGHT,
   }));
+  const [compactStatusFlapHeight, setCompactStatusFlapHeight] = useState(
+    COMPACT_STATUS_FLAP_DEFAULT_HEIGHT
+  );
   const [snapTarget, setSnapTarget] = useState<CopilotFloatingSnapTarget>(null);
   const [collapseToCircle, setCollapseToCircle] = useState(true);
   const [collapseMorph, setCollapseMorph] =
@@ -216,12 +220,14 @@ export function useCopilotDrawerLayout({
 
   useCopilotDrawerLayoutPersistence({
     collapseToCircle,
+    compactStatusFlapHeight,
     copilotLayout,
     floatingPosition,
     floatingSize,
     internalPanelMode,
     isPanelModeControlled,
     setCollapseToCircle,
+    setCompactStatusFlapHeight,
     setFloatingPosition,
     setFloatingSize,
     setInternalPanelMode,
@@ -255,18 +261,24 @@ export function useCopilotDrawerLayout({
     showCompactLauncher,
   ]);
 
+  const isCompactLauncherSurface = showCompactLauncher && !collapseToCircle;
+
   const margin = floatingBoundsMargin;
   const dragBoundsMargin = open ? margin : Math.min(margin, 8);
-  const surfaceWidth = open
-    ? launcherMode === "mini-floating"
-      ? MINI_FLOATING_WIDTH
-      : floatingSize.width
-    : compactShellMeasured.width;
-  const surfaceHeight = open
-    ? launcherMode === "mini-floating"
-      ? MINI_FLOATING_HEIGHT
-      : floatingSize.height
-    : compactShellMeasured.height;
+  const surfaceWidth = isCompactLauncherSurface
+    ? compactShellMeasured.width
+    : open
+      ? launcherMode === "mini-floating"
+        ? MINI_FLOATING_WIDTH
+        : floatingSize.width
+      : compactShellMeasured.width;
+  const surfaceHeight = isCompactLauncherSurface
+    ? compactShellMeasured.height
+    : open
+      ? launcherMode === "mini-floating"
+        ? MINI_FLOATING_HEIGHT
+        : floatingSize.height
+      : compactShellMeasured.height;
 
   const clampCurrentFloatingPosition = useCallback(
     (position: { x: number; y: number }) => {
@@ -612,6 +624,7 @@ export function useCopilotDrawerLayout({
     collapseToFabIcon,
     compactLauncherMeasureRef,
     compactShellMeasured,
+    compactStatusFlapHeight,
     enterFromClose,
     fabDragPosition,
     fabPosition,
@@ -634,6 +647,7 @@ export function useCopilotDrawerLayout({
     isCollapsingToIcon,
     isIconDragging,
     margin,
+    setCompactStatusFlapHeight,
     sidebarDockIndicatorStyle: resolveSidebarDockIndicatorStyle(margin),
     snapTarget,
   };

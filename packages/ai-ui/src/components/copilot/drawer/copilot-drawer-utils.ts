@@ -95,6 +95,13 @@ export function resolveCopilotOpenDockMode(
   return "sidebar";
 }
 
+/** Compact prompt surface from the FAB speed dial — bottom dock or floating launcher. */
+export function resolveCompactPromptDockMode(
+  preferred: CopilotDockMode | null | undefined
+): "bottom" | "floating" {
+  return preferred === "bottom" ? "bottom" : "floating";
+}
+
 export interface OpenCopilotShellInput {
   mergeLayout?: (patch: Partial<CopilotLayoutSnapshotV1>) => void;
   preferredDockMode?: CopilotDockMode | null;

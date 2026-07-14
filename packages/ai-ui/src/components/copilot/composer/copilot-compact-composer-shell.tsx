@@ -57,6 +57,8 @@ export interface CopilotCompactComposerShellProps {
   chatStatus: "ready" | "streaming" | "submitted" | "error";
   children: ReactNode;
   className?: string;
+  /** Persisted expanded status-flap body height (px). */
+  compactStatusFlapHeight?: number;
   enableStatusFlap?: boolean;
   errorMessage?: string | null;
   /** Force the active state (avatar + belowCard always visible). Use on the
@@ -70,6 +72,7 @@ export interface CopilotCompactComposerShellProps {
   isMultiline?: boolean;
   labels?: AgentStatusTickerLabels;
   messages?: readonly AgentTurnMessageLike[];
+  onCompactStatusFlapHeightChange?: (height: number) => void;
   /** Optimistic user text while a run is in flight (not yet in `messages`) —
    *  shown as the flap's one-line "sending" preview with the spinner. */
   pendingUserText?: string | null;
@@ -245,12 +248,14 @@ export function CopilotCompactComposerShell({
   chatStatus,
   children,
   className,
+  compactStatusFlapHeight,
   enableStatusFlap = true,
   errorMessage = null,
   forceActive = false,
   interruptContent = null,
   labels,
   messages = [],
+  onCompactStatusFlapHeightChange,
   pendingUserText = null,
   runStatus = null,
   showUsageMeter = true,
@@ -381,7 +386,11 @@ export function CopilotCompactComposerShell({
 
   return (
     <div
-      className={cn("relative", rendered && "overflow-visible", className)}
+      className={cn(
+        "relative motion-safe:transition-[padding-top] motion-safe:duration-300 motion-safe:ease-out",
+        rendered && "overflow-visible",
+        className
+      )}
       onBlur={(e) => {
         if (!isComposerChromeFocusTarget(shellRef.current, e.relatedTarget)) {
           setIsFocused(false);
@@ -391,7 +400,7 @@ export function CopilotCompactComposerShell({
       ref={shellRef}
       style={
         {
-          ...(rendered ? { paddingTop: STATUS_FLAP_LAYOUT_CLEARANCE } : {}),
+          paddingTop: rendered ? STATUS_FLAP_LAYOUT_CLEARANCE : 0,
           "--blob-accent":
             BLOB_CHARACTER_COLORS[blobCharacter % BLOB_CHARACTER_COLORS.length],
         } as CSSProperties
@@ -511,6 +520,7 @@ export function CopilotCompactComposerShell({
             chatStatus={chatStatus}
             closing={closing}
             errorMessage={errorMessage}
+            expandedContentHeight={compactStatusFlapHeight}
             idlePreviewText={idlePreviewText || null}
             interruptContent={interruptContent}
             labels={
@@ -526,6 +536,7 @@ export function CopilotCompactComposerShell({
                 : labels
             }
             messages={messages}
+            onExpandedContentHeightChange={onCompactStatusFlapHeightChange}
             overlayAdornment={avatarOverlay}
             replyText={replyText}
             runStatus={runStatus}

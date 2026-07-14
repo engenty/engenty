@@ -31,6 +31,8 @@ export interface CopilotFabAnchor {
 
 export interface CopilotLayoutSnapshotV1 {
   collapseToCircle?: boolean;
+  /** Expanded status-flap content height (px) on compact floating/dock surfaces. */
+  compactStatusFlapHeight?: number;
   /** Edge anchor for a FAB dragged away from the default corner. */
   fabAnchor?: CopilotFabAnchor;
   /** Legacy absolute FAB position (superseded by `fabAnchor`). */

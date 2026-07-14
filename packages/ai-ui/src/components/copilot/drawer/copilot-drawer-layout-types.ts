@@ -45,6 +45,7 @@ export interface UseCopilotDrawerLayoutResult {
   collapseToFabIcon: () => void;
   compactLauncherMeasureRef: RefObject<HTMLDivElement | null>;
   compactShellMeasured: { height: number; width: number };
+  compactStatusFlapHeight: number;
   enterFromClose: boolean;
   /** Live pixel position while the FAB is being dragged; null when not dragging. */
   fabDragPosition: { x: number; y: number } | null;
@@ -71,6 +72,7 @@ export interface UseCopilotDrawerLayoutResult {
   isCollapsingToIcon: boolean;
   isIconDragging: boolean;
   margin: number;
+  setCompactStatusFlapHeight: Dispatch<SetStateAction<number>>;
   sidebarDockIndicatorStyle: CSSProperties | null;
   snapTarget: CopilotFloatingSnapTarget;
 }

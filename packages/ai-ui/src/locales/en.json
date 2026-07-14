@@ -1002,6 +1002,15 @@
     "storageHeading": "Store promoted artifacts in",
     "storagePlatform": "Platform storage (default)",
     "storageConnected": "Connected storage",
-    "storageNoTargets": "No storage-capable connections."
+    "storageNoTargets": "No storage-capable connections.",
+    "editAction": "Edit artifact",
+    "downloadAction": "Download artifact",
+    "saveEdit": "Save",
+    "cancelEdit": "Cancel",
+    "saveConflict": "The artifact changed while you were editing (likely by the agent). Copy your changes, reload the tab, and edit again.",
+    "saveFailed": "Saving failed. Please try again.",
+    "viewLabel": "View",
+    "viewRows": "Rows",
+    "viewCards": "Cards"
   }
 }

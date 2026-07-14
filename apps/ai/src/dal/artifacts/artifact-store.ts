@@ -1,6 +1,11 @@
+import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getArtifactType } from "../../ai/artifacts/artifact-types.js";
 import { createAiDatabaseAdapter } from "../../infra/database.js";
+import {
+  createArtifactSearchRetrieval,
+  withArtifactIndexing,
+} from "./artifact-retrieval-source.js";
 import type {
   ArtifactCreatorKind,
   ArtifactRow,
@@ -10,6 +15,8 @@ import type {
 } from "./types.js";
 
 const AI_SCHEMA = "ai";
+
+const indexingLogger = createLogger({ name: "ai-artifact-indexing" });
 
 /** Inline content ceiling (256KB). Larger content needs blob storage (later phase). */
 export const ARTIFACT_INLINE_CONTENT_MAX_BYTES = 262_144;
@@ -394,14 +401,29 @@ let envStore: ArtifactStore | null | undefined;
 /**
  * Store built (once) from SUPABASE_* env; null when unconfigured. Lives in the
  * DAL (not the ai/index barrel) so agent tools can share it without a
- * barrel → copilot-agent → tools import cycle.
+ * barrel → copilot-agent → tools import cycle. Wrapped with search indexing
+ * so every consumer (routes AND agent tools) keeps the index fresh.
  */
 export function createArtifactStoreFromEnv(): ArtifactStore | null {
   if (envStore === undefined) {
     const client = createAiDatabaseAdapter(
       process.env as unknown as Record<string, unknown>
     );
-    envStore = client ? createArtifactStore(client) : null;
+    if (client) {
+      const base = createArtifactStore(client);
+      try {
+        envStore = withArtifactIndexing(
+          base,
+          createArtifactSearchRetrieval({ supabase: client }),
+          (message, data) => indexingLogger.warn(message, data ?? {})
+        );
+      } catch {
+        // Retrieval unavailable (e.g. search schema absent) — plain store.
+        envStore = base;
+      }
+    } else {
+      envStore = null;
+    }
   }
   return envStore;
 }

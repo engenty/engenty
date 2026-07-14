@@ -46,6 +46,60 @@ describe("navigation", () => {
       ]);
     });
 
+    it("renders projects and tasks in the primary sidebar top section", () => {
+      const sections = buildNavigationSections({
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "projects_module_menu",
+            label: "Projects",
+            pluginId: "projects",
+            section: "modules",
+            to: "/mdl/projects",
+          },
+          {
+            id: "tasks_module_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            section: "modules",
+            to: "/mdl/tasks",
+          },
+          {
+            id: "contacts_menu",
+            label: "Contacts",
+            pluginId: "contacts",
+            section: "modules",
+            to: "/mdl/contacts",
+          },
+        ],
+        copilotApps: [
+          {
+            id: "engenty_copilot_app",
+            label: "Engenty Copilot",
+            pluginId: "engenty-copilot",
+            to: "/mdl/engenty-copilot/chat",
+            icon: () => null,
+          },
+        ],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+
+      expect(sections[0]?.items.map((item) => item.to)).toEqual([
+        "/mdl/engenty-copilot/chat",
+        "/mdl/tasks",
+        "/mdl/projects",
+      ]);
+      expect(sections[1]?.items.map((item) => item.to)).toEqual([
+        "/mdl/contacts",
+      ]);
+    });
+
     it("hides developer settings links unless developer mode is enabled", () => {
       const contributions = {
         routes: [],

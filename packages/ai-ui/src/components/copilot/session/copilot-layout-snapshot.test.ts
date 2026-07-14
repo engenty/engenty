@@ -83,4 +83,14 @@ describe("copilot-layout-snapshot", () => {
     });
     expect(cleared.fabPosition).toEqual({ x: 50, y: 60 });
   });
+
+  it("parses compactStatusFlapHeight from snapshot", () => {
+    const s = parseCopilotLayoutSnapshot({
+      v: 1,
+      open: false,
+      preferredDockMode: null,
+      compactStatusFlapHeight: 320,
+    });
+    expect(s?.compactStatusFlapHeight).toBe(320);
+  });
 });

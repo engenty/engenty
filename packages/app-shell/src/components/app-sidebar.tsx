@@ -17,6 +17,7 @@ import type {
   NavigationSection,
   ShellSidebarConfig,
 } from "../types/shell";
+import { MOBILE_NAV_RAIL_WIDTH_CLASS } from "./app-layout/constants";
 import { SidebarTenantSwitcher } from "./sidebar-tenant-switcher";
 
 type AppSidebarSurface = "rail" | "panel";
@@ -235,7 +236,7 @@ export function AppSidebar({
           isPanel
             ? "bg-card text-foreground"
             : "border-sidebar-border border-r bg-sidebar text-sidebar-foreground",
-          compact ? "w-12 shrink-0" : "w-full",
+          compact ? `${MOBILE_NAV_RAIL_WIDTH_CLASS} shrink-0` : "w-full",
           className
         )}
         style={style}

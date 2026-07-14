@@ -20,6 +20,7 @@ import {
   type ArtifactSummary,
   archiveArtifact,
   artifactsQueryRoot,
+  createArtifactVersion,
   resolveEngentyAiServiceBaseUrlSafe,
   storeArtifact,
   useArtifactDetailQuery,
@@ -194,6 +195,18 @@ export function WorkspaceArtifactPane({
         isContentLoading={detailQuery.isLoading}
         onActivate={activate}
         onClose={(id) => archive.mutate(id)}
+        onSaveContent={async ({ artifactId, content, expectedVersion }) => {
+          await createArtifactVersion({
+            serviceBaseUrl: resolveEngentyAiServiceBaseUrlSafe(),
+            artifactId,
+            content,
+            expectedVersion,
+            summary: "Edited in the artifact pane",
+          });
+          await queryClient.invalidateQueries({
+            queryKey: artifactsQueryRoot,
+          });
+        }}
         onSetExpanded={setPaneExpanded}
         onSetPaneOpen={setPaneOpen}
         onStore={(params) => storeMutation.mutate(params)}
