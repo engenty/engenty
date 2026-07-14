@@ -25,6 +25,7 @@
   "settings": "Einstellungen",
   "offerSettingsTitle": "Angebotseinstellungen",
   "offerSettingsDescription": "Angebotsdetails und Phasen konfigurieren",
+  "toggleOfferSettings": "Angebotseinstellungen-Seitenleiste umschalten",
   "downloadPdf": "PDF herunterladen",
   "settingsDetailsTitle": "Angebotsdetails",
   "settingsDetailsDescription": "Zusammenfassung dieses Angebots und aktueller Status.",
