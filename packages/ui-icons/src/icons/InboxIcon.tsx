@@ -25,10 +25,7 @@ export function DockInboxIcon(props: SVGProps<SVGSVGElement>) {
         fillOpacity={0.26}
         stroke="none"
       />
-      <path
-        d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7"
-        fill="none"
-      />
+      <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7" fill="none" />
       <path
         d="M22 13h-4.5l-1.5 3h-8l-1.5-3H2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2z"
         fill="none"

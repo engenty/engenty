@@ -1015,6 +1015,12 @@
     "storageHeading": "Abgelegte Artefakte speichern in",
     "storagePlatform": "Plattform-Speicher (Standard)",
     "storageConnected": "Verbundener Speicher",
-    "storageNoTargets": "Keine speicherfähigen Verbindungen."
+    "storageNoTargets": "Keine speicherfähigen Verbindungen.",
+    "editAction": "Artefakt bearbeiten",
+    "downloadAction": "Artefakt herunterladen",
+    "saveEdit": "Speichern",
+    "cancelEdit": "Abbrechen",
+    "saveConflict": "Das Artefakt wurde während der Bearbeitung geändert (vermutlich vom Agenten). Kopiere deine Änderungen, lade den Tab neu und bearbeite erneut.",
+    "saveFailed": "Speichern fehlgeschlagen. Bitte erneut versuchen."
   }
 }

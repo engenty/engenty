@@ -1,5 +1,30 @@
 # Artifacts — Implementation Guide (Phase A + B)
 
+> **Phase D (core): DONE 2026-07-14** on `feat/artifacts-types-editing`. Live-verified:
+> edit→save creates a version, concurrent-edit save shows the 409 conflict message with
+> the session preserved, download produces `<slug>.<ext>`, edited artifact lands in
+> `search.documents`/`search.chunks`. Shipped:
+> - **Markdown editing (tiptap)**: editor registry beside the renderer registry
+>   (`registerArtifactEditor` in artifact-renderers.tsx; markdown = editable RichEditor).
+>   Pane edit mode captures base content+version at edit start; Save posts
+>   `expected_version` (conflict → inline message, session kept); Cancel discards. Draft
+>   lives in a ref (RichEditor onChange fires per keystroke).
+> - **Source download**: pane action, client-side blob (`md`/`html`/`csv` by type) — the
+>   content is already in hand, no storage round-trip.
+> - **Search indexing**: `ai.artifact` retrieval source in apps/ai (chat-search pattern:
+>   own `createRetrievalService` over the shared DB; visibility `tenant`, paragraph
+>   chunks, HTML tag-stripped). Ingest is wired ONCE via `withArtifactIndexing` around
+>   `createArtifactStoreFromEnv` — every route AND agent-tool write refreshes the index
+>   fire-and-forget; archive removes the document.
+> - **Deviations from the §6-D list, deliberate:** "exports via doc-converter" is not
+>   buildable — doc-converter is an INGESTION package (docs → markdown), it generates
+>   nothing; rich exports (pdf/docx) would come from @engenty/pdf-service-style
+>   generation and are deferred. React sandbox + slides deferred: agent-generated JS
+>   needs an esbuild pipeline + security posture decision of its own.
+> - Follow-ups: backfill pre-Phase-D artifacts into the index (service.backfill exists,
+>   not auto-run), html/table editors, re-mirror external storage on user edits (mirror
+>   currently fires on promote only), react/slides types, rich exports.
+
 > **Phase C: DONE 2026-07-14** on `feat/artifacts-external-storage`. External project
 > storage per [artifacts.md](./artifacts.md) §2/§6-C, live-verified end-to-end against
 > local Supabase's S3-compatible endpoint (connect → bind → promote → object lands in

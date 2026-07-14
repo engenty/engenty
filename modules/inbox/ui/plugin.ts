@@ -1,5 +1,5 @@
-import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { DockInboxIcon } from "@engenty/ui-icons";
+import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { InboxClientPage } from "./pages/inbox-client-page.js";
 import { InboxSettingsPage } from "./pages/inbox-settings-page.js";
 

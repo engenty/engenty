@@ -297,36 +297,39 @@ export function CopilotFabTrigger({
               }
               const labelOnLeft = pos.labelSide === "left";
               return (
-                <div
-                  className="copilot-fab-dial-item pointer-events-auto absolute"
+                <button
+                  aria-label={item.label}
+                  className={cn(
+                    "copilot-fab-dial-item pointer-events-auto absolute flex items-center gap-2.5 transition-transform hover:scale-105 active:scale-95",
+                    labelOnLeft ? "flex-row-reverse" : "flex-row"
+                  )}
                   key={item.key}
+                  onClick={dialHandlers[item.key]}
+                  role="menuitem"
                   style={{
-                    left: pos.x,
                     top: pos.y,
+                    ...(labelOnLeft
+                      ? {
+                          right: window.innerWidth - pos.x - DIAL_BUTTON_SIZE,
+                        }
+                      : { left: pos.x }),
                     animationDelay: `${i * 20}ms`,
                   }}
+                  type="button"
                 >
-                  {/* Round icon button */}
-                  <button
-                    aria-label={item.label}
-                    className="flex size-9 items-center justify-center rounded-full bg-card shadow-lg ring-1 ring-border/50 transition-all hover:scale-110 hover:shadow-xl active:scale-95"
-                    onClick={dialHandlers[item.key]}
-                    role="menuitem"
-                    type="button"
+                  <span
+                    aria-hidden
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-card shadow-lg ring-1 ring-border/50"
                   >
-                    <Icon aria-hidden className="size-[18px] text-foreground" />
-                  </button>
-                  {/* Floating label */}
-                  <div
-                    className={cn(
-                      "copilot-fab-dial-label absolute top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-foreground/90 px-2.5 py-1 font-medium text-background text-xs shadow-md backdrop-blur-sm",
-                      labelOnLeft ? "right-full mr-2.5" : "left-full ml-2.5"
-                    )}
+                    <Icon className="size-[18px] text-foreground" />
+                  </span>
+                  <span
+                    className="copilot-fab-dial-label whitespace-nowrap rounded-lg bg-foreground/90 px-2.5 py-1 font-medium text-background text-xs shadow-md backdrop-blur-sm"
                     style={{ animationDelay: `${i * 20 + 60}ms` }}
                   >
                     {item.label}
-                  </div>
-                </div>
+                  </span>
+                </button>
               );
             })}
           </div>,

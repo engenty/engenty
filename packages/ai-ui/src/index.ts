@@ -13,8 +13,11 @@ export {
   type ArtifactStoreTarget,
 } from "./artifacts/artifact-pin-menu.js";
 export {
+  type ArtifactEditorProps,
   type ArtifactViewProps,
+  registerArtifactEditor,
   registerArtifactRenderer,
+  resolveArtifactEditor,
   resolveArtifactRenderer,
 } from "./artifacts/artifact-renderers.js";
 export { ArtifactStoragePicker } from "./artifacts/artifact-storage-picker.js";
