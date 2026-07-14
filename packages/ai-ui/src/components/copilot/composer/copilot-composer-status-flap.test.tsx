@@ -2,14 +2,14 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  clampCompactStatusFlapHeight,
-  CopilotComposerStatusFlap,
-  getLastUserMessageText,
-} from "./copilot-composer-status-flap.js";
-import {
   COMPACT_STATUS_FLAP_MAX_HEIGHT,
   COMPACT_STATUS_FLAP_MIN_HEIGHT,
 } from "../drawer/copilot-drawer-constants.js";
+import {
+  CopilotComposerStatusFlap,
+  clampCompactStatusFlapHeight,
+  getLastUserMessageText,
+} from "./copilot-composer-status-flap.js";
 
 afterEach(cleanup);
 

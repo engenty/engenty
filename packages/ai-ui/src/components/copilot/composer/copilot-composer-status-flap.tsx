@@ -22,7 +22,10 @@ const STATUS_FLAP_EXPAND_MS = 280;
 const DRAG_EXPAND_THRESHOLD = 14;
 
 /** Keeps the element mounted while it plays its exit transition. */
-export function useAnimatedPresence(visible: boolean, exitMs = STATUS_FLAP_EXPAND_MS) {
+export function useAnimatedPresence(
+  visible: boolean,
+  exitMs = STATUS_FLAP_EXPAND_MS
+) {
   const [rendered, setRendered] = useState(visible);
   const [closing, setClosing] = useState(false);
   useEffect(() => {
@@ -105,9 +108,9 @@ export interface CopilotComposerStatusFlapProps {
   autoExpand?: boolean;
   chatStatus: "ready" | "streaming" | "submitted" | "error";
   closing: boolean;
+  errorMessage?: string | null;
   /** Persisted expanded body height (px). Enables the top resize handle when set with {@link onExpandedContentHeightChange}. */
   expandedContentHeight?: number;
-  errorMessage?: string | null;
   /** When the run is idle but the thread already has history, a single-line
    *  preview of the last assistant reply — shown collapsed in place of the
    *  status ticker so compact surfaces signal "there's a conversation here"
@@ -157,7 +160,7 @@ export function CopilotComposerStatusFlap({
   );
 
   const handleResizePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
       if (!resizableExpandedContent) {
         return;
       }
@@ -260,7 +263,7 @@ export function CopilotComposerStatusFlap({
         canExpand && "cursor-pointer touch-none select-none",
         closing
           ? "translate-y-2 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100"
-          : "translate-y-0 opacity-100 motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:animate-in motion-safe:duration-300"
+          : "motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 translate-y-0 opacity-100 motion-safe:animate-in motion-safe:duration-300"
       )}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -268,13 +271,14 @@ export function CopilotComposerStatusFlap({
       role="status"
     >
       {expanded && canExpand && resizableExpandedContent ? (
-        <div
+        <button
           aria-label="Resize reply preview"
           className="absolute inset-x-0 -top-1 z-10 flex h-3 cursor-ns-resize touch-none items-center justify-center"
           onPointerDown={handleResizePointerDown}
+          type="button"
         >
           <span className="h-1 w-10 rounded-full bg-border/80" />
-        </div>
+        </button>
       ) : null}
       {overlayAdornment}
       {showIdlePreview ? (

@@ -26,19 +26,19 @@ export interface CopilotCompactLauncherProps {
   agentTickerErrorMessage?: string | null;
   agentTickerMessages?: readonly AgentTurnMessageLike[];
   collapseToCircleLabel?: string;
+  compactStatusFlapHeight?: number;
   composerPlaceholder: string;
   /** When set, replaces the route context dropdown beside the composer. */
   contextControlOverride?: ReactNode;
-  compactStatusFlapHeight?: number;
   contextOptions: CopilotCompactContextOption[];
   draft: string;
   dragHandleProps?: ComponentPropsWithoutRef<"div">;
   /** Pending HITL interrupt UI, rendered in the status flap above the input. */
   interruptContent?: ReactNode;
   onCollapseToCircle?: () => void;
+  onCompactStatusFlapHeightChange?: (height: number) => void;
   /** Start a fresh conversation (exposed in the composer (+) menu). */
   onNewChat?: () => void;
-  onCompactStatusFlapHeightChange?: (height: number) => void;
   onSelectContext: (value: string) => void;
   /** Optimistic user text while a run is in flight (flap "sending" preview). */
   pendingUserText?: string | null;

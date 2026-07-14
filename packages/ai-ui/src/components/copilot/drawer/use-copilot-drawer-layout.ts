@@ -261,8 +261,7 @@ export function useCopilotDrawerLayout({
     showCompactLauncher,
   ]);
 
-  const isCompactLauncherSurface =
-    showCompactLauncher && !collapseToCircle;
+  const isCompactLauncherSurface = showCompactLauncher && !collapseToCircle;
 
   const margin = floatingBoundsMargin;
   const dragBoundsMargin = open ? margin : Math.min(margin, 8);

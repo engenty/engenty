@@ -519,8 +519,8 @@ export function CopilotCompactComposerShell({
             autoExpand={autoExpand}
             chatStatus={chatStatus}
             closing={closing}
-            expandedContentHeight={compactStatusFlapHeight}
             errorMessage={errorMessage}
+            expandedContentHeight={compactStatusFlapHeight}
             idlePreviewText={idlePreviewText || null}
             interruptContent={interruptContent}
             labels={

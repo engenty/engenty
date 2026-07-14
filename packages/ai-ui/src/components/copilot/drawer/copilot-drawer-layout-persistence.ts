@@ -5,7 +5,6 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot";
 import { reconcileCopilotLayoutSnapshot } from "../session/copilot-layout-snapshot";
 import {
-  COMPACT_STATUS_FLAP_DEFAULT_HEIGHT,
   COMPACT_STATUS_FLAP_MAX_HEIGHT,
   COMPACT_STATUS_FLAP_MIN_HEIGHT,
   FLOATING_MAX_HEIGHT,

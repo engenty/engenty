@@ -604,9 +604,9 @@ export function CopilotDrawerBody({
       composerDockStyle={
         effectiveMode === "sidebar" || effectiveMode === "drawer"
       }
-      enableStatusFlap={false}
       dockedInterruptSurface={dockedInterruptSurface}
       dockedInterruptToolCallId={dockInterrupt?.tool_call_id ?? null}
+      enableStatusFlap={false}
       headerVariant={isFloatingStyle ? "floating" : "docked"}
     />
   );
