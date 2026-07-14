@@ -9,7 +9,7 @@ interface SettingsInfoCardProps {
 }
 
 export const SettingsInfoCard = ({ items }: SettingsInfoCardProps) => (
-  <div className="overflow-hidden rounded-lg border bg-card p-4">
+  <div className="ui-canvas-raised overflow-hidden rounded-lg bg-card p-4">
     <div className="grid gap-3 text-sm">
       {items.map((item, index) => (
         <div className="flex items-center justify-between" key={index}>

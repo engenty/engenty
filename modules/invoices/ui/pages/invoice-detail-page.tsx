@@ -19,7 +19,9 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { downloadInvoicePdf } from "../api.js";
 import { InvoiceDocumentHeader } from "../components/invoice-document-header.js";
+import { InvoiceStatusBadge } from "../components/invoice-status-badge.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
+import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import {
   useCancelInvoiceMutation,
   useInvoiceEditPageQuery,
@@ -51,6 +53,11 @@ export function InvoiceDetailPage() {
   const setStatusMutation = useSetInvoiceStatusMutation();
   const cancelMutation = useCancelInvoiceMutation();
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const {
+    collapsed: headerCollapsed,
+    onScroll,
+    scrollRef,
+  } = useScrollCollapse();
 
   const invoice = pageData?.invoice ?? null;
   const blocks = useMemo(
@@ -173,6 +180,8 @@ export function InvoiceDetailPage() {
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white DocumentHeader so they blend.
+    topbarOverlap: true,
   });
 
   if (isLoading) {
@@ -198,6 +207,9 @@ export function InvoiceDetailPage() {
       <InvoiceDocumentHeader
         clientId={invoice.clientId}
         clientName={invoice.recipientSnapshot?.displayName}
+        collapsed={headerCollapsed}
+        compactStatus={<InvoiceStatusBadge status={status} />}
+        compactTitle={invoice.title || invoice.number}
         isReadOnly
         onTitleChange={() => undefined}
         showChangeClient={false}
@@ -206,7 +218,11 @@ export function InvoiceDetailPage() {
         title={invoice.title || invoice.number}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={onScroll}
+        ref={scrollRef}
+      >
         <section className="mx-auto w-full max-w-5xl space-y-4 p-page">
           <Card className="w-full bg-card">
             <CardContent className="space-y-5 p-6">

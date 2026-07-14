@@ -115,6 +115,10 @@ body {
   @apply p-2 sm:p-4 md:p-5;
 }
 
+.px-page {
+  @apply px-2 sm:px-4 md:px-5;
+}
+
 html,
 body,
 #root {

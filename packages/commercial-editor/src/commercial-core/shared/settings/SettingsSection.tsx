@@ -9,11 +9,11 @@ export const SettingsSection = ({
   description,
   children,
 }: SettingsSectionProps) => (
-  <div className="space-y-3">
-    <div className="space-y-1">
-      <h3 className="font-semibold text-base">{title}</h3>
+  <div className="space-y-2">
+    <div className="space-y-0.5">
+      <h3 className="font-semibold text-sm">{title}</h3>
       {description ? (
-        <p className="text-muted-foreground text-sm">{description}</p>
+        <p className="text-muted-foreground text-xs">{description}</p>
       ) : null}
     </div>
     {children}

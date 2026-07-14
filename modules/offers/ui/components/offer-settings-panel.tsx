@@ -118,7 +118,7 @@ export function OfferSettingsPanel({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <OfferSettingsDetailsSection offer={offer} onChange={onChange} t={t} />
       <OfferSettingsRecipientSection
         entities={entities}

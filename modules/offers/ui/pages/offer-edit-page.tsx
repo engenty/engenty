@@ -18,18 +18,41 @@ import type { CompanyProfileSettings } from "@engenty/company-profile/ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { PdfPreviewSheet } from "@engenty/pdf-templates";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
+  buttonVariants,
   Card,
   CardContent,
+  cn,
   DocSidebarLayout,
   DocSidebarToggle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Skeleton,
   TopbarActionLabel,
   topbarIconButtonClassName,
   useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { Check, FileText, Save } from "lucide-react";
+import {
+  Check,
+  Download,
+  FileText,
+  MoreVertical,
+  Save,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -42,6 +65,7 @@ import { OfferMetadataInline } from "../components/offer-metadata-inline.js";
 import { OfferRecipientBlock } from "../components/offer-recipient-block.js";
 import { OfferSenderBlock } from "../components/offer-sender-block.js";
 import { OfferSettingsPanel } from "../components/offer-settings-panel.js";
+import { OfferStatusBadge } from "../components/offer-status-badge.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
 import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import {
@@ -49,6 +73,8 @@ import {
   resolveDefaultTaxRateFromCommercial,
 } from "../lib/commercial-tax-rates.js";
 import { formatContactSnapshot } from "../lib/contact-snapshot.js";
+import { saveOfferPdf } from "../lib/offer-pdf.js";
+import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import { getContactsPluginApi } from "../plugins.js";
 import {
   useDeleteOfferMutation,
@@ -200,6 +226,8 @@ export function OfferEditPage() {
     useState<CompanyProfileSettings | null>(null);
   const [commercialSettings, setCommercialSettings] =
     useState<CommercialSettings | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const settingsSidebar = useDocSidebar(OFFER_DRAFT_DOC_SIDEBAR_KEY);
   const settingsSidebarOpen = settingsSidebar.open;
   const settingsSidebarToggle = settingsSidebar.toggle;
@@ -208,6 +236,17 @@ export function OfferEditPage() {
       settingsSidebarToggle();
     }
   }, [settingsSidebarOpen, settingsSidebarToggle]);
+  // Only widen the content column when the sidebar actually occupies an
+  // inline column; when it's closed (or an overlay) the document keeps its
+  // natural reading width.
+  const settingsInlineOpen =
+    settingsSidebar.mode === "inline" && settingsSidebarOpen;
+  const contentMaxWidthClass = settingsInlineOpen ? "max-w-7xl" : "max-w-6xl";
+  const {
+    collapsed: headerCollapsed,
+    onScroll,
+    scrollRef,
+  } = useScrollCollapse();
   const [editingIntro, setEditingIntro] = useState(false);
   const [editingFinalNotes, setEditingFinalNotes] = useState(false);
   const initialSyncedRef = useRef(false);
@@ -384,6 +423,28 @@ export function OfferEditPage() {
     }
   }, [offer, persistDraft]);
 
+  const handleDownloadPdf = useCallback(async () => {
+    if (!offer) {
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      await saveOfferPdf(offer.id, `${offer.offer_number ?? "offer"}.pdf`);
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [offer]);
+
+  const handleDeleteConfirmed = useCallback(async () => {
+    if (!offer) {
+      return;
+    }
+    await deleteMutation.mutateAsync(offer.id);
+    navigate("/mdl/offers");
+  }, [deleteMutation, navigate, offer]);
+
   const actions = useMemo(
     () => (
       <div className="flex items-center gap-2">
@@ -410,10 +471,65 @@ export function OfferEditPage() {
           <Check className="mr-1.5 h-4 w-4" />
           <TopbarActionLabel>{t("markAsReady")}</TopbarActionLabel>
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("actionsMenu")}
+              className={topbarIconButtonClassName}
+              size="sm"
+              variant="outline"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={saving} onClick={handleMarkAsReady}>
+              <Check className="mr-2 h-4 w-4" />
+              {t("markAsReady")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={saving || previewLoading}
+              onClick={handlePreviewPdf}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {t("previewPdf")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={downloadingPdf}
+              onClick={handleDownloadPdf}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {t("downloadPdf")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openSettings}>
+              <Settings className="mr-2 h-4 w-4" />
+              {t("settings")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     ),
-    [handleMarkAsReady, handleSave, saving, t]
+    [
+      downloadingPdf,
+      handleDownloadPdf,
+      handleMarkAsReady,
+      handlePreviewPdf,
+      handleSave,
+      openSettings,
+      previewLoading,
+      saving,
+      t,
+    ]
   );
+
   usePageConfig({
     actions,
     breadcrumbs,
@@ -421,6 +537,8 @@ export function OfferEditPage() {
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white DocumentHeader so they blend.
+    topbarOverlap: true,
   });
 
   useRegisterAgentUiSlice(
@@ -592,7 +710,11 @@ export function OfferEditPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DocumentHeader>
+      <DocumentHeader
+        collapsed={headerCollapsed}
+        compactStatus={<OfferStatusBadge status={offer.status} />}
+        compactTitle={offer.title || t("offerTitle")}
+      >
         <ClientTopline
           clientId={contactsPlugin ? offer.client_id : null}
           clientName={
@@ -654,27 +776,28 @@ export function OfferEditPage() {
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col bg-card/30">
-        <div className="flex h-10 shrink-0 items-center border-border/60 border-b">
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-end gap-1 px-page">
-            <Button
-              className="text-muted-foreground"
-              disabled={saving || previewLoading}
-              onClick={handlePreviewPdf}
-              size="sm"
-              variant="ghost"
-            >
-              <FileText className="mr-1.5 h-4 w-4" />
-              {previewLoading ? t("saving") : t("previewPdf")}
-            </Button>
+        <div className="flex h-11 shrink-0 items-center">
+          <div
+            className={cn(
+              "mx-auto flex w-full items-center justify-end px-page",
+              contentMaxWidthClass
+            )}
+          >
             <DocSidebarToggle
               label={t("toggleOfferSettings")}
               storageKey={OFFER_DRAFT_DOC_SIDEBAR_KEY}
+              text={t("settings")}
             />
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          onScroll={onScroll}
+          ref={scrollRef}
+        >
           <DocSidebarLayout
-            className="max-w-7xl gap-8 p-page"
+            className={cn("gap-8 p-page", contentMaxWidthClass)}
+            inlineMinWidth={1200}
             sidebar={
               <OfferSettingsPanel
                 entities={entities}
@@ -687,10 +810,7 @@ export function OfferEditPage() {
                   updateMutation.mutate(patch);
                 }}
                 onClientSelect={contactsPlugin ? handleClientSelect : undefined}
-                onDelete={async () => {
-                  await deleteMutation.mutateAsync(offer.id);
-                  navigate("/mdl/offers");
-                }}
+                onDelete={() => setDeleteConfirmOpen(true)}
                 settingsTaxRates={normalizedEditorTaxRates}
               />
             }
@@ -838,6 +958,28 @@ export function OfferEditPage() {
         open={previewOpen}
         title={offer.title ?? t("previewPdf")}
       />
+
+      <AlertDialog onOpenChange={setDeleteConfirmOpen} open={deleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteOfferConfirm")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteOfferConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={() => {
+                handleDeleteConfirmed();
+              }}
+            >
+              {t("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
