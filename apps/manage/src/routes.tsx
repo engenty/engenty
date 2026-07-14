@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { AuditPage } from "@/pages/audit/AuditPage";
 import { FeatureFlagsPage } from "@/pages/feature-flags/FeatureFlagsPage";
+import { LogsPage } from "@/pages/log-inspector/LogsPage";
 import { ModuleDetailPage } from "@/pages/modules/ModuleDetailPage";
 import { ModulesListPage } from "@/pages/modules/ModulesListPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -27,6 +29,8 @@ export function ManageRoutes() {
       <Route element={<FeatureFlagsPage />} path="/feature-flags" />
       <Route element={<PackagesListPage />} path="/packages" />
       <Route element={<SatellitesListPage />} path="/satellites" />
+      <Route element={<LogsPage />} path="/logs" />
+      <Route element={<AuditPage />} path="/audit" />
       <Route element={<NotFoundPage />} path="*" />
     </Routes>
   );

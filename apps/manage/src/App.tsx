@@ -50,7 +50,10 @@ function AuthenticatedApp() {
     }
   }, [sessionExpired]);
 
-  if (workspaceQuery.isLoading || sessionExpired) {
+  // `isPending` (not `isLoading`) so a paused/reconnecting fetch — which has no
+  // data and no error yet — shows loading rather than falling through to the
+  // "could not load" card below. That card is only for a settled failure.
+  if (workspaceQuery.isPending || sessionExpired) {
     return <CenteredMessage title={t("shell.loading")} />;
   }
 

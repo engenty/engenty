@@ -2,6 +2,10 @@ import { checkSeatLimit } from "@engenty/entitlements";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
 import { createSuperadminDal } from "../../dal/superadmin.js";
+import {
+  createNoopAuditLog,
+  type SecurityAuditLogAdapter,
+} from "../../security/audit-adapter.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
 
@@ -24,6 +28,12 @@ export function registerSuperadminRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
   createDal?: typeof createSuperadminDal;
+  /**
+   * Cross-tenant audit reader. Unlike `/api/security/audit/events` (pinned to
+   * the caller's own tenant), the superadmin routes below let a platform admin
+   * query any tenant — or all tenants at once by omitting `tenant_id`.
+   */
+  auditLog?: SecurityAuditLogAdapter;
   /** Resolve a tenant's seat entitlement. Injectable for tests. */
   resolveSeatLimit?: (tenantId: string) => Promise<{
     maxUsers: number | null;
@@ -31,6 +41,7 @@ export function registerSuperadminRoutes(params: {
   } | null>;
 }) {
   const getDal = () => (params.createDal ?? createSuperadminDal)(params.config);
+  const auditLog = params.auditLog ?? createNoopAuditLog();
 
   const resolveSeatLimit =
     params.resolveSeatLimit ??
@@ -464,4 +475,63 @@ export function registerSuperadminRoutes(params: {
       }
     }
   );
+
+  // Cross-tenant audit event feed. `tenant_id` optional: omit to see every
+  // tenant, pass one to scope. Mirrors the shape of /api/security/audit/events
+  // (events + total + has_more) so the manage UI can page through results.
+  params.app.get("/api/superadmin/audit/events", async (c) => {
+    const authResult = await requireSuperAdmin(c, params.config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const limit = Math.min(Number(c.req.query("limit") ?? 100) || 100, 500);
+    const page = Math.max(0, Number(c.req.query("page") ?? 0) || 0);
+    const typesRaw = c.req.query("types");
+    const types = typesRaw
+      ? typesRaw
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      : undefined;
+    const from = c.req.query("from")?.trim();
+    const to = c.req.query("to")?.trim();
+    const options = {
+      limit,
+      offset: page * limit,
+      search: c.req.query("search")?.trim() || undefined,
+      types,
+      actor_id: c.req.query("actor_id")?.trim() || undefined,
+      module_id: c.req.query("module_id")?.trim() || undefined,
+      tenant_id: c.req.query("tenant_id")?.trim() || undefined,
+      from: from ? new Date(from).toISOString() : undefined,
+      to: to ? new Date(to).toISOString() : undefined,
+    };
+
+    const [events, total] = await Promise.all([
+      auditLog.list(limit, options),
+      auditLog.count(options),
+    ]);
+    const mapped = events.map((row) => ({
+      ...row,
+      detail: row.detail
+        ? (JSON.parse(row.detail) as Record<string, unknown>)
+        : {},
+    }));
+    return jsonApiSuccess(c, {
+      events: mapped,
+      has_more: page * limit + events.length < total,
+      total,
+    });
+  });
+
+  // Distinct filter values (types, module_ids) for the audit filter controls.
+  params.app.get("/api/superadmin/audit/distincts", async (c) => {
+    const authResult = await requireSuperAdmin(c, params.config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const tenant_id = c.req.query("tenant_id")?.trim() || undefined;
+    const distincts = await auditLog.distincts(tenant_id);
+    return jsonApiSuccess(c, distincts);
+  });
 }

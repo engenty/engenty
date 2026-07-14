@@ -383,6 +383,7 @@ export function createApiApp(params: CreateApiAppParams) {
   registerSuperadminRoutes({
     app,
     config,
+    auditLog: securityAuditLog,
   });
   registerAuthzRoutes({
     app,

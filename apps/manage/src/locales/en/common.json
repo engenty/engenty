@@ -13,7 +13,8 @@
     "brand": "engenty manage",
     "subtitle": "Meta admin",
     "search": "Search",
-    "sectionManage": "Manage"
+    "sectionManage": "Manage",
+    "sectionObservability": "Observability"
   },
   "navigation": {
     "tenants": "Tenants",
@@ -21,7 +22,9 @@
     "modules": "Modules",
     "featureFlags": "Feature flags",
     "packages": "Packages",
-    "satellites": "Satellites"
+    "satellites": "Satellites",
+    "logs": "Logs",
+    "audit": "Audit"
   },
   "common": {
     "save": "Save",
@@ -46,7 +49,9 @@
     "role": "Role",
     "created": "Created",
     "actions": "Actions",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "previous": "Previous",
+    "next": "Next"
   },
   "tenants": {
     "title": "Tenants",
@@ -270,6 +275,37 @@
       "open": "Open",
       "paid": "Paid",
       "void": "Void"
+    }
+  },
+  "logs": {
+    "title": "Logs",
+    "subtitle": "Server log entries by day, plus the agents AI-debug stream.",
+    "selectFile": "Select a log",
+    "allLevels": "All levels",
+    "searchPlaceholder": "Search entries…",
+    "range": "{{start}}–{{end}} of {{total}}",
+    "columns": {
+      "time": "Time",
+      "level": "Level",
+      "source": "Source",
+      "message": "Message"
+    }
+  },
+  "audit": {
+    "title": "Audit",
+    "subtitle": "Security audit events across every tenant. Filter by tenant, type, or module.",
+    "allTenants": "All tenants",
+    "allTypes": "All types",
+    "allModules": "All modules",
+    "platformScope": "Platform",
+    "searchPlaceholder": "Search events…",
+    "actorPlaceholder": "Actor id",
+    "columns": {
+      "time": "Time",
+      "type": "Type",
+      "actor": "Actor",
+      "tenant": "Tenant",
+      "module": "Module"
     }
   }
 }

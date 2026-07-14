@@ -13,7 +13,8 @@
     "brand": "engenty manage",
     "subtitle": "Meta-Admin",
     "search": "Suchen",
-    "sectionManage": "Verwalten"
+    "sectionManage": "Verwalten",
+    "sectionObservability": "Observability"
   },
   "navigation": {
     "tenants": "Mandanten",
@@ -21,7 +22,9 @@
     "modules": "Module",
     "featureFlags": "Feature-Flags",
     "packages": "Pakete",
-    "satellites": "Satelliten"
+    "satellites": "Satelliten",
+    "logs": "Protokolle",
+    "audit": "Audit"
   },
   "common": {
     "save": "Speichern",
@@ -46,7 +49,9 @@
     "role": "Rolle",
     "created": "Erstellt",
     "actions": "Aktionen",
-    "saving": "Speichern…"
+    "saving": "Speichern…",
+    "previous": "Zurück",
+    "next": "Weiter"
   },
   "tenants": {
     "title": "Mandanten",
@@ -270,6 +275,37 @@
       "open": "Offen",
       "paid": "Bezahlt",
       "void": "Storniert"
+    }
+  },
+  "logs": {
+    "title": "Protokolle",
+    "subtitle": "Server-Protokolleinträge pro Tag, plus der Agents-KI-Debug-Stream.",
+    "selectFile": "Protokoll wählen",
+    "allLevels": "Alle Stufen",
+    "searchPlaceholder": "Einträge durchsuchen…",
+    "range": "{{start}}–{{end}} von {{total}}",
+    "columns": {
+      "time": "Zeit",
+      "level": "Stufe",
+      "source": "Quelle",
+      "message": "Meldung"
+    }
+  },
+  "audit": {
+    "title": "Audit",
+    "subtitle": "Sicherheits-Audit-Ereignisse über alle Mandanten. Nach Mandant, Typ oder Modul filtern.",
+    "allTenants": "Alle Mandanten",
+    "allTypes": "Alle Typen",
+    "allModules": "Alle Module",
+    "platformScope": "Plattform",
+    "searchPlaceholder": "Ereignisse durchsuchen…",
+    "actorPlaceholder": "Akteur-ID",
+    "columns": {
+      "time": "Zeit",
+      "type": "Typ",
+      "actor": "Akteur",
+      "tenant": "Mandant",
+      "module": "Modul"
     }
   }
 }
