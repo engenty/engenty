@@ -1,6 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
-import { Badge, Input, Switch } from "@engenty/ui-core";
+import { AdminListTableView, Badge, Input, Switch } from "@engenty/ui-core";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -50,15 +50,15 @@ export function ModulesListPage() {
       breadcrumbs={[{ label: t("modules.title") }]}
       title={t("modules.title")}
     >
-      <div className="space-y-4 p-page">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         {restartRequired ? (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             {t("modules.restartRequired")}
           </div>
         ) : null}
         <Input
           aria-label={t("modules.filterPlaceholder")}
-          className="max-w-xs"
+          className="max-w-xs shrink-0"
           onChange={(e) => setFilter(e.target.value)}
           placeholder={t("modules.filterPlaceholder")}
           value={filter}
@@ -69,53 +69,57 @@ export function ModulesListPage() {
           isLoading={isLoading}
           onRetry={() => void refetch()}
         >
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {rows.map((plugin) => (
-              <div
-                className="flex items-center justify-between gap-4 p-3"
-                key={plugin.id}
-              >
-                <button
-                  className="min-w-0 text-left"
-                  onClick={() => navigate(`/modules/${plugin.id}`)}
-                  type="button"
+          <AdminListTableView>
+            <div className="divide-y divide-border/50">
+              {rows.map((plugin) => (
+                <div
+                  className="flex items-center justify-between gap-4 p-3"
+                  key={plugin.id}
                 >
-                  <p className="truncate font-medium text-sm">
-                    {plugin.name}
-                    {plugin.version ? (
-                      <span className="ml-2 text-muted-foreground text-xs">
-                        {plugin.version}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="flex items-center gap-2 text-muted-foreground text-xs">
-                    <span>{plugin.id}</span>
-                    {plugin.loaded ? (
-                      <Badge variant="secondary">{t("modules.loaded")}</Badge>
-                    ) : null}
-                    {plugin.mandatory ? (
-                      <Badge variant="outline">{t("modules.mandatory")}</Badge>
-                    ) : null}
-                    {plugin.diagnosticsCount > 0 ? (
-                      <Badge variant="outline">
-                        {t("modules.diagnostics", {
-                          count: plugin.diagnosticsCount,
-                        })}
-                      </Badge>
-                    ) : null}
-                  </p>
-                </button>
-                <Switch
-                  aria-label={plugin.name}
-                  checked={plugin.globalEnabled}
-                  disabled={plugin.mandatory || toggle.isPending}
-                  onCheckedChange={(checked) =>
-                    toggle.mutate({ id: plugin.id, enabled: checked })
-                  }
-                />
-              </div>
-            ))}
-          </div>
+                  <button
+                    className="min-w-0 text-left"
+                    onClick={() => navigate(`/modules/${plugin.id}`)}
+                    type="button"
+                  >
+                    <p className="truncate font-medium text-sm">
+                      {plugin.name}
+                      {plugin.version ? (
+                        <span className="ml-2 text-muted-foreground text-xs">
+                          {plugin.version}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <span>{plugin.id}</span>
+                      {plugin.loaded ? (
+                        <Badge variant="secondary">{t("modules.loaded")}</Badge>
+                      ) : null}
+                      {plugin.mandatory ? (
+                        <Badge variant="outline">
+                          {t("modules.mandatory")}
+                        </Badge>
+                      ) : null}
+                      {plugin.diagnosticsCount > 0 ? (
+                        <Badge variant="outline">
+                          {t("modules.diagnostics", {
+                            count: plugin.diagnosticsCount,
+                          })}
+                        </Badge>
+                      ) : null}
+                    </p>
+                  </button>
+                  <Switch
+                    aria-label={plugin.name}
+                    checked={plugin.globalEnabled}
+                    disabled={plugin.mandatory || toggle.isPending}
+                    onCheckedChange={(checked) =>
+                      toggle.mutate({ id: plugin.id, enabled: checked })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </AdminListTableView>
         </PageState>
       </div>
     </PageShell>

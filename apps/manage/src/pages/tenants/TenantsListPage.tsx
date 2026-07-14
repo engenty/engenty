@@ -1,6 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
+  AdminListTableView,
   Button,
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  STICKY_HEADER_CLASS,
   Table,
   TableBody,
   TableCell,
@@ -81,10 +83,10 @@ export function TenantsListPage() {
       breadcrumbs={[{ label: t("tenants.title") }]}
       title={t("tenants.title")}
     >
-      <div className="space-y-4 p-page">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <Input
           aria-label={t("common.search")}
-          className="max-w-xs"
+          className="max-w-xs shrink-0"
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("common.search")}
           value={search}
@@ -95,36 +97,38 @@ export function TenantsListPage() {
           isLoading={isLoading}
           onRetry={() => void refetch()}
         >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("common.name")}</TableHead>
-                <TableHead>{t("common.slug")}</TableHead>
-                <TableHead>{t("tenants.fields.tier")}</TableHead>
-                <TableHead>{t("tenants.fields.status")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((tenant) => (
-                <TableRow
-                  className="cursor-pointer"
-                  key={tenant.id}
-                  onClick={() => navigate(`/tenants/${tenant.id}`)}
-                >
-                  <TableCell className="font-medium">{tenant.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {tenant.slug}
-                  </TableCell>
-                  <TableCell>
-                    <TierBadge tier={tenant.tier} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={tenant.status} />
-                  </TableCell>
+          <AdminListTableView>
+            <Table noWrapper>
+              <TableHeader className={STICKY_HEADER_CLASS}>
+                <TableRow>
+                  <TableHead>{t("common.name")}</TableHead>
+                  <TableHead>{t("common.slug")}</TableHead>
+                  <TableHead>{t("tenants.fields.tier")}</TableHead>
+                  <TableHead>{t("tenants.fields.status")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((tenant) => (
+                  <TableRow
+                    className="cursor-pointer"
+                    key={tenant.id}
+                    onClick={() => navigate(`/tenants/${tenant.id}`)}
+                  >
+                    <TableCell className="font-medium">{tenant.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {tenant.slug}
+                    </TableCell>
+                    <TableCell>
+                      <TierBadge tier={tenant.tier} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={tenant.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </AdminListTableView>
         </PageState>
       </div>
 
