@@ -14,7 +14,8 @@
     "subtitle": "Meta-Admin",
     "search": "Suchen",
     "sectionManage": "Verwalten",
-    "sectionObservability": "Observability"
+    "sectionObservability": "Observability",
+    "sectionPlatform": "Plattform"
   },
   "navigation": {
     "tenants": "Mandanten",
@@ -24,7 +25,9 @@
     "packages": "Pakete",
     "satellites": "Satelliten",
     "logs": "Protokolle",
-    "audit": "Audit"
+    "audit": "Audit",
+    "approvals": "Freigaben",
+    "settings": "Einstellungen"
   },
   "common": {
     "save": "Speichern",
@@ -174,6 +177,28 @@
       "override": "Mandanten-Override",
       "effective": "Effektiv",
       "useGlobal": "Globalen Standard verwenden"
+    },
+    "lifecycle": {
+      "title": "Lebenszyklus",
+      "subtitle": "Modul neu laden, aktualisieren oder deinstallieren. Paketänderungen laufen gegen die gemeinsame Laufzeit – prüfe die Vorabprüfung vor dem Bestätigen.",
+      "reload": "Neu laden",
+      "update": "Aktualisieren",
+      "uninstall": "Deinstallieren",
+      "confirm": "Bestätigen",
+      "checking": "Vorabprüfung läuft…",
+      "preflightOk": "Vorabprüfung bestanden",
+      "preflightBlocked": "Blockiert",
+      "requiresRestart": "Dieser Vorgang erfordert einen vollständigen Serverneustart.",
+      "success": "Vorgang abgeschlossen.",
+      "failed": "Vorgang fehlgeschlagen.",
+      "dialog": {
+        "reloadTitle": "Modul neu laden",
+        "reloadBody": "Lädt den Backend-Code des Moduls im laufenden Betrieb neu, ohne den Server neu zu starten.",
+        "updateTitle": "Modulpaket aktualisieren",
+        "updateBody": "Führt eine Paketaktualisierung für dieses Modul gegen die gemeinsame Laufzeit aus. Dies verändert installierte Pakete.",
+        "uninstallTitle": "Modul deinstallieren",
+        "uninstallBody": "Entfernt dieses Modul von der Plattform. Mandanten, die es nutzen, verlieren den Zugriff."
+      }
     }
   },
   "featureFlags": {
@@ -306,6 +331,40 @@
       "actor": "Akteur",
       "tenant": "Mandant",
       "module": "Modul"
+    }
+  },
+  "approvals": {
+    "title": "Freigaben",
+    "subtitle": "Ausstehende Freigabeanfragen für Modul-Operationen über alle Mandanten. Anfragen verfallen nach wenigen Minuten.",
+    "approve": "Freigeben",
+    "deny": "Ablehnen",
+    "approved": "Anfrage freigegeben.",
+    "denied": "Anfrage abgelehnt.",
+    "decideFailed": "Entscheidung konnte nicht gespeichert werden.",
+    "platformScope": "Plattform",
+    "expires": "läuft ab {{time}}",
+    "scope": {
+      "allow_once": "Einmal erlauben",
+      "allow_session": "Für Sitzung erlauben",
+      "allow_policy": "Erlauben (Richtlinie)"
+    },
+    "columns": {
+      "operation": "Operation",
+      "tenant": "Mandant",
+      "actor": "Akteur",
+      "requested": "Angefragt",
+      "decision": "Entscheidung"
+    }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "subtitle": "Laufzeit-Umgebungskonfiguration dieser Installation. Geheime Werte sind maskiert.",
+    "filterPlaceholder": "Schlüssel filtern…",
+    "masked": "geheim",
+    "unset": "nicht gesetzt",
+    "columns": {
+      "key": "Schlüssel",
+      "value": "Wert"
     }
   }
 }

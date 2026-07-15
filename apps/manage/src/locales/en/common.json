@@ -14,7 +14,8 @@
     "subtitle": "Meta admin",
     "search": "Search",
     "sectionManage": "Manage",
-    "sectionObservability": "Observability"
+    "sectionObservability": "Observability",
+    "sectionPlatform": "Platform"
   },
   "navigation": {
     "tenants": "Tenants",
@@ -24,7 +25,9 @@
     "packages": "Packages",
     "satellites": "Satellites",
     "logs": "Logs",
-    "audit": "Audit"
+    "audit": "Audit",
+    "approvals": "Approvals",
+    "settings": "Settings"
   },
   "common": {
     "save": "Save",
@@ -174,6 +177,28 @@
       "override": "Tenant override",
       "effective": "Effective",
       "useGlobal": "Use global default"
+    },
+    "lifecycle": {
+      "title": "Lifecycle",
+      "subtitle": "Reload, update, or uninstall this module. Package changes run against the shared runtime — review the preflight before confirming.",
+      "reload": "Reload",
+      "update": "Update",
+      "uninstall": "Uninstall",
+      "confirm": "Confirm",
+      "checking": "Running preflight checks…",
+      "preflightOk": "Preflight passed",
+      "preflightBlocked": "Blocked",
+      "requiresRestart": "This operation requires a full server restart to take effect.",
+      "success": "Operation completed.",
+      "failed": "Operation failed.",
+      "dialog": {
+        "reloadTitle": "Reload module",
+        "reloadBody": "Reloads the module's backend code in place without restarting the server.",
+        "updateTitle": "Update module package",
+        "updateBody": "Runs a package update for this module against the shared runtime. This mutates installed packages.",
+        "uninstallTitle": "Uninstall module",
+        "uninstallBody": "Removes this module from the platform. Tenants relying on it will lose access."
+      }
     }
   },
   "featureFlags": {
@@ -306,6 +331,40 @@
       "actor": "Actor",
       "tenant": "Tenant",
       "module": "Module"
+    }
+  },
+  "approvals": {
+    "title": "Approvals",
+    "subtitle": "Pending module-operation approval requests across all tenants. Requests expire after a few minutes.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "approved": "Request approved.",
+    "denied": "Request denied.",
+    "decideFailed": "Could not record the decision.",
+    "platformScope": "Platform",
+    "expires": "expires {{time}}",
+    "scope": {
+      "allow_once": "Allow once",
+      "allow_session": "Allow for session",
+      "allow_policy": "Allow (policy)"
+    },
+    "columns": {
+      "operation": "Operation",
+      "tenant": "Tenant",
+      "actor": "Actor",
+      "requested": "Requested",
+      "decision": "Decision"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Runtime environment configuration for this deployment. Secret values are masked.",
+    "filterPlaceholder": "Filter keys…",
+    "masked": "secret",
+    "unset": "not set",
+    "columns": {
+      "key": "Key",
+      "value": "Value"
     }
   }
 }

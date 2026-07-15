@@ -62,3 +62,66 @@ export function setPluginEnabled(
     }
   );
 }
+
+export type PluginLifecycleOperation =
+  | "install"
+  | "update"
+  | "uninstall"
+  | "reload";
+
+export interface PluginLifecycleIssue {
+  code: string;
+  level: "error" | "info" | "warn";
+  message: string;
+}
+
+/**
+ * Preflight report for a lifecycle operation. Core returns a superset per kind
+ * (reload → preflightPassed/steps, uninstall → removableAtRuntime, install →
+ * installable); we read the common fields defensively and keep the rest.
+ */
+export interface PluginLifecycleReport {
+  installable?: boolean;
+  issues?: PluginLifecycleIssue[];
+  migrationReviewRequired?: boolean;
+  preflightPassed?: boolean;
+  removableAtRuntime?: boolean;
+  requiresRestart?: boolean;
+  steps?: { id?: string; label?: string; status?: string }[];
+  [key: string]: unknown;
+}
+
+/** Fetch the preflight report for a reload/uninstall/install operation. */
+export function getPluginReport(
+  id: string,
+  kind: "reload" | "uninstall" | "install",
+  signal?: AbortSignal
+) {
+  return request<PluginLifecycleReport>(
+    `/api/plugins/${encodeURIComponent(id)}/${kind}-report`,
+    { signal }
+  );
+}
+
+/**
+ * Run a lifecycle operation. Throws `ApiClientResponseError` on a blocked (409)
+ * or failed (500) result; the caller surfaces `.message`. Package mutations
+ * (install/update/uninstall) require `confirm_package_mutation`.
+ */
+export function runPluginLifecycle(
+  id: string,
+  operation: PluginLifecycleOperation,
+  options: { packageSpec?: string } = {}
+) {
+  const body: Record<string, unknown> =
+    operation === "reload"
+      ? {}
+      : {
+          confirm_package_mutation: true,
+          ...(options.packageSpec ? { package_spec: options.packageSpec } : {}),
+        };
+  return request<{ pluginId: string; status: string }>(
+    `/api/plugins/${encodeURIComponent(id)}/${operation}`,
+    { method: "POST", body }
+  );
+}

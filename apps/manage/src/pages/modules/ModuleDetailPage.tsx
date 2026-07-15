@@ -1,11 +1,29 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
-import { Badge } from "@engenty/ui-core";
+import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@engenty/ui-core";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
-import type { PluginDetail } from "@/lib/api/plugins";
-import { pluginQuery } from "@/lib/queries/plugins";
+import {
+  type PluginDetail,
+  type PluginLifecycleOperation,
+  type PluginLifecycleReport,
+  runPluginLifecycle,
+} from "@/lib/api/plugins";
+import { pluginQuery, pluginReportQuery } from "@/lib/queries/plugins";
+
+type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -35,20 +53,19 @@ export function ModuleDetailPage() {
           isLoading={isLoading}
           onRetry={() => void refetch()}
         >
-          {data ? <ModuleFields detail={data} t={t} /> : null}
+          {data ? (
+            <div className="space-y-6">
+              <ModuleFields detail={data} t={t} />
+              <ModuleLifecycle detail={data} t={t} />
+            </div>
+          ) : null}
         </PageState>
       </div>
     </PageShell>
   );
 }
 
-function ModuleFields({
-  detail,
-  t,
-}: {
-  detail: PluginDetail;
-  t: (key: string) => string;
-}) {
+function ModuleFields({ detail, t }: { detail: PluginDetail; t: Translate }) {
   return (
     <div className="divide-y divide-border">
       <div className="flex items-center gap-2 pb-3">
@@ -103,4 +120,197 @@ function ModuleFields({
       ) : null}
     </div>
   );
+}
+
+function ModuleLifecycle({
+  detail,
+  t,
+}: {
+  detail: PluginDetail;
+  t: Translate;
+}) {
+  const queryClient = useQueryClient();
+  // Which confirm dialog is open (null = none). `reload` and `uninstall` fetch
+  // a preflight report; `update` runs a package update with no preflight.
+  const [op, setOp] = useState<PluginLifecycleOperation | null>(null);
+
+  const reportKind = op === "uninstall" ? "uninstall" : "reload";
+  const report = useQuery({
+    ...pluginReportQuery(detail.id, reportKind),
+    enabled: op === "reload" || op === "uninstall",
+  });
+
+  const run = useMutation({
+    mutationFn: (operation: PluginLifecycleOperation) =>
+      runPluginLifecycle(detail.id, operation),
+    onSuccess: async () => {
+      toast.success(t("modules.lifecycle.success"));
+      await queryClient.invalidateQueries({ queryKey: ["manage", "plugins"] });
+      setOp(null);
+    },
+    onError: (err) =>
+      toast.error(
+        err instanceof Error ? err.message : t("modules.lifecycle.failed")
+      ),
+  });
+
+  const blocked = isReportBlocked(op, report.data);
+
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <h2 className="font-medium text-sm">{t("modules.lifecycle.title")}</h2>
+      <p className="mt-1 text-muted-foreground text-xs">
+        {t("modules.lifecycle.subtitle")}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          disabled={!detail.loaded || run.isPending}
+          onClick={() => setOp("reload")}
+          size="sm"
+          variant="outline"
+        >
+          {t("modules.lifecycle.reload")}
+        </Button>
+        <Button
+          disabled={run.isPending}
+          onClick={() => setOp("update")}
+          size="sm"
+          variant="outline"
+        >
+          {t("modules.lifecycle.update")}
+        </Button>
+        <Button
+          className="border-destructive text-destructive hover:bg-destructive/10"
+          disabled={detail.mandatory || run.isPending}
+          onClick={() => setOp("uninstall")}
+          size="sm"
+          variant="outline"
+        >
+          {t("modules.lifecycle.uninstall")}
+        </Button>
+      </div>
+
+      <Dialog
+        onOpenChange={(next) => setOp(next ? op : null)}
+        open={op !== null}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {op ? t(`modules.lifecycle.dialog.${op}Title`) : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {op ? t(`modules.lifecycle.dialog.${op}Body`) : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {op === "reload" || op === "uninstall" ? (
+            <PreflightReport
+              blocked={blocked}
+              isLoading={report.isLoading}
+              report={report.data}
+              t={t}
+            />
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              disabled={run.isPending}
+              onClick={() => setOp(null)}
+              variant="outline"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              className={
+                op === "uninstall"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : undefined
+              }
+              disabled={run.isPending || blocked || report.isLoading}
+              onClick={() => op && run.mutate(op)}
+            >
+              {t("modules.lifecycle.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PreflightReport({
+  report,
+  isLoading,
+  blocked,
+  t,
+}: {
+  report: PluginLifecycleReport | undefined;
+  isLoading: boolean;
+  blocked: boolean;
+  t: Translate;
+}) {
+  if (isLoading) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t("modules.lifecycle.checking")}
+      </p>
+    );
+  }
+  if (!report) {
+    return null;
+  }
+  const issues = report.issues ?? [];
+  return (
+    <div className="space-y-2 text-sm">
+      <Badge
+        className={blocked ? "border-destructive text-destructive" : undefined}
+        variant={blocked ? "outline" : "secondary"}
+      >
+        {blocked
+          ? t("modules.lifecycle.preflightBlocked")
+          : t("modules.lifecycle.preflightOk")}
+      </Badge>
+      {report.requiresRestart ? (
+        <p className="text-amber-600 text-xs dark:text-amber-400">
+          {t("modules.lifecycle.requiresRestart")}
+        </p>
+      ) : null}
+      {issues.length > 0 ? (
+        <ul className="space-y-1">
+          {issues.map((issue) => (
+            <li className="flex items-start gap-2 text-xs" key={issue.code}>
+              <Badge
+                className={
+                  issue.level === "error"
+                    ? "border-destructive text-destructive"
+                    : undefined
+                }
+                variant="outline"
+              >
+                {issue.level}
+              </Badge>
+              <span className="break-words">{issue.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function isReportBlocked(
+  op: PluginLifecycleOperation | null,
+  report: PluginLifecycleReport | undefined
+): boolean {
+  if (!report) {
+    return false;
+  }
+  if (op === "reload") {
+    return report.preflightPassed === false;
+  }
+  if (op === "uninstall") {
+    return report.removableAtRuntime === false;
+  }
+  return false;
 }

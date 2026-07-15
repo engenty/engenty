@@ -5,12 +5,12 @@ import {
   Badge,
   Button,
   Input,
-  STICKY_HEADER_CLASS,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  STICKY_HEADER_CLASS,
   Table,
   TableBody,
   TableCell,
@@ -51,7 +51,7 @@ function firstString(entry: LogEntry, keys: string[]): string | undefined {
       return String(value);
     }
   }
-  return undefined;
+  return;
 }
 
 function entryLevel(entry: LogEntry): string {
@@ -124,7 +124,10 @@ export function LogsPage() {
     file.label ?? file.date;
 
   return (
-    <PageShell breadcrumbs={[{ label: t("logs.title") }]} title={t("logs.title")}>
+    <PageShell
+      breadcrumbs={[{ label: t("logs.title") }]}
+      title={t("logs.title")}
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <p className="text-muted-foreground text-sm">{t("logs.subtitle")}</p>
 
@@ -185,7 +188,9 @@ export function LogsPage() {
         <PageState
           error={files.error ?? entriesQuery.error}
           isEmpty={Boolean(activeDate) && entries.length === 0}
-          isLoading={files.isLoading || (entriesQuery.isLoading && !!activeDate)}
+          isLoading={
+            files.isLoading || (entriesQuery.isLoading && !!activeDate)
+          }
           onRetry={() => void entriesQuery.refetch()}
         >
           <div className="flex items-center justify-between text-muted-foreground text-xs">
@@ -226,7 +231,9 @@ export function LogsPage() {
             <Table noWrapper>
               <TableHeader className={STICKY_HEADER_CLASS}>
                 <TableRow>
-                  <TableHead className="w-52">{t("logs.columns.time")}</TableHead>
+                  <TableHead className="w-52">
+                    {t("logs.columns.time")}
+                  </TableHead>
                   <TableHead className="w-24">
                     {t("logs.columns.level")}
                   </TableHead>

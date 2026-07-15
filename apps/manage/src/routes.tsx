@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { ApprovalsPage } from "@/pages/approvals/ApprovalsPage";
 import { AuditPage } from "@/pages/audit/AuditPage";
 import { FeatureFlagsPage } from "@/pages/feature-flags/FeatureFlagsPage";
 import { LogsPage } from "@/pages/log-inspector/LogsPage";
@@ -7,6 +8,7 @@ import { ModulesListPage } from "@/pages/modules/ModulesListPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PackagesListPage } from "@/pages/packages/PackagesListPage";
 import { SatellitesListPage } from "@/pages/satellites/SatellitesListPage";
+import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { TenantDetailPage } from "@/pages/tenants/TenantDetailPage";
 import { TenantEditPage } from "@/pages/tenants/TenantEditPage";
 import { TenantsListPage } from "@/pages/tenants/TenantsListPage";
@@ -31,6 +33,8 @@ export function ManageRoutes() {
       <Route element={<SatellitesListPage />} path="/satellites" />
       <Route element={<LogsPage />} path="/logs" />
       <Route element={<AuditPage />} path="/audit" />
+      <Route element={<ApprovalsPage />} path="/approvals" />
+      <Route element={<SettingsPage />} path="/settings" />
       <Route element={<NotFoundPage />} path="*" />
     </Routes>
   );

@@ -6,7 +6,9 @@ import {
   Puzzle,
   Satellite as SatelliteIcon,
   ScrollText,
+  ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   ToggleRight,
   Users,
 } from "lucide-react";
@@ -38,6 +40,21 @@ export function useManageSections(): NavigationSection[] {
       items: [
         { icon: ScrollText, label: t("navigation.logs"), to: "/logs" },
         { icon: ShieldCheck, label: t("navigation.audit"), to: "/audit" },
+        {
+          icon: ShieldAlert,
+          label: t("navigation.approvals"),
+          to: "/approvals",
+        },
+      ],
+    },
+    {
+      label: t("sidebar.sectionPlatform"),
+      items: [
+        {
+          icon: SlidersHorizontal,
+          label: t("navigation.settings"),
+          to: "/settings",
+        },
       ],
     },
   ];
