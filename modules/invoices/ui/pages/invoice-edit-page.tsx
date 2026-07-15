@@ -462,7 +462,7 @@ export function InvoiceEditPage() {
           ref={scrollRef}
         >
           <DocSidebarLayout
-            className={cn("gap-8 p-page", contentMaxWidthClass)}
+            className={cn("p-page", contentMaxWidthClass)}
             inlineMinWidth={1200}
             sidebar={
               <InvoiceSettingsPanel

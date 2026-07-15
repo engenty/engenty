@@ -195,6 +195,7 @@
     "clearProject": "No project",
     "noDueDate": "No due date",
     "workspace": {
+      "title": "Workspace",
       "sectionAria": "Task workspace",
       "key": "Workspace key",
       "storagePath": "Storage path",

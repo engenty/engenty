@@ -12,6 +12,14 @@ import {
 export const DOC_SIDEBAR_WIDTH_PX = 280;
 
 /**
+ * Space between the document and the inline sidebar. Owned by the layout (not
+ * the consumer's `className` gap) so it can collapse together with the sidebar
+ * width when the panel animates closed — a residual container gap would leave
+ * empty space to the right of a full-width document.
+ */
+export const DOC_SIDEBAR_GAP_PX = 32;
+
+/**
  * Container width below which the sidebar leaves the inline column and
  * becomes an overlay: 280px sidebar + gap leaves ~500px for the document,
  * the minimum comfortable reading column.
@@ -88,24 +96,37 @@ export function DocSidebarLayout({
 
   return (
     <div className="w-full" ref={measureRef}>
-      <div
-        className={cn("mx-auto grid w-full gap-4", className)}
-        style={
-          inlineOpen
-            ? {
-                gridTemplateColumns: `minmax(0,1fr) ${DOC_SIDEBAR_WIDTH_PX}px`,
-              }
-            : undefined
-        }
-      >
-        <div className="min-w-0">{children}</div>
-        {inlineOpen ? (
-          <aside
-            aria-label={sidebarLabel}
-            className="flex min-w-0 flex-col gap-4"
+      <div className={cn("mx-auto flex w-full", className)}>
+        <div className="min-w-0 flex-1">{children}</div>
+        {mode === "inline" ? (
+          // Collapsible inline column: the wrapper animates its width between
+          // 0 and the panel width; overflow-hidden clips the panel while it
+          // slides in/out. The gap lives inside (as the panel's left padding
+          // plus min-width) so it vanishes with the width instead of leaving a
+          // container gap behind. `inert` keeps the collapsed panel out of the
+          // tab order.
+          <div
+            aria-hidden={!inlineOpen}
+            className={cn(
+              "shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none",
+              !inlineOpen && "pointer-events-none"
+            )}
+            inert={!inlineOpen}
+            style={{
+              width: inlineOpen ? DOC_SIDEBAR_WIDTH_PX + DOC_SIDEBAR_GAP_PX : 0,
+            }}
           >
-            {sidebar}
-          </aside>
+            <aside
+              aria-label={sidebarLabel}
+              className="flex flex-col gap-4"
+              style={{
+                minWidth: DOC_SIDEBAR_WIDTH_PX + DOC_SIDEBAR_GAP_PX,
+                paddingLeft: DOC_SIDEBAR_GAP_PX,
+              }}
+            >
+              {sidebar}
+            </aside>
+          </div>
         ) : null}
         {mode === "overlay" ? (
           <Sheet onOpenChange={setOverlayOpen} open={open}>

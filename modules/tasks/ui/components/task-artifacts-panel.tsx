@@ -26,7 +26,8 @@ export function TaskArtifactsPanel({ taskId }: { taskId: string }) {
       {listQuery.isLoading ? (
         <p className="px-1 text-muted-foreground text-sm">…</p>
       ) : artifacts.length === 0 ? (
-        <TaskPropertyRow icon={Shapes} label={t("detail.workspace.artifacts")}>
+        // No label — the section heading right above already names it.
+        <TaskPropertyRow icon={Shapes}>
           <TaskPropertyEmpty>
             {t("detail.workspace.artifactsEmpty")}
           </TaskPropertyEmpty>

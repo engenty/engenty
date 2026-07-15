@@ -73,8 +73,11 @@ export function TaskWorkspaceStrip({
   return (
     <section
       aria-label={t("detail.workspace.sectionAria")}
-      className="flex min-w-[280px] flex-col gap-2"
+      className="flex min-w-0 flex-col gap-2"
     >
+      <h3 className="px-1 font-medium text-sm">
+        {t("detail.workspace.title")}
+      </h3>
       {canWorkOnTask ? (
         <div className="px-1">
           <Button

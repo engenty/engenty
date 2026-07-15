@@ -195,6 +195,7 @@
     "clearProject": "Kein Projekt",
     "noDueDate": "Kein Fälligkeitsdatum",
     "workspace": {
+      "title": "Workspace",
       "sectionAria": "Aufgaben-Arbeitsbereich",
       "key": "Arbeitsbereichsschlüssel",
       "storagePath": "Speicherpfad",
