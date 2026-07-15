@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   Button,
   Card,
+  cn,
   DocSidebarLayout,
   DocSidebarToggle,
   DropdownMenu,
@@ -26,6 +27,7 @@ import {
   DropdownMenuTrigger,
   Textarea,
   topbarIconButtonClassName,
+  useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { MoreVertical, Trash2 } from "lucide-react";
@@ -96,6 +98,7 @@ interface TaskDetailLoadedProps {
   onDueDateChange: (dueDate: string | null) => void;
   onGoalChange: (goalId: string | null) => void;
   onPriorityChange: (priority: TaskPriority) => void;
+  onProjectChange: (projectId: string | null) => void;
   onStartWork: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onTitleBlur: () => void;
@@ -124,6 +127,7 @@ function TaskDetailLoadedContent({
   onDueDateChange,
   onGoalChange,
   onPriorityChange,
+  onProjectChange,
   onStartWork,
   onStatusChange,
   onTitleBlur,
@@ -138,6 +142,12 @@ function TaskDetailLoadedContent({
 }: TaskDetailLoadedProps) {
   const { t } = useTranslation("tasks");
   const { continueFromUserComment, viewRun } = useTaskRunObserverContext();
+  const detailSidebar = useDocSidebar(TASK_DETAIL_DOC_SIDEBAR_KEY);
+  // Only widen the content column when the sidebar actually occupies an inline
+  // column; closed (or overlay) keeps the document at its natural reading width.
+  const sidebarInlineOpen =
+    detailSidebar.mode === "inline" && detailSidebar.open;
+  const contentMaxWidthClass = sidebarInlineOpen ? "max-w-6xl" : "max-w-5xl";
 
   const handleAddComment = async () => {
     const content = commentDraft.trim();
@@ -152,103 +162,110 @@ function TaskDetailLoadedContent({
   };
 
   return (
-    <DocSidebarLayout
-      className="max-w-5xl"
-      sidebar={
-        <>
-          <TaskPropertiesPanel
-            assigneeCatalog={teamMembersCatalogQuery.data ?? []}
-            assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
-            assigneeProfiles={assigneeProfiles}
-            disabled={fieldsDisabled}
-            onAssigneeChange={onAssigneeChange}
-            onDueDateChange={onDueDateChange}
-            onGoalChange={onGoalChange}
-            onPriorityChange={onPriorityChange}
-            onStatusChange={onStatusChange}
-            task={task}
-            taskStatusDefinitions={taskStatusDefinitions}
-            teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
-          />
-          <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
-          <TaskLinkedSessionsPanel
-            isLoading={linkedSessionsQuery.isLoading}
-            sessions={linkedSessionsQuery.data ?? []}
-          />
-          <TaskArtifactsPanel taskId={task.id} />
-        </>
-      }
-      sidebarLabel={t("detail.sidebarLabel")}
-      storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
-    >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
-              {task.identifier}
-              <TaskStatusBadge
-                compact
-                definitions={taskStatusDefinitions}
-                status={task.status}
+    <div className="flex min-h-0 flex-1 flex-col bg-card/30">
+      <section className="min-h-0 flex-1 overflow-y-auto" ref={scrollRootRef}>
+        <DocSidebarLayout
+          className={cn("p-page pb-10", contentMaxWidthClass)}
+          sidebar={
+            <>
+              <TaskPropertiesPanel
+                assigneeCatalog={teamMembersCatalogQuery.data ?? []}
+                assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
+                assigneeProfiles={assigneeProfiles}
+                disabled={fieldsDisabled}
+                onAssigneeChange={onAssigneeChange}
+                onDueDateChange={onDueDateChange}
+                onGoalChange={onGoalChange}
+                onPriorityChange={onPriorityChange}
+                onProjectChange={onProjectChange}
+                onStatusChange={onStatusChange}
+                task={task}
+                taskStatusDefinitions={taskStatusDefinitions}
+                teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
               />
-            </p>
-            <DocSidebarToggle
-              className="-mr-1.5 shrink-0"
-              label={t("detail.toggleSidebar")}
-              storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
+              <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
+              <TaskLinkedSessionsPanel
+                isLoading={linkedSessionsQuery.isLoading}
+                sessions={linkedSessionsQuery.data ?? []}
+              />
+              <TaskArtifactsPanel taskId={task.id} />
+            </>
+          }
+          sidebarLabel={t("detail.sidebarLabel")}
+          storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
+        >
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
+                  {task.identifier}
+                  <TaskStatusBadge
+                    compact
+                    definitions={taskStatusDefinitions}
+                    status={task.status}
+                  />
+                </p>
+                {/* -my-1 keeps the sm button from inflating the meta row height. */}
+                <DocSidebarToggle
+                  className="-my-1 -mr-1.5 shrink-0"
+                  label={t("detail.toggleSidebar")}
+                  storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
+                  text={t("detail.sidebarLabel")}
+                />
+              </div>
+              <GoalDocumentTitle
+                disabled={fieldsDisabled}
+                onBlur={onTitleBlur}
+                onChange={onTitleChange}
+                placeholder={t("form.title")}
+                value={titleDraft}
+              />
+            </div>
+
+            <Card variant="form">
+              <Textarea
+                className="min-h-[120px] resize-y rounded-none border-0 bg-transparent px-0 py-0 shadow-none transition-colors hover:bg-input/25 focus-visible:border-transparent focus-visible:bg-input/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                disabled={fieldsDisabled}
+                onBlur={onDescriptionBlur}
+                onChange={(event) => onDescriptionChange(event.target.value)}
+                placeholder={t("detail.descriptionPlaceholder")}
+                rows={6}
+                value={descriptionDraft}
+              />
+            </Card>
+
+            <LiveTaskRunsPanel
+              activity={activity ?? []}
+              assigneeProfiles={assigneeProfiles}
+              disabled={releaseMutation.isPending}
+              onRelease={(run) =>
+                void releaseMutation.mutateAsync({
+                  agent_session_run_id: run.agent_session_run_id,
+                })
+              }
+              onViewRun={(run) => void viewRun(run)}
+              releasing={releaseMutation.isPending}
+              runs={runs}
+            />
+
+            <TaskRunObserverPanel />
+
+            <TaskCommentsActivityTabs
+              activity={activity ?? []}
+              assigneeProfiles={assigneeProfiles}
+              commentDraft={commentDraft}
+              disabled={commentMutation.isPending}
+              onAddComment={() => void handleAddComment()}
+              onCommentDraftChange={onCommentDraftChange}
+              posting={commentMutation.isPending}
+              scrollRootRef={scrollRootRef}
+              statusDefinitions={taskStatusDefinitions}
+              task={task}
             />
           </div>
-          <GoalDocumentTitle
-            disabled={fieldsDisabled}
-            onBlur={onTitleBlur}
-            onChange={onTitleChange}
-            placeholder={t("form.title")}
-            value={titleDraft}
-          />
-        </div>
-
-        <Card variant="form">
-          <Textarea
-            className="min-h-[120px] resize-y rounded-none border-0 bg-transparent px-0 py-0 shadow-none transition-colors hover:bg-input/25 focus-visible:border-transparent focus-visible:bg-input/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-            disabled={fieldsDisabled}
-            onBlur={onDescriptionBlur}
-            onChange={(event) => onDescriptionChange(event.target.value)}
-            placeholder={t("detail.descriptionPlaceholder")}
-            rows={6}
-            value={descriptionDraft}
-          />
-        </Card>
-
-        <LiveTaskRunsPanel
-          activity={activity ?? []}
-          assigneeProfiles={assigneeProfiles}
-          disabled={releaseMutation.isPending}
-          onRelease={(run) =>
-            void releaseMutation.mutateAsync({
-              agent_session_run_id: run.agent_session_run_id,
-            })
-          }
-          onViewRun={(run) => void viewRun(run)}
-          releasing={releaseMutation.isPending}
-          runs={runs}
-        />
-
-        <TaskRunObserverPanel />
-
-        <TaskCommentsActivityTabs
-          activity={activity ?? []}
-          assigneeProfiles={assigneeProfiles}
-          commentDraft={commentDraft}
-          disabled={commentMutation.isPending}
-          onAddComment={() => void handleAddComment()}
-          onCommentDraftChange={onCommentDraftChange}
-          posting={commentMutation.isPending}
-          scrollRootRef={scrollRootRef}
-          statusDefinitions={taskStatusDefinitions}
-          task={task}
-        />
-      </div>
-    </DocSidebarLayout>
+        </DocSidebarLayout>
+      </section>
+    </div>
   );
 }
 
@@ -453,14 +470,11 @@ export function TaskDetailPage() {
   };
 
   return (
-    <section
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-page pb-10"
-      ref={scrollRootRef}
-    >
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {error ? (
-        <p className="text-destructive text-sm">{error}</p>
+        <p className="p-page text-destructive text-sm">{error}</p>
       ) : detailQuery.isLoading || !task ? (
-        <p className="text-muted-foreground text-sm">…</p>
+        <p className="p-page text-muted-foreground text-sm">…</p>
       ) : (
         <TaskRunObserverProvider
           onObserverStatusChange={handleObserverStatusChange}
@@ -548,6 +562,6 @@ export function TaskDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </div>
   );
 }

@@ -27,10 +27,8 @@ export function TaskLinkedSessionsPanel({
       {isLoading ? (
         <p className="px-1 text-muted-foreground text-sm">…</p>
       ) : sessions.length === 0 ? (
-        <TaskPropertyRow
-          icon={MessageSquare}
-          label={t("detail.workspace.linkedSessions")}
-        >
+        // No label — the section heading right above already names it.
+        <TaskPropertyRow icon={MessageSquare}>
           <TaskPropertyEmpty>
             {t("detail.workspace.linkedSessionsEmpty")}
           </TaskPropertyEmpty>

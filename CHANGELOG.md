@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.23] - 2026-07-15
+- ADDED **[tasks,ui-core]** Refine task detail workspace + doc-sidebar polish
+
 ## [0.1.22] - 2026-07-14
 - ADDED **[offers,invoices]** Refine draft doc-sidebar layout
 - ADDED **[invoices]** Move draft settings sheet to doc sidebar
