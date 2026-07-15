@@ -7,6 +7,7 @@ import type {
   TenantMember,
   TenantRole,
 } from "../dal/superadmin.js";
+import { createApprovalService } from "../security/approval-service.js";
 import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
 
 async function signToken(capabilities: string[]) {
@@ -351,5 +352,75 @@ describe("superadmin routes — seat limit (maxUsers)", () => {
       body: JSON.stringify({ email: "x@y.z", tenant_id: tenantId }),
     });
     expect(create.status).toBe(200);
+  });
+});
+
+describe("superadmin routes — cross-tenant approvals", () => {
+  function createAppWithApprovals() {
+    const app = new OpenAPIHono();
+    const approvalService = createApprovalService();
+    registerSuperadminRoutes({ app, config: CONFIG, approvalService });
+    return { app, approvalService };
+  }
+
+  it("lists pending requests from every tenant", async () => {
+    const { app, approvalService } = createAppWithApprovals();
+    approvalService.request({
+      actorId: "agent-a",
+      tenantId: "tenant-a",
+      moduleId: "contacts",
+      operationId: "contacts.delete",
+      reason: "bulk delete",
+    });
+    approvalService.request({
+      actorId: "agent-b",
+      tenantId: "tenant-b",
+      moduleId: "invoices",
+      operationId: "invoices.void",
+      reason: "void run",
+    });
+
+    const res = await app.request("/api/superadmin/approvals", {
+      headers: await superadminHeaders(),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { tenantId: string }[] };
+    expect(body.data.map((r) => r.tenantId).sort()).toEqual([
+      "tenant-a",
+      "tenant-b",
+    ]);
+  });
+
+  it("decides a request belonging to another tenant", async () => {
+    const { app, approvalService } = createAppWithApprovals();
+    const pending = approvalService.request({
+      actorId: "agent-a",
+      tenantId: "tenant-a",
+      moduleId: "contacts",
+      operationId: "contacts.delete",
+      reason: "bulk delete",
+    });
+
+    const res = await app.request(
+      `/api/superadmin/approvals/${pending.id}/decision`,
+      {
+        method: "POST",
+        headers: await superadminHeaders(),
+        body: JSON.stringify({ decision: "allow_once" }),
+      }
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { status: string } };
+    expect(body.data.status).toBe("approved");
+    expect(approvalService.listPending()).toHaveLength(0);
+  });
+
+  it("rejects a non-superadmin token", async () => {
+    const { app } = createAppWithApprovals();
+    const token = await signToken(["core.users.manage"]);
+    const res = await app.request("/api/superadmin/approvals", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(403);
   });
 });

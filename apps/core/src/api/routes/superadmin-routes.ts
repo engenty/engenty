@@ -2,12 +2,26 @@ import { checkSeatLimit } from "@engenty/entitlements";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
 import { createSuperadminDal } from "../../dal/superadmin.js";
+import type {
+  ApprovalDecision,
+  createApprovalService,
+} from "../../security/approval-service.js";
 import {
   createNoopAuditLog,
   type SecurityAuditLogAdapter,
 } from "../../security/audit-adapter.js";
+import { recordCoreAuditEvent } from "../../security/audit-service.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
+
+type ApprovalService = ReturnType<typeof createApprovalService>;
+
+const APPROVAL_DECISIONS: ApprovalDecision[] = [
+  "allow_once",
+  "allow_session",
+  "allow_policy",
+  "deny",
+];
 
 const TENANT_TIERS = ["platform", "satellite"] as const;
 const TENANT_STATUSES = [
@@ -34,6 +48,12 @@ export function registerSuperadminRoutes(params: {
    * query any tenant — or all tenants at once by omitting `tenant_id`.
    */
   auditLog?: SecurityAuditLogAdapter;
+  /**
+   * Cross-tenant approval queue. `/api/security/approvals` is tenant-scoped;
+   * these superadmin routes let a platform admin see and decide any tenant's
+   * pending requests. Optional so route-only tests can omit it.
+   */
+  approvalService?: ApprovalService;
   /** Resolve a tenant's seat entitlement. Injectable for tests. */
   resolveSeatLimit?: (tenantId: string) => Promise<{
     maxUsers: number | null;
@@ -533,5 +553,52 @@ export function registerSuperadminRoutes(params: {
     const tenant_id = c.req.query("tenant_id")?.trim() || undefined;
     const distincts = await auditLog.distincts(tenant_id);
     return jsonApiSuccess(c, distincts);
+  });
+
+  // Cross-tenant pending approval queue. Unlike /api/security/approvals (scoped
+  // to the caller's tenant), this returns every tenant's pending requests.
+  params.app.get("/api/superadmin/approvals", async (c) => {
+    const authResult = await requireSuperAdmin(c, params.config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const pending = params.approvalService?.listPending() ?? [];
+    return jsonApiSuccess(c, pending);
+  });
+
+  // Decide any tenant's approval request as a platform admin.
+  params.app.post("/api/superadmin/approvals/:id/decision", async (c) => {
+    const authResult = await requireSuperAdmin(c, params.config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const approvalService = params.approvalService;
+    if (!approvalService) {
+      return jsonApiError(c, 503, { message: "Approvals unavailable" });
+    }
+    const body = (await c.req.json().catch(() => ({}))) as {
+      decision?: ApprovalDecision;
+    };
+    const decision = body.decision;
+    if (!(decision && APPROVAL_DECISIONS.includes(decision))) {
+      return jsonApiError(c, 400, { message: "Invalid decision" });
+    }
+    const decided = approvalService.decide({
+      requestId: c.req.param("id"),
+      decision,
+      decidedBy: authResult.auth.userId ?? "",
+    });
+    if (!decided) {
+      return jsonApiError(c, 404, { message: "Approval request not found" });
+    }
+    recordCoreAuditEvent(auditLog, {
+      type: "approval.decided",
+      actorId: authResult.auth.userId ?? undefined,
+      tenantId: decided.tenantId,
+      moduleId: decided.moduleId,
+      operationId: decided.operationId,
+      detail: { requestId: decided.id, decision, viaSuperadmin: true },
+    });
+    return jsonApiSuccess(c, decided);
   });
 }

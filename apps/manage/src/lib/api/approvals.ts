@@ -23,17 +23,17 @@ export interface ApprovalRequest {
 }
 
 /**
- * The pending-approval queue is a process-global in-memory list in core, so
- * this returns requests across every tenant — exactly what the platform console
- * wants. Superadmin-gated at the app level.
+ * Cross-tenant pending-approval queue. Uses the superadmin routes — the plain
+ * `/api/security/approvals` surface is scoped to the caller's own tenant; these
+ * return every tenant's requests and are gated by `requireSuperAdmin` in core.
  */
 export function listPendingApprovals(signal?: AbortSignal) {
-  return request<ApprovalRequest[]>("/api/security/approvals", { signal });
+  return request<ApprovalRequest[]>("/api/superadmin/approvals", { signal });
 }
 
 export function decideApproval(id: string, decision: ApprovalDecision) {
   return request<ApprovalRequest>(
-    `/api/security/approvals/${encodeURIComponent(id)}/decision`,
+    `/api/superadmin/approvals/${encodeURIComponent(id)}/decision`,
     { method: "POST", body: { decision } }
   );
 }

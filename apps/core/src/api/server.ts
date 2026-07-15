@@ -384,6 +384,7 @@ export function createApiApp(params: CreateApiAppParams) {
     app,
     config,
     auditLog: securityAuditLog,
+    approvalService,
   });
   registerAuthzRoutes({
     app,
