@@ -304,7 +304,6 @@
   },
   "logs": {
     "title": "Logs",
-    "subtitle": "Server log entries by day, plus the agents AI-debug stream.",
     "selectFile": "Select a log",
     "allLevels": "All levels",
     "searchPlaceholder": "Search entries…",
@@ -318,7 +317,6 @@
   },
   "audit": {
     "title": "Audit",
-    "subtitle": "Security audit events across every tenant. Filter by tenant, type, or module.",
     "allTenants": "All tenants",
     "allTypes": "All types",
     "allModules": "All modules",
@@ -335,7 +333,6 @@
   },
   "approvals": {
     "title": "Approvals",
-    "subtitle": "Pending module-operation approval requests across all tenants. Requests expire after a few minutes.",
     "approve": "Approve",
     "deny": "Deny",
     "approved": "Request approved.",
@@ -358,7 +355,6 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Runtime environment configuration for this deployment. Secret values are masked.",
     "filterPlaceholder": "Filter keys…",
     "masked": "secret",
     "unset": "not set",

@@ -304,7 +304,6 @@
   },
   "logs": {
     "title": "Protokolle",
-    "subtitle": "Server-Protokolleinträge pro Tag, plus der Agents-KI-Debug-Stream.",
     "selectFile": "Protokoll wählen",
     "allLevels": "Alle Stufen",
     "searchPlaceholder": "Einträge durchsuchen…",
@@ -318,7 +317,6 @@
   },
   "audit": {
     "title": "Audit",
-    "subtitle": "Sicherheits-Audit-Ereignisse über alle Mandanten. Nach Mandant, Typ oder Modul filtern.",
     "allTenants": "Alle Mandanten",
     "allTypes": "Alle Typen",
     "allModules": "Alle Module",
@@ -335,7 +333,6 @@
   },
   "approvals": {
     "title": "Freigaben",
-    "subtitle": "Ausstehende Freigabeanfragen für Modul-Operationen über alle Mandanten. Anfragen verfallen nach wenigen Minuten.",
     "approve": "Freigeben",
     "deny": "Ablehnen",
     "approved": "Anfrage freigegeben.",
@@ -358,7 +355,6 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Laufzeit-Umgebungskonfiguration dieser Installation. Geheime Werte sind maskiert.",
     "filterPlaceholder": "Schlüssel filtern…",
     "masked": "geheim",
     "unset": "nicht gesetzt",

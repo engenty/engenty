@@ -87,8 +87,6 @@ export function AuditPage() {
       title={t("audit.title")}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <p className="text-muted-foreground text-sm">{t("audit.subtitle")}</p>
-
         <div className="flex flex-wrap items-end gap-2">
           <Select
             onValueChange={(value) => {

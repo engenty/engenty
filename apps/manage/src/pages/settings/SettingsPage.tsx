@@ -37,9 +37,6 @@ export function SettingsPage() {
       title={t("settings.title")}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <p className="text-muted-foreground text-sm">
-          {t("settings.subtitle")}
-        </p>
         <Input
           aria-label={t("settings.filterPlaceholder")}
           className="max-w-xs shrink-0"

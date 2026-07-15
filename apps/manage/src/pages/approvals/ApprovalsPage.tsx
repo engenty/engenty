@@ -80,10 +80,6 @@ export function ApprovalsPage() {
       title={t("approvals.title")}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <p className="text-muted-foreground text-sm">
-          {t("approvals.subtitle")}
-        </p>
-
         <PageState
           error={approvals.error}
           isEmpty={rows.length === 0}
