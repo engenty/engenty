@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
 import { StatusBadge, TierBadge } from "@/components/tenant-badges";
+import { TenantAutomationTab } from "@/features/automation/TenantAutomationTab";
 import { TenantBillingTab } from "@/features/billing/TenantBillingTab";
 import { TenantEntitlementsTab } from "@/features/entitlements/TenantEntitlementsTab";
 import { FeatureFlagsEditor } from "@/features/feature-flags/FeatureFlagsEditor";
@@ -36,6 +37,7 @@ const TABS = new Set([
   "featureFlags",
   "entitlements",
   "billing",
+  "automation",
 ]);
 
 export function TenantDetailPage() {
@@ -171,6 +173,9 @@ export function TenantDetailPage() {
                   <TabsTrigger value="billing">
                     {t("tenants.tabs.billing")}
                   </TabsTrigger>
+                  <TabsTrigger value="automation">
+                    {t("tenants.tabs.automation")}
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="members">
                   <TenantMembersTab tenantId={id} />
@@ -186,6 +191,9 @@ export function TenantDetailPage() {
                 </TabsContent>
                 <TabsContent value="billing">
                   <TenantBillingTab tenantId={id} />
+                </TabsContent>
+                <TabsContent value="automation">
+                  <TenantAutomationTab tenantId={id} />
                 </TabsContent>
               </Tabs>
             </>

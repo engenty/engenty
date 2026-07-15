@@ -98,7 +98,8 @@
       "modules": "Module",
       "featureFlags": "Feature-Flags",
       "entitlements": "Berechtigungen",
-      "billing": "Abrechnung"
+      "billing": "Abrechnung",
+      "automation": "Automatisierung"
     },
     "members": {
       "add": "Mitglied hinzufügen",
@@ -114,6 +115,17 @@
     "edit": {
       "title": "Mandant bearbeiten",
       "success": "Mandant aktualisiert."
+    },
+    "automation": {
+      "hint": "Ereignisgesteuerte Regeln für diesen Mandanten. Regel ein-/ausschalten oder entfernen.",
+      "removed": "Regel entfernt.",
+      "removeTitle": "Automatisierungsregel entfernen",
+      "removeConfirm": "Entfernt die Regel dauerhaft. Dies kann nicht rückgängig gemacht werden.",
+      "columns": {
+        "hook": "Auslöser",
+        "effect": "Effekt",
+        "enabled": "Aktiv"
+      }
     }
   },
   "users": {
