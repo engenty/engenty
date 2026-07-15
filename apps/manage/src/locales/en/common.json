@@ -27,7 +27,8 @@
     "logs": "Logs",
     "audit": "Audit",
     "approvals": "Approvals",
-    "settings": "Settings"
+    "settings": "Settings",
+    "searchIndex": "Search index"
   },
   "common": {
     "save": "Save",
@@ -373,6 +374,28 @@
     "columns": {
       "key": "Key",
       "value": "Value"
+    }
+  },
+  "searchIndex": {
+    "title": "Search index",
+    "system": "system",
+    "status": "Status",
+    "diagnostics": "Diagnostics — {{id}}",
+    "queryLabel": "Query",
+    "queryPlaceholder": "Test query…",
+    "runSearch": "Search",
+    "matches": "{{total}} matches",
+    "noMatches": "No matches.",
+    "columns": {
+      "provider": "Provider",
+      "entity": "Entity",
+      "module": "Module",
+      "supports": "Supports"
+    },
+    "supports": {
+      "status": "status",
+      "search": "search",
+      "backfill": "backfill"
     }
   }
 }

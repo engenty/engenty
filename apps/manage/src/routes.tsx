@@ -8,6 +8,7 @@ import { ModulesListPage } from "@/pages/modules/ModulesListPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PackagesListPage } from "@/pages/packages/PackagesListPage";
 import { SatellitesListPage } from "@/pages/satellites/SatellitesListPage";
+import { SearchIndexPage } from "@/pages/search-index/SearchIndexPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { TenantDetailPage } from "@/pages/tenants/TenantDetailPage";
 import { TenantEditPage } from "@/pages/tenants/TenantEditPage";
@@ -35,6 +36,7 @@ export function ManageRoutes() {
       <Route element={<AuditPage />} path="/audit" />
       <Route element={<ApprovalsPage />} path="/approvals" />
       <Route element={<SettingsPage />} path="/settings" />
+      <Route element={<SearchIndexPage />} path="/search-index" />
       <Route element={<NotFoundPage />} path="*" />
     </Routes>
   );

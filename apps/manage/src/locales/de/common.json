@@ -27,7 +27,8 @@
     "logs": "Protokolle",
     "audit": "Audit",
     "approvals": "Freigaben",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "searchIndex": "Suchindex"
   },
   "common": {
     "save": "Speichern",
@@ -373,6 +374,28 @@
     "columns": {
       "key": "Schlüssel",
       "value": "Wert"
+    }
+  },
+  "searchIndex": {
+    "title": "Suchindex",
+    "system": "System",
+    "status": "Status",
+    "diagnostics": "Diagnose — {{id}}",
+    "queryLabel": "Suchbegriff",
+    "queryPlaceholder": "Testabfrage…",
+    "runSearch": "Suchen",
+    "matches": "{{total}} Treffer",
+    "noMatches": "Keine Treffer.",
+    "columns": {
+      "provider": "Provider",
+      "entity": "Entität",
+      "module": "Modul",
+      "supports": "Unterstützt"
+    },
+    "supports": {
+      "status": "Status",
+      "search": "Suche",
+      "backfill": "Backfill"
     }
   }
 }
