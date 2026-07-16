@@ -2,6 +2,11 @@
 // account filter live in the shell secondary nav (see InboxSidebarPanel) and
 // travel as `?lane=` / `?account=` search params; the selected thread is the
 // `/mdl/inbox/:threadId` route param so it deep-links.
+
+import {
+  PaneResizeHandle,
+  usePersistedEwResizePaneWidth,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
@@ -16,20 +21,35 @@ import {
   Skeleton,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { RefreshCw } from "lucide-react";
+import { Archive, Check, MessagesSquare, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import type { InboxMessageStatus, InboxThreadListItem } from "../api.js";
+import type {
+  InboxMessage,
+  InboxMessageStatus,
+  InboxThreadListItem,
+} from "../api.js";
 import { ThreadDetail } from "../components/thread-detail.js";
 import { useInboxSecondaryNav } from "../hooks/use-inbox-secondary-nav.js";
+import { formatInboxRelativeTime } from "../lib/format-relative-time.js";
+import {
+  INBOX_STATUS_BADGE_VARIANT,
+  isInboxStatusUnhandled,
+} from "../lib/inbox-status-badge.js";
 import {
   useInboxSearchQuery,
+  useInboxThreadQuery,
   useInboxThreadsQuery,
   useRunSyncNowMutation,
+  useSetMessageStatusMutation,
 } from "../queries.js";
 
 const PAGE_SIZE = 50;
+const LIST_PANE_WIDTH_KEY = "engenty.inbox.list_pane.width_px";
+const LIST_PANE_DEFAULT_WIDTH = 380;
+const LIST_PANE_MIN_WIDTH = 280;
+const LIST_PANE_MAX_WIDTH = 560;
 
 export function InboxClientPage() {
   const { t } = useTranslation("inbox");
@@ -43,14 +63,60 @@ export function InboxClientPage() {
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useInboxSecondaryNav();
+  const threadQuery = useInboxThreadQuery(threadId ?? null);
+  const setStatus = useSetMessageStatusMutation();
+  const threadDetail = threadQuery.data;
+  const threadSubject =
+    threadDetail?.thread.subject ?? (threadId ? t("list.noSubject") : null);
   const breadcrumbs = useMemo(
     () => [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       { label: t(`lanes.${lane}`) },
+      ...(threadId && threadSubject ? [{ label: threadSubject }] : []),
     ],
-    [moduleRootCrumb, t, lane]
+    [moduleRootCrumb, t, lane, threadId, threadSubject]
   );
+  const pageActions = useMemo(() => {
+    if (!(threadId && threadDetail)) {
+      return null;
+    }
+
+    const applyStatus = (
+      messages: InboxMessage[],
+      status: InboxMessageStatus
+    ) =>
+      setStatus.mutate(
+        { ids: messages.map((message) => message.id), status },
+        {
+          onError: (error) =>
+            toast.error(t("toasts.statusFailed", { error: String(error) })),
+          onSuccess: () => toast.success(t(`toasts.status.${status}`)),
+        }
+      );
+
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          disabled={setStatus.isPending}
+          onClick={() => applyStatus(threadDetail.messages, "processed")}
+          size="sm"
+          variant="outline"
+        >
+          <Check className="size-4" /> {t("actions.markProcessed")}
+        </Button>
+        <Button
+          disabled={setStatus.isPending}
+          onClick={() => applyStatus(threadDetail.messages, "archived")}
+          size="sm"
+          variant="outline"
+        >
+          <Archive className="size-4" /> {t("actions.archive")}
+        </Button>
+      </div>
+    );
+  }, [threadId, threadDetail, setStatus, t]);
   usePageConfig({
+    actions: pageActions,
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
@@ -75,15 +141,31 @@ export function InboxClientPage() {
   const threads = threadsQuery.data?.threads ?? [];
   const total = threadsQuery.data?.total ?? 0;
   const laneFiltered = lane !== "all" || Boolean(account);
+  const {
+    displayedWidthPx,
+    handleResizeKeyDown,
+    handleResizePointerDown,
+    isResizing,
+  } = usePersistedEwResizePaneWidth({
+    defaultPx: LIST_PANE_DEFAULT_WIDTH,
+    maxPx: LIST_PANE_MAX_WIDTH,
+    minPx: LIST_PANE_MIN_WIDTH,
+    storageKey: LIST_PANE_WIDTH_KEY,
+  });
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-row overflow-hidden">
       {/* List pane — hidden on mobile when a thread is open */}
       <div
         className={cn(
-          "flex h-full min-h-0 w-full flex-col border-r md:w-[380px] md:min-w-[340px] md:shrink-0",
-          threadId ? "hidden md:flex" : "flex"
+          "flex h-full min-h-0 flex-col md:w-[var(--inbox-list-width)] md:max-w-[50vw] md:shrink-0",
+          threadId ? "hidden md:flex" : "flex w-full"
         )}
+        style={
+          {
+            "--inbox-list-width": `${displayedWidthPx}px`,
+          } as React.CSSProperties
+        }
       >
         <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
           <Input
@@ -206,6 +288,15 @@ export function InboxClientPage() {
         </ScrollArea>
       </div>
 
+      <div className="hidden h-full shrink-0 md:block">
+        <PaneResizeHandle
+          isResizing={isResizing}
+          label={t("list.resizeListPane")}
+          onKeyDown={handleResizeKeyDown}
+          onPointerDown={handleResizePointerDown}
+        />
+      </div>
+
       {/* Detail pane — full-screen on mobile when a thread is open */}
       <div
         className={cn(
@@ -242,7 +333,9 @@ function ThreadRow({
   onOpen: () => void;
   thread: InboxThreadListItem;
 }) {
-  const { t } = useTranslation("inbox");
+  const { t, i18n } = useTranslation("inbox");
+  const unhandled = isInboxStatusUnhandled(thread.latest_status);
+
   return (
     <button
       className={cn(
@@ -252,40 +345,55 @@ function ThreadRow({
       onClick={onOpen}
       type="button"
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <span
-          className={cn(
-            "truncate text-sm",
-            thread.unhandled_count > 0 ? "font-semibold" : "font-medium"
-          )}
-        >
-          {thread.latest_from_name ??
-            thread.latest_from_email ??
-            thread.participants[0] ??
-            "—"}
-        </span>
-        <span className="shrink-0 text-muted-foreground text-xs">
-          {thread.last_message_at
-            ? new Date(thread.last_message_at).toLocaleDateString()
-            : ""}
-        </span>
+      <div className="flex gap-2">
+        <div className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block truncate text-sm",
+              unhandled ? "font-semibold" : "font-medium"
+            )}
+          >
+            {thread.latest_from_name ??
+              thread.latest_from_email ??
+              thread.participants[0] ??
+              "—"}
+          </span>
+          <span className="block truncate text-sm">
+            {thread.subject ?? t("list.noSubject")}
+          </span>
+          {thread.latest_snippet ? (
+            <p className="truncate text-muted-foreground text-xs">
+              {thread.latest_snippet}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="text-muted-foreground text-xs">
+            {formatInboxRelativeTime(thread.last_message_at, i18n.language)}
+          </span>
+          <div className="flex items-center gap-1.5">
+            {thread.message_count > 1 ? (
+              <span
+                className="inline-flex items-center gap-0.5 text-primary text-xs"
+                title={t("list.messageCountTitle", {
+                  count: thread.message_count,
+                })}
+              >
+                <MessagesSquare className="size-3.5" />
+                {thread.message_count}
+              </span>
+            ) : null}
+            {thread.latest_status ? (
+              <Badge
+                className="px-1.5 py-0 text-[10px]"
+                variant={INBOX_STATUS_BADGE_VARIANT[thread.latest_status]}
+              >
+                {t(`lanes.${thread.latest_status}`)}
+              </Badge>
+            ) : null}
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className="truncate text-sm">
-          {thread.subject ?? t("list.noSubject")}
-        </span>
-        {thread.message_count > 1 ? (
-          <Badge variant="secondary">{thread.message_count}</Badge>
-        ) : null}
-        {thread.unhandled_count > 0 ? (
-          <Badge>{thread.unhandled_count}</Badge>
-        ) : null}
-      </div>
-      {thread.latest_snippet ? (
-        <p className="truncate text-muted-foreground text-xs">
-          {thread.latest_snippet}
-        </p>
-      ) : null}
     </button>
   );
 }
@@ -297,7 +405,7 @@ function SearchResultList({
   onOpenThread: (threadId: string) => void;
   query: ReturnType<typeof useInboxSearchQuery>;
 }) {
-  const { t } = useTranslation("inbox");
+  const { t, i18n } = useTranslation("inbox");
   if (query.isLoading) {
     return (
       <div className="space-y-2 p-3">
@@ -344,9 +452,7 @@ function SearchResultList({
               {item.message.from_name ?? item.message.from_email ?? "—"}
             </span>
             <span className="shrink-0 text-muted-foreground text-xs">
-              {item.message.received_at
-                ? new Date(item.message.received_at).toLocaleDateString()
-                : ""}
+              {formatInboxRelativeTime(item.message.received_at, i18n.language)}
             </span>
           </div>
           <span className="truncate text-sm">

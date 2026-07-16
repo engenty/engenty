@@ -7,6 +7,8 @@ import { z } from "@hono/zod-openapi";
 import type { InboxRepo } from "../dal/contracts.js";
 import {
   inboxAccountsListResultSchema,
+  inboxAttachmentGetInputSchema,
+  inboxAttachmentGetResultSchema,
   inboxSetStatusInputSchema,
   inboxSetStatusResultSchema,
   inboxSyncRunInputSchema,
@@ -20,6 +22,7 @@ import {
 } from "../schema/zod.js";
 import type { InboxSyncDeps } from "../sync/sync-service.js";
 import { runInboxSync } from "../sync/sync-service.js";
+import { fetchInboxAttachment } from "./fetch-attachment.js";
 
 /**
  * The acting user for owner visibility. Core's runtime auth carries `userId`
@@ -200,6 +203,32 @@ export function registerInboxGatewayMethods(
         ...(parsed.sync_enabled === undefined
           ? {}
           : { sync_enabled: parsed.sync_enabled }),
+      });
+    },
+  });
+
+  api.registerOperation({
+    operationId: "inbox_attachment_get",
+    moduleId: "inbox",
+    summary: "Fetch attachment bytes for an inbox message preview",
+    requiredCapabilities: ["module.inbox.read"],
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: inboxAttachmentGetInputSchema,
+    outputSchema: inboxAttachmentGetResultSchema,
+    handler: async (input, ctx) => {
+      const auth = ctx.auth;
+      if (!auth) {
+        throw new Error("inbox_attachment_get requires authentication");
+      }
+      const parsed = inboxAttachmentGetInputSchema.parse(input);
+      return fetchInboxAttachment({
+        attachmentId: parsed.attachment_id,
+        auth,
+        connectionsClient,
+        getConnector,
+        messageId: parsed.message_id,
+        repo: repoForAuth(auth),
       });
     },
   });

@@ -7,6 +7,7 @@ import {
 } from "@engenty/query-client";
 import type { InboxMessageStatus, InboxThreadsListParams } from "./api.js";
 import {
+  getInboxAttachment,
   getInboxThread,
   listInboxAccounts,
   listInboxThreads,
@@ -21,6 +22,8 @@ export const inboxKeys = {
   accounts: () => [...inboxKeys.all, "accounts"] as const,
   search: (query: string) => [...inboxKeys.all, "search", query] as const,
   thread: (id: string) => [...inboxKeys.all, "thread", id] as const,
+  attachment: (messageId: string, attachmentId: string) =>
+    [...inboxKeys.all, "attachment", messageId, attachmentId] as const,
   threads: (params: InboxThreadsListParams) =>
     [
       ...inboxKeys.all,
@@ -55,6 +58,23 @@ export function useInboxThreadQuery(id: string | null) {
   return useQuery({
     ...inboxThreadOptions(id ?? ""),
     enabled: Boolean(id),
+  });
+}
+
+export function useInboxAttachmentQuery(
+  messageId: string,
+  attachmentId: string | null,
+  enabled = true
+) {
+  return useQuery({
+    enabled: enabled && Boolean(messageId && attachmentId),
+    queryFn: ({ signal }) =>
+      getInboxAttachment(
+        { attachment_id: attachmentId!, message_id: messageId },
+        signal
+      ),
+    queryKey: inboxKeys.attachment(messageId, attachmentId ?? ""),
+    staleTime: 5 * 60_000,
   });
 }
 

@@ -23,10 +23,15 @@
     "archived": "Archiviert"
   },
   "list": {
+    "messageCountTitle_one": "{{count}} Nachricht im Thread",
+    "messageCountTitle_other": "{{count}} Nachrichten im Thread",
     "next": "Weiter",
     "noSubject": "(kein Betreff)",
     "pageInfo": "{{from}}–{{to}} von {{total}}",
-    "previous": "Zurück"
+    "previous": "Zurück",
+    "resizeListPane": "Breite der Nachrichtenliste anpassen",
+    "unhandledCountTitle_one": "{{count}} unbearbeitete Nachricht",
+    "unhandledCountTitle_other": "{{count}} unbearbeitete Nachrichten"
   },
   "search": {
     "noResults": "Keine Nachrichten gefunden"
@@ -43,6 +48,7 @@
     "emptyBody": "Diese Nachricht hat keinen Inhalt.",
     "hideQuoted": "Zitierten Text ausblenden",
     "notFound": "Konversation nicht gefunden",
+    "openAttachment": "{{name}} öffnen",
     "showQuoted": "Zitierten Text anzeigen",
     "to": "An: {{to}}"
   },
@@ -61,6 +67,7 @@
     "title": "Posteingang-Einstellungen"
   },
   "toasts": {
+    "attachmentOpenFailed": "Anhang konnte nicht geöffnet werden: {{error}}",
     "settingsFailed": "Speichern fehlgeschlagen: {{error}}",
     "status": {
       "archived": "Konversation archiviert",

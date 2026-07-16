@@ -23,10 +23,15 @@
     "archived": "Archived"
   },
   "list": {
+    "messageCountTitle_one": "{{count}} message in thread",
+    "messageCountTitle_other": "{{count}} messages in thread",
     "next": "Next",
     "noSubject": "(no subject)",
     "pageInfo": "{{from}}–{{to}} of {{total}}",
-    "previous": "Previous"
+    "previous": "Previous",
+    "resizeListPane": "Resize message list",
+    "unhandledCountTitle_one": "{{count}} unhandled message",
+    "unhandledCountTitle_other": "{{count}} unhandled messages"
   },
   "search": {
     "noResults": "No messages match your search"
@@ -43,6 +48,7 @@
     "emptyBody": "This message has no body.",
     "hideQuoted": "Hide quoted text",
     "notFound": "Thread not found",
+    "openAttachment": "Open {{name}}",
     "showQuoted": "Show quoted text",
     "to": "To: {{to}}"
   },
@@ -61,6 +67,7 @@
     "title": "Inbox settings"
   },
   "toasts": {
+    "attachmentOpenFailed": "Could not open attachment: {{error}}",
     "settingsFailed": "Saving settings failed: {{error}}",
     "status": {
       "archived": "Thread archived",
