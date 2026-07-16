@@ -95,6 +95,9 @@ export function FeatureFlagsEditor({ tenantId }: { tenantId?: string }) {
                       >
                         <div className="min-w-0">
                           <p className="truncate font-medium text-sm">
+                            {flagLabel(def)}
+                          </p>
+                          <p className="truncate font-mono text-muted-foreground text-xs">
                             {def.key}
                           </p>
                           {tenantId ? (
@@ -134,6 +137,17 @@ export function FeatureFlagsEditor({ tenantId }: { tenantId?: string }) {
       </PageState>
     </div>
   );
+}
+
+/**
+ * Readable label derived from the flag key's last dot-segment. Manage doesn't
+ * load module i18n namespaces, so `def.labelKey` can't resolve here — this gives
+ * a friendly label while the raw key stays visible below for precision.
+ */
+function flagLabel(def: FeatureFlagDefinition): string {
+  const leaf = def.key.split(".").pop() || def.key;
+  const words = leaf.replace(/[_-]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : def.key;
 }
 
 function groupByPlugin(
