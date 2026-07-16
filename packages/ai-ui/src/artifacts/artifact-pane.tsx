@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { ObjectPaneBody } from "../objects/object-pane-body.js";
 import {
   ArtifactPinMenu,
   type ArtifactStoreTarget,
@@ -18,6 +19,7 @@ import {
   resolveArtifactEditor,
   resolveArtifactRenderer,
 } from "./artifact-renderers.js";
+import type { ObjectPaneTab } from "./artifact-store.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
 
 const SOURCE_FILE_BY_TYPE: Record<string, { ext: string; mime: string }> = {
@@ -67,6 +69,8 @@ export interface ArtifactPaneProps {
   onSetPaneOpen: (open: boolean) => void;
   /** Store ("pin") the active artifact to a task/project scope; omitting hides the pin menu. */
   onStore?: (target: ArtifactStoreTarget & { artifactId: string }) => void;
+  /** Module-object tabs sharing the strip with artifact tabs (see artifact-store). */
+  objectTabs?: ObjectPaneTab[];
   paneExpanded: boolean;
   storePending?: boolean;
   /** Task offered as a one-click store target (set on task detail routes). */
@@ -93,6 +97,7 @@ export function ArtifactPane({
   onSetExpanded,
   onSetPaneOpen,
   onStore,
+  objectTabs = [],
   paneExpanded,
   storePending,
   storeTaskTarget,
@@ -101,7 +106,11 @@ export function ArtifactPane({
   const { t } = useTranslation("ai-ui");
   const ExpandIcon = paneExpanded ? Minimize2 : Maximize2;
 
-  const active = artifacts.find((a) => a.id === activeId) ?? null;
+  const activeObjectTab =
+    objectTabs.find((tab) => tab.key === activeId) ?? null;
+  const active = activeObjectTab
+    ? null
+    : (artifacts.find((a) => a.id === activeId) ?? null);
   const Renderer = active ? resolveArtifactRenderer(active.type) : null;
   const Editor = active ? resolveArtifactEditor(active.type) : null;
 
@@ -255,7 +264,10 @@ export function ArtifactPane({
           <PaneTabStrip
             activeId={activeId}
             closeLabel={t("artifacts.closeTab")}
-            items={artifacts.map((a) => ({ id: a.id, label: a.title }))}
+            items={[
+              ...artifacts.map((a) => ({ id: a.id, label: a.title })),
+              ...objectTabs.map((tab) => ({ id: tab.key, label: tab.title })),
+            ]}
             onActivate={onActivate}
             onClose={onClose}
           />
@@ -273,7 +285,9 @@ export function ArtifactPane({
           {saveError}
         </p>
       ) : null}
-      {active && isEditingActive && Editor ? (
+      {activeObjectTab ? (
+        <ObjectPaneBody objectRef={activeObjectTab.ref} />
+      ) : active && isEditingActive && Editor ? (
         <Editor
           artifact={active}
           initialContent={editing?.baseContent ?? ""}

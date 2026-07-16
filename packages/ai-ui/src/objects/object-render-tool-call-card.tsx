@@ -7,12 +7,19 @@ import {
   parseObjectRef,
   readObjectRenderMeta,
 } from "@engenty/ai-core/browser";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { ENGENTY_COPILOT_HOST_KEY } from "../agent-provider/host-keys";
+import { openObjectPaneTab } from "../artifacts/artifact-store";
 import type { ToolCallCardProps } from "../components/copilot/tool-call/tool-call-card.types";
 import { ToolCallCardBase } from "../components/copilot/tool-call/tool-call-card-base";
 import { ObjectFallbackCard } from "./object-fallback-card";
 import { useObjectDisplayIntent } from "./object-display-intent";
 import { useObjectWidgets } from "./object-widget-registry";
+
+// Display hints run once per tool call in the session that streamed them —
+// remounts (tab switches, virtualization) and transcript replay after reload
+// must not re-open the pane.
+const executedDisplayHints = new Set<string>();
 
 /**
  * Generic inline card for `show_objects` (and any tool output carrying
@@ -63,12 +70,42 @@ export function ObjectRenderToolCallCard(props: ToolCallCardProps) {
   const meta = readObjectRenderMeta(props.output);
   // Subscribe so late plugin registration upgrades fallback → native card.
   useObjectWidgets();
-  const { openInPanel } = useObjectDisplayIntent();
+  const { openInPanel, applyDisplayHint } = useObjectDisplayIntent();
 
   const grouped = useMemo(
     () => (meta ? groupRefs(meta.refs, meta.items) : null),
     [meta]
   );
+
+  // Execute the agent's panel/expanded hint only when this card streamed live
+  // (initial mount was pre-completion) — replayed transcripts render inline.
+  const sawStreaming = useRef((props.state ?? "completed") !== "completed");
+  const state = props.state ?? "completed";
+  useEffect(() => {
+    if (
+      !(sawStreaming.current && state === "completed" && meta && grouped) ||
+      meta.display === "inline" ||
+      grouped.groups.length === 0
+    ) {
+      return;
+    }
+    const hintKey = props.toolCallId ?? meta.refs.join(" ");
+    if (executedDisplayHints.has(hintKey)) {
+      return;
+    }
+    executedDisplayHints.add(hintKey);
+    const refs = grouped.groups.flatMap((group) => group.refs);
+    if (applyDisplayHint) {
+      applyDisplayHint(refs, meta.display);
+      return;
+    }
+    const first = refs[0];
+    const firstItem = grouped.groups[0]?.items[0];
+    openObjectPaneTab(ENGENTY_COPILOT_HOST_KEY, first, {
+      expanded: meta.display === "expanded",
+      title: meta.title ?? firstItem?.title,
+    });
+  }, [state, meta, grouped, applyDisplayHint, props.toolCallId]);
 
   if (!(meta && grouped) || (props.state ?? "completed") !== "completed") {
     const details = meta
@@ -87,13 +124,17 @@ export function ObjectRenderToolCallCard(props: ToolCallCardProps) {
     );
   }
 
+  const handleOpenInPanel =
+    openInPanel ??
+    ((ref: ObjectRef) => openObjectPaneTab(ENGENTY_COPILOT_HOST_KEY, ref));
+
   return (
     <div className="my-1 flex w-full flex-col gap-2">
       {grouped.groups.map((group) => (
         <ObjectRefGroup
           group={group}
           key={group.typeKey}
-          onOpenInPanel={openInPanel}
+          onOpenInPanel={handleOpenInPanel}
           provenance={meta.provenance}
         />
       ))}

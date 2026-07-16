@@ -14,7 +14,12 @@ import { createPortal } from "react-dom";
 import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
 import { ArtifactPane } from "./artifact-pane.js";
 import type { ArtifactStoreTarget } from "./artifact-pin-menu.js";
-import { useArtifactListSync, useArtifacts } from "./artifact-store.js";
+import {
+  closeObjectPaneTab,
+  isObjectPaneTabKey,
+  useArtifactListSync,
+  useArtifacts,
+} from "./artifact-store.js";
 import {
   type ArtifactScopeType,
   type ArtifactSummary,
@@ -83,6 +88,7 @@ export function WorkspaceArtifactPane({
 
   const {
     activeId,
+    objectTabs,
     paneExpanded,
     paneOpen,
     activate,
@@ -111,10 +117,11 @@ export function WorkspaceArtifactPane({
       primaryQuery.isSuccess && (!extraScope?.id || extraQuery.isSuccess),
   });
 
+  const activeArtifactId = isObjectPaneTabKey(activeId) ? null : activeId;
   const activeVersion = artifacts.find(
-    (a) => a.id === activeId
+    (a) => a.id === activeArtifactId
   )?.current_version;
-  const detailQuery = useArtifactDetailQuery(activeId, activeVersion);
+  const detailQuery = useArtifactDetailQuery(activeArtifactId, activeVersion);
 
   const target = useWorkspaceEndPaneTarget();
   const {
@@ -193,8 +200,20 @@ export function WorkspaceArtifactPane({
         artifacts={artifacts}
         className={paneExpanded ? "my-2 mr-2 ml-2 min-w-0 flex-1" : "my-2 mr-2"}
         isContentLoading={detailQuery.isLoading}
+        objectTabs={objectTabs}
         onActivate={activate}
-        onClose={(id) => archive.mutate(id)}
+        onClose={(id) => {
+          // Object tabs are transient view state; artifact tabs archive.
+          if (isObjectPaneTabKey(id)) {
+            closeObjectPaneTab(
+              hostKey,
+              id,
+              artifacts.map((a) => a.id)
+            );
+            return;
+          }
+          archive.mutate(id);
+        }}
         onSaveContent={async ({ artifactId, content, expectedVersion }) => {
           await createArtifactVersion({
             serviceBaseUrl: resolveEngentyAiServiceBaseUrlSafe(),
