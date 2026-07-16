@@ -7,11 +7,11 @@ import type { InboxRepo } from "../dal/contracts.js";
 
 const MAX_PREVIEW_BYTES = 1_048_576;
 
-type AttachmentFetchResult = {
+interface AttachmentFetchResult {
   data_base64: string;
   filename: string | null;
   mime_type: string | null;
-};
+}
 
 function actingUserId(auth: PluginAuthContext): string {
   const withUser = auth as PluginAuthContext & { userId?: string };
