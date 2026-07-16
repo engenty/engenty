@@ -50,6 +50,41 @@ interface PhaseDisplaySettingsCardProps {
 const formatPhaseIndexPreview = (pattern: string): string =>
   `${[1, 2, 3].map((i) => formatPhaseIndex(pattern, i)).join(", ")}...`;
 
+const PHASE_INDEX_PATTERN_EXAMPLES = [
+  { sample: "1, 2, 3...", token: "1" },
+  { sample: "A, B, C...", token: "A" },
+  { sample: "a, b, c...", token: "a" },
+  { sample: "I, II, III...", token: "I" },
+] as const;
+
+function PhaseIndexPatternHelp({ helpText }: { helpText: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="h-4 w-4 cursor-help text-muted-foreground" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm py-2" side="top">
+          <div className="flex min-w-[14rem] flex-col gap-2 text-left">
+            <p className="text-xs leading-snug">{helpText}</p>
+            <ul className="space-y-1 text-xs">
+              {PHASE_INDEX_PATTERN_EXAMPLES.map(({ sample, token }) => (
+                <li className="flex items-center gap-1.5" key={token}>
+                  <code className="rounded bg-background/20 px-1 font-mono">
+                    {token}
+                  </code>
+                  <span aria-hidden>→</span>
+                  <span>{sample}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export const PhaseDisplaySettingsCard = ({
   documentType,
   displaySettings,
@@ -72,8 +107,8 @@ export const PhaseDisplaySettingsCard = ({
     return (
       <>
         {showDefaultRate ? (
-          <div className="flex items-center justify-between p-4">
-            <div>
+          <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] items-center gap-3 p-4">
+            <div className="min-w-0">
               <Label
                 className="font-semibold text-sm"
                 htmlFor="default-tax-rate-tax-only"
@@ -84,30 +119,32 @@ export const PhaseDisplaySettingsCard = ({
                 {t("offers.settings.defaultTaxRateDescription")}
               </p>
             </div>
-            <Select
-              disabled={disabled}
-              onValueChange={(value) =>
-                onDisplaySettingChange(
-                  "defaultTaxRate",
-                  Number.parseFloat(value)
-                )
-              }
-              value={String(displaySettings.defaultTaxRate ?? 0)}
-            >
-              <SelectTrigger className="min-w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {defaultTaxSelectOptions.map((rate, idx) => (
-                  <SelectItem
-                    key={`${rate.value}-${rate.name}-${idx}`}
-                    value={String(rate.value)}
-                  >
-                    {getTaxRateOptionLabel(rate)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="min-w-0">
+              <Select
+                disabled={disabled}
+                onValueChange={(value) =>
+                  onDisplaySettingChange(
+                    "defaultTaxRate",
+                    Number.parseFloat(value)
+                  )
+                }
+                value={String(displaySettings.defaultTaxRate ?? 0)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {defaultTaxSelectOptions.map((rate, idx) => (
+                    <SelectItem
+                      key={`${rate.value}-${rate.name}-${idx}`}
+                      value={String(rate.value)}
+                    >
+                      {getTaxRateOptionLabel(rate)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         ) : null}
         {showDefaultRate ? <SettingsCardSeparator /> : null}
@@ -164,36 +201,11 @@ export const PhaseDisplaySettingsCard = ({
                 <Label className="text-sm" htmlFor="phase-index-pattern-po">
                   {t(`${documentType}s.settings.phaseIndexPattern`)}
                 </Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-4 w-4 cursor-help text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs" side="top">
-                      <p className="text-sm">
-                        {t(`${documentType}s.settings.phaseIndexPatternHelp`)}
-                      </p>
-                      <ul className="mt-1 space-y-0.5 text-xs">
-                        <li>
-                          <code className="rounded bg-muted px-1">1</code> → 1,
-                          2, 3...
-                        </li>
-                        <li>
-                          <code className="rounded bg-muted px-1">A</code> → A,
-                          B, C...
-                        </li>
-                        <li>
-                          <code className="rounded bg-muted px-1">a</code> → a,
-                          b, c...
-                        </li>
-                        <li>
-                          <code className="rounded bg-muted px-1">I</code> → I,
-                          II, III...
-                        </li>
-                      </ul>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <PhaseIndexPatternHelp
+                  helpText={t(
+                    `${documentType}s.settings.phaseIndexPatternHelp`
+                  )}
+                />
               </div>
               <Input
                 className="w-full"
@@ -266,36 +278,11 @@ export const PhaseDisplaySettingsCard = ({
                   <Label className="text-sm" htmlFor="phase-index-pattern">
                     {t(`${documentType}s.settings.phaseIndexPattern`)}
                   </Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 cursor-help text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs" side="top">
-                        <p className="text-sm">
-                          {t(`${documentType}s.settings.phaseIndexPatternHelp`)}
-                        </p>
-                        <ul className="mt-1 space-y-0.5 text-xs">
-                          <li>
-                            <code className="rounded bg-muted px-1">1</code> →
-                            1, 2, 3...
-                          </li>
-                          <li>
-                            <code className="rounded bg-muted px-1">A</code> →
-                            A, B, C...
-                          </li>
-                          <li>
-                            <code className="rounded bg-muted px-1">a</code> →
-                            a, b, c...
-                          </li>
-                          <li>
-                            <code className="rounded bg-muted px-1">I</code> →
-                            I, II, III...
-                          </li>
-                        </ul>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <PhaseIndexPatternHelp
+                    helpText={t(
+                      `${documentType}s.settings.phaseIndexPatternHelp`
+                    )}
+                  />
                 </div>
                 <Input
                   className="w-full"
@@ -345,8 +332,8 @@ export const PhaseDisplaySettingsCard = ({
           {!displaySettings.showTaxPerItem && documentType === "offer" && (
             <>
               <SettingsCardSeparator />
-              <div className="flex items-center justify-between p-4">
-                <div>
+              <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] items-center gap-3 p-4">
+                <div className="min-w-0">
                   <Label
                     className="font-semibold text-sm"
                     htmlFor="default-tax-rate"
@@ -357,30 +344,32 @@ export const PhaseDisplaySettingsCard = ({
                     {t("offers.settings.defaultTaxRateDescription")}
                   </p>
                 </div>
-                <Select
-                  disabled={disabled}
-                  onValueChange={(value) =>
-                    onDisplaySettingChange(
-                      "defaultTaxRate",
-                      Number.parseFloat(value)
-                    )
-                  }
-                  value={String(displaySettings.defaultTaxRate ?? 0)}
-                >
-                  <SelectTrigger className="min-w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {defaultTaxSelectOptions.map((rate, idx) => (
-                      <SelectItem
-                        key={`${rate.value}-${rate.name}-${idx}`}
-                        value={String(rate.value)}
-                      >
-                        {getTaxRateOptionLabel(rate)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="min-w-0">
+                  <Select
+                    disabled={disabled}
+                    onValueChange={(value) =>
+                      onDisplaySettingChange(
+                        "defaultTaxRate",
+                        Number.parseFloat(value)
+                      )
+                    }
+                    value={String(displaySettings.defaultTaxRate ?? 0)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {defaultTaxSelectOptions.map((rate, idx) => (
+                        <SelectItem
+                          key={`${rate.value}-${rate.name}-${idx}`}
+                          value={String(rate.value)}
+                        >
+                          {getTaxRateOptionLabel(rate)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </>
           )}
