@@ -1,41 +1,163 @@
-// Grouping + formatting helpers for the tenant-wide artifacts admin list.
-// The organising principle is the artifact's *scope* — thread / task / project
-// / goal — because scope is what determines who can see it. Physical storage
-// is shown as a secondary per-card detail.
+// Filter / sort / group logic for the artifacts admin list. Scope (thread /
+// task / project / goal) is the default grouping because it decides who can
+// see an artifact; storage, type, status and creator are also selectable.
 
 import type { AdminArtifactRow } from "../../artifacts/artifacts-api";
 
-/** Scope types, in the promotion order thread → task → project → goal. */
 export const ARTIFACT_SCOPE_ORDER = [
   "thread",
   "task",
   "project",
   "goal",
 ] as const;
+export const ARTIFACT_STORAGE_ORDER = ["inline", "blob"] as const;
 
-export interface ArtifactScopeGroup {
-  /** "thread" | "task" | "project" | "goal" — matches ai.artifact.scope_type. */
+export type ArtifactGroupBy =
+  | "scope"
+  | "type"
+  | "storage"
+  | "status"
+  | "creator"
+  | "none";
+export type ArtifactSortBy = "title" | "updated_at" | "type";
+export type ArtifactScopeFilter =
+  | "all"
+  | "thread"
+  | "task"
+  | "project"
+  | "goal";
+export type ArtifactStorageFilter = "all" | "inline" | "blob";
+export type ArtifactStatusFilter = "active" | "archived" | "all";
+export type ArtifactCreatorFilter = "all" | "agent" | "user";
+
+export interface ArtifactCatalogFilterState {
+  creator: ArtifactCreatorFilter;
+  scope: ArtifactScopeFilter;
+  searchQuery: string;
+  sortBy: ArtifactSortBy;
+  sortOrder: "asc" | "desc";
+  status: ArtifactStatusFilter;
+  storage: ArtifactStorageFilter;
+  /** "all" or a concrete artifact type (markdown / html / table / …). */
+  typeFilter: string;
+}
+
+export interface ArtifactCatalogGroup {
   id: string;
   rows: AdminArtifactRow[];
 }
 
-/** Group rows by scope type, preserving each group's incoming sort. */
-export function groupArtifactsByScope(
-  rows: AdminArtifactRow[]
-): ArtifactScopeGroup[] {
+/** Fixed key order per grouping facet; type is sorted alphabetically instead. */
+const GROUP_ORDER: Record<string, readonly string[]> = {
+  creator: ["agent", "user"],
+  scope: ARTIFACT_SCOPE_ORDER,
+  status: ["active", "archived"],
+  storage: ARTIFACT_STORAGE_ORDER,
+};
+
+function searchableText(row: AdminArtifactRow): string {
+  return [
+    row.title,
+    row.type,
+    row.scope_type,
+    row.scope_id,
+    row.storage,
+    row.created_by_kind,
+    row.id,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/** Distinct artifact types present in the data, for the type filter options. */
+export function getArtifactTypeValues(rows: readonly AdminArtifactRow[]) {
+  return [...new Set(rows.map((row) => row.type))]
+    .filter(Boolean)
+    .toSorted((left, right) => left.localeCompare(right));
+}
+
+export function filterAndSortArtifacts(
+  rows: readonly AdminArtifactRow[],
+  state: ArtifactCatalogFilterState
+): AdminArtifactRow[] {
+  const query = state.searchQuery.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (state.scope !== "all" && row.scope_type !== state.scope) {
+      return false;
+    }
+    if (state.typeFilter !== "all" && row.type !== state.typeFilter) {
+      return false;
+    }
+    if (state.storage !== "all" && row.storage !== state.storage) {
+      return false;
+    }
+    if (state.status !== "all" && row.status !== state.status) {
+      return false;
+    }
+    if (state.creator !== "all" && row.created_by_kind !== state.creator) {
+      return false;
+    }
+    return !(query && !searchableText(row).includes(query));
+  });
+
+  const direction = state.sortOrder === "asc" ? 1 : -1;
+  return filtered.toSorted((left, right) => {
+    const leftValue =
+      state.sortBy === "updated_at"
+        ? left.updated_at
+        : state.sortBy === "type"
+          ? `${left.type}:${left.title}`
+          : left.title;
+    const rightValue =
+      state.sortBy === "updated_at"
+        ? right.updated_at
+        : state.sortBy === "type"
+          ? `${right.type}:${right.title}`
+          : right.title;
+    return String(leftValue).localeCompare(String(rightValue)) * direction;
+  });
+}
+
+function groupKey(row: AdminArtifactRow, groupBy: ArtifactGroupBy): string {
+  switch (groupBy) {
+    case "scope":
+      return row.scope_type;
+    case "storage":
+      return row.storage;
+    case "status":
+      return row.status;
+    case "creator":
+      return row.created_by_kind;
+    default:
+      return row.type;
+  }
+}
+
+export function groupArtifacts(
+  rows: readonly AdminArtifactRow[],
+  groupBy: ArtifactGroupBy
+): ArtifactCatalogGroup[] {
+  if (rows.length === 0) {
+    return [];
+  }
+  if (groupBy === "none") {
+    return [{ id: "all", rows: [...rows] }];
+  }
+
   const buckets = new Map<string, AdminArtifactRow[]>();
   for (const row of rows) {
-    const bucket = buckets.get(row.scope_type) ?? [];
-    bucket.push(row);
-    buckets.set(row.scope_type, bucket);
+    const key = groupKey(row, groupBy);
+    buckets.set(key, [...(buckets.get(key) ?? []), row]);
   }
-  // Known scopes first (stable order), then any unexpected values as-seen.
-  const ids = [
-    ...ARTIFACT_SCOPE_ORDER.filter((id) => buckets.has(id)),
-    ...[...buckets.keys()].filter(
-      (id) => !ARTIFACT_SCOPE_ORDER.includes(id as never)
-    ),
-  ];
+
+  const order = GROUP_ORDER[groupBy];
+  const ids = order
+    ? [
+        ...order.filter((id) => buckets.has(id)),
+        ...[...buckets.keys()].filter((id) => !order.includes(id)),
+      ]
+    : [...buckets.keys()].toSorted((left, right) => left.localeCompare(right));
   return ids.map((id) => ({ id, rows: buckets.get(id) ?? [] }));
 }
 
