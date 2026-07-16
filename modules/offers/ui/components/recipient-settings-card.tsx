@@ -86,50 +86,51 @@ export function RecipientSettingsCard({
   };
 
   return (
-    <div className="ui-canvas-raised relative overflow-hidden rounded-lg bg-card p-4">
-      <div className="absolute top-2 right-2 flex gap-1">
-        {canManageClient && onChangeClient ? (
-          <Button
-            className="h-6 w-6"
-            onClick={onChangeClient}
-            size="icon"
-            title={t("changeClient")}
-            variant="ghost"
-          >
-            <FolderInput className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-        ) : null}
-        {clientId && onRefreshClient ? (
-          <Button
-            className="h-6 w-6"
-            disabled={refreshState === "loading"}
-            onClick={() => {
-              handleRefreshClick();
-            }}
-            size="icon"
-            title={t("refreshFromClient")}
-            variant="ghost"
-          >
-            {getRefreshButtonIcon(refreshState)}
-          </Button>
-        ) : null}
-        {clientId && (
-          <Button
-            className="h-6 w-6"
-            onClick={() => navigate(`/mdl/contacts/${clientId}`)}
-            size="icon"
-            title={t("viewClient")}
-            variant="ghost"
-          >
-            <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-        )}
-      </div>
-
-      <div className="space-y-2 pr-10 text-sm">
-        <p className="font-semibold text-foreground">
-          {clientDetails.display_name || "—"}
-        </p>
+    <div className="ui-canvas-raised overflow-hidden rounded-lg bg-card p-4">
+      <div className="space-y-2 text-sm">
+        <div className="flex items-start gap-1">
+          <p className="min-w-0 flex-1 font-semibold text-foreground">
+            {clientDetails.display_name || "—"}
+          </p>
+          <div className="-mt-1 -mr-1.5 flex shrink-0 gap-1">
+            {canManageClient && onChangeClient ? (
+              <Button
+                className="h-6 w-6"
+                onClick={onChangeClient}
+                size="icon"
+                title={t("changeClient")}
+                variant="ghost"
+              >
+                <FolderInput className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            ) : null}
+            {clientId && onRefreshClient ? (
+              <Button
+                className="h-6 w-6"
+                disabled={refreshState === "loading"}
+                onClick={() => {
+                  handleRefreshClick();
+                }}
+                size="icon"
+                title={t("refreshFromClient")}
+                variant="ghost"
+              >
+                {getRefreshButtonIcon(refreshState)}
+              </Button>
+            ) : null}
+            {clientId ? (
+              <Button
+                className="h-6 w-6"
+                onClick={() => navigate(`/mdl/contacts/${clientId}`)}
+                size="icon"
+                title={t("viewClient")}
+                variant="ghost"
+              >
+                <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            ) : null}
+          </div>
+        </div>
         {clientDetails.address_street && (
           <p className="whitespace-pre-line text-foreground">
             {clientDetails.address_street}
