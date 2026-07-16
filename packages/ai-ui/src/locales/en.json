@@ -165,7 +165,7 @@
   },
   "artifactsCatalog": {
     "title": "Artifacts",
-    "lede": "Documents created by agents and users — grouped by where they physically live.",
+    "lede": "Documents created by agents and users — grouped by their scope (chat, task, project, goal), which decides who can see them.",
     "empty": "No artifacts yet.",
     "emptyDescription": "Artifacts appear when an agent produces a document, table, or HTML.",
     "showArchived": "Show archived",
@@ -197,7 +197,19 @@
       "task": "Task",
       "project": "Project",
       "goal": "Goal"
+    },
+    "audience": {
+      "thread": "Participants of this chat session",
+      "task": "Members of this task",
+      "project": "Project members",
+      "goal": "Stakeholders of this goal"
     }
+  },
+  "artifactDetail": {
+    "back": "Back to artifacts",
+    "download": "Download",
+    "notFound": "Artifact not found.",
+    "untitled": "Artifact"
   },
   "toolsCatalog": {
     "title": "Tools",

@@ -165,7 +165,7 @@
   },
   "artifactsCatalog": {
     "title": "Artefakte",
-    "lede": "Von Agenten und Nutzern erstellte Dokumente – gruppiert danach, wo sie physisch gespeichert sind.",
+    "lede": "Von Agenten und Nutzern erstellte Dokumente – gruppiert nach ihrem Geltungsbereich (Chat, Aufgabe, Projekt, Ziel), der bestimmt, wer sie sehen kann.",
     "empty": "Noch keine Artefakte.",
     "emptyDescription": "Artefakte entstehen, wenn ein Agent ein Dokument, eine Tabelle oder HTML erzeugt.",
     "showArchived": "Archivierte anzeigen",
@@ -197,7 +197,19 @@
       "task": "Aufgabe",
       "project": "Projekt",
       "goal": "Ziel"
+    },
+    "audience": {
+      "thread": "Teilnehmer dieser Chat-Session",
+      "task": "Mitglieder dieser Aufgabe",
+      "project": "Projektmitglieder",
+      "goal": "Beteiligte dieses Ziels"
     }
+  },
+  "artifactDetail": {
+    "back": "Zurück zu Artefakten",
+    "download": "Herunterladen",
+    "notFound": "Artefakt nicht gefunden.",
+    "untitled": "Artefakt"
   },
   "toolsCatalog": {
     "title": "Tools",

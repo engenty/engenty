@@ -1,7 +1,6 @@
 // Grouped card view for the tenant-wide artifacts admin list. Cards are
-// informational (no per-artifact admin detail route yet); the emphasis is on
-// making *where* each artifact lives obvious — physical storage, logical
-// scope, and any external mirror.
+// grouped by scope (thread / task / project / goal) — the boundary that
+// decides who can see the artifact — and each card opens the artifact.
 
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -13,17 +12,24 @@ import {
 } from "@engenty/ui-core";
 import {
   Bot,
+  Boxes,
   CloudUpload,
   Database,
   FileStack,
   HardDrive,
+  ListChecks,
+  MessagesSquare,
+  Target,
   User,
+  Users,
 } from "lucide-react";
 import { type ComponentType, Fragment } from "react";
+import { useNavigate } from "react-router-dom";
 import type { AdminArtifactRow } from "../../artifacts/artifacts-api";
+import { buildArtifactDetailPath } from "../agents-workspace/agent-workspace-paths";
 import { formatRelativeDate } from "../agents-workspace/date-format";
 import {
-  type ArtifactStorageGroup,
+  type ArtifactScopeGroup,
   formatArtifactSize,
   shortArtifactId,
 } from "./artifacts-catalog-state";
@@ -33,10 +39,28 @@ type IconType = ComponentType<{
   className?: string;
 }>;
 
+const SCOPE_ICON: Record<string, IconType> = {
+  goal: Target,
+  project: Boxes,
+  task: ListChecks,
+  thread: MessagesSquare,
+};
+
+function scopeText(t: (key: string) => string, scopeType: string): string {
+  const key = `artifactsCatalog.scope.${scopeType}`;
+  const translated = t(key);
+  return translated === key ? scopeType : translated;
+}
+
+function scopeAudience(t: (key: string) => string, scopeType: string): string {
+  const key = `artifactsCatalog.audience.${scopeType}`;
+  const translated = t(key);
+  return translated === key ? "" : translated;
+}
+
 interface StorageDescriptor {
   Icon: IconType;
   label: string;
-  where: string;
 }
 
 function describeStorage(
@@ -47,31 +71,16 @@ function describeStorage(
     return {
       Icon: Database,
       label: t("artifactsCatalog.storage.inline.label"),
-      where: t("artifactsCatalog.storage.inline.where"),
     };
   }
   if (storageId === "blob") {
-    return {
-      Icon: HardDrive,
-      label: t("artifactsCatalog.storage.blob.label"),
-      where: t("artifactsCatalog.storage.blob.where"),
-    };
+    return { Icon: HardDrive, label: t("artifactsCatalog.storage.blob.label") };
   }
-  return {
-    Icon: HardDrive,
-    label: storageId,
-    where: t("artifactsCatalog.storage.unknown.where"),
-  };
-}
-
-function scopeLabel(t: (key: string) => string, scopeType: string): string {
-  const key = `artifactsCatalog.scope.${scopeType}`;
-  const translated = t(key);
-  return translated === key ? scopeType : translated;
+  return { Icon: HardDrive, label: storageId };
 }
 
 interface ArtifactsCatalogCardsProps {
-  groups: ArtifactStorageGroup[];
+  groups: ArtifactScopeGroup[];
   isGroupOpen: (id: string) => boolean;
   onToggleGroup: (id: string) => void;
 }
@@ -94,7 +103,8 @@ export function ArtifactsCatalogCards({
     <div className="flex flex-col gap-2">
       {groups.map((group) => {
         const open = isGroupOpen(group.id);
-        const storage = describeStorage(t, group.id);
+        const ScopeIcon = SCOPE_ICON[group.id] ?? FileStack;
+        const audience = scopeAudience(t, group.id);
         return (
           <Fragment key={group.id}>
             <AdminListGroupHeader
@@ -104,14 +114,19 @@ export function ArtifactsCatalogCards({
               toggleLabel={t("artifactsCatalog.toggleGroup")}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <storage.Icon
+                <ScopeIcon
                   aria-hidden
                   className="size-4 shrink-0 text-muted-foreground"
                 />
-                <AdminListGroupPill>{storage.label}</AdminListGroupPill>
-                <span className="truncate font-mono text-muted-foreground text-xs">
-                  {storage.where}
-                </span>
+                <AdminListGroupPill>
+                  {scopeText(t, group.id)}
+                </AdminListGroupPill>
+                {audience ? (
+                  <span className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+                    <Users aria-hidden className="size-3 shrink-0" />
+                    <span className="truncate">{audience}</span>
+                  </span>
+                ) : null}
               </span>
             </AdminListGroupHeader>
             {open ? (
@@ -122,8 +137,7 @@ export function ArtifactsCatalogCards({
                   <ArtifactCard
                     key={row.id}
                     row={row}
-                    scopeText={scopeLabel(t, row.scope_type)}
-                    storage={storage}
+                    storage={describeStorage(t, row.storage)}
                     t={t}
                   />
                 ))}
@@ -138,22 +152,29 @@ export function ArtifactsCatalogCards({
 
 function ArtifactCard({
   row,
-  scopeText,
   storage,
   t,
 }: {
   row: AdminArtifactRow;
-  scopeText: string;
   storage: StorageDescriptor;
   t: (key: string) => string;
 }) {
+  const navigate = useNavigate();
   const size = formatArtifactSize(row.size_bytes);
   const mirror = row.metadata.external_mirror;
   const CreatorIcon = row.created_by_kind === "agent" ? Bot : User;
   const updated = formatRelativeDate(row.updated_at);
 
   return (
-    <div className="ui-canvas-elevated flex flex-col rounded-lg bg-card p-3">
+    <button
+      className="ui-canvas-elevated flex flex-col rounded-lg bg-card p-3 text-left transition-shadow hover:shadow-[var(--e-3)]"
+      // Pass the row so the detail header has the scope/storage facts without a
+      // second round-trip; the detail page still works on a cold deep-link.
+      onClick={() =>
+        navigate(buildArtifactDetailPath(row.id), { state: { row } })
+      }
+      type="button"
+    >
       {/* Title + type */}
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -168,50 +189,29 @@ function ArtifactCard({
         </Badge>
       </div>
 
-      {/* Where it lives: physical storage + logical scope */}
-      <div className="mt-3 flex flex-col gap-1.5 rounded-md bg-muted/40 p-2">
-        <div className="flex items-center gap-1.5 text-xs">
-          <storage.Icon
-            aria-hidden
-            className="size-3.5 shrink-0 text-muted-foreground"
-          />
-          <span className="font-medium">{storage.label}</span>
-          <span className="truncate font-mono text-muted-foreground">
-            {storage.where}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <Badge className="shrink-0 text-[10px]" variant="outline">
-            {scopeText}
-          </Badge>
-          <span
-            className="truncate font-mono text-muted-foreground"
-            title={row.scope_id}
-          >
-            {shortArtifactId(row.scope_id)}
-          </span>
-        </div>
-        {mirror ? (
-          <div className="flex items-center gap-1.5 text-xs">
-            <CloudUpload
-              aria-hidden
-              className="size-3.5 shrink-0 text-muted-foreground"
-            />
-            <span className="text-muted-foreground">
-              {t("artifactsCatalog.mirror")}
-            </span>
-            <span
-              className="truncate font-mono text-muted-foreground"
-              title={mirror.connection_id}
-            >
-              {shortArtifactId(mirror.connection_id)}
-            </span>
-          </div>
-        ) : null}
-      </div>
+      {/* Scope id — the concrete home within this group's scope type */}
+      <p
+        className="mt-1 truncate font-mono text-muted-foreground text-xs"
+        title={row.scope_id}
+      >
+        {shortArtifactId(row.scope_id)}
+      </p>
 
-      {/* Footer: provenance + version + status */}
+      {/* Footer: physical storage (secondary) + provenance + version + status */}
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+        <span className="inline-flex items-center gap-1" title={storage.label}>
+          <storage.Icon aria-hidden className="size-3.5 shrink-0" />
+          {storage.label}
+        </span>
+        {mirror ? (
+          <span
+            className="inline-flex items-center gap-1"
+            title={t("artifactsCatalog.mirror")}
+          >
+            <CloudUpload aria-hidden className="size-3.5 shrink-0" />
+            {t("artifactsCatalog.mirror")}
+          </span>
+        ) : null}
         <span className="inline-flex items-center gap-1">
           <CreatorIcon aria-hidden className="size-3.5 shrink-0" />
           {t(
@@ -229,6 +229,6 @@ function ArtifactCard({
           </Badge>
         ) : null}
       </div>
-    </div>
+    </button>
   );
 }

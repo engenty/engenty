@@ -19,7 +19,7 @@ import { AGENTS_WORKSPACE_ROOT_PATH } from "../features/agents-workspace/agent-w
 import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
 import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
 import { ArtifactsCatalogCards } from "../features/artifacts-catalog/artifacts-catalog-cards";
-import { groupArtifactsByStorage } from "../features/artifacts-catalog/artifacts-catalog-state";
+import { groupArtifactsByScope } from "../features/artifacts-catalog/artifacts-catalog-state";
 
 export function ArtifactsCatalogPage() {
   const { t } = useTranslation("ai-ui");
@@ -41,7 +41,7 @@ export function ArtifactsCatalogPage() {
   );
 
   const rows = artifactsQuery.data;
-  const groups = useMemo(() => groupArtifactsByStorage(rows ?? []), [rows]);
+  const groups = useMemo(() => groupArtifactsByScope(rows ?? []), [rows]);
 
   const shellNav = useAgentsWorkspaceShellNav({ ...nav, selectedAgentId: "" });
 

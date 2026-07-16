@@ -1,33 +1,39 @@
 // Grouping + formatting helpers for the tenant-wide artifacts admin list.
-// The organising principle is *where the artifact lives*: rows are grouped by
-// their physical storage backend, and each row also carries its logical scope.
+// The organising principle is the artifact's *scope* — thread / task / project
+// / goal — because scope is what determines who can see it. Physical storage
+// is shown as a secondary per-card detail.
 
 import type { AdminArtifactRow } from "../../artifacts/artifacts-api";
 
-/** Physical storage backends, in display order. */
-export const ARTIFACT_STORAGE_ORDER = ["inline", "blob"] as const;
+/** Scope types, in the promotion order thread → task → project → goal. */
+export const ARTIFACT_SCOPE_ORDER = [
+  "thread",
+  "task",
+  "project",
+  "goal",
+] as const;
 
-export interface ArtifactStorageGroup {
-  /** "inline" | "blob" — matches ai.artifact.storage. */
+export interface ArtifactScopeGroup {
+  /** "thread" | "task" | "project" | "goal" — matches ai.artifact.scope_type. */
   id: string;
   rows: AdminArtifactRow[];
 }
 
-/** Group rows by physical storage backend, preserving each group's sort. */
-export function groupArtifactsByStorage(
+/** Group rows by scope type, preserving each group's incoming sort. */
+export function groupArtifactsByScope(
   rows: AdminArtifactRow[]
-): ArtifactStorageGroup[] {
+): ArtifactScopeGroup[] {
   const buckets = new Map<string, AdminArtifactRow[]>();
   for (const row of rows) {
-    const bucket = buckets.get(row.storage) ?? [];
+    const bucket = buckets.get(row.scope_type) ?? [];
     bucket.push(row);
-    buckets.set(row.storage, bucket);
+    buckets.set(row.scope_type, bucket);
   }
-  // Known backends first (stable order), then any unexpected values as-seen.
+  // Known scopes first (stable order), then any unexpected values as-seen.
   const ids = [
-    ...ARTIFACT_STORAGE_ORDER.filter((id) => buckets.has(id)),
+    ...ARTIFACT_SCOPE_ORDER.filter((id) => buckets.has(id)),
     ...[...buckets.keys()].filter(
-      (id) => !ARTIFACT_STORAGE_ORDER.includes(id as never)
+      (id) => !ARTIFACT_SCOPE_ORDER.includes(id as never)
     ),
   ];
   return ids.map((id) => ({ id, rows: buckets.get(id) ?? [] }));

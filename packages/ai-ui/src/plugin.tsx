@@ -17,6 +17,7 @@ import { AgentDetailPage } from "./routes/agent-detail-page.js";
 import { AgentFormPage } from "./routes/agent-form-page.js";
 import { AgentsCatalogPage } from "./routes/agents-catalog-page.js";
 import { ArtifactsCatalogPage } from "./routes/artifacts-catalog-page.js";
+import { ArtifactsDetailPage } from "./routes/artifacts-detail-page.js";
 import { LegacyRedirect } from "./routes/legacy-redirect.js";
 import { OverviewPage } from "./routes/overview-page.js";
 import { SkillDetailPage } from "./routes/skill-detail-page.js";
@@ -198,6 +199,13 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: ARTIFACTS_ROOT_PATH,
     component: ArtifactsCatalogPage,
     order: 217,
+  });
+
+  engenty.UI.registerRoute({
+    id: "ai_ui_admin_artifacts_detail",
+    path: `${ARTIFACTS_ROOT_PATH}/:artifactId`,
+    component: ArtifactsDetailPage,
+    order: 218,
   });
 
   // ── Tools ─────────────────────────────────────────────────────────────────

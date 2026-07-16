@@ -121,6 +121,10 @@ export function buildArtifactsPath() {
   return ARTIFACTS_ROOT_PATH;
 }
 
+export function buildArtifactDetailPath(artifactId: string) {
+  return `${ARTIFACTS_ROOT_PATH}/${encodeURIComponent(artifactId)}`;
+}
+
 export function buildToolCreatePath() {
   return `${TOOLS_ROOT_PATH}/new`;
 }
