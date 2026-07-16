@@ -2,20 +2,31 @@
 
 import { cn } from "@engenty/ui-core";
 import { useMemo } from "react";
+import { McpAppFrame } from "./mcp-app-frame.js";
 import type { ToolCallCardProps } from "./tool-call-card.types";
 import { ToolCallCardBase } from "./tool-call-card-base";
 
 interface McpAppMeta {
+  csp?: { connectDomains?: string[]; resourceDomains?: string[] };
   html?: string;
   resource_uri?: string;
   server_id: string;
   server_label: string;
   server_url: string;
+  structured_content?: unknown;
   tool_name: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return;
+  }
+  const strings = value.filter((v): v is string => typeof v === "string");
+  return strings.length > 0 ? strings : undefined;
 }
 
 export function readMcpAppMeta(output: unknown): McpAppMeta | null {
@@ -46,6 +57,17 @@ export function readMcpAppMeta(output: unknown): McpAppMeta | null {
   ) {
     return null;
   }
+  const cspRaw = isRecord(mcpApp.csp) ? mcpApp.csp : undefined;
+  const csp = cspRaw
+    ? {
+        ...(readStringArray(cspRaw.connectDomains)
+          ? { connectDomains: readStringArray(cspRaw.connectDomains) }
+          : {}),
+        ...(readStringArray(cspRaw.resourceDomains)
+          ? { resourceDomains: readStringArray(cspRaw.resourceDomains) }
+          : {}),
+      }
+    : undefined;
   return {
     server_id: serverId,
     server_label: serverLabel,
@@ -54,6 +76,10 @@ export function readMcpAppMeta(output: unknown): McpAppMeta | null {
     html: typeof mcpApp.html === "string" ? mcpApp.html : undefined,
     resource_uri:
       typeof mcpApp.resource_uri === "string" ? mcpApp.resource_uri : undefined,
+    ...(csp ? { csp } : {}),
+    ...("structured_content" in mcpApp
+      ? { structured_content: mcpApp.structured_content }
+      : {}),
   };
 }
 
@@ -82,6 +108,23 @@ export function McpAppToolCallCard(props: ToolCallCardProps) {
     );
   }
 
+  const frame = (
+    <McpAppFrame
+      csp={meta.csp}
+      html={meta.html}
+      serverUrl={meta.server_url}
+      structuredContent={meta.structured_content}
+      title={`${meta.server_label} interactive widget`}
+      toolInput={props.input}
+      toolName={meta.tool_name}
+      toolResult={
+        isRecord(props.output) && "result" in props.output
+          ? props.output.result
+          : undefined
+      }
+    />
+  );
+
   if ((props.state ?? "completed") === "completed") {
     return (
       <div
@@ -90,12 +133,7 @@ export function McpAppToolCallCard(props: ToolCallCardProps) {
           props.className
         )}
       >
-        <iframe
-          className="h-80 w-full bg-background"
-          sandbox="allow-forms allow-popups allow-scripts"
-          srcDoc={meta.html}
-          title={`${meta.server_label} interactive widget`}
-        />
+        {frame}
       </div>
     );
   }
@@ -109,12 +147,7 @@ export function McpAppToolCallCard(props: ToolCallCardProps) {
       metadata={props.metadata ?? meta.server_label}
     >
       <div className="overflow-hidden rounded-lg bg-background ring-1 ring-border/60">
-        <iframe
-          className="h-80 w-full bg-background"
-          sandbox="allow-forms allow-popups allow-scripts"
-          srcDoc={meta.html}
-          title={`${meta.server_label} interactive widget`}
-        />
+        {frame}
       </div>
     </ToolCallCardBase>
   );
