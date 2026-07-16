@@ -9,7 +9,11 @@ import {
   useDocSidebar,
 } from "./doc-sidebar-store";
 
+/** Minimum inline sidebar content width. */
 export const DOC_SIDEBAR_WIDTH_PX = 280;
+
+/** Sidebar may grow a little past the minimum inside a capped document row. */
+export const DOC_SIDEBAR_MAX_WIDTH_PX = 340;
 
 /**
  * Space between the document and the inline sidebar. Owned by the layout (not
@@ -28,6 +32,11 @@ export const DOC_SIDEBAR_INLINE_MIN_WIDTH_PX = 800;
 
 export interface DocSidebarLayoutProps {
   children: ReactNode;
+  /**
+   * Applied to the centered document+sidebar row (padding, `max-w-*`). Cap the
+   * combined row so the main document stays width-limited when the sidebar is
+   * open; the sidebar itself is `min`–`max` and may grow slightly inside that.
+   */
   className?: string;
   /** Container-width threshold (px) for the inline column. */
   inlineMinWidth?: number;
@@ -47,10 +56,10 @@ export interface DocSidebarLayoutProps {
  * top bar through `usePageConfig` actions.
  *
  * The inline/overlay decision is measured on a full-width outer wrapper, not
- * on the (`className`-capped) content column — so a page may narrow the
- * visible content when the sidebar is closed without that cap forcing the
- * layout into overlay mode. `inlineMinWidth` is therefore compared against
- * the space actually available to the page, independent of the max-width.
+ * on the (`className`-capped) content row — so a page may narrow the visible
+ * content when the sidebar is closed without that cap forcing overlay mode.
+ * `inlineMinWidth` is compared against the space available to the page,
+ * independent of the max-width.
  */
 export function DocSidebarLayout({
   children,
@@ -93,34 +102,45 @@ export function DocSidebarLayout({
   );
 
   const inlineOpen = mode === "inline" && open;
+  const sidebarMin = DOC_SIDEBAR_WIDTH_PX + DOC_SIDEBAR_GAP_PX;
+  const sidebarMax = DOC_SIDEBAR_MAX_WIDTH_PX + DOC_SIDEBAR_GAP_PX;
 
   return (
     <div className="w-full" ref={measureRef}>
       <div className={cn("mx-auto flex w-full", className)}>
         <div className="min-w-0 flex-1">{children}</div>
         {mode === "inline" ? (
-          // Collapsible inline column: the wrapper animates its width between
-          // 0 and the panel width; overflow-hidden clips the panel while it
-          // slides in/out. The gap lives inside (as the panel's left padding
-          // plus min-width) so it vanishes with the width instead of leaving a
-          // container gap behind. `inert` keeps the collapsed panel out of the
-          // tab order.
+          // Collapsible inline column: min width with a little room to grow
+          // inside the capped row; collapses to 0 with the gap so nothing is
+          // left beside a full-width document. `inert` keeps the collapsed
+          // panel out of the tab order.
           <div
             aria-hidden={!inlineOpen}
             className={cn(
-              "shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none",
+              "overflow-hidden transition-[min-width,max-width,flex-basis,width] duration-300 ease-in-out motion-reduce:transition-none",
               !inlineOpen && "pointer-events-none"
             )}
             inert={!inlineOpen}
-            style={{
-              width: inlineOpen ? DOC_SIDEBAR_WIDTH_PX + DOC_SIDEBAR_GAP_PX : 0,
-            }}
+            style={
+              inlineOpen
+                ? {
+                    flex: `1 1 ${sidebarMin}px`,
+                    maxWidth: sidebarMax,
+                    minWidth: sidebarMin,
+                  }
+                : {
+                    flex: "0 0 0px",
+                    maxWidth: 0,
+                    minWidth: 0,
+                    width: 0,
+                  }
+            }
           >
             <aside
               aria-label={sidebarLabel}
-              className="flex flex-col gap-4"
+              className="flex h-full w-full min-w-0 flex-col gap-4"
               style={{
-                minWidth: DOC_SIDEBAR_WIDTH_PX + DOC_SIDEBAR_GAP_PX,
+                minWidth: DOC_SIDEBAR_WIDTH_PX,
                 paddingLeft: DOC_SIDEBAR_GAP_PX,
               }}
             >
