@@ -83,9 +83,9 @@ function snapshotOperationId(ref: ObjectRef): string {
 }
 
 interface SnapshotOutcome {
-  item?: ObjectDisplayItem;
   /** Authz/not-found — the ref must not render at all. */
   dropped?: boolean;
+  item?: ObjectDisplayItem;
   /** Module has no matching read op — keep the ref, client resolves live. */
   unresolved?: boolean;
 }
@@ -106,16 +106,17 @@ async function fetchSnapshot(
     const record = isRecord(result.data) ? result.data : result;
     return { item: snapshotFromRecord(ref, record) };
   } catch (err) {
-    if (err instanceof EngentyCoreHttpError) {
-      if (err.status === 403 || err.status === 404) {
-        // 404 on the op route (unknown operation) is indistinguishable from a
-        // missing record via status alone; use the code to keep unknown-op
-        // refs renderable client-side.
-        if (err.code === "not_found" && /operation|tool/i.test(err.message)) {
-          return { unresolved: true };
-        }
-        return { dropped: true };
+    if (
+      err instanceof EngentyCoreHttpError &&
+      (err.status === 403 || err.status === 404)
+    ) {
+      // 404 on the op route (unknown operation) is indistinguishable from a
+      // missing record via status alone; use the code to keep unknown-op
+      // refs renderable client-side.
+      if (err.code === "not_found" && /operation|tool/i.test(err.message)) {
+        return { unresolved: true };
       }
+      return { dropped: true };
     }
     // Service errors: keep the ref, client-side resolution may still work.
     return { unresolved: true };
@@ -213,7 +214,7 @@ export function createShowObjectsTool() {
         ...(input.query || input.total !== undefined
           ? {
               provenance: {
-                ...(input.total !== undefined ? { total: input.total } : {}),
+                ...(input.total === undefined ? {} : { total: input.total }),
                 ...(input.query ? { query: input.query } : {}),
               },
             }

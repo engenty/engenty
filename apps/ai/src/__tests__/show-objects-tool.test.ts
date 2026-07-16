@@ -76,7 +76,12 @@ describe("show_objects execute", () => {
       total: 4,
     } as never);
 
-    expect(output).toMatchObject({ ok: true, shown: 1, dropped: 2, invalid: 1 });
+    expect(output).toMatchObject({
+      ok: true,
+      shown: 1,
+      dropped: 2,
+      invalid: 1,
+    });
     const meta = readMeta(output);
     expect(meta?.refs).toEqual(["contacts:contact:a"]);
     expect(meta?.dropped).toEqual([

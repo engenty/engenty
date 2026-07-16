@@ -1,15 +1,7 @@
 "use client";
 
-import type {
-  ObjectDisplayItem,
-  ObjectWidgetCardProps,
-} from "@engenty/ai-ui";
-import {
-  Avatar,
-  AvatarFallback,
-  cn,
-  Skeleton,
-} from "@engenty/ui-core";
+import type { ObjectDisplayItem, ObjectWidgetCardProps } from "@engenty/ai-ui";
+import { Avatar, AvatarFallback, cn, Skeleton } from "@engenty/ui-core";
 import { Link } from "react-router-dom";
 import { useTeamMemberDetailQuery } from "../../queries.js";
 

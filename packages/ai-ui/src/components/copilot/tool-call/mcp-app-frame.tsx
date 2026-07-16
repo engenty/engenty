@@ -139,8 +139,11 @@ export function McpAppFrame({
     };
 
     const pushToolData = () => {
-      const { structuredContent: sc, toolInput: ti, toolResult: tr } =
-        dataRef.current;
+      const {
+        structuredContent: sc,
+        toolInput: ti,
+        toolResult: tr,
+      } = dataRef.current;
       post({
         method: "ui/notifications/tool-input",
         params: { arguments: isRecord(ti) ? ti : {} },
@@ -148,9 +151,7 @@ export function McpAppFrame({
       post({
         method: "ui/notifications/tool-result",
         params: {
-          result: isRecord(tr)
-            ? tr
-            : { content: [], structuredContent: sc },
+          result: isRecord(tr) ? tr : { content: [], structuredContent: sc },
         },
       });
     };
@@ -178,7 +179,7 @@ export function McpAppFrame({
             hostContext: {
               displayMode: "inline",
               locale:
-                typeof navigator !== "undefined" ? navigator.language : "en",
+                typeof navigator === "undefined" ? "en" : navigator.language,
               theme: hostTheme(),
             },
           });

@@ -41,7 +41,11 @@ function ContactRow({
   snapshot?: ObjectDisplayItem;
   onOpen?: () => void;
 }) {
-  const { data: contact, isPending, isError } = useContactDetailQuery(contactId);
+  const {
+    data: contact,
+    isPending,
+    isError,
+  } = useContactDetailQuery(contactId);
 
   if (isPending && !snapshot) {
     return (
@@ -63,10 +67,14 @@ function ContactRow({
   return (
     <Link
       className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/50"
-      onClick={onOpen ? (event) => {
-        event.preventDefault();
-        onOpen();
-      } : undefined}
+      onClick={
+        onOpen
+          ? (event) => {
+              event.preventDefault();
+              onOpen();
+            }
+          : undefined
+      }
       to={`/mdl/contacts/${contactId}`}
     >
       <Avatar className="size-7">
@@ -187,8 +195,7 @@ export function ContactObjectCard({
   provenance,
 }: ObjectWidgetCardProps) {
   const itemByRef = new Map((items ?? []).map((item) => [item.ref, item]));
-  const snapshotFor = (id: string) =>
-    itemByRef.get(`contacts:contact:${id}`);
+  const snapshotFor = (id: string) => itemByRef.get(`contacts:contact:${id}`);
 
   const frame = (children: ReactNode) => (
     <div
@@ -258,18 +265,12 @@ function ContactPanelDetails({ contactId }: { contactId: string }) {
   ]
     .filter(Boolean)
     .join(", ");
-  const rows: Array<[string, string]> = [
-    ...(address ? ([["Address", address]] as Array<[string, string]>) : []),
-    ...(contact.vat_id
-      ? ([["VAT", contact.vat_id]] as Array<[string, string]>)
-      : []),
-    ...(contact.website_contact
-      ? ([["Website", contact.website_contact]] as Array<[string, string]>)
-      : []),
-    ...(contact.notes
-      ? ([["Notes", contact.notes]] as Array<[string, string]>)
-      : []),
-  ];
+  const rows = [
+    ["Address", address],
+    ["VAT", contact.vat_id],
+    ["Website", contact.website_contact],
+    ["Notes", contact.notes],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
   if (rows.length === 0) {
     return null;
   }

@@ -20,21 +20,18 @@ import { useOfferDetailQuery } from "../../queries.js";
 
 const LIST_INLINE_LIMIT = 10;
 
-const STATUS_VARIANT: Record<
-  OfferStatus,
-  "default" | "secondary" | "outline"
-> = {
-  draft: "outline",
-  ready: "secondary",
-  accepted: "default",
-};
+const STATUS_VARIANT: Record<OfferStatus, "default" | "secondary" | "outline"> =
+  {
+    draft: "outline",
+    ready: "secondary",
+    accepted: "default",
+  };
 
 function OfferStatusBadge({ status }: { status?: OfferStatus | string }) {
   if (!status) {
     return null;
   }
-  const variant =
-    STATUS_VARIANT[status as OfferStatus] ?? ("outline" as const);
+  const variant = STATUS_VARIANT[status as OfferStatus] ?? ("outline" as const);
   return (
     <Badge className="shrink-0 text-[10px] capitalize" variant={variant}>
       {status}
@@ -117,20 +114,16 @@ function OfferSingleCard({
     ? [offer.offer_number, offer.title].filter(Boolean).join(" — ")
     : (snapshot?.title ?? offerId);
 
-  const facts: Array<[string, string]> = offer
-    ? [
-        ...(offer.recipient_name
-          ? ([["Client", offer.recipient_name]] as Array<[string, string]>)
-          : []),
-        ...(offer.offer_date
-          ? ([["Date", offer.offer_date]] as Array<[string, string]>)
-          : []),
-        ...(offer.valid_until
-          ? ([["Valid until", offer.valid_until]] as Array<[string, string]>)
-          : []),
-        ["Currency", offer.currency],
-      ]
-    : [];
+  const facts = (
+    offer
+      ? [
+          ["Client", offer.recipient_name],
+          ["Date", offer.offer_date],
+          ["Valid until", offer.valid_until],
+          ["Currency", offer.currency],
+        ]
+      : []
+  ).filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
     <div className="p-3">
@@ -205,7 +198,11 @@ export function OfferObjectCard({
     <>
       <div className="divide-y divide-border/50">
         {shown.map((ref) => (
-          <OfferRow key={ref.id} offerId={ref.id} snapshot={snapshotFor(ref.id)} />
+          <OfferRow
+            key={ref.id}
+            offerId={ref.id}
+            snapshot={snapshotFor(ref.id)}
+          />
         ))}
       </div>
       {overflow > 0 || (total && total > refs.length) ? (

@@ -46,7 +46,6 @@ import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
 import { registerAgentSessionRunRoutes } from "./api/agent-session-runs-routes.js";
 import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
-import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
 import {
   createAgUiDebugEventBus,
@@ -59,6 +58,7 @@ import {
 } from "./api/gateway-model-routes.js";
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
+import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   type RealtimeClientSecretFetch,

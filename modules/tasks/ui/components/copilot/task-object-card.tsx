@@ -1,9 +1,6 @@
 "use client";
 
-import type {
-  ObjectDisplayItem,
-  ObjectWidgetCardProps,
-} from "@engenty/ai-ui";
+import type { ObjectDisplayItem, ObjectWidgetCardProps } from "@engenty/ai-ui";
 import { Badge, cn, Skeleton } from "@engenty/ui-core";
 import { CalendarClock, CircleCheckBig } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -64,7 +61,10 @@ function TaskRow({
       ) : (
         <>
           {task?.priority && task.priority !== "normal" ? (
-            <Badge className="shrink-0 text-[10px] capitalize" variant="outline">
+            <Badge
+              className="shrink-0 text-[10px] capitalize"
+              variant="outline"
+            >
               {task.priority}
             </Badge>
           ) : null}
@@ -82,7 +82,11 @@ function TaskRow({
   );
 }
 
-export function TaskObjectCard({ refs, items, provenance }: ObjectWidgetCardProps) {
+export function TaskObjectCard({
+  refs,
+  items,
+  provenance,
+}: ObjectWidgetCardProps) {
   const itemByRef = new Map((items ?? []).map((item) => [item.ref, item]));
   const shown = refs.slice(0, LIST_INLINE_LIMIT);
   const overflow = refs.length - shown.length;

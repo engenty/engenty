@@ -12,8 +12,8 @@ import { ENGENTY_COPILOT_HOST_KEY } from "../agent-provider/host-keys";
 import { openObjectPaneTab } from "../artifacts/artifact-store";
 import type { ToolCallCardProps } from "../components/copilot/tool-call/tool-call-card.types";
 import { ToolCallCardBase } from "../components/copilot/tool-call/tool-call-card-base";
-import { ObjectFallbackCard } from "./object-fallback-card";
 import { useObjectDisplayIntent } from "./object-display-intent";
+import { ObjectFallbackCard } from "./object-fallback-card";
 import { useObjectWidgets } from "./object-widget-registry";
 
 // Display hints run once per tool call in the session that streamed them —
@@ -30,9 +30,9 @@ const executedDisplayHints = new Set<string>();
  */
 
 interface RefGroup {
-  typeKey: string;
-  refs: ObjectRef[];
   items: ObjectDisplayItem[];
+  refs: ObjectRef[];
+  typeKey: string;
 }
 
 function groupRefs(
@@ -111,7 +111,9 @@ export function ObjectRenderToolCallCard(props: ToolCallCardProps) {
     const details = meta
       ? [
           `${meta.refs.length} object${meta.refs.length === 1 ? "" : "s"}`,
-          ...(meta.provenance?.query ? [`Query: ${meta.provenance.query}`] : []),
+          ...(meta.provenance?.query
+            ? [`Query: ${meta.provenance.query}`]
+            : []),
         ]
       : ["Object display data was not available."];
     return (

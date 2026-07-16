@@ -11,13 +11,13 @@ import { createContext, type ReactNode, useContext, useMemo } from "react";
  */
 
 export interface ObjectDisplayIntent {
-  /** Open a ref as a pane tab. Absent when the surface has no pane. */
-  openInPanel?: (ref: ObjectRef, opts?: { expanded?: boolean }) => void;
   /**
    * Execute an agent display hint for freshly-streamed tool output. Hosts
    * only honor this during a live run (never on transcript replay).
    */
   applyDisplayHint?: (refs: ObjectRef[], hint: ObjectDisplayHint) => void;
+  /** Open a ref as a pane tab. Absent when the surface has no pane. */
+  openInPanel?: (ref: ObjectRef, opts?: { expanded?: boolean }) => void;
 }
 
 const ObjectDisplayIntentContext = createContext<ObjectDisplayIntent>({});

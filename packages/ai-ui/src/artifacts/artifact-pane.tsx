@@ -54,6 +54,8 @@ export interface ArtifactPaneProps {
   artifacts: ArtifactSummary[];
   className?: string;
   isContentLoading: boolean;
+  /** Module-object tabs sharing the strip with artifact tabs (see artifact-store). */
+  objectTabs?: ObjectPaneTab[];
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   /**
@@ -69,8 +71,6 @@ export interface ArtifactPaneProps {
   onSetPaneOpen: (open: boolean) => void;
   /** Store ("pin") the active artifact to a task/project scope; omitting hides the pin menu. */
   onStore?: (target: ArtifactStoreTarget & { artifactId: string }) => void;
-  /** Module-object tabs sharing the strip with artifact tabs (see artifact-store). */
-  objectTabs?: ObjectPaneTab[];
   paneExpanded: boolean;
   storePending?: boolean;
   /** Task offered as a one-click store target (set on task detail routes). */

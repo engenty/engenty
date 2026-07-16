@@ -2,6 +2,10 @@
 
 import type { ComponentType } from "react";
 import {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "../../../objects/object-render-tool-call-card";
+import {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,
 } from "./decision-artifact-tool-call-card";
@@ -10,10 +14,6 @@ import {
   matchesFeedbackArtifactOutput,
 } from "./feedback-artifact-tool-call-card";
 import { McpAppToolCallCard, readMcpAppMeta } from "./mcp-app-tool-call-card";
-import {
-  ObjectRenderToolCallCard,
-  objectRenderToolCallMatch,
-} from "../../../objects/object-render-tool-call-card";
 import {
   matchesProposeUpdatesOutput,
   ProposeUpdatesToolCallCard,

@@ -55,9 +55,7 @@ describe("McpAppToolCallCard", () => {
     const srcDoc = iframe.getAttribute("srcdoc") ?? "";
     expect(srcDoc).toContain('http-equiv="Content-Security-Policy"');
     expect(srcDoc).toContain("default-src 'none'");
-    expect(srcDoc).toContain(
-      "<!doctype html><html><body>Events</body></html>"
-    );
+    expect(srcDoc).toContain("<!doctype html><html><body>Events</body></html>");
     expect(screen.queryByText("Open server")).toBeNull();
   });
 });

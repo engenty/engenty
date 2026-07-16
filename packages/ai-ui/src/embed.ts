@@ -204,28 +204,6 @@ export {
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";
-// --- Object widgets (module entities rendered in chat by reference) ---
-export {
-  type ObjectDisplayIntent,
-  ObjectDisplayIntentProvider,
-  useObjectDisplayIntent,
-} from "./objects/object-display-intent.js";
-export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
-export {
-  ObjectRenderToolCallCard,
-  objectRenderToolCallMatch,
-} from "./objects/object-render-tool-call-card.js";
-export {
-  clearObjectWidgetsForTests,
-  listObjectWidgets,
-  type ObjectWidgetCardProps,
-  type ObjectWidgetPanelProps,
-  type ObjectWidgetRegistration,
-  registerObjectWidget,
-  resolveObjectWidget,
-  useObjectWidget,
-  useObjectWidgets,
-} from "./objects/object-widget-registry.js";
 // --- Inbox (Mastra notifications; rendered by the tasks module) ---
 export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
 export {
@@ -267,7 +245,6 @@ export {
   RoutineTriggerChip,
   type RoutineTriggerChipProps,
 } from "./features/routines/routine-trigger-chip.js";
-
 // --- AI Routines & Custom Routines ---
 export {
   type CustomRoutineInput,
@@ -299,6 +276,28 @@ export {
   useRunAction,
 } from "./hooks/use-run-action.js";
 export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
+// --- Object widgets (module entities rendered in chat by reference) ---
+export {
+  type ObjectDisplayIntent,
+  ObjectDisplayIntentProvider,
+  useObjectDisplayIntent,
+} from "./objects/object-display-intent.js";
+export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
+export {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "./objects/object-render-tool-call-card.js";
+export {
+  clearObjectWidgetsForTests,
+  listObjectWidgets,
+  type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
+  type ObjectWidgetRegistration,
+  registerObjectWidget,
+  resolveObjectWidget,
+  useObjectWidget,
+  useObjectWidgets,
+} from "./objects/object-widget-registry.js";
 // --- Host-scoped thread list (CopilotKit-shaped) ---
 export {
   type CreateEngentyThreadOptions,

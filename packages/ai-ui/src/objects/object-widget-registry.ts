@@ -18,37 +18,37 @@ import { useCallback, useSyncExternalStore } from "react";
  */
 
 export interface ObjectWidgetCardProps {
-  /** 1 ref = single card, n refs = list rendering. */
-  refs: ObjectRef[];
   /** Snapshot items by canonical ref string — fallback data only. */
   items?: ObjectDisplayItem[];
-  provenance?: { total?: number; query?: string };
   onOpenInPanel?: (ref: ObjectRef) => void;
+  provenance?: { total?: number; query?: string };
+  /** 1 ref = single card, n refs = list rendering. */
+  refs: ObjectRef[];
 }
 
 export interface ObjectWidgetPanelProps {
-  objectRef: ObjectRef;
   /** Snapshot fallback for skeleton/header rendering. */
   item?: ObjectDisplayItem;
+  objectRef: ObjectRef;
 }
 
 export interface ObjectWidgetRegistration {
-  /** Registry id, conventionally `${module}.${entity}`. */
-  id: string;
-  module: string;
-  entity: string;
   /** Inline chat card — required. Renders single card or list. */
   card: ComponentType<ObjectWidgetCardProps>;
-  /** Side-panel / expanded renderer; falls back to `card` when absent. */
-  panel?: ComponentType<ObjectWidgetPanelProps>;
+  entity: string;
   /** Deep link into the module route ("open full page"). */
   getHref?: (ref: ObjectRef) => string | null;
+  /** Registry id, conventionally `${module}.${entity}`. */
+  id: string;
   /**
    * Reverse mapping for link-chip upgrades: return the ref for an app
    * pathname this module owns (e.g. `/mdl/offers/<id>`), else null.
    */
   matchHref?: (pathname: string) => ObjectRef | null;
+  module: string;
   order?: number;
+  /** Side-panel / expanded renderer; falls back to `card` when absent. */
+  panel?: ComponentType<ObjectWidgetPanelProps>;
 }
 
 const registrations = new Map<string, ObjectWidgetRegistration>();

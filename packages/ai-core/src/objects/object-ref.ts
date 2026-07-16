@@ -10,12 +10,12 @@
  */
 
 export interface ObjectRef {
-  /** UI plugin id that owns the entity ("contacts", "offers", "core"). */
-  module: string;
   /** Entity type within the module ("contact", "offer", "user"). */
   entity: string;
   /** The object's id in the module's own storage. */
   id: string;
+  /** UI plugin id that owns the entity ("contacts", "offers", "core"). */
+  module: string;
 }
 
 const REF_SEGMENT = /^[a-z0-9][a-z0-9_-]*$/i;
@@ -53,9 +53,9 @@ export function parseObjectRef(value: string): ObjectRef | null {
  */
 export interface ObjectDisplayItem {
   ref: string;
-  title: string;
-  subtitle?: string;
   status?: string;
+  subtitle?: string;
+  title: string;
 }
 
 export type ObjectDisplayHint = "inline" | "panel" | "expanded";
@@ -67,13 +67,13 @@ export type ObjectDisplayHint = "inline" | "panel" | "expanded";
  * back through model context stays cheap.
  */
 export interface ObjectRenderMeta {
-  refs: string[];
   display: ObjectDisplayHint;
-  items: ObjectDisplayItem[];
-  title?: string;
-  provenance?: { total?: number; query?: string };
   /** Refs that failed authz/resolution — surfaced, never rendered. */
   dropped?: string[];
+  items: ObjectDisplayItem[];
+  provenance?: { total?: number; query?: string };
+  refs: string[];
+  title?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -131,9 +131,7 @@ export function readObjectRenderMeta(output: unknown): ObjectRenderMeta | null {
             ...(typeof item.subtitle === "string"
               ? { subtitle: item.subtitle }
               : {}),
-            ...(typeof item.status === "string"
-              ? { status: item.status }
-              : {}),
+            ...(typeof item.status === "string" ? { status: item.status } : {}),
           },
         ];
       })

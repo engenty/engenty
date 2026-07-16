@@ -1,9 +1,6 @@
 "use client";
 
-import type {
-  ObjectDisplayItem,
-  ObjectWidgetCardProps,
-} from "@engenty/ai-ui";
+import type { ObjectDisplayItem, ObjectWidgetCardProps } from "@engenty/ai-ui";
 import { Badge, cn, Skeleton } from "@engenty/ui-core";
 import { Receipt } from "lucide-react";
 import { Link } from "react-router-dom";

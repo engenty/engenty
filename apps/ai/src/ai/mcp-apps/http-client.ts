@@ -292,9 +292,9 @@ export async function callMcpAppTool(
           server_url: config.serverUrl,
           tool_name: config.toolName,
           ...(template.csp ? { csp: template.csp } : {}),
-          ...(structuredContent !== undefined
-            ? { structured_content: structuredContent }
-            : {}),
+          ...(structuredContent === undefined
+            ? {}
+            : { structured_content: structuredContent }),
         },
       },
     },

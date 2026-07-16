@@ -26,9 +26,7 @@ export function registerOffersObjectWidget() {
     getHref: (ref) => `/mdl/offers/${ref.id}`,
     matchHref: (pathname) => {
       const match = pathname.match(OFFER_DETAIL_PATTERN);
-      return match
-        ? { module: "offers", entity: "offer", id: match[1] }
-        : null;
+      return match ? { module: "offers", entity: "offer", id: match[1] } : null;
     },
   });
 }
