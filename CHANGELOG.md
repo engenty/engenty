@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.24] - 2026-07-16
+- FIXED **[test]** Update gmail action expectations and hide collapsed flap content
+- FIXED **[inbox]** Use interface for attachment fetch result type
+- OTHER Improve inbox thread preview: layout, attachments, and list metadata.
+
+Make message cards size to content with attachment thumbnails, fix recipient fallbacks, and surface status tags plus multi-message counts in the list.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
 ## [0.1.23] - 2026-07-15
 - ADDED **[tasks,ui-core]** Refine task detail workspace + doc-sidebar polish
 
