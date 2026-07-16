@@ -1,5 +1,6 @@
 export {
   DOC_SIDEBAR_INLINE_MIN_WIDTH_PX,
+  DOC_SIDEBAR_MAX_WIDTH_PX,
   DOC_SIDEBAR_WIDTH_PX,
   DocSidebarLayout,
   type DocSidebarLayoutProps,
