@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.25] - 2026-07-16
+- FIXED **[offers]** Ignore settings autosave in external-change banner
+- FIXED **[commercial-editor]** Default tax row 70/30 and phase index tooltip
+- FIXED **[offers,commercial-editor]** Remove recipient card right padding gap
+- FIXED **[ui-core]** Let doc sidebar grow within a capped document row
+
 ## [0.1.24] - 2026-07-16
 - FIXED **[test]** Update gmail action expectations and hide collapsed flap content
 - FIXED **[inbox]** Use interface for attachment fetch result type
