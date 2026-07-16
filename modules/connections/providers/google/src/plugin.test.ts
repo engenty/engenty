@@ -33,6 +33,7 @@ const EXPECTED_GROUPS: Record<string, Record<string, string>> = {
   },
   "google-gmail": {
     create_draft: "write",
+    get_attachment: "read",
     get_thread: "read",
     list_drafts: "read",
     list_labels: "read",
@@ -107,6 +108,7 @@ describe("connections-google connector definitions", () => {
         connectorOperationId(gmailConnector, a.id)
       )
     ).toEqual([
+      "gmail_get_attachment",
       "gmail_search_threads",
       "gmail_get_thread",
       "gmail_list_labels",
