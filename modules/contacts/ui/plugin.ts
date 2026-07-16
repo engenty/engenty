@@ -28,6 +28,7 @@ import {
 } from "./pages/index.js";
 import { setContactsPluginsApi } from "./plugins.js";
 import { contactDetailOptions } from "./queries.js";
+import { registerContactsObjectWidget } from "./register-object-widget.js";
 import { registerContactsToolCallUi } from "./register-tool-call-ui.js";
 
 const UUID_PATTERN =
@@ -36,6 +37,7 @@ const UUID_PATTERN =
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(contactsLiveBinding);
   registerContactsToolCallUi();
+  registerContactsObjectWidget();
   setContactsPluginsApi(engenty.plugins);
   engenty.i18n.registerNamespace({
     pluginId: "contacts",
