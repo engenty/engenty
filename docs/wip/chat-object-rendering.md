@@ -1,10 +1,24 @@
 # Chat Object Rendering — Objects, Artifacts & MCP Apps in Chat
 
-Status: **draft for discussion** (2026-07-16). Companion to [artifacts.md](./artifacts.md) /
+Status: **implemented, phases A–D** (2026-07-16, branch `feat/chat-object-widgets`).
+Companion to [artifacts.md](./artifacts.md) /
 [artifacts-implementation.md](./artifacts-implementation.md) — artifacts stay as they are;
 this spec generalizes the *display* side so chat can render **any engenty object** (contacts,
 offers, tasks, receipts, team members, …) and **external MCP App widgets** through the same
 surfaces artifacts already use.
+
+## 0. Implementation status & deviations
+
+| Phase | Status | Notes / deviations from the spec below |
+|---|---|---|
+| A — refs, registry, tool, contacts+offers | ✅ | `ObjectRef` in `packages/ai-core/src/objects/object-ref.ts`; registry + cards in `packages/ai-ui/src/objects/`; `show_objects` in `apps/ai/ai/tools/show-objects-tool.ts` (snapshots via `<module>_get` gateway ops with the user token — G1 authz server-side; no outputSchema so `_meta` survives — G8 confirmed the same way mcp-app relies on it) |
+| B — pane, hints, chips | ✅ | Object tabs live in the existing artifact store (`objectTabs` on `ArtifactPaneState`), not a full `PaneEntry` refactor — artifact list sync untouched, guarded against stealing object-tab focus. Display hints execute only when the tool call streamed live (initial-mount state check, G4). Chat surfaces target `ENGENTY_COPILOT_HOST_KEY` directly (same as `show_artifact`) — no host registry needed. Inline card clicks navigate; the pane opens via agent hints (open-in-panel affordance = `onOpenInPanel`, wired but not surfaced as UI yet) |
+| C — MCP Apps host | ✅ | Server: template cache + csp/structuredContent passthrough + demo fallback deleted; widget `tools/call` proxied via `POST /ai/mcp-apps/call` validated against the tenant registry. Client: hand-rolled postMessage JSON-RPC host (`mcp-app-frame.tsx`) — initialize handshake, tool-input/result push, size-changed, open-link, display-mode(inline) — with host-injected CSP meta. Deviation: no `@modelcontextprotocol/ext-apps` dependency yet (spec 2026-07-28 churn, G7) and no dedicated sandbox origin (G6) — srcdoc without `allow-same-origin` gives an opaque origin; revisit both once the core spec ships |
+| D — breadth | ✅ | tasks/team/invoices widgets (list cards); `entity_refs` backfilled in contacts/inbox/kb retrieval sources using the ref format; copilot AGENTS.md teaches render-don't-prose |
+
+Not built (explicitly): `ui/message` / `ui/update-model-context` bridge methods (respond
+method-not-found), per-tool approval routing for widget calls beyond server allowlisting,
+mcp-app pane tabs (widgets render inline only).
 
 ## 1. Goal & scenarios
 

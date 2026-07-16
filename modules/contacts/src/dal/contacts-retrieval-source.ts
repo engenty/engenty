@@ -218,6 +218,9 @@ export function createContactsRetrievalSource(options: {
       );
       return {
         doc_id,
+        // Canonical object ref — the same `module:entity:id` scheme chat
+        // rendering uses (see docs/wip/chat-object-rendering.md §2).
+        entity_refs: [`contacts:contact:${doc_id}`],
         filter_metadata: {
           roles: [...contact.roles],
           type: contact.type,

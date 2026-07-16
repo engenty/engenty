@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",
+    "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
     "@engenty/app-shell": "workspace:*",
