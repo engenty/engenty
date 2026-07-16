@@ -316,7 +316,7 @@ export function CopilotComposerStatusFlap({
             expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           )}
         >
-          <div className="min-h-0 overflow-hidden">
+          <div aria-hidden={!expanded} className="min-h-0 overflow-hidden">
             <div
               className={cn(
                 "mt-1.5 cursor-auto select-text overflow-y-auto border-border/60 border-t pt-1.5 text-muted-foreground text-sm",
