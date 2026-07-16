@@ -30,6 +30,11 @@ const STATUS_ICON: Record<string, IconType> = {
   running: CircleDot,
 };
 
+/** Truncate an id for display without losing the recognisable prefix. */
+export function shortActivityId(id: string): string {
+  return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+}
+
 export function activityStatusLabel(t: Translate, statusKind: string): string {
   const key = `activity.status_${statusKind}`;
   const value = t(key);

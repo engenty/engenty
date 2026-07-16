@@ -22,14 +22,22 @@ import {
   Boxes,
   CircleDot,
   Clock,
+  Link2,
   ListFilter,
   SlidersHorizontal,
   Text,
+  User,
 } from "lucide-react";
 import type { ActivityStatusFilter } from "./activity-entries";
 import type { ActivityGroupBy, ActivitySortBy } from "./activity-list-state";
 
-export type ActivityColumnKey = "status" | "agent" | "title" | "updated";
+export type ActivityColumnKey =
+  | "status"
+  | "agent"
+  | "title"
+  | "user"
+  | "binding"
+  | "updated";
 export type ActivityColumnVisibility = Record<ActivityColumnKey, boolean>;
 
 export interface ActivityToolbarProps {
@@ -97,6 +105,8 @@ export function ActivityToolbar({
     { key: "status", label: t("activity.column.status"), icon: CircleDot },
     { key: "agent", label: t("activity.column.agent"), icon: Bot },
     { key: "title", label: t("activity.column.title"), icon: Text },
+    { key: "user", label: t("activity.column.user"), icon: User },
+    { key: "binding", label: t("activity.column.binding"), icon: Link2 },
     { key: "updated", label: t("activity.column.updated"), icon: Clock },
   ];
 

@@ -10,11 +10,13 @@ function entry(partial: Partial<ActivityEntry>): ActivityEntry {
   return {
     agentId: "agent-a",
     entityId: "thread-1",
+    hostKey: null,
     key: `session:${partial.entityId ?? "thread-1"}`,
     status: "completed",
     statusKind: "finished",
     timestamp: "2026-06-12T09:30:00Z",
     title: "Quarterly report",
+    userId: "user-1",
     ...partial,
   };
 }

@@ -50,6 +50,8 @@ const ACTIVITY_COLUMNS: ActivityColumnKey[] = [
   "status",
   "agent",
   "title",
+  "user",
+  "binding",
   "updated",
 ];
 
@@ -57,9 +59,11 @@ const DISPLAY_DEFAULTS = {
   columnOrder: ACTIVITY_COLUMNS,
   columnVisibility: {
     agent: true,
+    binding: false,
     status: true,
     title: true,
     updated: true,
+    user: true,
   } satisfies ActivityColumnVisibility,
   sortBy: "timestamp" as ActivitySortBy,
   sortOrder: "desc" as const,

@@ -26,6 +26,7 @@ import { ActivityStatusDot } from "./activity-feed-item";
 import {
   activityStatusLabel,
   resolveActivityGroupHeader,
+  shortActivityId,
 } from "./activity-list-display";
 import type {
   ActivityGroupBy,
@@ -98,9 +99,11 @@ export function ActivityTable({
 
   const headerLabel: Record<ActivityColumnKey, string> = {
     agent: t("activity.column.agent"),
+    binding: t("activity.column.binding"),
     status: t("activity.column.status"),
     title: t("activity.column.title"),
     updated: t("activity.column.updated"),
+    user: t("activity.column.user"),
   };
 
   const renderHeadCell = (key: ActivityColumnKey) => {
@@ -164,6 +167,32 @@ export function ActivityTable({
             <p className="truncate font-medium text-sm">
               {entry.title ?? t("activity.untitledSession")}
             </p>
+          </TableCell>
+        );
+      case "user":
+        return (
+          <TableCell key={key}>
+            <span
+              className="font-mono text-muted-foreground text-xs"
+              title={entry.userId}
+            >
+              {shortActivityId(entry.userId)}
+            </span>
+          </TableCell>
+        );
+      case "binding":
+        return (
+          <TableCell key={key}>
+            {entry.hostKey ? (
+              <span
+                className="truncate font-mono text-muted-foreground text-xs"
+                title={entry.hostKey}
+              >
+                {entry.hostKey}
+              </span>
+            ) : (
+              <span className="text-muted-foreground text-sm">—</span>
+            )}
           </TableCell>
         );
       default:

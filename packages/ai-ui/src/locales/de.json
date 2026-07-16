@@ -465,6 +465,8 @@
       "status": "Status",
       "agent": "Agent",
       "title": "Titel",
+      "user": "Benutzer",
+      "binding": "Bindung",
       "updated": "Zuletzt aktiv"
     },
     "filter": {

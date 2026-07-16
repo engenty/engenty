@@ -453,6 +453,8 @@
       "status": "Status",
       "agent": "Agent",
       "title": "Title",
+      "user": "User",
+      "binding": "Binding",
       "updated": "Last active"
     },
     "filter": {
