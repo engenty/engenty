@@ -48,42 +48,45 @@ export const RecipientSettingsCard = ({
   const placeholderKey = `${documentType}s.settings.recipientCustomInfoPlaceholder`;
 
   return (
-    <div className="ui-canvas-raised relative overflow-hidden rounded-lg bg-card p-4">
-      <div className="absolute top-2 right-2 flex gap-1">
-        {onChangeClient && (
-          <Button
-            className="h-6 w-6"
-            onClick={onChangeClient}
-            size="icon"
-            title={t(changeClientKey)}
-            variant="ghost"
-          >
-            <FolderInput className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-        )}
-        {clientId && (
-          <Button
-            className="h-6 w-6"
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                window.location.href = `/mdl/contacts/${clientId}`;
-              }
-            }}
-            size="icon"
-            title={t("viewClient")}
-            variant="ghost"
-          >
-            <Link className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-        )}
-      </div>
-
-      <div className="space-y-2 pr-14 text-sm">
-        {(clientDetails.display_name ?? clientDetails.company_name) && (
-          <p className="font-semibold text-foreground">
-            {clientDetails.display_name ?? clientDetails.company_name}
-          </p>
-        )}
+    <div className="ui-canvas-raised overflow-hidden rounded-lg bg-card p-4">
+      <div className="space-y-2 text-sm">
+        <div className="flex items-start gap-1">
+          {(clientDetails.display_name ?? clientDetails.company_name) ? (
+            <p className="min-w-0 flex-1 font-semibold text-foreground">
+              {clientDetails.display_name ?? clientDetails.company_name}
+            </p>
+          ) : (
+            <span className="min-w-0 flex-1" />
+          )}
+          <div className="-mt-1 -mr-1.5 flex shrink-0 gap-1">
+            {onChangeClient ? (
+              <Button
+                className="h-6 w-6"
+                onClick={onChangeClient}
+                size="icon"
+                title={t(changeClientKey)}
+                variant="ghost"
+              >
+                <FolderInput className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            ) : null}
+            {clientId ? (
+              <Button
+                className="h-6 w-6"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.location.href = `/mdl/contacts/${clientId}`;
+                  }
+                }}
+                size="icon"
+                title={t("viewClient")}
+                variant="ghost"
+              >
+                <Link className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            ) : null}
+          </div>
+        </div>
         {clientDetails.address_street && (
           <p className="text-foreground">{clientDetails.address_street}</p>
         )}
