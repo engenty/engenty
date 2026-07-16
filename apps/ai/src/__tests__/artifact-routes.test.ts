@@ -89,6 +89,12 @@ function makeFakeStore(): ArtifactStore {
           a.status === "active"
       );
     },
+    async listAllByTenant({ tenantId, includeArchived }) {
+      return [...artifacts.values()].filter(
+        (a) =>
+          a.tenant_id === tenantId && (includeArchived || a.status === "active")
+      );
+    },
     async addVersion(input) {
       const artifact = scoped(input.tenantId, input.artifactId);
       if (!artifact) {
@@ -237,6 +243,36 @@ describe("artifact routes", () => {
     );
     const threadList = (await inThread.json()) as { artifacts: unknown[] };
     expect(threadList.artifacts).toHaveLength(0);
+  });
+
+  it("lists every artifact across scopes for the tenant via /all", async () => {
+    const { app } = makeHarness();
+    await createArtifact(app, "thread-1", "A");
+    const second = (await (
+      await createArtifact(app, "thread-2", "B")
+    ).json()) as { artifact: { id: string } };
+    // Promote the second one to a project — /all must still surface it.
+    await app.request(`/ai/artifacts/${second.artifact.id}/store`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({ scope_type: "project", scope_id: "project-9" }),
+    });
+
+    const all = await app.request("/ai/artifacts/all", {
+      headers: { authorization: "Bearer t" },
+    });
+    expect(all.status).toBe(200);
+    const body = (await all.json()) as {
+      artifacts: { title: string; scope_type: string; storage: string }[];
+    };
+    expect(body.artifacts).toHaveLength(2);
+    expect(body.artifacts.map((a) => a.title).sort()).toEqual(["A", "B"]);
+    // Rows carry the storage facts the admin console renders.
+    expect(body.artifacts.every((a) => a.storage === "inline")).toBe(true);
+    expect(body.artifacts.some((a) => a.scope_type === "project")).toBe(true);
   });
 
   it("returns 401 when the scope cannot be resolved", async () => {

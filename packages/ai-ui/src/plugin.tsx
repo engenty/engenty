@@ -6,6 +6,7 @@ import {
   ACTIVITY_ROOT_PATH,
   AGENTS_CATALOG_ROOT_PATH,
   AGENTS_WORKSPACE_ROOT_PATH,
+  ARTIFACTS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
   TOOLS_ROOT_PATH,
 } from "./features/agents-workspace/agent-workspace-paths.js";
@@ -15,6 +16,7 @@ import { ActivityPage } from "./routes/activity-page.js";
 import { AgentDetailPage } from "./routes/agent-detail-page.js";
 import { AgentFormPage } from "./routes/agent-form-page.js";
 import { AgentsCatalogPage } from "./routes/agents-catalog-page.js";
+import { ArtifactsCatalogPage } from "./routes/artifacts-catalog-page.js";
 import { LegacyRedirect } from "./routes/legacy-redirect.js";
 import { OverviewPage } from "./routes/overview-page.js";
 import { SkillDetailPage } from "./routes/skill-detail-page.js";
@@ -26,6 +28,7 @@ const RESERVED_SECTIONS = [
   "agents",
   "skills",
   "tools",
+  "artifacts",
   "actions",
   "activity",
   // Owned by the connections module (route registered there).
@@ -186,6 +189,15 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: `${SKILLS_CATALOG_ROOT_PATH}/:skillId`,
     component: SkillDetailPage,
     order: 225,
+  });
+
+  // ── Artifacts ─────────────────────────────────────────────────────────────
+
+  engenty.UI.registerRoute({
+    id: "ai_ui_admin_artifacts",
+    path: ARTIFACTS_ROOT_PATH,
+    component: ArtifactsCatalogPage,
+    order: 217,
   });
 
   // ── Tools ─────────────────────────────────────────────────────────────────

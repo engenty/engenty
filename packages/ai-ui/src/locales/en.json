@@ -163,6 +163,42 @@
       "toolsDescription": "Tools available to this agent through its skills (capabilities). Each entry is a function the model can use during a run."
     }
   },
+  "artifactsCatalog": {
+    "title": "Artifacts",
+    "lede": "Documents created by agents and users — grouped by where they physically live.",
+    "empty": "No artifacts yet.",
+    "emptyDescription": "Artifacts appear when an agent produces a document, table, or HTML.",
+    "showArchived": "Show archived",
+    "hideArchived": "Hide archived",
+    "toggleGroup": "Toggle group",
+    "groupCountSingular": "artifact",
+    "groupCountPlural": "artifacts",
+    "archived": "Archived",
+    "mirror": "Mirrored",
+    "by": {
+      "agent": "Agent",
+      "user": "User"
+    },
+    "storage": {
+      "inline": {
+        "label": "Database",
+        "where": "Postgres · ai.artifact_version"
+      },
+      "blob": {
+        "label": "Object storage",
+        "where": "Supabase Storage · bucket “files”"
+      },
+      "unknown": {
+        "where": "Unknown storage"
+      }
+    },
+    "scope": {
+      "thread": "Chat",
+      "task": "Task",
+      "project": "Project",
+      "goal": "Goal"
+    }
+  },
   "toolsCatalog": {
     "title": "Tools",
     "description": "Module, MCP, and custom tools available in the registry.",
@@ -233,6 +269,7 @@
     "sidebarActions": "Actions",
     "sidebarSkills": "Skills",
     "sidebarTools": "Tools",
+    "sidebarArtifacts": "Artifacts",
     "sidebarConnections": "Connections",
     "connectionsPanelLoading": "Loading connections…",
     "connectionsPanelError": "Connections could not be loaded.",

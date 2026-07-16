@@ -163,6 +163,42 @@
       "toolsDescription": "Verfügbare Tools, die diesem Agenten und seinen Skills (Fähigkeiten) zur Verfügung stehen. Tools sind Funktionen, die die KI benutzen kann."
     }
   },
+  "artifactsCatalog": {
+    "title": "Artefakte",
+    "lede": "Von Agenten und Nutzern erstellte Dokumente – gruppiert danach, wo sie physisch gespeichert sind.",
+    "empty": "Noch keine Artefakte.",
+    "emptyDescription": "Artefakte entstehen, wenn ein Agent ein Dokument, eine Tabelle oder HTML erzeugt.",
+    "showArchived": "Archivierte anzeigen",
+    "hideArchived": "Archivierte ausblenden",
+    "toggleGroup": "Gruppe umschalten",
+    "groupCountSingular": "Artefakt",
+    "groupCountPlural": "Artefakte",
+    "archived": "Archiviert",
+    "mirror": "Gespiegelt",
+    "by": {
+      "agent": "Agent",
+      "user": "Benutzer"
+    },
+    "storage": {
+      "inline": {
+        "label": "Datenbank",
+        "where": "Postgres · ai.artifact_version"
+      },
+      "blob": {
+        "label": "Objektspeicher",
+        "where": "Supabase Storage · Bucket „files“"
+      },
+      "unknown": {
+        "where": "Unbekannter Speicher"
+      }
+    },
+    "scope": {
+      "thread": "Chat",
+      "task": "Aufgabe",
+      "project": "Projekt",
+      "goal": "Ziel"
+    }
+  },
   "toolsCatalog": {
     "title": "Tools",
     "description": "Modul-, MCP- und eigene Tools in der Registry.",
@@ -233,6 +269,7 @@
     "sidebarActions": "Aktionen",
     "sidebarSkills": "Skills",
     "sidebarTools": "Tools",
+    "sidebarArtifacts": "Artefakte",
     "sidebarConnections": "Verbindungen",
     "connectionsPanelLoading": "Verbindungen werden geladen…",
     "connectionsPanelError": "Verbindungen konnten nicht geladen werden.",
