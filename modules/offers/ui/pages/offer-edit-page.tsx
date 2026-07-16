@@ -236,12 +236,11 @@ export function OfferEditPage() {
       settingsSidebarToggle();
     }
   }, [settingsSidebarOpen, settingsSidebarToggle]);
-  // Only widen the content column when the sidebar actually occupies an
-  // inline column; when it's closed (or an overlay) the document keeps its
-  // natural reading width.
+  // Cap the document+sidebar row: wider when the sidebar occupies an inline
+  // column, reading width when closed/overlay.
   const settingsInlineOpen =
     settingsSidebar.mode === "inline" && settingsSidebarOpen;
-  const contentMaxWidthClass = settingsInlineOpen ? "max-w-7xl" : "max-w-6xl";
+  const contentMaxWidthClass = settingsInlineOpen ? "max-w-8xl" : "max-w-6xl";
   const {
     collapsed: headerCollapsed,
     onScroll,
@@ -268,6 +267,10 @@ export function OfferEditPage() {
     offer: OfferListItem | null;
     serverJson: string;
   }>({ blocks: [], offer: null, serverJson: "" });
+  // Settings / metadata auto-save writes the offer then invalidates the edit
+  // query (and realtime may invalidate again). Those echoes must not surface
+  // as "changed outside the editor".
+  const ownOfferWriteCountRef = useRef(0);
   const [externalChange, setExternalChange] = useState(false);
 
   const adoptServerState = useCallback(
@@ -283,6 +286,23 @@ export function OfferEditPage() {
       setExternalChange(false);
     },
     []
+  );
+
+  /** Optimistic local patch + persist; marks the write as our own for conflict detection. */
+  const patchOfferFields = useCallback(
+    (patch: Partial<OfferListItem>) => {
+      ownOfferWriteCountRef.current += 1;
+      setOffer((current) => (current ? { ...current, ...patch } : current));
+      updateMutation.mutate(patch, {
+        onError: () => {
+          ownOfferWriteCountRef.current = Math.max(
+            0,
+            ownOfferWriteCountRef.current - 1
+          );
+        },
+      });
+    },
+    [updateMutation]
   );
 
   useEffect(() => {
@@ -310,6 +330,19 @@ export function OfferEditPage() {
       return;
     }
     if (serverJson === adoptedRef.current.serverJson) {
+      return;
+    }
+    if (ownOfferWriteCountRef.current > 0) {
+      // One refetch can cover several rapid auto-saves; clear rather than
+      // decrement so a leftover count cannot swallow a later real conflict.
+      ownOfferWriteCountRef.current = 0;
+      // Acknowledge our auto-save echo without clobbering unsaved block edits.
+      adoptedRef.current = {
+        blocks: adoptedRef.current.blocks,
+        offer,
+        serverJson,
+      };
+      setExternalChange(false);
       return;
     }
     const pristine =
@@ -803,12 +836,7 @@ export function OfferEditPage() {
                 entities={entities}
                 entitiesAvailable={Boolean(contactsPlugin)}
                 offer={offer}
-                onChange={(patch: Partial<OfferListItem>) => {
-                  setOffer((current) =>
-                    current ? { ...current, ...patch } : current
-                  );
-                  updateMutation.mutate(patch);
-                }}
+                onChange={patchOfferFields}
                 onClientSelect={contactsPlugin ? handleClientSelect : undefined}
                 onDelete={() => setDeleteConfirmOpen(true)}
                 settingsTaxRates={normalizedEditorTaxRates}
@@ -843,12 +871,7 @@ export function OfferEditPage() {
                   <OfferMetadataInline
                     disabled={isReadOnly}
                     offer={offer}
-                    onChange={(patch) => {
-                      setOffer((current) =>
-                        current ? { ...current, ...patch } : current
-                      );
-                      updateMutation.mutate(patch);
-                    }}
+                    onChange={patchOfferFields}
                   />
 
                   <DocumentTitleBlock
