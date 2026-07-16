@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.26] - 2026-07-16
+- ADDED **[ai-ui]** User + binding columns in the activity table
+- ADDED **[ai-ui]** Full list UI for the activity page
+- ADDED **[ai-ui]** Full list UI for artifacts catalog
+- ADDED **[ai-ui]** Group artifacts by scope + make them openable
+- ADDED **[ai-ui]** Add Artifacts section to Engenty admin
+
 ## [0.1.25] - 2026-07-16
 - FIXED **[offers]** Ignore settings autosave in external-change banner
 - FIXED **[commercial-editor]** Default tax row 70/30 and phase index tooltip
