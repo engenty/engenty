@@ -61,6 +61,16 @@ export type {
   SupportedEmbeddingModelsData,
 } from "./models/supported-embeddings.js";
 export { supportedEmbeddingModels } from "./models/supported-embeddings.js";
+export {
+  formatObjectRef,
+  type ObjectDisplayHint,
+  type ObjectDisplayItem,
+  type ObjectRef,
+  type ObjectRenderMeta,
+  objectRefTypeKey,
+  parseObjectRef,
+  readObjectRenderMeta,
+} from "./objects/object-ref.js";
 export { isAgentThreadId } from "./runtime/agent-thread-id.js";
 export {
   AGENT_SKILL_NAME_MAX_LENGTH,

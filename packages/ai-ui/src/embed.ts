@@ -5,7 +5,17 @@
 
 // --- AG-UI runtime — apps/ai transport, conversation, frontend tools ---
 export { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
-export { isAgentThreadId } from "@engenty/ai-core/browser";
+export {
+  formatObjectRef,
+  isAgentThreadId,
+  type ObjectDisplayHint,
+  type ObjectDisplayItem,
+  type ObjectRef,
+  type ObjectRenderMeta,
+  objectRefTypeKey,
+  parseObjectRef,
+  readObjectRenderMeta,
+} from "@engenty/ai-core/browser";
 export {
   appsAiActionRunPath,
   appsAiActionsListPath,
@@ -194,6 +204,28 @@ export {
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";
+// --- Object widgets (module entities rendered in chat by reference) ---
+export {
+  type ObjectDisplayIntent,
+  ObjectDisplayIntentProvider,
+  useObjectDisplayIntent,
+} from "./objects/object-display-intent.js";
+export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
+export {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "./objects/object-render-tool-call-card.js";
+export {
+  clearObjectWidgetsForTests,
+  listObjectWidgets,
+  type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
+  type ObjectWidgetRegistration,
+  registerObjectWidget,
+  resolveObjectWidget,
+  useObjectWidget,
+  useObjectWidgets,
+} from "./objects/object-widget-registry.js";
 // --- Inbox (Mastra notifications; rendered by the tasks module) ---
 export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
 export {

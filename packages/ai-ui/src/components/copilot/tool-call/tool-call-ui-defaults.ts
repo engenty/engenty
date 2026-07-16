@@ -11,6 +11,10 @@ import {
 } from "./feedback-artifact-tool-call-card";
 import { McpAppToolCallCard, readMcpAppMeta } from "./mcp-app-tool-call-card";
 import {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "../../../objects/object-render-tool-call-card";
+import {
   matchesProposeUpdatesOutput,
   ProposeUpdatesToolCallCard,
 } from "./propose-updates-tool-call-card";
@@ -73,6 +77,12 @@ export function registerDefaultToolCallUiCards() {
     match: (ctx) =>
       matchesSandboxCommandToolCall(ctx.toolName, ctx.state ?? "running"),
     Card: SandboxCommandConfirmToolCallCard,
+  });
+  registerToolCallUi({
+    id: "core.object-render",
+    priority: 55,
+    match: (ctx) => objectRenderToolCallMatch(ctx),
+    Card: ObjectRenderToolCallCard,
   });
   registerToolCallUi({
     id: "core.mcp-app",
