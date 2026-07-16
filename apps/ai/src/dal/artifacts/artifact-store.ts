@@ -195,6 +195,30 @@ export function createArtifactStore(client: SupabaseClient) {
       return (data as ArtifactRow[] | null) ?? [];
     },
 
+    /**
+     * Tenant-wide listing across every scope — powers the admin console, which
+     * surfaces where each artifact physically lives. Unlike listByScope this
+     * drops the scope filters entirely; kept separate so scope-bound callers
+     * can't accidentally leak cross-scope rows.
+     */
+    async listAllByTenant(params: {
+      tenantId: string;
+      includeArchived?: boolean;
+      limit?: number;
+    }): Promise<ArtifactRow[]> {
+      let query = db.from("artifact").select().eq("tenant_id", params.tenantId);
+      if (!params.includeArchived) {
+        query = query.eq("status", "active");
+      }
+      const { data, error } = await query
+        .order("updated_at", { ascending: false })
+        .limit(params.limit ?? 500);
+      if (error) {
+        throw new Error(`artifact list all: ${error.message}`);
+      }
+      return (data as ArtifactRow[] | null) ?? [];
+    },
+
     async addVersion(
       input: AddArtifactVersionInput
     ): Promise<{ artifact: ArtifactRow; version: ArtifactVersionRow }> {

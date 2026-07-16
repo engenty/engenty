@@ -11,12 +11,16 @@ export interface ActivityEntry {
   agentId: string | null;
   /** Thread id (the navigable entity). */
   entityId: string;
+  /** UI host the thread is bound to (route_context host_key/module), if any. */
+  hostKey: string | null;
   /** Unique list key. */
   key: string;
   status: string;
   statusKind: ActivityStatusKind;
   timestamp: string;
   title: string | null;
+  /** Owner of the thread. */
+  userId: string;
 }
 
 export interface ActivityFilterState {
@@ -41,6 +45,19 @@ function sessionStatusKind(
   }
 }
 
+/** Best-available binding signal from route_context (host, module, or key). */
+function sessionHostKey(
+  routeContext: Record<string, unknown> | null | undefined
+): string | null {
+  for (const field of ["host_key", "moduleId", "session_key"]) {
+    const value = routeContext?.[field];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 export function toActivityEntries(input: {
   sessions: AiAdminSessionRow[];
 }): ActivityEntry[] {
@@ -48,11 +65,13 @@ export function toActivityEntries(input: {
     .map((session) => ({
       agentId: session.current_agent_id,
       entityId: session.id,
+      hostKey: sessionHostKey(session.route_context),
       key: `session:${session.id}`,
       status: session.status,
       statusKind: sessionStatusKind(session.status),
       timestamp: session.last_message_at ?? session.updated_at,
       title: session.title?.trim() || session.summary?.trim() || null,
+      userId: session.user_id,
     }))
     .toSorted(
       (left, right) =>

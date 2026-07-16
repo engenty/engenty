@@ -52,6 +52,57 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Where a promoted artifact was mirrored to (recorded on artifact.metadata). */
+export interface ArtifactExternalMirror {
+  connection_id: string;
+  mirrored_at: string;
+  ref: string;
+  version: number;
+}
+
+/**
+ * Admin-console row — carries the storage/scope facts the tenant-wide list
+ * needs to show *where* each artifact lives (unlike the lean ArtifactSummary).
+ */
+export interface AdminArtifactRow {
+  created_at: string;
+  created_by: string | null;
+  created_by_kind: "agent" | "user";
+  current_version: number;
+  id: string;
+  metadata: { external_mirror?: ArtifactExternalMirror } & Record<
+    string,
+    unknown
+  >;
+  mime_type: string | null;
+  scope_id: string;
+  scope_type: ArtifactScopeType;
+  size_bytes: number | null;
+  status: "active" | "archived";
+  storage: "inline" | "blob";
+  storage_connection_id: string | null;
+  storage_key: string | null;
+  title: string;
+  type: string;
+  updated_at: string;
+}
+
+/** Tenant-wide list across every scope (admin console). */
+export async function listAllArtifacts(params: {
+  serviceBaseUrl: string;
+  includeArchived?: boolean;
+}): Promise<AdminArtifactRow[]> {
+  const search = new URLSearchParams();
+  if (params.includeArchived) {
+    search.set("include_archived", "true");
+  }
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  const data = await requestJson<{ artifacts: AdminArtifactRow[] }>(
+    `${artifactsPath(params.serviceBaseUrl)}/all${suffix}`
+  );
+  return data.artifacts;
+}
+
 export async function listArtifacts(params: {
   serviceBaseUrl: string;
   scopeType: ArtifactScopeType;
@@ -169,6 +220,24 @@ export async function setArtifactStorageBinding(params: {
 }
 
 export const artifactsQueryRoot = ["artifacts"] as const;
+
+export function artifactsAllQueryKey(includeArchived: boolean) {
+  return [...artifactsQueryRoot, "all", includeArchived] as const;
+}
+
+/** Tenant-wide artifact list for the admin console. */
+export function useAllArtifactsQuery(includeArchived = false) {
+  const serviceBaseUrl = resolveEngentyAiServiceBaseUrl();
+  return useQuery({
+    queryKey: artifactsAllQueryKey(includeArchived),
+    enabled: Boolean(serviceBaseUrl),
+    queryFn: () =>
+      listAllArtifacts({
+        serviceBaseUrl: serviceBaseUrl as string,
+        includeArchived,
+      }),
+  });
+}
 
 export function artifactsListQueryKey(
   scopeType: ArtifactScopeType,

@@ -163,6 +163,108 @@
       "toolsDescription": "Verfügbare Tools, die diesem Agenten und seinen Skills (Fähigkeiten) zur Verfügung stehen. Tools sind Funktionen, die die KI benutzen kann."
     }
   },
+  "artifactsCatalog": {
+    "title": "Artefakte",
+    "lede": "Von Agenten und Nutzern erstellte Dokumente – gruppiert nach ihrem Geltungsbereich (Chat, Aufgabe, Projekt, Ziel), der bestimmt, wer sie sehen kann.",
+    "empty": "Noch keine Artefakte.",
+    "emptyDescription": "Artefakte entstehen, wenn ein Agent ein Dokument, eine Tabelle oder HTML erzeugt.",
+    "noResults": "Keine Artefakte entsprechen den Filtern.",
+    "searchPlaceholder": "Artefakte suchen…",
+    "filterToggle": "Filter",
+    "count": "{{count}} von {{total}}",
+    "display": "Anzeige",
+    "cardsView": "Kacheln",
+    "tableView": "Tabelle",
+    "compactView": "Kompakt",
+    "sortAscending": "Aufsteigend",
+    "sortDescending": "Absteigend",
+    "sortByLabel": "Sortieren nach",
+    "groupByLabel": "Gruppieren nach",
+    "displayedColumns": "Angezeigte Spalten",
+    "hiddenColumns": "Ausgeblendete Spalten",
+    "hideAll": "Alle ausblenden",
+    "showAll": "Alle anzeigen",
+    "noColumns": "Mindestens eine Spalte muss sichtbar bleiben.",
+    "groupBy": {
+      "scope": "Geltungsbereich",
+      "type": "Typ",
+      "storage": "Speicher",
+      "status": "Status",
+      "creator": "Ersteller",
+      "none": "Keine Gruppe"
+    },
+    "sort": {
+      "title": "Titel",
+      "updated": "Aktualisiert",
+      "type": "Typ"
+    },
+    "filter": {
+      "scope": "Geltungsbereich",
+      "type": "Typ",
+      "storage": "Speicher",
+      "status": "Status",
+      "creator": "Ersteller",
+      "allScopes": "Alle Bereiche",
+      "allTypes": "Alle Typen",
+      "allStorage": "Alle Speicher",
+      "allStatus": "Alle Status",
+      "allCreators": "Alle Ersteller"
+    },
+    "statusValue": {
+      "active": "Aktiv",
+      "archived": "Archiviert"
+    },
+    "column": {
+      "title": "Titel",
+      "scope": "Bereich",
+      "storage": "Speicher",
+      "type": "Typ",
+      "version": "Version",
+      "updated": "Aktualisiert",
+      "status": "Status",
+      "creator": "Ersteller"
+    },
+    "toggleGroup": "Gruppe umschalten",
+    "groupCountSingular": "Artefakt",
+    "groupCountPlural": "Artefakte",
+    "archived": "Archiviert",
+    "mirror": "Gespiegelt",
+    "by": {
+      "agent": "Agent",
+      "user": "Benutzer"
+    },
+    "storage": {
+      "inline": {
+        "label": "Datenbank",
+        "where": "Postgres · ai.artifact_version"
+      },
+      "blob": {
+        "label": "Objektspeicher",
+        "where": "Supabase Storage · Bucket „files“"
+      },
+      "unknown": {
+        "where": "Unbekannter Speicher"
+      }
+    },
+    "scope": {
+      "thread": "Chat",
+      "task": "Aufgabe",
+      "project": "Projekt",
+      "goal": "Ziel"
+    },
+    "audience": {
+      "thread": "Teilnehmer dieser Chat-Session",
+      "task": "Mitglieder dieser Aufgabe",
+      "project": "Projektmitglieder",
+      "goal": "Beteiligte dieses Ziels"
+    }
+  },
+  "artifactDetail": {
+    "back": "Zurück zu Artefakten",
+    "download": "Herunterladen",
+    "notFound": "Artefakt nicht gefunden.",
+    "untitled": "Artefakt"
+  },
   "toolsCatalog": {
     "title": "Tools",
     "description": "Modul-, MCP- und eigene Tools in der Registry.",
@@ -233,6 +335,7 @@
     "sidebarActions": "Aktionen",
     "sidebarSkills": "Skills",
     "sidebarTools": "Tools",
+    "sidebarArtifacts": "Artefakte",
     "sidebarConnections": "Verbindungen",
     "connectionsPanelLoading": "Verbindungen werden geladen…",
     "connectionsPanelError": "Verbindungen konnten nicht geladen werden.",
@@ -326,13 +429,56 @@
     "empty": "Noch keine Aktivität erfasst.",
     "error": "Aktivität konnte nicht geladen werden.",
     "filterAllAgents": "Alle Agenten",
-    "searchPlaceholder": "Nach Titel suchen…",
+    "searchPlaceholder": "Sessions durchsuchen…",
     "today": "Heute",
     "yesterday": "Gestern",
     "status_all": "Alle Status",
     "status_running": "Laufend",
     "status_failed": "Fehlgeschlagen",
     "status_finished": "Abgeschlossen",
+    "status_other": "Sonstige",
+    "count": "{{count}} von {{total}}",
+    "noResults": "Keine Sessions entsprechen den Filtern.",
+    "feedView": "Feed",
+    "tableView": "Tabelle",
+    "display": "Anzeige",
+    "filterToggle": "Filteroptionen",
+    "toggleGroup": "Gruppe umschalten",
+    "groupCountSingular": "Session",
+    "groupCountPlural": "Sessions",
+    "groupByLabel": "Gruppieren nach",
+    "groupBy": {
+      "day": "Tag",
+      "agent": "Agent",
+      "status": "Status",
+      "none": "Keine Gruppe"
+    },
+    "sortByLabel": "Sortieren nach",
+    "sortAscending": "Aufsteigend",
+    "sortDescending": "Absteigend",
+    "sort": {
+      "timestamp": "Zuletzt aktiv",
+      "title": "Titel",
+      "agent": "Agent"
+    },
+    "column": {
+      "status": "Status",
+      "agent": "Agent",
+      "title": "Titel",
+      "user": "Benutzer",
+      "binding": "Bindung",
+      "updated": "Zuletzt aktiv"
+    },
+    "filter": {
+      "agent": "Agent",
+      "status": "Status"
+    },
+    "compactView": "Kompakte Ansicht",
+    "displayedColumns": "Angezeigte Spalten",
+    "hiddenColumns": "Ausgeblendete Spalten",
+    "showAll": "Alle anzeigen",
+    "hideAll": "Alle ausblenden",
+    "noColumns": "Keine Spalten angezeigt",
     "untitledSession": "Session ohne Titel",
     "noAgent": "Kein Agent",
     "cockpitBanner": "Sie suchen Ziele, Aufgaben und Dispatch? Dieser Feed dient der Prüfung und Fehlersuche.",
