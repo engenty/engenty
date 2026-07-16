@@ -62,10 +62,32 @@ function parseAddressList(raw: string | undefined): string[] {
     .filter((e) => e.length > 0);
 }
 
+/** To is often empty for mailing lists / Google Groups; Delivered-To has the mailbox. */
+function parseRecipientEmails(
+  headers: { name: string; value: string }[] | undefined
+): string[] {
+  const to = parseAddressList(getHeader(headers, "To"));
+  if (to.length > 0) {
+    return to;
+  }
+  const delivered = parseAddressList(getHeader(headers, "Delivered-To"));
+  if (delivered.length > 0) {
+    return delivered;
+  }
+  return parseAddressList(getHeader(headers, "X-Original-To"));
+}
+
 /** Gmail uses URL-safe base64 for message bodies. */
 function decodeBase64Url(data: string): string {
   const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
   return Buffer.from(base64, "base64").toString("utf-8");
+}
+
+/** Gmail attachment API returns URL-safe base64 without padding. */
+export function gmailAttachmentDataToBase64(data: string): string {
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = base64.length % 4;
+  return pad > 0 ? base64 + "=".repeat(4 - pad) : base64;
 }
 
 function extractBody(
@@ -113,7 +135,7 @@ function parseGmailMessage(raw: GmailMessage): {
     from_name: fromName ?? null,
     message_id: raw.id,
     subject: getHeader(headers, "Subject") ?? null,
-    to: parseAddressList(getHeader(headers, "To")),
+    to: parseRecipientEmails(headers),
   };
 }
 
@@ -436,6 +458,33 @@ const composeFields = {
 
 export const gmailConnector: ConnectorDefinition = defineConnector({
   actions: [
+    connectorAction({
+      description:
+        "Fetch a Gmail attachment body by message id and attachment id (for inbox previews).",
+      group: "read",
+      handler: async (input, ctx) => {
+        const data = await googleJson<{ data?: string; size?: number }>(
+          ctx,
+          `${GMAIL_API}/messages/${encodeURIComponent(input.message_id)}/attachments/${encodeURIComponent(input.attachment_id)}`
+        );
+        if (!data.data) {
+          throw new Error("gmail attachment has no data");
+        }
+        return {
+          data_base64: gmailAttachmentDataToBase64(data.data),
+          size: data.size ?? null,
+        };
+      },
+      id: "get_attachment",
+      inputSchema: z.object({
+        attachment_id: z
+          .string()
+          .describe("Gmail attachment id from message metadata."),
+        message_id: z.string().describe("Gmail message id."),
+      }),
+      providerScopes: [SCOPE_READONLY],
+      summary: "Fetch a Gmail attachment",
+    }),
     connectorAction({
       description:
         "Search Gmail threads with a Gmail query string and return brief per-thread info (subject, sender, date, snippet, message count).",

@@ -64,6 +64,23 @@ export async function getInboxThread(
   );
 }
 
+export interface InboxAttachmentPayload {
+  data_base64: string;
+  filename: string | null;
+  mime_type: string | null;
+}
+
+export async function getInboxAttachment(
+  input: { attachment_id: string; message_id: string },
+  signal?: AbortSignal
+): Promise<InboxAttachmentPayload> {
+  return invokeTool<InboxAttachmentPayload>(
+    "inbox_attachment_get",
+    input,
+    signal
+  );
+}
+
 export async function setInboxMessageStatus(input: {
   ids: string[];
   status: InboxMessageStatus;

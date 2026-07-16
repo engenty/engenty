@@ -1,7 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
-  Button,
   Card,
   Empty,
   EmptyDescription,
@@ -10,30 +9,41 @@ import {
   ScrollArea,
   Skeleton,
 } from "@engenty/ui-core";
-import { Archive, Check, MailOpen, Paperclip } from "lucide-react";
-import { toast } from "sonner";
-import type { InboxMessage, InboxMessageStatus } from "../api.js";
-import {
-  useInboxThreadQuery,
-  useSetMessageStatusMutation,
-} from "../queries.js";
+import { MailOpen } from "lucide-react";
+import { useMemo } from "react";
+import type { InboxMessage } from "../api.js";
+import { INBOX_STATUS_BADGE_VARIANT } from "../lib/inbox-status-badge.js";
+import { useInboxAccountsQuery, useInboxThreadQuery } from "../queries.js";
 import { EmailMessageBody } from "./email-message-body.js";
+import { MessageAttachments } from "./message-attachments.js";
 
-const STATUS_BADGE_VARIANT: Record<
-  InboxMessageStatus,
-  "default" | "outline" | "secondary"
-> = {
-  archived: "outline",
-  new: "default",
-  processed: "secondary",
-  triaged: "secondary",
-};
+function formatRecipientLine(
+  message: InboxMessage,
+  accountEmail: string | undefined
+): string | null {
+  const recipients = message.to_emails.filter(
+    (email) => email.trim().length > 0
+  );
+  if (recipients.length > 0) {
+    return recipients.join(", ");
+  }
+  return accountEmail?.trim() || null;
+}
 
 /** Right pane of the mail client: one conversation, newest message last. */
 export function ThreadDetail({ threadId }: { threadId: string | null }) {
   const { t } = useTranslation("inbox");
   const threadQuery = useInboxThreadQuery(threadId);
-  const setStatus = useSetMessageStatusMutation();
+  const accountsQuery = useInboxAccountsQuery();
+  const accountEmailByConnection = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const account of accountsQuery.data?.accounts ?? []) {
+      if (account.external_account) {
+        map.set(account.connection_id, account.external_account);
+      }
+    }
+    return map;
+  }, [accountsQuery.data]);
 
   if (!threadId) {
     return (
@@ -71,46 +81,13 @@ export function ThreadDetail({ threadId }: { threadId: string | null }) {
     );
   }
 
-  const applyStatus = (messages: InboxMessage[], status: InboxMessageStatus) =>
-    setStatus.mutate(
-      { ids: messages.map((message) => message.id), status },
-      {
-        onError: (error) =>
-          toast.error(t("toasts.statusFailed", { error: String(error) })),
-        onSuccess: () => toast.success(t(`toasts.status.${status}`)),
-      }
-    );
-
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
-        <h2 className="min-w-0 truncate font-semibold text-base">
-          {detail.thread.subject ?? t("list.noSubject")}
-        </h2>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            disabled={setStatus.isPending}
-            onClick={() => applyStatus(detail.messages, "processed")}
-            size="sm"
-            variant="outline"
-          >
-            <Check className="size-4" /> {t("actions.markProcessed")}
-          </Button>
-          <Button
-            disabled={setStatus.isPending}
-            onClick={() => applyStatus(detail.messages, "archived")}
-            size="sm"
-            variant="outline"
-          >
-            <Archive className="size-4" /> {t("actions.archive")}
-          </Button>
-        </div>
-      </div>
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-3 p-4">
+        <div className="flex flex-col gap-3 p-4">
           {detail.messages.map((message) => (
-            <Card className="space-y-2 p-4" key={message.id}>
-              <div className="flex items-baseline justify-between gap-2">
+            <Card className="flex flex-col gap-2 p-4" key={message.id}>
+              <div className="flex shrink-0 items-baseline justify-between gap-2">
                 <div className="min-w-0">
                   <span className="font-medium text-sm">
                     {message.from_name ?? message.from_email ?? "—"}
@@ -121,14 +98,27 @@ export function ThreadDetail({ threadId }: { threadId: string | null }) {
                     </span>
                   ) : null}
                   <div className="truncate text-muted-foreground text-xs">
-                    {t("thread.to", { to: message.to_emails.join(", ") })}
-                    {message.cc_emails.length > 0
-                      ? ` · ${t("thread.cc", { cc: message.cc_emails.join(", ") })}`
-                      : ""}
+                    {(() => {
+                      const to = formatRecipientLine(
+                        message,
+                        accountEmailByConnection.get(message.connection_id)
+                      );
+                      if (!to) {
+                        return null;
+                      }
+                      return (
+                        <>
+                          {t("thread.to", { to })}
+                          {message.cc_emails.length > 0
+                            ? ` · ${t("thread.cc", { cc: message.cc_emails.join(", ") })}`
+                            : ""}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Badge variant={STATUS_BADGE_VARIANT[message.status]}>
+                  <Badge variant={INBOX_STATUS_BADGE_VARIANT[message.status]}>
                     {t(`lanes.${message.status}`)}
                   </Badge>
                   <span className="text-muted-foreground text-xs">
@@ -139,22 +129,10 @@ export function ThreadDetail({ threadId }: { threadId: string | null }) {
                 </div>
               </div>
               <EmailMessageBody message={message} />
-              {message.attachments_json.length > 0 ? (
-                <div className="flex flex-wrap gap-2 border-t pt-2">
-                  {message.attachments_json.map((attachment, index) => (
-                    <Badge
-                      key={attachment.attachment_id ?? index}
-                      variant="outline"
-                    >
-                      <Paperclip className="mr-1 size-3" />
-                      {attachment.filename ?? t("thread.attachment")}
-                      {attachment.size
-                        ? ` (${Math.round(attachment.size / 1024)} kB)`
-                        : ""}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
+              <MessageAttachments
+                attachments={message.attachments_json}
+                messageId={message.id}
+              />
             </Card>
           ))}
         </div>

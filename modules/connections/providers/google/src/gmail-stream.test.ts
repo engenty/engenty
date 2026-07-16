@@ -233,6 +233,39 @@ describe("gmail stream pull", () => {
     expect(result.nextCursor).toBe("1100");
   });
 
+  it("falls back to Delivered-To when the To header is empty", async () => {
+    const { ctx } = makeCtx((url) => {
+      if (url.pathname === PROFILE) {
+        return { body: { historyId: "1000" } };
+      }
+      if (url.pathname === MESSAGES) {
+        return { body: { messages: [{ id: "m-groups" }] } };
+      }
+      if (url.pathname.startsWith(`${MESSAGES}/`)) {
+        return {
+          body: {
+            ...rawMessage("m-groups"),
+            payload: {
+              headers: [
+                {
+                  name: "From",
+                  value: "'GitHub' via support <support@engrd.at>",
+                },
+                { name: "Delivered-To", value: "matthias@engrd.at" },
+                { name: "Subject", value: "GitHub notification" },
+              ],
+              mimeType: "text/plain",
+              body: { data: b64url("body") },
+            },
+          },
+        };
+      }
+      return null;
+    });
+    const result = await pull(ctx, null);
+    expect(result.items[0]?.to).toEqual(["matthias@engrd.at"]);
+  });
+
   it("reports an expired cursor as a typed error message", async () => {
     const { ctx } = makeCtx((url) =>
       url.pathname === HISTORY ? { body: { error: "gone" }, status: 404 } : null

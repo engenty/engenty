@@ -150,3 +150,14 @@ export const inboxSyncRunResultSchema = z.object({
     })
   ),
 });
+
+export const inboxAttachmentGetInputSchema = z.object({
+  attachment_id: z.string().min(1),
+  message_id: z.string().min(1),
+});
+
+export const inboxAttachmentGetResultSchema = z.object({
+  data_base64: z.string(),
+  filename: z.string().nullable(),
+  mime_type: z.string().nullable(),
+});
