@@ -110,9 +110,19 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
         ) {
           return;
         }
-        const detail = payload.payload as Record<string, unknown>;
-        const title =
-          typeof detail?.title === "string" ? ` — "${detail.title}"` : "";
+        const detail = (payload.payload ?? {}) as Record<string, unknown>;
+        // Human-readable line: verb + title/transition when the payload has them.
+        const verb = String(payload.event_type).replace(/^tasks\./, "");
+        const parts = [
+          `Task ${verb.replaceAll("_", " ")}`,
+          typeof detail.title === "string" ? `"${detail.title}"` : null,
+          typeof detail.from === "string" && typeof detail.to === "string"
+            ? `${detail.from} → ${detail.to}`
+            : null,
+          typeof detail.comment === "string"
+            ? `“${String(detail.comment).slice(0, 120)}”`
+            : null,
+        ].filter(Boolean);
         await serviceRepo.messages.post({
           conversationId: conversation.id,
           metadata: {
@@ -123,7 +133,7 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
             event_type: "task_activity",
           },
           subtype: "activity",
-          text: `${String(payload.event_type)}${title}`,
+          text: parts.join(" · "),
         });
       } catch {
         // activity fan-out is best-effort
