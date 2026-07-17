@@ -67,6 +67,9 @@
       "projects": {
         "source": "workspace"
       },
+      "secrets": {
+        "source": "workspace"
+      },
       "tasks": {
         "source": "workspace"
       },
