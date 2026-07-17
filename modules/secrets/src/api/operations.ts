@@ -101,6 +101,10 @@ export function registerSecretsOperations(
         .select(
           "id, owner_scope, owner_id, name, kind, url, description, created_by, created_at, updated_at"
         )
+        // RLS is bypassed by the service-role client, so the tenant boundary
+        // must be enforced explicitly here (BUG-1). Every service-role read in
+        // this module carries this filter.
+        .eq("tenant_id", ctx.auth.tenantId)
         .is("deleted_at", null);
       if (inp.owner_scope) {
         q = q.eq("owner_scope", inp.owner_scope);
