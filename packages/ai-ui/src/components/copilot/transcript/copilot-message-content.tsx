@@ -29,6 +29,7 @@ import {
   getToolName,
   getToolResolvedName,
   getToolState,
+  isObjectRenderToolPart,
   isProgressPart,
   isReasoningPart,
   isSubAgentDelegationTool,
@@ -228,8 +229,10 @@ export function CopilotMessageContent({
     part: ToolPartLike;
     toolName: string;
   }> = [];
-  // agent-* delegations use SubAgentTaskToolCallCard — never a one-line thought step.
-  const preTextSubAgentParts: Array<{
+  // Tool parts whose card IS the answer — agent-* delegations
+  // (SubAgentTaskToolCallCard) and object renders (contact/offer/task cards).
+  // They render full-width above the text, never as a one-line thought step.
+  const preTextCardParts: Array<{
     index: number;
     part: ToolPartLike;
     toolName: string;
@@ -277,10 +280,11 @@ export function CopilotMessageContent({
 
     if (
       (c.kind === "tool" || c.kind === "web_search") &&
-      isSubAgentDelegationTool(c.part, c.toolName)
+      (isSubAgentDelegationTool(c.part, c.toolName) ||
+        isObjectRenderToolPart(c.part, c.toolName))
     ) {
       if (i <= lastTextIndex || lastTextIndex === -1) {
-        preTextSubAgentParts.push({
+        preTextCardParts.push({
           index: i,
           part: c.part,
           toolName: c.toolName,
@@ -394,7 +398,7 @@ export function CopilotMessageContent({
         </ChainOfThought>
       ) : null}
 
-      {preTextSubAgentParts.map(({ index, part, toolName }) =>
+      {preTextCardParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({
           index,
           msgId: msg.id,

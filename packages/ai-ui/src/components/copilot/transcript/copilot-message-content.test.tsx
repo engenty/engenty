@@ -287,3 +287,55 @@ describe("CopilotMessageContent docked decision suppression", () => {
     expect(screen.queryByText("Open the team page?")).toBeNull();
   });
 });
+
+describe("CopilotMessageContent object renders", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const showObjectsMsg = {
+    id: "assistant-1",
+    role: "assistant",
+    parts: [
+      {
+        type: "dynamic-tool",
+        toolCallId: "obj-1",
+        toolName: "show_objects",
+        state: "output-available",
+        input: { refs: ["contacts:contact:c-1"] },
+        output: {
+          ok: true,
+          _meta: {
+            engenty: {
+              object_render: {
+                refs: ["contacts:contact:c-1"],
+                display: "inline",
+                items: [{ ref: "contacts:contact:c-1", title: "Ada Lovelace" }],
+              },
+            },
+          },
+        },
+      },
+      { type: "text", text: "Here are your contacts." },
+    ],
+  };
+
+  // Regression: object cards used to be folded into the collapsed "Used N
+  // tools" timeline because they resolved before the closing text part.
+  it("renders the object card outside the collapsed tool timeline", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          messages={[{ id: "assistant-1" }]}
+          msg={showObjectsMsg}
+          status="ready"
+        />
+      </MemoryRouter>
+    );
+
+    // Fallback card (no module widget registered in this suite) renders the
+    // snapshot title without expanding any timeline.
+    expect(screen.getByText("Ada Lovelace")).toBeTruthy();
+    expect(screen.queryByText("Used 1 tool")).toBeNull();
+  });
+});
