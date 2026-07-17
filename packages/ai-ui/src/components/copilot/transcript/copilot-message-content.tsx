@@ -38,6 +38,19 @@ import {
   type ToolPartLike,
 } from "./copilot-message-parts";
 
+// Assistant messages that streamed during this page session. A tool part only
+// enters the transcript once its output is complete, so a card can never
+// observe its own "running" state — but the message around it does render
+// while the run streams. Recording that here is the only signal a card has to
+// tell "this just happened" from "this was loaded from storage".
+// Written during render (parents render before children) so the flag is
+// already set when a card's first effect runs; the set is an idempotent cache.
+const liveRunMessageIds = new Set<string>();
+
+export function clearLiveRunMessagesForTests() {
+  liveRunMessageIds.clear();
+}
+
 // Tool-timeline header label — tool-oriented wording ("Working…", "Used N tools")
 // so the block reads as tool use rather than the generic "Thinking…".
 function toolTimelineLabel(
@@ -153,6 +166,7 @@ function resolveSubAgentFullPageHref(input: {
 
 function renderToolCallCardRow(input: {
   index: number;
+  isLiveRun: boolean;
   msgId: string;
   part: ToolPartLike;
   subAgentFullViewLabel?: string;
@@ -163,6 +177,7 @@ function renderToolCallCardRow(input: {
 }) {
   const {
     index,
+    isLiveRun,
     msgId,
     part,
     subAgentFullViewLabel,
@@ -188,6 +203,7 @@ function renderToolCallCardRow(input: {
       })}
       fullPageLabel={subAgentFullViewLabel}
       input={part.input}
+      isLiveRun={isLiveRun}
       key={`${msgId}-${index}`}
       metadata={part.metadata}
       output={part.output}
@@ -214,6 +230,10 @@ export function CopilotMessageContent({
   const parts = msg.parts ?? [];
   const isLastMessage = msg.id === messages.at(-1)?.id;
   const isCurrentlyStreaming = status === "streaming" && isLastMessage;
+  if (isCurrentlyStreaming) {
+    liveRunMessageIds.add(msg.id);
+  }
+  const isLiveRun = liveRunMessageIds.has(msg.id);
 
   // Classify all parts
   const classified = parts.map(classifyPart);
@@ -401,6 +421,7 @@ export function CopilotMessageContent({
       {preTextCardParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({
           index,
+          isLiveRun,
           msgId: msg.id,
           part,
           subAgentFullViewLabel,
@@ -425,6 +446,7 @@ export function CopilotMessageContent({
       {trailingToolParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({
           index,
+          isLiveRun,
           msgId: msg.id,
           part,
           subAgentFullViewLabel,

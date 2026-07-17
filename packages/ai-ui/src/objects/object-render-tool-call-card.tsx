@@ -1,15 +1,14 @@
 "use client";
 
 import {
+  formatObjectRef,
   type ObjectDisplayItem,
   type ObjectRef,
   objectRefTypeKey,
   parseObjectRef,
   readObjectRenderMeta,
 } from "@engenty/ai-core/browser";
-import { useEffect, useMemo, useRef } from "react";
-import { ENGENTY_COPILOT_HOST_KEY } from "../agent-provider/host-keys";
-import { openObjectPaneTab } from "../artifacts/artifact-store";
+import { useEffect, useMemo } from "react";
 import type { ToolCallCardProps } from "../components/copilot/tool-call/tool-call-card.types";
 import { ToolCallCardBase } from "../components/copilot/tool-call/tool-call-card-base";
 import { useObjectDisplayIntent } from "./object-display-intent";
@@ -77,13 +76,20 @@ export function ObjectRenderToolCallCard(props: ToolCallCardProps) {
     [meta]
   );
 
-  // Execute the agent's panel/expanded hint only when this card streamed live
-  // (initial mount was pre-completion) — replayed transcripts render inline.
-  const sawStreaming = useRef((props.state ?? "completed") !== "completed");
+  // Execute the agent's panel/expanded hint only for a run that streamed in
+  // this session, and only where the surface owns a pane: replayed
+  // transcripts and the drawer render inline.
   const state = props.state ?? "completed";
+  const isLiveRun = props.isLiveRun ?? false;
   useEffect(() => {
     if (
-      !(sawStreaming.current && state === "completed" && meta && grouped) ||
+      !(
+        isLiveRun &&
+        applyDisplayHint &&
+        state === "completed" &&
+        meta &&
+        grouped
+      ) ||
       meta.display === "inline" ||
       grouped.groups.length === 0
     ) {
@@ -95,17 +101,11 @@ export function ObjectRenderToolCallCard(props: ToolCallCardProps) {
     }
     executedDisplayHints.add(hintKey);
     const refs = grouped.groups.flatMap((group) => group.refs);
-    if (applyDisplayHint) {
-      applyDisplayHint(refs, meta.display);
-      return;
-    }
-    const first = refs[0];
     const firstItem = grouped.groups[0]?.items[0];
-    openObjectPaneTab(ENGENTY_COPILOT_HOST_KEY, first, {
-      expanded: meta.display === "expanded",
+    applyDisplayHint(refs, meta.display, {
       title: meta.title ?? firstItem?.title,
     });
-  }, [state, meta, grouped, applyDisplayHint, props.toolCallId]);
+  }, [isLiveRun, state, meta, grouped, applyDisplayHint, props.toolCallId]);
 
   if (!(meta && grouped) || (props.state ?? "completed") !== "completed") {
     const details = meta
@@ -126,9 +126,16 @@ export function ObjectRenderToolCallCard(props: ToolCallCardProps) {
     );
   }
 
-  const handleOpenInPanel =
-    openInPanel ??
-    ((ref: ObjectRef) => openObjectPaneTab(ENGENTY_COPILOT_HOST_KEY, ref));
+  // No fallback: a surface that provides no `openInPanel` has no pane to open
+  // into (the drawer sits on top of the workspace), and cards must not write
+  // to the copilot pane store from there. Rows then navigate instead.
+  const itemByRef = new Map(
+    meta.items.map((item) => [item.ref, item] as const)
+  );
+  const handleOpenInPanel = openInPanel
+    ? (ref: ObjectRef) =>
+        openInPanel(ref, { title: itemByRef.get(formatObjectRef(ref))?.title })
+    : undefined;
 
   return (
     <div className="my-1 flex w-full flex-col gap-2">

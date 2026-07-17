@@ -5,12 +5,17 @@
 import {
   ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
+  type ObjectDisplayIntent,
+  ObjectDisplayIntentProvider,
+  openCopilotShell,
+  openObjectPaneTab,
   SubAgentRunFullPage,
   selectSubAgentDelegationFromMessages,
   useCopilotSelectedThread,
   useCopilotThreadActions,
   WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
+import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
@@ -42,9 +47,50 @@ export function CopilotChatPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const moduleLabel = t("menu.label");
+  const copilotShell = useCopilotShellOrNull();
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
   const activeThreadId = binding.activeThreadId?.trim() ?? "";
+
+  // What object cards may do on this surface. Full-page chat owns a pane, so
+  // records open beside the conversation rather than replacing it; and when a
+  // link does leave for a module route, open the drawer first so the same
+  // thread is still there on the other side (the drawer binds to the same
+  // host key, and is suppressed on this route).
+  const objectDisplayIntent = useMemo<ObjectDisplayIntent>(
+    () => ({
+      openInPanel: (ref, opts) =>
+        openObjectPaneTab(ENGENTY_COPILOT_HOST_KEY, ref, {
+          expanded: opts?.expanded,
+          title: opts?.title,
+        }),
+      applyDisplayHint: (refs, hint, opts) => {
+        const first = refs[0];
+        if (!first) {
+          return;
+        }
+        openObjectPaneTab(ENGENTY_COPILOT_HOST_KEY, first, {
+          expanded: hint === "expanded",
+          title: opts?.title,
+        });
+      },
+      navigateFromChat: (href) => {
+        if (copilotShell) {
+          // Same entry point the FAB uses — plain setOpen(true) leaves a
+          // collapsed circle behind, since the persisted layout may still say
+          // collapseToCircle.
+          openCopilotShell({
+            mergeLayout: copilotShell.copilotLayout.mergeLayout,
+            preferredDockMode: copilotShell.preferredDockMode,
+            setOpen: copilotShell.setOpen,
+            setPreferredDockMode: copilotShell.setPreferredDockMode,
+          });
+        }
+        navigate(href);
+      },
+    }),
+    [copilotShell, navigate]
+  );
 
   const subAgentDelegation = useMemo(
     () =>
@@ -215,22 +261,24 @@ export function CopilotChatPage() {
       reloadLabel={t("chat.moduleErrorReload")}
       title={t("chat.moduleErrorTitle")}
     >
-      <div
-        className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-transparent"
-        key={host.threadResetKey}
-      >
-        {subRunToolCallId ? (
-          <SubAgentRunFullPage
-            labels={subRunLabels}
-            messages={host.copilotMessages}
-            onBack={handleSubRunBack}
-            toolCallId={subRunToolCallId}
-          />
-        ) : (
-          <ChatPanel />
-        )}
-      </div>
-      <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
+      <ObjectDisplayIntentProvider value={objectDisplayIntent}>
+        <div
+          className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-transparent"
+          key={host.threadResetKey}
+        >
+          {subRunToolCallId ? (
+            <SubAgentRunFullPage
+              labels={subRunLabels}
+              messages={host.copilotMessages}
+              onBack={handleSubRunBack}
+              toolCallId={subRunToolCallId}
+            />
+          ) : (
+            <ChatPanel />
+          )}
+        </div>
+        <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
+      </ObjectDisplayIntentProvider>
     </CopilotModuleErrorBoundary>
   );
 }

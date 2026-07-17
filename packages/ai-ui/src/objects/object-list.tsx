@@ -17,7 +17,8 @@ import {
   SquareArrowOutUpRight,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useObjectDisplayIntent } from "./object-display-intent.js";
 
 /**
  * Shared chrome for object widgets. Every module card renders the same frame,
@@ -75,6 +76,7 @@ export function ObjectListFooter({
   /** Module noun, e.g. "contacts". */
   label: string;
 }) {
+  const { navigateFromChat } = useObjectDisplayIntent();
   const isSubset = typeof total === "number" && total > shown;
   if (overflow <= 0 && !isSubset) {
     return null;
@@ -82,6 +84,22 @@ export function ObjectListFooter({
   return (
     <Link
       className="block border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-muted/40 hover:text-foreground"
+      onClick={
+        navigateFromChat
+          ? (event) => {
+              if (
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.button !== 0
+              ) {
+                return;
+              }
+              event.preventDefault();
+              navigateFromChat(href);
+            }
+          : undefined
+      }
       to={href}
     >
       {overflow > 0 ? `+${overflow} more · ` : ""}
@@ -102,9 +120,11 @@ function ObjectRowMenu({
   actions,
   href,
   onOpenInPanel,
+  onNavigate,
 }: {
   actions?: ObjectRowAction[];
   href?: string;
+  onNavigate?: (href: string) => void;
   onOpenInPanel?: () => void;
 }) {
   const builtIn: ObjectRowAction[] = [];
@@ -119,7 +139,7 @@ function ObjectRowMenu({
     builtIn.push({
       icon: SquareArrowOutUpRight,
       label: "Open full page",
-      onSelect: () => window.open(href, "_self"),
+      onSelect: () => onNavigate?.(href),
     });
     builtIn.push({
       icon: Link2,
@@ -197,8 +217,14 @@ export function ObjectListRow({
   title,
   trailing,
 }: ObjectListRowProps) {
+  const navigate = useNavigate();
+  const { navigateFromChat } = useObjectDisplayIntent();
   const openInPanel =
     onOpenInPanel && objectRef ? () => onOpenInPanel(objectRef) : undefined;
+  // Leaving chat for a module route: the full-page surface hands the chat off
+  // to the drawer first, other surfaces just navigate.
+  const goToHref = (target: string) =>
+    navigateFromChat ? navigateFromChat(target) : navigate(target);
 
   const body = (
     <>
@@ -222,6 +248,7 @@ export function ObjectListRow({
       <ObjectRowMenu
         actions={actions}
         href={href}
+        onNavigate={goToHref}
         onOpenInPanel={openInPanel}
       />
     </>
@@ -233,8 +260,37 @@ export function ObjectListRow({
   if (!href) {
     return <div className={className}>{body}</div>;
   }
+
+  // The primary action follows the surface: in full-page chat the pane is
+  // right there, so clicking a row opens the record beside the conversation
+  // instead of navigating away from it. In the drawer the page behind the
+  // chat is the workspace, so a row click navigates as any link would.
+  // Stays an <a> either way — middle-click, cmd-click and "copy link
+  // address" keep working.
   return (
-    <Link className={className} to={href}>
+    <Link
+      className={className}
+      onClick={(event) => {
+        if (
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.button !== 0
+        ) {
+          return;
+        }
+        if (openInPanel) {
+          event.preventDefault();
+          openInPanel();
+          return;
+        }
+        if (navigateFromChat) {
+          event.preventDefault();
+          navigateFromChat(href);
+        }
+      }}
+      to={href}
+    >
       {body}
     </Link>
   );
