@@ -275,6 +275,20 @@ export const pinsListResultSchema = z.object({
   ),
 });
 
+/**
+ * Agent-authored posting (Phase 3): used by the apps/ai mention consumer and
+ * by agent tools. Always authored as the agent — never impersonates a user.
+ */
+export const postAsAgentInputSchema = z.object({
+  agent_type_key: z.string().min(1).max(200),
+  // Links the channel thread to the agent's ai.thread (agent_thread_links).
+  ai_thread_id: z.string().optional(),
+  channel: z.string(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  text: z.string().min(1).max(40_000),
+  thread_ts: z.string().optional(),
+});
+
 export const searchMessagesInputSchema = z.object({
   limit: z.number().int().min(1).max(100).optional(),
   query: z.string().min(2).max(200),

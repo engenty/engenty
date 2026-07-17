@@ -1,4 +1,8 @@
-import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
+import type {
+  PluginAuthContext,
+  PluginServerApi,
+  QueueServiceLike,
+} from "@engenty/plugin-sdk";
 import type { TeamChatRepo } from "../dal/contracts.js";
 import { extractMentions } from "../lib/mentions.js";
 import {
@@ -27,6 +31,7 @@ import {
   pinsListInputSchema,
   pinsListResultSchema,
   pinsMutateInputSchema,
+  postAsAgentInputSchema,
   postMessageInputSchema,
   reactionsGetInputSchema,
   reactionsGetResultSchema,
@@ -35,6 +40,7 @@ import {
   searchMessagesResultSchema,
   updateMessageInputSchema,
 } from "../schema/zod.js";
+import { enqueueAgentMentions } from "./agent-mention-queue.js";
 
 const MODULE_ID = "team-chat";
 const READ = ["module.team-chat.read"];
@@ -42,6 +48,7 @@ const WRITE = ["module.team-chat.write"];
 const MANAGE = ["module.team-chat.manage"];
 
 export interface RegisterTeamChatGatewayMethodsOptions {
+  queue?: QueueServiceLike | null;
   repoForAuth: (auth: PluginAuthContext | undefined) => TeamChatRepo;
 }
 
@@ -50,6 +57,7 @@ export function registerTeamChatGatewayMethods(
   options: RegisterTeamChatGatewayMethodsOptions
 ) {
   const { repoForAuth } = options;
+  const queue = options.queue ?? null;
 
   api.registerOperation({
     operationId: "team_chat_conversations_list",
@@ -372,15 +380,74 @@ export function registerTeamChatGatewayMethods(
     handler: async (input, ctx) => {
       const parsed = postMessageInputSchema.parse(input);
       const repo = repoForAuth(ctx.auth);
+      const mentions = extractMentions(parsed.text);
       const message = await repo.messages.post({
         blocks: parsed.blocks,
         conversationId: parsed.channel,
         files: parsed.files,
-        mentions: extractMentions(parsed.text),
+        mentions,
         metadata: parsed.metadata,
         text: parsed.text,
         threadTs: parsed.thread_ts,
       });
+      // @-mentioned agents answer via the apps/ai mention consumer (§7.3).
+      // Dispatch is best-effort: a queue hiccup must never fail the post.
+      if (ctx.auth?.tenantId) {
+        try {
+          await enqueueAgentMentions(queue, {
+            conversationId: parsed.channel,
+            mentions,
+            messageTs: message.ts,
+            tenantId: ctx.auth.tenantId,
+            threadTs: message.thread_ts,
+          });
+        } catch (err) {
+          ctx.logger?.warn?.("team-chat agent mention enqueue failed", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      return { message, ok: true as const, ts: message.ts };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_post_as_agent",
+    moduleId: MODULE_ID,
+    summary:
+      "Post a channel message authored by an agent (member agents, or public channels); optionally links the thread to the agent's ai.thread",
+    requiredCapabilities: WRITE,
+    riskLevel: "medium",
+    inputSchema: postAsAgentInputSchema,
+    outputSchema: messageResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = postAsAgentInputSchema.parse(input);
+      const repo = repoForAuth(ctx.auth);
+      const threadTs = parsed.thread_ts;
+      const message = await repo.messages.post({
+        agentTypeKey: parsed.agent_type_key,
+        conversationId: parsed.channel,
+        mentions: extractMentions(parsed.text),
+        metadata: {
+          ...(parsed.metadata ?? {}),
+          ...(parsed.ai_thread_id
+            ? {
+                event_payload: { ai_thread_id: parsed.ai_thread_id },
+                event_type: "agent_response",
+              }
+            : {}),
+        },
+        text: parsed.text,
+        ...(threadTs ? { threadTs } : {}),
+      });
+      if (parsed.ai_thread_id) {
+        await repo.agentThreads.link({
+          agentTypeKey: parsed.agent_type_key,
+          aiThreadId: parsed.ai_thread_id,
+          conversationId: parsed.channel,
+          threadTs: threadTs ?? message.ts,
+        });
+      }
       return { message, ok: true as const, ts: message.ts };
     },
   });

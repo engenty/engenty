@@ -1,6 +1,8 @@
 {
   "title": "Team-Chat",
-  "menu": { "teamChat": "Team-Chat" },
+  "menu": {
+    "teamChat": "Team-Chat"
+  },
   "nav": {
     "overview": "Übersicht",
     "channels": "Channels",
@@ -60,7 +62,9 @@
     "react": "Reaktion hinzufügen",
     "pin": "Nachricht anpinnen",
     "unpin": "Nachricht lösen",
-    "you": "Du"
+    "you": "Du",
+    "agentBadge": "Agent",
+    "viewRun": "Agent-Run ansehen"
   },
   "search": {
     "placeholder": "Nachrichten durchsuchen",

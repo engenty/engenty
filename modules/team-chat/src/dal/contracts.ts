@@ -61,6 +61,11 @@ export interface RepliesQuery {
 }
 
 export interface PostMessageRecord {
+  /**
+   * Post as this agent instead of the acting user (Phase 3). Requires the
+   * agent to be a member of the conversation, or the conversation public.
+   */
+  agentTypeKey?: string;
   blocks?: Record<string, unknown>[];
   conversationId: string;
   files?: Record<string, unknown>[];
@@ -72,6 +77,14 @@ export interface PostMessageRecord {
 }
 
 export interface TeamChatRepo {
+  agentThreads: {
+    link(input: {
+      agentTypeKey: string;
+      aiThreadId: string;
+      conversationId: string;
+      threadTs: string;
+    }): Promise<void>;
+  };
   conversations: {
     archive(id: string, archived: boolean): Promise<Conversation>;
     createChannel(params: ConversationsCreateParams): Promise<Conversation>;

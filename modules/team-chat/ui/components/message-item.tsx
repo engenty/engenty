@@ -15,13 +15,16 @@ import {
   Textarea,
 } from "@engenty/ui-core";
 import {
+  Bot,
   MessageSquareText,
   Pencil,
   Pin,
   SmilePlus,
+  SquareArrowOutUpRight,
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { TeamChatMessage } from "../api.js";
 import {
   authorInitials,
@@ -229,6 +232,11 @@ export function MessageItem({
         {showHeader ? (
           <div className="flex items-baseline gap-2">
             <span className="truncate font-semibold text-sm">{author}</span>
+            {message.agent_type_key ? (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-[3px] bg-muted px-1 py-px text-[10px] text-muted-foreground uppercase">
+                <Bot className="size-2.5" /> {t("message.agentBadge")}
+              </span>
+            ) : null}
             <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
               {formatMessageTime(message.ts, locale)}
             </span>
@@ -270,6 +278,20 @@ export function MessageItem({
           </div>
         )}
         <AttachmentBadges message={message} />
+
+        {typeof (
+          message.metadata as { event_payload?: { ai_thread_id?: string } }
+        ).event_payload?.ai_thread_id === "string" ? (
+          <Link
+            className="mt-0.5 inline-flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
+            to={`/mdl/engenty-copilot/chat/${encodeURIComponent(
+              (message.metadata as { event_payload: { ai_thread_id: string } })
+                .event_payload.ai_thread_id
+            )}`}
+          >
+            <SquareArrowOutUpRight className="size-3" /> {t("message.viewRun")}
+          </Link>
+        ) : null}
 
         <ReactionPills
           currentUserId={currentUserId}

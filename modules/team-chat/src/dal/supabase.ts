@@ -485,12 +485,40 @@ export function createTeamChatRepoSupabase(
     };
   }
 
+  async function isAgentMember(
+    conversationId: string,
+    agentTypeKey: string
+  ): Promise<boolean> {
+    const { data, error } = await membersTbl()
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .eq("principal_type", "agent")
+      .eq("principal_id", agentTypeKey)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`team-chat agent member check failed: ${error.message}`);
+    }
+    return Boolean(data);
+  }
+
   async function post(record: PostMessageRecord): Promise<TeamChatMessage> {
     const state = await membership(record.conversationId);
     if (state.conversation.is_archived) {
       throw new TeamChatError("cannot_post", "conversation is archived");
     }
-    if (userId) {
+    if (record.agentTypeKey) {
+      // Agent-authored: allowed for member agents and in public channels
+      // (an @-mentioned agent may answer without prior invite there).
+      const allowed =
+        state.conversation.type === "public_channel" ||
+        (await isAgentMember(record.conversationId, record.agentTypeKey));
+      if (!allowed) {
+        throw new TeamChatError(
+          "cannot_post",
+          "agent is not a member of this conversation"
+        );
+      }
+    } else if (userId) {
       if (!state.role) {
         throw new TeamChatError("not_member");
       }
@@ -499,7 +527,7 @@ export function createTeamChatRepoSupabase(
       throw new TeamChatError("cannot_post", "service posts need a subtype");
     }
     const { data, error } = await supabase.schema(SCHEMA).rpc("post_message", {
-      p_agent_type_key: null,
+      p_agent_type_key: record.agentTypeKey ?? null,
       p_blocks: record.blocks ?? [],
       p_bot_id: null,
       p_conversation_id: record.conversationId,
@@ -510,7 +538,7 @@ export function createTeamChatRepoSupabase(
       p_tenant_id: tenantId,
       p_text: record.text,
       p_thread_ts: record.threadTs ?? null,
-      p_user_id: userId,
+      p_user_id: record.agentTypeKey ? null : userId,
     });
     if (error) {
       if (error.message.includes("thread_not_found")) {
@@ -793,6 +821,29 @@ export function createTeamChatRepoSupabase(
   }
 
   return {
+    agentThreads: {
+      link: async ({ agentTypeKey, aiThreadId, conversationId, threadTs }) => {
+        const { error } = await supabase
+          .schema(SCHEMA)
+          .from("agent_thread_links")
+          .upsert(
+            {
+              agent_type_key: agentTypeKey,
+              ai_thread_id: aiThreadId,
+              conversation_id: conversationId,
+              tenant_id: tenantId,
+              thread_ts: threadTs,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "conversation_id,thread_ts,agent_type_key" }
+          );
+        if (error) {
+          throw new Error(
+            `team-chat agent thread link failed: ${error.message}`
+          );
+        }
+      },
+    },
     conversations: {
       archive: async (id, archived) => {
         await requireMember(id);

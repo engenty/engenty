@@ -13,23 +13,27 @@
     "./ui/plugin": {
       "types": "./dist/ui/plugin.d.ts",
       "default": "./dist/ui/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
     }
   },
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ui/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ui/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts ai/registrar.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts ai/registrar.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ui/plugin.ts --format esm --dts --watch",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
+    "@engenty/ai-core": "workspace:*",
     "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
-    "@engenty/user-management-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
@@ -38,7 +42,9 @@
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
+    "@engenty/user-management-ui": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
+    "@mastra/core": "1.49.0",
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^1.21.0",
     "react": "^19.2.7",

@@ -1,6 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Avatar, AvatarFallback, Button, cn, Textarea } from "@engenty/ui-core";
-import { AtSign, Megaphone, SendHorizonal } from "lucide-react";
+import { AtSign, Bot, Megaphone, SendHorizonal } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { authorInitials } from "../lib/format.js";
 
@@ -8,7 +8,7 @@ export interface MentionCandidate {
   id: string;
   /** Token written into the message text, e.g. `<@u:uuid>` or `<!here>`. */
   insert: string;
-  kind: "broadcast" | "user";
+  kind: "agent" | "broadcast" | "user";
   label: string;
   sublabel?: string;
 }
@@ -120,6 +120,8 @@ export function Composer({
                     {authorInitials(candidate.label)}
                   </AvatarFallback>
                 </Avatar>
+              ) : candidate.kind === "agent" ? (
+                <Bot className="size-4 text-muted-foreground" />
               ) : (
                 <Megaphone className="size-4 text-muted-foreground" />
               )}

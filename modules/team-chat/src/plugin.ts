@@ -3,7 +3,9 @@ import type {
   EntityEventPayload,
   PluginAuthContext,
 } from "@engenty/plugin-sdk";
+import { createPluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { teamChatAiRegistration } from "../ai/registrar.js";
 import { registerTeamChatGatewayMethods } from "./api/gateway-methods.js";
 import type { EmitTeamChatEvent } from "./dal/contracts.js";
 import { createTeamChatRepoSupabase } from "./dal/supabase.js";
@@ -71,7 +73,14 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
     );
   };
 
-  registerTeamChatGatewayMethods(server, { repoForAuth });
+  const queue = server.getQueueService?.() ?? null;
+  registerTeamChatGatewayMethods(server, { queue, repoForAuth });
+
+  // AI surface: read/post tools for every agent (delegating to the ops above).
+  const { invokeOperation } = createPluginServerGatewayCaller(server);
+  server.registerAiRegistration?.(
+    teamChatAiRegistration({ invokeTeamChatOperation: invokeOperation })
+  );
 };
 
 export default registerTeamChatPlugin;

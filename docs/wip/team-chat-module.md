@@ -668,7 +668,29 @@ Original scope: reactions (+ EmojiPicker), pins, mention composer + chips +
 `mentions` table + inbox notifications + app-bar badge, message hover actions,
 edit/delete UX, permalinks, overview page (§6.5), lexical search.
 
-**Phase 3 — Agents.**
+**Phase 3 — Agents. — IMPLEMENTED + LIVE-VERIFIED 2026-07-17** (durable-reply path).
+Shipped: `team_chat_post_as_agent` op + agent-authored repo posting (agent must be a
+member, or the channel public — never impersonates a user); mention→dispatch: agent
+mentions in `post_message` enqueue onto the new pgmq queue `team_chat_agent_mention`
+(migration `…150000`; enqueue is best-effort, never fails the post); apps/ai
+`team-chat-mention-consumer` (mirrors task-dispatch: service scope via
+`resolveTaskJobServiceScope`, thread context via ops, `runDelegatedConversation` with
+stable childThreadId `teamchat-<conv>-<threadTs>-<agent>` so the agent keeps
+per-thread memory, reply posted back via op with `ai_thread_id` →
+`agent_thread_links`); AI tools (`team_chat_list_channels/read_thread/post` via
+defineModuleAi, self-declared agent authorship); composer mention popover now lists
+registry agents (with same-origin fallback for the registry fetch); AGENT badge +
+"View agent run" link (→ copilot chat thread) on agent messages.
+E2E verified: @engenty.coordinator mention → real LLM run → threaded agent reply with
+badge + run link. Kill-switch `ENGENTY_TEAM_CHAT_MENTIONS_ENABLED=false`.
+Deferred from original scope: token-level streaming of the run into the thread panel
+(embedded CopilotTranscript) — the durable-reply path ships first; agent DMs stay
+deferred (§11); invite-agent UI is op-only until the details panel lands.
+Dev gotcha fixed en route: stale `ENGENTY_AI_SERVICE_JWT` re-minted
+(`scripts/mint-service-jwt.mjs --tenant <id>`); the orphaned old service core.users
+row was renamed aside to `service-old@engenty.local` (FK-heavy id rebind not worth it).
+
+Original scope:
 Agent membership (invite agent), AI tools (§9), agent-mention → linked `ai.thread`
 run → streamed reply in thread panel via embedded `CopilotTranscript` → durable
 channel message (§7.3), agent DMs (§11), "View agent run" affordance.

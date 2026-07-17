@@ -70,6 +70,7 @@ import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
+import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
 import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
@@ -646,6 +647,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stop);
       process.once("SIGINT", stop);
+      // Team-chat @-mentions ride the same queue infrastructure (Phase 3).
+      const stopMentions = startTeamChatMentionConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopMentions);
+      process.once("SIGINT", stopMentions);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
     }
