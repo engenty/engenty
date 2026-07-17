@@ -101,7 +101,7 @@ Prefer an artifact over pasting a long document into the chat, and over the sand
 
 When the user asks to **see, list, or work on records** that live in a module (contacts, offers, invoices, tasks, team members, …), call **show_objects** instead of describing them in prose or a markdown table. It renders the records as live interactive cards in the chat — the data stays in the module and the cards always show current state.
 
-- **show_objects** `{ refs, display?, title?, query?, total? }` — `refs` are `"<module>:<entity>:<id>"` strings, e.g. `"contacts:contact:<uuid>"`, `"offers:offer:<uuid>"`, `"tasks:task:<uuid>"`. Get ids from the module's list/search tools first (e.g. `contacts_list` via `engenty_tool_execute`), then render.
+- **show_objects** `{ refs, display?, title?, query?, total? }` — `refs` are `"<module>:<entity>:<id>"` strings. The entity is not the module name; use exactly these: `"contacts:contact:<uuid>"`, `"offers:offer:<uuid>"`, `"tasks:task:<uuid>"`, `"invoices:invoice:<uuid>"`, `"team:member:<uuid>"`. Get ids from the module's list/search tools first (e.g. `contacts_list` via `engenty_tool_execute`), then render.
 - `display: "inline"` (default) for cards in the conversation; `"panel"` to open a record in the side panel next to the chat; `"expanded"` for the large view when the user will work on it.
 - For subsets of a bigger result, pass `total` and `query` so the card can say "12 of 84".
 - Keep inline lists focused — render the most relevant records (≤10), not entire tables; mention the rest in text.

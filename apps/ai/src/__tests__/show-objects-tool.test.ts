@@ -10,9 +10,8 @@ vi.mock("../../ai/tools/engenty-tools/lib/client.js", () => ({
   }),
 }));
 
-const { createShowObjectsTool, snapshotFromRecord } = await import(
-  "../../ai/tools/show-objects-tool.js"
-);
+const { createShowObjectsTool, normalizeObjectRef, snapshotFromRecord } =
+  await import("../../ai/tools/show-objects-tool.js");
 
 function readMeta(output: unknown) {
   return (
@@ -123,5 +122,29 @@ describe("show_objects execute", () => {
     const tool = createShowObjectsTool();
     await tool.execute!({ refs: ["team:member:m1"] } as never);
     expect(invokeTool).toHaveBeenCalledWith("team_get", { id: "m1" });
+  });
+});
+
+describe("normalizeObjectRef", () => {
+  // Models guess the entity from the module name; `team:team:<id>` shipped a
+  // fallback card in live testing instead of the member widget.
+  it("maps guessed aliases onto the canonical ref type", () => {
+    expect(
+      normalizeObjectRef({ module: "team", entity: "team", id: "m-1" })
+    ).toEqual({
+      module: "team",
+      entity: "member",
+      id: "m-1",
+    });
+    expect(
+      normalizeObjectRef({ module: "contacts", entity: "contacts", id: "c-1" })
+    ).toEqual({ module: "contacts", entity: "contact", id: "c-1" });
+  });
+
+  it("leaves canonical and unknown refs untouched", () => {
+    const canonical = { module: "team", entity: "member", id: "m-1" };
+    expect(normalizeObjectRef(canonical)).toEqual(canonical);
+    const unknown = { module: "custom", entity: "thing", id: "x-1" };
+    expect(normalizeObjectRef(unknown)).toEqual(unknown);
   });
 });

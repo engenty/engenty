@@ -31,6 +31,35 @@ const SNAPSHOT_OPERATION_OVERRIDES: Record<string, string> = {
   "team:member": "team_get",
 };
 
+/**
+ * Canonical ref types that have a registered UI widget. The entity name is not
+ * derivable from the module name (`team` holds `member`s), so models guess —
+ * `team:team:<id>` was a real miss that silently degraded to the generic
+ * fallback card. Normalize the plausible guesses instead of shipping a
+ * worse-looking card, and keep the list in the tool description so the model
+ * mostly gets it right first.
+ */
+const OBJECT_TYPE_ALIASES: Record<string, string> = {
+  "team:team": "team:member",
+  "team:teammember": "team:member",
+  "team:team_member": "team:member",
+  "contacts:contacts": "contacts:contact",
+  "offers:offers": "offers:offer",
+  "tasks:tasks": "tasks:task",
+  "invoices:invoices": "invoices:invoice",
+};
+
+/** Map a ref onto its canonical type when the model guessed an alias. */
+export function normalizeObjectRef(ref: ObjectRef): ObjectRef {
+  const canonical =
+    OBJECT_TYPE_ALIASES[`${ref.module}:${ref.entity}`.toLowerCase()];
+  if (!canonical) {
+    return ref;
+  }
+  const [module, entity] = canonical.split(":");
+  return { ...ref, module, entity };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -127,13 +156,15 @@ export function createShowObjectsTool() {
   return createTool({
     id: "show_objects",
     description:
-      "Render engenty objects (contacts, offers, tasks, invoices, team members, …) as interactive cards in the chat UI instead of describing them in prose. Pass refs as '<module>:<entity>:<id>' strings, e.g. 'contacts:contact:<uuid>' or 'offers:offer:<uuid>'. Use display 'inline' for cards in the conversation (default), 'panel' to open in the side panel, 'expanded' for the large view. Prefer this whenever the user asks to see, list, or work on records.",
+      "Render engenty objects (contacts, offers, tasks, invoices, team members, …) as interactive cards in the chat UI instead of describing them in prose. Pass refs as '<module>:<entity>:<id>' strings. The entity is NOT the module name — use exactly: 'contacts:contact:<uuid>', 'offers:offer:<uuid>', 'tasks:task:<uuid>', 'invoices:invoice:<uuid>', 'team:member:<uuid>'. Use display 'inline' for cards in the conversation (default), 'panel' to open in the side panel, 'expanded' for the large view. Prefer this whenever the user asks to see, list, or work on records.",
     inputSchema: z.object({
       refs: z
         .array(z.string().min(1))
         .min(1)
         .max(MAX_REFS)
-        .describe("Canonical object refs: '<module>:<entity>:<id>'."),
+        .describe(
+          "Canonical object refs: 'contacts:contact:<id>', 'offers:offer:<id>', 'tasks:task:<id>', 'invoices:invoice:<id>', 'team:member:<id>'."
+        ),
       display: z.enum(["inline", "panel", "expanded"]).optional(),
       title: z
         .string()
@@ -161,7 +192,7 @@ export function createShowObjectsTool() {
       for (const raw of input.refs) {
         const ref = parseObjectRef(raw);
         if (ref) {
-          parsed.push(ref);
+          parsed.push(normalizeObjectRef(ref));
         } else {
           invalid.push(raw);
         }
