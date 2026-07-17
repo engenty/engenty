@@ -51,7 +51,10 @@
     "placeholderThread": "Reply…",
     "send": "Send",
     "hint": "Enter to send · Shift+Enter for a new line",
-    "mentionHint": "↑↓ to navigate · Enter to select"
+    "mentionHint": "↑↓ to navigate · Enter to select",
+    "attach": "Attach file",
+    "emoji": "Insert emoji",
+    "removeAttachment": "Remove attachment"
   },
   "message": {
     "edited": "(edited)",
@@ -91,7 +94,8 @@
     "actionFailed": "Action failed: {{error}}",
     "joined": "Joined the channel",
     "left": "Left the channel",
-    "deleted": "Message deleted"
+    "deleted": "Message deleted",
+    "uploadFailed": "Upload failed: {{error}}"
   },
   "projectTab": "Chat",
   "projectTabEmpty": {

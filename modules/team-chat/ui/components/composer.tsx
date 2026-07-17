@@ -1,7 +1,35 @@
+import {
+  CHAT_ATTACHMENT_MAX_FILES,
+  type ChatAttachmentUpload,
+  uploadChatAttachment,
+} from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Avatar, AvatarFallback, Button, cn, Textarea } from "@engenty/ui-core";
-import { AtSign, Bot, Megaphone, SendHorizonal } from "lucide-react";
+import {
+  Avatar,
+  AvatarFallback,
+  Button,
+  cn,
+  EmojiPicker,
+  EmojiPickerContent,
+  EmojiPickerSearch,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Textarea,
+} from "@engenty/ui-core";
+import {
+  AtSign,
+  Bot,
+  Loader2,
+  Megaphone,
+  Paperclip,
+  SendHorizonal,
+  SmilePlus,
+  X,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { currentTenantId, isImageMime } from "../lib/attachments.js";
 import { authorInitials } from "../lib/format.js";
 
 export interface MentionCandidate {
@@ -16,9 +44,11 @@ export interface MentionCandidate {
 export interface ComposerProps {
   /** Slim variant for inline thread replies (no chrome, no hint line). */
   compact?: boolean;
+  /** Conversation id — groups uploaded attachments under its storage prefix. */
+  conversationId?: string;
   disabled?: boolean;
   mentionCandidates?: MentionCandidate[];
-  onSend: (text: string) => Promise<void> | void;
+  onSend: (text: string, files: ChatAttachmentUpload[]) => Promise<void> | void;
   placeholder: string;
   sending?: boolean;
 }
@@ -55,8 +85,16 @@ function useMentionState(
   }, [text, cursor, candidates]);
 }
 
+interface PendingAttachment {
+  id: string;
+  previewUrl: string | null;
+  upload: ChatAttachmentUpload | null;
+  uploading: boolean;
+}
+
 export function Composer({
   compact = false,
+  conversationId,
   disabled = false,
   mentionCandidates = [],
   onSend,
@@ -67,17 +105,88 @@ export function Composer({
   const [text, setText] = useState("");
   const [cursor, setCursor] = useState(0);
   const [highlight, setHighlight] = useState(0);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const canSend = !(disabled || sending) && text.trim().length > 0;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploading = attachments.some((attachment) => attachment.uploading);
+  const canSend =
+    !(disabled || sending || uploading) &&
+    (text.trim().length > 0 || attachments.some((a) => a.upload));
   const mention = useMentionState(text, cursor, mentionCandidates);
+
+  const addFiles = (files: FileList | File[]) => {
+    const list = [...files].slice(
+      0,
+      Math.max(0, CHAT_ATTACHMENT_MAX_FILES - attachments.length)
+    );
+    for (const file of list) {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setAttachments((previous) => [
+        ...previous,
+        {
+          id,
+          previewUrl: isImageMime(file.type) ? URL.createObjectURL(file) : null,
+          upload: null,
+          uploading: true,
+        },
+      ]);
+      void (async () => {
+        try {
+          const tenantId = await currentTenantId();
+          if (!tenantId) {
+            throw new Error("no tenant");
+          }
+          const upload = await uploadChatAttachment({
+            file,
+            tenantId,
+            threadId: conversationId
+              ? `team-chat-${conversationId}`
+              : "team-chat",
+          });
+          setAttachments((previous) =>
+            previous.map((entry) =>
+              entry.id === id ? { ...entry, upload, uploading: false } : entry
+            )
+          );
+        } catch (error) {
+          toast.error(t("toasts.uploadFailed", { error: String(error) }));
+          setAttachments((previous) =>
+            previous.filter((entry) => entry.id !== id)
+          );
+        }
+      })();
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((previous) => previous.filter((entry) => entry.id !== id));
+  };
+
+  const insertAtCursor = (snippet: string) => {
+    const textarea = textareaRef.current;
+    const at = textarea?.selectionStart ?? text.length;
+    const next = `${text.slice(0, at)}${snippet}${text.slice(at)}`;
+    setText(next);
+    const nextCursor = at + snippet.length;
+    setCursor(nextCursor);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
 
   const submit = () => {
     const value = text.trim();
-    if (!(canSend && value)) {
+    const files = attachments
+      .map((attachment) => attachment.upload)
+      .filter((upload): upload is ChatAttachmentUpload => Boolean(upload));
+    if (!canSend || (!value && files.length === 0)) {
       return;
     }
     setText("");
-    void onSend(value);
+    setAttachments([]);
+    void onSend(value, files);
   };
 
   const pick = (candidate: MentionCandidate) => {
@@ -147,7 +256,88 @@ export function Composer({
         </div>
       ) : null}
 
+      {attachments.length > 0 ? (
+        <div className="mb-1.5 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <span
+              className="ui-canvas-field relative inline-flex items-center gap-1.5 p-1 pr-6 text-xs"
+              key={attachment.id}
+            >
+              {attachment.previewUrl ? (
+                <img
+                  alt=""
+                  className="size-10 rounded-[3px] object-cover"
+                  src={attachment.previewUrl}
+                />
+              ) : (
+                <Paperclip className="size-4 text-muted-foreground" />
+              )}
+              <span className="max-w-36 truncate">
+                {attachment.upload?.filename ?? "…"}
+              </span>
+              {attachment.uploading ? (
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+              ) : null}
+              <button
+                aria-label={t("composer.removeAttachment")}
+                className="absolute top-0.5 right-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted"
+                onClick={() => removeAttachment(attachment.id)}
+                type="button"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <input
+        className="hidden"
+        multiple
+        onChange={(event) => {
+          if (event.target.files?.length) {
+            addFiles(event.target.files);
+            event.target.value = "";
+          }
+        }}
+        ref={fileInputRef}
+        type="file"
+      />
+
       <div className="ui-canvas-field flex items-end gap-2 p-1.5">
+        <Button
+          aria-label={t("composer.attach")}
+          disabled={disabled}
+          onClick={() => fileInputRef.current?.click()}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <Paperclip className="size-4" />
+        </Button>
+        <Popover onOpenChange={setEmojiOpen} open={emojiOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              aria-label={t("composer.emoji")}
+              disabled={disabled}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <SmilePlus className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-fit p-0" side="top">
+            <EmojiPicker
+              className="h-[300px]"
+              onEmojiSelect={({ emoji }) => {
+                setEmojiOpen(false);
+                insertAtCursor(emoji);
+              }}
+            >
+              <EmojiPickerSearch />
+              <EmojiPickerContent />
+            </EmojiPicker>
+          </PopoverContent>
+        </Popover>
         <Textarea
           className="max-h-40 min-h-9 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
           disabled={disabled}
@@ -192,6 +382,13 @@ export function Composer({
             }
           }}
           onKeyUp={(event) => syncCursor(event.currentTarget)}
+          onPaste={(event) => {
+            const files = [...(event.clipboardData?.files ?? [])];
+            if (files.length > 0) {
+              event.preventDefault();
+              addFiles(files);
+            }
+          }}
           placeholder={placeholder}
           ref={textareaRef}
           rows={1}

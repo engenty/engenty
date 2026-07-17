@@ -110,10 +110,22 @@ export function InlineThread({
 
       <Composer
         compact
+        conversationId={conversationId}
         mentionCandidates={mentionCandidates}
-        onSend={async (text) => {
+        onSend={async (text, files) => {
           await post.mutateAsync(
-            { channel: conversationId, text, thread_ts: threadTs },
+            {
+              channel: conversationId,
+              text,
+              thread_ts: threadTs,
+              ...(files.length > 0
+                ? {
+                    files: files.map(
+                      (f) => ({ ...f }) as Record<string, unknown>
+                    ),
+                  }
+                : {}),
+            },
             {
               onError: (error) =>
                 toast.error(t("toasts.sendFailed", { error: String(error) })),

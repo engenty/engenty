@@ -239,10 +239,21 @@ export function ConversationView({
 
       {canPost ? (
         <Composer
+          conversationId={conversationId}
           mentionCandidates={mentionCandidates}
-          onSend={async (text) => {
+          onSend={async (text, files) => {
             await post.mutateAsync(
-              { channel: conversationId, text },
+              {
+                channel: conversationId,
+                text,
+                ...(files.length > 0
+                  ? {
+                      files: files.map(
+                        (f) => ({ ...f }) as Record<string, unknown>
+                      ),
+                    }
+                  : {}),
+              },
               {
                 onError: (error) =>
                   toast.error(t("toasts.sendFailed", { error: String(error) })),

@@ -1,5 +1,6 @@
-import { MessageResponse } from "@engenty/ai-ui/embed";
+import { getFileStorageSignedUrl, MessageResponse } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
+import { queryOptions, useQuery } from "@engenty/query-client";
 import {
   Button,
   cn,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   MessageSquareText,
+  Paperclip,
   Pencil,
   Pin,
   SmilePlus,
@@ -25,6 +27,7 @@ import {
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { TeamChatMessage } from "../api.js";
+import { isImageMime } from "../lib/attachments.js";
 import {
   authorColorClass,
   authorLabel,
@@ -68,24 +71,58 @@ const MENTION_CHIP_CLASSES = cn(
   "dark:[&_a[href^='#mention:broadcast']]:bg-amber-900/40 dark:[&_a[href^='#mention:broadcast']]:text-amber-300"
 );
 
+interface MessageFile {
+  filename?: string;
+  mimeType?: string;
+  name?: string;
+  storageKey?: string;
+}
+
+/** Inline image render off the durable storage key (fresh signed URL). */
+function AttachmentImage({ file }: { file: MessageFile }) {
+  const urlQuery = useQuery(
+    queryOptions({
+      enabled: Boolean(file.storageKey),
+      queryFn: () => getFileStorageSignedUrl(file.storageKey as string),
+      queryKey: ["team-chat", "file-url", file.storageKey],
+      staleTime: 5 * 60 * 1000,
+    })
+  );
+  if (!urlQuery.data) {
+    return (
+      <span className="block h-32 w-44 animate-pulse rounded-md bg-muted" />
+    );
+  }
+  return (
+    <a href={urlQuery.data} rel="noreferrer" target="_blank">
+      <img
+        alt={file.filename ?? ""}
+        className="max-h-64 max-w-72 rounded-md border border-border/60 object-cover"
+        src={urlQuery.data}
+      />
+    </a>
+  );
+}
+
 function AttachmentBadges({ message }: { message: TeamChatMessage }) {
   if (message.files.length === 0) {
     return null;
   }
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1.5">
-      {message.files.map((file, index) => (
-        <span
-          className="ui-canvas-field inline-flex max-w-56 items-center gap-1 truncate px-2 py-0.5 text-muted-foreground text-xs"
-          key={`${message.ts}-file-${index}`}
-        >
-          {String(
-            (file as { filename?: string; name?: string }).filename ??
-              (file as { name?: string }).name ??
-              "file"
-          )}
-        </span>
-      ))}
+    <div className="mt-1.5 flex flex-wrap items-start gap-1.5">
+      {(message.files as MessageFile[]).map((file, index) =>
+        isImageMime(file.mimeType) && file.storageKey ? (
+          <AttachmentImage file={file} key={`${message.ts}-file-${index}`} />
+        ) : (
+          <span
+            className="ui-canvas-field inline-flex max-w-56 items-center gap-1 truncate px-2 py-0.5 text-muted-foreground text-xs"
+            key={`${message.ts}-file-${index}`}
+          >
+            <Paperclip className="size-3" />
+            {String(file.filename ?? file.name ?? "file")}
+          </span>
+        )
+      )}
     </div>
   );
 }
