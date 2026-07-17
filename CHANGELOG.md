@@ -4,6 +4,21 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.27] - 2026-07-17
+- ADDED **[objects]** Make the whole card clickable
+- ADDED **[objects]** Make object card actions follow the chat surface
+- ADDED **[objects]** Shared list chrome with row actions; stop restating cards in prose
+- ADDED Chat object rendering — objects/artifacts/MCP Apps in chat (phases A–D)
+- ADDED **[objects]** Tasks/team/invoices widgets, entity_refs backfill
+- ADDED **[mcp-apps]** Productionize widget host — bridge, CSP, template cache
+- ADDED **[objects]** Pane object tabs, display-hint execution, mention chips
+- ADDED **[objects]** Contacts + offers chat object widgets
+- ADDED **[objects]** ObjectRef contract, object-widget registry, show_objects tool
+- DOCS **[dev]** Document artifacts, objects, widgets and MCP Apps
+- DOCS Chat object rendering design (objects, artifacts, MCP Apps in chat)
+- FIXED **[ai]** Normalize guessed object ref types in show_objects
+- FIXED **[ai-ui]** Render object cards outside the collapsed tool timeline
+
 ## [0.1.26] - 2026-07-16
 - ADDED **[ai-ui]** User + binding columns in the activity table
 - ADDED **[ai-ui]** Full list UI for the activity page
