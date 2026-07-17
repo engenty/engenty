@@ -1,6 +1,7 @@
 # Chat Slash Commands & @-Mentions
 
-Status: **REVIEWED — open questions decided 2026-07-17 (§7), ready to implement** (branch `feat/chat-slash-commands`)
+Status: **IMPLEMENTED + LIVE-VERIFIED 2026-07-17** (branch `feat/chat-slash-commands`; phases 1–3
+landed in one pass: slash core + registry/server expansion + typed @-mentions; decisions in §7)
 Companion doc: `docs/wip/chat-object-rendering.md` (branch `feat/chat-object-widgets`) — defines the
 `ObjectRef` identity scheme and the object-widget rendering this design's @-mentions feed into.
 
