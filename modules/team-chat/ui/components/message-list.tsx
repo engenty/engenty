@@ -8,7 +8,7 @@ import {
   sameGroup,
   type UsersById,
 } from "../lib/format.js";
-import { MessageItem } from "./message-item.js";
+import { MentionChipStyles, MessageItem } from "./message-item.js";
 
 export interface MessageListProps {
   canDelete: (message: TeamChatMessage) => boolean;
@@ -84,53 +84,56 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
-      <div className="flex flex-col pb-3">
-        {hasMore && onLoadOlder ? (
-          <div className="flex justify-center py-2">
-            <Button onClick={onLoadOlder} size="sm" variant="ghost">
-              {t("conversation.loadOlder")}
-            </Button>
-          </div>
-        ) : null}
-        {rows.map(({ dayLabel, message, showHeader }) => (
-          <div key={`${message.ts}${message.deleted ? "-deleted" : ""}`}>
-            {dayLabel ? (
-              <div className="relative my-3 flex items-center px-4">
-                <Separator className="flex-1" />
-                <span className="mx-3 shrink-0 rounded-full border border-border/60 bg-card px-3 py-0.5 font-medium text-muted-foreground text-xs">
-                  {dayLabel}
-                </span>
-                <Separator className="flex-1" />
-              </div>
-            ) : null}
-            <MessageItem
-              canDelete={canDelete(message)}
-              canEdit={canEdit(message)}
-              currentUserId={currentUserId}
-              inThread={inThread}
-              message={message}
-              onDelete={onDelete}
-              onOpenThread={onOpenThread}
-              onSaveEdit={onSaveEdit}
-              onTogglePin={onTogglePin}
-              onToggleReaction={onToggleReaction}
-              pinned={pinnedTs?.has(message.ts) ?? false}
-              showHeader={showHeader}
-              threadExpanded={
-                message.reply_count > 0 && !collapsedThreads?.has(message.ts)
-              }
-              users={users}
-            />
-            {message.reply_count > 0 &&
-            !collapsedThreads?.has(message.ts) &&
-            renderThread
-              ? renderThread(message.ts)
-              : null}
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-    </ScrollArea>
+    <>
+      <MentionChipStyles />
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col pb-3">
+          {hasMore && onLoadOlder ? (
+            <div className="flex justify-center py-2">
+              <Button onClick={onLoadOlder} size="sm" variant="ghost">
+                {t("conversation.loadOlder")}
+              </Button>
+            </div>
+          ) : null}
+          {rows.map(({ dayLabel, message, showHeader }) => (
+            <div key={`${message.ts}${message.deleted ? "-deleted" : ""}`}>
+              {dayLabel ? (
+                <div className="relative my-3 flex items-center px-4">
+                  <Separator className="flex-1" />
+                  <span className="mx-3 shrink-0 rounded-full border border-border/60 bg-card px-3 py-0.5 font-medium text-muted-foreground text-xs">
+                    {dayLabel}
+                  </span>
+                  <Separator className="flex-1" />
+                </div>
+              ) : null}
+              <MessageItem
+                canDelete={canDelete(message)}
+                canEdit={canEdit(message)}
+                currentUserId={currentUserId}
+                inThread={inThread}
+                message={message}
+                onDelete={onDelete}
+                onOpenThread={onOpenThread}
+                onSaveEdit={onSaveEdit}
+                onTogglePin={onTogglePin}
+                onToggleReaction={onToggleReaction}
+                pinned={pinnedTs?.has(message.ts) ?? false}
+                showHeader={showHeader}
+                threadExpanded={
+                  message.reply_count > 0 && !collapsedThreads?.has(message.ts)
+                }
+                users={users}
+              />
+              {message.reply_count > 0 &&
+              !collapsedThreads?.has(message.ts) &&
+              renderThread
+                ? renderThread(message.ts)
+                : null}
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      </ScrollArea>
+    </>
   );
 }

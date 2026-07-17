@@ -102,5 +102,13 @@
     "title": "No channel for this project yet",
     "hint": "Create a channel bound to this project — activity streams in and the team can discuss right here.",
     "create": "Create project channel"
+  },
+  "details": {
+    "open": "Channel details",
+    "members": "Members",
+    "owner": "Owner",
+    "remove": "Remove member",
+    "addMember": "Add people or agents…",
+    "activityFeed": "Post project activity into this channel"
   }
 }

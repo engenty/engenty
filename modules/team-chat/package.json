@@ -38,6 +38,8 @@
     "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
+    "@engenty/retrieval": "workspace:*",
+    "@engenty/search-index": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",

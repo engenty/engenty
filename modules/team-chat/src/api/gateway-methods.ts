@@ -42,6 +42,7 @@ import {
   searchMessagesInputSchema,
   searchMessagesResultSchema,
   updateMessageInputSchema,
+  updateSettingsInputSchema,
 } from "../schema/zod.js";
 import { enqueueAgentMentions } from "./agent-mention-queue.js";
 
@@ -592,6 +593,25 @@ export function registerTeamChatGatewayMethods(
       const conversation = await repoForAuth(
         ctx.auth
       ).conversations.findByProject(parsed.project_id);
+      return { conversation, ok: true as const };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_conversations_update_settings",
+    moduleId: MODULE_ID,
+    summary: "Shallow-merge conversation settings (e.g. activity feed opt-out)",
+    requiredCapabilities: MANAGE,
+    riskLevel: "low",
+    inputSchema: updateSettingsInputSchema,
+    outputSchema: conversationResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = updateSettingsInputSchema.parse(input);
+      const repo = repoForAuth(ctx.auth);
+      const conversation = await repo.conversations.updateSettings(
+        parsed.channel,
+        parsed.settings
+      );
       return { conversation, ok: true as const };
     },
   });

@@ -59,17 +59,23 @@ export interface MessageItemProps {
 /**
  * Colored-chip styling for the `#mention:` anchors MessageResponse emits
  * (fragment hrefs — Streamdown's link safety blocks custom protocols).
+ * Plain CSS: Tailwind arbitrary variants choke on `:`/`#` inside attribute
+ * selectors, so a once-mounted stylesheet targets a stable wrapper class.
  */
-const MENTION_CHIP_CLASSES = cn(
-  "[&_a[href^='#mention:']]:rounded-[4px] [&_a[href^='#mention:']]:px-1 [&_a[href^='#mention:']]:py-px",
-  "[&_a[href^='#mention:']]:font-medium [&_a[href^='#mention:']]:no-underline",
-  "[&_a[href^='#mention:user']]:bg-sky-100 [&_a[href^='#mention:user']]:text-sky-800",
-  "dark:[&_a[href^='#mention:user']]:bg-sky-900/40 dark:[&_a[href^='#mention:user']]:text-sky-300",
-  "[&_a[href^='#mention:agent']]:bg-violet-100 [&_a[href^='#mention:agent']]:text-violet-800",
-  "dark:[&_a[href^='#mention:agent']]:bg-violet-900/40 dark:[&_a[href^='#mention:agent']]:text-violet-300",
-  "[&_a[href^='#mention:broadcast']]:bg-amber-100 [&_a[href^='#mention:broadcast']]:text-amber-800",
-  "dark:[&_a[href^='#mention:broadcast']]:bg-amber-900/40 dark:[&_a[href^='#mention:broadcast']]:text-amber-300"
-);
+const MENTION_CHIP_CSS = `
+.team-chat-message button[data-streamdown="link"] {
+  border-radius: 4px; padding: 0 4px; font-weight: 500;
+  text-decoration: none; cursor: default;
+  background: #e0f2fe; color: #075985;
+}
+.dark .team-chat-message button[data-streamdown="link"] {
+  background: rgb(12 74 110 / 0.4); color: #7dd3fc;
+}
+`;
+
+export function MentionChipStyles() {
+  return <style>{MENTION_CHIP_CSS}</style>;
+}
 
 interface MessageFile {
   filename?: string;
@@ -334,9 +340,8 @@ export function MessageItem({
         ) : (
           <div
             className={cn(
-              "text-[0.9rem] text-foreground/90 leading-relaxed",
-              "[&_blockquote]:my-1.5 [&_ol]:my-1 [&_p]:my-0.5 [&_pre]:my-1.5 [&_ul]:my-1",
-              MENTION_CHIP_CLASSES
+              "team-chat-message text-[0.9rem] text-foreground/90 leading-relaxed",
+              "[&_blockquote]:my-1.5 [&_ol]:my-1 [&_p]:my-0.5 [&_pre]:my-1.5 [&_ul]:my-1"
             )}
             onClickCapture={(event) => {
               const target = event.target as HTMLElement;

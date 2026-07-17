@@ -89,6 +89,10 @@ export interface TeamChatRepo {
     archive(id: string, archived: boolean): Promise<Conversation>;
     findByProject(projectId: string): Promise<Conversation | null>;
     setProject(id: string, projectId: string | null): Promise<Conversation>;
+    updateSettings(
+      id: string,
+      patch: Record<string, unknown>
+    ): Promise<Conversation>;
     createChannel(params: ConversationsCreateParams): Promise<Conversation>;
     getForCaller(id: string): Promise<ConversationListItem | null>;
     invite(id: string, members: MemberPrincipal[]): Promise<void>;

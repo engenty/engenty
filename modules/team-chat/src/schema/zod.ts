@@ -300,6 +300,12 @@ export const projectChannelResultSchema = z.object({
   ok: z.literal(true),
 });
 
+export const updateSettingsInputSchema = z.object({
+  channel: z.string(),
+  // Shallow-merged into conversations.settings (e.g. {activity:{enabled:false}}).
+  settings: z.record(z.string(), z.unknown()),
+});
+
 export const bindProjectInputSchema = z.object({
   channel: z.string(),
   project_id: z.string().nullable(),

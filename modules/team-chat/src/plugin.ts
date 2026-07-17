@@ -9,6 +9,8 @@ import { teamChatAiRegistration } from "../ai/registrar.js";
 import { registerTeamChatGatewayMethods } from "./api/gateway-methods.js";
 import type { EmitTeamChatEvent } from "./dal/contracts.js";
 import { createTeamChatRepoSupabase } from "./dal/supabase.js";
+import { createTeamChatRetrievalSource } from "./dal/team-chat-retrieval-source.js";
+import { formatActivityLine } from "./lib/activity.js";
 
 type TeamChatEntityPayload = EntityEventPayload<"message_ts"> & {
   conversation_id: string;
@@ -73,6 +75,10 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
     );
   };
 
+  // Phase 5: channel messages join the central retrieval store (workspace
+  // search + agent search tool; DMs excluded in the source itself).
+  server.registerRetrievalSource?.(createTeamChatRetrievalSource({ supabase }));
+
   const queue = server.getQueueService?.() ?? null;
   registerTeamChatGatewayMethods(server, { queue, repoForAuth });
 
@@ -110,19 +116,6 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
         ) {
           return;
         }
-        const detail = (payload.payload ?? {}) as Record<string, unknown>;
-        // Human-readable line: verb + title/transition when the payload has them.
-        const verb = String(payload.event_type).replace(/^tasks\./, "");
-        const parts = [
-          `Task ${verb.replaceAll("_", " ")}`,
-          typeof detail.title === "string" ? `"${detail.title}"` : null,
-          typeof detail.from === "string" && typeof detail.to === "string"
-            ? `${detail.from} → ${detail.to}`
-            : null,
-          typeof detail.comment === "string"
-            ? `“${String(detail.comment).slice(0, 120)}”`
-            : null,
-        ].filter(Boolean);
         await serviceRepo.messages.post({
           conversationId: conversation.id,
           metadata: {
@@ -133,7 +126,10 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
             event_type: "task_activity",
           },
           subtype: "activity",
-          text: parts.join(" · "),
+          text: formatActivityLine({
+            event_type: payload.event_type,
+            payload: payload.payload as Record<string, unknown> | null,
+          }),
         });
       } catch {
         // activity fan-out is best-effort

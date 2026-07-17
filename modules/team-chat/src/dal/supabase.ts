@@ -956,6 +956,12 @@ export function createTeamChatRepoSupabase(
         }
         return updateConversation(id, { name });
       },
+      updateSettings: async (id, patch) => {
+        const state = await requireMember(id);
+        return updateConversation(id, {
+          settings: { ...state.conversation.settings, ...patch },
+        });
+      },
       setProject: async (id, projectId) => {
         await requireMember(id);
         return updateConversation(id, { project_id: projectId });

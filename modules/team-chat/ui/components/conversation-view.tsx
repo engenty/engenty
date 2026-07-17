@@ -26,6 +26,7 @@ import {
   useToggleReactionMutation,
   useUpdateMessageMutation,
 } from "../queries.js";
+import { ChannelDetailsPopover } from "./channel-details-popover.js";
 import { Composer } from "./composer.js";
 import { InlineThread } from "./inline-thread.js";
 import { MessageList } from "./message-list.js";
@@ -152,10 +153,11 @@ export function ConversationView({
             </span>
           ) : null}
           {typeof memberCount === "number" ? (
-            <span className="ml-auto text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-xs">
               {t("conversation.members", { count: memberCount })}
             </span>
           ) : null}
+          <ChannelDetailsPopover conversation={conversation} users={users} />
         </div>
       )}
 

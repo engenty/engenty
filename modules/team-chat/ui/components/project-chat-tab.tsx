@@ -104,8 +104,9 @@ export function ProjectChatTab({ params }: { params: { projectId?: string } }) {
     );
   }
 
+  // Flat, like the other project tabs — no card chrome around the stream.
   return (
-    <div className="ui-canvas-elevated flex h-[70vh] min-h-96 flex-col overflow-hidden rounded-md bg-card">
+    <div className="flex h-[70vh] min-h-96 flex-col overflow-hidden">
       <ConversationView conversationId={channelQuery.data.id} embedded />
     </div>
   );

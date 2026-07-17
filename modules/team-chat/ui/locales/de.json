@@ -102,5 +102,13 @@
     "title": "Noch kein Channel für dieses Projekt",
     "hint": "Erstelle einen an dieses Projekt gebundenen Channel — Aktivitäten laufen ein und das Team kann direkt hier diskutieren.",
     "create": "Projekt-Channel erstellen"
+  },
+  "details": {
+    "open": "Channel-Details",
+    "members": "Mitglieder",
+    "owner": "Owner",
+    "remove": "Mitglied entfernen",
+    "addMember": "Personen oder Agents hinzufügen…",
+    "activityFeed": "Projekt-Aktivität in diesen Channel posten"
   }
 }
