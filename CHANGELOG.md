@@ -4,6 +4,19 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.28] - 2026-07-17
+- ADDED **[chat]** Slash commands + typed @-mentions in agent chats
+- DOCS **[wip]** Mark chat slash-commands implemented + live-verified
+- DOCS **[wip]** Record review decisions Q1-Q5 (carrier, aliases, action v1, availability, routing)
+- DOCS **[wip]** Object-widgets merged to main — phase 3b dependency satisfied after rebase
+- DOCS **[wip]** Chat slash-commands + typed @-mentions design
+- DOCS **[wip]** Generative-ui — Q6 decided (A2UI first) + worked wire-format examples
+- DOCS **[wip]** Generative-ui — evaluate OpenUI (Thesys) as G3 alternative to A2UI
+- DOCS **[wip]** Generative-ui — cite official A2UI React renderer docs
+- DOCS **[wip]** Correct generative-ui — A2UI React renderers are shipped, AG-UI carries A2UI
+- DOCS **[wip]** Generative-ui design — rich panels, internal MCP Apps, A2UI
+- FIXED **[chat]** Unwrap workspace-search match envelope, core group heading, route logger
+
 ## [0.1.27] - 2026-07-17
 - ADDED **[objects]** Make the whole card clickable
 - ADDED **[objects]** Make object card actions follow the chat surface
