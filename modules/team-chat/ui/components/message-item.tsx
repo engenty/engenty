@@ -1,9 +1,6 @@
 import { MessageResponse } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarStack,
   Button,
   cn,
   EmojiPicker,
@@ -16,6 +13,8 @@ import {
 } from "@engenty/ui-core";
 import {
   Bot,
+  ChevronDown,
+  ChevronRight,
   MessageSquareText,
   Pencil,
   Pin,
@@ -27,19 +26,19 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { TeamChatMessage } from "../api.js";
 import {
-  authorInitials,
+  authorColorClass,
   authorLabel,
   formatMessageTime,
+  mentionTokensToPlainText,
   renderMentionTokens,
   type UsersById,
-  userLabel,
 } from "../lib/format.js";
 
 export interface MessageItemProps {
   canDelete: boolean;
   canEdit: boolean;
   currentUserId: string | null;
-  /** Hide the reply-summary bar when rendering inside the thread panel. */
+  /** Rendered inside an inline thread (compact, no thread affordances). */
   inThread?: boolean;
   message: TeamChatMessage;
   onDelete?: (ts: string) => void;
@@ -48,17 +47,33 @@ export interface MessageItemProps {
   onTogglePin?: (ts: string, pinned: boolean) => void;
   onToggleReaction?: (ts: string, emoji: string, active: boolean) => void;
   pinned?: boolean;
-  /** Group head renders avatar + author + time; followers only hover-time. */
+  /** Group head renders the author line; followers only the time gutter. */
   showHeader: boolean;
+  threadExpanded?: boolean;
   users: UsersById;
 }
+
+/**
+ * Colored-chip styling for the `#mention:` anchors MessageResponse emits
+ * (fragment hrefs — Streamdown's link safety blocks custom protocols).
+ */
+const MENTION_CHIP_CLASSES = cn(
+  "[&_a[href^='#mention:']]:rounded-[4px] [&_a[href^='#mention:']]:px-1 [&_a[href^='#mention:']]:py-px",
+  "[&_a[href^='#mention:']]:font-medium [&_a[href^='#mention:']]:no-underline",
+  "[&_a[href^='#mention:user']]:bg-sky-100 [&_a[href^='#mention:user']]:text-sky-800",
+  "dark:[&_a[href^='#mention:user']]:bg-sky-900/40 dark:[&_a[href^='#mention:user']]:text-sky-300",
+  "[&_a[href^='#mention:agent']]:bg-violet-100 [&_a[href^='#mention:agent']]:text-violet-800",
+  "dark:[&_a[href^='#mention:agent']]:bg-violet-900/40 dark:[&_a[href^='#mention:agent']]:text-violet-300",
+  "[&_a[href^='#mention:broadcast']]:bg-amber-100 [&_a[href^='#mention:broadcast']]:text-amber-800",
+  "dark:[&_a[href^='#mention:broadcast']]:bg-amber-900/40 dark:[&_a[href^='#mention:broadcast']]:text-amber-300"
+);
 
 function AttachmentBadges({ message }: { message: TeamChatMessage }) {
   if (message.files.length === 0) {
     return null;
   }
   return (
-    <div className="mt-1 flex flex-wrap gap-1.5">
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
       {message.files.map((file, index) => (
         <span
           className="ui-canvas-field inline-flex max-w-56 items-center gap-1 truncate px-2 py-0.5 text-muted-foreground text-xs"
@@ -90,7 +105,7 @@ function ReactionPills({
     return null;
   }
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
+    <div className="mt-1.5 flex flex-wrap items-center gap-1">
       {message.reactions.map((reaction) => {
         const active = currentUserId
           ? reaction.users.includes(currentUserId)
@@ -100,7 +115,7 @@ function ReactionPills({
             className={cn(
               "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
               active
-                ? "border-primary/40 bg-primary/10 text-foreground"
+                ? "border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-700 dark:bg-sky-900/40 dark:text-sky-200"
                 : "border-border/60 bg-card text-muted-foreground hover:border-border"
             )}
             key={reaction.name}
@@ -157,12 +172,12 @@ function SystemMessageRow({
   users: UsersById;
 }) {
   return (
-    <div className="flex items-baseline gap-2 px-11 py-0.5 text-muted-foreground text-xs">
-      <span className="min-w-0 flex-1">
-        {renderMentionTokens(message.text, users).replace(/\*\*/g, "")}
-      </span>
-      <span className="shrink-0 tabular-nums">
+    <div className="flex items-baseline gap-3 px-4 py-0.5">
+      <span className="w-10 shrink-0 text-right text-[11px] text-muted-foreground/50 tabular-nums">
         {formatMessageTime(message.ts, locale)}
+      </span>
+      <span className="min-w-0 flex-1 text-muted-foreground text-xs italic">
+        {mentionTokensToPlainText(message.text, users)}
       </span>
     </div>
   );
@@ -177,10 +192,11 @@ export function MessageItem({
   onDelete,
   onOpenThread,
   onSaveEdit,
-  onToggleReaction,
   onTogglePin,
+  onToggleReaction,
   pinned = false,
   showHeader,
+  threadExpanded = false,
   users,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation("team-chat");
@@ -193,9 +209,14 @@ export function MessageItem({
   }
 
   const author = authorLabel(message, users);
+  const authorId = message.user_id ?? message.agent_type_key ?? "system";
+  const isAgent = Boolean(message.agent_type_key);
   const markdown = renderMentionTokens(message.text, users);
   const showThreadBar =
     !inThread && message.reply_count > 0 && Boolean(onOpenThread);
+  const aiThreadId = (
+    message.metadata as { event_payload?: { ai_thread_id?: string } }
+  ).event_payload?.ai_thread_id;
 
   const startEdit = () => {
     setDraft(message.text);
@@ -212,36 +233,42 @@ export function MessageItem({
   return (
     <div
       className={cn(
-        "group relative flex gap-3 px-4 py-0.5 hover:bg-muted/40",
-        showHeader && "mt-2 pt-1"
+        "group relative flex gap-3 rounded-md px-4 transition-colors hover:bg-muted/70 dark:hover:bg-muted/40",
+        showHeader ? "mt-2.5 pt-1 pb-1" : "py-1"
       )}
     >
-      {showHeader ? (
-        <Avatar className="mt-0.5 size-8 shrink-0">
-          <AvatarFallback className="text-xs">
-            {authorInitials(author)}
-          </AvatarFallback>
-        </Avatar>
-      ) : (
-        <span className="w-8 shrink-0 select-none text-right text-[10px] text-muted-foreground/0 tabular-nums group-hover:text-muted-foreground/70">
-          {formatMessageTime(message.ts, locale)}
-        </span>
-      )}
+      {/* Timestamp gutter — the per-line indicator (no avatars in-stream). */}
+      <span
+        className={cn(
+          "w-10 shrink-0 select-none pt-[3px] text-right text-[11px] tabular-nums",
+          showHeader
+            ? "text-muted-foreground/70"
+            : "text-muted-foreground/0 group-hover:text-muted-foreground/60"
+        )}
+      >
+        {formatMessageTime(message.ts, locale)}
+      </span>
 
       <div className="min-w-0 flex-1">
         {showHeader ? (
-          <div className="flex items-baseline gap-2">
-            <span className="truncate font-semibold text-sm">{author}</span>
-            {message.agent_type_key ? (
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-[3px] bg-muted px-1 py-px text-[10px] text-muted-foreground uppercase">
+          <div className="mb-0.5 flex items-baseline gap-1.5">
+            <span
+              className={cn(
+                "truncate font-semibold text-sm",
+                isAgent
+                  ? "text-violet-700 dark:text-violet-300"
+                  : authorColorClass(authorId)
+              )}
+            >
+              {author}
+            </span>
+            {isAgent ? (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-[3px] bg-violet-100 px-1 py-px text-[10px] text-violet-800 uppercase dark:bg-violet-900/40 dark:text-violet-300">
                 <Bot className="size-2.5" /> {t("message.agentBadge")}
               </span>
             ) : null}
-            <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-              {formatMessageTime(message.ts, locale)}
-            </span>
             {pinned ? (
-              <Pin className="size-3 shrink-0 text-muted-foreground" />
+              <Pin className="size-3 shrink-0 self-center text-amber-600 dark:text-amber-400" />
             ) : null}
           </div>
         ) : null}
@@ -268,10 +295,24 @@ export function MessageItem({
             </span>
           </div>
         ) : (
-          <div className="text-sm">
+          <div
+            className={cn(
+              "text-[0.9rem] text-foreground/90 leading-relaxed",
+              "[&_blockquote]:my-1.5 [&_ol]:my-1 [&_p]:my-0.5 [&_pre]:my-1.5 [&_ul]:my-1",
+              MENTION_CHIP_CLASSES
+            )}
+            onClickCapture={(event) => {
+              const target = event.target as HTMLElement;
+              const anchor = target.closest?.("a[href^='#mention:']");
+              if (anchor) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}
+          >
             <MessageResponse>{markdown}</MessageResponse>
             {message.edited ? (
-              <span className="ml-1 text-muted-foreground text-xs">
+              <span className="ml-1 text-[11px] text-muted-foreground">
                 {t("message.edited")}
               </span>
             ) : null}
@@ -279,15 +320,10 @@ export function MessageItem({
         )}
         <AttachmentBadges message={message} />
 
-        {typeof (
-          message.metadata as { event_payload?: { ai_thread_id?: string } }
-        ).event_payload?.ai_thread_id === "string" ? (
+        {aiThreadId ? (
           <Link
             className="mt-0.5 inline-flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
-            to={`/mdl/engenty-copilot/chat/${encodeURIComponent(
-              (message.metadata as { event_payload: { ai_thread_id: string } })
-                .event_payload.ai_thread_id
-            )}`}
+            to={`/mdl/engenty-copilot/chat/${encodeURIComponent(aiThreadId)}`}
           >
             <SquareArrowOutUpRight className="size-3" /> {t("message.viewRun")}
           </Link>
@@ -316,19 +352,16 @@ export function MessageItem({
 
         {showThreadBar ? (
           <button
-            className="mt-1 flex items-center gap-2 rounded-[4px] px-1.5 py-1 text-xs hover:bg-muted/60"
+            className="mt-1 flex items-center gap-1.5 rounded-[4px] py-0.5 pr-2 text-xs hover:bg-muted/60"
             onClick={() => onOpenThread?.(message.ts)}
             type="button"
           >
-            <AvatarStack
-              max={3}
-              profiles={message.reply_users.slice(0, 3).map((id) => ({
-                full_name: userLabel(users.get(id), id.slice(0, 8)),
-                id,
-              }))}
-              size="sm"
-            />
-            <span className="font-medium text-primary">
+            {threadExpanded ? (
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-3.5 text-muted-foreground" />
+            )}
+            <span className="font-medium text-sky-700 dark:text-sky-300">
               {t("thread.replyCount", { count: message.reply_count })}
             </span>
           </button>

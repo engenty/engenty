@@ -76,6 +76,61 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
   const queue = server.getQueueService?.() ?? null;
   registerTeamChatGatewayMethods(server, { queue, repoForAuth });
 
+  // Project activity feed (Phase 4): task activity from the tasks module bus
+  // becomes a system message in the bound project channel.
+  events.modules.on(
+    "tasks.task.activity",
+    async (payload: Record<string, unknown>) => {
+      try {
+        const contexts = (payload.contexts ?? []) as {
+          context_id: string;
+          context_type: string;
+        }[];
+        const project = contexts.find(
+          (context) => context.context_type === "project"
+        );
+        const tenantId = payload.tenant_id as string | undefined;
+        if (!(project && tenantId)) {
+          return;
+        }
+        const serviceRepo = createTeamChatRepoSupabase(
+          supabase,
+          tenantId,
+          (payload.scope_id as string) ?? "default",
+          null,
+          { emitTeamChatEvent }
+        );
+        const conversation = await serviceRepo.conversations.findByProject(
+          project.context_id
+        );
+        if (
+          !conversation ||
+          (conversation.settings as { activity?: { enabled?: boolean } })
+            .activity?.enabled === false
+        ) {
+          return;
+        }
+        const detail = payload.payload as Record<string, unknown>;
+        const title =
+          typeof detail?.title === "string" ? ` — "${detail.title}"` : "";
+        await serviceRepo.messages.post({
+          conversationId: conversation.id,
+          metadata: {
+            event_payload: {
+              event: payload.event_type,
+              task_id: payload.task_id,
+            },
+            event_type: "task_activity",
+          },
+          subtype: "activity",
+          text: `${String(payload.event_type)}${title}`,
+        });
+      } catch {
+        // activity fan-out is best-effort
+      }
+    }
+  );
+
   // AI surface: read/post tools for every agent (delegating to the ops above).
   const { invokeOperation } = createPluginServerGatewayCaller(server);
   server.registerAiRegistration?.(

@@ -6,6 +6,7 @@ import type {
 import type { TeamChatRepo } from "../dal/contracts.js";
 import { extractMentions } from "../lib/mentions.js";
 import {
+  bindProjectInputSchema,
   channelRefInputSchema,
   conversationResultSchema,
   conversationsCreateInputSchema,
@@ -33,6 +34,8 @@ import {
   pinsMutateInputSchema,
   postAsAgentInputSchema,
   postMessageInputSchema,
+  projectChannelGetInputSchema,
+  projectChannelResultSchema,
   reactionsGetInputSchema,
   reactionsGetResultSchema,
   reactionsMutateInputSchema,
@@ -572,6 +575,43 @@ export function registerTeamChatGatewayMethods(
       const parsed = pinsListInputSchema.parse(input);
       const pins = await repoForAuth(ctx.auth).pins.list(parsed.channel);
       return { ok: true as const, pins };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_project_channel_get",
+    moduleId: MODULE_ID,
+    summary: "Get the channel bound to a project (null when none)",
+    requiredCapabilities: READ,
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: projectChannelGetInputSchema,
+    outputSchema: projectChannelResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = projectChannelGetInputSchema.parse(input);
+      const conversation = await repoForAuth(
+        ctx.auth
+      ).conversations.findByProject(parsed.project_id);
+      return { conversation, ok: true as const };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_bind_project",
+    moduleId: MODULE_ID,
+    summary:
+      "Bind a channel to a project (project tab + activity feed); null unbinds",
+    requiredCapabilities: MANAGE,
+    riskLevel: "medium",
+    inputSchema: bindProjectInputSchema,
+    outputSchema: conversationResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = bindProjectInputSchema.parse(input);
+      const conversation = await repoForAuth(ctx.auth).conversations.setProject(
+        parsed.channel,
+        parsed.project_id
+      );
+      return { conversation, ok: true as const };
     },
   });
 

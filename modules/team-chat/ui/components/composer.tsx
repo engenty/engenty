@@ -14,6 +14,8 @@ export interface MentionCandidate {
 }
 
 export interface ComposerProps {
+  /** Slim variant for inline thread replies (no chrome, no hint line). */
+  compact?: boolean;
   disabled?: boolean;
   mentionCandidates?: MentionCandidate[];
   onSend: (text: string) => Promise<void> | void;
@@ -54,6 +56,7 @@ function useMentionState(
 }
 
 export function Composer({
+  compact = false,
   disabled = false,
   mentionCandidates = [],
   onSend,
@@ -100,7 +103,12 @@ export function Composer({
   };
 
   return (
-    <div className="relative border-border/60 border-t bg-card px-4 py-3">
+    <div
+      className={cn(
+        "relative",
+        compact ? "px-3 py-1.5" : "border-border/60 border-t bg-card px-4 py-3"
+      )}
+    >
       {mention ? (
         <div className="ui-canvas-floating absolute bottom-full left-4 z-30 mb-1 w-72 overflow-hidden rounded-md py-1">
           {mention.matches.map((candidate, index) => (
@@ -199,9 +207,11 @@ export function Composer({
           <SendHorizonal className="size-4" />
         </Button>
       </div>
-      <p className="mt-1 px-1 text-[11px] text-muted-foreground">
-        {t("composer.hint")}
-      </p>
+      {compact ? null : (
+        <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+          {t("composer.hint")}
+        </p>
+      )}
     </div>
   );
 }

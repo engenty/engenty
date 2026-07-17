@@ -289,6 +289,22 @@ export const postAsAgentInputSchema = z.object({
   thread_ts: z.string().optional(),
 });
 
+// ── Phase 4: project binding ─────────────────────────────────────────────────
+
+export const projectChannelGetInputSchema = z.object({
+  project_id: z.string().min(1),
+});
+
+export const projectChannelResultSchema = z.object({
+  conversation: conversationSchema.nullable(),
+  ok: z.literal(true),
+});
+
+export const bindProjectInputSchema = z.object({
+  channel: z.string(),
+  project_id: z.string().nullable(),
+});
+
 export const searchMessagesInputSchema = z.object({
   limit: z.number().int().min(1).max(100).optional(),
   query: z.string().min(2).max(200),

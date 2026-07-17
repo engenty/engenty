@@ -92,5 +92,11 @@
     "joined": "Joined the channel",
     "left": "Left the channel",
     "deleted": "Message deleted"
+  },
+  "projectTab": "Chat",
+  "projectTabEmpty": {
+    "title": "No channel for this project yet",
+    "hint": "Create a channel bound to this project — activity streams in and the team can discuss right here.",
+    "create": "Create project channel"
   }
 }

@@ -23,7 +23,7 @@ import {
   authorLabel,
   conversationDisplayName,
   formatMessageTime,
-  renderMentionTokens,
+  mentionTokensToPlainText,
   usersById,
 } from "../lib/format.js";
 import {
@@ -157,10 +157,7 @@ export function TeamChatSidebarPanel() {
                       </span>
                     </span>
                     <span className="truncate text-muted-foreground text-xs">
-                      {renderMentionTokens(message.text, users).replace(
-                        /\*\*/g,
-                        ""
-                      )}
+                      {mentionTokensToPlainText(message.text, users)}
                     </span>
                   </Link>
                 ))}

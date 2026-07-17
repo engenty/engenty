@@ -850,6 +850,19 @@ export function createTeamChatRepoSupabase(
         return updateConversation(id, { is_archived: archived });
       },
       createChannel,
+      findByProject: async (projectId) => {
+        const { data, error } = await conversations()
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
+          .eq("project_id", projectId)
+          .eq("is_archived", false)
+          .maybeSingle();
+        if (error) {
+          throw new Error(`team-chat project lookup failed: ${error.message}`);
+        }
+        return data ? rowToConversation(data as Record<string, unknown>) : null;
+      },
       getForCaller,
       invite: async (id, members) => {
         const state = await requireMember(id);
@@ -942,6 +955,10 @@ export function createTeamChatRepoSupabase(
           throw new TeamChatError("invalid_target", "DMs have no name");
         }
         return updateConversation(id, { name });
+      },
+      setProject: async (id, projectId) => {
+        await requireMember(id);
+        return updateConversation(id, { project_id: projectId });
       },
       setPurpose: async (id, purpose) => {
         await requireMember(id);

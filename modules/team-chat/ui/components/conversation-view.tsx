@@ -1,12 +1,7 @@
-import {
-  PaneResizeHandle,
-  usePersistedEwResizePaneWidth,
-} from "@engenty/app-shell";
 import { useCoreAuthSession } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
-  cn,
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -14,8 +9,7 @@ import {
   Skeleton,
 } from "@engenty/ui-core";
 import { Hash, Lock, MessagesSquare, Users } from "lucide-react";
-import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useMentionCandidates } from "../hooks/use-mention-candidates.js";
 import { conversationDisplayName, usersById } from "../lib/format.js";
@@ -33,23 +27,22 @@ import {
   useUpdateMessageMutation,
 } from "../queries.js";
 import { Composer } from "./composer.js";
+import { InlineThread } from "./inline-thread.js";
 import { MessageList } from "./message-list.js";
-import { ThreadPanel } from "./thread-panel.js";
-
-const THREAD_PANE_WIDTH_KEY = "engenty.team-chat.thread_pane.width_px";
-const THREAD_PANE_DEFAULT_WIDTH = 380;
-const THREAD_PANE_MIN_WIDTH = 300;
-const THREAD_PANE_MAX_WIDTH = 560;
 
 export function ConversationView({
   conversationId,
+  embedded = false,
 }: {
   conversationId: string;
+  /** Rendered inside another surface (e.g. the project Chat tab). */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation("team-chat");
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const threadTs = searchParams.get("thread");
+  // Threads are expanded inline by default; users can collapse individual ones.
+  const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(
+    new Set()
+  );
   const { session } = useCoreAuthSession();
   const currentUserId = session?.user?.id ?? null;
 
@@ -90,20 +83,6 @@ export function ConversationView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestTs, conversationId, conversation?.is_member]);
-
-  const {
-    displayedWidthPx,
-    handleResizeKeyDown,
-    handleResizePointerDown,
-    isResizing,
-  } = usePersistedEwResizePaneWidth({
-    defaultPx: THREAD_PANE_DEFAULT_WIDTH,
-    maxPx: THREAD_PANE_MAX_WIDTH,
-    minPx: THREAD_PANE_MIN_WIDTH,
-    storageKey: THREAD_PANE_WIDTH_KEY,
-    // The thread pane sits on the right, so dragging left grows it.
-    invert: true,
-  });
 
   if (conversationQuery.isLoading) {
     return (
@@ -148,30 +127,22 @@ export function ConversationView({
     Boolean(userId && userId === currentUserId) ||
     conversation.member_role === "owner";
 
-  const openThread = (ts: string) => {
-    setSearchParams(
-      (previous) => {
-        const next = new URLSearchParams(previous);
-        next.set("thread", ts);
-        return next;
-      },
-      { replace: true }
-    );
-  };
-  const closeThread = () => {
-    setSearchParams(
-      (previous) => {
-        const next = new URLSearchParams(previous);
-        next.delete("thread");
-        return next;
-      },
-      { replace: true }
-    );
+  // Inline threads are open by default; toggling flips the collapsed set.
+  const toggleThread = (ts: string) => {
+    setCollapsedThreads((previous) => {
+      const next = new Set(previous);
+      if (next.has(ts)) {
+        next.delete(ts);
+      } else {
+        next.add(ts);
+      }
+      return next;
+    });
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-row overflow-hidden">
-      <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+      {embedded ? null : (
         <div className="flex h-12 shrink-0 items-center gap-2 border-border/60 border-b px-4">
           <HeaderIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate font-semibold">{displayName}</span>
@@ -186,149 +157,125 @@ export function ConversationView({
             </span>
           ) : null}
         </div>
+      )}
 
-        {conversation.is_archived ? (
-          <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-sm">
-            {t("conversation.archived")}
-          </div>
-        ) : null}
+      {conversation.is_archived ? (
+        <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-sm">
+          {t("conversation.archived")}
+        </div>
+      ) : null}
 
-        <MessageList
-          canDelete={(message) => canDeleteFor(message.user_id)}
-          canEdit={(message) =>
-            Boolean(message.user_id && message.user_id === currentUserId)
-          }
-          currentUserId={currentUserId}
-          emptyState={
-            <Empty className="mx-auto">
-              <EmptyHeader>
-                <MessagesSquare className="size-8 text-muted-foreground" />
-                <EmptyTitle>{t("conversation.empty")}</EmptyTitle>
-                <EmptyDescription>
-                  {isChannel
-                    ? t("conversation.emptyHint", { name: displayName })
-                    : t("conversation.emptyDmHint")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          }
-          messages={messages}
-          onDelete={(ts) =>
-            remove.mutate(
-              { channel: conversationId, ts },
+      <MessageList
+        canDelete={(message) => canDeleteFor(message.user_id)}
+        canEdit={(message) =>
+          Boolean(message.user_id && message.user_id === currentUserId)
+        }
+        collapsedThreads={collapsedThreads}
+        currentUserId={currentUserId}
+        emptyState={
+          <Empty className="mx-auto">
+            <EmptyHeader>
+              <MessagesSquare className="size-8 text-muted-foreground" />
+              <EmptyTitle>{t("conversation.empty")}</EmptyTitle>
+              <EmptyDescription>
+                {isChannel
+                  ? t("conversation.emptyHint", { name: displayName })
+                  : t("conversation.emptyDmHint")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        }
+        messages={messages}
+        onDelete={(ts) =>
+          remove.mutate(
+            { channel: conversationId, ts },
+            {
+              onError: (error) =>
+                toast.error(t("toasts.actionFailed", { error: String(error) })),
+              onSuccess: () => toast.success(t("toasts.deleted")),
+            }
+          )
+        }
+        onOpenThread={toggleThread}
+        onSaveEdit={async (ts, text) => {
+          await updateMessage.mutateAsync(
+            { channel: conversationId, text, ts },
+            {
+              onError: (error) =>
+                toast.error(t("toasts.actionFailed", { error: String(error) })),
+            }
+          );
+        }}
+        onTogglePin={(ts, pinned) =>
+          togglePin.mutate(
+            { channel: conversationId, pinned, timestamp: ts },
+            {
+              onError: (error) =>
+                toast.error(t("toasts.actionFailed", { error: String(error) })),
+            }
+          )
+        }
+        onToggleReaction={(ts, emoji, active) =>
+          toggleReaction.mutate(
+            { active, channel: conversationId, name: emoji, timestamp: ts },
+            {
+              onError: (error) =>
+                toast.error(t("toasts.actionFailed", { error: String(error) })),
+            }
+          )
+        }
+        pinnedTs={pinnedTs}
+        renderThread={(ts) => (
+          <InlineThread
+            canDeleteFor={canDeleteFor}
+            conversationId={conversationId}
+            currentUserId={currentUserId}
+            threadTs={ts}
+            users={users}
+          />
+        )}
+        users={users}
+      />
+
+      {canPost ? (
+        <Composer
+          mentionCandidates={mentionCandidates}
+          onSend={async (text) => {
+            await post.mutateAsync(
+              { channel: conversationId, text },
               {
                 onError: (error) =>
-                  toast.error(
-                    t("toasts.actionFailed", { error: String(error) })
-                  ),
-                onSuccess: () => toast.success(t("toasts.deleted")),
-              }
-            )
-          }
-          onOpenThread={openThread}
-          onSaveEdit={async (ts, text) => {
-            await updateMessage.mutateAsync(
-              { channel: conversationId, text, ts },
-              {
-                onError: (error) =>
-                  toast.error(
-                    t("toasts.actionFailed", { error: String(error) })
-                  ),
+                  toast.error(t("toasts.sendFailed", { error: String(error) })),
               }
             );
           }}
-          onTogglePin={(ts, pinned) =>
-            togglePin.mutate(
-              { channel: conversationId, pinned, timestamp: ts },
-              {
-                onError: (error) =>
-                  toast.error(
-                    t("toasts.actionFailed", { error: String(error) })
-                  ),
-              }
-            )
-          }
-          onToggleReaction={(ts, emoji, active) =>
-            toggleReaction.mutate(
-              { active, channel: conversationId, name: emoji, timestamp: ts },
-              {
-                onError: (error) =>
-                  toast.error(
-                    t("toasts.actionFailed", { error: String(error) })
-                  ),
-              }
-            )
-          }
-          pinnedTs={pinnedTs}
-          users={users}
+          placeholder={t("composer.placeholder", {
+            name: isChannel ? `#${displayName}` : displayName,
+          })}
+          sending={post.isPending}
         />
-
-        {canPost ? (
-          <Composer
-            mentionCandidates={mentionCandidates}
-            onSend={async (text) => {
-              await post.mutateAsync(
-                { channel: conversationId, text },
-                {
-                  onError: (error) =>
-                    toast.error(
-                      t("toasts.sendFailed", { error: String(error) })
-                    ),
-                }
-              );
-            }}
-            placeholder={t("composer.placeholder", {
-              name: isChannel ? `#${displayName}` : displayName,
-            })}
-            sending={post.isPending}
-          />
-        ) : conversation.type === "public_channel" &&
-          !conversation.is_archived ? (
-          <div className="flex items-center justify-between gap-3 border-border/60 border-t bg-card px-4 py-3">
-            <span className="text-muted-foreground text-sm">
-              {t("conversation.joinPrompt", { name: displayName })}
-            </span>
-            <Button
-              disabled={join.isPending}
-              onClick={() =>
-                join.mutate(conversationId, {
-                  onError: (error) =>
-                    toast.error(
-                      t("toasts.actionFailed", { error: String(error) })
-                    ),
-                  onSuccess: () => toast.success(t("toasts.joined")),
-                })
-              }
-              size="sm"
-            >
-              {t("conversation.join")}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      {threadTs ? (
-        <>
-          <PaneResizeHandle
-            isResizing={isResizing}
-            label={t("thread.title")}
-            onKeyDown={handleResizeKeyDown}
-            onPointerDown={handleResizePointerDown}
-          />
-          <div
-            className={cn("hidden shrink-0 border-border/60 border-l md:block")}
-            style={{ width: displayedWidthPx }}
+      ) : conversation.type === "public_channel" &&
+        !conversation.is_archived ? (
+        <div className="flex items-center justify-between gap-3 border-border/60 border-t bg-card px-4 py-3">
+          <span className="text-muted-foreground text-sm">
+            {t("conversation.joinPrompt", { name: displayName })}
+          </span>
+          <Button
+            disabled={join.isPending}
+            onClick={() =>
+              join.mutate(conversationId, {
+                onError: (error) =>
+                  toast.error(
+                    t("toasts.actionFailed", { error: String(error) })
+                  ),
+                onSuccess: () => toast.success(t("toasts.joined")),
+              })
+            }
+            size="sm"
           >
-            <ThreadPanel
-              canDeleteFor={canDeleteFor}
-              conversationId={conversationId}
-              currentUserId={currentUserId}
-              onClose={closeThread}
-              threadTs={threadTs}
-              users={users}
-            />
-          </div>
-        </>
+            {t("conversation.join")}
+          </Button>
+        </div>
       ) : null}
     </div>
   );

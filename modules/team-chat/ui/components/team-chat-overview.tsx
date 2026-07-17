@@ -15,7 +15,7 @@ import { Link } from "react-router-dom";
 import type { ConversationListItem } from "../api.js";
 import {
   conversationDisplayName,
-  renderMentionTokens,
+  mentionTokensToPlainText,
   type UsersById,
   usersById,
 } from "../lib/format.js";
@@ -37,10 +37,7 @@ function ConversationCard({
     conversation.type === "private_channel";
   const Icon = isChannel ? Hash : Users;
   const preview = conversation.last_message
-    ? renderMentionTokens(conversation.last_message.text, users).replace(
-        /\*\*/g,
-        ""
-      )
+    ? mentionTokensToPlainText(conversation.last_message.text, users)
     : null;
   return (
     <Link

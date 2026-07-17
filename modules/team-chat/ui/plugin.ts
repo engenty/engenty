@@ -1,5 +1,6 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { MessagesSquare } from "lucide-react";
+import { ProjectChatTab } from "./components/project-chat-tab.js";
 import { TeamChatClientPage } from "./pages/team-chat-client-page.js";
 import { useTeamChatBadgeCount } from "./queries.js";
 
@@ -39,6 +40,17 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: "/mdl/team-chat/:conversationId",
     component: TeamChatClientPage,
     order: 162,
+  });
+
+  // "Chat" tab on the project detail page (surface owned by @engenty/projects;
+  // string mirrors PROJECTS_DETAIL_SURFACE, same convention as modules/files).
+  engenty.UI.registerTab({
+    id: "team-chat",
+    surface: "projects.detail",
+    component: ProjectChatTab,
+    label: "Chat",
+    labelKey: "team-chat:projectTab",
+    order: 350,
   });
 
   engenty.UI.registerAdminMenuItem({

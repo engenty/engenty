@@ -13,6 +13,8 @@ import { MessageItem } from "./message-item.js";
 export interface MessageListProps {
   canDelete: (message: TeamChatMessage) => boolean;
   canEdit: (message: TeamChatMessage) => boolean;
+  /** Threads are expanded by default; roots in this set are collapsed. */
+  collapsedThreads?: ReadonlySet<string>;
   currentUserId: string | null;
   emptyState?: React.ReactNode;
   hasMore?: boolean;
@@ -26,13 +28,17 @@ export interface MessageListProps {
   onTogglePin?: (ts: string, pinned: boolean) => void;
   onToggleReaction?: (ts: string, emoji: string, active: boolean) => void;
   pinnedTs?: ReadonlySet<string>;
+  /** Renders the inline thread body under an expanded root message. */
+  renderThread?: (threadTs: string) => React.ReactNode;
   users: UsersById;
 }
 
 export function MessageList({
   canDelete,
   canEdit,
+  collapsedThreads,
   currentUserId,
+  renderThread,
   emptyState,
   hasMore,
   inThread = false,
@@ -111,8 +117,16 @@ export function MessageList({
               onToggleReaction={onToggleReaction}
               pinned={pinnedTs?.has(message.ts) ?? false}
               showHeader={showHeader}
+              threadExpanded={
+                message.reply_count > 0 && !collapsedThreads?.has(message.ts)
+              }
               users={users}
             />
+            {message.reply_count > 0 &&
+            !collapsedThreads?.has(message.ts) &&
+            renderThread
+              ? renderThread(message.ts)
+              : null}
           </div>
         ))}
         <div ref={bottomRef} />

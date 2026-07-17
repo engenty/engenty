@@ -133,16 +133,52 @@ export function sameGroup(
 }
 
 /**
- * Render mention tokens as readable text for the Phase 1 markdown renderer:
- * `<@u:uuid>` → **@Name**, `<@agent:key>` → **@key**, `<!here>` → **@here**.
- * Chip rendering replaces this in Phase 2.
+ * Render mention tokens as `mention:` links so the markdown renderer emits
+ * anchors we can style as colored chips (and neutralize on click):
+ * `<@u:uuid>` → [@Name](#mention:user:uuid), etc.
  */
 export function renderMentionTokens(text: string, users: UsersById): string {
   return text
     .replace(/<@u:([0-9a-fA-F-]{36})>/g, (_, id: string) => {
       const user = users.get(id.toLowerCase());
-      return `**@${userLabel(user, id.slice(0, 8))}**`;
+      return `[@${userLabel(user, id.slice(0, 8))}](#mention:user:${id.toLowerCase()})`;
     })
-    .replace(/<@agent:([a-z0-9][a-z0-9._-]*)>/g, "**@$1**")
-    .replace(/<!(here|channel)>/g, "**@$1**");
+    .replace(/<@agent:([a-z0-9][a-z0-9._-]*)>/g, "[@$1](#mention:agent:$1)")
+    .replace(/<!(here|channel)>/g, "[@$1](#mention:broadcast:$1)");
+}
+
+/** Plain-text variant for previews (sidebar, overview, system rows). */
+export function mentionTokensToPlainText(
+  text: string,
+  users: UsersById
+): string {
+  return text
+    .replace(/<@u:([0-9a-fA-F-]{36})>/g, (_, id: string) => {
+      const user = users.get(id.toLowerCase());
+      return `@${userLabel(user, id.slice(0, 8))}`;
+    })
+    .replace(/<@agent:([a-z0-9][a-z0-9._-]*)>/g, "@$1")
+    .replace(/<!(here|channel)>/g, "@$1");
+}
+
+/**
+ * Deterministic author color from a small literal Tailwind palette
+ * (DESIGN.md badge rule: literal *-700/-300 pairs, never theme-variable
+ * chart tokens). Agents get the primary tone via authorColorAgent.
+ */
+const AUTHOR_COLORS = [
+  "text-sky-700 dark:text-sky-300",
+  "text-emerald-700 dark:text-emerald-300",
+  "text-violet-700 dark:text-violet-300",
+  "text-rose-700 dark:text-rose-300",
+  "text-cyan-700 dark:text-cyan-300",
+  "text-orange-700 dark:text-orange-300",
+];
+
+export function authorColorClass(authorId: string): string {
+  let hash = 0;
+  for (const char of authorId) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return AUTHOR_COLORS[hash % AUTHOR_COLORS.length] as string;
 }
