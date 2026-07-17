@@ -1,6 +1,6 @@
 # Chat Slash Commands & @-Mentions
 
-Status: **DRAFT — design for review** (2026-07-17, branch `feat/chat-slash-commands`)
+Status: **REVIEWED — open questions decided 2026-07-17 (§7), ready to implement** (branch `feat/chat-slash-commands`)
 Companion doc: `docs/wip/chat-object-rendering.md` (branch `feat/chat-object-widgets`) — defines the
 `ObjectRef` identity scheme and the object-widget rendering this design's @-mentions feed into.
 
@@ -161,10 +161,11 @@ interface ChatReferencePart {
 }
 ```
 
-(Exact carrier — dedicated part vs. `metadata` on the message — to be settled against
-`RunAgentInputSchema`; the constraint is: passes schema untouched, survives Mastra persistence,
-recoverable for transcript rendering. Same constraint set the attachment part solved; G2 of the
-object-rendering doc applies here identically.)
+(Carrier decided in §7/Q1: content-part metadata — on the existing text part if the schema
+allows, else one invisible carrier part. The constraint set — passes `RunAgentInputSchema`
+untouched, survives Mastra persistence, recoverable for transcript rendering — is the same one
+the attachment part already solved; the phase-2 spike validates it for this metadata, mirroring
+G2 of the object-rendering doc.)
 
 ### 4.3 Server resolution (the same seam as commands)
 
@@ -241,16 +242,21 @@ Saved prompts (user/tenant command store — reuse the instruction-override pers
 ⌘K exposure of chat commands, `@type:` narrowing, forced tool-choice for `action` kind, argument
 validation UX, mobile audit.
 
-## 7. Open questions (for review)
+## 7. Decisions (review 2026-07-17, Matthias)
 
-- **Q1 Carrier for command/refs metadata:** dedicated invisible content part vs. message-level
-  `metadata` — needs a quick schema + Mastra-persistence spike (mirrors G2).
-- **Q2 Localized command aliases:** command strings stay canonical ASCII; do we additionally match
-  localized labels in the typeahead filter (recommended: yes, filter-only, never as the persisted
-  token)?
-- **Q3 `action` kind v1 fidelity:** is directive-prompt expansion acceptable for v1, or do we need
-  forced tool-choice immediately (touches conversation-run internals)?
-- **Q4 Command availability vs. agent:** filter by `agentIds` only, or also by the agent's
-  resolved `toolIds` (an action command whose tool the agent lacks should hide)? Recommended: both.
-- **Q5 Open-base/pro split:** everything in §6 phases 1–3 lands in open-base repos per the
-  tab-contributions precedent — confirm PR routing to public `engenty/engenty` before implementation.
+- **Q1 Carrier for command/refs metadata → content-part metadata** (the proven attachment trick).
+  Attach `metadata.engenty_command` / `metadata.engenty_refs` to the user turn's existing text
+  part if the AG-UI schema allows `metadata` on text parts (attachment parts already carry it);
+  else fall back to one invisible empty carrier part, stripped at the server seam before prompt
+  assembly. Rejected: message-level `metadata` — zod strips unknown keys unless the shared
+  ag-ui-bridge schema is extended, and Mastra round-tripping of top-level custom fields is
+  unproven, all for no functional gain. The phase-2 spike validates part-metadata survival across
+  reload/thread-move (mirrors G2) rather than choosing a carrier.
+- **Q2 Localized aliases → decided:** command strings stay canonical ASCII/English; localized
+  labels participate in the typeahead filter only (widget-side), never as the persisted token.
+- **Q3 `action` v1 fidelity → decided:** directive-prompt expansion for v1; forced tool-choice
+  stays a phase-4 stretch.
+- **Q4 Availability filtering → decided:** filter by `agentIds` **and** hide action commands whose
+  tool the current agent lacks (resolved `toolIds`).
+- **Q5 Open-base/pro split → confirmed:** phases 1–3 land in open-base repos; PRs route to public
+  `engenty/engenty` per the tab-contributions precedent.
