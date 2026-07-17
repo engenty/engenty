@@ -28,6 +28,7 @@ Three rails exist for agent-driven UI, and they are converging:
 | **Native widgets** (ours, tier 1) | Pre-built React per module | Trusted code in-bundle | Shipped v0.1.27 |
 | **MCP Apps** (`io.modelcontextprotocol/ui`) | Server ships HTML via `ui://` resources, host renders in sandboxed iframe | Untrusted → sandbox + CSP + proxied tool calls | First official MCP extension; our host shipped v0.1.27 (external servers only). Spec: `text/html;profile=mcp-app` with explicit room for more content types |
 | **A2UI** (Google, Apache-2.0) | Agent emits **declarative JSON** — flat component list + data model + events — rendered natively from a **client-controlled catalog** | UI-as-data, not code: no sandbox needed, agents can only reference approved components | v0.9.1 stable, v1.0 RC. **React is an officially maintained renderer, stable since v0.8** (`@a2ui/react` + `@a2ui/web_core`); also Lit, Angular, Flutter, plus `@copilotkit/a2ui-renderer` |
+| **OpenUI** (Thesys, MIT) | The **model itself emits "OpenUI Lang"** — a compact streaming DSL (~67% fewer tokens than JSON) — inline in its response; client parses + renders progressively from a Zod-schema component catalog (`defineComponent`/`createLibrary`) | Same UI-as-data model: only catalog components render; interactions (`onAction` + `formState`, `continue_conversation`) become the next user message | Launched 2026-03; 7k★/526 forks in ~4 months, 1M+ downloads; React/Vue/Svelte/RN/email bindings + headless chat state; LangChain official integration. **Single-vendor** (Thesys, $4M seed, C1 platform) with a commercial cloud |
 
 Two convergence facts shape the design:
 
@@ -133,7 +134,7 @@ Work:
 Effort: small server change (proxy branch), one new tool, registration plumbing.
 Big unlock: both first-party rich widgets and agent-generated ones.
 
-## 5. Phase G3 — A2UI: declarative composition against an engenty catalog
+## 5. Phase G3 — declarative composition against an engenty catalog (A2UI vs OpenUI)
 
 For UI that should look **native and chrome-less** — dynamically composed
 lists, detail layouts, small forms — HTML-in-iframe is the wrong tool: it
@@ -168,6 +169,47 @@ Work:
 
 Risk: spec is v1.0-RC and "still evolving" — pin the renderer package and keep
 the catalog ours, so spec churn lands as a renderer upgrade, not a rewrite.
+
+### G3 format choice: A2UI vs OpenUI
+
+OpenUI (Thesys, MIT, launched 2026-03) attacks the same problem from the
+opposite end. Where A2UI is a **wire protocol between agent code and client**,
+OpenUI puts the format **in the model's own token stream**: components are
+defined with Zod schemas + React renderers (`defineComponent`/`createLibrary`),
+a system prompt is generated from the catalog, and the model answers in
+"OpenUI Lang" — a line-oriented DSL claiming ~67% fewer tokens than JSON,
+parsed and rendered progressively as it streams. Interactions close the loop
+natively: `Renderer onAction` receives `{ humanFriendlyMessage, formState }`,
+and `continue_conversation` actions re-enter as the next user message — the
+same shape as our §6 contract.
+
+Why it fits us well:
+- **No new transport at all**: OpenUI Lang rides inside the assistant message
+  over our existing AG-UI stream; the client parses it out of text parts
+  (headless adapters exist for exactly this). Even less plumbing than
+  A2UI-over-AG-UI.
+- **Zod-schema catalogs** match how this whole repo already defines contracts.
+- Token efficiency compounds — composed UIs per message, every message.
+- The "model composes freely from my catalog" behavior is *the* product ask
+  ("dynamically compose those lists").
+
+Why to hesitate:
+- **Single-vendor governance** (Thesys; commercial cloud upsell) vs A2UI's
+  Google-led multi-vendor standards track.
+- **No interop story**: external MCP servers will speak MCP Apps/A2UI, never
+  OpenUI Lang — so OpenUI can only ever be our *internal* composition rail.
+- Model-emits-DSL means malformed output degrades UI (their docs have a
+  troubleshooting page for a reason); A2UI's agent-side emission can validate
+  before send.
+- Raw DSL must never flash in the transcript — needs part-level handling.
+
+Position: **not mutually exclusive.** The internal rail (agent composes UI
+from our catalog) could be OpenUI while the external rail stays MCP
+Apps/A2UI — but two formats means two catalogs and two renderers, so the
+default should be one. Decide by spike, not on paper: implement the same
+5-component catalog in both, drive both through a real transcript (streaming
+progressiveness, theming against ui-core, malformed-output behavior, DX), and
+pick. (Open question Q6.)
 
 ## 6. Interaction contract (chat ⇄ widget ⇄ record)
 
@@ -221,6 +263,9 @@ G2 buys arbitrary/generated widgets fastest; G3 buys native composed UI.
 5. **Q5 — ext-apps pin.** The MCP core 2026-07-28 release is imminent; pin
    `@modelcontextprotocol/ext-apps` and swap the hand-rolled frame internals
    before or after G2? (Leaning: after — G2 doesn't change the frame contract.)
+6. **Q6 — G3 format: A2UI or OpenUI?** Standards-aligned wire protocol vs
+   token-efficient in-stream DSL (§5). Proposal: 2-day spike rendering the
+   same 5-component catalog in both before committing.
 
 ## 10. References
 
@@ -235,5 +280,9 @@ G2 buys arbitrary/generated widgets fastest; G3 buys native composed UI.
   developers.googleblog.com/a2ui-and-mcp-apps
 - A2UI over AG-UI (transport we already run): copilotkit.ai/ag-ui-and-a2ui,
   a2ui.org/guides/a2ui-with-any-agent-framework
+- OpenUI (Thesys, MIT, 2026-03): openui.com, github.com/thesysdev/openui;
+  packages `@openuidev/lang-core` / `react-lang` / `react-headless`;
+  `defineComponent` + `onAction`/`continue_conversation` loop:
+  openui.com/docs/openui-lang/defining-components, …/renderer
 - Internal: `docs/content/dev/objects.md` (shipped architecture),
   `docs/wip/chat-object-rendering.md` (previous phase design)
