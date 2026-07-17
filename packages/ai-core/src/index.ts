@@ -91,6 +91,15 @@ export {
   type TranscribeGatewayAudioOptions,
   transcribeGatewayAudio,
 } from "./audio/transcribe-gateway-audio.js";
+export {
+  type ChatCommandArg,
+  type ChatCommandDefinition,
+  type ChatCommandKind,
+  expandChatCommand,
+  isValidChatCommandToken,
+  parseLeadingChatCommand,
+} from "./chat-commands/contracts.js";
+export { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
 export { readAiGatewayApiKeyFromEnv } from "./config/ai-gateway-api-key.js";
 export {
   type ChatModelResolutionPurpose,
@@ -193,6 +202,7 @@ export {
   listActiveAiRegistrations,
   listModuleDynamicCapabilitySeeds,
   listRegisteredActions,
+  listRegisteredChatCommands,
   listRegisteredRoutines,
   registerAiRegistration,
   resolveActionDefinitionById,

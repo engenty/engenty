@@ -121,7 +121,9 @@ export function CopilotPanelContent({
   positionMenu,
   agentSessionChooser,
   mentionAgentCandidates,
+  mentionRefSearch,
   onComposerMentionAgent,
+  slashCommands,
   transcriptContainerClassName,
   transcriptLoading = false,
   transcriptLoadingLabel = "Loading conversation",
@@ -445,10 +447,12 @@ export function CopilotPanelContent({
         enableStatusFlap={enableStatusFlap && !dockedInterruptSurface}
         error={error}
         mentionAgentCandidates={mentionAgentCandidates}
+        mentionRefSearch={mentionRefSearch}
         messages={messages}
         onComposerMentionAgent={onComposerMentionAgent}
         onStop={onStop ?? onCancel}
         setDraft={setDraft}
+        slashCommands={slashCommands}
         starterPrompts={starterPrompts}
         status={status}
         submitMessage={submitMessage}

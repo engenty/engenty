@@ -112,6 +112,7 @@ import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
 import { registerTestDataRoutes } from "./routes/test-data-routes.js";
 import type { ApiLogger } from "./routes/types.js";
 import { registerUserManagementRoutes } from "./routes/user-management-routes.js";
+import { registerWorkspaceSearchRoutes } from "./routes/workspace-search-routes.js";
 
 extendZodWithOpenApi(zod);
 
@@ -438,6 +439,11 @@ export function createApiApp(params: CreateApiAppParams) {
     app,
     config,
     resolveRegistry: () => params.registry.searchIndexRegistry,
+  });
+  registerWorkspaceSearchRoutes({
+    app,
+    config,
+    registry: params.registry,
   });
   registerSettingsRoutes({ app, config });
   registerLogInspectorRoutes({ app, config });

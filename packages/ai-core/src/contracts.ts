@@ -183,6 +183,8 @@ export interface RoutineDefinition {
 export interface AiRegistration {
   actions?: ActionDefinition[];
   agents?: AgentDefinition[];
+  /** Chat slash commands declared via ai/commands/<name>/COMMAND.md. */
+  chat_commands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   dynamic?: AiRegistrationDynamicCapability;
   instruction_documents?: InstructionDocumentDefinition[];
   module_id: string;

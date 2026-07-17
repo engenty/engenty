@@ -83,6 +83,7 @@ export function listActiveAiRegistrations(): AiRegistration[] {
 export interface ModuleDynamicCapabilitySeed {
   actions?: ModuleActionCapability[];
   agentConfigs?: AgentConfig[];
+  chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;
   routines?: RoutineDefinition[];
   skills?: Record<string, string>;
@@ -95,15 +96,18 @@ export function listModuleDynamicCapabilitySeeds(): ModuleDynamicCapabilitySeed[
       moduleId: registration.module_id,
       agentConfigs: registration.dynamic?.agent_configs,
       skills: registration.dynamic?.skills,
-      // Actions/routines ride the same capability channel so apps/ai can
-      // resolve module-declared ACTION.md / ROUTINE.md without sharing memory.
+      // Actions/routines/chat-commands ride the same capability channel so
+      // apps/ai can resolve module-declared ACTION.md / ROUTINE.md /
+      // COMMAND.md without sharing memory.
       actions: registration.actions?.map(toModuleActionCapability),
+      chatCommands: registration.chat_commands,
       routines: registration.routines,
     }))
     .filter(
       (capability) =>
         (capability.agentConfigs?.length ?? 0) > 0 ||
         (capability.actions?.length ?? 0) > 0 ||
+        (capability.chatCommands?.length ?? 0) > 0 ||
         (capability.routines?.length ?? 0) > 0 ||
         Object.keys(capability.skills ?? {}).length > 0
     );
@@ -182,5 +186,12 @@ export function listRegisteredSkills(): SkillDefinition[] {
 export function listRegisteredActions(): ActionDefinition[] {
   return Array.from(aiRegistrations.values()).flatMap(
     ({ registration }) => registration.actions ?? []
+  );
+}
+
+/** List all registered chat slash commands across active registrations. */
+export function listRegisteredChatCommands(): import("./chat-commands/contracts.js").ChatCommandDefinition[] {
+  return Array.from(aiRegistrations.values()).flatMap(
+    ({ registration }) => registration.chat_commands ?? []
   );
 }

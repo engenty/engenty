@@ -47,6 +47,7 @@ import { registerAgentSessionRunRoutes } from "./api/agent-session-runs-routes.j
 import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
+import { registerChatCommandRoutes } from "./api/chat-command-routes.js";
 import {
   createAgUiDebugEventBus,
   registerCopilotKitDebugEventRoutes,
@@ -505,6 +506,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     getStore: () => agentSessionStore ?? null,
     getUsageStore: () => aiUsageStore ?? null,
     aiService,
+    moduleLoader: moduleCapabilityLoader,
     onSessionPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
@@ -560,6 +562,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   registerActionRoutes(app, {
     getActionRequestStore: () => actionRequestStore,
+    moduleLoader: moduleCapabilityLoader,
+    scopeResolver,
+  });
+  registerChatCommandRoutes(app, {
     moduleLoader: moduleCapabilityLoader,
     scopeResolver,
   });

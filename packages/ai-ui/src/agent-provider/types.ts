@@ -18,6 +18,7 @@ import type {
 import type { EngentyAgUiRouteContext } from "../ag-ui/engenty-ag-ui-route-context.js";
 import type { CopilotPanelContentProps } from "../components/presentation.js";
 import type { ChatAttachmentPart } from "../lib/chat-attachment-part.js";
+import type { ChatReferenceItem } from "../lib/chat-reference-part.js";
 
 export type EngentyAgentStatus = "ready" | "submitted" | "streaming" | "error";
 
@@ -25,6 +26,8 @@ export type EngentyAgentStatus = "ready" | "submitted" | "streaming" | "error";
 export interface SubmitMessageOptions {
   /** Uploaded photo/file attachments carried on the user turn (AG-UI content parts). */
   attachments?: ChatAttachmentPart[];
+  /** Typed @-mention references (ObjectRefs) carried on the user turn. */
+  refs?: ChatReferenceItem[];
   /** Per-send agent override resolved from an `@mention` in the composer. */
   requestedAgentId?: string;
 }

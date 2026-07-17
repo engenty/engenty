@@ -19,6 +19,8 @@ export {
 export {
   appsAiActionRunPath,
   appsAiActionsListPath,
+  type ChatCommandCatalogEntry,
+  getAppsAiChatCommands,
   postAppsAiActionRun,
 } from "./ag-ui/apps-ai/apps-ai-api.js";
 export {
@@ -275,6 +277,12 @@ export {
   type RunActionResult,
   useRunAction,
 } from "./hooks/use-run-action.js";
+export {
+  buildChatReferencePart,
+  type ChatReferenceItem,
+  isChatReferencePart,
+  readChatReferencePart,
+} from "./lib/chat-reference-part.js";
 export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
 // --- Object widgets (module entities rendered in chat by reference) ---
 export {
