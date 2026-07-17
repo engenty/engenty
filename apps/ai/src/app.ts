@@ -58,6 +58,7 @@ import {
 } from "./api/gateway-model-routes.js";
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
+import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   type RealtimeClientSecretFetch,
@@ -462,6 +463,32 @@ export async function createApp(options: CreateAppOptions = {}) {
     logger.warn(
       "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
     );
+  }
+  if (registryStore?.listTools) {
+    registerMcpAppRoutes(app, {
+      scopeResolver,
+      serverConfigs: {
+        // A widget may only call the MCP servers registered for its tenant.
+        listServerUrls: async (tenantId: string) => {
+          const tools: Array<{
+            endpointUrl?: string | null;
+            schemaJson?: Record<string, unknown>;
+          }> = await registryStore.listTools(tenantId);
+          return tools.flatMap((tool) => {
+            const raw = tool.schemaJson?.engenty_mcp_app;
+            const record =
+              raw && typeof raw === "object" && !Array.isArray(raw)
+                ? (raw as Record<string, unknown>)
+                : null;
+            const url =
+              (typeof record?.server_url === "string"
+                ? record.server_url
+                : null) ?? tool.endpointUrl;
+            return record && typeof url === "string" && url ? [url] : [];
+          });
+        },
+      },
+    });
   }
   registerAgentSessionRunRoutes(app, {
     // Registry + store for the streaming chat runtimes (harness_session default,

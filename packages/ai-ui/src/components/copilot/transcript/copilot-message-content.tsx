@@ -8,6 +8,7 @@ import { cn } from "@engenty/ui-core";
 import { useContext, useMemo } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
 import { copilotChatSubRunPath } from "../../../copilot/copilot-chat-paths.js";
+import { ObjectRefMentions } from "../../../objects/object-ref-mentions.js";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -411,6 +412,11 @@ export function CopilotMessageContent({
       ))}
 
       <SourceCitations citations={citations} />
+
+      <ObjectRefMentions
+        parts={msg.parts ?? []}
+        text={rewrittenTextParts.map(({ text }) => text).join("\n")}
+      />
 
       {trailingToolParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({

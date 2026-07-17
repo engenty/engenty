@@ -178,6 +178,16 @@ export {
   type SupportedEmbeddingModelsData,
   supportedEmbeddingModels,
 } from "./models/supported-embeddings.js";
+export {
+  formatObjectRef,
+  type ObjectDisplayHint,
+  type ObjectDisplayItem,
+  type ObjectRef,
+  type ObjectRenderMeta,
+  objectRefTypeKey,
+  parseObjectRef,
+  readObjectRenderMeta,
+} from "./objects/object-ref.js";
 export type { ModuleDynamicCapabilitySeed } from "./registry.js";
 export {
   listActiveAiRegistrations,

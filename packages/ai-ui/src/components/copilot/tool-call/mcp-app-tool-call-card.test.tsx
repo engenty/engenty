@@ -51,9 +51,11 @@ describe("McpAppToolCallCard", () => {
 
     const iframe = screen.getByTitle("Demo interactive widget");
     expect(iframe.getAttribute("sandbox")).toBeTruthy();
-    expect(iframe.getAttribute("srcdoc")).toBe(
-      "<!doctype html><html><body>Events</body></html>"
-    );
+    // The host injects its CSP meta ahead of the widget markup.
+    const srcDoc = iframe.getAttribute("srcdoc") ?? "";
+    expect(srcDoc).toContain('http-equiv="Content-Security-Policy"');
+    expect(srcDoc).toContain("default-src 'none'");
+    expect(srcDoc).toContain("<!doctype html><html><body>Events</body></html>");
     expect(screen.queryByText("Open server")).toBeNull();
   });
 });

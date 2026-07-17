@@ -36,6 +36,7 @@ import {
   getTeamMembersPluginState,
   setTasksPluginsApi,
 } from "./plugins.js";
+import { registerTasksObjectWidget } from "./register-object-widget.js";
 import { goalDetailOptions, taskDetailOptions } from "./tasks-queries.js";
 
 const UUID_PATTERN =
@@ -52,6 +53,7 @@ const RESERVED_SEGMENTS = new Set([
 
 export default function plugin(engenty: EngentyPluginContext) {
   resetTasksListHooks();
+  registerTasksObjectWidget();
   // Adds the tasks LIST page binding (detail keeps its own per-page mount).
   // module_tasks.tasks is published; root is taskKeys.all (["tasks"]).
   engenty.UI.registerLiveBinding({
