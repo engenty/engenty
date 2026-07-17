@@ -188,9 +188,10 @@ registered object widget; generic fallback card when the module isn't loaded —
 - Display: mention chips = the same entity chips as assistant-side link upgrades.
 - Authz: G1 rules apply verbatim (client-side chip resolution as the viewing user; snapshots carry
   only title/subtitle).
-- Sequencing: @-mention phases (5.3) **depend on `feat/chat-object-widgets` landing** for chip
-  rendering + `ObjectRef` utilities; the picker + refs-metadata plumbing does not, so phase 3a can
-  start independently with plain-text chips and upgrade when the widgets branch merges.
+- Sequencing: the @-mention chip rendering + `ObjectRef` utilities come from the object-widgets
+  work — which **merged to main as `c403aae` on 2026-07-17**, after this worktree was cut
+  (v0.1.26). Rebase this branch onto latest main before implementation; with that, phase 3b has
+  no external dependency left.
 
 ## 5. UI design (mockups in the review presentation)
 
@@ -231,8 +232,9 @@ changes are open-base; time-tracking command is pro-only.*
 **Phase 3 — Typed @-mentions.**
 3a: multi-section picker + async search wiring + `engenty_refs` metadata + chips row + server-side
 resolution at the seam (plain-text context block).
-3b (after `feat/chat-object-widgets` merges): chips upgrade to object widgets; refs backfill
-`entity_refs`; `ref`-typed command args integrate the picker.
+3b: chips upgrade to object widgets; refs backfill `entity_refs`; `ref`-typed command args
+integrate the picker. (Object widgets merged to main `c403aae` 2026-07-17 — unblocked once this
+branch rebases onto latest main.)
 
 **Phase 4 — Polish / stretch.**
 Saved prompts (user/tenant command store — reuse the instruction-override persistence pattern),
