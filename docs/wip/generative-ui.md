@@ -3,6 +3,10 @@
 Status: DESIGN — 2026-07-17. Follows the chat-object-rendering phase (shipped
 v0.1.27). Owner: Matthias.
 
+**Q6 DECIDED (2026-07-17, Matthias): A2UI for the first implementation.**
+OpenUI stays evaluated-not-chosen (§5); revisit only if the spike-level pains
+listed there show up in practice. Worked examples: §5b.
+
 ## 0. Problem
 
 The object widgets that shipped in v0.1.27 are deliberately restricted: fixed
@@ -203,13 +207,161 @@ Why to hesitate:
   before send.
 - Raw DSL must never flash in the transcript — needs part-level handling.
 
-Position: **not mutually exclusive.** The internal rail (agent composes UI
-from our catalog) could be OpenUI while the external rail stays MCP
-Apps/A2UI — but two formats means two catalogs and two renderers, so the
-default should be one. Decide by spike, not on paper: implement the same
-5-component catalog in both, drive both through a real transcript (streaming
-progressiveness, theming against ui-core, malformed-output behavior, DX), and
-pick. (Open question Q6.)
+**Decision (Q6, 2026-07-17): A2UI.** One format for both rails beats a
+better-fitting-but-vendor-locked internal rail: standards trajectory, external
+MCP-server interop, agent-side validation before send, and official React
+renderer. OpenUI's real advantages (token efficiency, in-stream composition)
+are recoverable later without architectural change — the catalog is ours
+either way, and a second emitter behind the same catalog is an optimization,
+not a redesign.
+
+## 5b. A2UI in practice — worked examples (v0.9 wire format)
+
+All examples use the engenty catalog (Q4 starter set) identified as
+`https://engenty.dev/a2ui/catalogs/core/v1/catalog.json` — shorthand
+`engenty:core/v1` below. Formats verified against a2ui.org (v0.9.1 current).
+
+### Example 1 — "Show me my Vienna contacts" as a composed list
+
+The agent opens a surface and streams a flat component list. Children
+reference siblings **by id** — no nesting, which is what makes incremental
+generation and patching cheap:
+
+```jsonc
+{ "version": "v0.9",
+  "createSurface": {
+    "surfaceId": "contacts-vienna",
+    "catalogId": "engenty:core/v1",
+    "sendDataModel": true } }
+
+{ "version": "v0.9",
+  "updateComponents": {
+    "surfaceId": "contacts-vienna",
+    "components": [
+      { "id": "root",    "component": "List",
+        "children": ["hdr", "row-anna", "row-felix", "more"] },
+      { "id": "hdr",     "component": "Text",
+        "text": "Contacts in Vienna", "variant": "h3" },
+
+      { "id": "row-anna", "component": "Row",
+        "title":    { "path": "/contacts/0/name" },
+        "subtitle": { "path": "/contacts/0/email" },
+        "children": ["badge-anna"],
+        "objectRef": "contacts:contact:5c241491-…",
+        "action": { "event": { "name": "open_object",
+          "context": { "ref": "contacts:contact:5c241491-…" } } } },
+      { "id": "badge-anna", "component": "Badge", "label": "client" },
+
+      { "id": "row-felix", "component": "Row",
+        "title":    { "path": "/contacts/1/name" },
+        "subtitle": { "path": "/contacts/1/email" },
+        "objectRef": "contacts:contact:1f0b27a6-…" },
+
+      { "id": "more", "component": "Actions", "children": ["btn-all"] },
+      { "id": "btn-all", "component": "Button", "label": "Show all 17",
+        "action": { "event": { "name": "show_all_contacts" } } } ] }
+
+{ "version": "v0.9",
+  "updateDataModel": {
+    "surfaceId": "contacts-vienna",
+    "path": "/contacts",
+    "value": [
+      { "name": "Anna Bauer",    "email": "anna.bauer@example.at" },
+      { "name": "Felix Steiner", "email": "f.steiner@example.at" } ] } }
+```
+
+Two engenty-specific things to notice: `Row.objectRef` is our **bridge
+property** — the catalog implementation renders it through the tier-1 object
+machinery (live data, viewer authz, panel/menu affordances), so A2UI composes
+*around* native records rather than copying their fields. And properties bind
+to the data model with JSON-Pointer `{"path": …}`, so a later mutation is a
+one-line patch, not a re-render.
+
+### Example 2 — the agent edits, the surface updates
+
+User: *"mark Anna as a partner too"*. The agent calls the gateway op, then
+patches only the data model / the one component:
+
+```jsonc
+{ "version": "v0.9",
+  "updateDataModel": {
+    "surfaceId": "contacts-vienna",
+    "path": "/contacts/0/roles",
+    "value": ["client", "partner"] } }
+```
+
+No surface teardown, no flicker — this is the declarative sibling of the G1
+live-cache loop.
+
+### Example 3 — user interaction round-trip
+
+The user clicks Anna's row. The renderer resolves the declared `context`
+against the data model and emits (per `client_to_server.json`):
+
+```jsonc
+{ "version": "v0.9",
+  "action": {
+    "name": "open_object",
+    "surfaceId": "contacts-vienna",
+    "sourceComponentId": "row-anna",
+    "timestamp": "2026-07-17T14:30:00Z",
+    "context": { "ref": "contacts:contact:5c241491-…" } } }
+```
+
+Host handling is a small switch, and it lands on seams that already exist:
+
+| Action name | Handler |
+|---|---|
+| `open_object` | `ObjectDisplayIntent.openInPanel(ref)` — the shipped seam |
+| `show_all_contacts`, anything else | forward to the agent over the AG-UI stream as an action message; agent responds with new A2UI messages or prose |
+
+### Example 4 — the engenty catalog (JSON Schema sketch + client wiring)
+
+The catalog is a JSON Schema the agent is prompted with, and the client
+registers implementations for. Q4 starter set:
+
+```jsonc
+// engenty:core/v1 — components (sketch)
+{ "components": {
+    "List":       { "properties": { "children": { "type": "array" } } },
+    "Row":        { "properties": {
+        "title":    { "$ref": "#/$defs/bindableString" },
+        "subtitle": { "$ref": "#/$defs/bindableString" },
+        "objectRef":{ "type": "string",
+                      "description": "engenty ref module:entity:id — renders the native record row" },
+        "action":   { "$ref": "#/$defs/action" } } },
+    "DetailGrid": { "properties": { "rows": { "type": "array",
+        "items": { "properties": { "label": {}, "value": {} } } } } },
+    "Badge":      { "properties": { "label": { "type": "string" },
+        "tone": { "enum": ["default", "success", "warning"] } } },
+    "Actions":    { "properties": { "children": { "type": "array" } } },
+    "Button":     { "properties": { "label": {}, "action": {} } },
+    "Text":       { "properties": { "text": {}, "variant": {} } } } }
+```
+
+Client side (`@a2ui/react` + `@a2ui/web_core`), in ai-ui:
+
+```tsx
+const processor = new MessageProcessor({
+  catalogs: { "engenty:core/v1": engentyCoreCatalog }, // maps names → ui-core/ai-ui components
+});
+// AG-UI stream → processor: a2ui parts are fed in as they arrive
+<A2UISurface processor={processor} surfaceId={surfaceId} onAction={handleAction} />
+```
+
+The client announces `supportedCatalogIds: ["engenty:core/v1"]` so the agent
+only composes from what this build renders — an unknown component id is a
+validation error agent-side, *before* anything reaches the user.
+
+### Carriage in our stack
+
+A2UI messages ride the existing AG-UI stream as a dedicated part type
+(mirroring how tool parts flow today): agent emits them (via a `show_ui`
+tool or module template fill — §5.4), the transcript renders an
+`A2UISurface` card where the part sits, and replay re-feeds persisted
+messages through the processor — same replay story as every other card.
+External MCP servers deliver the same payloads via `ui://` + `_meta`
+(A2UI-over-MCP), hitting the same renderer.
 
 ## 6. Interaction contract (chat ⇄ widget ⇄ record)
 
@@ -263,9 +415,9 @@ G2 buys arbitrary/generated widgets fastest; G3 buys native composed UI.
 5. **Q5 — ext-apps pin.** The MCP core 2026-07-28 release is imminent; pin
    `@modelcontextprotocol/ext-apps` and swap the hand-rolled frame internals
    before or after G2? (Leaning: after — G2 doesn't change the frame contract.)
-6. **Q6 — G3 format: A2UI or OpenUI?** Standards-aligned wire protocol vs
-   token-efficient in-stream DSL (§5). Proposal: 2-day spike rendering the
-   same 5-component catalog in both before committing.
+6. **Q6 — G3 format: A2UI or OpenUI?** **DECIDED 2026-07-17: A2UI** (§5
+   decision note; worked examples §5b). OpenUI revisitable later as an
+   alternative emitter behind the same catalog.
 
 ## 10. References
 
@@ -275,6 +427,8 @@ G2 buys arbitrary/generated widgets fastest; G3 buys native composed UI.
   Renderers reference (React official, stable since v0.8):
   a2ui.org/reference/renderers; React setup (`@a2ui/react` +
   `@a2ui/web_core`, `<A2UISurface>`): a2ui.org/guides/client-setup#react;
+  wire format (§5b examples): a2ui.org/reference/messages,
+  a2ui.org/concepts/actions, a2ui.org/guides/defining-your-own-catalog;
   CopilotKit alternative: docs.copilotkit.ai/generative-ui/a2ui
 - "A2UI + MCP Apps: combining declarative and custom agentic UIs" —
   developers.googleblog.com/a2ui-and-mcp-apps
