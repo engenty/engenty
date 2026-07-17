@@ -2,6 +2,7 @@
 
 import {
   ObjectCardFrame,
+  ObjectCardLink,
   type ObjectDisplayItem,
   ObjectListFooter,
   ObjectListRow,
@@ -11,8 +12,7 @@ import {
   type ObjectWidgetPanelProps,
 } from "@engenty/ai-ui";
 import { Badge, Skeleton } from "@engenty/ui-core";
-import { ExternalLink, FileText, Hash } from "lucide-react";
-import { Link } from "react-router-dom";
+import { FileText, Hash } from "lucide-react";
 import type { OfferStatus } from "../../api.js";
 import { useOfferDetailQuery } from "../../queries.js";
 
@@ -109,10 +109,15 @@ function OfferRow({
 
 function OfferSingleCard({
   offerId,
+  offerRef,
   snapshot,
+  onOpenInPanel,
 }: {
   offerId: string;
+  /** Omitted in the pane — the record is already open there. */
+  offerRef?: ObjectRef;
   snapshot?: ObjectDisplayItem;
+  onOpenInPanel?: (ref: ObjectRef) => void;
 }) {
   const { data: offer, isPending } = useOfferDetailQuery(offerId);
 
@@ -141,7 +146,12 @@ function OfferSingleCard({
   ).filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
-    <div className="p-3">
+    <ObjectCardLink
+      className="p-3"
+      href={offerRef ? `/mdl/offers/${offerId}` : undefined}
+      objectRef={offerRef}
+      onOpenInPanel={onOpenInPanel}
+    >
       <div className="flex items-start gap-3">
         <FileText className="mt-0.5 size-5 shrink-0 text-muted-foreground/70" />
         <div className="min-w-0 flex-1">
@@ -168,15 +178,8 @@ function OfferSingleCard({
             </div>
           ) : null}
         </div>
-        <Link
-          className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
-          to={`/mdl/offers/${offerId}`}
-        >
-          Open
-          <ExternalLink className="size-3" />
-        </Link>
       </div>
-    </div>
+    </ObjectCardLink>
   );
 }
 
@@ -193,7 +196,12 @@ export function OfferObjectCard({
     const ref = refs[0];
     return (
       <ObjectCardFrame>
-        <OfferSingleCard offerId={ref.id} snapshot={snapshotFor(ref.id)} />
+        <OfferSingleCard
+          offerId={ref.id}
+          offerRef={ref}
+          onOpenInPanel={onOpenInPanel}
+          snapshot={snapshotFor(ref.id)}
+        />
       </ObjectCardFrame>
     );
   }

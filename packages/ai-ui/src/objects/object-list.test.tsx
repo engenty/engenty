@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ObjectDisplayIntentProvider } from "./object-display-intent.js";
-import { ObjectListRow } from "./object-list.js";
+import { ObjectCardLink, ObjectListRow } from "./object-list.js";
 
 const contactRef = { module: "contacts", entity: "contact", id: "c-1" };
 
@@ -102,5 +102,64 @@ describe("ObjectListRow primary action by surface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Actions" }));
     expect(screen.queryByText("Open in side panel")).toBeNull();
     expect(screen.getByText("Copy link")).toBeTruthy();
+  });
+});
+
+describe("ObjectCardLink whole-card activation", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  function renderCard(
+    intent: Parameters<typeof ObjectDisplayIntentProvider>[0]["value"],
+    onOpenInPanel?: (ref: typeof contactRef) => void
+  ) {
+    return render(
+      <MemoryRouter initialEntries={["/mdl/engenty-copilot/chat"]}>
+        <ObjectDisplayIntentProvider value={intent}>
+          <ObjectCardLink
+            href="/mdl/contacts/c-1"
+            objectRef={contactRef}
+            onOpenInPanel={onOpenInPanel}
+          >
+            <span>Ada Lovelace</span>
+          </ObjectCardLink>
+        </ObjectDisplayIntentProvider>
+        <LocationProbe />
+      </MemoryRouter>
+    );
+  }
+
+  it("opens the panel from a click anywhere on the card", () => {
+    const onOpenInPanel = vi.fn();
+    renderCard({ openInPanel: vi.fn() }, onOpenInPanel);
+    fireEvent.click(screen.getByText("Ada Lovelace"));
+    expect(onOpenInPanel).toHaveBeenCalledWith(contactRef);
+    expect(screen.getByTestId("pathname").textContent).toBe(
+      "/mdl/engenty-copilot/chat"
+    );
+  });
+
+  it("navigates the whole card in the drawer", () => {
+    renderCard({});
+    fireEvent.click(screen.getByText("Ada Lovelace"));
+    expect(screen.getByTestId("pathname").textContent).toBe(
+      "/mdl/contacts/c-1"
+    );
+  });
+
+  // In the pane the record is already open — no href, plain container.
+  it("is inert when no href is given", () => {
+    render(
+      <MemoryRouter>
+        <ObjectDisplayIntentProvider value={{ openInPanel: vi.fn() }}>
+          <ObjectCardLink>
+            <span>Ada Lovelace</span>
+          </ObjectCardLink>
+        </ObjectDisplayIntentProvider>
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Ada Lovelace")).toBeTruthy();
   });
 });

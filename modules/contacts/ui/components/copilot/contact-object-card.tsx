@@ -2,6 +2,7 @@
 
 import {
   ObjectCardFrame,
+  ObjectCardLink,
   type ObjectDisplayItem,
   ObjectListFooter,
   ObjectListRow,
@@ -17,8 +18,7 @@ import {
   Badge,
   Skeleton,
 } from "@engenty/ui-core";
-import { Building2, ExternalLink, Mail, Phone, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Building2, Mail, Phone, User } from "lucide-react";
 import { useContactDetailQuery } from "../../queries.js";
 
 /**
@@ -136,10 +136,15 @@ function ContactRow({
 
 function ContactSingleCard({
   contactId,
+  contactRef,
   snapshot,
+  onOpenInPanel,
 }: {
   contactId: string;
+  /** Omitted in the pane — the record is already open there. */
+  contactRef?: ObjectRef;
   snapshot?: ObjectDisplayItem;
+  onOpenInPanel?: (ref: ObjectRef) => void;
 }) {
   const { data: contact, isPending } = useContactDetailQuery(contactId);
 
@@ -155,7 +160,12 @@ function ContactSingleCard({
   const TypeIcon = contact?.type === "organisation" ? Building2 : User;
 
   return (
-    <div className="p-3">
+    <ObjectCardLink
+      className="p-3"
+      href={contactRef ? `/mdl/contacts/${contactId}` : undefined}
+      objectRef={contactRef}
+      onOpenInPanel={onOpenInPanel}
+    >
       <div className="flex items-start gap-3">
         <Avatar className="size-10">
           {contact?.logo_url ? <AvatarImage src={contact.logo_url} /> : null}
@@ -197,15 +207,8 @@ function ContactSingleCard({
             </div>
           ) : null}
         </div>
-        <Link
-          className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
-          to={`/mdl/contacts/${contactId}`}
-        >
-          Open
-          <ExternalLink className="size-3" />
-        </Link>
       </div>
-    </div>
+    </ObjectCardLink>
   );
 }
 
@@ -222,7 +225,12 @@ export function ContactObjectCard({
     const ref = refs[0];
     return (
       <ObjectCardFrame>
-        <ContactSingleCard contactId={ref.id} snapshot={snapshotFor(ref.id)} />
+        <ContactSingleCard
+          contactId={ref.id}
+          contactRef={ref}
+          onOpenInPanel={onOpenInPanel}
+          snapshot={snapshotFor(ref.id)}
+        />
       </ObjectCardFrame>
     );
   }

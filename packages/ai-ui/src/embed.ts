@@ -285,6 +285,7 @@ export {
 export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
 export {
   ObjectCardFrame,
+  ObjectCardLink,
   ObjectListFooter,
   ObjectListRow,
   type ObjectListRowProps,

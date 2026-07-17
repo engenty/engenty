@@ -16,7 +16,7 @@ import {
   PanelRight,
   SquareArrowOutUpRight,
 } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, MouseEvent, ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useObjectDisplayIntent } from "./object-display-intent.js";
 
@@ -114,6 +114,78 @@ function copyLink(href: string) {
       ? href
       : new URL(href, window.location.origin).toString();
   void navigator.clipboard?.writeText(url);
+}
+
+/**
+ * The primary action on a record, resolved against the surface: open it in the
+ * pane when the surface has one, otherwise let the link navigate. Shared by
+ * rows and single cards so "click the record" means the same thing whatever
+ * shape it is drawn in. Modified clicks are left to the browser.
+ */
+function useObjectActivation(input: {
+  href?: string;
+  objectRef?: ObjectRef;
+  onOpenInPanel?: (ref: ObjectRef) => void;
+}) {
+  const { navigateFromChat } = useObjectDisplayIntent();
+  const { href, objectRef, onOpenInPanel } = input;
+  const openInPanel =
+    onOpenInPanel && objectRef ? () => onOpenInPanel(objectRef) : undefined;
+
+  const onClick = (event: MouseEvent) => {
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+    if (openInPanel) {
+      event.preventDefault();
+      openInPanel();
+      return;
+    }
+    if (navigateFromChat && href) {
+      event.preventDefault();
+      navigateFromChat(href);
+    }
+  };
+
+  return { onClick, openInPanel };
+}
+
+/**
+ * Makes a whole card clickable — the card *is* the affordance, so widgets
+ * should not also render an inner "Open" link (that would nest anchors, and
+ * the pane already offers the module route).
+ */
+export function ObjectCardLink({
+  children,
+  className,
+  href,
+  objectRef,
+  onOpenInPanel,
+}: {
+  children: ReactNode;
+  className?: string;
+  href?: string;
+  objectRef?: ObjectRef;
+  onOpenInPanel?: (ref: ObjectRef) => void;
+}) {
+  const { onClick } = useObjectActivation({ href, objectRef, onOpenInPanel });
+  if (!href) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <Link
+      className={cn("block transition-colors hover:bg-muted/40", className)}
+      onClick={onClick}
+      to={href}
+    >
+      {children}
+    </Link>
+  );
 }
 
 function ObjectRowMenu({
@@ -219,8 +291,11 @@ export function ObjectListRow({
 }: ObjectListRowProps) {
   const navigate = useNavigate();
   const { navigateFromChat } = useObjectDisplayIntent();
-  const openInPanel =
-    onOpenInPanel && objectRef ? () => onOpenInPanel(objectRef) : undefined;
+  const { onClick, openInPanel } = useObjectActivation({
+    href,
+    objectRef,
+    onOpenInPanel,
+  });
   // Leaving chat for a module route: the full-page surface hands the chat off
   // to the drawer first, other surfaces just navigate.
   const goToHref = (target: string) =>
@@ -268,29 +343,7 @@ export function ObjectListRow({
   // Stays an <a> either way — middle-click, cmd-click and "copy link
   // address" keep working.
   return (
-    <Link
-      className={className}
-      onClick={(event) => {
-        if (
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.button !== 0
-        ) {
-          return;
-        }
-        if (openInPanel) {
-          event.preventDefault();
-          openInPanel();
-          return;
-        }
-        if (navigateFromChat) {
-          event.preventDefault();
-          navigateFromChat(href);
-        }
-      }}
-      to={href}
-    >
+    <Link className={className} onClick={onClick} to={href}>
       {body}
     </Link>
   );
