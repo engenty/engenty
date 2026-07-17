@@ -3,6 +3,7 @@ import {
   TaskCollaboratorsPicker,
   type TeamMemberCatalogRow,
 } from "@engenty/tasks/ui/assignee";
+import { TaskCommentsPanel } from "@engenty/tasks/ui/comments";
 import {
   Button,
   Command,
@@ -30,7 +31,7 @@ import {
   Layers,
   Tag,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { PhaseTask, ProjectTaskStatusDefinition } from "../api.js";
 import { buildProjectTaskMemberOptions } from "../lib/project-team-members-ui.js";
 import { TASK_STATUS_KANBAN_DOT } from "../lib/task-status-styles.js";
@@ -94,6 +95,7 @@ export function TaskFormDialog({
   taskStatusDefinitions,
 }: TaskFormDialogProps) {
   const { t } = useTranslation("projects");
+  const formId = useId();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<string>("todo");
@@ -198,25 +200,27 @@ export function TaskFormDialog({
 
   return (
     <SidePanel onOpenChange={onOpenChange} open={open}>
-      <SidePanelContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl lg:max-w-xl">
-        <form className="flex h-full flex-col" onSubmit={handleSubmit}>
-          <SidePanelHeader className="gap-2 border-b p-4 pr-12">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs">
-              {projectName ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 font-medium text-foreground">
-                  <FolderKanban className="h-3 w-3 text-muted-foreground" />
-                  <span className="max-w-[200px] truncate">{projectName}</span>
-                </span>
-              ) : null}
-              <SidePanelTitle className="font-normal text-muted-foreground text-xs">
-                {task
-                  ? t("detail.taskForm.editTask")
-                  : t("detail.taskForm.newTask")}
-              </SidePanelTitle>
-            </div>
-          </SidePanelHeader>
+      <SidePanelContent className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl lg:max-w-3xl">
+        <SidePanelHeader className="gap-2 border-b p-4 pr-12">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+            {projectName ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 font-medium text-foreground">
+                <FolderKanban className="h-3 w-3 text-muted-foreground" />
+                <span className="max-w-[200px] truncate">{projectName}</span>
+              </span>
+            ) : null}
+            <SidePanelTitle className="font-normal text-muted-foreground text-xs">
+              {task
+                ? t("detail.taskForm.editTask")
+                : t("detail.taskForm.newTask")}
+            </SidePanelTitle>
+          </div>
+        </SidePanelHeader>
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {/* The comments composer is its own form, so it stays a sibling of the
+            task form rather than nesting inside it. */}
+        <div className="flex-1 overflow-y-auto">
+          <form className="space-y-3 p-4" id={formId} onSubmit={handleSubmit}>
             <textarea
               autoFocus
               className="w-full resize-none overflow-hidden bg-transparent font-semibold text-lg outline-none placeholder:text-muted-foreground/50"
@@ -437,21 +441,27 @@ export function TaskFormDialog({
             ) : null}
 
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
-          </div>
+          </form>
 
-          <SidePanelFooter className="p-4">
-            <Button
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              {t("create.cancel")}
-            </Button>
-            <Button disabled={submitting} type="submit">
-              {task ? t("detail.taskForm.save") : t("create.create")}
-            </Button>
-          </SidePanelFooter>
-        </form>
+          {task ? (
+            <div className="border-t px-4 pt-4 pb-2">
+              <TaskCommentsPanel taskId={task.id} />
+            </div>
+          ) : null}
+        </div>
+
+        <SidePanelFooter className="p-4">
+          <Button
+            onClick={() => onOpenChange(false)}
+            type="button"
+            variant="outline"
+          >
+            {t("create.cancel")}
+          </Button>
+          <Button disabled={submitting} form={formId} type="submit">
+            {task ? t("detail.taskForm.save") : t("create.create")}
+          </Button>
+        </SidePanelFooter>
       </SidePanelContent>
     </SidePanel>
   );

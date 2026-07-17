@@ -9,10 +9,12 @@ import {
   InvoicesSettingsPage,
 } from "./pages/index.js";
 import { setInvoicesPluginsApi } from "./plugins.js";
+import { registerInvoicesObjectWidget } from "./register-object-widget.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   setInvoicesPluginsApi(engenty.plugins);
   registerInvoicesPdfTemplateUiProvider();
+  registerInvoicesObjectWidget();
 
   engenty.i18n.registerNamespace({
     pluginId: "invoices",

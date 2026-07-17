@@ -2,6 +2,10 @@
 
 import type { ComponentType } from "react";
 import {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "../../../objects/object-render-tool-call-card";
+import {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,
 } from "./decision-artifact-tool-call-card";
@@ -73,6 +77,12 @@ export function registerDefaultToolCallUiCards() {
     match: (ctx) =>
       matchesSandboxCommandToolCall(ctx.toolName, ctx.state ?? "running"),
     Card: SandboxCommandConfirmToolCallCard,
+  });
+  registerToolCallUi({
+    id: "core.object-render",
+    priority: 55,
+    match: (ctx) => objectRenderToolCallMatch(ctx),
+    Card: ObjectRenderToolCallCard,
   });
   registerToolCallUi({
     id: "core.mcp-app",

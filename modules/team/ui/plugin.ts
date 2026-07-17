@@ -32,6 +32,7 @@ import {
 } from "./pages/index.js";
 import { setTeamPluginsApi } from "./plugins.js";
 import { teamMemberDetailOptions } from "./queries.js";
+import { registerTeamObjectWidget } from "./register-object-widget.js";
 import { teamLiveBinding } from "./team-live-binding.js";
 import {
   TEAM_AGENTS_PATH,
@@ -107,6 +108,7 @@ async function listAllTeamMembers(signal?: AbortSignal) {
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(teamLiveBinding);
   setTeamPluginsApi(engenty.plugins);
+  registerTeamObjectWidget();
 
   // The `work` (tasks) member-detail tab. The `hr`/`time` tabs + their routes are
   // owned by the `team-hr` module, contributed through the same tab seam.

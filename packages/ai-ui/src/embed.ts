@@ -5,7 +5,17 @@
 
 // --- AG-UI runtime — apps/ai transport, conversation, frontend tools ---
 export { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
-export { isAgentThreadId } from "@engenty/ai-core/browser";
+export {
+  formatObjectRef,
+  isAgentThreadId,
+  type ObjectDisplayHint,
+  type ObjectDisplayItem,
+  type ObjectRef,
+  type ObjectRenderMeta,
+  objectRefTypeKey,
+  parseObjectRef,
+  readObjectRenderMeta,
+} from "@engenty/ai-core/browser";
 export {
   appsAiActionRunPath,
   appsAiActionsListPath,
@@ -235,7 +245,6 @@ export {
   RoutineTriggerChip,
   type RoutineTriggerChipProps,
 } from "./features/routines/routine-trigger-chip.js";
-
 // --- AI Routines & Custom Routines ---
 export {
   type CustomRoutineInput,
@@ -267,6 +276,37 @@ export {
   useRunAction,
 } from "./hooks/use-run-action.js";
 export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
+// --- Object widgets (module entities rendered in chat by reference) ---
+export {
+  type ObjectDisplayIntent,
+  ObjectDisplayIntentProvider,
+  useObjectDisplayIntent,
+} from "./objects/object-display-intent.js";
+export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
+export {
+  ObjectCardFrame,
+  ObjectCardLink,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectListRowProps,
+  type ObjectRowAction,
+  ObjectRowList,
+} from "./objects/object-list.js";
+export {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "./objects/object-render-tool-call-card.js";
+export {
+  clearObjectWidgetsForTests,
+  listObjectWidgets,
+  type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
+  type ObjectWidgetRegistration,
+  registerObjectWidget,
+  resolveObjectWidget,
+  useObjectWidget,
+  useObjectWidgets,
+} from "./objects/object-widget-registry.js";
 // --- Host-scoped thread list (CopilotKit-shaped) ---
 export {
   type CreateEngentyThreadOptions,

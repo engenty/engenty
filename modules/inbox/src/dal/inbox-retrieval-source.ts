@@ -107,6 +107,8 @@ export function createInboxRetrievalSource(options: {
       }
       return {
         doc_id,
+        // Canonical object ref (chat rendering + context-graph identity).
+        entity_refs: [`inbox:message:${doc_id}`],
         filter_metadata: {
           connection_id: message.connection_id,
           status: message.status,

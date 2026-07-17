@@ -1,5 +1,7 @@
 /** Message part type guards and helpers for copilot transcript rendering. */
 
+import { readObjectRenderMeta } from "@engenty/ai-core/browser";
+
 export interface ToolPartLike {
   displayLabel?: string;
   errorText?: string;
@@ -138,6 +140,24 @@ export function isSubAgentDelegationTool(
 ): boolean {
   const resolved = getToolResolvedName(part, toolName);
   return toolName.startsWith("agent-") || resolved.startsWith("agent-");
+}
+
+/**
+ * Object-render tool parts (`show_objects`, or any tool output carrying the
+ * object_render marker) render as full-width object cards. Like sub-agent
+ * delegations, they must escape the collapsed tool timeline — a contact list
+ * folded into a one-line "Used N tools" step is not a rendered object.
+ */
+export function isObjectRenderToolPart(
+  part: ToolPartLike,
+  toolName: string
+): boolean {
+  const resolved = getToolResolvedName(part, toolName);
+  return (
+    toolName === "show_objects" ||
+    resolved === "show_objects" ||
+    readObjectRenderMeta(part.output) !== null
+  );
 }
 
 export function getProgressLabel(event: ProgressEventLike): string | undefined {
