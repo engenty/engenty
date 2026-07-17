@@ -27,13 +27,24 @@ Three rails exist for agent-driven UI, and they are converging:
 |---|---|---|---|
 | **Native widgets** (ours, tier 1) | Pre-built React per module | Trusted code in-bundle | Shipped v0.1.27 |
 | **MCP Apps** (`io.modelcontextprotocol/ui`) | Server ships HTML via `ui://` resources, host renders in sandboxed iframe | Untrusted → sandbox + CSP + proxied tool calls | First official MCP extension; our host shipped v0.1.27 (external servers only). Spec: `text/html;profile=mcp-app` with explicit room for more content types |
-| **A2UI** (Google, Apache-2.0) | Agent emits **declarative JSON** — flat component list + data model + events — rendered natively from a **client-controlled catalog** | UI-as-data, not code: no sandbox needed, agents can only reference approved components | v0.9.1 stable, v1.0 RC. Renderers: Lit, Flutter. **React only "planned"** |
+| **A2UI** (Google, Apache-2.0) | Agent emits **declarative JSON** — flat component list + data model + events — rendered natively from a **client-controlled catalog** | UI-as-data, not code: no sandbox needed, agents can only reference approved components | v0.9.1 stable, v1.0 RC. Renderers: Lit, Flutter, **React (`@a2ui/react` v0.10, `@copilotkit/a2ui-renderer`)** |
 
-The key convergence fact: Google and the MCP community position **A2UI as an
-alternative content type served over the same MCP Apps transport** — same
-`ui://` resource + tool `_meta` pattern, different payload (declarative JSON
-instead of HTML). So we do not have to choose between MCP Apps and A2UI; the
-transport we already built carries both, and the choice is per-widget:
+Two convergence facts shape the design:
+
+1. **A2UI rides existing transports, ours included.** A2UI payloads are
+   sanctioned over both **MCP Apps** (alternative content type on the same
+   `ui://` + `_meta` pattern) and **AG-UI** (payloads stream over the
+   bidirectional runtime connection — CopilotKit is a launch partner of the
+   A2UI release). Our copilot chat *is* AG-UI (`packages/ag-ui-bridge`), so
+   the internal agent can emit A2UI over the stream we already run; the MCP
+   route stays for external servers.
+2. **React renderers are shipped**, not planned: `@a2ui/react` (v0.10.x,
+   actively released) and `@copilotkit/a2ui-renderer`
+   (`createA2UIMessageRenderer`, custom component catalogs). We consume a
+   renderer and own only the catalog.
+
+So we do not have to choose between MCP Apps and A2UI; the transports we
+already run carry both, and the choice is per-widget:
 
 - **HTML in sandbox** when the widget is arbitrary/custom (external servers,
   agent-generated one-offs).
@@ -135,21 +146,24 @@ Work:
    ai-ui: `List`, `Row` (our `ObjectListRow`), `DetailGrid`, `Badge`, `Stat`,
    `Form`+fields, `Table`, `Actions`, `ObjectRef` (renders a native object
    chip/card — bridging A2UI composition with tier-1 widgets).
-2. **Renderer.** React renderer is not shipped upstream. Two options:
-   embed the Lit renderer (web components inside React — works, but theming
-   and event plumbing get awkward), or write a **minimal React renderer for
-   our catalog subset** — the format is a flat list with id references and
-   data bindings, deliberately easy to interpret. Recommendation: minimal
-   React renderer over our subset; revisit when upstream React lands.
-3. **Transport.** Carry A2UI payloads through the G2 plumbing (`_meta` +
-   `ui://`, content type distinguishing a2ui vs html) — per the sanctioned
-   A2UI-over-MCP pattern. Events flow back the same way tool calls do.
+2. **Renderer.** Consume a shipped React renderer — evaluate `@a2ui/react`
+   (official scope, tracks the spec) vs `@copilotkit/a2ui-renderer` (built
+   for the AG-UI carriage we already use, custom-catalog API) — and register
+   our catalog with it. We own the catalog, not the interpreter; hand-rolling
+   is now only the fallback if neither theming story fits ui-core.
+3. **Transport.** Two carriages, one renderer:
+   - **Internal agent → AG-UI**: A2UI payloads stream over the existing
+     copilot AG-UI connection (the sanctioned CopilotKit pattern) — no MCP
+     round-trip for our own agent, and incremental updates ride the stream we
+     already have.
+   - **External MCP servers → A2UI-over-MCP**: same `ui://` + `_meta`
+     plumbing as G2, content type distinguishing a2ui vs html.
 4. **Agent surface.** Either a `show_ui` tool taking an A2UI payload, or —
    more robust for weak models — module-declared A2UI *templates* the agent
    fills with data.
 
-Risk: spec is v1.0-RC and "still evolving" — keep the renderer small and the
-catalog ours, so churn only touches the parsing layer.
+Risk: spec is v1.0-RC and "still evolving" — pin the renderer package and keep
+the catalog ours, so spec churn lands as a renderer upgrade, not a rewrite.
 
 ## 6. Interaction contract (chat ⇄ widget ⇄ record)
 
@@ -180,10 +194,12 @@ never a service principal. Generated HTML must never get `allow-same-origin`.
 |---|---|---|
 | G1 rich panels + loop | Offer/invoice document in pane, agent-edit loop, panel→chat | nothing new |
 | G2 internal MCP Apps | First-party + generated sandboxed widgets | proxy branch |
-| G3 A2UI catalog | Native declarative composition, chrome-less lists/forms | G2 transport; catalog; small renderer |
+| G3 A2UI catalog | Native declarative composition, chrome-less lists/forms | catalog + shipped renderer; AG-UI carriage (exists); G2 only for external-server A2UI |
 
-G1 ships standalone. G2 and G3 share plumbing; G2 first because it reuses the
-shipped host nearly as-is and unlocks generation immediately.
+G1 ships standalone. G2 and G3 are now **independent** — G3's internal
+carriage is the existing AG-UI stream, so it no longer waits on the G2 proxy
+branch (only external-server A2UI does). Order G2 vs G3 by product pull:
+G2 buys arbitrary/generated widgets fastest; G3 buys native composed UI.
 
 ## 9. Open questions
 
@@ -206,9 +222,12 @@ shipped host nearly as-is and unlocks generation immediately.
 
 - MCP Apps extension (first official MCP extension, `text/html;profile=mcp-app`,
   future content types): modelcontextprotocol.io/extensions/apps
-- A2UI (Google, v0.9.1/v1.0-RC, Lit+Flutter renderers, React planned):
-  github.com/google/A2UI, a2ui.org
+- A2UI (Google, v0.9.1/v1.0-RC): github.com/google/A2UI, a2ui.org; React
+  renderers: `@a2ui/react` (npm, v0.10.x), `@copilotkit/a2ui-renderer`
+  (docs.copilotkit.ai/generative-ui/a2ui)
 - "A2UI + MCP Apps: combining declarative and custom agentic UIs" —
   developers.googleblog.com/a2ui-and-mcp-apps
+- A2UI over AG-UI (transport we already run): copilotkit.ai/ag-ui-and-a2ui,
+  a2ui.org/guides/a2ui-with-any-agent-framework
 - Internal: `docs/content/dev/objects.md` (shipped architecture),
   `docs/wip/chat-object-rendering.md` (previous phase design)
