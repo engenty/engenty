@@ -492,6 +492,7 @@ export function ProjectDetailPage() {
           />
 
           <TaskFormDialog
+            onDelete={handleTaskDelete}
             onOpenChange={(open) => {
               setTaskFormOpen(open);
               if (!open) {
