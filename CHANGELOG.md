@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.29] - 2026-07-17
+- ADDED **[projects]** Resizable task side panel with delete + full-page actions
+- DOCS **[wip]** Generative-ui — correct 'iframe cannot host our components' to the precise claim
+- DOCS **[wip]** Generative-ui — adjudicate the MCP-Apps-vs-A2UI challenge per use case
+
 ## [0.1.28] - 2026-07-17
 - ADDED **[chat]** Slash commands + typed @-mentions in agent chats
 - DOCS **[wip]** Mark chat slash-commands implemented + live-verified

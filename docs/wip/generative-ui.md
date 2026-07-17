@@ -215,6 +215,31 @@ are recoverable later without architectural change — the catalog is ours
 either way, and a second emitter behind the same catalog is an optimization,
 not a redesign.
 
+### Challenged (2026-07-17): why not MCP Apps as the primary format?
+
+Adjudicated per use case rather than in the abstract — the answer is a
+**division of labor**, not a winner:
+
+| Use case | Format | Why |
+|---|---|---|
+| Composed lists/forms/details from **our** elements, objects by reference | **A2UI** | Precisely put: an iframe can run *copies* of our React components (bundled into the template), never the app's own instances — nothing is **shared**, everything is duplicated or proxied. Costs, per widget: second React instance + build pipeline; second data plane (no session in an opaque origin → all reads/writes round-trip the bridge + `/ai/mcp-apps/call`; no shared query cache; live updates only via host re-push); theme-token injection with re-push on change; popovers/focus/router/panel seams stop at the frame border; and the sandbox protects nothing, since first-party code is already trusted. Native A2UI rendering gets cache, realtime, theme, router and `objectRef` bridging for free |
+| External-server widgets | **MCP Apps** | Shipped since v0.1.27; first official MCP extension; what third parties will actually ship. A2UI-over-MCP adoption externally is still speculative |
+| Arbitrary / generated one-off widgets | **MCP Apps** | Beyond-catalog expressiveness (novel charts, mini-apps); for *generated* code the sandbox is a stronger guarantee than payload validation |
+
+MCP Apps' genuine advantages — near-zero marginal cost (host is live), full
+fidelity, hard isolation — dominate exactly where content is foreign,
+generated, or **deliberately unshared**. That last one is the honest scope of
+"internal MCP Apps" (G2): widgets that must not bloat the host bundle,
+agent-generated widgets (untrusted by definition), and — longer game —
+*distribution*: third-party modules adding chat widgets without shipping JS
+into the host bundle. For first-party widgets that want the app's runtime,
+the iframe is a platform tax with no offsetting protection. Both formats
+stay; A2UI leads the internal investment.
+
+**Known hedge:** if catalog + renderer integration proves heavy, internal
+MCP Apps widgets (G2) are the cheap fallback that still ships — at the cost
+of precisely the native look and object bridging that motivated the ask.
+
 ## 5b. A2UI in practice — worked examples (v0.9 wire format)
 
 All examples use the engenty catalog (Q4 starter set) identified as
