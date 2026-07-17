@@ -1,13 +1,17 @@
 "use client";
 
-import type {
-  ObjectDisplayItem,
-  ObjectWidgetCardProps,
-  ObjectWidgetPanelProps,
+import {
+  ObjectCardFrame,
+  type ObjectDisplayItem,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectRef,
+  ObjectRowList,
+  type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
 } from "@engenty/ai-ui";
-import { Badge, cn, Skeleton } from "@engenty/ui-core";
-import { ExternalLink, FileText } from "lucide-react";
-import type { ReactNode } from "react";
+import { Badge, Skeleton } from "@engenty/ui-core";
+import { ExternalLink, FileText, Hash } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { OfferStatus } from "../../api.js";
 import { useOfferDetailQuery } from "../../queries.js";
@@ -40,12 +44,15 @@ function OfferStatusBadge({ status }: { status?: OfferStatus | string }) {
 }
 
 function OfferRow({
-  offerId,
+  offerRef,
   snapshot,
+  onOpenInPanel,
 }: {
-  offerId: string;
+  offerRef: ObjectRef;
   snapshot?: ObjectDisplayItem;
+  onOpenInPanel?: (ref: ObjectRef) => void;
 }) {
+  const offerId = offerRef.id;
   const { data: offer, isPending, isError } = useOfferDetailQuery(offerId);
 
   if (isPending && !snapshot) {
@@ -64,31 +71,39 @@ function OfferRow({
     ? [offer.offer_number, offer.title].filter(Boolean).join(" — ")
     : (snapshot?.title ?? offerId);
   const secondary = offer?.recipient_name ?? snapshot?.subtitle ?? null;
+  const offerNumber = offer?.offer_number;
 
   return (
-    <Link
-      className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/50"
-      to={`/mdl/offers/${offerId}`}
-    >
-      <FileText className="size-4 shrink-0 text-muted-foreground/70" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-foreground/90 text-sm">
-          {title}
-        </div>
-        {secondary ? (
-          <div className="truncate text-muted-foreground text-xs">
-            {secondary}
-          </div>
-        ) : null}
-      </div>
-      {isError && !offer ? (
-        <span className="shrink-0 text-muted-foreground/70 text-xs">
-          not available
-        </span>
-      ) : (
-        <OfferStatusBadge status={offer?.status ?? snapshot?.status} />
-      )}
-    </Link>
+    <ObjectListRow
+      actions={
+        offerNumber
+          ? [
+              {
+                icon: Hash,
+                label: "Copy offer number",
+                onSelect: () =>
+                  void navigator.clipboard?.writeText(offerNumber),
+              },
+            ]
+          : undefined
+      }
+      href={`/mdl/offers/${offerId}`}
+      media={<FileText className="size-4 text-muted-foreground/70" />}
+      meta={offer?.valid_until ? `valid to ${offer.valid_until}` : undefined}
+      objectRef={offerRef}
+      onOpenInPanel={onOpenInPanel}
+      subtitle={secondary}
+      title={title}
+      trailing={
+        isError && !offer ? (
+          <span className="shrink-0 text-muted-foreground/70 text-xs">
+            not available
+          </span>
+        ) : (
+          <OfferStatusBadge status={offer?.status ?? snapshot?.status} />
+        )
+      }
+    />
   );
 }
 
@@ -169,54 +184,42 @@ export function OfferObjectCard({
   refs,
   items,
   provenance,
+  onOpenInPanel,
 }: ObjectWidgetCardProps) {
   const itemByRef = new Map((items ?? []).map((item) => [item.ref, item]));
   const snapshotFor = (id: string) => itemByRef.get(`offers:offer:${id}`);
 
-  const frame = (children: ReactNode) => (
-    <div
-      className={cn(
-        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card"
-      )}
-    >
-      {children}
-    </div>
-  );
-
   if (refs.length === 1) {
     const ref = refs[0];
-    return frame(
-      <OfferSingleCard offerId={ref.id} snapshot={snapshotFor(ref.id)} />
+    return (
+      <ObjectCardFrame>
+        <OfferSingleCard offerId={ref.id} snapshot={snapshotFor(ref.id)} />
+      </ObjectCardFrame>
     );
   }
 
   const shown = refs.slice(0, LIST_INLINE_LIMIT);
-  const overflow = refs.length - shown.length;
-  const total = provenance?.total;
 
-  return frame(
-    <>
-      <div className="divide-y divide-border/50">
+  return (
+    <ObjectCardFrame>
+      <ObjectRowList>
         {shown.map((ref) => (
           <OfferRow
             key={ref.id}
-            offerId={ref.id}
+            offerRef={ref}
+            onOpenInPanel={onOpenInPanel}
             snapshot={snapshotFor(ref.id)}
           />
         ))}
-      </div>
-      {overflow > 0 || (total && total > refs.length) ? (
-        <Link
-          className="block border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
-          to="/mdl/offers"
-        >
-          {overflow > 0 ? `+${overflow} more · ` : ""}
-          {total && total > refs.length
-            ? `${refs.length} of ${total} — open offers`
-            : "open offers"}
-        </Link>
-      ) : null}
-    </>
+      </ObjectRowList>
+      <ObjectListFooter
+        href="/mdl/offers"
+        label="offers"
+        overflow={refs.length - shown.length}
+        shown={refs.length}
+        total={provenance?.total}
+      />
+    </ObjectCardFrame>
   );
 }
 

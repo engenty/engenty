@@ -1,20 +1,23 @@
 "use client";
 
-import type {
-  ObjectDisplayItem,
-  ObjectWidgetCardProps,
-  ObjectWidgetPanelProps,
+import {
+  ObjectCardFrame,
+  type ObjectDisplayItem,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectRef,
+  ObjectRowList,
+  type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
 } from "@engenty/ai-ui";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
   Badge,
-  cn,
   Skeleton,
 } from "@engenty/ui-core";
 import { Building2, ExternalLink, Mail, Phone, User } from "lucide-react";
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useContactDetailQuery } from "../../queries.js";
 
@@ -33,14 +36,15 @@ function contactInitials(name: string): string {
 }
 
 function ContactRow({
-  contactId,
+  contactRef,
   snapshot,
-  onOpen,
+  onOpenInPanel,
 }: {
-  contactId: string;
+  contactRef: ObjectRef;
   snapshot?: ObjectDisplayItem;
-  onOpen?: () => void;
+  onOpenInPanel?: (ref: ObjectRef) => void;
 }) {
+  const contactId = contactRef.id;
   const {
     data: contact,
     isPending,
@@ -63,54 +67,70 @@ function ContactRow({
   const secondary =
     contact?.email ?? contact?.phone ?? snapshot?.subtitle ?? null;
   const TypeIcon = contact?.type === "organisation" ? Building2 : User;
+  const email = contact?.email;
+  const phone = contact?.phone;
+
+  const actions = [
+    ...(email
+      ? [
+          {
+            icon: Mail,
+            label: "Copy email",
+            onSelect: () => void navigator.clipboard?.writeText(email),
+          },
+        ]
+      : []),
+    ...(phone
+      ? [
+          {
+            icon: Phone,
+            label: "Copy phone",
+            onSelect: () => void navigator.clipboard?.writeText(phone),
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <Link
-      className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/50"
-      onClick={
-        onOpen
-          ? (event) => {
-              event.preventDefault();
-              onOpen();
-            }
-          : undefined
+    <ObjectListRow
+      actions={actions.length > 0 ? actions : undefined}
+      href={`/mdl/contacts/${contactId}`}
+      media={
+        <Avatar className="size-7">
+          {contact?.logo_url ? <AvatarImage src={contact.logo_url} /> : null}
+          <AvatarFallback className="text-[10px]">
+            {contactInitials(name)}
+          </AvatarFallback>
+        </Avatar>
       }
-      to={`/mdl/contacts/${contactId}`}
-    >
-      <Avatar className="size-7">
-        {contact?.logo_url ? <AvatarImage src={contact.logo_url} /> : null}
-        <AvatarFallback className="text-[10px]">
-          {contactInitials(name)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate font-medium text-foreground/90 text-sm">
-            {name}
-          </span>
+      objectRef={contactRef}
+      onOpenInPanel={onOpenInPanel}
+      subtitle={secondary}
+      title={
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{name}</span>
           <TypeIcon className="size-3 shrink-0 text-muted-foreground/60" />
-        </div>
-        {secondary ? (
-          <div className="truncate text-muted-foreground text-xs">
-            {secondary}
-          </div>
-        ) : null}
-      </div>
-      {isError && !contact ? (
-        <span className="shrink-0 text-muted-foreground/70 text-xs">
-          not available
         </span>
-      ) : null}
-      {contact?.roles?.length ? (
-        <div className="flex shrink-0 gap-1">
-          {contact.roles.slice(0, 2).map((role) => (
-            <Badge className="text-[10px]" key={role} variant="outline">
-              {role}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-    </Link>
+      }
+      trailing={
+        <>
+          {isError && !contact ? (
+            <span className="shrink-0 text-muted-foreground/70 text-xs">
+              not available
+            </span>
+          ) : null}
+          {contact?.roles?.length ? (
+            <div className="flex shrink-0 gap-1">
+              {contact.roles.slice(0, 2).map((role) => (
+                <Badge className="text-[10px]" key={role} variant="outline">
+                  {role}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 
@@ -193,54 +213,42 @@ export function ContactObjectCard({
   refs,
   items,
   provenance,
+  onOpenInPanel,
 }: ObjectWidgetCardProps) {
   const itemByRef = new Map((items ?? []).map((item) => [item.ref, item]));
   const snapshotFor = (id: string) => itemByRef.get(`contacts:contact:${id}`);
 
-  const frame = (children: ReactNode) => (
-    <div
-      className={cn(
-        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card"
-      )}
-    >
-      {children}
-    </div>
-  );
-
   if (refs.length === 1) {
     const ref = refs[0];
-    return frame(
-      <ContactSingleCard contactId={ref.id} snapshot={snapshotFor(ref.id)} />
+    return (
+      <ObjectCardFrame>
+        <ContactSingleCard contactId={ref.id} snapshot={snapshotFor(ref.id)} />
+      </ObjectCardFrame>
     );
   }
 
   const shown = refs.slice(0, LIST_INLINE_LIMIT);
-  const overflow = refs.length - shown.length;
-  const total = provenance?.total;
 
-  return frame(
-    <>
-      <div className="divide-y divide-border/50">
+  return (
+    <ObjectCardFrame>
+      <ObjectRowList>
         {shown.map((ref) => (
           <ContactRow
-            contactId={ref.id}
+            contactRef={ref}
             key={ref.id}
+            onOpenInPanel={onOpenInPanel}
             snapshot={snapshotFor(ref.id)}
           />
         ))}
-      </div>
-      {overflow > 0 || (total && total > refs.length) ? (
-        <Link
-          className="block border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
-          to="/mdl/contacts"
-        >
-          {overflow > 0 ? `+${overflow} more · ` : ""}
-          {total && total > refs.length
-            ? `${refs.length} of ${total} — open contacts`
-            : "open contacts"}
-        </Link>
-      ) : null}
-    </>
+      </ObjectRowList>
+      <ObjectListFooter
+        href="/mdl/contacts"
+        label="contacts"
+        overflow={refs.length - shown.length}
+        shown={refs.length}
+        total={provenance?.total}
+      />
+    </ObjectCardFrame>
   );
 }
 

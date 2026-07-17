@@ -284,6 +284,14 @@ export {
 } from "./objects/object-display-intent.js";
 export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
 export {
+  ObjectCardFrame,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectListRowProps,
+  ObjectRowList,
+  type ObjectRowAction,
+} from "./objects/object-list.js";
+export {
   ObjectRenderToolCallCard,
   objectRenderToolCallMatch,
 } from "./objects/object-render-tool-call-card.js";

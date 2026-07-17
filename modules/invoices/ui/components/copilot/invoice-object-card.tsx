@@ -1,9 +1,16 @@
 "use client";
 
-import type { ObjectDisplayItem, ObjectWidgetCardProps } from "@engenty/ai-ui";
-import { Badge, cn, Skeleton } from "@engenty/ui-core";
-import { Receipt } from "lucide-react";
-import { Link } from "react-router-dom";
+import {
+  ObjectCardFrame,
+  type ObjectDisplayItem,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectRef,
+  ObjectRowList,
+  type ObjectWidgetCardProps,
+} from "@engenty/ai-ui";
+import { Badge, Skeleton } from "@engenty/ui-core";
+import { Hash, Receipt } from "lucide-react";
 import type { InvoiceStatus } from "../../api.js";
 import { useInvoiceDetailQuery } from "../../queries.js";
 
@@ -25,13 +32,31 @@ function InvoiceStatusBadge({ status }: { status?: InvoiceStatus | string }) {
   );
 }
 
+function formatGross(amount?: number, currency?: string): string | undefined {
+  if (typeof amount !== "number") {
+    return;
+  }
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "EUR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${Math.round(amount)} ${currency ?? ""}`.trim();
+  }
+}
+
 function InvoiceRow({
-  invoiceId,
+  invoiceRef,
   snapshot,
+  onOpenInPanel,
 }: {
-  invoiceId: string;
+  invoiceRef: ObjectRef;
   snapshot?: ObjectDisplayItem;
+  onOpenInPanel?: (ref: ObjectRef) => void;
 }) {
+  const invoiceId = invoiceRef.id;
   const {
     data: invoice,
     isPending,
@@ -56,31 +81,39 @@ function InvoiceRow({
   const secondary = invoice?.dueDate
     ? `due ${invoice.dueDate.slice(0, 10)}`
     : snapshot?.subtitle;
+  const invoiceNumber = invoice?.number;
 
   return (
-    <Link
-      className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/50"
-      to={`/mdl/invoices/${invoiceId}`}
-    >
-      <Receipt className="size-4 shrink-0 text-muted-foreground/70" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-foreground/90 text-sm">
-          {title}
-        </div>
-        {secondary ? (
-          <div className="truncate text-muted-foreground text-xs">
-            {secondary}
-          </div>
-        ) : null}
-      </div>
-      {isError && !invoice ? (
-        <span className="shrink-0 text-muted-foreground/70 text-xs">
-          not available
-        </span>
-      ) : (
-        <InvoiceStatusBadge status={invoice?.status ?? snapshot?.status} />
-      )}
-    </Link>
+    <ObjectListRow
+      actions={
+        invoiceNumber
+          ? [
+              {
+                icon: Hash,
+                label: "Copy invoice number",
+                onSelect: () =>
+                  void navigator.clipboard?.writeText(invoiceNumber),
+              },
+            ]
+          : undefined
+      }
+      href={`/mdl/invoices/${invoiceId}`}
+      media={<Receipt className="size-4 text-muted-foreground/70" />}
+      meta={formatGross(invoice?.sumBrutto, invoice?.currency)}
+      objectRef={invoiceRef}
+      onOpenInPanel={onOpenInPanel}
+      subtitle={secondary}
+      title={title}
+      trailing={
+        isError && !invoice ? (
+          <span className="shrink-0 text-muted-foreground/70 text-xs">
+            not available
+          </span>
+        ) : (
+          <InvoiceStatusBadge status={invoice?.status ?? snapshot?.status} />
+        )
+      }
+    />
   );
 }
 
@@ -88,38 +121,30 @@ export function InvoiceObjectCard({
   refs,
   items,
   provenance,
+  onOpenInPanel,
 }: ObjectWidgetCardProps) {
   const itemByRef = new Map((items ?? []).map((item) => [item.ref, item]));
   const shown = refs.slice(0, LIST_INLINE_LIMIT);
-  const overflow = refs.length - shown.length;
-  const total = provenance?.total;
 
   return (
-    <div
-      className={cn(
-        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card"
-      )}
-    >
-      <div className="divide-y divide-border/50">
+    <ObjectCardFrame>
+      <ObjectRowList>
         {shown.map((ref) => (
           <InvoiceRow
-            invoiceId={ref.id}
+            invoiceRef={ref}
             key={ref.id}
+            onOpenInPanel={onOpenInPanel}
             snapshot={itemByRef.get(`invoices:invoice:${ref.id}`)}
           />
         ))}
-      </div>
-      {overflow > 0 || (total && total > refs.length) ? (
-        <Link
-          className="block border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
-          to="/mdl/invoices"
-        >
-          {overflow > 0 ? `+${overflow} more · ` : ""}
-          {total && total > refs.length
-            ? `${refs.length} of ${total} — open invoices`
-            : "open invoices"}
-        </Link>
-      ) : null}
-    </div>
+      </ObjectRowList>
+      <ObjectListFooter
+        href="/mdl/invoices"
+        label="invoices"
+        overflow={refs.length - shown.length}
+        shown={refs.length}
+        total={provenance?.total}
+      />
+    </ObjectCardFrame>
   );
 }

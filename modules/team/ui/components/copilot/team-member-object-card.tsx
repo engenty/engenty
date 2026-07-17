@@ -1,8 +1,16 @@
 "use client";
 
-import type { ObjectDisplayItem, ObjectWidgetCardProps } from "@engenty/ai-ui";
-import { Avatar, AvatarFallback, cn, Skeleton } from "@engenty/ui-core";
-import { Link } from "react-router-dom";
+import {
+  ObjectCardFrame,
+  type ObjectDisplayItem,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectRef,
+  ObjectRowList,
+  type ObjectWidgetCardProps,
+} from "@engenty/ai-ui";
+import { Avatar, AvatarFallback, Skeleton } from "@engenty/ui-core";
+import { Mail } from "lucide-react";
 import { useTeamMemberDetailQuery } from "../../queries.js";
 
 /** Chat object widget for `team:member:<id>` refs — live data, viewer authz. */
@@ -15,12 +23,15 @@ function memberInitials(name: string): string {
 }
 
 function TeamMemberRow({
-  memberId,
+  memberRef,
   snapshot,
+  onOpenInPanel,
 }: {
-  memberId: string;
+  memberRef: ObjectRef;
   snapshot?: ObjectDisplayItem;
+  onOpenInPanel?: (ref: ObjectRef) => void;
 }) {
+  const memberId = memberRef.id;
   const {
     data: member,
     isPending,
@@ -45,33 +56,42 @@ function TeamMemberRow({
       .join(" · ") ||
     member?.email ||
     snapshot?.subtitle;
+  const email = member?.email;
 
   return (
-    <Link
-      className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/50"
-      to={`/mdl/team/${memberId}`}
-    >
-      <Avatar className="size-7">
-        <AvatarFallback className="text-[10px]">
-          {member?.initials ?? memberInitials(name)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-foreground/90 text-sm">
-          {name}
-        </div>
-        {secondary ? (
-          <div className="truncate text-muted-foreground text-xs">
-            {secondary}
-          </div>
-        ) : null}
-      </div>
-      {isError && !member ? (
-        <span className="shrink-0 text-muted-foreground/70 text-xs">
-          not available
-        </span>
-      ) : null}
-    </Link>
+    <ObjectListRow
+      actions={
+        email
+          ? [
+              {
+                icon: Mail,
+                label: "Copy email",
+                onSelect: () => void navigator.clipboard?.writeText(email),
+              },
+            ]
+          : undefined
+      }
+      href={`/mdl/team/${memberId}`}
+      media={
+        <Avatar className="size-7">
+          <AvatarFallback className="text-[10px]">
+            {member?.initials ?? memberInitials(name)}
+          </AvatarFallback>
+        </Avatar>
+      }
+      meta={member?.position ?? undefined}
+      objectRef={memberRef}
+      onOpenInPanel={onOpenInPanel}
+      subtitle={secondary}
+      title={name}
+      trailing={
+        isError && !member ? (
+          <span className="shrink-0 text-muted-foreground/70 text-xs">
+            not available
+          </span>
+        ) : null
+      }
+    />
   );
 }
 
@@ -79,38 +99,30 @@ export function TeamMemberObjectCard({
   refs,
   items,
   provenance,
+  onOpenInPanel,
 }: ObjectWidgetCardProps) {
   const itemByRef = new Map((items ?? []).map((item) => [item.ref, item]));
   const shown = refs.slice(0, LIST_INLINE_LIMIT);
-  const overflow = refs.length - shown.length;
-  const total = provenance?.total;
 
   return (
-    <div
-      className={cn(
-        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card"
-      )}
-    >
-      <div className="divide-y divide-border/50">
+    <ObjectCardFrame>
+      <ObjectRowList>
         {shown.map((ref) => (
           <TeamMemberRow
             key={ref.id}
-            memberId={ref.id}
+            memberRef={ref}
+            onOpenInPanel={onOpenInPanel}
             snapshot={itemByRef.get(`team:member:${ref.id}`)}
           />
         ))}
-      </div>
-      {overflow > 0 || (total && total > refs.length) ? (
-        <Link
-          className="block border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
-          to="/mdl/team"
-        >
-          {overflow > 0 ? `+${overflow} more · ` : ""}
-          {total && total > refs.length
-            ? `${refs.length} of ${total} — open team`
-            : "open team"}
-        </Link>
-      ) : null}
-    </div>
+      </ObjectRowList>
+      <ObjectListFooter
+        href="/mdl/team"
+        label="team"
+        overflow={refs.length - shown.length}
+        shown={refs.length}
+        total={provenance?.total}
+      />
+    </ObjectCardFrame>
   );
 }
