@@ -95,7 +95,7 @@ export function TaskObjectCard({
   return (
     <div
       className={cn(
-        "my-1 w-full overflow-hidden rounded-lg bg-background ring-1 ring-border/60"
+        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card"
       )}
     >
       <div className="divide-y divide-border/50">

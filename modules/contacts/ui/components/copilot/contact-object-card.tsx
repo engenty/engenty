@@ -200,7 +200,7 @@ export function ContactObjectCard({
   const frame = (children: ReactNode) => (
     <div
       className={cn(
-        "my-1 w-full overflow-hidden rounded-lg bg-background ring-1 ring-border/60"
+        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card"
       )}
     >
       {children}
