@@ -21,6 +21,25 @@ interface WorkspaceSearchMatch {
   title: string | null;
 }
 
+/** The search response wraps each match as `{ item, score, … }`. */
+function unwrapWorkspaceSearchMatch(raw: unknown): WorkspaceSearchMatch | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const container = raw as { item?: unknown };
+  const item = (container.item ?? raw) as Partial<WorkspaceSearchMatch>;
+  if (typeof item.doc_id !== "string" || typeof item.module !== "string") {
+    return null;
+  }
+  return {
+    doc_id: item.doc_id,
+    module: item.module,
+    source_type:
+      typeof item.source_type === "string" ? item.source_type : item.module,
+    title: typeof item.title === "string" ? item.title : null,
+  };
+}
+
 const PEOPLE_LIMIT = 4;
 const OBJECT_LIMIT = 8;
 
@@ -69,13 +88,16 @@ export function useMentionRefSearch(): MentionRefSearch {
             return [] as WorkspaceSearchMatch[];
           }
           try {
-            const response = await requestApiJson<{
-              matches?: WorkspaceSearchMatch[];
-            }>("/api/workspace-search", {
-              body: { limit: OBJECT_LIMIT, query: trimmed },
-              method: "POST",
-            });
-            return response.matches ?? [];
+            const response = await requestApiJson<{ matches?: unknown[] }>(
+              "/api/workspace-search",
+              {
+                body: { limit: OBJECT_LIMIT, query: trimmed },
+                method: "POST",
+              }
+            );
+            return (response.matches ?? [])
+              .map(unwrapWorkspaceSearchMatch)
+              .filter((m): m is WorkspaceSearchMatch => m !== null);
           } catch {
             return [] as WorkspaceSearchMatch[];
           }

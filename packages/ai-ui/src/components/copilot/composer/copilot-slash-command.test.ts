@@ -10,7 +10,12 @@ import {
 const COMMANDS: ChatSlashCommand[] = [
   { command: "help", group: "Core", kind: "ui" },
   { command: "clear", group: "Core", kind: "ui" },
-  { command: "create-offer", group: "offers", kind: "action", label: "Create offer" },
+  {
+    command: "create-offer",
+    group: "offers",
+    kind: "action",
+    label: "Create offer",
+  },
   { command: "kb", group: "knowledge-base", kind: "prompt" },
 ];
 

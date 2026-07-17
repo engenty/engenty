@@ -5,10 +5,13 @@
 //     authenticated tenant member may call it. Source `visibility` config
 //     restricts owner-scoped sources to the caller.
 
+import { createLogger } from "@engenty/telemetry";
 import { z } from "zod";
 import type { PluginRegistry } from "../../plugins/registry.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireAuth } from "./authz.js";
+
+const logger = createLogger({ name: "workspace-search" });
 
 interface RouteContext {
   json: (object: unknown, status?: number) => Response;
@@ -77,7 +80,7 @@ export function registerWorkspaceSearchRoutes(
         total: response.total,
       });
     } catch (error) {
-      console.error("workspace search failed", error);
+      logger.error("workspace_search_failed", { error });
       return jsonApiError(c, 500, { message: "workspace search failed" });
     }
   });

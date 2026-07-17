@@ -72,7 +72,8 @@ export function useChatSlashCommands(input: {
           decoration?.description ??
           entry.description ??
           undefined,
-        group: entry.module_id,
+        // Server core commands share the built-ins' group heading.
+        group: entry.module_id === "core" ? "Core" : entry.module_id,
         kind: entry.kind,
         label:
           (labelKey && i18n.exists(labelKey) ? t(labelKey) : undefined) ??
