@@ -643,11 +643,30 @@ conversation view (stream, grouping, composer with attachments), thread panel
 *Exit: two users chat live in channels + DMs across browsers; threads work; unread
 badges correct.*
 
-**Phase 2 — Rich content + mentions.**
-Reactions (+ EmojiPicker), pins, mention composer (users/agents/here/channel) + chips
-+ `mentions` table + inbox notifications + app-bar badge, message hover actions,
+**Phase 2 — Rich content + mentions. — IMPLEMENTED + LIVE-VERIFIED 2026-07-17.**
+Shipped: reactions (ops + Slack-shape aggregation on history/replies + pills +
+EmojiPicker popover + realtime via postgres_changes on the reactions table — verified:
+an API-added reaction appeared live without reload, UI pill click toggled it off);
+pins (ops + hover action + pinned indicator; verified add+list round-trip); composer
+@-mention popover (tenant users + here/channel, keyboard nav, inserts `<@u:uuid>`
+tokens; agent candidates come with Phase 3) with mention rows persisted and rendered
+resolved (**@Name**); edit-in-place with `(edited)` marker (verified — synthetic
+Enter dispatch triggered the handler, clearing the P1 Enter-send suspicion: it was a
+browser-driver artifact); message-level lexical search (GIN FTS, membership ∪
+public-channel scoped, sidebar search UI with deep-linking results); app-bar
+`useBadgeCount` = mentions + DM unreads from `list_my_conversations` (self-contained;
+platform-inbox notification fan-out still needs an apps/ai seam — see below);
+service-identity filtered from DM/mention pickers; aria-labels on action rows.
+Deviations/notes: reaction `name` stores the unicode emoji (Slack shortcode mapping
+happens at the bridge); mention tokens are visible raw in the composer textarea
+(chip-in-composer needs a rich composer — polish later); permalinks/scroll-to-message
+deferred; **platform-inbox notification fan-out for mentions deferred** until a module
+→ notifications seam exists (`emitInboxNotification` lives in apps/ai — candidate:
+subscribe `team-chat.message.posted` from apps/ai, or a core notifications operation).
+
+Original scope: reactions (+ EmojiPicker), pins, mention composer + chips +
+`mentions` table + inbox notifications + app-bar badge, message hover actions,
 edit/delete UX, permalinks, overview page (§6.5), lexical search.
-*Exit: mention a user → they get a platform notification and badge; overview streams live.*
 
 **Phase 3 — Agents.**
 Agent membership (invite agent), AI tools (§9), agent-mention → linked `ai.thread`

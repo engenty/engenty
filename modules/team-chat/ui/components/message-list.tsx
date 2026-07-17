@@ -12,6 +12,8 @@ import { MessageItem } from "./message-item.js";
 
 export interface MessageListProps {
   canDelete: (message: TeamChatMessage) => boolean;
+  canEdit: (message: TeamChatMessage) => boolean;
+  currentUserId: string | null;
   emptyState?: React.ReactNode;
   hasMore?: boolean;
   inThread?: boolean;
@@ -20,11 +22,17 @@ export interface MessageListProps {
   onDelete?: (ts: string) => void;
   onLoadOlder?: () => void;
   onOpenThread?: (ts: string) => void;
+  onSaveEdit?: (ts: string, text: string) => Promise<void>;
+  onTogglePin?: (ts: string, pinned: boolean) => void;
+  onToggleReaction?: (ts: string, emoji: string, active: boolean) => void;
+  pinnedTs?: ReadonlySet<string>;
   users: UsersById;
 }
 
 export function MessageList({
   canDelete,
+  canEdit,
+  currentUserId,
   emptyState,
   hasMore,
   inThread = false,
@@ -32,6 +40,10 @@ export function MessageList({
   onDelete,
   onLoadOlder,
   onOpenThread,
+  onSaveEdit,
+  onToggleReaction,
+  onTogglePin,
+  pinnedTs,
   users,
 }: MessageListProps) {
   const { t, i18n } = useTranslation("team-chat");
@@ -88,10 +100,16 @@ export function MessageList({
             ) : null}
             <MessageItem
               canDelete={canDelete(message)}
+              canEdit={canEdit(message)}
+              currentUserId={currentUserId}
               inThread={inThread}
               message={message}
               onDelete={onDelete}
               onOpenThread={onOpenThread}
+              onSaveEdit={onSaveEdit}
+              onTogglePin={onTogglePin}
+              onToggleReaction={onToggleReaction}
+              pinned={pinnedTs?.has(message.ts) ?? false}
               showHeader={showHeader}
               users={users}
             />

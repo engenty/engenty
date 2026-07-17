@@ -14,7 +14,9 @@ import type {
   ConversationsRepliesParams,
   MemberPrincipal,
   PaginatedMessages,
+  PinsListResult,
   PostMessageParams,
+  SearchMessagesResult,
   TeamChatMessage,
   UpdateMessageParams,
 } from "../src/schema/types.js";
@@ -175,4 +177,57 @@ export async function deleteMessage(
   ts: string
 ): Promise<void> {
   await invokeTool("team_chat_delete_message", { channel, ts });
+}
+
+export async function addReaction(
+  channel: string,
+  timestamp: string,
+  name: string
+): Promise<void> {
+  await invokeTool("team_chat_reactions_add", { channel, name, timestamp });
+}
+
+export async function removeReaction(
+  channel: string,
+  timestamp: string,
+  name: string
+): Promise<void> {
+  await invokeTool("team_chat_reactions_remove", { channel, name, timestamp });
+}
+
+export async function pinMessage(
+  channel: string,
+  timestamp: string
+): Promise<void> {
+  await invokeTool("team_chat_pins_add", { channel, timestamp });
+}
+
+export async function unpinMessage(
+  channel: string,
+  timestamp: string
+): Promise<void> {
+  await invokeTool("team_chat_pins_remove", { channel, timestamp });
+}
+
+export async function listPins(
+  channel: string,
+  signal?: AbortSignal
+): Promise<PinsListResult["pins"]> {
+  const result = await invokeTool<PinsListResult>(
+    "team_chat_pins_list",
+    { channel },
+    signal
+  );
+  return result.pins;
+}
+
+export async function searchMessages(
+  query: string,
+  signal?: AbortSignal
+): Promise<SearchMessagesResult> {
+  return invokeTool<SearchMessagesResult>(
+    "team_chat_search_messages",
+    { limit: 25, query },
+    signal
+  );
 }

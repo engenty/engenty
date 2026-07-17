@@ -24,7 +24,15 @@ import {
   messageResultSchema,
   okResultSchema,
   paginatedMessagesResultSchema,
+  pinsListInputSchema,
+  pinsListResultSchema,
+  pinsMutateInputSchema,
   postMessageInputSchema,
+  reactionsGetInputSchema,
+  reactionsGetResultSchema,
+  reactionsMutateInputSchema,
+  searchMessagesInputSchema,
+  searchMessagesResultSchema,
   updateMessageInputSchema,
 } from "../schema/zod.js";
 
@@ -393,6 +401,126 @@ export function registerTeamChatGatewayMethods(
         { blocks: parsed.blocks, text: parsed.text }
       );
       return { message, ok: true as const, ts: message.ts };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_reactions_add",
+    moduleId: MODULE_ID,
+    summary: "Add an emoji reaction to a team-chat message (reactions.add)",
+    requiredCapabilities: WRITE,
+    riskLevel: "low",
+    inputSchema: reactionsMutateInputSchema,
+    outputSchema: okResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = reactionsMutateInputSchema.parse(input);
+      await repoForAuth(ctx.auth).reactions.add(
+        parsed.channel,
+        parsed.timestamp,
+        parsed.name
+      );
+      return { ok: true as const };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_reactions_remove",
+    moduleId: MODULE_ID,
+    summary:
+      "Remove your emoji reaction from a team-chat message (reactions.remove)",
+    requiredCapabilities: WRITE,
+    riskLevel: "low",
+    inputSchema: reactionsMutateInputSchema,
+    outputSchema: okResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = reactionsMutateInputSchema.parse(input);
+      await repoForAuth(ctx.auth).reactions.remove(
+        parsed.channel,
+        parsed.timestamp,
+        parsed.name
+      );
+      return { ok: true as const };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_reactions_get",
+    moduleId: MODULE_ID,
+    summary: "Get the reactions on a team-chat message (reactions.get)",
+    requiredCapabilities: READ,
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: reactionsGetInputSchema,
+    outputSchema: reactionsGetResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = reactionsGetInputSchema.parse(input);
+      const reactions = await repoForAuth(ctx.auth).reactions.get(
+        parsed.channel,
+        parsed.timestamp
+      );
+      return { ok: true as const, reactions };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_pins_add",
+    moduleId: MODULE_ID,
+    summary: "Pin a message in a team-chat conversation (pins.add)",
+    requiredCapabilities: WRITE,
+    riskLevel: "low",
+    inputSchema: pinsMutateInputSchema,
+    outputSchema: okResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = pinsMutateInputSchema.parse(input);
+      await repoForAuth(ctx.auth).pins.add(parsed.channel, parsed.timestamp);
+      return { ok: true as const };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_pins_remove",
+    moduleId: MODULE_ID,
+    summary: "Unpin a message in a team-chat conversation (pins.remove)",
+    requiredCapabilities: WRITE,
+    riskLevel: "low",
+    inputSchema: pinsMutateInputSchema,
+    outputSchema: okResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = pinsMutateInputSchema.parse(input);
+      await repoForAuth(ctx.auth).pins.remove(parsed.channel, parsed.timestamp);
+      return { ok: true as const };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_pins_list",
+    moduleId: MODULE_ID,
+    summary: "List the pinned messages of a team-chat conversation (pins.list)",
+    requiredCapabilities: READ,
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: pinsListInputSchema,
+    outputSchema: pinsListResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = pinsListInputSchema.parse(input);
+      const pins = await repoForAuth(ctx.auth).pins.list(parsed.channel);
+      return { ok: true as const, pins };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_search_messages",
+    moduleId: MODULE_ID,
+    summary:
+      "Full-text search over team-chat messages the caller can see (search.messages)",
+    requiredCapabilities: READ,
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: searchMessagesInputSchema,
+    outputSchema: searchMessagesResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = searchMessagesInputSchema.parse(input);
+      return repoForAuth(ctx.auth).messages.search(parsed.query, parsed.limit);
     },
   });
 

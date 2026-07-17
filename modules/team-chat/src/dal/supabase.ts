@@ -7,6 +7,9 @@ import type {
   ConversationsCreateParams,
   MemberPrincipal,
   PaginatedMessages,
+  PinsListResult,
+  ReactionAggregate,
+  SearchMessagesResult,
   TeamChatMessage,
 } from "../schema/types.js";
 import type {
@@ -59,6 +62,7 @@ function rowToMessage(row: Record<string, unknown>): TeamChatMessage {
     files: deleted ? [] : ((row.files as Record<string, unknown>[]) ?? []),
     latest_reply: (row.latest_reply as string | null) ?? null,
     metadata: (row.metadata as Record<string, unknown>) ?? {},
+    reactions: [],
     reply_count: Number(row.reply_count ?? 0),
     reply_users: (row.reply_users as string[]) ?? [],
     subtype: (row.subtype as string | null) ?? null,
@@ -100,6 +104,8 @@ export function createTeamChatRepoSupabase(
   const conversations = () => supabase.schema(SCHEMA).from("conversations");
   const membersTbl = () => supabase.schema(SCHEMA).from("conversation_members");
   const messagesTbl = () => supabase.schema(SCHEMA).from("messages");
+  const reactionsTbl = () => supabase.schema(SCHEMA).from("reactions");
+  const pinsTbl = () => supabase.schema(SCHEMA).from("pins");
   const emit: EmitTeamChatEvent = options.emitTeamChatEvent ?? (() => {});
 
   async function getConversationRow(id: string): Promise<Conversation> {
@@ -336,6 +342,50 @@ export function createTeamChatRepoSupabase(
     return rowToConversation(data as Record<string, unknown>);
   }
 
+  /** Fold reaction rows into the Slack aggregate shape on each message. */
+  async function attachReactions(
+    conversationId: string,
+    messages: TeamChatMessage[]
+  ): Promise<TeamChatMessage[]> {
+    if (messages.length === 0) {
+      return messages;
+    }
+    const { data, error } = await reactionsTbl()
+      .select("message_ts, emoji, principal_id")
+      .eq("tenant_id", tenantId)
+      .eq("conversation_id", conversationId)
+      .in(
+        "message_ts",
+        messages.map((message) => message.ts)
+      )
+      .order("created_at", { ascending: true });
+    if (error) {
+      throw new Error(`team-chat reactions load failed: ${error.message}`);
+    }
+    const byTs = new Map<string, Map<string, string[]>>();
+    for (const row of (data ?? []) as {
+      emoji: string;
+      message_ts: string;
+      principal_id: string;
+    }[]) {
+      const emojis = byTs.get(row.message_ts) ?? new Map<string, string[]>();
+      const users = emojis.get(row.emoji) ?? [];
+      users.push(row.principal_id);
+      emojis.set(row.emoji, users);
+      byTs.set(row.message_ts, emojis);
+    }
+    return messages.map((message) => {
+      const emojis = byTs.get(message.ts);
+      if (!emojis) {
+        return message;
+      }
+      const reactions: ReactionAggregate[] = [...emojis.entries()].map(
+        ([name, users]) => ({ count: users.length, name, users })
+      );
+      return { ...message, reactions };
+    });
+  }
+
   async function history(query: HistoryQuery): Promise<PaginatedMessages> {
     await requireReadable(query.conversationId);
     const limit = Math.min(
@@ -372,7 +422,10 @@ export function createTeamChatRepoSupabase(
     const hasMore = rows.length > limit;
     return {
       has_more: hasMore,
-      messages: page.map(rowToMessage),
+      messages: await attachReactions(
+        query.conversationId,
+        page.map(rowToMessage)
+      ),
       ok: true,
       response_metadata: {
         next_cursor: hasMore ? (page.at(-1)?.ts as string) : null,
@@ -424,7 +477,7 @@ export function createTeamChatRepoSupabase(
         ];
     return {
       has_more: hasMore,
-      messages,
+      messages: await attachReactions(query.conversationId, messages),
       ok: true,
       response_metadata: {
         next_cursor: hasMore ? (page.at(-1)?.ts as string) : null,
@@ -562,6 +615,183 @@ export function createTeamChatRepoSupabase(
     return message;
   }
 
+  async function requireMessage(
+    conversationId: string,
+    ts: string
+  ): Promise<void> {
+    await getMessageRow(conversationId, ts);
+  }
+
+  async function mutateReaction(
+    action: "add" | "remove",
+    conversationId: string,
+    ts: string,
+    emoji: string
+  ): Promise<void> {
+    if (!userId) {
+      throw new TeamChatError("not_allowed", "requires a user context");
+    }
+    await requireMember(conversationId);
+    await requireMessage(conversationId, ts);
+    if (action === "add") {
+      const { error } = await reactionsTbl().upsert(
+        {
+          conversation_id: conversationId,
+          emoji,
+          message_ts: ts,
+          principal_id: userId,
+          principal_type: "user",
+          tenant_id: tenantId,
+        },
+        {
+          ignoreDuplicates: true,
+          onConflict:
+            "conversation_id,message_ts,emoji,principal_type,principal_id",
+        }
+      );
+      if (error) {
+        throw new Error(`team-chat reaction add failed: ${error.message}`);
+      }
+    } else {
+      const { error } = await reactionsTbl()
+        .delete()
+        .eq("conversation_id", conversationId)
+        .eq("message_ts", ts)
+        .eq("emoji", emoji)
+        .eq("principal_type", "user")
+        .eq("principal_id", userId);
+      if (error) {
+        throw new Error(`team-chat reaction remove failed: ${error.message}`);
+      }
+    }
+    await emit("updated", {
+      conversation_id: conversationId,
+      message_ts: ts,
+      scope_id: scopeId,
+      tenant_id: tenantId,
+    });
+  }
+
+  /** Conversations the caller may read: memberships ∪ public channels. */
+  async function visibleConversationIds(): Promise<string[]> {
+    const ids = new Set<string>();
+    const publicChannels = await conversations()
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
+      .eq("type", "public_channel");
+    if (publicChannels.error) {
+      throw new Error(
+        `team-chat visibility failed: ${publicChannels.error.message}`
+      );
+    }
+    for (const row of (publicChannels.data ?? []) as { id: string }[]) {
+      ids.add(row.id);
+    }
+    if (userId) {
+      const memberships = await membersTbl()
+        .select("conversation_id")
+        .eq("tenant_id", tenantId)
+        .eq("principal_type", "user")
+        .eq("principal_id", userId);
+      if (memberships.error) {
+        throw new Error(
+          `team-chat visibility failed: ${memberships.error.message}`
+        );
+      }
+      for (const row of (memberships.data ?? []) as {
+        conversation_id: string;
+      }[]) {
+        ids.add(row.conversation_id);
+      }
+    }
+    return [...ids];
+  }
+
+  async function search(
+    query: string,
+    limit = 25
+  ): Promise<SearchMessagesResult> {
+    const ids = await visibleConversationIds();
+    if (ids.length === 0) {
+      return { messages: [], ok: true, total: 0 };
+    }
+    const { data, error } = await messagesTbl()
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .in("conversation_id", ids)
+      .is("deleted_at", null)
+      .textSearch("text", query, { config: "simple", type: "plain" })
+      .order("ts", { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 100));
+    if (error) {
+      throw new Error(`team-chat search failed: ${error.message}`);
+    }
+    const rows = (data ?? []) as Record<string, unknown>[];
+    const convIds = [
+      ...new Set(rows.map((row) => row.conversation_id as string)),
+    ];
+    const names = new Map<string, string | null>();
+    if (convIds.length > 0) {
+      const convs = await conversations().select("id, name").in("id", convIds);
+      if (convs.error) {
+        throw new Error(`team-chat search failed: ${convs.error.message}`);
+      }
+      for (const row of (convs.data ?? []) as {
+        id: string;
+        name: string | null;
+      }[]) {
+        names.set(row.id, row.name);
+      }
+    }
+    const messages = rows.map((row) => ({
+      ...rowToMessage(row),
+      conversation_name: names.get(row.conversation_id as string) ?? null,
+    }));
+    return { messages, ok: true, total: messages.length };
+  }
+
+  async function listPins(
+    conversationId: string
+  ): Promise<PinsListResult["pins"]> {
+    await requireReadable(conversationId);
+    const { data, error } = await pinsTbl()
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      throw new Error(`team-chat pins list failed: ${error.message}`);
+    }
+    const pins = (data ?? []) as Record<string, unknown>[];
+    if (pins.length === 0) {
+      return [];
+    }
+    const messages = await messagesTbl()
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("conversation_id", conversationId)
+      .in(
+        "ts",
+        pins.map((pin) => pin.message_ts as string)
+      );
+    if (messages.error) {
+      throw new Error(`team-chat pins list failed: ${messages.error.message}`);
+    }
+    const byTs = new Map(
+      ((messages.data ?? []) as Record<string, unknown>[]).map((row) => [
+        row.ts as string,
+        rowToMessage(row),
+      ])
+    );
+    return pins.map((pin) => ({
+      created_at: pin.created_at as string,
+      message: byTs.get(pin.message_ts as string) ?? null,
+      message_ts: pin.message_ts as string,
+      pinned_by: (pin.pinned_by as string | null) ?? null,
+    }));
+  }
+
   return {
     conversations: {
       archive: async (id, archived) => {
@@ -676,8 +906,55 @@ export function createTeamChatRepoSupabase(
       history,
       post,
       replies,
+      search,
       softDelete,
       update,
+    },
+    pins: {
+      add: async (conversationId, ts) => {
+        if (!userId) {
+          throw new TeamChatError("not_allowed", "requires a user context");
+        }
+        await requireMember(conversationId);
+        await requireMessage(conversationId, ts);
+        const { error } = await pinsTbl().upsert(
+          {
+            conversation_id: conversationId,
+            message_ts: ts,
+            pinned_by: userId,
+            tenant_id: tenantId,
+          },
+          { ignoreDuplicates: true, onConflict: "conversation_id,message_ts" }
+        );
+        if (error) {
+          throw new Error(`team-chat pin failed: ${error.message}`);
+        }
+      },
+      list: listPins,
+      remove: async (conversationId, ts) => {
+        await requireMember(conversationId);
+        const { error } = await pinsTbl()
+          .delete()
+          .eq("conversation_id", conversationId)
+          .eq("message_ts", ts);
+        if (error) {
+          throw new Error(`team-chat unpin failed: ${error.message}`);
+        }
+      },
+    },
+    reactions: {
+      add: (conversationId, ts, emoji) =>
+        mutateReaction("add", conversationId, ts, emoji),
+      get: async (conversationId, ts) => {
+        await requireReadable(conversationId);
+        const row = await getMessageRow(conversationId, ts);
+        const [message] = await attachReactions(conversationId, [
+          rowToMessage(row),
+        ]);
+        return message?.reactions ?? [];
+      },
+      remove: (conversationId, ts, emoji) =>
+        mutateReaction("remove", conversationId, ts, emoji),
     },
   };
 }

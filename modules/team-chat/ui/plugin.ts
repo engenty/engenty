@@ -1,6 +1,7 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { MessagesSquare } from "lucide-react";
 import { TeamChatClientPage } from "./pages/team-chat-client-page.js";
+import { useTeamChatBadgeCount } from "./queries.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   // Realtime: message/conversation changes invalidate team-chat queries live.
@@ -12,6 +13,7 @@ export default function plugin(engenty: EngentyPluginContext) {
       { schema: "module_team_chat", table: "messages" },
       { schema: "module_team_chat", table: "conversations" },
       { schema: "module_team_chat", table: "conversation_members" },
+      { schema: "module_team_chat", table: "reactions" },
     ],
     queryRoot: ["team-chat"],
   });
@@ -47,5 +49,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     icon: MessagesSquare,
     to: "/mdl/team-chat",
     order: 160,
+    // Slack home-badge semantics: mentions everywhere + DM unreads.
+    useBadgeCount: useTeamChatBadgeCount,
   });
 }

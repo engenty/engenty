@@ -48,13 +48,24 @@
     "placeholder": "Nachricht an {{name}}",
     "placeholderThread": "Antworten…",
     "send": "Senden",
-    "hint": "Enter zum Senden · Shift+Enter für neue Zeile"
+    "hint": "Enter zum Senden · Shift+Enter für neue Zeile",
+    "mentionHint": "↑↓ zum Navigieren · Enter zum Auswählen"
   },
   "message": {
     "edited": "(bearbeitet)",
     "deleted": "Diese Nachricht wurde gelöscht.",
     "delete": "Nachricht löschen",
+    "edit": "Nachricht bearbeiten",
+    "editHint": "Enter zum Speichern · Esc zum Abbrechen",
+    "react": "Reaktion hinzufügen",
+    "pin": "Nachricht anpinnen",
+    "unpin": "Nachricht lösen",
     "you": "Du"
+  },
+  "search": {
+    "placeholder": "Nachrichten durchsuchen",
+    "results": "Ergebnisse",
+    "noResults": "Keine Nachrichten gefunden."
   },
   "dialogs": {
     "createChannelTitle": "Channel erstellen",

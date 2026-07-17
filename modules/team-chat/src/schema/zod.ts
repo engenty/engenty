@@ -60,6 +60,13 @@ export const conversationMemberSchema = z.object({
   role: z.enum(["owner", "member"]),
 });
 
+/** Slack reaction aggregate: `name` is the emoji (unicode; bridge maps to shortcodes). */
+export const reactionAggregateSchema = z.object({
+  count: z.number(),
+  name: z.string(),
+  users: z.array(z.string()),
+});
+
 export const messageSchema = z.object({
   agent_type_key: z.string().nullable(),
   attachments: z.array(z.record(z.string(), z.unknown())),
@@ -72,6 +79,7 @@ export const messageSchema = z.object({
   files: z.array(z.record(z.string(), z.unknown())),
   latest_reply: z.string().nullable(),
   metadata: z.record(z.string(), z.unknown()),
+  reactions: z.array(reactionAggregateSchema),
   reply_count: z.number(),
   reply_users: z.array(z.string()),
   subtype: z.string().nullable(),
@@ -225,4 +233,57 @@ export const deleteMessageInputSchema = z.object({
 
 export const okResultSchema = z.object({
   ok: z.literal(true),
+});
+
+// ── Phase 2: reactions / pins / search ───────────────────────────────────────
+
+export const reactionsMutateInputSchema = z.object({
+  channel: z.string(),
+  // Unicode emoji (Slack sends shortcodes; the bridge converts).
+  name: z.string().min(1).max(80),
+  timestamp: z.string(),
+});
+
+export const reactionsGetInputSchema = z.object({
+  channel: z.string(),
+  timestamp: z.string(),
+});
+
+export const reactionsGetResultSchema = z.object({
+  ok: z.literal(true),
+  reactions: z.array(reactionAggregateSchema),
+});
+
+export const pinsMutateInputSchema = z.object({
+  channel: z.string(),
+  timestamp: z.string(),
+});
+
+export const pinsListInputSchema = z.object({
+  channel: z.string(),
+});
+
+export const pinsListResultSchema = z.object({
+  ok: z.literal(true),
+  pins: z.array(
+    z.object({
+      created_at: z.string(),
+      message: messageSchema.nullable(),
+      message_ts: z.string(),
+      pinned_by: z.string().nullable(),
+    })
+  ),
+});
+
+export const searchMessagesInputSchema = z.object({
+  limit: z.number().int().min(1).max(100).optional(),
+  query: z.string().min(2).max(200),
+});
+
+export const searchMessagesResultSchema = z.object({
+  messages: z.array(
+    messageSchema.extend({ conversation_name: z.string().nullable() })
+  ),
+  ok: z.literal(true),
+  total: z.number(),
 });

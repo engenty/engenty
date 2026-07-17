@@ -48,13 +48,24 @@
     "placeholder": "Message {{name}}",
     "placeholderThread": "Reply…",
     "send": "Send",
-    "hint": "Enter to send · Shift+Enter for a new line"
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "mentionHint": "↑↓ to navigate · Enter to select"
   },
   "message": {
     "edited": "(edited)",
     "deleted": "This message was deleted.",
     "delete": "Delete message",
+    "edit": "Edit message",
+    "editHint": "Enter to save · Esc to cancel",
+    "react": "Add reaction",
+    "pin": "Pin message",
+    "unpin": "Unpin message",
     "you": "You"
+  },
+  "search": {
+    "placeholder": "Search messages",
+    "results": "Results",
+    "noResults": "No messages found."
   },
   "dialogs": {
     "createChannelTitle": "Create a channel",

@@ -11,7 +11,10 @@ import type {
   memberPrincipalSchema,
   messageSchema,
   paginatedMessagesResultSchema,
+  pinsListResultSchema,
   postMessageInputSchema,
+  reactionAggregateSchema,
+  searchMessagesResultSchema,
   updateMessageInputSchema,
 } from "./zod.js";
 
@@ -37,6 +40,9 @@ export type ConversationsRepliesParams = z.infer<
 export type PostMessageParams = z.infer<typeof postMessageInputSchema>;
 export type UpdateMessageParams = z.infer<typeof updateMessageInputSchema>;
 export type PaginatedMessages = z.infer<typeof paginatedMessagesResultSchema>;
+export type ReactionAggregate = z.infer<typeof reactionAggregateSchema>;
+export type PinsListResult = z.infer<typeof pinsListResultSchema>;
+export type SearchMessagesResult = z.infer<typeof searchMessagesResultSchema>;
 
 /** Extracted mention, persisted alongside the message at post time. */
 export interface MentionRecord {

@@ -17,6 +17,7 @@ import { Hash, Lock, MessagesSquare, Users } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useMentionCandidates } from "../hooks/use-mention-candidates.js";
 import { conversationDisplayName, usersById } from "../lib/format.js";
 import {
   useConversationQuery,
@@ -24,8 +25,12 @@ import {
   useHistoryQuery,
   useJoinChannelMutation,
   useMarkConversationMutation,
+  usePinsQuery,
   usePostMessageMutation,
   useTenantUsersQuery,
+  useTogglePinMutation,
+  useToggleReactionMutation,
+  useUpdateMessageMutation,
 } from "../queries.js";
 import { Composer } from "./composer.js";
 import { MessageList } from "./message-list.js";
@@ -56,6 +61,15 @@ export function ConversationView({
   const remove = useDeleteMessageMutation();
   const join = useJoinChannelMutation();
   const mark = useMarkConversationMutation();
+  const updateMessage = useUpdateMessageMutation();
+  const toggleReaction = useToggleReactionMutation();
+  const togglePin = useTogglePinMutation();
+  const pinsQuery = usePinsQuery(conversationId);
+  const mentionCandidates = useMentionCandidates();
+  const pinnedTs = useMemo(
+    () => new Set((pinsQuery.data ?? []).map((pin) => pin.message_ts)),
+    [pinsQuery.data]
+  );
 
   const conversation = conversationQuery.data;
   // history arrives newest-first; render chronological.
@@ -181,6 +195,10 @@ export function ConversationView({
 
         <MessageList
           canDelete={(message) => canDeleteFor(message.user_id)}
+          canEdit={(message) =>
+            Boolean(message.user_id && message.user_id === currentUserId)
+          }
+          currentUserId={currentUserId}
           emptyState={
             <Empty className="mx-auto">
               <EmptyHeader>
@@ -208,11 +226,46 @@ export function ConversationView({
             )
           }
           onOpenThread={openThread}
+          onSaveEdit={async (ts, text) => {
+            await updateMessage.mutateAsync(
+              { channel: conversationId, text, ts },
+              {
+                onError: (error) =>
+                  toast.error(
+                    t("toasts.actionFailed", { error: String(error) })
+                  ),
+              }
+            );
+          }}
+          onTogglePin={(ts, pinned) =>
+            togglePin.mutate(
+              { channel: conversationId, pinned, timestamp: ts },
+              {
+                onError: (error) =>
+                  toast.error(
+                    t("toasts.actionFailed", { error: String(error) })
+                  ),
+              }
+            )
+          }
+          onToggleReaction={(ts, emoji, active) =>
+            toggleReaction.mutate(
+              { active, channel: conversationId, name: emoji, timestamp: ts },
+              {
+                onError: (error) =>
+                  toast.error(
+                    t("toasts.actionFailed", { error: String(error) })
+                  ),
+              }
+            )
+          }
+          pinnedTs={pinnedTs}
           users={users}
         />
 
         {canPost ? (
           <Composer
+            mentionCandidates={mentionCandidates}
             onSend={async (text) => {
               await post.mutateAsync(
                 { channel: conversationId, text },

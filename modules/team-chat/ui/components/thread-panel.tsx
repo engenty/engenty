@@ -2,11 +2,14 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Button, Skeleton } from "@engenty/ui-core";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { useMentionCandidates } from "../hooks/use-mention-candidates.js";
 import type { UsersById } from "../lib/format.js";
 import {
   useDeleteMessageMutation,
   usePostMessageMutation,
   useRepliesQuery,
+  useToggleReactionMutation,
+  useUpdateMessageMutation,
 } from "../queries.js";
 import { Composer } from "./composer.js";
 import { MessageList } from "./message-list.js";
@@ -32,6 +35,9 @@ export function ThreadPanel({
   const repliesQuery = useRepliesQuery(conversationId, threadTs);
   const post = usePostMessageMutation();
   const remove = useDeleteMessageMutation();
+  const updateMessage = useUpdateMessageMutation();
+  const toggleReaction = useToggleReactionMutation();
+  const mentionCandidates = useMentionCandidates();
   const messages = repliesQuery.data?.messages ?? [];
 
   return (
@@ -62,6 +68,10 @@ export function ThreadPanel({
       ) : (
         <MessageList
           canDelete={(message) => canDeleteFor(message.user_id)}
+          canEdit={(message) =>
+            Boolean(message.user_id && message.user_id === currentUserId)
+          }
+          currentUserId={currentUserId}
           inThread
           messages={messages}
           onDelete={(ts) =>
@@ -75,11 +85,34 @@ export function ThreadPanel({
               }
             )
           }
+          onSaveEdit={async (ts, text) => {
+            await updateMessage.mutateAsync(
+              { channel: conversationId, text, ts },
+              {
+                onError: (error) =>
+                  toast.error(
+                    t("toasts.actionFailed", { error: String(error) })
+                  ),
+              }
+            );
+          }}
+          onToggleReaction={(ts, emoji, active) =>
+            toggleReaction.mutate(
+              { active, channel: conversationId, name: emoji, timestamp: ts },
+              {
+                onError: (error) =>
+                  toast.error(
+                    t("toasts.actionFailed", { error: String(error) })
+                  ),
+              }
+            )
+          }
           users={users}
         />
       )}
 
       <Composer
+        mentionCandidates={mentionCandidates}
         onSend={async (text) => {
           await post.mutateAsync(
             { channel: conversationId, text, thread_ts: threadTs },

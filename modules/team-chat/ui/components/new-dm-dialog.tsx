@@ -16,6 +16,7 @@ import {
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { isServiceIdentity } from "../hooks/use-mention-candidates.js";
 import { authorInitials, userLabel } from "../lib/format.js";
 import { useOpenDmMutation, useTenantUsersQuery } from "../queries.js";
 
@@ -39,6 +40,7 @@ export function NewDmDialog({
     const needle = filter.trim().toLowerCase();
     return (usersQuery.data ?? [])
       .filter((user) => user.id !== currentUserId)
+      .filter((user) => !isServiceIdentity(user.email))
       .filter(
         (user) =>
           !needle ||

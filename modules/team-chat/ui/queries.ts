@@ -13,6 +13,7 @@ import type {
   UpdateMessageParams,
 } from "../src/schema/types.js";
 import {
+  addReaction,
   createChannel,
   deleteMessage,
   fetchHistory,
@@ -23,10 +24,15 @@ import {
   leaveChannel,
   listConversations,
   listMembers,
+  listPins,
   markConversation,
   openDm,
+  pinMessage,
   postMessage,
+  removeReaction,
+  searchMessages,
   setTopic,
+  unpinMessage,
   updateMessage,
 } from "./api.js";
 
@@ -38,8 +44,10 @@ export const teamChatKeys = {
     [...teamChatKeys.all, "conversation", id] as const,
   history: (id: string) => [...teamChatKeys.all, "history", id] as const,
   members: (id: string) => [...teamChatKeys.all, "members", id] as const,
+  pins: (id: string) => [...teamChatKeys.all, "pins", id] as const,
   replies: (id: string, ts: string) =>
     [...teamChatKeys.all, "replies", id, ts] as const,
+  search: (query: string) => [...teamChatKeys.all, "search", query] as const,
   users: () => [...teamChatKeys.all, "users"] as const,
 };
 
@@ -200,6 +208,105 @@ export function useDeleteMessageMutation() {
       deleteMessage(input.channel, input.ts),
     onSuccess: invalidate,
   });
+}
+
+function useInvalidateMessageViews() {
+  const queryClient = useQueryClient();
+  return (channel: string, ts?: string) => {
+    queryClient.invalidateQueries({ queryKey: teamChatKeys.history(channel) });
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        query.queryKey[0] === "team-chat" &&
+        query.queryKey[1] === "replies" &&
+        query.queryKey[2] === channel,
+    });
+    if (ts) {
+      queryClient.invalidateQueries({
+        queryKey: teamChatKeys.pins(channel),
+      });
+    }
+  };
+}
+
+export function useToggleReactionMutation() {
+  const invalidate = useInvalidateMessageViews();
+  return useMutation({
+    mutationFn: async (input: {
+      active: boolean;
+      channel: string;
+      name: string;
+      timestamp: string;
+    }) => {
+      if (input.active) {
+        await removeReaction(input.channel, input.timestamp, input.name);
+      } else {
+        await addReaction(input.channel, input.timestamp, input.name);
+      }
+    },
+    onSuccess: (_result, input) => invalidate(input.channel),
+  });
+}
+
+export function useTogglePinMutation() {
+  const invalidate = useInvalidateMessageViews();
+  return useMutation({
+    mutationFn: async (input: {
+      channel: string;
+      pinned: boolean;
+      timestamp: string;
+    }) => {
+      if (input.pinned) {
+        await unpinMessage(input.channel, input.timestamp);
+      } else {
+        await pinMessage(input.channel, input.timestamp);
+      }
+    },
+    onSuccess: (_result, input) => invalidate(input.channel, input.timestamp),
+  });
+}
+
+export function usePinsQuery(id: string | null) {
+  return useQuery(
+    queryOptions({
+      enabled: Boolean(id),
+      queryFn: ({ signal }) => listPins(id as string, signal),
+      queryKey: teamChatKeys.pins(id ?? "none"),
+    })
+  );
+}
+
+export function useSearchMessagesQuery(query: string) {
+  const trimmed = query.trim();
+  return useQuery(
+    queryOptions({
+      enabled: trimmed.length >= 2,
+      placeholderData: keepPreviousData,
+      queryFn: ({ signal }) => searchMessages(trimmed, signal),
+      queryKey: teamChatKeys.search(trimmed),
+    })
+  );
+}
+
+/**
+ * App-bar badge: mentions everywhere + unreads in DMs (Slack home-badge
+ * semantics). Self-contained — no platform-inbox dependency yet.
+ */
+export function useTeamChatBadgeCount(): number | undefined {
+  const conversationsQuery = useConversationsQuery(false);
+  const conversations = conversationsQuery.data;
+  if (!conversations) {
+    return;
+  }
+  const count = conversations.reduce(
+    (sum, conversation) =>
+      sum +
+      conversation.mention_count +
+      (conversation.type === "im" || conversation.type === "mpim"
+        ? conversation.unread_count
+        : 0),
+    0
+  );
+  return count > 0 ? count : undefined;
 }
 
 export function useMarkConversationMutation() {

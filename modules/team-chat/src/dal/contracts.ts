@@ -6,6 +6,9 @@ import type {
   MemberPrincipal,
   MentionRecord,
   PaginatedMessages,
+  PinsListResult,
+  ReactionAggregate,
+  SearchMessagesResult,
   TeamChatMessage,
 } from "../schema/types.js";
 
@@ -100,11 +103,22 @@ export interface TeamChatRepo {
     history(query: HistoryQuery): Promise<PaginatedMessages>;
     post(record: PostMessageRecord): Promise<TeamChatMessage>;
     replies(query: RepliesQuery): Promise<PaginatedMessages>;
+    search(query: string, limit?: number): Promise<SearchMessagesResult>;
     softDelete(conversationId: string, ts: string): Promise<TeamChatMessage>;
     update(
       conversationId: string,
       ts: string,
       patch: { blocks?: Record<string, unknown>[]; text: string }
     ): Promise<TeamChatMessage>;
+  };
+  pins: {
+    add(conversationId: string, ts: string): Promise<void>;
+    list(conversationId: string): Promise<PinsListResult["pins"]>;
+    remove(conversationId: string, ts: string): Promise<void>;
+  };
+  reactions: {
+    add(conversationId: string, ts: string, emoji: string): Promise<void>;
+    get(conversationId: string, ts: string): Promise<ReactionAggregate[]>;
+    remove(conversationId: string, ts: string, emoji: string): Promise<void>;
   };
 }

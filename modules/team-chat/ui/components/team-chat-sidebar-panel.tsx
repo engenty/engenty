@@ -6,6 +6,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
   cn,
+  Input,
   SidebarGroup,
   SidebarGroupContent,
   SidebarNavList,
@@ -14,12 +15,22 @@ import {
   SidebarRowButton,
   Skeleton,
 } from "@engenty/ui-core";
-import { Hash, LayoutDashboard, Lock, Plus } from "lucide-react";
+import { Hash, LayoutDashboard, Lock, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ConversationListItem } from "../api.js";
-import { conversationDisplayName, usersById } from "../lib/format.js";
-import { useConversationsQuery, useTenantUsersQuery } from "../queries.js";
+import {
+  authorLabel,
+  conversationDisplayName,
+  formatMessageTime,
+  renderMentionTokens,
+  usersById,
+} from "../lib/format.js";
+import {
+  useConversationsQuery,
+  useSearchMessagesQuery,
+  useTenantUsersQuery,
+} from "../queries.js";
 import { NewChannelDialog } from "./new-channel-dialog.js";
 import { NewDmDialog } from "./new-dm-dialog.js";
 
@@ -74,7 +85,7 @@ function ConversationRow({
 }
 
 export function TeamChatSidebarPanel() {
-  const { t } = useTranslation("team-chat");
+  const { t, i18n } = useTranslation("team-chat");
   const { conversationId } = useParams<{ conversationId?: string }>();
   const { session } = useCoreAuthSession();
   const currentUserId = session?.user?.id ?? null;
@@ -84,6 +95,9 @@ export function TeamChatSidebarPanel() {
   const users = usersById(usersQuery.data);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [dmDialogOpen, setDmDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const searching = search.trim().length >= 2;
+  const searchQuery = useSearchMessagesQuery(search);
 
   const channels = conversations.filter(
     (conversation) =>
@@ -99,6 +113,64 @@ export function TeamChatSidebarPanel() {
   return (
     <>
       <SidebarGroup>
+        <SidebarGroupContent>
+          <div className="relative px-1 pb-1">
+            <Search className="absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label={t("search.placeholder")}
+              className="h-8 pl-8"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("search.placeholder")}
+              value={search}
+            />
+          </div>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      {searching ? (
+        <SidebarGroup>
+          <SidebarNavSectionLabel>{t("search.results")}</SidebarNavSectionLabel>
+          <SidebarGroupContent>
+            {searchQuery.isLoading ? (
+              <Skeleton className="mx-2 h-6" />
+            ) : (searchQuery.data?.messages.length ?? 0) === 0 ? (
+              <p className="px-2 py-1 text-muted-foreground text-xs">
+                {t("search.noResults")}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {(searchQuery.data?.messages ?? []).map((message) => (
+                  <Link
+                    className="flex flex-col gap-0.5 rounded-[4px] px-2 py-1.5 hover:bg-muted/60"
+                    key={`${message.conversation_id}-${message.ts}`}
+                    onClick={() => setSearch("")}
+                    to={`/mdl/team-chat/${message.conversation_id}${message.thread_ts ? `?thread=${message.thread_ts}` : ""}`}
+                  >
+                    <span className="flex items-baseline gap-1 text-xs">
+                      <span className="truncate font-medium">
+                        {message.conversation_name
+                          ? `#${message.conversation_name}`
+                          : authorLabel(message, users)}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">
+                        {formatMessageTime(message.ts, i18n.language)}
+                      </span>
+                    </span>
+                    <span className="truncate text-muted-foreground text-xs">
+                      {renderMentionTokens(message.text, users).replace(
+                        /\*\*/g,
+                        ""
+                      )}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ) : null}
+
+      <SidebarGroup className={cn(searching && "hidden")}>
         <SidebarGroupContent>
           <SidebarNavList>
             <SidebarRow isActive={overviewActive}>
