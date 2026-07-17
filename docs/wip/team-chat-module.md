@@ -613,7 +613,28 @@ The connections framework already has everything except the Slack stream:
 
 Each phase is independently shippable and live-verifiable.
 
-**Phase 1 — Scaffold + core messaging.**
+**Phase 1 — Scaffold + core messaging. — IMPLEMENTED + LIVE-VERIFIED 2026-07-17**
+(worktree dev stack slot 4, `pnpm dev:portless --domain=team-chat`, http://localhost:5213).
+Verified in the browser: channel create → post (markdown renders via MessageResponse) →
+thread panel reply → parent rollup + reply-summary bar update live; DM open + dedup via
+`member_hash` (second `conversations.open` returns the same im); overview streams;
+sidebar with live conversation list; de i18n. DB functions smoke-tested directly
+(ts uniqueness, rollup increment/decrement, mentions insert, tombstone).
+Known follow-ups from verification:
+- **Copilot dock overlap**: the collapsed floating copilot pill overlays the
+  bottom-right of our composer rows (send button). The shell pads content only when
+  the drawer is open+bottom-docked; resolve together with the planned drawer-dock work.
+- DM picker lists the tenant *service identity* — filter service principals out.
+- Sidebar "+ Add channel"/"+ New DM" rows and icon-only hover actions need aria-labels.
+- Enter-to-send worked in code review but CDP-synthetic Return didn't trigger it in the
+  driven browser (send button + JS path verified) — re-check by hand.
+- Shared-stack gotcha (dev-only): PostgREST of the shared supabase must expose
+  `module_team_chat` — fixed live via `alter role authenticator set pgrst.db_schemas`
+  + `notify pgrst reload config/schema`; a restart from any synced checkout also works.
+- Stale `module_channels` migration rows from the abandoned worktree were removed from
+  the shared dev DB's tracking table (schema itself left in place).
+
+Original scope:
 Module skeleton (§3), migration (§4), repo + `ts` generator, ops:
 conversations list/info/create/open/join/leave/invite/history/replies/mark +
 post/update/delete message + users_conversations + unreads. UI: secondary nav,
