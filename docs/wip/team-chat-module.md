@@ -140,10 +140,9 @@ Wiring checklist (all mechanical, per the established module pipeline):
    - `team-chat.member` → `module.team-chat`, `.read`, `.write`
    - `team-chat.manager` → member + `.manage` (create/archive/rename channels, manage members)
    - agents get `.read`/`.write` via their profile so the AI tools work (§9).
-4. Open-vs-pro decision (Matthias): if pro-only, add `modules/team-chat` to
-   `CLOSED_PREFIXES` in `scripts/publish-open.sh`. Recommendation: **open** — it's a
-   core collaboration primitive and a showcase for agent participation; the future
-   Slack *bridge* can be the pro part.
+4. Open-vs-pro: **DECIDED 2026-07-17 (Matthias) — module is open, the Slack bridge
+   (§14) is pro.** No `CLOSED_PREFIXES` entry for `modules/team-chat`; the bridge will
+   get one when it exists.
 
 ---
 
@@ -549,11 +548,11 @@ verb and unblocks event triggers for these modules too.
 - `conversations.open(user_ids | principal list)` → find-or-create `im` (2 principals)
   or `mpim` (3+) via `member_hash`; DMs are never listed to non-members anywhere
   (ops + RLS §4.3).
-- **Agent DMs**: opening a DM with an agent is explicitly supported — it behaves like
-  a channel where every user message triggers the agent (per §7.3 with the DM's single
-  agent as default). This intentionally gives a second door into agent chat with
-  team-chat semantics (persistent, searchable-by-owner, reactions), while the copilot
-  drawer remains the primary lane; the linked `ai.thread` machinery is identical.
+- **Agent DMs**: **DEFERRED (Matthias, 2026-07-17) until the object-widgets work
+  lands** — v1 DMs are human-only (`conversations.open` rejects agent principals);
+  agents participate via channels (§7.3). The design below stays as the target shape:
+  a DM with an agent behaves like a channel where every user message triggers the
+  agent, with the identical linked-`ai.thread` machinery.
 - DM read-marks, mentions, attachments identical to channels; DMs are excluded from
   tenant-wide search visibility (owner-only, §12) and from project binding.
 
@@ -675,11 +674,11 @@ Testing throughout: vitest per package (scoped-vitest gotcha applies), repo test
 - Worktree dev-server: use the per-worktree slot (`dev:portless`), shared supabase.
 - Never `git add -A` in a shared checkout; release via the standard flow.
 
-**Open questions for review (Matthias):**
-1. **Open vs pro**: module open-source, bridge pro (recommended) — or all pro?
+**Open questions:**
+1. ~~Open vs pro~~ — **DECIDED 2026-07-17: module open, bridge pro.**
 2. **DM search**: exclude DMs from retrieval v1 (recommended) or owner-scoped index?
 3. **Default channels**: auto-create `#general` per tenant on module enable?
 4. **Agent auto-join**: may a mentioned non-member agent auto-join public channels
    (setting, default on?) or always require explicit invite?
-5. **Copilot relationship**: is the agent-DM door (§11) desirable v1, or defer to
-   avoid two entry points to agent chat before the object-widgets work lands?
+5. ~~Copilot relationship / agent-DM door~~ — **DECIDED 2026-07-17: deferred until the
+   object-widgets work lands** (§11).

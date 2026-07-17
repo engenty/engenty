@@ -1,0 +1,81 @@
+{
+  "title": "Team-Chat",
+  "menu": { "teamChat": "Team-Chat" },
+  "nav": {
+    "overview": "Übersicht",
+    "channels": "Channels",
+    "directMessages": "Direktnachrichten",
+    "addChannel": "Channel hinzufügen",
+    "newDm": "Neue Nachricht",
+    "browse": "Channels durchsuchen"
+  },
+  "overview": {
+    "title": "Team-Chat",
+    "subtitle": "Channels, Direktnachrichten und alles, worüber dein Team spricht.",
+    "unreads": "Ungelesene Unterhaltungen",
+    "mentions": "Erwähnungen",
+    "recent": "Zuletzt aktiv",
+    "allCaughtUp": "Alles gelesen.",
+    "noConversations": "Noch keine Unterhaltungen",
+    "noConversationsHint": "Erstelle einen Channel oder starte eine Direktnachricht.",
+    "mentionCount": "{{count}} Erwähnung",
+    "mentionCount_other": "{{count}} Erwähnungen",
+    "unreadCount": "{{count}} neu"
+  },
+  "conversation": {
+    "joinPrompt": "Du siehst #{{name}}, bist aber kein Mitglied.",
+    "join": "Channel beitreten",
+    "leave": "Channel verlassen",
+    "archived": "Dieser Channel ist archiviert.",
+    "empty": "Noch keine Nachrichten",
+    "emptyHint": "Schreibe die erste Nachricht in #{{name}}.",
+    "emptyDmHint": "Schreibe die erste Nachricht.",
+    "loadOlder": "Ältere Nachrichten laden",
+    "members": "{{count}} Mitglied",
+    "members_other": "{{count}} Mitglieder",
+    "topicPlaceholder": "Thema hinzufügen",
+    "notFound": "Unterhaltung nicht gefunden",
+    "notFoundHint": "Sie wurde evtl. archiviert oder du hast keinen Zugriff."
+  },
+  "thread": {
+    "title": "Thread",
+    "replyCount": "{{count}} Antwort",
+    "replyCount_other": "{{count}} Antworten",
+    "openThread": "Im Thread antworten",
+    "close": "Thread schließen"
+  },
+  "composer": {
+    "placeholder": "Nachricht an {{name}}",
+    "placeholderThread": "Antworten…",
+    "send": "Senden",
+    "hint": "Enter zum Senden · Shift+Enter für neue Zeile"
+  },
+  "message": {
+    "edited": "(bearbeitet)",
+    "deleted": "Diese Nachricht wurde gelöscht.",
+    "delete": "Nachricht löschen",
+    "you": "Du"
+  },
+  "dialogs": {
+    "createChannelTitle": "Channel erstellen",
+    "channelName": "Name",
+    "channelNameHint": "Kleinbuchstaben, Zahlen, Bindestriche — z. B. projekt-apollo",
+    "channelTopic": "Thema",
+    "privateChannel": "Privater Channel",
+    "privateChannelHint": "Nur eingeladene Mitglieder sehen einen privaten Channel.",
+    "create": "Erstellen",
+    "newDmTitle": "Neue Direktnachricht",
+    "dmPickHint": "Wähle eine oder mehrere Personen.",
+    "start": "Starten",
+    "cancel": "Abbrechen"
+  },
+  "toasts": {
+    "channelCreated": "Channel erstellt",
+    "channelExists": "Ein Channel mit diesem Namen existiert bereits",
+    "sendFailed": "Senden fehlgeschlagen: {{error}}",
+    "actionFailed": "Aktion fehlgeschlagen: {{error}}",
+    "joined": "Channel beigetreten",
+    "left": "Channel verlassen",
+    "deleted": "Nachricht gelöscht"
+  }
+}

@@ -78,6 +78,9 @@
       },
       "time-tracking": {
         "source": "workspace"
+      },
+      "team-chat": {
+        "source": "workspace"
       }
     },
     "containerRuntime": "docker"

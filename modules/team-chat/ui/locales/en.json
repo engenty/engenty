@@ -1,0 +1,81 @@
+{
+  "title": "Team Chat",
+  "menu": { "teamChat": "Team Chat" },
+  "nav": {
+    "overview": "Overview",
+    "channels": "Channels",
+    "directMessages": "Direct messages",
+    "addChannel": "Add channel",
+    "newDm": "New message",
+    "browse": "Browse channels"
+  },
+  "overview": {
+    "title": "Team Chat",
+    "subtitle": "Channels, direct messages, and everything your team is talking about.",
+    "unreads": "Unread conversations",
+    "mentions": "Mentions",
+    "recent": "Recent conversations",
+    "allCaughtUp": "You're all caught up.",
+    "noConversations": "No conversations yet",
+    "noConversationsHint": "Create a channel or start a direct message to get going.",
+    "mentionCount": "{{count}} mention",
+    "mentionCount_other": "{{count}} mentions",
+    "unreadCount": "{{count}} new"
+  },
+  "conversation": {
+    "joinPrompt": "You are viewing #{{name}} without being a member.",
+    "join": "Join channel",
+    "leave": "Leave channel",
+    "archived": "This channel is archived.",
+    "empty": "No messages yet",
+    "emptyHint": "Send the first message to #{{name}}.",
+    "emptyDmHint": "Send the first message.",
+    "loadOlder": "Load older messages",
+    "members": "{{count}} member",
+    "members_other": "{{count}} members",
+    "topicPlaceholder": "Add a topic",
+    "notFound": "Conversation not found",
+    "notFoundHint": "It may have been archived or you may not have access."
+  },
+  "thread": {
+    "title": "Thread",
+    "replyCount": "{{count}} reply",
+    "replyCount_other": "{{count}} replies",
+    "openThread": "Reply in thread",
+    "close": "Close thread"
+  },
+  "composer": {
+    "placeholder": "Message {{name}}",
+    "placeholderThread": "Reply…",
+    "send": "Send",
+    "hint": "Enter to send · Shift+Enter for a new line"
+  },
+  "message": {
+    "edited": "(edited)",
+    "deleted": "This message was deleted.",
+    "delete": "Delete message",
+    "you": "You"
+  },
+  "dialogs": {
+    "createChannelTitle": "Create a channel",
+    "channelName": "Name",
+    "channelNameHint": "Lowercase, numbers, dashes — e.g. project-apollo",
+    "channelTopic": "Topic",
+    "privateChannel": "Private channel",
+    "privateChannelHint": "Only invited members can see a private channel.",
+    "create": "Create",
+    "newDmTitle": "New direct message",
+    "dmPickHint": "Pick one or more teammates.",
+    "start": "Start",
+    "cancel": "Cancel"
+  },
+  "toasts": {
+    "channelCreated": "Channel created",
+    "channelExists": "A channel with this name already exists",
+    "sendFailed": "Sending failed: {{error}}",
+    "actionFailed": "Action failed: {{error}}",
+    "joined": "Joined the channel",
+    "left": "Left the channel",
+    "deleted": "Message deleted"
+  }
+}
