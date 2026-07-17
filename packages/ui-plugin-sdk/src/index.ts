@@ -222,6 +222,44 @@ export interface UiTabContribution {
   surface: string;
 }
 
+/** Argument declared by a chat slash command (rendered as a hint; `ref` args open the @-picker). */
+export interface UiChatCommandArg {
+  labelKey?: string;
+  name: string;
+  /** Entity key for `ref` args, e.g. `"contacts:contact"` | `"core:user"` | `"artifact"`. */
+  refEntity?: string;
+  required?: boolean;
+  type: "enum" | "ref" | "string";
+}
+
+/**
+ * A chat slash command a module contributes to the agent-chat composer. Only
+ * exists while the contributing plugin is enabled — install-gated for free,
+ * like tabs. `ui`-kind commands execute client-side via `frontendTool` (the
+ * frontend-tool registry) or a host-provided built-in; `prompt`/`action` kinds
+ * are declared server-side (COMMAND.md) and this contribution only decorates
+ * them (icon, localized labels).
+ */
+export interface UiChatCommandContribution {
+  args?: UiChatCommandArg[];
+  /** Canonical ASCII token the user types after "/", e.g. "create-offer". */
+  command: string;
+  description?: string;
+  descriptionKey?: string;
+  /** kind=ui — dispatched through the frontend-tool registry with `{ argsText }`. */
+  frontendTool?: string;
+  icon?: UiIconComponent;
+  id: string;
+  kind: "action" | "prompt" | "ui";
+  label?: string;
+  labelKey?: string;
+  order?: number;
+  pluginId: UiPluginId;
+  sourceInfo?: PluginSourceInfo;
+  /** Host surface, `"chat"` (default). */
+  surface?: string;
+}
+
 /** Minimal query client surface used by navigation prefetch contributions. */
 export interface UiNavigationPrefetchQueryClient {
   prefetchQuery: (options: unknown) => Promise<unknown>;
@@ -310,6 +348,7 @@ export interface UiContributions {
    * wins, mirroring `copilotArticleHrefResolver`.
    */
   brandSource?: UiBrandSource;
+  chatCommands: UiChatCommandContribution[];
   copilotApps: UiCopilotAppContribution[];
   /**
    * Optional resolver a module can contribute to turn a (scope slug,
@@ -380,6 +419,7 @@ export const CONTRIBUTIONS_INVALIDATE_EVENT = "ui.contributions.invalidate";
 export interface UiEventMap {
   "ui.adminMenuItems": UiAdminMenuItemContribution[];
   "ui.backgroundComponents": UiBackgroundComponentContribution[];
+  "ui.chatCommands": UiChatCommandContribution[];
   "ui.contributionsResolved": UiContributions;
   "ui.copilotApps": UiCopilotAppContribution[];
   "ui.copilotContributions": UiCopilotContribution[];
@@ -432,6 +472,20 @@ export interface EngentyUiApi {
     order?: number;
   }) => void;
   registerBrandSource: (input: { useBrand: UiBrandSource }) => void;
+  registerChatCommand: (input: {
+    id: string;
+    command: string;
+    kind: "action" | "prompt" | "ui";
+    args?: UiChatCommandArg[];
+    description?: string;
+    descriptionKey?: string;
+    frontendTool?: string;
+    icon?: UiIconComponent;
+    label?: string;
+    labelKey?: string;
+    order?: number;
+    surface?: string;
+  }) => void;
   registerCopilotApp: (input: {
     id: string;
     label: string;

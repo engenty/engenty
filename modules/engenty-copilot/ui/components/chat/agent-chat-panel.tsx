@@ -18,6 +18,8 @@ import {
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { useChatSlashCommands } from "../../hooks/chat/use-chat-slash-commands.js";
+import { useMentionRefSearch } from "../../hooks/chat/use-mention-ref-search.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
 import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
 
@@ -50,6 +52,46 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   const { startNewChat } = useCopilotThreadActions();
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
   const starterPrompts = useStarterPrompts();
+
+  // Slash commands: core built-ins + module contributions + server catalog.
+  const slashBuiltins = useMemo(
+    () => [
+      {
+        command: "help",
+        description: t("chat.commands.help", {
+          defaultValue: "Browse all commands",
+        }),
+        group: "Core",
+        kind: "ui" as const,
+      },
+      {
+        command: "clear",
+        description: t("chat.commands.clear", {
+          defaultValue: "Start a new conversation",
+        }),
+        group: "Core",
+        kind: "ui" as const,
+        run: () => startNewChat(),
+      },
+    ],
+    [startNewChat, t]
+  );
+  const runFrontendTool = useCallback(
+    (toolName: string, argsText: string) => {
+      void executeFrontendTool({
+        call_id: `slash-${Date.now()}`,
+        input: { argsText },
+        run_id: "slash-command",
+        tool_name: toolName,
+      });
+    },
+    [executeFrontendTool]
+  );
+  const slashCommands = useChatSlashCommands({
+    builtins: slashBuiltins,
+    runFrontendTool,
+  });
+  const mentionRefSearch = useMentionRefSearch();
   const [selectedSuggestions, setSelectedSuggestions] = useState<
     Record<string, boolean>
   >({});
@@ -284,6 +326,8 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     emptyStateSubtitle: props.emptyStateSubtitle,
     emptyStateTitle: props.emptyStateTitle,
     error: panelError,
+    mentionRefSearch,
+    slashCommands,
     headerVariant: "docked",
     isApplying: false,
     latestSuggestions: EMPTY_SUGGESTIONS,

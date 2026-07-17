@@ -337,7 +337,7 @@ export function CopilotMessageContent({
 
   const rewrittenTextParts = useMemo(
     () =>
-      textParts.map((tp) => {
+      textParts.map((tp, tpIndex) => {
         let text = tp.text;
         for (const citation of citations) {
           if (
@@ -348,9 +348,14 @@ export function CopilotMessageContent({
             text = text.replaceAll(citation.originalUrl, citation.url);
           }
         }
+        // A user turn that starts with a slash command renders the token as an
+        // inline code chip (display-only; the persisted text stays raw).
+        if (msg.role === "user" && tpIndex === 0) {
+          text = text.replace(/^(\/[a-z0-9][a-z0-9-]*)(\s|$)/, "`$1`$2");
+        }
         return { ...tp, text };
       }),
-    [textParts, citations]
+    [textParts, citations, msg.role]
   );
 
   // Tool steps render in the ChainOfThought timeline. Reasoning parts (if any ever

@@ -93,6 +93,9 @@ export class CoreCatalogDynamicAiModuleCapabilityLoader
           : {}),
         ...(seed?.skills ? { skills: seed.skills } : {}),
         ...(seed?.actions?.length ? { actions: seed.actions } : {}),
+        ...(seed?.chatCommands?.length
+          ? { chatCommands: seed.chatCommands }
+          : {}),
         ...(seed?.routines?.length ? { routines: seed.routines } : {}),
         ...(moduleTools.length > 0
           ? {

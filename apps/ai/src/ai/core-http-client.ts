@@ -1,4 +1,5 @@
 import type {
+  ChatCommandDefinition,
   ModuleActionCapability,
   RoutineDefinition,
 } from "@engenty/ai-core";
@@ -117,6 +118,8 @@ export interface EngentyCoreModuleCapabilitySeed {
     source?: "builtin" | "module" | "database";
     toolIds?: string[];
   }>;
+  // Serializable COMMAND.md chat slash commands declared by the module.
+  chatCommands?: ChatCommandDefinition[];
   moduleId: string;
   routines?: RoutineDefinition[];
   skills?: Record<string, string>;

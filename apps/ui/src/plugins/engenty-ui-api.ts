@@ -106,6 +106,7 @@ export function createUiPluginRuntime(
       backgroundComponents: [],
       brandSource: undefined,
       copilotArticleHrefResolver: undefined,
+      chatCommands: [],
       copilotApps: [],
       copilotContributions: [],
       dashboardWidgets: [],
@@ -233,6 +234,25 @@ export function createEngentyUiApi(
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.tab"),
       });
     },
+    registerChatCommand: (input) => {
+      const id = normalizeId(input.id, "chat command");
+      runtime.contributions.chatCommands.push({
+        id,
+        pluginId: normalizedPluginId,
+        command: input.command.trim().toLowerCase(),
+        kind: input.kind,
+        args: input.args,
+        description: input.description?.trim(),
+        descriptionKey: input.descriptionKey?.trim(),
+        frontendTool: input.frontendTool?.trim(),
+        icon: input.icon,
+        label: input.label?.trim(),
+        labelKey: input.labelKey?.trim(),
+        order: input.order,
+        surface: input.surface?.trim() || "chat",
+        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.chatCommand"),
+      });
+    },
     registerBrandSource: (input) => {
       // Last registration wins, mirroring a single-value contribution.
       runtime.contributions.brandSource = input.useBrand;
@@ -354,6 +374,7 @@ export async function resolveUiContributions(
     navigationPrefetch,
     settingsItems,
     tabs,
+    chatCommands,
   ] = await Promise.all([
     runtime.hooks.emit("ui.routes", [...runtime.contributions.routes]),
     runtime.hooks.emit("ui.adminMenuItems", [
@@ -387,6 +408,9 @@ export async function resolveUiContributions(
       ...runtime.contributions.settingsItems,
     ]),
     runtime.hooks.emit("ui.tabs", [...runtime.contributions.tabs]),
+    runtime.hooks.emit("ui.chatCommands", [
+      ...runtime.contributions.chatCommands,
+    ]),
   ]);
 
   const resolved = {
@@ -394,6 +418,7 @@ export async function resolveUiContributions(
     adminMenuItems,
     backgroundComponents,
     brandSource: runtime.contributions.brandSource,
+    chatCommands,
     copilotArticleHrefResolver:
       runtime.contributions.copilotArticleHrefResolver,
     copilotApps,

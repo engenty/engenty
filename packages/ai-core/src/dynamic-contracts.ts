@@ -246,6 +246,8 @@ export interface DynamicAiModuleCapability {
   // Serializable ACTION.md definitions declared by the module.
   actions?: ModuleActionCapability[];
   agentConfigs?: AgentConfig[];
+  // Serializable COMMAND.md chat slash commands declared by the module.
+  chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;
   // ROUTINE.md definitions (already plain JSON data).
   routines?: RoutineDefinition[];

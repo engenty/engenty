@@ -4,6 +4,7 @@ import type {
   PluginDiagnostic,
   PluginSourceInfo,
   UiAdminMenuItemContribution,
+  UiChatCommandContribution,
   UiContributions,
   UiCopilotAppContribution,
   UiDashboardWidgetContribution,
@@ -469,6 +470,52 @@ function normalizeDashboardWidgets(items: UiDashboardWidgetContribution[]) {
   };
 }
 
+function normalizeChatCommands(items: UiChatCommandContribution[]) {
+  const sorted = [...items].sort(byOrderThenLabel);
+  const valid: UiChatCommandContribution[] = [];
+  const diagnostics: PluginDiagnostic[] = [];
+  for (const item of sorted) {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(item.command)) {
+      diagnostics.push(
+        diagnostic({
+          code: "plugin.registration.invalid_chat_command",
+          level: "warn",
+          message: `chat command "${item.command}" from plugin "${item.pluginId}" is not a valid slash token and was ignored.`,
+          pluginId: item.pluginId,
+          remediation:
+            "Use a lowercase ASCII token (letters, digits, dashes) for the command.",
+          sourceInfo: sourceInfoFor(item),
+        })
+      );
+      continue;
+    }
+    valid.push(item);
+  }
+  // Command tokens are unique per surface — the first (order-sorted) wins.
+  const dedupe = dedupeByKey({
+    items: valid,
+    key: (item) => `${item.surface ?? "chat"}::${item.command}`,
+  });
+
+  return {
+    items: dedupe.deduped,
+    diagnostics: [
+      ...diagnostics,
+      ...dedupe.duplicates.map((item) =>
+        diagnostic({
+          code: "plugin.registration.duplicate_chat_command",
+          level: "warn",
+          message: `duplicate chat command "/${item.command}" from plugin "${item.pluginId}" was ignored.`,
+          pluginId: item.pluginId,
+          remediation:
+            "Use a unique command token within the target surface for this contribution.",
+          sourceInfo: sourceInfoFor(item),
+        })
+      ),
+    ],
+  };
+}
+
 function normalizeTabs(items: UiTabContribution[]) {
   const sorted = [...items].sort(byOrderThenLabel);
   // Tab ids are unique per surface, not globally — a "files" tab may exist on
@@ -729,6 +776,13 @@ export async function resolveUiPlugins(params: {
     ...cleanupParams,
     kind: "tab",
   });
+  const chatCommands = removeStaleOwnedContributions(
+    filtered.chatCommands ?? [],
+    {
+      ...cleanupParams,
+      kind: "chat command",
+    }
+  );
   const copilotContributions = removeStaleOwnedContributions(
     filtered.copilotContributions ?? [],
     {
@@ -763,6 +817,7 @@ export async function resolveUiPlugins(params: {
     normalizeNavigationPrefetch(navigationPrefetch);
   const settingsNormalized = normalizeSettingsItems(settingsItems);
   const tabsNormalized = normalizeTabs(tabs);
+  const chatCommandsNormalized = normalizeChatCommands(chatCommands);
 
   diagnostics.push(
     ...routesNormalized.diagnostics,
@@ -773,7 +828,8 @@ export async function resolveUiPlugins(params: {
     ...i18nNamespacesNormalized.diagnostics,
     ...navigationPrefetchNormalized.diagnostics,
     ...settingsNormalized.diagnostics,
-    ...tabsNormalized.diagnostics
+    ...tabsNormalized.diagnostics,
+    ...chatCommandsNormalized.diagnostics
   );
 
   return {
@@ -782,6 +838,7 @@ export async function resolveUiPlugins(params: {
       adminMenuItems: menuNormalized.items,
       backgroundComponents,
       brandSource: filtered.brandSource,
+      chatCommands: chatCommandsNormalized.items,
       copilotArticleHrefResolver: filtered.copilotArticleHrefResolver,
       copilotApps: copilotAppsNormalized.items,
       copilotContributions,

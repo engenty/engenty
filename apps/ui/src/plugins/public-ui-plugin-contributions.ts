@@ -9,6 +9,7 @@ const emptyContributions: UiContributions = {
   adminMenuItems: [],
   // Background components never run in the unauthenticated/public shell.
   backgroundComponents: [],
+  chatCommands: [],
   copilotApps: [],
   copilotContributions: [],
   dashboardWidgets: [],

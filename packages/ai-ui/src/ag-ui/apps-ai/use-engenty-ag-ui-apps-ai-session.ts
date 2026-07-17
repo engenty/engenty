@@ -31,6 +31,10 @@ import type { SubmitMessageOptions } from "../../agent-provider/types.js";
 import { pendingInterruptFromTranscript } from "../../components/copilot/interrupts/pending-interrupt-from-transcript.js";
 import { useAutoResolveFrontendTool } from "../../copilot/use-auto-resolve-frontend-tool.js";
 import type { ChatAttachmentPart } from "../../lib/chat-attachment-part.js";
+import {
+  buildChatReferencePart,
+  type ChatReferenceItem,
+} from "../../lib/chat-reference-part.js";
 import { cancelAiRun } from "../../lib/runtime/runs-api.js";
 import type { EngentyThreadsRealtimeClient } from "../../threads/engenty-threads-realtime.js";
 import { logCopilotChatNew } from "../chat-new-debug.js";
@@ -114,11 +118,15 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
 
 function createUserMessage(
   text: string,
-  attachments: readonly ChatAttachmentPart[] = []
+  attachments: readonly ChatAttachmentPart[] = [],
+  refs: readonly ChatReferenceItem[] = []
 ): EngentyAgUiMessage {
   const content = [
     ...(text ? [{ type: "text" as const, text }] : []),
     ...attachments,
+    // Typed @-mention references ride one non-feedable `document` part so
+    // they survive schema validation and thread reload (see chat-reference-part).
+    ...(refs.length > 0 ? [buildChatReferencePart([...refs])] : []),
   ];
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `user-${Date.now()}`,
@@ -797,7 +805,11 @@ export function useEngentyAgUiAppsAiSession(
       abortRef.current = abortController;
 
       let threadId = resolveActiveSessionId();
-      const userMessage = createUserMessage(trimmed, attachments);
+      const userMessage = createUserMessage(
+        trimmed,
+        attachments,
+        opts?.refs ?? []
+      );
       logCopilotChatNew("pendingSend set", {
         textLen: trimmed.length,
         transcriptInsertIndex: messagesRef.current.length,

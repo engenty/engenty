@@ -29,10 +29,12 @@ export function CopilotPanelComposerBlock({
   emptyStateTitle,
   error,
   mentionAgentCandidates,
+  mentionRefSearch,
   messages,
   onComposerMentionAgent,
   onStop,
   setDraft,
+  slashCommands,
   starterPrompts,
   status,
   threadId = null,
@@ -57,10 +59,12 @@ export function CopilotPanelComposerBlock({
   emptyStateTitle?: string;
   error?: Error | null;
   mentionAgentCandidates?: Array<{ handle: string; id: string; name: string }>;
+  mentionRefSearch?: import("../composer/use-copilot-composer-mention.js").MentionRefSearch;
   messages: readonly (AgentTurnMessageLike & { id: string })[];
   onComposerMentionAgent?: (agentId: string) => void;
   onStop?: () => void;
   setDraft: (value: string) => void;
+  slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";
   threadId?: string | null;
@@ -122,11 +126,13 @@ export function CopilotPanelComposerBlock({
                 draft={draft}
                 focusComposerKey={composerFocusKey}
                 mentionAgentCandidates={mentionAgentCandidates}
+                mentionRefSearch={mentionRefSearch}
                 onComposerMentionAgent={onComposerMentionAgent}
                 onMultilineChange={setIsMultiline}
                 onStop={onStop}
                 setDraft={setDraft}
                 showStarterPrompts={false}
+                slashCommands={slashCommands}
                 starterPrompts={starterPrompts}
                 status={status}
                 submitMessage={submitMessage}
@@ -160,11 +166,13 @@ export function CopilotPanelComposerBlock({
                 draft={draft}
                 focusComposerKey={composerFocusKey}
                 mentionAgentCandidates={mentionAgentCandidates}
+                mentionRefSearch={mentionRefSearch}
                 onComposerMentionAgent={onComposerMentionAgent}
                 onMultilineChange={setIsMultiline}
                 onStop={onStop}
                 setDraft={setDraft}
                 showStarterPrompts={false}
+                slashCommands={slashCommands}
                 status={status}
                 submitMessage={submitMessage}
                 transcribeAudio={transcribeAudio}
@@ -180,10 +188,12 @@ export function CopilotPanelComposerBlock({
                 draft={draft}
                 focusComposerKey={composerFocusKey}
                 mentionAgentCandidates={mentionAgentCandidates}
+                mentionRefSearch={mentionRefSearch}
                 onComposerMentionAgent={onComposerMentionAgent}
                 onStop={onStop}
                 setDraft={setDraft}
                 showStarterPrompts={messages.length === 0}
+                slashCommands={slashCommands}
                 starterPrompts={starterPrompts}
                 status={status}
                 submitMessage={submitMessage}

@@ -537,6 +537,9 @@
       "tooLarge": "File is too large (max 25 MB).",
       "rejected": "That file type isn't supported."
     },
+    "references": {
+      "remove": "Remove reference"
+    },
     "agentChooser": {
       "emptySessions": "No sessions yet",
       "generalCopilot": "Engenty",
