@@ -29,15 +29,17 @@ function parseDocId(docId: string): { conversationId: string; ts: string } {
   return { conversationId: docId.slice(0, at), ts: docId.slice(at + 1) };
 }
 
-type MessageRow = {
+interface MessageRow {
   conversation_id: string;
+  // `scope_id` lives on `conversations`, not `messages` — it rides in via the
+  // embedded join below (PostgREST returns the to-one embed as an object).
+  conversations?: { scope_id?: string | null; type?: string } | null;
   deleted_at: string | null;
-  scope_id?: string;
   text: string;
   ts: string;
   updated_at: string;
   user_id: string | null;
-};
+}
 
 export function createTeamChatRetrievalSource(options: {
   supabase: SupabaseClient;
@@ -52,7 +54,7 @@ export function createTeamChatRetrievalSource(options: {
     const { conversationId, ts } = parseDocId(docId);
     const { data, error } = await messages()
       .select(
-        "conversation_id, ts, text, user_id, deleted_at, updated_at, scope_id, conversations!inner(type)"
+        "conversation_id, ts, text, user_id, deleted_at, updated_at, conversations!inner(type, scope_id)"
       )
       .eq("tenant_id", tenantId)
       .eq("conversation_id", conversationId)
@@ -76,7 +78,7 @@ export function createTeamChatRetrievalSource(options: {
         filter_metadata: { conversation_id: row.conversation_id },
         occurred_at: row.updated_at,
         owner_user_id: null,
-        scope_id: row.scope_id ?? "default",
+        scope_id: row.conversations?.scope_id ?? "default",
         source_id: doc_id,
         source_type: TEAM_CHAT_MESSAGE_SOURCE_TYPE,
         source_updated_at: row.updated_at,
