@@ -5,8 +5,10 @@ import {
   CopilotOpenInterruptBanner,
   CopilotPanelContent,
   type CopilotPanelContentProps,
+  ENGENTY_COPILOT_HOST_KEY,
   formatCopilotRouteStatusLabel,
   pendingInterruptFromTranscript,
+  registerCopilotComposerDraftSetter,
   type SubmitMessage,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useCopilotComposerDraftRecovery,
@@ -17,7 +19,13 @@ import {
 } from "@engenty/ai-ui";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useChatSlashCommands } from "../../hooks/chat/use-chat-slash-commands.js";
 import { useMentionRefSearch } from "../../hooks/chat/use-mention-ref-search.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
@@ -105,6 +113,17 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     tenantId,
     userId,
   });
+
+  // Panel affordances ("Ask the agent to…") prefill this composer through the
+  // host-keyed draft bridge — see ObjectDisplayIntent.askAgent.
+  useEffect(
+    () =>
+      registerCopilotComposerDraftSetter(
+        ENGENTY_COPILOT_HOST_KEY,
+        draftRecovery.setDraft
+      ),
+    [draftRecovery.setDraft]
+  );
 
   const openInterrupt = useMemo(() => {
     if (

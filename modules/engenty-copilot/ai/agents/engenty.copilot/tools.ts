@@ -33,6 +33,11 @@ export const ENGENTY_ARTIFACT_TOOL_IDS = [
 // in apps/ai createShowObjectsTool, resolved by the builtin registry).
 export const ENGENTY_OBJECT_TOOL_IDS = ["show_objects"];
 
+// Generative UI — agent-authored sandboxed HTML widgets (show_widget) and
+// declarative A2UI surfaces from the engenty catalog (show_ui). Implemented
+// in apps/ai, resolved by the builtin registry.
+export const ENGENTY_WIDGET_TOOL_IDS = ["show_widget", "show_ui"];
+
 // AG-UI frontend tools are NOT listed here: they are registered per-run as native
 // Mastra tools (the LLM calls them by name; they suspend the run and the browser
 // executes/resumes). No invoke_frontend_tool meta-tool. See
@@ -46,6 +51,7 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   ...ENGENTY_VAULT_TOOL_IDS,
   ...ENGENTY_ARTIFACT_TOOL_IDS,
   ...ENGENTY_OBJECT_TOOL_IDS,
+  ...ENGENTY_WIDGET_TOOL_IDS,
 ];
 
 export interface EngentyCopilotRuntimeTools {

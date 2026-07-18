@@ -73,6 +73,9 @@ importers:
       '@earendil-works/gondolin':
         specifier: 0.12.0
         version: 0.12.0
+      '@engenty/a2ui-catalog':
+        specifier: workspace:*
+        version: link:../../packages/a2ui-catalog
       '@engenty/ag-ui-bridge':
         specifier: workspace:*
         version: link:../../packages/ag-ui-bridge
@@ -2482,6 +2485,49 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/a2ui-catalog:
+    dependencies:
+      '@a2ui/react':
+        specifier: 0.10.2
+        version: 0.10.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3)
+      '@a2ui/web_core':
+        specifier: 0.10.5
+        version: 0.10.5
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../ui-core
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.0.0
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   packages/ag-ui-bridge:
     dependencies:
       '@ag-ui/core':
@@ -2570,6 +2616,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
+      '@engenty/a2ui-catalog':
+        specifier: workspace:*
+        version: link:../a2ui-catalog
       '@engenty/ag-ui-bridge':
         specifier: workspace:*
         version: link:../ag-ui-bridge
@@ -4138,6 +4187,22 @@ packages:
         optional: true
       express:
         optional: true
+
+  '@a2ui/markdown-it@0.1.0':
+    resolution: {integrity: sha512-Iv/4/CzFFVQTgT/qeT7lo/sJlZ3+w2+kD7dMQguZS1iZ95GNN5MILdnh+gqVWe6H9iaj+uyonLWMR7RTLHUxPQ==}
+    peerDependencies:
+      '@a2ui/web_core': ^0.10.3
+
+  '@a2ui/react@0.10.2':
+    resolution: {integrity: sha512-QDVs97a/sihcjE3DMnWbwB8bJKv1z2tn291m6+0w6+lXi8dfwnSiZilAgoQmLWjW4Oikv8OFh532NiQMqL/+nw==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: ^19.2.7
+      react-dom: ^19.2.7
+      zod: 4.4.3
+
+  '@a2ui/web_core@0.10.5':
+    resolution: {integrity: sha512-q+HyK1V/jM8l+/VmuXRbBNCS9yDguqdjsJ7/8aqY9O/WUdRE14FbhkFyQyGWQNqPJa9QbVfQyAjGQIK0B1aQtg==}
 
   '@ag-ui/client@0.0.57':
     resolution: {integrity: sha512-Xap2alG9Z0/j5kb3x4D7oTpe2sw1dfrC9rgJJr2NZu5vKcm8dzIPNd31mF2B4zS3BKqYIu245yxKPhEtT30MHw==}
@@ -6135,6 +6200,9 @@ packages:
 
   '@posthog/types@1.390.2':
     resolution: {integrity: sha512-WcfKz2GNn2vfDX8vXmJYbKxegPxVWHuDQ/pHdAn0HoZDXDFnEp/+x3qBQA+fEvtbPjjtjgAt2wIgJMlM7asx7g==}
+
+  '@preact/signals-core@1.14.4':
+    resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
 
   '@protobuf-ts/protoc@2.11.1':
     resolution: {integrity: sha512-mUZJaV0daGO6HUX90o/atzQ6A7bbN2RSuHtdwo8SSF2Qoe3zHwa4IHyCN1evftTeHfLmdz+45qo47sL+5P8nyg==}
@@ -10293,6 +10361,9 @@ packages:
       canvas:
         optional: true
 
+  linkify-it@5.0.2:
+    resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
+
   linkifyjs@4.3.3:
     resolution: {integrity: sha512-P8aEP5U/D1/IlTY2OeYsErdwh9bGuLE30NcXtKEjgdHcahveQoQwM2yZNsioQHsWFz0P7KKudisbrzCgR0sDHg==}
 
@@ -10392,6 +10463,10 @@ packages:
   markdown-extensions@2.0.0:
     resolution: {integrity: sha512-o5vL7aDWatOTX8LzaS1WMoaoxIiLRQJuIKKe2wAw6IeULDHaqbiqiggmx+pKvZDb1Sj+pE46Sn1T7lCqfFtg1Q==}
     engines: {node: '>=16'}
+
+  markdown-it@14.3.0:
+    resolution: {integrity: sha512-RCEsPjR+sr0x+AuYp601tKTkgFG4YEPLCzHST3cQ/fhlJkqAkz1L2/Qbp1j9qw5SBwQHFBoW8+hoN5xssOF0Tw==}
+    hasBin: true
 
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
@@ -10495,6 +10570,9 @@ packages:
 
   mdast-util-to-string@4.0.0:
     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
+
+  mdurl@2.0.0:
+    resolution: {integrity: sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w==}
 
   media-engine@1.0.3:
     resolution: {integrity: sha512-aa5tG6sDoK+k70B9iEX1NeyfT8ObCKhNDs6lJVpwF6r8vhUfuKMslIcirq6HIUYuuUYLefcEQOn9bSBOvawtwg==}
@@ -11305,6 +11383,10 @@ packages:
 
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
+
+  punycode.js@2.3.1:
+    resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
+    engines: {node: '>=6'}
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -12274,6 +12356,9 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  uc.micro@2.1.0:
+    resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
+
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
 
@@ -12745,6 +12830,29 @@ snapshots:
       '@bufbuild/protobuf': 2.12.0
       '@grpc/grpc-js': 1.14.4
       express: 5.2.1
+
+  '@a2ui/markdown-it@0.1.0(@a2ui/web_core@0.10.5)':
+    dependencies:
+      '@a2ui/web_core': 0.10.5
+      dompurify: 3.4.11
+      markdown-it: 14.3.0
+
+  '@a2ui/react@0.10.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3)':
+    dependencies:
+      '@a2ui/markdown-it': 0.1.0(@a2ui/web_core@0.10.5)
+      '@a2ui/web_core': 0.10.5
+      clsx: 2.1.1
+      markdown-it: 14.3.0
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+      zod: 4.4.3
+
+  '@a2ui/web_core@0.10.5':
+    dependencies:
+      '@preact/signals-core': 1.14.4
+      date-fns: 4.4.0
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
 
   '@ag-ui/client@0.0.57':
     dependencies:
@@ -14816,6 +14924,8 @@ snapshots:
       '@posthog/types': 1.390.2
 
   '@posthog/types@1.390.2': {}
+
+  '@preact/signals-core@1.14.4': {}
 
   '@protobuf-ts/protoc@2.11.1': {}
 
@@ -19069,6 +19179,10 @@ snapshots:
       htmlparser2: 10.1.0
       uhyphen: 0.2.0
 
+  linkify-it@5.0.2:
+    dependencies:
+      uc.micro: 2.1.0
+
   linkifyjs@4.3.3: {}
 
   liquidjs@10.27.1:
@@ -19168,6 +19282,15 @@ snapshots:
       xmlbuilder: 10.1.1
 
   markdown-extensions@2.0.0: {}
+
+  markdown-it@14.3.0:
+    dependencies:
+      argparse: 2.0.1
+      entities: 4.5.0
+      linkify-it: 5.0.2
+      mdurl: 2.0.0
+      punycode.js: 2.3.1
+      uc.micro: 2.1.0
 
   markdown-table@3.0.4: {}
 
@@ -19415,6 +19538,8 @@ snapshots:
   mdast-util-to-string@4.0.0:
     dependencies:
       '@types/mdast': 4.0.4
+
+  mdurl@2.0.0: {}
 
   media-engine@1.0.3: {}
 
@@ -20386,6 +20511,8 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
+
+  punycode.js@2.3.1: {}
 
   punycode@2.3.1: {}
 
@@ -21601,6 +21728,8 @@ snapshots:
       typescript: 6.0.3
 
   typescript@6.0.3: {}
+
+  uc.micro@2.1.0: {}
 
   ufo@1.6.4: {}
 

@@ -31,6 +31,12 @@ export interface ObjectDisplayIntent {
     opts?: { title?: string }
   ) => void;
   /**
+   * Prefill the chat composer from a panel/widget affordance ("Ask the agent
+   * to…", quote a selection). Absent when the surface has no composer of its
+   * own.
+   */
+  askAgent?: (prompt: string, ref?: ObjectRef) => void;
+  /**
    * Leave chat for a module route. Full-page chat docks itself into the
    * drawer first; absent when the surface is already alongside the workspace.
    */
@@ -53,7 +59,12 @@ export function ObjectDisplayIntentProvider({
 }) {
   const memoized = useMemo(
     () => value,
-    [value.openInPanel, value.applyDisplayHint, value.navigateFromChat]
+    [
+      value.openInPanel,
+      value.applyDisplayHint,
+      value.askAgent,
+      value.navigateFromChat,
+    ]
   );
   return (
     <ObjectDisplayIntentContext.Provider value={memoized}>

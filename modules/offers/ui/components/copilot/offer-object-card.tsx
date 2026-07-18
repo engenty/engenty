@@ -6,6 +6,7 @@ import {
   type ObjectDisplayItem,
   ObjectListFooter,
   ObjectListRow,
+  ObjectPanelAskAgentBar,
   type ObjectRef,
   ObjectRowList,
   type ObjectWidgetCardProps,
@@ -13,8 +14,10 @@ import {
 } from "@engenty/ai-ui";
 import { Badge, Skeleton } from "@engenty/ui-core";
 import { FileText, Hash } from "lucide-react";
+import { useRef } from "react";
 import type { OfferStatus } from "../../api.js";
 import { useOfferDetailQuery } from "../../queries.js";
+import { OfferDocumentView } from "./offer-document-view.js";
 
 /**
  * Chat object widget for `offers:offer:<id>` refs — live data via the module
@@ -232,25 +235,21 @@ export function OfferObjectCard({
 }
 
 export function OfferObjectPanel({ objectRef }: ObjectWidgetPanelProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { data: offer } = useOfferDetailQuery(objectRef.id);
+  const label = offer
+    ? [offer.offer_number, offer.title].filter(Boolean).join(" — ")
+    : undefined;
   return (
-    <div className="h-full overflow-y-auto">
-      <OfferSingleCard offerId={objectRef.id} />
-      <OfferPanelIntroduction offerId={objectRef.id} />
-    </div>
-  );
-}
-
-function OfferPanelIntroduction({ offerId }: { offerId: string }) {
-  const { data: offer } = useOfferDetailQuery(offerId);
-  if (!offer?.introduction) {
-    return null;
-  }
-  return (
-    <div className="px-3 pb-3">
-      <div className="text-muted-foreground text-xs">Introduction</div>
-      <p className="whitespace-pre-wrap text-foreground/90 text-sm">
-        {offer.introduction}
-      </p>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto" ref={contentRef}>
+        <OfferDocumentView className="p-4" offerId={objectRef.id} />
+      </div>
+      <ObjectPanelAskAgentBar
+        contentRef={contentRef}
+        label={label}
+        objectRef={objectRef}
+      />
     </div>
   );
 }

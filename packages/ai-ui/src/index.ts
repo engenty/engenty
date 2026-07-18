@@ -114,6 +114,10 @@ export {
   readCopilotSubRunToolCallId,
 } from "./copilot/copilot-chat-paths.js";
 export {
+  registerCopilotComposerDraftSetter,
+  setCopilotComposerDraft,
+} from "./copilot/copilot-composer-draft-intent.js";
+export {
   CopilotThreadBindingProvider,
   type CopilotThreadBindingProviderProps,
   useCopilotThreadBinding,

@@ -15,6 +15,8 @@ import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
 import { registryAgentsListTool } from "../../tools/registry-agents-list-tool.js";
 import { createShowObjectsTool } from "../../tools/show-objects-tool.js";
+import { createShowUiTool } from "../../tools/show-ui-tool.js";
+import { createShowWidgetTool } from "../../tools/show-widget-tool.js";
 import { createVaultFileTools } from "../../tools/vault-files/index.js";
 import { createWebSearchTool } from "../../tools/web-search/index.js";
 
@@ -42,6 +44,8 @@ export function createEngentyCopilotAgentTools() {
     ...createVaultFileTools(),
     ...createArtifactTools(),
     show_objects: createShowObjectsTool(),
+    show_ui: createShowUiTool(),
+    show_widget: createShowWidgetTool(),
   };
 }
 

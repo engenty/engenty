@@ -1,7 +1,13 @@
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import { EngentyCoreHttpError } from "../ai/core-http-client.js";
 import { callMcpServerTool } from "../ai/mcp-apps/http-client.js";
+import {
+  callInternalMcpAppTool,
+  INTERNAL_MCP_APP_SERVER_URL,
+  InternalMcpAppCallError,
+} from "../ai/mcp-apps/internal.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import {
   type AiScopeResolver,
@@ -12,13 +18,19 @@ import {
 /**
  * Bridge proxy for widget-initiated `tools/call` (MCP Apps postMessage
  * bridge). Every call a widget makes flows through here, authenticated as the
- * viewing user and validated against the tenant's *registered* MCP app
- * servers — a widget can only call tools on the server that produced it,
- * never arbitrary URLs.
+ * viewing user. External widgets are validated against the tenant's
+ * registered MCP app servers — a widget can only call tools on the server
+ * that produced it, never arbitrary URLs. Internal widgets
+ * (`engenty:internal`) never leave the process boundary: their calls run
+ * through the core gateway with the viewing user's token, so module authz is
+ * the trust boundary.
  */
 
 const callBodySchema = z.object({
-  server_url: z.string().url().max(2048),
+  server_url: z.union([
+    z.literal(INTERNAL_MCP_APP_SERVER_URL),
+    z.string().url().max(2048),
+  ]),
   tool_name: z.string().min(1).max(256),
   arguments: z.record(z.string(), z.unknown()).default({}),
 });
@@ -56,6 +68,38 @@ export function registerMcpAppRoutes(
     if (!parsed.success) {
       return c.json({ error: "mcpApps.invalidBody" }, 400);
     }
+    if (parsed.data.server_url === INTERNAL_MCP_APP_SERVER_URL) {
+      try {
+        const result = await callInternalMcpAppTool({
+          arguments: parsed.data.arguments,
+          toolName: parsed.data.tool_name,
+          userAccessToken: scope.scope.userAccessToken,
+        });
+        return c.json({ ok: true, result });
+      } catch (err) {
+        if (err instanceof InternalMcpAppCallError) {
+          return c.json({ error: err.code }, err.status);
+        }
+        if (err instanceof EngentyCoreHttpError) {
+          // Gateway authz/validation verdicts pass through as-is — the
+          // widget surfaces them; nothing here may widen what the user can do.
+          const status =
+            err.status === 401 || err.status === 403 || err.status === 404
+              ? err.status
+              : 502;
+          return c.json(
+            { error: "mcpApps.internalCallFailed", code: err.code },
+            status
+          );
+        }
+        return handleRouteError(
+          c,
+          "internal MCP app tool call failed",
+          "mcpApps.internalCallFailed",
+          err
+        );
+      }
+    }
     try {
       const allowed = await opts.serverConfigs.listServerUrls(
         scope.scope.tenantId
@@ -71,7 +115,12 @@ export function registerMcpAppRoutes(
       });
       return c.json({ ok: true, result });
     } catch (err) {
-      return handleRouteError(c, err);
+      return handleRouteError(
+        c,
+        "MCP app server tool call failed",
+        "mcpApps.callFailed",
+        err
+      );
     }
   });
 }

@@ -156,7 +156,7 @@ export function createShowObjectsTool() {
   return createTool({
     id: "show_objects",
     description:
-      "Render engenty objects (contacts, offers, tasks, invoices, team members, …) as interactive cards in the chat UI instead of describing them in prose. Pass refs as '<module>:<entity>:<id>' strings. The entity is NOT the module name — use exactly: 'contacts:contact:<uuid>', 'offers:offer:<uuid>', 'tasks:task:<uuid>', 'invoices:invoice:<uuid>', 'team:member:<uuid>'. Use display 'inline' for cards in the conversation (default), 'panel' to open in the side panel, 'expanded' for the large view. Prefer this whenever the user asks to see, list, or work on records.",
+      "Render engenty objects (contacts, offers, tasks, invoices, team members, …) as interactive cards in the chat UI instead of describing them in prose. Pass refs as '<module>:<entity>:<id>' strings. The entity is NOT the module name — use exactly: 'contacts:contact:<uuid>', 'offers:offer:<uuid>', 'tasks:task:<uuid>', 'invoices:invoice:<uuid>', 'team:member:<uuid>'. Use display 'inline' for cards in the conversation (default), 'panel' to open in the side panel, 'expanded' for the large view. When the user wants to work ON one record (e.g. 'let's work on offer X', 'show me the full offer'), pass its single ref with display 'expanded' — offers/invoices then render as a full document beside the chat that live-updates as you edit them with module tools. Prefer this whenever the user asks to see, list, or work on records.",
     inputSchema: z.object({
       refs: z
         .array(z.string().min(1))
