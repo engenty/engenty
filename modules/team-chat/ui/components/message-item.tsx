@@ -11,6 +11,10 @@ import {
   PopoverContent,
   PopoverTrigger,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@engenty/ui-core";
 import {
   Bot,
@@ -103,8 +107,10 @@ function AttachmentImage({ file }: { file: MessageFile }) {
     <a href={urlQuery.data} rel="noreferrer" target="_blank">
       <img
         alt={file.filename ?? ""}
-        className="max-h-64 max-w-72 rounded-md border border-border/60 object-cover"
+        className="max-h-64 w-auto max-w-72 rounded-md border border-border/60 object-cover"
+        height={256}
         src={urlQuery.data}
+        width={288}
       />
     </a>
   );
@@ -177,22 +183,50 @@ function ReactionPills({
   );
 }
 
-function EmojiPickerPopover({
+/** Icon button wrapped in a tooltip (the action bar is icon-only). */
+function ActionTip({
   children,
-  onSelect,
+  label,
 }: {
   children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent side="top">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function EmojiPickerPopover({
+  children,
+  onOpenChange,
+  onSelect,
+  tooltip,
+}: {
+  children: React.ReactNode;
+  /** Lets the action bar keep itself visible while the picker is open. */
+  onOpenChange?: (open: boolean) => void;
   onSelect: (emoji: string) => void;
+  tooltip?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const setBoth = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
+  const trigger = <PopoverTrigger asChild>{children}</PopoverTrigger>;
   return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+    <Popover onOpenChange={setBoth} open={open}>
+      {tooltip ? <ActionTip label={tooltip}>{trigger}</ActionTip> : trigger}
       <PopoverContent align="end" className="w-fit p-0">
         <EmojiPicker
           className="h-[300px]"
           onEmojiSelect={({ emoji }) => {
-            setOpen(false);
+            setBoth(false);
             onSelect(emoji);
           }}
         >
@@ -246,6 +280,9 @@ export function MessageItem({
   const locale = i18n.language;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  // Keeps the hover action bar mounted while its emoji popover is open —
+  // otherwise the popover's anchor unmounts and it jumps to the viewport origin.
+  const [actionsPinned, setActionsPinned] = useState(false);
 
   if (message.subtype) {
     return <SystemMessageRow locale={locale} message={message} users={users} />;
@@ -381,6 +418,7 @@ export function MessageItem({
             onToggleReaction ? (
               <EmojiPickerPopover
                 onSelect={(emoji) => onToggleReaction(message.ts, emoji, false)}
+                tooltip={t("message.react")}
               >
                 <button
                   aria-label={t("message.react")}
@@ -413,10 +451,17 @@ export function MessageItem({
         ) : null}
       </div>
 
-      <div className="absolute top-0 right-3 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-border/60 bg-card p-0.5 shadow-[var(--e-1)] group-hover:flex">
+      <div
+        className={cn(
+          "absolute top-0 right-3 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-border/60 bg-card p-0.5 shadow-[var(--e-1)] group-hover:flex",
+          actionsPinned && "flex"
+        )}
+      >
         {onToggleReaction ? (
           <EmojiPickerPopover
+            onOpenChange={setActionsPinned}
             onSelect={(emoji) => onToggleReaction(message.ts, emoji, false)}
+            tooltip={t("message.react")}
           >
             <Button
               aria-label={t("message.react")}
@@ -428,44 +473,52 @@ export function MessageItem({
           </EmojiPickerPopover>
         ) : null}
         {onOpenThread && !inThread ? (
-          <Button
-            aria-label={t("thread.openThread")}
-            onClick={() => onOpenThread(message.ts)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <MessageSquareText className="size-3.5" />
-          </Button>
+          <ActionTip label={t("thread.openThread")}>
+            <Button
+              aria-label={t("thread.openThread")}
+              onClick={() => onOpenThread(message.ts)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <MessageSquareText className="size-3.5" />
+            </Button>
+          </ActionTip>
         ) : null}
         {onTogglePin && !inThread ? (
-          <Button
-            aria-label={pinned ? t("message.unpin") : t("message.pin")}
-            onClick={() => onTogglePin(message.ts, pinned)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Pin className={cn("size-3.5", pinned && "fill-current")} />
-          </Button>
+          <ActionTip label={pinned ? t("message.unpin") : t("message.pin")}>
+            <Button
+              aria-label={pinned ? t("message.unpin") : t("message.pin")}
+              onClick={() => onTogglePin(message.ts, pinned)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Pin className={cn("size-3.5", pinned && "fill-current")} />
+            </Button>
+          </ActionTip>
         ) : null}
         {canEdit && onSaveEdit ? (
-          <Button
-            aria-label={t("message.edit")}
-            onClick={startEdit}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Pencil className="size-3.5" />
-          </Button>
+          <ActionTip label={t("message.edit")}>
+            <Button
+              aria-label={t("message.edit")}
+              onClick={startEdit}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </ActionTip>
         ) : null}
         {canDelete && onDelete ? (
-          <Button
-            aria-label={t("message.delete")}
-            onClick={() => onDelete(message.ts)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+          <ActionTip label={t("message.delete")}>
+            <Button
+              aria-label={t("message.delete")}
+              onClick={() => onDelete(message.ts)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </ActionTip>
         ) : null}
       </div>
     </div>

@@ -70,7 +70,8 @@ export function createTeamChatRetrievalSource(options: {
   return {
     buildDocument: async ({ doc_id, tenant_id }) => {
       const row = await loadMessage(doc_id, tenant_id);
-      if (!row || row.deleted_at) {
+      // Attachment-only messages have empty text — nothing searchable.
+      if (!row || row.deleted_at || !row.text) {
         return null;
       }
       return {
@@ -92,6 +93,7 @@ export function createTeamChatRetrievalSource(options: {
         .select("conversation_id, ts, updated_at, conversations!inner(type)")
         .eq("tenant_id", tenant_id)
         .is("deleted_at", null)
+        .neq("text", "")
         .in("conversations.type", SEARCHABLE_TYPES)
         .order("updated_at", { ascending: false })
         .limit(limit);

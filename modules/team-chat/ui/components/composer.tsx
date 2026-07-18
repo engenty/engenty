@@ -16,6 +16,10 @@ import {
   PopoverContent,
   PopoverTrigger,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@engenty/ui-core";
 import {
   AtSign,
@@ -31,6 +35,24 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { currentTenantId, isImageMime } from "../lib/attachments.js";
 import { authorInitials } from "../lib/format.js";
+
+/** Icon button wrapped in a tooltip (the composer controls are icon-only). */
+function ActionTip({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent side="top">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export interface MentionCandidate {
   id: string;
@@ -267,7 +289,9 @@ export function Composer({
                 <img
                   alt=""
                   className="size-10 rounded-[3px] object-cover"
+                  height={40}
                   src={attachment.previewUrl}
+                  width={40}
                 />
               ) : (
                 <Paperclip className="size-4 text-muted-foreground" />
@@ -305,26 +329,30 @@ export function Composer({
       />
 
       <div className="ui-canvas-field flex items-end gap-2 p-1.5">
-        <Button
-          aria-label={t("composer.attach")}
-          disabled={disabled}
-          onClick={() => fileInputRef.current?.click()}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <Paperclip className="size-4" />
-        </Button>
+        <ActionTip label={t("composer.attach")}>
+          <Button
+            aria-label={t("composer.attach")}
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <Paperclip className="size-4" />
+          </Button>
+        </ActionTip>
         <Popover onOpenChange={setEmojiOpen} open={emojiOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              aria-label={t("composer.emoji")}
-              disabled={disabled}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <SmilePlus className="size-4" />
-            </Button>
-          </PopoverTrigger>
+          <ActionTip label={t("composer.emoji")}>
+            <PopoverTrigger asChild>
+              <Button
+                aria-label={t("composer.emoji")}
+                disabled={disabled}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <SmilePlus className="size-4" />
+              </Button>
+            </PopoverTrigger>
+          </ActionTip>
           <PopoverContent align="start" className="w-fit p-0" side="top">
             <EmojiPicker
               className="h-[300px]"
@@ -394,15 +422,17 @@ export function Composer({
           rows={1}
           value={text}
         />
-        <Button
-          aria-label={t("composer.send")}
-          disabled={!canSend}
-          onClick={submit}
-          size="icon"
-          variant={canSend ? "default" : "ghost"}
-        >
-          <SendHorizonal className="size-4" />
-        </Button>
+        <ActionTip label={t("composer.send")}>
+          <Button
+            aria-label={t("composer.send")}
+            disabled={!canSend}
+            onClick={submit}
+            size="icon"
+            variant={canSend ? "default" : "ghost"}
+          >
+            <SendHorizonal className="size-4" />
+          </Button>
+        </ActionTip>
       </div>
       {compact ? null : (
         <p className="mt-1 px-1 text-[11px] text-muted-foreground">
