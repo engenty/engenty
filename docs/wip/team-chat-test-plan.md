@@ -51,13 +51,23 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
 - Paste image → chip w/ thumbnail → upload → inline image render (signed URL)
 - File picker path; attachment-only send; emoji insert at cursor
 
-**Phase 5 additions** — verify after deploy of this change:
-- ◻ Flat project-tab styling (no card chrome)
-- ◻ Mention chips show colored backgrounds (light + dark)
+**Phase 5 additions**
+- ✅ Flat project-tab styling (no card chrome) — 2026-07-18
+- ✅ Mention chips show colored backgrounds (light + dark) — 2026-07-18
 - ◻ Channel details popover: members list, invite user, invite agent, remove
   member, activity toggle suppresses/permits activity lines
-- ◻ Workspace search returns channel messages (`team-chat.message` source);
-  DMs never appear in results (search as second user)
+- ✅ Workspace search returns channel messages (`team-chat.message` source);
+  DMs never appear in results — 2026-07-19. Backfill 14/0 processed/failed →
+  13 channel docs (the lone `im` message excluded); a freshly posted message
+  auto-indexes via `onEvents` in <5 s; both `team_chat_message_search` and the
+  federated `core_workspace_search` return the hit.
+  - Regression fixed here: the source selected `messages.scope_id` (that column
+    lives on `conversations`), so every `buildDocument` threw and indexing
+    silently produced **zero** documents on both the live and backfill paths.
+    Read `scope_id` from the embedded `conversations` join. **Add a check to the
+    security/regression list: after any schema change, re-run a backfill and
+    assert `failed === 0`** — swallowed `onError` makes this failure invisible
+    in the UI.
 
 ## 3. Security/regression checklist (each release)
 
@@ -66,6 +76,9 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
 - Agent cannot post to a private channel it is not a member of
 - Service caller cannot post non-`subtype` messages
 - `<@u:…>` tokens never leak raw ids in previews (plain-text rendering)
+- After any `messages`/`conversations` schema change: run the `team-chat.message`
+  backfill and assert `failed === 0` (indexing errors are swallowed by the host's
+  `onError`, so a broken `buildDocument` shows no UI symptom)
 
 ## 4. Known gaps / future automation
 
