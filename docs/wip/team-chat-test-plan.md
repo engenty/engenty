@@ -72,6 +72,18 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
     assert `failed === 0`** — swallowed `onError` makes this failure invisible
     in the UI.
 
+**UI polish round (2026-07-19, @ d9b6503)**
+- ✅ Threads closed by default (reply-count bar only; open via bar or toolbar)
+- ✅ Toolbar thread button opens a reply composer on reply-less messages
+- ✅ Emoji picker anchors to the toolbar (action bar pinned while popover open;
+  was jumping to the viewport origin when its hidden-on-unhover anchor unmounted)
+- ✅ Search-index console (`/settings/search-index`, superadmin + developer
+  mode): team-chat.message card shows clean 17/17 · 0 missing after rebuild;
+  attachment-only (empty-text) messages excluded from the doc list
+- ◻ Tooltips on toolbar/composer icon buttons — wiring matches the proven
+  task-card pattern; CDP hover can't trigger Base-UI tooltips (driver
+  artifact), re-check by hand
+
 ## 3. Security/regression checklist (each release)
 
 - Private channel/DM invisible to non-member: list, info, history, search,
