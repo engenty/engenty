@@ -204,7 +204,23 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   // composer is QUEUED instead of aborting the current run. Queued messages
   // auto-drain one per run as the thread returns to "ready", and are reorderable /
   // deletable / sendable-now (which STOPS the current run for real and sends).
-  const queue = useCopilotMessageQueue({ status, submit: stopAndSubmit });
+  const queue = useCopilotMessageQueue({
+    status,
+    submit: stopAndSubmit,
+    // Scope the queue to the active thread so it resets on a thread switch /
+    // "New chat" and can never replay into an unrelated thread.
+    threadId: recoverySessionKey,
+    // An open approval interrupt pauses the run for the user — don't auto-drain
+    // the next turn across a pending approval.
+    blocked: host.awaitingInterrupt,
+  });
+
+  // Stop clears the queue too: stopping a wedged/parked run must not leave
+  // messages parked to auto-send once the thread frees up.
+  const stopAndClearQueue = useCallback(() => {
+    queue.clear();
+    host.cancel();
+  }, [queue.clear, host.cancel]);
 
   // MUST forward `options` (attachments, agent override) — a text-only wrapper
   // here silently drops uploaded attachments (they upload, then never reach the
@@ -352,8 +368,8 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     messages,
     minimalChrome: true,
     onApplySuggestions: noopAsync,
-    onCancel: host.cancel,
-    onStop: host.cancel,
+    onCancel: stopAndClearQueue,
+    onStop: stopAndClearQueue,
     onClose: noop,
     onNewChat: () => startNewChat(),
     onSandboxCommandApprove: handleSandboxCommandApprove,
