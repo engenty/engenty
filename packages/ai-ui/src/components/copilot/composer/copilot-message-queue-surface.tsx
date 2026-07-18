@@ -160,17 +160,12 @@ export function CopilotMessageQueueSurface({
     return null;
   }
   return (
-    <div
-      className={cn(
-        "rounded-lg border border-border/60 bg-muted/30 p-2 text-sm",
-        className
-      )}
-    >
+    // Chrome-less: rendered inside the composer dock flap, which provides the
+    // card background and border — no box of its own.
+    <div className={cn("text-sm", className)}>
       <div className="mb-1.5 px-1 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
         {labels.title} · {queued.length}
       </div>
-      {/* Right inset keeps the row controls clear of the global voice-assistant
-          blob, which floats fixed at the screen's bottom-right. */}
       <DndContext
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
@@ -180,7 +175,7 @@ export function CopilotMessageQueueSurface({
           items={queued.map((m) => m.id)}
           strategy={verticalListSortingStrategy}
         >
-          <ul className="flex flex-col gap-1 pr-16">
+          <ul className="flex flex-col gap-1">
             {queued.map((message) => (
               <QueuedRow
                 key={message.id}

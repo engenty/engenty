@@ -591,9 +591,9 @@ export function CopilotDrawerBody({
     />
   ) : null;
 
-  const dockedInterruptSurface = interruptBanner ? (
-    <div className="px-3 pb-3">{interruptBanner}</div>
-  ) : null;
+  // No padding wrapper: the composer dock flap (shell `dockContent`) provides
+  // the attached card surface and its own padding.
+  const dockedInterruptSurface = interruptBanner;
 
   const panelContent = (
     <CopilotPanelContent

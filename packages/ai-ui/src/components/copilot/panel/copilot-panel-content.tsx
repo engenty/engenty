@@ -427,9 +427,6 @@ export function CopilotPanelContent({
           suggestedUpdatesLabel={suggestedUpdatesLabel}
         />
       ) : null}
-      {dockedInterruptSurface ? (
-        <div className="shrink-0 pt-3">{dockedInterruptSurface}</div>
-      ) : null}
       <CopilotPanelComposerBlock
         autoExpand={resolvedAutoExpand}
         centerEmptyLanding={centerEmptyLanding}
@@ -441,6 +438,7 @@ export function CopilotPanelContent({
         composerOverride={composerOverride}
         composerPlaceholder={composerPlaceholder}
         composerWrapperClassName={composerWrapperClassName}
+        dockedSurface={dockedInterruptSurface}
         draft={draft}
         emptyStateSubtitle={emptyStateSubtitle}
         emptyStateTitle={emptyStateTitle}
