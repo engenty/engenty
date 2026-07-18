@@ -54,8 +54,11 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
 **Phase 5 additions**
 - ✅ Flat project-tab styling (no card chrome) — 2026-07-18
 - ✅ Mention chips show colored backgrounds (light + dark) — 2026-07-18
-- ◻ Channel details popover: members list, invite user, invite agent, remove
-  member, activity toggle suppresses/permits activity lines
+- ✅ Channel details popover: members list, invite user, invite agent, remove
+  member — 2026-07-18. Activity toggle suppression — 2026-07-19: with
+  `settings.activity.enabled=false`, a task status change (`tasks_update`) posts
+  **no** activity line (count held at 3; the task itself still transitioned, so
+  it's the feed that's gated, not the update); re-enabling resumes posting.
 - ✅ Workspace search returns channel messages (`team-chat.message` source);
   DMs never appear in results — 2026-07-19. Backfill 14/0 processed/failed →
   13 channel docs (the lone `im` message excluded); a freshly posted message
