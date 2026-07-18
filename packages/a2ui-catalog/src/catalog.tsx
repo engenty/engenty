@@ -8,6 +8,7 @@ import {
   ActionSchema,
   Catalog,
   ChildListSchema,
+  type ComponentContext,
   DynamicStringSchema,
 } from "@a2ui/web_core/v0_9";
 import { cn, Badge as UiBadge, Button as UiButton } from "@engenty/ui-core";
@@ -81,6 +82,39 @@ function asText(value: unknown): string {
     : "";
 }
 
+/**
+ * Resolve an `action` prop into a click handler.
+ *
+ * When the binder resolves the field (zod-3 schema introspection) it hands us
+ * a ready `() => void` closure. But the A2UI binder reads zod internals by
+ * major version, and this monorepo pins the app to zod 4 while the a2ui stack
+ * needs zod 3 — a mismatch the bundler can reintroduce (see the zod overrides
+ * + binder-contract test). To stay correct regardless, fall back to
+ * dispatching the raw `{ event: { name, context } }` payload through the
+ * component context ourselves — the same channel the resolved closure uses.
+ */
+function resolveA2uiActionHandler(
+  action: unknown,
+  context: ComponentContext
+): (() => void) | undefined {
+  if (typeof action === "function") {
+    return action as () => void;
+  }
+  if (
+    action &&
+    typeof action === "object" &&
+    "event" in action &&
+    (action as { event?: unknown }).event
+  ) {
+    // `dispatchAction` expects the whole `{ event: { name, context } }`
+    // payload (it reads `payload.event`), not the unwrapped event.
+    return () => {
+      void context.dispatchAction(action);
+    };
+  }
+  return;
+}
+
 const List = createComponentImplementation(
   {
     name: "List",
@@ -106,57 +140,57 @@ const RowApi = {
   }),
 };
 
-const Row = createComponentImplementation(RowApi, ({ buildChild, props }) => {
-  const host = useContext(EngentyA2uiHostContext);
-  const objectRef =
-    typeof props.objectRef === "string" ? props.objectRef : undefined;
-  if (objectRef && host.renderObjectRef) {
-    // Bridge property: the native record row renders instead — live data,
-    // viewer authz, panel/menu affordances from the tier-1 machinery.
-    return <>{host.renderObjectRef(objectRef)}</>;
-  }
-  const action =
-    typeof props.action === "function"
-      ? (props.action as () => void)
-      : undefined;
-  const body = (
-    <>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-foreground text-sm">
-          {asText(props.title)}
-        </div>
-        {asText(props.subtitle) ? (
-          <div className="truncate text-muted-foreground text-xs">
-            {asText(props.subtitle)}
+const Row = createComponentImplementation(
+  RowApi,
+  ({ buildChild, context, props }) => {
+    const host = useContext(EngentyA2uiHostContext);
+    const objectRef =
+      typeof props.objectRef === "string" ? props.objectRef : undefined;
+    if (objectRef && host.renderObjectRef) {
+      // Bridge property: the native record row renders instead — live data,
+      // viewer authz, panel/menu affordances from the tier-1 machinery.
+      return <>{host.renderObjectRef(objectRef)}</>;
+    }
+    const action = resolveA2uiActionHandler(props.action, context);
+    const body = (
+      <>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-foreground text-sm">
+            {asText(props.title)}
           </div>
+          {asText(props.subtitle) ? (
+            <div className="truncate text-muted-foreground text-xs">
+              {asText(props.subtitle)}
+            </div>
+          ) : null}
+        </div>
+        {asText(props.meta) ? (
+          <span className="shrink-0 text-muted-foreground text-xs">
+            {asText(props.meta)}
+          </span>
         ) : null}
-      </div>
-      {asText(props.meta) ? (
-        <span className="shrink-0 text-muted-foreground text-xs">
-          {asText(props.meta)}
-        </span>
-      ) : null}
-      {asText(props.badge) ? (
-        <UiBadge className="shrink-0 text-[10px]" variant="secondary">
-          {asText(props.badge)}
-        </UiBadge>
-      ) : null}
-      {renderChildren(props.children, buildChild)}
-    </>
-  );
-  if (action) {
-    return (
-      <button
-        className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/50"
-        onClick={action}
-        type="button"
-      >
-        {body}
-      </button>
+        {asText(props.badge) ? (
+          <UiBadge className="shrink-0 text-[10px]" variant="secondary">
+            {asText(props.badge)}
+          </UiBadge>
+        ) : null}
+        {renderChildren(props.children, buildChild)}
+      </>
     );
+    if (action) {
+      return (
+        <button
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/50"
+          onClick={action}
+          type="button"
+        >
+          {body}
+        </button>
+      );
+    }
+    return <div className="flex items-center gap-2.5 px-2 py-2">{body}</div>;
   }
-  return <div className="flex items-center gap-2.5 px-2 py-2">{body}</div>;
-});
+);
 
 const DetailGrid = createComponentImplementation(
   {
@@ -244,14 +278,10 @@ const Button = createComponentImplementation(
       label: DynamicStringSchema.optional(),
     }),
   },
-  ({ props }) => (
+  ({ context, props }) => (
     <UiButton
       className="h-7 rounded-full px-2.5 text-xs"
-      onClick={
-        typeof props.action === "function"
-          ? (props.action as () => void)
-          : undefined
-      }
+      onClick={resolveA2uiActionHandler(props.action, context)}
       size="sm"
       variant="outline"
     >
