@@ -276,7 +276,10 @@ export function MessageItem({
   return (
     <div
       className={cn(
-        "group relative flex gap-3 rounded-md px-4 transition-colors hover:bg-muted/70 dark:hover:bg-muted/40",
+        // Foreground-alpha, not `muted`: the stream sits on the canvas
+        // (bg-background), which is darker than `muted` in this theme, so a
+        // muted overlay computes to an invisible highlight.
+        "group relative flex gap-3 rounded-md px-4 transition-colors hover:bg-foreground/5 dark:hover:bg-foreground/6",
         showHeader ? "mt-2.5 pt-1 pb-1" : "py-1"
       )}
     >
@@ -394,7 +397,7 @@ export function MessageItem({
 
         {showThreadBar ? (
           <button
-            className="mt-1 flex items-center gap-1.5 rounded-[4px] py-0.5 pr-2 text-xs hover:bg-muted/60"
+            className="mt-1 flex items-center gap-1.5 rounded-[4px] py-0.5 pr-2 text-xs hover:bg-foreground/5"
             onClick={() => onOpenThread?.(message.ts)}
             type="button"
           >
