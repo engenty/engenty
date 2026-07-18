@@ -1,6 +1,6 @@
 {
   "$schema": "https://v2-9-16.turborepo.dev/schema.json",
-  "ui": "tui",
+  "ui": "stream",
   "concurrency": "40",
   "globalDependencies": [".env", ".env.local", ".env.*.local"],
   "globalEnv": [
