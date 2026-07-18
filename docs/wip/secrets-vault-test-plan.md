@@ -138,6 +138,20 @@ let q = db().from("secrets")
 The `/list` and `/fetch`-style sibling ops (if added) need the same guard — audit every
 service-role read for a tenant filter.
 
+## UI tests (driven in-browser via injected sessions, no credential form)
+
+| # | Action | Result |
+|---|---|---|
+| U1 | **Admin** login → `/mdl/secrets` renders, lists secrets with correct scope labels (`· user`/`· tenant`/`· project`/`· client`) | ✅ |
+| U2 | Admin **create** via form (own values `svc-account` / `S3cr3t-UI-value`) → count 7→8, new row on top | ✅ |
+| U3 | Admin **reveal** the new row → shows exactly `{"username":"svc-account","password":"S3cr3t-UI-value"}` | ✅ |
+| U4 | **Bob (member)** login → reduced nav (no Admin section), sees the shared tenant list | ✅ |
+| U5 🔒 | Bob **reveal admin's** user-owned `UITest-Admin` → UI shows **"Forbidden"**, no payload | ✅ |
+| U6 | Bob **reveal tenant-scoped** `projQ4Owned` (in-tenant) → payload shown | ✅ |
+
+Confirms the server-side owner-scope enforcement surfaces correctly in the UI: a member sees
+metadata but is denied another user's secret (error banner), and can read tenant-scoped ones.
+
 ## Exit criteria
 All 🔒 cases pass (B, C, D, E-8/11/13, F, G, H-17, I). Non-🔒 failures are bugs to file, not
 necessarily blockers. Record results inline and file any deviation against the plan's §9 roadblocks.
