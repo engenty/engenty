@@ -91,6 +91,10 @@ registerObjectWidget({
 
 - **`card`** receives `{ refs, items?, provenance?, onOpenInPanel? }`. One ref
   means a single card, several mean a list — the same component handles both.
+- **`panel`** is the side-pane view. For document-shaped records it should be
+  the *full document*, not a bigger card — offers and invoices render a
+  chrome-less `CommercialDocumentView` there, plus the panel→chat bar. See
+  [Generative UI](./generative-ui) for the pattern.
 - **`matchHref`** is the reverse mapping: it lets a plain `/mdl/...` link in the
   agent's prose upgrade into an object chip.
 - Registration is reactive. A plugin that registers late re-renders any card
@@ -158,12 +162,16 @@ A card does not ask "am I in the drawer?". The surface declares what it can do,
 through `ObjectDisplayIntentProvider`:
 
 ```tsx
-<ObjectDisplayIntentProvider value={{ openInPanel, applyDisplayHint, navigateFromChat }}>
+<ObjectDisplayIntentProvider
+  value={{ openInPanel, applyDisplayHint, askAgent, navigateFromChat }}
+>
 ```
 
-- **Full-page chat** provides all three. `navigateFromChat` docks the chat into
+- **Full-page chat** provides all four. `navigateFromChat` docks the chat into
   the drawer (via `openCopilotShell`) *before* navigating, so a link to a module
-  route does not throw the conversation away.
+  route does not throw the conversation away. `askAgent` prefills the composer
+  from panel affordances ("Ask the agent to…" — see
+  [Generative UI](./generative-ui)).
 - **The drawer provides nothing.** The default `{}` is what makes it correct:
   no `openInPanel` means rows navigate and the pane entries drop out of the
   menu. There is no pane to open into.
@@ -205,7 +213,10 @@ The frame speaks MCP JSON-RPC over `postMessage`:
 - `ui/notifications/initialized` → the host pushes tool input + result
 - `tools/call` → proxied through `POST /ai/mcp-apps/call`, which authenticates
   the viewing user and **validates the target server against the tenant
-  registry** (a server that is not registered gets a 403)
+  registry** (a server that is not registered gets a 403). The pseudo server
+  `engenty:internal` is the exception: its calls run through the core gateway
+  as the viewing user instead of going out over HTTP — that is how
+  [generated widgets](./generative-ui) get interactivity
 - `ui/open-link` → http(s) only
 - `size-changed` → clamped to 120–640px
 
