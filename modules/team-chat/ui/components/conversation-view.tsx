@@ -40,10 +40,13 @@ export function ConversationView({
   embedded?: boolean;
 }) {
   const { t } = useTranslation("team-chat");
-  // Threads are expanded inline by default; users can collapse individual ones.
+  // Threads with replies are visible by default; a root in `collapsedThreads`
+  // is hidden. A root in `openedThreads` is force-shown even with zero replies —
+  // that's how the toolbar's thread button starts a brand-new thread.
   const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(
     new Set()
   );
+  const [openedThreads, setOpenedThreads] = useState<Set<string>>(new Set());
   const { session } = useCoreAuthSession();
   const currentUserId = session?.user?.id ?? null;
 
@@ -72,6 +75,21 @@ export function ConversationView({
     [historyQuery.data]
   );
   const latestTs = messages.at(-1)?.ts ?? null;
+
+  // Roots whose inline thread is currently shown (replies visible by default
+  // unless collapsed; a root in `openedThreads` shows even with zero replies).
+  const visibleThreads = useMemo(() => {
+    const set = new Set<string>();
+    for (const message of messages) {
+      if (
+        (message.reply_count > 0 && !collapsedThreads.has(message.ts)) ||
+        openedThreads.has(message.ts)
+      ) {
+        set.add(message.ts);
+      }
+    }
+    return set;
+  }, [messages, collapsedThreads, openedThreads]);
 
   // Reading the conversation advances the read cursor (conversations.mark).
   useEffect(() => {
@@ -128,11 +146,22 @@ export function ConversationView({
     Boolean(userId && userId === currentUserId) ||
     conversation.member_role === "owner";
 
-  // Inline threads are open by default; toggling flips the collapsed set.
+  // Toggle a root's inline thread. Showing always wins via `openedThreads`;
+  // hiding drops it there and, for a thread that has replies, marks it collapsed.
   const toggleThread = (ts: string) => {
+    const show = !visibleThreads.has(ts);
+    setOpenedThreads((previous) => {
+      const next = new Set(previous);
+      if (show) {
+        next.add(ts);
+      } else {
+        next.delete(ts);
+      }
+      return next;
+    });
     setCollapsedThreads((previous) => {
       const next = new Set(previous);
-      if (next.has(ts)) {
+      if (show) {
         next.delete(ts);
       } else {
         next.add(ts);
@@ -172,7 +201,6 @@ export function ConversationView({
         canEdit={(message) =>
           Boolean(message.user_id && message.user_id === currentUserId)
         }
-        collapsedThreads={collapsedThreads}
         currentUserId={currentUserId}
         emptyState={
           <Empty className="mx-auto">
@@ -237,6 +265,7 @@ export function ConversationView({
           />
         )}
         users={users}
+        visibleThreads={visibleThreads}
       />
 
       {canPost ? (

@@ -13,8 +13,6 @@ import { MentionChipStyles, MessageItem } from "./message-item.js";
 export interface MessageListProps {
   canDelete: (message: TeamChatMessage) => boolean;
   canEdit: (message: TeamChatMessage) => boolean;
-  /** Threads are expanded by default; roots in this set are collapsed. */
-  collapsedThreads?: ReadonlySet<string>;
   currentUserId: string | null;
   emptyState?: React.ReactNode;
   hasMore?: boolean;
@@ -31,12 +29,18 @@ export interface MessageListProps {
   /** Renders the inline thread body under an expanded root message. */
   renderThread?: (threadTs: string) => React.ReactNode;
   users: UsersById;
+  /**
+   * Roots whose inline thread (replies + reply composer) is currently visible.
+   * Drives both the render gate and the expand/collapse chevron — a root can be
+   * here with zero replies (a thread the user just opened to start replying).
+   */
+  visibleThreads?: ReadonlySet<string>;
 }
 
 export function MessageList({
   canDelete,
   canEdit,
-  collapsedThreads,
+  visibleThreads,
   currentUserId,
   renderThread,
   emptyState,
@@ -119,14 +123,10 @@ export function MessageList({
                 onToggleReaction={onToggleReaction}
                 pinned={pinnedTs?.has(message.ts) ?? false}
                 showHeader={showHeader}
-                threadExpanded={
-                  message.reply_count > 0 && !collapsedThreads?.has(message.ts)
-                }
+                threadExpanded={visibleThreads?.has(message.ts) ?? false}
                 users={users}
               />
-              {message.reply_count > 0 &&
-              !collapsedThreads?.has(message.ts) &&
-              renderThread
+              {visibleThreads?.has(message.ts) && renderThread
                 ? renderThread(message.ts)
                 : null}
             </div>
