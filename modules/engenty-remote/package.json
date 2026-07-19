@@ -1,0 +1,42 @@
+{
+  "name": "@engenty/engenty-remote",
+  "version": "0.0.1",
+  "description": "External messengers as remote chat interfaces to engenty — engenty.remote agent, channel bindings, identity pairing.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    },
+    "./ai/remote": {
+      "types": "./dist/ai/remote.d.ts",
+      "default": "./dist/ai/remote.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts ai/registrar.ts ai/remote.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts ai/registrar.ts ai/remote.ts --format esm --dts --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
