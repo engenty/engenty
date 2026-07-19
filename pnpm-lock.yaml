@@ -80,6 +80,9 @@ importers:
       '@chat-adapter/slack':
         specifier: 4.34.0
         version: 4.34.0(ai@7.0.0-beta.116(zod@4.4.3))(zod@4.4.3)
+      '@chat-adapter/telegram':
+        specifier: 4.34.0
+        version: 4.34.0(ai@7.0.0-beta.116(zod@4.4.3))(zod@4.4.3)
       '@earendil-works/gondolin':
         specifier: 0.12.0
         version: 0.12.0
@@ -1394,6 +1397,9 @@ importers:
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^26.0.0
@@ -4777,6 +4783,10 @@ packages:
 
   '@chat-adapter/slack@4.34.0':
     resolution: {integrity: sha512-l+hHljueSiw/74CZKhjXpmreVlgfUaLcn9+Oh/xzwjbozrqlw3h7+c7PixiHLeuu2vc22uA2GQoFopDdjmXQQw==}
+    engines: {node: '>=20'}
+
+  '@chat-adapter/telegram@4.34.0':
+    resolution: {integrity: sha512-xM/RhozNVPYpQ4k0bhjV1rGljjsjTWzie8seaN1OpdUqEkbxKlSQtrFIfTW1MnGKAzmBaE0x9HBH/l2MDKvW9w==}
     engines: {node: '>=20'}
 
   '@chevrotain/types@11.1.2':
@@ -13670,6 +13680,15 @@ snapshots:
       - debug
       - supports-color
       - utf-8-validate
+      - zod
+
+  '@chat-adapter/telegram@4.34.0(ai@7.0.0-beta.116(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      '@chat-adapter/shared': 4.34.0(ai@7.0.0-beta.116(zod@4.4.3))(zod@4.4.3)
+      chat: 4.34.0(ai@7.0.0-beta.116(zod@4.4.3))(zod@4.4.3)
+    transitivePeerDependencies:
+      - ai
+      - supports-color
       - zod
 
   '@chevrotain/types@11.1.2': {}

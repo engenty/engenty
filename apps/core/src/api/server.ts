@@ -90,6 +90,7 @@ import { registerCoreMethods } from "./register-methods.js";
 import { registerAiAgentSystemPromptRoutes } from "./routes/ai-agent-system-prompt-routes.js";
 import { registerAiModuleCapabilityRoutes } from "./routes/ai-module-capability-routes.js";
 import { buildJsonErrorBody } from "./routes/api-response.js";
+import { registerActorTokenRoutes } from "./routes/auth/actor-token-routes.js";
 import { registerAgentAuthDiscoveryRoutes } from "./routes/auth/agent-auth-discovery.js";
 import { registerAuthRoutes } from "./routes/auth/auth-routes.js";
 import { registerDevLoginRoutes } from "./routes/auth/dev-login-routes.js";
@@ -346,6 +347,15 @@ export function createApiApp(params: CreateApiAppParams) {
     config,
     auditLog: securityAuditLog,
     stores: authStores,
+  });
+  // Delegated actor tokens (engenty-remote): the AI service mints short-lived
+  // user-scoped tokens so remote-channel turns act as the mapped user.
+  registerActorTokenRoutes({
+    app,
+    auditLog: securityAuditLog,
+    authProvider,
+    config,
+    grants: grantsService,
   });
   registerAgentAuthDiscoveryRoutes({ app });
   registerDeviceFlowRoutes({

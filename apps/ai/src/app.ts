@@ -68,7 +68,10 @@ import {
 } from "./api/realtime-session-routes.js";
 import { registerRealtimeToolRoutes } from "./api/realtime-tool-routes.js";
 import { registerRegistryRoutes } from "./api/registry-routes.js";
-import { registerRemoteChannels } from "./api/remote-channels.js";
+import {
+  registerRemoteChannels,
+  startRemoteOutboundConsumer,
+} from "./api/remote-channels.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
@@ -697,6 +700,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stopNotifications);
       process.once("SIGINT", stopNotifications);
+      // Remote channels proactive sends (remote_notify op → messenger thread).
+      const stopRemoteOutbound = startRemoteOutboundConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopRemoteOutbound);
+      process.once("SIGINT", stopRemoteOutbound);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
     }

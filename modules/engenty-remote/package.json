@@ -1,7 +1,7 @@
 {
   "name": "@engenty/engenty-remote",
   "version": "0.0.1",
-  "description": "External messengers as remote chat interfaces to engenty — engenty.remote agent, channel bindings, identity pairing.",
+  "description": "External messengers as remote chat interfaces to engenty \u2014 engenty.remote agent, channel bindings, identity pairing.",
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",
-    "@engenty/plugin-sdk": "workspace:*"
+    "@engenty/plugin-sdk": "workspace:*",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
