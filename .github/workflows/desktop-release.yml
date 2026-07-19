@@ -73,10 +73,15 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="$GITHUB_REF_NAME"
           else
+            # Latest existing release, else latest v* tag (release created below).
             TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+            if [ -z "$TAG" ]; then
+              git fetch --tags --quiet
+              TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+            fi
           fi
           if [ -z "$TAG" ]; then
-            echo "No release found to attach to"; exit 1
+            echo "No release or tag found to attach to"; exit 1
           fi
           DMG=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg | head -1)
           VERSIONED="engenty-desktop-${TAG}-macos-arm64.dmg"
