@@ -63,8 +63,13 @@ jobs:
       - name: Supabase config template check
         run: pnpm supabase:config:check
 
+      # --concurrency=4 matches the runner's 4 vCPUs. Turbo's default of 10
+      # parallel tasks lets the tail of ~8 heavy tsup --dts builds (1-2GB
+      # each) run at once on a 16GB runner — memory thrash, build wedges
+      # after ~55/63 tasks with zero output. Locally (more cores/RAM) this
+      # never shows.
       - name: Build
-        run: pnpm build
+        run: pnpm exec turbo run build --concurrency=4
 
       - name: Save turbo cache
         if: always()
