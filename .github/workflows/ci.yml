@@ -13,7 +13,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A cold turbo build alone takes ~20min (no remote cache in CI); 30min
+    # killed every push on busy days once typecheck/tests queued behind it.
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
