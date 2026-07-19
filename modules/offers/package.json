@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/offers-manager.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/offers-manager.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. modules/offers/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
