@@ -6,9 +6,31 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ThemeProvider } from "./components/theme-provider";
+import { initDesktopRuntime } from "./desktop/desktop-runtime";
+import { installDesktopShellListeners } from "./desktop/desktop-shell-listeners";
+import { ServerPickerScreen } from "./desktop/ServerPickerScreen";
 import "./index.css";
 
 async function bootstrap() {
+  installDesktopShellListeners();
+  // Desktop shell: apply the stored server config before anything reads env.
+  // Without a configured server, show the picker and boot after a reload.
+  if (!initDesktopRuntime()) {
+    createRoot(document.getElementById("root")!).render(
+      <StrictMode>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange
+          enableSystem
+          storageKey="engenty-ui-theme"
+        >
+          <ServerPickerScreen onConnected={() => window.location.reload()} />
+        </ThemeProvider>
+      </StrictMode>
+    );
+    return;
+  }
   const i18nApi = await initUiI18n({
     coreNamespaces: {
       common: {

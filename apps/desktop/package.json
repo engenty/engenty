@@ -1,0 +1,16 @@
+{
+  "name": "@engenty/desktop",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "bundle": "tauri build",
+    "bundle:dmg": "tauri build --bundles dmg",
+    "lint": "biome check ."
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
+}

@@ -5,6 +5,7 @@
 
 export { ENGENTY_DEV_SERVICE_URLS_FIXTURE } from "./dev-service-urls.fixture.js";
 export {
+  ENGENTY_DESKTOP_APP_ORIGIN,
   type EngentyDevServiceUrls,
   isEngentyCorsOriginAllowed,
   resolveEngentyDevServiceUrls,
@@ -53,3 +54,8 @@ export {
   type MastraStudioStoredConfig,
   seedMastraStudioDevConfig,
 } from "./mastra-studio-dev-config.js";
+export {
+  ENGENTY_RUNTIME_ENV_GLOBAL,
+  runtimeEnvOverride,
+  setRuntimeEnvOverrides,
+} from "./runtime-env.js";
