@@ -9,9 +9,22 @@ import {
 function setup(initialStatus: CopilotRunStatus = "streaming") {
   const submit = vi.fn();
   const { result, rerender } = renderHook(
-    ({ status }: { status: CopilotRunStatus }) =>
-      useCopilotMessageQueue({ status, submit }),
-    { initialProps: { status: initialStatus } }
+    ({
+      status,
+      threadId,
+      blocked,
+    }: {
+      status: CopilotRunStatus;
+      threadId?: string | null;
+      blocked?: boolean;
+    }) => useCopilotMessageQueue({ status, submit, threadId, blocked }),
+    {
+      initialProps: { status: initialStatus } as {
+        status: CopilotRunStatus;
+        threadId?: string | null;
+        blocked?: boolean;
+      },
+    }
   );
   return { rerender, result, submit };
 }
@@ -109,5 +122,41 @@ describe("useCopilotMessageQueue", () => {
     act(() => rerender({ status: "ready" })); // head drains once
     act(() => rerender({ status: "ready" })); // still ready, no re-drain
     expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT drain while blocked (an approval interrupt is open)", () => {
+    const { result, rerender, submit } = setup("streaming");
+    act(() => result.current.enqueue("queued"));
+    // Run pauses for an interrupt: status ready but blocked → no send.
+    act(() => rerender({ status: "ready", blocked: true }));
+    expect(submit).not.toHaveBeenCalled();
+    expect(result.current.queued.map((m) => m.text)).toEqual(["queued"]);
+    // Interrupt resolved and run truly finished → drains now.
+    act(() => rerender({ status: "ready", blocked: false }));
+    expect(submit).toHaveBeenCalledWith("queued", undefined);
+  });
+
+  it("resets the queue on thread change (no replay into another thread)", () => {
+    const { result, rerender, submit } = setup("streaming");
+    act(() => rerender({ status: "streaming", threadId: "thread-a" }));
+    act(() => result.current.enqueue("for-a"));
+    expect(result.current.queued).toHaveLength(1);
+    // Switch to a different thread (e.g. "New chat") → queue clears.
+    act(() => rerender({ status: "streaming", threadId: "thread-b" }));
+    expect(result.current.queued).toHaveLength(0);
+    // Even when the new thread goes ready, nothing from thread-a replays.
+    act(() => rerender({ status: "ready", threadId: "thread-b" }));
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("clear() discards every queued message", () => {
+    const { result } = setup("streaming");
+    act(() => {
+      result.current.enqueue("a");
+      result.current.enqueue("b");
+    });
+    act(() => result.current.clear());
+    expect(result.current.queued).toHaveLength(0);
+    expect(result.current.hasQueued).toBe(false);
   });
 });

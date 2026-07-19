@@ -71,6 +71,55 @@ import { useAppsAiActiveRunRecovery } from "./use-apps-ai-active-run-recovery.js
 
 type SubmitStatus = EngentyAgUiPanelStatus;
 
+/** Payload accepted by `resumeInterrupt` — a decision/feedback choice or a
+ *  frontend-tool/approval result. Named so the pending-resume queue can hold it. */
+export type ResumeInterruptFeedback =
+  | {
+      artifactId: string;
+      choiceId: string;
+      choiceLabel: string;
+      interruptId?: string;
+      payload?: Record<string, unknown>;
+    }
+  | {
+      approved: boolean;
+      error?: string;
+      interruptId: string;
+      output?: JsonValue;
+      toolName: string;
+    };
+
+/**
+ * True when a failed run POST is the transient 409 `agent_threads.resumeInProgress`
+ * — another resume is already driving this parked run (a benign race, e.g. a
+ * duplicate approval or a second tab). The in-flight resume will finish or
+ * re-park the next card; this attempt should NOT surface as a terminal error.
+ */
+function isResumeInProgressError(error: unknown): boolean {
+  const withCode = error as { code?: unknown; status?: unknown } | null;
+  if (
+    withCode &&
+    withCode.status === 409 &&
+    withCode.code === "agent_threads.resumeInProgress"
+  ) {
+    return true;
+  }
+  // Fallback: the code may only be embedded in the thrown message string.
+  return (
+    error instanceof Error &&
+    error.message.includes("agent_threads.resumeInProgress")
+  );
+}
+
+/** The open-interrupt id a resume feedback answers. */
+function interruptIdOfFeedback(
+  feedback: ResumeInterruptFeedback
+): string | undefined {
+  return "toolName" in feedback
+    ? feedback.interruptId
+    : (feedback.interruptId ?? feedback.artifactId);
+}
+
 export type EngentyAgUiPendingSend = {
   text: string;
   startedAt: number;
@@ -346,6 +395,14 @@ export function useEngentyAgUiAppsAiSession(
   const abortRef = useRef<AbortController | null>(null);
   const activeRunIdRef = useRef<string | null>(null);
   const submitInFlightRef = useRef(false);
+  // Serialize interrupt resumes. The backend parks the suspended session and
+  // rejects a second resume for the same run with 409 `resumeInProgress` while
+  // the first is still executing (parallel gated tool calls resolve one card at
+  // a time). Firing a competing resume also `abort()`s the in-flight resume's
+  // SSE stream (shared abortRef), stranding the run. So while a resume is in
+  // flight we QUEUE later approvals and drain them one at a time.
+  const resumeInFlightRef = useRef(false);
+  const pendingResumesRef = useRef<ResumeInterruptFeedback[]>([]);
   /** Bumps on bound thread change so stale SSE completions cannot clobber the lane. */
   const streamGenerationRef = useRef(0);
   const pendingSendRef = useRef(pendingSend);
@@ -547,6 +604,10 @@ export function useEngentyAgUiAppsAiSession(
 
     streamGenerationRef.current += 1;
     submitInFlightRef.current = false;
+    // Drop any queued/in-flight resume state — approvals belong to the thread
+    // they were composed against and must not leak into the next one.
+    resumeInFlightRef.current = false;
+    pendingResumesRef.current = [];
     prevBoundSessionIdRef.current = nextBoundSessionId;
     runtimeSessionIdRef.current = null;
     logCopilotChatNew("bound threadId change", {
@@ -762,6 +823,18 @@ export function useEngentyAgUiAppsAiSession(
           setSubmitStatus("ready");
           return;
         }
+        if (isResumeInProgressError(error)) {
+          // Benign race: another resume already owns this parked run and will
+          // drive it to completion (or re-open the next card). Surfacing an
+          // error here would wedge the thread. Return to idle and re-assert the
+          // pending interrupt from server metadata so the real card stays put;
+          // do NOT show an error banner.
+          clearPendingSend();
+          setSubmitStatus("ready");
+          setAwaitingInterrupt(true);
+          invalidateQueries(params.threadId);
+          return;
+        }
         clearPendingSend();
         setRequestError(
           options.formatRequestError(formatCopilotRunError(errorMessage(error)))
@@ -904,32 +977,35 @@ export function useEngentyAgUiAppsAiSession(
     [clearPendingSend, options, resolveActiveSessionId, runSessionStream]
   );
 
-  const resumeInterrupt = useCallback(
-    (
-      feedback:
-        | {
-            artifactId: string;
-            choiceId: string;
-            choiceLabel: string;
-            interruptId?: string;
-            payload?: Record<string, unknown>;
-          }
-        | {
-            approved: boolean;
-            error?: string;
-            interruptId: string;
-            output?: JsonValue;
-            toolName: string;
-          }
-    ) => {
-      const interruptId =
-        "toolName" in feedback
-          ? feedback.interruptId
-          : (feedback.interruptId ?? feedback.artifactId);
+  // Held in a ref so `drainNextResume` (stable) can call the latest dispatcher
+  // without a render-order cycle between the two callbacks.
+  const runResumeNowRef = useRef<(feedback: ResumeInterruptFeedback) => void>(
+    () => {
+      // replaced below
+    }
+  );
+
+  // Called when an in-flight resume settles (ready/interrupt/error): fire the
+  // next queued approval, or release the lane if none is waiting.
+  const drainNextResume = useCallback(() => {
+    const next = pendingResumesRef.current.shift();
+    if (next) {
+      runResumeNowRef.current(next);
+    } else {
+      resumeInFlightRef.current = false;
+    }
+  }, []);
+
+  const runResumeNow = useCallback(
+    (feedback: ResumeInterruptFeedback) => {
+      const interruptId = interruptIdOfFeedback(feedback);
       const threadId = resolveActiveSessionId();
       if (!(options.isTransportReady && threadId && interruptId)) {
+        // Cannot dispatch — release the lane so a later approval isn't stranded.
+        drainNextResume();
         return;
       }
+      resumeInFlightRef.current = true;
       abortRef.current?.abort();
       const abortController = new AbortController();
       abortRef.current = abortController;
@@ -976,13 +1052,45 @@ export function useEngentyAgUiAppsAiSession(
         state: options.stateSnapshot ?? conversationStateRef.current,
       });
 
+      // Drain the next queued approval only after this resume fully settles —
+      // the backend serializes resumes for the same parked run, so overlapping
+      // them races the 409 `resumeInProgress` path.
       void runSessionStream({
         abortController,
         runInput,
         threadId,
-      });
+      }).finally(drainNextResume);
     },
-    [options, resolveActiveSessionId, runSessionStream]
+    [drainNextResume, options, resolveActiveSessionId, runSessionStream]
+  );
+  runResumeNowRef.current = runResumeNow;
+
+  const resumeInterrupt = useCallback(
+    (feedback: ResumeInterruptFeedback) => {
+      const interruptId = interruptIdOfFeedback(feedback);
+      const threadId = resolveActiveSessionId();
+      if (!(options.isTransportReady && threadId && interruptId)) {
+        return;
+      }
+      // A resume is already driving the parked run (e.g. the previous parallel
+      // gated card). Queue this approval — dedup by interrupt id so re-clicking
+      // the same card replaces rather than double-sends — and let it fire when
+      // the in-flight resume settles. Do NOT abort the in-flight resume here.
+      if (resumeInFlightRef.current) {
+        const pending = pendingResumesRef.current;
+        const idx = pending.findIndex(
+          (entry) => interruptIdOfFeedback(entry) === interruptId
+        );
+        if (idx >= 0) {
+          pending[idx] = feedback;
+        } else {
+          pending.push(feedback);
+        }
+        return;
+      }
+      runResumeNowRef.current(feedback);
+    },
+    [options, resolveActiveSessionId]
   );
 
   /**
@@ -1027,11 +1135,19 @@ export function useEngentyAgUiAppsAiSession(
     abortRef.current?.abort();
     abortRef.current = null;
     submitInFlightRef.current = false;
+    // Stop also drops any pending/in-flight resume so a wedged approval chain
+    // cannot keep the lane busy after the user explicitly stopped.
+    resumeInFlightRef.current = false;
+    pendingResumesRef.current = [];
     clearPendingSend();
     setRequestError(null);
-    if (submitStatus === "streaming" || submitStatus === "submitted") {
+    // Return to idle from any non-ready state — including "error", which a 409
+    // or a stranded resume can leave behind. Without this, Stop could not
+    // recover a wedged thread and the message queue would never drain.
+    if (submitStatus !== "ready") {
       setSubmitStatus("ready");
     }
+    setAwaitingInterrupt(false);
     if (runId) {
       void cancelAiRun(runId, { reason: "user_cancel" }).catch(() => {
         // best-effort — the local abort already stopped streaming

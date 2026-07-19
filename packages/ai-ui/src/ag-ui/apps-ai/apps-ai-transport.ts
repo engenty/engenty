@@ -84,8 +84,14 @@ export async function postAppsAiThreadRun(params: {
   );
   if (!(response.ok && response.body)) {
     const raw = await response.text().catch(() => "");
-    throw new Error(
-      `ai session run HTTP ${response.status}: ${raw.slice(0, 500)}`
+    // Attach the HTTP status + parsed error code so callers can branch on
+    // transient conditions (notably 409 `agent_threads.resumeInProgress`, which
+    // means another resume is already driving this run — a benign race, not a
+    // terminal failure). Keep the `ai session run HTTP …` message shape so
+    // formatCopilotRunError still maps it.
+    throw Object.assign(
+      new Error(`ai session run HTTP ${response.status}: ${raw.slice(0, 500)}`),
+      { status: response.status, code: parseRunErrorCode(raw) }
     );
   }
   const reader = response.body.getReader();
@@ -102,6 +108,20 @@ export async function postAppsAiThreadRun(params: {
   }
   for (const event of [...parser.push(decoder.decode()), ...parser.flush()]) {
     params.onEvent(event);
+  }
+}
+
+/** Extract the `error` code from a JSON error body, or null. */
+function parseRunErrorCode(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{")) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: unknown };
+    return typeof parsed.error === "string" ? parsed.error : null;
+  } catch {
+    return null;
   }
 }
 

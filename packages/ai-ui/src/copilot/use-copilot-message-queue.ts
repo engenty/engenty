@@ -20,15 +20,25 @@ export interface QueuedCopilotMessage {
 export type CopilotRunStatus = "ready" | "streaming" | "submitted" | "error";
 
 export interface UseCopilotMessageQueueParams {
+  // When true, auto-drain is suspended even at "ready" — e.g. while an approval
+  // interrupt is open the run is paused for the user, not finished, so sending
+  // the next turn would cut across the pending approval.
+  blocked?: boolean;
   // The run status driving the auto-drain: a "ready" transition sends the head.
   status: CopilotRunStatus;
   // Submit a message as a real run. MUST stop any in-flight run first — a real
   // server abort, not just a local stream detach — so "send now" = stop current
   // + send. The caller wraps host.cancel() + host.submitMessage() for this.
   submit: (text: string, options?: SubmitMessageOptions) => void;
+  // The thread the queue belongs to. Queued messages are scoped to it: on a
+  // thread switch (incl. "New chat") the queue RESETS, so a message composed
+  // for one thread can never auto-drain into an unrelated one.
+  threadId?: string | null;
 }
 
 export interface CopilotMessageQueue {
+  /** Discard every queued message without sending (e.g. on Stop). */
+  clear: () => void;
   /** Append a message to the queue (no-op for blank text without attachments). */
   enqueue: (text: string, options?: SubmitMessageOptions) => void;
   /** True while there is at least one queued message. */
@@ -81,6 +91,23 @@ export function useCopilotMessageQueue(
     []
   );
 
+  const clear = useCallback(() => {
+    setQueued((q) => (q.length === 0 ? q : []));
+  }, []);
+
+  // Reset when the bound thread changes so queued messages never drain into a
+  // different thread than the one they were composed for. A wedged thread the
+  // user abandons via "New chat" used to replay its queue into the new thread.
+  const threadId = params.threadId ?? null;
+  const prevThreadIdRef = useRef(threadId);
+  useEffect(() => {
+    if (prevThreadIdRef.current !== threadId) {
+      prevThreadIdRef.current = threadId;
+      drainingRef.current = false;
+      setQueued((q) => (q.length === 0 ? q : []));
+    }
+  }, [threadId]);
+
   const remove = useCallback((id: string) => {
     setQueued((q) => q.filter((m) => m.id !== id));
   }, []);
@@ -128,7 +155,7 @@ export function useCopilotMessageQueue(
   // head. `drainingRef` prevents a double-send while status is momentarily still
   // "ready" right after we submit (before the status state updates).
   useEffect(() => {
-    if (params.status !== "ready") {
+    if (params.status !== "ready" || params.blocked) {
       drainingRef.current = false;
       return;
     }
@@ -139,9 +166,10 @@ export function useCopilotMessageQueue(
     const head = queued[0]!;
     setQueued((q) => q.slice(1));
     submitRef.current(head.text, head.options);
-  }, [params.status, queued]);
+  }, [params.status, params.blocked, queued]);
 
   return {
+    clear,
     enqueue,
     hasQueued: queued.length > 0,
     move,
