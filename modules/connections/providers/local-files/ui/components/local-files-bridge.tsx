@@ -12,6 +12,14 @@ import {
   respondRequest,
 } from "../api.js";
 import {
+  getDesktopDirectoryPath,
+  isDesktopShell,
+  listDirectory as listDesktopDirectory,
+  readFile as readDesktopFile,
+  searchFiles as searchDesktopFiles,
+  statPath as statDesktopPath,
+} from "../lib/desktop-fs.js";
+import {
   hasReadPermission,
   isSupported,
   listDirectory,
@@ -22,12 +30,55 @@ import {
 import { getHandle } from "../lib/handle-store.js";
 import { deviceLabel, installationId } from "../lib/installation.js";
 
-async function fulfill(
-  request: ClaimedRequest
-): Promise<
+type FulfillResult =
   | { ok: true; response: unknown }
-  | { errorCode: string; errorText: string; ok: false }
-> {
+  | { errorCode: string; errorText: string; ok: false };
+
+/** Desktop shell: serve requests from the natively granted folder path. */
+async function fulfillDesktop(request: ClaimedRequest): Promise<FulfillResult> {
+  const root = getDesktopDirectoryPath(request.connection_id);
+  if (!root) {
+    return {
+      errorCode: LOCAL_FILES_ERROR.notFound,
+      errorText: "this desktop app no longer holds the folder path",
+      ok: false,
+    };
+  }
+  const input = request.input as {
+    limit?: number;
+    max_bytes?: number;
+    path: string;
+    query?: string;
+  };
+  switch (request.action) {
+    case "list":
+      return { ok: true, response: await listDesktopDirectory(root, input) };
+    case "read":
+      return { ok: true, response: await readDesktopFile(root, input) };
+    case "stat":
+      return { ok: true, response: await statDesktopPath(root, input) };
+    case "search":
+      return {
+        ok: true,
+        response: await searchDesktopFiles(root, {
+          limit: input.limit,
+          path: input.path,
+          query: input.query ?? "",
+        }),
+      };
+    default:
+      return {
+        errorCode: LOCAL_FILES_ERROR.notFound,
+        errorText: `unknown action ${request.action}`,
+        ok: false,
+      };
+  }
+}
+
+async function fulfill(request: ClaimedRequest): Promise<FulfillResult> {
+  if (isDesktopShell()) {
+    return fulfillDesktop(request);
+  }
   const handle = await getHandle(request.connection_id);
   if (!handle) {
     return {
@@ -85,7 +136,7 @@ export function LocalFilesBridge() {
   const permissionToasted = useRef(false);
 
   useEffect(() => {
-    if (!isSupported()) {
+    if (!(isSupported() || isDesktopShell())) {
       return;
     }
     const id = installationId();

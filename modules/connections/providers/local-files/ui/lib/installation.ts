@@ -26,6 +26,16 @@ export function installationId(): string {
 /** A short human label for this browser/OS, shown on the connection. */
 export function deviceLabel(): string {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  const isDesktopShell =
+    typeof globalThis !== "undefined" && "__TAURI_INTERNALS__" in globalThis;
+  if (isDesktopShell) {
+    const os = /Mac OS X/.test(ua)
+      ? "macOS"
+      : /Windows/.test(ua)
+        ? "Windows"
+        : "Linux";
+    return `engenty Desktop · ${os}`;
+  }
   const browser = /Edg\//.test(ua)
     ? "Edge"
     : /Chrome\//.test(ua)

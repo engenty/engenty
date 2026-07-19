@@ -12,6 +12,7 @@
 // (`inbox:{tenantId}`) as its partition: one team inbox per tenant. Per-user
 // partitions can layer on later with `inbox:{tenantId}:{userId}` threads.
 import { createLogger } from "@engenty/telemetry";
+import { broadcastInboxChanged } from "./realtime.js";
 
 const logger = createLogger({ name: "inbox" });
 
@@ -110,6 +111,7 @@ export async function emitInboxNotification(
       summary: input.summary.slice(0, 500),
       threadId: inboxThreadId(input.tenantId, input.userId),
     });
+    broadcastInboxChanged(input.tenantId);
   } catch (error) {
     logger.warn("inbox emit failed", {
       kind: input.kind,
@@ -221,6 +223,7 @@ export async function setInboxNotificationStatus(input: {
         status: input.status,
         threadId,
       });
+      broadcastInboxChanged(input.tenantId);
       return;
     } catch (error) {
       lastError = error;
@@ -253,6 +256,9 @@ export async function markAllInboxNotificationsSeen(
       });
     }
     updated += open.length;
+  }
+  if (updated > 0) {
+    broadcastInboxChanged(tenantId);
   }
   return updated;
 }
@@ -289,6 +295,9 @@ export async function markInboxNotificationsSeenWhere(input: {
       threadId,
     });
     updated += 1;
+  }
+  if (updated > 0) {
+    broadcastInboxChanged(input.tenantId);
   }
   return updated;
 }

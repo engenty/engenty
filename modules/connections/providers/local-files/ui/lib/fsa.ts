@@ -175,7 +175,8 @@ export async function statPath(
   }
 }
 
-function matches(name: string, query: string): boolean {
+/** Substring or glob (`*`/`?`) name match, shared with the desktop backend. */
+export function matchesQuery(name: string, query: string): boolean {
   const q = query.toLowerCase();
   if (q.includes("*") || q.includes("?")) {
     const re = new RegExp(
@@ -214,7 +215,7 @@ export async function searchFiles(
       }
       visited += 1;
       const path = joinPath(prefix, name);
-      if (matches(name, input.query)) {
+      if (matchesQuery(name, input.query)) {
         matchesOut.push(await entryFor(handle, path));
       }
       if (handle.kind === "directory") {
