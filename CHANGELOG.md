@@ -4,6 +4,33 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.34] - 2026-07-19
+- ADDED **[team-chat]** Render conversation tabs inline on the dashboard
+- ADDED **[team-chat]** Design update — blended header, dashboard tabs, stats, unified author colors
+- ADDED **[team-chat]** Unread + pins in activity feed, deep-link anchor scroll
+- ADDED **[team-chat]** Activity dashboard on the module home
+- ADDED **[team-chat]** Phase 5 — retrieval source, channel details, polish, tests
+- ADDED **[team-chat]** Composer attachments (upload/paste images + files) and emoji picker
+- ADDED **[team-chat]** Human-readable task activity lines in project channels
+- ADDED **[team-chat]** Phase 4 project binding + activity feed; UI rework
+- ADDED **[team-chat]** Phase 3 — agents as first-class participants
+- ADDED **[team-chat]** Phase 2 — reactions, pins, mentions, edit, search, badge
+- ADDED **[team-chat]** Phase 1 — Slack-compatible team messaging module
+- DOCS **[team-chat]** Test plan for the design update
+- DOCS **[team-chat]** Record dashboard verification
+- DOCS **[team-chat]** Record UI polish round in test plan
+- DOCS **[team-chat]** Mark details-popover + activity-toggle suppression verified
+- DOCS **[team-chat]** Mark search verified, record scope_id indexing bug + guard
+- DOCS **[team-chat]** Record Phase 1 live verification + follow-ups
+- DOCS **[team-chat]** Design doc for Slack-compatible team-chat module
+- FIXED **[deps]** Pin @hookform/resolvers to the consumer's zod via packageExtensions
+- FIXED **[team-chat]** Align dashboard header with the content column
+- FIXED **[team-chat]** Channel-head member roster, anchor-flash fade, pins popover close
+- FIXED **[team-chat]** Action tooltips, anchored emoji picker, threads closed by default, clean index status
+- FIXED **[team-chat]** Thread button opens a reply composer on reply-less messages
+- FIXED **[team-chat]** Index messages — scope_id lives on conversations, not messages
+- FIXED **[team-chat]** Visible hover highlight on message rows
+
 ## [0.1.33] - 2026-07-19
 - FIXED **[desktop]** Resolve API/AI base URLs lazily + surface uncaught errors in the shell
 - FIXED **[desktop-ci]** Dispatch falls back to latest v* tag when no GitHub release exists yet

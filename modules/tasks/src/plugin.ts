@@ -44,6 +44,43 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     tasksAiRegistration({ invokeTasksOperation: invokeOperation })
   );
 
+  // Task activity fan-out to the module event bus (canonical
+  // `tasks.task.activity`), enriched with the task's contexts so subscribers
+  // (e.g. team-chat's project channels) never reach into module_tasks.
+  const emitTaskActivity = async (
+    activity: {
+      actor_agent_type_key: string | null;
+      actor_user_id: string | null;
+      event_type: string;
+      payload: Record<string, unknown>;
+      task_id: string;
+    },
+    scope: { scopeId: string; tenantId: string }
+  ) => {
+    const { data } = await (supabase as SupabaseClient)
+      .schema("module_tasks")
+      .from("task_contexts")
+      .select("context_type, context_id")
+      .eq("task_id", activity.task_id);
+    await engenty.events.modules.emit(
+      "tasks.task.activity",
+      {
+        actor_agent_type_key: activity.actor_agent_type_key,
+        actor_id: activity.actor_user_id ?? undefined,
+        contexts: (data ?? []) as {
+          context_id: string;
+          context_type: string;
+        }[],
+        event_type: activity.event_type,
+        payload: activity.payload,
+        scope_id: scope.scopeId,
+        task_id: activity.task_id,
+        tenant_id: scope.tenantId,
+      },
+      { tenantId: scope.tenantId }
+    );
+  };
+
   const repoOrFactory = (
     auth: { tenantId: string; scopeId: string },
     recordAuditEvent?: (event: {
@@ -55,7 +92,10 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
       supabase as SupabaseClient,
       auth.tenantId,
       auth.scopeId,
-      recordAuditEvent ? { recordAuditEvent } : undefined
+      {
+        onActivity: emitTaskActivity,
+        ...(recordAuditEvent ? { recordAuditEvent } : {}),
+      }
     );
 
   // Queue powers agent-task auto-dispatch (phase 2); without it, tasks assigned

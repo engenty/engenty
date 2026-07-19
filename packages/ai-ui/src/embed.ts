@@ -284,7 +284,15 @@ export {
   isChatReferencePart,
   readChatReferencePart,
 } from "./lib/chat-reference-part.js";
+// --- Chat attachments (reused by module chat surfaces, e.g. team-chat) ---
+export { getFileStorageSignedUrl } from "./lib/file-storage-signed-url.js";
 export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
+export {
+  CHAT_ATTACHMENT_MAX_BYTES,
+  CHAT_ATTACHMENT_MAX_FILES,
+  type ChatAttachmentUpload,
+  uploadChatAttachment,
+} from "./lib/upload-chat-attachment.js";
 // --- Object widgets (module entities rendered in chat by reference) ---
 export {
   type ObjectDisplayIntent,

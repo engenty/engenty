@@ -9,12 +9,15 @@ import { fileURLToPath } from "node:url";
 import { ports as defaultPorts } from "../apps/ports.config.mjs";
 
 const POLL_MS = 500;
-const DEFAULT_MAX_WAIT_MS = 300_000;
 
 function envInt(name, fallback) {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
+
+// Cold boots on a loaded machine (several worktree stacks in parallel) can
+// exceed 5 minutes; the override keeps the ready gate from killing the stack.
+const DEFAULT_MAX_WAIT_MS = envInt("ENGENTY_DEV_READY_MAX_WAIT_MS", 300_000);
 
 export function resolveGatewayOrigin() {
   const fromEnv =
