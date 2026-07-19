@@ -157,6 +157,18 @@
     "vitest": "^4.1.9"
   },
   "pnpm": {
+    "packageExtensions": {
+      "@hookform/resolvers": {
+        "peerDependencies": {
+          "zod": "*"
+        },
+        "peerDependenciesMeta": {
+          "zod": {
+            "optional": true
+          }
+        }
+      }
+    },
     "overrides": {
       "typescript": "^6",
       "@engenty/ai>ai": "7.0.0-beta.116",

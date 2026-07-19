@@ -31,6 +31,8 @@ overrides:
   uuid: '>=11.1.1'
   mermaid: '>=11.15.0'
 
+packageExtensionsChecksum: sha256-MiHZ3mgtOUb60KfpkAkui5ad/9eLmcQda0MiZKaTRqA=
+
 importers:
 
   .:
@@ -1192,7 +1194,7 @@ importers:
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@mastra/core':
         specifier: 1.49.0
         version: 1.49.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
@@ -2035,7 +2037,7 @@ importers:
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@mastra/core':
         specifier: 1.49.0
         version: 1.49.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@6.0.116(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
@@ -2150,7 +2152,7 @@ importers:
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -2268,7 +2270,7 @@ importers:
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -2465,7 +2467,7 @@ importers:
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -3048,7 +3050,7 @@ importers:
         version: link:../ui-plugin-sdk
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
@@ -3996,7 +3998,7 @@ importers:
         version: 1.7.6
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       '@streamdown/cjk':
         specifier: ^1.0.3
         version: 1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.7)(unified@11.0.5)
@@ -4185,7 +4187,7 @@ importers:
         version: link:../ui-plugin-sdk
       '@hookform/resolvers':
         specifier: ^5.4.0
-        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))
+        version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)
       lucide-react:
         specifier: ^1.21.0
         version: 1.21.0(react@19.2.7)
@@ -5267,6 +5269,10 @@ packages:
     resolution: {integrity: sha512-EIsqr/t/qbinPIhGjMdtvutIN1Kk4uwbROE9/UQ93CAVGR7GkA7Y92+fX80OzXi/OB67jVFYwKGO1WzkxmkFZw==}
     peerDependencies:
       react-hook-form: ^7.55.0
+      zod: 4.4.3
+    peerDependenciesMeta:
+      zod:
+        optional: true
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -13955,10 +13961,12 @@ snapshots:
       hono: 4.12.26
       zod: 4.4.3
 
-  '@hookform/resolvers@5.4.0(react-hook-form@7.80.0(react@19.2.7))':
+  '@hookform/resolvers@5.4.0(react-hook-form@7.80.0(react@19.2.7))(zod@4.4.3)':
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.80.0(react@19.2.7)
+    optionalDependencies:
+      zod: 4.4.3
 
   '@iconify/types@2.0.0': {}
 
@@ -17054,7 +17062,7 @@ snapshots:
       obug: 2.1.3
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   '@vitest/expect@4.1.9':
     dependencies:
