@@ -119,7 +119,7 @@ export function ChannelHeader({
 
   return (
     <DetailPageHeader
-      containerClassName="max-w-none px-4 sm:px-6"
+      containerClassName="px-4 sm:px-6"
       description={meta}
       media={
         <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">

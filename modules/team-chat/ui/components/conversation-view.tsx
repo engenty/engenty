@@ -155,7 +155,9 @@ export function ConversationView({
 
       {conversation.is_archived ? (
         <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-sm">
-          {t("conversation.archived")}
+          <div className="mx-auto w-full max-w-5xl">
+            {t("conversation.archived")}
+          </div>
         </div>
       ) : null}
 
@@ -262,25 +264,27 @@ export function ConversationView({
         />
       ) : conversation.type === "public_channel" &&
         !conversation.is_archived ? (
-        <div className="flex items-center justify-between gap-3 border-border/60 border-t bg-card px-4 py-3">
-          <span className="text-muted-foreground text-sm">
-            {t("conversation.joinPrompt", { name: displayName })}
-          </span>
-          <Button
-            disabled={join.isPending}
-            onClick={() =>
-              join.mutate(conversationId, {
-                onError: (error) =>
-                  toast.error(
-                    t("toasts.actionFailed", { error: String(error) })
-                  ),
-                onSuccess: () => toast.success(t("toasts.joined")),
-              })
-            }
-            size="sm"
-          >
-            {t("conversation.join")}
-          </Button>
+        <div className="border-border/60 border-t bg-card px-4 py-3">
+          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
+            <span className="text-muted-foreground text-sm">
+              {t("conversation.joinPrompt", { name: displayName })}
+            </span>
+            <Button
+              disabled={join.isPending}
+              onClick={() =>
+                join.mutate(conversationId, {
+                  onError: (error) =>
+                    toast.error(
+                      t("toasts.actionFailed", { error: String(error) })
+                    ),
+                  onSuccess: () => toast.success(t("toasts.joined")),
+                })
+              }
+              size="sm"
+            >
+              {t("conversation.join")}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
