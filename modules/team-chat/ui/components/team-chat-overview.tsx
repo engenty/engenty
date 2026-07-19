@@ -363,6 +363,7 @@ export function TeamChatOverview() {
             tabs={tabs}
           />
         }
+        containerClassName="px-4 sm:px-6"
         description={
           <p className="text-muted-foreground text-sm">
             {totalUnread > 0
