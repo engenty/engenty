@@ -1,174 +1,399 @@
-import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
-import { useEffect, useState } from "react";
+import { useTranslation } from "@engenty/i18n/ui";
+import {
+  Button,
+  Card,
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+} from "@engenty/ui-core";
+import {
+  type PageBreadcrumb,
+  usePageConfig,
+  useWorkspaceContext,
+} from "@engenty/ui-plugin-sdk";
+import {
+  Building2,
+  FolderOpen,
+  Plus,
+  Search,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
+import { type ComponentType, useMemo, useState } from "react";
+import type { OwnerScope, SecretListItem } from "../api.js";
+import { SecretFormDialog } from "../components/secret-form-dialog.js";
+import { SecretRow } from "../components/secret-row.js";
+import {
+  useClientsQuery,
+  useProjectsQuery,
+  useSecretsQuery,
+} from "../queries.js";
 
 /**
- * Global vault (phase 1) — the engrdian dashboard analogue. Metadata list of
- * secrets the caller is in scope for, with per-row reveal via the audited
- * /api/secrets/:id/reveal endpoint. Nothing decrypted is persisted to browser
- * storage (contrast engrdian H2/H3 — see the audit doc).
- *
- * Minimal-but-real implementation (plain fetch via @engenty/api-client, no
- * query-client) so create→reveal can be driven end-to-end through the app.
+ * Secrets Vault — the engrdian dashboard analogue on engenty rails: secrets
+ * grouped by owner (client / project / workspace / personal), searchable, with
+ * per-row audited reveal. Plaintext only ever lives in transient row state.
  */
-interface SecretRow {
-  id: string;
-  name: string;
-  kind: string;
-  owner_scope: string;
-}
 
-async function unwrap<T>(p: Promise<unknown>): Promise<T> {
-  const r = (await p) as { data?: T } & T;
-  return (r && typeof r === "object" && "data" in r ? r.data : r) as T;
+type ScopeFilter = "all" | OwnerScope;
+
+interface SecretGroup {
+  key: string;
+  title: string;
+  subtitle: string;
+  icon: ComponentType<{ className?: string }>;
+  order: number;
+  rows: SecretListItem[];
 }
 
 export function VaultPage() {
-  const [rows, setRows] = useState<SecretRow[]>([]);
-  const [userId, setUserId] = useState<string>("");
-  const [name, setName] = useState("Acme DB login");
-  const [username, setUsername] = useState("alice");
-  const [password, setPassword] = useState("hunter2");
-  const [revealed, setRevealed] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const { t } = useTranslation("secrets");
+  const { currentTenant, currentUserId } = useWorkspaceContext();
 
-  async function refresh() {
-    const res = await unwrap<{ rows: SecretRow[] }>(
-      requestApiJson("/api/operations/secrets_list/invoke", {
-        method: "POST",
-        body: { input: {} },
-      })
-    );
-    setRows(res?.rows ?? []);
-  }
+  const breadcrumbs = useMemo<PageBreadcrumb[]>(
+    () => [{ label: t("vault.title") }],
+    [t]
+  );
+  usePageConfig({ breadcrumbs });
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const tok = await getCurrentAccessToken();
-        if (tok) {
-          setUserId(JSON.parse(atob(tok.split(".")[1])).sub as string);
-        }
-        await refresh();
-      } catch (e) {
-        setErr(String((e as Error).message ?? e));
+  const secretsQuery = useSecretsQuery();
+  const clientsQuery = useClientsQuery();
+  const projectsQuery = useProjectsQuery();
+
+  const [query, setQuery] = useState("");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
+  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<SecretListItem | null>(null);
+
+  const clients = clientsQuery.data ?? [];
+  const projects = projectsQuery.data ?? [];
+
+  // Project picker narrows to the selected client so the two filters compose.
+  const visibleProjects = useMemo(
+    () =>
+      clientFilter === "all"
+        ? projects
+        : projects.filter((project) => project.client_id === clientFilter),
+    [projects, clientFilter]
+  );
+
+  const filtersActive =
+    query.trim() !== "" ||
+    scopeFilter !== "all" ||
+    clientFilter !== "all" ||
+    projectFilter !== "all";
+
+  function selectClient(value: string) {
+    setClientFilter(value);
+    // Drop a project selection that no longer belongs to the chosen client.
+    if (value !== "all" && projectFilter !== "all") {
+      const project = projects.find((entry) => entry.id === projectFilter);
+      if (!project || project.client_id !== value) {
+        setProjectFilter("all");
       }
-    })();
-  }, []);
-
-  async function createSecret() {
-    setBusy(true);
-    setErr(null);
-    try {
-      await requestApiJson("/api/operations/secrets_create/invoke", {
-        method: "POST",
-        body: {
-          input: {
-            owner_scope: "user",
-            owner_id: userId,
-            name,
-            kind: "username_password",
-            payload: { username, password },
-          },
-        },
-      });
-      await refresh();
-    } catch (e) {
-      setErr(String((e as Error).message ?? e));
-    } finally {
-      setBusy(false);
     }
   }
 
-  async function reveal(id: string) {
-    setErr(null);
-    try {
-      const res = await unwrap<{ payload: unknown }>(
-        requestApiJson(`/api/secrets/${id}/reveal`, { method: "POST" })
-      );
-      setRevealed((r) => ({ ...r, [id]: JSON.stringify(res?.payload) }));
-    } catch (e) {
-      setErr(String((e as Error).message ?? e));
+  function clearFilters() {
+    setQuery("");
+    setScopeFilter("all");
+    setClientFilter("all");
+    setProjectFilter("all");
+  }
+
+  const groups = useMemo<SecretGroup[]>(() => {
+    const clientNames = new Map(clients.map((c) => [c.id, c.display_name]));
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+    const needle = query.trim().toLowerCase();
+
+    const groupMeta = (
+      secret: SecretListItem
+    ): Omit<SecretGroup, "key" | "rows"> => {
+      switch (secret.owner_scope) {
+        case "client":
+          return {
+            title:
+              clientNames.get(secret.owner_id) ?? t("group.unknownClient"),
+            subtitle: t("scope.client"),
+            icon: Building2,
+            order: 0,
+          };
+        case "project": {
+          const project = projectById.get(secret.owner_id);
+          const clientName = project?.client_id
+            ? clientNames.get(project.client_id)
+            : undefined;
+          return {
+            title: project?.title ?? t("group.unknownProject"),
+            subtitle: clientName ?? t("scope.project"),
+            icon: FolderOpen,
+            order: 1,
+          };
+        }
+        case "tenant":
+          return {
+            title: currentTenant?.name ?? t("group.workspace"),
+            subtitle: t("scope.tenant"),
+            icon: Users,
+            order: 2,
+          };
+        default:
+          return secret.owner_id === currentUserId
+            ? {
+                title: t("group.personal"),
+                subtitle: t("scope.user"),
+                icon: UserRound,
+                order: 3,
+              }
+            : {
+                title: t("group.otherUser"),
+                subtitle: t("scope.user"),
+                icon: UserRound,
+                order: 4,
+              };
+      }
+    };
+
+    const matches = (secret: SecretListItem, title: string): boolean => {
+      if (scopeFilter !== "all" && secret.owner_scope !== scopeFilter) {
+        return false;
+      }
+      if (clientFilter !== "all") {
+        const ownedByClient =
+          secret.owner_scope === "client" && secret.owner_id === clientFilter;
+        const projectOfClient =
+          secret.owner_scope === "project" &&
+          projectById.get(secret.owner_id)?.client_id === clientFilter;
+        if (!(ownedByClient || projectOfClient)) {
+          return false;
+        }
+      }
+      if (
+        projectFilter !== "all" &&
+        !(secret.owner_scope === "project" && secret.owner_id === projectFilter)
+      ) {
+        return false;
+      }
+      if (!needle) {
+        return true;
+      }
+      return [secret.name, secret.url, secret.description, secret.kind, title]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle));
+    };
+
+    const byKey = new Map<string, SecretGroup>();
+    for (const secret of secretsQuery.data ?? []) {
+      const meta = groupMeta(secret);
+      if (!matches(secret, meta.title)) {
+        continue;
+      }
+      const key =
+        secret.owner_scope === "user" && secret.owner_id !== currentUserId
+          ? "user:other"
+          : `${secret.owner_scope}:${secret.owner_id}`;
+      const group = byKey.get(key) ?? { key, rows: [], ...meta };
+      group.rows.push(secret);
+      byKey.set(key, group);
     }
+    for (const group of byKey.values()) {
+      group.rows.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    }
+    return [...byKey.values()].sort(
+      (a, b) => a.order - b.order || a.title.localeCompare(b.title)
+    );
+  }, [
+    secretsQuery.data,
+    clients,
+    projects,
+    query,
+    scopeFilter,
+    clientFilter,
+    projectFilter,
+    currentTenant?.name,
+    currentUserId,
+    t,
+  ]);
+
+  const isLoading = secretsQuery.isLoading;
+  const isEmpty = !isLoading && (secretsQuery.data?.length ?? 0) === 0;
+  const isFilteredEmpty = !(isLoading || isEmpty) && groups.length === 0;
+
+  function openCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(secret: SecretListItem) {
+    setEditing(secret);
+    setFormOpen(true);
   }
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-        Secrets Vault
-      </h1>
-      <p style={{ color: "#666", marginBottom: 20 }}>
-        Client-anchored secrets. Payloads are AES-256-GCM encrypted server-side;
-        reveal is audited and never cached in the browser.
-      </p>
-
-      {err && (
-        <div
-          style={{
-            background: "#fee",
-            color: "#900",
-            padding: 10,
-            borderRadius: 6,
-            marginBottom: 16,
-            fontSize: 13,
-          }}
-        >
-          {err}
+    <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
+      <div className="mx-auto w-full max-w-4xl space-y-4 pt-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("vault.searchPlaceholder")}
+              value={query}
+            />
+          </div>
+          <Button onClick={openCreate} type="button">
+            <Plus className="mr-1 h-4 w-4" />
+            {t("vault.addSecret")}
+          </Button>
         </div>
-      )}
 
-      <div
-        style={{
-          border: "1px solid #e5e5e5",
-          borderRadius: 8,
-          padding: 16,
-          marginBottom: 24,
-          display: "grid",
-          gap: 8,
-        }}
-      >
-        <strong>New secret</strong>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" />
-        <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
-        <button type="button" onClick={createSecret} disabled={busy || !userId}>
-          {busy ? "Creating…" : "Create secret"}
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select onValueChange={selectClient} value={clientFilter}>
+            <SelectTrigger className="w-full sm:w-52">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder={t("filter.allClients")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filter.allClients")}</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-      <strong>Secrets ({rows.length})</strong>
-      <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
-        {rows.map((s) => (
-          <li
-            key={s.id}
-            style={{
-              border: "1px solid #eee",
-              borderRadius: 6,
-              padding: "10px 12px",
-              marginBottom: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
+          <Select
+            disabled={visibleProjects.length === 0}
+            onValueChange={setProjectFilter}
+            value={projectFilter}
           >
-            <span>
-              <strong>{s.name}</strong>{" "}
-              <span style={{ color: "#999", fontSize: 12 }}>
-                {s.kind} · {s.owner_scope}
-              </span>
-              {revealed[s.id] && (
-                <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 4 }}>
-                  {revealed[s.id]}
+            <SelectTrigger className="w-full sm:w-52">
+              <FolderOpen className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder={t("filter.allProjects")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filter.allProjects")}</SelectItem>
+              {visibleProjects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            onValueChange={(value) => setScopeFilter(value as ScopeFilter)}
+            value={scopeFilter}
+          >
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filter.all")}</SelectItem>
+              <SelectItem value="client">{t("scope.client")}</SelectItem>
+              <SelectItem value="project">{t("scope.project")}</SelectItem>
+              <SelectItem value="tenant">{t("scope.tenant")}</SelectItem>
+              <SelectItem value="user">{t("scope.user")}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {filtersActive && (
+            <Button
+              className="text-muted-foreground"
+              onClick={clearFilters}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <X className="mr-1 h-4 w-4" />
+              {t("filter.clear")}
+            </Button>
+          )}
+        </div>
+
+        {isLoading && (
+          <div className="space-y-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        )}
+
+        {isEmpty && (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("vault.emptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("vault.emptyDescription")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+
+        {isFilteredEmpty && (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("vault.noMatchesTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {t("vault.noMatchesDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+
+        {groups.map((group) => {
+          const GroupIcon = group.icon;
+          return (
+            <Card className="overflow-hidden p-0 sm:p-0" key={group.key}>
+              <div className="flex items-center gap-3 border-border border-b bg-muted/40 px-4 py-3">
+                <GroupIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-muted-foreground text-xs">
+                    {group.subtitle}
+                  </div>
+                  <h3 className="truncate font-semibold text-base">
+                    {group.title}
+                  </h3>
                 </div>
-              )}
-            </span>
-            <button type="button" onClick={() => reveal(s.id)}>
-              Reveal
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+                <span className="whitespace-nowrap text-muted-foreground text-xs">
+                  {t("vault.secretCount", { count: group.rows.length })}
+                </span>
+              </div>
+              <div className="divide-y divide-border">
+                {group.rows.map((secret) => (
+                  <SecretRow key={secret.id} onEdit={openEdit} secret={secret} />
+                ))}
+              </div>
+            </Card>
+          );
+        })}
+
+        <SecretFormDialog
+          clients={clients}
+          currentUserId={currentUserId}
+          onOpenChange={(open) => {
+            setFormOpen(open);
+            if (!open) {
+              setEditing(null);
+            }
+          }}
+          open={formOpen}
+          projects={projects}
+          secret={editing}
+          tenantId={currentTenant?.id ?? null}
+        />
+      </div>
+    </section>
   );
 }

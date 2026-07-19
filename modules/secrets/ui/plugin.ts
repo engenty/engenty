@@ -1,4 +1,5 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { DockVaultIcon } from "@engenty/ui-icons";
 import { KeyRound } from "lucide-react";
 import { VaultPage } from "./pages/vault-page.js";
 
@@ -24,6 +25,18 @@ export default function plugin(engenty: EngentyPluginContext) {
     component: VaultPage,
     order: 500,
     requiresAdmin: false, // scoped members use it; reveal is gated server-side
+  });
+
+  // Top-level app icon in the dock's "modules" section — the vault is a
+  // first-class app, not a settings sub-page.
+  engenty.UI.registerAdminMenuItem({
+    id: "secrets_module_menu",
+    section: "modules",
+    label: "Secrets",
+    labelKey: "secrets:menu.secrets",
+    to: "/mdl/secrets",
+    icon: DockVaultIcon,
+    order: 500,
   });
 
   engenty.UI.registerSettingsItem({
