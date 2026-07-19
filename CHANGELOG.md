@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.33] - 2026-07-19
+- FIXED **[desktop]** Resolve API/AI base URLs lazily + surface uncaught errors in the shell
+- FIXED **[desktop-ci]** Dispatch falls back to latest v* tag when no GitHub release exists yet
+- FIXED **[desktop-ci]** Host arm64 build — --target broke bundler path; dispatch attaches to latest release
+
 ## [0.1.32] - 2026-07-19
 - FIXED **[lockfile]** Repair pnpm-lock after desktop rebase onto v0.1.30
 
