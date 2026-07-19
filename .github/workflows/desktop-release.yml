@@ -1,16 +1,17 @@
 name: Build desktop app
 
-# Builds the macOS desktop app (Tauri) on release tags and attaches the .dmg
-# to the GitHub release for the tag. Unsigned for now — first launch needs
-# right-click → Open (Gatekeeper). Runs alongside build-images.yml on v* tags.
+# FALLBACK ONLY (workflow_dispatch): the .dmg is normally built locally as
+# part of the release ritual — `pnpm release:desktop` after pushing the tag
+# (~6min on an M-series Mac vs ~20 10x-billed minutes here). Dispatch this
+# workflow when no Mac with a build toolchain is at hand; it attaches the
+# .dmg to the latest release. Unsigned for now — first launch needs
+# right-click → Open (Gatekeeper).
 #
 # The UI bundle is built WITHOUT any VITE_* server values on purpose: the
 # desktop shell selects its server at runtime (first-launch server picker →
 # GET /api/desktop/bootstrap).
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
