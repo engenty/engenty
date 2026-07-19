@@ -25,6 +25,12 @@ export {
   type ArtifactPaneState,
   activateArtifact,
   clearArtifactsForTests,
+  closeObjectPaneTab,
+  isObjectPaneTabKey,
+  type ObjectPaneTab,
+  objectPaneTabKey,
+  objectRefFromPaneTabKey,
+  openObjectPaneTab,
   setActiveArtifact,
   setArtifactPaneExpanded,
   setArtifactPaneOpen,
@@ -107,6 +113,10 @@ export {
   defaultCopilotSessionPath,
   readCopilotSubRunToolCallId,
 } from "./copilot/copilot-chat-paths.js";
+export {
+  registerCopilotComposerDraftSetter,
+  setCopilotComposerDraft,
+} from "./copilot/copilot-composer-draft-intent.js";
 export {
   CopilotThreadBindingProvider,
   type CopilotThreadBindingProviderProps,

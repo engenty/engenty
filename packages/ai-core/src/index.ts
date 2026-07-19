@@ -91,6 +91,15 @@ export {
   type TranscribeGatewayAudioOptions,
   transcribeGatewayAudio,
 } from "./audio/transcribe-gateway-audio.js";
+export {
+  type ChatCommandArg,
+  type ChatCommandDefinition,
+  type ChatCommandKind,
+  expandChatCommand,
+  isValidChatCommandToken,
+  parseLeadingChatCommand,
+} from "./chat-commands/contracts.js";
+export { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
 export { readAiGatewayApiKeyFromEnv } from "./config/ai-gateway-api-key.js";
 export {
   type ChatModelResolutionPurpose,
@@ -178,11 +187,26 @@ export {
   type SupportedEmbeddingModelsData,
   supportedEmbeddingModels,
 } from "./models/supported-embeddings.js";
+export {
+  type A2uiRenderMeta,
+  readA2uiRenderMeta,
+} from "./objects/a2ui-render.js";
+export {
+  formatObjectRef,
+  type ObjectDisplayHint,
+  type ObjectDisplayItem,
+  type ObjectRef,
+  type ObjectRenderMeta,
+  objectRefTypeKey,
+  parseObjectRef,
+  readObjectRenderMeta,
+} from "./objects/object-ref.js";
 export type { ModuleDynamicCapabilitySeed } from "./registry.js";
 export {
   listActiveAiRegistrations,
   listModuleDynamicCapabilitySeeds,
   listRegisteredActions,
+  listRegisteredChatCommands,
   listRegisteredRoutines,
   registerAiRegistration,
   resolveActionDefinitionById,

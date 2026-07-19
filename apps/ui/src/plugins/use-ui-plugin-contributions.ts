@@ -10,6 +10,7 @@ const emptyContributions: UiContributions = {
   routes: [],
   adminMenuItems: [],
   backgroundComponents: [],
+  chatCommands: [],
   copilotApps: [],
   copilotContributions: [],
   dashboardWidgets: [],

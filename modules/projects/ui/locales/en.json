@@ -148,7 +148,10 @@
       "save": "Save",
       "saveFailed": "Failed to save",
       "assigneeLinkedUserRequired": "Assignees must be team members with a linked login account.",
-      "assigneeInvalidUser": "One or more assignees are not valid login users."
+      "assigneeInvalidUser": "One or more assignees are not valid login users.",
+      "actionsMenu": "Task actions",
+      "close": "Close",
+      "expand": "Open full page"
     },
     "dueDate": "Due date",
     "noGeneralTasks": "No general tasks yet",

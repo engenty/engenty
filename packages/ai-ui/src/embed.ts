@@ -5,10 +5,22 @@
 
 // --- AG-UI runtime — apps/ai transport, conversation, frontend tools ---
 export { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
-export { isAgentThreadId } from "@engenty/ai-core/browser";
+export {
+  formatObjectRef,
+  isAgentThreadId,
+  type ObjectDisplayHint,
+  type ObjectDisplayItem,
+  type ObjectRef,
+  type ObjectRenderMeta,
+  objectRefTypeKey,
+  parseObjectRef,
+  readObjectRenderMeta,
+} from "@engenty/ai-core/browser";
 export {
   appsAiActionRunPath,
   appsAiActionsListPath,
+  type ChatCommandCatalogEntry,
+  getAppsAiChatCommands,
   postAppsAiActionRun,
 } from "./ag-ui/apps-ai/apps-ai-api.js";
 export {
@@ -119,6 +131,7 @@ export {
   ActionButton,
   type ActionButtonProps,
 } from "./components/ai-elements/action-button.js";
+export { A2uiToolCallCard } from "./components/copilot/tool-call/a2ui-tool-call-card.js";
 // --- Presentation (copilot chrome + AI Elements) ---
 export {
   asRecord,
@@ -235,7 +248,6 @@ export {
   RoutineTriggerChip,
   type RoutineTriggerChipProps,
 } from "./features/routines/routine-trigger-chip.js";
-
 // --- AI Routines & Custom Routines ---
 export {
   type CustomRoutineInput,
@@ -266,6 +278,12 @@ export {
   type RunActionResult,
   useRunAction,
 } from "./hooks/use-run-action.js";
+export {
+  buildChatReferencePart,
+  type ChatReferenceItem,
+  isChatReferencePart,
+  readChatReferencePart,
+} from "./lib/chat-reference-part.js";
 // --- Chat attachments (reused by module chat surfaces, e.g. team-chat) ---
 export { getFileStorageSignedUrl } from "./lib/file-storage-signed-url.js";
 export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
@@ -275,6 +293,41 @@ export {
   type ChatAttachmentUpload,
   uploadChatAttachment,
 } from "./lib/upload-chat-attachment.js";
+// --- Object widgets (module entities rendered in chat by reference) ---
+export {
+  type ObjectDisplayIntent,
+  ObjectDisplayIntentProvider,
+  useObjectDisplayIntent,
+} from "./objects/object-display-intent.js";
+export { ObjectFallbackCard } from "./objects/object-fallback-card.js";
+export {
+  ObjectCardFrame,
+  ObjectCardLink,
+  ObjectListFooter,
+  ObjectListRow,
+  type ObjectListRowProps,
+  type ObjectRowAction,
+  ObjectRowList,
+} from "./objects/object-list.js";
+export {
+  ObjectPanelAskAgentBar,
+  type ObjectPanelAskAgentBarProps,
+} from "./objects/object-panel-ask-agent-bar.js";
+export {
+  ObjectRenderToolCallCard,
+  objectRenderToolCallMatch,
+} from "./objects/object-render-tool-call-card.js";
+export {
+  clearObjectWidgetsForTests,
+  listObjectWidgets,
+  type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
+  type ObjectWidgetRegistration,
+  registerObjectWidget,
+  resolveObjectWidget,
+  useObjectWidget,
+  useObjectWidgets,
+} from "./objects/object-widget-registry.js";
 // --- Host-scoped thread list (CopilotKit-shaped) ---
 export {
   type CreateEngentyThreadOptions,

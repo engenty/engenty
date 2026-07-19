@@ -145,7 +145,6 @@ export function AgentDetailPage() {
             />
           }
           collapsed={headerCollapsed}
-          containerClassName="px-4 md:px-5"
           description={
             detail.selectedAgent?.description ? (
               <p className="text-muted-foreground text-sm">

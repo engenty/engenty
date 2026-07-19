@@ -9,6 +9,9 @@
     "local-development",
     "setup-process",
     "plugins",
-    "connections"
+    "connections",
+    "artifacts",
+    "objects",
+    "generative-ui"
   ]
 }

@@ -1,3 +1,5 @@
+import { runtimeEnvOverride } from "@engenty/environment";
+
 type UiImportMetaEnv = Record<string, string | undefined>;
 
 function readEnv(): UiImportMetaEnv {
@@ -5,6 +7,10 @@ function readEnv(): UiImportMetaEnv {
 }
 
 export function uiEnvString(key: string, fallback = ""): string {
+  const override = runtimeEnvOverride(key);
+  if (override !== undefined) {
+    return override;
+  }
   const env = readEnv();
   return env[key] ?? fallback;
 }

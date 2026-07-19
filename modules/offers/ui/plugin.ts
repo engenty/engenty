@@ -22,6 +22,7 @@ import {
 } from "./pages/index.js";
 import { setOffersPluginsApi } from "./plugins.js";
 import { offerDetailOptions } from "./queries.js";
+import { registerOffersObjectWidget } from "./register-object-widget.js";
 
 const UUID_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -30,6 +31,7 @@ export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(offersLiveBinding);
   setOffersPluginsApi(engenty.plugins);
   registerOffersPdfTemplateUiProvider();
+  registerOffersObjectWidget();
 
   engenty.i18n.registerNamespace({
     pluginId: "offers",

@@ -4,6 +4,59 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.33] - 2026-07-19
+- FIXED **[desktop]** Resolve API/AI base URLs lazily + surface uncaught errors in the shell
+- FIXED **[desktop-ci]** Dispatch falls back to latest v* tag when no GitHub release exists yet
+- FIXED **[desktop-ci]** Host arm64 build — --target broke bundler path; dispatch attaches to latest release
+
+## [0.1.32] - 2026-07-19
+- FIXED **[lockfile]** Repair pnpm-lock after desktop rebase onto v0.1.30
+
+## [0.1.31] - 2026-07-19
+- ADDED **[desktop]** Tauri macOS shell bundling the web SPA with runtime server config
+
+## [0.1.30] - 2026-07-19
+- ADDED **[copilot]** Dock queue + approval surfaces as a flap attached to the composer
+- ADDED **[generative-ui]** Rich record panels, internal MCP Apps, A2UI catalog (G1–G3)
+- DOCS **[wip]** Note run/resume 409 wedge findings from generative-ui verification (unrelated defect)
+- DOCS **[dev]** Add Generative UI page, refresh objects page (panels, askAgent, engenty:internal)
+- FIXED **[copilot]** Reconcile orphaned interrupts + recover from 409 resumeInProgress
+- FIXED **[a2ui]** Make show_ui actions + data-bindings resolve
+- FIXED **[copilot]** Thread-scope the composer message queue and clear it on stop
+
+## [0.1.29] - 2026-07-17
+- ADDED **[projects]** Resizable task side panel with delete + full-page actions
+- DOCS **[wip]** Generative-ui — correct 'iframe cannot host our components' to the precise claim
+- DOCS **[wip]** Generative-ui — adjudicate the MCP-Apps-vs-A2UI challenge per use case
+
+## [0.1.28] - 2026-07-17
+- ADDED **[chat]** Slash commands + typed @-mentions in agent chats
+- DOCS **[wip]** Mark chat slash-commands implemented + live-verified
+- DOCS **[wip]** Record review decisions Q1-Q5 (carrier, aliases, action v1, availability, routing)
+- DOCS **[wip]** Object-widgets merged to main — phase 3b dependency satisfied after rebase
+- DOCS **[wip]** Chat slash-commands + typed @-mentions design
+- DOCS **[wip]** Generative-ui — Q6 decided (A2UI first) + worked wire-format examples
+- DOCS **[wip]** Generative-ui — evaluate OpenUI (Thesys) as G3 alternative to A2UI
+- DOCS **[wip]** Generative-ui — cite official A2UI React renderer docs
+- DOCS **[wip]** Correct generative-ui — A2UI React renderers are shipped, AG-UI carries A2UI
+- DOCS **[wip]** Generative-ui design — rich panels, internal MCP Apps, A2UI
+- FIXED **[chat]** Unwrap workspace-search match envelope, core group heading, route logger
+
+## [0.1.27] - 2026-07-17
+- ADDED **[objects]** Make the whole card clickable
+- ADDED **[objects]** Make object card actions follow the chat surface
+- ADDED **[objects]** Shared list chrome with row actions; stop restating cards in prose
+- ADDED Chat object rendering — objects/artifacts/MCP Apps in chat (phases A–D)
+- ADDED **[objects]** Tasks/team/invoices widgets, entity_refs backfill
+- ADDED **[mcp-apps]** Productionize widget host — bridge, CSP, template cache
+- ADDED **[objects]** Pane object tabs, display-hint execution, mention chips
+- ADDED **[objects]** Contacts + offers chat object widgets
+- ADDED **[objects]** ObjectRef contract, object-widget registry, show_objects tool
+- DOCS **[dev]** Document artifacts, objects, widgets and MCP Apps
+- DOCS Chat object rendering design (objects, artifacts, MCP Apps in chat)
+- FIXED **[ai]** Normalize guessed object ref types in show_objects
+- FIXED **[ai-ui]** Render object cards outside the collapsed tool timeline
+
 ## [0.1.26] - 2026-07-16
 - ADDED **[ai-ui]** User + binding columns in the activity table
 - ADDED **[ai-ui]** Full list UI for the activity page

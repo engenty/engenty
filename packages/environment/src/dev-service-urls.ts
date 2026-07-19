@@ -78,8 +78,18 @@ function readCorsOriginsFromEnv(): string[] {
   return parseCorsOrigins(value);
 }
 
+/**
+ * Origin of the Tauri desktop shell (macOS/Linux WKWebView custom protocol).
+ * Always allowed: the desktop app bundles the same SPA and authenticates with
+ * bearer tokens, so origin-based CSRF protections don't apply to it.
+ */
+export const ENGENTY_DESKTOP_APP_ORIGIN = "tauri://localhost";
+
 /** Returns true when `origin` matches an allowed ENGENTY_CORS_ORIGINS entry. */
 export function isEngentyCorsOriginAllowed(origin: string): boolean {
+  if (origin === ENGENTY_DESKTOP_APP_ORIGIN) {
+    return true;
+  }
   try {
     return readCorsOriginsFromEnv().includes(origin);
   } catch {

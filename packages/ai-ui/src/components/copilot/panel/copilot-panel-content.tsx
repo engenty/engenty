@@ -121,7 +121,9 @@ export function CopilotPanelContent({
   positionMenu,
   agentSessionChooser,
   mentionAgentCandidates,
+  mentionRefSearch,
   onComposerMentionAgent,
+  slashCommands,
   transcriptContainerClassName,
   transcriptLoading = false,
   transcriptLoadingLabel = "Loading conversation",
@@ -425,9 +427,6 @@ export function CopilotPanelContent({
           suggestedUpdatesLabel={suggestedUpdatesLabel}
         />
       ) : null}
-      {dockedInterruptSurface ? (
-        <div className="shrink-0 pt-3">{dockedInterruptSurface}</div>
-      ) : null}
       <CopilotPanelComposerBlock
         autoExpand={resolvedAutoExpand}
         centerEmptyLanding={centerEmptyLanding}
@@ -439,16 +438,19 @@ export function CopilotPanelContent({
         composerOverride={composerOverride}
         composerPlaceholder={composerPlaceholder}
         composerWrapperClassName={composerWrapperClassName}
+        dockedSurface={dockedInterruptSurface}
         draft={draft}
         emptyStateSubtitle={emptyStateSubtitle}
         emptyStateTitle={emptyStateTitle}
         enableStatusFlap={enableStatusFlap && !dockedInterruptSurface}
         error={error}
         mentionAgentCandidates={mentionAgentCandidates}
+        mentionRefSearch={mentionRefSearch}
         messages={messages}
         onComposerMentionAgent={onComposerMentionAgent}
         onStop={onStop ?? onCancel}
         setDraft={setDraft}
+        slashCommands={slashCommands}
         starterPrompts={starterPrompts}
         status={status}
         submitMessage={submitMessage}

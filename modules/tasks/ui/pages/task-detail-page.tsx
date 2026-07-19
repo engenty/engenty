@@ -41,7 +41,11 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { taskWorkspaceKey } from "../../src/lib/task-workspace.js";
-import type { Task, TaskPriority, TaskStatus } from "../../src/schema/types.js";
+import type {
+  TaskDetail,
+  TaskPriority,
+  TaskStatus,
+} from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { GoalDocumentTitle } from "../components/goal-document-title.js";
 import { LiveTaskRunsPanel } from "../components/live-task-runs-panel.js";
@@ -106,7 +110,7 @@ interface TaskDetailLoadedProps {
   releaseMutation: ReturnType<typeof useReleaseTaskMutation>;
   runs: NonNullable<ReturnType<typeof useTaskRunsQuery>["data"]>;
   scrollRootRef: RefObject<HTMLElement | null>;
-  task: Task;
+  task: TaskDetail;
   taskStatusDefinitions: typeof BUILTIN_TASK_STATUS_DEFINITIONS;
   teamMembersCatalogQuery: ReturnType<typeof useTeamMembersCatalogQuery>;
   titleDraft: string;

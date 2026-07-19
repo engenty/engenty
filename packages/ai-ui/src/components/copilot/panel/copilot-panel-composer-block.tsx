@@ -24,15 +24,18 @@ export function CopilotPanelComposerBlock({
   composerOverride,
   composerPlaceholder,
   composerWrapperClassName,
+  dockedSurface,
   draft,
   emptyStateSubtitle,
   emptyStateTitle,
   error,
   mentionAgentCandidates,
+  mentionRefSearch,
   messages,
   onComposerMentionAgent,
   onStop,
   setDraft,
+  slashCommands,
   starterPrompts,
   status,
   threadId = null,
@@ -52,15 +55,20 @@ export function CopilotPanelComposerBlock({
   composerOverride?: ReactNode;
   composerPlaceholder: string;
   composerWrapperClassName?: string;
+  /** Docked surfaces (message queue, approval cards) — rendered as a flap
+   *  attached directly behind the composer card (see shell `dockContent`). */
+  dockedSurface?: ReactNode;
   draft: string;
   emptyStateSubtitle?: string;
   emptyStateTitle?: string;
   error?: Error | null;
   mentionAgentCandidates?: Array<{ handle: string; id: string; name: string }>;
+  mentionRefSearch?: import("../composer/use-copilot-composer-mention.js").MentionRefSearch;
   messages: readonly (AgentTurnMessageLike & { id: string })[];
   onComposerMentionAgent?: (agentId: string) => void;
   onStop?: () => void;
   setDraft: (value: string) => void;
+  slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";
   threadId?: string | null;
@@ -107,6 +115,7 @@ export function CopilotPanelComposerBlock({
                 ) : undefined
               }
               chatStatus={status}
+              dockContent={dockedSurface}
               enableStatusFlap={enableStatusFlap}
               errorMessage={error?.message ?? null}
               forceActive={centerEmptyLanding}
@@ -122,11 +131,13 @@ export function CopilotPanelComposerBlock({
                 draft={draft}
                 focusComposerKey={composerFocusKey}
                 mentionAgentCandidates={mentionAgentCandidates}
+                mentionRefSearch={mentionRefSearch}
                 onComposerMentionAgent={onComposerMentionAgent}
                 onMultilineChange={setIsMultiline}
                 onStop={onStop}
                 setDraft={setDraft}
                 showStarterPrompts={false}
+                slashCommands={slashCommands}
                 starterPrompts={starterPrompts}
                 status={status}
                 submitMessage={submitMessage}
@@ -146,6 +157,7 @@ export function CopilotPanelComposerBlock({
                 ) : undefined
               }
               chatStatus={status}
+              dockContent={dockedSurface}
               enableStatusFlap={enableStatusFlap}
               errorMessage={error?.message ?? null}
               forceActive={centerEmptyLanding}
@@ -160,11 +172,13 @@ export function CopilotPanelComposerBlock({
                 draft={draft}
                 focusComposerKey={composerFocusKey}
                 mentionAgentCandidates={mentionAgentCandidates}
+                mentionRefSearch={mentionRefSearch}
                 onComposerMentionAgent={onComposerMentionAgent}
                 onMultilineChange={setIsMultiline}
                 onStop={onStop}
                 setDraft={setDraft}
                 showStarterPrompts={false}
+                slashCommands={slashCommands}
                 status={status}
                 submitMessage={submitMessage}
                 transcribeAudio={transcribeAudio}
@@ -174,16 +188,21 @@ export function CopilotPanelComposerBlock({
             </CopilotCompactComposerShell>
           ) : (
             <div className="flex flex-col">
+              {dockedSurface ? (
+                <div className="mb-3">{dockedSurface}</div>
+              ) : null}
               <CopilotComposerSection
                 composerOverride={composerOverride}
                 composerPlaceholder={composerPlaceholder}
                 draft={draft}
                 focusComposerKey={composerFocusKey}
                 mentionAgentCandidates={mentionAgentCandidates}
+                mentionRefSearch={mentionRefSearch}
                 onComposerMentionAgent={onComposerMentionAgent}
                 onStop={onStop}
                 setDraft={setDraft}
                 showStarterPrompts={messages.length === 0}
+                slashCommands={slashCommands}
                 starterPrompts={starterPrompts}
                 status={status}
                 submitMessage={submitMessage}

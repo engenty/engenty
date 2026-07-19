@@ -37,6 +37,15 @@ export function isParkedResumeInFlight(runId: string): boolean {
   return inFlightResumes.has(runId);
 }
 
+/**
+ * Non-destructive check: is a suspended session still parked for this run id?
+ * Used by thread-load reconciliation to tell a resumable interrupt (park
+ * present) from an orphaned one (park lost to a restart / TTL / resume error).
+ */
+export function isSessionRunParked(runId: string): boolean {
+  return parkedSessionRuns.has(runId);
+}
+
 /** Mark the resume for this suspended run id as finished (success or error). */
 export function finishParkedResume(runId: string): void {
   inFlightResumes.delete(runId);
