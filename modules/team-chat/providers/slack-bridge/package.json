@@ -9,12 +9,16 @@
     ".": {
       "types": "./dist/src/plugin.d.ts",
       "default": "./dist/src/plugin.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
     }
   },
   "engenty": {},
   "scripts": {
-    "build": "tsup src/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts ui/plugin.ts --format esm --dts --watch",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },
@@ -24,7 +28,14 @@
     "@engenty/team-chat": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@supabase/supabase-js": "^2.108.2",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

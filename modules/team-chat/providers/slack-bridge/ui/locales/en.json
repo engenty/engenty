@@ -1,0 +1,15 @@
+{
+  "approvalHint": "Note: the Slack connection's write actions (post_message, update_message) must be set to \"Allow\" \u2014 otherwise outbound messages park as approval requests.",
+  "bind": "Bind",
+  "connection": "Slack connection: {{name}}",
+  "menu": "Slack bridge",
+  "noChannels": "No team-chat channels yet.",
+  "noConnection": "No Slack connection found. Connect a Slack workspace under Settings \u2192 Connections first.",
+  "pickSlackChannel": "Pick a Slack channel\u2026",
+  "subtitle": "Mirror team-chat channels with Slack channels (both directions).",
+  "syncAll": "Sync all now",
+  "syncNow": "Sync",
+  "syncResult": "{{conversations}} channels, {{imported}} imported, {{errors}} errors",
+  "title": "Slack bridge",
+  "unbind": "Unbind"
+}
