@@ -1394,9 +1394,33 @@ importers:
       '@engenty/ai-core':
         specifier: workspace:*
         version: link:../../packages/ai-core
+      '@engenty/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@engenty/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@engenty/query-client':
+        specifier: workspace:*
+        version: link:../../packages/query-client
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
+      '@engenty/ui-plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/ui-plugin-sdk
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-router-dom:
+        specifier: ^7.18.0
+        version: 7.18.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -1404,6 +1428,9 @@ importers:
       '@types/node':
         specifier: ^26.0.0
         version: 26.0.0
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)

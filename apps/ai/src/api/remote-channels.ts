@@ -162,7 +162,8 @@ function pairingUrl(code: string): string {
   return base ? `${base}${path}` : path;
 }
 
-function createIdentityGateHandler(): ChannelHandler {
+/** Exported for tests. */
+export function createIdentityGateHandler(): ChannelHandler {
   return async (thread, message, defaultHandler) => {
     // Never react to our own or other bots' messages beyond Mastra's own
     // guards — cheap belt-and-suspenders for the gate's side effects.

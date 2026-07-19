@@ -1,0 +1,63 @@
+{
+  "menu": "Remote channels",
+  "title": "Remote channels",
+  "subtitle": "External messengers (Slack, Telegram, …) as remote chat interfaces to your engenty agents.",
+  "cancel": "Cancel",
+  "platform": {
+    "slack": "Slack",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "teams": "Teams"
+  },
+  "policy": {
+    "ignore": "Ignore silently",
+    "invite": "Invite to pair",
+    "deny": "Reject with notice"
+  },
+  "bindings": {
+    "title": "Bindings",
+    "subtitle": "Each binding connects one messenger workspace or bot to this tenant.",
+    "empty": "No bindings yet. A binding connects one messenger workspace or bot (e.g. a Slack workspace or a Telegram bot) to this tenant, so messages there reach your engenty agents.",
+    "platform": "Platform",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "e.g. Company Slack",
+    "workspaceId": "Workspace ID",
+    "workspaceIdPlaceholder": "optional, e.g. T0123ABCD",
+    "policy": "Unknown senders",
+    "status": "Status",
+    "active": "Active",
+    "disabled": "Disabled",
+    "create": "Create binding",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete binding?",
+    "deleteConfirmBody": "Delete the binding \"{{name}}\"? Messages from this workspace/bot will no longer reach engenty."
+  },
+  "identities": {
+    "title": "Linked identities",
+    "subtitle": "Messenger accounts that are linked to engenty users of this tenant.",
+    "empty": "No linked identities yet. When someone messages a bound channel for the first time, they get a pairing link to connect their messenger account to their engenty user.",
+    "externalUser": "Messenger user",
+    "displayName": "Display name",
+    "user": "engenty user",
+    "verifiedAt": "Linked on",
+    "revoke": "Revoke",
+    "revokeConfirmTitle": "Revoke identity link?",
+    "revokeConfirmBody": "Revoke the link for \"{{name}}\"? They will have to pair again before chatting with engenty from that messenger account."
+  },
+  "pair": {
+    "title": "Link messenger account",
+    "subtitle": "Connect your messenger account to your engenty account.",
+    "loading": "Checking pairing code…",
+    "loadError": "Could not check the pairing code. Please try again.",
+    "missingCode": "No pairing code in the link. Open the exact link the bot sent you.",
+    "unknownCode": "This pairing code is unknown. Open the exact link the bot sent you, or request a new one.",
+    "expired": "This pairing link has expired. Message the bot again to get a fresh one.",
+    "alreadyClaimed": "This pairing link has already been used. If that wasn't you, ask an admin to revoke the identity under Settings → Remote channels.",
+    "unknownSender": "Unknown sender",
+    "prompt": "Link the {{platform}} account \"{{name}}\" to your engenty account? Messages you send there will then act as you.",
+    "confirm": "Link this account",
+    "claimError": "Linking failed. The code may have expired in the meantime — request a new link from the bot.",
+    "successTitle": "Account linked",
+    "successBody": "Linked! You can go back to {{platform}} and continue chatting."
+  }
+}

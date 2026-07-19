@@ -1,0 +1,63 @@
+{
+  "menu": "Remote-Kanäle",
+  "title": "Remote-Kanäle",
+  "subtitle": "Externe Messenger (Slack, Telegram, …) als Chat-Zugänge zu deinen engenty-Agenten.",
+  "cancel": "Abbrechen",
+  "platform": {
+    "slack": "Slack",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "teams": "Teams"
+  },
+  "policy": {
+    "ignore": "Stumm ignorieren",
+    "invite": "Zum Verknüpfen einladen",
+    "deny": "Mit Hinweis ablehnen"
+  },
+  "bindings": {
+    "title": "Verbindungen",
+    "subtitle": "Jede Verbindung koppelt einen Messenger-Workspace oder -Bot an diesen Tenant.",
+    "empty": "Noch keine Verbindungen. Eine Verbindung koppelt einen Messenger-Workspace oder -Bot (z. B. einen Slack-Workspace oder Telegram-Bot) an diesen Tenant — Nachrichten dort erreichen dann deine engenty-Agenten.",
+    "platform": "Plattform",
+    "displayName": "Anzeigename",
+    "displayNamePlaceholder": "z. B. Firmen-Slack",
+    "workspaceId": "Workspace-ID",
+    "workspaceIdPlaceholder": "optional, z. B. T0123ABCD",
+    "policy": "Unbekannte Absender",
+    "status": "Status",
+    "active": "Aktiv",
+    "disabled": "Deaktiviert",
+    "create": "Verbindung anlegen",
+    "delete": "Löschen",
+    "deleteConfirmTitle": "Verbindung löschen?",
+    "deleteConfirmBody": "Verbindung „{{name}}“ löschen? Nachrichten aus diesem Workspace/Bot erreichen engenty dann nicht mehr."
+  },
+  "identities": {
+    "title": "Verknüpfte Identitäten",
+    "subtitle": "Messenger-Konten, die mit engenty-Benutzern dieses Tenants verknüpft sind.",
+    "empty": "Noch keine verknüpften Identitäten. Wer zum ersten Mal in einem verbundenen Kanal schreibt, bekommt einen Pairing-Link, um sein Messenger-Konto mit seinem engenty-Benutzer zu verknüpfen.",
+    "externalUser": "Messenger-Benutzer",
+    "displayName": "Anzeigename",
+    "user": "engenty-Benutzer",
+    "verifiedAt": "Verknüpft am",
+    "revoke": "Trennen",
+    "revokeConfirmTitle": "Verknüpfung trennen?",
+    "revokeConfirmBody": "Verknüpfung für „{{name}}“ trennen? Die Person muss sich neu verknüpfen, bevor sie über dieses Messenger-Konto mit engenty chatten kann."
+  },
+  "pair": {
+    "title": "Messenger-Konto verknüpfen",
+    "subtitle": "Verbinde dein Messenger-Konto mit deinem engenty-Konto.",
+    "loading": "Pairing-Code wird geprüft…",
+    "loadError": "Der Pairing-Code konnte nicht geprüft werden. Bitte versuch es noch einmal.",
+    "missingCode": "Kein Pairing-Code im Link. Öffne genau den Link, den dir der Bot geschickt hat.",
+    "unknownCode": "Dieser Pairing-Code ist unbekannt. Öffne genau den Link vom Bot oder fordere einen neuen an.",
+    "expired": "Dieser Pairing-Link ist abgelaufen. Schreib dem Bot noch einmal, um einen neuen zu bekommen.",
+    "alreadyClaimed": "Dieser Pairing-Link wurde bereits verwendet. Falls das nicht du warst, bitte einen Admin, die Identität unter Einstellungen → Remote-Kanäle zu trennen.",
+    "unknownSender": "Unbekannter Absender",
+    "prompt": "{{platform}}-Konto „{{name}}“ mit deinem engenty-Konto verknüpfen? Nachrichten, die du dort schickst, gelten dann als von dir.",
+    "confirm": "Dieses Konto verknüpfen",
+    "claimError": "Verknüpfen fehlgeschlagen. Der Code ist womöglich inzwischen abgelaufen — fordere beim Bot einen neuen Link an.",
+    "successTitle": "Konto verknüpft",
+    "successBody": "Verknüpft! Du kannst zurück zu {{platform}} wechseln und einfach weiterchatten."
+  }
+}
