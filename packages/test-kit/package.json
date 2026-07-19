@@ -1,0 +1,25 @@
+{
+  "name": "@engenty/test-kit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Shared test fixtures and fakes. Test-only: exports TypeScript source directly, no build step, never ships in runtime bundles.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/test-kit/",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engenty/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

@@ -56,6 +56,10 @@ export default defineConfig({
         repoRoot,
         "packages/ai-core/src/index.ts"
       ),
+      "@engenty/test-kit": path.resolve(
+        repoRoot,
+        "packages/test-kit/src/index.ts"
+      ),
     },
   },
 });

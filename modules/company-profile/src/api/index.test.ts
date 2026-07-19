@@ -1,8 +1,5 @@
-import type {
-  PluginHttpRoute,
-  PluginServerApi,
-  PluginServerOperation,
-} from "@engenty/plugin-sdk";
+import type { PluginHttpRoute } from "@engenty/plugin-sdk";
+import { makeMockApi } from "@engenty/test-kit";
 import { describe, expect, it } from "vitest";
 import { registerCompanyProfileApi } from "./index.js";
 
@@ -18,30 +15,6 @@ function makeMockRepo() {
       store = {};
     },
   };
-}
-
-function makeMockApi(opts?: {
-  getStorageService?: PluginServerApi["getStorageService"];
-}) {
-  const httpRoutes: PluginHttpRoute[] = [];
-  const serverOperations: PluginServerOperation[] = [];
-
-  const api = {
-    getStorageService: opts?.getStorageService,
-    registerHttpRoute: (route: PluginHttpRoute) => {
-      httpRoutes.push(route);
-      return;
-    },
-    registerOperation: (operation: PluginServerOperation) => {
-      serverOperations.push(operation);
-      return;
-    },
-  } as Pick<
-    PluginServerApi,
-    "getStorageService" | "registerHttpRoute" | "registerOperation"
-  >;
-
-  return { api, httpRoutes, serverOperations };
 }
 
 function findRoute(

@@ -37,4 +37,4 @@ Everything else should be observable from returned values or resulting state. Do
 
 ## Fixtures
 
-Until a shared `@engenty/test-kit` exists: reuse the module-local `test-helpers.ts` builders and `packages/retrieval/src/test-utils.ts` patterns (override-style `make*()` builders) rather than hand-typing `"tenant-1"` literals and one-off fake clients.
+Use `@engenty/test-kit` (add as `workspace:*` devDependency): `makeAuth()` + `TEST_TENANT_ID`/`TEST_USER_ID` instead of hand-typed `"tenant-1"` literals, `createFakeSupabase()` (filters actually apply) instead of one-off thenable fakes, and `makeMockApi()` for `PluginServerApi`. Domain fixtures (repo fakes, entity builders) stay module-local — follow the override-style `make*()` builder pattern from `packages/retrieval/src/test-utils.ts`.
