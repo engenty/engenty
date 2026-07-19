@@ -8,7 +8,11 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded runs only on PRs. On main, the running build must FINISH:
+  # with several sessions pushing every ~30min, cancel-in-progress meant no
+  # cold build ever completed and the turbo cache never seeded. Queued main
+  # runs collapse to the newest one automatically, so nothing piles up.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
