@@ -802,15 +802,15 @@ export function createTeamChatRepoSupabase(
     return names;
   }
 
-  /** Dashboard feed: my recent mentions + threads I participate in. */
+  /** Dashboard feed: my mentions (+read state), pins, and my threads. */
   async function activityFeed(limit = 15): Promise<ActivityFeedResult> {
     const capped = Math.min(Math.max(limit, 1), 50);
     if (!userId) {
-      return { mentions: [], ok: true, threads: [] };
+      return { mentions: [], ok: true, pins: [], threads: [] };
     }
     const ids = await visibleConversationIds();
     if (ids.length === 0) {
-      return { mentions: [], ok: true, threads: [] };
+      return { mentions: [], ok: true, pins: [], threads: [] };
     }
 
     // Mentions of me, newest first — resolved to their full messages.
@@ -884,9 +884,63 @@ export function createTeamChatRepoSupabase(
       )
       .slice(0, capped);
 
+    // Recently pinned messages across my conversations.
+    const pinRows = await pinsTbl()
+      .select("conversation_id, message_ts")
+      .eq("tenant_id", tenantId)
+      .in("conversation_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(capped);
+    if (pinRows.error) {
+      throw new Error(`team-chat feed failed: ${pinRows.error.message}`);
+    }
+    const pinRefs = (pinRows.data ?? []) as {
+      conversation_id: string;
+      message_ts: string;
+    }[];
+    let pinMessages: Record<string, unknown>[] = [];
+    if (pinRefs.length > 0) {
+      const { data, error } = await messagesTbl()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .in("conversation_id", [
+          ...new Set(pinRefs.map((row) => row.conversation_id)),
+        ])
+        .in(
+          "ts",
+          pinRefs.map((row) => row.message_ts)
+        )
+        .is("deleted_at", null)
+        .order("ts", { ascending: false });
+      if (error) {
+        throw new Error(`team-chat feed failed: ${error.message}`);
+      }
+      pinMessages = (data ?? []) as Record<string, unknown>[];
+    }
+
+    // My read cursors — a mention newer than the cursor is unread.
+    const cursors = await membersTbl()
+      .select("conversation_id, last_read_ts")
+      .eq("tenant_id", tenantId)
+      .eq("principal_type", "user")
+      .eq("principal_id", userId)
+      .in("conversation_id", [
+        ...new Set(mentionMessages.map((row) => row.conversation_id as string)),
+      ]);
+    if (cursors.error) {
+      throw new Error(`team-chat feed failed: ${cursors.error.message}`);
+    }
+    const readCursor = new Map<string, string | null>();
+    for (const row of (cursors.data ?? []) as {
+      conversation_id: string;
+      last_read_ts: string | null;
+    }[]) {
+      readCursor.set(row.conversation_id, row.last_read_ts);
+    }
+
     const names = await conversationNames([
       ...new Set(
-        [...mentionMessages, ...threadMessages].map(
+        [...mentionMessages, ...pinMessages, ...threadMessages].map(
           (row) => row.conversation_id as string
         )
       ),
@@ -896,8 +950,17 @@ export function createTeamChatRepoSupabase(
       conversation_name: names.get(row.conversation_id as string) ?? null,
     });
     return {
-      mentions: mentionMessages.map(withName),
+      mentions: mentionMessages.map((row) => {
+        // `ts` is "epoch.suffix" with a fixed-width epoch, so string
+        // comparison orders correctly (float64 would lose precision).
+        const lastRead = readCursor.get(row.conversation_id as string) ?? null;
+        return {
+          ...withName(row),
+          unread: lastRead === null || String(row.ts) > lastRead,
+        };
+      }),
       ok: true,
+      pins: pinMessages.map(withName),
       threads: threadMessages.map(withName),
     };
   }

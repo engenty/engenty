@@ -328,13 +328,17 @@ export const activityFeedInputSchema = z.object({
   limit: z.number().int().min(1).max(50).optional(),
 });
 
-/** Dashboard feed: my recent mentions + threads I participate in. */
+const feedMessageSchema = messageSchema.extend({
+  conversation_name: z.string().nullable(),
+});
+
+/** Dashboard feed: my mentions (+read state), pinned messages, my threads. */
 export const activityFeedResultSchema = z.object({
   mentions: z.array(
-    messageSchema.extend({ conversation_name: z.string().nullable() })
+    // `unread` = newer than my read cursor in that conversation.
+    feedMessageSchema.extend({ unread: z.boolean() })
   ),
   ok: z.literal(true),
-  threads: z.array(
-    messageSchema.extend({ conversation_name: z.string().nullable() })
-  ),
+  pins: z.array(feedMessageSchema),
+  threads: z.array(feedMessageSchema),
 });

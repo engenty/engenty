@@ -22,6 +22,7 @@ import {
   Inbox,
   Lock,
   MessagesSquare,
+  Pin,
   Plus,
   Users,
 } from "lucide-react";
@@ -57,14 +58,17 @@ function conversationIcon(conversation: ConversationListItem) {
   return Users;
 }
 
-/** One message in a feed: author, channel chip, preview, relative time. */
+/** One message in a feed: author, channel chip, preview, relative time.
+ * Links straight to the message (`?ts=`) so the channel scrolls to it. */
 function FeedRow({
   locale,
   message,
+  unread = false,
   users,
 }: {
   locale: string;
   message: FeedMessage;
+  unread?: boolean;
   users: UsersById;
 }) {
   const isAgent = Boolean(message.agent_type_key);
@@ -74,9 +78,12 @@ function FeedRow({
   return (
     <Link
       className="group flex flex-col gap-0.5 rounded-md px-3 py-2 transition-colors hover:bg-foreground/5 dark:hover:bg-foreground/6"
-      to={`/mdl/team-chat/${message.conversation_id}`}
+      to={`/mdl/team-chat/${message.conversation_id}?ts=${message.ts}`}
     >
       <span className="flex items-baseline gap-1.5">
+        {unread ? (
+          <span className="size-2 shrink-0 self-center rounded-full bg-sky-500" />
+        ) : null}
         {isAgent ? (
           <Bot className="size-3.5 shrink-0 self-center text-violet-600 dark:text-violet-400" />
         ) : null}
@@ -100,7 +107,12 @@ function FeedRow({
           {timeAgo(message.ts, locale)}
         </span>
       </span>
-      <span className="line-clamp-2 text-foreground/90 text-sm leading-snug">
+      <span
+        className={cn(
+          "line-clamp-2 text-sm leading-snug",
+          unread ? "font-medium text-foreground" : "text-foreground/90"
+        )}
+      >
         {preview}
       </span>
     </Link>
@@ -122,7 +134,7 @@ function ThreadRow({
   return (
     <Link
       className="group flex flex-col gap-0.5 rounded-md px-3 py-2 transition-colors hover:bg-foreground/5 dark:hover:bg-foreground/6"
-      to={`/mdl/team-chat/${message.conversation_id}`}
+      to={`/mdl/team-chat/${message.conversation_id}?ts=${message.ts}`}
     >
       <span className="flex items-baseline gap-1.5">
         {message.conversation_name ? (
@@ -262,6 +274,7 @@ export function TeamChatOverview() {
     conversationDisplayName(conversation, users, currentUserId);
 
   const mentions = feedQuery.data?.mentions ?? [];
+  const pins = feedQuery.data?.pins ?? [];
   const threads = feedQuery.data?.threads ?? [];
   const unread = conversations.filter(
     (conversation) => conversation.unread_count > 0
@@ -333,6 +346,7 @@ export function TeamChatOverview() {
                   key={`${message.conversation_id}:${message.ts}`}
                   locale={locale}
                   message={message}
+                  unread={message.unread}
                   users={users}
                 />
               ))}
@@ -388,6 +402,23 @@ export function TeamChatOverview() {
                   key={conversation.id}
                   label={labelFor(conversation)}
                   locale={locale}
+                  users={users}
+                />
+              ))}
+            </FeedCard>
+
+            <FeedCard
+              count={pins.length}
+              empty={t("overview.noPins")}
+              icon={Pin}
+              loading={feedQuery.isLoading}
+              title={t("overview.pins")}
+            >
+              {pins.map((message) => (
+                <FeedRow
+                  key={`${message.conversation_id}:${message.ts}`}
+                  locale={locale}
+                  message={message}
                   users={users}
                 />
               ))}

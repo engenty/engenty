@@ -29,7 +29,9 @@
     "newDm": "Direktnachricht",
     "threads": "Deine Threads",
     "noThreads": "Du bist noch in keinem Thread aktiv.",
-    "noRecent": "Noch keine Aktivität."
+    "noRecent": "Noch keine Aktivität.",
+    "pins": "Angepinnt",
+    "noPins": "Noch nichts angepinnt."
   },
   "conversation": {
     "joinPrompt": "Du siehst #{{name}}, bist aber kein Mitglied.",

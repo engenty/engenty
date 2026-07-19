@@ -1,6 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, ScrollArea, Separator } from "@engenty/ui-core";
-import { useEffect, useMemo, useRef } from "react";
+import { Button, cn, ScrollArea, Separator } from "@engenty/ui-core";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TeamChatMessage } from "../api.js";
 import {
   dayKey,
@@ -11,6 +11,11 @@ import {
 import { MentionChipStyles, MessageItem } from "./message-item.js";
 
 export interface MessageListProps {
+  /**
+   * `ts` of a message to scroll to and flash on mount (deep link from the
+   * dashboard). Falls back to the newest message when it isn't loaded.
+   */
+  anchorTs?: string | null;
   canDelete: (message: TeamChatMessage) => boolean;
   canEdit: (message: TeamChatMessage) => boolean;
   currentUserId: string | null;
@@ -38,6 +43,7 @@ export interface MessageListProps {
 }
 
 export function MessageList({
+  anchorTs,
   canDelete,
   canEdit,
   visibleThreads,
@@ -59,11 +65,24 @@ export function MessageList({
   const { t, i18n } = useTranslation("team-chat");
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lastTs = messages.at(-1)?.ts;
+  // The anchor wins exactly once (until it changes); afterwards the list
+  // resumes following the newest message.
+  const [flashTs, setFlashTs] = useState<string | null>(null);
+  const consumedAnchor = useRef<string | null>(null);
 
-  // Keep the view pinned to the newest message when new ones arrive.
   useEffect(() => {
+    if (anchorTs && consumedAnchor.current !== anchorTs) {
+      const target = document.getElementById(`tc-msg-${anchorTs}`);
+      if (target) {
+        consumedAnchor.current = anchorTs;
+        target.scrollIntoView({ block: "center" });
+        setFlashTs(anchorTs);
+        const timer = setTimeout(() => setFlashTs(null), 3500);
+        return () => clearTimeout(timer);
+      }
+    }
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [lastTs]);
+  }, [lastTs, anchorTs]);
 
   const rows = useMemo(() => {
     const result: {
@@ -100,7 +119,14 @@ export function MessageList({
             </div>
           ) : null}
           {rows.map(({ dayLabel, message, showHeader }) => (
-            <div key={`${message.ts}${message.deleted ? "-deleted" : ""}`}>
+            <div
+              className={cn(
+                "rounded-md transition-colors duration-1000",
+                flashTs === message.ts && "bg-amber-200/60 dark:bg-amber-400/15"
+              )}
+              id={`tc-msg-${message.ts}`}
+              key={`${message.ts}${message.deleted ? "-deleted" : ""}`}
+            >
               {dayLabel ? (
                 <div className="relative my-3 flex items-center px-4">
                   <Separator className="flex-1" />

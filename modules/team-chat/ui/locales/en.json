@@ -29,7 +29,9 @@
     "newDm": "Direct message",
     "threads": "Your threads",
     "noThreads": "You're not active in any threads yet.",
-    "noRecent": "No activity yet."
+    "noRecent": "No activity yet.",
+    "pins": "Pinned",
+    "noPins": "Nothing pinned yet."
   },
   "conversation": {
     "joinPrompt": "You are viewing #{{name}} without being a member.",

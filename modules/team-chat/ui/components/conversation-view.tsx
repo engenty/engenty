@@ -10,6 +10,7 @@ import {
 } from "@engenty/ui-core";
 import { Hash, Lock, MessagesSquare, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useMentionCandidates } from "../hooks/use-mention-candidates.js";
 import { conversationDisplayName, usersById } from "../lib/format.js";
@@ -40,6 +41,10 @@ export function ConversationView({
   embedded?: boolean;
 }) {
   const { t } = useTranslation("team-chat");
+  // Deep link from the dashboard: /mdl/team-chat/<id>?ts=<message ts> scrolls
+  // to and flashes that message instead of jumping to the newest one.
+  const [searchParams] = useSearchParams();
+  const anchorTs = embedded ? null : searchParams.get("ts");
   // Inline threads are closed by default (a root with replies shows only its
   // "N Antworten" bar). A root in `openedThreads` shows its replies + reply
   // composer — via the reply-count bar or the toolbar's thread button (which
@@ -170,6 +175,7 @@ export function ConversationView({
       ) : null}
 
       <MessageList
+        anchorTs={anchorTs}
         canDelete={(message) => canDeleteFor(message.user_id)}
         canEdit={(message) =>
           Boolean(message.user_id && message.user_id === currentUserId)

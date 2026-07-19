@@ -2329,6 +2329,12 @@ importers:
       '@engenty/query-client':
         specifier: workspace:*
         version: link:../../packages/query-client
+      '@engenty/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
+      '@engenty/search-index':
+        specifier: workspace:*
+        version: link:../../packages/search-index
       '@engenty/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
