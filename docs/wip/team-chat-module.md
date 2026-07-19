@@ -651,6 +651,54 @@ otherwise autonomous replays park as approval requests), inbound
 notifications fan-out (N1 queue) for imported messages, connector `mapMessage`
 now passes `subtype` through (open connector, additive).
 
+### Phase 7 — Realtime sync (Events API) + reactions (planned 2026-07-20)
+
+The pull sync ships two structural gaps: latency (5-min interval) and
+invisibility of anything that doesn't move a message's position in
+`conversations.history` — reactions on older messages, edits, deletes, and
+thread replies outside the cursor window. Phase 7 closes them with push:
+
+1. **Events webhook.** The bridge registers
+   `POST /api/team-chat-slack-bridge/events` (plugin HTTP route): Slack
+   URL-verification (`challenge` echo) + request-signature check via a new
+   `SLACK_SIGNING_SECRET` env (Slack app → Basic Information → Signing
+   Secret). Slack app: enable **Event Subscriptions**, subscribe on behalf of
+   the user to `message.channels`, `message.groups`, `reaction_added`,
+   `reaction_removed`. Needs a publicly reachable HTTPS URL (prod: given;
+   dev: tunnel). Socket Mode (app-level token, outbound WebSocket, no public
+   URL) is the self-hosted alternative — evaluate at build time, same handler
+   behind either transport.
+2. **Event → conversation routing.** Store `team_id` in the binding at bind
+   time (from the connection's `auth.test`); route events by
+   `(team_id, channel_id)` → bound conversation → tenant. Unbound channels
+   drop the event.
+3. **Inbound apply.** `message` → import (same path as pull, loop-guarded by
+   `external.slack.ts` / imported marker); `message_changed` → edit the
+   mapped row (skip if the change is our own export echo);
+   `message_deleted` → soft delete; replies carry `thread_ts` → thread
+   mapping without the pull-window limitation.
+4. **Reactions inbound.** `reaction_added`/`reaction_removed` → map the Slack
+   shortcode to unicode (see 6) and toggle the reaction on the mapped
+   message. Attribution: Slack users aren't engenty principals — decision
+   needed at build time between a synthetic bridge principal (aggregated,
+   simplest) vs. extending the reactions table with an external-actor column.
+5. **Reactions outbound.** The open module's reaction toggle today emits only
+   a generic `updated`; add a dedicated `team-chat.reaction.<added|removed>`
+   bus event carrying `{emoji, principal, message_ts}` (additive). Bridge
+   maps unicode → shortcode and calls `add_reaction` / new `remove_reaction`
+   connector action (`reactions.remove`, open connector, additive). Appears
+   in Slack as the connection owner (user token) — same semantics as the
+   name-prefixed message replay.
+6. **Emoji map.** Compact embedded shortcode↔unicode table for the common
+   set; unknown shortcodes fall back to the `:name:` literal (inbound) /
+   are skipped with a log (outbound).
+7. **Pull sync stays as repair.** Events can be lost (Slack retries only 3×);
+   the interval pull keeps running as consistency backstop, and the cursor
+   keeps advancing so a webhook outage degrades to today's behavior.
+8. **Docs/setup.** `connect-slack.md` gains the Event-Subscriptions step +
+   signing-secret env; bridge settings page shows webhook health (last event
+   received).
+
 ---
 
 ## 15. Phased implementation plan
