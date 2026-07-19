@@ -102,6 +102,7 @@
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",

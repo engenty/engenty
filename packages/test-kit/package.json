@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./integration": {
+      "types": "./src/dal/integration-db.ts",
+      "default": "./src/dal/integration-db.ts"
     }
   },
   "scripts": {
@@ -16,9 +20,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@engenty/plugin-sdk": "workspace:*"
+    "@engenty/plugin-sdk": "workspace:*",
+    "@supabase/supabase-js": "^2.108.2"
   },
   "devDependencies": {
+    "@types/node": "^26.0.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }

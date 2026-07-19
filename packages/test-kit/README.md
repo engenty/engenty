@@ -21,6 +21,16 @@ Policy context: [testing-policy.mdc](../../docs/agent/rules/testing-policy.mdc).
   `httpRoutes`, `serverOperations`, and `aiRegistrations`; everything else is a
   no-op receipt. Replaces the per-module copies.
 
+## Integration lane (`@engenty/test-kit/integration`)
+
+For `*.integration.test.ts` suites against the real local Supabase
+(`pnpm test:integration`): `createIntegrationDb()` builds a service-role
+client (resolving env from repo-root `.env.local` when unset, refusing
+non-local URLs), `seedTenants()` upserts isolated tenants and returns a
+cleanup that rides the `core.tenants` cascade, `seedUsers()` fills the
+identity chain. Lives under `src/dal/` — the sanctioned location for real
+`@supabase/supabase-js` clients.
+
 ## What stays module-local
 
 Domain repo fakes (`makeMockTasksRepo`, …) and domain builders

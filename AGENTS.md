@@ -4,7 +4,7 @@ Default guide for contributors and coding agents in this repository.
 
 - Active development — no production data yet; no fallback or stranded code
 - **Biome** for lint/format — run `pnpm fix` at the end of tasks
-- **Vitest** — add tests and run `pnpm test`; test public APIs and assert on results, mock only at real boundaries — see [testing-policy.mdc](./docs/agent/rules/testing-policy.mdc)
+- **Vitest** — add tests and run `pnpm test`; test public APIs and assert on results, mock only at real boundaries — see [testing-policy.mdc](./docs/agent/rules/testing-policy.mdc). Real-DB suites: `*.integration.test.ts` via `pnpm test:integration` (needs local Supabase)
 - **Agent rules:** canonical content lives in [`docs/agent/rules/`](./docs/agent/rules/). Cursor symlinks them under `.cursor/rules/`. Claude reads this file + linked rules. Load a rule when the task matches its description — do not load everything every turn.
 
 ## Environment
