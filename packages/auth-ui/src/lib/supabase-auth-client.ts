@@ -1,3 +1,4 @@
+import { runtimeEnvOverride } from "@engenty/environment";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null = null;
@@ -13,8 +14,10 @@ function readSupabaseAuthEnv(): {
       }
     ).env ?? {};
   return {
-    anonKey: env.VITE_SUPABASE_ANON_KEY,
-    url: env.VITE_SUPABASE_URL,
+    anonKey:
+      runtimeEnvOverride("VITE_SUPABASE_ANON_KEY") ??
+      env.VITE_SUPABASE_ANON_KEY,
+    url: runtimeEnvOverride("VITE_SUPABASE_URL") ?? env.VITE_SUPABASE_URL,
   };
 }
 

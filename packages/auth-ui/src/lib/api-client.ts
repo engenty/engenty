@@ -1,4 +1,5 @@
 import { setApiClient } from "@engenty/api-client";
+import { runtimeEnvOverride } from "@engenty/environment";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAuthClient } from "./supabase-auth-client";
 
@@ -16,7 +17,7 @@ function getApiBaseUrlFromEnv(): string {
   const env =
     (import.meta as ImportMeta & { env?: Record<string, string | undefined> })
       .env ?? {};
-  return env.VITE_API_BASE_URL ?? "";
+  return runtimeEnvOverride("VITE_API_BASE_URL") ?? env.VITE_API_BASE_URL ?? "";
 }
 
 setApiClient({

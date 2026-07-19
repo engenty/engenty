@@ -2,6 +2,7 @@
 // `serviceBaseUrl` is the gateway origin (no `/ai` suffix) from VITE_ENGENTY_AI_BASE_URL.
 
 import { getCurrentAccessToken } from "@engenty/api-client";
+import { runtimeEnvOverride } from "@engenty/environment";
 
 export const APPS_AI_BASE_PATH = "/ai";
 
@@ -238,9 +239,10 @@ export async function postAppsAiActionApprove(
 
 /** `VITE_ENGENTY_AI_BASE_URL` without trailing slash; `undefined` when unset. */
 export function resolveEngentyAiServiceBaseUrl(): string | undefined {
-  const raw = (
-    import.meta as ImportMeta & { env?: Record<string, string | undefined> }
-  ).env?.VITE_ENGENTY_AI_BASE_URL;
+  const raw =
+    runtimeEnvOverride("VITE_ENGENTY_AI_BASE_URL") ??
+    (import.meta as ImportMeta & { env?: Record<string, string | undefined> })
+      .env?.VITE_ENGENTY_AI_BASE_URL;
   const normalized = (raw ?? "").trim().replace(/\/$/, "");
   if (normalized.length > 0) {
     return normalized;

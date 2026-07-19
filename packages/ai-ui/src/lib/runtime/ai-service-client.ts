@@ -2,11 +2,13 @@
 // Uses VITE_ENGENTY_AI_BASE_URL (gateway origin) plus bearer auth from @engenty/api-client.
 
 import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
+import { runtimeEnvOverride } from "@engenty/environment";
 
 export function getAiServiceBaseUrl(): string {
-  const value = (
-    import.meta as unknown as { env?: Record<string, string | undefined> }
-  ).env?.VITE_ENGENTY_AI_BASE_URL;
+  const value =
+    runtimeEnvOverride("VITE_ENGENTY_AI_BASE_URL") ??
+    (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+      ?.VITE_ENGENTY_AI_BASE_URL;
   const normalized = (value ?? "").trim().replace(/\/$/, "");
   if (normalized.length > 0) {
     return normalized;

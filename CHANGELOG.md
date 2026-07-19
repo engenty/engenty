@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.31] - 2026-07-19
+- ADDED **[desktop]** Tauri macOS shell bundling the web SPA with runtime server config
+
 ## [0.1.30] - 2026-07-19
 - ADDED **[copilot]** Dock queue + approval surfaces as a flap attached to the composer
 - ADDED **[generative-ui]** Rich record panels, internal MCP Apps, A2UI catalog (G1–G3)
