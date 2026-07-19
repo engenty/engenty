@@ -583,6 +583,22 @@ verb and unblocks event triggers for these modules too.
   (not all channel unreads — Slack's home-badge semantics).
 - In-module badges: sidebar per-conversation counts from `team_chat_unreads`.
 
+**IMPLEMENTED (N1, 2026-07-19)** as a queue hop instead of an in-process emit
+(the inbox lives in apps/ai): `team_chat_post_message` / `team_chat_post_as_agent`
+compute targets module-side (`notification-queue.ts`: mentions + @here/@channel →
+`mention`, DM members → `dm`, thread participants (root author + `reply_users`) →
+`thread`, `notify_prefs.level="all"` → `activity`; `muted`/`nothing` silence, author
+excluded, agents never targeted) and enqueue ONE pgmq `team_chat_notification`
+dispatch. The apps/ai consumer (`team-chat-notification-consumer.ts`, kill-switch
+`ENGENTY_TEAM_CHAT_NOTIFICATIONS_ENABLED`) writes one inbox record per target onto
+the user partition `inbox:{tenant}:{userId}` (a layer the inbox anticipated; the
+`/ai/v1/notifications` routes now merge the team + user threads via scope.userId).
+Read-sync: `team_chat_conversations_mark` enqueues a `read` dispatch → pending
+records for messages `ts <= cursor` flip to `seen`. The desktop shell's
+DesktopBridge renders team-chat records natively (channel label + author + preview)
+from the structured payload (`conversation_label`, `author_user_id`,
+`text_preview`, `route`).
+
 ---
 
 ## 14. Remote Slack bridge (future phase — designed for, not built)

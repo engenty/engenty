@@ -55,6 +55,8 @@ export const conversationMemberSchema = z.object({
   id: z.string(),
   last_read_ts: z.string().nullable(),
   muted: z.boolean(),
+  /** `{level?: "all" | "mentions" | "nothing"}`; empty = type default. */
+  notify_prefs: z.record(z.string(), z.unknown()),
   principal_id: z.string(),
   principal_type: memberPrincipalTypeSchema,
   role: z.enum(["owner", "member"]),
