@@ -23,6 +23,7 @@
 | [app-shell-sidebar-animation.mdc](./rules/app-shell-sidebar-animation.mdc) | Collapsible sidebar animation |
 | [module-menu-i18n.mdc](./rules/module-menu-i18n.mdc) | Module menu `labelKey` / locales |
 | [module-migrations.mdc](./rules/module-migrations.mdc) | DB migrations in modules |
+| [testing-policy.mdc](./rules/testing-policy.mdc) | Writing or changing tests |
 | [ai-gateway.mdc](./rules/ai-gateway.mdc) | Mastra models, `AI_GATEWAY_API_KEY` |
 | [ai-elements.mdc](./rules/ai-elements.mdc) | Chat UI in `@engenty/ai-ui` |
 | [ai-core-docs.mdc](./rules/ai-core-docs.mdc) | Keep `packages/ai-core` docs in sync |

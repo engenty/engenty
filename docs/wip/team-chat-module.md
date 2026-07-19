@@ -616,6 +616,23 @@ JWT is tenant-bound: records of other tenants are skipped (same boundary as
 inbox-sync; satellites run their own JWT). Open: per-user email opt-out pref,
 non-Gmail send connectors (Outlook), digest mode.
 
+**N2 — web push (2026-07-20):** realtime channel — `emitInboxNotification`
+fans every **per-user** record out to the user's push endpoints immediately
+(`apps/ai/src/notifications/web-push.ts`; team-inbox records stay badge-only).
+Subscriptions live in `ai.push_subscriptions` (service-role only, endpoint
+unique, upsert on re-subscribe; 404/410 from the push service prunes the
+row). Routes: `GET /ai/v1/notifications/push/config` (VAPID public key, null
+= channel off), `POST/DELETE …/push/subscriptions` (owned by the calling
+user). VAPID pair via `npx web-push generate-vapid-keys` → env
+`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (+ optional `VAPID_SUBJECT`).
+Client: `apps/ui/public/sw.js` shows the notification ({title, body, route,
+tag=dedupeKey}) and on click focuses an open tab (postMessage
+`engenty:navigate`, handled in `AuthenticatedRoutes`) or opens the route; the
+enable/disable toggle is a **Push notifications** section on Settings →
+Profile (per browser/device; iOS needs the home-screen PWA — manifest was
+already in place). Open: per-user quiet hours/opt-out shared with email,
+badge counts on the PWA icon.
+
 ---
 
 ## 14. Remote Slack bridge (future phase — designed for, not built)
