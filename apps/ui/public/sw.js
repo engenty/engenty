@@ -12,7 +12,7 @@ self.addEventListener("push", (event) => {
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
-  } catch (_error) {
+  } catch {
     payload = { body: event.data ? event.data.text() : "" };
   }
   const title = payload.title || "engenty";
@@ -31,7 +31,7 @@ self.addEventListener("push", (event) => {
 // SPA listens in the push settings hook) or open a fresh window on the route.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const route = event.notification.data && event.notification.data.route;
+  const route = event.notification.data?.route;
   const target = route || "/";
   event.waitUntil(
     self.clients
