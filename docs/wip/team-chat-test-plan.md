@@ -92,6 +92,42 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
 - ✅ Unreads w/ badges, recent w/ previews + clamped relative times
 - ✅ Quick actions open the New-Channel / New-DM dialogs
 
+**Design update (2026-07-19, @ 1f6a435) — gemeinsamer Browser-Test steht aus**
+
+*Dashboard (`/mdl/team-chat`)*
+- [ ] Verschmolzener Kopf: weiße Zone ohne Trennlinie zwischen Topbar und
+  Titel „Team-Chat" + Untertitel (ungelesen-Zähler); Inhalt zentriert
+  (Kopf-Spalte und Content-Spalte fluchten, max-w-5xl)
+- [ ] Top-Nav-CTAs rechts: „Direktnachricht" (outline) + „Channel" (primär)
+  öffnen die Dialoge; ⋯-Menü → „Aktualisieren" lädt die Feeds neu
+- [ ] Tab-Leiste unter dem Titel: „Übersicht" aktiv (Ember-Unterstrich);
+  nach dem Öffnen von Channels erscheinen sie als Tabs (max. 5, zuletzt
+  geöffnet zuerst); Hover zeigt ×; × schließt den Tab dauerhaft
+  (localStorage `engenty.team-chat.recent-tabs`); Tab-Klick navigiert
+- [ ] Tab-Indikatoren: Sky-Punkt bei Erwähnung, Indigo-Zähler bei ungelesen
+- [ ] Statistik-Zeile im Content: 4 Kacheln (Sky @ Erwähnungen, Indigo ✉
+  Ungelesen, Violet ⇄ Threads, Amber ⚲ Angepinnt) mit korrekten Zahlen
+- [ ] Karten-Köpfe mit getönten Icon-Badges; Ungelesen-Zeilen: Sky-Punkt +
+  fette Vorschau, KEIN linker Farbbalken
+- [ ] Autor-Farben in den Feeds: Menschen orange, Agenten violett (+ Bot-Icon)
+
+*Channel-Ansicht (`/mdl/team-chat/<id>`)*
+- [ ] Channel-Kopf: Icon-Badge (#/Schloss/Personen) + Name + Thema;
+  Meta-Zeile: Avatar-Stack (inkl. Agent-Initialen), „N Mitglieder · N
+  Agents", dezenter Typ-Chip („Öffentlich"/„Privat"); KEINE Tab-Zeile
+- [ ] Projekt-Chip (Indigo) nur bei projektgebundenem Channel; zeigt den
+  Projektnamen und verlinkt auf `/mdl/projects/<id>`
+- [ ] Top-Nav-Aktionen: Pin-Icon → Popover mit angepinnten Nachrichten
+  (Klick springt + flasht via `?ts=`); Info-Icon → Mitglieder/Details;
+  ⋯-Menü → „Thema bearbeiten" (Dialog, speichert), „Aktualisieren",
+  „Channel verlassen" (rot, nur Channels; navigiert zur Übersicht)
+- [ ] Stream: Menschen-Autoren einheitlich orange, Agenten violett mit
+  AGENT-Badge (vorher: Hash-Palette pro Person — darf nicht mehr auftreten)
+- [ ] DM: kein Typ-Chip, kein „Channel verlassen"; Details/Pins vorhanden
+- [ ] Embedded (Projekt-Tab „Chat"): unverändert OHNE Channel-Kopf
+- [ ] Regression: Beitreten-Leiste (Nicht-Mitglied), Archiviert-Banner,
+  Thread auf/zu, Composer, Deep-Link `?ts=` (Scroll + Amber-Flash)
+
 ## 3. Security/regression checklist (each release)
 
 - Private channel/DM invisible to non-member: list, info, history, search,
