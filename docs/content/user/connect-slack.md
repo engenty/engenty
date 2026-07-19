@@ -123,10 +123,15 @@ With the workspace connected, choose which channels to mirror.
 Once a channel is bound, new Engenty messages replay to Slack automatically, and
 Slack messages are pulled in on a periodic sync (and whenever you press Sync).
 
-> **Allow the write actions.** For the bridge to post to Slack on its own, the
-> Slack connection's write actions (`post_message`, `update_message`) must be set
-> to **Allow** — otherwise outbound messages park as approval requests. You can
-> set this per action on the connection under **Settings → Connections**.
+> **Enable autonomous use of the connection.** The bridge runs in the
+> background, so the Slack connection must permit autonomous access. On the
+> connection (**Settings → Connections → Manage**):
+>
+> - Set **Autonomous mode** to **Full** — with it **Off**, the bridge can't read
+>   or write and channels are skipped on sync; **Read only** allows inbound sync
+>   but blocks outbound posting.
+> - Set the write actions (`post_message`, `update_message`) to **Allow** —
+>   otherwise outbound messages park as approval requests instead of posting.
 
 ---
 
@@ -146,6 +151,9 @@ setting them.
 session. Sign in to (or switch to) the correct workspace on the Slack page, then
 start **Connect** again.
 
-**Nothing appears in Slack after posting** — check that the connection's write
-actions are set to **Allow** (see the note above); with the default "Ask"
-policy, replays wait as approval requests instead of posting.
+**Sync reports skipped channels, or nothing appears in Slack** — the connection
+isn't set up for autonomous use. Set **Autonomous mode** to **Full** and the
+write actions (`post_message`, `update_message`) to **Allow** on the connection
+(**Settings → Connections → Manage**). With autonomous mode **Off** the bridge
+skips the channel entirely; with the default "Ask" policy on writes, outbound
+replays wait as approval requests instead of posting.
