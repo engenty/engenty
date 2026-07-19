@@ -2441,21 +2441,42 @@ importers:
 
   modules/team-chat/providers/slack-bridge:
     dependencies:
+      '@engenty/api-client':
+        specifier: workspace:*
+        version: link:../../../../packages/api-client
       '@engenty/connections-sdk':
         specifier: workspace:*
         version: link:../../../../packages/connections-sdk
+      '@engenty/i18n':
+        specifier: workspace:*
+        version: link:../../../../packages/i18n
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../../../packages/plugin-sdk
+      '@engenty/query-client':
+        specifier: workspace:*
+        version: link:../../../../packages/query-client
       '@engenty/team-chat':
         specifier: workspace:*
         version: link:../..
       '@engenty/telemetry':
         specifier: workspace:*
         version: link:../../../../packages/telemetry
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../../../../packages/ui-core
+      '@engenty/ui-plugin-sdk':
+        specifier: workspace:*
+        version: link:../../../../packages/ui-plugin-sdk
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
       zod:
         specifier: 4.4.3
         version: 4.4.3

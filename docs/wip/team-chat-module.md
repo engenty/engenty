@@ -599,6 +599,23 @@ DesktopBridge renders team-chat records natively (channel label + author + previ
 from the structured payload (`conversation_label`, `author_user_id`,
 `text_preview`, `route`).
 
+**N4 — email channel (2026-07-20):** `apps/ai/src/notifications/email-notifier.ts`
+mails records that are **still `pending` after a delay** (default 5 min,
+`ENGENTY_TEAM_CHAT_EMAIL_DELAY_MINUTES`; kill-switch
+`ENGENTY_TEAM_CHAT_EMAIL_NOTIFICATIONS_ENABLED`). A 60s pg scan over
+`ai.mastra_notifications` (cross-thread, so not the store API) picks due
+team-chat records, resolves the recipient from `core.users`, and sends through
+the **tenant's own email connection** (decision: connector, not a platform SMTP
+env) via the `gmail_send_message` gateway op on the service JWT. Because the
+action group is `destructive`, the tenant's Google connection must be set to
+autonomous **Full** with `send_message` on **Allow** — without a Gmail
+connection the run is a quiet no-op (one accounts probe per run). Send outcomes
+are terminal per record (`metadata.email_sent` true/false — no per-minute retry
+drumbeat); N1's read-sync means anything read in time never emails. The service
+JWT is tenant-bound: records of other tenants are skipped (same boundary as
+inbox-sync; satellites run their own JWT). Open: per-user email opt-out pref,
+non-Gmail send connectors (Outlook), digest mode.
+
 ---
 
 ## 14. Remote Slack bridge (future phase — designed for, not built)
@@ -650,6 +667,54 @@ connected Slack workspace + write actions set to "allow" on the connection —
 otherwise autonomous replays park as approval requests), inbound
 notifications fan-out (N1 queue) for imported messages, connector `mapMessage`
 now passes `subtype` through (open connector, additive).
+
+### Phase 7 — Realtime sync (Events API) + reactions (planned 2026-07-20)
+
+The pull sync ships two structural gaps: latency (5-min interval) and
+invisibility of anything that doesn't move a message's position in
+`conversations.history` — reactions on older messages, edits, deletes, and
+thread replies outside the cursor window. Phase 7 closes them with push:
+
+1. **Events webhook.** The bridge registers
+   `POST /api/team-chat-slack-bridge/events` (plugin HTTP route): Slack
+   URL-verification (`challenge` echo) + request-signature check via a new
+   `SLACK_SIGNING_SECRET` env (Slack app → Basic Information → Signing
+   Secret). Slack app: enable **Event Subscriptions**, subscribe on behalf of
+   the user to `message.channels`, `message.groups`, `reaction_added`,
+   `reaction_removed`. Needs a publicly reachable HTTPS URL (prod: given;
+   dev: tunnel). Socket Mode (app-level token, outbound WebSocket, no public
+   URL) is the self-hosted alternative — evaluate at build time, same handler
+   behind either transport.
+2. **Event → conversation routing.** Store `team_id` in the binding at bind
+   time (from the connection's `auth.test`); route events by
+   `(team_id, channel_id)` → bound conversation → tenant. Unbound channels
+   drop the event.
+3. **Inbound apply.** `message` → import (same path as pull, loop-guarded by
+   `external.slack.ts` / imported marker); `message_changed` → edit the
+   mapped row (skip if the change is our own export echo);
+   `message_deleted` → soft delete; replies carry `thread_ts` → thread
+   mapping without the pull-window limitation.
+4. **Reactions inbound.** `reaction_added`/`reaction_removed` → map the Slack
+   shortcode to unicode (see 6) and toggle the reaction on the mapped
+   message. Attribution: Slack users aren't engenty principals — decision
+   needed at build time between a synthetic bridge principal (aggregated,
+   simplest) vs. extending the reactions table with an external-actor column.
+5. **Reactions outbound.** The open module's reaction toggle today emits only
+   a generic `updated`; add a dedicated `team-chat.reaction.<added|removed>`
+   bus event carrying `{emoji, principal, message_ts}` (additive). Bridge
+   maps unicode → shortcode and calls `add_reaction` / new `remove_reaction`
+   connector action (`reactions.remove`, open connector, additive). Appears
+   in Slack as the connection owner (user token) — same semantics as the
+   name-prefixed message replay.
+6. **Emoji map.** Compact embedded shortcode↔unicode table for the common
+   set; unknown shortcodes fall back to the `:name:` literal (inbound) /
+   are skipped with a log (outbound).
+7. **Pull sync stays as repair.** Events can be lost (Slack retries only 3×);
+   the interval pull keeps running as consistency backstop, and the cursor
+   keeps advancing so a webhook outage degrades to today's behavior.
+8. **Docs/setup.** `connect-slack.md` gains the Event-Subscriptions step +
+   signing-secret env; bridge settings page shows webhook health (last event
+   received).
 
 ---
 

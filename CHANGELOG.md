@@ -4,6 +4,17 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.38] - 2026-07-19
+- ADDED **[team-chat]** Email notifications via the tenant's connector (N4)
+- ADDED **[team-chat]** Slack-bridge binding UI (pro settings page)
+- DOCS **[team-chat]** Plan bridge phase 7 — realtime Slack sync + reactions
+- DOCS **[user]** Add Connect Slack guide (Slack bridge setup)
+- FIXED **[team-chat]** Slack-bridge env var was missing its obtain strategy
+- FIXED **[team-chat]** Annotate intentional thenable in slack-bridge test mock
+- FIXED **[ci]** Cap turbo build concurrency at the runner's 4 vCPUs
+- FIXED **[team-chat]** Slack bridge skips non-autonomous connections instead of erroring
+- FIXED **[ci]** Stop cancelling in-progress main builds on new pushes
+
 ## [0.1.37] - 2026-07-19
 - ADDED **[release]** Build the desktop dmg locally instead of on GitHub
 - ADDED **[team-chat]** Slack bridge (pro) — outbound replay, inbound sync, binding ops
