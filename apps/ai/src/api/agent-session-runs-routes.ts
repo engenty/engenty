@@ -14,6 +14,7 @@ import type { FrontendToolResumeData } from "../../ai/frontend-tools/native-fron
 import type { ToolApprovalResumeData } from "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
 import {
   isToolApprovalArtifactId,
+  parseToolApprovalGrantContext,
   parseToolApprovalOperationId,
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
@@ -25,6 +26,7 @@ import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
+import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
@@ -515,6 +517,20 @@ export function registerAgentSessionRunRoutes(
           } catch (err) {
             console.error("conversation approval grant persist failed", err);
           }
+          // Approving an agent's secret reveal also persists the durable
+          // goal-scoped grant in core (goal = this conversation thread). Must
+          // land BEFORE the resume re-invokes, or core re-gates the reveal.
+          const grantContext = parseToolApprovalGrantContext(
+            openInterrupt?.artifact_id
+          );
+          if (operationId === "secrets_reveal" && grantContext) {
+            await persistSecretsGoalGrant({
+              coreBaseUrl: opts.coreBaseUrl,
+              goalId: threadId,
+              secretId: grantContext.secret_id,
+              userAccessToken: scope.scope.userAccessToken,
+            });
+          }
         }
         resumeData = {
           approved: once || always,
@@ -522,6 +538,7 @@ export function registerAgentSessionRunRoutes(
         };
       }
       void resumeConversationRun({
+        agentId: session.agent_id,
         newRunId: runId,
         resolvedToolCallId: openInterrupt?.tool_call_id ?? "",
         resumeData,

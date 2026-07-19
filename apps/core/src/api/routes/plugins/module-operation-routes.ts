@@ -687,6 +687,10 @@ export async function invokeOperation(params: {
         scopeId: "default",
         principalId: auth.principalId,
         capabilities: auth.capabilities,
+        // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
+        // can audit the acting agent instead of the impersonated user.
+        ...(auth.agentId ? { agentId: auth.agentId } : {}),
+        ...(auth.goalId ? { goalId: auth.goalId } : {}),
       },
       recordAuditEvent,
     });
@@ -1178,6 +1182,10 @@ export async function executeModuleOperation(params: {
         scopeId: "default",
         principalId: auth.principalId,
         capabilities: auth.capabilities,
+        // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
+        // can audit the acting agent instead of the impersonated user.
+        ...(auth.agentId ? { agentId: auth.agentId } : {}),
+        ...(auth.goalId ? { goalId: auth.goalId } : {}),
       },
       recordAuditEvent,
     });

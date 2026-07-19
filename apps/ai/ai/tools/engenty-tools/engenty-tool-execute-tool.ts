@@ -26,6 +26,10 @@ export const toolApprovalSuspendSchema = z.object({
   operation_id: z.string(),
   requires_approval: z.boolean(),
   risk_level: z.enum(["low", "medium", "high", "critical"]),
+  // Narrow, allow-listed grant context: the secret a secrets_reveal approval
+  // covers, so approving can persist a durable goal-scoped grant. Never the
+  // raw tool input (it may hold sensitive values and this lands in metadata).
+  secret_id: z.string().uuid().optional(),
   title: z.string().optional(),
 });
 
@@ -148,6 +152,7 @@ async function gateRequiresApproval(input: {
   operationId: string;
   requiresApproval: boolean;
   riskLevel: ToolRiskLevel;
+  secretId?: string;
   title?: string;
 }) {
   const policy = getEngentyToolsRunContext().approvalPolicy ?? "deny";
@@ -158,6 +163,7 @@ async function gateRequiresApproval(input: {
       operation_id: input.operationId,
       requires_approval: input.requiresApproval,
       risk_level: input.riskLevel,
+      ...(input.secretId ? { secret_id: input.secretId } : {}),
       ...(input.title ? { title: input.title } : {}),
     } satisfies ToolApprovalSuspendPayload);
     // Unreachable once resumed (execute re-runs with resumeData set), but Mastra
@@ -169,6 +175,9 @@ async function gateRequiresApproval(input: {
       operationId: input.operationId,
       requiresApproval: input.requiresApproval,
       riskLevel: input.riskLevel,
+      ...(input.secretId
+        ? { grantContext: { secret_id: input.secretId } }
+        : {}),
       ...(input.title ? { title: input.title } : {}),
     });
   }
@@ -202,6 +211,9 @@ export async function executeEngentyTool(
   );
   const resumedApproval = resume.success ? resume.data : null;
   let operationId = "";
+  // Grant context for the approval card (secrets_reveal only): captured out
+  // here so the core-202 backstop in the catch block can carry it too.
+  let gateSecretId: string | undefined;
   try {
     const parsed = runInputSchema.parse(input);
     operationId = parsed.id;
@@ -222,6 +234,12 @@ export async function executeEngentyTool(
     // a call that cannot succeed. (An input with wrong/partial fields still goes
     // to core for a precise validation error.)
     const rawInput = isRecord(parsed.input) ? parsed.input : {};
+    if (
+      entry.tool.toolId === "secrets_reveal" &&
+      typeof rawInput.secret_id === "string"
+    ) {
+      gateSecretId = rawInput.secret_id;
+    }
     const required = requiredInputKeys(entry.input.jsonSchema);
     if (required.length > 0 && Object.keys(rawInput).length === 0) {
       return emptyToolInputResult(entry.tool.toolId, required);
@@ -248,6 +266,7 @@ export async function executeEngentyTool(
         operationId: entry.tool.toolId,
         requiresApproval: entry.auth.requiresApproval,
         riskLevel: entry.auth.riskLevel,
+        ...(gateSecretId ? { secretId: gateSecretId } : {}),
         title: entry.title,
       });
     }
@@ -299,6 +318,7 @@ export async function executeEngentyTool(
         operationId,
         requiresApproval: true,
         riskLevel: "high",
+        ...(gateSecretId ? { secretId: gateSecretId } : {}),
       });
     }
     return coreErrorToToolResult(err);

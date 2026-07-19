@@ -17,6 +17,7 @@ import {
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import { resolveCoreAgentId } from "../agent-identity.js";
 import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
@@ -50,6 +51,9 @@ interface SuspendedAgain {
 }
 
 export interface ResumeConversationRunInput {
+  // Text agent key of the session's agent (e.g. "engenty.copilot") so the
+  // continuation forwards the same agent identity as the original run.
+  agentId?: string;
   // The new run id the client attached to for this resume POST.
   newRunId: string;
   // The just-resolved interrupt's toolCallId (the suspended tool).
@@ -161,8 +165,15 @@ export async function resumeConversationRun(
     // denied instead of suspending again. Grants persisted for this chat (incl. a
     // just-granted "approve once"/"always") are threaded through so re-approved
     // operations skip the gate.
+    // Same agent identity + goal as the original run: the re-executed gated
+    // tool must hit core as the agent so a just-persisted goal grant matches.
+    const coreAgentId = await resolveCoreAgentId(
+      input.scope.tenantId,
+      input.agentId
+    );
     const toolsRunContext = {
       ...getEngentyToolsRunContext(),
+      ...(coreAgentId ? { agentId: coreAgentId } : {}),
       approvalGrants: mergeApprovalGrants(
         readToolApprovalGrants(input.sessionMetadata ?? {}),
         await loadConnectionApprovalGrants({
@@ -170,6 +181,7 @@ export async function resumeConversationRun(
         })
       ),
       approvalPolicy: "suspend" as const,
+      goalId: input.threadId,
       // Thread-scoped tools (e.g. artifacts) read the active thread from here.
       orchestratorThreadId: input.threadId,
       runId: input.newRunId,

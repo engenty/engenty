@@ -11,6 +11,8 @@ const AI_SCHEMA = "ai";
 
 export interface RegistryAgentRow {
   agent_id: string;
+  /** Link to the core.agents security principal; provisioned lazily. */
+  core_agent_id?: string | null;
   created_at: string;
   description: string | null;
   guardrails: Record<string, unknown> | null;

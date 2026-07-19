@@ -20,6 +20,7 @@ import {
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import { resolveCoreAgentId } from "../agent-identity.js";
 import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
 import {
   type AiRegistry,
@@ -335,12 +336,21 @@ export async function startConversationRun(
     // Run the send (and thus every tool execution it drives) inside the
     // engenty-tools run context so the execute-boundary approval gate sees the
     // user's grants (and the run identity). ALS propagates to the async tool calls.
+    // Agent identity for core: policies (e.g. the secrets reveal gate) must see
+    // the AGENT as principal, not the user whose bearer token it runs under.
+    // Goal = the conversation thread; approval grants persist against it.
+    const coreAgentId = await resolveCoreAgentId(
+      input.scope.tenantId,
+      input.agentId
+    );
     const toolsRunContext = {
       ...getEngentyToolsRunContext(),
+      ...(coreAgentId ? { agentId: coreAgentId } : {}),
       approvalGrants: input.approvalGrants ?? [],
       // Interactive chat: a gated operation suspends the run for the user's
       // Approve/Deny (native HITL) instead of being denied outright.
       approvalPolicy: "suspend" as const,
+      goalId: input.threadId,
       // Thread-scoped tools (e.g. artifacts) read the active thread from here.
       orchestratorThreadId: input.threadId,
       runId: input.runId,

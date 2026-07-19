@@ -1,9 +1,9 @@
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import {
-  type Principal,
   canReadSecret,
   decryptPayload,
   encryptPayload,
+  type Principal,
   secretAad,
   staticKeyWrapper,
 } from "@engenty/secrets-sdk";
@@ -61,13 +61,13 @@ const moveInput = z.object({
 // Shape of the columns we select for encrypt/decrypt bookkeeping. Supabase's
 // untyped client returns `{}`; we own these columns so a local cast is safe.
 interface SecretCryptoRow {
-  id: string;
-  tenant_id: string;
-  owner_scope: z.infer<typeof ownerScope>;
-  owner_id: string;
-  kind: string;
-  payload_enc: string;
   dek_id: string | null;
+  id: string;
+  kind: string;
+  owner_id: string;
+  owner_scope: z.infer<typeof ownerScope>;
+  payload_enc: string;
+  tenant_id: string;
 }
 
 /**
@@ -168,13 +168,15 @@ export function registerSecretsOperations(
         throw new Error(`secrets_create: ${error.message}`);
       }
       if (input.project_ids?.length) {
-        await db().from("secret_projects").insert(
-          input.project_ids.map((project_id) => ({
-            tenant_id: tenantId,
-            secret_id: id,
-            project_id,
-          }))
-        );
+        await db()
+          .from("secret_projects")
+          .insert(
+            input.project_ids.map((project_id) => ({
+              tenant_id: tenantId,
+              secret_id: id,
+              project_id,
+            }))
+          );
       }
       return { id };
     },
@@ -185,9 +187,9 @@ export function registerSecretsOperations(
     moduleId: "secrets",
     summary: "Decrypt and return a secret's payload (audited; agent-gated)",
     // Returns plaintext — highest-risk op. Agent authorization is enforced by
-    // createSecretsRevealPolicy BEFORE this handler runs (R10); for users the
-    // policy abstains and this handler runs the user-scope resolve. principalId
-    // alone can't tell the kind, so we look it up in core.agents.
+    // createSecretsRevealPolicy BEFORE this handler runs; for users the policy
+    // abstains and this handler runs the user-scope resolve. Agent-ness comes
+    // from ctx.auth.agentId (the forwarded x-engenty-agent-id identity).
     idempotent: true,
     riskLevel: "high",
     requiredCapabilities: ["module.secrets.read"],
@@ -201,7 +203,9 @@ export function registerSecretsOperations(
 
       const { data, error } = await db()
         .from("secrets")
-        .select("id, tenant_id, owner_scope, owner_id, kind, payload_enc, dek_id")
+        .select(
+          "id, tenant_id, owner_scope, owner_id, kind, payload_enc, dek_id"
+        )
         .eq("id", input.secret_id)
         .is("deleted_at", null)
         .single();
@@ -210,15 +214,8 @@ export function registerSecretsOperations(
         throw new Error("secrets_reveal: not found");
       }
 
-      // Principal kind is not in ctx.auth (R10) — resolve it from core.agents.
-      const { data: agentRow } = await supabase
-        .schema("core")
-        .from("agents")
-        .select("id")
-        .eq("id", principalId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
-      const isAgent = Boolean(agentRow);
+      const agentId = ctx.auth.agentId;
+      const isAgent = Boolean(agentId);
 
       // Users: authorize here (policy abstained). Agents: already authorized by
       // createSecretsRevealPolicy (grants ∪ goal grants) before dispatch.
@@ -247,14 +244,18 @@ export function registerSecretsOperations(
         )
       );
 
-      await db().from("access_log").insert({
-        tenant_id: tenantId,
-        secret_id: secret.id,
-        principal_id: principalId,
-        principal_kind: isAgent ? "agent" : "user",
-        action: isAgent ? "decrypt_for_agent" : "reveal",
-        goal_id: null, // handler has no goalId (R10); the policy carries goal scope
-      });
+      await db()
+        .from("access_log")
+        .insert({
+          tenant_id: tenantId,
+          secret_id: secret.id,
+          // Attribute agent reveals to the AGENT principal, not the user whose
+          // bearer token the chat runs under.
+          principal_id: agentId ?? principalId,
+          principal_kind: isAgent ? "agent" : "user",
+          action: isAgent ? "decrypt_for_agent" : "reveal",
+          goal_id: ctx.auth.goalId ?? null,
+        });
 
       return { id: secret.id, kind: secret.kind, payload };
     },
@@ -263,7 +264,8 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_update",
     moduleId: "secrets",
-    summary: "Update a secret's metadata and/or payload (re-encrypts on payload change)",
+    summary:
+      "Update a secret's metadata and/or payload (re-encrypts on payload change)",
     idempotent: false,
     riskLevel: "medium",
     requiredCapabilities: ["module.secrets.write"],
@@ -292,9 +294,15 @@ export function registerSecretsOperations(
       }
 
       const patch: Record<string, unknown> = {};
-      if (input.name !== undefined) patch.name = input.name;
-      if (input.url !== undefined) patch.url = input.url;
-      if (input.description !== undefined) patch.description = input.description;
+      if (input.name !== undefined) {
+        patch.name = input.name;
+      }
+      if (input.url !== undefined) {
+        patch.url = input.url;
+      }
+      if (input.description !== undefined) {
+        patch.description = input.description;
+      }
       if (input.payload !== undefined) {
         const { key, dekId } = await staticKeyWrapper.keyForEncrypt(tenantId);
         patch.payload_enc = encryptPayload(
@@ -321,13 +329,15 @@ export function registerSecretsOperations(
         // Replace associations wholesale (mass-edit friendly).
         await db().from("secret_projects").delete().eq("secret_id", input.id);
         if (input.project_ids.length) {
-          await db().from("secret_projects").insert(
-            input.project_ids.map((project_id) => ({
-              tenant_id: tenantId,
-              secret_id: input.id,
-              project_id,
-            }))
-          );
+          await db()
+            .from("secret_projects")
+            .insert(
+              input.project_ids.map((project_id) => ({
+                tenant_id: tenantId,
+                secret_id: input.id,
+                project_id,
+              }))
+            );
         }
       }
       return { id: input.id };
@@ -362,7 +372,8 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_move",
     moduleId: "secrets",
-    summary: "Re-home a secret to a different owner (re-encrypts to the new AAD)",
+    summary:
+      "Re-home a secret to a different owner (re-encrypts to the new AAD)",
     idempotent: false,
     riskLevel: "high",
     requiredCapabilities: ["module.secrets.write"],

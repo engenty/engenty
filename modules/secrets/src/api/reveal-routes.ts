@@ -1,12 +1,13 @@
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import {
-  type Principal,
   canReadSecret,
   decryptPayload,
+  type Principal,
   secretAad,
   staticKeyWrapper,
 } from "@engenty/secrets-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
 const SCHEMA = "module_secrets";
 
@@ -49,7 +50,9 @@ export function registerSecretsRevealRoutes(
       // here we use the service-role client and re-check tenant explicitly.
       const { data: secret, error } = await db()
         .from("secrets")
-        .select("id, tenant_id, owner_scope, owner_id, kind, payload_enc, dek_id")
+        .select(
+          "id, tenant_id, owner_scope, owner_id, kind, payload_enc, dek_id"
+        )
         .eq("id", secretId)
         .is("deleted_at", null)
         .single();
@@ -102,6 +105,75 @@ export function registerSecretsRevealRoutes(
       });
 
       return hono.json({ id: secret.id, kind: secret.kind, payload });
+    },
+  });
+
+  server.registerHttpRoute({
+    method: "post",
+    path: "/api/secrets/:id/goal-grants",
+    summary:
+      "Grant agents on a goal (conversation) read access to one secret — the durable half of an in-chat approval",
+    request: { body: z.object({ goal_id: z.string().uuid() }) },
+    async handler(ctx) {
+      const hono = ctx.hono as { json: (d: unknown, s?: number) => unknown };
+      if (!ctx.auth) {
+        return hono.json({ error: "Unauthorized" }, 401);
+      }
+      // A HUMAN decision endpoint: the approving user's own bearer token. An
+      // agent-driven call must never mint its own grant.
+      if (ctx.auth.agentId) {
+        return hono.json({ error: "Forbidden" }, 403);
+      }
+      const secretId = (ctx.params as { id?: string })?.id;
+      const goalId = (ctx.body as { goal_id: string }).goal_id;
+      if (!secretId) {
+        return hono.json({ error: "Missing id" }, 400);
+      }
+
+      const { data: secret, error } = await db()
+        .from("secrets")
+        .select("id, tenant_id, owner_scope, owner_id")
+        .eq("id", secretId)
+        .is("deleted_at", null)
+        .single();
+      if (error || !secret || secret.tenant_id !== ctx.auth.tenantId) {
+        return hono.json({ error: "Not found" }, 404);
+      }
+
+      // Ceiling: the approver must be able to reveal this secret THEMSELVES —
+      // an approval can delegate the user's own access, never exceed it.
+      const principal: Principal = { kind: "user", id: ctx.auth.principalId };
+      const allowed = await canReadSecret(
+        supabase,
+        { tenantId: ctx.auth.tenantId, principal, secret },
+        buildResolveDeps(supabase, ctx.auth.tenantId)
+      );
+      if (!allowed) {
+        return hono.json({ error: "Forbidden" }, 403);
+      }
+
+      // agent_id null = "any agent on this goal": the grant lives and dies
+      // with the conversation, matching canReadSecret's goal-grant branch.
+      const { error: grantError } = await supabase
+        .schema("core")
+        .from("agent_goal_grants")
+        .upsert(
+          {
+            tenant_id: ctx.auth.tenantId,
+            goal_id: goalId,
+            agent_id: null,
+            capability: `secrets.read:${secret.id}`,
+            granted_by: ctx.auth.principalId,
+          },
+          {
+            ignoreDuplicates: true,
+            onConflict: "tenant_id, goal_id, agent_id, capability",
+          }
+        );
+      if (grantError) {
+        return hono.json({ error: "Grant failed" }, 500);
+      }
+      return hono.json({ ok: true });
     },
   });
 }
