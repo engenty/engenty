@@ -30,6 +30,7 @@ function fakeSupabase(): SupabaseClient {
   }
   chain.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
   // Awaiting the chain (after select/not/eq) yields the bound conversation.
+  // biome-ignore lint/suspicious/noThenProperty: the mock must be thenable like a real Supabase query builder
   chain.then = (resolve: (value: unknown) => unknown) =>
     resolve({ data: [CONV], error: null });
   return chain as unknown as SupabaseClient;
