@@ -33,6 +33,8 @@ EXCLUDES=(
   docs/internal
   modules/banking
   modules/team-hr
+  # Slack bridge is a pro provider inside the open team-chat module
+  modules/team-chat/providers/slack-bridge
   # time-tracking pulled back to pro-only 2026-07-13 (see publish-open.sh)
   modules/time-tracking
   packages/banking

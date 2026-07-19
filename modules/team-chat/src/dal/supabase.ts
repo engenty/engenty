@@ -82,6 +82,7 @@ function rowToMember(row: Record<string, unknown>): ConversationMember {
     id: row.id as string,
     last_read_ts: (row.last_read_ts as string | null) ?? null,
     muted: Boolean(row.muted),
+    notify_prefs: (row.notify_prefs as Record<string, unknown> | null) ?? {},
     principal_id: row.principal_id as string,
     principal_type: row.principal_type as ConversationMember["principal_type"],
     role: row.role as ConversationMember["role"],
@@ -524,14 +525,15 @@ export function createTeamChatRepoSupabase(
       if (!state.role) {
         throw new TeamChatError("not_member");
       }
-    } else if (!record.subtype) {
-      // Service callers may only post system messages.
+    } else if (!(record.subtype || record.botId)) {
+      // Service callers may only post system messages — or attributed
+      // external/bot messages (e.g. the Slack bridge importing a message).
       throw new TeamChatError("cannot_post", "service posts need a subtype");
     }
     const { data, error } = await supabase.schema(SCHEMA).rpc("post_message", {
       p_agent_type_key: record.agentTypeKey ?? null,
       p_blocks: record.blocks ?? [],
-      p_bot_id: null,
+      p_bot_id: record.botId ?? null,
       p_conversation_id: record.conversationId,
       p_files: record.files ?? [],
       p_mentions: record.mentions ?? [],

@@ -34,6 +34,9 @@ CLOSED_PREFIXES=(
   "docs/internal"
   "modules/banking"
   "modules/team-hr"
+  # The team-chat module is open; its Slack bridge is a pro provider
+  # (decision 2026-07-17, built 2026-07-19).
+  "modules/team-chat/providers/slack-bridge"
   # time-tracking pulled back to pro-only 2026-07-13 (calendar-sync phase is
   # commercial; keep the whole module closed while it's in active pro dev).
   "modules/time-tracking"

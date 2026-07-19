@@ -1,7 +1,11 @@
-import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
+import {
+  type InboxNotificationDto,
+  useInboxListQuery,
+} from "@engenty/ai-ui/embed";
 import type { NavigationSection } from "@engenty/app-shell";
 import { getOptionalSupabaseAuthClient } from "@engenty/auth-ui";
-import { useQueryClient } from "@engenty/query-client";
+import { useQuery, useQueryClient } from "@engenty/query-client";
+import { listUsers } from "@engenty/user-management-ui";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { isDesktopShell } from "./desktop-runtime";
@@ -23,6 +27,7 @@ export interface DesktopBridgeProps {
  * Bridges the running (authenticated) app to the desktop shell:
  * - mirrors the inbox unseen count onto the Dock badge
  * - posts a native notification when new items arrive while unfocused
+ *   (team-chat records get channel + author + preview; others the summary)
  * - routes `engenty://open?path=/...` deep links into the SPA
  * - opens external http(s) links in the system browser
  * - mirrors the sidebar navigation into the native Go menu (⌘1–⌘9)
@@ -39,53 +44,101 @@ export function DesktopBridge(props: DesktopBridgeProps) {
   return <DesktopBridgeInner {...props} />;
 }
 
+const UNSEEN_STATUSES = new Set(["pending", "delivered"]);
+
+/** Title/body for one record; team-chat payloads carry structured context. */
+function renderNotification(
+  record: InboxNotificationDto,
+  userLabel: (id: string) => string | null
+): { body: string; title: string } {
+  const payload = record.payload ?? {};
+  if (record.source !== "team-chat") {
+    return { body: record.summary, title: "engenty" };
+  }
+  const label =
+    typeof payload.conversation_label === "string"
+      ? payload.conversation_label
+      : "Team-Chat";
+  const author =
+    typeof payload.author_user_id === "string"
+      ? userLabel(payload.author_user_id)
+      : typeof payload.author_agent_key === "string"
+        ? payload.author_agent_key
+        : null;
+  const preview =
+    typeof payload.text_preview === "string" && payload.text_preview
+      ? payload.text_preview
+      : record.summary;
+  return {
+    body: author ? `${author}: ${preview}` : preview,
+    title: label,
+  };
+}
+
 function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const unseenCount = useInboxUnseenCountQuery().data?.count;
-  const lastNotifiedCount = useRef<number | null>(null);
+  // Shared inbox list: polls while hidden inside the desktop shell (see
+  // inbox-queries.ts) and the realtime broadcast below invalidates it, so a
+  // tray/dock window still notices arrivals immediately.
+  const inboxQuery = useInboxListQuery({ limit: 30, status: "open" });
+  const usersQuery = useQuery({
+    queryFn: () => listUsers(),
+    queryKey: ["desktop", "tenant-users"],
+    staleTime: 5 * 60_000,
+  });
+  const users = usersQuery.data;
+  const records = inboxQuery.data?.notifications;
+  const knownIds = useRef<Set<string> | null>(null);
   const pathnameRef = useRef(location.pathname);
   pathnameRef.current = location.pathname;
 
   // Dock badge + arrival notifications.
   useEffect(() => {
-    if (unseenCount === undefined) {
+    if (!records) {
       return;
     }
+    const unseen = records.filter((record) =>
+      UNSEEN_STATUSES.has(record.status)
+    );
+    const previous = knownIds.current;
+    knownIds.current = new Set(records.map((record) => record.id));
+    const fresh =
+      previous === null
+        ? [] // initial load — badge only, no notification burst
+        : unseen.filter((record) => !previous.has(record.id));
     void (async () => {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         await getCurrentWindow().setBadgeCount(
-          unseenCount > 0 ? unseenCount : undefined
+          unseen.length > 0 ? unseen.length : undefined
         );
       } catch (error) {
         console.warn("[desktop] failed to set badge count", error);
       }
-      const previous = lastNotifiedCount.current;
-      lastNotifiedCount.current = unseenCount;
-      // Skip the initial load and decreases; only notify on new arrivals
-      // while the window isn't focused.
-      if (previous === null || unseenCount <= previous) {
+      // Only notify on arrivals while the window isn't focused.
+      if (fresh.length === 0 || document.hasFocus()) {
         return;
       }
       try {
-        if (document.hasFocus()) {
-          return;
-        }
         const { isPermissionGranted, requestPermission, sendNotification } =
           await import("@tauri-apps/plugin-notification");
         let granted = await isPermissionGranted();
         if (!granted) {
           granted = (await requestPermission()) === "granted";
         }
-        if (granted) {
-          const added = unseenCount - previous;
+        if (!granted) {
+          return;
+        }
+        const userLabel = (id: string) =>
+          users?.find((user) => user.id === id)?.display_name || null;
+        for (const record of fresh.slice(0, 3)) {
+          sendNotification(renderNotification(record, userLabel));
+        }
+        if (fresh.length > 3) {
           sendNotification({
-            body:
-              added === 1
-                ? "You have a new notification."
-                : `You have ${added} new notifications.`,
+            body: `…and ${fresh.length - 3} more new notifications.`,
             title: "engenty",
           });
         }
@@ -93,7 +146,7 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
         console.warn("[desktop] failed to send notification", error);
       }
     })();
-  }, [unseenCount]);
+  }, [records, users]);
 
   // Realtime inbox: the AI service broadcasts on `inbox:{tenantId}` whenever a
   // notification is created or its status changes; refresh the inbox queries

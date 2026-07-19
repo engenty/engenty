@@ -41,6 +41,7 @@ export function registerNotificationRoutes(
     try {
       const notifications = await listInboxNotifications({
         tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
         ...(query.data.limit ? { limit: query.data.limit } : {}),
         ...(query.data.status ? { status: query.data.status } : {}),
       });
@@ -62,7 +63,8 @@ export function registerNotificationRoutes(
     }
     try {
       const count = await countUnseenInboxNotifications(
-        resolved.scope.tenantId
+        resolved.scope.tenantId,
+        resolved.scope.userId
       );
       return c.json({ count });
     } catch (err) {
@@ -82,7 +84,8 @@ export function registerNotificationRoutes(
     }
     try {
       const updated = await markAllInboxNotificationsSeen(
-        resolved.scope.tenantId
+        resolved.scope.tenantId,
+        resolved.scope.userId
       );
       return c.json({ ok: true, updated });
     } catch (err) {
@@ -107,6 +110,7 @@ export function registerNotificationRoutes(
           id: c.req.param("id"),
           status,
           tenantId: resolved.scope.tenantId,
+          userId: resolved.scope.userId,
         });
         return c.json({ ok: true });
       } catch (err) {

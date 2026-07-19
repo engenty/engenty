@@ -583,6 +583,22 @@ verb and unblocks event triggers for these modules too.
   (not all channel unreads — Slack's home-badge semantics).
 - In-module badges: sidebar per-conversation counts from `team_chat_unreads`.
 
+**IMPLEMENTED (N1, 2026-07-19)** as a queue hop instead of an in-process emit
+(the inbox lives in apps/ai): `team_chat_post_message` / `team_chat_post_as_agent`
+compute targets module-side (`notification-queue.ts`: mentions + @here/@channel →
+`mention`, DM members → `dm`, thread participants (root author + `reply_users`) →
+`thread`, `notify_prefs.level="all"` → `activity`; `muted`/`nothing` silence, author
+excluded, agents never targeted) and enqueue ONE pgmq `team_chat_notification`
+dispatch. The apps/ai consumer (`team-chat-notification-consumer.ts`, kill-switch
+`ENGENTY_TEAM_CHAT_NOTIFICATIONS_ENABLED`) writes one inbox record per target onto
+the user partition `inbox:{tenant}:{userId}` (a layer the inbox anticipated; the
+`/ai/v1/notifications` routes now merge the team + user threads via scope.userId).
+Read-sync: `team_chat_conversations_mark` enqueues a `read` dispatch → pending
+records for messages `ts <= cursor` flip to `seen`. The desktop shell's
+DesktopBridge renders team-chat records natively (channel label + author + preview)
+from the structured payload (`conversation_label`, `author_user_id`,
+`text_preview`, `route`).
+
 ---
 
 ## 14. Remote Slack bridge (future phase — designed for, not built)
@@ -606,6 +622,34 @@ The connections framework already has everything except the Slack stream:
   loop-guard (never re-export a message that came from the bridge).
 - Because our stored shapes *are* Slack shapes, the mapper is field renames + id maps +
   mrkdwn conversion — the compatibility dividend this whole design pays for.
+
+**CORE IMPLEMENTED (N3, 2026-07-19)** as the PRO provider
+`modules/team-chat/providers/slack-bridge` (CLOSED prefix in both publish
+scripts; own plugin `team-chat-slack-bridge`, requires `module.team-chat` +
+`module.connections-slack`). Outbound: subscribes the module-bus
+`team-chat.message.posted|updated|deleted` events, per-conversation ordered
+replay via `callAction post_message/update_message` on the binding's
+connection (`conversations.external.slack = {channel_id, connection_id,
+channel_name?, sync_cursor?, user_map?}`); author-prefix `*Name*:` (core.users
+lookup), markdown→mrkdwn + mention mapping in `mrkdwn.ts` (code-span-safe,
+`user_map` engenty-uuid→U… with @Name fallback); slack ts + `exported_text`
+recorded in `messages.external.slack` (edit replay skips reaction-churn
+`updated` events; deletes stay local — the connector ships no chat.delete).
+Inbound: pull sync per bound conversation over `get_channel_history`
+(oldest=`sync_cursor`, in-process 5-min interval + `team_chat_slack_sync_run`
+op), imports via the open DAL (`botId` = Slack display name, service posts
+with botId now allowed) so ts/rollups/events behave like local posts;
+loop guards = `metadata.slack_bridge.imported` (set atomically at post,
+checked by outbound) + known-slack-ts dedup on `external.slack.ts`. Ops:
+`team_chat_slack_status/bind/unbind/bound_list/sync_run` (manage cap).
+Deviations from the sketch above: no `ConnectorStreamCapability` (its cursor
+is per-connection and its envelope email-shaped; direct read actions fit the
+per-channel chat sync), no Events-API webhook yet, thread replies import only
+what channel history carries. Open: binding UI, real-Slack E2E (needs a
+connected Slack workspace + write actions set to "allow" on the connection —
+otherwise autonomous replays park as approval requests), inbound
+notifications fan-out (N1 queue) for imported messages, connector `mapMessage`
+now passes `subtype` through (open connector, additive).
 
 ---
 

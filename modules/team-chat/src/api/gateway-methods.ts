@@ -5,6 +5,7 @@ import type {
 } from "@engenty/plugin-sdk";
 import type { TeamChatRepo } from "../dal/contracts.js";
 import { extractMentions } from "../lib/mentions.js";
+import type { MentionRecord, TeamChatMessage } from "../schema/types.js";
 import {
   activityFeedInputSchema,
   activityFeedResultSchema,
@@ -47,6 +48,11 @@ import {
   updateSettingsInputSchema,
 } from "../schema/zod.js";
 import { enqueueAgentMentions } from "./agent-mention-queue.js";
+import {
+  computeMessageNotificationTargets,
+  enqueueNotificationDispatch,
+  notificationPreview,
+} from "./notification-queue.js";
 
 const MODULE_ID = "team-chat";
 const READ = ["module.team-chat.read"];
@@ -56,6 +62,65 @@ const MANAGE = ["module.team-chat.manage"];
 export interface RegisterTeamChatGatewayMethodsOptions {
   queue?: QueueServiceLike | null;
   repoForAuth: (auth: PluginAuthContext | undefined) => TeamChatRepo;
+}
+
+/**
+ * User notification fan-out for a freshly posted message (§13): resolves the
+ * conversation + members (service-role repo, so agent/service authors work
+ * too), computes targets and enqueues ONE dispatch for the apps/ai consumer.
+ * Best-effort by contract — a notification hiccup must never fail the post.
+ */
+async function dispatchUserNotifications(params: {
+  authorAgentKey: string | null;
+  authorUserId: string | null;
+  mentions: MentionRecord[];
+  message: TeamChatMessage;
+  queue: QueueServiceLike | null;
+  repo: TeamChatRepo;
+  tenantId: string;
+}): Promise<void> {
+  const { message, repo } = params;
+  if (!params.queue) {
+    return;
+  }
+  const [state, members] = await Promise.all([
+    repo.membership(message.conversation_id),
+    repo.conversations.members(message.conversation_id),
+  ]);
+  // Replies notify the thread's participants (root author + repliers).
+  let threadParticipants: string[] = [];
+  if (message.thread_ts && message.thread_ts !== message.ts) {
+    const thread = await repo.messages.replies({
+      conversationId: message.conversation_id,
+      limit: 1,
+      threadTs: message.thread_ts,
+    });
+    const root = thread.messages.at(0);
+    threadParticipants = [
+      ...(root?.user_id ? [root.user_id] : []),
+      ...(root?.reply_users ?? []),
+    ];
+  }
+  const targets = computeMessageNotificationTargets({
+    authorUserId: params.authorUserId,
+    conversationType: state.conversation.type,
+    members,
+    mentions: params.mentions,
+    threadParticipants,
+  });
+  await enqueueNotificationDispatch(params.queue, {
+    author_agent_key: params.authorAgentKey,
+    author_user_id: params.authorUserId,
+    conversation_id: message.conversation_id,
+    conversation_name: state.conversation.name,
+    conversation_type: state.conversation.type,
+    kind: "message",
+    message_ts: message.ts,
+    targets,
+    tenant_id: params.tenantId,
+    text_preview: notificationPreview(message.text),
+    thread_ts: message.thread_ts,
+  });
 }
 
 export function registerTeamChatGatewayMethods(
@@ -327,6 +392,23 @@ export function registerTeamChatGatewayMethods(
     handler: async (input, ctx) => {
       const parsed = conversationsMarkInputSchema.parse(input);
       await repoForAuth(ctx.auth).conversations.mark(parsed.channel, parsed.ts);
+      // Read-sync: pending inbox notifications for now-read messages flip to
+      // seen (apps/ai consumer). Best-effort, like the post-side dispatches.
+      if (ctx.auth?.tenantId) {
+        try {
+          await enqueueNotificationDispatch(queue, {
+            conversation_id: parsed.channel,
+            kind: "read",
+            tenant_id: ctx.auth.tenantId,
+            up_to_ts: parsed.ts,
+            user_id: ctx.auth.principalId,
+          });
+        } catch (err) {
+          ctx.logger?.warn?.("team-chat read-sync enqueue failed", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
       return { ok: true as const };
     },
   });
@@ -412,6 +494,21 @@ export function registerTeamChatGatewayMethods(
             message: err instanceof Error ? err.message : String(err),
           });
         }
+        try {
+          await dispatchUserNotifications({
+            authorAgentKey: null,
+            authorUserId: ctx.auth.principalId,
+            mentions,
+            message,
+            queue,
+            repo,
+            tenantId: ctx.auth.tenantId,
+          });
+        } catch (err) {
+          ctx.logger?.warn?.("team-chat notification enqueue failed", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       return { message, ok: true as const, ts: message.ts };
     },
@@ -453,6 +550,25 @@ export function registerTeamChatGatewayMethods(
           conversationId: parsed.channel,
           threadTs: threadTs ?? message.ts,
         });
+      }
+      // Agent replies notify thread participants/mentioned users too — the
+      // "mention an agent, get told when it answered" loop.
+      if (ctx.auth?.tenantId) {
+        try {
+          await dispatchUserNotifications({
+            authorAgentKey: parsed.agent_type_key,
+            authorUserId: null,
+            mentions: extractMentions(parsed.text),
+            message,
+            queue,
+            repo,
+            tenantId: ctx.auth.tenantId,
+          });
+        } catch (err) {
+          ctx.logger?.warn?.("team-chat notification enqueue failed", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       return { message, ok: true as const, ts: message.ts };
     },

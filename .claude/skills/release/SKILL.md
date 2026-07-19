@@ -12,6 +12,7 @@ Everything ships from **`main`**. Pick a work mode, land the change on `main`, t
 ```bash
 pnpm release                        # interactive: bump + changelog + commit + annotated tag vX.Y.Z (LOCAL only)
 git push origin main --follow-tags  # pushing the tag is what builds, deploys, and publishes
+pnpm release:desktop                # builds the macOS .dmg locally + attaches it to the GitHub release
 ```
 
 - `pnpm release` is the **single source of truth**. NEVER hand-edit `CHANGELOG.md`, `changelog.json`, the `package.json` version, or tags. (`pnpm release:changelog` drafts the changelog only.)

@@ -45,8 +45,11 @@ interface NotificationsStore {
   updateNotification(input: Record<string, unknown>): Promise<unknown>;
 }
 
-export function inboxThreadId(tenantId: string): string {
-  return `inbox:${tenantId}`;
+export function inboxThreadId(
+  tenantId: string,
+  userId?: string | null
+): string {
+  return userId ? `inbox:${tenantId}:${userId}` : `inbox:${tenantId}`;
 }
 
 async function getNotificationsStore(): Promise<NotificationsStore | null> {
@@ -78,6 +81,8 @@ export interface EmitInboxNotificationInput {
   source: string;
   summary: string;
   tenantId: string;
+  /** Targets the per-user partition (`inbox:{tenant}:{user}`) instead of the team inbox. */
+  userId?: string;
 }
 
 /**
@@ -104,7 +109,7 @@ export async function emitInboxNotification(
       resourceId: input.tenantId,
       source: input.source,
       summary: input.summary.slice(0, 500),
-      threadId: inboxThreadId(input.tenantId),
+      threadId: inboxThreadId(input.tenantId, input.userId),
     });
     broadcastInboxChanged(input.tenantId);
   } catch (error) {
@@ -141,79 +146,158 @@ function toInboxNotification(record: unknown): InboxNotification {
 /** Statuses shown in the inbox; `unseen` drives the badges. */
 const OPEN_STATUSES: InboxNotificationStatus[] = ["pending", "delivered"];
 
+/** The caller's partitions: the team inbox plus their per-user thread. */
+function inboxThreadIds(tenantId: string, userId?: string | null): string[] {
+  return userId
+    ? [inboxThreadId(tenantId), inboxThreadId(tenantId, userId)]
+    : [inboxThreadId(tenantId)];
+}
+
 export async function listInboxNotifications(input: {
   limit?: number;
   status?: "open" | "all";
   tenantId: string;
+  userId?: string;
 }): Promise<InboxNotification[]> {
   const store = await getNotificationsStore();
   if (!store) {
     return [];
   }
-  const records = await store.listNotifications({
-    limit: input.limit ?? 50,
-    ...(input.status === "all"
-      ? {}
-      : { status: [...OPEN_STATUSES, "seen"] as string[] }),
-    threadId: inboxThreadId(input.tenantId),
-  });
-  return records.map(toInboxNotification);
+  const limit = input.limit ?? 50;
+  const perThread = await Promise.all(
+    inboxThreadIds(input.tenantId, input.userId).map((threadId) =>
+      store.listNotifications({
+        limit,
+        ...(input.status === "all"
+          ? {}
+          : { status: [...OPEN_STATUSES, "seen"] as string[] }),
+        threadId,
+      })
+    )
+  );
+  return perThread
+    .flat()
+    .map(toInboxNotification)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, limit);
 }
 
 export async function countUnseenInboxNotifications(
-  tenantId: string
+  tenantId: string,
+  userId?: string
 ): Promise<number> {
   const store = await getNotificationsStore();
   if (!store) {
     return 0;
   }
-  const records = await store.listNotifications({
-    limit: 100,
-    status: OPEN_STATUSES as string[],
-    threadId: inboxThreadId(tenantId),
-  });
-  return records.length;
+  const perThread = await Promise.all(
+    inboxThreadIds(tenantId, userId).map((threadId) =>
+      store.listNotifications({
+        limit: 100,
+        status: OPEN_STATUSES as string[],
+        threadId,
+      })
+    )
+  );
+  return perThread.reduce((sum, records) => sum + records.length, 0);
 }
 
 export async function setInboxNotificationStatus(input: {
   id: string;
   status: "seen" | "dismissed";
   tenantId: string;
+  userId?: string;
 }): Promise<void> {
   const store = await getNotificationsStore();
   if (!store) {
     throw new Error("notifications storage unavailable");
   }
-  await store.updateNotification({
-    id: input.id,
-    status: input.status,
-    threadId: inboxThreadId(input.tenantId),
-  });
-  broadcastInboxChanged(input.tenantId);
+  // The record lives in exactly one partition; the store throws not-found for
+  // the wrong thread, so try the user thread first, then the team inbox.
+  const threads = inboxThreadIds(input.tenantId, input.userId).reverse();
+  let lastError: unknown;
+  for (const threadId of threads) {
+    try {
+      await store.updateNotification({
+        id: input.id,
+        status: input.status,
+        threadId,
+      });
+      broadcastInboxChanged(input.tenantId);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 export async function markAllInboxNotificationsSeen(
-  tenantId: string
+  tenantId: string,
+  userId?: string
 ): Promise<number> {
   const store = await getNotificationsStore();
   if (!store) {
     return 0;
   }
+  let updated = 0;
+  for (const threadId of inboxThreadIds(tenantId, userId)) {
+    const open = await store.listNotifications({
+      limit: 200,
+      status: OPEN_STATUSES as string[],
+      threadId,
+    });
+    for (const record of open) {
+      const row = record as Record<string, unknown>;
+      await store.updateNotification({
+        id: String(row.id),
+        status: "seen",
+        threadId,
+      });
+    }
+    updated += open.length;
+  }
+  if (updated > 0) {
+    broadcastInboxChanged(tenantId);
+  }
+  return updated;
+}
+
+/**
+ * Read-sync: flip open records on a user's partition to `seen` when the
+ * emitting surface knows they were consumed there (e.g. the team-chat read
+ * cursor advanced past the message). Returns the number of records updated.
+ */
+export async function markInboxNotificationsSeenWhere(input: {
+  predicate: (notification: InboxNotification) => boolean;
+  tenantId: string;
+  userId: string;
+}): Promise<number> {
+  const store = await getNotificationsStore();
+  if (!store) {
+    return 0;
+  }
+  const threadId = inboxThreadId(input.tenantId, input.userId);
   const open = await store.listNotifications({
     limit: 200,
     status: OPEN_STATUSES as string[],
-    threadId: inboxThreadId(tenantId),
+    threadId,
   });
+  let updated = 0;
   for (const record of open) {
-    const row = record as Record<string, unknown>;
+    const notification = toInboxNotification(record);
+    if (!input.predicate(notification)) {
+      continue;
+    }
     await store.updateNotification({
-      id: String(row.id),
+      id: notification.id,
       status: "seen",
-      threadId: inboxThreadId(tenantId),
+      threadId,
     });
+    updated += 1;
   }
-  if (open.length > 0) {
-    broadcastInboxChanged(tenantId);
+  if (updated > 0) {
+    broadcastInboxChanged(input.tenantId);
   }
-  return open.length;
+  return updated;
 }

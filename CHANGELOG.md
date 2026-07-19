@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.37] - 2026-07-19
+- ADDED **[release]** Build the desktop dmg locally instead of on GitHub
+- ADDED **[team-chat]** Slack bridge (pro) — outbound replay, inbound sync, binding ops
+- ADDED **[team-chat]** User notifications — mention/DM fan-out into the platform inbox (N1)
+- FIXED **[ci]** Persist turbo cache across verify runs
+- FIXED **[ci]** Raise verify job timeout to 60min
+
 ## [0.1.36] - 2026-07-19
 - ADDED **[desktop]** Deeper macOS integration — native menu, hotkey, autostart, drag&drop, realtime inbox, local connector host
 - FIXED **[team-chat]** Limit conversation content width on wide viewports

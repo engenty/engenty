@@ -17,6 +17,10 @@
     "./ai/registrar": {
       "types": "./dist/ai/registrar.d.ts",
       "default": "./dist/ai/registrar.js"
+    },
+    "./dal": {
+      "types": "./dist/src/dal/supabase.d.ts",
+      "default": "./dist/src/dal/supabase.js"
     }
   },
   "engenty": {

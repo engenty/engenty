@@ -80,9 +80,17 @@ The app version comes from the root `package.json` (`version` in
 
 ## Release
 
-`.github/workflows/desktop-release.yml` builds an unsigned arm64 `.dmg` on
-every `v*` tag and attaches it to the GitHub release
-(`engenty-desktop-vX.Y.Z-macos-arm64.dmg`).
+The `.dmg` is built **locally** as part of the release ritual — GitHub-hosted
+macOS runners bill at 10x and take 3x as long as an M-series Mac:
+
+```sh
+pnpm release && git push origin main --follow-tags
+pnpm release:desktop   # builds + attaches engenty-desktop-vX.Y.Z-macos-arm64.dmg
+```
+
+`.github/workflows/desktop-release.yml` remains as a `workflow_dispatch`
+fallback that builds and attaches the dmg to the latest release when no Mac
+with a build toolchain is available.
 
 - **Unsigned:** first launch needs right-click → Open (Gatekeeper), or
   `xattr -dr com.apple.quarantine /Applications/engenty.app`.
