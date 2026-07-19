@@ -455,7 +455,11 @@ export function CopilotComposerSection({
   );
 
   // Any file type is accepted — non-model files still land in the Vault.
+  // Desktop shell: dropping a file anywhere in the window attaches it here
+  // (the shell disables Tauri's drag-drop interception so HTML5 drops work).
   const attachmentInputProps = {
+    globalDrop:
+      typeof globalThis !== "undefined" && "__TAURI_INTERNALS__" in globalThis,
     maxFileSize: CHAT_ATTACHMENT_MAX_BYTES,
     maxFiles: CHAT_ATTACHMENT_MAX_FILES,
     multiple: true,

@@ -119,7 +119,9 @@ export function MessageList({
     <>
       <MentionChipStyles />
       <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col pb-3">
+        {/* Reading column: full-width surfaces cap the stream at the same
+            width as the page headers (no-op inside narrower embeds). */}
+        <div className="mx-auto flex w-full max-w-5xl flex-col pb-3">
           {hasMore && onLoadOlder ? (
             <div className="flex justify-center py-2">
               <Button onClick={onLoadOlder} size="sm" variant="ghost">

@@ -310,7 +310,10 @@ function App() {
               tenantId={workspaceContext.currentTenant?.id ?? ""}
               userId={workspaceContext.userId}
             />
-            <DesktopBridge />
+            <DesktopBridge
+              sections={sections}
+              tenantId={workspaceContext.currentTenant?.id ?? ""}
+            />
             {contributions.backgroundComponents.map((entry) => (
               <entry.component key={entry.id} />
             ))}

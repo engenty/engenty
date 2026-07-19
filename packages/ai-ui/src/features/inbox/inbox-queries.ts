@@ -12,6 +12,12 @@ export const inboxKeys = {
   unseenCount: () => [...inboxKeys.all, "unseen-count"] as const,
 };
 
+// In the desktop shell the window is often hidden (tray/dock) while the app
+// keeps running — dock badge + native notifications must stay live, so keep
+// polling with `document.hidden`. In the browser a hidden tab can idle.
+const pollWhileHidden =
+  typeof globalThis !== "undefined" && "__TAURI_INTERNALS__" in globalThis;
+
 export function useInboxListQuery(input?: {
   limit?: number;
   status?: "open" | "all";
@@ -25,7 +31,7 @@ export function useInboxListQuery(input?: {
         signal
       ),
     refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
+    refetchIntervalInBackground: pollWhileHidden,
     staleTime: 10_000,
   });
 }
@@ -36,7 +42,7 @@ export function useInboxUnseenCountQuery() {
     queryKey: inboxKeys.unseenCount(),
     queryFn: ({ signal }) => fetchInboxUnseenCount(signal),
     refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
+    refetchIntervalInBackground: pollWhileHidden,
     staleTime: 10_000,
   });
 }
