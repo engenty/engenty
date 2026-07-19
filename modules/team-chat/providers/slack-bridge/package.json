@@ -1,0 +1,35 @@
+{
+  "name": "@engenty/team-chat-slack-bridge",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    }
+  },
+  "engenty": {},
+  "scripts": {
+    "build": "tsup src/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "lint": "echo 'No lint yet'"
+  },
+  "dependencies": {
+    "@engenty/connections-sdk": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/team-chat": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@supabase/supabase-js": "^2.108.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

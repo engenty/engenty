@@ -68,6 +68,8 @@ export interface PostMessageRecord {
    */
   agentTypeKey?: string;
   blocks?: Record<string, unknown>[];
+  /** External/bot author label (e.g. a bridged Slack user); renders as-is. */
+  botId?: string;
   conversationId: string;
   files?: Record<string, unknown>[];
   mentions?: MentionRecord[];

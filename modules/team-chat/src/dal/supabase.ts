@@ -525,14 +525,15 @@ export function createTeamChatRepoSupabase(
       if (!state.role) {
         throw new TeamChatError("not_member");
       }
-    } else if (!record.subtype) {
-      // Service callers may only post system messages.
+    } else if (!(record.subtype || record.botId)) {
+      // Service callers may only post system messages — or attributed
+      // external/bot messages (e.g. the Slack bridge importing a message).
       throw new TeamChatError("cannot_post", "service posts need a subtype");
     }
     const { data, error } = await supabase.schema(SCHEMA).rpc("post_message", {
       p_agent_type_key: record.agentTypeKey ?? null,
       p_blocks: record.blocks ?? [],
-      p_bot_id: null,
+      p_bot_id: record.botId ?? null,
       p_conversation_id: record.conversationId,
       p_files: record.files ?? [],
       p_mentions: record.mentions ?? [],

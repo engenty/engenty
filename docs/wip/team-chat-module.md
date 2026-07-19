@@ -623,6 +623,34 @@ The connections framework already has everything except the Slack stream:
 - Because our stored shapes *are* Slack shapes, the mapper is field renames + id maps +
   mrkdwn conversion — the compatibility dividend this whole design pays for.
 
+**CORE IMPLEMENTED (N3, 2026-07-19)** as the PRO provider
+`modules/team-chat/providers/slack-bridge` (CLOSED prefix in both publish
+scripts; own plugin `team-chat-slack-bridge`, requires `module.team-chat` +
+`module.connections-slack`). Outbound: subscribes the module-bus
+`team-chat.message.posted|updated|deleted` events, per-conversation ordered
+replay via `callAction post_message/update_message` on the binding's
+connection (`conversations.external.slack = {channel_id, connection_id,
+channel_name?, sync_cursor?, user_map?}`); author-prefix `*Name*:` (core.users
+lookup), markdown→mrkdwn + mention mapping in `mrkdwn.ts` (code-span-safe,
+`user_map` engenty-uuid→U… with @Name fallback); slack ts + `exported_text`
+recorded in `messages.external.slack` (edit replay skips reaction-churn
+`updated` events; deletes stay local — the connector ships no chat.delete).
+Inbound: pull sync per bound conversation over `get_channel_history`
+(oldest=`sync_cursor`, in-process 5-min interval + `team_chat_slack_sync_run`
+op), imports via the open DAL (`botId` = Slack display name, service posts
+with botId now allowed) so ts/rollups/events behave like local posts;
+loop guards = `metadata.slack_bridge.imported` (set atomically at post,
+checked by outbound) + known-slack-ts dedup on `external.slack.ts`. Ops:
+`team_chat_slack_status/bind/unbind/bound_list/sync_run` (manage cap).
+Deviations from the sketch above: no `ConnectorStreamCapability` (its cursor
+is per-connection and its envelope email-shaped; direct read actions fit the
+per-channel chat sync), no Events-API webhook yet, thread replies import only
+what channel history carries. Open: binding UI, real-Slack E2E (needs a
+connected Slack workspace + write actions set to "allow" on the connection —
+otherwise autonomous replays park as approval requests), inbound
+notifications fan-out (N1 queue) for imported messages, connector `mapMessage`
+now passes `subtype` through (open connector, additive).
+
 ---
 
 ## 15. Phased implementation plan

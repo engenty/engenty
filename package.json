@@ -81,6 +81,9 @@
       },
       "team-chat": {
         "source": "workspace"
+      },
+      "team-chat-slack-bridge": {
+        "source": "workspace"
       }
     },
     "containerRuntime": "docker"

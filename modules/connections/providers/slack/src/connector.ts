@@ -78,6 +78,7 @@ interface SlackChannel {
 
 interface SlackMessage {
   reply_count?: number;
+  subtype?: string;
   text?: string;
   thread_ts?: string;
   ts: string;
@@ -104,6 +105,7 @@ interface SlackUser {
 function mapMessage(message: SlackMessage) {
   return {
     reply_count: message.reply_count ?? 0,
+    subtype: message.subtype ?? null,
     text: message.text ?? "",
     thread_ts: message.thread_ts ?? null,
     ts: message.ts,
