@@ -118,7 +118,16 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
 - [ ] Tab-Leiste unter dem Titel: „Übersicht" aktiv (Ember-Unterstrich);
   nach dem Öffnen von Channels erscheinen sie als Tabs (max. 5, zuletzt
   geöffnet zuerst); Hover zeigt ×; × schließt den Tab dauerhaft
-  (localStorage `engenty.team-chat.recent-tabs`); Tab-Klick navigiert
+  (localStorage `engenty.team-chat.recent-tabs`)
+- [x] Inline-Tabs (2026-07-19): Tab-Klick rendert die Konversation direkt im
+  Dashboard (Stream + Composer in der max-w-5xl-Spalte, ohne Channel-Kopf) —
+  URL bleibt `/mdl/team-chat#<conversationId>`, kein Wechsel auf die
+  Channel-Route; Topbar zeigt die Channel-Aktionen (Pins/Details/⋯) und der
+  Breadcrumb den Channel; „Übersicht"-Klick räumt den Hash; Browser-Back
+  wandert durch die Tabs; ×-Schließen des aktiven Tabs → Übersicht (Guard:
+  Router-Transitions dürfen den gerade geschlossenen Tab nicht via
+  Auto-Record re-adden); Hash-Deep-Link für eine Nicht-Tab-Konversation legt
+  den Tab an; DM-Tab inkl. Composer-Placeholder verifiziert
 - [ ] Tab-Indikatoren: Sky-Punkt bei Erwähnung, Indigo-Zähler bei ungelesen
 - [ ] Statistik-Zeile im Content: 4 Kacheln (Sky @ Erwähnungen, Indigo ✉
   Ungelesen, Violet ⇄ Threads, Amber ⚲ Angepinnt) mit korrekten Zahlen

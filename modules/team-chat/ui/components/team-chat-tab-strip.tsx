@@ -1,7 +1,8 @@
 // The dashboard's conversation tabs: "Übersicht" plus the last 5 opened
 // conversations, manually closable (decision: no tab row inside a channel).
-// Styled after the ui-core line TabsList; real Links since a tab click
-// navigates instead of switching local TabsContent.
+// Styled after the ui-core line TabsList; a conversation tab switches the
+// dashboard's inline view via the URL hash (`#<conversationId>`) instead of
+// navigating to the full channel route.
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
 import { Hash, Lock, Users, X } from "lucide-react";
@@ -23,6 +24,8 @@ const TAB_BASE =
   "after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-[var(--ember)] after:opacity-0 after:transition-opacity";
 
 export interface TeamChatTabStripProps {
+  /** Conversation shown inline (from the URL hash); null = overview active. */
+  activeId?: string | null;
   /** Resolved conversations for the recent-tab ids (missing ones are skipped). */
   conversationsById: ReadonlyMap<string, ConversationListItem>;
   labelFor: (conversation: ConversationListItem) => string;
@@ -32,6 +35,7 @@ export interface TeamChatTabStripProps {
 }
 
 export function TeamChatTabStrip({
+  activeId = null,
   conversationsById,
   labelFor,
   onClose,
@@ -40,10 +44,14 @@ export function TeamChatTabStrip({
   const { t } = useTranslation("team-chat");
   return (
     <nav className="-mb-px flex items-center overflow-x-auto">
-      {/* On the dashboard the overview tab is always the active one. */}
       <Link
-        aria-current="page"
-        className={cn(TAB_BASE, "text-foreground after:opacity-100")}
+        aria-current={activeId ? undefined : "page"}
+        className={cn(
+          TAB_BASE,
+          activeId
+            ? "text-foreground/60 hover:text-foreground"
+            : "text-foreground after:opacity-100"
+        )}
         to="/mdl/team-chat"
       >
         {t("nav.overview")}
@@ -54,17 +62,20 @@ export function TeamChatTabStrip({
           return null;
         }
         const Icon = tabIcon(conversation);
+        const active = id === activeId;
         const hasMention = conversation.mention_count > 0;
         const unread = conversation.unread_count;
         return (
           <span className="group/tab relative flex items-center" key={id}>
             <Link
+              aria-current={active ? "page" : undefined}
               className={cn(
                 TAB_BASE,
                 "pr-7 text-foreground/60 hover:text-foreground",
-                unread > 0 && "text-foreground"
+                unread > 0 && "text-foreground",
+                active && "text-foreground after:opacity-100"
               )}
-              to={`/mdl/team-chat/${id}`}
+              to={`/mdl/team-chat#${id}`}
             >
               <Icon className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="max-w-36 truncate">

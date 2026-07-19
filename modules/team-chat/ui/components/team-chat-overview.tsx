@@ -2,6 +2,8 @@
 // carries title + subtitle and the conversation tab strip (last 5 opened,
 // closable); the content column opens with four stat tiles, then the feed
 // cards: mentions + my threads (left), unreads + latest + pins (right).
+// A conversation tab renders its stream inline below the header — the active
+// tab travels as the URL hash (`#<conversationId>`), never the channel route.
 // Primary actions (new channel / DM, ⋯) live in the shell topbar.
 import { useCoreAuthSession } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -26,8 +28,8 @@ import {
   Pin,
   Users,
 } from "lucide-react";
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { ConversationListItem, TeamChatMessage } from "../api.js";
 import { useRecentConversationTabs } from "../hooks/use-recent-conversation-tabs.js";
 import {
@@ -44,6 +46,7 @@ import {
   useConversationsQuery,
   useTenantUsersQuery,
 } from "../queries.js";
+import { ConversationView } from "./conversation-view.js";
 import { TeamChatTabStrip } from "./team-chat-tab-strip.js";
 
 type FeedMessage = TeamChatMessage & { conversation_name: string | null };
@@ -313,12 +316,17 @@ export function TeamChatOverview() {
   const locale = i18n.language;
   const { session } = useCoreAuthSession();
   const currentUserId = session?.user?.id ?? null;
+  const navigate = useNavigate();
+  const { hash } = useLocation();
+  // The active conversation tab lives in the URL hash so switching tabs never
+  // leaves the dashboard route; no hash = the overview tab.
+  const activeId = hash.length > 1 ? hash.slice(1) : null;
   const conversationsQuery = useConversationsQuery(false);
   const feedQuery = useActivityFeedQuery();
   const usersQuery = useTenantUsersQuery();
   const users = usersById(usersQuery.data);
   const conversations = conversationsQuery.data ?? [];
-  const { close, tabs } = useRecentConversationTabs();
+  const { close, record, tabs } = useRecentConversationTabs();
 
   const labelFor = (conversation: ConversationListItem) =>
     conversationDisplayName(conversation, users, currentUserId);
@@ -330,6 +338,35 @@ export function TeamChatOverview() {
       ),
     [conversations]
   );
+
+  // A tab the user just closed while it was active: router navigations are
+  // transitions, so the tab state can commit one render before the hash
+  // clears — the record effect must not re-add it in that window.
+  const closedActiveTab = useRef<string | null>(null);
+
+  // A deep-linked hash for a conversation that isn't a tab yet (shared URL)
+  // gets one; existing tabs keep their order — no reshuffle while clicking.
+  useEffect(() => {
+    if (!activeId) {
+      closedActiveTab.current = null;
+      return;
+    }
+    if (
+      activeId !== closedActiveTab.current &&
+      conversationsById.has(activeId) &&
+      !tabs.includes(activeId)
+    ) {
+      record(activeId);
+    }
+  }, [activeId, conversationsById, tabs, record]);
+
+  const closeTab = (conversationId: string) => {
+    if (conversationId === activeId) {
+      closedActiveTab.current = conversationId;
+      navigate("/mdl/team-chat", { replace: true });
+    }
+    close(conversationId);
+  };
 
   const mentions = feedQuery.data?.mentions ?? [];
   const pins = feedQuery.data?.pins ?? [];
@@ -357,9 +394,10 @@ export function TeamChatOverview() {
       <DetailPageHeader
         belowStrip={
           <TeamChatTabStrip
+            activeId={activeId}
             conversationsById={conversationsById}
             labelFor={labelFor}
-            onClose={close}
+            onClose={closeTab}
             tabs={tabs}
           />
         }
@@ -375,7 +413,13 @@ export function TeamChatOverview() {
         title={t("overview.title")}
       />
 
-      {emptyModule ? (
+      {activeId ? (
+        // Inline conversation tab: same reading column as the header/feed so
+        // the stream and composer stay aligned with the title above.
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden">
+          <ConversationView conversationId={activeId} embedded />
+        </div>
+      ) : emptyModule ? (
         <div className="flex flex-1 items-center justify-center">
           <Empty>
             <EmptyHeader>

@@ -1,6 +1,8 @@
 // Team chat: the channel list lives in the shell secondary nav; the selected
 // conversation is the `/mdl/team-chat/:conversationId` route param so it
-// deep-links; an open thread travels as `?thread=<ts>`.
+// deep-links; an open thread travels as `?thread=<ts>`. On the dashboard a
+// recent-tab conversation renders inline instead — carried as the URL hash
+// (`/mdl/team-chat#<conversationId>`), so topbar actions follow either form.
 //
 // This page owns the shell chrome: breadcrumbs, the transparent topbar
 // floating over the blended DetailPageHeader (topbarOverlap), and the primary
@@ -28,7 +30,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ChannelDetailsPopover } from "../components/channel-details-popover.js";
 import { ConversationView } from "../components/conversation-view.js";
@@ -52,11 +54,16 @@ export function TeamChatClientPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { conversationId } = useParams<{ conversationId?: string }>();
+  const { hash } = useLocation();
+  // Dashboard tab shown inline (no route change) — see TeamChatOverview.
+  const inlineConversationId =
+    !conversationId && hash.length > 1 ? hash.slice(1) : null;
+  const activeConversationId = conversationId ?? inlineConversationId;
   const { session } = useCoreAuthSession();
   const currentUserId = session?.user?.id ?? null;
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTeamChatSecondaryNav();
-  const conversationQuery = useConversationQuery(conversationId ?? null);
+  const conversationQuery = useConversationQuery(activeConversationId);
   const usersQuery = useTenantUsersQuery();
   const users = usersById(usersQuery.data);
   const leave = useLeaveChannelMutation();
@@ -76,12 +83,12 @@ export function TeamChatClientPage() {
   }, [conversationId, conversation?.id, record]);
 
   const conversationLabel = useMemo(() => {
-    if (!(conversationId && conversation)) {
+    if (!(activeConversationId && conversation)) {
       return null;
     }
     const label = conversationDisplayName(conversation, users, currentUserId);
     return conversation.name ? `#${label}` : label;
-  }, [conversationId, conversation, users, currentUserId]);
+  }, [activeConversationId, conversation, users, currentUserId]);
 
   const breadcrumbs = useMemo(
     () => [
@@ -101,10 +108,10 @@ export function TeamChatClientPage() {
     conversation?.type === "private_channel";
 
   const leaveChannel = () => {
-    if (!conversationId) {
+    if (!activeConversationId) {
       return;
     }
-    leave.mutate(conversationId, {
+    leave.mutate(activeConversationId, {
       onError: (error) =>
         toast.error(t("toasts.actionFailed", { error: String(error) })),
       onSuccess: () => {
@@ -115,7 +122,7 @@ export function TeamChatClientPage() {
   };
 
   const pageActions = useMemo(() => {
-    if (!conversationId) {
+    if (!activeConversationId) {
       return (
         <div className="flex min-w-0 shrink items-center gap-1">
           <Button
@@ -186,7 +193,7 @@ export function TeamChatClientPage() {
       </div>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, conversation, users, isChannel, t]);
+  }, [activeConversationId, conversation, users, isChannel, t]);
 
   usePageConfig({
     actions: pageActions,
@@ -211,9 +218,9 @@ export function TeamChatClientPage() {
         open={channelDialogOpen}
       />
       <NewDmDialog onOpenChange={setDmDialogOpen} open={dmDialogOpen} />
-      {conversationId && conversation ? (
+      {activeConversationId && conversation ? (
         <EditTopicDialog
-          conversationId={conversationId}
+          conversationId={activeConversationId}
           initialTopic={conversation.topic ?? ""}
           onOpenChange={setTopicDialogOpen}
           open={topicDialogOpen}
