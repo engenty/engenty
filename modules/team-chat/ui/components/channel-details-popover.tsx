@@ -14,6 +14,10 @@ import {
   PopoverContent,
   PopoverTrigger,
   Separator,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@engenty/ui-core";
 import { Bot, Info, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -121,16 +125,22 @@ export function ChannelDetailsPopover({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          aria-label={t("details.open")}
-          className="ml-auto"
-          size="icon-sm"
-          variant="ghost"
-        >
-          <Info className="size-4" />
-        </Button>
-      </PopoverTrigger>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                aria-label={t("details.open")}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <Info className="size-4" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{t("details.open")}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <PopoverContent align="end" className="w-80">
         <div className="flex flex-col gap-3">
           <div>

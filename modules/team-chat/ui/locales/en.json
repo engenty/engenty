@@ -31,7 +31,20 @@
     "noThreads": "You're not active in any threads yet.",
     "noRecent": "No activity yet.",
     "pins": "Pinned",
-    "noPins": "Nothing pinned yet."
+    "noPins": "Nothing pinned yet.",
+    "statUnread": "Unread",
+    "statThreads": "Threads"
+  },
+  "tabs": {
+    "close": "Close tab"
+  },
+  "actions": {
+    "more": "More actions",
+    "refresh": "Refresh",
+    "editTopic": "Edit topic"
+  },
+  "pinsPopover": {
+    "title": "Pinned messages"
   },
   "conversation": {
     "joinPrompt": "You are viewing #{{name}} without being a member.",
@@ -44,6 +57,11 @@
     "loadOlder": "Load older messages",
     "members": "{{count}} member",
     "members_other": "{{count}} members",
+    "agents": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "typePublic": "Public",
+    "typePrivate": "Private",
+    "projectLink": "Project",
     "topicPlaceholder": "Add a topic",
     "notFound": "Conversation not found",
     "notFoundHint": "It may have been archived or you may not have access."
@@ -94,7 +112,9 @@
     "newDmTitle": "New direct message",
     "dmPickHint": "Pick one or more teammates.",
     "start": "Start",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "editTopicTitle": "Edit topic",
+    "save": "Save"
   },
   "toasts": {
     "channelCreated": "Channel created",

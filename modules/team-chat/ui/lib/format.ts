@@ -182,24 +182,13 @@ export function mentionTokensToPlainText(
 }
 
 /**
- * Deterministic author color from a small literal Tailwind palette
- * (DESIGN.md badge rule: literal *-700/-300 pairs, never theme-variable
- * chart tokens). Agents get the primary tone via authorColorAgent.
+ * Author colors carry meaning, not identity: ONE color for humans, ONE for
+ * agents (the AGENT badge adds redundancy). Literal *-700/-300 pairs per the
+ * DESIGN.md badge rule — never theme-variable chart tokens.
  */
-const AUTHOR_COLORS = [
-  "text-sky-700 dark:text-sky-300",
-  "text-emerald-700 dark:text-emerald-300",
-  "text-violet-700 dark:text-violet-300",
-  "text-rose-700 dark:text-rose-300",
-  "text-cyan-700 dark:text-cyan-300",
-  "text-orange-700 dark:text-orange-300",
-];
+export const HUMAN_AUTHOR_CLASS = "text-orange-700 dark:text-orange-300";
+export const AGENT_AUTHOR_CLASS = "text-violet-700 dark:text-violet-300";
 
-export function authorColorClass(authorId: string): string {
-  let hash = 0;
-  for (const char of authorId) {
-    // Same values as `>>> 0` (hash stays positive) without bitwise ops.
-    hash = (hash * 31 + char.charCodeAt(0)) % 4_294_967_296;
-  }
-  return AUTHOR_COLORS[hash % AUTHOR_COLORS.length] as string;
+export function authorColorClass(isAgent: boolean): string {
+  return isAgent ? AGENT_AUTHOR_CLASS : HUMAN_AUTHOR_CLASS;
 }

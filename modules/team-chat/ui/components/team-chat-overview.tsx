@@ -1,13 +1,14 @@
-// Module home: a Slack-style activity dashboard. Left column carries the
-// people-directed feeds (mentions as real messages, my threads); right column
-// carries conversation state (unreads with badges, latest activity). One
-// activity-feed op + the sidebar conversations query feed the whole page.
+// Module home: a Slack-style activity dashboard. A blended DetailPageHeader
+// carries title + subtitle and the conversation tab strip (last 5 opened,
+// closable); the content column opens with four stat tiles, then the feed
+// cards: mentions + my threads (left), unreads + latest + pins (right).
+// Primary actions (new channel / DM, ⋯) live in the shell topbar.
 import { useCoreAuthSession } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
-  Button,
   cn,
+  DetailPageHeader,
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -23,12 +24,12 @@ import {
   Lock,
   MessagesSquare,
   Pin,
-  Plus,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ConversationListItem, TeamChatMessage } from "../api.js";
+import { useRecentConversationTabs } from "../hooks/use-recent-conversation-tabs.js";
 import {
   authorColorClass,
   authorLabel,
@@ -43,20 +44,20 @@ import {
   useConversationsQuery,
   useTenantUsersQuery,
 } from "../queries.js";
-import { NewChannelDialog } from "./new-channel-dialog.js";
-import { NewDmDialog } from "./new-dm-dialog.js";
+import { TeamChatTabStrip } from "./team-chat-tab-strip.js";
 
 type FeedMessage = TeamChatMessage & { conversation_name: string | null };
 
-function conversationIcon(conversation: ConversationListItem) {
-  if (conversation.type === "private_channel") {
-    return Lock;
-  }
-  if (conversation.type === "public_channel") {
-    return Hash;
-  }
-  return Users;
-}
+/** Tinted icon-badge tones (literal pairs per the DESIGN.md badge rule). */
+const TONES = {
+  amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  primary: "bg-primary/10 text-primary",
+  sky: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
+  violet:
+    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+} as const;
+
+type Tone = keyof typeof TONES;
 
 /** One message in a feed: author, channel chip, preview, relative time.
  * Links straight to the message (`?ts=`) so the channel scrolls to it. */
@@ -73,7 +74,6 @@ function FeedRow({
 }) {
   const isAgent = Boolean(message.agent_type_key);
   const author = authorLabel(message, users);
-  const authorId = message.user_id ?? message.agent_type_key ?? "system";
   const preview = mentionTokensToPlainText(message.text, users);
   return (
     <Link
@@ -90,9 +90,7 @@ function FeedRow({
         <span
           className={cn(
             "truncate font-semibold text-xs",
-            isAgent
-              ? "text-violet-700 dark:text-violet-300"
-              : authorColorClass(authorId)
+            authorColorClass(isAgent)
           )}
         >
           {author}
@@ -172,7 +170,12 @@ function ConversationRow({
   users: UsersById;
 }) {
   const { t } = useTranslation("team-chat");
-  const Icon = conversationIcon(conversation);
+  const Icon =
+    conversation.type === "private_channel"
+      ? Lock
+      : conversation.type === "public_channel"
+        ? Hash
+        : Users;
   const preview = conversation.last_message
     ? mentionTokensToPlainText(conversation.last_message.text, users)
     : null;
@@ -217,7 +220,45 @@ function ConversationRow({
   );
 }
 
-/** Dashboard card: icon + title header, divided list body. */
+/** Compact stat tile: tinted icon badge + number + label. */
+function StatTile({
+  icon: Icon,
+  label,
+  loading,
+  tone,
+  value,
+}: {
+  icon: typeof Inbox;
+  label: string;
+  loading: boolean;
+  tone: Tone;
+  value: number;
+}) {
+  return (
+    <div className="ui-canvas-raised flex items-center gap-3 rounded-lg bg-card px-4 py-3">
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          TONES[tone]
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        {loading ? (
+          <Skeleton className="h-5 w-8" />
+        ) : (
+          <span className="font-semibold text-lg tabular-nums leading-tight">
+            {value}
+          </span>
+        )}
+        <span className="truncate text-muted-foreground text-xs">{label}</span>
+      </span>
+    </div>
+  );
+}
+
+/** Dashboard card: tinted icon badge + title header, divided list body. */
 function FeedCard({
   children,
   count,
@@ -225,6 +266,7 @@ function FeedCard({
   icon: Icon,
   loading,
   title,
+  tone,
 }: {
   children: React.ReactNode;
   count: number;
@@ -232,11 +274,20 @@ function FeedCard({
   icon: typeof Inbox;
   loading: boolean;
   title: string;
+  tone: Tone;
 }) {
   return (
     <section className="ui-canvas-raised flex flex-col rounded-lg bg-card">
-      <h2 className="flex items-center gap-2 border-border/60 border-b px-4 py-2.5 font-semibold text-sm">
-        <Icon className="size-4 text-muted-foreground" /> {title}
+      <h2 className="flex items-center gap-2.5 border-border/60 border-b px-4 py-2.5">
+        <span
+          className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-md",
+            TONES[tone]
+          )}
+        >
+          <Icon className="size-3.5" />
+        </span>
+        <span className="font-semibold text-sm">{title}</span>
         {count > 0 ? (
           <span className="text-muted-foreground text-xs">{count}</span>
         ) : null}
@@ -267,11 +318,18 @@ export function TeamChatOverview() {
   const usersQuery = useTenantUsersQuery();
   const users = usersById(usersQuery.data);
   const conversations = conversationsQuery.data ?? [];
-  const [channelDialogOpen, setChannelDialogOpen] = useState(false);
-  const [dmDialogOpen, setDmDialogOpen] = useState(false);
+  const { close, tabs } = useRecentConversationTabs();
 
   const labelFor = (conversation: ConversationListItem) =>
     conversationDisplayName(conversation, users, currentUserId);
+
+  const conversationsById = useMemo(
+    () =>
+      new Map(
+        conversations.map((conversation) => [conversation.id, conversation])
+      ),
+    [conversations]
+  );
 
   const mentions = feedQuery.data?.mentions ?? [];
   const pins = feedQuery.data?.pins ?? [];
@@ -289,149 +347,180 @@ export function TeamChatOverview() {
     (sum, conversation) => sum + conversation.unread_count,
     0
   );
+  const statsLoading = feedQuery.isLoading || conversationsQuery.isLoading;
 
-  if (!conversationsQuery.isLoading && conversations.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Empty>
-          <EmptyHeader>
-            <MessagesSquare className="size-8 text-muted-foreground" />
-            <EmptyTitle>{t("overview.noConversations")}</EmptyTitle>
-            <EmptyDescription>
-              {t("overview.noConversationsHint")}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
-    );
-  }
+  const emptyModule =
+    !conversationsQuery.isLoading && conversations.length === 0;
 
   return (
-    <ScrollArea className="h-full">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-semibold text-xl">{t("overview.title")}</h1>
-            <p className="text-muted-foreground text-sm">
-              {totalUnread > 0
-                ? t("overview.subtitleUnread", { count: totalUnread })
-                : t("overview.subtitle")}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => setDmDialogOpen(true)}
-              size="sm"
-              variant="outline"
-            >
-              <MessagesSquare className="size-4" /> {t("overview.newDm")}
-            </Button>
-            <Button onClick={() => setChannelDialogOpen(true)} size="sm">
-              <Plus className="size-4" /> {t("overview.newChannel")}
-            </Button>
-          </div>
-        </header>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="flex min-w-0 flex-col gap-4">
-            <FeedCard
-              count={mentions.length}
-              empty={t("overview.allCaughtUp")}
-              icon={AtSign}
-              loading={feedQuery.isLoading}
-              title={t("overview.mentions")}
-            >
-              {mentions.map((message) => (
-                <FeedRow
-                  key={`${message.conversation_id}:${message.ts}`}
-                  locale={locale}
-                  message={message}
-                  unread={message.unread}
-                  users={users}
-                />
-              ))}
-            </FeedCard>
-
-            <FeedCard
-              count={threads.length}
-              empty={t("overview.noThreads")}
-              icon={MessagesSquare}
-              loading={feedQuery.isLoading}
-              title={t("overview.threads")}
-            >
-              {threads.map((message) => (
-                <ThreadRow
-                  key={`${message.conversation_id}:${message.ts}`}
-                  locale={locale}
-                  message={message}
-                  users={users}
-                />
-              ))}
-            </FeedCard>
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-4">
-            <FeedCard
-              count={unread.length}
-              empty={t("overview.allCaughtUp")}
-              icon={Inbox}
-              loading={conversationsQuery.isLoading}
-              title={t("overview.unreads")}
-            >
-              {unread.map((conversation) => (
-                <ConversationRow
-                  conversation={conversation}
-                  key={conversation.id}
-                  label={labelFor(conversation)}
-                  locale={locale}
-                  users={users}
-                />
-              ))}
-            </FeedCard>
-
-            <FeedCard
-              count={recent.length}
-              empty={t("overview.noRecent")}
-              icon={Hash}
-              loading={conversationsQuery.isLoading}
-              title={t("overview.recent")}
-            >
-              {recent.map((conversation) => (
-                <ConversationRow
-                  conversation={conversation}
-                  key={conversation.id}
-                  label={labelFor(conversation)}
-                  locale={locale}
-                  users={users}
-                />
-              ))}
-            </FeedCard>
-
-            <FeedCard
-              count={pins.length}
-              empty={t("overview.noPins")}
-              icon={Pin}
-              loading={feedQuery.isLoading}
-              title={t("overview.pins")}
-            >
-              {pins.map((message) => (
-                <FeedRow
-                  key={`${message.conversation_id}:${message.ts}`}
-                  locale={locale}
-                  message={message}
-                  users={users}
-                />
-              ))}
-            </FeedCard>
-          </div>
-        </div>
-      </div>
-
-      <NewChannelDialog
-        onOpenChange={setChannelDialogOpen}
-        open={channelDialogOpen}
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+      <DetailPageHeader
+        belowStrip={
+          <TeamChatTabStrip
+            conversationsById={conversationsById}
+            labelFor={labelFor}
+            onClose={close}
+            tabs={tabs}
+          />
+        }
+        description={
+          <p className="text-muted-foreground text-sm">
+            {totalUnread > 0
+              ? t("overview.subtitleUnread", { count: totalUnread })
+              : t("overview.subtitle")}
+          </p>
+        }
+        sticky={false}
+        title={t("overview.title")}
       />
-      <NewDmDialog onOpenChange={setDmDialogOpen} open={dmDialogOpen} />
-    </ScrollArea>
+
+      {emptyModule ? (
+        <div className="flex flex-1 items-center justify-center">
+          <Empty>
+            <EmptyHeader>
+              <MessagesSquare className="size-8 text-muted-foreground" />
+              <EmptyTitle>{t("overview.noConversations")}</EmptyTitle>
+              <EmptyDescription>
+                {t("overview.noConversationsHint")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
+      ) : (
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-5 sm:px-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile
+                icon={AtSign}
+                label={t("overview.mentions")}
+                loading={statsLoading}
+                tone="sky"
+                value={mentions.length}
+              />
+              <StatTile
+                icon={Inbox}
+                label={t("overview.statUnread")}
+                loading={statsLoading}
+                tone="primary"
+                value={totalUnread}
+              />
+              <StatTile
+                icon={MessagesSquare}
+                label={t("overview.statThreads")}
+                loading={statsLoading}
+                tone="violet"
+                value={threads.length}
+              />
+              <StatTile
+                icon={Pin}
+                label={t("overview.pins")}
+                loading={statsLoading}
+                tone="amber"
+                value={pins.length}
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-4">
+                <FeedCard
+                  count={mentions.length}
+                  empty={t("overview.allCaughtUp")}
+                  icon={AtSign}
+                  loading={feedQuery.isLoading}
+                  title={t("overview.mentions")}
+                  tone="sky"
+                >
+                  {mentions.map((message) => (
+                    <FeedRow
+                      key={`${message.conversation_id}:${message.ts}`}
+                      locale={locale}
+                      message={message}
+                      unread={message.unread}
+                      users={users}
+                    />
+                  ))}
+                </FeedCard>
+
+                <FeedCard
+                  count={threads.length}
+                  empty={t("overview.noThreads")}
+                  icon={MessagesSquare}
+                  loading={feedQuery.isLoading}
+                  title={t("overview.threads")}
+                  tone="violet"
+                >
+                  {threads.map((message) => (
+                    <ThreadRow
+                      key={`${message.conversation_id}:${message.ts}`}
+                      locale={locale}
+                      message={message}
+                      users={users}
+                    />
+                  ))}
+                </FeedCard>
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-4">
+                <FeedCard
+                  count={unread.length}
+                  empty={t("overview.allCaughtUp")}
+                  icon={Inbox}
+                  loading={conversationsQuery.isLoading}
+                  title={t("overview.unreads")}
+                  tone="primary"
+                >
+                  {unread.map((conversation) => (
+                    <ConversationRow
+                      conversation={conversation}
+                      key={conversation.id}
+                      label={labelFor(conversation)}
+                      locale={locale}
+                      users={users}
+                    />
+                  ))}
+                </FeedCard>
+
+                <FeedCard
+                  count={recent.length}
+                  empty={t("overview.noRecent")}
+                  icon={Hash}
+                  loading={conversationsQuery.isLoading}
+                  title={t("overview.recent")}
+                  tone="primary"
+                >
+                  {recent.map((conversation) => (
+                    <ConversationRow
+                      conversation={conversation}
+                      key={conversation.id}
+                      label={labelFor(conversation)}
+                      locale={locale}
+                      users={users}
+                    />
+                  ))}
+                </FeedCard>
+
+                <FeedCard
+                  count={pins.length}
+                  empty={t("overview.noPins")}
+                  icon={Pin}
+                  loading={feedQuery.isLoading}
+                  title={t("overview.pins")}
+                  tone="amber"
+                >
+                  {pins.map((message) => (
+                    <FeedRow
+                      key={`${message.conversation_id}:${message.ts}`}
+                      locale={locale}
+                      message={message}
+                      users={users}
+                    />
+                  ))}
+                </FeedCard>
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      )}
+    </div>
   );
 }

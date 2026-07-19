@@ -31,7 +31,20 @@
     "noThreads": "Du bist noch in keinem Thread aktiv.",
     "noRecent": "Noch keine Aktivität.",
     "pins": "Angepinnt",
-    "noPins": "Noch nichts angepinnt."
+    "noPins": "Noch nichts angepinnt.",
+    "statUnread": "Ungelesen",
+    "statThreads": "Threads"
+  },
+  "tabs": {
+    "close": "Tab schließen"
+  },
+  "actions": {
+    "more": "Weitere Aktionen",
+    "refresh": "Aktualisieren",
+    "editTopic": "Thema bearbeiten"
+  },
+  "pinsPopover": {
+    "title": "Angepinnte Nachrichten"
   },
   "conversation": {
     "joinPrompt": "Du siehst #{{name}}, bist aber kein Mitglied.",
@@ -44,6 +57,11 @@
     "loadOlder": "Ältere Nachrichten laden",
     "members": "{{count}} Mitglied",
     "members_other": "{{count}} Mitglieder",
+    "agents": "{{count}} Agent",
+    "agents_other": "{{count}} Agents",
+    "typePublic": "Öffentlich",
+    "typePrivate": "Privat",
+    "projectLink": "Projekt",
     "topicPlaceholder": "Thema hinzufügen",
     "notFound": "Unterhaltung nicht gefunden",
     "notFoundHint": "Sie wurde evtl. archiviert oder du hast keinen Zugriff."
@@ -94,7 +112,9 @@
     "newDmTitle": "Neue Direktnachricht",
     "dmPickHint": "Wähle eine oder mehrere Personen.",
     "start": "Starten",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "editTopicTitle": "Thema bearbeiten",
+    "save": "Speichern"
   },
   "toasts": {
     "channelCreated": "Channel erstellt",

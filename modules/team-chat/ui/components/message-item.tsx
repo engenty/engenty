@@ -289,7 +289,6 @@ export function MessageItem({
   }
 
   const author = authorLabel(message, users);
-  const authorId = message.user_id ?? message.agent_type_key ?? "system";
   const isAgent = Boolean(message.agent_type_key);
   const markdown = renderMentionTokens(message.text, users);
   const showThreadBar =
@@ -338,9 +337,7 @@ export function MessageItem({
             <span
               className={cn(
                 "truncate font-semibold text-sm",
-                isAgent
-                  ? "text-violet-700 dark:text-violet-300"
-                  : authorColorClass(authorId)
+                authorColorClass(isAgent)
               )}
             >
               {author}

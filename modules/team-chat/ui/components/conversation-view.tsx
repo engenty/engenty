@@ -8,7 +8,7 @@ import {
   EmptyTitle,
   Skeleton,
 } from "@engenty/ui-core";
-import { Hash, Lock, MessagesSquare, Users } from "lucide-react";
+import { MessagesSquare } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -27,7 +27,7 @@ import {
   useToggleReactionMutation,
   useUpdateMessageMutation,
 } from "../queries.js";
-import { ChannelDetailsPopover } from "./channel-details-popover.js";
+import { ChannelHeader } from "./channel-header.js";
 import { Composer } from "./composer.js";
 import { InlineThread } from "./inline-thread.js";
 import { MessageList } from "./message-list.js";
@@ -126,11 +126,6 @@ export function ConversationView({
   const isChannel =
     conversation.type === "public_channel" ||
     conversation.type === "private_channel";
-  const HeaderIcon =
-    conversation.type === "private_channel" ? Lock : isChannel ? Hash : Users;
-  const memberCount = conversation.is_member
-    ? undefined
-    : conversation.members.length;
   const canPost = conversation.is_member && !conversation.is_archived;
   const canDeleteFor = (userId: string | null) =>
     Boolean(userId && userId === currentUserId) ||
@@ -151,21 +146,11 @@ export function ConversationView({
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       {embedded ? null : (
-        <div className="flex h-12 shrink-0 items-center gap-2 border-border/60 border-b px-4">
-          <HeaderIcon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate font-semibold">{displayName}</span>
-          {conversation.topic ? (
-            <span className="hidden truncate text-muted-foreground text-sm md:inline">
-              {conversation.topic}
-            </span>
-          ) : null}
-          {typeof memberCount === "number" ? (
-            <span className="text-muted-foreground text-xs">
-              {t("conversation.members", { count: memberCount })}
-            </span>
-          ) : null}
-          <ChannelDetailsPopover conversation={conversation} users={users} />
-        </div>
+        <ChannelHeader
+          conversation={conversation}
+          displayName={displayName}
+          users={users}
+        />
       )}
 
       {conversation.is_archived ? (
