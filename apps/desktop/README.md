@@ -25,9 +25,29 @@ CORS allowance in core/ai).
 
 - **Dock badge + notifications** — the inbox unseen count is mirrored to the
   Dock badge; new arrivals while the window is unfocused post a native
-  notification (`apps/ui/src/desktop/DesktopBridge.tsx`).
-- **Menu-bar tray** — Open, Change Server…, Quit. Closing the window hides it
-  (app keeps running); quit via ⌘Q or the tray.
+  notification (`apps/ui/src/desktop/DesktopBridge.tsx`). The AI service also
+  broadcasts inbox changes on Supabase Realtime (`inbox:{tenantId}`), so badge
+  and notifications react immediately; the 30s poll stays as fallback and — in
+  the desktop shell — keeps running while the window is hidden in the tray.
+- **Native menu bar** — File → New Chat (⌘N), engenty → Settings… (⌘,),
+  View → Reload (⌘R) / Change Server…, and a **Go menu** that mirrors the
+  user's sidebar modules with ⌘1–⌘9 (the SPA reports its navigation via the
+  `set_navigation_menu` command).
+- **Global hotkey ⌥Space** — raises the window and opens the copilot drawer
+  wherever you are (quick capture).
+- **Menu-bar tray** — Open, Reload, Change Server…, Start at Login (toggle,
+  via `tauri-plugin-autostart`), Quit. Closing the window hides it (app keeps
+  running); quit via ⌘Q or the tray.
+- **Drag & drop** — dropping files from Finder anywhere on the window attaches
+  them to the chat composer (`dragDropEnabled: false` hands drops to the SPA's
+  HTML5 handlers).
+- **Local folders for agents** — the local-files connector uses the native
+  folder picker + filesystem instead of the browser's File System Access API
+  (`modules/connections/providers/local-files/ui/lib/desktop-fs.ts`): grants
+  survive restarts, work while the app sits in the tray, and don't require
+  Chrome. The fs capability is scoped read-only to `$HOME/**`; which folders
+  agents can actually reach is governed by the folder grants (connections)
+  themselves.
 - **Deep links** — `engenty://open?path=/some/route` opens the app and
   navigates to the route.
 - **External links** open in the system browser.
