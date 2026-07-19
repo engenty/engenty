@@ -36,6 +36,10 @@ export interface ConnectionsCaller {
     principal: { principalId: string; principalType: "service" };
     tenantId: string;
   }): Promise<unknown>;
+  listConnections(params: {
+    connectorId?: string;
+    tenantId: string;
+  }): Promise<{ autonomous_mode: string; id: string }[]>;
 }
 
 export interface BridgeDeps {
@@ -403,6 +407,8 @@ export interface SyncSummary {
   conversations: number;
   errors: number;
   imported: number;
+  /** Conversations whose connection isn't in autonomous mode (needs setup). */
+  skipped: number;
 }
 
 export async function runInboundSync(
@@ -416,11 +422,28 @@ export async function runInboundSync(
     conversations: bound.length,
     errors: 0,
     imported: 0,
+    skipped: 0,
   };
+  // A connection must be in autonomous mode for the background bridge to read
+  // it (policy denies every action when autonomous_mode is "off"). Skip those
+  // up front — a not-set-up connection is a setup gap, not a sync error.
+  const autonomousById = new Map<string, string>();
+  for (const tenantId of new Set(bound.map(({ row }) => row.tenant_id))) {
+    const connections = await deps.connections
+      .listConnections({ connectorId: "slack", tenantId })
+      .catch(() => [] as { autonomous_mode: string; id: string }[]);
+    for (const connection of connections) {
+      autonomousById.set(connection.id, connection.autonomous_mode);
+    }
+  }
   // Slack user labels per connection, resolved lazily once per run.
   const labelCache = new Map<string, Map<string, string>>();
 
   for (const { binding, row } of bound) {
+    if ((autonomousById.get(binding.connection_id) ?? "off") === "off") {
+      summary.skipped += 1;
+      continue;
+    }
     try {
       const history = (await deps.connections.callAction({
         actionId: "get_channel_history",

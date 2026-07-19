@@ -106,10 +106,12 @@ export function SlackBridgeSettingsPage() {
   });
   const sync = useMutation({
     mutationFn: (channel?: string) =>
-      invokeOp<{ conversations: number; errors: number; imported: number }>(
-        "team_chat_slack_sync_run",
-        channel ? { channel } : {}
-      ),
+      invokeOp<{
+        conversations: number;
+        errors: number;
+        imported: number;
+        skipped: number;
+      }>("team_chat_slack_sync_run", channel ? { channel } : {}),
     onSuccess: invalidate,
   });
 
@@ -248,6 +250,7 @@ export function SlackBridgeSettingsPage() {
               conversations: sync.data.conversations,
               errors: sync.data.errors,
               imported: sync.data.imported,
+              skipped: sync.data.skipped,
             })}
           </span>
         ) : null}

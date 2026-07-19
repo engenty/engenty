@@ -1,5 +1,5 @@
 {
-  "approvalHint": "Note: the Slack connection's write actions (post_message, update_message) must be set to \"Allow\" \u2014 otherwise outbound messages park as approval requests.",
+  "approvalHint": "Setup: on the Slack connection (Settings \u2192 Connections \u2192 Manage) set Autonomous mode to \"Full\" so the bridge can sync in the background, and set the write actions (post_message, update_message) to \"Allow\" \u2014 otherwise outbound messages park as approval requests.",
   "bind": "Bind",
   "connection": "Slack connection: {{name}}",
   "menu": "Slack bridge",
@@ -9,7 +9,7 @@
   "subtitle": "Mirror team-chat channels with Slack channels (both directions).",
   "syncAll": "Sync all now",
   "syncNow": "Sync",
-  "syncResult": "{{conversations}} channels, {{imported}} imported, {{errors}} errors",
+  "syncResult": "{{conversations}} channels, {{imported}} imported, {{skipped}} skipped, {{errors}} errors",
   "title": "Slack bridge",
   "unbind": "Unbind"
 }

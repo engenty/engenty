@@ -227,6 +227,7 @@ const registerSlackBridgePlugin: EngentyPluginFactory = (engenty) => {
       errors: z.number(),
       imported: z.number(),
       ok: z.literal(true),
+      skipped: z.number(),
     }),
     handler: async (input, ctx) => {
       const parsed = z
