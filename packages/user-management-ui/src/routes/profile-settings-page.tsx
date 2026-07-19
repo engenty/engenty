@@ -11,6 +11,7 @@ import { AuthenticationSection } from "../components/profile/authentication-sect
 import { PreferredAppearanceSection } from "../components/profile/preferred-appearance-section.js";
 import { PrivateProfileSection } from "../components/profile/private-profile-section.js";
 import { PublicProfileSection } from "../components/profile/public-profile-section.js";
+import { PushNotificationsSection } from "../components/profile/push-notifications-section.js";
 import { type UserRecord, updateUserProfileSchema } from "../lib/schemas.js";
 import { listUsers, updateUserProfile } from "../lib/user-management-api.js";
 
@@ -148,6 +149,7 @@ export function ProfileSettingsPage() {
           onDirtyChange={setPreferredAppearanceDirty}
           saveRef={preferredAppearanceSaveRef}
         />
+        <PushNotificationsSection />
       </div>
     </div>
   );
