@@ -32,6 +32,18 @@ jobs:
           node-version: 24.14.0
           cache: pnpm
 
+      # Persist turbo's local task cache across runs: a cold build of the
+      # workspace takes ~20min, a warm one minutes. Keyed by SHA with a
+      # prefix fallback so every run restores the most recent cache. Saved
+      # explicitly right after Build (not via the post hook) so the cache
+      # survives even when a later step dies or the runner is reclaimed.
+      - name: Restore turbo cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -49,6 +61,13 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Save turbo cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
 
       - name: Typecheck
         run: pnpm typecheck
