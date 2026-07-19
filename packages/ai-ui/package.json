@@ -30,6 +30,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@engenty/ag-ui-bridge": "workspace:*",
+    "@engenty/a2ui-catalog": "workspace:*",
     "@engenty/ai-core": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/api-contracts": "workspace:*",

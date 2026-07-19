@@ -131,6 +131,7 @@ export {
   ActionButton,
   type ActionButtonProps,
 } from "./components/ai-elements/action-button.js";
+export { A2uiToolCallCard } from "./components/copilot/tool-call/a2ui-tool-call-card.js";
 // --- Presentation (copilot chrome + AI Elements) ---
 export {
   asRecord,
@@ -300,6 +301,10 @@ export {
   type ObjectRowAction,
   ObjectRowList,
 } from "./objects/object-list.js";
+export {
+  ObjectPanelAskAgentBar,
+  type ObjectPanelAskAgentBarProps,
+} from "./objects/object-panel-ask-agent-bar.js";
 export {
   ObjectRenderToolCallCard,
   objectRenderToolCallMatch,

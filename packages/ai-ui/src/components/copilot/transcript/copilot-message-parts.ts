@@ -1,6 +1,10 @@
 /** Message part type guards and helpers for copilot transcript rendering. */
 
-import { readObjectRenderMeta } from "@engenty/ai-core/browser";
+import {
+  readA2uiRenderMeta,
+  readObjectRenderMeta,
+} from "@engenty/ai-core/browser";
+import { readMcpAppMeta } from "../tool-call/mcp-app-tool-call-card.js";
 
 export interface ToolPartLike {
   displayLabel?: string;
@@ -157,6 +161,37 @@ export function isObjectRenderToolPart(
     toolName === "show_objects" ||
     resolved === "show_objects" ||
     readObjectRenderMeta(part.output) !== null
+  );
+}
+
+/**
+ * A2UI surface tool parts (`show_ui`, or any tool output carrying the a2ui
+ * marker) render as full-width native surfaces — same escape from the
+ * collapsed tool timeline as object renders.
+ */
+export function isA2uiToolPart(part: ToolPartLike, toolName: string): boolean {
+  const resolved = getToolResolvedName(part, toolName);
+  return (
+    toolName === "show_ui" ||
+    resolved === "show_ui" ||
+    readA2uiRenderMeta(part.output) !== null
+  );
+}
+
+/**
+ * MCP App widget tool parts (`show_widget`, external MCP app tools carrying
+ * the mcp_app marker with a template) render as full-width sandboxed frames —
+ * a widget folded into a one-line timeline step is not a rendered widget.
+ */
+export function isMcpAppWidgetToolPart(
+  part: ToolPartLike,
+  toolName: string
+): boolean {
+  const resolved = getToolResolvedName(part, toolName);
+  return (
+    toolName === "show_widget" ||
+    resolved === "show_widget" ||
+    readMcpAppMeta(part.output)?.html !== undefined
   );
 }
 

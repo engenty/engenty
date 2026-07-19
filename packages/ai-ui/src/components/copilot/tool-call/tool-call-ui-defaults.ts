@@ -1,10 +1,12 @@
 "use client";
 
+import { readA2uiRenderMeta } from "@engenty/ai-core/browser";
 import type { ComponentType } from "react";
 import {
   ObjectRenderToolCallCard,
   objectRenderToolCallMatch,
 } from "../../../objects/object-render-tool-call-card";
+import { A2uiToolCallCard } from "./a2ui-tool-call-card";
 import {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,
@@ -83,6 +85,12 @@ export function registerDefaultToolCallUiCards() {
     priority: 55,
     match: (ctx) => objectRenderToolCallMatch(ctx),
     Card: ObjectRenderToolCallCard,
+  });
+  registerToolCallUi({
+    id: "core.a2ui",
+    priority: 58,
+    match: (ctx) => readA2uiRenderMeta(ctx.output) !== null,
+    Card: A2uiToolCallCard,
   });
   registerToolCallUi({
     id: "core.mcp-app",

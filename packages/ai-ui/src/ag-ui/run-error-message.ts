@@ -14,6 +14,8 @@ const RUN_ERROR_CODE_LABELS: Record<string, string> = {
     "The pending approval or decision is no longer available.",
   "agent_threads.interruptMismatch":
     "The resume action did not match the open interrupt.",
+  "agent_threads.resumeInProgress":
+    "This approval is already being processed. Please wait a moment.",
   "agent_threads.interruptExpired": "The pending approval or decision expired.",
 };
 

@@ -1,7 +1,29 @@
 # Generative UI — rich widgets in chat, rich documents in the pane
 
-Status: DESIGN — 2026-07-17. Follows the chat-object-rendering phase (shipped
-v0.1.27). Owner: Matthias.
+Status: IMPLEMENTED (v1) — 2026-07-18, branch `feat/generative-ui`. G1
+(CommercialDocumentView panels + askAgent seam), G2 (internal MCP Apps:
+`engenty:internal` proxy branch, template registry, `show_widget`), and G3
+(A2UI `engenty:core/v1` catalog via `@a2ui/react`, `show_ui`,
+`packages/a2ui-catalog`) all landed and were browser-verified. Design below
+kept as reference; deferred items: first-party template examples, A2UI
+incremental surface updates over the live stream, Q1–Q3/Q5 open questions.
+
+Originally: DESIGN — 2026-07-17. Follows the chat-object-rendering phase
+(shipped v0.1.27). Owner: Matthias.
+
+**Surfaced during live verification (2026-07-19) — NOT a generative-UI defect,
+tracked separately in the run/resume machinery.** While exercising the tools
+in the copilot, a `409 agent_threads.resumeInProgress` wedged the thread. Two
+facets the fix must cover, noted here so they aren't lost:
+
+1. **Read-only turns trigger it too.** The 409 hit a turn that only ran
+   `show_objects` (no writes, no approval) — so the resume race is broader than
+   "parallel create + per-tool approval"; the fix can't assume it only affects
+   write/approval legs.
+2. **The error banner is sticky.** It stays pinned above a turn that actually
+   succeeded (the object list rendered fine below it) and has no dismiss
+   control. Make the banner dismissable and auto-clear on the next successful
+   turn, so a transient 409 doesn't leave a permanent red bar.
 
 **Q6 DECIDED (2026-07-17, Matthias): A2UI for the first implementation.**
 OpenUI stays evaluated-not-chosen (§5); revisit only if the spike-level pains

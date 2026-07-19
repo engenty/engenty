@@ -59,6 +59,11 @@ export interface CopilotCompactComposerShellProps {
   className?: string;
   /** Persisted expanded status-flap body height (px). */
   compactStatusFlapHeight?: number;
+  /** Docked surfaces (message queue, approval / decision cards) rendered as a
+   *  flap directly attached behind the composer card — card background, no gap.
+   *  While set, the status flap is suppressed and the blob avatar rides this
+   *  flap's top edge instead of overlapping its content. */
+  dockContent?: ReactNode;
   enableStatusFlap?: boolean;
   errorMessage?: string | null;
   /** Force the active state (avatar + belowCard always visible). Use on the
@@ -249,6 +254,7 @@ export function CopilotCompactComposerShell({
   children,
   className,
   compactStatusFlapHeight,
+  dockContent = null,
   enableStatusFlap = true,
   errorMessage = null,
   forceActive = false,
@@ -309,11 +315,13 @@ export function CopilotCompactComposerShell({
     enableStatusFlap && chatStatus === "ready" && hasConversation
       ? replyText
       : "";
+  const hasDockContent = dockContent != null;
   const showStatus =
-    (enableStatusFlap && interruptContent != null) ||
-    showRunningFlap ||
-    showPostRunFlap ||
-    idlePreviewText.length > 0;
+    !hasDockContent &&
+    ((enableStatusFlap && interruptContent != null) ||
+      showRunningFlap ||
+      showPostRunFlap ||
+      idlePreviewText.length > 0);
   const { closing, rendered } = useAnimatedPresence(showStatus);
 
   const [isFocused, setIsFocused] = useState(false);
@@ -513,6 +521,17 @@ export function CopilotCompactComposerShell({
         }}
       />
       <div className="relative">
+        {hasDockContent ? (
+          // In-flow flap tucked directly behind the composer card: same card
+          // background, rounded top, and the card (z-10) overlaps its bottom
+          // edge so the two read as one attached surface — no gap. In-flow
+          // (not absolute) so variable-height content (queue rows, approval
+          // cards) pushes the transcript up instead of covering it.
+          <div className="relative -mb-5 rounded-t-xl border border-border border-b-0 bg-card px-3 pt-2.5 pb-7">
+            {avatarOverlay}
+            {dockContent}
+          </div>
+        ) : null}
         {rendered ? (
           <CopilotComposerStatusFlap
             activityBaselineSignature={activityBaselineSignature}
@@ -543,7 +562,7 @@ export function CopilotCompactComposerShell({
             stale={stale}
           />
         ) : null}
-        {rendered ? null : avatarOverlay}
+        {rendered || hasDockContent ? null : avatarOverlay}
         <div
           className={cn(
             "relative z-10 border-red transition-all duration-200",

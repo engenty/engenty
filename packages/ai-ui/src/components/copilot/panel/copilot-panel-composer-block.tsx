@@ -24,6 +24,7 @@ export function CopilotPanelComposerBlock({
   composerOverride,
   composerPlaceholder,
   composerWrapperClassName,
+  dockedSurface,
   draft,
   emptyStateSubtitle,
   emptyStateTitle,
@@ -54,6 +55,9 @@ export function CopilotPanelComposerBlock({
   composerOverride?: ReactNode;
   composerPlaceholder: string;
   composerWrapperClassName?: string;
+  /** Docked surfaces (message queue, approval cards) — rendered as a flap
+   *  attached directly behind the composer card (see shell `dockContent`). */
+  dockedSurface?: ReactNode;
   draft: string;
   emptyStateSubtitle?: string;
   emptyStateTitle?: string;
@@ -111,6 +115,7 @@ export function CopilotPanelComposerBlock({
                 ) : undefined
               }
               chatStatus={status}
+              dockContent={dockedSurface}
               enableStatusFlap={enableStatusFlap}
               errorMessage={error?.message ?? null}
               forceActive={centerEmptyLanding}
@@ -152,6 +157,7 @@ export function CopilotPanelComposerBlock({
                 ) : undefined
               }
               chatStatus={status}
+              dockContent={dockedSurface}
               enableStatusFlap={enableStatusFlap}
               errorMessage={error?.message ?? null}
               forceActive={centerEmptyLanding}
@@ -182,6 +188,9 @@ export function CopilotPanelComposerBlock({
             </CopilotCompactComposerShell>
           ) : (
             <div className="flex flex-col">
+              {dockedSurface ? (
+                <div className="mb-3">{dockedSurface}</div>
+              ) : null}
               <CopilotComposerSection
                 composerOverride={composerOverride}
                 composerPlaceholder={composerPlaceholder}

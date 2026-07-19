@@ -188,6 +188,10 @@ export {
   supportedEmbeddingModels,
 } from "./models/supported-embeddings.js";
 export {
+  type A2uiRenderMeta,
+  readA2uiRenderMeta,
+} from "./objects/a2ui-render.js";
+export {
   formatObjectRef,
   type ObjectDisplayHint,
   type ObjectDisplayItem,

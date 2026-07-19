@@ -1,7 +1,10 @@
 "use client";
 
 import { registerObjectWidget } from "@engenty/ai-ui";
-import { InvoiceObjectCard } from "./components/copilot/invoice-object-card.js";
+import {
+  InvoiceObjectCard,
+  InvoiceObjectPanel,
+} from "./components/copilot/invoice-object-card.js";
 
 const INVOICE_DETAIL_PATTERN =
   /^\/mdl\/invoices\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -19,6 +22,7 @@ export function registerInvoicesObjectWidget() {
     module: "invoices",
     entity: "invoice",
     card: InvoiceObjectCard,
+    panel: InvoiceObjectPanel,
     getHref: (ref) => `/mdl/invoices/${ref.id}`,
     matchHref: (pathname) => {
       const match = pathname.match(INVOICE_DETAIL_PATTERN);

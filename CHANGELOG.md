@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.30] - 2026-07-19
+- ADDED **[copilot]** Dock queue + approval surfaces as a flap attached to the composer
+- ADDED **[generative-ui]** Rich record panels, internal MCP Apps, A2UI catalog (G1–G3)
+- DOCS **[wip]** Note run/resume 409 wedge findings from generative-ui verification (unrelated defect)
+- DOCS **[dev]** Add Generative UI page, refresh objects page (panels, askAgent, engenty:internal)
+- FIXED **[copilot]** Reconcile orphaned interrupts + recover from 409 resumeInProgress
+- FIXED **[a2ui]** Make show_ui actions + data-bindings resolve
+- FIXED **[copilot]** Thread-scope the composer message queue and clear it on stop
+
 ## [0.1.29] - 2026-07-17
 - ADDED **[projects]** Resizable task side panel with delete + full-page actions
 - DOCS **[wip]** Generative-ui — correct 'iframe cannot host our components' to the precise claim

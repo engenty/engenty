@@ -5,8 +5,10 @@ import {
   CopilotOpenInterruptBanner,
   CopilotPanelContent,
   type CopilotPanelContentProps,
+  ENGENTY_COPILOT_HOST_KEY,
   formatCopilotRouteStatusLabel,
   pendingInterruptFromTranscript,
+  registerCopilotComposerDraftSetter,
   type SubmitMessage,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useCopilotComposerDraftRecovery,
@@ -17,7 +19,13 @@ import {
 } from "@engenty/ai-ui";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useChatSlashCommands } from "../../hooks/chat/use-chat-slash-commands.js";
 import { useMentionRefSearch } from "../../hooks/chat/use-mention-ref-search.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
@@ -106,6 +114,17 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     userId,
   });
 
+  // Panel affordances ("Ask the agent to…") prefill this composer through the
+  // host-keyed draft bridge — see ObjectDisplayIntent.askAgent.
+  useEffect(
+    () =>
+      registerCopilotComposerDraftSetter(
+        ENGENTY_COPILOT_HOST_KEY,
+        draftRecovery.setDraft
+      ),
+    [draftRecovery.setDraft]
+  );
+
   const openInterrupt = useMemo(() => {
     if (
       !openInterruptFromSession ||
@@ -185,7 +204,23 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   // composer is QUEUED instead of aborting the current run. Queued messages
   // auto-drain one per run as the thread returns to "ready", and are reorderable /
   // deletable / sendable-now (which STOPS the current run for real and sends).
-  const queue = useCopilotMessageQueue({ status, submit: stopAndSubmit });
+  const queue = useCopilotMessageQueue({
+    status,
+    submit: stopAndSubmit,
+    // Scope the queue to the active thread so it resets on a thread switch /
+    // "New chat" and can never replay into an unrelated thread.
+    threadId: recoverySessionKey,
+    // An open approval interrupt pauses the run for the user — don't auto-drain
+    // the next turn across a pending approval.
+    blocked: host.awaitingInterrupt,
+  });
+
+  // Stop clears the queue too: stopping a wedged/parked run must not leave
+  // messages parked to auto-send once the thread frees up.
+  const stopAndClearQueue = useCallback(() => {
+    queue.clear();
+    host.cancel();
+  }, [queue.clear, host.cancel]);
 
   // MUST forward `options` (attachments, agent override) — a text-only wrapper
   // here silently drops uploaded attachments (they upload, then never reach the
@@ -222,23 +257,23 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   );
 
   // Only docked when there's actually something queued (no empty box mid-run).
+  // No width wrapper: docked surfaces render inside the composer dock flap,
+  // which already sits in the composer's width-constrained wrapper.
   const queueSurface = queue.hasQueued ? (
-    <div className="mx-auto w-full max-w-[42rem]">
-      <CopilotMessageQueueSurface
-        labels={{
-          drag: t("chat.queue.drag"),
-          edit: t("chat.queue.edit"),
-          remove: t("chat.queue.remove"),
-          sendNow: t("chat.queue.sendNow"),
-          title: t("chat.queue.title"),
-        }}
-        onEdit={editQueuedMessage}
-        onRemove={queue.remove}
-        onReorder={queue.reorder}
-        onSendNow={queue.sendNow}
-        queued={queue.queued}
-      />
-    </div>
+    <CopilotMessageQueueSurface
+      labels={{
+        drag: t("chat.queue.drag"),
+        edit: t("chat.queue.edit"),
+        remove: t("chat.queue.remove"),
+        sendNow: t("chat.queue.sendNow"),
+        title: t("chat.queue.title"),
+      }}
+      onEdit={editQueuedMessage}
+      onRemove={queue.remove}
+      onReorder={queue.reorder}
+      onSendNow={queue.sendNow}
+      queued={queue.queued}
+    />
   ) : null;
 
   // Agent chooser is hidden on the main copilot lane;
@@ -267,30 +302,28 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   // is suppressed via `dockedInterruptToolCallId`. The message queue docks here
   // too (above any interrupt).
   const interruptBanner = dockInterrupt ? (
-    <div className="mx-auto w-full max-w-[42rem]">
-      <CopilotOpenInterruptBanner
-        onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) =>
-          host.respond(dockInterrupt.tool_call_id, {
-            artifactId,
-            choiceId,
-            choiceLabel,
-            interruptId,
-          })
-        }
-        onFeedbackSubmit={(artifactId, feedback, interruptId) =>
-          host.respond(dockInterrupt.tool_call_id, {
-            artifactId,
-            choiceId: "feedback_submit",
-            choiceLabel: feedback,
-            interruptId,
-            payload: { feedback },
-          })
-        }
-        onSandboxCommandApprove={handleSandboxCommandApprove}
-        onSandboxCommandReject={handleSandboxCommandReject}
-        open={dockInterrupt}
-      />
-    </div>
+    <CopilotOpenInterruptBanner
+      onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) =>
+        host.respond(dockInterrupt.tool_call_id, {
+          artifactId,
+          choiceId,
+          choiceLabel,
+          interruptId,
+        })
+      }
+      onFeedbackSubmit={(artifactId, feedback, interruptId) =>
+        host.respond(dockInterrupt.tool_call_id, {
+          artifactId,
+          choiceId: "feedback_submit",
+          choiceLabel: feedback,
+          interruptId,
+          payload: { feedback },
+        })
+      }
+      onSandboxCommandApprove={handleSandboxCommandApprove}
+      onSandboxCommandReject={handleSandboxCommandReject}
+      open={dockInterrupt}
+    />
   ) : null;
   const dockedInterruptSurface =
     queueSurface || interruptBanner ? (
@@ -335,8 +368,8 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     messages,
     minimalChrome: true,
     onApplySuggestions: noopAsync,
-    onCancel: host.cancel,
-    onStop: host.cancel,
+    onCancel: stopAndClearQueue,
+    onStop: stopAndClearQueue,
     onClose: noop,
     onNewChat: () => startNewChat(),
     onSandboxCommandApprove: handleSandboxCommandApprove,

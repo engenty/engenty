@@ -1,6 +1,11 @@
 export * from "./blocks.js";
 export * from "./calculations.js";
 export { CommercialBlockTotals } from "./commercial-core/components/CommercialBlockTotals.js";
+export {
+  type CommercialDocumentMetaField,
+  CommercialDocumentView,
+  type CommercialDocumentViewProps,
+} from "./commercial-core/components/CommercialDocumentView.js";
 export { DocumentFinalNotesBlock } from "./commercial-core/components/DocumentFinalNotesBlock.js";
 export { DocumentIntroductionBlock } from "./commercial-core/components/DocumentIntroductionBlock.js";
 export { DocumentSummaryCard } from "./commercial-core/components/DocumentSummaryCard.js";

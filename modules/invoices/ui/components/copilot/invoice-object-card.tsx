@@ -5,14 +5,18 @@ import {
   type ObjectDisplayItem,
   ObjectListFooter,
   ObjectListRow,
+  ObjectPanelAskAgentBar,
   type ObjectRef,
   ObjectRowList,
   type ObjectWidgetCardProps,
+  type ObjectWidgetPanelProps,
 } from "@engenty/ai-ui";
 import { Badge, Skeleton } from "@engenty/ui-core";
 import { Hash, Receipt } from "lucide-react";
+import { useRef } from "react";
 import type { InvoiceStatus } from "../../api.js";
 import { useInvoiceDetailQuery } from "../../queries.js";
+import { InvoiceDocumentView } from "./invoice-document-view.js";
 
 /** Chat object widget for `invoices:invoice:<id>` refs — live data, viewer authz. */
 
@@ -146,5 +150,25 @@ export function InvoiceObjectCard({
         total={provenance?.total}
       />
     </ObjectCardFrame>
+  );
+}
+
+export function InvoiceObjectPanel({ objectRef }: ObjectWidgetPanelProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { data: invoice } = useInvoiceDetailQuery(objectRef.id);
+  const label = invoice
+    ? [invoice.number, invoice.title].filter(Boolean).join(" — ")
+    : undefined;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto" ref={contentRef}>
+        <InvoiceDocumentView className="p-4" invoiceId={objectRef.id} />
+      </div>
+      <ObjectPanelAskAgentBar
+        contentRef={contentRef}
+        label={label}
+        objectRef={objectRef}
+      />
+    </div>
   );
 }

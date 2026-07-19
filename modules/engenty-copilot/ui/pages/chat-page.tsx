@@ -11,6 +11,7 @@ import {
   openObjectPaneTab,
   SubAgentRunFullPage,
   selectSubAgentDelegationFromMessages,
+  setCopilotComposerDraft,
   useCopilotSelectedThread,
   useCopilotThreadActions,
   WorkspaceArtifactPane,
@@ -64,6 +65,8 @@ export function CopilotChatPage() {
           expanded: opts?.expanded,
           title: opts?.title,
         }),
+      askAgent: (prompt) =>
+        setCopilotComposerDraft(ENGENTY_COPILOT_HOST_KEY, prompt),
       applyDisplayHint: (refs, hint, opts) => {
         const first = refs[0];
         if (!first) {

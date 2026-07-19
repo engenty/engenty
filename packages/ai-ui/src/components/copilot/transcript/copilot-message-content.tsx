@@ -29,6 +29,8 @@ import {
   getToolName,
   getToolResolvedName,
   getToolState,
+  isA2uiToolPart,
+  isMcpAppWidgetToolPart,
   isObjectRenderToolPart,
   isProgressPart,
   isReasoningPart,
@@ -301,7 +303,9 @@ export function CopilotMessageContent({
     if (
       (c.kind === "tool" || c.kind === "web_search") &&
       (isSubAgentDelegationTool(c.part, c.toolName) ||
-        isObjectRenderToolPart(c.part, c.toolName))
+        isObjectRenderToolPart(c.part, c.toolName) ||
+        isA2uiToolPart(c.part, c.toolName) ||
+        isMcpAppWidgetToolPart(c.part, c.toolName))
     ) {
       if (i <= lastTextIndex || lastTextIndex === -1) {
         preTextCardParts.push({

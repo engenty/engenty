@@ -68,8 +68,9 @@ export interface CopilotPanelContentProps {
   debugPayload?: unknown;
   detachLabel: string;
   /**
-   * Pending HITL surface (decision / feedback chooser) docked directly above the composer,
-   * outside the scrolling transcript. Rendered as a `shrink-0` block with a top divider.
+   * Pending HITL surface (message queue, decision / feedback chooser) docked on the
+   * composer, outside the scrolling transcript. Rendered as a card-background flap
+   * attached directly behind the composer card (no gap).
    */
   dockedInterruptSurface?: ReactNode;
   /**
