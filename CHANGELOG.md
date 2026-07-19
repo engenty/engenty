@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.35] - 2026-07-19
+- ADDED **[desktop]** Reload via ⌘R + tray menu item; quieter error overlay
+
 ## [0.1.34] - 2026-07-19
 - ADDED **[team-chat]** Render conversation tabs inline on the dashboard
 - ADDED **[team-chat]** Design update — blended header, dashboard tabs, stats, unified author colors
