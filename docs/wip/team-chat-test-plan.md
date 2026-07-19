@@ -84,6 +84,14 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
   task-card pattern; CDP hover can't trigger Base-UI tooltips (driver
   artifact), re-check by hand
 
+**Activity dashboard (2026-07-19, @ ba44806)**
+- ✅ Mentions card shows a freshly posted `<@u:me>` message w/ author, channel
+  chip, relative time; deep-links to the channel
+- ✅ Threads card lists roots I authored/replied in (jsonb `reply_users` needs
+  two queries — `cs` in `.or()` 400s silently)
+- ✅ Unreads w/ badges, recent w/ previews + clamped relative times
+- ✅ Quick actions open the New-Channel / New-DM dialogs
+
 ## 3. Security/regression checklist (each release)
 
 - Private channel/DM invisible to non-member: list, info, history, search,
