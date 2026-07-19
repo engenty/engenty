@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { memberHash } from "../lib/mentions.js";
 import type {
+  ActivityFeedResult,
   Conversation,
   ConversationListItem,
   ConversationMember,
@@ -106,6 +107,7 @@ export function createTeamChatRepoSupabase(
   const messagesTbl = () => supabase.schema(SCHEMA).from("messages");
   const reactionsTbl = () => supabase.schema(SCHEMA).from("reactions");
   const pinsTbl = () => supabase.schema(SCHEMA).from("pins");
+  const mentionsTbl = () => supabase.schema(SCHEMA).from("mentions");
   const emit: EmitTeamChatEvent = options.emitTeamChatEvent ?? (() => {});
 
   async function getConversationRow(id: string): Promise<Conversation> {
@@ -779,6 +781,127 @@ export function createTeamChatRepoSupabase(
     return { messages, ok: true, total: messages.length };
   }
 
+  /** Resolve conversation display names for a set of ids. */
+  async function conversationNames(
+    convIds: string[]
+  ): Promise<Map<string, string | null>> {
+    const names = new Map<string, string | null>();
+    if (convIds.length === 0) {
+      return names;
+    }
+    const convs = await conversations().select("id, name").in("id", convIds);
+    if (convs.error) {
+      throw new Error(`team-chat feed failed: ${convs.error.message}`);
+    }
+    for (const row of (convs.data ?? []) as {
+      id: string;
+      name: string | null;
+    }[]) {
+      names.set(row.id, row.name);
+    }
+    return names;
+  }
+
+  /** Dashboard feed: my recent mentions + threads I participate in. */
+  async function activityFeed(limit = 15): Promise<ActivityFeedResult> {
+    const capped = Math.min(Math.max(limit, 1), 50);
+    if (!userId) {
+      return { mentions: [], ok: true, threads: [] };
+    }
+    const ids = await visibleConversationIds();
+    if (ids.length === 0) {
+      return { mentions: [], ok: true, threads: [] };
+    }
+
+    // Mentions of me, newest first — resolved to their full messages.
+    const mentionRows = await mentionsTbl()
+      .select("conversation_id, message_ts")
+      .eq("tenant_id", tenantId)
+      .eq("kind", "user")
+      .eq("target_id", userId)
+      .in("conversation_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(capped);
+    if (mentionRows.error) {
+      throw new Error(`team-chat feed failed: ${mentionRows.error.message}`);
+    }
+    const mentionRefs = (mentionRows.data ?? []) as {
+      conversation_id: string;
+      message_ts: string;
+    }[];
+    let mentionMessages: Record<string, unknown>[] = [];
+    if (mentionRefs.length > 0) {
+      // `ts` carries a microsecond + random suffix, so cross-conversation
+      // collisions are practically impossible; the pair filter stays simple.
+      const { data, error } = await messagesTbl()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .in("conversation_id", [
+          ...new Set(mentionRefs.map((row) => row.conversation_id)),
+        ])
+        .in(
+          "ts",
+          mentionRefs.map((row) => row.message_ts)
+        )
+        .is("deleted_at", null)
+        .order("ts", { ascending: false });
+      if (error) {
+        throw new Error(`team-chat feed failed: ${error.message}`);
+      }
+      mentionMessages = (data ?? []) as Record<string, unknown>[];
+    }
+
+    // Thread roots I authored or replied in, by latest activity. Two queries
+    // because `reply_users` is jsonb — `contains` can't ride in an `.or()`.
+    const threadRootsQuery = () =>
+      messagesTbl()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .in("conversation_id", ids)
+        .is("deleted_at", null)
+        .is("thread_ts", null)
+        .gt("reply_count", 0)
+        .order("latest_reply", { ascending: false })
+        .limit(capped);
+    const [authored, repliedIn] = await Promise.all([
+      threadRootsQuery().eq("user_id", userId),
+      threadRootsQuery().contains("reply_users", JSON.stringify([userId])),
+    ]);
+    if (authored.error || repliedIn.error) {
+      const message = authored.error?.message ?? repliedIn.error?.message;
+      throw new Error(`team-chat feed failed: ${message}`);
+    }
+    const threadByKey = new Map<string, Record<string, unknown>>();
+    for (const row of [
+      ...((authored.data ?? []) as Record<string, unknown>[]),
+      ...((repliedIn.data ?? []) as Record<string, unknown>[]),
+    ]) {
+      threadByKey.set(`${row.conversation_id}:${row.ts}`, row);
+    }
+    const threadMessages = [...threadByKey.values()]
+      .sort((a, b) =>
+        String(b.latest_reply ?? "").localeCompare(String(a.latest_reply ?? ""))
+      )
+      .slice(0, capped);
+
+    const names = await conversationNames([
+      ...new Set(
+        [...mentionMessages, ...threadMessages].map(
+          (row) => row.conversation_id as string
+        )
+      ),
+    ]);
+    const withName = (row: Record<string, unknown>) => ({
+      ...rowToMessage(row),
+      conversation_name: names.get(row.conversation_id as string) ?? null,
+    });
+    return {
+      mentions: mentionMessages.map(withName),
+      ok: true,
+      threads: threadMessages.map(withName),
+    };
+  }
+
   async function listPins(
     conversationId: string
   ): Promise<PinsListResult["pins"]> {
@@ -977,6 +1100,7 @@ export function createTeamChatRepoSupabase(
     },
     membership,
     messages: {
+      activityFeed,
       history,
       post,
       replies,

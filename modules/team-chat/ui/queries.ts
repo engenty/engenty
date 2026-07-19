@@ -16,6 +16,7 @@ import {
   addReaction,
   createChannel,
   deleteMessage,
+  fetchActivityFeed,
   fetchHistory,
   fetchReplies,
   getConversation,
@@ -38,6 +39,7 @@ import {
 
 export const teamChatKeys = {
   all: ["team-chat"] as const,
+  activityFeed: () => [...teamChatKeys.all, "activity-feed"] as const,
   conversations: (includePublic: boolean) =>
     [...teamChatKeys.all, "conversations", includePublic] as const,
   conversation: (id: string) =>
@@ -50,6 +52,16 @@ export const teamChatKeys = {
   search: (query: string) => [...teamChatKeys.all, "search", query] as const,
   users: () => [...teamChatKeys.all, "users"] as const,
 };
+
+export function useActivityFeedQuery() {
+  return useQuery(
+    queryOptions({
+      placeholderData: keepPreviousData,
+      queryFn: ({ signal }) => fetchActivityFeed(signal),
+      queryKey: teamChatKeys.activityFeed(),
+    })
+  );
+}
 
 export function useConversationsQuery(includePublic = false) {
   return useQuery(

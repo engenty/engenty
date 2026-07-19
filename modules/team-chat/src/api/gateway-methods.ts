@@ -6,6 +6,8 @@ import type {
 import type { TeamChatRepo } from "../dal/contracts.js";
 import { extractMentions } from "../lib/mentions.js";
 import {
+  activityFeedInputSchema,
+  activityFeedResultSchema,
   bindProjectInputSchema,
   channelRefInputSchema,
   conversationResultSchema,
@@ -648,6 +650,22 @@ export function registerTeamChatGatewayMethods(
     handler: async (input, ctx) => {
       const parsed = searchMessagesInputSchema.parse(input);
       return repoForAuth(ctx.auth).messages.search(parsed.query, parsed.limit);
+    },
+  });
+
+  api.registerOperation({
+    operationId: "team_chat_activity_feed",
+    moduleId: MODULE_ID,
+    summary:
+      "Dashboard feed for the caller: recent mentions of them plus threads they participate in (activity.feed)",
+    requiredCapabilities: READ,
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: activityFeedInputSchema,
+    outputSchema: activityFeedResultSchema,
+    handler: async (input, ctx) => {
+      const parsed = activityFeedInputSchema.parse(input);
+      return repoForAuth(ctx.auth).messages.activityFeed(parsed.limit);
     },
   });
 

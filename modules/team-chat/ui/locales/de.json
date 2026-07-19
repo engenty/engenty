@@ -22,7 +22,14 @@
     "noConversationsHint": "Erstelle einen Channel oder starte eine Direktnachricht.",
     "mentionCount": "{{count}} Erwähnung",
     "mentionCount_other": "{{count}} Erwähnungen",
-    "unreadCount": "{{count}} neu"
+    "unreadCount": "{{count}} neu",
+    "subtitleUnread": "{{count}} ungelesene Nachricht wartet auf dich.",
+    "subtitleUnread_other": "{{count}} ungelesene Nachrichten warten auf dich.",
+    "newChannel": "Channel",
+    "newDm": "Direktnachricht",
+    "threads": "Deine Threads",
+    "noThreads": "Du bist noch in keinem Thread aktiv.",
+    "noRecent": "Noch keine Aktivität."
   },
   "conversation": {
     "joinPrompt": "Du siehst #{{name}}, bist aber kein Mitglied.",

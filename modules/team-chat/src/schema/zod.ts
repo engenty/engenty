@@ -323,3 +323,18 @@ export const searchMessagesResultSchema = z.object({
   ok: z.literal(true),
   total: z.number(),
 });
+
+export const activityFeedInputSchema = z.object({
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+/** Dashboard feed: my recent mentions + threads I participate in. */
+export const activityFeedResultSchema = z.object({
+  mentions: z.array(
+    messageSchema.extend({ conversation_name: z.string().nullable() })
+  ),
+  ok: z.literal(true),
+  threads: z.array(
+    messageSchema.extend({ conversation_name: z.string().nullable() })
+  ),
+});

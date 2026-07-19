@@ -1,5 +1,6 @@
 import type { z } from "@hono/zod-openapi";
 import type {
+  activityFeedResultSchema,
   conversationListItemSchema,
   conversationMemberSchema,
   conversationSchema,
@@ -43,6 +44,7 @@ export type PaginatedMessages = z.infer<typeof paginatedMessagesResultSchema>;
 export type ReactionAggregate = z.infer<typeof reactionAggregateSchema>;
 export type PinsListResult = z.infer<typeof pinsListResultSchema>;
 export type SearchMessagesResult = z.infer<typeof searchMessagesResultSchema>;
+export type ActivityFeedResult = z.infer<typeof activityFeedResultSchema>;
 
 /** Extracted mention, persisted alongside the message at post time. */
 export interface MentionRecord {

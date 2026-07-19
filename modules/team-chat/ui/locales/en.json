@@ -22,7 +22,14 @@
     "noConversationsHint": "Create a channel or start a direct message to get going.",
     "mentionCount": "{{count}} mention",
     "mentionCount_other": "{{count}} mentions",
-    "unreadCount": "{{count}} new"
+    "unreadCount": "{{count}} new",
+    "subtitleUnread": "{{count}} unread message is waiting for you.",
+    "subtitleUnread_other": "{{count}} unread messages are waiting for you.",
+    "newChannel": "Channel",
+    "newDm": "Direct message",
+    "threads": "Your threads",
+    "noThreads": "You're not active in any threads yet.",
+    "noRecent": "No activity yet."
   },
   "conversation": {
     "joinPrompt": "You are viewing #{{name}} without being a member.",

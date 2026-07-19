@@ -87,6 +87,26 @@ export function formatMessageTime(ts: string, locale: string): string {
   });
 }
 
+/** Compact relative time for feed rows ("5 min.", "2 Std.", else date). */
+export function timeAgo(ts: string, locale: string): string {
+  const seconds = (Date.now() - tsToDate(ts).getTime()) / 1000;
+  const rtf = new Intl.RelativeTimeFormat(locale, { style: "narrow" });
+  if (seconds < 3600) {
+    // Clamp to "1 min. ago" — formatting 0 reads as "in 0 min.".
+    return rtf.format(-Math.max(1, Math.round(seconds / 60)), "minute");
+  }
+  if (seconds < 86_400) {
+    return rtf.format(-Math.round(seconds / 3600), "hour");
+  }
+  if (seconds < 7 * 86_400) {
+    return rtf.format(-Math.round(seconds / 86_400), "day");
+  }
+  return tsToDate(ts).toLocaleDateString(locale, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 export function dayKey(ts: string): string {
   const date = tsToDate(ts);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -178,7 +198,8 @@ const AUTHOR_COLORS = [
 export function authorColorClass(authorId: string): string {
   let hash = 0;
   for (const char of authorId) {
-    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+    // Same values as `>>> 0` (hash stays positive) without bitwise ops.
+    hash = (hash * 31 + char.charCodeAt(0)) % 4_294_967_296;
   }
   return AUTHOR_COLORS[hash % AUTHOR_COLORS.length] as string;
 }

@@ -5,6 +5,7 @@
  */
 import { requestApiJson } from "@engenty/api-client";
 import type {
+  ActivityFeedResult,
   Conversation,
   ConversationListItem,
   ConversationMember,
@@ -22,6 +23,7 @@ import type {
 } from "../src/schema/types.js";
 
 export type {
+  ActivityFeedResult,
   Conversation,
   ConversationListItem,
   ConversationMember,
@@ -228,6 +230,16 @@ export async function searchMessages(
   return invokeTool<SearchMessagesResult>(
     "team_chat_search_messages",
     { limit: 25, query },
+    signal
+  );
+}
+
+export async function fetchActivityFeed(
+  signal?: AbortSignal
+): Promise<ActivityFeedResult> {
+  return invokeTool<ActivityFeedResult>(
+    "team_chat_activity_feed",
+    { limit: 15 },
     signal
   );
 }

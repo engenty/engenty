@@ -1,4 +1,5 @@
 import type {
+  ActivityFeedResult,
   Conversation,
   ConversationListItem,
   ConversationMember,
@@ -119,6 +120,8 @@ export interface TeamChatRepo {
     role: "member" | "owner" | null;
   }>;
   messages: {
+    /** Dashboard feed: my recent mentions + threads I participate in. */
+    activityFeed(limit?: number): Promise<ActivityFeedResult>;
     history(query: HistoryQuery): Promise<PaginatedMessages>;
     post(record: PostMessageRecord): Promise<TeamChatMessage>;
     replies(query: RepliesQuery): Promise<PaginatedMessages>;
