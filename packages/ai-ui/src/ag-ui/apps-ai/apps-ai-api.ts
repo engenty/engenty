@@ -2,6 +2,7 @@
 // `serviceBaseUrl` is the gateway origin (no `/ai` suffix) from VITE_ENGENTY_AI_BASE_URL.
 
 import { getCurrentAccessToken } from "@engenty/api-client";
+import { runtimeEnvOverride } from "@engenty/environment";
 
 export const APPS_AI_BASE_PATH = "/ai";
 
@@ -115,6 +116,49 @@ export async function getAppsAiActionRequests(
   return data.requests ?? [];
 }
 
+export interface ChatCommandCatalogEntry {
+  args: Array<{
+    label?: string;
+    name: string;
+    options?: string[];
+    ref_entity?: string;
+    required?: boolean;
+    type: "enum" | "ref" | "string";
+  }>;
+  command: string;
+  description: string | null;
+  description_key: string | null;
+  id: string;
+  kind: "action" | "prompt";
+  label: string | null;
+  label_key: string | null;
+  module_id: string;
+  order: number | null;
+}
+
+/** Server chat slash-command catalog (prompt/action kinds; templates stay server-side). */
+export async function getAppsAiChatCommands(
+  serviceBaseUrl: string,
+  agentId?: string | null,
+  signal?: AbortSignal
+): Promise<ChatCommandCatalogEntry[]> {
+  let url = `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/chat-commands`;
+  if (agentId) {
+    url = `${url}?${new URLSearchParams({ agent_id: agentId }).toString()}`;
+  }
+  const headers = await appsAiRequestHeaders();
+  const res = await fetch(url, { headers, signal });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw Object.assign(
+      new Error((body as { error?: string }).error ?? `HTTP ${res.status}`),
+      { status: res.status, body }
+    );
+  }
+  const data = (await res.json()) as { commands?: ChatCommandCatalogEntry[] };
+  return data.commands ?? [];
+}
+
 export interface RunActionInput {
   actionId: string;
   /** Subject binding (D1) — tags the run + audit row for per-place observe. */
@@ -195,9 +239,10 @@ export async function postAppsAiActionApprove(
 
 /** `VITE_ENGENTY_AI_BASE_URL` without trailing slash; `undefined` when unset. */
 export function resolveEngentyAiServiceBaseUrl(): string | undefined {
-  const raw = (
-    import.meta as ImportMeta & { env?: Record<string, string | undefined> }
-  ).env?.VITE_ENGENTY_AI_BASE_URL;
+  const raw =
+    runtimeEnvOverride("VITE_ENGENTY_AI_BASE_URL") ??
+    (import.meta as ImportMeta & { env?: Record<string, string | undefined> })
+      .env?.VITE_ENGENTY_AI_BASE_URL;
   const normalized = (raw ?? "").trim().replace(/\/$/, "");
   if (normalized.length > 0) {
     return normalized;

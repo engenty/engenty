@@ -8,6 +8,7 @@ import { cn } from "@engenty/ui-core";
 import { useContext, useMemo } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
 import { copilotChatSubRunPath } from "../../../copilot/copilot-chat-paths.js";
+import { ObjectRefMentions } from "../../../objects/object-ref-mentions.js";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -28,6 +29,9 @@ import {
   getToolName,
   getToolResolvedName,
   getToolState,
+  isA2uiToolPart,
+  isMcpAppWidgetToolPart,
+  isObjectRenderToolPart,
   isProgressPart,
   isReasoningPart,
   isSubAgentDelegationTool,
@@ -35,6 +39,19 @@ import {
   type ReasoningPartLike,
   type ToolPartLike,
 } from "./copilot-message-parts";
+
+// Assistant messages that streamed during this page session. A tool part only
+// enters the transcript once its output is complete, so a card can never
+// observe its own "running" state — but the message around it does render
+// while the run streams. Recording that here is the only signal a card has to
+// tell "this just happened" from "this was loaded from storage".
+// Written during render (parents render before children) so the flag is
+// already set when a card's first effect runs; the set is an idempotent cache.
+const liveRunMessageIds = new Set<string>();
+
+export function clearLiveRunMessagesForTests() {
+  liveRunMessageIds.clear();
+}
 
 // Tool-timeline header label — tool-oriented wording ("Working…", "Used N tools")
 // so the block reads as tool use rather than the generic "Thinking…".
@@ -151,6 +168,7 @@ function resolveSubAgentFullPageHref(input: {
 
 function renderToolCallCardRow(input: {
   index: number;
+  isLiveRun: boolean;
   msgId: string;
   part: ToolPartLike;
   subAgentFullViewLabel?: string;
@@ -161,6 +179,7 @@ function renderToolCallCardRow(input: {
 }) {
   const {
     index,
+    isLiveRun,
     msgId,
     part,
     subAgentFullViewLabel,
@@ -186,6 +205,7 @@ function renderToolCallCardRow(input: {
       })}
       fullPageLabel={subAgentFullViewLabel}
       input={part.input}
+      isLiveRun={isLiveRun}
       key={`${msgId}-${index}`}
       metadata={part.metadata}
       output={part.output}
@@ -212,6 +232,10 @@ export function CopilotMessageContent({
   const parts = msg.parts ?? [];
   const isLastMessage = msg.id === messages.at(-1)?.id;
   const isCurrentlyStreaming = status === "streaming" && isLastMessage;
+  if (isCurrentlyStreaming) {
+    liveRunMessageIds.add(msg.id);
+  }
+  const isLiveRun = liveRunMessageIds.has(msg.id);
 
   // Classify all parts
   const classified = parts.map(classifyPart);
@@ -227,8 +251,10 @@ export function CopilotMessageContent({
     part: ToolPartLike;
     toolName: string;
   }> = [];
-  // agent-* delegations use SubAgentTaskToolCallCard — never a one-line thought step.
-  const preTextSubAgentParts: Array<{
+  // Tool parts whose card IS the answer — agent-* delegations
+  // (SubAgentTaskToolCallCard) and object renders (contact/offer/task cards).
+  // They render full-width above the text, never as a one-line thought step.
+  const preTextCardParts: Array<{
     index: number;
     part: ToolPartLike;
     toolName: string;
@@ -276,10 +302,13 @@ export function CopilotMessageContent({
 
     if (
       (c.kind === "tool" || c.kind === "web_search") &&
-      isSubAgentDelegationTool(c.part, c.toolName)
+      (isSubAgentDelegationTool(c.part, c.toolName) ||
+        isObjectRenderToolPart(c.part, c.toolName) ||
+        isA2uiToolPart(c.part, c.toolName) ||
+        isMcpAppWidgetToolPart(c.part, c.toolName))
     ) {
       if (i <= lastTextIndex || lastTextIndex === -1) {
-        preTextSubAgentParts.push({
+        preTextCardParts.push({
           index: i,
           part: c.part,
           toolName: c.toolName,
@@ -312,7 +341,7 @@ export function CopilotMessageContent({
 
   const rewrittenTextParts = useMemo(
     () =>
-      textParts.map((tp) => {
+      textParts.map((tp, tpIndex) => {
         let text = tp.text;
         for (const citation of citations) {
           if (
@@ -323,9 +352,14 @@ export function CopilotMessageContent({
             text = text.replaceAll(citation.originalUrl, citation.url);
           }
         }
+        // A user turn that starts with a slash command renders the token as an
+        // inline code chip (display-only; the persisted text stays raw).
+        if (msg.role === "user" && tpIndex === 0) {
+          text = text.replace(/^(\/[a-z0-9][a-z0-9-]*)(\s|$)/, "`$1`$2");
+        }
         return { ...tp, text };
       }),
-    [textParts, citations]
+    [textParts, citations, msg.role]
   );
 
   // Tool steps render in the ChainOfThought timeline. Reasoning parts (if any ever
@@ -393,9 +427,10 @@ export function CopilotMessageContent({
         </ChainOfThought>
       ) : null}
 
-      {preTextSubAgentParts.map(({ index, part, toolName }) =>
+      {preTextCardParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({
           index,
+          isLiveRun,
           msgId: msg.id,
           part,
           subAgentFullViewLabel,
@@ -412,9 +447,15 @@ export function CopilotMessageContent({
 
       <SourceCitations citations={citations} />
 
+      <ObjectRefMentions
+        parts={msg.parts ?? []}
+        text={rewrittenTextParts.map(({ text }) => text).join("\n")}
+      />
+
       {trailingToolParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({
           index,
+          isLiveRun,
           msgId: msg.id,
           part,
           subAgentFullViewLabel,

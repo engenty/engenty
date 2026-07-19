@@ -163,6 +163,108 @@
       "toolsDescription": "Tools available to this agent through its skills (capabilities). Each entry is a function the model can use during a run."
     }
   },
+  "artifactsCatalog": {
+    "title": "Artifacts",
+    "lede": "Documents created by agents and users — grouped by their scope (chat, task, project, goal), which decides who can see them.",
+    "empty": "No artifacts yet.",
+    "emptyDescription": "Artifacts appear when an agent produces a document, table, or HTML.",
+    "noResults": "No artifacts match your filters.",
+    "searchPlaceholder": "Search artifacts…",
+    "filterToggle": "Filters",
+    "count": "{{count}} of {{total}}",
+    "display": "Display",
+    "cardsView": "Cards",
+    "tableView": "Table",
+    "compactView": "Compact",
+    "sortAscending": "Ascending",
+    "sortDescending": "Descending",
+    "sortByLabel": "Sort by",
+    "groupByLabel": "Group by",
+    "displayedColumns": "Displayed columns",
+    "hiddenColumns": "Hidden columns",
+    "hideAll": "Hide all",
+    "showAll": "Show all",
+    "noColumns": "At least one column must remain visible.",
+    "groupBy": {
+      "scope": "Scope",
+      "type": "Type",
+      "storage": "Storage",
+      "status": "Status",
+      "creator": "Creator",
+      "none": "None"
+    },
+    "sort": {
+      "title": "Title",
+      "updated": "Updated",
+      "type": "Type"
+    },
+    "filter": {
+      "scope": "Scope",
+      "type": "Type",
+      "storage": "Storage",
+      "status": "Status",
+      "creator": "Creator",
+      "allScopes": "All scopes",
+      "allTypes": "All types",
+      "allStorage": "All storage",
+      "allStatus": "All statuses",
+      "allCreators": "All creators"
+    },
+    "statusValue": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "column": {
+      "title": "Title",
+      "scope": "Scope",
+      "storage": "Storage",
+      "type": "Type",
+      "version": "Version",
+      "updated": "Updated",
+      "status": "Status",
+      "creator": "Creator"
+    },
+    "toggleGroup": "Toggle group",
+    "groupCountSingular": "artifact",
+    "groupCountPlural": "artifacts",
+    "archived": "Archived",
+    "mirror": "Mirrored",
+    "by": {
+      "agent": "Agent",
+      "user": "User"
+    },
+    "storage": {
+      "inline": {
+        "label": "Database",
+        "where": "Postgres · ai.artifact_version"
+      },
+      "blob": {
+        "label": "Object storage",
+        "where": "Supabase Storage · bucket “files”"
+      },
+      "unknown": {
+        "where": "Unknown storage"
+      }
+    },
+    "scope": {
+      "thread": "Chat",
+      "task": "Task",
+      "project": "Project",
+      "goal": "Goal"
+    },
+    "audience": {
+      "thread": "Participants of this chat session",
+      "task": "Members of this task",
+      "project": "Project members",
+      "goal": "Stakeholders of this goal"
+    }
+  },
+  "artifactDetail": {
+    "back": "Back to artifacts",
+    "download": "Download",
+    "notFound": "Artifact not found.",
+    "untitled": "Artifact"
+  },
   "toolsCatalog": {
     "title": "Tools",
     "description": "Module, MCP, and custom tools available in the registry.",
@@ -233,6 +335,7 @@
     "sidebarActions": "Actions",
     "sidebarSkills": "Skills",
     "sidebarTools": "Tools",
+    "sidebarArtifacts": "Artifacts",
     "sidebarConnections": "Connections",
     "connectionsPanelLoading": "Loading connections…",
     "connectionsPanelError": "Connections could not be loaded.",
@@ -314,13 +417,56 @@
     "empty": "No activity recorded yet.",
     "error": "Could not load activity.",
     "filterAllAgents": "All agents",
-    "searchPlaceholder": "Search by title…",
+    "searchPlaceholder": "Search sessions…",
     "today": "Today",
     "yesterday": "Yesterday",
     "status_all": "All statuses",
     "status_running": "Running",
     "status_failed": "Failed",
     "status_finished": "Finished",
+    "status_other": "Other",
+    "count": "{{count}} of {{total}}",
+    "noResults": "No sessions match your filters.",
+    "feedView": "Feed",
+    "tableView": "Table",
+    "display": "Display",
+    "filterToggle": "Filter options",
+    "toggleGroup": "Toggle group",
+    "groupCountSingular": "session",
+    "groupCountPlural": "sessions",
+    "groupByLabel": "Group by",
+    "groupBy": {
+      "day": "Day",
+      "agent": "Agent",
+      "status": "Status",
+      "none": "No grouping"
+    },
+    "sortByLabel": "Sort by",
+    "sortAscending": "Ascending",
+    "sortDescending": "Descending",
+    "sort": {
+      "timestamp": "Last active",
+      "title": "Title",
+      "agent": "Agent"
+    },
+    "column": {
+      "status": "Status",
+      "agent": "Agent",
+      "title": "Title",
+      "user": "User",
+      "binding": "Binding",
+      "updated": "Last active"
+    },
+    "filter": {
+      "agent": "Agent",
+      "status": "Status"
+    },
+    "compactView": "Compact view",
+    "displayedColumns": "Displayed columns",
+    "hiddenColumns": "Hidden columns",
+    "showAll": "Show all",
+    "hideAll": "Hide all",
+    "noColumns": "No columns displayed",
     "untitledSession": "Untitled session",
     "noAgent": "No agent",
     "cockpitBanner": "Looking for goals, tasks, and dispatch? This feed is for audit and debugging.",

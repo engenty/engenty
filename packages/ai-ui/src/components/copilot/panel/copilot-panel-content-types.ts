@@ -68,8 +68,9 @@ export interface CopilotPanelContentProps {
   debugPayload?: unknown;
   detachLabel: string;
   /**
-   * Pending HITL surface (decision / feedback chooser) docked directly above the composer,
-   * outside the scrolling transcript. Rendered as a `shrink-0` block with a top divider.
+   * Pending HITL surface (message queue, decision / feedback chooser) docked on the
+   * composer, outside the scrolling transcript. Rendered as a card-background flap
+   * attached directly behind the composer card (no gap).
    */
   dockedInterruptSurface?: ReactNode;
   /**
@@ -91,6 +92,8 @@ export interface CopilotPanelContentProps {
   latestSuggestions: FieldSuggestion[];
   /** Optional @-mention targets for the composer (id + display + handle without `@`). */
   mentionAgentCandidates?: Array<{ handle: string; id: string; name: string }>;
+  /** Async typed-mention search (users/contacts/objects/artifacts) for reference chips. */
+  mentionRefSearch?: import("../composer/use-copilot-composer-mention.js").MentionRefSearch;
   messages: readonly (AgentTurnMessageLike & { id: string })[];
   /** When true, hide route status and "Review the prompt..." text. Used for bottom dock. */
   minimalChrome?: boolean;
@@ -150,6 +153,8 @@ export interface CopilotPanelContentProps {
       | Record<string, boolean>
       | ((prev: Record<string, boolean>) => Record<string, boolean>)
   ) => void;
+  /** Slash-command catalog for the composer ("/" at message start opens the menu). */
+  slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   startMode: "manual" | "auto";
   status: "ready" | "streaming" | "submitted" | "error";

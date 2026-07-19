@@ -165,7 +165,10 @@
       "save": "Speichern",
       "saveFailed": "Speichern fehlgeschlagen",
       "assigneeLinkedUserRequired": "Zugewiesene müssen Teammitglieder mit verknüpftem Login-Konto sein.",
-      "assigneeInvalidUser": "Eine oder mehrere zugewiesene Personen sind keine gültigen Login-Benutzer."
+      "assigneeInvalidUser": "Eine oder mehrere zugewiesene Personen sind keine gültigen Login-Benutzer.",
+      "actionsMenu": "Aufgabenaktionen",
+      "close": "Schließen",
+      "expand": "Vollansicht öffnen"
     },
     "dueDate": "Fälligkeitsdatum",
     "noGeneralTasks": "Noch keine allgemeinen Aufgaben",

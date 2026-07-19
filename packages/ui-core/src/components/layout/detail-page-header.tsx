@@ -35,7 +35,10 @@ const CONTAINER_MAX_WIDTH = {
 const CONTAINER_PADDING = {
   // Top clearance keeps the title below the ~44px (h-11) transparent topbar
   // that floats over the white surface when `topbarOverlap` is set.
-  blended: "pt-14",
+  // Horizontal tokens match `.p-page` / `.px-page` so the title + tab strip
+  // keep a left gutter when the max-width column fills the workspace
+  // (smaller desktop / secondary nav open).
+  blended: "px-2 pt-14 sm:px-4 md:px-5",
   framed: "px-4 py-4 sm:px-6",
 } as const;
 

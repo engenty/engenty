@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { EventType } from "@engenty/ag-ui-bridge";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EngentyAgUiMessage } from "../conversation.js";
 import { postAppsAiThreadRun } from "./apps-ai-transport.js";
@@ -86,6 +86,7 @@ function SessionProbe(props: {
   hydrateEnabled?: boolean;
   initialMessages: readonly EngentyAgUiMessage[];
   onMessages: (messages: readonly EngentyAgUiMessage[]) => void;
+  onSession?: (session: ReturnType<typeof useEngentyAgUiAppsAiSession>) => void;
   threadId: string | null;
 }) {
   const session = useEngentyAgUiAppsAiSession({
@@ -105,6 +106,7 @@ function SessionProbe(props: {
     hydrateEnabled: props.hydrateEnabled,
   });
   props.onMessages(session.messages);
+  props.onSession?.(session);
   return null;
 }
 
@@ -709,5 +711,101 @@ describe("useEngentyAgUiAppsAiSession", () => {
     view.rerender(<ResetProbe tick={2} />);
 
     expect(new Set(resetCallbacks).size).toBe(1);
+  });
+
+  const RESUME_THREAD = "990e8400-e29b-41d4-a716-446655440009";
+
+  function decisionResume(id: string) {
+    return {
+      artifactId: id,
+      choiceId: "approve_once",
+      choiceLabel: "Approve",
+      interruptId: id,
+    };
+  }
+
+  it("does not surface 409 resumeInProgress as an error, and re-locks the interrupt", async () => {
+    vi.mocked(postAppsAiThreadRun).mockImplementationOnce(async () => {
+      throw Object.assign(
+        new Error(
+          'ai session run HTTP 409: {"error":"agent_threads.resumeInProgress"}'
+        ),
+        { status: 409, code: "agent_threads.resumeInProgress" }
+      );
+    });
+    let session!: ReturnType<typeof useEngentyAgUiAppsAiSession>;
+    render(
+      <SessionProbe
+        initialMessages={[]}
+        onMessages={() => {}}
+        onSession={(s) => {
+          session = s;
+        }}
+        threadId={RESUME_THREAD}
+      />
+    );
+
+    await act(async () => {
+      session.resumeInterrupt(decisionResume("i1"));
+    });
+
+    await waitFor(() => expect(session.status).toBe("ready"));
+    // Benign: no error banner, and the pending approval stays locked.
+    expect(session.error).toBeNull();
+    expect(session.awaitingInterrupt).toBe(true);
+  });
+
+  it("serializes parallel approval resumes — the second waits for the first to settle", async () => {
+    const settle: Array<() => void> = [];
+    // Prior tests share this mock — reset the call log so counts are local.
+    vi.mocked(postAppsAiThreadRun).mockReset();
+    vi.mocked(postAppsAiThreadRun).mockImplementation(
+      (params) =>
+        new Promise<void>((resolve) => {
+          settle.push(() => {
+            params.onEvent({
+              type: EventType.RUN_FINISHED,
+              runId: "run-x",
+              threadId: RESUME_THREAD,
+            } as never);
+            resolve();
+          });
+        })
+    );
+    let session!: ReturnType<typeof useEngentyAgUiAppsAiSession>;
+    render(
+      <SessionProbe
+        initialMessages={[]}
+        onMessages={() => {}}
+        onSession={(s) => {
+          session = s;
+        }}
+        threadId={RESUME_THREAD}
+      />
+    );
+
+    // Approve the first card → one resume POST, held in flight.
+    await act(async () => {
+      session.resumeInterrupt(decisionResume("i1"));
+    });
+    expect(postAppsAiThreadRun).toHaveBeenCalledTimes(1);
+
+    // Approve the second card while the first is still resuming → queued, NOT
+    // sent (sending it would race the backend's 409 resumeInProgress).
+    await act(async () => {
+      session.resumeInterrupt(decisionResume("i2"));
+    });
+    expect(postAppsAiThreadRun).toHaveBeenCalledTimes(1);
+
+    // First resume settles → the queued second fires exactly once.
+    await act(async () => {
+      settle[0]?.();
+    });
+    await waitFor(() => expect(postAppsAiThreadRun).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      settle[1]?.();
+    });
+    vi.mocked(postAppsAiThreadRun).mockReset();
   });
 });

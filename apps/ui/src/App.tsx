@@ -38,6 +38,7 @@ import { LiveDataSync } from "@/components/live-data-sync";
 import { NavigationPrefetchRoot } from "@/components/navigation-prefetch-root";
 import { AppActiveCopilotProvider } from "@/copilot/app-active-copilot-provider";
 import { CopilotShellUiHost } from "@/copilot/copilot-shell-ui-host";
+import { DesktopBridge } from "@/desktop/DesktopBridge";
 import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
 import { switchCurrentTenant } from "@/lib/api/client";
 import { useCopilotLayoutPersistence } from "@/lib/copilot-layout-persistence";
@@ -308,6 +309,10 @@ function App() {
               bindings={liveCacheBindings}
               tenantId={workspaceContext.currentTenant?.id ?? ""}
               userId={workspaceContext.userId}
+            />
+            <DesktopBridge
+              sections={sections}
+              tenantId={workspaceContext.currentTenant?.id ?? ""}
             />
             {contributions.backgroundComponents.map((entry) => (
               <entry.component key={entry.id} />

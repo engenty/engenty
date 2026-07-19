@@ -6,6 +6,10 @@ import {
   isImageMimeType,
   readChatAttachmentPart,
 } from "../../../lib/chat-attachment-part.js";
+import {
+  type ChatReferenceItem,
+  readChatReferencePart,
+} from "../../../lib/chat-reference-part.js";
 import { getFileStorageSignedUrl } from "../../../lib/file-storage-signed-url.js";
 import {
   AttachmentFileTile,
@@ -84,11 +88,17 @@ export interface CopilotAttachmentPreviewProps {
 export function CopilotAttachmentPreview({
   parts,
 }: CopilotAttachmentPreviewProps) {
+  // The reference carrier is a `document` part too — pick it out first so it
+  // never renders as a broken file tile.
+  const refs: ChatReferenceItem[] = parts.flatMap(
+    (part) => readChatReferencePart(part) ?? []
+  );
   const attachments = parts
+    .filter((part) => readChatReferencePart(part) === null)
     .map((part) => readChatAttachmentPart(part))
     .filter((value): value is ResolvedAttachment => value !== null);
 
-  if (attachments.length === 0) {
+  if (attachments.length === 0 && refs.length === 0) {
     return null;
   }
 
@@ -98,13 +108,30 @@ export function CopilotAttachmentPreview({
   ];
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
-      {ordered.map((attachment, index) => (
-        <AttachmentTile
-          attachment={attachment}
-          key={`${attachment.storageKey || attachment.url || "att"}-${index}`}
-        />
-      ))}
+    <div className="flex flex-col items-end gap-2">
+      {ordered.length > 0 ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          {ordered.map((attachment, index) => (
+            <AttachmentTile
+              attachment={attachment}
+              key={`${attachment.storageKey || attachment.url || "att"}-${index}`}
+            />
+          ))}
+        </div>
+      ) : null}
+      {refs.length > 0 ? (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {refs.map((ref) => (
+            <span
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-0.5 text-secondary-foreground text-xs"
+              key={ref.ref}
+              title={ref.ref}
+            >
+              <span className="max-w-44 truncate">@{ref.label}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

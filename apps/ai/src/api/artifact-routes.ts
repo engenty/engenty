@@ -220,6 +220,30 @@ export function registerArtifactRoutes(
     }
   });
 
+  // Tenant-wide listing for the admin console. Registered before the
+  // `/:artifactId` param route so "all" never resolves as an artifact id.
+  app.get(`${base}/all`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const includeArchived = c.req.query("include_archived") === "true";
+    try {
+      const artifacts = await opts.artifactStore.listAllByTenant({
+        tenantId: scope.scope.tenantId,
+        includeArchived,
+      });
+      return c.json({ artifacts });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "listAllArtifacts failed",
+        "artifacts.listFailed",
+        err
+      );
+    }
+  });
+
   app.get(`${base}/:artifactId`, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {

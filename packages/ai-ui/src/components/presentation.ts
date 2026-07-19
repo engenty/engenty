@@ -90,6 +90,15 @@ export {
 export { CopilotComposerSection } from "./copilot/composer/copilot-composer-section.js";
 export { CopilotRecentSessionsChooser } from "./copilot/composer/copilot-recent-sessions-chooser.js";
 export {
+  type ChatSlashCommand,
+  type ChatSlashCommandKind,
+  parseLeadingSlashCommand,
+} from "./copilot/composer/copilot-slash-command.js";
+export type {
+  MentionRefCandidate,
+  MentionRefSearch,
+} from "./copilot/composer/use-copilot-composer-mention.js";
+export {
   COPILOT_BOTTOM_DOCK_HEIGHT,
   CopilotDrawer,
   type CopilotPanelMode,

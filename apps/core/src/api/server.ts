@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
-import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
+import {
+  ENGENTY_DESKTOP_APP_ORIGIN,
+  isEngentyDevelopmentEnvironment,
+} from "@engenty/environment";
 import { envBoolean, envNumber, envString } from "@engenty/environment/env";
 import { serve } from "@hono/node-server";
 import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
@@ -93,6 +96,7 @@ import { registerDevLoginRoutes } from "./routes/auth/dev-login-routes.js";
 import { registerDeviceFlowRoutes } from "./routes/auth/device-flow-routes.js";
 import { registerCoreAiRemovedRoutes } from "./routes/core-ai-removed-routes.js";
 import { registerDashboardRoutes } from "./routes/dashboard/index.js";
+import { registerDesktopBootstrapRoutes } from "./routes/desktop-bootstrap-routes.js";
 import { registerEvlogIngestRoutes } from "./routes/evlog-ingest-routes.js";
 import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
 import { registerFileStorageRoutes } from "./routes/file-storage-routes.js";
@@ -112,6 +116,7 @@ import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
 import { registerTestDataRoutes } from "./routes/test-data-routes.js";
 import type { ApiLogger } from "./routes/types.js";
 import { registerUserManagementRoutes } from "./routes/user-management-routes.js";
+import { registerWorkspaceSearchRoutes } from "./routes/workspace-search-routes.js";
 
 extendZodWithOpenApi(zod);
 
@@ -158,11 +163,23 @@ export function createApiApp(params: CreateApiAppParams) {
           : {},
       }),
   });
+  // Comma-separated allowlist; the Tauri desktop shell's origin is always
+  // allowed on top of it (bearer-token auth, so origin checks add nothing).
   const corsOrigin = envString(config, "corsOrigin", "CORS_ORIGIN", "*");
+  const corsAllowedOrigins = corsOrigin
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
   app.use(
     "*",
     cors({
-      origin: corsOrigin,
+      origin: corsAllowedOrigins.includes("*")
+        ? "*"
+        : (origin) =>
+            corsAllowedOrigins.includes(origin) ||
+            origin === ENGENTY_DESKTOP_APP_ORIGIN
+              ? origin
+              : null,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["authorization", "content-type"],
     })
@@ -439,10 +456,16 @@ export function createApiApp(params: CreateApiAppParams) {
     config,
     resolveRegistry: () => params.registry.searchIndexRegistry,
   });
+  registerWorkspaceSearchRoutes({
+    app,
+    config,
+    registry: params.registry,
+  });
   registerSettingsRoutes({ app, config });
   registerLogInspectorRoutes({ app, config });
   registerFileStorageRoutes({ app, config });
   registerQueueRoutes({ app, config, registry: params.registry });
+  registerDesktopBootstrapRoutes({ app, config });
 
   return app;
 }

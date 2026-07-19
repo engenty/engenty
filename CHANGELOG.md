@@ -4,6 +4,118 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.38] - 2026-07-19
+- ADDED **[team-chat]** Email notifications via the tenant's connector (N4)
+- ADDED **[team-chat]** Slack-bridge binding UI (pro settings page)
+- DOCS **[team-chat]** Plan bridge phase 7 — realtime Slack sync + reactions
+- DOCS **[user]** Add Connect Slack guide (Slack bridge setup)
+- FIXED **[team-chat]** Slack-bridge env var was missing its obtain strategy
+- FIXED **[team-chat]** Annotate intentional thenable in slack-bridge test mock
+- FIXED **[ci]** Cap turbo build concurrency at the runner's 4 vCPUs
+- FIXED **[team-chat]** Slack bridge skips non-autonomous connections instead of erroring
+- FIXED **[ci]** Stop cancelling in-progress main builds on new pushes
+
+## [0.1.37] - 2026-07-19
+- ADDED **[release]** Build the desktop dmg locally instead of on GitHub
+- ADDED **[team-chat]** Slack bridge (pro) — outbound replay, inbound sync, binding ops
+- ADDED **[team-chat]** User notifications — mention/DM fan-out into the platform inbox (N1)
+- FIXED **[ci]** Persist turbo cache across verify runs
+- FIXED **[ci]** Raise verify job timeout to 60min
+
+## [0.1.36] - 2026-07-19
+- ADDED **[desktop]** Deeper macOS integration — native menu, hotkey, autostart, drag&drop, realtime inbox, local connector host
+- FIXED **[team-chat]** Limit conversation content width on wide viewports
+
+## [0.1.35] - 2026-07-19
+- ADDED **[desktop]** Reload via ⌘R + tray menu item; quieter error overlay
+
+## [0.1.34] - 2026-07-19
+- ADDED **[team-chat]** Render conversation tabs inline on the dashboard
+- ADDED **[team-chat]** Design update — blended header, dashboard tabs, stats, unified author colors
+- ADDED **[team-chat]** Unread + pins in activity feed, deep-link anchor scroll
+- ADDED **[team-chat]** Activity dashboard on the module home
+- ADDED **[team-chat]** Phase 5 — retrieval source, channel details, polish, tests
+- ADDED **[team-chat]** Composer attachments (upload/paste images + files) and emoji picker
+- ADDED **[team-chat]** Human-readable task activity lines in project channels
+- ADDED **[team-chat]** Phase 4 project binding + activity feed; UI rework
+- ADDED **[team-chat]** Phase 3 — agents as first-class participants
+- ADDED **[team-chat]** Phase 2 — reactions, pins, mentions, edit, search, badge
+- ADDED **[team-chat]** Phase 1 — Slack-compatible team messaging module
+- DOCS **[team-chat]** Test plan for the design update
+- DOCS **[team-chat]** Record dashboard verification
+- DOCS **[team-chat]** Record UI polish round in test plan
+- DOCS **[team-chat]** Mark details-popover + activity-toggle suppression verified
+- DOCS **[team-chat]** Mark search verified, record scope_id indexing bug + guard
+- DOCS **[team-chat]** Record Phase 1 live verification + follow-ups
+- DOCS **[team-chat]** Design doc for Slack-compatible team-chat module
+- FIXED **[deps]** Pin @hookform/resolvers to the consumer's zod via packageExtensions
+- FIXED **[team-chat]** Align dashboard header with the content column
+- FIXED **[team-chat]** Channel-head member roster, anchor-flash fade, pins popover close
+- FIXED **[team-chat]** Action tooltips, anchored emoji picker, threads closed by default, clean index status
+- FIXED **[team-chat]** Thread button opens a reply composer on reply-less messages
+- FIXED **[team-chat]** Index messages — scope_id lives on conversations, not messages
+- FIXED **[team-chat]** Visible hover highlight on message rows
+
+## [0.1.33] - 2026-07-19
+- FIXED **[desktop]** Resolve API/AI base URLs lazily + surface uncaught errors in the shell
+- FIXED **[desktop-ci]** Dispatch falls back to latest v* tag when no GitHub release exists yet
+- FIXED **[desktop-ci]** Host arm64 build — --target broke bundler path; dispatch attaches to latest release
+
+## [0.1.32] - 2026-07-19
+- FIXED **[lockfile]** Repair pnpm-lock after desktop rebase onto v0.1.30
+
+## [0.1.31] - 2026-07-19
+- ADDED **[desktop]** Tauri macOS shell bundling the web SPA with runtime server config
+
+## [0.1.30] - 2026-07-19
+- ADDED **[copilot]** Dock queue + approval surfaces as a flap attached to the composer
+- ADDED **[generative-ui]** Rich record panels, internal MCP Apps, A2UI catalog (G1–G3)
+- DOCS **[wip]** Note run/resume 409 wedge findings from generative-ui verification (unrelated defect)
+- DOCS **[dev]** Add Generative UI page, refresh objects page (panels, askAgent, engenty:internal)
+- FIXED **[copilot]** Reconcile orphaned interrupts + recover from 409 resumeInProgress
+- FIXED **[a2ui]** Make show_ui actions + data-bindings resolve
+- FIXED **[copilot]** Thread-scope the composer message queue and clear it on stop
+
+## [0.1.29] - 2026-07-17
+- ADDED **[projects]** Resizable task side panel with delete + full-page actions
+- DOCS **[wip]** Generative-ui — correct 'iframe cannot host our components' to the precise claim
+- DOCS **[wip]** Generative-ui — adjudicate the MCP-Apps-vs-A2UI challenge per use case
+
+## [0.1.28] - 2026-07-17
+- ADDED **[chat]** Slash commands + typed @-mentions in agent chats
+- DOCS **[wip]** Mark chat slash-commands implemented + live-verified
+- DOCS **[wip]** Record review decisions Q1-Q5 (carrier, aliases, action v1, availability, routing)
+- DOCS **[wip]** Object-widgets merged to main — phase 3b dependency satisfied after rebase
+- DOCS **[wip]** Chat slash-commands + typed @-mentions design
+- DOCS **[wip]** Generative-ui — Q6 decided (A2UI first) + worked wire-format examples
+- DOCS **[wip]** Generative-ui — evaluate OpenUI (Thesys) as G3 alternative to A2UI
+- DOCS **[wip]** Generative-ui — cite official A2UI React renderer docs
+- DOCS **[wip]** Correct generative-ui — A2UI React renderers are shipped, AG-UI carries A2UI
+- DOCS **[wip]** Generative-ui design — rich panels, internal MCP Apps, A2UI
+- FIXED **[chat]** Unwrap workspace-search match envelope, core group heading, route logger
+
+## [0.1.27] - 2026-07-17
+- ADDED **[objects]** Make the whole card clickable
+- ADDED **[objects]** Make object card actions follow the chat surface
+- ADDED **[objects]** Shared list chrome with row actions; stop restating cards in prose
+- ADDED Chat object rendering — objects/artifacts/MCP Apps in chat (phases A–D)
+- ADDED **[objects]** Tasks/team/invoices widgets, entity_refs backfill
+- ADDED **[mcp-apps]** Productionize widget host — bridge, CSP, template cache
+- ADDED **[objects]** Pane object tabs, display-hint execution, mention chips
+- ADDED **[objects]** Contacts + offers chat object widgets
+- ADDED **[objects]** ObjectRef contract, object-widget registry, show_objects tool
+- DOCS **[dev]** Document artifacts, objects, widgets and MCP Apps
+- DOCS Chat object rendering design (objects, artifacts, MCP Apps in chat)
+- FIXED **[ai]** Normalize guessed object ref types in show_objects
+- FIXED **[ai-ui]** Render object cards outside the collapsed tool timeline
+
+## [0.1.26] - 2026-07-16
+- ADDED **[ai-ui]** User + binding columns in the activity table
+- ADDED **[ai-ui]** Full list UI for the activity page
+- ADDED **[ai-ui]** Full list UI for artifacts catalog
+- ADDED **[ai-ui]** Group artifacts by scope + make them openable
+- ADDED **[ai-ui]** Add Artifacts section to Engenty admin
+
 ## [0.1.25] - 2026-07-16
 - FIXED **[offers]** Ignore settings autosave in external-change banner
 - FIXED **[commercial-editor]** Default tax row 70/30 and phase index tooltip

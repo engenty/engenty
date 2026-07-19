@@ -7,6 +7,29 @@ import {
   CommandList,
 } from "@engenty/ui-core";
 import { createPortal } from "react-dom";
+import { type MentionRow, mentionRowKey } from "./use-copilot-composer-mention";
+
+/** Section label for the agents group; ref rows carry their own group names. */
+const AGENTS_GROUP = "Agents";
+
+function groupMentionRows(
+  rows: MentionRow[]
+): Array<{ group: string; rows: MentionRow[] }> {
+  const groups = new Map<string, MentionRow[]>();
+  for (const row of rows) {
+    const group = row.kind === "agent" ? AGENTS_GROUP : row.candidate.group;
+    const bucket = groups.get(group);
+    if (bucket) {
+      bucket.push(row);
+    } else {
+      groups.set(group, [row]);
+    }
+  }
+  return [...groups.entries()].map(([group, grouped]) => ({
+    group,
+    rows: grouped,
+  }));
+}
 
 export function CopilotComposerMentionPopover({
   applyMentionPick,
@@ -16,25 +39,29 @@ export function CopilotComposerMentionPopover({
   mentionRows,
   setMentionHighlight,
 }: {
-  applyMentionPick: (agent: {
-    handle: string;
-    id: string;
-    name: string;
-  }) => void;
+  applyMentionPick: (row: MentionRow) => void;
   mentionFloatRef: React.RefObject<HTMLDivElement | null>;
   mentionHighlight: number;
   mentionOpen: boolean;
-  mentionRows: Array<{ handle: string; id: string; name: string }>;
+  mentionRows: MentionRow[];
   setMentionHighlight: (index: number) => void;
 }) {
   if (!(mentionOpen && mentionRows.length > 0)) {
     return null;
   }
 
+  const grouped = groupMentionRows(mentionRows);
+  const highlightedKey = mentionRowKey(
+    mentionRows[mentionHighlight] ?? mentionRows[0]!
+  );
+  // A single-namespace (agents-only) list keeps the flat look without a heading.
+  const showHeadings =
+    grouped.length > 1 || (grouped[0] && grouped[0].group !== AGENTS_GROUP);
+
   return createPortal(
     <div
-      aria-label="Agents"
-      className="ui-canvas-floating z-[200] w-[min(17rem,calc(100vw-1rem))] overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground text-xs"
+      aria-label="Mentions"
+      className="ui-canvas-floating z-[200] w-[min(19rem,calc(100vw-1rem))] overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground text-xs"
       ref={mentionFloatRef}
       role="region"
       style={{
@@ -46,37 +73,61 @@ export function CopilotComposerMentionPopover({
     >
       <Command
         className="bg-transparent"
-        onValueChange={(id) => {
-          const ix = mentionRows.findIndex((r) => r.id === id);
+        onValueChange={(key) => {
+          const ix = mentionRows.findIndex((r) => mentionRowKey(r) === key);
           if (ix >= 0) {
             setMentionHighlight(ix);
           }
         }}
         shouldFilter={false}
         tabIndex={-1}
-        value={mentionRows[mentionHighlight]?.id ?? mentionRows[0]?.id ?? ""}
+        value={highlightedKey}
       >
-        <CommandList className="max-h-32 overflow-y-auto py-0.5">
-          <CommandGroup className="p-0">
-            {mentionRows.map((c, i) => (
-              <CommandItem
-                className="flex min-h-0 cursor-pointer flex-col items-start gap-0 rounded-none px-2 py-1.5 text-xs"
-                key={c.id}
-                keywords={[c.name, c.handle, c.id]}
-                onMouseEnter={() => setMentionHighlight(i)}
-                onPointerDown={(ev) => ev.preventDefault()}
-                onSelect={() => applyMentionPick(c)}
-                value={c.id}
-              >
-                <span className="w-full truncate font-medium leading-tight">
-                  {c.name}
-                </span>
-                <span className="w-full truncate font-normal text-muted-foreground text-xxs leading-tight">
-                  @{c.handle}
-                </span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+        <CommandList className="max-h-56 overflow-y-auto py-0.5">
+          {grouped.map(({ group, rows }) => (
+            <CommandGroup
+              className="p-0 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-1.5 [&_[cmdk-group-heading]]:pb-0.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+              heading={showHeadings ? group : undefined}
+              key={group}
+            >
+              {rows.map((row) => {
+                const key = mentionRowKey(row);
+                const rowIndex = mentionRows.findIndex(
+                  (r) => mentionRowKey(r) === key
+                );
+                const title =
+                  row.kind === "agent" ? row.agent.name : row.candidate.label;
+                const subtitle =
+                  row.kind === "agent"
+                    ? `@${row.agent.handle}`
+                    : row.candidate.sublabel;
+                const keywords =
+                  row.kind === "agent"
+                    ? [row.agent.name, row.agent.handle, row.agent.id]
+                    : [row.candidate.label, row.candidate.ref];
+                return (
+                  <CommandItem
+                    className="flex min-h-0 cursor-pointer flex-col items-start gap-0 rounded-none px-2 py-1.5 text-xs"
+                    key={key}
+                    keywords={keywords}
+                    onMouseEnter={() => setMentionHighlight(rowIndex)}
+                    onPointerDown={(ev) => ev.preventDefault()}
+                    onSelect={() => applyMentionPick(row)}
+                    value={key}
+                  >
+                    <span className="w-full truncate font-medium leading-tight">
+                      {title}
+                    </span>
+                    {subtitle ? (
+                      <span className="w-full truncate font-normal text-muted-foreground text-xxs leading-tight">
+                        {subtitle}
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          ))}
         </CommandList>
       </Command>
     </div>,

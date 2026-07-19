@@ -17,6 +17,7 @@ import {
   loadActionDefinitionsFromDirectory,
 } from "./actions/loader.js";
 import { loadAgentManifest } from "./agents/agent-manifest.js";
+import { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
 import { DEFAULT_AI_CHAT_MODEL_ID } from "./config/chat-model-id.js";
 import type {
   ActionDefinition,
@@ -181,6 +182,7 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
   const agentsDir = join(aiDir, "agents");
   const skillsDir = join(aiDir, "skills");
   const actionsDir = join(aiDir, "actions");
+  const commandsDir = join(aiDir, "commands");
 
   const overridesById = new Map<string, AgentConfigOverride>(
     (options.agents ?? []).map((override) => [override.id, override])
@@ -336,6 +338,13 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
     });
   }
 
+  function buildChatCommands() {
+    return loadChatCommandDefinitionsFromDirectory({
+      commandsDir,
+      moduleId: options.moduleId,
+    });
+  }
+
   function buildSkillMarkdown(): Record<string, string> {
     // Both the directory scan and the dynamic escape hatch flow through the
     // same module stamp so the seeded frontmatter always carries the owner.
@@ -355,9 +364,11 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
       const agentConfigs = buildAgentConfigs();
       const agentIds = new Set(agentConfigs.map((config) => config.id));
       const skillMarkdown = buildSkillMarkdown();
+      const chatCommands = buildChatCommands();
       return {
         actions: buildActions(agentIds),
         agents: options.agentDefinitions?.() ?? [],
+        ...(chatCommands.length > 0 ? { chat_commands: chatCommands } : {}),
         dynamic: {
           agent_configs: agentConfigs,
           ...(Object.keys(skillMarkdown).length > 0
@@ -381,10 +392,12 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
         new Set(agentConfigs.map((config) => config.id))
       ).map(toModuleActionCapability);
       const routines = buildRoutines();
+      const chatCommands = buildChatCommands();
       return {
         agentConfigs,
         moduleId: options.moduleId,
         ...(actions.length > 0 ? { actions } : {}),
+        ...(chatCommands.length > 0 ? { chatCommands } : {}),
         ...(routines.length > 0 ? { routines } : {}),
         ...(Object.keys(skillMarkdown).length > 0
           ? { skills: skillMarkdown }

@@ -3,6 +3,7 @@ import {
   TaskCollaboratorsPicker,
   type TeamMemberCatalogRow,
 } from "@engenty/tasks/ui/assignee";
+import { TaskCommentsPanel } from "@engenty/tasks/ui/comments";
 import {
   Button,
   Command,
@@ -18,22 +19,19 @@ import {
   SidePanel,
   SidePanelContent,
   SidePanelFooter,
-  SidePanelHeader,
-  SidePanelTitle,
 } from "@engenty/ui-core";
-import {
-  Check,
-  Clock,
-  Eye,
-  EyeOff,
-  FolderKanban,
-  Layers,
-  Tag,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, Clock, Eye, EyeOff, Layers, Tag } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { PhaseTask, ProjectTaskStatusDefinition } from "../api.js";
+import { useSidePanelWidth } from "../hooks/use-side-panel-width.js";
 import { buildProjectTaskMemberOptions } from "../lib/project-team-members-ui.js";
 import { TASK_STATUS_KANBAN_DOT } from "../lib/task-status-styles.js";
+import { TaskFormPanelHeader } from "./task-form-panel-header.js";
+
+const TASK_FORM_WIDTH_KEY = "projects.taskFormWidth";
+const TASK_FORM_DEFAULT_WIDTH = 672;
+const TASK_FORM_MIN_WIDTH = 360;
 
 /** Minimal phase shape needed to drive the phase selector pill. */
 export interface TaskFormPhaseOption {
@@ -42,6 +40,7 @@ export interface TaskFormPhaseOption {
 }
 
 interface TaskFormDialogProps {
+  onDelete?: (taskId: string) => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: {
     title: string;
@@ -59,7 +58,7 @@ interface TaskFormDialogProps {
   phases?: TaskFormPhaseOption[];
   /** Ids already on the project (for grouped picker); may be empty. */
   projectMemberIds: string[];
-  /** Name of the (fixed) project this task belongs to, shown as a static chip. */
+  /** Name of the (fixed) project this task belongs to — used for a11y title. */
   projectName?: string;
   task?: PhaseTask | null;
   taskStatusDefinitions: ProjectTaskStatusDefinition[];
@@ -81,6 +80,7 @@ function autoGrow(el: HTMLTextAreaElement) {
 export function TaskFormDialog({
   open,
   onOpenChange,
+  onDelete,
   onSubmit,
   task,
   phaseId,
@@ -94,6 +94,13 @@ export function TaskFormDialog({
   taskStatusDefinitions,
 }: TaskFormDialogProps) {
   const { t } = useTranslation("projects");
+  const navigate = useNavigate();
+  const formId = useId();
+  const { width, startResize } = useSidePanelWidth({
+    storageKey: TASK_FORM_WIDTH_KEY,
+    defaultWidth: TASK_FORM_DEFAULT_WIDTH,
+    minWidth: TASK_FORM_MIN_WIDTH,
+  });
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<string>("todo");
@@ -196,27 +203,53 @@ export function TaskFormDialog({
   const selectedPhase = phases?.find((p) => p.id === phaseIdValue) ?? null;
   const showPhasePill = Boolean(phases && phases.length > 0);
 
+  const panelTitle = task
+    ? t("detail.taskForm.editTask")
+    : t("detail.taskForm.newTask");
+  const a11yTitle = projectName ? `${panelTitle} — ${projectName}` : panelTitle;
+
+  const handleExpand = useCallback(() => {
+    if (!task) {
+      return;
+    }
+    onOpenChange(false);
+    navigate(`/mdl/tasks/${encodeURIComponent(task.id)}`);
+  }, [navigate, onOpenChange, task]);
+
+  const handleDelete = useCallback(() => {
+    if (!(task && onDelete)) {
+      return;
+    }
+    void Promise.resolve(onDelete(task.id)).then(() => onOpenChange(false));
+  }, [onDelete, onOpenChange, task]);
+
   return (
     <SidePanel onOpenChange={onOpenChange} open={open}>
-      <SidePanelContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl lg:max-w-xl">
-        <form className="flex h-full flex-col" onSubmit={handleSubmit}>
-          <SidePanelHeader className="gap-2 border-b p-4 pr-12">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs">
-              {projectName ? (
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 font-medium text-foreground">
-                  <FolderKanban className="h-3 w-3 text-muted-foreground" />
-                  <span className="max-w-[200px] truncate">{projectName}</span>
-                </span>
-              ) : null}
-              <SidePanelTitle className="font-normal text-muted-foreground text-xs">
-                {task
-                  ? t("detail.taskForm.editTask")
-                  : t("detail.taskForm.newTask")}
-              </SidePanelTitle>
-            </div>
-          </SidePanelHeader>
+      <SidePanelContent
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-none"
+        showCloseButton={false}
+        style={{ width: `${width}px`, maxWidth: "95vw" }}
+      >
+        {/* Drag handle — resize the panel from its left edge. */}
+        <div
+          aria-hidden
+          className="absolute inset-y-0 left-0 z-50 w-1.5 cursor-col-resize transition-colors hover:bg-primary/40 active:bg-primary/60"
+          onPointerDown={startResize}
+        />
+        <TaskFormPanelHeader
+          canDelete={Boolean(task && onDelete)}
+          canExpand={Boolean(task)}
+          onClose={() => onOpenChange(false)}
+          onDelete={handleDelete}
+          onExpand={handleExpand}
+          projectName={projectName}
+          title={a11yTitle}
+        />
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {/* The comments composer is its own form, so it stays a sibling of the
+            task form rather than nesting inside it. */}
+        <div className="flex-1 overflow-y-auto">
+          <form className="space-y-3 p-4" id={formId} onSubmit={handleSubmit}>
             <textarea
               autoFocus
               className="w-full resize-none overflow-hidden bg-transparent font-semibold text-lg outline-none placeholder:text-muted-foreground/50"
@@ -437,21 +470,27 @@ export function TaskFormDialog({
             ) : null}
 
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
-          </div>
+          </form>
 
-          <SidePanelFooter className="p-4">
-            <Button
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              {t("create.cancel")}
-            </Button>
-            <Button disabled={submitting} type="submit">
-              {task ? t("detail.taskForm.save") : t("create.create")}
-            </Button>
-          </SidePanelFooter>
-        </form>
+          {task ? (
+            <div className="border-t px-4 pt-4 pb-2">
+              <TaskCommentsPanel taskId={task.id} />
+            </div>
+          ) : null}
+        </div>
+
+        <SidePanelFooter className="p-4">
+          <Button
+            onClick={() => onOpenChange(false)}
+            type="button"
+            variant="outline"
+          >
+            {t("create.cancel")}
+          </Button>
+          <Button disabled={submitting} form={formId} type="submit">
+            {task ? t("detail.taskForm.save") : t("create.create")}
+          </Button>
+        </SidePanelFooter>
       </SidePanelContent>
     </SidePanel>
   );

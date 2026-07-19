@@ -20,6 +20,14 @@ export interface ToolCallCardProps extends HTMLAttributes<HTMLDivElement> {
   /** Link label for {@link fullPageHref} (module i18n). */
   fullPageLabel?: string;
   input?: unknown;
+  /**
+   * True when this tool call was produced by a run that streamed in this page
+   * session, false for a transcript replayed from storage. Cards that take a
+   * side effect on arrival (opening a pane, navigating) must gate on it —
+   * `state` cannot tell the two apart, since a tool part only reaches the
+   * transcript once its output is complete.
+   */
+  isLiveRun?: boolean;
   /** Optional muted suffix on the row (path, query snippet, etc.). */
   metadata?: string;
   output?: unknown;

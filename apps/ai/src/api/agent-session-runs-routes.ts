@@ -7,7 +7,10 @@ import {
   type RunAgentInput,
   RunAgentInputSchema,
 } from "@engenty/ag-ui-bridge";
-import type { AiUsageStore } from "@engenty/ai-core";
+import type {
+  AiUsageStore,
+  DynamicAiModuleCapabilityLoader,
+} from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import type { FrontendToolResumeData } from "../../ai/frontend-tools/native-frontend-tool.js";
@@ -19,6 +22,7 @@ import {
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
 } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
+import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
 import { isParkedResumeInFlight } from "../ai/conversation/session-park.js";
@@ -207,11 +211,66 @@ export function latestUserAttachmentParts(input: RunAgentInput): unknown[] {
       if (partType !== "image" && partType !== "document") {
         return false;
       }
-      const key = (
-        part as { metadata?: { engenty_attachment?: { storageKey?: unknown } } }
-      ).metadata?.engenty_attachment?.storageKey;
+      const metadata = (
+        part as {
+          metadata?: {
+            engenty_attachment?: { storageKey?: unknown };
+            engenty_refs?: unknown;
+          };
+        }
+      ).metadata;
+      // The typed @-mention reference carrier persists alongside attachments so
+      // reference chips survive a thread reload.
+      if (Array.isArray(metadata?.engenty_refs)) {
+        return true;
+      }
+      const key = metadata?.engenty_attachment?.storageKey;
       return typeof key === "string" && key.length > 0;
     });
+  }
+  return [];
+}
+
+// Typed @-mention references on the latest user turn (the `engenty_refs`
+// carrier part — see `@engenty/ai-ui` chat-reference-part).
+export function latestUserReferenceItems(
+  input: RunAgentInput
+): Array<{ entity?: string; label: string; ref: string }> {
+  const messages = Array.isArray(input.messages) ? input.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i] as { content?: unknown; role?: string };
+    if (message?.role !== "user") {
+      continue;
+    }
+    const content = message.content;
+    if (!Array.isArray(content)) {
+      return [];
+    }
+    const items: Array<{ entity?: string; label: string; ref: string }> = [];
+    for (const part of content) {
+      const refs = (
+        part as { metadata?: { engenty_refs?: unknown } } | null | undefined
+      )?.metadata?.engenty_refs;
+      if (!Array.isArray(refs)) {
+        continue;
+      }
+      for (const entry of refs) {
+        const item = entry as {
+          entity?: unknown;
+          label?: unknown;
+          ref?: unknown;
+        };
+        if (typeof item?.ref !== "string" || !item.ref) {
+          continue;
+        }
+        items.push({
+          entity: typeof item.entity === "string" ? item.entity : undefined,
+          label: typeof item.label === "string" ? item.label : item.ref,
+          ref: item.ref,
+        });
+      }
+    }
+    return items;
   }
   return [];
 }
@@ -303,6 +362,8 @@ export function registerAgentSessionRunRoutes(
     createRegistry?: (scope: AiSessionScope) => AiRegistry;
     /** Core service base URL — used to resolve chat attachment bytes for the model. */
     coreBaseUrl?: string;
+    /** Module capabilities — used to resolve the chat slash-command catalog. */
+    moduleLoader?: DynamicAiModuleCapabilityLoader;
     getRunStore?: () => AgentRunStore | null;
     getStore?: () => AgentSessionStore | null;
     getUsageStore?: () => AiUsageStore | null;
@@ -661,6 +722,17 @@ export function registerAgentSessionRunRoutes(
       const hsAttachmentParts = isArtifactResume
         ? []
         : latestUserAttachmentParts(body.data);
+      // Slash-command expansion + typed @-mention references ride the run
+      // context (system instructions) — the raw user text persists untouched.
+      const hsChatContextEntries =
+        isArtifactResume || isResumeRun
+          ? []
+          : await buildChatTurnContextEntries({
+              agentId: session.agent_id,
+              moduleLoader: opts.moduleLoader,
+              prompt: hsPrompt,
+              refs: latestUserReferenceItems(body.data),
+            });
       void startConversationRun({
         agentId: session.agent_id,
         agentUi: agentUi ?? null,
@@ -685,7 +757,10 @@ export function registerAgentSessionRunRoutes(
             threadId: child.threadId,
           }),
         routeContext: session.route_context,
-        runContext: body.data.context,
+        runContext:
+          hsChatContextEntries.length > 0
+            ? [...(body.data.context ?? []), ...hsChatContextEntries]
+            : body.data.context,
         runId,
         scope: scope.scope,
         sessionMetadata: hsSessionMetadata,

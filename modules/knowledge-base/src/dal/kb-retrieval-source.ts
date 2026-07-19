@@ -233,6 +233,8 @@ export function createKbRetrievalSource(
       }
       return {
         doc_id,
+        // Canonical object ref (chat rendering + context-graph identity).
+        entity_refs: [`knowledge-base:article:${doc_id}`],
         filter_metadata: { kb_id: String(row.kb_id) },
         occurred_at: row.updated_at,
         source_id: doc_id,

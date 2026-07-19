@@ -12,7 +12,7 @@ interface ActivityFeedItemProps {
   t: (key: string) => string;
 }
 
-function ActivityStatusDot({ entry }: { entry: ActivityEntry }) {
+export function ActivityStatusDot({ entry }: { entry: ActivityEntry }) {
   switch (entry.statusKind) {
     case "running":
       return (

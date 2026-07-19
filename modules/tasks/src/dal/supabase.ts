@@ -47,6 +47,11 @@ import { allocateTaskIdentifier } from "./task-identifier.js";
 const SCHEMA = "module_tasks";
 
 export interface TasksRepoAuditOptions {
+  /** Bus fan-out hook for task activity rows (fire-and-forget). */
+  onActivity?: (
+    activity: TaskActivity,
+    scope: { scopeId: string; tenantId: string }
+  ) => Promise<void> | void;
   recordAuditEvent?: (event: {
     type: string;
     detail?: Record<string, unknown>;
@@ -140,6 +145,7 @@ export function createTasksRepoSupabase(
   scopeId: string,
   audit?: TasksRepoAuditOptions
 ) {
+  const options = audit;
   const record = (type: string, detail?: Record<string, unknown>) => {
     audit?.recordAuditEvent?.({ type, detail });
   };
@@ -304,7 +310,15 @@ export function createTasksRepoSupabase(
     if (error) {
       throw new Error(`Failed to append task activity: ${error.message}`);
     }
-    return rowToTaskActivity((data ?? row) as Record<string, unknown>);
+    const activity = rowToTaskActivity(
+      (data ?? row) as Record<string, unknown>
+    );
+    // Best-effort fan-out to the module event bus (team-chat activity feed
+    // and other subscribers); never fails the write.
+    void Promise.resolve(
+      options?.onActivity?.(activity, { scopeId, tenantId })
+    ).catch(() => undefined);
+    return activity;
   }
 
   async function goalDepth(parentId: string | null): Promise<number> {

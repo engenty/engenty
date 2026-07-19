@@ -1,0 +1,20 @@
+{
+  "id": "team-chat",
+  "name": "Team Chat",
+  "description": "Slack-compatible team messaging: channels, DMs, threads, with agents as first-class participants",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.team-chat",
+    "module.team-chat.read",
+    "module.team-chat.write",
+    "module.team-chat.manage",
+    "ui.route.module.team-chat"
+  ],
+  "optional": ["module.projects", "module.tasks", "module.team"],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "frontendTools": false
+  }
+}

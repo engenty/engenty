@@ -1,0 +1,15 @@
+{
+  "approvalHint": "Setup: on the Slack connection (Settings \u2192 Connections \u2192 Manage) set Autonomous mode to \"Full\" so the bridge can sync in the background, and set the write actions (post_message, update_message) to \"Allow\" \u2014 otherwise outbound messages park as approval requests.",
+  "bind": "Bind",
+  "connection": "Slack connection: {{name}}",
+  "menu": "Slack bridge",
+  "noChannels": "No team-chat channels yet.",
+  "noConnection": "No Slack connection found. Connect a Slack workspace under Settings \u2192 Connections first.",
+  "pickSlackChannel": "Pick a Slack channel\u2026",
+  "subtitle": "Mirror team-chat channels with Slack channels (both directions).",
+  "syncAll": "Sync all now",
+  "syncNow": "Sync",
+  "syncResult": "{{conversations}} channels, {{imported}} imported, {{skipped}} skipped, {{errors}} errors",
+  "title": "Slack bridge",
+  "unbind": "Unbind"
+}

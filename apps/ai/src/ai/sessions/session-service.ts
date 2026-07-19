@@ -44,6 +44,7 @@ import {
   buildNativeMastraModelInput,
   findCurrentUserTurn,
 } from "./native-mastra-input.js";
+import { reconcileOrphanedInterrupt } from "./reconcile-orphaned-interrupt.js";
 import {
   createSessionRunTracker,
   ensureAgentSessionRunStarted,
@@ -594,6 +595,20 @@ export function createSessionService(opts: SessionServiceOptions) {
             }
           }
         }
+      }
+      // Heal a wedged approval/tool interrupt: an open interrupt whose parked
+      // session is gone (restart, TTL, or a resume error) can never be resumed
+      // and would keep the card + tool spinner stuck. Clearing it returns the
+      // thread to a usable state.
+      const healedMetadata = await reconcileOrphanedInterrupt({
+        metadata: session.metadata ?? {},
+        scope: input.scope,
+        store,
+        threadId: input.threadId,
+        userId: input.scope.userId,
+      });
+      if (healedMetadata) {
+        session = { ...session, metadata: healedMetadata };
       }
       return { session };
     },

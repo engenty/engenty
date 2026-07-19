@@ -8,6 +8,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
+import type { ChatReferenceItem } from "../../../lib/chat-reference-part.js";
 import {
   resolveCopilotSpeechScopeRoot,
   useCopilotVoiceInputHotkey,
@@ -36,8 +37,18 @@ import {
 } from "../../ai-elements/prompt-input";
 import type { StarterPromptItem } from "./copilot-composer";
 import { CopilotComposerMentionPopover } from "./copilot-composer-mention-popover";
+import { CopilotComposerSlashPopover } from "./copilot-composer-slash-popover";
 import { CopilotComposerSpeechControl } from "./copilot-composer-speech-control";
-import { useCopilotComposerMention } from "./use-copilot-composer-mention";
+import {
+  type ChatSlashCommand,
+  parseLeadingSlashCommand,
+} from "./copilot-slash-command";
+import {
+  type MentionRefCandidate,
+  type MentionRefSearch,
+  useCopilotComposerMention,
+} from "./use-copilot-composer-mention";
+import { useCopilotComposerSlash } from "./use-copilot-composer-slash";
 import { useCopilotComposerSpeech } from "./use-copilot-composer-speech";
 
 export interface CopilotComposerSectionProps {
@@ -52,6 +63,8 @@ export interface CopilotComposerSectionProps {
   focusComposerKey?: string | number | null;
   /** Optional @-mention targets (compact composer); choosing one sets per-send agent override. */
   mentionAgentCandidates?: Array<{ handle: string; id: string; name: string }>;
+  /** Async typed-mention search (users/contacts/objects/artifacts); enables reference chips. */
+  mentionRefSearch?: MentionRefSearch;
   onComposerMentionAgent?: (agentId: string) => void;
   onMultilineChange?: (multiline: boolean) => void;
   /** Start a fresh conversation from the composer (+) menu. Omit to hide it. */
@@ -60,6 +73,8 @@ export interface CopilotComposerSectionProps {
   onStop?: () => void;
   setDraft: Dispatch<SetStateAction<string>>;
   showStarterPrompts: boolean;
+  /** Slash-command catalog for the compact composer; "/" at message start opens the menu. */
+  slashCommands?: ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";
   submitMessage: SubmitMessage;
@@ -80,8 +95,10 @@ export function CopilotComposerSection({
   draft,
   focusComposerKey,
   mentionAgentCandidates,
+  mentionRefSearch,
   onComposerMentionAgent,
   onNewChat,
+  slashCommands,
   setDraft,
   showStarterPrompts,
   starterPrompts,
@@ -117,12 +134,54 @@ export function CopilotComposerSection({
     speechScopeRef.current = resolveCopilotSpeechScopeRoot(node);
   }, []);
 
+  // References picked from the typed @-mention menu — rendered as removable
+  // chips and submitted as `refs`. The chips are authoritative; the `@Label`
+  // text token is just prose.
+  const [pendingRefs, setPendingRefs] = useState<ChatReferenceItem[]>([]);
+  const handleComposerMentionRef = useCallback(
+    (candidate: MentionRefCandidate) => {
+      setPendingRefs((prev) =>
+        prev.some((r) => r.ref === candidate.ref)
+          ? prev
+          : [
+              ...prev,
+              {
+                entity: candidate.entity,
+                label: candidate.label,
+                ref: candidate.ref,
+              },
+            ]
+      );
+    },
+    []
+  );
+  const removePendingRef = useCallback((ref: string) => {
+    setPendingRefs((prev) => prev.filter((r) => r.ref !== ref));
+  }, []);
+
   const mention = useCopilotComposerMention({
     compact,
     mentionAgentCandidates,
+    mentionRefSearch,
     onComposerMentionAgent,
+    onComposerMentionRef: handleComposerMentionRef,
     setDraft,
   });
+
+  const slash = useCopilotComposerSlash({
+    compact,
+    setDraft,
+    slashCommands,
+  });
+
+  // Both typeahead hooks anchor to the same textarea wrapper.
+  const assignComposerTextareaWrap = useCallback(
+    (node: HTMLDivElement | null) => {
+      mention.mentionComposerWrapRef.current = node;
+      slash.slashComposerWrapRef.current = node;
+    },
+    [mention.mentionComposerWrapRef, slash.slashComposerWrapRef]
+  );
 
   useEffect(() => {
     if (focusComposerKey == null) {
@@ -198,6 +257,19 @@ export function CopilotComposerSection({
       if (!text && files.length === 0) {
         return;
       }
+      // Leading slash command of kind `ui` executes client-side — no message.
+      const slashMatch = parseLeadingSlashCommand(text, slashCommands ?? []);
+      if (slashMatch && slashMatch.command.kind === "ui") {
+        slash.clearSlashOnSubmit();
+        setDraft("");
+        if (slashMatch.command.run) {
+          slashMatch.command.run(slashMatch.argsText);
+        } else if (slashMatch.command.command === "help") {
+          // Built-in: reopen the menu in browse mode.
+          slash.openSlashBrowse();
+        }
+        return;
+      }
       const resolved = mention.resolveSubmitAgentOverride(text);
       text = resolved.text;
       if (!text && files.length === 0) {
@@ -229,11 +301,23 @@ export function CopilotComposerSection({
           ? { requestedAgentId: resolved.requestedAgentId }
           : {}),
         ...(attachments.length > 0 ? { attachments } : {}),
+        ...(pendingRefs.length > 0 ? { refs: pendingRefs } : {}),
       });
       setDraft("");
+      setPendingRefs([]);
       mention.clearMentionOnSubmit();
+      slash.clearSlashOnSubmit();
     },
-    [mention, setDraft, submitMessage, t, tenantId]
+    [
+      mention,
+      pendingRefs,
+      setDraft,
+      slash,
+      slashCommands,
+      submitMessage,
+      t,
+      tenantId,
+    ]
   );
 
   const handleSilenceAutoSend = useCallback(
@@ -257,7 +341,8 @@ export function CopilotComposerSection({
     disabled:
       !(voiceInputHotkeyEnabled && voiceInputEnabled) ||
       status !== "ready" ||
-      mention.mentionOpen,
+      mention.mentionOpen ||
+      slash.slashOpen,
     isProcessing: speech.isProcessing,
     isSupported: speech.isSupported,
     onToggle: speech.toggle,
@@ -269,8 +354,11 @@ export function CopilotComposerSection({
   >(
     (event) => {
       mention.handleMentionKeyDown(event);
+      if (!event.defaultPrevented) {
+        slash.handleSlashKeyDown(event);
+      }
     },
-    [mention]
+    [mention, slash]
   );
 
   // One-row dock: when the textarea wraps to multiple lines, the +/- send
@@ -322,10 +410,36 @@ export function CopilotComposerSection({
     />
   );
 
+  // Removable chips for the references picked from the typed @-mention menu.
+  const refsPreview =
+    pendingRefs.length > 0 ? (
+      <div className="mx-1 mb-2 flex flex-wrap gap-1.5">
+        {pendingRefs.map((ref) => (
+          <span
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 py-0.5 pr-1 pl-2 text-secondary-foreground text-xs"
+            key={ref.ref}
+          >
+            <span className="max-w-40 truncate">{ref.label}</span>
+            <Button
+              aria-label={t("copilot.references.remove")}
+              className="size-4 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => removePendingRef(ref.ref)}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <XIcon className="size-3" />
+            </Button>
+          </span>
+        ))}
+      </div>
+    ) : null;
+
   // Shared across both layouts: chips row + upload/error status line. Renders
   // inside PromptInputProvider so it can read the live attachment state.
   const attachmentsPreview = (
     <>
+      {refsPreview}
       <PromptInputAttachments className="mx-1 mb-2" />
       {isUploadingAttachments || attachmentError ? (
         <div
@@ -341,7 +455,11 @@ export function CopilotComposerSection({
   );
 
   // Any file type is accepted — non-model files still land in the Vault.
+  // Desktop shell: dropping a file anywhere in the window attaches it here
+  // (the shell disables Tauri's drag-drop interception so HTML5 drops work).
   const attachmentInputProps = {
+    globalDrop:
+      typeof globalThis !== "undefined" && "__TAURI_INTERNALS__" in globalThis,
     maxFileSize: CHAT_ATTACHMENT_MAX_BYTES,
     maxFiles: CHAT_ATTACHMENT_MAX_FILES,
     multiple: true,
@@ -429,19 +547,20 @@ export function CopilotComposerSection({
     const textarea = (
       <PromptInputTextarea
         className="max-h-32 min-h-8 resize-none px-1 py-1.5 text-sm leading-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        onChange={(e) =>
-          mention.handleDraftControlledChange(
-            e.currentTarget.value,
-            e.currentTarget.selectionStart ?? e.currentTarget.value.length
-          )
-        }
+        onChange={(e) => {
+          const value = e.currentTarget.value;
+          const caret = e.currentTarget.selectionStart ?? value.length;
+          mention.handleDraftControlledChange(value, caret);
+          slash.updateSlashUi(value, caret);
+        }}
         onKeyDown={handleCompactKeyDown}
         onSelect={(e) => {
           const t = e.currentTarget;
           const pos = t.selectionStart ?? t.value.length;
-          if ((mentionAgentCandidates?.length ?? 0) > 0) {
+          if (mention.mentionEnabled) {
             mention.updateMentionUi(t.value, pos);
           }
+          slash.updateSlashUi(t.value, pos);
         }}
         placeholder={composerPlaceholder}
         rows={1}
@@ -474,7 +593,7 @@ export function CopilotComposerSection({
                 </div>
                 <div
                   className="relative min-w-0 flex-1 self-center"
-                  ref={mention.mentionComposerWrapRef}
+                  ref={assignComposerTextareaWrap}
                 >
                   {textarea}
                 </div>
@@ -496,7 +615,7 @@ export function CopilotComposerSection({
               <PromptInputBody>
                 <div
                   className="relative w-full"
-                  ref={mention.mentionComposerWrapRef}
+                  ref={assignComposerTextareaWrap}
                 >
                   {textarea}
                 </div>
@@ -519,6 +638,14 @@ export function CopilotComposerSection({
           mentionOpen={mention.mentionOpen}
           mentionRows={mention.mentionRows}
           setMentionHighlight={mention.setMentionHighlight}
+        />
+        <CopilotComposerSlashPopover
+          applySlashPick={slash.applySlashPick}
+          setSlashHighlight={slash.setSlashHighlight}
+          slashFloatRef={slash.slashFloatRef}
+          slashHighlight={slash.slashHighlight}
+          slashOpen={slash.slashOpen}
+          slashRows={slash.slashRows}
         />
       </div>
     );

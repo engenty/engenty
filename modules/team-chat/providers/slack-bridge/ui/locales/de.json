@@ -1,0 +1,15 @@
+{
+  "approvalHint": "Einrichtung: An der Slack-Connection (Einstellungen → Connections → Verwalten) den Autonomie-Modus auf „Voll“ stellen, damit die Bridge im Hintergrund synchronisieren darf, und die Schreib-Actions (post_message, update_message) auf „Erlauben“ setzen — sonst parken ausgehende Nachrichten als Freigabe-Anfragen.",
+  "bind": "Verbinden",
+  "connection": "Slack-Connection: {{name}}",
+  "menu": "Slack-Bridge",
+  "noChannels": "Keine Team-Chat-Channels vorhanden.",
+  "noConnection": "Keine Slack-Connection gefunden. Verbinde zuerst unter Einstellungen → Connections einen Slack-Workspace.",
+  "pickSlackChannel": "Slack-Channel wählen…",
+  "subtitle": "Team-Chat-Channels mit Slack-Channels spiegeln (beide Richtungen).",
+  "syncAll": "Alle jetzt synchronisieren",
+  "syncNow": "Sync",
+  "syncResult": "{{conversations}} Channels, {{imported}} importiert, {{skipped}} übersprungen, {{errors}} Fehler",
+  "title": "Slack-Bridge",
+  "unbind": "Trennen"
+}

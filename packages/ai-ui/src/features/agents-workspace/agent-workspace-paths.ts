@@ -5,6 +5,7 @@ export const AGENTS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/agents`;
 export const ACTIONS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/actions`;
 export const SKILLS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/skills`;
 export const TOOLS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/tools`;
+export const ARTIFACTS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/artifacts`;
 export const ACTIVITY_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/activity`;
 /** Owned by the connections module; ai-ui only links to it from the sidebar. */
 export const CONNECTIONS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/connections`;
@@ -112,6 +113,16 @@ export function buildConnectionDetailPath(connectorId: string) {
 
 export function buildToolsPath() {
   return TOOLS_ROOT_PATH;
+}
+
+// ── Artifacts ─────────────────────────────────────────────────────────────────
+
+export function buildArtifactsPath() {
+  return ARTIFACTS_ROOT_PATH;
+}
+
+export function buildArtifactDetailPath(artifactId: string) {
+  return `${ARTIFACTS_ROOT_PATH}/${encodeURIComponent(artifactId)}`;
 }
 
 export function buildToolCreatePath() {

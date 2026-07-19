@@ -267,6 +267,11 @@ export function pruneStaleUiPluginContributionsData(
     pluginId
   );
   const tabs = removePluginOwnedItems(data.contributions.tabs, pluginId);
+  // `?? []`: cached query data may predate this contribution kind.
+  const chatCommands = removePluginOwnedItems(
+    data.contributions.chatCommands ?? [],
+    pluginId
+  );
   const removed =
     routes.removed +
     adminMenuItems.removed +
@@ -278,7 +283,8 @@ export function pruneStaleUiPluginContributionsData(
     i18nNamespaces.removed +
     navigationPrefetch.removed +
     settingsItems.removed +
-    tabs.removed;
+    tabs.removed +
+    chatCommands.removed;
 
   if (removed === 0) {
     return data;
@@ -297,6 +303,7 @@ export function pruneStaleUiPluginContributionsData(
       navigationPrefetch: navigationPrefetch.items,
       settingsItems: settingsItems.items,
       tabs: tabs.items,
+      chatCommands: chatCommands.items,
     },
     diagnostics: [
       ...data.diagnostics,

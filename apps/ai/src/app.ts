@@ -47,6 +47,7 @@ import { registerAgentSessionRunRoutes } from "./api/agent-session-runs-routes.j
 import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
+import { registerChatCommandRoutes } from "./api/chat-command-routes.js";
 import {
   createAgUiDebugEventBus,
   registerCopilotKitDebugEventRoutes,
@@ -58,6 +59,7 @@ import {
 } from "./api/gateway-model-routes.js";
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
+import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   type RealtimeClientSecretFetch,
@@ -70,6 +72,8 @@ import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
+import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
+import { startTeamChatNotificationConsumer } from "./api/team-chat-notification-consumer.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
 import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
@@ -87,7 +91,12 @@ import {
   bootstrapGatewayModelsIfEmpty,
   startGatewayModelSyncScheduler,
 } from "./gateway-model-sync-scheduler.js";
+import { startEmailNotifier } from "./notifications/email-notifier.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
+import {
+  createSchedulerOperationInvoker,
+  resolveSchedulerServiceScope,
+} from "./scheduler/service-invoker.js";
 
 const logger = createLogger({ name: "apps/ai" });
 
@@ -463,6 +472,32 @@ export async function createApp(options: CreateAppOptions = {}) {
       "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
     );
   }
+  if (registryStore?.listTools) {
+    registerMcpAppRoutes(app, {
+      scopeResolver,
+      serverConfigs: {
+        // A widget may only call the MCP servers registered for its tenant.
+        listServerUrls: async (tenantId: string) => {
+          const tools: Array<{
+            endpointUrl?: string | null;
+            schemaJson?: Record<string, unknown>;
+          }> = await registryStore.listTools(tenantId);
+          return tools.flatMap((tool) => {
+            const raw = tool.schemaJson?.engenty_mcp_app;
+            const record =
+              raw && typeof raw === "object" && !Array.isArray(raw)
+                ? (raw as Record<string, unknown>)
+                : null;
+            const url =
+              (typeof record?.server_url === "string"
+                ? record.server_url
+                : null) ?? tool.endpointUrl;
+            return record && typeof url === "string" && url ? [url] : [];
+          });
+        },
+      },
+    });
+  }
   registerAgentSessionRunRoutes(app, {
     // Registry + store for the streaming chat runtimes (harness_session default,
     // conversation executor).
@@ -478,6 +513,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     getStore: () => agentSessionStore ?? null,
     getUsageStore: () => aiUsageStore ?? null,
     aiService,
+    moduleLoader: moduleCapabilityLoader,
     onSessionPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
@@ -533,6 +569,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   registerActionRoutes(app, {
     getActionRequestStore: () => actionRequestStore,
+    moduleLoader: moduleCapabilityLoader,
+    scopeResolver,
+  });
+  registerChatCommandRoutes(app, {
     moduleLoader: moduleCapabilityLoader,
     scopeResolver,
   });
@@ -646,6 +686,37 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stop);
       process.once("SIGINT", stop);
+      // Team-chat @-mentions ride the same queue infrastructure (Phase 3).
+      const stopMentions = startTeamChatMentionConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopMentions);
+      process.once("SIGINT", stopMentions);
+      // Team-chat user notifications → platform inbox (N1).
+      const stopNotifications = startTeamChatNotificationConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopNotifications);
+      process.once("SIGINT", stopNotifications);
+      // Still-unread notifications → email via the tenant's connector (N4).
+      // The service scope is tenant-bound; resolve lazily + cache so a boot
+      // race against core doesn't wedge the notifier permanently.
+      let cachedServiceTenantId: string | null = null;
+      const stopEmailNotifier = startEmailNotifier({
+        invoke: createSchedulerOperationInvoker(),
+        resolveTenantId: async () => {
+          if (cachedServiceTenantId) {
+            return cachedServiceTenantId;
+          }
+          const resolution = await resolveSchedulerServiceScope();
+          cachedServiceTenantId = resolution.ok
+            ? resolution.scope.tenantId
+            : null;
+          return cachedServiceTenantId;
+        },
+      });
+      process.once("SIGTERM", stopEmailNotifier);
+      process.once("SIGINT", stopEmailNotifier);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
     }

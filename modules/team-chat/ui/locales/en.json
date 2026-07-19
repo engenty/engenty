@@ -1,0 +1,143 @@
+{
+  "title": "Team Chat",
+  "menu": {
+    "teamChat": "Team Chat"
+  },
+  "nav": {
+    "overview": "Overview",
+    "channels": "Channels",
+    "directMessages": "Direct messages",
+    "addChannel": "Add channel",
+    "newDm": "New message",
+    "browse": "Browse channels"
+  },
+  "overview": {
+    "title": "Team Chat",
+    "subtitle": "Channels, direct messages, and everything your team is talking about.",
+    "unreads": "Unread conversations",
+    "mentions": "Mentions",
+    "recent": "Recent conversations",
+    "allCaughtUp": "You're all caught up.",
+    "noConversations": "No conversations yet",
+    "noConversationsHint": "Create a channel or start a direct message to get going.",
+    "mentionCount": "{{count}} mention",
+    "mentionCount_other": "{{count}} mentions",
+    "unreadCount": "{{count}} new",
+    "subtitleUnread": "{{count}} unread message is waiting for you.",
+    "subtitleUnread_other": "{{count}} unread messages are waiting for you.",
+    "newChannel": "Channel",
+    "newDm": "Direct message",
+    "threads": "Your threads",
+    "noThreads": "You're not active in any threads yet.",
+    "noRecent": "No activity yet.",
+    "pins": "Pinned",
+    "noPins": "Nothing pinned yet.",
+    "statUnread": "Unread",
+    "statThreads": "Threads"
+  },
+  "tabs": {
+    "close": "Close tab"
+  },
+  "actions": {
+    "more": "More actions",
+    "refresh": "Refresh",
+    "editTopic": "Edit topic"
+  },
+  "pinsPopover": {
+    "title": "Pinned messages"
+  },
+  "conversation": {
+    "joinPrompt": "You are viewing #{{name}} without being a member.",
+    "join": "Join channel",
+    "leave": "Leave channel",
+    "archived": "This channel is archived.",
+    "empty": "No messages yet",
+    "emptyHint": "Send the first message to #{{name}}.",
+    "emptyDmHint": "Send the first message.",
+    "loadOlder": "Load older messages",
+    "members": "{{count}} member",
+    "members_other": "{{count}} members",
+    "agents": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "typePublic": "Public",
+    "typePrivate": "Private",
+    "projectLink": "Project",
+    "topicPlaceholder": "Add a topic",
+    "notFound": "Conversation not found",
+    "notFoundHint": "It may have been archived or you may not have access."
+  },
+  "thread": {
+    "title": "Thread",
+    "replyCount": "{{count}} reply",
+    "replyCount_other": "{{count}} replies",
+    "openThread": "Reply in thread",
+    "close": "Close thread"
+  },
+  "composer": {
+    "placeholder": "Message {{name}}",
+    "placeholderThread": "Reply…",
+    "send": "Send",
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "mentionHint": "↑↓ to navigate · Enter to select",
+    "attach": "Attach file",
+    "emoji": "Insert emoji",
+    "removeAttachment": "Remove attachment"
+  },
+  "message": {
+    "edited": "(edited)",
+    "deleted": "This message was deleted.",
+    "delete": "Delete message",
+    "edit": "Edit message",
+    "editHint": "Enter to save · Esc to cancel",
+    "react": "Add reaction",
+    "pin": "Pin message",
+    "unpin": "Unpin message",
+    "you": "You",
+    "agentBadge": "Agent",
+    "viewRun": "View agent run"
+  },
+  "search": {
+    "placeholder": "Search messages",
+    "results": "Results",
+    "noResults": "No messages found."
+  },
+  "dialogs": {
+    "createChannelTitle": "Create a channel",
+    "channelName": "Name",
+    "channelNameHint": "Lowercase, numbers, dashes — e.g. project-apollo",
+    "channelTopic": "Topic",
+    "privateChannel": "Private channel",
+    "privateChannelHint": "Only invited members can see a private channel.",
+    "create": "Create",
+    "newDmTitle": "New direct message",
+    "dmPickHint": "Pick one or more teammates.",
+    "start": "Start",
+    "cancel": "Cancel",
+    "editTopicTitle": "Edit topic",
+    "save": "Save"
+  },
+  "toasts": {
+    "channelCreated": "Channel created",
+    "channelExists": "A channel with this name already exists",
+    "sendFailed": "Sending failed: {{error}}",
+    "actionFailed": "Action failed: {{error}}",
+    "joined": "Joined the channel",
+    "left": "Left the channel",
+    "deleted": "Message deleted",
+    "uploadFailed": "Upload failed: {{error}}"
+  },
+  "projectTab": "Chat",
+  "projectTabEmpty": {
+    "title": "No channel for this project yet",
+    "hint": "Create a channel bound to this project — activity streams in and the team can discuss right here.",
+    "create": "Create project channel"
+  },
+  "details": {
+    "open": "Channel details",
+    "members": "Members",
+    "owner": "Owner",
+    "remove": "Remove member",
+    "addMember": "Add people or agents…",
+    "activityFeed": "Post project activity into this channel"
+  }
+}

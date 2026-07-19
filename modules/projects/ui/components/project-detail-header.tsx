@@ -43,9 +43,6 @@ export function ProjectDetailHeader({
           visibleTabs={visibleTabs}
         />
       }
-      // Match the content column's horizontal padding (`p-page`) so the title +
-      // tabs align with the content in both the centered and fill width regimes.
-      containerClassName="px-2 sm:px-4 md:px-5"
       eyebrow={clientLabel}
       // Always the contained reading column, centered — even on full-width
       // content tabs (files) the header stays limited rather than stretching.

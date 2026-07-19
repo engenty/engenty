@@ -22,6 +22,7 @@ import {
 import {
   Bot,
   Cable,
+  FileStack,
   FileTerminal,
   House,
   ListChecks,
@@ -47,6 +48,7 @@ import {
   buildActivityPath,
   buildAgentsCatalogPath,
   buildAgentsWorkspacePath,
+  buildArtifactsPath,
   buildConnectionsPath,
   buildSkillsCatalogPath,
   buildToolsPath,
@@ -194,6 +196,14 @@ export function AgentsWorkspaceSidebar({
               to={buildToolsPath()}
             >
               {t("workspace.sidebarTools")}
+            </WorkspaceNavLinkRow>
+            <WorkspaceNavLinkRow
+              Icon={FileStack}
+              pathname={location.pathname}
+              search={location.search}
+              to={buildArtifactsPath()}
+            >
+              {t("workspace.sidebarArtifacts")}
             </WorkspaceNavLinkRow>
             <WorkspaceNavLinkRow
               Icon={Cable}

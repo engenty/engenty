@@ -1,0 +1,93 @@
+name: Build desktop app
+
+# FALLBACK ONLY (workflow_dispatch): the .dmg is normally built locally as
+# part of the release ritual — `pnpm release:desktop` after pushing the tag
+# (~6min on an M-series Mac vs ~20 10x-billed minutes here). Dispatch this
+# workflow when no Mac with a build toolchain is at hand; it attaches the
+# .dmg to the latest release. Unsigned for now — first launch needs
+# right-click → Open (Gatekeeper).
+#
+# The UI bundle is built WITHOUT any VITE_* server values on purpose: the
+# desktop shell selects its server at runtime (first-launch server picker →
+# GET /api/desktop/bootstrap).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable workspace plugins
+        run: pnpm engenty plugins install --all
+
+      - name: Setup generated local artifacts
+        run: pnpm run setup
+
+      - name: Build UI (no baked server config)
+        run: pnpm build
+
+      # macos-14 runners are Apple Silicon, so the host build IS arm64 — no
+      # --target: passing one makes cargo emit into target/<triple>/release
+      # while the tauri bundler looks in target/release.
+      - name: Build desktop app (.dmg)
+        run: pnpm --filter @engenty/desktop bundle:dmg
+
+      # On a tag push, attach to that tag's release. On workflow_dispatch,
+      # attach to the latest release (lets a failed dmg build be re-run
+      # without cutting a new version).
+      - name: Attach .dmg to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            # Latest existing release, else latest v* tag (release created below).
+            TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+            if [ -z "$TAG" ]; then
+              git fetch --tags --quiet
+              TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+            fi
+          fi
+          if [ -z "$TAG" ]; then
+            echo "No release or tag found to attach to"; exit 1
+          fi
+          DMG=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          VERSIONED="engenty-desktop-${TAG}-macos-arm64.dmg"
+          cp "$DMG" "$VERSIONED"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" "$VERSIONED" --clobber
