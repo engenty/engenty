@@ -91,7 +91,12 @@ import {
   bootstrapGatewayModelsIfEmpty,
   startGatewayModelSyncScheduler,
 } from "./gateway-model-sync-scheduler.js";
+import { startEmailNotifier } from "./notifications/email-notifier.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
+import {
+  createSchedulerOperationInvoker,
+  resolveSchedulerServiceScope,
+} from "./scheduler/service-invoker.js";
 
 const logger = createLogger({ name: "apps/ai" });
 
@@ -693,6 +698,25 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stopNotifications);
       process.once("SIGINT", stopNotifications);
+      // Still-unread notifications → email via the tenant's connector (N4).
+      // The service scope is tenant-bound; resolve lazily + cache so a boot
+      // race against core doesn't wedge the notifier permanently.
+      let cachedServiceTenantId: string | null = null;
+      const stopEmailNotifier = startEmailNotifier({
+        invoke: createSchedulerOperationInvoker(),
+        resolveTenantId: async () => {
+          if (cachedServiceTenantId) {
+            return cachedServiceTenantId;
+          }
+          const resolution = await resolveSchedulerServiceScope();
+          cachedServiceTenantId = resolution.ok
+            ? resolution.scope.tenantId
+            : null;
+          return cachedServiceTenantId;
+        },
+      });
+      process.once("SIGTERM", stopEmailNotifier);
+      process.once("SIGINT", stopEmailNotifier);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
     }

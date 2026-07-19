@@ -599,6 +599,23 @@ DesktopBridge renders team-chat records natively (channel label + author + previ
 from the structured payload (`conversation_label`, `author_user_id`,
 `text_preview`, `route`).
 
+**N4 — email channel (2026-07-20):** `apps/ai/src/notifications/email-notifier.ts`
+mails records that are **still `pending` after a delay** (default 5 min,
+`ENGENTY_TEAM_CHAT_EMAIL_DELAY_MINUTES`; kill-switch
+`ENGENTY_TEAM_CHAT_EMAIL_NOTIFICATIONS_ENABLED`). A 60s pg scan over
+`ai.mastra_notifications` (cross-thread, so not the store API) picks due
+team-chat records, resolves the recipient from `core.users`, and sends through
+the **tenant's own email connection** (decision: connector, not a platform SMTP
+env) via the `gmail_send_message` gateway op on the service JWT. Because the
+action group is `destructive`, the tenant's Google connection must be set to
+autonomous **Full** with `send_message` on **Allow** — without a Gmail
+connection the run is a quiet no-op (one accounts probe per run). Send outcomes
+are terminal per record (`metadata.email_sent` true/false — no per-minute retry
+drumbeat); N1's read-sync means anything read in time never emails. The service
+JWT is tenant-bound: records of other tenants are skipped (same boundary as
+inbox-sync; satellites run their own JWT). Open: per-user email opt-out pref,
+non-Gmail send connectors (Outlook), digest mode.
+
 ---
 
 ## 14. Remote Slack bridge (future phase — designed for, not built)
