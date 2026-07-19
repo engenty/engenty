@@ -15,7 +15,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ConversationListItem } from "../api.js";
 import { type UsersById, userLabel } from "../lib/format.js";
-import { teamChatKeys } from "../queries.js";
+import { teamChatKeys, useMembersQuery } from "../queries.js";
 
 /** Resolves the bound project's display name for the chip (best effort). */
 function useProjectNameQuery(projectId: string | null) {
@@ -55,10 +55,15 @@ export function ChannelHeader({
   const HeaderIcon = isPrivate ? Lock : isChannel ? Hash : Users;
   const projectNameQuery = useProjectNameQuery(conversation.project_id);
 
-  const humanMembers = conversation.members.filter(
+  // The list RPC only embeds member principals for DMs; channels come with an
+  // empty array, so resolve the roster via the members operation instead.
+  const membersQuery = useMembersQuery(conversation.id);
+  const members: { principal_id: string; principal_type: string }[] =
+    membersQuery.data?.length ? membersQuery.data : conversation.members;
+  const humanMembers = members.filter(
     (member) => member.principal_type === "user"
   );
-  const agentMembers = conversation.members.filter(
+  const agentMembers = members.filter(
     (member) => member.principal_type === "agent"
   );
   const profiles = useMemo<AvatarStackProfile[]>(

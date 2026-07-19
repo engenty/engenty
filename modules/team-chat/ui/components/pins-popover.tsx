@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@engenty/ui-core";
 import { Pin } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   authorColorClass,
@@ -33,9 +34,10 @@ export function PinsPopover({
   const { t, i18n } = useTranslation("team-chat");
   const pinsQuery = usePinsQuery(conversationId);
   const pins = (pinsQuery.data ?? []).filter((pin) => pin.message);
+  const [open, setOpen] = useState(false);
 
   return (
-    <Popover>
+    <Popover onOpenChange={setOpen} open={open}>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -78,6 +80,7 @@ export function PinsPopover({
                 <Link
                   className="flex flex-col gap-0.5 rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5 dark:hover:bg-foreground/6"
                   key={pin.message_ts}
+                  onClick={() => setOpen(false)}
                   to={`/mdl/team-chat/${conversationId}?ts=${pin.message_ts}`}
                 >
                   <span className="flex items-baseline gap-1.5">

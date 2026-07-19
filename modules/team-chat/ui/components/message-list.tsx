@@ -77,12 +77,21 @@ export function MessageList({
         consumedAnchor.current = anchorTs;
         target.scrollIntoView({ block: "center" });
         setFlashTs(anchorTs);
-        const timer = setTimeout(() => setFlashTs(null), 3500);
-        return () => clearTimeout(timer);
+        return;
       }
     }
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [lastTs, anchorTs]);
+
+  // Owns the fade so a list refetch inside the window can't cancel the timer
+  // and leave the highlight stuck.
+  useEffect(() => {
+    if (!flashTs) {
+      return;
+    }
+    const timer = setTimeout(() => setFlashTs(null), 3500);
+    return () => clearTimeout(timer);
+  }, [flashTs]);
 
   const rows = useMemo(() => {
     const result: {

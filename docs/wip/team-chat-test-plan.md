@@ -94,6 +94,21 @@ Legend: ✅ verified (date) · ◻ not yet re-verified after latest change.
 
 **Design update (2026-07-19, @ 1f6a435) — gemeinsamer Browser-Test steht aus**
 
+> Vorab-Durchlauf (Claude, 2026-07-19, live im dev stack): Dashboard-Kopf/CTAs/
+> Statistik/Karten, Tab-Leiste inkl. ×-Close + localStorage, Channel-Kopf mit
+> Avatar-Stack/Typ-Chip/Projekt-Chip (Name aufgelöst, „waff website support"),
+> Pins-Popover inkl. `?ts=`-Sprung, Thema-bearbeiten-Dialog (gespeichert +
+> sofort im Kopf), DM ohne Typ-Chip, Autor-Farben orange/violett — alles ✓.
+> Dabei gefixt (im Design-Update-Follow-up-Commit): **(1)** Channel-Kopf zeigte
+> „0 Mitglieder" — die `list_my_conversations`-RPC füllt `members` nur für
+> `im`/`mpim`; der Header lädt die Roster jetzt über `useMembersQuery`.
+> **(2)** `?ts=`-Flash konnte bei einem Refetch im 3,5-s-Fenster dauerhaft
+> stehen bleiben (Cleanup killte den Fade-Timer) — Fade in eigenem Effekt.
+> **(3)** Pins-Popover blieb nach Klick auf einen Eintrag offen — schließt
+> jetzt kontrolliert. Offen für den gemeinsamen Test: Tab-Indikatoren
+> (Sky-Punkt/Indigo-Zähler — brauchen frische Mentions/Unreads), Zentrierung
+> auf breitem Viewport, Embedded-Projekt-Tab, Join-Bar/Archiv-Regressionen.
+
 *Dashboard (`/mdl/team-chat`)*
 - [ ] Verschmolzener Kopf: weiße Zone ohne Trennlinie zwischen Topbar und
   Titel „Team-Chat" + Untertitel (ungelesen-Zähler); Inhalt zentriert
