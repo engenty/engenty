@@ -7,6 +7,8 @@ use tauri::{
 /// Event the webview listens for to clear the stored server and re-run the
 /// first-launch server picker (see apps/ui/src/desktop/desktop-runtime.ts).
 const CHANGE_SERVER_EVENT: &str = "engenty-desktop:change-server";
+/// Event the webview listens for to reload the SPA (⌘R works too).
+const RELOAD_EVENT: &str = "engenty-desktop:reload";
 
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -27,6 +29,8 @@ pub fn run() {
         .setup(|app| {
             let open_item =
                 MenuItem::with_id(app, "open", "Open engenty", true, None::<&str>)?;
+            let reload_item =
+                MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?;
             let change_server_item = MenuItem::with_id(
                 app,
                 "change-server",
@@ -39,7 +43,13 @@ pub fn run() {
                 MenuItem::with_id(app, "quit", "Quit engenty", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
-                &[&open_item, &change_server_item, &separator, &quit_item],
+                &[
+                    &open_item,
+                    &reload_item,
+                    &change_server_item,
+                    &separator,
+                    &quit_item,
+                ],
             )?;
             TrayIconBuilder::with_id("engenty-tray")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -47,6 +57,10 @@ pub fn run() {
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_main_window(app),
+                    "reload" => {
+                        show_main_window(app);
+                        let _ = app.emit(RELOAD_EVENT, ());
+                    }
                     "change-server" => {
                         show_main_window(app);
                         let _ = app.emit(CHANGE_SERVER_EVENT, ());
