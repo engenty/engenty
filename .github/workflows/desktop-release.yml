@@ -56,26 +56,32 @@ jobs:
       - name: Build UI (no baked server config)
         run: pnpm build
 
+      # macos-14 runners are Apple Silicon, so the host build IS arm64 — no
+      # --target: passing one makes cargo emit into target/<triple>/release
+      # while the tauri bundler looks in target/release.
       - name: Build desktop app (.dmg)
-        run: pnpm --filter @engenty/desktop bundle:dmg -- --target aarch64-apple-darwin
+        run: pnpm --filter @engenty/desktop bundle:dmg
 
+      # On a tag push, attach to that tag's release. On workflow_dispatch,
+      # attach to the latest release (lets a failed dmg build be re-run
+      # without cutting a new version).
       - name: Attach .dmg to release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          DMG=$(ls apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg | head -1)
-          VERSIONED="engenty-desktop-${GITHUB_REF_NAME}-macos-arm64.dmg"
-          cp "$DMG" "$VERSIONED"
-          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
           fi
-          gh release upload "$GITHUB_REF_NAME" "$VERSIONED" --clobber
-
-      - name: Upload .dmg as workflow artifact
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: engenty-desktop-macos-arm64
-          path: apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if [ -z "$TAG" ]; then
+            echo "No release found to attach to"; exit 1
+          fi
+          DMG=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          VERSIONED="engenty-desktop-${TAG}-macos-arm64.dmg"
+          cp "$DMG" "$VERSIONED"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" "$VERSIONED" --clobber
