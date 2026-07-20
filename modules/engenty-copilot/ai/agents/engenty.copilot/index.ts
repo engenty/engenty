@@ -14,6 +14,7 @@ export {
   createEngentyCopilotAgentTools,
   ENGENTY_CATALOG_TOOL_IDS,
   ENGENTY_COPILOT_TOOL_IDS,
+  ENGENTY_MEMORY_TOOL_IDS,
   ENGENTY_VAULT_TOOL_IDS,
   type EngentyCopilotRuntimeTools,
 } from "./tools.js";

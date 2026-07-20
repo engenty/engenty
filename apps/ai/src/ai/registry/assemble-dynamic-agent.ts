@@ -15,6 +15,10 @@ import {
   engentyCodeModeTool,
 } from "../../../ai/tools/engenty-tools/code-mode.js";
 import { ENGENTY_TOOL_EXECUTE_TOOL_ID } from "../../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
+import {
+  MEMORY_INSTRUCTIONS,
+  MEMORY_SAVE_TOOL_ID,
+} from "../instructions/memory-instructions.js";
 
 import { AiSessionError } from "../errors.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
@@ -223,12 +227,19 @@ function isGatewayModelId(modelId: string): boolean {
 }
 
 export function buildAgentInstructions(config: AgentConfig): string {
+  const parts = [config.instructions];
   const preferred = config.skillIds.filter((name) => name.trim().length > 0);
-  if (preferred.length === 0) {
-    return config.instructions;
+  if (preferred.length > 0) {
+    parts.push(
+      `Preferred skills: ${preferred.join(", ")}. Load a skill with the skill tool when relevant.`
+    );
   }
-  const hint = `Preferred skills: ${preferred.join(", ")}. Load a skill with the skill tool when relevant.`;
-  return [config.instructions, hint].join("\n\n");
+  // Any agent that carries the durable-memory tools gets the full memory
+  // discipline — one central layer instead of per-agent AGENTS.md copies.
+  if (config.toolIds.includes(MEMORY_SAVE_TOOL_ID)) {
+    parts.push(MEMORY_INSTRUCTIONS);
+  }
+  return parts.join("\n\n");
 }
 
 async function resolveTool(

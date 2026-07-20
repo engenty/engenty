@@ -1,0 +1,17 @@
+{
+  "id": "memory",
+  "name": "Memory",
+  "description": "Layered agent learning memory: free-form markdown records at user, project, org, and entity scope",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.memory",
+    "module.memory.read",
+    "module.memory.write",
+    "module.memory.approve"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": true
+  }
+}

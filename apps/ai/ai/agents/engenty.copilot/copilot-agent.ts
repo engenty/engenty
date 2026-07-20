@@ -13,6 +13,7 @@ import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
+import { createMemoryTools } from "../../tools/memory-tools/index.js";
 import { registryAgentsListTool } from "../../tools/registry-agents-list-tool.js";
 import { createShowObjectsTool } from "../../tools/show-objects-tool.js";
 import { createShowUiTool } from "../../tools/show-ui-tool.js";
@@ -41,6 +42,7 @@ export function createEngentyCopilotAgentTools() {
     }),
     set_state: setStateTool,
     ...createEngentyCatalogTools(),
+    ...createMemoryTools(),
     ...createVaultFileTools(),
     ...createArtifactTools(),
     show_objects: createShowObjectsTool(),

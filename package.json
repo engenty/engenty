@@ -58,6 +58,9 @@
       "knowledge-base": {
         "source": "workspace"
       },
+      "memory": {
+        "source": "workspace"
+      },
       "offers": {
         "source": "workspace"
       },

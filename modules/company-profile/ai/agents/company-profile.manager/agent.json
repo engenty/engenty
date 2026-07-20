@@ -12,6 +12,9 @@
     "uploadAsset",
     "companyWebsitePages",
     "convert_image",
-    "web_search"
+    "web_search",
+    "memory_save",
+    "memory_record_search",
+    "memory_record_archive"
   ]
 }
