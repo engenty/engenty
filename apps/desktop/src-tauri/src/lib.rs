@@ -20,10 +20,8 @@ const NAVIGATE_EVENT: &str = "engenty-desktop:navigate";
 const NEW_CHAT_EVENT: &str = "engenty-desktop:new-chat";
 /// Open the app settings (engenty → Settings…, ⌘,).
 const SETTINGS_EVENT: &str = "engenty-desktop:settings";
-/// Global ⌥Space: raise the window and open the copilot drawer in place.
-const QUICK_CAPTURE_EVENT: &str = "engenty-desktop:quick-capture";
 
-/// System-wide hotkey that raises the window and focuses the composer.
+/// System-wide hotkey that raises the window and starts a new chat (⌘N).
 const QUICK_CAPTURE_SHORTCUT: &str = "alt+space";
 
 /// Navigation entry reported by the SPA once its module catalog is known
@@ -201,7 +199,7 @@ pub fn run() {
                 .with_handler(|app, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
                         show_main_window(app);
-                        let _ = app.emit(QUICK_CAPTURE_EVENT, ());
+                        let _ = app.emit(NEW_CHAT_EVENT, ());
                     }
                 })
                 .build(),
