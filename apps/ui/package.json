@@ -36,6 +36,7 @@
     "@engenty/generative-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/live-cache": "workspace:*",
+    "@engenty/memory": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",

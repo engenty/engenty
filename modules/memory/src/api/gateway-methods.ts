@@ -97,6 +97,11 @@ export function registerMemoryGatewayMethods(
           ? (parsed.agent_type_key ?? auth.agentId ?? null)
           : null,
         created_by: auth.principalId,
+        // Human edits stamp updated_by and preserve the record's provenance.
+        updated_by: agentPrincipal ? null : auth.principalId,
+        ...(parsed.expected_updated_at
+          ? { expected_updated_at: parsed.expected_updated_at }
+          : {}),
         ...(parsed.supersedes ? { supersedes: parsed.supersedes } : {}),
       });
       if (saved.status === "proposed") {

@@ -76,16 +76,28 @@ export function createMemoryRepoSupabase(
         input.slug
       );
       if (existing) {
+        if (
+          input.expected_updated_at &&
+          existing.updated_at !== input.expected_updated_at
+        ) {
+          // Someone (usually an agent) wrote this record after the editor
+          // loaded it — surface the conflict instead of clobbering.
+          throw new Error("memory_record_conflict");
+        }
         // Re-saving a slug updates the record in place. Status transitions are
         // deliberate: an update keeps the current status unless the caller
         // forces one (org-scope agent writes force 'proposed' — an agent must
         // not be able to reactivate an archived/proposed record by re-saving).
+        const humanEdit = input.updated_by != null;
         const patch: Record<string, unknown> = {
           title: input.title,
           body_md: input.body_md,
           kind: input.kind,
           confidence: input.confidence,
-          source_kind: input.source_kind,
+          // Human edits keep the original provenance (the chip reads
+          // "copilot · edited by you"); agent writes own the record again.
+          ...(humanEdit ? {} : { source_kind: input.source_kind }),
+          updated_by: input.updated_by ?? null,
           updated_at: now,
           ...(input.status ? { status: input.status } : {}),
           ...(input.agent_type_key !== undefined
@@ -125,6 +137,7 @@ export function createMemoryRepoSupabase(
           status: input.status ?? "active",
           supersedes: input.supersedes ?? null,
           created_by: input.created_by ?? null,
+          updated_by: input.updated_by ?? null,
           created_at: now,
           updated_at: now,
         })

@@ -174,6 +174,51 @@ describe("memory repo — upsert", () => {
   });
 });
 
+describe("memory repo — concurrency + provenance", () => {
+  it("throws memory_record_conflict when the loaded token is stale", async () => {
+    const fake = createFakeSupabase([
+      { data: memoryRow({ updated_at: "2026-07-21T00:00:00Z" }), error: null },
+    ]);
+    const repo = createMemoryRepoSupabase(fake.client, "tenant-1", "default");
+    await expect(
+      repo.upsert({
+        ...upsertInput(),
+        expected_updated_at: "2026-07-20T00:00:00Z",
+        updated_by: "user-1",
+      })
+    ).rejects.toThrow("memory_record_conflict");
+  });
+
+  it("human edits keep source_kind and stamp updated_by", async () => {
+    const fake = createFakeSupabase([
+      { data: memoryRow({ source_kind: "reflection" }), error: null },
+      {
+        data: memoryRow({ source_kind: "reflection", updated_by: "user-1" }),
+        error: null,
+      },
+    ]);
+    const repo = createMemoryRepoSupabase(fake.client, "tenant-1", "default");
+    await repo.upsert({ ...upsertInput(), updated_by: "user-1" });
+    const update = fake.calls.find((call) => call.method === "update");
+    const patch = update?.args[0] as Record<string, unknown>;
+    expect(patch.updated_by).toBe("user-1");
+    expect(patch).not.toHaveProperty("source_kind");
+  });
+
+  it("agent writes reclaim provenance and clear updated_by", async () => {
+    const fake = createFakeSupabase([
+      { data: memoryRow({ updated_by: "user-1" }), error: null },
+      { data: memoryRow(), error: null },
+    ]);
+    const repo = createMemoryRepoSupabase(fake.client, "tenant-1", "default");
+    await repo.upsert(upsertInput());
+    const update = fake.calls.find((call) => call.method === "update");
+    const patch = update?.args[0] as Record<string, unknown>;
+    expect(patch.source_kind).toBe("agent");
+    expect(patch.updated_by).toBeNull();
+  });
+});
+
 describe("memory repo — archive", () => {
   it("flips status to archived and emits 'archived'", async () => {
     const fake = createFakeSupabase([

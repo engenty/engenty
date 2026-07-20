@@ -21,30 +21,55 @@
     "./ai/registrar": {
       "types": "./dist/ai/registrar.d.ts",
       "default": "./dist/ai/registrar.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
     }
   },
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts ai/registrar.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts ai/registrar.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts src/services/memory-doc.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts src/services/memory-doc.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
     "test": "vitest run --root ../.. modules/memory/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/ai-ui": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
     "@engenty/retrieval": "workspace:*",
     "@engenty/search-index": "workspace:*",
+    "@engenty/tiptap-editor": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
     "@supabase/supabase-js": "^2.108.2",
+    "@tiptap/core": "^3.27.1",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "sonner": "^2.0.7",
     "uuidv7": "^1.2.1",
-    "zod": "4.4.3",
-    "@engenty/ai-core": "workspace:*"
+    "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.10.6",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
-    "@types/node": "^26.0.0"
+    "vitest": "^4.1.9"
   }
 }

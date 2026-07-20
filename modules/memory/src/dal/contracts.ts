@@ -35,6 +35,14 @@ export interface MemoryRecordUpsert {
   agent_type_key?: string | null;
   created_by?: string | null;
   supersedes?: string | null;
+  /**
+   * Human editor identity. When set, an UPDATE keeps the record's original
+   * source_kind (provenance survives human edits) and stamps updated_by;
+   * agent writes clear updated_by and overwrite source_kind as usual.
+   */
+  updated_by?: string | null;
+  /** Optimistic-concurrency token; mismatch throws 'memory_record_conflict'. */
+  expected_updated_at?: string;
 }
 
 export interface MemoryRecordListFilter {

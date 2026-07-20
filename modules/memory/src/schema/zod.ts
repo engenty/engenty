@@ -49,6 +49,8 @@ export const memoryRecordSchema = z.object({
   status: memoryStatusSchema,
   supersedes: z.string().nullable(),
   created_by: z.string().nullable(),
+  /** Human editor of the last edit (provenance chip: "copilot · edited by you"). */
+  updated_by: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -72,6 +74,12 @@ export const memoryRecordUpsertInputSchema = z.object({
   supersedes: z.string().optional(),
   /** Audit attribution for agent writes (e.g. 'contacts.manager'). */
   agent_type_key: z.string().max(120).optional(),
+  /**
+   * Optimistic concurrency (document UI): the updated_at the editor loaded.
+   * A mismatch fails the save with 'memory_record_conflict' instead of
+   * silently clobbering a concurrent agent write.
+   */
+  expected_updated_at: z.string().optional(),
 });
 export type MemoryRecordUpsertInput = z.infer<
   typeof memoryRecordUpsertInputSchema

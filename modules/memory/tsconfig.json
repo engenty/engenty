@@ -6,10 +6,12 @@
     "outDir": "dist",
     "types": [
       "node"
-    ]
+    ],
+    "jsx": "react-jsx"
   },
   "include": [
     "src",
-    "ai"
+    "ai",
+    "ui"
   ]
 }

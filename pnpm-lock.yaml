@@ -497,6 +497,9 @@ importers:
       '@engenty/live-cache':
         specifier: workspace:*
         version: link:../../packages/live-cache
+      '@engenty/memory':
+        specifier: workspace:*
+        version: link:../../modules/memory
       '@engenty/query-client':
         specifier: workspace:*
         version: link:../../packages/query-client
@@ -1808,18 +1811,60 @@ importers:
       '@engenty/ai-core':
         specifier: workspace:*
         version: link:../../packages/ai-core
+      '@engenty/ai-ui':
+        specifier: workspace:*
+        version: link:../../packages/ai-ui
+      '@engenty/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@engenty/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
+      '@engenty/live-cache':
+        specifier: workspace:*
+        version: link:../../packages/live-cache
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@engenty/query-client':
+        specifier: workspace:*
+        version: link:../../packages/query-client
       '@engenty/retrieval':
         specifier: workspace:*
         version: link:../../packages/retrieval
       '@engenty/search-index':
         specifier: workspace:*
         version: link:../../packages/search-index
+      '@engenty/tiptap-editor':
+        specifier: workspace:*
+        version: link:../../packages/tiptap-editor
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
+      '@engenty/ui-plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/ui-plugin-sdk
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
+      '@tiptap/core':
+        specifier: ^3.27.1
+        version: 3.27.1(@tiptap/pm@3.27.1)
+      lucide-react:
+        specifier: ^1.21.0
+        version: 1.21.0(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+      react-router-dom:
+        specifier: ^7.18.0
+        version: 7.18.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       uuidv7:
         specifier: ^1.2.1
         version: 1.2.1
@@ -1830,6 +1875,15 @@ importers:
       '@types/node':
         specifier: ^26.0.0
         version: 26.0.0
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      happy-dom:
+        specifier: ^20.10.6
+        version: 20.10.6
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
@@ -17340,7 +17394,7 @@ snapshots:
       obug: 2.1.3
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   '@vitest/expect@4.1.9':
     dependencies:
