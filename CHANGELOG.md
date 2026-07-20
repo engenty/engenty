@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.47] - 2026-07-20
+- ADDED **[modules]** Publish modules to GitHub Packages as overlays (Level A / A5)
+- FIXED **[modules]** Avoid delete in publish transform (lint/performance/noDelete)
+
 ## [0.1.46] - 2026-07-20
 - FIXED **[ci]** Stop the ai/edge deploy build OOMing (concurrency + reliable cache)
 
