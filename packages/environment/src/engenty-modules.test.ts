@@ -87,6 +87,70 @@ describe("engenty-plugins manifest", () => {
     expect(modules[0]?.hasUi).toBe(true);
   });
 
+  function createRepoWithPlugins(plugins: Record<string, unknown>): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-registry-"));
+    tempDirs.push(root);
+    fs.mkdirSync(path.join(root, "modules"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      `${JSON.stringify(
+        { workspaces: ["modules/*"], engenty: { plugins } },
+        null,
+        2
+      )}\n`,
+      "utf-8"
+    );
+    return root;
+  }
+
+  it("resolves a registry module from node_modules", () => {
+    const root = createRepoWithPlugins({ gamma: { source: "registry" } });
+    const installed = path.join(root, "node_modules", "@engenty", "gamma");
+    writeManifest(installed, { id: "gamma", capabilities: { ui: true } });
+
+    const modules = resolveEnabledModules(root);
+    expect(modules).toHaveLength(1);
+    expect(modules[0]?.slug).toBe("gamma");
+    expect(modules[0]?.source).toBe("registry");
+    expect(modules[0]?.dir).toBe(installed);
+    expect(modules[0]?.packageName).toBe("@engenty/gamma");
+  });
+
+  it("honors a package-name override for registry modules", () => {
+    const root = createRepoWithPlugins({
+      "pdf-templates": {
+        source: "registry",
+        package: "@engenty/pdf-templates-module",
+      },
+    });
+    const installed = path.join(
+      root,
+      "node_modules",
+      "@engenty",
+      "pdf-templates-module"
+    );
+    fs.mkdirSync(installed, { recursive: true });
+    fs.writeFileSync(
+      path.join(installed, "engenty.plugin.json"),
+      `${JSON.stringify({ id: "pdf-templates" }, null, 2)}\n`
+    );
+
+    const modules = resolveEnabledModules(root);
+    expect(modules).toHaveLength(1);
+    expect(modules[0]?.dir).toBe(installed);
+    expect(modules[0]?.packageName).toBe("@engenty/pdf-templates-module");
+  });
+
+  it("throws when a registry module is not installed", () => {
+    const root = createRepoWithPlugins({ delta: { source: "registry" } });
+    expect(() => resolveEnabledModules(root)).toThrow(/not installed/);
+  });
+
+  it("rejects an unknown plugin source", () => {
+    const root = createRepoWithPlugins({ epsilon: { source: "bogus" } });
+    expect(() => resolveEnabledModules(root)).toThrow(/unknown source/);
+  });
+
   function writeManifest(dir: string, manifest: Record<string, unknown>): void {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(

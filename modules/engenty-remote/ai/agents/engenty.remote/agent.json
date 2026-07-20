@@ -1,0 +1,15 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "engenty.remote",
+  "name": "Remote",
+  "description": "Chat-tuned front agent for external messengers. Answers briefly, uses the full engenty tool catalog, links into the app instead of rendering rich UI.",
+  "module_id": "engenty-remote",
+  "instruction_keys": ["remote.agents", "remote.soul"],
+  "skills": [],
+  "tools": [
+    "engenty_tools_search",
+    "engenty_tools_discover",
+    "engenty_tool_execute",
+    "registry_agents_list"
+  ]
+}

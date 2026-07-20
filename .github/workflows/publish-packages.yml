@@ -1,0 +1,76 @@
+name: Publish module packages
+
+# Release-gated: publishes the workspace modules to GitHub Packages (@engenty
+# scope) on a release tag, alongside build-images.yml and publish-open.yml.
+# Level A / A5, "modules as overlays" — see docs/content/dev/module-packaging.md.
+# workflow_dispatch allows a manual re-publish of the current checkout.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable workspace plugins
+        run: pnpm engenty plugins install --all
+
+      # Modules ship dist/ (the UI app consumes ./ui/plugin via the package
+      # export); build before packing so the published tarball is complete.
+      # --concurrency=4 avoids the OOM/thrash that cancelled the build at the
+      # default 10 (same cap as build-images). TURBO_* use the remote cache when
+      # configured so this is mostly cache hits, not a cold 28-module rebuild.
+      - name: Build modules
+        run: pnpm exec turbo run build --filter=./modules/** --concurrency=4
+        env:
+          TURBO_API: ${{ vars.TURBO_API }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+      # GitHub Packages npm auth for the @engenty scope. GITHUB_TOKEN carries
+      # packages:write for this repo's owner (the engenty org).
+      - name: Configure registry auth
+        run: |
+          {
+            echo "@engenty:registry=https://npm.pkg.github.com"
+            echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}"
+          } >> "$HOME/.npmrc"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Real publish only on a release tag AND when the repo variable
+      # PUBLISH_PACKAGES_ENABLED == 'true' (mirrors COOLIFY_DEPLOY_ENABLED for
+      # deploys). Everything else — workflow_dispatch, or the flag unset —
+      # dry-runs, so landing this workflow never publishes until deliberately
+      # enabled. Version = the tag (lockstep with the platform).
+      - name: Publish modules
+        run: |
+          # --pro: the private @engenty registry gets both tiers (pro modules
+          # are gated at enable-time by the manage app, not by omission here).
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ vars.PUBLISH_PACKAGES_ENABLED }}" = "true" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            node scripts/publish-modules.mjs --version="$version" --pro
+          else
+            echo "Dry-run (PUBLISH_PACKAGES_ENABLED != 'true' or manual trigger)."
+            node scripts/publish-modules.mjs --dry-run --pro
+          fi

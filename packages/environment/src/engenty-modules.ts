@@ -324,6 +324,41 @@ export function moduleHasUi(manifest: Record<string, unknown> | null): boolean {
   return typeof entry === "string" && entry.trim().length > 0;
 }
 
+/**
+ * Package name a registry-installed module resolves to. Defaults to
+ * `@engenty/<slug>`, overridable via `engenty.plugins.<slug>.package` for the
+ * modules whose package name diverges from the slug (e.g. pdf-templates →
+ * @engenty/pdf-templates-module).
+ */
+export function registryModulePackageName(
+  slug: string,
+  spec: EngentyPluginSpec
+): string {
+  const override =
+    typeof spec.config?.package === "string" ? spec.config.package.trim() : "";
+  return override || modulePackageName(slug);
+}
+
+/**
+ * Resolve the on-disk root of a module installed from the registry into
+ * node_modules. pnpm links a direct dependency to node_modules/<packageName>,
+ * so a filesystem check is enough. Returns undefined if not installed.
+ *
+ * NOTE: this file is bundled into the browser SPA, so it must stay free of
+ * node:module/createRequire (a named import from an externalized builtin throws
+ * at load → white screen). The build-side twin (scripts/lib/engenty-modules.mjs)
+ * keeps a require.resolve fallback; here the fs check is sufficient.
+ */
+export function resolveRegistryModuleDir(
+  repoRoot: string,
+  packageName: string
+): string | undefined {
+  const linked = path.join(repoRoot, "node_modules", ...packageName.split("/"));
+  return fs.existsSync(path.join(linked, ENGENTY_PLUGIN_MANIFEST))
+    ? linked
+    : undefined;
+}
+
 export function resolveEnabledModules(
   repoRoot: string,
   options: { strict?: boolean } = {}
@@ -340,19 +375,38 @@ export function resolveEnabledModules(
     if (!spec) {
       continue;
     }
-    if (spec.source !== "workspace") {
-      if (strict) {
-        throw new Error(
-          `engenty.plugins.${slug} uses source "${spec.source}" — only workspace plugins are supported in v1`
+    let dir: string | undefined;
+    let packageName: string;
+    if (spec.source === "workspace") {
+      dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
+      packageName = modulePackageName(slug);
+      if (!fs.existsSync(dir)) {
+        // Soft-skip: open worktrees / partial checkouts often list closed
+        // plugins in package.json that are not on disk. CI still fails via
+        // check-engenty-plugins when the set must be complete.
+        console.warn(
+          `engenty.plugins: skipping "${slug}" (not on disk — modules/${slug} or modules/*/providers/${slug})`
         );
+        continue;
       }
-      continue;
-    }
-    const dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
-    if (!fs.existsSync(dir)) {
+    } else if (spec.source === "registry") {
+      packageName = registryModulePackageName(slug, spec);
+      dir = resolveRegistryModuleDir(repoRoot, packageName);
+      if (!dir) {
+        if (strict) {
+          throw new Error(
+            `engenty.plugins.${slug} uses source "registry" but ${packageName} is not installed (run pnpm install)`
+          );
+        }
+        console.warn(
+          `engenty.plugins: skipping "${slug}" (registry package ${packageName} not installed)`
+        );
+        continue;
+      }
+    } else {
       if (strict) {
         throw new Error(
-          `engenty.plugins lists "${slug}" but neither modules/${slug}/ nor modules/*/providers/${slug}/ exists on disk`
+          `engenty.plugins.${slug} uses unknown source "${spec.source}" — expected "workspace" or "registry"`
         );
       }
       continue;
@@ -360,16 +414,14 @@ export function resolveEnabledModules(
     const manifest = readPluginManifest(dir);
     if (!manifest) {
       if (strict) {
-        throw new Error(
-          `modules/${slug}/ is missing ${ENGENTY_PLUGIN_MANIFEST}`
-        );
+        throw new Error(`${dir} is missing ${ENGENTY_PLUGIN_MANIFEST}`);
       }
       continue;
     }
     modules.push({
       slug,
       dir,
-      packageName: modulePackageName(slug),
+      packageName,
       manifest,
       hasUi: moduleHasUi(manifest),
       source: spec.source,

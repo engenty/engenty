@@ -91,6 +91,23 @@ packages/secrets-sdk/
 pnpm engenty plugins install secrets --db-migrate --db-restart
 ```
 
+**Gotcha — PostgREST schema allowlist.** `engenty db sync` writes `module_secrets`
+into `[api].schemas` in `supabase/config.toml`, but the live
+`authenticator.pgrst.db_schemas` role setting **shadows** that list. If create
+fails with `secrets_create: Invalid schema: module_secrets` (PostgREST
+`PGRST106`) while the Postgres schema exists, restart from a synced checkout
+(`--db-restart` above, or `supabase stop` + `start` — never `--no-backup`), or
+hot-fix:
+
+```sql
+ALTER ROLE authenticator SET pgrst.db_schemas = '<full list from config.toml including module_secrets>';
+NOTIFY pgrst, 'reload config';
+NOTIFY pgrst, 'reload schema';
+```
+
+Sibling worktrees that restart Supabase with an older schema list can stomp this
+again on the shared local DB.
+
 ---
 
 ## 3. Schema — `20260716120000_plugin_module_secrets.sql`

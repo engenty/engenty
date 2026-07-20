@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   enabledModuleSlugSetFromDir,
+  readEngentyPluginsManifest,
+  resolveEnabledModules,
   resolveModuleDir,
 } from "@engenty/environment";
 import {
@@ -34,6 +36,7 @@ import { createBootApiLogger, initEvlog } from "../observability/evlog.js";
 import { registerCoreRoleProfiles } from "../security/role-profiles.js";
 import { resolvePluginCapability } from "./capability-resolver.js";
 import {
+  discoverPluginPackageRoot,
   discoverPlugins,
   type PluginCandidate,
   resolveModulesDir,
@@ -829,6 +832,47 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
 
   const discovery = discoverPlugins({ modulesDir, packagesDir });
 
+  // Level A: modules installed from the registry live in node_modules, not the
+  // workspace scan roots. Resolve the enabled ones and append them as package
+  // candidates so they load exactly like workspace modules (server + AI face
+  // are jiti-loaded from the package's source, which ships in the tarball).
+  const registrySlugs = new Set<string>();
+  try {
+    const repoRoot = path.dirname(modulesDir);
+    const { plugins } = readEngentyPluginsManifest(repoRoot);
+    for (const [slug, spec] of Object.entries(plugins)) {
+      if (spec.source === "registry") {
+        registrySlugs.add(slug);
+      }
+    }
+    if (registrySlugs.size > 0) {
+      // A registry module shadows any lingering workspace checkout of the same
+      // slug (e.g. mid-migration from modules/<slug> to a registry install),
+      // so drop the workspace candidate before appending the registry one.
+      discovery.candidates = discovery.candidates.filter(
+        (candidate) =>
+          !(
+            candidate.sourceType === "module" &&
+            registrySlugs.has(candidate.idHint)
+          )
+      );
+      for (const mod of resolveEnabledModules(repoRoot, { strict: false })) {
+        if (mod.source !== "registry") {
+          continue;
+        }
+        const candidate = discoverPluginPackageRoot({
+          rootDir: mod.dir,
+          sourceType: "package",
+        });
+        if (candidate) {
+          discovery.candidates.push(candidate);
+        }
+      }
+    }
+  } catch {
+    // No resolvable repo root / config (some unit-test fixtures) — skip.
+  }
+
   if (discovery.candidates.length === 0) {
     logger.debug(`No plugins found in ${modulesDir} / ${packagesDir}`);
   }
@@ -846,6 +890,12 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
         .map((candidate) => path.resolve(candidate.rootDir))
     );
     for (const slug of enabledModuleSlugSetFromDir(modulesDir)) {
+      // Registry modules resolve from node_modules, not the workspace scan;
+      // they are appended as candidates above and validated by their own
+      // resolution, so they are exempt from the workspace-discovery guard.
+      if (registrySlugs.has(slug)) {
+        continue;
+      }
       if (
         discoveredRootDirs.has(path.resolve(resolveModuleDir(repoRoot, slug)))
       ) {

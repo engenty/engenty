@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { findWorkspaceRootFrom } from "@engenty/environment/env";
 import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { runSetupScript } from "../setup/run-setup-script.js";
@@ -35,9 +39,38 @@ function runSupabaseOrThrow(args: readonly string[]): void {
   }
 }
 
+/**
+ * After compose, bridge migrations applied by other worktrees on the shared
+ * local Supabase so `migration up` does not fail on remote-only versions.
+ */
+function runSharedMigrationPlaceholdersStep(): void {
+  const cwd = findWorkspaceRootFrom(process.cwd());
+  const scriptPath = path.join(
+    cwd,
+    "scripts",
+    "ensure-shared-migration-placeholders.mjs"
+  );
+  if (!fs.existsSync(scriptPath)) {
+    return;
+  }
+  const result = spawnSync(process.execPath, [scriptPath], {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+  if (output.length > 0) {
+    console.log(output);
+  }
+  if (result.status !== 0) {
+    throw new Error("ensure-shared-migration-placeholders failed.");
+  }
+}
+
 /** Compose module migrations, then apply pending Supabase migrations locally. */
 export function applyLocalDbMigrations(): void {
   runDbSyncStep();
+  runSharedMigrationPlaceholdersStep();
   runSupabaseOrThrow(["migration", "up", "--include-all"]);
 }
 

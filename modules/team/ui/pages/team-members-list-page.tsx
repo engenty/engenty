@@ -346,7 +346,7 @@ export function TeamMembersListPage() {
   const overflowMenu = useMemo(
     () => (
       <TeamMembersOverflowMenu
-        importLabel={t("import")}
+        importLabel={t("import.label")}
         menuMoreLabel={t("menuMore")}
         settingsLabel={t("moduleSettings")}
       />
@@ -373,7 +373,7 @@ export function TeamMembersListPage() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(TEAM_IMPORT_PATH)}>
               <Upload className="mr-2 h-4 w-4" />
-              {t("import")}
+              {t("import.label")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

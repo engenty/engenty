@@ -100,6 +100,38 @@ describe("navigation", () => {
       ]);
     });
 
+    it("shows Setup admin nav for superadmins only", () => {
+      const contributions = {
+        routes: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+      const adminItems = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .find((section) => section.label === "navigation.admin")
+          ?.items.map((item) => item.to) ?? [];
+
+      expect(
+        adminItems(
+          buildNavigationSections(contributions, { isSuperAdmin: true })
+        )
+      ).toContain("/setup");
+      expect(
+        adminItems(
+          buildNavigationSections(contributions, { isTenantAdmin: true })
+        )
+      ).not.toContain("/setup");
+    });
+
     it("hides developer settings links unless developer mode is enabled", () => {
       const contributions = {
         routes: [],
@@ -146,6 +178,71 @@ describe("navigation", () => {
         "/settings/development",
         "/settings/features",
         "/settings/search-index",
+      ]);
+    });
+
+    it("promotes Connections into the core settings block after Roles", () => {
+      const ConnectionsIcon = () => null;
+      const InvoicesIcon = () => null;
+      const settingsChildren = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const contributions = {
+        routes: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [
+          {
+            id: "invoices_settings_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            to: "/mdl/invoices/settings",
+            icon: InvoicesIcon,
+          },
+          {
+            id: "connections_settings_menu",
+            label: "Connections",
+            pluginId: "connections",
+            to: "/settings/connections",
+            icon: ConnectionsIcon,
+            requiresAdmin: false as const,
+          },
+        ],
+      };
+
+      const adminChildren = settingsChildren(
+        buildNavigationSections(contributions, { isTenantAdmin: true })
+      );
+
+      expect(adminChildren.map((item) => item.to)).toEqual([
+        "/settings/appearance",
+        "/settings/ai",
+        "/settings/ai-usage",
+        "/settings/roles",
+        "/settings/connections",
+        "",
+        "/mdl/invoices/settings",
+      ]);
+      expect(
+        adminChildren.find((item) => item.to === "/settings/connections")?.icon
+      ).toBe(ConnectionsIcon);
+
+      // Members keep Connections (personal surface) without tenant admin rows.
+      const memberChildren = settingsChildren(
+        buildNavigationSections(contributions, {})
+      );
+      expect(memberChildren.map((item) => item.to)).toEqual([
+        "/settings/connections",
       ]);
     });
 
@@ -369,6 +466,32 @@ describe("navigation", () => {
       );
       expect(items).toHaveLength(2);
       expect(items?.[1].label).toBe("Security");
+    });
+
+    it("returns setup children for /setup paths", () => {
+      const setupChildren = [
+        { to: "/setup/connectors", label: "External connectors" },
+      ];
+      const sectionsWithSetup = [
+        ...mockSections.slice(0, 2),
+        {
+          label: "Admin",
+          items: [
+            ...mockSections[2].items,
+            {
+              to: "/setup",
+              label: "Setup",
+              children: setupChildren,
+            },
+          ],
+        },
+      ];
+      expect(getSecondaryNavItems("/setup", "", sectionsWithSetup)).toEqual(
+        setupChildren
+      );
+      expect(
+        getSecondaryNavItems("/setup/connectors", "", sectionsWithSetup)
+      ).toEqual(setupChildren);
     });
   });
 });

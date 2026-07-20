@@ -52,6 +52,13 @@ function isConventionalWorkspaceRoot(pkgDir) {
       path.basename(path.dirname(path.dirname(path.dirname(abs)))) === "modules"
     );
   }
+  // Registry-installed module (Level A): an @engenty package resolved under
+  // node_modules. The convention layout (ui/plugin.ts, ui/ for tailwind) ships
+  // in the tarball, so the same ./ui resolution applies. Callers only reach
+  // here for dirs that already carry an engenty.plugin.json.
+  if (abs.split(path.sep).includes("node_modules")) {
+    return true;
+  }
   return false;
 }
 

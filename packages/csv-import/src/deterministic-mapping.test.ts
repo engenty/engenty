@@ -83,6 +83,59 @@ describe("applyDeterministicMapping", () => {
     ).toBe("Land");
   });
 
+  it("maps German contact sheet headers (Vorname, Nachname, Unternehmen, Adresse)", () => {
+    const fields = [
+      {
+        key: "first_name",
+        label: "First name",
+        type: "text" as const,
+        required: false,
+        description: "",
+      },
+      {
+        key: "last_name",
+        label: "Last name",
+        type: "text" as const,
+        required: false,
+        description: "",
+      },
+      {
+        key: "display_name",
+        label: "Display name",
+        type: "text" as const,
+        required: false,
+        description: "",
+      },
+      {
+        key: "address_street",
+        label: "Street Address",
+        type: "text" as const,
+        required: false,
+        description: "",
+      },
+    ];
+    const headers = [
+      "Vorname",
+      "Nachname",
+      "Unternehmen",
+      "Kontakt",
+      "Adresse",
+    ];
+    const mappings = applyDeterministicMapping(headers, fields);
+    expect(mappings.find((m) => m.fieldKey === "first_name")?.csvColumn).toBe(
+      "Vorname"
+    );
+    expect(mappings.find((m) => m.fieldKey === "last_name")?.csvColumn).toBe(
+      "Nachname"
+    );
+    expect(mappings.find((m) => m.fieldKey === "display_name")?.csvColumn).toBe(
+      "Unternehmen"
+    );
+    expect(
+      mappings.find((m) => m.fieldKey === "address_street")?.csvColumn
+    ).toBe("Adresse");
+  });
+
   it("returns empty when headers do not match", () => {
     const headers = ["x", "y", "z"];
     const mappings = applyDeterministicMapping(headers, SAMPLE_FIELDS);

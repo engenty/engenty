@@ -5,6 +5,7 @@ import {
 } from "@engenty/connections-sdk";
 import { beforeEach, describe, expect, it } from "vitest";
 import { calendarConnector } from "./connectors/calendar.js";
+import { contactsConnector } from "./connectors/contacts.js";
 import { driveConnector } from "./connectors/drive.js";
 import { gmailConnector } from "./connectors/gmail.js";
 import { googleConnectors } from "./definitions.js";
@@ -19,6 +20,10 @@ const EXPECTED_GROUPS: Record<string, Record<string, string>> = {
     list_calendars: "read",
     list_events: "read",
     update_event: "write",
+  },
+  "google-contacts": {
+    list_contacts: "read",
+    search_contacts: "read",
   },
   "google-drive": {
     create_file: "write",
@@ -49,11 +54,12 @@ beforeEach(() => {
 });
 
 describe("connections-google connector definitions", () => {
-  it("exposes the three Google connectors with the expected identity", () => {
+  it("exposes the Google connectors with the expected identity", () => {
     expect(googleConnectors.map((c) => c.id)).toEqual([
       "google-gmail",
       "google-drive",
       "google-calendar",
+      "google-contacts",
     ]);
     for (const connector of googleConnectors) {
       expect(connector.moduleId).toBe("connections-google");
@@ -68,6 +74,7 @@ describe("connections-google connector definitions", () => {
     expect(gmailConnector.toolPrefix).toBe("gmail");
     expect(driveConnector.toolPrefix).toBe("gdrive");
     expect(calendarConnector.toolPrefix).toBe("gcal");
+    expect(contactsConnector.toolPrefix).toBe("gcontacts");
   });
 
   it("registers all connectors without duplicate ids or actions", () => {

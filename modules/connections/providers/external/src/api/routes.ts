@@ -131,6 +131,7 @@ export function registerExternalConnectorRoutes(
       }
       const body = ctx.body as z.infer<typeof discoverBody>;
       try {
+        // Uses integrations.sh /surface (cached catalog), not live /discover.
         const { parsed } = await registryDiscover(body.domain);
         return hono.json({
           domain: parsed.domain,

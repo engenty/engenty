@@ -16,6 +16,40 @@ interface DevSession {
   refresh_token: string;
 }
 
+// Single-flight guard: React StrictMode mounts the page effect twice, and two
+// concurrent mint+setSession flows race each other (the second refresh gets
+// discarded mid-flight). Both effect runs must share one login promise.
+let loginOnce: Promise<void> | null = null;
+
+async function performAgentLogin(query: string): Promise<void> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/auth/dev-login/session${query}`,
+    { headers: { accept: "application/json" } }
+  );
+  if (response.status === 404) {
+    throw new Error(
+      "Agent login is not available (set ENGENTY_DEV_PASS on the API, non-production)."
+    );
+  }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(body.error ?? `Agent login failed (${response.status})`);
+  }
+
+  const session = (await response.json()) as DevSession;
+  const { error: sessionError } = await getSupabaseAuthClient().auth.setSession(
+    {
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    }
+  );
+  if (sessionError) {
+    throw sessionError;
+  }
+}
+
 /**
  * Secret-less, build-flag-independent login for browser agents and live tests.
  *
@@ -39,39 +73,15 @@ export function AgentLoginPage() {
 
     void (async () => {
       try {
-        const response = await fetch(
-          `${getApiBaseUrl()}/api/auth/dev-login/session${query}`,
-          { headers: { accept: "application/json" } }
-        );
-        if (response.status === 404) {
-          throw new Error(
-            "Agent login is not available (set ENGENTY_DEV_PASS on the API, non-production)."
-          );
-        }
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(
-            body.error ?? `Agent login failed (${response.status})`
-          );
-        }
-
-        const session = (await response.json()) as DevSession;
-        const { error: sessionError } =
-          await getSupabaseAuthClient().auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          });
-        if (sessionError) {
-          throw sessionError;
-        }
+        loginOnce ??= performAgentLogin(query);
+        await loginOnce;
         if (!mounted) {
           return;
         }
         setMessage("Signed in. Redirecting…");
         navigate(redirectTo, { replace: true });
       } catch (err) {
+        loginOnce = null;
         if (mounted) {
           setError(err instanceof Error ? err.message : "Agent login failed.");
         }

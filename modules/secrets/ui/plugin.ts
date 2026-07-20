@@ -1,7 +1,9 @@
-import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { DockVaultIcon } from "@engenty/ui-icons";
+import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { KeyRound } from "lucide-react";
+import { SecretsImportPage } from "./pages/secrets-import-page.js";
 import { VaultPage } from "./pages/vault-page.js";
+import { SECRETS_IMPORT_PATH } from "./secrets-paths.js";
 
 /**
  * Secrets Vault UI (UI face). Phase 1 is entirely standalone routes — no
@@ -25,6 +27,14 @@ export default function plugin(engenty: EngentyPluginContext) {
     component: VaultPage,
     order: 500,
     requiresAdmin: false, // scoped members use it; reveal is gated server-side
+  });
+
+  engenty.UI.registerRoute({
+    id: "secrets_module_import",
+    path: SECRETS_IMPORT_PATH,
+    component: SecretsImportPage,
+    order: 501,
+    requiresAdmin: false,
   });
 
   // Top-level app icon in the dock's "modules" section — the vault is a

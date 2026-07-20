@@ -1,0 +1,57 @@
+{
+  "name": "@engenty/engenty-remote",
+  "version": "0.0.1",
+  "description": "External messengers as remote chat interfaces to engenty \u2014 engenty.remote agent, channel bindings, identity pairing.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    },
+    "./ai/remote": {
+      "types": "./dist/ai/remote.d.ts",
+      "default": "./dist/ai/remote.js"
+    },
+    "./ui/plugin": {
+      "types": "./dist/ui/plugin.d.ts",
+      "default": "./dist/ui/plugin.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts ai/registrar.ts ai/remote.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts ai/registrar.ts ai/remote.ts ui/plugin.ts --format esm --dts --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "lucide-react": "^1.21.0",
+    "react": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "sonner": "^2.0.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

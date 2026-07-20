@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/query-client": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",

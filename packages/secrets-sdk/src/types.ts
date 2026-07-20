@@ -8,18 +8,18 @@ export type SecretKind =
 
 /** Row shape returned to the client — NEVER includes payload_enc. */
 export interface SecretMetadata {
-  id: string;
-  tenant_id: string;
-  scope_id: string;
-  owner_scope: OwnerScope;
-  owner_id: string;
-  name: string;
-  kind: SecretKind;
-  url: string | null;
-  description: string | null;
-  created_by: string | null;
   created_at: string;
+  created_by: string | null;
+  description: string | null;
+  id: string;
+  kind: SecretKind;
+  name: string;
+  owner_id: string;
+  owner_scope: OwnerScope;
+  scope_id: string;
+  tenant_id: string;
   updated_at: string;
+  url: string | null;
 }
 
 /** Decrypted payloads by kind (only crosses the wire on an audited reveal). */

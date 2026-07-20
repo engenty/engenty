@@ -35,6 +35,11 @@ export const updateFolderBodySchema = z
     message: "Provide name and/or parentId",
   });
 
+/** Read a non-mounted connection file (e.g. CSV import picker). */
+export const readFileSourceBodySchema = z.object({
+  fileRef: z.string().trim().min(1).max(2048),
+});
+
 export const beginUploadBodySchema = z.object({
   filename: z.string().trim().min(1).max(400),
   folderId: z.string().uuid().nullish(),

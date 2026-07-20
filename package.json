@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.41",
+  "version": "0.1.49",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -25,6 +25,9 @@
       "connections-google": {
         "source": "workspace"
       },
+      "connections-hubspot": {
+        "source": "workspace"
+      },
       "connections-local-files": {
         "source": "workspace"
       },
@@ -44,6 +47,9 @@
         "source": "workspace"
       },
       "engenty-copilot": {
+        "source": "workspace"
+      },
+      "engenty-remote": {
         "source": "workspace"
       },
       "files": {
@@ -110,6 +116,7 @@
     "test": "turbo run test test:scripts",
     "test:all": "vitest run",
     "test:scripts": "vitest run scripts/",
+    "test:smoke": "playwright test",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",
@@ -158,6 +165,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.20",
     "@vitest/coverage-v8": "^4.1.9",
     "git-cliff": "^2.13.1",
@@ -186,6 +194,7 @@
       "typescript": "^6",
       "@engenty/ai>ai": "7.0.0-beta.116",
       "ai": "6.0.116",
+      "chat": "4.34.0",
       "@xmldom/xmldom": ">=0.9.10",
       "dompurify": ">=3.4.0",
       "lodash-es": "4.18.1",

@@ -44,6 +44,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
+        # Fail fast on a stalled build/push/cache-export instead of hanging to
+        # the 60-min job cap. A cold build (~20-25min) fits comfortably; a hang
+        # is caught ~15min sooner so the run can be reran promptly.
+        timeout-minutes: 45
         with:
           context: .
           file: deploy/Dockerfile.${{ matrix.service }}
@@ -56,13 +60,21 @@ jobs:
             ghcr.io/engenty/engenty-${{ matrix.service }}:${{ github.sha }}
           # VITE_* values are baked into the UI bundle at build time; the other
           # Dockerfiles ignore these args. Set as repo variables (they are
-          # client-exposed values, not secrets).
+          # client-exposed values, not secrets). TURBO_BUILD_CONCURRENCY caps
+          # parallel tsup/tsc --dts workers (each 1-2 GB): the Dockerfile default
+          # of 10 OOMs the runner when building @engenty/ai + all modules, so
+          # pin it to CI's proven value. (Remote turbo cache wiring lands with
+          # the cache server — TURBO_API/TURBO_TOKEN.)
           build-args: |
             VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ vars.VITE_SUPABASE_ANON_KEY }}
             VITE_ENGENTY_AI_BASE_URL=${{ vars.PUBLIC_APP_URL }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+            TURBO_BUILD_CONCURRENCY=4
+          # Registry-backed layer cache (GHCR): no 10-GB GHA cache cap and no
+          # export stalls — the GHA cache backend was the source of the ai/edge
+          # build-push hangs. mode=max keeps full multi-stage layer reuse.
+          cache-from: type=registry,ref=ghcr.io/engenty/engenty-${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/engenty/engenty-${{ matrix.service }}:buildcache,mode=max
 
   deploy:
     needs: build

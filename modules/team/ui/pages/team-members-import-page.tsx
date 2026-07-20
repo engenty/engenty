@@ -2,6 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   CSVImportWizard,
   type CSVImportWizardLabels,
+  connectionImportSourcesForDomain,
   ImportPageShell,
   type ImportRunProgress,
   type ImportRunSummary,
@@ -32,7 +33,7 @@ import {
   TEAM_IMPORT_PREVIEW_COLUMNS,
 } from "../lib/import-team-members.js";
 import { teamModuleKeys } from "../team-module-queries.js";
-import { TEAM_MODULE_BASE } from "../team-paths.js";
+import { TEAM_IMPORT_PATH, TEAM_MODULE_BASE } from "../team-paths.js";
 
 const DEFAULT_MATCH_BY: MatchByConfig = { type: "none" };
 
@@ -70,65 +71,97 @@ export function TeamMembersImportPage() {
 
   const matchByLabels = useMemo(
     () => ({
-      description: t("importMatchByDescriptionShort"),
-      label: t("importId"),
-      none: t("importMatchByNone"),
-      placeholder: t("importMatchByPlaceholder"),
-      templateMode: t("importTemplateMode"),
-      templateModeDescription: t("importTemplateModeDescription"),
-      templateSyntax: t("importTemplateSyntax"),
+      description: t("import.matchBy.descriptionShort"),
+      label: t("import.id"),
+      none: t("import.matchBy.none"),
+      placeholder: t("import.matchBy.placeholder"),
+      templateMode: t("import.template.mode"),
+      templateModeDescription: t("import.template.modeDescription"),
+      templateSyntax: t("import.template.syntax"),
     }),
     [t]
   );
 
   const labels: CSVImportWizardLabels = useMemo(
     () => ({
-      aiMapping: t("importAiMapping"),
-      aiMappingFailed: t("importAiMappingFailed"),
-      aiMappingRunning: t("importAiMappingRunning"),
+      aiMapping: t("import.ai.mapping"),
+      aiMappingFailed: t("import.ai.failed"),
+      aiMappingRunning: t("import.ai.running"),
       back: t("back", { defaultValue: "Back" }),
       cancel: t("cancel"),
-      cancelImport: t("cancelImport", { defaultValue: "Cancel import" }),
-      columnMapping: t("importColumnMapping"),
-      dragDrop: t("importCsvGuidelines"),
-      errorInvalidFile: t("importInvalidFile"),
-      importFailed: t("importFailed"),
-      importing: t("importing"),
-      importStart: t("importStart"),
-      importSummary: t("importSummary"),
-      loadedFile: t("importLoaded"),
-      lowConfidence: t("importLowConfidence"),
-      mapRequired: t("importMapRequired"),
-      mappingPresets: t("importMappingPresets"),
-      mappingPresetsDescription: t("importMappingPresetsDescription"),
-      missingRequired: t("importMissingRequired"),
-      noPreset: t("importNoPreset"),
-      notMapped: t("importNotMapped"),
+      cancelImport: t("import.cancel", { defaultValue: "Cancel import" }),
+      columnMapping: t("import.columnMapping"),
+      dragDrop: t("import.csv.guidelines"),
+      errorEmptyPaste: t("import.paste.empty"),
+      errorInvalidFile: t("import.invalidFile"),
+      importFailed: t("import.failed"),
+      importing: t("import.importing"),
+      importStart: t("import.start"),
+      importSummary: t("import.summary"),
+      loadedFile: t("import.loaded"),
+      lowConfidence: t("import.lowConfidence"),
+      mapRequired: t("import.mapRequired"),
+      mappingPresets: t("import.presets.label"),
+      mappingPresetsDescription: t("import.presets.description"),
+      missingRequired: t("import.missingRequired"),
+      noPreset: t("import.presets.none"),
+      notMapped: t("import.notMapped"),
+      pasteAction: t("import.paste.action"),
+      pasteContinue: t("import.paste.continue"),
+      pasteHint: t("import.paste.hint"),
+      pastePlaceholder: t("import.paste.placeholder"),
       preview: t("preview"),
-      previewRowOf: t("importRowOf"),
+      previewRowOf: t("import.rowOf"),
       processing: t("processing"),
       save: t("save"),
-      savePresetDescription: t("importSavePresetDescription"),
-      savePresetTitle: t("importSavePresetTitle"),
-      savedPreset: t("importPresetSaved"),
-      selectColumn: t("importSelectColumn"),
+      savePresetDescription: t("import.presets.saveDescription"),
+      savePresetTitle: t("import.presets.saveTitle"),
+      savedPreset: t("import.presets.saved"),
+      selectColumn: t("import.selectColumn"),
       selectFile: t("selectFile"),
-      templateMode: t("importTemplateMode"),
-      templateModeDescription: t("importTemplateModeDescription"),
-      templateSyntax: t("importTemplateSyntax"),
-      title: t("importTeamTitle"),
-      totalRows: t("importCsvFormatGuidelines"),
-      uploadHint: t("importUploadHint"),
-      uploadedFileColumns: t("importUploadedFileColumns"),
-      uploadedFileInfoTitle: t("importUploadedFileInfoTitle"),
-      uploadedFileName: t("importUploadedFileName"),
-      uploadedFilePreviewEmpty: t("importUploadedFilePreviewEmpty"),
-      uploadedFilePreviewHide: t("importUploadedFilePreviewHide"),
-      uploadedFilePreviewShow: t("importUploadedFilePreviewShow"),
-      uploadedFileRows: t("importUploadedFileRows"),
-      uploadTitle: t("importUploadTitle"),
-      valueEmpty: t("importNoData"),
-      importIdPreviewLabel: t("importId"),
+      templateMode: t("import.template.mode"),
+      templateModeDescription: t("import.template.modeDescription"),
+      templateSyntax: t("import.template.syntax"),
+      title: t("import.title"),
+      totalRows: t("import.csv.formatGuidelines"),
+      uploadHint: t("import.upload.hint"),
+      uploadedFileColumns: t("import.uploadedFile.columns"),
+      uploadedFileInfoTitle: t("import.uploadedFile.infoTitle"),
+      uploadedFileName: t("import.uploadedFile.name"),
+      uploadedFilePreviewEmpty: t("import.uploadedFile.previewEmpty"),
+      uploadedFilePreviewHide: t("import.uploadedFile.previewHide"),
+      uploadedFilePreviewShow: t("import.uploadedFile.previewShow"),
+      uploadedFileRows: t("import.uploadedFile.rows"),
+      uploadTitle: t("import.upload.title"),
+      valueEmpty: t("import.noData"),
+      importIdPreviewLabel: t("import.id"),
+    }),
+    [t]
+  );
+
+  const connectionImport = useMemo(
+    () => ({
+      labels: {
+        browseEmpty: t("import.connections.browseEmpty"),
+        browseDescription: t("import.connections.browseDescription"),
+        browseTitle: t("import.connections.browseTitle"),
+        cancel: t("cancel"),
+        connect: t("import.connections.connect"),
+        connecting: t("import.connections.connecting"),
+        connectOrg: t("import.connections.connectOrg"),
+        connectPersonal: t("import.connections.connectPersonal"),
+        connected: t("import.connections.connected"),
+        credentialsTitle: t("import.connections.credentialsTitle"),
+        loadingCatalog: t("import.connections.loadingCatalog"),
+        notConnected: t("import.connections.notConnected"),
+        openSettings: t("import.connections.openSettings"),
+        sectionTitle: t("import.connections.sectionTitle"),
+        submitCredentials: t("import.connections.submitCredentials"),
+        use: t("import.connections.use"),
+        useAccount: t("import.connections.useAccount"),
+      },
+      redirectTo: TEAM_IMPORT_PATH,
+      sources: connectionImportSourcesForDomain("team"),
     }),
     [t]
   );
@@ -139,7 +172,7 @@ export function TeamMembersImportPage() {
   usePageConfig({
     breadcrumbs: [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: t("import") },
+      { label: t("import.label") },
     ],
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
@@ -147,7 +180,7 @@ export function TeamMembersImportPage() {
   });
 
   const handleProgress = (progress: ImportRunProgress) => {
-    const message = t("importProgress", {
+    const message = t("import.progress", {
       processed: progress.processed,
       total: progress.total,
       success: progress.success,
@@ -166,7 +199,7 @@ export function TeamMembersImportPage() {
       try {
         const ensurer = taxonomyEnsurerRef.current;
         if (!ensurer) {
-          throw new Error(t("importFailed"));
+          throw new Error(t("import.failed"));
         }
         const preparedRow = await ensurer.prepareRow(row);
         const input = mapImportRowToTeamMemberCreateInput(
@@ -174,7 +207,7 @@ export function TeamMembersImportPage() {
           ensurer.getContext()
         );
         if (!input.full_name) {
-          throw new Error(t("importFullNameRequired"));
+          throw new Error(t("import.fullNameRequired"));
         }
         const now = new Date().toISOString();
         const matchValue = row.__match_id__?.trim() || null;
@@ -203,9 +236,9 @@ export function TeamMembersImportPage() {
           last_imported_at: now,
         });
       } catch (err) {
-        const message = formatImportRowError(err, t("importFailed"));
+        const message = formatImportRowError(err, t("import.failed"));
         if (!firstImportErrorRef.current) {
-          firstImportErrorRef.current = t("importRowFailed", {
+          firstImportErrorRef.current = t("import.rowFailed", {
             row: rowIndex + 1,
             message,
             defaultValue: `Row ${rowIndex + 1}: ${message}`,
@@ -222,6 +255,7 @@ export function TeamMembersImportPage() {
       <Toaster />
       <CSVImportWizard
         className={importPageContentClassName}
+        connectionImport={connectionImport}
         fieldDefinitions={TEAM_IMPORT_FIELDS}
         labels={labels}
         matchByConfig={matchByConfig}
@@ -238,13 +272,13 @@ export function TeamMembersImportPage() {
           });
           if (suggested.length) {
             toast.success(
-              t("importAiMappingApplied", {
+              t("import.ai.applied", {
                 count: suggested.length,
                 defaultValue: `Applied ${suggested.length} AI mappings`,
               })
             );
           } else {
-            toast.message(t("importAiMappingNoSuggestions"));
+            toast.message(t("import.ai.noSuggestions"));
           }
           return suggested;
         }}
@@ -265,7 +299,7 @@ export function TeamMembersImportPage() {
 
           if (summary.canceled) {
             toast.message(
-              t("importCanceled", {
+              t("import.canceled", {
                 processed: summary.processed,
                 total: summary.total,
                 defaultValue: "Import canceled",
@@ -276,7 +310,7 @@ export function TeamMembersImportPage() {
           if (summary.success === 0 && summary.failed > 0) {
             toast.error(
               sampleError ??
-                t("importFailedAll", {
+                t("import.failedAll", {
                   failed: summary.failed,
                   defaultValue: `Import failed for all ${summary.failed} rows`,
                 }),
@@ -286,7 +320,7 @@ export function TeamMembersImportPage() {
           }
           if (summary.failed > 0) {
             toast.warning(
-              t("importSummary", {
+              t("import.summary", {
                 success: summary.success,
                 failed: summary.failed,
                 processed: summary.processed,
@@ -299,7 +333,7 @@ export function TeamMembersImportPage() {
             );
           } else {
             toast.success(
-              t("importSummary", {
+              t("import.summary", {
                 success: summary.success,
                 failed: summary.failed,
                 processed: summary.processed,

@@ -4,6 +4,47 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.49] - 2026-07-20
+- FIXED **[remote]** Grant service_role on module_remote + surface settings errors
+- FIXED **[ui]** Tighten favicon framing so the blob fills the icon
+
+## [0.1.48] - 2026-07-20
+- ADDED **[ui]** Refreshed favicon/icon set + serve root favicons from the SPA
+- ADDED **[modules]** Tag published modules with open/pro tier from CLOSED_PREFIXES
+- ADDED **[cli]** Engenty modules add — install a module from the registry (Level A / A4)
+- ADDED **[remote]** Settings UI, pairing claim page, identity-gate tests, docs
+- ADDED **[remote]** Identity pairing, delegated actor tokens, proactive queue, Telegram (Phases 2-4 backend)
+- ADDED **[remote]** Engenty-remote module + Mastra channels Slack runtime (Phase 1)
+- CHANGED **[modules]** --pro opt-in instead of --open-only (safe default)
+- FIXED **[environment]** Drop node:module from browser-bundled twin (white screen)
+- FIXED **[engenty-remote]** Declare module.engenty-remote.read/write in manifest
+- FIXED **[ci]** Cap module-build concurrency + use remote cache in publish workflow
+
+## [0.1.47] - 2026-07-20
+- ADDED **[modules]** Publish modules to GitHub Packages as overlays (Level A / A5)
+- FIXED **[modules]** Avoid delete in publish transform (lint/performance/noDelete)
+
+## [0.1.46] - 2026-07-20
+- FIXED **[ci]** Stop the ai/edge deploy build OOMing (concurrency + reliable cache)
+
+## [0.1.45] - 2026-07-20
+- ADDED **[modules]** Load registry-installed modules from node_modules (Level A / A3)
+
+## [0.1.44] - 2026-07-20
+- ADDED **[modules]** Package each module as a self-contained tarball (Level A / A1)
+- ADDED **[import]** Import from connections and move platform import to /setup
+- FIXED **[plugins]** Make checkPluginManifest report missing on-disk plugins
+- FIXED **[env]** Sync env example files with the manifest
+- FIXED **[deps]** Sync lockfile for time-tracking package deps
+
+## [0.1.43] - 2026-07-20
+- ADDED **[notifications]** Make the email notifier source-agnostic
+- ADDED **[test]** Add Playwright browser smoke lane
+- FIXED **[connections]** Prefer integrations.sh /surface over live /discover
+
+## [0.1.42] - 2026-07-20
+- ADDED **[import]** Paste-to-import, Sheets TSV fixes, Secrets import
+
 ## [0.1.41] - 2026-07-20
 - ADDED **[secrets]** Agent-gated reveals — identity forwarding, approval gate, durable goal grants
 - ADDED **[secrets]** Password-manager vault UI with dock icon and client/project filters

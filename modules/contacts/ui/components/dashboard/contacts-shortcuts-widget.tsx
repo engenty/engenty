@@ -20,7 +20,7 @@ export function ContactsShortcutsWidget() {
         <Link to="/mdl/contacts/import">
           <span className="flex items-center gap-2">
             <Upload className="size-4" />
-            {t("import")}
+            {t("import.label")}
           </span>
         </Link>
       </Button>

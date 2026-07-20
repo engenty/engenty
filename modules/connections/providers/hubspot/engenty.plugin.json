@@ -1,0 +1,22 @@
+{
+  "id": "connections-hubspot",
+  "name": "Connections — HubSpot",
+  "description": "HubSpot CRM connector: list contacts via a private app access token",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": ["module.connections-hubspot"],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false,
+    "ui": false
+  },
+  "env": {
+    "feature": {
+      "id": "connections-hubspot",
+      "label": "HubSpot connection (private app token)",
+      "description": "HubSpot CRM connector for importing contacts"
+    },
+    "vars": []
+  }
+}

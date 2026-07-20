@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   composeNotificationEmail,
   type DueNotification,
   type EmailNotifierDeps,
+  emailSources,
   parseInboxThreadId,
   runEmailNotifierOnce,
 } from "./email-notifier.js";
@@ -15,6 +16,7 @@ const RECORD: DueNotification = {
     route: "/mdl/team-chat/conv-1?ts=1.2",
     text_preview: "Hallo von engenty",
   },
+  source: "team-chat",
   summary: "Mentioned in #waff-website-support: Hallo von engenty",
   threadId: "inbox:tenant-1:user-1",
 };
@@ -35,6 +37,39 @@ function deps(overrides: Partial<EmailNotifierDeps> = {}): EmailNotifierDeps {
     ...overrides,
   };
 }
+
+afterEach(() => {
+  delete process.env.ENGENTY_EMAIL_NOTIFICATION_SOURCES;
+});
+
+describe("emailSources", () => {
+  it("defaults to team-chat when unset", () => {
+    delete process.env.ENGENTY_EMAIL_NOTIFICATION_SOURCES;
+    expect(emailSources()).toEqual(["team-chat"]);
+  });
+
+  it("parses a comma-separated allowlist", () => {
+    process.env.ENGENTY_EMAIL_NOTIFICATION_SOURCES = "team-chat, agent , tasks";
+    expect(emailSources()).toEqual(["team-chat", "agent", "tasks"]);
+  });
+
+  it("treats '*' as all sources", () => {
+    process.env.ENGENTY_EMAIL_NOTIFICATION_SOURCES = "*";
+    expect(emailSources()).toBe("*");
+  });
+});
+
+describe("runEmailNotifierOnce source allowlist", () => {
+  it("passes the configured sources to listDue", async () => {
+    process.env.ENGENTY_EMAIL_NOTIFICATION_SOURCES = "agent,tasks";
+    const listDue = vi.fn(async () => [] as DueNotification[]);
+    await runEmailNotifierOnce(deps({ listDue }));
+    expect(listDue).toHaveBeenCalledWith(expect.any(Number), [
+      "agent",
+      "tasks",
+    ]);
+  });
+});
 
 describe("parseInboxThreadId", () => {
   it("parses per-user threads and rejects team/foreign shapes", () => {

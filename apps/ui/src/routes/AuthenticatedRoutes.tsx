@@ -214,6 +214,8 @@ export function AuthenticatedRoutes({
           );
           const defaultAdminOnly =
             pluginRoute.path.startsWith("/admin/") ||
+            pluginRoute.path === "/setup" ||
+            pluginRoute.path.startsWith("/setup/") ||
             (pluginRoute.path.startsWith("/settings/") && !isPersonalSettings);
           const adminOnly = pluginRoute.requiresAdmin ?? defaultAdminOnly;
           return (

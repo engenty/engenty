@@ -8,6 +8,7 @@ import {
 } from "./cli/commands.js";
 import { registerDbCommands } from "./cli/db/db-commands.js";
 import { registerEnvCommands } from "./cli/env-setup/env-commands.js";
+import { registerModulesCommands } from "./cli/module-commands.js";
 import { registerPluginCommands } from "./cli/plugin-commands.js";
 import { shouldDeferPluginBoot } from "./cli/plugin-create/plugin-create-cli-path.js";
 import { registerSetupCommands } from "./cli/setup/setup-commands.js";
@@ -41,6 +42,7 @@ export async function createCli(): Promise<Command> {
   registerSetupCommands(program);
   registerDbCommands(program);
   registerPluginCommands(program);
+  registerModulesCommands(program);
   registerToolsCommands(program);
   registerSkillsCommands(program);
   registerModuleOperationCommands(program);

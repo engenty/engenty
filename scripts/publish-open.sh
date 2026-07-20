@@ -36,6 +36,8 @@ CLOSED_PREFIXES=(
   "modules/team-hr"
   # The team-chat module is open; its Slack bridge is a pro provider
   # (decision 2026-07-17, built 2026-07-19).
+  # engenty-remote starts pro-only (decision pending broader open-sourcing).
+  "modules/engenty-remote"
   "modules/team-chat/providers/slack-bridge"
   # time-tracking pulled back to pro-only 2026-07-13 (calendar-sync phase is
   # commercial; keep the whole module closed while it's in active pro dev).
@@ -169,7 +171,7 @@ is_open_path() {
     apps/core | apps/core/* | apps/ui | apps/ui/* | apps/ai | apps/ai/* | apps/docs | apps/docs/* | apps/ports.config.mjs)
       return 0
       ;;
-    packages/* | modules/* | scripts | scripts/* | .github | .github/* | docs | docs/* | deploy | deploy/*)
+    packages/* | modules/* | scripts | scripts/* | .github | .github/* | docs | docs/* | deploy | deploy/* | e2e | e2e/*)
       return 0
       ;;
   esac

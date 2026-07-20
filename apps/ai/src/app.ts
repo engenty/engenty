@@ -68,6 +68,10 @@ import {
 } from "./api/realtime-session-routes.js";
 import { registerRealtimeToolRoutes } from "./api/realtime-tool-routes.js";
 import { registerRegistryRoutes } from "./api/registry-routes.js";
+import {
+  registerRemoteChannels,
+  startRemoteOutboundConsumer,
+} from "./api/remote-channels.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
@@ -638,7 +642,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   // External channel ingress (registerExternalChannelRoutes) ran inbound channel
   // messages through the legacy detached-run executor — removed in the 2026-06-20
-  // legacy cutover. Channels return in the Actions/Tasks rebuild (Phase 4).
+  // legacy cutover. Successor: the engenty-remote channel runtime below
+  // (Mastra AgentChannels + Chat SDK adapters), opt-in via
+  // ENGENTY_REMOTE_CHANNELS_ENABLED.
+  await registerRemoteChannels(app, { mastra });
 
   if (
     !(
@@ -705,6 +712,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stopMemoryApprovals);
       process.once("SIGINT", stopMemoryApprovals);
+      // Remote channels proactive sends (remote_notify op → messenger thread).
+      const stopRemoteOutbound = startRemoteOutboundConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopRemoteOutbound);
+      process.once("SIGINT", stopRemoteOutbound);
       // Still-unread notifications → email via the tenant's connector (N4).
       // The service scope is tenant-bound; resolve lazily + cache so a boot
       // race against core doesn't wedge the notifier permanently.

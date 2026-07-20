@@ -56,6 +56,7 @@ export interface CSVImportWizardLabels {
   cancelImport: string;
   columnMapping: string;
   dragDrop: string;
+  errorEmptyPaste: string;
   errorInvalidFile: string;
   importFailed: string;
   /** Label for Import ID row in preview when match-by is configured. */
@@ -71,6 +72,10 @@ export interface CSVImportWizardLabels {
   missingRequired: string;
   noPreset: string;
   notMapped: string;
+  pasteAction: string;
+  pasteContinue: string;
+  pasteHint: string;
+  pastePlaceholder: string;
   preview: string;
   previewRowOf: string;
   processing: string;
@@ -138,8 +143,37 @@ export interface MatchByLabels {
   templateSyntax: string;
 }
 
+/** Optional connection-backed sources on the upload step. */
+export interface ConnectionImportConfig {
+  labels: {
+    browseEmpty: string;
+    browseDescription: string;
+    browseTitle: string;
+    cancel: string;
+    connect: string;
+    connecting: string;
+    connectOrg: string;
+    connectPersonal: string;
+    connected: string;
+    credentialsTitle: string;
+    loadingCatalog: string;
+    notConnected: string;
+    openSettings: string;
+    sectionTitle: string;
+    submitCredentials: string;
+    use: string;
+    useAccount: string;
+  };
+  /** Same-app path for OAuth return (`?connected=1`). */
+  redirectTo: string;
+  /** Registered connection sources for this module domain. */
+  sources: import("./import-sources.js").ConnectionImportSource[];
+}
+
 export interface CSVImportWizardProps {
   className?: string;
+  /** When set, shows a connection catalog below upload/paste. */
+  connectionImport?: ConnectionImportConfig;
   fieldDefinitions: ImportFieldDefinition[];
   labels: CSVImportWizardLabels;
   /** Optional match-by config for upsert (re-import) behavior. Rows will include __match_id__. */

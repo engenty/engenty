@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@11ty/gray-matter": "^2.1.0",
+    "@chat-adapter/slack": "4.34.0",
+    "@chat-adapter/telegram": "4.34.0",
     "@earendil-works/gondolin": "0.12.0",
     "@engenty/a2ui-catalog": "workspace:*",
     "@engenty/ag-ui-bridge": "workspace:*",
@@ -27,6 +29,7 @@
     "@engenty/app-shell": "workspace:*",
     "@engenty/context-graph": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",
+    "@engenty/engenty-remote": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/file-storage": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",

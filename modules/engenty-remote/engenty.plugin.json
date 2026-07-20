@@ -1,0 +1,64 @@
+{
+  "id": "engenty-remote",
+  "name": "Remote",
+  "description": "External messengers (Slack, Telegram, WhatsApp, Teams) as remote chat interfaces to engenty agents. Chat-tuned engenty.remote agent, channel bindings, and external identity pairing.",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.engenty-remote",
+    "module.engenty-remote.read",
+    "module.engenty-remote.write",
+    "module.remote"
+  ],
+  "requires": [],
+  "capabilities": {
+    "operations": true,
+    "ai": true,
+    "ui": true
+  },
+  "env": {
+    "feature": {
+      "id": "engenty-remote",
+      "label": "Remote channels",
+      "description": "External messengers (Slack, Telegram, ...) as chat interfaces to engenty agents"
+    },
+    "vars": [
+      {
+        "description": "Set to true to enable the remote channel runtime (webhook ingress + channel agent) in apps/ai.",
+        "feature": "engenty-remote",
+        "group": "Remote channels",
+        "key": "ENGENTY_REMOTE_CHANNELS_ENABLED",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"]
+      },
+      {
+        "description": "Slack app bot token (xoxb-...) for the remote channel Slack adapter.",
+        "feature": "engenty-remote",
+        "group": "Remote channels",
+        "key": "SLACK_BOT_TOKEN",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"]
+      },
+      {
+        "description": "Slack app signing secret used to verify remote channel webhooks.",
+        "feature": "engenty-remote",
+        "group": "Remote channels",
+        "key": "SLACK_SIGNING_SECRET",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"]
+      },
+      {
+        "description": "Telegram bot token (from @BotFather) for the remote channel Telegram adapter.",
+        "feature": "engenty-remote",
+        "group": "Remote channels",
+        "key": "TELEGRAM_BOT_TOKEN",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"]
+      }
+    ]
+  }
+}

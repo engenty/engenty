@@ -12,35 +12,35 @@ export type SecretKind =
   | "note";
 
 export interface SecretListItem {
-  id: string;
-  owner_scope: OwnerScope;
-  owner_id: string;
-  name: string;
-  kind: SecretKind;
-  url: string | null;
-  description: string | null;
-  created_by: string | null;
   created_at: string;
+  created_by: string | null;
+  description: string | null;
+  id: string;
+  kind: SecretKind;
+  name: string;
+  owner_id: string;
+  owner_scope: OwnerScope;
   updated_at: string;
+  url: string | null;
 }
 
 export interface SecretCreateInput {
-  owner_scope: OwnerScope;
-  owner_id: string;
-  name: string;
-  kind: SecretKind;
-  url?: string;
   description?: string;
+  kind: SecretKind;
+  name: string;
+  owner_id: string;
+  owner_scope: OwnerScope;
   payload: Record<string, unknown>;
   project_ids?: string[];
+  url?: string;
 }
 
 export interface SecretUpdateInput {
+  description?: string | null;
   id: string;
   name?: string;
-  url?: string | null;
-  description?: string | null;
   payload?: Record<string, unknown>;
+  url?: string | null;
 }
 
 export interface RevealedSecret {
@@ -50,14 +50,14 @@ export interface RevealedSecret {
 }
 
 export interface ClientOption {
-  id: string;
   display_name: string;
+  id: string;
 }
 
 export interface ProjectOption {
+  client_id: string | null;
   id: string;
   title: string;
-  client_id: string | null;
 }
 
 /** Some endpoints return the row set directly, others wrap it in `{ data }` —
