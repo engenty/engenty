@@ -1,5 +1,6 @@
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { registerSecretsImportRoutes } from "./api/import-routes.js";
 import { registerSecretsOperations } from "./api/operations.js";
 import { registerSecretsRevealRoutes } from "./api/reveal-routes.js";
 import { createSecretsRevealPolicy } from "./policy.js";
@@ -38,6 +39,7 @@ const registerSecretsPlugin: EngentyPluginFactory = (engenty) => {
 
   registerSecretsOperations(server, supabase as SupabaseClient);
   registerSecretsRevealRoutes(server, supabase as SupabaseClient);
+  registerSecretsImportRoutes(server);
 
   // R10 — agent reveal gate. Fires on secrets_reveal; abstains for humans.
   server.registerProfilePolicy(

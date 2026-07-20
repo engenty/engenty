@@ -79,12 +79,12 @@ export function ContactInfoTab({ entity }: ContactInfoTabProps) {
 
   const importRows = [
     ...(entity.import_id
-      ? [{ label: t("importId"), value: read(entity.import_id) }]
+      ? [{ label: t("import.id"), value: read(entity.import_id) }]
       : []),
     ...(entity.last_imported_at
       ? [
           {
-            label: t("lastImported"),
+            label: t("import.lastImported"),
             value: new Date(entity.last_imported_at).toLocaleString(undefined, {
               dateStyle: "medium",
               timeStyle: "short",

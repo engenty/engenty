@@ -188,6 +188,35 @@ export function buildNavigationSections(
   const adminMenuEntries = isAdmin
     ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
     : [];
+  // Connections is a personal surface (`requiresAdmin: false`) but lives in the
+  // core settings block (after Roles, before developer-mode / module rows), not
+  // among module settings below the separator.
+  const CONNECTIONS_SETTINGS_TO = "/settings/connections";
+  const connectionsSettingsItem = contributions.settingsItems.find(
+    (item) => item.to === CONNECTIONS_SETTINGS_TO
+  );
+  const mapSettingsContribution = (item: SettingsMenuEntry) => ({
+    to: item.to,
+    label: resolveContributionLabel(item, t),
+    icon: resolveSettingsItemIcon(item, contributions.adminMenuItems),
+  });
+  const connectionsNavItem =
+    connectionsSettingsItem &&
+    (isAdmin || connectionsSettingsItem.requiresAdmin === false)
+      ? mapSettingsContribution(connectionsSettingsItem)
+      : null;
+  // Module settings below the separator — Connections is promoted above.
+  const moduleSettingsItems = contributions.settingsItems
+    .filter(
+      (item) =>
+        item.to !== "/settings/profile" &&
+        item.to !== "/settings/ai" &&
+        item.to !== CONNECTIONS_SETTINGS_TO
+    )
+    // Module settings are tenant configuration — hidden from members, who see
+    // only genuinely personal surfaces (declared via `requiresAdmin: false`).
+    .filter((item) => isAdmin || item.requiresAdmin === false);
+
   const coreSettingsChildren = [
     // Tenant configuration — admins only. Members are end users: their Settings
     // holds no tenant-wide surfaces (Appearance here is the tenant branding
@@ -216,6 +245,7 @@ export function buildNavigationSections(
           },
         ]
       : []),
+    ...(connectionsNavItem ? [connectionsNavItem] : []),
     ...(developerModeEnabled
       ? [
           {
@@ -242,22 +272,10 @@ export function buildNavigationSections(
   ];
   const settingsChildren = [
     ...coreSettingsChildren,
-    ...(contributions.settingsItems.length > 0
+    ...(moduleSettingsItems.length > 0
       ? [{ to: "", label: "", type: "separator" as const }]
       : []),
-    ...contributions.settingsItems
-      .filter(
-        (item) => item.to !== "/settings/profile" && item.to !== "/settings/ai"
-      )
-      // Module settings are tenant configuration — hidden from members, who see
-      // only genuinely personal surfaces (declared via `requiresAdmin: false`,
-      // e.g. Connections where a user links their own accounts).
-      .filter((item) => isAdmin || item.requiresAdmin === false)
-      .map((item) => ({
-        to: item.to,
-        label: resolveContributionLabel(item, t),
-        icon: resolveSettingsItemIcon(item, contributions.adminMenuItems),
-      })),
+    ...moduleSettingsItems.map(mapSettingsContribution),
   ];
 
   return [

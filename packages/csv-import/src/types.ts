@@ -56,6 +56,7 @@ export interface CSVImportWizardLabels {
   cancelImport: string;
   columnMapping: string;
   dragDrop: string;
+  errorEmptyPaste: string;
   errorInvalidFile: string;
   importFailed: string;
   /** Label for Import ID row in preview when match-by is configured. */
@@ -71,6 +72,10 @@ export interface CSVImportWizardLabels {
   missingRequired: string;
   noPreset: string;
   notMapped: string;
+  pasteAction: string;
+  pasteContinue: string;
+  pasteHint: string;
+  pastePlaceholder: string;
   preview: string;
   previewRowOf: string;
   processing: string;

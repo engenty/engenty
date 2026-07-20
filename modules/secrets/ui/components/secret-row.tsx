@@ -4,8 +4,8 @@ import { Copy, Eye, EyeOff, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-  revealSecret,
   type RevealedSecret,
+  revealSecret,
   type SecretListItem,
 } from "../api.js";
 import { formatRelativeTime } from "../lib/format-relative-time.js";
@@ -117,7 +117,10 @@ export function SecretRow({
             ago: formatRelativeTime(secret.updated_at, i18n.language),
           })}
         </span>
-        <Badge className="hidden whitespace-nowrap sm:inline-flex" variant="outline">
+        <Badge
+          className="hidden whitespace-nowrap sm:inline-flex"
+          variant="outline"
+        >
           {t(SECRET_KIND_LABEL_KEYS[secret.kind] ?? "kind.note")}
         </Badge>
         <Button
@@ -130,7 +133,11 @@ export function SecretRow({
           type="button"
           variant="ghost"
         >
-          {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {revealed ? (
+            <EyeOff className="h-3.5 w-3.5" />
+          ) : (
+            <Eye className="h-3.5 w-3.5" />
+          )}
         </Button>
         <Button
           aria-label={t("vault.edit")}

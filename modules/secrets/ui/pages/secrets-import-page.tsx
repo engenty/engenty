@@ -4,82 +4,66 @@ import {
   type CSVImportWizardLabels,
   ImportPageShell,
   type ImportRunProgress,
-  type ImportRunSummary,
   importPageContentClassName,
-  type MatchByConfig,
 } from "@engenty/import";
 import { useQueryClient } from "@engenty/query-client";
-import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
+import { useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import {
-  findTeamMemberByEmail,
-  findTeamMemberByImportId,
-  getTeamImportPresets,
-  saveTeamImportPreset,
-  suggestTeamImportMappings,
+  getSecretsImportPresets,
+  saveSecretsImportPreset,
+  suggestSecretsImportMappings,
 } from "../api/import.js";
-import { createTeamMember, updateTeamMember } from "../api.js";
-import { useTeamMemberTaxonomyTerms } from "../hooks/use-team-member-taxonomy-terms.js";
-import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
-import { formatImportRowError } from "../lib/format-import-error.js";
-import { ImportTaxonomyEnsurer } from "../lib/import-taxonomy-ensurer.js";
+import { createSecret } from "../api.js";
+import { useSecretsModuleSecondaryShellNav } from "../hooks/use-secrets-module-secondary-shell-nav.js";
 import {
-  mapImportRowToTeamMemberCreateInput,
-  mapImportRowToTeamMemberUpdatePatch,
-  TEAM_IMPORT_FIELDS,
-  TEAM_IMPORT_PREVIEW_COLUMNS,
-} from "../lib/import-team-members.js";
-import { teamModuleKeys } from "../team-module-queries.js";
-import { TEAM_MODULE_BASE } from "../team-paths.js";
+  mapImportRowToSecretCreateInput,
+  SECRETS_IMPORT_FIELDS,
+  SECRETS_IMPORT_PREVIEW_COLUMNS,
+  type SecretImportContext,
+} from "../lib/import-secrets.js";
+import { secretsKeys, useClientsQuery, useProjectsQuery } from "../queries.js";
+import { SECRETS_MODULE_BASE } from "../secrets-paths.js";
 
-const DEFAULT_MATCH_BY: MatchByConfig = { type: "none" };
-
-export function TeamMembersImportPage() {
-  const { t } = useTranslation("team");
+export function SecretsImportPage() {
+  const { t } = useTranslation("secrets");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { currentTenant, currentUserId } = useWorkspaceContext();
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useSecretsModuleSecondaryShellNav();
   const progressToastId = useRef<string | number | undefined>(undefined);
-  const firstImportErrorRef = useRef<string | null>(null);
-  const taxonomyEnsurerRef = useRef<ImportTaxonomyEnsurer | null>(null);
-  const [matchByConfig, setMatchByConfig] =
-    useState<MatchByConfig>(DEFAULT_MATCH_BY);
-  const {
-    isLoading: taxonomyLoading,
-    locationTerms,
-    roleTerms,
-  } = useTeamMemberTaxonomyTerms();
-  const taxonomy = useMemo(
-    () => ({ roleTerms, locationTerms }),
-    [locationTerms, roleTerms]
-  );
+  const clientsQuery = useClientsQuery();
+  const projectsQuery = useProjectsQuery();
 
-  useEffect(() => {
-    if (taxonomyLoading) {
-      return;
-    }
-    if (!taxonomyEnsurerRef.current) {
-      taxonomyEnsurerRef.current = new ImportTaxonomyEnsurer(taxonomy);
-      return;
-    }
-    if (!taxonomyEnsurerRef.current.hasPendingChanges) {
-      taxonomyEnsurerRef.current.reset(taxonomy);
-    }
-  }, [taxonomy, taxonomyLoading]);
-
-  const matchByLabels = useMemo(
+  const importContext = useMemo<SecretImportContext>(
     () => ({
-      description: t("import.matchBy.descriptionShort"),
-      label: t("import.id"),
-      none: t("import.matchBy.none"),
-      placeholder: t("import.matchBy.placeholder"),
-      templateMode: t("import.template.mode"),
-      templateModeDescription: t("import.template.modeDescription"),
-      templateSyntax: t("import.template.syntax"),
+      clients: clientsQuery.data ?? [],
+      currentUserId: currentUserId ?? "",
+      projects: projectsQuery.data ?? [],
+      tenantId: currentTenant?.id ?? "",
     }),
-    [t]
+    [clientsQuery.data, currentTenant?.id, currentUserId, projectsQuery.data]
   );
+
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb
+        ? [moduleRootCrumb]
+        : [{ label: t("menu.secrets"), to: SECRETS_MODULE_BASE }]),
+      { label: t("import.label") },
+    ],
+    [moduleRootCrumb, t]
+  );
+
+  usePageConfig({
+    breadcrumbs,
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+  });
 
   const labels: CSVImportWizardLabels = useMemo(
     () => ({
@@ -138,19 +122,6 @@ export function TeamMembersImportPage() {
     [t]
   );
 
-  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
-    useTeamModuleSecondaryShellNav();
-
-  usePageConfig({
-    breadcrumbs: [
-      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: t("import.label") },
-    ],
-    secondaryNavAfterItems,
-    secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
-  });
-
   const handleProgress = (progress: ImportRunProgress) => {
     const message = t("import.progress", {
       processed: progress.processed,
@@ -169,57 +140,21 @@ export function TeamMembersImportPage() {
   const handleImportRow = useCallback(
     async (row: Record<string, string>, rowIndex: number) => {
       try {
-        const ensurer = taxonomyEnsurerRef.current;
-        if (!ensurer) {
-          throw new Error(t("import.failed"));
-        }
-        const preparedRow = await ensurer.prepareRow(row);
-        const input = mapImportRowToTeamMemberCreateInput(
-          preparedRow,
-          ensurer.getContext()
-        );
-        if (!input.full_name) {
-          throw new Error(t("import.fullNameRequired"));
-        }
-        const now = new Date().toISOString();
-        const matchValue = row.__match_id__?.trim() || null;
-        const rowEmail = row.email?.trim() || null;
-
-        if (matchValue) {
-          let existing = await findTeamMemberByImportId(matchValue);
-          if (!existing && rowEmail) {
-            existing = await findTeamMemberByEmail(rowEmail);
-          }
-          if (existing) {
-            const patch = mapImportRowToTeamMemberUpdatePatch(
-              preparedRow,
-              matchValue,
-              now,
-              ensurer.getContext()
-            );
-            await updateTeamMember(existing.id, patch);
-            return;
-          }
-        }
-
-        await createTeamMember({
-          ...input,
-          import_id: matchValue ?? input.import_id ?? null,
-          last_imported_at: now,
-        });
+        const input = mapImportRowToSecretCreateInput(row, importContext);
+        await createSecret(input);
       } catch (err) {
-        const message = formatImportRowError(err, t("import.failed"));
-        if (!firstImportErrorRef.current) {
-          firstImportErrorRef.current = t("import.rowFailed", {
+        const message = err instanceof Error ? err.message : t("import.failed");
+        toast.error(
+          t("import.rowFailed", {
             row: rowIndex + 1,
             message,
             defaultValue: `Row ${rowIndex + 1}: ${message}`,
-          });
-        }
+          })
+        );
         throw err;
       }
     },
-    [t]
+    [importContext, t]
   );
 
   return (
@@ -227,16 +162,10 @@ export function TeamMembersImportPage() {
       <Toaster />
       <CSVImportWizard
         className={importPageContentClassName}
-        fieldDefinitions={TEAM_IMPORT_FIELDS}
+        fieldDefinitions={SECRETS_IMPORT_FIELDS}
         labels={labels}
-        matchByConfig={matchByConfig}
-        matchByLabels={matchByLabels}
-        onAiMap={async (input: {
-          csvHeaders: string[];
-          fieldDefinitions: typeof TEAM_IMPORT_FIELDS;
-          sampleRows: string[][];
-        }) => {
-          const suggested = await suggestTeamImportMappings({
+        onAiMap={async (input) => {
+          const suggested = await suggestSecretsImportMappings({
             csvHeaders: input.csvHeaders,
             fieldDefinitions: input.fieldDefinitions,
             sampleRows: input.sampleRows,
@@ -253,21 +182,13 @@ export function TeamMembersImportPage() {
           }
           return suggested;
         }}
-        onBack={() => navigate(TEAM_MODULE_BASE)}
-        onError={(message: string) => toast.error(message)}
-        onImportComplete={(summary: ImportRunSummary) => {
+        onBack={() => navigate(SECRETS_MODULE_BASE)}
+        onError={(message) => toast.error(message)}
+        onImportComplete={(summary) => {
           if (progressToastId.current !== undefined) {
             toast.dismiss(progressToastId.current);
             progressToastId.current = undefined;
           }
-          if (taxonomyEnsurerRef.current?.hasPendingChanges) {
-            void queryClient.invalidateQueries({
-              queryKey: teamModuleKeys.all,
-            });
-          }
-          const sampleError = firstImportErrorRef.current;
-          firstImportErrorRef.current = null;
-
           if (summary.canceled) {
             toast.message(
               t("import.canceled", {
@@ -278,16 +199,10 @@ export function TeamMembersImportPage() {
             );
             return;
           }
-          if (summary.success === 0 && summary.failed > 0) {
-            toast.error(
-              sampleError ??
-                t("import.failedAll", {
-                  failed: summary.failed,
-                  defaultValue: `Import failed for all ${summary.failed} rows`,
-                }),
-              { duration: 10_000 }
-            );
-            return;
+          if (summary.success > 0) {
+            void queryClient.invalidateQueries({
+              queryKey: secretsKeys.list(),
+            });
           }
           if (summary.failed > 0) {
             toast.warning(
@@ -297,10 +212,7 @@ export function TeamMembersImportPage() {
                 processed: summary.processed,
                 total: summary.total,
                 defaultValue: `Imported ${summary.success}/${summary.total}`,
-              }),
-              sampleError
-                ? { description: sampleError, duration: 10_000 }
-                : undefined
+              })
             );
           } else {
             toast.success(
@@ -313,17 +225,17 @@ export function TeamMembersImportPage() {
               })
             );
           }
-          navigate(TEAM_MODULE_BASE);
+          navigate(SECRETS_MODULE_BASE);
         }}
         onImportProgress={handleProgress}
         onImportRow={handleImportRow}
-        onInfo={(message: string) => toast.message(message)}
-        onMatchByConfigChange={setMatchByConfig}
+        onInfo={(message) => toast.message(message)}
+        onSuccess={(message) => toast.success(message)}
         presetAdapter={{
-          loadPresets: getTeamImportPresets,
-          savePreset: saveTeamImportPreset,
+          loadPresets: getSecretsImportPresets,
+          savePreset: saveSecretsImportPreset,
         }}
-        previewColumns={TEAM_IMPORT_PREVIEW_COLUMNS}
+        previewColumns={SECRETS_IMPORT_PREVIEW_COLUMNS}
       />
     </ImportPageShell>
   );

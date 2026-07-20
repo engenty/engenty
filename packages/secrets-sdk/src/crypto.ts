@@ -35,11 +35,10 @@ export function secretAad(input: {
 
 /** Pluggable key backend. Phase 1: static. Phase 2: per-tenant DEK from KMS. */
 export interface KeyWrapper {
-  keyForEncrypt(tenantId: string): Promise<{ key: Buffer; dekId: string | null }>;
-  keyForDecrypt(
-    tenantId: string,
-    dekId: string | null
-  ): Promise<Buffer>;
+  keyForDecrypt(tenantId: string, dekId: string | null): Promise<Buffer>;
+  keyForEncrypt(
+    tenantId: string
+  ): Promise<{ key: Buffer; dekId: string | null }>;
 }
 
 export const staticKeyWrapper: KeyWrapper = {
@@ -52,7 +51,11 @@ export const staticKeyWrapper: KeyWrapper = {
 };
 
 /** Returns `base64(iv).base64(ct).base64(tag)`. */
-export function encryptPayload(plain: string, key: Buffer, aad: Buffer): string {
+export function encryptPayload(
+  plain: string,
+  key: Buffer,
+  aad: Buffer
+): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   cipher.setAAD(aad);
@@ -61,7 +64,11 @@ export function encryptPayload(plain: string, key: Buffer, aad: Buffer): string 
   return [iv, ct, tag].map((b) => b.toString("base64")).join(".");
 }
 
-export function decryptPayload(value: string, key: Buffer, aad: Buffer): string {
+export function decryptPayload(
+  value: string,
+  key: Buffer,
+  aad: Buffer
+): string {
   const parts = value.split(".");
   if (parts.length !== 3) {
     throw new Error("Invalid encrypted payload format");

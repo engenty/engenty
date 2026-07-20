@@ -39,65 +39,70 @@ export function ContactsImportPage() {
 
   const matchByLabels = useMemo(
     () => ({
-      description: t("importMatchByDescriptionShort"),
-      label: t("importId"),
-      none: t("importMatchByNone"),
-      placeholder: t("importMatchByPlaceholder"),
-      templateMode: t("importTemplateMode"),
-      templateModeDescription: t("importTemplateModeDescription"),
-      templateSyntax: t("importTemplateSyntax"),
+      description: t("import.matchBy.descriptionShort"),
+      label: t("import.id"),
+      none: t("import.matchBy.none"),
+      placeholder: t("import.matchBy.placeholder"),
+      templateMode: t("import.template.mode"),
+      templateModeDescription: t("import.template.modeDescription"),
+      templateSyntax: t("import.template.syntax"),
     }),
     [t]
   );
 
   const labels: CSVImportWizardLabels = useMemo(
     () => ({
-      aiMapping: t("importAiMapping"),
-      aiMappingFailed: t("importAiMappingFailed"),
-      aiMappingRunning: t("importAiMappingRunning"),
+      aiMapping: t("import.ai.mapping"),
+      aiMappingFailed: t("import.ai.failed"),
+      aiMappingRunning: t("import.ai.running"),
       back: t("back", { defaultValue: "Back" }),
       cancel: t("cancel"),
-      cancelImport: t("cancelImport", { defaultValue: "Cancel import" }),
-      columnMapping: t("importColumnMapping"),
-      dragDrop: t("importCsvGuidelines"),
-      errorInvalidFile: t("importInvalidFile"),
-      importFailed: t("importFailed"),
-      importing: t("importing"),
-      importStart: t("importStart"),
-      importSummary: t("importSummary"),
-      loadedFile: t("importLoaded"),
-      lowConfidence: t("importLowConfidence"),
-      mapRequired: t("importMapRequired"),
-      mappingPresets: t("importMappingPresets"),
-      mappingPresetsDescription: t("importMappingPresetsDescription"),
-      missingRequired: t("importMissingRequired"),
-      noPreset: t("importNoPreset"),
-      notMapped: t("importNotMapped"),
+      cancelImport: t("import.cancel", { defaultValue: "Cancel import" }),
+      columnMapping: t("import.columnMapping"),
+      dragDrop: t("import.csv.guidelines"),
+      errorEmptyPaste: t("import.paste.empty"),
+      errorInvalidFile: t("import.invalidFile"),
+      importFailed: t("import.failed"),
+      importing: t("import.importing"),
+      importStart: t("import.start"),
+      importSummary: t("import.summary"),
+      loadedFile: t("import.loaded"),
+      lowConfidence: t("import.lowConfidence"),
+      mapRequired: t("import.mapRequired"),
+      mappingPresets: t("import.presets.label"),
+      mappingPresetsDescription: t("import.presets.description"),
+      missingRequired: t("import.missingRequired"),
+      noPreset: t("import.presets.none"),
+      notMapped: t("import.notMapped"),
+      pasteAction: t("import.paste.action"),
+      pasteContinue: t("import.paste.continue"),
+      pasteHint: t("import.paste.hint"),
+      pastePlaceholder: t("import.paste.placeholder"),
       preview: t("preview"),
-      previewRowOf: t("importRowOf"),
+      previewRowOf: t("import.rowOf"),
       processing: t("processing"),
       save: t("save"),
-      savePresetDescription: t("importSavePresetDescription"),
-      savePresetTitle: t("importSavePresetTitle"),
-      savedPreset: t("importPresetSaved"),
-      selectColumn: t("importSelectColumn"),
+      savePresetDescription: t("import.presets.saveDescription"),
+      savePresetTitle: t("import.presets.saveTitle"),
+      savedPreset: t("import.presets.saved"),
+      selectColumn: t("import.selectColumn"),
       selectFile: t("selectFile"),
-      templateMode: t("importTemplateMode"),
-      templateModeDescription: t("importTemplateModeDescription"),
-      templateSyntax: t("importTemplateSyntax"),
-      title: t("importClientsTitle"),
-      totalRows: t("importCsvFormatGuidelines"),
-      uploadHint: t("importUploadHint"),
-      uploadedFileColumns: t("importUploadedFileColumns"),
-      uploadedFileInfoTitle: t("importUploadedFileInfoTitle"),
-      uploadedFileName: t("importUploadedFileName"),
-      uploadedFilePreviewEmpty: t("importUploadedFilePreviewEmpty"),
-      uploadedFilePreviewHide: t("importUploadedFilePreviewHide"),
-      uploadedFilePreviewShow: t("importUploadedFilePreviewShow"),
-      uploadedFileRows: t("importUploadedFileRows"),
-      uploadTitle: t("importUploadTitle"),
-      valueEmpty: t("importNoData"),
-      importIdPreviewLabel: t("importId"),
+      templateMode: t("import.template.mode"),
+      templateModeDescription: t("import.template.modeDescription"),
+      templateSyntax: t("import.template.syntax"),
+      title: t("import.title"),
+      totalRows: t("import.csv.formatGuidelines"),
+      uploadHint: t("import.upload.hint"),
+      uploadedFileColumns: t("import.uploadedFile.columns"),
+      uploadedFileInfoTitle: t("import.uploadedFile.infoTitle"),
+      uploadedFileName: t("import.uploadedFile.name"),
+      uploadedFilePreviewEmpty: t("import.uploadedFile.previewEmpty"),
+      uploadedFilePreviewHide: t("import.uploadedFile.previewHide"),
+      uploadedFilePreviewShow: t("import.uploadedFile.previewShow"),
+      uploadedFileRows: t("import.uploadedFile.rows"),
+      uploadTitle: t("import.upload.title"),
+      valueEmpty: t("import.noData"),
+      importIdPreviewLabel: t("import.id"),
     }),
     [t]
   );
@@ -108,7 +113,7 @@ export function ContactsImportPage() {
   usePageConfig({
     breadcrumbs: [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: t("import") },
+      { label: t("import.label") },
     ],
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
@@ -116,7 +121,7 @@ export function ContactsImportPage() {
   });
 
   const handleProgress = (progress: ImportRunProgress) => {
-    const message = t("importProgress", {
+    const message = t("import.progress", {
       processed: progress.processed,
       total: progress.total,
       success: progress.success,
@@ -135,7 +140,7 @@ export function ContactsImportPage() {
       try {
         const input = mapImportRowToContactCreateInput(row);
         if (!input.display_name) {
-          throw new Error(t("importDisplayNameRequired"));
+          throw new Error(t("import.displayNameRequired"));
         }
         const now = new Date().toISOString();
         const matchValue = row.__match_id__?.trim() || null;
@@ -162,9 +167,9 @@ export function ContactsImportPage() {
           last_imported_at: now,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : t("importFailed");
+        const message = err instanceof Error ? err.message : t("import.failed");
         toast.error(
-          t("importRowFailed", {
+          t("import.rowFailed", {
             row: rowIndex + 1,
             message,
             defaultValue: `Row ${rowIndex + 1}: ${message}`,
@@ -193,13 +198,13 @@ export function ContactsImportPage() {
           });
           if (suggested.length) {
             toast.success(
-              t("importAiMappingApplied", {
+              t("import.ai.applied", {
                 count: suggested.length,
                 defaultValue: `Applied ${suggested.length} AI mappings`,
               })
             );
           } else {
-            toast.message(t("importAiMappingNoSuggestions"));
+            toast.message(t("import.ai.noSuggestions"));
           }
           return suggested;
         }}
@@ -212,7 +217,7 @@ export function ContactsImportPage() {
           }
           if (summary.canceled) {
             toast.message(
-              t("importCanceled", {
+              t("import.canceled", {
                 processed: summary.processed,
                 total: summary.total,
                 defaultValue: "Import canceled",
@@ -222,7 +227,7 @@ export function ContactsImportPage() {
           }
           if (summary.failed > 0) {
             toast.warning(
-              t("importSummary", {
+              t("import.summary", {
                 success: summary.success,
                 failed: summary.failed,
                 processed: summary.processed,
@@ -232,7 +237,7 @@ export function ContactsImportPage() {
             );
           } else {
             toast.success(
-              t("importSummary", {
+              t("import.summary", {
                 success: summary.success,
                 failed: summary.failed,
                 processed: summary.processed,

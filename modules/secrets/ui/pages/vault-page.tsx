@@ -2,41 +2,45 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
   Card,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
 } from "@engenty/ui-core";
-import {
-  type PageBreadcrumb,
-  usePageConfig,
-  useWorkspaceContext,
-} from "@engenty/ui-plugin-sdk";
+import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import {
   Building2,
   FolderOpen,
   Plus,
   Search,
+  Upload,
   UserRound,
   Users,
   X,
 } from "lucide-react";
+import { parseAsString, useQueryState } from "nuqs";
 import { type ComponentType, useMemo, useState } from "react";
-import type { OwnerScope, SecretListItem } from "../api.js";
+import { useNavigate } from "react-router-dom";
+import type { SecretListItem } from "../api.js";
 import { SecretFormDialog } from "../components/secret-form-dialog.js";
 import { SecretRow } from "../components/secret-row.js";
+import { useSecretsModuleSecondaryShellNav } from "../hooks/use-secrets-module-secondary-shell-nav.js";
+import {
+  parseSecretsScopeFilter,
+  secretsVaultHref,
+} from "../lib/secrets-vault-url.js";
 import {
   useClientsQuery,
   useProjectsQuery,
   useSecretsQuery,
 } from "../queries.js";
+import { SECRETS_IMPORT_PATH } from "../secrets-paths.js";
 
 /**
  * Secrets Vault — the engrdian dashboard analogue on engenty rails: secrets
@@ -44,78 +48,54 @@ import {
  * per-row audited reveal. Plaintext only ever lives in transient row state.
  */
 
-type ScopeFilter = "all" | OwnerScope;
-
 interface SecretGroup {
-  key: string;
-  title: string;
-  subtitle: string;
   icon: ComponentType<{ className?: string }>;
+  key: string;
   order: number;
   rows: SecretListItem[];
+  subtitle: string;
+  title: string;
 }
 
 export function VaultPage() {
   const { t } = useTranslation("secrets");
+  const navigate = useNavigate();
   const { currentTenant, currentUserId } = useWorkspaceContext();
-
-  const breadcrumbs = useMemo<PageBreadcrumb[]>(
-    () => [{ label: t("vault.title") }],
-    [t]
-  );
-  usePageConfig({ breadcrumbs });
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useSecretsModuleSecondaryShellNav();
 
   const secretsQuery = useSecretsQuery();
   const clientsQuery = useClientsQuery();
   const projectsQuery = useProjectsQuery();
 
-  const [query, setQuery] = useState("");
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
-  const [clientFilter, setClientFilter] = useState<string>("all");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
+  const [scopeRaw] = useQueryState("scope", parseAsString);
+  const [clientFilter] = useQueryState("client", parseAsString);
+  const [projectFilter] = useQueryState("project", parseAsString);
+  const scopeFilter = parseSecretsScopeFilter(scopeRaw);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SecretListItem | null>(null);
 
   const clients = clientsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
 
-  // Project picker narrows to the selected client so the two filters compose.
-  const visibleProjects = useMemo(
-    () =>
-      clientFilter === "all"
-        ? projects
-        : projects.filter((project) => project.client_id === clientFilter),
-    [projects, clientFilter]
-  );
-
   const filtersActive =
-    query.trim() !== "" ||
-    scopeFilter !== "all" ||
-    clientFilter !== "all" ||
-    projectFilter !== "all";
-
-  function selectClient(value: string) {
-    setClientFilter(value);
-    // Drop a project selection that no longer belongs to the chosen client.
-    if (value !== "all" && projectFilter !== "all") {
-      const project = projects.find((entry) => entry.id === projectFilter);
-      if (!project || project.client_id !== value) {
-        setProjectFilter("all");
-      }
-    }
-  }
+    q.trim() !== "" ||
+    scopeFilter !== null ||
+    Boolean(clientFilter) ||
+    Boolean(projectFilter);
 
   function clearFilters() {
-    setQuery("");
-    setScopeFilter("all");
-    setClientFilter("all");
-    setProjectFilter("all");
+    navigate(
+      secretsVaultHref({ q: "", scope: null, client: null, project: null })
+    );
   }
 
   const groups = useMemo<SecretGroup[]>(() => {
     const clientNames = new Map(clients.map((c) => [c.id, c.display_name]));
     const projectById = new Map(projects.map((p) => [p.id, p]));
-    const needle = query.trim().toLowerCase();
+    const needle = q.trim().toLowerCase();
 
     const groupMeta = (
       secret: SecretListItem
@@ -123,8 +103,7 @@ export function VaultPage() {
       switch (secret.owner_scope) {
         case "client":
           return {
-            title:
-              clientNames.get(secret.owner_id) ?? t("group.unknownClient"),
+            title: clientNames.get(secret.owner_id) ?? t("group.unknownClient"),
             subtitle: t("scope.client"),
             icon: Building2,
             order: 0,
@@ -166,10 +145,10 @@ export function VaultPage() {
     };
 
     const matches = (secret: SecretListItem, title: string): boolean => {
-      if (scopeFilter !== "all" && secret.owner_scope !== scopeFilter) {
+      if (scopeFilter && secret.owner_scope !== scopeFilter) {
         return false;
       }
-      if (clientFilter !== "all") {
+      if (clientFilter) {
         const ownedByClient =
           secret.owner_scope === "client" && secret.owner_id === clientFilter;
         const projectOfClient =
@@ -180,7 +159,7 @@ export function VaultPage() {
         }
       }
       if (
-        projectFilter !== "all" &&
+        projectFilter &&
         !(secret.owner_scope === "project" && secret.owner_id === projectFilter)
       ) {
         return false;
@@ -217,7 +196,7 @@ export function VaultPage() {
     secretsQuery.data,
     clients,
     projects,
-    query,
+    q,
     scopeFilter,
     clientFilter,
     projectFilter,
@@ -240,88 +219,104 @@ export function VaultPage() {
     setFormOpen(true);
   }
 
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("vault.overview") },
+    ],
+    [moduleRootCrumb, t]
+  );
+
+  const pageActions = useMemo(
+    () => (
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {t("vault.addSecret")}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t("vault.addSecret")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(SECRETS_IMPORT_PATH)}>
+              <Upload className="mr-2 h-4 w-4" />
+              {t("import.label")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ),
+    [navigate, t]
+  );
+
+  usePageConfig({
+    actions: pageActions,
+    breadcrumbs,
+    contentStackBackground: "paper",
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+  });
+
+  const activeFilterLabel = useMemo(() => {
+    if (projectFilter) {
+      return (
+        projects.find((project) => project.id === projectFilter)?.title ??
+        t("group.unknownProject")
+      );
+    }
+    if (clientFilter) {
+      return (
+        clients.find((client) => client.id === clientFilter)?.display_name ??
+        t("group.unknownClient")
+      );
+    }
+    if (scopeFilter === "user") {
+      return t("sidebar.personal");
+    }
+    if (scopeFilter === "tenant") {
+      return t("sidebar.workspace");
+    }
+    return null;
+  }, [projectFilter, clientFilter, scopeFilter, projects, clients, t]);
+
   return (
     <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
       <div className="mx-auto w-full max-w-4xl space-y-4 pt-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
-            <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                void setQ(value === "" ? null : value);
+              }}
               placeholder={t("vault.searchPlaceholder")}
-              value={query}
+              value={q}
             />
           </div>
-          <Button onClick={openCreate} type="button">
-            <Plus className="mr-1 h-4 w-4" />
-            {t("vault.addSecret")}
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Select onValueChange={selectClient} value={clientFilter}>
-            <SelectTrigger className="w-full sm:w-52">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder={t("filter.allClients")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filter.allClients")}</SelectItem>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            disabled={visibleProjects.length === 0}
-            onValueChange={setProjectFilter}
-            value={projectFilter}
-          >
-            <SelectTrigger className="w-full sm:w-52">
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder={t("filter.allProjects")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filter.allProjects")}</SelectItem>
-              {visibleProjects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            onValueChange={(value) => setScopeFilter(value as ScopeFilter)}
-            value={scopeFilter}
-          >
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filter.all")}</SelectItem>
-              <SelectItem value="client">{t("scope.client")}</SelectItem>
-              <SelectItem value="project">{t("scope.project")}</SelectItem>
-              <SelectItem value="tenant">{t("scope.tenant")}</SelectItem>
-              <SelectItem value="user">{t("scope.user")}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {filtersActive && (
+          {filtersActive ? (
             <Button
-              className="text-muted-foreground"
+              className="shrink-0 text-muted-foreground"
               onClick={clearFilters}
               size="sm"
               type="button"
               variant="ghost"
             >
               <X className="mr-1 h-4 w-4" />
-              {t("filter.clear")}
+              {activeFilterLabel
+                ? t("filter.clearNamed", {
+                    name: activeFilterLabel,
+                    defaultValue: `Clear · ${activeFilterLabel}`,
+                  })
+                : t("filter.clear")}
             </Button>
-          )}
+          ) : null}
         </div>
 
         {isLoading && (
@@ -372,7 +367,11 @@ export function VaultPage() {
               </div>
               <div className="divide-y divide-border">
                 {group.rows.map((secret) => (
-                  <SecretRow key={secret.id} onEdit={openEdit} secret={secret} />
+                  <SecretRow
+                    key={secret.id}
+                    onEdit={openEdit}
+                    secret={secret}
+                  />
                 ))}
               </div>
             </Card>

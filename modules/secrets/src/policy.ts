@@ -1,5 +1,5 @@
 import type { PluginProfilePolicy } from "@engenty/plugin-sdk";
-import { type Principal, canReadSecret } from "@engenty/secrets-sdk";
+import { canReadSecret, type Principal } from "@engenty/secrets-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildResolveDeps } from "./api/reveal-routes.js";
 

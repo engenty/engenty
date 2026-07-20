@@ -1,5 +1,5 @@
 import type { CSVImportWizardLabels } from "../types.js";
-import { CSVUploadZone } from "./CSVUploadZone.js";
+import { CSVImportSourceZone } from "./CSVImportSourceZone.js";
 
 export interface ImportUploadStepProps {
   error: string | null;
@@ -24,20 +24,29 @@ export function ImportUploadStep({
         </div>
       )}
 
-      <div className="mt-6 space-y-6">
-        <CSVUploadZone
+      <div className="mt-6 space-y-2">
+        <CSVImportSourceZone
+          backLabel={labels.back}
+          errorEmptyPaste={labels.errorEmptyPaste}
           errorInvalidFile={labels.errorInvalidFile}
           isLoading={loading}
           onError={onError}
           onFileLoaded={onFileLoaded}
+          pasteActionLabel={labels.pasteAction}
+          pasteContinueLabel={labels.pasteContinue}
+          pasteHint={labels.pasteHint}
+          pastePlaceholder={labels.pastePlaceholder}
           processingLabel={labels.processing}
           selectFileLabel={labels.selectFile}
           uploadHint={labels.uploadHint}
           uploadTitle={labels.uploadTitle}
         />
-        <div className="rounded-lg bg-muted/30 p-4">
-          <h3 className="mb-2 font-semibold text-sm">{labels.totalRows}</h3>
-          <p className="text-muted-foreground text-xs">{labels.dragDrop}</p>
+
+        <div className="rounded-lg bg-muted/30 px-4 py-3">
+          <h3 className="font-semibold text-xs">{labels.totalRows}</h3>
+          <p className="mt-0.5 text-muted-foreground text-xs">
+            {labels.dragDrop}
+          </p>
         </div>
       </div>
     </div>
