@@ -25,7 +25,7 @@
   "scripts": {
     "build": "tsup src/plugin.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. --passWithNoTests modules/team-hr/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {

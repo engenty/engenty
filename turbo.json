@@ -5,6 +5,7 @@
   "globalDependencies": [".env", ".env.local", ".env.*.local"],
   "globalEnv": [
     "ENV",
+    "ENGENTY_DEV_READY_MAX_WAIT_MS",
     "ENGENTY_DEV_DOMAIN",
     "ENGENTY_UI_PORT",
     "ENGENTY_CORE_PORT",
@@ -61,6 +62,36 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest.config.ts",
+        "$TURBO_ROOT$/test/setup.ts",
+        "$TURBO_ROOT$/apps/core/test/vitest-setup-root-chdir.ts"
+      ],
+      "outputs": [],
+      "env": [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_PUBLISHABLE_KEY",
+        "VITE_SUPABASE_ANON_KEY"
+      ],
+      "passThroughEnv": ["VITEST_MAX_FORKS", "VITEST_MIN_FORKS"]
+    },
+    "//#test:scripts": {
+      "inputs": ["scripts/**", "vitest.config.ts", "test/setup.ts"],
+      "outputs": [],
+      "env": [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_PUBLISHABLE_KEY",
+        "VITE_SUPABASE_ANON_KEY"
+      ],
+      "passThroughEnv": ["VITEST_MAX_FORKS", "VITEST_MIN_FORKS"]
     }
   }
 }

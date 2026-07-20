@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { PluginHttpRoute } from "@engenty/plugin-sdk";
-import { makeMockApi as makeKitMockApi } from "@engenty/test-kit";
+import type {
+  PluginHttpRoute,
+  PluginRegistrationReceipt,
+  PluginServerApi,
+  PluginServerOperation,
+} from "@engenty/plugin-sdk";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import {
   definitionsToSettingsSlice,
@@ -393,7 +397,41 @@ export function makeMockProjectRepo() {
   };
 }
 
-export const makeMockApi = makeKitMockApi;
+const defaultAuth = {
+  tenantId: "tenant-1",
+  scopeId: "default",
+  principalId: "user-1",
+};
+
+export function makeMockApi() {
+  const httpRoutes: PluginHttpRoute[] = [];
+  const serverOperations: PluginServerOperation[] = [];
+  const noopReceipt = (): PluginRegistrationReceipt => ({
+    dispose: () => {},
+  });
+  const api: PluginServerApi = {
+    callGatewayMethod: async () => null,
+    hasOperation: () => false,
+    registerHttpRoute: (route) => {
+      httpRoutes.push(route);
+      return noopReceipt();
+    },
+    registerOperation: (operation) => {
+      serverOperations.push(operation);
+      return noopReceipt();
+    },
+    registerAiRegistration: () => {},
+    registerFeatureFlags: () => [],
+    registerProfilePolicy: () => {},
+    registerRoleProfiles: () => {},
+    registerResultPolicy: () => {},
+    registerService: () => {},
+    registerTestDataType: () => noopReceipt(),
+    registerCli: () => {},
+    resolvePath: (p: string) => p,
+  };
+  return { api, httpRoutes, serverOperations, defaultAuth };
+}
 
 export function getRoute(
   routes: PluginHttpRoute[],

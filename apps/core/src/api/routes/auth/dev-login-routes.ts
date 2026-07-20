@@ -260,23 +260,11 @@ export function registerDevLoginRoutes(params: {
     });
 
     try {
-      // Try the sign-in first and only ensure/reset the user when it fails:
-      // updateUserById({ password }) revokes every existing session, so
-      // resetting unconditionally makes concurrent agent logins (e.g. React
-      // StrictMode double-effects, parallel Playwright workers) kill each
-      // other's freshly minted sessions.
-      let signIn = await anon.auth.signInWithPassword({
+      await ensureDevUser(admin, email, devPass);
+      const { data, error } = await anon.auth.signInWithPassword({
         email,
         password: devPass,
       });
-      if (signIn.error || !signIn.data.session) {
-        await ensureDevUser(admin, email, devPass);
-        signIn = await anon.auth.signInWithPassword({
-          email,
-          password: devPass,
-        });
-      }
-      const { data, error } = signIn;
       if (error || !data.session) {
         return c.json({ error: error?.message ?? "Sign-in failed" }, 500);
       }

@@ -12,6 +12,7 @@
     "connections",
     "artifacts",
     "objects",
-    "generative-ui"
+    "generative-ui",
+    "ci-pipeline"
   ]
 }

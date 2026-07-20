@@ -363,6 +363,29 @@ describe("EngentyAgent generic contract", () => {
     expect(childCalls).toEqual(["session-fresh"]);
   });
 
+  it("forwards stableSessionKey to the apps/ai session hook", () => {
+    const stableSessionKey = "engenty-agent-affinity:active-v1:t:u:agent";
+
+    render(
+      <AiHarness>
+        <EngentyAgent
+          agentId="engenty.copilot"
+          hostKey={MAIN_COPILOT_HOST_KEY}
+          modelId="openai/gpt-5-mini"
+          routeContext={routeContext}
+          stableSessionKey={stableSessionKey}
+          threadId={null}
+        >
+          <div />
+        </EngentyAgent>
+      </AiHarness>
+    );
+
+    expect(session.capturedOptions.at(-1)?.stableSessionKey).toBe(
+      stableSessionKey
+    );
+  });
+
   it("propagates host copilotMessages from the AG-UI session hook", async () => {
     // Restore the beforeEach spy and install one that returns scripted
     // copilot messages so we can assert the host reflects what the AG-UI

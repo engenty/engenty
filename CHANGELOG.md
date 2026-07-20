@@ -4,6 +4,16 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.40] - 2026-07-20
+- ADDED **[deploy]** Pass SUPABASE_DB_URL + VAPID keys to engenty-ai
+- FIXED **[desktop]** ⌥Space opens a new chat; stop native-listener churn on nav
+
+## [0.1.39] - 2026-07-20
+- ADDED **[notifications]** Web push channel (N2) — subscriptions, VAPID delivery, SW + profile toggle
+- FIXED **[desktop]** Don't register the push service worker on tauri:// origin
+- FIXED **[dev]** Pass ENGENTY_DEV_READY_MAX_WAIT_MS through turbo globalEnv
+- FIXED **[ui]** Lint — drop unused catch binding + optional chain in push sw
+
 ## [0.1.38] - 2026-07-19
 - ADDED **[team-chat]** Email notifications via the tenant's connector (N4)
 - ADDED **[team-chat]** Slack-bridge binding UI (pro settings page)

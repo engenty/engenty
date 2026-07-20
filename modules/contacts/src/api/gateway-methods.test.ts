@@ -1,5 +1,9 @@
-import type { PluginServerOperation } from "@engenty/plugin-sdk";
-import { makeMockApi } from "@engenty/test-kit";
+import type {
+  PluginGatewayMethod,
+  PluginRegistrationReceipt,
+  PluginServerApi,
+  PluginServerOperation,
+} from "@engenty/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import type { ContactRepo } from "../dal/contracts.js";
 import type {
@@ -220,6 +224,34 @@ function makeRepo(): ContactRepo {
   };
 }
 
+function makeMockApi() {
+  const gatewayMethods: PluginGatewayMethod[] = [];
+  const serverOperations: PluginServerOperation[] = [];
+  const noopReceipt = (): PluginRegistrationReceipt => ({
+    dispose: () => {},
+  });
+  const api: PluginServerApi = {
+    callGatewayMethod: async () => null,
+    hasOperation: () => false,
+    registerHttpRoute: () => noopReceipt(),
+    registerOperation: (operation) => {
+      serverOperations.push(operation);
+      return noopReceipt();
+    },
+    registerAiRegistration: () => {},
+    registerFeatureFlags: () => [],
+    registerProfilePolicy: () => {},
+    registerRoleProfiles: () => {},
+    registerResultPolicy: () => {},
+    registerService: () => {},
+    registerTestDataType: () => noopReceipt(),
+    registerCli: () => {},
+    resolvePath: (p: string) => p,
+  };
+
+  return { api, gatewayMethods, serverOperations };
+}
+
 function getOperation(
   operations: PluginServerOperation[],
   operationId: string
@@ -235,10 +267,11 @@ function getOperation(
 
 describe("registerContactsApi server operations", () => {
   it("registers contacts operations through the server operation API", () => {
-    const { api, serverOperations } = makeMockApi();
+    const { api, gatewayMethods, serverOperations } = makeMockApi();
 
     registerContactsApi(api, makeRepo());
 
+    expect(gatewayMethods).toEqual([]);
     // The synthesized `contacts_contact_search` op is registered by
     // `engenty.server.registerSearchIndexProvider` in `plugin.ts`, *not* by
     // `registerContactsApi`. This test exercises the API registration only,

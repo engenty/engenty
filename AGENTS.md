@@ -4,7 +4,7 @@ Default guide for contributors and coding agents in this repository.
 
 - Active development — no production data yet; no fallback or stranded code
 - **Biome** for lint/format — run `pnpm fix` at the end of tasks
-- **Vitest** — add tests and run `pnpm test`; test public APIs and assert on results, mock only at real boundaries — see [testing-policy.mdc](./docs/agent/rules/testing-policy.mdc). Real-DB suites: `*.integration.test.ts` via `pnpm test:integration` (needs local Supabase)
+- **Vitest** — add tests and run `pnpm test`
 - **Agent rules:** canonical content lives in [`docs/agent/rules/`](./docs/agent/rules/). Cursor symlinks them under `.cursor/rules/`. Claude reads this file + linked rules. Load a rule when the task matches its description — do not load everything every turn.
 
 ## Environment
@@ -59,7 +59,7 @@ Default dev URL: `http://localhost:5173` (Vite proxies `/api` and `/ai`). Portle
 
 ## Browser verification
 
-- **Headless / Playwright:** always `http://localhost:5173`; browser smoke suite: `pnpm test:smoke` (e2e/smoke, needs the dev stack)
+- **Headless / Playwright:** always `http://localhost:5173`
 - **Claude Code preview / system-trusted cert:** `https://engenty.localhost` when Portless is running
 - **Agent login:** `/auth/agent-login` on the origin you test (requires `ENGENTY_DEV_PASS`, non-prod)
 - Sessions are per-origin — log in on the origin you actually load

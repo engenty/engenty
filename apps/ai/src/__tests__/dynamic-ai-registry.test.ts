@@ -753,10 +753,19 @@ describe("dynamic AI registry", () => {
       };
     };
 
-    // Prompt prose is intentionally not asserted verbatim — wording edits to the
-    // built-in instructions must not break tests (testing-policy.mdc).
-    expect(agent.config.description.length).toBeGreaterThan(0);
-    expect(agent.config.instructions.length).toBeGreaterThan(0);
+    expect(agent.config.description).toContain("Supervisor copilot");
+    expect(agent.config.instructions).toContain("Engenty Supervisor");
+    expect(agent.config.instructions).toContain("Runtime context");
+    expect(agent.config.instructions).toContain(
+      "Tenant and user are request-scoped"
+    );
+    expect(agent.config.instructions).toContain("dynamic plugin contributions");
+    expect(agent.config.instructions).toContain(
+      "bounded list of options, call **requestDecision**"
+    );
+    expect(agent.config.instructions).toContain(
+      "infer reasonable low-risk options"
+    );
     expect(agent.config.backgroundTasks).toBeUndefined();
     expect(Object.keys(agent.config.agents)).toEqual(["engenty_cli"]);
     expect(agent.config.tools).toHaveProperty("chatThreadSearch");

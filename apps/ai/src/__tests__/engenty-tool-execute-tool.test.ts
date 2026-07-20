@@ -21,6 +21,13 @@ describe("createEngentyToolExecuteTool", () => {
     vi.unstubAllGlobals();
   });
 
+  it("documents how to run selected tools after discovery", () => {
+    const tool = createEngentyToolExecuteTool();
+
+    expect(tool.description).toContain("selected Engenty tool");
+    expect(tool.description).toContain("empty input object");
+  });
+
   it("invokes a discovered tool with the current user's authorization", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi

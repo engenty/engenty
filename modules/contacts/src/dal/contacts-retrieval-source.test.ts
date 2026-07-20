@@ -11,13 +11,43 @@
 //      (contact row + roles, match_reason from matched_fields, doc dedupe).
 
 import type { RetrievalMatch } from "@engenty/retrieval";
-import { createFakeSupabase as createTestKitSupabase } from "@engenty/test-kit";
 import { describe, expect, it } from "vitest";
 import { createContactsRetrievalSource } from "./contacts-retrieval-source.js";
 
-/** Filtering PostgREST fake from the shared kit, seeded per table. */
-function createFakeSupabase(tables: Record<string, Record<string, unknown>[]>) {
-  return createTestKitSupabase({ tables });
+interface FakeCall {
+  args: unknown[];
+  method: string;
+}
+
+/** Minimal chainable PostgREST fake: per-table canned rows, thenable chain
+ *  (mirrors packages/retrieval/src/test-utils.ts, which is not exported). */
+function createFakeSupabase(tables: Record<string, unknown[]>) {
+  const calls = new Map<string, FakeCall[]>();
+  function builderFor(name: string) {
+    const tableCalls = calls.get(name) ?? [];
+    calls.set(name, tableCalls);
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "in", "is", "or", "order", "limit"]) {
+      builder[method] = (...args: unknown[]) => {
+        tableCalls.push({ args, method });
+        return builder;
+      };
+    }
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable Supabase query mock
+    builder.then = (
+      resolve: (value: unknown) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) =>
+      Promise.resolve({ data: tables[name] ?? [], error: null }).then(
+        resolve,
+        reject
+      );
+    return builder;
+  }
+  return {
+    calls,
+    schema: () => ({ from: (name: string) => builderFor(name) }),
+  };
 }
 
 const CONTACT_ROW = {
@@ -52,11 +82,6 @@ describe("contacts retrieval source — buildDocument", () => {
     const supabase = createFakeSupabase({
       contact_relations: [
         {
-          // tenant_id/scope_id are required: the DAL filters relations by
-          // tenant + the contact's scope, and the test-kit fake applies
-          // filters like the real PostgREST would.
-          tenant_id: "tenant-1",
-          scope_id: "default",
           from_contact_id: "c1",
           to_contact_id: "c2",
           relation_type: "employment",

@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. modules/team/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
@@ -72,7 +72,6 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@engenty/test-kit": "workspace:*",
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

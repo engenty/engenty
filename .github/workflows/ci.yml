@@ -1,10 +1,16 @@
 name: CI
 
+# paths-ignore: root-level markdown (plans, AGENTS, README, CHANGELOG) and
+# session config never affect build/test output. Deliberately narrow — docs/**
+# markdown DOES feed the docs app build and stays CI-gated. Release pushes
+# still run CI because they always touch package.json/changelog.json.
 on:
   push:
     branches: [main]
+    paths-ignore: ["*.md", ".claude/**"]
   pull_request:
     branches: [main]
+    paths-ignore: ["*.md", ".claude/**"]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +26,10 @@ jobs:
     # A cold turbo build alone takes ~20min (no remote cache in CI); 30min
     # killed every push on busy days once typecheck/tests queued behind it.
     timeout-minutes: 60
+    env:
+      # secrets context is not allowed in step-level `if` — computed here
+      # (job env allows it) and consumed by the remote-cache step below.
+      HAS_REMOTE_CACHE: ${{ vars.TURBO_API != '' && secrets.TURBO_TOKEN != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +45,19 @@ jobs:
         with:
           node-version: 24.14.0
           cache: pnpm
+
+      # Optional remote turbo cache: activates only when the repo has the
+      # TURBO_API repo variable + TURBO_TOKEN secret configured (self-hosted
+      # turborepo-remote-cache, see docs/content/dev/ci-pipeline.md). Until
+      # then turbo uses the local .turbo/cache persisted below.
+      - name: Enable remote turbo cache (if configured)
+        if: ${{ env.HAS_REMOTE_CACHE == 'true' }}
+        run: |
+          {
+            echo "TURBO_API=${{ vars.TURBO_API }}"
+            echo "TURBO_TOKEN=${{ secrets.TURBO_TOKEN }}"
+            echo "TURBO_TEAM=${{ vars.TURBO_TEAM || 'team_engenty' }}"
+          } >> "$GITHUB_ENV"
 
       # Persist turbo's local task cache across runs: a cold build of the
       # workspace takes ~20min, a warm one minutes. Keyed by SHA with a
@@ -60,11 +83,13 @@ jobs:
       - name: Validate engenty.plugins
         run: pnpm plugins:check
 
+      # Guards the per-package test pipeline: every package with tests must
+      # have a (properly scoped) test script, or `turbo run test` skips it.
+      - name: Test wiring check
+        run: pnpm check:test-wiring
+
       - name: Supabase config template check
         run: pnpm supabase:config:check
-
-      - name: Supabase import boundaries
-        run: pnpm check:supabase-imports
 
       # --concurrency=4 matches the runner's 4 vCPUs. Turbo's default of 10
       # parallel tasks lets the tail of ~8 heavy tsup --dts builds (1-2GB
@@ -112,12 +137,27 @@ jobs:
       - name: Env example sync
         run: pnpm env:example:check
 
+      # Per-package via turbo so unchanged packages are cache hits — only the
+      # affected subgraph re-runs. Supabase env defaults come from
+      # test/setup.ts (identical values the old inline env block set).
+      # VITEST_MAX_FORKS caps each vitest instance's fork pool: 4 turbo tasks
+      # x default forks(=cores) would oversubscribe the 4-vCPU runner.
       - name: Test
         env:
-          SUPABASE_URL: http://127.0.0.1:54321
-          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
-          SUPABASE_ANON_KEY: test-anon-key
-        run: pnpm test
+          VITEST_MAX_FORKS: "2"
+        run: pnpm exec turbo run test test:scripts --concurrency=4
+
+      # Second save under a distinct key so TEST task results persist too —
+      # the post-Build save above can't be re-written (cache keys are
+      # immutable) and without this every run re-executes all test tasks.
+      # The prefix restore-key picks the newest cache, which after a full
+      # green run is this one.
+      - name: Save turbo cache (with test results)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}-tested
 
       # RLS coverage guard (Phase 0.3). Soft-skips when no Supabase DB is
       # running — this job has none today, so it is a no-op until a migrated

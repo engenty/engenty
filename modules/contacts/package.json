@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts src/schema/contacts-types.ts src/services/contact-name.ts src/services/contact-input.ts ai/registrar.ts ai/artifacts/contacts-suggestion-artifact.ts ai/schema/contact-suggestion-schema.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts src/schema/contacts-types.ts ai/registrar.ts ai/artifacts/contacts-suggestion-artifact.ts ai/schema/contact-suggestion-schema.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. modules/contacts/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
@@ -76,7 +76,6 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@engenty/test-kit": "workspace:*",
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

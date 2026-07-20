@@ -19,12 +19,13 @@ describe("registerInvoicesApi server operations", () => {
     dataDir = makeTempDir();
     const repo = createInvoiceRepo(path.join(dataDir, "invoices"));
     const pdfStorage = createLocalPdfStorage(path.join(dataDir, "invoices"));
-    const { api, serverOperations } = makeMockApi();
+    const { api, gatewayMethods, serverOperations } = makeMockApi();
     registerInvoicesApi(api, repo, pdfStorage);
 
     const operationIds = serverOperations
       .map((operation) => operation.operationId)
       .sort();
+    expect(gatewayMethods).toEqual([]);
     expect(operationIds).toEqual([
       "invoices_cancel",
       "invoices_count_by_client_ids",

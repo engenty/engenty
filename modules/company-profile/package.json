@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/company-profile-manager.ts ai/tools/load-company-profile.ts ai/tools/update-company-profile.ts ai/tools/set-company-logo.ts ai/tools/company-website-pages.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/company-profile-manager.ts ai/tools/load-company-profile.ts ai/tools/update-company-profile.ts ai/tools/set-company-logo.ts ai/tools/company-website-pages.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. modules/company-profile/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
@@ -56,7 +56,6 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@engenty/test-kit": "workspace:*",
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

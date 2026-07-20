@@ -1,7 +1,35 @@
-import type { PluginHttpRoute } from "@engenty/plugin-sdk";
-import { makeMockApi } from "@engenty/test-kit";
+import type {
+  PluginHttpRoute,
+  PluginServerApi,
+  PluginServerOperation,
+} from "@engenty/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import { registerOffersApi } from "./index.js";
+
+function makeMockApi() {
+  const httpRoutes: PluginHttpRoute[] = [];
+  const serverOperations: PluginServerOperation[] = [];
+
+  const server = {
+    hasOperation: () => false,
+    callGatewayMethod: async () => null,
+    registerHttpRoute: (route: PluginHttpRoute) => {
+      httpRoutes.push(route);
+    },
+    registerOperation: (operation: PluginServerOperation) => {
+      serverOperations.push(operation);
+      return;
+    },
+  } satisfies Pick<
+    PluginServerApi,
+    | "hasOperation"
+    | "registerHttpRoute"
+    | "callGatewayMethod"
+    | "registerOperation"
+  >;
+
+  return { api: server, httpRoutes, serverOperations };
+}
 
 function getRoute(
   routes: PluginHttpRoute[],

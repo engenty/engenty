@@ -35,8 +35,6 @@ export default defineConfig({
       "**/dist/**",
       "**/*.d.ts",
       "**/*.e2e.test.ts",
-      // Real-DB lane — run via `pnpm test:integration` (vitest.integration.config.ts).
-      "**/*.integration.test.ts",
     ],
     setupFiles: [
       path.join(repoRoot, "apps/core/test/vitest-setup-root-chdir.ts"),
@@ -57,14 +55,6 @@ export default defineConfig({
       "@engenty/ai-core": path.resolve(
         repoRoot,
         "packages/ai-core/src/index.ts"
-      ),
-      "@engenty/test-kit/integration": path.resolve(
-        repoRoot,
-        "packages/test-kit/src/dal/integration-db.ts"
-      ),
-      "@engenty/test-kit": path.resolve(
-        repoRoot,
-        "packages/test-kit/src/index.ts"
       ),
     },
   },
