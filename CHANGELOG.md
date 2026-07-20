@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.50] - 2026-07-20
+- FIXED **[app-shell]** Stop settings separators from stealing /setup secondary nav
+
 ## [0.1.49] - 2026-07-20
 - FIXED **[remote]** Grant service_role on module_remote + surface settings errors
 - FIXED **[ui]** Tighten favicon framing so the blob fills the icon
