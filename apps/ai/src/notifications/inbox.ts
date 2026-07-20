@@ -13,6 +13,7 @@
 // partitions can layer on later with `inbox:{tenantId}:{userId}` threads.
 import { createLogger } from "@engenty/telemetry";
 import { broadcastInboxChanged } from "./realtime.js";
+import { sendWebPushToUser } from "./web-push.js";
 
 const logger = createLogger({ name: "inbox" });
 
@@ -112,6 +113,26 @@ export async function emitInboxNotification(
       threadId: inboxThreadId(input.tenantId, input.userId),
     });
     broadcastInboxChanged(input.tenantId);
+    if (input.userId) {
+      // Per-user records fan out to the user's web-push endpoints right away
+      // (N2) — push is the realtime channel; team-inbox records have no
+      // single recipient and stay badge-only. Fire-and-forget by design.
+      const payload = input.payload ?? {};
+      const title =
+        typeof payload.conversation_label === "string"
+          ? payload.conversation_label
+          : "engenty";
+      const body =
+        typeof payload.text_preview === "string" && payload.text_preview
+          ? payload.text_preview
+          : input.summary;
+      void sendWebPushToUser(input.tenantId, input.userId, {
+        body: body.slice(0, 240),
+        route: typeof payload.route === "string" ? payload.route : null,
+        ...(input.dedupeKey ? { tag: input.dedupeKey } : {}),
+        title,
+      }).catch(() => undefined);
+    }
   } catch (error) {
     logger.warn("inbox emit failed", {
       kind: input.kind,

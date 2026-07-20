@@ -32,8 +32,11 @@
     <script src="/src/main.tsx" type="module"></script>
     <script>
     "use strict";
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js");
+    // Web push (N2). Guarded: inside the desktop shell the origin is
+    // tauri://localhost and SW registration only allows http(s) — an
+    // unguarded call surfaces as an unhandled rejection in the app.
+    if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
     </script>
   </body>
