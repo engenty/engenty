@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.41] - 2026-07-20
+- ADDED **[secrets]** Agent-gated reveals — identity forwarding, approval gate, durable goal grants
+- ADDED **[secrets]** Password-manager vault UI with dock icon and client/project filters
+- ADDED **[secrets]** Client-anchored secrets vault + services module
+- DOCS **[secrets]** Record UI test results (U1-U6) in test plan
+- FIXED **[core]** Move supabase client construction behind DAL seam
+- FIXED **[dev]** Raise portless readiness probe timeout to 15s
+- FIXED **[secrets]** Enforce tenant boundary in secrets_list (BUG-1)
+
 ## [0.1.40] - 2026-07-20
 - ADDED **[deploy]** Pass SUPABASE_DB_URL + VAPID keys to engenty-ai
 - FIXED **[desktop]** ⌥Space opens a new chat; stop native-listener churn on nav
