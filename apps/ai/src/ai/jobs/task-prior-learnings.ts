@@ -114,6 +114,29 @@ export async function buildPriorLearningsSection(
       }
     }
 
+    // Approved org-wide memories (guidelines, standing decisions) —
+    // highest-confidence first, small cap: they apply to every task.
+    const orgResult = await input.invoke("memory_record_list", {
+      limit: 25,
+      scope_kind: "org",
+      status: "active",
+    });
+    const confidenceRank = { high: 0, medium: 1, low: 2 } as const;
+    const orgRows = rowsOf(orgResult)
+      .sort(
+        (a, b) =>
+          (confidenceRank[
+            (a as { confidence?: string }).confidence as keyof typeof confidenceRank
+          ] ?? 1) -
+          (confidenceRank[
+            (b as { confidence?: string }).confidence as keyof typeof confidenceRank
+          ] ?? 1)
+      )
+      .slice(0, 8);
+    for (const record of orgRows) {
+      add(record);
+    }
+
     // The assignee's own lessons (any scope) — what failed before and why.
     const lessons = await input.invoke("memory_record_list", {
       kind: "lesson",

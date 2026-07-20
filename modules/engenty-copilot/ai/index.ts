@@ -8,6 +8,7 @@ export {
   ENGENTY_COPILOT_TOOL_IDS,
   ENGENTY_INSTRUCTIONS,
   ENGENTY_MEMORY_TOOL_IDS,
+  ENGENTY_SKILL_PROPOSE_TOOL_IDS,
   ENGENTY_VAULT_TOOL_IDS,
   type EngentyCopilotRuntimeTools,
   engentyCopilotAgentConfig,

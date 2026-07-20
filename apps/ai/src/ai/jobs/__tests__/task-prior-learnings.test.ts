@@ -107,6 +107,35 @@ describe("buildPriorLearningsSection", () => {
     expect((section.match(/- \[lesson\]/g) ?? []).length).toBe(1);
   });
 
+  it("injects approved org memories, highest-confidence first, capped at 8", async () => {
+    const orgRows = [
+      row({ confidence: "low", kind: "guideline", slug: "g-low", title: "Low", scope_kind: "org", scope_ref: null }),
+      row({ confidence: "high", kind: "guideline", slug: "g-high", title: "High", scope_kind: "org", scope_ref: null }),
+      ...Array.from({ length: 10 }, (_, index) =>
+        row({
+          confidence: "medium",
+          kind: "guideline",
+          scope_kind: "org",
+          scope_ref: null,
+          slug: `g-med-${index}`,
+          title: `Med ${index}`,
+        })
+      ),
+    ];
+    const section = await buildPriorLearningsSection({
+      agentTypeKey: "a1",
+      contexts: [],
+      invoke: async (_op, input) =>
+        (input as { scope_kind?: string }).scope_kind === "org"
+          ? { rows: orgRows }
+          : { rows: [] },
+    });
+    const lines = section.split("\n").filter((line) => line.startsWith("- ["));
+    expect(lines).toHaveLength(8);
+    expect(lines[0]).toContain("High");
+    expect(section).not.toContain("Low");
+  });
+
   it("returns empty when there is nothing, and on errors (fail-open)", async () => {
     expect(
       await buildPriorLearningsSection({

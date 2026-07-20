@@ -27,6 +27,14 @@ function isAgentPrincipal(auth: PluginAuthContext): boolean {
 }
 
 export interface MemoryGatewayOptions {
+  /**
+   * Fired after an upsert lands as status='proposed' (org governance) so the
+   * plugin can notify approvers. Best-effort — failures never fail the save.
+   */
+  onProposalCreated?: (
+    record: { id: string; slug: string; title: string; agent_type_key: string | null },
+    auth: PluginAuthContext
+  ) => Promise<void> | void;
   /** Validates entity scope_refs against the context-graph ontology. */
   validateEntityRef?: EntityRefValidator;
 }
@@ -72,7 +80,7 @@ export function registerMemoryGatewayMethods(
           : "agent"
         : (parsed.source_kind ?? "human");
       const repo = repoFactory(auth);
-      return repo.upsert({
+      const saved = await repo.upsert({
         scope_kind: parsed.scope_kind,
         scope_ref: parsed.scope_ref ?? null,
         slug: parsed.slug,
@@ -91,6 +99,19 @@ export function registerMemoryGatewayMethods(
         created_by: auth.principalId,
         ...(parsed.supersedes ? { supersedes: parsed.supersedes } : {}),
       });
+      if (saved.status === "proposed") {
+        ctx.recordAuditEvent?.({
+          detail: { record_id: saved.id, slug: saved.slug },
+          operationId: "memory_record_upsert",
+          type: "memory.record.proposed",
+        });
+        try {
+          await options.onProposalCreated?.(saved, auth);
+        } catch {
+          // Best-effort notification — the proposal itself is saved.
+        }
+      }
+      return saved;
     },
   });
 
@@ -138,6 +159,15 @@ export function registerMemoryGatewayMethods(
       if (record.status === "archived") {
         return record;
       }
+      ctx.recordAuditEvent?.({
+        detail: {
+          record_id: record.id,
+          slug: record.slug,
+          was_status: record.status,
+        },
+        operationId: "memory_record_archive",
+        type: "memory.record.archived",
+      });
       // Server-side mirror of the agent discipline: agents never archive
       // human-authored records, org-wide records, or pending proposals —
       // those are flagged to a human instead.
@@ -188,6 +218,11 @@ export function registerMemoryGatewayMethods(
           `memory_record_approve: record '${parsed.id}' is '${record.status}', not 'proposed'`
         );
       }
+      ctx.recordAuditEvent?.({
+        detail: { record_id: record.id, slug: record.slug },
+        operationId: "memory_record_approve",
+        type: "memory.record.approved",
+      });
       return repo.approve(parsed.id);
     },
   });

@@ -15,6 +15,8 @@ Memories persist across conversations and are shown to the user with your name o
 - Before answering anything about a person's preferences, history, or past
   decisions — search first, don't guess.
 - Before starting work on a project or a specific contact/object: search that scope.
+- Before composing anything company-wide (templates, policies, outbound in the
+  company's name): search scope org — approved guidelines live there.
 - "As usual", "like last time", "you know how I like it" → explicit recall cues.
 
 ### When to save

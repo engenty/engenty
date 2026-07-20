@@ -92,7 +92,23 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
       emitMemoryEvent,
     });
 
+  // Approver fan-out for org proposals rides the shared queue infrastructure;
+  // the apps/ai consumer writes the platform-inbox records (same contract
+  // style as team-chat notifications — queue name inlined on both sides so
+  // neither package depends on the other at build time).
+  const queue = server.getQueueService?.() ?? null;
+
   registerMemoryGatewayMethods(server, repoFactory, {
+    onProposalCreated: async (record, auth) => {
+      await queue?.send("memory_approval", {
+        agent_type_key: record.agent_type_key,
+        kind: "memory_proposal",
+        record_id: record.id,
+        slug: record.slug,
+        tenant_id: auth.tenantId,
+        title: record.title,
+      });
+    },
     // Fail-soft: without a graph host, refs validate on format alone.
     validateEntityRef: createEntityRefValidator(server.contextGraph ?? null),
   });

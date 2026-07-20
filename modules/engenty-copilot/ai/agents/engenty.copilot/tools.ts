@@ -43,6 +43,10 @@ export const ENGENTY_MEMORY_TOOL_IDS = [
   "memory_record_archive",
 ];
 
+// Skill self-authoring (approval-gated): draft a SKILL.md proposal from a
+// workflow performed successfully more than once; a human enables it.
+export const ENGENTY_SKILL_PROPOSE_TOOL_IDS = ["skill_propose"];
+
 // Generative UI — agent-authored sandboxed HTML widgets (show_widget) and
 // declarative A2UI surfaces from the engenty catalog (show_ui). Implemented
 // in apps/ai, resolved by the builtin registry.
@@ -62,6 +66,7 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   ...ENGENTY_ARTIFACT_TOOL_IDS,
   ...ENGENTY_MEMORY_TOOL_IDS,
   ...ENGENTY_OBJECT_TOOL_IDS,
+  ...ENGENTY_SKILL_PROPOSE_TOOL_IDS,
   ...ENGENTY_WIDGET_TOOL_IDS,
 ];
 

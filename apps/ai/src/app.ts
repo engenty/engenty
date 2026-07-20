@@ -73,6 +73,7 @@ import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
 import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
+import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
 import { startTeamChatNotificationConsumer } from "./api/team-chat-notification-consumer.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
@@ -698,6 +699,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stopNotifications);
       process.once("SIGINT", stopNotifications);
+      // Org-memory proposals → approver inbox (memory Phase 4).
+      const stopMemoryApprovals = startMemoryApprovalConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopMemoryApprovals);
+      process.once("SIGINT", stopMemoryApprovals);
       // Still-unread notifications → email via the tenant's connector (N4).
       // The service scope is tenant-bound; resolve lazily + cache so a boot
       // race against core doesn't wedge the notifier permanently.

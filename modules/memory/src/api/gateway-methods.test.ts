@@ -93,6 +93,32 @@ describe("memory gateway methods", () => {
     body_md: "Short.",
   };
 
+  it("notifies onProposalCreated only when a save lands as proposed", async () => {
+    const proposals: string[] = [];
+    const strictOps = new Map<string, PluginServerOperation>();
+    registerMemoryGatewayMethods(
+      {
+        registerOperation: (op: PluginServerOperation) => {
+          strictOps.set(op.operationId, op);
+        },
+      } as unknown as PluginServerApi,
+      () => repo,
+      {
+        onProposalCreated: (record) => {
+          proposals.push(record.id);
+        },
+      }
+    );
+    const upsert = strictOps.get("memory_record_upsert");
+    await upsert?.handler(
+      { ...upsertInput, scope_kind: "org", scope_ref: undefined },
+      { auth: agentAuth } as never
+    );
+    expect(proposals).toEqual(["m1"]);
+    await upsert?.handler(upsertInput, { auth: agentAuth } as never);
+    expect(proposals).toEqual(["m1"]);
+  });
+
   it("validates entity refs through the injected validator", async () => {
     const validated: string[] = [];
     const strictOps = new Map<string, PluginServerOperation>();
