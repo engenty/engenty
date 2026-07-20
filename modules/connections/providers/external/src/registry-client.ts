@@ -6,6 +6,10 @@ import { z } from "zod";
  * as early-stage (payload `version: 3`, project v0.0.x), so parsing is
  * deliberately loose: we validate just the branches we consume and persist the
  * raw payload on the imported record for forensics.
+ *
+ * Prefer `GET /api/{domain}/surface` (cached catalog document shown on the
+ * public registry page) over `/discover` (live re-probe — often hangs past our
+ * request timeout while `/surface` returns in hundreds of ms).
  */
 
 const DEFAULT_REGISTRY_URL = "https://integrations.sh";
@@ -155,13 +159,18 @@ export async function registrySearch(
   return searchResponseSchema.parse(data).results;
 }
 
+/**
+ * Load the registry's cached surface document for a domain (same facts as
+ * https://integrations.sh/{domain}/). Named "discover" for historical call
+ * sites; upstream path is `/surface`, not the live `/discover` probe.
+ */
 export async function registryDiscover(
   domain: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<{ parsed: RegistryDiscoverPayload; raw: Record<string, unknown> }> {
   const safeDomain = encodeURIComponent(domain.trim().toLowerCase());
   const data = await fetchJson(
-    `${registryBaseUrl()}/api/${safeDomain}/discover`,
+    `${registryBaseUrl()}/api/${safeDomain}/surface`,
     fetchImpl
   );
   return {
