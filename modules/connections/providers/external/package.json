@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@engenty/api-client": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
     "@engenty/connections": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
     "@engenty/i18n": "workspace:*",
