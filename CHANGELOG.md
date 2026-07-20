@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.43] - 2026-07-20
+- ADDED **[notifications]** Make the email notifier source-agnostic
+- ADDED **[test]** Add Playwright browser smoke lane
+- FIXED **[connections]** Prefer integrations.sh /surface over live /discover
+
 ## [0.1.42] - 2026-07-20
 - ADDED **[import]** Paste-to-import, Sheets TSV fixes, Secrets import
 

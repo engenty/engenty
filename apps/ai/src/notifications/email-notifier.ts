@@ -1,16 +1,23 @@
-// Email channel on the N1 notification fan-out (team-chat phase N4).
+// Email channel on the platform inbox notification fan-out.
+//
+// Source-agnostic: any producer that writes a per-user inbox record via
+// `emitInboxNotification({ source, ... })` (team-chat, agents, tasks,
+// heartbeats, …) can be mailed. Which sources actually get email is an
+// operator opt-in — the allowlist `ENGENTY_EMAIL_NOTIFICATION_SOURCES`
+// (comma-separated, `*` = all). Default is `team-chat` so existing installs
+// behave exactly as before phase N4's generalization.
 //
 // Semantics: "still unread after X minutes" — a periodic scan picks pending
-// team-chat inbox records older than the delay and mails them through the
-// TENANT'S OWN email connection (decision 2026-07-20: connector, not a
-// platform SMTP env). v1 sends via the Gmail connector's `gmail_send_message`
-// gateway op, riding the service JWT like every other background invoker —
-// the connections policy applies, so the tenant's Gmail connection must be
-// set to autonomous "full" with `send_message` on "Allow".
+// inbox records older than the delay and mails them through the TENANT'S OWN
+// email connection (decision 2026-07-20: connector, not a platform SMTP env).
+// v1 sends via the Gmail connector's `gmail_send_message` gateway op, riding
+// the service JWT like every other background invoker — the connections
+// policy applies, so the tenant's Gmail connection must be set to autonomous
+// "full" with `send_message` on "Allow".
 //
-// Read-sync integration for free: N1 flips records to `seen` when the member
-// reads the conversation, and this scan only mails `pending` records — a
-// message read anywhere in time never emails.
+// Read-sync integration for free: reading the source flips records to `seen`,
+// and this scan only mails `pending` records — a notification read anywhere
+// in time never emails.
 //
 // The scan runs on the Mastra notifications table directly (pg): records are
 // partitioned into per-user threads (`inbox:{tenant}:{user}`), and the store
@@ -23,24 +30,60 @@ import { Pool } from "pg";
 import { resolveRunSnapshotConnectionString } from "../ai/mastra-storage.js";
 import type { SchedulerOperationInvoker } from "../scheduler/service-invoker.js";
 
-const logger = createLogger({ name: "team-chat-email-notifier" });
+const logger = createLogger({ name: "email-notifier" });
 
 const SCAN_INTERVAL_MS = 60_000;
 const BATCH_LIMIT = 20;
 
+/** Env with a legacy fallback: new generic name preferred, old team-chat name honored. */
+function envWithLegacy(name: string, legacy: string): string | undefined {
+  const value = process.env[name];
+  return value === undefined ? process.env[legacy] : value;
+}
+
 export function isEmailNotifierEnabled(): boolean {
-  return process.env.ENGENTY_TEAM_CHAT_EMAIL_NOTIFICATIONS_ENABLED !== "false";
+  return (
+    envWithLegacy(
+      "ENGENTY_EMAIL_NOTIFICATIONS_ENABLED",
+      "ENGENTY_TEAM_CHAT_EMAIL_NOTIFICATIONS_ENABLED"
+    ) !== "false"
+  );
 }
 
 function delayMinutes(): number {
-  const parsed = Number(process.env.ENGENTY_TEAM_CHAT_EMAIL_DELAY_MINUTES);
+  const parsed = Number(
+    envWithLegacy(
+      "ENGENTY_EMAIL_NOTIFICATION_DELAY_MINUTES",
+      "ENGENTY_TEAM_CHAT_EMAIL_DELAY_MINUTES"
+    )
+  );
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 5;
+}
+
+/**
+ * Sources opted into email. `"*"` means all sources; otherwise a concrete
+ * allowlist. Default `["team-chat"]` preserves pre-generalization behavior.
+ */
+export function emailSources(): string[] | "*" {
+  const raw = process.env.ENGENTY_EMAIL_NOTIFICATION_SOURCES?.trim();
+  if (!raw) {
+    return ["team-chat"];
+  }
+  if (raw === "*") {
+    return "*";
+  }
+  const list = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return list.length > 0 ? list : ["team-chat"];
 }
 
 export interface DueNotification {
   createdAt: string;
   id: string;
   payload: Record<string, unknown> | null;
+  source: string;
   summary: string;
   threadId: string;
 }
@@ -75,8 +118,8 @@ export function composeNotificationEmail(
   const lines = [
     preview,
     "",
-    ...(link ? [`Open the conversation: ${link}`, ""] : []),
-    "You're receiving this because the message was still unread in Engenty.",
+    ...(link ? [`Open in Engenty: ${link}`, ""] : []),
+    "You're receiving this because it was still unread in Engenty.",
   ];
   return {
     body_text: lines.join("\n"),
@@ -89,7 +132,10 @@ export function composeNotificationEmail(
 /** Injectable seams so the loop is testable without pg/core. */
 export interface EmailNotifierDeps {
   invoke: SchedulerOperationInvoker;
-  listDue(delayMin: number): Promise<DueNotification[]>;
+  listDue(
+    delayMin: number,
+    sources: string[] | "*"
+  ): Promise<DueNotification[]>;
   lookupUserEmail(userId: string): Promise<string | null>;
   markEmailed(id: string, threadId: string, sent: boolean): Promise<void>;
   serviceTenantId(): Promise<string | null>;
@@ -99,7 +145,7 @@ export async function runEmailNotifierOnce(
   deps: EmailNotifierDeps
 ): Promise<{ failed: number; sent: number; skipped: number }> {
   const summary = { failed: 0, sent: 0, skipped: 0 };
-  const due = await deps.listDue(delayMinutes());
+  const due = await deps.listDue(delayMinutes(), emailSources());
   if (due.length === 0) {
     return summary;
   }
@@ -174,18 +220,26 @@ function createPgDeps(
   const pool = new Pool({ connectionString, max: 2 });
   return {
     invoke,
-    async listDue(delayMin) {
+    async listDue(delayMin, sources) {
+      // Wildcard → no source filter; otherwise restrict to the allowlist.
+      const wildcard = sources === "*";
+      const params: unknown[] = [delayMin];
+      let sourceClause = "";
+      if (!wildcard) {
+        params.push(sources);
+        sourceClause = `and source = any($${params.length}::text[])`;
+      }
       const result = await pool.query(
-        `select id, "threadId", summary, payload, "createdAt"
+        `select id, "threadId", source, summary, payload, "createdAt"
            from ai.mastra_notifications
           where status = 'pending'
-            and source = 'team-chat'
+            ${sourceClause}
             and "createdAt" < now() - ($1 * interval '1 minute')
             and (metadata ->> 'email_sent') is null
             and "threadId" like 'inbox:%:%'
           order by "createdAt" asc
           limit ${BATCH_LIMIT}`,
-        [delayMin]
+        params
       );
       return result.rows as DueNotification[];
     },
@@ -216,7 +270,7 @@ export function startEmailNotifier(options: {
 }): () => void {
   if (!isEmailNotifierEnabled()) {
     logger.info(
-      "team-chat email notifier disabled (ENGENTY_TEAM_CHAT_EMAIL_NOTIFICATIONS_ENABLED)"
+      "email notifier disabled (ENGENTY_EMAIL_NOTIFICATIONS_ENABLED)"
     );
     return () => {
       // nothing to stop
@@ -224,7 +278,7 @@ export function startEmailNotifier(options: {
   }
   const deps = createPgDeps(options.invoke, options.resolveTenantId);
   if (!deps) {
-    logger.warn("team-chat email notifier not started (no SUPABASE_DB_URL)");
+    logger.warn("email notifier not started (no SUPABASE_DB_URL)");
     return () => {
       // nothing to stop
     };
@@ -237,9 +291,11 @@ export function startEmailNotifier(options: {
     );
   }, SCAN_INTERVAL_MS);
   timer.unref?.();
-  logger.info("team-chat email notifier started", {
+  const sources = emailSources();
+  logger.info("email notifier started", {
     delayMinutes: delayMinutes(),
     scanIntervalMs: SCAN_INTERVAL_MS,
+    sources: sources === "*" ? "*" : sources.join(","),
   });
   return () => clearInterval(timer);
 }
