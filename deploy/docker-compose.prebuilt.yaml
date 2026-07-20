@@ -96,6 +96,13 @@ services:
       ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # Direct Postgres connection for the Mastra store (inbox notifications,
+      # suspend/resume) and the notification pg pools (web push, email).
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
+      # Web push (VAPID). Unset ⇒ push channel off (config reports null).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
