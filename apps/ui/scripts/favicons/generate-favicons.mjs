@@ -21,6 +21,7 @@ import {
   blobHtml,
   CHARACTER_RADII,
   maskableHtml,
+  STAGE,
 } from "./blob-avatar-page.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -81,24 +82,29 @@ function radiusPath(spec, W, H) {
   ].join(" ");
 }
 
-// Static ember favicon.svg — dark-mode aware. Box 56x48 at (16,20) in 88x88.
+// Static ember favicon.svg — dark-mode aware. Box 56x48 centered in STAGE,
+// tightly framed so the blob fills the icon (matches the raster/APNG framing).
 function faviconSvg() {
   const d = radiusPath(CHARACTER_RADII[0], 56, 48);
-  return `<svg viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+  const bx = (STAGE - 56) / 2; // box left
+  const by = (STAGE - 48) / 2; // box top
+  const right = bx + 56;
+  const ex = bx + 16; // eye 24x24 centered in the 56x48 box
+  const ey = by + 12;
+  return `<svg viewBox="0 0 ${STAGE} ${STAGE}" xmlns="http://www.w3.org/2000/svg">
   <title>Engenty</title>
   <style>
     .body{fill:#e0531b}.ring{fill:none;stroke:#fdfdfd;stroke-width:1.8}.pupil{fill:#fdfdfd}
-    .bub{fill:#e0531b}.shadow{fill:rgba(20,20,20,.15)}
+    .bub{fill:#e0531b}
     @media (prefers-color-scheme: dark){
       .body{fill:#f07040}.ring{stroke:rgba(255,255,255,.88)}.pupil{fill:rgba(255,255,255,.88)}
-      .bub{fill:#f07040}.shadow{fill:rgba(255,255,255,.05)}
+      .bub{fill:#f07040}
     }
   </style>
-  <ellipse class="shadow" cx="44" cy="70" rx="22" ry="3"/>
-  <g transform="translate(16 20)"><path class="body" d="${d}"/></g>
-  <circle class="bub" cx="72" cy="18" r="4" opacity=".6"/>
-  <circle class="bub" cx="59" cy="11" r="3" opacity=".35"/>
-  <g transform="translate(32 32)">
+  <g transform="translate(${bx} ${by})"><path class="body" d="${d}"/></g>
+  <circle class="bub" cx="${right - 2}" cy="${by}" r="4" opacity=".6"/>
+  <circle class="bub" cx="${right - 11}" cy="${by - 5}" r="3" opacity=".35"/>
+  <g transform="translate(${ex} ${ey})">
     <circle class="ring" cx="12" cy="11" r="5.2"/>
     <circle class="pupil" cx="12" cy="11" r="2.2"/>
   </g>
@@ -115,8 +121,8 @@ try {
   // 1) Static ember master @512, then downscale the raster variants.
   const master = path.join(WORK, "ember-512.png");
   const ctx = await browser.newContext({
-    deviceScaleFactor: 512 / 88,
-    viewport: { width: 88, height: 88 },
+    deviceScaleFactor: 512 / STAGE,
+    viewport: { width: STAGE, height: STAGE },
   });
   const page = await ctx.newPage();
   await page.setContent(blobHtml({ box: 56 }), { waitUntil: "load" });
@@ -151,8 +157,8 @@ try {
   // 4) Animated APNG — cycle all five characters. Deterministic WAAPI sampling
   //    keeps the loop seamless regardless of capture speed.
   const actx = await browser.newContext({
-    deviceScaleFactor: APNG_PX / 88,
-    viewport: { width: 88, height: 88 },
+    deviceScaleFactor: APNG_PX / STAGE,
+    viewport: { width: STAGE, height: STAGE },
   });
   const apage = await actx.newPage();
   await apage.setContent(blobHtml({ box: 56, loopMs: LOOP }), {

@@ -22,6 +22,11 @@ export const CHARACTER_RADII = [
 ];
 const EYE = "#fdfdfd"; // primary-foreground = oklch(99% 0 0)
 
+// Tight square canvas (px, in native box units) around the 56x48 blob. Sized
+// so the blob fills ~82% of the icon — favicons render at 16-32px, so a padded
+// frame reads as a tiny mark lost in whitespace. Accents are pulled in to fit.
+export const STAGE = 68;
+
 export function blobHtml({ box = 56, loopMs = 8000 } = {}) {
   const s = box / 56;
   const p = (n) => `${(n * s).toFixed(3)}px`;
@@ -43,7 +48,7 @@ export function blobHtml({ box = 56, loopMs = 8000 } = {}) {
   }`;
   return `<!doctype html><html><head><meta charset="utf-8"><style>
   html,body{margin:0;background:transparent}
-  .stage{width:${p(88)};height:${p(88)};display:flex;align-items:center;justify-content:center}
+  .stage{width:${p(STAGE)};height:${p(STAGE)};display:flex;align-items:center;justify-content:center}
   @keyframes blob-wobble{0%,100%{transform:scaleX(1) scaleY(1) rotate(0deg)}25%{transform:scaleX(1.06) scaleY(.94) rotate(-1.5deg)}50%{transform:scaleX(.96) scaleY(1.04) rotate(.5deg)}75%{transform:scaleX(1.04) scaleY(.95) rotate(1.5deg)}}
   @keyframes blob-eye-drift{0%,18%,100%{transform:translate(0,0)}24%,38%{transform:translate(2.2px,-1.4px)}44%,60%{transform:translate(-2px,1px)}66%,82%{transform:translate(1.2px,1.8px)}88%{transform:translate(-1px,-1.6px)}}
   @keyframes blob-eye-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
@@ -59,20 +64,18 @@ export function blobHtml({ box = 56, loopMs = 8000 } = {}) {
   .pupil{animation:blob-eye-drift 4000ms ease-in-out infinite}
   .acc{position:absolute;inset:0;pointer-events:none}
   .variant{position:absolute;inset:0;display:none}
-  .shadow{position:absolute;bottom:${p(-10)};left:50%;transform:translateX(-50%);height:${p(6)};width:80%;border-radius:9999px;background:rgba(20,20,20,.15);filter:blur(${p(1.5)})}
   .bub{position:absolute;border-radius:9999px;background:var(--acc);animation:blob-bubble-float 2000ms ease-in-out infinite}
-  .b1{top:${p(-6)};right:${p(-4)};width:${p(8)};height:${p(8)};opacity:.6}
-  .b2{top:${p(-12)};right:${p(10)};width:${p(6)};height:${p(6)};opacity:.35;animation-delay:-1000ms}
-  .dot{position:absolute;top:${p(-8)};right:${p(2)};width:${p(8)};height:${p(8)};border-radius:9999px;background:var(--acc);opacity:.7}
+  .b1{top:${p(-4)};right:${p(-2)};width:${p(8)};height:${p(8)};opacity:.6}
+  .b2{top:${p(-8)};right:${p(8)};width:${p(6)};height:${p(6)};opacity:.35;animation-delay:-1000ms}
+  .dot{position:absolute;top:${p(-5)};right:${p(2)};width:${p(8)};height:${p(8)};border-radius:9999px;background:var(--acc);opacity:.7}
   .ray{position:absolute;border-radius:9999px;background:var(--acc);animation:blob-ray-pulse 2500ms ease-in-out infinite}
-  .rayL{top:50%;left:${p(-12)};height:${p(2)};width:${p(8)};transform-origin:right}
-  .rayR{top:50%;right:${p(-12)};height:${p(2)};width:${p(8)};transform-origin:left}
-  .rayT{top:${p(-10)};left:50%;height:${p(8)};width:${p(2)};transform:translateX(-50%)}
-  .waves{position:absolute;top:${p(-18)};left:50%;transform:translateX(-50%);width:${p(28)};color:var(--acc);animation:blob-wave-pulse 2000ms ease-in-out infinite}
+  .rayL{top:50%;left:${p(-5)};height:${p(2)};width:${p(6)};transform-origin:right}
+  .rayR{top:50%;right:${p(-5)};height:${p(2)};width:${p(6)};transform-origin:left}
+  .rayT{top:${p(-6)};left:50%;height:${p(6)};width:${p(2)};transform:translateX(-50%)}
+  .waves{position:absolute;top:${p(-9)};left:50%;transform:translateX(-50%);width:${p(20)};color:var(--acc);animation:blob-wave-pulse 2000ms ease-in-out infinite}
   </style></head><body>
   <div class="stage"><div class="blob" id="blob" style="--acc:${C[0]}">
     <span class="acc" id="acc">
-      <span class="shadow"></span>
       <span class="variant" data-c="0"><span class="bub b1"></span><span class="bub b2"></span></span>
       <span class="variant" data-c="1"><span class="bub b1"></span><span class="bub b2"></span></span>
       <span class="variant" data-c="2"><span class="dot"></span></span>
