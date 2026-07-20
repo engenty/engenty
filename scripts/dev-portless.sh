@@ -114,7 +114,25 @@ if [[ -z "${RESOLVED_DOMAIN}" ]]; then
   TURBO_TASKS+=(studio)
 fi
 
-exec pnpm exec turbo run "${TURBO_TASKS[@]}" \
+# Turbo's TUI ("ui": "tui") puts the terminal into raw mode + alt screen. If a
+# run crashes or is Ctrl-C'd, Turbo can fail to restore cooked mode, leaving the
+# shell in "staircase" mode (newlines with no carriage return). Snapshot the tty
+# state up front and restore it on exit so an interrupted dev session never
+# wrecks the terminal. Not `exec`: the shell must outlive Turbo to run the trap.
+tty_state=""
+if [[ -t 0 ]]; then
+  tty_state="$(stty -g 2>/dev/null || true)"
+fi
+restore_tty() {
+  if [[ -n "$tty_state" ]]; then
+    stty "$tty_state" 2>/dev/null || true
+  else
+    stty sane 2>/dev/null || true
+  fi
+}
+trap restore_tty EXIT
+
+pnpm exec turbo run "${TURBO_TASKS[@]}" \
   --filter=./apps/core \
   --filter=./apps/ui \
   --filter=./apps/ai \
