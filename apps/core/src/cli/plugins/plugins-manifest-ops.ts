@@ -8,7 +8,6 @@ import {
   moduleHasUi,
   readEngentyPluginsManifest,
   readPluginManifest,
-  resolveEnabledModules,
   resolveModuleDir,
 } from "@engenty/environment";
 import { runPnpmCommand } from "../run-pnpm-command.js";
@@ -188,19 +187,47 @@ export function disablePluginsInProduct(params: {
   };
 }
 
+// Validation check (not the runtime resolver): every enabled manifest slug
+// must be a workspace plugin present on disk with a plugin manifest, mirroring
+// scripts/check-engenty-plugins.mjs. This is deliberately STRICT — unlike
+// `resolveEnabledModules`, which soft-skips not-on-disk plugins so an open
+// worktree that lists closed plugins can still boot. Don't delegate this to the
+// resolver, or missing plugins go unreported.
 export function checkPluginManifest(repoRoot: string): {
   enabledCount: number;
   errors: string[];
   ok: boolean;
 } {
   const errors: string[] = [];
-  try {
-    const enabled = resolveEnabledModules(repoRoot);
-    return { ok: errors.length === 0, errors, enabledCount: enabled.length };
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-    return { ok: false, errors, enabledCount: 0 };
+  const { plugins, slugs } = readEngentyPluginsManifest(repoRoot);
+  const onDisk = new Set(listWorkspaceModuleSlugsOnDisk(repoRoot));
+  let enabledCount = 0;
+
+  for (const slug of slugs) {
+    const spec = plugins[slug];
+    if (!spec) {
+      continue;
+    }
+    if (spec.source !== "workspace") {
+      errors.push(
+        `engenty.plugins.${slug} uses source "${spec.source}" — only workspace plugins are supported in v1`
+      );
+      continue;
+    }
+    if (!onDisk.has(slug)) {
+      errors.push(
+        `modules/${slug}/ is missing on disk — copy or scaffold the plugin first`
+      );
+      continue;
+    }
+    if (!readPluginManifest(resolveModuleDir(repoRoot, slug))) {
+      errors.push(`modules/${slug}/ is missing ${ENGENTY_PLUGIN_MANIFEST}`);
+      continue;
+    }
+    enabledCount += 1;
   }
+
+  return { ok: errors.length === 0, errors, enabledCount };
 }
 
 /** @deprecated Use enablePluginsInProduct */
