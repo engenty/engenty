@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.42] - 2026-07-20
+- ADDED **[import]** Paste-to-import, Sheets TSV fixes, Secrets import
+
 ## [0.1.41] - 2026-07-20
 - ADDED **[secrets]** Agent-gated reveals — identity forwarding, approval gate, durable goal grants
 - ADDED **[secrets]** Password-manager vault UI with dock icon and client/project filters
