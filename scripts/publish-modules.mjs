@@ -110,12 +110,12 @@ export function moduleTier(relDir, closedPrefixes) {
 }
 
 function parseArgs(argv) {
-  const args = { dryRun: false, version: "", openOnly: false };
+  const args = { dryRun: false, version: "", includePro: false };
   for (const arg of argv) {
     if (arg === "--dry-run") {
       args.dryRun = true;
-    } else if (arg === "--open-only") {
-      args.openOnly = true;
+    } else if (arg === "--pro") {
+      args.includePro = true;
     } else if (arg.startsWith("--version=")) {
       args.version = arg.slice("--version=".length).trim();
     } else {
@@ -160,33 +160,25 @@ function publishModule(mod, { version, dryRun, tier }) {
 }
 
 function main() {
-  const { dryRun, version, openOnly } = parseArgs(process.argv.slice(2));
+  const { dryRun, version, includePro } = parseArgs(process.argv.slice(2));
   if (!(version || dryRun)) {
     throw new Error("--version=<x.y.z> is required for a real publish");
   }
   const root = resolveRepoRoot();
   const closedPrefixes = readClosedPrefixes(root);
   // Option B publishes the leaf modules, not the internal platform packages.
-  // Each module carries its tier (open/pro) from CLOSED_PREFIXES; --open-only
-  // skips pro modules (e.g. for a future public/community feed). By default
-  // both tiers publish to the private @engenty registry — pro modules are
-  // gated at enable-time by the manage app, not by omitting them here.
-  const modules = resolveEnabledModules(root, { strict: false })
+  // Each module carries its tier (open/pro) from CLOSED_PREFIXES. Default is
+  // OPEN ONLY (safe — e.g. a public/community feed); pass --pro to also include
+  // pro modules (the release workflow does, so the private @engenty registry
+  // gets both — pro modules are then gated at enable-time by the manage app).
+  const all = resolveEnabledModules(root, { strict: false })
     .filter((mod) => mod.source === "workspace")
     .map((mod) => ({
       ...mod,
       tier: moduleTier(path.relative(root, mod.dir), closedPrefixes),
-    }))
-    .filter((mod) => !(openOnly && mod.tier === "pro"));
-
-  const skipped = openOnly
-    ? resolveEnabledModules(root, { strict: false })
-        .filter((m) => m.source === "workspace")
-        .filter(
-          (m) =>
-            moduleTier(path.relative(root, m.dir), closedPrefixes) === "pro"
-        ).length
-    : 0;
+    }));
+  const modules = all.filter((mod) => includePro || mod.tier !== "pro");
+  const skipped = all.length - modules.length;
 
   const results = [];
   for (const mod of modules) {
@@ -202,7 +194,7 @@ function main() {
   console.log(
     `\npublish-modules: ${label} ${results.length} module(s) ` +
       `(${results.length - proCount} open, ${proCount} pro)` +
-      (openOnly && skipped > 0 ? ` — skipped ${skipped} pro (--open-only)` : "")
+      (skipped > 0 ? ` — skipped ${skipped} pro (pass --pro to include)` : "")
   );
 }
 

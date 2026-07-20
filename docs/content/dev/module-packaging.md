@@ -51,10 +51,11 @@ never mutated — the transform runs against a staged copy.
 
 Each published module is tagged `engenty.tier` (`open` | `pro`), classified from
 the **`CLOSED_PREFIXES`** list in `scripts/publish-open.sh` (the single source of
-truth, shared with the public-mirror sync). By default both tiers publish to the
-private `@engenty` registry — pro modules are gated at **enable-time by the
-manage app** (per-tenant entitlement), not by omitting them from the registry.
-`--open-only` skips pro modules, for a future public/community feed.
+truth, shared with the public-mirror sync). The script defaults to **open only**
+(safe, e.g. a future public/community feed); **`--pro`** opts into pro modules —
+the release workflow passes it, so the private `@engenty` registry gets both
+tiers. Pro modules are then gated at **enable-time by the manage app** (per-tenant
+entitlement), not by omitting them from the registry.
 
 Real publishing is gated (safe by default):
 

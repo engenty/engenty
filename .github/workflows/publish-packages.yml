@@ -65,10 +65,12 @@ jobs:
       # enabled. Version = the tag (lockstep with the platform).
       - name: Publish modules
         run: |
+          # --pro: the private @engenty registry gets both tiers (pro modules
+          # are gated at enable-time by the manage app, not by omission here).
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ vars.PUBLISH_PACKAGES_ENABLED }}" = "true" ]; then
             version="${GITHUB_REF_NAME#v}"
-            node scripts/publish-modules.mjs --version="$version"
+            node scripts/publish-modules.mjs --version="$version" --pro
           else
             echo "Dry-run (PUBLISH_PACKAGES_ENABLED != 'true' or manual trigger)."
-            node scripts/publish-modules.mjs --dry-run
+            node scripts/publish-modules.mjs --dry-run --pro
           fi
