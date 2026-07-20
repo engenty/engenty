@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.44] - 2026-07-20
+- ADDED **[modules]** Package each module as a self-contained tarball (Level A / A1)
+- ADDED **[import]** Import from connections and move platform import to /setup
+- FIXED **[plugins]** Make checkPluginManifest report missing on-disk plugins
+- FIXED **[env]** Sync env example files with the manifest
+- FIXED **[deps]** Sync lockfile for time-tracking package deps
+
 ## [0.1.43] - 2026-07-20
 - ADDED **[notifications]** Make the email notifier source-agnostic
 - ADDED **[test]** Add Playwright browser smoke lane
