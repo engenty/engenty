@@ -18,6 +18,7 @@ import {
   fileSpaceItemParamsSchema,
   fileSpaceParamsSchema,
   folderNodeSchema,
+  readFileSourceBodySchema,
 } from "../schema/file-manager-zod.js";
 import { decodeConnectorNodeId } from "../sources/connector-ref.js";
 
@@ -125,6 +126,79 @@ export function registerFileSourcesRoutes(
           ref: entry.ref,
           size: entry.size,
         })),
+      };
+    },
+  });
+
+  // ── Read a source file as text (CSV import / one-shot pull) ──
+  server.registerHttpRoute({
+    method: "post",
+    path: "/api/files/sources/:connectionId/read",
+    operation: READ_OP,
+    summary: "Read a file from a connection as text for import",
+    tags: ["files"],
+    request: { body: readFileSourceBodySchema },
+    handler: async (ctx) => {
+      const hono = ctx.hono as Hono;
+      if (!ctx.auth) {
+        return hono.json({ error: "Unauthorized" }, 401);
+      }
+      const connectionId = (ctx.params as { connectionId?: string })
+        ?.connectionId;
+      if (!connectionId) {
+        return hono.json({ error: "missing connectionId" }, 400);
+      }
+      const body = ctx.body as z.infer<typeof readFileSourceBodySchema>;
+
+      const sources = await client.listFileSources({
+        tenantId: ctx.auth.tenantId,
+      });
+      const connection = sources.find((c) => c.id === connectionId);
+      if (
+        !connection ||
+        (connection.sharing !== "org" &&
+          connection.owner_user_id !== ctx.auth.principalId)
+      ) {
+        return hono.json({ error: "connection not available" }, 404);
+      }
+
+      const result = await client.filesRead({
+        connectionId,
+        fileRef: body.fileRef,
+        maxBytes: 8 * 1024 * 1024,
+        principal: principalOf(ctx.auth),
+        tenantId: ctx.auth.tenantId,
+      });
+
+      if (result.kind === "url") {
+        const res = await fetch(result.url);
+        if (!res.ok) {
+          return hono.json(
+            { error: `failed to fetch file url (${res.status})` },
+            502
+          );
+        }
+        const content = await res.text();
+        return {
+          content,
+          filename: result.name ?? "import.csv",
+          mimeType: result.mime_type ?? null,
+        };
+      }
+      if (result.kind === "base64") {
+        const bytes = Uint8Array.from(atob(result.content_base64), (c) =>
+          c.charCodeAt(0)
+        );
+        return {
+          content: new TextDecoder("utf-8", { fatal: false }).decode(bytes),
+          filename: result.name ?? "import.csv",
+          mimeType: result.mime_type ?? null,
+        };
+      }
+      return {
+        content: result.content,
+        filename: result.name ?? "import.csv",
+        mimeType: result.mime_type ?? null,
       };
     },
   });

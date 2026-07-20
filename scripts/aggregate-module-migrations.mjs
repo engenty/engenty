@@ -285,7 +285,11 @@ function main() {
       }
       const outPath = path.join(outDir, entry);
       const content = fs.readFileSync(outPath, "utf-8");
-      if (entry.includes("_plugin_") || isAggregatedMigration(content)) {
+      if (
+        entry.endsWith("_shared_stack_placeholder.sql") ||
+        entry.includes("_plugin_") ||
+        isAggregatedMigration(content)
+      ) {
         fs.unlinkSync(outPath);
         pruned += 1;
       }

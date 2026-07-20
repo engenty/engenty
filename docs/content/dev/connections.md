@@ -19,9 +19,11 @@ the stable developer reference.
 packages/connections-sdk                 @engenty/connections-sdk — shared types + runtime
 modules/connections                      framework module: schema, OAuth routes,
                                          management operations, policy gate, UI
-modules/connections/providers/google       connectors: google-gmail, google-drive, google-calendar
+modules/connections/providers/google       connectors: google-gmail, google-drive,
+                                           google-calendar, google-contacts
 modules/connections/providers/microsoft    connectors: microsoft-outlook, microsoft-onedrive
 modules/connections/providers/slack        connector: slack
+modules/connections/providers/hubspot      connector: hubspot (api_key / private app)
 modules/connections/providers/s3           connector: s3 (api_key auth, files capability)
 modules/connections/providers/local-files  connector: local-files (browser auth, FSA bridge)
 ```

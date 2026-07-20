@@ -105,7 +105,25 @@
       "descriptionShort": "Um Import-Duplikate zuordnen zu können."
     },
     "rowOf": "Zeile {{row}} von {{total}}",
-    "rowFailed": "Zeile {{row}}: {{message}}"
+    "rowFailed": "Zeile {{row}}: {{message}}",
+    "connections": {
+      "sectionTitle": "Aus einer Verbindung",
+      "connected": "Verbunden",
+      "notConnected": "Nicht verbunden",
+      "use": "Verwenden",
+      "useAccount": "Konto verwenden",
+      "connect": "Verbinden",
+      "connecting": "Verbinden…",
+      "connectPersonal": "Für mich verbinden",
+      "connectOrg": "Für die Organisation verbinden",
+      "openSettings": "In Einstellungen verbinden",
+      "credentialsTitle": "Konto verbinden",
+      "submitCredentials": "Verbinden",
+      "loadingCatalog": "Verbindungen werden geladen…",
+      "browseTitle": "Datei auswählen",
+      "browseDescription": "Wähle eine CSV-, TSV-Datei oder Google Tabelle zum Importieren.",
+      "browseEmpty": "Keine importierbaren Dateien in diesem Ordner."
+    }
   },
   "addClient": "Hinzufügen",
   "clearSelection": "Auswahl aufheben",

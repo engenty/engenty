@@ -2,6 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   CSVImportWizard,
   type CSVImportWizardLabels,
+  connectionImportSourcesForDomain,
   ImportPageShell,
   type ImportRunProgress,
   importPageContentClassName,
@@ -25,7 +26,7 @@ import {
   type SecretImportContext,
 } from "../lib/import-secrets.js";
 import { secretsKeys, useClientsQuery, useProjectsQuery } from "../queries.js";
-import { SECRETS_MODULE_BASE } from "../secrets-paths.js";
+import { SECRETS_IMPORT_PATH, SECRETS_MODULE_BASE } from "../secrets-paths.js";
 
 export function SecretsImportPage() {
   const { t } = useTranslation("secrets");
@@ -122,6 +123,33 @@ export function SecretsImportPage() {
     [t]
   );
 
+  const connectionImport = useMemo(
+    () => ({
+      labels: {
+        browseEmpty: t("import.connections.browseEmpty"),
+        browseDescription: t("import.connections.browseDescription"),
+        browseTitle: t("import.connections.browseTitle"),
+        cancel: t("cancel"),
+        connect: t("import.connections.connect"),
+        connecting: t("import.connections.connecting"),
+        connectOrg: t("import.connections.connectOrg"),
+        connectPersonal: t("import.connections.connectPersonal"),
+        connected: t("import.connections.connected"),
+        credentialsTitle: t("import.connections.credentialsTitle"),
+        loadingCatalog: t("import.connections.loadingCatalog"),
+        notConnected: t("import.connections.notConnected"),
+        openSettings: t("import.connections.openSettings"),
+        sectionTitle: t("import.connections.sectionTitle"),
+        submitCredentials: t("import.connections.submitCredentials"),
+        use: t("import.connections.use"),
+        useAccount: t("import.connections.useAccount"),
+      },
+      redirectTo: SECRETS_IMPORT_PATH,
+      sources: connectionImportSourcesForDomain("secrets"),
+    }),
+    [t]
+  );
+
   const handleProgress = (progress: ImportRunProgress) => {
     const message = t("import.progress", {
       processed: progress.processed,
@@ -162,6 +190,7 @@ export function SecretsImportPage() {
       <Toaster />
       <CSVImportWizard
         className={importPageContentClassName}
+        connectionImport={connectionImport}
         fieldDefinitions={SECRETS_IMPORT_FIELDS}
         labels={labels}
         onAiMap={async (input) => {

@@ -62,7 +62,7 @@ export function ConnectionsWorkspacePage() {
       <div className="flex items-center gap-2">
         {/* Import console is superadmin-gated on its own page and API. */}
         <Button
-          onClick={() => navigate(`${CONNECTIONS_ROOT_PATH}/import`)}
+          onClick={() => navigate("/setup/connectors")}
           size="sm"
           variant="outline"
         >

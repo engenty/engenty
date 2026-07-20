@@ -1,7 +1,12 @@
-import type { CSVImportWizardLabels } from "../types.js";
+import type {
+  ConnectionImportConfig,
+  CSVImportWizardLabels,
+} from "../types.js";
+import { ConnectionImportSources } from "./ConnectionImportSources.js";
 import { CSVImportSourceZone } from "./CSVImportSourceZone.js";
 
 export interface ImportUploadStepProps {
+  connectionImport?: ConnectionImportConfig;
   error: string | null;
   labels: CSVImportWizardLabels;
   loading: boolean;
@@ -10,6 +15,7 @@ export interface ImportUploadStepProps {
 }
 
 export function ImportUploadStep({
+  connectionImport,
   labels,
   loading,
   error,
@@ -24,7 +30,7 @@ export function ImportUploadStep({
         </div>
       )}
 
-      <div className="mt-6 space-y-2">
+      <div className="mt-6 space-y-4">
         <CSVImportSourceZone
           backLabel={labels.back}
           errorEmptyPaste={labels.errorEmptyPaste}
@@ -41,6 +47,16 @@ export function ImportUploadStep({
           uploadHint={labels.uploadHint}
           uploadTitle={labels.uploadTitle}
         />
+
+        {connectionImport && connectionImport.sources.length > 0 ? (
+          <ConnectionImportSources
+            labels={connectionImport.labels}
+            onError={onError}
+            onFileLoaded={onFileLoaded}
+            redirectTo={connectionImport.redirectTo}
+            sources={connectionImport.sources}
+          />
+        ) : null}
 
         <div className="rounded-lg bg-muted/30 px-4 py-3">
           <h3 className="font-semibold text-xs">{labels.totalRows}</h3>

@@ -416,7 +416,25 @@
       "descriptionShort": "To match import duplicates."
     },
     "rowOf": "Row {{row}} of {{total}}",
-    "rowFailed": "Row {{row}}: {{message}}"
+    "rowFailed": "Row {{row}}: {{message}}",
+    "connections": {
+      "sectionTitle": "From a connection",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "use": "Use",
+      "useAccount": "Use account",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "connectPersonal": "Connect for me",
+      "connectOrg": "Connect for the organization",
+      "openSettings": "Connect in Settings",
+      "credentialsTitle": "Connect account",
+      "submitCredentials": "Connect",
+      "loadingCatalog": "Loading connections…",
+      "browseTitle": "Pick a file",
+      "browseDescription": "Choose a CSV, TSV, or Google Sheet to import.",
+      "browseEmpty": "No importable files in this folder."
+    }
   },
   "preview": "Preview",
   "processing": "Processing...",
