@@ -353,12 +353,30 @@ function stripQuery(path: string) {
   return pathname;
 }
 
+function isNavigablePath(itemPath: string): boolean {
+  const pathOnly = stripQuery(itemPath);
+  return pathOnly.length > 0;
+}
+
+function isSecondaryNavLinkChild(child: {
+  to: string;
+  type?: "link" | "separator";
+}): boolean {
+  return child.type !== "separator" && isNavigablePath(child.to);
+}
+
 export function matchesPath(
   currentPath: string,
   currentSearch: string,
   itemPath: string
 ) {
   const pathOnly = stripQuery(itemPath);
+  // Separators use `to: ""`; `startsWith("")` is always true and would steal
+  // secondary-nav ownership (e.g. Settings claiming /setup/*).
+  if (!isNavigablePath(itemPath)) {
+    return false;
+  }
+
   const itemUrl = new URL(itemPath, "http://ui.local");
 
   if (pathOnly === "/") {
@@ -389,12 +407,13 @@ export function findActiveNavLabel(
   t?: TranslateFn
 ) {
   for (const item of flattenItems(sections)) {
+    const linkChildren = item.children?.filter(isSecondaryNavLinkChild);
     if (
-      item.children?.some((child) =>
+      linkChildren?.some((child) =>
         matchesPath(currentPath, currentSearch, child.to)
       )
     ) {
-      const activeChild = item.children.find((child) =>
+      const activeChild = linkChildren.find((child) =>
         matchesPath(currentPath, currentSearch, child.to)
       );
       return activeChild?.label ?? item.label;
@@ -414,9 +433,11 @@ export function getSecondaryNavItems(
   for (const item of flattenItems(sections)) {
     // If we're exactly matching the parent route or any of its children,
     // and the parent has children, this parent "owns" the secondary nav.
+    // Skip separators — empty `to` must not claim ownership of every path.
+    const linkChildren = item.children?.filter(isSecondaryNavLinkChild);
     if (
       matchesPath(currentPath, currentSearch, item.to) ||
-      item.children?.some((child) =>
+      linkChildren?.some((child) =>
         matchesPath(currentPath, currentSearch, child.to)
       )
     ) {

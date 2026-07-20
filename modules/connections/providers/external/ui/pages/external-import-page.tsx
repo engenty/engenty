@@ -3,6 +3,8 @@
 // Imports are platform-level; imported connectors then show up in the normal
 // per-tenant connections console with zero extra UI on that side.
 
+import { useSetupSecondaryShellNav } from "@engenty/app-shell";
+import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation } from "@engenty/query-client";
 import {
   AlertDialog,
@@ -44,7 +46,7 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { RefreshCw, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type {
   ActionClassification,
@@ -145,12 +147,23 @@ function KindBadge({ kind }: { kind: string }) {
 }
 
 export function ExternalImportPage() {
-  usePageConfig({
-    breadcrumbs: [
-      { label: "Setup", to: SETUP_ROOT_PATH },
-      { label: "External connectors" },
+  const { t } = useTranslation("common");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } = useSetupSecondaryShellNav(
+    t("navigation.setup")
+  );
+
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("navigation.setupConnectors") },
     ],
+    [moduleRootCrumb, t]
+  );
+
+  usePageConfig({
+    breadcrumbs,
     contentStackBackground: "paper",
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
 
