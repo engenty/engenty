@@ -48,6 +48,19 @@ pre-existing rows — the shared dev database also serves local development.
 Reference suites: `modules/tasks/src/dal/tasks-repo.integration.test.ts`,
 `packages/retrieval/e2e/retrieval.e2e.test.ts`.
 
+## Smoke lane (browser E2E)
+
+Whole-flow confidence comes from `e2e/smoke/*.spec.ts` (Playwright,
+`pnpm test:smoke`, config in `playwright.config.ts`): real stack, real DB,
+rendered UI. Conventions: log in per spec with `gotoLoggedIn()` from
+`e2e/helpers.ts` (never share a storageState — refresh-token rotation breaks
+it), match labels with the dual-locale `t()`/`tLoose()` helpers (the dev
+tenant may run German or English), create uniquely named entities and delete
+them through the UI when the module supports it, and never post into real
+team-chat channels (use the dedicated `smoke-e2e` channel — real channels
+may be Slack-bridged). The LLM copilot spec is gated on
+`ENGENTY_SMOKE_LLM=1`. CI: `.github/workflows/smoke.yml` (nightly + manual).
+
 ## Fixtures
 
 Use `@engenty/test-kit` (add as `workspace:*` devDependency): `makeAuth()` + `TEST_TENANT_ID`/`TEST_USER_ID` instead of hand-typed `"tenant-1"` literals, `createFakeSupabase()` (filters actually apply) instead of one-off thenable fakes, and `makeMockApi()` for `PluginServerApi`. Domain fixtures (repo fakes, entity builders) stay module-local — follow the override-style `make*()` builder pattern from `packages/retrieval/src/test-utils.ts`.

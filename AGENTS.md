@@ -59,7 +59,7 @@ Default dev URL: `http://localhost:5173` (Vite proxies `/api` and `/ai`). Portle
 
 ## Browser verification
 
-- **Headless / Playwright:** always `http://localhost:5173`
+- **Headless / Playwright:** always `http://localhost:5173`; browser smoke suite: `pnpm test:smoke` (e2e/smoke, needs the dev stack)
 - **Claude Code preview / system-trusted cert:** `https://engenty.localhost` when Portless is running
 - **Agent login:** `/auth/agent-login` on the origin you test (requires `ENGENTY_DEV_PASS`, non-prod)
 - Sessions are per-origin — log in on the origin you actually load

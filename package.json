@@ -103,6 +103,7 @@
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:smoke": "playwright test",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",
@@ -150,6 +151,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.20",
     "@vitest/coverage-v8": "^4.1.9",
     "git-cliff": "^2.13.1",
