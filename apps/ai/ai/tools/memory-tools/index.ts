@@ -87,6 +87,12 @@ export const memorySaveTool = createTool({
       .enum(["agent", "reflection"])
       .default("agent")
       .describe("use 'reflection' only from a post-task reflection step"),
+    supersedes: z
+      .string()
+      .optional()
+      .describe(
+        "when consolidating near-duplicates: the id of the record this merged record replaces (archive that record afterwards)"
+      ),
   }),
   execute: async (input) => {
     const client = getCurrentEngentyToolsClient();

@@ -4,7 +4,12 @@
     "moduleResolution": "nodenext",
     "module": "NodeNext",
     "outDir": "dist",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "ai"
+  ]
 }

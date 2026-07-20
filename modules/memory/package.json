@@ -3,28 +3,32 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./dist/plugin.js",
-  "types": "./dist/plugin.d.ts",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/plugin.d.ts",
-      "default": "./dist/plugin.js"
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
     },
     "./dal": {
-      "types": "./dist/dal/index.d.ts",
-      "default": "./dist/dal/index.js"
+      "types": "./dist/src/dal/index.d.ts",
+      "default": "./dist/src/dal/index.js"
     },
     "./schema": {
-      "types": "./dist/schema/zod.d.ts",
-      "default": "./dist/schema/zod.js"
+      "types": "./dist/src/schema/zod.d.ts",
+      "default": "./dist/src/schema/zod.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
     }
   },
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts ai/registrar.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts ai/registrar.ts --format esm --dts --watch",
     "test": "vitest run --root ../.. modules/memory/",
     "lint": "echo 'No lint yet'"
   },
@@ -34,7 +38,8 @@
     "@engenty/search-index": "workspace:*",
     "@supabase/supabase-js": "^2.108.2",
     "uuidv7": "^1.2.1",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@engenty/ai-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

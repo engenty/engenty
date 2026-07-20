@@ -4,6 +4,7 @@ import type {
   PluginAuthContext,
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { memoryAiRegistration } from "../ai/registrar.js";
 import { registerMemoryGatewayMethods } from "./api/index.js";
 import type { EmitMemoryEvent } from "./dal/contracts.js";
 import {
@@ -112,6 +113,12 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
     // Fail-soft: without a graph host, refs validate on format alone.
     validateEntityRef: createEntityRefValidator(server.contextGraph ?? null),
   });
+
+  // AI surface: the weekly consolidation routine (ai/routines/consolidate) —
+  // reconciled on boot into a source:"module" schedule trigger + task
+  // template, so it runs through the normal task pipeline (usage caps,
+  // audit, and the reflect step come for free).
+  server.registerAiRegistration(memoryAiRegistration());
 
   // A deleted contact takes its entity memories with it (soft-archive, so
   // nothing dangles in recall). The payload carries only the contact id —
