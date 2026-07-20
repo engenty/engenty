@@ -37,8 +37,15 @@ jobs:
 
       # Modules ship dist/ (the UI app consumes ./ui/plugin via the package
       # export); build before packing so the published tarball is complete.
+      # --concurrency=4 avoids the OOM/thrash that cancelled the build at the
+      # default 10 (same cap as build-images). TURBO_* use the remote cache when
+      # configured so this is mostly cache hits, not a cold 28-module rebuild.
       - name: Build modules
-        run: pnpm exec turbo run build --filter=./modules/**
+        run: pnpm exec turbo run build --filter=./modules/** --concurrency=4
+        env:
+          TURBO_API: ${{ vars.TURBO_API }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
       # GitHub Packages npm auth for the @engenty scope. GITHUB_TOKEN carries
       # packages:write for this repo's owner (the engenty org).
