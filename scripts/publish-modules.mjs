@@ -38,7 +38,7 @@ export const REGISTRY = "https://npm.pkg.github.com";
  */
 export function transformModuleManifestForPublish(pkg, { version } = {}) {
   const out = { ...pkg };
-  delete out.private;
+  out.private = undefined;
   if (version) {
     out.version = version;
   }
@@ -53,15 +53,12 @@ export function transformModuleManifestForPublish(pkg, { version } = {}) {
       runtimeDeps[name] = range;
     }
   }
-  if (Object.keys(runtimeDeps).length > 0) {
-    out.dependencies = runtimeDeps;
-  } else {
-    delete out.dependencies;
-  }
+  out.dependencies =
+    Object.keys(runtimeDeps).length > 0 ? runtimeDeps : undefined;
   if (Object.keys(peers).length > 0) {
     out.peerDependencies = peers;
   }
-  delete out.devDependencies;
+  out.devDependencies = undefined;
   out.publishConfig = { ...(out.publishConfig ?? {}), registry: REGISTRY };
   return out;
 }
