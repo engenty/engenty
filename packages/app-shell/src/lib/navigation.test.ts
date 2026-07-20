@@ -375,6 +375,12 @@ describe("navigation", () => {
     it("does not match unrelated paths", () => {
       expect(matchesPath("/dashboard", "", "/settings")).toBe(false);
     });
+
+    it("does not match empty item paths (separators)", () => {
+      expect(matchesPath("/setup/connectors", "", "")).toBe(false);
+      expect(matchesPath("/settings/ai", "", "")).toBe(false);
+      expect(matchesPath("/", "", "")).toBe(false);
+    });
   });
 
   describe("getSecondaryNavItems", () => {
@@ -492,6 +498,47 @@ describe("navigation", () => {
       expect(
         getSecondaryNavItems("/setup/connectors", "", sectionsWithSetup)
       ).toEqual(setupChildren);
+    });
+
+    it("does not let settings separators steal /setup secondary nav", () => {
+      const setupChildren = [
+        { to: "/setup/connectors", label: "External connectors" },
+      ];
+      const settingsChildren = [
+        { to: "/settings/ai", label: "AI" },
+        { to: "/settings/connections", label: "Connections" },
+        { to: "", label: "", type: "separator" as const },
+        { to: "/settings/secrets", label: "Secrets" },
+      ];
+      const sections = [
+        ...mockSections.slice(0, 2),
+        {
+          label: "Admin",
+          items: [
+            {
+              to: "/settings",
+              label: "Settings",
+              icon: () => null,
+              children: settingsChildren,
+            },
+            {
+              to: "/setup",
+              label: "Setup",
+              icon: () => null,
+              children: setupChildren,
+            },
+          ],
+        },
+      ];
+      expect(getSecondaryNavItems("/setup/connectors", "", sections)).toEqual(
+        setupChildren
+      );
+      expect(getSecondaryNavItems("/setup", "", sections)).toEqual(
+        setupChildren
+      );
+      expect(getSecondaryNavItems("/settings/ai", "", sections)).toEqual(
+        settingsChildren
+      );
     });
   });
 });

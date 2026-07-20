@@ -16,6 +16,7 @@ export {
   type ModuleSidebarHeaderLabelProps,
 } from "./components/app-layout/module-sidebar-header-label";
 export { useSettingsSecondaryShellNav } from "./components/app-layout/use-settings-secondary-shell-nav";
+export { useSetupSecondaryShellNav } from "./components/app-layout/use-setup-secondary-shell-nav";
 export {
   setWorkspaceEndPaneExpanded,
   useWorkspaceEndPaneTarget,
