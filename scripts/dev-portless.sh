@@ -76,16 +76,20 @@ else
 fi
 
 if [[ -x "$PORTLESS" ]]; then
+  echo "==> Checking Portless HTTPS proxy on :443…" >&2
   if ! bash "${ROOT}/scripts/portless-proxy-check.sh" >/dev/null 2>&1; then
     echo "" >&2
-    echo "Portless HTTPS proxy is not running on :443." >&2
-    echo "Start it in Terminal.app (sudo may prompt), then retry:" >&2
+    echo "Portless HTTPS proxy is not running correctly on :443." >&2
+    echo "Without it, https://engenty.localhost and worktree URLs will fail." >&2
+    echo "" >&2
+    echo "Start it in a separate Terminal.app session (sudo may prompt), then retry:" >&2
     echo "  pnpm portless" >&2
     echo "  pnpm dev:portless${DOMAIN_ARG:+ --domain=$DOMAIN_ARG}" >&2
     echo "" >&2
     bash "${ROOT}/scripts/portless-proxy-check.sh" >&2
     exit 1
   fi
+  echo "✓ Portless proxy responding on :443" >&2
 
   echo "Registering Portless routes for this worktree…"
   while IFS= read -r alias_line; do
@@ -104,17 +108,50 @@ for (const alias of config.portlessAliases) {
 }
 " "$CONFIG"
   )
+else
+  echo "" >&2
+  echo "portless CLI not found at ${PORTLESS}." >&2
+  echo "Run: pnpm install" >&2
+  exit 1
 fi
 
 node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint --tty 2>/dev/null || \
   node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint
+
+# Free any dev ports still held by a stale `pnpm dev`/`pnpm dev:portless` from
+# this repo (e.g. a Vite left behind after an unclean Ctrl-C). Unrelated apps
+# on those ports are reported and abort the run instead of producing a vague
+# "Port 5173 is already in use" from Vite.
+PORTS_LIST="$(node -e \
+  "const c=JSON.parse(process.argv[1]); process.stdout.write(\
+    [c.ports.ui,c.ports.core,c.ports.ai,c.ports.docs,c.ports.studio].join(','))" \
+  "$CONFIG")"
+node "$ROOT/scripts/dev-port-check.mjs" --ports="$PORTS_LIST" --cwd="$ROOT"
 
 TURBO_TASKS=(dev:portless dev:portless:ready)
 if [[ -z "${RESOLVED_DOMAIN}" ]]; then
   TURBO_TASKS+=(studio)
 fi
 
-exec pnpm exec turbo run "${TURBO_TASKS[@]}" \
+# Turbo's TUI ("ui": "tui") puts the terminal into raw mode + alt screen. If a
+# run crashes or is Ctrl-C'd, Turbo can fail to restore cooked mode, leaving the
+# shell in "staircase" mode (newlines with no carriage return). Snapshot the tty
+# state up front and restore it on exit so an interrupted dev session never
+# wrecks the terminal. Not `exec`: the shell must outlive Turbo to run the trap.
+tty_state=""
+if [[ -t 0 ]]; then
+  tty_state="$(stty -g 2>/dev/null || true)"
+fi
+restore_tty() {
+  if [[ -n "$tty_state" ]]; then
+    stty "$tty_state" 2>/dev/null || true
+  else
+    stty sane 2>/dev/null || true
+  fi
+}
+trap restore_tty EXIT
+
+pnpm exec turbo run "${TURBO_TASKS[@]}" \
   --filter=./apps/core \
   --filter=./apps/ui \
   --filter=./apps/ai \
