@@ -100,6 +100,38 @@ describe("navigation", () => {
       ]);
     });
 
+    it("shows Setup admin nav for superadmins only", () => {
+      const contributions = {
+        routes: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+      const adminItems = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .find((section) => section.label === "navigation.admin")
+          ?.items.map((item) => item.to) ?? [];
+
+      expect(
+        adminItems(
+          buildNavigationSections(contributions, { isSuperAdmin: true })
+        )
+      ).toContain("/setup");
+      expect(
+        adminItems(
+          buildNavigationSections(contributions, { isTenantAdmin: true })
+        )
+      ).not.toContain("/setup");
+    });
+
     it("hides developer settings links unless developer mode is enabled", () => {
       const contributions = {
         routes: [],
@@ -434,6 +466,32 @@ describe("navigation", () => {
       );
       expect(items).toHaveLength(2);
       expect(items?.[1].label).toBe("Security");
+    });
+
+    it("returns setup children for /setup paths", () => {
+      const setupChildren = [
+        { to: "/setup/connectors", label: "External connectors" },
+      ];
+      const sectionsWithSetup = [
+        ...mockSections.slice(0, 2),
+        {
+          label: "Admin",
+          items: [
+            ...mockSections[2].items,
+            {
+              to: "/setup",
+              label: "Setup",
+              children: setupChildren,
+            },
+          ],
+        },
+      ];
+      expect(getSecondaryNavItems("/setup", "", sectionsWithSetup)).toEqual(
+        setupChildren
+      );
+      expect(
+        getSecondaryNavItems("/setup/connectors", "", sectionsWithSetup)
+      ).toEqual(setupChildren);
     });
   });
 });

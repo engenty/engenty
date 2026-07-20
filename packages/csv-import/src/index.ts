@@ -16,12 +16,27 @@ export {
 } from "./import-presets.js";
 export { type RunImportOptions, runImport } from "./import-runner.js";
 export {
+  ALL_CONNECTION_IMPORT_SOURCES,
+  type ConnectionFetchMode,
+  type ConnectionImportSource,
+  connectionImportSourcesForDomain,
+  FILE_CONNECTION_IMPORT_SOURCES,
+  type ImportDomain,
+  type ImportSourceKind,
+  isImportableConnectionFile,
+  TYPED_CONNECTION_IMPORT_SOURCES,
+} from "./import-sources.js";
+export {
   ImportPageShell,
   importPageContentClassName,
   importPageScrollShellClassName,
 } from "./page-shell.js";
 // Functions
 export { detectDelimiter, parseCSV } from "./parse-csv.js";
+export {
+  normalizeListRecordsPayload,
+  recordsToDelimitedText,
+} from "./records-to-csv.js";
 export {
   getTemplateExamples,
   parseTemplate,
@@ -35,6 +50,7 @@ export {
 } from "./tenant-import-presets.js";
 export type {
   ColumnMapping,
+  ConnectionImportConfig,
   ImportFieldDefinition,
   ImportPreset,
   ImportRunProgress,

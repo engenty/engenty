@@ -2,6 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   CSVImportWizard,
   type CSVImportWizardLabels,
+  connectionImportSourcesForDomain,
   ImportPageShell,
   type ImportRunProgress,
   importPageContentClassName,
@@ -107,6 +108,33 @@ export function ContactsImportPage() {
     [t]
   );
 
+  const connectionImport = useMemo(
+    () => ({
+      labels: {
+        browseEmpty: t("import.connections.browseEmpty"),
+        browseDescription: t("import.connections.browseDescription"),
+        browseTitle: t("import.connections.browseTitle"),
+        cancel: t("cancel"),
+        connect: t("import.connections.connect"),
+        connecting: t("import.connections.connecting"),
+        connectOrg: t("import.connections.connectOrg"),
+        connectPersonal: t("import.connections.connectPersonal"),
+        connected: t("import.connections.connected"),
+        credentialsTitle: t("import.connections.credentialsTitle"),
+        loadingCatalog: t("import.connections.loadingCatalog"),
+        notConnected: t("import.connections.notConnected"),
+        openSettings: t("import.connections.openSettings"),
+        sectionTitle: t("import.connections.sectionTitle"),
+        submitCredentials: t("import.connections.submitCredentials"),
+        use: t("import.connections.use"),
+        useAccount: t("import.connections.useAccount"),
+      },
+      redirectTo: "/mdl/contacts/import",
+      sources: connectionImportSourcesForDomain("contacts"),
+    }),
+    [t]
+  );
+
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useContactsModuleSecondaryShellNav();
 
@@ -186,6 +214,7 @@ export function ContactsImportPage() {
       <Toaster />
       <CSVImportWizard
         className={importPageContentClassName}
+        connectionImport={connectionImport}
         fieldDefinitions={CONTACTS_IMPORT_FIELDS}
         labels={labels}
         matchByConfig={matchByConfig}

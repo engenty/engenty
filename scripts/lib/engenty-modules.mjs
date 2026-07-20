@@ -286,11 +286,12 @@ export function resolveEnabledModules(repoRoot, options = {}) {
     }
     const dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
     if (!fs.existsSync(dir)) {
-      if (strict) {
-        throw new Error(
-          `engenty.plugins lists "${slug}" but neither modules/${slug}/ nor modules/*/providers/${slug}/ exists on disk`
-        );
-      }
+      // Soft-skip: open worktrees / partial checkouts often list closed plugins
+      // in package.json that are not on disk. CI still fails via
+      // check-engenty-plugins.mjs when the set must be complete.
+      console.warn(
+        `engenty.plugins: skipping "${slug}" (not on disk — modules/${slug} or modules/*/providers/${slug})`
+      );
       continue;
     }
     const manifest = readPluginManifest(dir);

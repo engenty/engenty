@@ -7,12 +7,14 @@ import type {
 import {
   BarChart3,
   Box,
+  Cable,
   Code2,
   Flag,
   Palette,
   Search,
   ShieldCheck,
   Sparkles,
+  Wrench,
 } from "lucide-react";
 import type { NavigationItem, NavigationSection } from "../types/shell";
 
@@ -49,6 +51,8 @@ function resolveSettingsItemIcon(
 
 /** Synthetic admin rows (after contribution items). */
 const ADMIN_NAV_ORDER_SETTINGS = 140;
+/** Install-owner setup area — after Settings, superadmin only. */
+const ADMIN_NAV_ORDER_SETUP = 150;
 
 /**
  * Canonical order for core admin menu contributions (by stable `id`).
@@ -138,7 +142,8 @@ function compareOrderedAdminRows(
 function buildAdminNavItems(
   adminEntries: AdminMenuEntry[],
   settingsItem: NavigationItem,
-  t: TranslateFn
+  t: TranslateFn,
+  setupItem: NavigationItem | null
 ): NavigationItem[] {
   const topLevel = adminEntries.filter((entry) => !entry.parentId);
   const fromContributions = topLevel
@@ -150,6 +155,7 @@ function buildAdminNavItems(
   const merged = [
     ...fromContributions,
     { sortKey: ADMIN_NAV_ORDER_SETTINGS, item: settingsItem },
+    ...(setupItem ? [{ sortKey: ADMIN_NAV_ORDER_SETUP, item: setupItem }] : []),
   ].sort(compareOrderedAdminRows);
   return merged.map((row) => row.item);
 }
@@ -318,7 +324,21 @@ export function buildNavigationSections(
           icon: DockSettingsIcon,
           children: settingsChildren.length > 0 ? settingsChildren : undefined,
         };
-        return buildAdminNavItems(adminMenuEntries, settingsItem, t);
+        const setupItem = isSuperAdmin
+          ? {
+              to: "/setup",
+              label: t("navigation.setup"),
+              icon: Wrench,
+              children: [
+                {
+                  to: "/setup/connectors",
+                  label: t("navigation.setupConnectors"),
+                  icon: Cable,
+                },
+              ],
+            }
+          : null;
+        return buildAdminNavItems(adminMenuEntries, settingsItem, t, setupItem);
       })(),
     },
   ];
@@ -411,6 +431,13 @@ export function getSecondaryNavItems(
     );
     if (settingsItem?.children && settingsItem.children.length > 0) {
       return settingsItem.children;
+    }
+  }
+
+  if (currentPath.startsWith("/setup")) {
+    const setupItem = flattenItems(sections).find((i) => i.to === "/setup");
+    if (setupItem?.children && setupItem.children.length > 0) {
+      return setupItem.children;
     }
   }
 
