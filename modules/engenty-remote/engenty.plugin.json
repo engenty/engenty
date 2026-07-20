@@ -4,7 +4,12 @@
   "description": "External messengers (Slack, Telegram, WhatsApp, Teams) as remote chat interfaces to engenty agents. Chat-tuned engenty.remote agent, channel bindings, and external identity pairing.",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.engenty-remote", "module.remote"],
+  "provides": [
+    "module.engenty-remote",
+    "module.engenty-remote.read",
+    "module.engenty-remote.write",
+    "module.remote"
+  ],
   "requires": [],
   "capabilities": {
     "operations": true,
