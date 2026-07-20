@@ -49,6 +49,14 @@ rewrites those to `peerDependencies` (host-provided) at publish time while
 keeping third-party deps as real dependencies. The committed `package.json` is
 never mutated — the transform runs against a staged copy.
 
+Each published module is tagged `engenty.tier` (`open` | `pro`), classified from
+the **`CLOSED_PREFIXES`** list in `scripts/publish-open.sh` (the single source of
+truth, shared with the public-mirror sync). The script defaults to **open only**
+(safe, e.g. a future public/community feed); **`--pro`** opts into pro modules —
+the release workflow passes it, so the private `@engenty` registry gets both
+tiers. Pro modules are then gated at **enable-time by the manage app** (per-tenant
+entitlement), not by omitting them from the registry.
+
 Real publishing is gated (safe by default):
 
 - `on: push: tags: ["v*"]` triggers the workflow, but it **dry-runs** unless the

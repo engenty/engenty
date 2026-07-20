@@ -32,6 +32,8 @@ EXCLUDES=(
   apps/manage
   docs/internal
   modules/banking
+  # engenty-remote starts pro-only (see publish-open.sh)
+  modules/engenty-remote
   modules/team-hr
   # Slack bridge is a pro provider inside the open team-chat module
   modules/team-chat/providers/slack-bridge

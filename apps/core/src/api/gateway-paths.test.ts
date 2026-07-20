@@ -18,9 +18,18 @@ describe("gateway-paths", () => {
     expect(isDocsGatewayPath("/docs/dev/quick-start")).toBe(true);
     expect(isDocsGatewayPath("/_next/static/chunk.js")).toBe(true);
     expect(isDocsGatewayPath("/__nextjs_error")).toBe(true);
-    expect(isDocsGatewayPath("/favicon.ico")).toBe(true);
     expect(isDocsGatewayPath("/api/search")).toBe(true);
     expect(isDocsGatewayPath("/api/users")).toBe(false);
+  });
+
+  it("root favicons fall through to the UI app, not docs", () => {
+    // Regression: /favicon.svg + /favicon.ico were diverted to docs for
+    // every gateway host, 404ing on the main SPA (docs serves them only
+    // under its own routing). They must be served by the UI static root.
+    expect(isDocsGatewayPath("/favicon.ico")).toBe(false);
+    expect(isDocsGatewayPath("/favicon.svg")).toBe(false);
+    expect(resolveGatewayTarget("/favicon.ico")).toBe("ui");
+    expect(resolveGatewayTarget("/favicon.svg")).toBe("ui");
   });
 
   it("resolveGatewayTarget routes docs before core /api", () => {

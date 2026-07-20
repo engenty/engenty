@@ -13,9 +13,6 @@ export function isDocsGatewayPath(pathname: string): boolean {
   if (pathname.startsWith("/_next") || pathname.startsWith("/__nextjs")) {
     return true;
   }
-  if (pathname === "/favicon.ico" || pathname === "/favicon.svg") {
-    return true;
-  }
   if (pathname === "/api/search" || pathname.startsWith("/api/search/")) {
     return true;
   }

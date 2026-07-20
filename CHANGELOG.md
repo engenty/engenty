@@ -4,6 +4,18 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.48] - 2026-07-20
+- ADDED **[ui]** Refreshed favicon/icon set + serve root favicons from the SPA
+- ADDED **[modules]** Tag published modules with open/pro tier from CLOSED_PREFIXES
+- ADDED **[cli]** Engenty modules add — install a module from the registry (Level A / A4)
+- ADDED **[remote]** Settings UI, pairing claim page, identity-gate tests, docs
+- ADDED **[remote]** Identity pairing, delegated actor tokens, proactive queue, Telegram (Phases 2-4 backend)
+- ADDED **[remote]** Engenty-remote module + Mastra channels Slack runtime (Phase 1)
+- CHANGED **[modules]** --pro opt-in instead of --open-only (safe default)
+- FIXED **[environment]** Drop node:module from browser-bundled twin (white screen)
+- FIXED **[engenty-remote]** Declare module.engenty-remote.read/write in manifest
+- FIXED **[ci]** Cap module-build concurrency + use remote cache in publish workflow
+
 ## [0.1.47] - 2026-07-20
 - ADDED **[modules]** Publish modules to GitHub Packages as overlays (Level A / A5)
 - FIXED **[modules]** Avoid delete in publish transform (lint/performance/noDelete)

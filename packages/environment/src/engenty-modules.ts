@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 
 export const ENGENTY_PLUGIN_MANIFEST = "engenty.plugin.json";
@@ -342,27 +341,22 @@ export function registryModulePackageName(
 
 /**
  * Resolve the on-disk root of a module installed from the registry into
- * node_modules. Filesystem-first (pnpm links a direct dependency to
- * node_modules/<packageName>), because a module's `exports` map does not expose
- * the manifest subpath. Returns undefined if the package is not installed.
+ * node_modules. pnpm links a direct dependency to node_modules/<packageName>,
+ * so a filesystem check is enough. Returns undefined if not installed.
+ *
+ * NOTE: this file is bundled into the browser SPA, so it must stay free of
+ * node:module/createRequire (a named import from an externalized builtin throws
+ * at load → white screen). The build-side twin (scripts/lib/engenty-modules.mjs)
+ * keeps a require.resolve fallback; here the fs check is sufficient.
  */
 export function resolveRegistryModuleDir(
   repoRoot: string,
   packageName: string
 ): string | undefined {
   const linked = path.join(repoRoot, "node_modules", ...packageName.split("/"));
-  if (fs.existsSync(path.join(linked, ENGENTY_PLUGIN_MANIFEST))) {
-    return linked;
-  }
-  try {
-    const require = createRequire(path.join(repoRoot, "package.json"));
-    const dir = path.dirname(require.resolve(`${packageName}/package.json`));
-    return fs.existsSync(path.join(dir, ENGENTY_PLUGIN_MANIFEST))
-      ? dir
-      : undefined;
-  } catch {
-    return;
-  }
+  return fs.existsSync(path.join(linked, ENGENTY_PLUGIN_MANIFEST))
+    ? linked
+    : undefined;
 }
 
 export function resolveEnabledModules(

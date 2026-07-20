@@ -75,8 +75,7 @@ import {
 export const SETUP_ROOT_PATH = "/setup";
 export const EXTERNAL_IMPORT_PATH = `${SETUP_ROOT_PATH}/connectors`;
 /** Former Agents-workspace URL — keep a redirect for bookmarks. */
-export const EXTERNAL_IMPORT_LEGACY_PATH =
-  "/admin/engenty/connections/import";
+export const EXTERNAL_IMPORT_LEGACY_PATH = "/admin/engenty/connections/import";
 
 /** Kebab connector id from a domain: "api.sentry.io" → "api-sentry-io". */
 function kebabFromDomain(domain: string): string {

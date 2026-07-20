@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — plain .mjs sibling, no type declarations.
 import {
+  moduleTier,
   REGISTRY,
   transformModuleManifestForPublish,
 } from "./publish-modules.mjs";
@@ -55,6 +56,14 @@ describe("transformModuleManifestForPublish", () => {
     expect(JSON.stringify(base)).toBe(snapshot);
   });
 
+  it("tags engenty.tier when a tier is given", () => {
+    const out = transformModuleManifestForPublish(base, {
+      version: "0.1.48",
+      tier: "pro",
+    });
+    expect(out.engenty).toEqual({ tier: "pro" });
+  });
+
   it("omits dependencies entirely when only internal deps exist", () => {
     const out = transformModuleManifestForPublish(
       {
@@ -66,5 +75,28 @@ describe("transformModuleManifestForPublish", () => {
     );
     expect(out.dependencies).toBeUndefined();
     expect(out.peerDependencies).toEqual({ "@engenty/plugin-sdk": "*" });
+  });
+});
+
+describe("moduleTier", () => {
+  const closed = [
+    "modules/time-tracking",
+    "modules/team-chat/providers/slack-bridge",
+  ];
+
+  it("classifies a closed-prefix module as pro", () => {
+    expect(moduleTier("modules/time-tracking", closed)).toBe("pro");
+  });
+
+  it("classifies a nested closed provider as pro", () => {
+    expect(moduleTier("modules/team-chat/providers/slack-bridge", closed)).toBe(
+      "pro"
+    );
+  });
+
+  it("classifies everything else as open", () => {
+    expect(moduleTier("modules/tasks", closed)).toBe("open");
+    // team-chat itself is open even though a nested provider is pro
+    expect(moduleTier("modules/team-chat", closed)).toBe("open");
   });
 });

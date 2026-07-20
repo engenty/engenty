@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.47",
+  "version": "0.1.48",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -47,6 +47,9 @@
         "source": "workspace"
       },
       "engenty-copilot": {
+        "source": "workspace"
+      },
+      "engenty-remote": {
         "source": "workspace"
       },
       "files": {
@@ -188,6 +191,7 @@
       "typescript": "^6",
       "@engenty/ai>ai": "7.0.0-beta.116",
       "ai": "6.0.116",
+      "chat": "4.34.0",
       "@xmldom/xmldom": ">=0.9.10",
       "dompurify": ">=3.4.0",
       "lodash-es": "4.18.1",
