@@ -29,6 +29,7 @@ import {
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentRunStore } from "../../dal/agent-sessions/agent-run-store.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import { resolveCoreAgentId } from "../agent-identity.js";
 import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
 import {
   type AiRegistry,
@@ -168,8 +169,16 @@ export async function runDelegatedConversation(
     // tenant/user identity, and a distinct run id. Core-backed tools (incl. module
     // agent tools, which resolve their bearer ONLY from this ALS — they do not
     // forward the Mastra execution context) read it via `getEngentyToolsRunContext`.
+    // The child acts under ITS OWN agent identity; the goal (conversation the
+    // human approves in) is inherited from the parent's context via the spread
+    // below, so goal-scoped grants cover delegated sub-agents too.
+    const childCoreAgentId = await resolveCoreAgentId(
+      input.scope.tenantId,
+      input.childAgentId
+    );
     const childToolsContext = {
       ...getEngentyToolsRunContext(),
+      ...(childCoreAgentId ? { agentId: childCoreAgentId } : {}),
       approvalGrants: [],
       // Leaf run — no interactive channel: a gated operation is denied with a
       // clear result instead of suspending (which would deadlock the parent).

@@ -52,6 +52,21 @@ export function resolveToolApprovalDecision(
 // can recover the operation id and persist the grant.
 const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
 
+/**
+ * Narrow, allow-listed context an approval carries so the approve hook can
+ * persist a DURABLE goal-scoped grant (core.agent_goal_grants), not just the
+ * chat grant. Deliberately NOT the raw tool input: arbitrary inputs may hold
+ * sensitive values and the artifact id lands in chat history. Only the
+ * secret's uuid rides along, encoded as an extra `|`-segment of the artifact
+ * id (opaque to the client, round-trips through metadata and the resume POST).
+ */
+export interface ToolApprovalGrantContext {
+  secret_id: string;
+}
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface ToolApprovalDecisionArtifact {
   artifact_id: string;
   artifact_type: "decision";
@@ -67,8 +82,15 @@ export const TOOL_APPROVAL_CHOICE_APPROVE_ONCE = "approve_once";
 export const TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS = "approve_always";
 export const TOOL_APPROVAL_CHOICE_DENY = "deny";
 
-export function buildToolApprovalArtifactId(operationId: string): string {
-  return `${TOOL_APPROVAL_ARTIFACT_PREFIX}${encodeURIComponent(operationId)}`;
+export function buildToolApprovalArtifactId(
+  operationId: string,
+  grantContext?: ToolApprovalGrantContext | null
+): string {
+  const base = `${TOOL_APPROVAL_ARTIFACT_PREFIX}${encodeURIComponent(operationId)}`;
+  // encodeURIComponent escapes "|" (%7C), so the segment split stays unambiguous.
+  return grantContext
+    ? `${base}|${encodeURIComponent(JSON.stringify(grantContext))}`
+    : base;
 }
 
 /** Parse the operation id back out of a tool-approval artifact id (resume side). */
@@ -81,11 +103,45 @@ export function parseToolApprovalOperationId(
   ) {
     return null;
   }
-  const encoded = artifactId.slice(TOOL_APPROVAL_ARTIFACT_PREFIX.length);
+  const encoded =
+    artifactId.slice(TOOL_APPROVAL_ARTIFACT_PREFIX.length).split("|")[0] ?? "";
   try {
     return decodeURIComponent(encoded) || null;
   } catch {
     return encoded || null;
+  }
+}
+
+/**
+ * Recover the grant context (secret_id) from a tool-approval artifact id.
+ * Strictly validated — a malformed or non-uuid segment yields null, never a
+ * partially-trusted value.
+ */
+export function parseToolApprovalGrantContext(
+  artifactId: string | undefined | null
+): ToolApprovalGrantContext | null {
+  if (
+    typeof artifactId !== "string" ||
+    !artifactId.startsWith(TOOL_APPROVAL_ARTIFACT_PREFIX)
+  ) {
+    return null;
+  }
+  const segment = artifactId
+    .slice(TOOL_APPROVAL_ARTIFACT_PREFIX.length)
+    .split("|")[1];
+  if (!segment) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(decodeURIComponent(segment)) as {
+      secret_id?: unknown;
+    };
+    return typeof parsed.secret_id === "string" &&
+      UUID_REGEX.test(parsed.secret_id)
+      ? { secret_id: parsed.secret_id }
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -101,12 +157,16 @@ export function isToolApprovalArtifactId(
  * "always" also persists a thread grant; both re-run so the tool executes.
  */
 export function buildToolApprovalArtifact(input: {
+  grantContext?: ToolApprovalGrantContext | null;
   operationId: string;
   requiresApproval: boolean;
   riskLevel: ToolRiskLevel;
   title?: string;
 }): ToolApprovalDecisionArtifact {
-  const artifactId = buildToolApprovalArtifactId(input.operationId);
+  const artifactId = buildToolApprovalArtifactId(
+    input.operationId,
+    input.grantContext
+  );
   const label = input.title?.trim() || input.operationId;
   const reason = input.requiresApproval
     ? "This action requires your approval before it runs."
