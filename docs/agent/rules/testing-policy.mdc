@@ -35,6 +35,32 @@ Everything else should be observable from returned values or resulting state. Do
 - **Chase coverage percentages.** Coverage targets incentivize exactly the low-value tests this policy bans.
 - **Backfill component tests for pages/flows.** Whole-flow confidence comes from the E2E layer (see roadmap), not from rendering every page in happy-dom.
 
+## Integration lane (real database)
+
+Behavior that lives in SQL — constraints, FK cascades, conditional updates,
+RLS, migrations — belongs in `*.integration.test.ts`, run by
+`pnpm test:integration` against the local Supabase stack (excluded from the
+unit run; CI: `.github/workflows/integration.yml`, main + nightly).
+Conventions: create the service-role client with `createIntegrationDb()` from
+`@engenty/test-kit/integration`, seed isolated tenants via `seedTenants()` and
+clean up with its returned dispose (tenant deletion cascades), never assume
+pre-existing rows — the shared dev database also serves local development.
+Reference suites: `modules/tasks/src/dal/tasks-repo.integration.test.ts`,
+`packages/retrieval/e2e/retrieval.e2e.test.ts`.
+
+## Smoke lane (browser E2E)
+
+Whole-flow confidence comes from `e2e/smoke/*.spec.ts` (Playwright,
+`pnpm test:smoke`, config in `playwright.config.ts`): real stack, real DB,
+rendered UI. Conventions: log in per spec with `gotoLoggedIn()` from
+`e2e/helpers.ts` (never share a storageState — refresh-token rotation breaks
+it), match labels with the dual-locale `t()`/`tLoose()` helpers (the dev
+tenant may run German or English), create uniquely named entities and delete
+them through the UI when the module supports it, and never post into real
+team-chat channels (use the dedicated `smoke-e2e` channel — real channels
+may be Slack-bridged). The LLM copilot spec is gated on
+`ENGENTY_SMOKE_LLM=1`. CI: `.github/workflows/smoke.yml` (nightly + manual).
+
 ## Fixtures
 
-Until a shared `@engenty/test-kit` exists: reuse the module-local `test-helpers.ts` builders and `packages/retrieval/src/test-utils.ts` patterns (override-style `make*()` builders) rather than hand-typing `"tenant-1"` literals and one-off fake clients.
+Use `@engenty/test-kit` (add as `workspace:*` devDependency): `makeAuth()` + `TEST_TENANT_ID`/`TEST_USER_ID` instead of hand-typed `"tenant-1"` literals, `createFakeSupabase()` (filters actually apply) instead of one-off thenable fakes, and `makeMockApi()` for `PluginServerApi`. Domain fixtures (repo fakes, entity builders) stay module-local — follow the override-style `make*()` builder pattern from `packages/retrieval/src/test-utils.ts`.

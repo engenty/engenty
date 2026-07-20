@@ -1,6 +1,6 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { listAssignedRoleIds } from "../dal/role-assignments.js";
-import { resolveSupabaseConfig } from "../dal/supabase-config.js";
+import { createServiceRoleClient } from "../dal/supabase-config.js";
 import { getTenantRole } from "../dal/tenant-roles.js";
 import {
   createAssignedRoleIdsCache,
@@ -40,14 +40,7 @@ export function createGrantsService(
   config: Record<string, unknown>,
   deps: CreateGrantsServiceDeps
 ): GrantsService {
-  const client =
-    deps.client ??
-    (() => {
-      const { url, serviceRoleKey } = resolveSupabaseConfig(config);
-      return createClient(url, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-    })();
+  const client = deps.client ?? createServiceRoleClient(config);
 
   const cache = createAssignedRoleIdsCache(
     (tenantId, subject) => listAssignedRoleIds(client, tenantId, subject),

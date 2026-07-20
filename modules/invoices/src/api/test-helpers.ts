@@ -3,16 +3,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type {
-  PluginGatewayMethod,
   PluginHttpRoute,
-  PluginRegistrationReceipt,
-  PluginServerApi,
   PluginServerOperation,
 } from "@engenty/plugin-sdk";
-
-const noopReceipt = (): PluginRegistrationReceipt => ({
-  dispose: () => {},
-});
+import { makeMockApi as makeKitMockApi } from "@engenty/test-kit";
 
 export function makeTempDir(): string {
   const dir = path.join(os.tmpdir(), `engenty-invoices-api-${randomUUID()}`);
@@ -21,9 +15,8 @@ export function makeTempDir(): string {
 }
 
 export function makeMockApi() {
-  const httpRoutes: PluginHttpRoute[] = [];
-  const gatewayMethods: PluginGatewayMethod[] = [];
-  const serverOperations: PluginServerOperation[] = [];
+  // Invoices-specific gateway stubs on top of the shared kit fake: the
+  // invoice routes resolve customer data through the contacts module.
   const gatewayStubs = new Map<string, (input: unknown) => unknown>([
     [
       "contacts_get",
@@ -43,34 +36,21 @@ export function makeMockApi() {
     ["contacts_add_contact_role", () => ({ ok: true })],
   ]);
 
-  const api: PluginServerApi = {
+  const kit = makeKitMockApi({
     callGatewayMethod: async (name, input) => {
       const handler = gatewayStubs.get(name);
       return handler ? handler(input) : null;
     },
-    hasOperation: (operationId) =>
-      serverOperations.some((op) => op.operationId === operationId) ||
-      gatewayStubs.has(operationId),
-    registerHttpRoute: (route) => {
-      httpRoutes.push(route);
-      return noopReceipt();
-    },
-    registerOperation: (operation) => {
-      serverOperations.push(operation);
-      return noopReceipt();
-    },
-    registerAiRegistration: () => {},
-    registerFeatureFlags: () => [],
-    registerProfilePolicy: () => {},
-    registerRoleProfiles: () => {},
-    registerResultPolicy: () => {},
-    registerService: () => {},
-    registerTestDataType: () => noopReceipt(),
-    registerCli: () => {},
-    resolvePath: (p: string) => p,
-  };
+  });
+  kit.api.hasOperation = (operationId) =>
+    kit.serverOperations.some((op) => op.operationId === operationId) ||
+    gatewayStubs.has(operationId);
 
-  return { api, httpRoutes, gatewayMethods, serverOperations };
+  return {
+    api: kit.api,
+    httpRoutes: kit.httpRoutes,
+    serverOperations: kit.serverOperations,
+  };
 }
 
 export function getRoute(

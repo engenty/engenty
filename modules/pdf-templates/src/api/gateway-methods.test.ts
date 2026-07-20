@@ -1,22 +1,7 @@
-import type {
-  PluginGatewayMethod,
-  PluginServerApi,
-  PluginServerOperation,
-} from "@engenty/plugin-sdk";
+import type { PluginServerOperation } from "@engenty/plugin-sdk";
+import { makeMockApi } from "@engenty/test-kit";
 import { describe, expect, it } from "vitest";
 import { registerPdfTemplatesGatewayMethods } from "./gateway-methods.js";
-
-function makeMockApi() {
-  const gatewayMethods: PluginGatewayMethod[] = [];
-  const serverOperations: PluginServerOperation[] = [];
-  const server = {
-    registerOperation: (operation: PluginServerOperation) => {
-      serverOperations.push(operation);
-    },
-  } as Pick<PluginServerApi, "registerOperation">;
-
-  return { gatewayMethods, server, serverOperations };
-}
 
 function getOperation(
   operations: PluginServerOperation[],
@@ -33,14 +18,13 @@ function getOperation(
 
 describe("registerPdfTemplatesGatewayMethods", () => {
   it("registers PDF template operations through the server operation API", () => {
-    const { gatewayMethods, server, serverOperations } = makeMockApi();
+    const { api: server, serverOperations } = makeMockApi();
 
     registerPdfTemplatesGatewayMethods(server, {
       getTemplateById: async () => null,
       getDefaultTemplate: async () => null,
     } as any);
 
-    expect(gatewayMethods).toEqual([]);
     expect(serverOperations.map((operation) => operation.operationId)).toEqual([
       "pdf_templates_get",
     ]);
@@ -56,7 +40,7 @@ describe("registerPdfTemplatesGatewayMethods", () => {
 
   it("preserves id and default template handler routing", async () => {
     const calls: string[] = [];
-    const { server, serverOperations } = makeMockApi();
+    const { api: server, serverOperations } = makeMockApi();
 
     registerPdfTemplatesGatewayMethods(server, {
       getTemplateById: async (id: string) => {

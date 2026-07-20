@@ -1,20 +1,7 @@
-import type {
-  PluginServerApi,
-  PluginServerOperation,
-} from "@engenty/plugin-sdk";
+import type { PluginServerOperation } from "@engenty/plugin-sdk";
+import { makeMockApi } from "@engenty/test-kit";
 import { describe, expect, it } from "vitest";
 import { registerCommercialSettingsGatewayMethods } from "./gateway-methods.js";
-
-function makeMockApi() {
-  const serverOperations: PluginServerOperation[] = [];
-  const server = {
-    registerOperation: (operation: PluginServerOperation) => {
-      serverOperations.push(operation);
-    },
-  } as Pick<PluginServerApi, "registerOperation">;
-
-  return { server, serverOperations };
-}
 
 function getOperation(
   operations: PluginServerOperation[],
@@ -31,7 +18,7 @@ function getOperation(
 
 describe("registerCommercialSettingsGatewayMethods", () => {
   it("registers commercial settings operations through the server operation API", () => {
-    const { server, serverOperations } = makeMockApi();
+    const { api: server, serverOperations } = makeMockApi();
 
     registerCommercialSettingsGatewayMethods(server, {
       get: async () => ({}),
@@ -54,7 +41,7 @@ describe("registerCommercialSettingsGatewayMethods", () => {
   });
 
   it("preserves the commercial settings get handler", async () => {
-    const { server, serverOperations } = makeMockApi();
+    const { api: server, serverOperations } = makeMockApi();
 
     registerCommercialSettingsGatewayMethods(server, {
       get: async () => ({ currency: "EUR" }),
