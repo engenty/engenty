@@ -1,8 +1,9 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 /**
  * Root package.json `engenty.plugins` — declared workspace plugin map (SSOT).
  */
-import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 export const ENGENTY_PLUGIN_MANIFEST = "engenty.plugin.json";
@@ -263,6 +264,48 @@ export function moduleHasUi(manifest) {
   return typeof ui.entry === "string" && ui.entry.trim().length > 0;
 }
 
+/**
+ * Package name a registry-installed module resolves to. Defaults to
+ * `@engenty/<slug>`, overridable via `engenty.plugins.<slug>.package` for the
+ * modules whose package name diverges from the slug (e.g. pdf-templates →
+ * @engenty/pdf-templates-module).
+ */
+export function registryModulePackageName(slug, spec) {
+  const override =
+    spec && typeof spec.config?.package === "string"
+      ? spec.config.package.trim()
+      : "";
+  return override || modulePackageName(slug);
+}
+
+/**
+ * Resolve the on-disk root of a module installed from the registry into
+ * node_modules. Uses Node resolution rooted at the repo so pnpm's hoisted
+ * symlink store is followed. Returns undefined if the package is not installed.
+ */
+export function resolveRegistryModuleDir(repoRoot, packageName) {
+  // Filesystem-first: pnpm links a direct dependency to
+  // node_modules/<packageName> (a symlink into the store). This is preferred
+  // over require.resolve because a module's `exports` map does not expose the
+  // manifest subpath, so require.resolve(`<pkg>/engenty.plugin.json`) throws.
+  const linked = path.join(repoRoot, "node_modules", ...packageName.split("/"));
+  if (fs.existsSync(path.join(linked, ENGENTY_PLUGIN_MANIFEST))) {
+    return linked;
+  }
+  // Fallback: resolve the package's own package.json (allowed even with a
+  // restrictive exports map on most resolvers) and take its directory.
+  try {
+    const require = createRequire(path.join(repoRoot, "package.json"));
+    const pkgJson = require.resolve(`${packageName}/package.json`);
+    const dir = path.dirname(pkgJson);
+    return fs.existsSync(path.join(dir, ENGENTY_PLUGIN_MANIFEST))
+      ? dir
+      : undefined;
+  } catch {
+    return;
+  }
+}
+
 export function resolveEnabledModules(repoRoot, options = {}) {
   const { plugins, slugs } = readEngentyPluginsManifest(repoRoot);
   const strict = options.strict !== false;
@@ -276,37 +319,53 @@ export function resolveEnabledModules(repoRoot, options = {}) {
     if (!spec) {
       continue;
     }
-    if (spec.source !== "workspace") {
+    let dir;
+    let packageName;
+    if (spec.source === "workspace") {
+      dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
+      packageName = modulePackageName(slug);
+      if (!fs.existsSync(dir)) {
+        // Soft-skip: open worktrees / partial checkouts often list closed
+        // plugins in package.json that are not on disk. CI still fails via
+        // check-engenty-plugins.mjs when the set must be complete.
+        console.warn(
+          `engenty.plugins: skipping "${slug}" (not on disk — modules/${slug} or modules/*/providers/${slug})`
+        );
+        continue;
+      }
+    } else if (spec.source === "registry") {
+      packageName = registryModulePackageName(slug, spec);
+      dir = resolveRegistryModuleDir(repoRoot, packageName);
+      if (!dir) {
+        if (strict) {
+          throw new Error(
+            `engenty.plugins.${slug} uses source "registry" but ${packageName} is not installed (run pnpm install)`
+          );
+        }
+        console.warn(
+          `engenty.plugins: skipping "${slug}" (registry package ${packageName} not installed)`
+        );
+        continue;
+      }
+    } else {
       if (strict) {
         throw new Error(
-          `engenty.plugins.${slug} uses source "${spec.source}" — only workspace plugins are supported in v1`
+          `engenty.plugins.${slug} uses unknown source "${spec.source}" — expected "workspace" or "registry"`
         );
       }
-      continue;
-    }
-    const dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
-    if (!fs.existsSync(dir)) {
-      // Soft-skip: open worktrees / partial checkouts often list closed plugins
-      // in package.json that are not on disk. CI still fails via
-      // check-engenty-plugins.mjs when the set must be complete.
-      console.warn(
-        `engenty.plugins: skipping "${slug}" (not on disk — modules/${slug} or modules/*/providers/${slug})`
-      );
       continue;
     }
     const manifest = readPluginManifest(dir);
     if (!manifest) {
       if (strict) {
-        throw new Error(
-          `modules/${slug}/ is missing ${ENGENTY_PLUGIN_MANIFEST}`
-        );
+        throw new Error(`${dir} is missing ${ENGENTY_PLUGIN_MANIFEST}`);
       }
       continue;
     }
     modules.push({
       slug,
       dir,
-      packageName: modulePackageName(slug),
+      packageName,
       manifest,
       hasUi: moduleHasUi(manifest),
       source: spec.source,
