@@ -45,6 +45,7 @@ logs/
 # actions/checkout submodule handling on CI)
 .claude/worktrees/
 
-# Playwright local auth + run artifacts
+# Playwright smoke lane
 e2e/.auth/
 e2e/.results/
+e2e/.report/
