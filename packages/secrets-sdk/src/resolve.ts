@@ -17,19 +17,19 @@ export type Principal =
 
 export interface SecretRow {
   id: string;
-  owner_scope: "user" | "project" | "client" | "tenant";
   owner_id: string;
+  owner_scope: "user" | "project" | "client" | "tenant";
 }
 
 export interface ResolveDeps {
   hasSecretGrant(secretId: string, p: Principal): Promise<boolean>;
+  isAssignedToClient(userId: string, clientId: string): Promise<boolean>;
+  isProjectMember(userId: string, projectId: string): Promise<boolean>;
   listGoalGrantCapabilities(
     tenantId: string,
     goalId: string,
     agentId: string
   ): Promise<string[]>;
-  isAssignedToClient(userId: string, clientId: string): Promise<boolean>;
-  isProjectMember(userId: string, projectId: string): Promise<boolean>;
 }
 
 export async function canReadSecret(

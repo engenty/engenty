@@ -108,7 +108,14 @@ function buildFieldVariants(field: ImportFieldDefinition): Set<string> {
       );
       break;
     case "display_name":
-      addVariants(variants, "displayname", "company", "firma", "organisation");
+      addVariants(
+        variants,
+        "displayname",
+        "company",
+        "firma",
+        "organisation",
+        "unternehmen"
+      );
       break;
     case "legal_name":
       addVariants(
@@ -116,7 +123,8 @@ function buildFieldVariants(field: ImportFieldDefinition): Set<string> {
         "legalname",
         "officialname",
         "registeredname",
-        "firmenname"
+        "firmenname",
+        "unternehmen"
       );
       break;
     case "contact_name":
@@ -168,7 +176,7 @@ function buildFieldVariants(field: ImportFieldDefinition): Set<string> {
       addVariants(variants, "department", "abteilung");
       break;
     case "address_street":
-      addVariants(variants, "street", "strasse", "address");
+      addVariants(variants, "street", "strasse", "address", "adresse");
       break;
     case "address_city":
       addVariants(variants, "city", "stadt", "ort");

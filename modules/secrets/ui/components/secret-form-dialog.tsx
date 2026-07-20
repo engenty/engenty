@@ -36,12 +36,12 @@ import type {
   SecretKind,
   SecretListItem,
 } from "../api.js";
+import { SECRET_KIND_LABEL_KEYS } from "../lib/secret-kinds.js";
 import {
   useCreateSecretMutation,
   useDeleteSecretMutation,
   useUpdateSecretMutation,
 } from "../queries.js";
-import { SECRET_KIND_LABEL_KEYS } from "../lib/secret-kinds.js";
 
 const CREATABLE_KINDS: SecretKind[] = [
   "username_password",
@@ -51,13 +51,13 @@ const CREATABLE_KINDS: SecretKind[] = [
 ];
 
 interface PayloadDraft {
-  username: string;
-  password: string;
-  value: string;
-  number: string;
-  expiry: string;
-  cvv: string;
   content: string;
+  cvv: string;
+  expiry: string;
+  number: string;
+  password: string;
+  username: string;
+  value: string;
 }
 
 const EMPTY_PAYLOAD: PayloadDraft = {
@@ -125,7 +125,6 @@ export function SecretFormDialog({
   const [ownerId, setOwnerId] = useState("");
   const [payload, setPayload] = useState<PayloadDraft>(EMPTY_PAYLOAD);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the target changes
   useEffect(() => {
     if (!open) {
       return;
@@ -318,7 +317,9 @@ export function SecretFormDialog({
           {kind === "credit_card" && (
             <div className="grid grid-cols-4 gap-3">
               <div className="col-span-2 flex flex-col gap-1.5">
-                <Label htmlFor="secret-card-number">{t("form.cardNumber")}</Label>
+                <Label htmlFor="secret-card-number">
+                  {t("form.cardNumber")}
+                </Label>
                 <Input
                   autoComplete="off"
                   id="secret-card-number"
@@ -331,7 +332,9 @@ export function SecretFormDialog({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="secret-card-expiry">{t("form.cardExpiry")}</Label>
+                <Label htmlFor="secret-card-expiry">
+                  {t("form.cardExpiry")}
+                </Label>
                 <Input
                   autoComplete="off"
                   id="secret-card-expiry"

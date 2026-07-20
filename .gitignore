@@ -44,3 +44,7 @@ logs/
 # Claude Code worktrees — never commit these (a stray gitlink here breaks
 # actions/checkout submodule handling on CI)
 .claude/worktrees/
+
+# Playwright local auth + run artifacts
+e2e/.auth/
+e2e/.results/

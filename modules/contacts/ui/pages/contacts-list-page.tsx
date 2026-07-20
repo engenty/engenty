@@ -9,7 +9,7 @@ import {
   useTableSelection,
 } from "@engenty/ui-core";
 import { useFeatureFlags, usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Building2, ChevronDown, Plus, User } from "lucide-react";
+import { Building2, ChevronDown, Plus, Upload, User } from "lucide-react";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import {
   useCallback,
@@ -237,7 +237,7 @@ export function ContactsListPage() {
   const overflowMenu = useMemo(
     () => (
       <ContactsOverflowMenu
-        importLabel={t("import")}
+        importLabel={t("import.label")}
         menuMoreLabel={t("menuMore")}
         settingsLabel={t("moduleSettings")}
       />
@@ -267,11 +267,15 @@ export function ContactsListPage() {
               <User className="mr-2 h-4 w-4" />
               {t("addPerson")}
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/mdl/contacts/import")}>
+              <Upload className="mr-2 h-4 w-4" />
+              {t("import.label")}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     ),
-    [exportMenu, overflowMenu, t, contactsNamespaceReady]
+    [exportMenu, navigate, overflowMenu, t, contactsNamespaceReady]
   );
 
   usePageConfig({

@@ -36,6 +36,7 @@ const userManagementUi = path.join(
 const environment = path.join(repoRoot, "packages", "environment", "src");
 const uiIcons = path.join(repoRoot, "packages", "ui-icons", "src");
 const apiClient = path.join(repoRoot, "packages", "api-client");
+const csvImport = path.join(repoRoot, "packages", "csv-import", "src");
 const pdfTemplates = path.join(repoRoot, "packages", "pdf-templates", "src");
 const engentyCopilotAi = path.join(
   repoRoot,
@@ -214,6 +215,9 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
     ),
     "@engenty/api-client": path.join(apiClient, "src", "index.ts"),
     "@engenty/environment": path.join(environment, "index.ts"),
+    // Used by contacts/team/secrets import pages; modules are not deps of apps/ui
+    // so Vite must alias the package for source resolution from the UI app root.
+    "@engenty/import": path.join(csvImport, "index.ts"),
     "@engenty/projects/ui/public-plugin": path.join(
       projectsUi,
       "public-plugin.ts"
@@ -336,6 +340,8 @@ export default defineConfig(({ command }) => {
         "@engenty/app-shell",
         "@engenty/user-management-ui",
         "@engenty/contacts",
+        "@engenty/secrets",
+        "@engenty/import",
         "@engenty/generative-ui",
         "@engenty/knowledge-base",
         "@engenty/engenty-copilot",
@@ -353,7 +359,7 @@ export default defineConfig(({ command }) => {
       allowedHosts: [".localhost"],
       watch: {
         ignored: [
-          /node_modules\/(?!@engenty\/(ai-ui|app-shell|auth-ui|contacts|generative-ui|knowledge-base|copilot|projects|user-management-ui|ui-core|ui-icons|pdf-templates)(\/|$))/,
+          /node_modules\/(?!@engenty\/(ai-ui|app-shell|auth-ui|contacts|secrets|import|generative-ui|knowledge-base|copilot|projects|user-management-ui|ui-core|ui-icons|pdf-templates)(\/|$))/,
           "**/.git/**",
         ],
         awaitWriteFinish: isDev

@@ -14,11 +14,17 @@ export function parseCSV(csvContent: string): ParsedCSV {
   return { headers, rows: dataRows, totalRows: dataRows.length };
 }
 
+function pushField(row: string[], field: string, quoted: boolean): void {
+  // Quoted fields keep interior whitespace; unquoted fields are trimmed.
+  row.push(quoted ? field : field.trim());
+}
+
 function parseCSVRows(csvContent: string, delimiter: string): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
   let currentField = "";
   let inQuotes = false;
+  let fieldWasQuoted = false;
   let i = 0;
 
   while (i < csvContent.length) {
@@ -32,14 +38,16 @@ function parseCSVRows(csvContent: string, delimiter: string): string[][] {
         continue;
       }
       inQuotes = !inQuotes;
-      currentField += char;
+      fieldWasQuoted = true;
+      // Delimiter quotes are not part of the cell value (RFC 4180 / Sheets TSV).
       i++;
       continue;
     }
 
     if (char === delimiter && !inQuotes) {
-      currentRow.push(currentField.trim());
+      pushField(currentRow, currentField, fieldWasQuoted);
       currentField = "";
+      fieldWasQuoted = false;
       i++;
       continue;
     }
@@ -50,12 +58,16 @@ function parseCSVRows(csvContent: string, delimiter: string): string[][] {
       } else {
         i++;
       }
-      currentRow.push(currentField.trim());
-      if (currentRow.length > 0 && currentRow.some((f) => f.length > 0)) {
+      pushField(currentRow, currentField, fieldWasQuoted);
+      if (
+        currentRow.length > 0 &&
+        currentRow.some((f) => f.trim().length > 0)
+      ) {
         rows.push(currentRow);
       }
       currentRow = [];
       currentField = "";
+      fieldWasQuoted = false;
       continue;
     }
 
@@ -64,8 +76,8 @@ function parseCSVRows(csvContent: string, delimiter: string): string[][] {
   }
 
   if (currentField.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
-    if (currentRow.length > 0 && currentRow.some((f) => f.length > 0)) {
+    pushField(currentRow, currentField, fieldWasQuoted);
+    if (currentRow.length > 0 && currentRow.some((f) => f.trim().length > 0)) {
       rows.push(currentRow);
     }
   }

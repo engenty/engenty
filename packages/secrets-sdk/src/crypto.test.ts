@@ -13,7 +13,9 @@ beforeAll(() => {
   process.env.SECRETS_ENC_KEY = KEY_B64;
 });
 
-const aad = (over: Partial<{ secretId: string; ownerScope: string; ownerId: string }> = {}) =>
+const aad = (
+  over: Partial<{ secretId: string; ownerScope: string; ownerId: string }> = {}
+) =>
   secretAad({ secretId: "s1", ownerScope: "client", ownerId: "c1", ...over });
 
 describe("payload crypto", () => {
@@ -39,7 +41,8 @@ describe("payload crypto", () => {
     const { key } = await staticKeyWrapper.keyForEncrypt("t1");
     const [iv, ct, tag] = encryptPayload("v", key, aad()).split(".");
     const flipped = Buffer.from(ct, "base64");
-    flipped[0] ^= 0xff;
+    // Flip one byte so GCM auth fails (avoid ^= — biome bans bitwise ops).
+    flipped[0] = ((flipped[0] ?? 0) + 1) % 256;
     const tampered = [iv, flipped.toString("base64"), tag].join(".");
     expect(() => decryptPayload(tampered, key, aad())).toThrow();
   });
@@ -47,7 +50,9 @@ describe("payload crypto", () => {
   it("missing key env is a hard error, not a silent empty key", async () => {
     const saved = process.env.SECRETS_ENC_KEY;
     process.env.SECRETS_ENC_KEY = "";
-    await expect(staticKeyWrapper.keyForEncrypt("t1")).rejects.toThrow(/SECRETS_ENC_KEY/);
+    await expect(staticKeyWrapper.keyForEncrypt("t1")).rejects.toThrow(
+      /SECRETS_ENC_KEY/
+    );
     process.env.SECRETS_ENC_KEY = saved;
   });
 });

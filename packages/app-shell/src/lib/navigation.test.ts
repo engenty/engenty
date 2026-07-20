@@ -149,6 +149,71 @@ describe("navigation", () => {
       ]);
     });
 
+    it("promotes Connections into the core settings block after Roles", () => {
+      const ConnectionsIcon = () => null;
+      const InvoicesIcon = () => null;
+      const settingsChildren = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const contributions = {
+        routes: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [
+          {
+            id: "invoices_settings_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            to: "/mdl/invoices/settings",
+            icon: InvoicesIcon,
+          },
+          {
+            id: "connections_settings_menu",
+            label: "Connections",
+            pluginId: "connections",
+            to: "/settings/connections",
+            icon: ConnectionsIcon,
+            requiresAdmin: false as const,
+          },
+        ],
+      };
+
+      const adminChildren = settingsChildren(
+        buildNavigationSections(contributions, { isTenantAdmin: true })
+      );
+
+      expect(adminChildren.map((item) => item.to)).toEqual([
+        "/settings/appearance",
+        "/settings/ai",
+        "/settings/ai-usage",
+        "/settings/roles",
+        "/settings/connections",
+        "",
+        "/mdl/invoices/settings",
+      ]);
+      expect(
+        adminChildren.find((item) => item.to === "/settings/connections")?.icon
+      ).toBe(ConnectionsIcon);
+
+      // Members keep Connections (personal surface) without tenant admin rows.
+      const memberChildren = settingsChildren(
+        buildNavigationSections(contributions, {})
+      );
+      expect(memberChildren.map((item) => item.to)).toEqual([
+        "/settings/connections",
+      ]);
+    });
+
     it("keeps settings item icons and reuses module admin menu icons", () => {
       const InvoicesIcon = () => null;
       const TasksIcon = () => null;

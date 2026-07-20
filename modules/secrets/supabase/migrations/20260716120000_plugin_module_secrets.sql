@@ -130,19 +130,25 @@ alter table module_secrets.access_log      enable row level security;
 
 -- Coarse row visibility = tenant + scope. Whether a member may reveal a specific
 -- secret is refined server-side in resolve.ts (owner_scope membership). See R2/R9.
+drop policy if exists secrets_read on module_secrets.secrets;
 create policy secrets_read on module_secrets.secrets for select
   using (tenant_id = core.current_tenant_id() and core.has_scope(scope_id));
+drop policy if exists services_read on module_secrets.services;
 create policy services_read on module_secrets.services for select
   using (tenant_id = core.current_tenant_id() and core.has_scope(scope_id));
+drop policy if exists secret_projects_read on module_secrets.secret_projects;
 create policy secret_projects_read on module_secrets.secret_projects for select
   using (tenant_id = core.current_tenant_id());
+drop policy if exists secret_grants_read on module_secrets.secret_grants;
 create policy secret_grants_read on module_secrets.secret_grants for select
   using (tenant_id = core.current_tenant_id());
+drop policy if exists service_secrets_read on module_secrets.service_secrets;
 create policy service_secrets_read on module_secrets.service_secrets for select
   using (
     exists (select 1 from module_secrets.services s
             where s.id = service_id and s.tenant_id = core.current_tenant_id())
   );
+drop policy if exists access_log_read on module_secrets.access_log;
 create policy access_log_read on module_secrets.access_log for select
   using (tenant_id = core.current_tenant_id());
 -- data_keys: no authenticated policy at all (service-role only).
