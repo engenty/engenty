@@ -35,12 +35,17 @@ export const REGISTRY = "https://npm.pkg.github.com";
  * - keeps third-party deps as real dependencies
  * - drops devDependencies (irrelevant to consumers)
  * - pins the registry via publishConfig
+ * - tags `engenty.tier` ("open" | "pro") so the entitlement layer (manage app)
+ *   can gate pro modules at enable-time; the registry itself is a coarse gate.
  */
-export function transformModuleManifestForPublish(pkg, { version } = {}) {
+export function transformModuleManifestForPublish(pkg, { version, tier } = {}) {
   const out = { ...pkg };
   out.private = undefined;
   if (version) {
     out.version = version;
+  }
+  if (tier) {
+    out.engenty = { ...(out.engenty ?? {}), tier };
   }
   const deps = out.dependencies ?? {};
   const peers = { ...(out.peerDependencies ?? {}) };
@@ -63,11 +68,54 @@ export function transformModuleManifestForPublish(pkg, { version } = {}) {
   return out;
 }
 
+/**
+ * Read the CLOSED_PREFIXES bash array from scripts/publish-open.sh — the single
+ * source of truth for pro-only paths (also used by the public-mirror sync).
+ * Parsing it here avoids a second, driftable copy of the list.
+ */
+export function readClosedPrefixes(repoRoot) {
+  const src = fs.readFileSync(
+    path.join(repoRoot, "scripts", "publish-open.sh"),
+    "utf-8"
+  );
+  const lines = src.split("\n");
+  const start = lines.findIndex((line) => line.includes("CLOSED_PREFIXES=("));
+  if (start === -1) {
+    throw new Error("CLOSED_PREFIXES not found in scripts/publish-open.sh");
+  }
+  // Read until the closing paren on its own line — a regex up to the first `)`
+  // truncates on the `)` inside the array's comments. Only entries are quoted.
+  const prefixes = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\s*\)/.test(lines[i])) {
+      break;
+    }
+    for (const match of lines[i].matchAll(/"([^"]+)"/g)) {
+      prefixes.push(match[1]);
+    }
+  }
+  return prefixes;
+}
+
+/**
+ * "pro" if the module's repo-relative dir is under a closed prefix, else "open".
+ * Pure/exported for tests.
+ */
+export function moduleTier(relDir, closedPrefixes) {
+  const normalized = relDir.split(path.sep).join("/");
+  const isClosed = closedPrefixes.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
+  );
+  return isClosed ? "pro" : "open";
+}
+
 function parseArgs(argv) {
-  const args = { dryRun: false, version: "" };
+  const args = { dryRun: false, version: "", openOnly: false };
   for (const arg of argv) {
     if (arg === "--dry-run") {
       args.dryRun = true;
+    } else if (arg === "--open-only") {
+      args.openOnly = true;
     } else if (arg.startsWith("--version=")) {
       args.version = arg.slice("--version=".length).trim();
     } else {
@@ -77,15 +125,17 @@ function parseArgs(argv) {
   return args;
 }
 
-function publishModule(mod, { version, dryRun }) {
+function publishModule(mod, { version, dryRun, tier }) {
   const pkgPath = path.join(mod.dir, "package.json");
   const original = fs.readFileSync(pkgPath, "utf-8");
   const transformed = transformModuleManifestForPublish(JSON.parse(original), {
     version,
+    tier,
   });
   const summary = {
     slug: mod.slug,
     version: transformed.version,
+    tier,
     deps: Object.keys(transformed.dependencies ?? {}).length,
     peers: Object.keys(transformed.peerDependencies ?? {}).length,
   };
@@ -110,26 +160,50 @@ function publishModule(mod, { version, dryRun }) {
 }
 
 function main() {
-  const { dryRun, version } = parseArgs(process.argv.slice(2));
+  const { dryRun, version, openOnly } = parseArgs(process.argv.slice(2));
   if (!(version || dryRun)) {
     throw new Error("--version=<x.y.z> is required for a real publish");
   }
   const root = resolveRepoRoot();
+  const closedPrefixes = readClosedPrefixes(root);
   // Option B publishes the leaf modules, not the internal platform packages.
-  const modules = resolveEnabledModules(root, { strict: false }).filter(
-    (mod) => mod.source === "workspace"
-  );
+  // Each module carries its tier (open/pro) from CLOSED_PREFIXES; --open-only
+  // skips pro modules (e.g. for a future public/community feed). By default
+  // both tiers publish to the private @engenty registry — pro modules are
+  // gated at enable-time by the manage app, not by omitting them here.
+  const modules = resolveEnabledModules(root, { strict: false })
+    .filter((mod) => mod.source === "workspace")
+    .map((mod) => ({
+      ...mod,
+      tier: moduleTier(path.relative(root, mod.dir), closedPrefixes),
+    }))
+    .filter((mod) => !(openOnly && mod.tier === "pro"));
+
+  const skipped = openOnly
+    ? resolveEnabledModules(root, { strict: false })
+        .filter((m) => m.source === "workspace")
+        .filter(
+          (m) =>
+            moduleTier(path.relative(root, m.dir), closedPrefixes) === "pro"
+        ).length
+    : 0;
+
   const results = [];
   for (const mod of modules) {
-    results.push(publishModule(mod, { version, dryRun }));
+    results.push(publishModule(mod, { version, dryRun, tier: mod.tier }));
   }
   const label = dryRun ? "staged (dry-run)" : "published";
   for (const r of results) {
     console.log(
-      `${label} @engenty/${r.slug}@${r.version}  deps=${r.deps} peers=${r.peers}`
+      `${label} [${r.tier}] @engenty/${r.slug}@${r.version}  deps=${r.deps} peers=${r.peers}`
     );
   }
-  console.log(`\npublish-modules: ${label} ${results.length} module(s).`);
+  const proCount = results.filter((r) => r.tier === "pro").length;
+  console.log(
+    `\npublish-modules: ${label} ${results.length} module(s) ` +
+      `(${results.length - proCount} open, ${proCount} pro)` +
+      (openOnly && skipped > 0 ? ` — skipped ${skipped} pro (--open-only)` : "")
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
