@@ -9,6 +9,7 @@ import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import { buildTaskBrief } from "./task-brief.js";
+import { buildPriorLearningsSection } from "./task-prior-learnings.js";
 import { finishTaskJobRun, registerTaskJobRun } from "./task-job-run-record.js";
 import {
   isSkippedEnvelope,
@@ -89,9 +90,19 @@ export const buildBriefStep = createStep({
     }
     const invoke = await invokerFor(inputData.tenant_id);
     const task = (await invoke("tasks_get", { id: inputData.task_id })) ?? {};
+    const brief = buildTaskBrief(task as Parameters<typeof buildTaskBrief>[0]);
+    // Memory Phase 2b: start the run from what earlier runs learned. The
+    // section is fail-open and empty when the tenant has no memories.
+    const learnings = await buildPriorLearningsSection({
+      agentTypeKey: inputData.agent_type_key,
+      contexts:
+        (task as { contexts?: Array<{ context_id?: unknown; context_type?: unknown }> })
+          .contexts ?? [],
+      invoke,
+    });
     return {
       ...inputData,
-      brief: buildTaskBrief(task as Parameters<typeof buildTaskBrief>[0]),
+      brief: learnings ? `${brief}\n\n${learnings}` : brief,
       identifier: readString((task as { identifier?: unknown }).identifier),
       status: "briefed" as const,
     };

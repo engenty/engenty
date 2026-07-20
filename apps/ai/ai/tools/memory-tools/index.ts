@@ -95,9 +95,10 @@ export const memorySaveTool = createTool({
     }
     try {
       const ctx = getEngentyToolsRunContext();
+      const agentTypeKey = ctx.agentTypeKey ?? ctx.agentId;
       const data = (await client.client.invokeTool("memory_record_upsert", {
         ...input,
-        ...(ctx.agentId ? { agent_type_key: ctx.agentId } : {}),
+        ...(agentTypeKey ? { agent_type_key: agentTypeKey } : {}),
       })) as MemoryRecordLike;
       const record = compactRecord(data);
       return {

@@ -179,6 +179,7 @@ export async function runDelegatedConversation(
     const childToolsContext = {
       ...getEngentyToolsRunContext(),
       ...(childCoreAgentId ? { agentId: childCoreAgentId } : {}),
+      agentTypeKey: input.childAgentId,
       approvalGrants: [],
       // Leaf run — no interactive channel: a gated operation is denied with a
       // clear result instead of suspending (which would deadlock the parent).

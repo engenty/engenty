@@ -1,0 +1,127 @@
+// Prior-learnings brief section: project memories + the assignee's own
+// lessons, deduped, token-capped, and fail-open.
+
+import { describe, expect, it } from "vitest";
+import { buildPriorLearningsSection } from "../task-prior-learnings.js";
+
+function row(overrides: Record<string, unknown> = {}) {
+  return {
+    agent_type_key: null,
+    body_md: "Body text.",
+    kind: "decision",
+    scope_kind: "project",
+    scope_ref: "proj-1",
+    slug: "use-staging-first",
+    title: "Deploy to staging first",
+    ...overrides,
+  };
+}
+
+describe("buildPriorLearningsSection", () => {
+  it("renders project memories and the assignee's lessons", async () => {
+    const calls: Array<{ input: unknown; op: string }> = [];
+    const section = await buildPriorLearningsSection({
+      agentTypeKey: "contacts.manager",
+      contexts: [
+        { context_id: "proj-1", context_type: "project" },
+        { context_id: "c-9", context_type: "contact" },
+      ],
+      invoke: async (op, input) => {
+        calls.push({ input, op });
+        const filter = input as { kind?: string; scope_kind?: string };
+        if (filter.scope_kind === "project") {
+          return { rows: [row()] };
+        }
+        if (filter.kind === "lesson") {
+          return {
+            rows: [
+              row({
+                agent_type_key: "contacts.manager",
+                kind: "lesson",
+                scope_kind: "user",
+                scope_ref: "u-1",
+                slug: "linkedin-rate-limits",
+                title: "LinkedIn enrichment rate limits",
+              }),
+              row({
+                agent_type_key: "other.agent",
+                kind: "lesson",
+                slug: "not-mine",
+                title: "Someone else's lesson",
+              }),
+            ],
+          };
+        }
+        return { rows: [] };
+      },
+    });
+    expect(section).toContain("## Prior learnings");
+    expect(section).toContain("[decision] Deploy to staging first");
+    expect(section).toContain("[lesson] LinkedIn enrichment rate limits");
+    expect(section).not.toContain("Someone else's lesson");
+    // Only the project context queries a project scope; the contact context
+    // is not a project.
+    const projectCalls = calls.filter(
+      (call) => (call.input as { scope_kind?: string }).scope_kind === "project"
+    );
+    expect(projectCalls).toHaveLength(1);
+  });
+
+  it("dedupes records that show up through multiple paths", async () => {
+    const lesson = row({
+      agent_type_key: "a1",
+      kind: "lesson",
+      slug: "same-slug",
+    });
+    const section = await buildPriorLearningsSection({
+      agentTypeKey: "a1",
+      contexts: [{ context_id: "proj-1", context_type: "project" }],
+      invoke: async (_op, input) => {
+        const filter = input as { kind?: string; scope_kind?: string };
+        if (filter.scope_kind === "project" || filter.kind === "lesson") {
+          return { rows: [lesson] };
+        }
+        return { rows: [] };
+      },
+    });
+    expect((section.match(/- \[lesson\]/g) ?? []).length).toBe(1);
+  });
+
+  it("returns empty when there is nothing, and on errors (fail-open)", async () => {
+    expect(
+      await buildPriorLearningsSection({
+        agentTypeKey: "a1",
+        contexts: [],
+        invoke: async () => ({ rows: [] }),
+      })
+    ).toBe("");
+    expect(
+      await buildPriorLearningsSection({
+        agentTypeKey: "a1",
+        contexts: [{ context_id: "p1", context_type: "project" }],
+        invoke: async () => {
+          throw new Error("memory module down");
+        },
+      })
+    ).toBe("");
+  });
+
+  it("caps the section length", async () => {
+    const rows = Array.from({ length: 50 }, (_, index) =>
+      row({
+        body_md: "x".repeat(500),
+        slug: `record-${index}`,
+        title: `Record ${index}`,
+      })
+    );
+    const section = await buildPriorLearningsSection({
+      agentTypeKey: "a1",
+      contexts: [{ context_id: "p1", context_type: "project" }],
+      invoke: async (_op, input) =>
+        (input as { scope_kind?: string }).scope_kind === "project"
+          ? { rows }
+          : { rows: [] },
+    });
+    expect(section.length).toBeLessThanOrEqual(6000);
+  });
+});

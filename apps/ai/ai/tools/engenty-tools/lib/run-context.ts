@@ -31,6 +31,11 @@ export interface EngentyToolsRunContext {
   // x-engenty-agent-id so operation policies (e.g. the secrets reveal gate)
   // see an agent principal instead of impersonating the user.
   agentId?: string | null;
+  // Human-readable agent type key (e.g. "engenty.copilot", "contacts.manager")
+  // of the acting agent — audit attribution for writes the agent authors
+  // (memory records stamp it as agent_type_key). Distinct from `agentId`,
+  // which is the core.agents uuid used for authorization.
+  agentTypeKey?: string | null;
   // Operation ids the user approved for this chat (Phase 3.2c). The execute tool
   // consults these to skip re-prompting an already-approved gated operation.
   approvalGrants?: readonly string[];
