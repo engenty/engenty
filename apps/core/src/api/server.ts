@@ -8,11 +8,10 @@ import {
 import { envBoolean, envNumber, envString } from "@engenty/environment/env";
 import { serve } from "@hono/node-server";
 import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
-import { createClient } from "@supabase/supabase-js";
 import { cors } from "hono/cors";
 import { z as zod } from "zod";
 import { listGoalGrantCapabilities } from "../dal/agent-goal-grants.js";
-import { resolveSupabaseConfig } from "../dal/supabase-config.js";
+import { createServiceRoleClient } from "../dal/supabase-config.js";
 import {
   createTenantPluginOverridesDal,
   type TenantPluginOverridesDal,
@@ -58,10 +57,7 @@ function isAgentEscalationEnabled(config: Record<string, unknown>): boolean {
 }
 
 function createGoalGrantClient(config: Record<string, unknown>) {
-  const { url, serviceRoleKey } = resolveSupabaseConfig(config);
-  return createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  return createServiceRoleClient(config);
 }
 
 import {
