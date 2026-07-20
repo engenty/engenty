@@ -1,5 +1,5 @@
 // Superadmin console for importing external connectors (OpenAPI specs, MCP
-// servers, integrations.sh registry) at /admin/engenty/connections/import.
+// servers, integrations.sh registry) at /setup/connectors.
 // Imports are platform-level; imported connectors then show up in the normal
 // per-tenant connections console with zero extra UI on that side.
 
@@ -71,10 +71,12 @@ import {
   useWorkspaceSuperadminQuery,
 } from "../queries.js";
 
-// Mirrors CONNECTIONS_ROOT_PATH from @engenty/ai-ui (not a dependency of this
-// provider package — value is stable, see agent-workspace-paths.ts).
-const CONNECTIONS_PATH = "/admin/engenty/connections";
-export const EXTERNAL_IMPORT_PATH = `${CONNECTIONS_PATH}/import`;
+/** Install-owner setup area (platform-wide ops; not tenant Settings). */
+export const SETUP_ROOT_PATH = "/setup";
+export const EXTERNAL_IMPORT_PATH = `${SETUP_ROOT_PATH}/connectors`;
+/** Former Agents-workspace URL — keep a redirect for bookmarks. */
+export const EXTERNAL_IMPORT_LEGACY_PATH =
+  "/admin/engenty/connections/import";
 
 /** Kebab connector id from a domain: "api.sentry.io" → "api-sentry-io". */
 function kebabFromDomain(domain: string): string {
@@ -146,8 +148,8 @@ function KindBadge({ kind }: { kind: string }) {
 export function ExternalImportPage() {
   usePageConfig({
     breadcrumbs: [
-      { label: "Connections", to: CONNECTIONS_PATH },
-      { label: "Import external" },
+      { label: "Setup", to: SETUP_ROOT_PATH },
+      { label: "External connectors" },
     ],
     contentStackBackground: "paper",
     topbarChrome: "contentBlend",

@@ -7,14 +7,13 @@ import { getOptionalSupabaseAuthClient } from "@engenty/auth-ui";
 import { useQuery, useQueryClient } from "@engenty/query-client";
 import { listUsers } from "@engenty/user-management-ui";
 import { useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { isDesktopShell } from "./desktop-runtime";
 
 /** Emitted by the native menu / hotkey (see apps/desktop/src-tauri/src/lib.rs). */
 const NAVIGATE_EVENT = "engenty-desktop:navigate";
 const NEW_CHAT_EVENT = "engenty-desktop:new-chat";
 const SETTINGS_EVENT = "engenty-desktop:settings";
-const QUICK_CAPTURE_EVENT = "engenty-desktop:quick-capture";
 
 export interface DesktopBridgeProps {
   /** Sidebar navigation, mirrored into the native Go menu (⌘1–⌘9). */
@@ -45,6 +44,19 @@ export function DesktopBridge(props: DesktopBridgeProps) {
 }
 
 const UNSEEN_STATUSES = new Set(["pending", "delivered"]);
+
+/**
+ * Tauri's unlisten throws `listeners[eventId].handlerId undefined` if the
+ * listener is already gone (double-cleanup or a registration that never
+ * resolved). Unsubscribing is best-effort — never let it surface an overlay.
+ */
+function safeDispose(dispose: () => void): void {
+  try {
+    dispose();
+  } catch {
+    // Listener already removed — nothing to do.
+  }
+}
 
 /** Title/body for one record; team-chat payloads carry structured context. */
 function renderNotification(
@@ -77,7 +89,13 @@ function renderNotification(
 
 function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
   const navigate = useNavigate();
-  const location = useLocation();
+  // Keep the native-listener effects mount-once: react-router's `navigate`
+  // changes identity on every route change, so depending on it re-runs the
+  // Tauri listen()/unlisten() churn on each navigation — which races Tauri's
+  // internal listener registry (unregisterListener → listeners[eventId] is
+  // undefined). A ref reads the latest navigate without re-subscribing.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const queryClient = useQueryClient();
   // Shared inbox list: polls while hidden inside the desktop shell (see
   // inbox-queries.ts) and the realtime broadcast below invalidates it, so a
@@ -91,8 +109,6 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
   const users = usersQuery.data;
   const records = inboxQuery.data?.notifications;
   const knownIds = useRef<Set<string> | null>(null);
-  const pathnameRef = useRef(location.pathname);
-  pathnameRef.current = location.pathname;
 
   // Dock badge + arrival notifications.
   useEffect(() => {
@@ -208,26 +224,19 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
             handler(received.payload)
           );
           if (disposed) {
-            dispose();
+            safeDispose(dispose);
           } else {
             disposers.push(dispose);
           }
         };
         await register(NAVIGATE_EVENT, (payload) => {
           if (typeof payload === "string" && payload.startsWith("/")) {
-            navigate(payload);
+            navigateRef.current(payload);
           }
         });
-        await register(NEW_CHAT_EVENT, () => navigate("/chat/new"));
-        await register(SETTINGS_EVENT, () => navigate("/settings"));
-        await register(QUICK_CAPTURE_EVENT, () => {
-          // Opens the copilot drawer in place — the provider watches for
-          // `?copilot=open` (see copilot-provider-content.tsx).
-          navigate({
-            pathname: pathnameRef.current,
-            search: "?copilot=open",
-          });
-        });
+        // New chat: the menu's ⌘N and the global ⌥Space hotkey both land here.
+        await register(NEW_CHAT_EVENT, () => navigateRef.current("/chat/new"));
+        await register(SETTINGS_EVENT, () => navigateRef.current("/settings"));
       } catch (error) {
         console.warn("[desktop] failed to install menu listeners", error);
       }
@@ -235,10 +244,10 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
     return () => {
       disposed = true;
       for (const dispose of disposers) {
-        dispose();
+        safeDispose(dispose);
       }
     };
-  }, [navigate]);
+  }, []);
 
   // Deep links: engenty://open?path=/some/route
   useEffect(() => {
@@ -257,7 +266,7 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
               }
               const path = url.searchParams.get("path");
               if (path?.startsWith("/")) {
-                navigate(path);
+                navigateRef.current(path);
               }
             } catch {
               // Ignore malformed deep links.
@@ -270,8 +279,12 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
         console.warn("[desktop] failed to install deep-link handler", error);
       }
     })();
-    return () => dispose?.();
-  }, [navigate]);
+    return () => {
+      if (dispose) {
+        safeDispose(dispose);
+      }
+    };
+  }, []);
 
   // External links → system browser. Inside Tauri the app origin is
   // tauri://localhost, so every absolute http(s) link is external.

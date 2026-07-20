@@ -53,6 +53,15 @@ Per-app scripts (`apps/core` → `pnpm api`, etc.) call `scripts/portless-dev.sh
 Multiple worktrees can run **at the same time**. Each gets a unique Portless hostname
 and loopback port slot. All worktrees share **one local Supabase** (same data).
 
+`pnpm dev` / `pnpm dev:portless` preflight serializes Supabase start/heal/migrate on a
+cross-worktree lock (`$TMPDIR/engenty-local-supabase.predev.lock`). Concurrent starts
+**wait** for the shared stack instead of racing `supabase stop`. Transient REST 500s
+get a grace wait + PostgREST soft-restart before any full stack restart.
+
+Shared DB history may include migrations from another worktree’s plugin set. `pnpm db:migrate`
+writes no-op placeholders for those remote-only versions so migrate does not fail with
+“Remote migration versions not found in local migrations directory.”
+
 ```bash
 # create worktree — any folder basename becomes the domain when linked
 git worktree add ../engenty-pro-tab-ui -b fix/tab-ui upstream/main

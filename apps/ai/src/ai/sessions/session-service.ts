@@ -16,6 +16,7 @@ import type {
   AgentSessionMessageRow,
   AgentSessionRow,
 } from "../../dal/agent-sessions/index.js";
+import { resolveCoreAgentId } from "../agent-identity.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { AiSessionError } from "../errors.js";
 import { filterAgentUiFrontendToolsForScope } from "../frontend-tool-gating/filter-agent-ui-for-scope.js";
@@ -757,8 +758,15 @@ export function createSessionService(opts: SessionServiceOptions) {
         threadId: input.threadId,
       });
       try {
+        // Forward agent identity so core policies see the agent, not the user.
+        const coreAgentId = await resolveCoreAgentId(
+          input.scope.tenantId,
+          session.agent_id
+        );
         const output = await engentyToolsRunAls.run(
           {
+            ...(coreAgentId ? { agentId: coreAgentId } : {}),
+            goalId: input.threadId,
             orchestratorThreadId: input.threadId,
             runId,
             tenantId: input.scope.tenantId,

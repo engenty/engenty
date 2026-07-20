@@ -59,7 +59,11 @@ export function buildStartingHint({ gatewayOrigin, domain = null }) {
 
 async function probeOk(url) {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    // Generous per-probe timeout: /api/openapi.json regenerates the spec per
+    // request and can take >5s under dev (tsx) on a loaded machine. A probe
+    // timeout below that made this checker exit 1 after maxWaitMs — and turbo
+    // then tore down the whole dev stack.
+    const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     return response.ok;
   } catch {
     return false;

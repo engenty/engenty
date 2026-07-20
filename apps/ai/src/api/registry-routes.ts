@@ -1,5 +1,6 @@
 import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import type { Hono } from "hono";
+import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { listAllActions } from "../ai/module-actions.js";
 import { buildAgentInstructions } from "../ai/registry/assemble-dynamic-agent.js";
 import {
@@ -156,6 +157,10 @@ export function registerRegistryRoutes(
         resolved.scope.tenantId,
         parsed.data
       );
+      // Provision the core.agents security principal (mapping column) so
+      // grants/audit can key on a stable uuid. Best-effort: an unlinked agent
+      // is re-provisioned on next upsert or session load.
+      await resolveCoreAgentId(resolved.scope.tenantId, agent.id);
       return c.json({ agent });
     } catch (err) {
       return handleRouteError(
@@ -198,6 +203,7 @@ export function registerRegistryRoutes(
       }
       const merged = { ...existing, ...parsed.data, id: agentId };
       const agent = await store.upsertAgent(resolved.scope.tenantId, merged);
+      await resolveCoreAgentId(resolved.scope.tenantId, agent.id);
       return c.json({ agent });
     } catch (err) {
       return handleRouteError(

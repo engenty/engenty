@@ -143,6 +143,11 @@ export async function emitToolApprovalInterrupt(input: {
     operationId: input.payload.operation_id,
     requiresApproval: input.payload.requires_approval,
     riskLevel: input.payload.risk_level,
+    // Grant context (secrets_reveal's secret uuid) rides in the artifact id so
+    // the approve hook can persist the durable goal-scoped grant.
+    ...(input.payload.secret_id
+      ? { grantContext: { secret_id: input.payload.secret_id } }
+      : {}),
     ...(input.payload.title ? { title: input.payload.title } : {}),
   });
   const interrupt: SessionInterruptPayload = {

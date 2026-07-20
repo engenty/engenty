@@ -13,6 +13,7 @@ export type {
 } from "../types.js";
 
 export function CSVImportWizard({
+  connectionImport,
   fieldDefinitions,
   previewColumns,
   labels,
@@ -79,6 +80,7 @@ export function CSVImportWizard({
     <div className={className}>
       {step === "upload" ? (
         <ImportUploadStep
+          connectionImport={connectionImport}
           error={error}
           labels={wizardLabels}
           loading={loading}

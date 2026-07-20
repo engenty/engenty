@@ -4,6 +4,61 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.47] - 2026-07-20
+- ADDED **[modules]** Publish modules to GitHub Packages as overlays (Level A / A5)
+- FIXED **[modules]** Avoid delete in publish transform (lint/performance/noDelete)
+
+## [0.1.46] - 2026-07-20
+- FIXED **[ci]** Stop the ai/edge deploy build OOMing (concurrency + reliable cache)
+
+## [0.1.45] - 2026-07-20
+- ADDED **[modules]** Load registry-installed modules from node_modules (Level A / A3)
+
+## [0.1.44] - 2026-07-20
+- ADDED **[modules]** Package each module as a self-contained tarball (Level A / A1)
+- ADDED **[import]** Import from connections and move platform import to /setup
+- FIXED **[plugins]** Make checkPluginManifest report missing on-disk plugins
+- FIXED **[env]** Sync env example files with the manifest
+- FIXED **[deps]** Sync lockfile for time-tracking package deps
+
+## [0.1.43] - 2026-07-20
+- ADDED **[notifications]** Make the email notifier source-agnostic
+- ADDED **[test]** Add Playwright browser smoke lane
+- FIXED **[connections]** Prefer integrations.sh /surface over live /discover
+
+## [0.1.42] - 2026-07-20
+- ADDED **[import]** Paste-to-import, Sheets TSV fixes, Secrets import
+
+## [0.1.41] - 2026-07-20
+- ADDED **[secrets]** Agent-gated reveals — identity forwarding, approval gate, durable goal grants
+- ADDED **[secrets]** Password-manager vault UI with dock icon and client/project filters
+- ADDED **[secrets]** Client-anchored secrets vault + services module
+- DOCS **[secrets]** Record UI test results (U1-U6) in test plan
+- FIXED **[core]** Move supabase client construction behind DAL seam
+- FIXED **[dev]** Raise portless readiness probe timeout to 15s
+- FIXED **[secrets]** Enforce tenant boundary in secrets_list (BUG-1)
+
+## [0.1.40] - 2026-07-20
+- ADDED **[deploy]** Pass SUPABASE_DB_URL + VAPID keys to engenty-ai
+- FIXED **[desktop]** ⌥Space opens a new chat; stop native-listener churn on nav
+
+## [0.1.39] - 2026-07-20
+- ADDED **[notifications]** Web push channel (N2) — subscriptions, VAPID delivery, SW + profile toggle
+- FIXED **[desktop]** Don't register the push service worker on tauri:// origin
+- FIXED **[dev]** Pass ENGENTY_DEV_READY_MAX_WAIT_MS through turbo globalEnv
+- FIXED **[ui]** Lint — drop unused catch binding + optional chain in push sw
+
+## [0.1.38] - 2026-07-19
+- ADDED **[team-chat]** Email notifications via the tenant's connector (N4)
+- ADDED **[team-chat]** Slack-bridge binding UI (pro settings page)
+- DOCS **[team-chat]** Plan bridge phase 7 — realtime Slack sync + reactions
+- DOCS **[user]** Add Connect Slack guide (Slack bridge setup)
+- FIXED **[team-chat]** Slack-bridge env var was missing its obtain strategy
+- FIXED **[team-chat]** Annotate intentional thenable in slack-bridge test mock
+- FIXED **[ci]** Cap turbo build concurrency at the runner's 4 vCPUs
+- FIXED **[team-chat]** Slack bridge skips non-autonomous connections instead of erroring
+- FIXED **[ci]** Stop cancelling in-progress main builds on new pushes
+
 ## [0.1.37] - 2026-07-19
 - ADDED **[release]** Build the desktop dmg locally instead of on GitHub
 - ADDED **[team-chat]** Slack bridge (pro) — outbound replay, inbound sync, binding ops

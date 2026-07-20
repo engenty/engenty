@@ -1,0 +1,30 @@
+{
+  "name": "@engenty/secrets-sdk",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "vitest run --root ../.. packages/secrets-sdk/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9",
+    "@types/node": "^24.0.0"
+  }
+}

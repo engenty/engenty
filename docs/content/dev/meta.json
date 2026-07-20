@@ -13,6 +13,8 @@
     "artifacts",
     "objects",
     "generative-ui",
+    "ci-pipeline",
+    "module-packaging",
     "remote-channels"
   ]
 }

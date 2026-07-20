@@ -1,3 +1,4 @@
+export { ensureCoreAgentId } from "./core-agent-link.js";
 export {
   createRegistryStore,
   type RegistryAgentRow,

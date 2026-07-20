@@ -27,12 +27,19 @@ export type EngentyToolApprovalPolicy =
   | "defer";
 
 export interface EngentyToolsRunContext {
+  // core.agents principal uuid of the acting agent. Forwarded to core as
+  // x-engenty-agent-id so operation policies (e.g. the secrets reveal gate)
+  // see an agent principal instead of impersonating the user.
+  agentId?: string | null;
   // Operation ids the user approved for this chat (Phase 3.2c). The execute tool
   // consults these to skip re-prompting an already-approved gated operation.
   approvalGrants?: readonly string[];
   approvalPolicy?: EngentyToolApprovalPolicy;
   coreBaseUrl?: string;
   fetchImpl?: typeof fetch;
+  // Goal the agent is pursuing — the conversation thread id for chat runs.
+  // Forwarded as x-engenty-goal-id; approval grants persist against it.
+  goalId?: string | null;
   orchestratorThreadId?: string | null;
   runId?: string | null;
   tenantId?: string | null;

@@ -34,6 +34,8 @@ export function getCurrentEngentyToolsClient(
       coreBaseUrl,
       fetchImpl: ctx.fetchImpl,
       userAccessToken,
+      ...(ctx.agentId ? { agentId: ctx.agentId } : {}),
+      ...(ctx.goalId ? { goalId: ctx.goalId } : {}),
     }),
   };
 }

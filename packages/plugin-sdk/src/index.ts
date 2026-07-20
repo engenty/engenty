@@ -188,6 +188,13 @@ export type PluginHttpResponseMode = "json" | "binary" | "stream" | "empty";
 
 export interface PluginAuthContext {
   /**
+   * core.agents uuid of the AI agent driving this call (from the
+   * x-engenty-agent-id header), when an agent — not the user directly — is
+   * acting. Handlers use it for audit attribution; authorization decisions on
+   * it belong in operation policies, which see the same value.
+   */
+  agentId?: string;
+  /**
    * The principal's effective capability strings. Populated by the core HTTP
    * operation host from the resolved principal so module handlers can make
    * capability-based visibility decisions (e.g. a moderator seeing all rows).
@@ -195,6 +202,8 @@ export interface PluginAuthContext {
    * `capabilities ?? []` (absent ⇒ no elevated visibility, the safe default).
    */
   capabilities?: string[];
+  /** Goal the agent is pursuing (x-engenty-goal-id); pairs with agentId. */
+  goalId?: string;
   principalId: string;
   scopeId: string;
   tenantId: string;

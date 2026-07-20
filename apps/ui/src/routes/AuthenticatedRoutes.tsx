@@ -10,7 +10,8 @@ import {
   type UiContributions,
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
 import { AiUsagePage } from "@/pages/AiUsagePage";
 import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
@@ -48,9 +49,27 @@ export function AuthenticatedRoutes({
   isTenantAdmin,
 }: AuthenticatedRoutesProps) {
   const developerModeEnabled = useDeveloperModeEnabled();
+  const navigate = useNavigate();
   // Tenant admins and superadmins are the "admins"; members are end users who
   // get personal settings + module apps but no tenant-config / admin consoles.
   const isAdmin = isSuperAdmin || isTenantAdmin;
+
+  // Clicking a web-push notification focuses this tab; the service worker
+  // (public/sw.js notificationclick) posts the target route here.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as { route?: string; type?: string } | null;
+      if (data?.type === "engenty:navigate" && data.route?.startsWith("/")) {
+        navigate(data.route);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [navigate]);
 
   return (
     <UiContributionsProvider contributions={contributions}>
@@ -195,6 +214,8 @@ export function AuthenticatedRoutes({
           );
           const defaultAdminOnly =
             pluginRoute.path.startsWith("/admin/") ||
+            pluginRoute.path === "/setup" ||
+            pluginRoute.path.startsWith("/setup/") ||
             (pluginRoute.path.startsWith("/settings/") && !isPersonalSettings);
           const adminOnly = pluginRoute.requiresAdmin ?? defaultAdminOnly;
           return (

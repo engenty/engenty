@@ -7,7 +7,11 @@ import { createHash } from "node:crypto";
  */
 import fs from "node:fs";
 import path from "node:path";
-import { enabledModuleSlugSet } from "./lib/engenty-modules.mjs";
+import {
+  enabledModuleSlugSet,
+  readEngentyPluginsManifest,
+  resolveEnabledModules,
+} from "./lib/engenty-modules.mjs";
 
 const TIMESTAMP_REGEX = /^(\d{14})_(.+)\.sql$/;
 const PLUGIN_SLUG_PREFIX = "plugin_";
@@ -134,6 +138,38 @@ function discoverMigrationOwners(parentDir, ownerKind, enabledModuleSlugs) {
   return owners.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Level A: migration owners for modules installed from the registry
+ * (node_modules). Their SQL ships in the tarball under the same migrationsDir
+ * convention, so they aggregate identically to workspace modules.
+ */
+function discoverRegistryMigrationOwners(root) {
+  const owners = [];
+  for (const mod of resolveEnabledModules(root, { strict: false })) {
+    if (mod.source !== "registry") {
+      continue;
+    }
+    const pkg = readPackageJson(mod.dir);
+    if (!pkg) {
+      continue;
+    }
+    const migrationsDir = pkg.engenty?.migrationsDir ?? "supabase/migrations";
+    const migrationsPath = path.resolve(mod.dir, migrationsDir);
+    if (
+      fs.existsSync(migrationsPath) &&
+      fs.statSync(migrationsPath).isDirectory()
+    ) {
+      owners.push({
+        kind: "module",
+        name: mod.slug,
+        packageName: pkg.name,
+        migrationsPath,
+      });
+    }
+  }
+  return owners.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function validateTimestamp(basename, ownerLabel) {
   const m = basename.match(TIMESTAMP_REGEX);
   if (!m) {
@@ -234,12 +270,21 @@ function main() {
   const packagesDir = path.join(root, "packages");
   const outDir = path.join(root, "supabase", "migrations");
 
-  const enabledModuleSlugs = enabledModuleSlugSet(root);
+  // Workspace scans must exclude registry-source modules — those are owned by
+  // discoverRegistryMigrationOwners (from node_modules), and a leftover
+  // modules/<slug> checkout would otherwise duplicate them.
+  const { plugins } = readEngentyPluginsManifest(root);
+  const enabledModuleSlugs = new Set(
+    [...enabledModuleSlugSet(root)].filter(
+      (slug) => plugins[slug]?.source !== "registry"
+    )
+  );
 
   const owners = [
     ...discoverMigrationOwners(appsDir, "core"),
     ...discoverMigrationOwners(modulesDir, "module", enabledModuleSlugs),
     ...discoverMigrationOwners(packagesDir, "module", enabledModuleSlugs),
+    ...discoverRegistryMigrationOwners(root),
   ];
   if (owners.length === 0) {
     return;
@@ -285,7 +330,11 @@ function main() {
       }
       const outPath = path.join(outDir, entry);
       const content = fs.readFileSync(outPath, "utf-8");
-      if (entry.includes("_plugin_") || isAggregatedMigration(content)) {
+      if (
+        entry.endsWith("_shared_stack_placeholder.sql") ||
+        entry.includes("_plugin_") ||
+        isAggregatedMigration(content)
+      ) {
         fs.unlinkSync(outPath);
         pruned += 1;
       }

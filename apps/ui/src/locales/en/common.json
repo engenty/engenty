@@ -31,6 +31,8 @@
     "plugins": "Plugins",
     "testData": "Test Data",
     "settings": "Settings",
+    "setup": "Setup",
+    "setupConnectors": "External connectors",
     "manage": "Manage"
   },
   "menu": {

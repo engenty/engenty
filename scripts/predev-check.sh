@@ -1,9 +1,28 @@
 #!/usr/bin/env bash
-# Ensures local dev prerequisites before `pnpm dev` (Docker + Supabase + generated artifacts).
+# Ensures local dev prerequisites before `pnpm dev` / `pnpm dev:portless`:
+#   1. Docker daemon
+#   2. Supabase stack fully healthy (status + REST + Auth — not half-dead)
+#   3. Pending DB migrations applied
+#   4. Generated artifacts present
+#   5. Stale repo processes freed off the worktree's destin ports
+#
+# Portless HTTPS proxy (:443) is required only by `pnpm dev:portless`
+# (checked in scripts/dev-portless.sh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+SUPABASE_API="http://127.0.0.1:54321"
+# Shared across all engenty worktrees — only one predev may start/heal Supabase
+# or apply migrations at a time. Parallel `pnpm dev` is supported; they serialize
+# on this lock instead of racing `supabase stop`/`start`.
+SUPABASE_LOCK_DIR="${TMPDIR:-/tmp}/engenty-local-supabase.predev.lock"
+# How long to wait for REST/Auth to settle (schema cache, concurrent start) before
+# treating an unhealthy probe as a reason to heal/restart.
+SUPABASE_GRACE_SECS="${ENGENTY_SUPABASE_GRACE_SECS:-45}"
+SUPABASE_SOFT_HEAL_SECS="${ENGENTY_SUPABASE_SOFT_HEAL_SECS:-45}"
+SUPABASE_READY_WAIT_SECS="${ENGENTY_SUPABASE_READY_WAIT_SECS:-180}"
 
 # Metadata for the supported container runtimes. Each is a macOS app launched
 # via `open -a`; all three expose a Docker-compatible API so the rest of the
@@ -149,8 +168,122 @@ ensure_docker() {
   exit 1
 }
 
+http_code() {
+  local url="$1"
+  curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 2 "$url" 2>/dev/null || echo "000"
+}
+
+# `supabase status` succeeds even when PostgREST / Auth are stopped (half-dead
+# stack). Probe Kong so we don't greenlight a 503 API that surfaces as
+# "name resolution failed" / ensure-current-user 500s in the UI.
+supabase_rest_reachable() {
+  local code
+  code="$(http_code "${SUPABASE_API}/rest/v1/")"
+  # PostgREST via Kong returns 200 (with apikey) or 401 (without). 503 / 000 =
+  # gateway up but rest container down / unreachable.
+  [[ "$code" == "200" || "$code" == "401" ]]
+}
+
+supabase_auth_reachable() {
+  local code
+  code="$(http_code "${SUPABASE_API}/auth/v1/health")"
+  [[ "$code" == "200" ]]
+}
+
+# Critical containers for local API. Names match project_id = engenty-local.
+supabase_critical_containers_up() {
+  local name status
+  for name in \
+    supabase_db_engenty-local \
+    supabase_kong_engenty-local \
+    supabase_rest_engenty-local \
+    supabase_auth_engenty-local
+  do
+    status="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo missing)"
+    if [[ "$status" != "running" ]]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
 supabase_ready() {
-  supabase status >/dev/null 2>&1
+  supabase status >/dev/null 2>&1 \
+    && supabase_critical_containers_up \
+    && supabase_rest_reachable \
+    && supabase_auth_reachable
+}
+
+supabase_half_dead() {
+  # CLI thinks something is up, but REST/Auth/critical containers are not.
+  supabase status >/dev/null 2>&1 && ! supabase_ready
+}
+
+# Cross-worktree lock (mkdir is atomic). Stale locks from dead PIDs are cleared.
+supabase_lock_acquire() {
+  local waited=0 pid
+  while true; do
+    if mkdir "$SUPABASE_LOCK_DIR" 2>/dev/null; then
+      echo "$$" >"${SUPABASE_LOCK_DIR}/pid"
+      # shellcheck disable=SC2064
+      trap 'rm -rf "$SUPABASE_LOCK_DIR"' EXIT
+      return 0
+    fi
+    pid="$(cat "${SUPABASE_LOCK_DIR}/pid" 2>/dev/null || true)"
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      echo "Clearing stale Supabase predev lock (pid ${pid} gone)…" >&2
+      rm -rf "$SUPABASE_LOCK_DIR"
+      continue
+    fi
+    if (( waited == 0 )); then
+      echo "Another worktree is ensuring shared Supabase (lock held${pid:+ by pid $pid}) — waiting…" >&2
+    elif (( waited % 15 == 0 )); then
+      echo "Still waiting for Supabase lock… (${waited}s)" >&2
+    fi
+    sleep 1
+    waited=$((waited + 1))
+    # Safety: don't hang forever if lock holder is wedged without dying.
+    if (( waited >= 300 )); then
+      echo "" >&2
+      echo "Timed out waiting for Supabase predev lock (${SUPABASE_LOCK_DIR})." >&2
+      echo "If no other pnpm dev is running: rm -rf \"$SUPABASE_LOCK_DIR\"" >&2
+      exit 1
+    fi
+  done
+}
+
+supabase_lock_release() {
+  rm -rf "$SUPABASE_LOCK_DIR"
+  trap - EXIT
+}
+
+wait_supabase_ready() {
+  local max_secs="${1:-$SUPABASE_READY_WAIT_SECS}"
+  local label="${2:-Waiting for Supabase}"
+  local i
+  for i in $(seq 1 "$max_secs"); do
+    if supabase_ready; then
+      return 0
+    fi
+    if (( i % 15 == 0 )); then
+      echo "${label}… (${i}s) REST=$(http_code "${SUPABASE_API}/rest/v1/") Auth=$(http_code "${SUPABASE_API}/auth/v1/health")" >&2
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Prefer restarting PostgREST over a full stack stop (avoids DB-from-backup and
+# killing other worktrees' healthy Auth/DB mid-dev).
+soft_heal_supabase_rest() {
+  if ! supabase_critical_containers_up; then
+    return 1
+  fi
+  echo "Soft-healing PostgREST (docker restart supabase_rest_engenty-local)…" >&2
+  if ! docker restart supabase_rest_engenty-local >/dev/null 2>&1; then
+    return 1
+  fi
+  wait_supabase_ready "$SUPABASE_SOFT_HEAL_SECS" "Waiting after REST restart"
 }
 
 ensure_supabase() {
@@ -161,35 +294,65 @@ ensure_supabase() {
   fi
 
   if supabase_ready; then
+    echo "✓ Supabase healthy (REST + Auth on ${SUPABASE_API})" >&2
     return 0
   fi
 
+  # Grace period: concurrent worktree start or PostgREST schema reload often
+  # looks "half-dead" (REST 500) for a short window. Wait before healing.
   echo "" >&2
-  echo "Local Supabase not ready — starting stack (containers may take a minute)..." >&2
+  echo "Local Supabase not ready yet (REST=$(http_code "${SUPABASE_API}/rest/v1/") Auth=$(http_code "${SUPABASE_API}/auth/v1/health"))." >&2
+  echo "Waiting up to ${SUPABASE_GRACE_SECS}s for shared stack to settle (parallel worktrees)…" >&2
+  if wait_supabase_ready "$SUPABASE_GRACE_SECS" "Waiting for shared Supabase"; then
+    echo "✓ Supabase healthy (REST + Auth on ${SUPABASE_API})" >&2
+    return 0
+  fi
+
+  # Soft heal when containers are up but REST is flaky — do NOT stop the stack
+  # (that races other worktrees and reloads Postgres from backup).
+  if soft_heal_supabase_rest; then
+    echo "✓ Supabase healthy after REST soft-heal." >&2
+    return 0
+  fi
+
+  if supabase_half_dead; then
+    echo "" >&2
+    echo "Local Supabase still unhealthy after grace + soft-heal." >&2
+    echo "  REST:  $(http_code "${SUPABASE_API}/rest/v1/")" >&2
+    echo "  Auth:  $(http_code "${SUPABASE_API}/auth/v1/health")" >&2
+    echo "Restarting shared stack (other worktrees will wait on the lock)…" >&2
+    supabase stop >/dev/null 2>&1 || true
+  else
+    echo "" >&2
+    echo "Local Supabase not ready — starting shared stack (containers may take a minute)..." >&2
+  fi
 
   # `supabase start` can fail with "already running" while DB containers are still booting.
   if ! supabase start; then
     echo "supabase start reported an issue — waiting for containers to become healthy..." >&2
   fi
 
-  for i in $(seq 1 180); do
-    if supabase_ready; then
-      if (( i > 1 )); then
-        echo "Supabase is ready." >&2
-      fi
-      return 0
-    fi
-    if (( i % 15 == 0 )); then
-      echo "Waiting for Supabase… (${i}s)" >&2
-    fi
-    sleep 1
-  done
+  if wait_supabase_ready "$SUPABASE_READY_WAIT_SECS" "Waiting for Supabase"; then
+    echo "✓ Supabase is ready (REST + Auth)." >&2
+    return 0
+  fi
 
   echo "" >&2
-  echo "Supabase did not become ready within 180s." >&2
+  echo "Supabase did not become ready within ${SUPABASE_READY_WAIT_SECS}s." >&2
   echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
   echo "Or: supabase stop && supabase start --debug" >&2
   exit 1
+}
+
+ensure_migrations() {
+  echo "Applying pending DB migrations (if any)…" >&2
+  if ! pnpm engenty db migrate; then
+    echo "" >&2
+    echo "DB migrate failed. Fix migration errors, then retry." >&2
+    echo "  pnpm db:migrate" >&2
+    exit 1
+  fi
+  echo "✓ Migrations up to date." >&2
 }
 
 ensure_generated_artifacts() {
@@ -201,11 +364,31 @@ ensure_generated_artifacts() {
 
   if [[ ! -f "${ROOT}/apps/ui/src/plugins/generated-catalog.ts" ]]; then
     echo "" >&2
-    echo "Missing generated UI plugin catalog. Run: pnpm engenty setup (or pnpm setup)" >&2
+    echo "Missing generated UI plugin catalog." >&2
+    echo "  Run: pnpm run setup" >&2
+    echo "  (not bare \`pnpm setup\` — that is pnpm's own CLI installer)" >&2
+    echo "  Or:  pnpm --filter @engenty/ui generate:plugins" >&2
     exit 1
   fi
+  echo "✓ Generated artifacts present." >&2
 }
 
+ensure_dev_ports_free() {
+  # Free destin ports still held by a stale `pnpm dev`/`pnpm dev:portless` from
+  # this repo (e.g. a Vite left behind after an unclean Ctrl-C). Resolves
+  # worktree-aware ports; unrelated apps on those ports abort with a clear
+  # message instead of a vague "Port 5173 is already in use".
+  node "$ROOT/scripts/dev-port-check.mjs" --cwd="$ROOT"
+  echo "✓ Dev ports clear." >&2
+}
+
+echo "==> Dev preflight" >&2
 ensure_docker
+# Serialize shared-stack mutations across parallel worktree `pnpm dev` runs.
+supabase_lock_acquire
 ensure_supabase
+ensure_migrations
+supabase_lock_release
 ensure_generated_artifacts
+ensure_dev_ports_free
+echo "==> Preflight OK" >&2

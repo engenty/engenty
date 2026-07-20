@@ -17,7 +17,9 @@ import {
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
   TOOL_APPROVAL_CHOICE_DENY,
 } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
+import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { applyApprovedFieldUpdates } from "../ai/jobs/apply-field-updates.js";
+import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import { auditToolApprovalDecision } from "../ai/sessions/tool-approval-audit.js";
 import {
   readToolApprovalGrants,
@@ -32,6 +34,10 @@ import {
   handleRouteError,
   resolveScope,
 } from "./http.js";
+
+// Voice sessions always drive the built-in copilot; there is no per-session
+// agent selection on the realtime path.
+const REALTIME_AGENT_KEY = "engenty.copilot";
 
 const realtimeToolExecuteBodySchema = z.object({
   // One-shot approval for THIS call only: the voice user approved the gated
@@ -105,17 +111,50 @@ export function registerRealtimeToolRoutes(
       ? [...approvalGrants, body.data.approval_grant_once]
       : approvalGrants;
 
+    // Voice parity with the chat approve hook: an approved secrets_reveal also
+    // persists the durable goal-scoped grant BEFORE execution, or core would
+    // re-gate the agent-forwarded invoke forever (voice has no suspend/resume).
+    if (
+      body.data.name === "engenty_tool_execute" &&
+      body.data.thread_id &&
+      effectiveGrants.includes("secrets_reveal")
+    ) {
+      const args = body.data.arguments as
+        | { id?: unknown; input?: { secret_id?: unknown } }
+        | undefined;
+      if (
+        args?.id === "secrets_reveal" &&
+        typeof args.input?.secret_id === "string"
+      ) {
+        await persistSecretsGoalGrant({
+          coreBaseUrl: opts.coreBaseUrl,
+          goalId: body.data.thread_id,
+          secretId: args.input.secret_id,
+          userAccessToken: scope.scope.userAccessToken,
+        });
+      }
+    }
+
     try {
       const current = getEngentyToolsRunContext();
+      // Voice is the copilot on another channel — forward the same agent
+      // identity so agent-gated operations (e.g. secret reveals) don't have a
+      // voice-shaped bypass. Goal = the voice thread, when one exists.
+      const coreAgentId = await resolveCoreAgentId(
+        scope.scope.tenantId,
+        REALTIME_AGENT_KEY
+      );
       const result = await engentyToolsRunAls.run(
         {
           ...current,
+          ...(coreAgentId ? { agentId: coreAgentId } : {}),
           approvalGrants: effectiveGrants,
           // Voice executes tools outside a Mastra run (nothing to suspend); it
           // receives the decision artifact and drives its own approve flow.
           approvalPolicy: "artifact",
           ...(opts.coreBaseUrl ? { coreBaseUrl: opts.coreBaseUrl } : {}),
           ...(opts.coreFetch ? { fetchImpl: opts.coreFetch } : {}),
+          goalId: body.data.thread_id ?? null,
           orchestratorThreadId: body.data.thread_id ?? null,
           tenantId: scope.scope.tenantId,
           userAccessToken: scope.scope.userAccessToken,

@@ -21,7 +21,8 @@
   "scripts": {
     "build": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --dts --clean",
     "dev": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --dts --watch",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "test": "vitest run --root ../.. modules/files/"
   },
   "dependencies": {
     "@engenty/ai-ui": "workspace:*",

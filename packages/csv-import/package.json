@@ -18,12 +18,14 @@
   "scripts": {
     "build": "tsup src/index.ts src/server/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts src/server/index.ts src/parse-csv.ts src/deterministic-mapping.ts src/types.ts src/components/index.tsx --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. packages/csv-import/",
     "lint": "echo 'No lint yet'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/query-client": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",

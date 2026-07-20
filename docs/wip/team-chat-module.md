@@ -599,6 +599,51 @@ DesktopBridge renders team-chat records natively (channel label + author + previ
 from the structured payload (`conversation_label`, `author_user_id`,
 `text_preview`, `route`).
 
+**N4 — email channel (2026-07-20):** `apps/ai/src/notifications/email-notifier.ts`
+mails records that are **still `pending` after a delay** (default 5 min,
+`ENGENTY_EMAIL_NOTIFICATION_DELAY_MINUTES`; kill-switch
+`ENGENTY_EMAIL_NOTIFICATIONS_ENABLED`). A 60s pg scan over
+`ai.mastra_notifications` (cross-thread, so not the store API) picks due
+records, resolves the recipient from `core.users`, and sends through
+the **tenant's own email connection** (decision: connector, not a platform SMTP
+env) via the `gmail_send_message` gateway op on the service JWT. Because the
+action group is `destructive`, the tenant's Google connection must be set to
+autonomous **Full** with `send_message` on **Allow** — without a Gmail
+connection the run is a quiet no-op (one accounts probe per run). Send outcomes
+are terminal per record (`metadata.email_sent` true/false — no per-minute retry
+drumbeat); N1's read-sync means anything read in time never emails. The service
+JWT is tenant-bound: records of other tenants are skipped (same boundary as
+inbox-sync; satellites run their own JWT).
+
+**Source-agnostic (generalized 2026-07-20):** the notifier is not team-chat
+specific — it mails any per-user inbox record whose `source` is in the operator
+allowlist `ENGENTY_EMAIL_NOTIFICATION_SOURCES` (comma-separated; `*` = all
+sources; **default `team-chat`** so installs behave as before). Any producer
+that calls `emitInboxNotification({ source, tenantId, userId, summary, payload:
+{ route, text_preview } })` (agents, tasks, heartbeats, …) can be opted in
+without code — e.g. `ENGENTY_EMAIL_NOTIFICATION_SOURCES=team-chat,agent`.
+Payload `route`/`text_preview` are optional; the body falls back to `summary`.
+The old `ENGENTY_TEAM_CHAT_EMAIL_*` env names remain honored as a fallback.
+Open: per-user email opt-out pref, non-Gmail send connectors (Outlook), digest
+mode, per-source delay overrides.
+
+**N2 — web push (2026-07-20):** realtime channel — `emitInboxNotification`
+fans every **per-user** record out to the user's push endpoints immediately
+(`apps/ai/src/notifications/web-push.ts`; team-inbox records stay badge-only).
+Subscriptions live in `ai.push_subscriptions` (service-role only, endpoint
+unique, upsert on re-subscribe; 404/410 from the push service prunes the
+row). Routes: `GET /ai/v1/notifications/push/config` (VAPID public key, null
+= channel off), `POST/DELETE …/push/subscriptions` (owned by the calling
+user). VAPID pair via `npx web-push generate-vapid-keys` → env
+`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (+ optional `VAPID_SUBJECT`).
+Client: `apps/ui/public/sw.js` shows the notification ({title, body, route,
+tag=dedupeKey}) and on click focuses an open tab (postMessage
+`engenty:navigate`, handled in `AuthenticatedRoutes`) or opens the route; the
+enable/disable toggle is a **Push notifications** section on Settings →
+Profile (per browser/device; iOS needs the home-screen PWA — manifest was
+already in place). Open: per-user quiet hours/opt-out shared with email,
+badge counts on the PWA icon.
+
 ---
 
 ## 14. Remote Slack bridge (future phase — designed for, not built)

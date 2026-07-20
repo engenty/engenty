@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.37",
+  "version": "0.1.47",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -23,6 +23,9 @@
         "source": "workspace"
       },
       "connections-google": {
+        "source": "workspace"
+      },
+      "connections-hubspot": {
         "source": "workspace"
       },
       "connections-local-files": {
@@ -70,6 +73,9 @@
       "projects": {
         "source": "workspace"
       },
+      "secrets": {
+        "source": "workspace"
+      },
       "tasks": {
         "source": "workspace"
       },
@@ -104,10 +110,14 @@
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
     "typecheck": "turbo run typecheck",
-    "test": "vitest run",
+    "test": "turbo run test test:scripts",
+    "test:all": "vitest run",
+    "test:scripts": "vitest run scripts/",
+    "test:smoke": "playwright test",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",
+    "check:test-wiring": "node scripts/check-test-wiring.mjs",
     "check:ui-core-imports": "node scripts/check-ui-core-imports.mjs",
     "check:supabase-imports": "node scripts/check-supabase-imports.mjs",
     "check:rls-coverage": "node scripts/check-rls-coverage.mjs",
@@ -152,6 +162,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.20",
     "@vitest/coverage-v8": "^4.1.9",
     "git-cliff": "^2.13.1",

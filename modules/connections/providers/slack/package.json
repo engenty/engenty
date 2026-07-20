@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsup src/plugin.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../../../.. modules/connections/providers/slack/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
