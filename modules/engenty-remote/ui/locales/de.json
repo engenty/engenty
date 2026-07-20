@@ -14,6 +14,13 @@
     "invite": "Zum Verknüpfen einladen",
     "deny": "Mit Hinweis ablehnen"
   },
+  "toasts": {
+    "loadFailed": "Remote-Kanäle konnten nicht geladen werden: {{error}}",
+    "createFailed": "Verbindung konnte nicht erstellt werden: {{error}}",
+    "updateFailed": "Verbindung konnte nicht aktualisiert werden: {{error}}",
+    "deleteFailed": "Verbindung konnte nicht gelöscht werden: {{error}}",
+    "revokeFailed": "Verknüpfung konnte nicht widerrufen werden: {{error}}"
+  },
   "bindings": {
     "title": "Verbindungen",
     "subtitle": "Jede Verbindung koppelt einen Messenger-Workspace oder -Bot an diesen Tenant.",

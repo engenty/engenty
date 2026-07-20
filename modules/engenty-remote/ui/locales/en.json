@@ -14,6 +14,13 @@
     "invite": "Invite to pair",
     "deny": "Reject with notice"
   },
+  "toasts": {
+    "loadFailed": "Could not load remote channels: {{error}}",
+    "createFailed": "Could not create the binding: {{error}}",
+    "updateFailed": "Could not update the binding: {{error}}",
+    "deleteFailed": "Could not delete the binding: {{error}}",
+    "revokeFailed": "Could not revoke the identity: {{error}}"
+  },
   "bindings": {
     "title": "Bindings",
     "subtitle": "Each binding connects one messenger workspace or bot to this tenant.",

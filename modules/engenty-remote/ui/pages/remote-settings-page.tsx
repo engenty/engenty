@@ -33,7 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "@engenty/ui-core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type RemotePlatform = "slack" | "telegram" | "whatsapp" | "teams";
 type SenderPolicy = "ignore" | "invite" | "deny";
@@ -56,6 +57,13 @@ interface Identity {
   platform: RemotePlatform;
   user_id: string;
   verified_at: string | null;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return typeof error === "string" ? error : "Unexpected error";
 }
 
 async function invokeOp<T>(operationId: string, input: unknown): Promise<T> {
@@ -109,6 +117,8 @@ export function RemoteSettingsPage() {
         platform: form.platform,
         unmapped_sender_policy: form.policy,
       }),
+    onError: (error) =>
+      toast.error(t("toasts.createFailed", { error: errorMessage(error) })),
     onSuccess: () => {
       setForm((previous) => ({
         ...previous,
@@ -132,18 +142,43 @@ export function RemoteSettingsPage() {
         status: binding.status,
         unmapped_sender_policy: binding.unmapped_sender_policy,
       }),
+    onError: (error) =>
+      toast.error(t("toasts.updateFailed", { error: errorMessage(error) })),
     onSuccess: invalidateBindings,
   });
 
   const deleteBinding = useMutation({
     mutationFn: (id: string) => invokeOp("remote_bindings_delete", { id }),
+    onError: (error) =>
+      toast.error(t("toasts.deleteFailed", { error: errorMessage(error) })),
     onSuccess: invalidateBindings,
   });
 
   const revokeIdentity = useMutation({
     mutationFn: (id: string) => invokeOp("remote_identity_revoke", { id }),
+    onError: (error) =>
+      toast.error(t("toasts.revokeFailed", { error: errorMessage(error) })),
     onSuccess: invalidateIdentities,
   });
+
+  // Surface list-load failures too (a failed query would otherwise render as a
+  // silent empty state — e.g. before the module_remote schema is exposed).
+  const bindingsError = bindingsQuery.error;
+  const identitiesError = identitiesQuery.error;
+  useEffect(() => {
+    if (bindingsError) {
+      toast.error(
+        t("toasts.loadFailed", { error: errorMessage(bindingsError) })
+      );
+    }
+  }, [bindingsError, t]);
+  useEffect(() => {
+    if (identitiesError) {
+      toast.error(
+        t("toasts.loadFailed", { error: errorMessage(identitiesError) })
+      );
+    }
+  }, [identitiesError, t]);
 
   const bindings = bindingsQuery.data?.bindings ?? [];
   const identities = identitiesQuery.data?.identities ?? [];
