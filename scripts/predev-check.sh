@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
-# Ensures local dev prerequisites before `pnpm dev` (Docker + Supabase + generated artifacts).
+# Ensures local dev prerequisites before `pnpm dev` / `pnpm dev:portless`:
+#   1. Docker daemon
+#   2. Supabase stack fully healthy (status + REST + Auth — not half-dead)
+#   3. Pending DB migrations applied
+#   4. Generated artifacts present
+#   5. Stale repo processes freed off the worktree's destin ports
+#
+# Portless HTTPS proxy (:443) is required only by `pnpm dev:portless`
+# (checked in scripts/dev-portless.sh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+SUPABASE_API="http://127.0.0.1:54321"
 
 # Metadata for the supported container runtimes. Each is a macOS app launched
 # via `open -a`; all three expose a Docker-compatible API so the rest of the
@@ -149,8 +159,55 @@ ensure_docker() {
   exit 1
 }
 
+http_code() {
+  local url="$1"
+  curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 2 "$url" 2>/dev/null || echo "000"
+}
+
+# `supabase status` succeeds even when PostgREST / Auth are stopped (half-dead
+# stack). Probe Kong so we don't greenlight a 503 API that surfaces as
+# "name resolution failed" / ensure-current-user 500s in the UI.
+supabase_rest_reachable() {
+  local code
+  code="$(http_code "${SUPABASE_API}/rest/v1/")"
+  # PostgREST via Kong returns 200 (with apikey) or 401 (without). 503 / 000 =
+  # gateway up but rest container down / unreachable.
+  [[ "$code" == "200" || "$code" == "401" ]]
+}
+
+supabase_auth_reachable() {
+  local code
+  code="$(http_code "${SUPABASE_API}/auth/v1/health")"
+  [[ "$code" == "200" ]]
+}
+
+# Critical containers for local API. Names match project_id = engenty-local.
+supabase_critical_containers_up() {
+  local name status
+  for name in \
+    supabase_db_engenty-local \
+    supabase_kong_engenty-local \
+    supabase_rest_engenty-local \
+    supabase_auth_engenty-local
+  do
+    status="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo missing)"
+    if [[ "$status" != "running" ]]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
 supabase_ready() {
-  supabase status >/dev/null 2>&1
+  supabase status >/dev/null 2>&1 \
+    && supabase_critical_containers_up \
+    && supabase_rest_reachable \
+    && supabase_auth_reachable
+}
+
+supabase_half_dead() {
+  # CLI thinks something is up, but REST/Auth/critical containers are not.
+  supabase status >/dev/null 2>&1 && ! supabase_ready
 }
 
 ensure_supabase() {
@@ -161,11 +218,21 @@ ensure_supabase() {
   fi
 
   if supabase_ready; then
+    echo "✓ Supabase healthy (REST + Auth on ${SUPABASE_API})" >&2
     return 0
   fi
 
-  echo "" >&2
-  echo "Local Supabase not ready — starting stack (containers may take a minute)..." >&2
+  if supabase_half_dead; then
+    echo "" >&2
+    echo "Local Supabase is half-dead (status OK, but REST/Auth/containers unhealthy)." >&2
+    echo "  REST:  $(http_code "${SUPABASE_API}/rest/v1/")" >&2
+    echo "  Auth:  $(http_code "${SUPABASE_API}/auth/v1/health")" >&2
+    echo "Restarting stack…" >&2
+    supabase stop >/dev/null 2>&1 || true
+  else
+    echo "" >&2
+    echo "Local Supabase not ready — starting stack (containers may take a minute)..." >&2
+  fi
 
   # `supabase start` can fail with "already running" while DB containers are still booting.
   if ! supabase start; then
@@ -174,13 +241,11 @@ ensure_supabase() {
 
   for i in $(seq 1 180); do
     if supabase_ready; then
-      if (( i > 1 )); then
-        echo "Supabase is ready." >&2
-      fi
+      echo "✓ Supabase is ready (REST + Auth)." >&2
       return 0
     fi
     if (( i % 15 == 0 )); then
-      echo "Waiting for Supabase… (${i}s)" >&2
+      echo "Waiting for Supabase… (${i}s) REST=$(http_code "${SUPABASE_API}/rest/v1/") Auth=$(http_code "${SUPABASE_API}/auth/v1/health")" >&2
     fi
     sleep 1
   done
@@ -190,6 +255,17 @@ ensure_supabase() {
   echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
   echo "Or: supabase stop && supabase start --debug" >&2
   exit 1
+}
+
+ensure_migrations() {
+  echo "Applying pending DB migrations (if any)…" >&2
+  if ! pnpm engenty db migrate; then
+    echo "" >&2
+    echo "DB migrate failed. Fix migration errors, then retry." >&2
+    echo "  pnpm db:migrate" >&2
+    exit 1
+  fi
+  echo "✓ Migrations up to date." >&2
 }
 
 ensure_generated_artifacts() {
@@ -204,8 +280,22 @@ ensure_generated_artifacts() {
     echo "Missing generated UI plugin catalog. Run: pnpm engenty setup (or pnpm setup)" >&2
     exit 1
   fi
+  echo "✓ Generated artifacts present." >&2
 }
 
+ensure_dev_ports_free() {
+  # Free destin ports still held by a stale `pnpm dev`/`pnpm dev:portless` from
+  # this repo (e.g. a Vite left behind after an unclean Ctrl-C). Resolves
+  # worktree-aware ports; unrelated apps on those ports abort with a clear
+  # message instead of a vague "Port 5173 is already in use".
+  node "$ROOT/scripts/dev-port-check.mjs" --cwd="$ROOT"
+  echo "✓ Dev ports clear." >&2
+}
+
+echo "==> Dev preflight" >&2
 ensure_docker
 ensure_supabase
+ensure_migrations
 ensure_generated_artifacts
+ensure_dev_ports_free
+echo "==> Preflight OK" >&2
