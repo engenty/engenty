@@ -2,7 +2,10 @@
 // lessons, deduped, token-capped, and fail-open.
 
 import { describe, expect, it } from "vitest";
-import { buildPriorLearningsSection } from "../task-prior-learnings.js";
+import {
+  buildPriorLearningsSection,
+  entityRefsFromContexts,
+} from "../task-prior-learnings.js";
 
 function row(overrides: Record<string, unknown> = {}) {
   return {
@@ -16,6 +19,23 @@ function row(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("entityRefsFromContexts", () => {
+  it("maps dotted context types verbatim and fans out bare contacts", () => {
+    expect(
+      entityRefsFromContexts([
+        { context_id: "c1", context_type: "contact" },
+        { context_id: "i1", context_type: "invoices.invoice" },
+        { context_id: "p1", context_type: "project" },
+        { context_id: "", context_type: "contact" },
+      ])
+    ).toEqual([
+      "contacts.person:c1",
+      "contacts.organisation:c1",
+      "invoices.invoice:i1",
+    ]);
+  });
+});
 
 describe("buildPriorLearningsSection", () => {
   it("renders project memories and the assignee's lessons", async () => {

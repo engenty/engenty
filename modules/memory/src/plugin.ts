@@ -12,6 +12,7 @@ import {
   MEMORY_RECORD_SOURCE_TYPE,
 } from "./dal/index.js";
 import { memoryRecordSearchFiltersSchema } from "./schema/zod.js";
+import { createEntityRefValidator } from "./services/entity-ref.js";
 
 type MemoryEntityEventPayload = EntityEventPayload<"record_id">;
 
@@ -91,7 +92,51 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
       emitMemoryEvent,
     });
 
-  registerMemoryGatewayMethods(server, repoFactory);
+  registerMemoryGatewayMethods(server, repoFactory, {
+    // Fail-soft: without a graph host, refs validate on format alone.
+    validateEntityRef: createEntityRefValidator(server.contextGraph ?? null),
+  });
+
+  // A deleted contact takes its entity memories with it (soft-archive, so
+  // nothing dangles in recall). The payload carries only the contact id —
+  // the type segment differs per row — so match both possible refs.
+  events.modules.on(
+    "contacts.contact.deleted",
+    async (payload, context) => {
+      const contactId = (payload as { contact_id?: unknown }).contact_id;
+      const tenantId =
+        context.tenantId ?? (payload as { tenant_id?: unknown }).tenant_id;
+      if (typeof contactId !== "string" || typeof tenantId !== "string") {
+        return;
+      }
+      const refs = [
+        `contacts.person:${contactId}`,
+        `contacts.organisation:${contactId}`,
+      ];
+      const { data, error } = await supabase
+        .schema("module_memory")
+        .from("records")
+        .update({ status: "archived", updated_at: new Date().toISOString() })
+        .eq("tenant_id", tenantId)
+        .eq("scope_kind", "entity")
+        .in("scope_ref", refs)
+        .neq("status", "archived")
+        .select("id, scope_id");
+      if (error) {
+        throw new Error(
+          `memory: archive on contact delete failed: ${error.message}`
+        );
+      }
+      for (const row of (data ?? []) as { id: string; scope_id: string }[]) {
+        await emitMemoryEvent("archived", {
+          record_id: row.id,
+          scope_id: row.scope_id,
+          tenant_id: tenantId,
+        });
+      }
+    },
+    { tenantScoped: true }
+  );
 };
 
 export default registerMemoryPlugin;

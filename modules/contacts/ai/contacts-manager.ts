@@ -68,6 +68,13 @@ function buildContactsManagerTools(options: {
     const manifest = getContactsManagerManifest();
     const tools: Record<string, object> = {};
     for (const toolId of manifest.tools) {
+      // Host-resolved tools (durable memory) attach when the agent is
+      // assembled through the apps/ai composite registry; this module-local
+      // builder (action/trigger runs) has no implementation for them and
+      // simply runs without.
+      if (toolId.startsWith("memory_")) {
+        continue;
+      }
       const build = CONTACTS_TOOL_BUILDERS[toolId];
       if (!build) {
         throw new Error(

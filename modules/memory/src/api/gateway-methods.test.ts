@@ -93,6 +93,44 @@ describe("memory gateway methods", () => {
     body_md: "Short.",
   };
 
+  it("validates entity refs through the injected validator", async () => {
+    const validated: string[] = [];
+    const strictOps = new Map<string, PluginServerOperation>();
+    registerMemoryGatewayMethods(
+      {
+        registerOperation: (op: PluginServerOperation) => {
+          strictOps.set(op.operationId, op);
+        },
+      } as unknown as PluginServerApi,
+      () => repo,
+      {
+        validateEntityRef: (ref) => {
+          validated.push(ref);
+          if (ref.startsWith("foo.bar:")) {
+            throw new Error("unknown entity type 'foo.bar'");
+          }
+          return { id: ref.split(":")[1] ?? "", typeId: "contacts.person" };
+        },
+      }
+    );
+    const upsert = strictOps.get("memory_record_upsert");
+    await upsert?.handler(
+      {
+        ...upsertInput,
+        scope_kind: "entity",
+        scope_ref: "contacts.person:c1",
+      },
+      { auth: agentAuth } as never
+    );
+    expect(validated).toEqual(["contacts.person:c1"]);
+    await expect(
+      upsert?.handler(
+        { ...upsertInput, scope_kind: "entity", scope_ref: "foo.bar:123" },
+        { auth: agentAuth } as never
+      )
+    ).rejects.toThrow(/unknown entity type/);
+  });
+
   it("registers the four ops with the expected capabilities", () => {
     expect(ops.get("memory_record_upsert")?.requiredCapabilities).toEqual([
       "module.memory.write",

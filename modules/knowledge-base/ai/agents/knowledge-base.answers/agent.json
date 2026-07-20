@@ -12,10 +12,7 @@
   ],
   "tools": [
     "knowledge_base_article_search",
-    "kb_faqs_list",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
+    "kb_faqs_list"
   ],
   "workspace": {
     "enabled": false

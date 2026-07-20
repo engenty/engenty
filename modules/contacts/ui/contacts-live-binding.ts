@@ -14,5 +14,8 @@ export const contactsLiveBinding: ModuleLiveBinding = {
   postgresChanges: [
     { schema: "module_contacts", table: "contacts" },
     { schema: "module_contacts", table: "contact_relations" },
+    // Agent-notes card: entity-scoped memory records render on the contact
+    // page; an agent writing a memory mid-view refreshes the card live.
+    { schema: "module_memory", table: "records" },
   ],
 };

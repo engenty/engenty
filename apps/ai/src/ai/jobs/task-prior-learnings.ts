@@ -41,6 +41,30 @@ function renderRecord(record: MemoryRecordRow): string {
 }
 
 /**
+ * Entity refs for a task's linked contexts. A dotted context_type is already
+ * an ontology type id ('contacts.person') → use it verbatim; the legacy bare
+ * 'contact' type fans out to both contact entity types.
+ */
+export function entityRefsFromContexts(
+  contexts: Array<{ context_id?: unknown; context_type?: unknown }>
+): string[] {
+  const refs: string[] = [];
+  for (const context of contexts) {
+    const type = str(context.context_type);
+    const id = str(context.context_id);
+    if (!(type && id)) {
+      continue;
+    }
+    if (type === "contact") {
+      refs.push(`contacts.person:${id}`, `contacts.organisation:${id}`);
+    } else if (type.includes(".")) {
+      refs.push(`${type}:${id}`);
+    }
+  }
+  return refs.slice(0, 6);
+}
+
+/**
  * Build the "## Prior learnings" markdown section for a task brief, or ""
  * when there is nothing to inject. Never throws.
  */

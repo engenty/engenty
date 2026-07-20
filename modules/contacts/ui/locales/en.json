@@ -356,5 +356,10 @@
     "removeTitle": "Remove relation?",
     "role": "Role",
     "searchPeople": "Search people"
+  },
+  "agentNotes": {
+    "title": "Agent notes",
+    "archive": "Archive",
+    "agentFallback": "agent"
   }
 }

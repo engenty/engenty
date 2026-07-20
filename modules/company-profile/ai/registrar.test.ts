@@ -57,6 +57,9 @@ describe("companyProfileAiRegistration", () => {
         "companyWebsitePages",
         "convert_image",
         "web_search",
+        "memory_save",
+        "memory_record_search",
+        "memory_record_archive",
       ],
     });
     expect(capability.tools).toHaveProperty("loadCompanyProfile");

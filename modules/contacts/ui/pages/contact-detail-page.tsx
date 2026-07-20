@@ -15,6 +15,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { ContactListItem } from "../api.js";
 import { ContactInfoTab } from "../components/contact-info-tab.js";
+import { ContactAgentNotesCard } from "../components/contact-agent-notes-card.js";
 import { ContactOverviewTab } from "../components/contact-overview-tab.js";
 import { ContactRelationsTab } from "../components/contact-relations-tab.js";
 import { ContactSubNav } from "../components/contact-sub-nav.js";
@@ -173,6 +174,7 @@ export function ContactDetailPage() {
 
             <TabsContent className="space-y-6" value="overview">
               <ContactOverviewTab entity={entity} />
+              <ContactAgentNotesCard entity={entity} />
             </TabsContent>
             <TabsContent className="space-y-6" value="info">
               <ContactInfoTab entity={entity} />

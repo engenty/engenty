@@ -105,7 +105,14 @@ describe("knowledgeBaseAiRegistration", () => {
         "kb-source-manager",
       ]),
       source: "module",
-      toolIds: ["engenty_tools_search", "engenty_tool_execute", "web_search"],
+      toolIds: [
+        "engenty_tools_search",
+        "engenty_tool_execute",
+        "web_search",
+        "memory_save",
+        "memory_record_search",
+        "memory_record_archive",
+      ],
     });
 
     expect(managerConfig?.instructions).toContain(

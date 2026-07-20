@@ -4,6 +4,7 @@ import type {
 } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { MemoryRepo } from "../dal/contracts.js";
+import type { EntityRefValidator } from "../services/entity-ref.js";
 import {
   memoryRecordArchiveInputSchema,
   memoryRecordListInputSchema,
@@ -25,9 +26,15 @@ function isAgentPrincipal(auth: PluginAuthContext): boolean {
   return Boolean(auth.agentId);
 }
 
+export interface MemoryGatewayOptions {
+  /** Validates entity scope_refs against the context-graph ontology. */
+  validateEntityRef?: EntityRefValidator;
+}
+
 export function registerMemoryGatewayMethods(
   api: PluginServerApi,
-  repoFactory: MemoryRepoFactory
+  repoFactory: MemoryRepoFactory,
+  options: MemoryGatewayOptions = {}
 ): void {
   api.registerOperation({
     operationId: "memory_record_upsert",
@@ -54,6 +61,9 @@ export function registerMemoryGatewayMethods(
         throw new Error(
           "memory_record_upsert: org scope takes no scope_ref (it is tenant-wide)"
         );
+      }
+      if (parsed.scope_kind === "entity" && parsed.scope_ref) {
+        options.validateEntityRef?.(parsed.scope_ref);
       }
       // Agents cannot claim 'human' provenance.
       const sourceKind = agentPrincipal
