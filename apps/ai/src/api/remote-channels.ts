@@ -186,7 +186,7 @@ export function createIdentityGateHandler(): ChannelHandler {
       return;
     }
 
-    if (!resolved.binding || resolved.binding.status !== "active") {
+    if (resolved.binding?.status !== "active") {
       logger.warn("remote channels: no active binding for inbound event", {
         platform,
       });

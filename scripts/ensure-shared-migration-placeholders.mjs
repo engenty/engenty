@@ -29,7 +29,9 @@ function listMigrationFiles() {
   if (!fs.existsSync(MIGRATIONS_DIR)) {
     return [];
   }
-  return fs.readdirSync(MIGRATIONS_DIR).filter((entry) => entry.endsWith(".sql"));
+  return fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((entry) => entry.endsWith(".sql"));
 }
 
 /** @returns {Map<string, string[]>} version -> basenames */
@@ -94,9 +96,9 @@ function remoteVersions() {
 function placeholderBody(version) {
   return [
     `-- shared-stack placeholder for version ${version}`,
-    `-- Applied on the shared local Supabase by another worktree / plugin set.`,
-    `-- This file exists only so \`supabase migration up\` accepts the history.`,
-    `-- It is never executed when the version is already recorded as applied.`,
+    "-- Applied on the shared local Supabase by another worktree / plugin set.",
+    "-- This file exists only so `supabase migration up` accepts the history.",
+    "-- It is never executed when the version is already recorded as applied.",
     "select 1;",
     "",
   ].join("\n");
@@ -147,7 +149,9 @@ function main() {
   if (written > 0 || removed > 0) {
     const parts = [];
     if (written > 0) {
-      parts.push(`wrote ${written} placeholder(s) for other-worktree migrations`);
+      parts.push(
+        `wrote ${written} placeholder(s) for other-worktree migrations`
+      );
     }
     if (removed > 0) {
       parts.push(`removed ${removed} stale placeholder(s)`);

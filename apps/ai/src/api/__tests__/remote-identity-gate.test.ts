@@ -26,24 +26,22 @@ function stubFetch(scenario: FakeScenario) {
       const body = init?.body ? JSON.parse(String(init.body)) : null;
       calls.push({ body, url });
       if (url.includes("/api/tools/remote_runtime_resolve_sender/invoke")) {
-        return new Response(
-          JSON.stringify({
-            data: {
-              binding: scenario.binding,
-              identity: scenario.identity,
-              ok: true,
-              pairing_code: scenario.pairing_code,
-            },
+        return Response.json({
+          data: {
+            binding: scenario.binding,
+            identity: scenario.identity,
             ok: true,
-          }),
-          { headers: { "content-type": "application/json" } }
-        );
+            pairing_code: scenario.pairing_code,
+          },
+          ok: true,
+        });
       }
       if (url.includes("/api/auth/actor-token")) {
-        return new Response(
-          JSON.stringify({ expires_in: 300, ok: true, token: "actor-tok-123" }),
-          { headers: { "content-type": "application/json" } }
-        );
+        return Response.json({
+          expires_in: 300,
+          ok: true,
+          token: "actor-tok-123",
+        });
       }
       return new Response("not found", { status: 404 });
     })

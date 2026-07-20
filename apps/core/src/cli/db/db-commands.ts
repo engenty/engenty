@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { Command } from "commander";
 import { findWorkspaceRootFrom } from "@engenty/environment/env";
+import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { runSetupScript } from "../setup/run-setup-script.js";
 import { runDbSnapshotScript } from "./run-db-snapshot.js";
