@@ -169,7 +169,7 @@ export function AgentsOverridesTab({
                         options={chatModelOptions}
                         placeholder={t("agentsTab.inheritPlaceholder")}
                         searchPlaceholder={t("fields.modelSearchPlaceholder")}
-                        triggerClassName="w-full"
+                        triggerClassName="h-8 w-full"
                         value={draft.modelOverride}
                       />
                     </div>
@@ -178,7 +178,7 @@ export function AgentsOverridesTab({
                         {t("agentsTab.purpose")}
                       </Label>
                       <select
-                        className="h-9 rounded-md border bg-background px-2 text-sm"
+                        className="h-8 rounded-md border bg-background px-2 text-sm"
                         id={`ov-purpose-${agent.id}`}
                         onChange={(e) =>
                           setDraft({ ...draft, purpose: e.target.value })
@@ -199,6 +199,7 @@ export function AgentsOverridesTab({
                         {t("agentsTab.maxSteps")}
                       </Label>
                       <Input
+                        className="h-8"
                         id={`ov-steps-${agent.id}`}
                         inputMode="numeric"
                         onChange={(e) =>
@@ -213,6 +214,7 @@ export function AgentsOverridesTab({
                         {t("agentsTab.budget")}
                       </Label>
                       <Input
+                        className="h-8"
                         id={`ov-budget-${agent.id}`}
                         inputMode="decimal"
                         onChange={(e) =>

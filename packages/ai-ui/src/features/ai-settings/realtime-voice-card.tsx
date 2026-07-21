@@ -61,7 +61,7 @@ export function RealtimeVoiceCard({
           onValueChange={(value) => patch({ openai_voice: value || null })}
           value={rv?.openai_voice ?? ""}
         >
-          <SelectTrigger className="min-w-0 flex-1" id="voice-voice">
+          <SelectTrigger className="min-w-0 flex-1" id="voice-voice" size="sm">
             <SelectValue
               placeholder={t("voice.inheritHint", {
                 value: DEFAULT_REALTIME_VOICE,
@@ -83,7 +83,7 @@ export function RealtimeVoiceCard({
           {t("voice.modelLabel")}
         </Label>
         <Input
-          className="min-w-0 flex-1"
+          className="h-8 min-w-0 flex-1"
           id="voice-model"
           onChange={(e) =>
             patch({ openai_model: e.target.value.trim() || null })
@@ -101,7 +101,7 @@ export function RealtimeVoiceCard({
           {t("voice.transcriptionLabel")}
         </Label>
         <Input
-          className="min-w-0 flex-1"
+          className="h-8 min-w-0 flex-1"
           id="voice-transcription"
           onChange={(e) =>
             patch({ openai_transcription_model: e.target.value.trim() || null })

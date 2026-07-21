@@ -9,11 +9,11 @@ import { checkUsageLimits, formatUsageLimitError } from "../limit-check.js";
 import { type AiUsageStore, configureAiUsageStore } from "../store.js";
 
 interface Fixtures {
+  /** Per-agent accumulated cost (micros) keyed by agent_id. */
+  agentCost?: Map<string, number>;
   tenantPolicy: TenantUsagePolicyRecord | null;
   totals: Map<string, UsagePeriodTotalRecord>;
   userPolicy: UserUsagePolicyRecord | null;
-  /** Per-agent accumulated cost (micros) keyed by agent_id. */
-  agentCost?: Map<string, number>;
 }
 
 function buildStore(fx: Fixtures): AiUsageStore {

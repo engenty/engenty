@@ -76,10 +76,10 @@ export function ModelMatrixCard({
 
           return (
             <div
-              className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4"
+              className="grid gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-3 sm:items-start sm:gap-4"
               key={row.purpose}
             >
-              <div className="sm:w-48 sm:shrink-0">
+              <div className="sm:col-span-2">
                 <Label htmlFor={`model-${row.purpose}`}>
                   {t(`matrix.purpose.${row.purpose}.label`)}
                 </Label>
@@ -88,7 +88,7 @@ export function ModelMatrixCard({
                 </p>
               </div>
 
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <SearchableSelect
                   emptyMessage={t("fields.modelSearchEmpty")}
                   id={`model-${row.purpose}`}
@@ -102,7 +102,7 @@ export function ModelMatrixCard({
                       : t("fields.modelSearchPlaceholder")
                   }
                   searchPlaceholder={t("fields.modelSearchPlaceholder")}
-                  triggerClassName="min-w-0 flex-1"
+                  triggerClassName="h-8 min-w-0"
                   value={pinned ?? ""}
                 />
 

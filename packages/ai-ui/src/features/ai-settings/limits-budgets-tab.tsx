@@ -149,6 +149,7 @@ export function LimitsBudgetsTab({
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="soft-limit">{t("limits.softLimit")}</Label>
                 <Input
+                  className="h-8"
                   id="soft-limit"
                   inputMode="decimal"
                   onChange={(e) => setSoftInput(e.target.value)}
@@ -162,6 +163,7 @@ export function LimitsBudgetsTab({
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="hard-limit">{t("limits.hardLimit")}</Label>
                 <Input
+                  className="h-8"
                   id="hard-limit"
                   inputMode="decimal"
                   onChange={(e) => setHardInput(e.target.value)}
@@ -202,6 +204,7 @@ export function LimitsBudgetsTab({
         <div className="flex flex-col gap-1.5 sm:max-w-xs">
           <Label htmlFor="iteration-cap">{t("limits.iterationCap")}</Label>
           <Input
+            className="h-8"
             id="iteration-cap"
             inputMode="numeric"
             onChange={(e) => {
@@ -264,7 +267,7 @@ export function LimitsBudgetsTab({
           </div>
           <div className="flex items-center gap-2">
             <Input
-              className="sm:max-w-xs"
+              className="h-8 sm:max-w-xs"
               onChange={(e) => setNewModel(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
