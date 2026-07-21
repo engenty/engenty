@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.52] - 2026-07-21
+- FIXED **[engenty-remote]** Resolve migration timestamp collision blocking all migrations
+- FIXED **[memory]** Declare UI in manifest so apps/ui dep survives sync (CI lockfile guard)
+
 ## [0.1.51] - 2026-07-21
 - ADDED **[memory]** Memory document UI — TipTap doc projection + diff-sync (Phase 6)
 - ADDED **[memory]** Weekly consolidation routine (Phase 5)
