@@ -403,6 +403,10 @@ export {
   TooltipTrigger,
 } from "./components/ui/tooltip";
 export {
+  type UseListToolbarHotkeysOptions,
+  useListToolbarHotkeys,
+} from "./hooks/useListToolbarHotkeys";
+export {
   type UseTableSelectionOptions,
   type UseTableSelectionReturn,
   useTableSelection,

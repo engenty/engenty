@@ -172,6 +172,11 @@ export function ArtifactsCatalogToolbar(props: ArtifactsCatalogToolbarProps) {
             <ListSearchInput
               className="w-full pr-10"
               onChange={(event) => props.onSearchChange(event.target.value)}
+              onOpenFilters={() => {
+                if (!props.filtersExpanded) {
+                  props.onFiltersToggle();
+                }
+              }}
               placeholder={t("artifactsCatalog.searchPlaceholder")}
               value={props.searchQuery}
               wrapperClassName="w-full"

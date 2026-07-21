@@ -16,7 +16,8 @@ labelled "Display" button, or a custom segmented control. Use these:
 
 | Export | Role |
 |--------|------|
-| `ListSearchInput` | Pill search field with a built-in magnifier; `wrapperClassName` controls width |
+| `ListSearchInput` | Pill search field with a built-in magnifier; Mod+F focus; optional `onOpenFilters` for Mod+Shift+F |
+| `useListToolbarHotkeys` | Hook behind `ListSearchInput` shortcuts (rarely needed directly) |
 | `ListViewModeToggle` | Segmented list/cards switch — binds the same `ViewMode` as `ListDisplayConfigurator` |
 | `ListToolbarIconButton` | Borderless icon button for permanent controls (display menu, filter). Always pass `aria-label` |
 | `ListIconSegmentToggle` | Generic icon segmented control (e.g. contacts' organisation/person filter); `allowDeselect` for clearable |
@@ -82,6 +83,35 @@ import { SlidersHorizontal } from "lucide-react";
 `ListViewModeToggle` and `ListDisplayConfigurator` must bind the **same**
 `viewMode`/`setViewMode` from [`useListDisplayState`](./list-preferences) — the
 toggle is the quick switch, the configurator the full menu.
+
+## Keyboard shortcuts
+
+`ListSearchInput` registers list-scoped shortcuts (via `useListToolbarHotkeys`):
+
+| Shortcut | Action |
+|----------|--------|
+| Mod+F (Cmd/Ctrl+F) | Focus and select the list search field |
+| Mod+Shift+F | Open the filter chip bar — only when `onOpenFilters` is passed |
+| Mod+N | Open the new-item dialog — call `useListToolbarHotkeys({ onNewItem })` on the page |
+
+Pass `onOpenFilters` from toolbars that own an expandable filter row (ensure
+open, do not toggle closed). Wire `onNewItem` from the list page when a create
+dialog exists. Shortcuts are ignored while focus is inside a dialog/sheet. Set
+`enableHotkeys={false}` on `ListSearchInput` to opt out of Mod+F / Mod+Shift+F.
+
+```tsx
+<ListSearchInput
+  onChange={(e) => setSearch(e.target.value)}
+  onOpenFilters={() => {
+    if (!filtersExpanded) {
+      setFiltersExpanded(true);
+    }
+  }}
+  placeholder={t("toolbar.search")}
+  value={search}
+  wrapperClassName="w-full"
+/>
+```
 
 ## Notes
 

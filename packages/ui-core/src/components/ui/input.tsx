@@ -6,6 +6,7 @@ import { cn } from "../../utils";
 function Input({
   className,
   type = "text",
+  ref,
   ...props
 }: React.ComponentProps<"input">) {
   return (
@@ -19,6 +20,7 @@ function Input({
         className
       )}
       data-slot="input"
+      ref={ref}
       type={type}
       {...props}
     />
