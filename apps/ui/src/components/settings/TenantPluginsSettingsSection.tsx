@@ -29,6 +29,10 @@ import {
 } from "@/lib/plugins-queries";
 import { cn } from "@/lib/utils";
 import { useWorkspaceContextQuery } from "@/lib/workspace-context-query";
+import {
+  overviewIconToneForCategory,
+  SettingsOverviewIcon,
+} from "./SettingsOverviewIcon";
 
 /** Core settings surfaces that are not module rows (hardcoded elsewhere in nav). */
 const NON_MODULE_SETTINGS_PATHS = new Set([
@@ -274,7 +278,7 @@ export function TenantPluginsSettingsSection() {
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div className="flex items-center gap-3 px-4 py-3" key={i}>
-              <Skeleton className="size-8 rounded-lg" />
+              <Skeleton className="size-9 rounded-[10px]" />
               <div className="flex flex-1 flex-col gap-1">
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-3 w-56" />
@@ -312,9 +316,10 @@ export function TenantPluginsSettingsSection() {
                         className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
                         to={row.to}
                       >
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
-                          <Icon className="size-4 text-muted-foreground" />
-                        </div>
+                        <SettingsOverviewIcon
+                          Icon={Icon}
+                          tone={overviewIconToneForCategory(row.category)}
+                        />
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate font-medium text-foreground text-sm">
                             {row.label}

@@ -437,6 +437,13 @@
       "usageOverview": "{{when}} · {{cost}}",
       "usageOverviewWithLimit": "{{when}} · {{cost}} von {{limit}}"
     },
+    "connections": {
+      "title": "Verbindungen",
+      "overviewDescription": "Externe Konten für Agenten und Module verknüpfen.",
+      "linkedOverview": "{{count}} verbunden",
+      "emptyOverview": "Noch keine Konten verknüpft",
+      "errorsOverview": "{{count}} benötigen Aufmerksamkeit"
+    },
     "aiModels": {
       "menuLabel": "KI-Modelle"
     },

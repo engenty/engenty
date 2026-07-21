@@ -7,6 +7,7 @@ import {
   GeneralTenantSettingsSection,
   TenantAiSettingsSection,
   TenantAppearanceSettingsSection,
+  TenantConnectionsSettingsSection,
   TenantPluginsSettingsSection,
   TenantUsersSettingsSection,
 } from "@/components/settings";
@@ -30,11 +31,12 @@ export function SettingsPage() {
         {/* Core Tenant Settings (Centered Identity) */}
         <GeneralTenantSettingsSection />
 
-        {/* Stacked Layout: Users → Appearance → AI → Engenty → Plugins */}
+        {/* Stacked Layout: Users → Appearance → AI → Connections → Engenty → Plugins */}
         <div className="space-y-8 pb-12">
           <TenantUsersSettingsSection />
           <TenantAppearanceSettingsSection />
           <TenantAiSettingsSection />
+          <TenantConnectionsSettingsSection />
           <CopilotAdminLinksSection />
           <TenantPluginsSettingsSection />
         </div>

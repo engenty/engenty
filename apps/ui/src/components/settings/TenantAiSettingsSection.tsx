@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { BarChart3Icon, ChevronRightIcon, SparklesIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAiUsageMeQuery } from "@/lib/ai-usage-queries";
+import { SettingsOverviewIcon } from "./SettingsOverviewIcon";
 
 const MICROS_PER_DOLLAR = 1_000_000;
 
@@ -72,9 +73,10 @@ function AiOverviewRow({
       className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
       to={to}
     >
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50">
-        <Icon className="size-4 text-muted-foreground" />
-      </div>
+      <SettingsOverviewIcon
+        Icon={Icon}
+        tone={to.includes("usage") ? "amber" : "cobalt"}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-medium text-foreground text-sm">
           {label}

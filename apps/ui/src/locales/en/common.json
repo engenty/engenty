@@ -437,6 +437,13 @@
       "usageOverview": "{{when}} · {{cost}}",
       "usageOverviewWithLimit": "{{when}} · {{cost}} of {{limit}}"
     },
+    "connections": {
+      "title": "Connections",
+      "overviewDescription": "Link external accounts for agents and modules.",
+      "linkedOverview": "{{count}} connected",
+      "emptyOverview": "No accounts linked yet",
+      "errorsOverview": "{{count}} need attention"
+    },
     "aiModels": {
       "menuLabel": "AI models"
     },

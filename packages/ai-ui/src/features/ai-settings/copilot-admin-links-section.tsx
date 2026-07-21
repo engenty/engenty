@@ -89,7 +89,9 @@ function AdminLinkRow({
       className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
       to={to}
     >
-      <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ember-tint)]">
+        <Icon aria-hidden className="size-6 text-foreground" />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-medium">{label}</span>
         <span className="truncate text-muted-foreground text-xs">
