@@ -15,18 +15,22 @@ import {
   useCopilotThreadActions,
   WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
-import { useCopilotShellOrNull } from "@engenty/app-shell";
+import {
+  ModuleSidebarHeaderLabel,
+  useCopilotShellOrNull,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { DockChatIcon } from "@engenty/ui-icons";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
-import { ChatShellHeader } from "../components/chat/shell-header.js";
 import { CopilotModuleErrorBoundary } from "../components/copilot-module-error-boundary.js";
 import { SessionList } from "../components/session-list/session-list.js";
 import { logCopilotChatPanel } from "../dev/chat-panel-debug.js";
 import {
+  COPILOT_CHAT_ROOT,
   copilotChatThreadPath,
   readCopilotSubRunToolCallId,
 } from "../paths.js";
@@ -196,7 +200,16 @@ export function CopilotChatPage() {
   // Order: New Chat → artifacts trigger → ⋯ menu (menu stays far right).
   const topbarActions = useMemo(() => <ChatTopbarActions />, []);
   const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
-  const secondaryNavHeaderSlot = useMemo(() => <ChatShellHeader />, []);
+  const secondaryNavHeaderSlot = useMemo(
+    () => (
+      <ModuleSidebarHeaderLabel
+        icon={DockChatIcon}
+        label={moduleLabel}
+        to={COPILOT_CHAT_ROOT}
+      />
+    ),
+    [moduleLabel]
+  );
 
   usePageConfig({
     actions: topbarActions,
