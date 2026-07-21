@@ -16,6 +16,15 @@ const ENGENTY_MEMORY_STORE_ID = "engenty-session-memory";
 // settings UI renders it read-only ("what the assistant knows about you").
 // Persistence: the adapter's resource methods, delegated to ai.mastra_resources
 // keyed `${tenantId}:${userId}`.
+//
+// BOUNDARY vs the memory module (memory_save): this profile is the tiny,
+// always-in-context *identity/context* snapshot only. Anything specific and
+// durable a user states — "always sign off with 'lg, Matthias'", "never batch
+// LinkedIn lookups" — belongs in memory_save, NOT here, so it is itemized,
+// cited, recallable, and governed. Mastra builds its auto-injected working-
+// memory instructions from these field descriptions, so the descriptions
+// actively delegate specifics to memory_save to stop the model from parking
+// durable preferences/facts in the profile where the memory UI can't see them.
 export const workingMemoryProfileSchema = z.object({
   preferred_language: z
     .string()
@@ -36,12 +45,16 @@ export const workingMemoryProfileSchema = z.object({
     .array(z.string().max(200))
     .max(12)
     .optional()
-    .describe("Durable working preferences (formatting, tone, workflows)"),
+    .describe(
+      "At most a couple of broad, always-relevant working defaults (e.g. 'writes in German'). A specific stated preference the user asks you to remember is NOT stored here — save it with memory_save (scope user) so it is tracked and recallable."
+    ),
   facts: z
     .array(z.string().max(200))
     .max(12)
     .optional()
-    .describe("Other durable facts worth remembering across chats"),
+    .describe(
+      "Only ambient context that must be in every prompt. Concrete facts about people, projects, or how the user works belong in memory_save (the memory module), not here."
+    ),
 });
 
 // Mastra's default title instructions, plus: answer in the USER's language.
