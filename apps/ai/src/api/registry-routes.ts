@@ -172,6 +172,130 @@ export function registerRegistryRoutes(
     }
   });
 
+  // Governance list: every registry row incl. proposed/archived + pending
+  // revisions — the approval UI reads this; assignment surfaces use the
+  // default active-only list above.
+  app.get(`${AI_BASE_PATH}/registry/agent-records`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = getStore();
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const records = await store.listAgentRecords(resolved.scope.tenantId);
+      return c.json({ records });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to list agent records",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  // Agent-driven write path (the agent_propose tool). NEVER goes live:
+  // a new agent lands status='proposed'; a revision to an active agent lands
+  // in proposed_config while the agent keeps running its approved config.
+  // Approve/reject below are deliberately NOT exposed as agent tools.
+  app.post(`${AI_BASE_PATH}/registry/agents/:id/propose`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = getStore();
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const agentId = c.req.param("id");
+      const body = await c.req.json();
+      const { proposed_by_agent: proposedByAgent, ...configBody } = body as {
+        proposed_by_agent?: string;
+      } & Record<string, unknown>;
+      const parsed = agentConfigSchema.safeParse({
+        ...configBody,
+        id: agentId,
+      });
+      if (!parsed.success) {
+        return c.json(
+          {
+            error: "agent_sessions.invalidInput",
+            details: parsed.error.issues,
+          },
+          400
+        );
+      }
+      const record = await store.proposeAgent(
+        resolved.scope.tenantId,
+        parsed.data,
+        { proposedByAgent: proposedByAgent ?? null }
+      );
+      return c.json({ record });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to propose agent",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  app.post(`${AI_BASE_PATH}/registry/agents/:id/approve`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = getStore();
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const agentId = c.req.param("id");
+      const agent = await store.approveAgent(resolved.scope.tenantId, agentId);
+      // Approval is go-live: provision the core.agents security principal.
+      await resolveCoreAgentId(resolved.scope.tenantId, agent.id);
+      return c.json({ agent });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to approve agent",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  app.post(`${AI_BASE_PATH}/registry/agents/:id/reject`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = getStore();
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const agentId = c.req.param("id");
+      const rejected = await store.rejectAgent(
+        resolved.scope.tenantId,
+        agentId
+      );
+      return c.json({ rejected });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to reject agent",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
   app.patch(`${AI_BASE_PATH}/registry/agents/:id`, async (c) => {
     const resolved = await resolveScope(c, scopeResolver);
     if (!resolved.ok) {

@@ -9,16 +9,17 @@ import {
   createEngentyCopilotAgent,
 } from "@engenty/engenty-copilot/ai";
 import { createTool } from "@mastra/core/tools";
+import { createAgentProposeTools } from "../../tools/agent-propose-tool.js";
 import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
 import { createMemoryTools } from "../../tools/memory-tools/index.js";
 import { registryAgentsListTool } from "../../tools/registry-agents-list-tool.js";
-import { createSkillProposeTools } from "../../tools/skill-propose-tool.js";
 import { createShowObjectsTool } from "../../tools/show-objects-tool.js";
 import { createShowUiTool } from "../../tools/show-ui-tool.js";
 import { createShowWidgetTool } from "../../tools/show-widget-tool.js";
+import { createSkillProposeTools } from "../../tools/skill-propose-tool.js";
 import { createVaultFileTools } from "../../tools/vault-files/index.js";
 import { createWebSearchTool } from "../../tools/web-search/index.js";
 
@@ -57,6 +58,9 @@ export function createEngentyCopilotAgentTools() {
 export function createBuiltinRegistryTools() {
   return {
     ...createEngentyCopilotAgentTools(),
+    // Registered for resolution only — agents get it solely via their
+    // toolIds (the coordinator declares it; the copilot does not).
+    ...createAgentProposeTools(),
     convert_image: convertImageTool,
     proposeUpdates: proposeUpdatesTool,
     registry_agents_list: registryAgentsListTool,
