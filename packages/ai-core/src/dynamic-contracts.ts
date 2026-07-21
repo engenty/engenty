@@ -170,12 +170,24 @@ export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
 export const agentToolProfileSchema = z.enum(["read_only_kb"]);
 export type AgentToolProfile = z.infer<typeof agentToolProfileSchema>;
 
+// Per-agent operational limits. A governance dial on a single agent, layered
+// over the global/tenant defaults. `max_steps` caps the agent's reasoning
+// iterations per run; when unset the global `ENGENTY_AI_AGENT_MAX_STEPS`
+// default applies. The hard ceiling (60) is still enforced at resolution — a
+// per-agent value can only tighten, never exceed it.
+export const agentLimitsConfigSchema = z.object({
+  max_steps: z.number().int().min(1).max(60).optional(),
+});
+export type AgentLimitsConfig = z.infer<typeof agentLimitsConfigSchema>;
+
 export const agentConfigSchema = z.object({
   backgroundTasks: agentBackgroundConfigSchema.optional(),
   description: z.string().optional(),
   guardrails: agentGuardrailsConfigSchema.optional(),
   id: z.string().min(1),
   instructions: z.string().min(1),
+  /** Per-agent operational limits (iteration cap, …). */
+  limits: agentLimitsConfigSchema.optional(),
   model: z.string().min(1),
   name: z.string().min(1),
   skillIds: z.array(z.string().min(1)).default([]),

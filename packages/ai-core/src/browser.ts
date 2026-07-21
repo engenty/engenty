@@ -50,6 +50,7 @@ export type { AgentSessionStatus } from "./contracts.js";
 export type {
   AgentConfig,
   AgentGuardrailsConfig,
+  AgentLimitsConfig,
 } from "./dynamic-contracts.js";
 export type {
   SupportedModel,

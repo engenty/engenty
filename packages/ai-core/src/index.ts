@@ -133,6 +133,7 @@ export {
 export {
   type AgentConfig,
   type AgentGuardrailsConfig,
+  type AgentLimitsConfig,
   type AgentToolProfile,
   type AgentWorkspaceConfig,
   type AgentWorkspaceMount,
@@ -142,6 +143,7 @@ export {
   agentBackgroundConfigSchema,
   agentConfigSchema,
   agentGuardrailsConfigSchema,
+  agentLimitsConfigSchema,
   agentToolProfileSchema,
   agentWorkspaceConfigSchema,
   type DynamicAiModuleCapability,

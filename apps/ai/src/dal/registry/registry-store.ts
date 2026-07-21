@@ -1,4 +1,7 @@
-import { agentGuardrailsConfigSchema } from "@engenty/ai-core";
+import {
+  agentGuardrailsConfigSchema,
+  agentLimitsConfigSchema,
+} from "@engenty/ai-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createNonExecutableDatabaseTool } from "../../ai/registry/database-tool.js";
 import type {
@@ -22,6 +25,8 @@ export interface RegistryAgentRow {
   guardrails: Record<string, unknown> | null;
   id: string;
   instructions: string;
+  /** Per-agent operational limits (e.g. { max_steps }). */
+  limits?: Record<string, unknown> | null;
   model: string;
   name: string;
   /** Pending full-config revision for an ACTIVE agent (governance). */
@@ -53,8 +58,19 @@ function parseGuardrails(
   return parsed.success ? parsed.data : undefined;
 }
 
+function parseLimits(
+  raw: Record<string, unknown> | null | undefined
+): AgentConfig["limits"] {
+  if (!raw || Object.keys(raw).length === 0) {
+    return;
+  }
+  const parsed = agentLimitsConfigSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
+
 function mapAgentRow(row: RegistryAgentRow): AgentConfig {
   const guardrails = parseGuardrails(row.guardrails);
+  const limits = parseLimits(row.limits);
   return {
     id: row.agent_id,
     name: row.name,
@@ -65,6 +81,7 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     skillIds: row.skill_ids,
     subAgents: row.sub_agents,
     ...(guardrails ? { guardrails } : {}),
+    ...(limits ? { limits } : {}),
   };
 }
 
@@ -204,6 +221,7 @@ export function createRegistryStore(client: SupabaseClient) {
         skill_ids: config.skillIds ?? [],
         sub_agents: config.subAgents ?? [],
         guardrails: config.guardrails ?? {},
+        limits: config.limits ?? {},
       };
       const patch =
         row && (row.status ?? "active") === "active"
@@ -352,6 +370,7 @@ export function createRegistryStore(client: SupabaseClient) {
             skill_ids: config.skillIds ?? [],
             sub_agents: config.subAgents ?? [],
             guardrails: config.guardrails ?? {},
+            limits: config.limits ?? {},
             // Human/admin write path: goes live directly and supersedes any
             // pending agent proposal (agents propose via proposeAgent instead).
             status: "active",
