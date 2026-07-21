@@ -3,6 +3,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   ListFilterSelectTrigger,
+  ListIconSegmentToggle,
   ListSearchInput,
   ListToolbarIconButton,
   Select,
@@ -10,7 +11,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@engenty/ui-core";
-import { SlidersHorizontal } from "lucide-react";
+import { List, Rows2, SlidersHorizontal } from "lucide-react";
 import type { GoalStatus } from "../../src/schema/types.js";
 import type { getGoalsToolbarLabels } from "../lib/goals-toolbar-labels.js";
 import { GOAL_STATUSES } from "./goal-status-badge.js";
@@ -18,6 +19,7 @@ import type {
   GoalColumnOption,
   GoalsColumnVisibility,
   GoalsSortColumn,
+  GoalsViewMode,
   TableSize,
 } from "./goals-display-dialog.js";
 import { GoalsDisplayDialog } from "./goals-display-dialog.js";
@@ -35,11 +37,13 @@ interface GoalsToolbarProps {
   setSortBy: (column: GoalsSortColumn) => void;
   setSortOrder: (order: "asc" | "desc") => void;
   setTableSize?: (size: TableSize) => void;
+  setViewMode: (mode: GoalsViewMode) => void;
   sortBy: GoalsSortColumn;
   sortOptions: { value: GoalsSortColumn; label: string }[];
   sortOrder: "asc" | "desc";
   statusFilter: GoalStatus | "all";
   tableSize?: TableSize;
+  viewMode: GoalsViewMode;
 }
 
 export function GoalsToolbar({
@@ -48,6 +52,8 @@ export function GoalsToolbar({
   statusFilter,
   onStatusFilterChange,
   labels,
+  viewMode,
+  setViewMode,
   tableSize,
   setTableSize,
   columnOrder,
@@ -99,13 +105,23 @@ export function GoalsToolbar({
         {labels.paginationSummary}
       </p>
 
+      <ListIconSegmentToggle<GoalsViewMode>
+        className="ml-auto"
+        onChange={(next) => {
+          if (next !== "") {
+            setViewMode(next);
+          }
+        }}
+        segments={[
+          { value: "cards", label: labels.cards, icon: Rows2 },
+          { value: "table", label: labels.table, icon: List },
+        ]}
+        value={viewMode}
+      />
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <ListToolbarIconButton
-            aria-label={labels.display}
-            className="ml-auto"
-            type="button"
-          >
+          <ListToolbarIconButton aria-label={labels.display} type="button">
             <SlidersHorizontal />
           </ListToolbarIconButton>
         </DropdownMenuTrigger>

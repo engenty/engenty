@@ -19,6 +19,7 @@ import type {
   GoalStatus,
   GoalsQueryParams,
 } from "../../src/schema/types.js";
+import { GoalsCards } from "../components/goals-cards.js";
 import type {
   GoalsColumnVisibility,
   GoalsSortColumn,
@@ -35,7 +36,7 @@ import { useDeleteGoalMutation, useGoalsListQuery } from "../tasks-queries.js";
 const EMPTY_GOALS: Goal[] = [];
 
 const GOALS_DISPLAY_DEFAULTS = {
-  viewMode: "table" as const,
+  viewMode: "cards" as const,
   tableSize: "normal" as const,
   sortBy: "updated_at" as GoalsSortColumn,
   sortOrder: "desc" as const,
@@ -67,14 +68,16 @@ export function GoalsListPage() {
     storageKey: "tasks-goals",
     defaults: GOALS_DISPLAY_DEFAULTS,
     validSortColumns: ["updated_at", "created_at", "title", "status"],
-    validViewModes: ["table"],
+    validViewModes: ["cards", "table"],
   });
   const {
+    viewMode,
     tableSize,
     columnVisibility,
     columnOrder,
     sortBy,
     sortOrder,
+    setViewMode,
     setTableSize,
     setColumnVisibility,
     setColumnOrder,
@@ -89,7 +92,7 @@ export function GoalsListPage() {
   const { openCreateGoal, pageActions, topbarDialogs } =
     useTasksTopbarActions();
 
-  const pageSize = 25;
+  const pageSize = viewMode === "cards" ? 200 : 25;
 
   const listParams = useMemo<GoalsQueryParams>(
     () => ({
@@ -222,11 +225,13 @@ export function GoalsListPage() {
         setSortBy={setSortBy}
         setSortOrder={setSortOrder}
         setTableSize={setTableSize}
+        setViewMode={setViewMode}
         sortBy={sortBy}
         sortOptions={[...sortOptions]}
         sortOrder={sortOrder}
         statusFilter={statusFilter}
         tableSize={tableSize}
+        viewMode={viewMode}
       />
 
       {isLoading ? <p className="text-muted-foreground text-sm">…</p> : null}
@@ -275,7 +280,13 @@ export function GoalsListPage() {
         </Empty>
       ) : null}
 
-      {!(isLoading || error) && goals.length > 0 ? (
+      {!(isLoading || error) && goals.length > 0 && viewMode === "cards" ? (
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <GoalsCards goals={goals} onGoalClick={handleRowClick} />
+        </div>
+      ) : null}
+
+      {!(isLoading || error) && goals.length > 0 && viewMode === "table" ? (
         <AdminListTableView
           pagination={{
             nextLabel: t("goals.next"),

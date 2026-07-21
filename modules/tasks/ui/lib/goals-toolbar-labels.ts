@@ -8,6 +8,7 @@ export function getGoalsToolbarLabels(
     paginationSummary: t("goals.paginationSummary", { total }),
     addGoal: t("goals.newGoal"),
     table: t("goals.viewTable"),
+    cards: t("goals.viewCards"),
     compactView: t("goals.compactView"),
     sortBy: t("goals.sortBy"),
     ascending: t("goals.ascending"),

@@ -12,6 +12,8 @@ export interface GoalsColumnVisibility {
 
 export type GoalsSortColumn = "updated_at" | "created_at" | "title" | "status";
 
+export type GoalsViewMode = "cards" | "table";
+
 export type TableSize = "compact" | "normal";
 export type SortOrder = "asc" | "desc";
 
