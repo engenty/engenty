@@ -10,6 +10,7 @@
     "setup-process",
     "plugins",
     "connections",
+    "memory",
     "artifacts",
     "objects",
     "generative-ui",
