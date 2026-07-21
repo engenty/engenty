@@ -1,4 +1,4 @@
-// Admin client for the roles & permissions console (/settings/roles).
+// Admin client for the roles & permissions console (/setup/roles).
 // Talks to the core authz APIs (Phase 1/6/7): the in-code role registry, the
 // capability catalog, DB role assignments, effective-grants resolution, and
 // tenant-defined custom roles. requestApiJson attaches the caller's token and

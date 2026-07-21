@@ -201,6 +201,7 @@ export {
   useCustomAgentDetailQuery,
   useDeleteAllAdminAiSessionsMutation,
 } from "./lib/admin/ai-runtime-queries.js";
+export { useAiSettingsQuery } from "./lib/admin/ai-settings-queries.js";
 export {
   AiGeneralSettingsPage,
   AiSettingsPage,

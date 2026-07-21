@@ -1,9 +1,9 @@
-// Roles & permissions console (/settings/roles). Tenant-admin/superadmin view
+// Roles & permissions console (/setup/roles). Tenant-admin/superadmin view
 // into the authz system: role registry, capability catalog, assignments for
 // users + agents, and an effective-grants inspector. Unified detail-page header
 // (title + line tabs) with the primary CTA in the shell topbar.
 
-import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import { useSetupSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -29,8 +29,9 @@ const BASE_TABS = [DEFAULT_TAB, "capabilities", "assignments"];
 
 export function RolesSettingsPage() {
   const { t } = useTranslation("common");
-  const { moduleRootCrumb, secondaryNavHeaderSlot } =
-    useSettingsSecondaryShellNav(t("navigation.settings"));
+  const { moduleRootCrumb, secondaryNavHeaderSlot } = useSetupSecondaryShellNav(
+    t("navigation.setup")
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const workspace = useWorkspaceContextQuery(true);
   const tenantId = workspace.data?.currentTenant?.id ?? null;
@@ -51,9 +52,9 @@ export function RolesSettingsPage() {
   const breadcrumbs = useMemo(
     () => [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: "Roles & permissions" },
+      { label: t("settings.roles.menuLabel") },
     ],
-    [moduleRootCrumb]
+    [moduleRootCrumb, t]
   );
 
   // Primary CTA lives in the shell topbar; only meaningful on the Roles tab.

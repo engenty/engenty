@@ -196,8 +196,8 @@ export function buildNavigationSections(
     ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
     : [];
   // Connections is a personal surface (`requiresAdmin: false`) but lives in the
-  // core settings block (after Roles, before developer-mode / module rows), not
-  // among module settings below the separator.
+  // core settings block (after AI usage, before developer-mode / module rows),
+  // not among module settings below the separator.
   const CONNECTIONS_SETTINGS_TO = "/settings/connections";
   const connectionsSettingsItem = contributions.settingsItems.find(
     (item) => item.to === CONNECTIONS_SETTINGS_TO
@@ -260,11 +260,6 @@ export function buildNavigationSections(
             to: "/settings/ai-usage",
             label: t("settings.aiUsage.menuLabel"),
             icon: BarChart3,
-          },
-          {
-            to: "/settings/roles",
-            label: t("settings.roles.menuLabel"),
-            icon: ShieldCheck,
           },
         ]
       : []),
@@ -351,6 +346,11 @@ export function buildNavigationSections(
                   to: "/setup/plugins",
                   label: t("navigation.plugins"),
                   icon: Box,
+                },
+                {
+                  to: "/setup/roles",
+                  label: t("settings.roles.menuLabel"),
+                  icon: ShieldCheck,
                 },
                 {
                   to: "/setup/connectors",

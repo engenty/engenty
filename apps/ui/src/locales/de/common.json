@@ -430,6 +430,13 @@
         "fields": "Getroffen"
       }
     },
+    "ai": {
+      "title": "KI",
+      "overviewDescription": "Standardmodelle und Nutzung für diesen Arbeitsbereich.",
+      "modelsOverview": "Chat-Modell: {{model}}",
+      "usageOverview": "{{when}} · {{cost}}",
+      "usageOverviewWithLimit": "{{when}} · {{cost}} von {{limit}}"
+    },
     "aiModels": {
       "menuLabel": "KI-Modelle"
     },

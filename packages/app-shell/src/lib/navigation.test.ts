@@ -174,14 +174,13 @@ describe("navigation", () => {
         "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
-        "/settings/roles",
         "/settings/development",
         "/settings/features",
         "/settings/search-index",
       ]);
     });
 
-    it("promotes Connections into the core settings block after Roles", () => {
+    it("promotes Connections into the core settings block after AI usage", () => {
       const ConnectionsIcon = () => null;
       const InvoicesIcon = () => null;
       const settingsChildren = (
@@ -229,7 +228,6 @@ describe("navigation", () => {
         "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
-        "/settings/roles",
         "/settings/connections",
         "",
         "",
@@ -325,11 +323,6 @@ describe("navigation", () => {
           to: "/settings/ai-usage",
           type: undefined,
           label: "settings.aiUsage.menuLabel",
-        },
-        {
-          to: "/settings/roles",
-          type: undefined,
-          label: "settings.roles.menuLabel",
         },
         { to: "", type: "separator", label: "" },
         {
@@ -465,6 +458,7 @@ describe("navigation", () => {
       expect(memberSettingsChildren).not.toContain("/settings/appearance");
       expect(memberSettingsChildren).not.toContain("/settings/ai");
       expect(memberSettingsChildren).not.toContain("/settings/roles");
+      expect(memberTopLevel).not.toContain("/setup");
 
       const adminTargets = buildNavigationSections(contributions, {
         isTenantAdmin: true,
@@ -473,6 +467,18 @@ describe("navigation", () => {
         .map((item) => item.to);
       expect(adminTargets).toContain("/admin/users");
       expect(adminTargets).toContain("/settings");
+      expect(adminTargets).not.toContain("/setup");
+
+      const setupChildren =
+        buildNavigationSections(contributions, { isSuperAdmin: true })
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/setup")
+          ?.children?.map((child) => child.to) ?? [];
+      expect(setupChildren).toEqual([
+        "/setup/plugins",
+        "/setup/roles",
+        "/setup/connectors",
+      ]);
     });
   });
 
@@ -591,6 +597,7 @@ describe("navigation", () => {
     it("returns setup children for /setup paths", () => {
       const setupChildren = [
         { to: "/setup/plugins", label: "Plugins" },
+        { to: "/setup/roles", label: "Roles & permissions" },
         { to: "/setup/connectors", label: "External connectors" },
       ];
       const sectionsWithSetup = [
@@ -614,6 +621,9 @@ describe("navigation", () => {
         getSecondaryNavItems("/setup/plugins", "", sectionsWithSetup)
       ).toEqual(setupChildren);
       expect(
+        getSecondaryNavItems("/setup/roles", "", sectionsWithSetup)
+      ).toEqual(setupChildren);
+      expect(
         getSecondaryNavItems("/setup/connectors", "", sectionsWithSetup)
       ).toEqual(setupChildren);
     });
@@ -621,6 +631,7 @@ describe("navigation", () => {
     it("does not let settings separators steal /setup secondary nav", () => {
       const setupChildren = [
         { to: "/setup/plugins", label: "Plugins" },
+        { to: "/setup/roles", label: "Roles & permissions" },
         { to: "/setup/connectors", label: "External connectors" },
       ];
       const settingsChildren = [

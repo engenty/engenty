@@ -430,6 +430,13 @@
         "fields": "Matched"
       }
     },
+    "ai": {
+      "title": "AI",
+      "overviewDescription": "Default models and usage for this workspace.",
+      "modelsOverview": "Chat model: {{model}}",
+      "usageOverview": "{{when}} · {{cost}}",
+      "usageOverviewWithLimit": "{{when}} · {{cost}} of {{limit}}"
+    },
     "aiModels": {
       "menuLabel": "AI models"
     },
