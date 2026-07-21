@@ -76,7 +76,7 @@ export function TenantAppearanceSettingsSection() {
       title={t("settings.appearanceTitle")}
     >
       <div className="space-y-0 divide-y divide-border">
-        <div className="space-y-4 px-4 py-4">
+        <div className="space-y-3 px-4 py-4">
           {isLoading ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -92,81 +92,71 @@ export function TenantAppearanceSettingsSection() {
             </>
           ) : (
             <>
-              <div className="space-y-2">
-                <div className="font-medium text-foreground text-xs">
-                  {t("settings.language")}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {LANGUAGES.map((lang) => {
-                    const isActive =
-                      settings.language === lang.code ||
-                      currentLang === lang.code;
-                    return (
-                      <button
-                        className={cn(
-                          "flex items-center gap-2 rounded-lg border px-3 py-2 font-medium text-xs transition-colors disabled:opacity-60",
-                          isActive
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-card text-muted-foreground hover:bg-accent"
-                        )}
-                        disabled={busy}
-                        key={lang.code}
-                        onClick={() => applyLanguage(lang.code)}
-                        type="button"
-                      >
-                        <span className="text-sm">{lang.flag}</span>
-                        {lang.label}
-                        {isActive && (
-                          <Check className="h-3.5 w-3.5 text-primary" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {LANGUAGES.map((lang) => {
+                  const isActive =
+                    settings.language === lang.code ||
+                    currentLang === lang.code;
+                  return (
+                    <button
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-3 py-2 font-medium text-xs transition-colors disabled:opacity-60",
+                        isActive
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:bg-accent"
+                      )}
+                      disabled={busy}
+                      key={lang.code}
+                      onClick={() => applyLanguage(lang.code)}
+                      type="button"
+                    >
+                      <span className="text-sm">{lang.flag}</span>
+                      {lang.label}
+                      {isActive && (
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="space-y-2">
-                <div className="font-medium text-foreground text-xs">
-                  {t("settings.colorTone")}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {COLOR_SETS_PRESETS.map((preset) => {
-                    const isActive =
-                      settings.colorPrimary === preset.light.primary &&
-                      settings.colorSecondary === preset.light.secondary &&
-                      settings.colorBackground === preset.light.background &&
-                      settings.sidebarColor === preset.light.sidebar;
-                    return (
-                      <button
-                        className={cn(
-                          "flex items-center gap-2 rounded-full border px-3 py-1.5 font-medium text-xs shadow-xs transition-all disabled:opacity-60",
-                          isActive
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-card text-muted-foreground hover:bg-accent"
-                        )}
-                        disabled={busy}
-                        key={preset.id}
-                        onClick={() => applyPreset(preset)}
-                        type="button"
-                      >
-                        <span className="flex shrink-0 items-center -space-x-1">
-                          <span
-                            className="h-3 w-3 rounded-full border border-black/10 shadow-inner"
-                            style={{ backgroundColor: preset.light.primary }}
-                          />
-                          <span
-                            className="h-3 w-3 rounded-full border border-black/10 shadow-inner"
-                            style={{ backgroundColor: preset.light.secondary }}
-                          />
-                          <span
-                            className="h-3 w-3 rounded-full border border-black/10 shadow-inner"
-                            style={{ backgroundColor: preset.light.background }}
-                          />
-                        </span>
-                        <span>{t(preset.nameKey)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_SETS_PRESETS.map((preset) => {
+                  const isActive =
+                    settings.colorPrimary === preset.light.primary &&
+                    settings.colorSecondary === preset.light.secondary &&
+                    settings.colorBackground === preset.light.background &&
+                    settings.sidebarColor === preset.light.sidebar;
+                  return (
+                    <button
+                      className={cn(
+                        "flex items-center gap-2 rounded-full border px-3 py-1.5 font-medium text-xs shadow-xs transition-all disabled:opacity-60",
+                        isActive
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:bg-accent"
+                      )}
+                      disabled={busy}
+                      key={preset.id}
+                      onClick={() => applyPreset(preset)}
+                      type="button"
+                    >
+                      <span className="flex shrink-0 items-center -space-x-1">
+                        <span
+                          className="h-3 w-3 rounded-full border border-black/10 shadow-inner"
+                          style={{ backgroundColor: preset.light.primary }}
+                        />
+                        <span
+                          className="h-3 w-3 rounded-full border border-black/10 shadow-inner"
+                          style={{ backgroundColor: preset.light.secondary }}
+                        />
+                        <span
+                          className="h-3 w-3 rounded-full border border-black/10 shadow-inner"
+                          style={{ backgroundColor: preset.light.background }}
+                        />
+                      </span>
+                      <span>{t(preset.nameKey)}</span>
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
