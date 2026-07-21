@@ -19,9 +19,11 @@ describe("getConfigurableSettings", () => {
     expect(s?.type).toBe("string");
   });
 
-  it("treats SLACK_BOT_TOKEN as a tenant secret", () => {
+  it("treats SLACK_BOT_TOKEN as a platform secret", () => {
+    // Bot tokens are read at boot with no tenant context, so they are
+    // platform-scoped (hydrated into process.env), not tenant-overridable.
     const s = byKey.get("SLACK_BOT_TOKEN");
-    expect(s?.configurable).toBe("tenant");
+    expect(s?.configurable).toBe("platform");
     expect(s?.type).toBe("secret");
   });
 
