@@ -10,6 +10,7 @@
     "engenty_tools_search",
     "engenty_tools_discover",
     "engenty_tool_execute",
-    "registry_agents_list"
+    "registry_agents_list",
+    "agent_propose"
   ]
 }
