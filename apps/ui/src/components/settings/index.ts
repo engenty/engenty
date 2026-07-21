@@ -6,5 +6,6 @@ export { AppearanceLanguageSection } from "./AppearanceLanguageSection";
 export { AppearanceModeSection } from "./AppearanceModeSection";
 export { AppearanceSidebarSection } from "./AppearanceSidebarSection";
 export { GeneralTenantSettingsSection } from "./GeneralTenantSettingsSection";
+export { TenantAppearanceSettingsSection } from "./TenantAppearanceSettingsSection";
 export { TenantPluginsSettingsSection } from "./TenantPluginsSettingsSection";
 export { TenantUsersSettingsSection } from "./TenantUsersSettingsSection";

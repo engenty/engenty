@@ -463,6 +463,11 @@
       "manageAll": "Manage all users",
       "noTeamMember": "No team member"
     },
+    "appearance": {
+      "overviewDescription": "Pick a color tone for this workspace. Open Appearance for language, mode, fonts, and more.",
+      "manageAll": "Open appearance settings",
+      "saveFailed": "Failed to save appearance"
+    },
     "plugins": {
       "title": "Modules",
       "description": "Installed modules for your workspace.",

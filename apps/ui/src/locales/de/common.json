@@ -463,6 +463,11 @@
       "manageAll": "Alle Benutzer verwalten",
       "noTeamMember": "Kein Team-Mitglied"
     },
+    "appearance": {
+      "overviewDescription": "Wählen Sie einen Farbton für diesen Arbeitsbereich. Unter Darstellung finden Sie Sprache, Modus, Schriften und mehr.",
+      "manageAll": "Darstellungseinstellungen öffnen",
+      "saveFailed": "Darstellung konnte nicht gespeichert werden"
+    },
     "plugins": {
       "title": "Module",
       "description": "Installierte Module für Ihren Arbeitsbereich.",

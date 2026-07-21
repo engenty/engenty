@@ -21,7 +21,7 @@ import { FeatureFlagsPage } from "@/pages/FeatureFlagsPage";
 import { RolesSettingsPage } from "@/pages/RolesSettingsPage";
 import { SearchIndexSettingsPage } from "@/pages/SearchIndexSettingsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
-import { TenantPluginsPage } from "@/pages/TenantPluginsPage";
+import { SetupPluginsPage } from "@/pages/SetupPluginsPage";
 import { ChatLegacySessionRedirect } from "@/routes/chat-legacy-redirect.tsx";
 
 interface AuthenticatedRoutesProps {
@@ -92,11 +92,15 @@ export function AuthenticatedRoutes({
         <Route
           element={
             isAdmin ? (
-              <TenantPluginsPage />
+              <SetupPluginsPage isSuperAdmin={isSuperAdmin} />
             ) : (
               <Navigate replace to={COPILOT_CHAT_ROOT} />
             )
           }
+          path="/setup/plugins"
+        />
+        <Route
+          element={<Navigate replace to="/setup/plugins" />}
           path="/admin/plugins"
         />
         <Route
