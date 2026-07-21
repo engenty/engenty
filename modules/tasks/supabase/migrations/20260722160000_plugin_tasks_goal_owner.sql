@@ -12,3 +12,8 @@ alter table module_tasks.goals
 create index if not exists idx_module_tasks_goals_owner_agent_type_key
   on module_tasks.goals (tenant_id, owner_agent_type_key)
   where owner_agent_type_key is not null;
+
+-- The pgmq queue the "Hand to Coordinator" handoff enqueues to; the apps/ai
+-- coordinator-dispatch consumer polls it. pgmq.create is idempotent — safe to
+-- run multiple times (mirrors agent_task_dispatch queue creation).
+select pgmq.create('agent_coordinator_dispatch');
