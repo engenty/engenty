@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.59] - 2026-07-21
+- FIXED **[core]** Skip platform-settings hydrate when Supabase is unreachable
+
 ## [0.1.58] - 2026-07-21
 - FIXED Point runtime SDK packages at dist and sync nav tests
 
