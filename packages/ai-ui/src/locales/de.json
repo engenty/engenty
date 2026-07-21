@@ -1245,6 +1245,7 @@
     "expandPane": "Artefakt-Panel maximieren",
     "collapsePane": "Artefakt-Panel verkleinern",
     "openPane": "Artefakt-Panel öffnen",
+    "openPaneWithNew": "Artefakt-Panel öffnen ({{count}} neu)",
     "resizePane": "Artefakt-Panel-Größe ändern",
     "storeAction": "Artefakt ablegen",
     "storeSearch": "Ablageziel suchen…",

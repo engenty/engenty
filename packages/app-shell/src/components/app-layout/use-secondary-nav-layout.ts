@@ -40,6 +40,7 @@ export function useSecondaryNavLayout(
   const { pathname, search } = useLocation();
   const {
     secondaryNavAfterItems,
+    secondaryNavAllowPinned,
     secondaryNavHeaderSlot,
     secondaryNavSearchResultsOnly,
     breadcrumbs,
@@ -79,17 +80,21 @@ export function useSecondaryNavLayout(
 
   const setSecondaryNavOpen = useCallback(
     (open: boolean) => {
+      // Overlay-only pages (e.g. full-page chat): never pin / reserve width.
+      if (open && !secondaryNavAllowPinned) {
+        return;
+      }
       setSecondaryNavOpenState(open);
-      if (isWideScreen) {
+      if (isWideScreen && secondaryNavAllowPinned) {
         secondaryNavPersistence.mergePinned({ pinnedOpen: open });
       }
     },
-    [isWideScreen, secondaryNavPersistence]
+    [isWideScreen, secondaryNavAllowPinned, secondaryNavPersistence]
   );
 
-  // Narrow viewports: always collapsed (hover sheet / mobile). Wide: apply user pref after hydrate.
+  // Narrow / overlay-only: always collapsed. Wide + pin allowed: apply user pref after hydrate.
   useEffect(() => {
-    if (!isWideScreen) {
+    if (!(isWideScreen && secondaryNavAllowPinned)) {
       setSecondaryNavOpenState(false);
       return;
     }
@@ -100,6 +105,7 @@ export function useSecondaryNavLayout(
   }, [
     isWideScreen,
     preferredPinnedOpen,
+    secondaryNavAllowPinned,
     secondaryNavPersistence.pinnedHydrated,
   ]);
 
@@ -217,6 +223,9 @@ export function useSecondaryNavLayout(
   }, []);
 
   const pinSecondaryNavFromHover = useCallback(() => {
+    if (!secondaryNavAllowPinned) {
+      return;
+    }
     hoverCloseControllerRef.current.cancelScheduledClose();
     hoverCloseControllerRef.current.setHoverMenuOpen(false);
     if (navItemCloseTimeoutRef.current) {
@@ -237,7 +246,7 @@ export function useSecondaryNavLayout(
       skipNextSecondaryNavOpenTransitionRef.current = true;
     }
     setSecondaryNavOpen(true);
-  }, [secondaryNavOpen, setSecondaryNavOpen]);
+  }, [secondaryNavAllowPinned, secondaryNavOpen, setSecondaryNavOpen]);
 
   useEffect(() => {
     if (secondaryNavOpen || !hasSecondaryNav) {
@@ -289,6 +298,7 @@ export function useSecondaryNavLayout(
     pathname,
     pinSecondaryNavFromHover,
     search,
+    secondaryNavAllowPinned,
     secondaryNavOpen,
     setMobileOpen,
     setSecondaryNavOpen,

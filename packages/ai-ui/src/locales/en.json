@@ -1232,6 +1232,7 @@
     "expandPane": "Expand artifact panel",
     "collapsePane": "Restore artifact panel size",
     "openPane": "Open artifact panel",
+    "openPaneWithNew": "Open artifact panel ({{count}} new)",
     "resizePane": "Resize artifact panel",
     "storeAction": "Store artifact",
     "storeSearch": "Search store targets…",

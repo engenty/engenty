@@ -1,4 +1,5 @@
 import {
+  ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
   useCopilotThreadActions,
   useCopilotThreadBinding,
@@ -40,7 +41,7 @@ export function ChatTopbarActions() {
   const hasSessions = threads.threads.length > 0;
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-0.5">
       <Button
         aria-label={tc("copilot.newChat")}
         disabled={!isTransportReady}
@@ -52,6 +53,7 @@ export function ChatTopbarActions() {
         <MessageSquarePlus className="mr-1.5 size-4" />
         {tc("copilot.newChat")}
       </Button>
+      <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       <AlertDialog
         onOpenChange={(open) => {
           setClearAllOpen(open);
@@ -65,6 +67,7 @@ export function ChatTopbarActions() {
           <DropdownMenuTrigger asChild>
             <Button
               aria-label={t("chat.topbarMenu")}
+              className="!size-7 !w-7 !min-w-7 !px-0"
               disabled={!isTransportReady}
               size="icon"
               type="button"

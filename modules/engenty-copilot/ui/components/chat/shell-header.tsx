@@ -6,7 +6,10 @@ import {
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 
-/** Sidebar/chrome header showing which session this tab's copilot is bound to. */
+/**
+ * Compact session chip for mobile chat chrome (status + title).
+ * Desktop module sidebar uses `ModuleSidebarHeaderLabel` instead.
+ */
 export function ChatShellHeader() {
   const { t } = useTranslation("engenty-copilot");
   const binding = useCopilotThreadBinding();
@@ -26,13 +29,8 @@ export function ChatShellHeader() {
   return (
     <div className="flex h-10 min-w-0 flex-1 items-center gap-2">
       <SessionStatusIcon label={statusLabel(status, t)} status={status} />
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[13px] text-foreground leading-snug">
-          {sessionLabel}
-        </span>
-        <span className="truncate text-[11px] text-muted-foreground leading-tight">
-          {t("menu.label")}
-        </span>
+      <span className="min-w-0 truncate text-[13px] text-foreground leading-snug">
+        {sessionLabel}
       </span>
     </div>
   );
