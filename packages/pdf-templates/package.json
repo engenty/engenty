@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@engenty/api-client": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/pdf-service": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
