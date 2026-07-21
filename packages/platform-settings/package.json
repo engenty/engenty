@@ -1,5 +1,5 @@
 {
-  "name": "@engenty/connections-sdk",
+  "name": "@engenty/platform-settings",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,20 +12,17 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch",
-    "test": "vitest run",
+    "test": "vitest run --root ../.. packages/platform-settings/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@engenty/platform-settings": "workspace:*",
-    "@engenty/plugin-sdk": "workspace:*",
-    "@engenty/telemetry": "workspace:*",
-    "zod": "4.4.3"
+    "@engenty/secrets-sdk": "workspace:*",
+    "@supabase/supabase-js": "^2.108.2"
   },
   "devDependencies": {
-    "@supabase/supabase-js": "^2.108.2",
+    "@types/node": "^24.0.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
-    "@types/node": "^24.0.0"
+    "vitest": "^4.1.9"
   }
 }

@@ -43,6 +43,7 @@
     "@engenty/file-storage": "workspace:*",
     "@engenty/generative-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
+    "@engenty/platform-settings": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/queue": "workspace:*",
     "@engenty/retrieval": "workspace:*",

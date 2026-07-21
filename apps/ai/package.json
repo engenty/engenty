@@ -26,6 +26,7 @@
     "@engenty/a2ui-catalog": "workspace:*",
     "@engenty/ag-ui-bridge": "workspace:*",
     "@engenty/ai-core": "workspace:*",
+    "@engenty/platform-settings": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/context-graph": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",

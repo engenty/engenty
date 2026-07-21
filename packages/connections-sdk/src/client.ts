@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createConnectorClientEnv } from "./client-env-resolver.js";
 import { ConnectionsActionError } from "./errors.js";
 import { executeConnectorAction } from "./execute.js";
+import type { ClientEnvResolver } from "./oauth2.js";
 import { refreshAccessToken } from "./oauth2.js";
 import type { ConnectionPolicyPrincipal } from "./policy.js";
 import { resolveConnectionActionPolicy } from "./policy.js";
@@ -48,6 +50,13 @@ export interface ModuleFilesStatParams {
 }
 
 export interface ConnectionsModuleClientOptions {
+  /**
+   * Tenant-aware OAuth client-credential resolver for token refresh (so a
+   * tenant's own OAuth app is used). Auto-built by
+   * {@link createConnectionsModuleClient} from its supabase client; omit on the
+   * from-repo variant to fall back to process.env.
+   */
+  clientEnv?: (tenantId: string | null) => ClientEnvResolver;
   /** Consuming module id (e.g. `inbox`), recorded on audit events. */
   moduleId: string;
   /** Notify approvers after an autonomous ask created an approval request. */
@@ -102,7 +111,10 @@ export function createConnectionsModuleClient(
 ) {
   return createConnectionsModuleClientFromRepo(
     createConnectionsRepo(supabase),
-    options
+    {
+      clientEnv: createConnectorClientEnv(supabase),
+      ...options,
+    }
   );
 }
 
@@ -310,6 +322,7 @@ export function createConnectionsModuleClientFromRepo(
             const refreshed = await refreshAccessToken({
               config: connector.auth.oauth2,
               refreshToken,
+              resolveEnv: options.clientEnv?.(params.tenantId),
             });
             return {
               accessToken: refreshed.accessToken,

@@ -10,8 +10,10 @@ import {
   ConnectorDetailPage,
   ConnectorWorkspaceDetailPage,
 } from "./pages/connector-detail-page.js";
+import { registerConnectionsToolCallUi } from "./register-tool-call-ui.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
+  registerConnectionsToolCallUi();
   engenty.i18n.registerNamespace({
     pluginId: "connections",
     namespace: "connections",

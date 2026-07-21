@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerConnectionsCredentialsRoutes } from "./api/credentials-routes.js";
 import { registerConnectionsOAuthRoutes } from "./api/oauth-routes.js";
 import { registerConnectionsOperations } from "./api/operations.js";
+import { createConnectionsSettingsResolver } from "./lib/settings-resolver.js";
 import { createConnectionsProfilePolicy } from "./policy.js";
 
 /**
@@ -35,11 +36,14 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
     );
   }
   const repo = createConnectionsRepo(supabaseRaw as SupabaseClient);
+  // Tenant/platform-aware OAuth client-credential overrides (Setup UI).
+  const settings = createConnectionsSettingsResolver(supabaseRaw);
 
-  registerConnectionsOAuthRoutes(server, repo);
+  registerConnectionsOAuthRoutes(server, repo, settings);
   registerConnectionsCredentialsRoutes(server, repo);
 
   registerConnectionsOperations(server, repo, {
+    settings,
     onApprovalDecided: async ({ approved, requestId, tenantId }) => {
       await events.modules.emit(
         "connections.approval.decided",

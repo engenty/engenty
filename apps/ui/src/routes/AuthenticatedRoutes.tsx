@@ -18,6 +18,10 @@ import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
 import { FeatureFlagsPage } from "@/pages/FeatureFlagsPage";
+import {
+  PlatformSettingsPage,
+  TenantIntegrationKeysPage,
+} from "@/pages/PlatformSettingsPage";
 import { RolesSettingsPage } from "@/pages/RolesSettingsPage";
 import { SearchIndexSettingsPage } from "@/pages/SearchIndexSettingsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -160,6 +164,26 @@ export function AuthenticatedRoutes({
             )
           }
           path="/settings/roles"
+        />
+        <Route
+          element={
+            isSuperAdmin ? (
+              <PlatformSettingsPage />
+            ) : (
+              <Navigate replace to={COPILOT_CHAT_ROOT} />
+            )
+          }
+          path="/setup/platform"
+        />
+        <Route
+          element={
+            isSuperAdmin || isTenantAdmin ? (
+              <TenantIntegrationKeysPage />
+            ) : (
+              <Navigate replace to={MEMBER_SETTINGS_HOME} />
+            )
+          }
+          path="/settings/integration-keys"
         />
         <Route
           element={

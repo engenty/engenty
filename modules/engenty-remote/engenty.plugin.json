@@ -28,6 +28,8 @@
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "ENGENTY_REMOTE_CHANNELS_ENABLED",
+        "defaultValue": "false",
+        "configurable": "platform",
         "obtain": { "kind": "manual" },
         "required": "optional",
         "scopes": ["root", "deploy"]
@@ -37,6 +39,8 @@
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "SLACK_BOT_TOKEN",
+        "configurable": "platform",
+        "secret": true,
         "obtain": { "kind": "manual" },
         "required": "optional",
         "scopes": ["root", "deploy"]
@@ -46,6 +50,8 @@
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "SLACK_SIGNING_SECRET",
+        "configurable": "platform",
+        "secret": true,
         "obtain": { "kind": "manual" },
         "required": "optional",
         "scopes": ["root", "deploy"]
@@ -55,6 +61,8 @@
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "TELEGRAM_BOT_TOKEN",
+        "configurable": "platform",
+        "secret": true,
         "obtain": { "kind": "manual" },
         "required": "optional",
         "scopes": ["root", "deploy"]

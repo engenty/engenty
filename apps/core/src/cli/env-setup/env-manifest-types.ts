@@ -29,7 +29,40 @@ export type ObtainStrategy =
 
 export type EnvRequirement = "always" | "feature" | "optional";
 
+/**
+ * Whether a var may be overridden at runtime from the DB-backed settings store
+ * (`@engenty/platform-settings`), and at which scope:
+ *  - `"platform"` — editable in the superadmin Setup UI; overrides the env value
+ *    for the whole installation.
+ *  - `"tenant"` — additionally overridable per-tenant by a tenant admin (implies
+ *    platform-configurable).
+ *  - `false` / omitted (default) — env-only. Bootstrap secrets and anything
+ *    needed before DB access is available MUST stay this way; see
+ *    {@link NON_CONFIGURABLE_ENV_KEYS}.
+ */
+export type EnvConfigurable = false | "platform" | "tenant";
+
+/**
+ * Keys that must never be DB-configurable: the root of trust and anything read
+ * before the DB is reachable. Setting `configurable` on any of these fails the
+ * manifest build (enforced in env-contributions + the core manifest builder).
+ */
+export const NON_CONFIGURABLE_ENV_KEYS: readonly string[] = [
+  "ENGENTY_SECURITY_JWT_SECRET",
+  "ENGENTY_AI_SERVICE_JWT",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_DB_URL",
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_ANON_KEY",
+  "CONNECTIONS_TOKEN_ENC_KEY",
+  "SECRETS_ENC_KEY",
+] as const;
+
 export interface EnvVarSpec {
+  /** DB-override scope for this var; omitted = env-only. */
+  configurable?: EnvConfigurable;
   /**
    * Real, usable value the CLI may write (per scope or for all scopes).
    * Distinct from `exampleValue`, which is a placeholder.
@@ -70,6 +103,8 @@ export interface EnvFeatureInfo {
  * registry before merging into the effective manifest.
  */
 export interface ContributedEnvVarSpec {
+  /** DB-override scope for this var; omitted = env-only. */
+  configurable?: EnvConfigurable;
   defaultValue?: string | Partial<Record<EnvScope, string>>;
   description: string;
   exampleValue?: string;

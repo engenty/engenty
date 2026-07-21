@@ -3,6 +3,7 @@ import {
   selectConnectionForAccount,
 } from "./accounts.js";
 import { ConnectionsActionError } from "./errors.js";
+import type { ClientEnvResolver } from "./oauth2.js";
 import { refreshAccessToken } from "./oauth2.js";
 import type { ConnectionPolicyPrincipal } from "./policy.js";
 import { resolveConnectionActionPolicy } from "./policy.js";
@@ -38,6 +39,8 @@ export interface ExecuteConnectorActionParams {
     type: string;
   }) => void;
   repo: ConnectionsRepo;
+  /** Tenant/platform-aware client-credential resolver for OAuth token refresh. */
+  resolveEnv?: ClientEnvResolver;
   taskId?: string | null;
   tenantId: string;
 }
@@ -119,6 +122,7 @@ export async function executeConnectorAction(
               const refreshed = await refreshAccessToken({
                 config: connector.auth.oauth2,
                 refreshToken,
+                resolveEnv: params.resolveEnv,
               });
               return {
                 accessToken: refreshed.accessToken,

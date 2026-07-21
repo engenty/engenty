@@ -4,8 +4,10 @@ import type {
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ZodType, z } from "zod";
+import { createConnectorClientEnv } from "./client-env-resolver.js";
 import { executeConnectorAction } from "./execute.js";
 import { filesCapabilityActions } from "./files-capability.js";
+import type { ClientEnvResolver } from "./oauth2.js";
 import { registerConnectorDefinition } from "./registry.js";
 import { createConnectionsRepo } from "./repo.js";
 import { storageCapabilityActions } from "./storage-capability.js";
@@ -63,8 +65,9 @@ function buildActionOperation(params: {
   action: ConnectorAction;
   connector: ConnectorDefinition;
   supabase: SupabaseClient;
+  clientEnv: (tenantId: string | null) => ClientEnvResolver;
 }): PluginServerOperation {
-  const { action, connector, supabase } = params;
+  const { action, connector, supabase, clientEnv } = params;
   const contract = ACTION_GROUP_CONTRACTS[action.group];
   const operationId = connectorOperationId(connector, action.id);
   const repo = createConnectionsRepo(supabase);
@@ -97,6 +100,7 @@ function buildActionOperation(params: {
         principal: { principalId: auth.principalId, principalType: "user" },
         recordAuditEvent: (event) => ctx.recordAuditEvent?.(event),
         repo,
+        resolveEnv: clientEnv(auth.tenantId),
         tenantId: auth.tenantId,
       });
       return output;
@@ -131,10 +135,11 @@ export function registerConnectorModule(
     );
   }
   const supabase = supabaseRaw as SupabaseClient;
+  const clientEnv = createConnectorClientEnv(supabase);
   registerConnectorDefinition(def);
   for (const action of def.actions) {
     engenty.server.registerOperation(
-      buildActionOperation({ action, connector: def, supabase })
+      buildActionOperation({ action, connector: def, supabase, clientEnv })
     );
   }
 }

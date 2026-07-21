@@ -8,6 +8,7 @@ import {
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
+import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
 
 const logger = createLogger({ name: "connections-oauth" });
 
@@ -42,7 +43,8 @@ function uiRedirect(target: string | null): string {
 
 export function registerConnectionsOAuthRoutes(
   api: PluginServerApi,
-  repo: ConnectionsRepo
+  repo: ConnectionsRepo,
+  settings: ConnectionsSettingsResolver
 ): void {
   // GET /api/connections/:connectorId/connect?sharing=personal|org&redirect_to=/settings/connections
   api.registerHttpRoute({
@@ -91,6 +93,7 @@ export function registerConnectionsOAuthRoutes(
         redirectUri: redirectUri(),
         scopes,
         state: nonce,
+        resolveEnv: settings.clientEnv(ctx.auth.tenantId),
       });
       return hono.json({ authUrl, connectorId: connector.id });
     },
@@ -142,6 +145,7 @@ export function registerConnectionsOAuthRoutes(
           code: query.code,
           config: connector.auth.oauth2,
           redirectUri: redirectUri(),
+          resolveEnv: settings.clientEnv(flow.tenant_id),
         });
         let externalAccount: string | null = null;
         if (connector.auth.oauth2.resolveAccount) {

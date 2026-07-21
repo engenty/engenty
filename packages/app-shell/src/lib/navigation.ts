@@ -10,6 +10,7 @@ import {
   Cable,
   Code2,
   Flag,
+  KeyRound,
   Palette,
   Search,
   ShieldCheck,
@@ -249,6 +250,11 @@ export function buildNavigationSections(
             label: t("settings.roles.menuLabel"),
             icon: ShieldCheck,
           },
+          {
+            to: "/settings/integration-keys",
+            label: t("settings.integrationKeys.menuLabel"),
+            icon: KeyRound,
+          },
         ]
       : []),
     ...(connectionsNavItem ? [connectionsNavItem] : []),
@@ -330,6 +336,11 @@ export function buildNavigationSections(
               label: t("navigation.setup"),
               icon: Wrench,
               children: [
+                {
+                  to: "/setup/platform",
+                  label: t("navigation.setupPlatform"),
+                  icon: KeyRound,
+                },
                 {
                   to: "/setup/connectors",
                   label: t("navigation.setupConnectors"),

@@ -13,6 +13,7 @@ export {
   type ModuleCallActionParams,
   type ModulePullStreamParams,
 } from "./client.js";
+export { createConnectorClientEnv } from "./client-env-resolver.js";
 export {
   ConnectionsActionError,
   type ConnectionsActionErrorCode,
@@ -24,7 +25,9 @@ export {
 export { filesCapabilityActions } from "./files-capability.js";
 export {
   buildAuthorizationUrl,
+  type ClientEnvResolver,
   exchangeAuthorizationCode,
+  hasOAuth2ClientCredentials,
   type OAuth2Env,
   type OAuth2Tokens,
   refreshAccessToken,

@@ -60,6 +60,11 @@ export interface CatalogConnection {
 export interface CatalogConnector {
   actions: CatalogAction[];
   auth_kind: ConnectorAuthKind;
+  /**
+   * Whether the connector can start a connect flow — OAuth connectors need
+   * client credentials (env, platform, or tenant override). False = needs setup.
+   */
+  configured: boolean;
   connections: CatalogConnection[];
   /** Credential form fields (labels only) when `auth_kind === "api_key"`. */
   credential_fields: ConnectorCredentialField[] | null;

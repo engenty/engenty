@@ -198,6 +198,16 @@ redirect URI with each provider (override with `CONNECTIONS_REDIRECT_URI`
 behind a proxy). Required env per provider is documented in `.env.example`
 (Google Cloud Console, Azure App registrations, api.slack.com).
 
+**Client-credential resolution.** A connector's `clientIdEnv` / `clientSecretEnv`
+are resolved through the settings store, not just `process.env`: a tenant
+override → a platform setting → the environment variable (see
+[Platform settings](/setup/platform-settings)). This lets a tenant bring their
+own OAuth app from the UI without redeploying. The catalog's per-connector
+`configured` flag reflects whether client credentials resolve at any layer;
+`hasOAuth2ClientCredentials()` computes it and the UI shows "Needs setup" when
+false. The imported-connectors (`external`) provider still supplies its own
+`resolveClientCredentials` and takes precedence over both.
+
 Note for Slack-style providers: user scopes ride in `extraAuthParams`
 (`user_scope`) because the standard `scope` param would request bot scopes;
 the token parser already handles the nested `authed_user` response.
