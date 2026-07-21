@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.54] - 2026-07-21
+- FIXED **[ai-ui]** Narrow tenant-settings response before reading value
+
 ## [0.1.53] - 2026-07-21
 - ADDED **[settings]** Enhance plugin deactivation flow and add dependency handling
 - ADDED **[settings]** Add Connections overview and stronger icon tiles

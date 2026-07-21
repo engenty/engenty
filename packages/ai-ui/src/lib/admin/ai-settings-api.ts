@@ -47,8 +47,14 @@ export async function getAiConfig(signal?: AbortSignal): Promise<AiConfig> {
   if ("error" in res) {
     return {};
   }
-  const payload = "data" in res && res.data != null ? res.data : res;
-  const raw = payload.value;
+  // Wrapped `{ ok, data }` vs legacy `{ name, type, value }` — narrow before
+  // reading `.value` so DTS build accepts both shapes.
+  const raw =
+    "data" in res && res.data != null
+      ? res.data.value
+      : "value" in res
+        ? res.value
+        : undefined;
   if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
     const parsed = parseTenantAiSettings(raw);
     return {
