@@ -10,6 +10,19 @@ export interface DocConverterTenantPrefs {
 }
 
 /**
+ * Tenant realtime-voice-agent preferences (OpenAI Realtime). Consumed by the
+ * `/ai` realtime session route's voice-config resolver; null fields fall back to
+ * the route defaults (gpt-realtime-2 / gpt-realtime-whisper / marin).
+ */
+export interface RealtimeVoiceTenantPrefs {
+  openai_model?: string | null;
+  openai_transcription_model?: string | null;
+  openai_voice?: string | null;
+  /** Only "openai" is served today; "mistral" is rejected (501) at the route. */
+  provider?: "openai" | "mistral" | null;
+}
+
+/**
  * Tenant-level caps. Budget caps (soft/hard cost, per-user) live in the usage
  * policy store, not here — this carries only the tenant-default iteration cap.
  */
@@ -34,6 +47,8 @@ export interface TenantAiSettings {
   doc_converter?: DocConverterTenantPrefs | null;
   /** Most-capable tier: planning, decomposition, sandboxed code execution. */
   planning_coding_model_id?: string | null;
+  /** Realtime voice agent (OpenAI Realtime) preferences. */
+  realtime_voice?: RealtimeVoiceTenantPrefs | null;
   /** Search / retrieval / deep-research tier. */
   research_model_id?: string | null;
   safeguard_model_id?: string | null;
@@ -74,6 +89,27 @@ function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
   };
 }
 
+function trimmedOrNull(raw: unknown): string | null {
+  return typeof raw === "string" ? raw.trim() || null : null;
+}
+
+function parseRealtimeVoicePrefs(
+  raw: unknown
+): RealtimeVoiceTenantPrefs | null {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const o = raw as Record<string, unknown>;
+  const provider =
+    o.provider === "openai" || o.provider === "mistral" ? o.provider : null;
+  return {
+    provider,
+    openai_model: trimmedOrNull(o.openai_model),
+    openai_transcription_model: trimmedOrNull(o.openai_transcription_model),
+    openai_voice: trimmedOrNull(o.openai_voice),
+  };
+}
+
 function parseCaps(raw: unknown): AiCapsConfig | null {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
@@ -107,6 +143,7 @@ export function parseTenantAiSettings(raw: unknown): TenantAiSettings {
     planning_coding_model_id: parseGatewayModelId(o.planning_coding_model_id),
     classifier_model_id: parseGatewayModelId(o.classifier_model_id),
     doc_converter: parseDocConverterPrefs(o.doc_converter),
+    realtime_voice: parseRealtimeVoicePrefs(o.realtime_voice),
     safeguard_model_id: parseGatewayModelId(o.safeguard_model_id),
     caps: parseCaps(o.caps),
   };

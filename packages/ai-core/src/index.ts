@@ -248,6 +248,7 @@ export {
   type AiCapsConfig,
   type DocConverterTenantPrefs,
   parseTenantAiSettings,
+  type RealtimeVoiceTenantPrefs,
   TENANT_AI_CONFIG_KEY,
   type TenantAiSettings,
 } from "./tenant-ai-settings.js";

@@ -18,6 +18,7 @@ import { request } from "./request";
 export type {
   AiCapsConfig,
   DocConverterTenantPrefs,
+  RealtimeVoiceTenantPrefs,
 } from "@engenty/ai-core/browser";
 
 export const AI_CONFIG_KEY = "ai.config";
@@ -38,6 +39,10 @@ export interface AiConfig {
     | null;
   /** Most-capable tier: planning, decomposition, sandboxed code execution. */
   planning_coding_model_id?: string | null;
+  /** Realtime voice agent (OpenAI Realtime) preferences. */
+  realtime_voice?:
+    | import("@engenty/ai-core/browser").RealtimeVoiceTenantPrefs
+    | null;
   /** Search / retrieval / deep-research tier. */
   research_model_id?: string | null;
   /** Guardrail-processor safeguard model. */
@@ -83,6 +88,7 @@ export async function getAiConfig(signal?: AbortSignal): Promise<AiConfig> {
       safeguard_model_id: parsed.safeguard_model_id ?? null,
       classifier_model_id: parsed.classifier_model_id ?? null,
       doc_converter: parsed.doc_converter ?? null,
+      realtime_voice: parsed.realtime_voice ?? null,
       caps: parsed.caps ?? null,
     };
   }
@@ -101,6 +107,7 @@ export async function saveAiConfig(config: AiConfig): Promise<void> {
         planning_coding_model_id: config.planning_coding_model_id ?? null,
         safeguard_model_id: config.safeguard_model_id ?? null,
         doc_converter: config.doc_converter ?? null,
+        realtime_voice: config.realtime_voice ?? null,
         caps: config.caps ?? null,
       },
     }),

@@ -22,6 +22,7 @@ import {
   mergeSelectedGatewayModelOptions,
 } from "../features/ai-settings/map-gateway-model-select-options";
 import { ModelMatrixCard } from "../features/ai-settings/model-matrix-card";
+import { RealtimeVoiceCard } from "../features/ai-settings/realtime-voice-card";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
   useDocConverterAvailabilityQuery,
@@ -31,7 +32,13 @@ import {
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
 
 const DEFAULT_TAB = "copilot";
-const VALID_TABS = new Set([DEFAULT_TAB, "limits", "agents", "doc-converter"]);
+const VALID_TABS = new Set([
+  DEFAULT_TAB,
+  "limits",
+  "agents",
+  "doc-converter",
+  "voice",
+]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
   "cheap",
@@ -226,6 +233,7 @@ export function AiGeneralSettingsPage() {
               <TabsTrigger value="copilot">{t("sections.models")}</TabsTrigger>
               <TabsTrigger value="limits">{t("sections.limits")}</TabsTrigger>
               <TabsTrigger value="agents">{t("sections.agents")}</TabsTrigger>
+              <TabsTrigger value="voice">{t("sections.voice")}</TabsTrigger>
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
@@ -237,6 +245,7 @@ export function AiGeneralSettingsPage() {
           {saveError &&
           (activeTab === "copilot" ||
             activeTab === "limits" ||
+            activeTab === "voice" ||
             activeTab === "doc-converter") ? (
             <div
               className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
@@ -315,6 +324,14 @@ export function AiGeneralSettingsPage() {
               chatModelOptions={chatModelOptions}
               effective={effectiveQuery.data}
               t={t}
+            />
+          </TabsContent>
+
+          <TabsContent className="space-y-6" value="voice">
+            <RealtimeVoiceCard
+              settings={settings}
+              t={t}
+              updateSettings={updateSettings}
             />
           </TabsContent>
 

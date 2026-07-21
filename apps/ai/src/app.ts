@@ -41,6 +41,7 @@ import {
   createDefaultModuleCapabilityLoader,
   createTenantModelConfigResolverFromEnv,
 } from "./ai/index.js";
+import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
 import { registerActionRoutes } from "./api/action-routes.js";
 import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
 import { registerAgentSessionRunRoutes } from "./api/agent-session-runs-routes.js";
@@ -573,7 +574,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   registerRealtimeSessionRoutes(app, {
     openAiApiKey: options.openAiRealtimeApiKey,
     openAiFetch: options.openAiRealtimeFetch,
-    realtimeVoiceConfig: options.realtimeVoiceConfigResolver ?? null,
+    realtimeVoiceConfig:
+      options.realtimeVoiceConfigResolver ??
+      createRealtimeVoiceConfigResolverFromEnv() ??
+      null,
     scopeResolver,
   });
   registerRealtimeToolRoutes(app, {

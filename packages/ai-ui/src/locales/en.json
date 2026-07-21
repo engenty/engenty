@@ -167,11 +167,21 @@
     "stepsLabel": "Steps",
     "budgetLabel": "Budget"
   },
+  "voice": {
+    "title": "Realtime voice",
+    "description": "Voice and models for the realtime voice agent (OpenAI Realtime). Blank inherits the platform default.",
+    "voiceLabel": "Voice",
+    "modelLabel": "Realtime model",
+    "transcriptionLabel": "Transcription model",
+    "inheritHint": "Inherits: {{value}}",
+    "help": "The OpenAI API key is set via environment variables, not stored here."
+  },
   "sections": {
     "general": "General",
     "generalDesc": "Global AI and copilot defaults.",
     "models": "Models",
     "limits": "Limits & budgets",
+    "voice": "Voice",
     "copilot": "Copilot",
     "copilotDesc": "Chat model defaults for this tenant.",
     "classifier": "Classifier",

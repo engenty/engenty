@@ -23,6 +23,7 @@ const INHERIT_CONFIG: AiConfig = {
   safeguard_model_id: null,
   classifier_model_id: null,
   doc_converter: null,
+  realtime_voice: null,
   caps: null,
 };
 
@@ -57,14 +58,27 @@ function capsSignature(caps: AiConfig["caps"]): string {
     : "";
 }
 
+function realtimeVoiceSignature(rv: AiConfig["realtime_voice"]): string {
+  if (!rv) {
+    return "";
+  }
+  return [
+    rv.provider ?? "",
+    rv.openai_model ?? "",
+    rv.openai_transcription_model ?? "",
+    rv.openai_voice ?? "",
+  ].join("|");
+}
+
 function modelField(config: AiConfig, key: (typeof MODEL_FIELDS)[number]) {
   return config[key]?.trim() || null;
 }
 
-/** Normalize a server config: trim model ids to null, keep doc/caps as stored. */
+/** Normalize a server config: trim model ids to null, keep doc/caps/voice as stored. */
 function normalizeConfig(config: AiConfig): AiConfig {
   const out: AiConfig = {
     doc_converter: config.doc_converter ?? null,
+    realtime_voice: config.realtime_voice ?? null,
     caps: config.caps ?? null,
   };
   for (const key of MODEL_FIELDS) {
@@ -75,7 +89,7 @@ function normalizeConfig(config: AiConfig): AiConfig {
 
 function configSignature(config: AiConfig): string {
   const models = MODEL_FIELDS.map((k) => modelField(config, k) ?? "").join("|");
-  return `${models}::${docConverterSignature(config.doc_converter)}::${capsSignature(config.caps)}`;
+  return `${models}::${docConverterSignature(config.doc_converter)}::${capsSignature(config.caps)}::${realtimeVoiceSignature(config.realtime_voice)}`;
 }
 
 export function useAiSettings() {

@@ -167,11 +167,21 @@
     "stepsLabel": "Schritte",
     "budgetLabel": "Budget"
   },
+  "voice": {
+    "title": "Echtzeit-Sprache",
+    "description": "Stimme und Modelle für den Echtzeit-Sprachagenten (OpenAI Realtime). Leer erbt den Plattform-Standard.",
+    "voiceLabel": "Stimme",
+    "modelLabel": "Realtime-Modell",
+    "transcriptionLabel": "Transkriptions-Modell",
+    "inheritHint": "Erbt: {{value}}",
+    "help": "Der OpenAI-API-Key wird über Umgebungsvariablen gesetzt, nicht hier gespeichert."
+  },
   "sections": {
     "general": "Allgemein",
     "generalDesc": "Globale KI- und Copilot-Standards.",
     "models": "Modelle",
     "limits": "Limits & Budgets",
+    "voice": "Sprache",
     "copilot": "Copilot",
     "copilotDesc": "Chat-Modell-Standards für diesen Mandanten.",
     "classifier": "Klassifikation",
