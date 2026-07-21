@@ -15,14 +15,15 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CopilotAdminLinksSection } from "../features/ai-settings/copilot-admin-links-section";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
-import { GeneralSettingsCard } from "../features/ai-settings/general-settings-card";
 import {
   mapGatewayModelSelectOptions,
   mergeSelectedGatewayModelOptions,
 } from "../features/ai-settings/map-gateway-model-select-options";
+import { ModelMatrixCard } from "../features/ai-settings/model-matrix-card";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
   useDocConverterAvailabilityQuery,
+  useEffectiveAiSettingsQuery,
   useGatewayModelOptionsQuery,
 } from "../lib/admin/ai-settings-queries";
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
@@ -56,6 +57,7 @@ export function AiGeneralSettingsPage() {
     updateSettings,
   } = useAiSettings();
   const availabilityQuery = useDocConverterAvailabilityQuery();
+  const effectiveQuery = useEffectiveAiSettingsQuery();
   const [maxPriceTier, setMaxPriceTier] = useState<
     "all" | GatewayModelPriceTier
   >("medium");
@@ -79,10 +81,22 @@ export function AiGeneralSettingsPage() {
           chatModelOptionsQuery.data?.items ?? [],
           t
         ),
-        [settings.chat_model_id],
+        [
+          settings.chat_model_id,
+          settings.research_model_id,
+          settings.planning_coding_model_id,
+          settings.safeguard_model_id,
+        ],
         t("fields.modelUnavailable")
       ),
-    [chatModelOptionsQuery.data?.items, settings.chat_model_id, t]
+    [
+      chatModelOptionsQuery.data?.items,
+      settings.chat_model_id,
+      settings.research_model_id,
+      settings.planning_coding_model_id,
+      settings.safeguard_model_id,
+      t,
+    ]
   );
   const routingModelOptions = useMemo(
     () =>
@@ -207,7 +221,7 @@ export function AiGeneralSettingsPage() {
               className="-mb-px w-fit border-0 bg-transparent p-0"
               variant="line"
             >
-              <TabsTrigger value="copilot">{t("sections.copilot")}</TabsTrigger>
+              <TabsTrigger value="copilot">{t("sections.models")}</TabsTrigger>
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
@@ -268,8 +282,9 @@ export function AiGeneralSettingsPage() {
           </div>
 
           <TabsContent className="space-y-6" value="copilot">
-            <GeneralSettingsCard
+            <ModelMatrixCard
               chatModelOptions={chatModelOptions}
+              effective={effectiveQuery.data}
               routingModelOptions={routingModelOptions}
               settings={settings}
               t={t}

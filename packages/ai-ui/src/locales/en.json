@@ -84,12 +84,46 @@
     "save": "Save",
     "saving": "Saving…",
     "reset": "Reset",
-    "resetToDefaults": "Reset to defaults",
+    "resetToDefaults": "Reset all to inherited",
     "close": "Close"
+  },
+  "matrix": {
+    "title": "Model matrix",
+    "description": "One model per purpose. A blank pick inherits the platform default; the badge shows where the effective value comes from.",
+    "purpose": {
+      "chat": {
+        "label": "Chat",
+        "desc": "User-facing replies — copilot and specialist agents."
+      },
+      "routing": {
+        "label": "Fast (routing)",
+        "desc": "Supervisor delegation, thread titles, tool search — frequent and cheap."
+      },
+      "research": {
+        "label": "Research",
+        "desc": "Search & retrieval agents, workspace search, deep-research fan-outs — long context."
+      },
+      "planning_coding": {
+        "label": "Planning & coding",
+        "desc": "Most-capable tier: plans, task decomposition, coordinator proposals, sandboxed code."
+      },
+      "safeguard": {
+        "label": "Safeguard",
+        "desc": "Guardrail checks (moderation, PII, prompt injection)."
+      }
+    },
+    "source": {
+      "pinned": "Pinned · Tenant",
+      "inheritPlatform": "Inherit · Platform",
+      "inheritDefault": "Inherit · Default"
+    },
+    "inheritAction": "Inherit",
+    "inheritHint": "Inherits: {{model}}"
   },
   "sections": {
     "general": "General",
     "generalDesc": "Global AI and copilot defaults.",
+    "models": "Models",
     "copilot": "Copilot",
     "copilotDesc": "Chat model defaults for this tenant.",
     "classifier": "Classifier",

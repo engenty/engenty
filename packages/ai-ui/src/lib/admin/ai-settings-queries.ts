@@ -6,6 +6,7 @@ import {
 } from "@engenty/query-client";
 import { getAiConfig, saveAiConfig } from "./ai-settings-api";
 import { getDocConverterAvailability } from "./doc-converter-availability-api";
+import { getEffectiveAiSettings } from "./effective-ai-settings-api";
 import {
   type GatewayModelAvailabilityPurpose,
   type GatewayModelPriceTier,
@@ -15,6 +16,7 @@ import {
 
 export const aiSettingsKeys = {
   all: ["ai-settings"] as const,
+  effective: ["ai-settings", "effective"] as const,
   modelOptions: (filters: GatewayModelOptionFilters) =>
     [...aiSettingsKeys.all, "model-options", filters] as const,
 };
@@ -48,6 +50,16 @@ export const aiSettingsOptions = queryOptions({
 
 export function useAiSettingsQuery() {
   return useQuery(aiSettingsOptions);
+}
+
+export const effectiveAiSettingsOptions = queryOptions({
+  queryKey: aiSettingsKeys.effective,
+  queryFn: ({ signal }) => getEffectiveAiSettings(signal),
+  staleTime: 60_000,
+});
+
+export function useEffectiveAiSettingsQuery() {
+  return useQuery(effectiveAiSettingsOptions);
 }
 
 export function useGatewayModelOptionsQuery(

@@ -84,12 +84,46 @@
     "save": "Speichern",
     "saving": "Speichern…",
     "reset": "Zurücksetzen",
-    "resetToDefaults": "Auf Standard zurücksetzen",
+    "resetToDefaults": "Alle auf Erben zurücksetzen",
     "close": "Schließen"
+  },
+  "matrix": {
+    "title": "Modell-Matrix",
+    "description": "Ein Modell pro Zweck. Eine leere Auswahl erbt den Plattform-Standard; das Badge zeigt, woher der effektive Wert stammt.",
+    "purpose": {
+      "chat": {
+        "label": "Chat",
+        "desc": "Antworten an Nutzer:innen — Copilot & Spezialisten-Agenten."
+      },
+      "routing": {
+        "label": "Schnell (Routing)",
+        "desc": "Supervisor-Delegation, Thread-Titel, Tool-Suche — häufig & günstig."
+      },
+      "research": {
+        "label": "Research",
+        "desc": "Such- & Retrieval-Agenten, Workspace-Suche, Deep-Research-Fanouts — langer Kontext."
+      },
+      "planning_coding": {
+        "label": "Planung & Code",
+        "desc": "Stärkste Stufe: Pläne, Task-Zerlegung, Koordinator-Vorschläge, Sandbox-Code."
+      },
+      "safeguard": {
+        "label": "Safeguard",
+        "desc": "Guardrail-Prüfungen (Moderation, PII, Prompt-Injection)."
+      }
+    },
+    "source": {
+      "pinned": "Gepinnt · Mandant",
+      "inheritPlatform": "Erbt · Plattform",
+      "inheritDefault": "Erbt · Standard"
+    },
+    "inheritAction": "Erben",
+    "inheritHint": "Erbt: {{model}}"
   },
   "sections": {
     "general": "Allgemein",
     "generalDesc": "Globale KI- und Copilot-Standards.",
+    "models": "Modelle",
     "copilot": "Copilot",
     "copilotDesc": "Chat-Modell-Standards für diesen Mandanten.",
     "classifier": "Klassifikation",

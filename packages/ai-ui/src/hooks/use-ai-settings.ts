@@ -1,31 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  type AiConfig,
-  DEFAULT_CHAT_MODEL,
-  DEFAULT_CLASSIFIER_MODEL,
-  DEFAULT_COORDINATOR_MODEL,
-} from "../lib/admin/ai-settings-api";
+import type { AiConfig } from "../lib/admin/ai-settings-api";
 import {
   useAiSettingsQuery,
   useSaveAiSettingsMutation,
 } from "../lib/admin/ai-settings-queries";
 
-const CODE_DEFAULTS: AiConfig = {
-  chat_model_id: DEFAULT_CHAT_MODEL,
-  coordinator_model_id: DEFAULT_COORDINATOR_MODEL,
-  classifier_model_id: DEFAULT_CLASSIFIER_MODEL,
-  doc_converter: {
-    provider: "local",
-    gemini_model: null,
-  },
-};
+/** Tenant-pinnable model fields. Null on any of them means "inherit". */
+const MODEL_FIELDS = [
+  "chat_model_id",
+  "coordinator_model_id",
+  "research_model_id",
+  "planning_coding_model_id",
+  "safeguard_model_id",
+] as const;
 
-const EMPTY_CONFIG: AiConfig = {
+/** Everything inherits: the "reset to defaults" target now clears pins. */
+const INHERIT_CONFIG: AiConfig = {
   chat_model_id: null,
   coordinator_model_id: null,
+  research_model_id: null,
+  planning_coding_model_id: null,
+  safeguard_model_id: null,
   classifier_model_id: null,
   doc_converter: null,
+  caps: null,
 };
+
+const EMPTY_CONFIG: AiConfig = { ...INHERIT_CONFIG };
 
 function normalizeDocConverter(
   dc: AiConfig["doc_converter"]
@@ -49,15 +50,32 @@ function docConverterSignature(dc: AiConfig["doc_converter"]): string {
   return `${n.provider}|${n.gemini_model ?? ""}`;
 }
 
-function mergeWithDefaults(config: AiConfig): AiConfig {
-  return {
-    chat_model_id: config.chat_model_id ?? CODE_DEFAULTS.chat_model_id ?? null,
-    coordinator_model_id:
-      config.coordinator_model_id ?? CODE_DEFAULTS.coordinator_model_id ?? null,
-    classifier_model_id:
-      config.classifier_model_id ?? CODE_DEFAULTS.classifier_model_id ?? null,
-    doc_converter: normalizeDocConverter(config.doc_converter),
+function capsSignature(caps: AiConfig["caps"]): string {
+  const steps = caps?.max_steps;
+  return typeof steps === "number" && steps > 0
+    ? String(Math.floor(steps))
+    : "";
+}
+
+function modelField(config: AiConfig, key: (typeof MODEL_FIELDS)[number]) {
+  return config[key]?.trim() || null;
+}
+
+/** Normalize a server config: trim model ids to null, keep doc/caps as stored. */
+function normalizeConfig(config: AiConfig): AiConfig {
+  const out: AiConfig = {
+    doc_converter: config.doc_converter ?? null,
+    caps: config.caps ?? null,
   };
+  for (const key of MODEL_FIELDS) {
+    out[key] = modelField(config, key);
+  }
+  return out;
+}
+
+function configSignature(config: AiConfig): string {
+  const models = MODEL_FIELDS.map((k) => modelField(config, k) ?? "").join("|");
+  return `${models}::${docConverterSignature(config.doc_converter)}::${capsSignature(config.caps)}`;
 }
 
 export function useAiSettings() {
@@ -66,45 +84,28 @@ export function useAiSettings() {
 
   const serverConfig = query.data;
   const lastSaved = useMemo(
-    () => (serverConfig ? mergeWithDefaults(serverConfig) : EMPTY_CONFIG),
+    () => (serverConfig ? normalizeConfig(serverConfig) : EMPTY_CONFIG),
     [serverConfig]
   );
 
   const [settings, setSettings] = useState<AiConfig>(EMPTY_CONFIG);
 
-  // Sync from server on initial load (prev empty) or when current state matches server (e.g. after save + refetch).
+  // Sync from server on initial load (prev empty) or when the current state
+  // still matches the server (e.g. after save + refetch).
   useEffect(() => {
     if (!serverConfig) {
       return;
     }
-    const merged = mergeWithDefaults(serverConfig);
+    const merged = normalizeConfig(serverConfig);
     setSettings((prev) => {
-      const prevEmpty =
-        prev.chat_model_id == null &&
-        prev.coordinator_model_id == null &&
-        prev.classifier_model_id == null &&
-        prev.doc_converter == null;
-      const matchesServer =
-        (prev.chat_model_id ?? "") === (merged.chat_model_id ?? "") &&
-        (prev.coordinator_model_id ?? "") ===
-          (merged.coordinator_model_id ?? "") &&
-        (prev.classifier_model_id ?? "") ===
-          (merged.classifier_model_id ?? "") &&
-        docConverterSignature(prev.doc_converter) ===
-          docConverterSignature(merged.doc_converter);
+      const prevEmpty = configSignature(prev) === configSignature(EMPTY_CONFIG);
+      const matchesServer = configSignature(prev) === configSignature(merged);
       return prevEmpty || matchesServer ? merged : prev;
     });
   }, [serverConfig]);
 
   const hasChanges = useMemo(
-    () =>
-      (settings.chat_model_id ?? "") !== (lastSaved.chat_model_id ?? "") ||
-      (settings.coordinator_model_id ?? "") !==
-        (lastSaved.coordinator_model_id ?? "") ||
-      (settings.classifier_model_id ?? "") !==
-        (lastSaved.classifier_model_id ?? "") ||
-      docConverterSignature(settings.doc_converter) !==
-        docConverterSignature(lastSaved.doc_converter),
+    () => configSignature(settings) !== configSignature(lastSaved),
     [settings, lastSaved]
   );
 
@@ -113,7 +114,7 @@ export function useAiSettings() {
   }, [lastSaved]);
 
   const handleResetToDefaults = useCallback(() => {
-    setSettings({ ...CODE_DEFAULTS });
+    setSettings({ ...INHERIT_CONFIG });
   }, []);
 
   const handleSave = useCallback(async () => {
