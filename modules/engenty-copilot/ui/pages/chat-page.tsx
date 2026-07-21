@@ -210,6 +210,9 @@ export function CopilotChatPage() {
     actions: topbarActions,
     breadcrumbs,
     contentStackBackground: "paper",
+    // Session list stays available as a hover overlay — never pinned inline so
+    // the conversation column keeps the full workspace width.
+    secondaryNavAllowPinned: false,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",

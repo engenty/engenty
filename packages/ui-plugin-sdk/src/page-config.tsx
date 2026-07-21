@@ -113,6 +113,12 @@ interface PageHeaderContextValue {
   contentStackBackground: PageContentStackBackground;
   /** Rendered in the shell secondary nav column below module submenu links (e.g. recents). */
   secondaryNavAfterItems: ReactNode;
+  /**
+   * When false, the module secondary column may only open as a hover overlay — never
+   * pinned inline (no layout width). Used by full-page copilot chat so the session
+   * list never steals space from the conversation.
+   */
+  secondaryNavAllowPinned: boolean;
   /** Rendered in the shell secondary nav column above module submenu links (e.g. search). */
   secondaryNavBeforeItems: ReactNode;
   /**
@@ -141,6 +147,7 @@ interface PageHeaderDispatchContextValue {
   setBreadcrumbs: (breadcrumbs: PageBreadcrumb[]) => void;
   setContentStackBackground: (value: PageContentStackBackground) => void;
   setSecondaryNavAfterItems: (node: ReactNode) => void;
+  setSecondaryNavAllowPinned: (value: boolean) => void;
   setSecondaryNavBeforeItems: (node: ReactNode) => void;
   setSecondaryNavHeaderSlot: (node: ReactNode) => void;
   setSecondaryNavSearchResultsOnly: (value: boolean) => void;
@@ -161,6 +168,8 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
     useState<ReactNode>(null);
   const [secondaryNavAfterItems, setSecondaryNavAfterItemsState] =
     useState<ReactNode>(null);
+  const [secondaryNavAllowPinned, setSecondaryNavAllowPinnedState] =
+    useState(true);
   const [secondaryNavHeaderSlot, setSecondaryNavHeaderSlotState] =
     useState<ReactNode>(null);
   const [secondaryNavSearchResultsOnly, setSecondaryNavSearchResultsOnlyState] =
@@ -204,6 +213,10 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const setSecondaryNavAllowPinned = useCallback((value: boolean) => {
+    setSecondaryNavAllowPinnedState((prev) => (prev === value ? prev : value));
+  }, []);
+
   const setSecondaryNavHeaderSlot = useCallback((node: ReactNode) => {
     setSecondaryNavHeaderSlotState((prev) =>
       Object.is(prev, node) ? prev : node
@@ -238,6 +251,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       breadcrumbs,
       contentStackBackground,
       secondaryNavAfterItems,
+      secondaryNavAllowPinned,
       secondaryNavBeforeItems,
       secondaryNavHeaderSlot,
       secondaryNavSearchResultsOnly,
@@ -250,6 +264,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       breadcrumbs,
       contentStackBackground,
       secondaryNavAfterItems,
+      secondaryNavAllowPinned,
       secondaryNavBeforeItems,
       secondaryNavHeaderSlot,
       secondaryNavSearchResultsOnly,
@@ -264,6 +279,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       setBreadcrumbs,
       setContentStackBackground,
       setSecondaryNavAfterItems,
+      setSecondaryNavAllowPinned,
       setSecondaryNavBeforeItems,
       setSecondaryNavHeaderSlot,
       setSecondaryNavSearchResultsOnly,
@@ -276,6 +292,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       setBreadcrumbs,
       setContentStackBackground,
       setSecondaryNavAfterItems,
+      setSecondaryNavAllowPinned,
       setSecondaryNavBeforeItems,
       setSecondaryNavHeaderSlot,
       setSecondaryNavSearchResultsOnly,
@@ -359,6 +376,11 @@ export function usePageConfig(config: {
    */
   contentStackBackground?: PageContentStackBackground;
   secondaryNavAfterItems?: ReactNode;
+  /**
+   * When false, secondary nav is overlay-only (never pinned open / no layout width).
+   * Defaults to true. Resets on unmount.
+   */
+  secondaryNavAllowPinned?: boolean;
   secondaryNavBeforeItems?: ReactNode;
   /**
    * Content placed in the secondary nav column's header row (same vertical level as the
@@ -380,6 +402,7 @@ export function usePageConfig(config: {
     breadcrumbs,
     contentStackBackground,
     secondaryNavAfterItems,
+    secondaryNavAllowPinned,
     secondaryNavBeforeItems,
     secondaryNavHeaderSlot,
     topbarChrome,
@@ -391,6 +414,7 @@ export function usePageConfig(config: {
     setBreadcrumbs,
     setContentStackBackground,
     setSecondaryNavAfterItems,
+    setSecondaryNavAllowPinned,
     setSecondaryNavBeforeItems,
     setSecondaryNavHeaderSlot,
     setTopbarChrome,
@@ -436,6 +460,15 @@ export function usePageConfig(config: {
   useLayoutEffect(
     () => () => setSecondaryNavAfterItems(null),
     [setSecondaryNavAfterItems]
+  );
+
+  useLayoutEffect(() => {
+    setSecondaryNavAllowPinned(secondaryNavAllowPinned ?? true);
+  }, [secondaryNavAllowPinned, setSecondaryNavAllowPinned]);
+
+  useLayoutEffect(
+    () => () => setSecondaryNavAllowPinned(true),
+    [setSecondaryNavAllowPinned]
   );
 
   useLayoutEffect(() => {
