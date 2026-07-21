@@ -168,6 +168,38 @@ async function ensureDevUser(
   }
 }
 
+interface DevSignInSession {
+  access_token: string;
+  refresh_token: string;
+}
+
+/**
+ * Prefer a password probe over `updateUserById({ password })`. Resetting the
+ * password revokes every existing refresh token for that user — which logs out
+ * other Portless hosts / worktrees and races concurrent agent logins.
+ *
+ * Returns a session when the probe already succeeded (callers can reuse it).
+ */
+async function ensureDevUserCanSignIn(
+  admin: SupabaseClient,
+  anon: SupabaseClient,
+  email: string,
+  devPass: string
+): Promise<DevSignInSession | null> {
+  const probe = await anon.auth.signInWithPassword({
+    email,
+    password: devPass,
+  });
+  if (!(probe.error || !probe.data.session)) {
+    return {
+      access_token: probe.data.session.access_token,
+      refresh_token: probe.data.session.refresh_token,
+    };
+  }
+  await ensureDevUser(admin, email, devPass);
+  return null;
+}
+
 /**
  * Dev-only login bypass. When ENGENTY_DEV_PASS is set and NODE_ENV != production,
  * any email can sign in with the dev password (the Admin SDK creates/updates the
@@ -219,15 +251,19 @@ export function registerDevLoginRoutes(params: {
 
     const supabaseUrl = readSupabaseUrl(config);
     const serviceRoleKey = readServiceRoleKey(config);
-    if (!(supabaseUrl && serviceRoleKey)) {
+    const anonKey = readAnonKey(config);
+    if (!(supabaseUrl && serviceRoleKey && anonKey)) {
       return c.json({ error: "Supabase not configured" }, 500);
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    const anon = createClient(supabaseUrl, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
     try {
-      await ensureDevUser(admin, email, devPass);
+      await ensureDevUserCanSignIn(admin, anon, email, devPass);
     } catch (error) {
       return c.json({ error: (error as Error).message }, 500);
     }
@@ -260,29 +296,23 @@ export function registerDevLoginRoutes(params: {
     });
 
     try {
-      // Try the sign-in first and only ensure/reset the user when it fails:
-      // updateUserById({ password }) revokes every existing session, so
-      // resetting unconditionally makes concurrent agent logins (e.g. React
-      // StrictMode double-effects, parallel Playwright workers) kill each
-      // other's freshly minted sessions.
-      let signIn = await anon.auth.signInWithPassword({
-        email,
-        password: devPass,
-      });
-      if (signIn.error || !signIn.data.session) {
-        await ensureDevUser(admin, email, devPass);
-        signIn = await anon.auth.signInWithPassword({
+      let session = await ensureDevUserCanSignIn(admin, anon, email, devPass);
+      if (!session) {
+        const { data, error } = await anon.auth.signInWithPassword({
           email,
           password: devPass,
         });
-      }
-      const { data, error } = signIn;
-      if (error || !data.session) {
-        return c.json({ error: error?.message ?? "Sign-in failed" }, 500);
+        if (error || !data.session) {
+          return c.json({ error: error?.message ?? "Sign-in failed" }, 500);
+        }
+        session = {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        };
       }
       return c.json({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
         email,
       });
     } catch (error) {

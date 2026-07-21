@@ -2,12 +2,25 @@
    chip is pure CSS from data attributes, so the block needs no React
    NodeView — the document stays one contiguous editable surface. */
 
+/* Keep the +/drag block handle INSIDE the card. The editor's default rail sits
+   outside the content's left edge (left: -3.375rem), which spills out of this
+   bordered card and collides with the nav on a narrow main area. The page
+   reserves a left rail via the content's pl-14; drop the gutter into it so the
+   handle stays on the white surface and every block shares one left edge. */
+.memory-doc-editor .tiptap-block-gutter {
+  left: 0.25rem;
+}
+
+/* Theme vars in this app are full colors (oklch / color-mix), NOT raw HSL
+   channels — so `hsl(var(--card))` is invalid and rendered transparent, which
+   dropped the record card's border/background entirely. Use the vars directly
+   (same convention as the tiptap editor styles). */
 .memory-record-block {
   position: relative;
   padding: 0.625rem 0.875rem 0.75rem;
   margin: 0.625rem 0;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
 
@@ -17,7 +30,7 @@
   right: 0.625rem;
   font-size: 0.6875rem;
   line-height: 1rem;
-  color: hsl(var(--muted-foreground));
+  color: var(--muted-foreground);
   pointer-events: none;
   user-select: none;
   content: attr(data-chip);

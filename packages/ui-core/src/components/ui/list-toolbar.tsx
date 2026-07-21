@@ -1,5 +1,7 @@
 import { ChevronDown, Search, X, type LucideIcon } from "lucide-react";
 import type * as React from "react";
+import { useRef } from "react";
+import { useListToolbarHotkeys } from "../../hooks/useListToolbarHotkeys";
 import { cn } from "../../utils";
 import { Button } from "./button";
 import {
@@ -30,6 +32,16 @@ const PILL_CN =
 // ---------------------------------------------------------------------------
 
 interface ListSearchInputProps extends React.ComponentProps<"input"> {
+  /**
+   * When false, disables Mod+F / Mod+Shift+F handling for this field.
+   * @default true
+   */
+  enableHotkeys?: boolean;
+  /**
+   * Opens the expandable filter chip bar (Mod+Shift+F). Pass only when the
+   * toolbar has a filter row.
+   */
+  onOpenFilters?: () => void;
   /** Extra wrapper className (e.g. max-w-sm flex-1). */
   wrapperClassName?: string;
 }
@@ -37,8 +49,19 @@ interface ListSearchInputProps extends React.ComponentProps<"input"> {
 function ListSearchInput({
   className,
   wrapperClassName,
+  enableHotkeys = true,
+  onOpenFilters,
+  ref,
   ...props
 }: ListSearchInputProps) {
+  const localRef = useRef<HTMLInputElement | null>(null);
+
+  useListToolbarHotkeys({
+    enabled: enableHotkeys,
+    onOpenFilters,
+    searchInputRef: localRef,
+  });
+
   return (
     <div className={cn("relative", wrapperClassName)}>
       <Search
@@ -47,6 +70,14 @@ function ListSearchInput({
       />
       <Input
         className={cn(PILL_CN, "pl-8", className)}
+        ref={(node) => {
+          localRef.current = node;
+          if (typeof ref === "function") {
+            ref(node);
+          } else if (ref) {
+            ref.current = node;
+          }
+        }}
         {...props}
       />
     </div>

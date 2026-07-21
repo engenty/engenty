@@ -210,6 +210,20 @@ describe("memory gateway methods", () => {
     ).rejects.toThrow(/org scope takes no scope_ref/);
   });
 
+  it("lists org scope with an explicit null scope_ref (the document UI's org tab)", async () => {
+    // Regression: the list schema rejected `scope_ref: null`, so the org tab
+    // surfaced a ZodError as a spurious "no access". null must pass through to
+    // the repo as an IS NULL filter.
+    await run(
+      "memory_record_list",
+      { scope_kind: "org", scope_ref: null, status: "active", limit: 200 },
+      userAuth
+    );
+    expect(repo.list).toHaveBeenCalledWith(
+      expect.objectContaining({ scope_kind: "org", scope_ref: null })
+    );
+  });
+
   it("coerces agent-claimed 'human' provenance to 'agent', keeps 'reflection'", async () => {
     await run(
       "memory_record_upsert",

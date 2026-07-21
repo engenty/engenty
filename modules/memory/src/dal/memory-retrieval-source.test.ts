@@ -56,7 +56,6 @@ function memoryRow(overrides: Record<string, unknown> = {}) {
 describe("memory retrieval source — buildDocument", () => {
   it("builds title+body documents with scope filter metadata", async () => {
     const source = createMemoryRetrievalSource({
-      // biome-ignore lint/suspicious/noExplicitAny: fake client
       supabase: createFakeSupabase([memoryRow()]) as any,
     });
     const doc = await source.buildDocument({
@@ -80,7 +79,6 @@ describe("memory retrieval source — buildDocument", () => {
 
   it("omits scope_ref metadata for org records (null ref)", async () => {
     const source = createMemoryRetrievalSource({
-      // biome-ignore lint/suspicious/noExplicitAny: fake client
       supabase: createFakeSupabase([
         memoryRow({ scope_kind: "org", scope_ref: null }),
       ]) as any,
@@ -97,7 +95,6 @@ describe("memory retrieval source — buildDocument", () => {
     "archived",
   ])("returns null for %s records so they drop from the index", async (status) => {
     const source = createMemoryRetrievalSource({
-      // biome-ignore lint/suspicious/noExplicitAny: fake client
       supabase: createFakeSupabase([memoryRow({ status })]) as any,
     });
     const doc = await source.buildDocument({
@@ -110,7 +107,6 @@ describe("memory retrieval source — buildDocument", () => {
 
 describe("memory retrieval source — mapFilters", () => {
   const source = createMemoryRetrievalSource({
-    // biome-ignore lint/suspicious/noExplicitAny: fake client
     supabase: createFakeSupabase([]) as any,
   });
 
@@ -146,7 +142,6 @@ describe("memory retrieval source — hydrate", () => {
 
   it("hydrates matches into records, dropping non-active rows and dupes", async () => {
     const source = createMemoryRetrievalSource({
-      // biome-ignore lint/suspicious/noExplicitAny: fake client
       supabase: createFakeSupabase([
         memoryRow(),
         memoryRow({ id: "m2", slug: "acme-tone", status: "archived" }),

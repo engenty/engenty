@@ -94,6 +94,11 @@ export function TasksToolbar({
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => onSearchChange(e.target.value)}
+            onOpenFilters={() => {
+              if (!filtersExpanded) {
+                onFiltersToggle();
+              }
+            }}
             placeholder={labels.searchPlaceholder}
             value={searchQuery}
             wrapperClassName="w-full"

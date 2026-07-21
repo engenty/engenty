@@ -220,6 +220,11 @@ export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => props.onSearchChange(e.target.value)}
+            onOpenFilters={() => {
+              if (!props.filtersExpanded) {
+                props.onFiltersToggle();
+              }
+            }}
             placeholder={props.labels.searchPlaceholder}
             value={props.searchQuery}
             wrapperClassName="w-full"

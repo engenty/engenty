@@ -88,7 +88,11 @@ export type MemoryRecordUpsertInput = z.infer<
 export const memoryRecordListInputSchema = z
   .object({
     scope_kind: memoryScopeKindSchema.optional(),
-    scope_ref: z.string().optional(),
+    // Org scope is tenant-wide (scope_ref IS NULL). The document UI passes
+    // `scope_ref: null` explicitly for the org tab, so null must be accepted
+    // here — the DAL maps null → `.is("scope_ref", null)`. Rejecting null made
+    // the org tab surface a validation error as a spurious "no access".
+    scope_ref: z.string().nullable().optional(),
     kind: memoryKindSchema.optional(),
     status: memoryStatusSchema.optional(),
     limit: z.number().int().min(1).max(200).default(50),

@@ -234,6 +234,27 @@ export function SecretFormDialog({
             void submit();
           }}
         >
+          {secret ? null : (
+            <Select
+              onValueChange={(value) => setKind(value as SecretKind)}
+              value={kind}
+            >
+              <SelectTrigger
+                aria-label={t("form.kind")}
+                className="w-full sm:w-56"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CREATABLE_KINDS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(SECRET_KIND_LABEL_KEYS[value])}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <div className="flex items-end gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Label htmlFor="secret-name">{t("form.name")}</Label>
@@ -248,26 +269,7 @@ export function SecretFormDialog({
               <Badge className="mb-1.5 whitespace-nowrap" variant="secondary">
                 {t(SECRET_KIND_LABEL_KEYS[secret.kind] ?? "kind.note")}
               </Badge>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                <Label>{t("form.kind")}</Label>
-                <Select
-                  onValueChange={(value) => setKind(value as SecretKind)}
-                  value={kind}
-                >
-                  <SelectTrigger className="w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CREATABLE_KINDS.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {t(SECRET_KIND_LABEL_KEYS[value])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            ) : null}
           </div>
 
           {kind === "username_password" && (

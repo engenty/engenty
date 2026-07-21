@@ -10,28 +10,41 @@ import {
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-  Input,
   Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  useListToolbarHotkeys,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import {
   Building2,
+  Eye,
+  EyeOff,
   FolderOpen,
   Plus,
-  Search,
   Upload,
   UserRound,
   Users,
-  X,
 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { type ComponentType, useMemo, useState } from "react";
+import { type ComponentType, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { SecretListItem } from "../api.js";
 import { SecretFormDialog } from "../components/secret-form-dialog.js";
-import { SecretRow } from "../components/secret-row.js";
+import {
+  SecretRow,
+  type SecretsBulkRevealCommand,
+} from "../components/secret-row.js";
+import {
+  SecretsListFilterBar,
+  type SecretsListFilterState,
+} from "../components/secrets-list-filter-bar.js";
+import { SecretsListToolbar } from "../components/secrets-list-toolbar.js";
 import { useSecretsModuleSecondaryShellNav } from "../hooks/use-secrets-module-secondary-shell-nav.js";
 import {
+  parseSecretsKindFilter,
   parseSecretsScopeFilter,
   secretsVaultHref,
 } from "../lib/secrets-vault-url.js";
@@ -70,25 +83,75 @@ export function VaultPage() {
 
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
   const [scopeRaw] = useQueryState("scope", parseAsString);
+  const [kindRaw] = useQueryState("kind", parseAsString);
   const [clientFilter] = useQueryState("client", parseAsString);
   const [projectFilter] = useQueryState("project", parseAsString);
   const scopeFilter = parseSecretsScopeFilter(scopeRaw);
+  const kindFilter = parseSecretsKindFilter(kindRaw);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SecretListItem | null>(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [revealAllActive, setRevealAllActive] = useState(false);
+  const [bulkReveal, setBulkReveal] = useState<SecretsBulkRevealCommand>({
+    mode: "hide",
+    seq: 0,
+  });
 
   const clients = clientsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
 
-  const filtersActive =
-    q.trim() !== "" ||
+  const currentFilters = useMemo(
+    () => ({
+      q,
+      scope: scopeFilter,
+      kind: kindFilter,
+      client: clientFilter,
+      project: projectFilter,
+    }),
+    [q, scopeFilter, kindFilter, clientFilter, projectFilter]
+  );
+
+  const chipFilters: SecretsListFilterState = {
+    scope: scopeFilter ?? "all",
+    kind: kindFilter ?? "all",
+  };
+
+  const hasActiveChipFilters =
     scopeFilter !== null ||
+    kindFilter !== null ||
     Boolean(clientFilter) ||
     Boolean(projectFilter);
 
   function clearFilters() {
     navigate(
-      secretsVaultHref({ q: "", scope: null, client: null, project: null })
+      secretsVaultHref({
+        q: "",
+        scope: null,
+        kind: null,
+        client: null,
+        project: null,
+      })
+    );
+  }
+
+  function clearOwnerFilter() {
+    navigate(secretsVaultHref({ client: null, project: null }, currentFilters));
+  }
+
+  function handleChipFiltersChange(next: SecretsListFilterState) {
+    navigate(
+      secretsVaultHref(
+        {
+          scope: next.scope === "all" ? null : next.scope,
+          kind: next.kind === "all" ? null : next.kind,
+          // Scope chip is mutually exclusive with owner (client/project) picks.
+          ...(next.scope === chipFilters.scope
+            ? {}
+            : { client: null, project: null }),
+        },
+        currentFilters
+      )
     );
   }
 
@@ -148,6 +211,9 @@ export function VaultPage() {
       if (scopeFilter && secret.owner_scope !== scopeFilter) {
         return false;
       }
+      if (kindFilter && secret.kind !== kindFilter) {
+        return false;
+      }
       if (clientFilter) {
         const ownedByClient =
           secret.owner_scope === "client" && secret.owner_id === clientFilter;
@@ -198,6 +264,7 @@ export function VaultPage() {
     projects,
     q,
     scopeFilter,
+    kindFilter,
     clientFilter,
     projectFilter,
     currentTenant?.name,
@@ -208,15 +275,33 @@ export function VaultPage() {
   const isLoading = secretsQuery.isLoading;
   const isEmpty = !isLoading && (secretsQuery.data?.length ?? 0) === 0;
   const isFilteredEmpty = !(isLoading || isEmpty) && groups.length === 0;
+  const visibleCount = groups.reduce(
+    (sum, group) => sum + group.rows.length,
+    0
+  );
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     setEditing(null);
     setFormOpen(true);
-  }
+  }, []);
 
   function openEdit(secret: SecretListItem) {
     setEditing(secret);
     setFormOpen(true);
+  }
+
+  useListToolbarHotkeys({
+    onNewItem: openCreate,
+  });
+
+  function toggleRevealAll() {
+    if (revealAllActive) {
+      setBulkReveal({ mode: "hide", seq: Date.now() });
+      setRevealAllActive(false);
+      return;
+    }
+    setBulkReveal({ mode: "show", seq: Date.now() });
+    setRevealAllActive(true);
   }
 
   const breadcrumbs = useMemo(
@@ -230,6 +315,31 @@ export function VaultPage() {
   const pageActions = useMemo(
     () => (
       <div className="flex items-center gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={
+                  revealAllActive ? t("vault.hideAll") : t("vault.revealAll")
+                }
+                disabled={visibleCount === 0}
+                onClick={toggleRevealAll}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                {revealAllActive ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {revealAllActive ? t("vault.hideAll") : t("vault.revealAll")}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm">
@@ -250,7 +360,7 @@ export function VaultPage() {
         </DropdownMenu>
       </div>
     ),
-    [navigate, t]
+    [navigate, openCreate, revealAllActive, t, visibleCount]
   );
 
   usePageConfig({
@@ -262,7 +372,7 @@ export function VaultPage() {
     topbarChrome: "contentBlend",
   });
 
-  const activeFilterLabel = useMemo(() => {
+  const activeOwnerLabel = useMemo(() => {
     if (projectFilter) {
       return (
         projects.find((project) => project.id === projectFilter)?.title ??
@@ -275,123 +385,114 @@ export function VaultPage() {
         t("group.unknownClient")
       );
     }
-    if (scopeFilter === "user") {
-      return t("sidebar.personal");
-    }
-    if (scopeFilter === "tenant") {
-      return t("sidebar.workspace");
-    }
     return null;
-  }, [projectFilter, clientFilter, scopeFilter, projects, clients, t]);
+  }, [projectFilter, clientFilter, projects, clients, t]);
 
   return (
-    <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-      <div className="mx-auto w-full max-w-4xl space-y-4 pt-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              onChange={(event) => {
-                const value = event.target.value;
-                void setQ(value === "" ? null : value);
-              }}
-              placeholder={t("vault.searchPlaceholder")}
-              value={q}
-            />
-          </div>
-          {filtersActive ? (
-            <Button
-              className="shrink-0 text-muted-foreground"
-              onClick={clearFilters}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <X className="mr-1 h-4 w-4" />
-              {activeFilterLabel
-                ? t("filter.clearNamed", {
-                    name: activeFilterLabel,
-                    defaultValue: `Clear · ${activeFilterLabel}`,
-                  })
-                : t("filter.clear")}
-            </Button>
-          ) : null}
+    <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden p-page">
+      <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-5 pt-4">
+        <div className="shrink-0 space-y-2">
+          <SecretsListToolbar
+            filtersExpanded={filtersExpanded}
+            hasActiveFilters={hasActiveChipFilters}
+            onFiltersToggle={() => setFiltersExpanded((prev) => !prev)}
+            onSearchChange={(value) => {
+              void setQ(value === "" ? null : value);
+            }}
+            searchPlaceholder={t("vault.searchPlaceholder")}
+            searchQuery={q}
+            summary={t("vault.secretCount", { count: visibleCount })}
+            toggleFiltersLabel={t("filter.toggle")}
+          />
+          <SecretsListFilterBar
+            activeOwnerLabel={activeOwnerLabel}
+            filtersExpanded={filtersExpanded}
+            hasActiveChipFilters={hasActiveChipFilters}
+            onChange={handleChipFiltersChange}
+            onClearAll={clearFilters}
+            onClearOwner={clearOwnerFilter}
+            value={chipFilters}
+          />
         </div>
 
-        {isLoading && (
-          <div className="space-y-4">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-          </div>
-        )}
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-10">
+          {isLoading && (
+            <div className="space-y-4">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          )}
 
-        {isEmpty && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>{t("vault.emptyTitle")}</EmptyTitle>
-              <EmptyDescription>{t("vault.emptyDescription")}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
+          {isEmpty && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>{t("vault.emptyTitle")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("vault.emptyDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
 
-        {isFilteredEmpty && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>{t("vault.noMatchesTitle")}</EmptyTitle>
-              <EmptyDescription>
-                {t("vault.noMatchesDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
+          {isFilteredEmpty && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>{t("vault.noMatchesTitle")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("vault.noMatchesDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
 
-        {groups.map((group) => {
-          const GroupIcon = group.icon;
-          return (
-            <Card className="overflow-hidden p-0 sm:p-0" key={group.key}>
-              <div className="flex items-center gap-3 border-border border-b bg-muted/40 px-4 py-3">
-                <GroupIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-muted-foreground text-xs">
-                    {group.subtitle}
+          {groups.map((group) => {
+            const GroupIcon = group.icon;
+            return (
+              <Card className="overflow-hidden p-0 sm:p-0" key={group.key}>
+                <div className="flex items-center gap-3 border-border border-b bg-muted/40 px-4 py-3">
+                  <GroupIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-muted-foreground text-xs">
+                      {group.subtitle}
+                    </div>
+                    <h3 className="truncate font-semibold text-base">
+                      {group.title}
+                    </h3>
                   </div>
-                  <h3 className="truncate font-semibold text-base">
-                    {group.title}
-                  </h3>
+                  <span className="whitespace-nowrap text-muted-foreground text-xs">
+                    {t("vault.secretCount", { count: group.rows.length })}
+                  </span>
                 </div>
-                <span className="whitespace-nowrap text-muted-foreground text-xs">
-                  {t("vault.secretCount", { count: group.rows.length })}
-                </span>
-              </div>
-              <div className="divide-y divide-border">
-                {group.rows.map((secret) => (
-                  <SecretRow
-                    key={secret.id}
-                    onEdit={openEdit}
-                    secret={secret}
-                  />
-                ))}
-              </div>
-            </Card>
-          );
-        })}
+                <div className="divide-y divide-border">
+                  {group.rows.map((secret) => (
+                    <SecretRow
+                      bulkReveal={bulkReveal}
+                      key={secret.id}
+                      onEdit={openEdit}
+                      secret={secret}
+                    />
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
 
-        <SecretFormDialog
-          clients={clients}
-          currentUserId={currentUserId}
-          onOpenChange={(open) => {
-            setFormOpen(open);
-            if (!open) {
-              setEditing(null);
-            }
-          }}
-          open={formOpen}
-          projects={projects}
-          secret={editing}
-          tenantId={currentTenant?.id ?? null}
-        />
+          <SecretFormDialog
+            clients={clients}
+            currentUserId={currentUserId}
+            onOpenChange={(open) => {
+              setFormOpen(open);
+              if (!open) {
+                setEditing(null);
+              }
+            }}
+            open={formOpen}
+            projects={projects}
+            secret={editing}
+            tenantId={currentTenant?.id ?? null}
+          />
+        </div>
       </div>
     </section>
   );

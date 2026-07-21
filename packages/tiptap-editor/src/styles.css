@@ -336,6 +336,11 @@
   box-shadow:
     0 8px 24px -6px rgb(0 0 0 / 0.18),
     0 4px 10px -4px rgb(0 0 0 / 0.1);
+  /* --popover is intentionally translucent (frosted glass); pair it with the
+     same backdrop blur the app's shadcn popovers use (ui-canvas-floating) so
+     document text does not bleed through this floating panel. */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .tiptap-inline-bubble__marks {
@@ -585,6 +590,11 @@
   box-shadow:
     0 6px 16px -4px rgb(0 0 0 / 0.18),
     0 2px 4px -1px rgb(0 0 0 / 0.08);
+  /* --popover is intentionally translucent (frosted glass); pair it with the
+     same backdrop blur the app's shadcn popovers use (ui-canvas-floating) so
+     document text does not bleed through this floating panel. */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 /* Horizontal indicator line shown while dragging a block. */
@@ -616,6 +626,11 @@
   box-shadow:
     0 12px 32px -8px rgb(0 0 0 / 0.18),
     0 2px 6px -2px rgb(0 0 0 / 0.08);
+  /* --popover is intentionally translucent (frosted glass); pair it with the
+     same backdrop blur the app's shadcn popovers use (ui-canvas-floating) so
+     document text does not bleed through this floating panel. */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .tiptap-block-menu-search {
@@ -759,6 +774,11 @@
   box-shadow:
     0 4px 16px -2px rgb(0 0 0 / 0.08),
     0 2px 4px -2px rgb(0 0 0 / 0.04);
+  /* --popover is intentionally translucent (frosted glass); pair it with the
+     same backdrop blur the app's shadcn popovers use (ui-canvas-floating) so
+     document text does not bleed through this floating panel. */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .slash-command-item {
