@@ -559,12 +559,20 @@ export async function startApiServer(
     "SUPABASE_SERVICE_ROLE_KEY",
     ""
   ).trim();
+  // Reachability gates hydration: CI (and misconfigured deploys) often set
+  // SUPABASE_URL without a live instance. Hydrating every platform key against
+  // a dead host fans out N PostgREST calls with no client timeout and can stall
+  // boot past the test budget (90s). Only talk to the DB when the startup check
+  // succeeded.
+  let supabaseReachable = false;
   if (supabaseUrl && supabaseServiceRoleKey) {
     const reach = await checkSupabaseReachable(
       supabaseUrl,
       supabaseServiceRoleKey
     );
-    if (!reach.ok) {
+    if (reach.ok) {
+      supabaseReachable = true;
+    } else {
       logger.warn(
         `Supabase is not reachable at ${supabaseUrl}. ${reach.message ?? "Unknown error"}. If using local dev, start Docker and run: pnpm supabase:start`
       );
@@ -575,7 +583,7 @@ export async function startApiServer(
   // process.env before loading plugins, so modules that read provider/ingest
   // keys synchronously pick up any Setup-UI override. Platform scope only; a
   // change made in the UI takes effect on the next restart.
-  {
+  if (supabaseReachable) {
     const settingsDb = createSupabaseClientFromConfig(effectiveConfig);
     if (settingsDb) {
       try {

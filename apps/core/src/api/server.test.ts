@@ -934,4 +934,37 @@ describe("startApiServer", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     fs.rmSync(dataDir, { recursive: true, force: true });
   }, 90_000);
+
+  it("does not stall boot when SUPABASE_URL is set but unreachable", async () => {
+    // Mirrors CI: workflow env injects SUPABASE_* without a live instance.
+    // Hydration used to fan out PostgREST calls and timeout the suite.
+    const prevUrl = process.env.SUPABASE_URL;
+    const prevKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_URL = "http://127.0.0.1:1";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+    const dataDir = makeTempDir("engenty-core-start-unreachable");
+    const started = Date.now();
+    try {
+      const { server } = await startApiServer({
+        logger: noopApiLogger,
+        port: 0,
+        dataDir,
+        config: { securityJwtSecret: "test-secret" },
+      });
+      expect(Date.now() - started).toBeLessThan(20_000);
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    } finally {
+      if (prevUrl === undefined) {
+        Reflect.deleteProperty(process.env, "SUPABASE_URL");
+      } else {
+        process.env.SUPABASE_URL = prevUrl;
+      }
+      if (prevKey === undefined) {
+        Reflect.deleteProperty(process.env, "SUPABASE_SERVICE_ROLE_KEY");
+      } else {
+        process.env.SUPABASE_SERVICE_ROLE_KEY = prevKey;
+      }
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });
