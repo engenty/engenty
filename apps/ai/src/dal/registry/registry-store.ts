@@ -13,6 +13,7 @@ export type RegistryAgentStatus = "proposed" | "active" | "archived";
 
 export interface RegistryAgentRow {
   agent_id: string;
+  budget?: Record<string, unknown> | null;
   /** Link to the core.agents security principal; provisioned lazily. */
   core_agent_id?: string | null;
   created_at: string;
@@ -22,10 +23,14 @@ export interface RegistryAgentRow {
   guardrails: Record<string, unknown> | null;
   id: string;
   instructions: string;
+  max_steps?: number | null;
   model: string;
+  /** Per-agent overrides (Phase 4); null = inherit tenant defaults. */
+  model_override?: string | null;
   name: string;
   /** Pending full-config revision for an ACTIVE agent (governance). */
   proposed_config?: Record<string, unknown> | null;
+  purpose?: string | null;
   skill_ids: string[];
   status?: RegistryAgentStatus | null;
   sub_agents: { id: string; alias?: string }[];
@@ -55,6 +60,8 @@ function parseGuardrails(
 
 function mapAgentRow(row: RegistryAgentRow): AgentConfig {
   const guardrails = parseGuardrails(row.guardrails);
+  const purpose = row.purpose as AgentConfig["purpose"] | null | undefined;
+  const budget = row.budget as AgentConfig["budget"] | null | undefined;
   return {
     id: row.agent_id,
     name: row.name,
@@ -65,6 +72,10 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     skillIds: row.skill_ids,
     subAgents: row.sub_agents,
     ...(guardrails ? { guardrails } : {}),
+    ...(row.model_override ? { modelOverride: row.model_override } : {}),
+    ...(purpose ? { purpose } : {}),
+    ...(row.max_steps == null ? {} : { maxSteps: row.max_steps }),
+    ...(budget ? { budget } : {}),
   };
 }
 
@@ -204,6 +215,10 @@ export function createRegistryStore(client: SupabaseClient) {
         skill_ids: config.skillIds ?? [],
         sub_agents: config.subAgents ?? [],
         guardrails: config.guardrails ?? {},
+        model_override: config.modelOverride ?? null,
+        purpose: config.purpose ?? null,
+        max_steps: config.maxSteps ?? null,
+        budget: config.budget ?? null,
       };
       const patch =
         row && (row.status ?? "active") === "active"
@@ -352,6 +367,10 @@ export function createRegistryStore(client: SupabaseClient) {
             skill_ids: config.skillIds ?? [],
             sub_agents: config.subAgents ?? [],
             guardrails: config.guardrails ?? {},
+            model_override: config.modelOverride ?? null,
+            purpose: config.purpose ?? null,
+            max_steps: config.maxSteps ?? null,
+            budget: config.budget ?? null,
             // Human/admin write path: goes live directly and supersedes any
             // pending agent proposal (agents propose via proposeAgent instead).
             status: "active",

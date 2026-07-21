@@ -147,6 +147,26 @@
     "allowlistRemove": "Remove {{model}}",
     "pro": "PRO"
   },
+  "agentsTab": {
+    "title": "Per-agent overrides",
+    "description": "Pin a model, tier, iteration cap, or spend cap for individual agents. Blank inherits the tenant default. Code-managed agents are set in code.",
+    "loadError": "Couldn't load agents. Ensure apps/ai is running and reachable.",
+    "empty": "No agents registered yet.",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "codeManaged": "Code-managed",
+    "modelOverride": "Model override",
+    "purpose": "Model tier",
+    "maxSteps": "Max steps",
+    "budget": "Budget ($ / period)",
+    "inheritPlaceholder": "Inherit",
+    "structural": "Inherit (by structure)",
+    "inheritModel": "Inherit · {{tier}}",
+    "inherit": "inherit",
+    "none": "none",
+    "stepsLabel": "Steps",
+    "budgetLabel": "Budget"
+  },
   "sections": {
     "general": "General",
     "generalDesc": "Global AI and copilot defaults.",

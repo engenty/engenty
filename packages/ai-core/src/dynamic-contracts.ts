@@ -198,6 +198,12 @@ export const agentConfigSchema = z.object({
   purpose: agentModelPurposeSchema.optional(),
   /** Per-agent iteration cap (steps). Clamped to the platform max at runtime. */
   maxSteps: z.number().int().positive().optional(),
+  /** Per-agent spend cap, metered over the tenant usage period. */
+  budget: z
+    .object({
+      maxCostMicrosPerPeriod: z.number().int().nonnegative().nullish(),
+    })
+    .nullish(),
   name: z.string().min(1),
   skillIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),

@@ -12,10 +12,15 @@ interface Fixtures {
   tenantPolicy: TenantUsagePolicyRecord | null;
   totals: Map<string, UsagePeriodTotalRecord>;
   userPolicy: UserUsagePolicyRecord | null;
+  /** Per-agent accumulated cost (micros) keyed by agent_id. */
+  agentCost?: Map<string, number>;
 }
 
 function buildStore(fx: Fixtures): AiUsageStore {
   return {
+    async getAgentPeriodCostMicros({ agent_id }) {
+      return fx.agentCost?.get(agent_id) ?? 0;
+    },
     async insertEvent(input) {
       return {
         id: "x",
@@ -121,6 +126,55 @@ describe("checkUsageLimits", () => {
     });
     expect(result.allowed).toBe(true);
     expect(result.enforcement_mode).toBe("observe");
+  });
+
+  it("blocks in enforce mode when the per-agent cost cap is reached", async () => {
+    const store = buildStore({
+      totals: new Map(),
+      tenantPolicy: { ...POLICY_BASE, tenant_id: "tenant-a" },
+      userPolicy: null,
+      agentCost: new Map([["invoice-agent", 5_000_000]]),
+    });
+    const result = await checkUsageLimits({
+      tenant_id: "tenant-a",
+      user_id: "user-1",
+      agent_id: "invoice-agent",
+      agent_budget_cost_micros: 5_000_000,
+      model_id: "openai/gpt-5-mini",
+      store,
+      now: new Date("2026-03-15T00:00:00Z"),
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.scope).toBe("agent");
+    expect(result.limit_type).toBe("cost");
+  });
+
+  it("allows under the per-agent cap and ignores it when no budget is set", async () => {
+    const store = buildStore({
+      totals: new Map(),
+      tenantPolicy: { ...POLICY_BASE, tenant_id: "tenant-a" },
+      userPolicy: null,
+      agentCost: new Map([["invoice-agent", 1_000_000]]),
+    });
+    const under = await checkUsageLimits({
+      tenant_id: "tenant-a",
+      user_id: "user-1",
+      agent_id: "invoice-agent",
+      agent_budget_cost_micros: 5_000_000,
+      model_id: "openai/gpt-5-mini",
+      store,
+      now: new Date("2026-03-15T00:00:00Z"),
+    });
+    expect(under.allowed).toBe(true);
+    const noCap = await checkUsageLimits({
+      tenant_id: "tenant-a",
+      user_id: "user-1",
+      agent_id: "invoice-agent",
+      model_id: "openai/gpt-5-mini",
+      store,
+      now: new Date("2026-03-15T00:00:00Z"),
+    });
+    expect(noCap.allowed).toBe(true);
   });
 
   it("blocks in enforce mode when tenant cost cap is reached", async () => {

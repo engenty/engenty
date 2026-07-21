@@ -26,15 +26,26 @@ export type AiAgentSource = "builtin" | "module" | "database";
 
 export interface AiRegisteredAgent {
   agent_origin?: "custom" | "registry";
+  budget?: { maxCostMicrosPerPeriod?: number | null } | null;
   chat_triggers?: AiAgentChatTriggers;
   description: string | null;
   id: string;
   instruction_keys: string[];
   /** Module owning a synced agent (e.g. "chatbot"); null when not module-managed. */
   managed_by_module?: string | null;
+  maxSteps?: number | null;
   model?: string;
+  /** Per-agent overrides (Phase 4). Null/absent = inherit tenant defaults. */
+  modelOverride?: string | null;
   module_id: string;
   name: string;
+  purpose?:
+    | "chat"
+    | "routing"
+    | "research"
+    | "planning_coding"
+    | "safeguard"
+    | null;
   role?: AiAgentRole;
   skills: string[];
   source?: AiAgentSource;

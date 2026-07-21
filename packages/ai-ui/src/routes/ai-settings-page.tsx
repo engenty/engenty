@@ -13,6 +13,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { RotateCcw, RotateCcwSquare, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AgentsOverridesTab } from "../features/ai-settings/agents-overrides-tab";
 import { CopilotAdminLinksSection } from "../features/ai-settings/copilot-admin-links-section";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
 import { LimitsBudgetsTab } from "../features/ai-settings/limits-budgets-tab";
@@ -30,7 +31,7 @@ import {
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
 
 const DEFAULT_TAB = "copilot";
-const VALID_TABS = new Set([DEFAULT_TAB, "limits", "doc-converter"]);
+const VALID_TABS = new Set([DEFAULT_TAB, "limits", "agents", "doc-converter"]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
   "cheap",
@@ -224,6 +225,7 @@ export function AiGeneralSettingsPage() {
             >
               <TabsTrigger value="copilot">{t("sections.models")}</TabsTrigger>
               <TabsTrigger value="limits">{t("sections.limits")}</TabsTrigger>
+              <TabsTrigger value="agents">{t("sections.agents")}</TabsTrigger>
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
@@ -305,6 +307,14 @@ export function AiGeneralSettingsPage() {
               settings={settings}
               t={t}
               updateSettings={updateSettings}
+            />
+          </TabsContent>
+
+          <TabsContent className="space-y-6" value="agents">
+            <AgentsOverridesTab
+              chatModelOptions={chatModelOptions}
+              effective={effectiveQuery.data}
+              t={t}
             />
           </TabsContent>
 

@@ -155,8 +155,6 @@ function findLastAssistantMessageRow(
 }
 
 export function createSessionService(opts: SessionServiceOptions) {
-  const agentMaxSteps = resolveAgentMaxSteps();
-
   function getRequiredStore() {
     const store = opts.getStore();
     if (!store) {
@@ -314,6 +312,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       agent,
       mergedDefinitions,
       modelId,
+      rootConfig,
       sandboxProvider,
       subAgentSandboxProviders,
       session,
@@ -699,6 +698,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       const {
         agent,
         modelId,
+        rootConfig,
         sandboxProvider,
         subAgentSandboxProviders,
         session,
@@ -711,6 +711,9 @@ export function createSessionService(opts: SessionServiceOptions) {
       const preflight = await checkUsageLimits({
         tenant_id: input.scope.tenantId,
         user_id: input.scope.userId,
+        agent_id: session.agent_id,
+        agent_budget_cost_micros:
+          rootConfig?.budget?.maxCostMicrosPerPeriod ?? null,
         model_id: modelId,
         feature: "copilot",
         store: usageStore,
@@ -752,7 +755,7 @@ export function createSessionService(opts: SessionServiceOptions) {
           })
         : null;
       const invocationOptions = createEngentyAgentExecutionOptions({
-        maxSteps: agentMaxSteps,
+        maxSteps: resolveAgentMaxSteps({ agentOverride: rootConfig?.maxSteps }),
         runId,
         scope: input.scope,
         threadId: input.threadId,

@@ -147,6 +147,26 @@
     "allowlistRemove": "{{model}} entfernen",
     "pro": "PRO"
   },
+  "agentsTab": {
+    "title": "Agent-Overrides",
+    "description": "Modell, Stufe, Iterations-Cap oder Budget je Agent festpinnen. Leer erbt den Mandanten-Standard. Code-verwaltete Agenten werden im Code gesetzt.",
+    "loadError": "Agenten konnten nicht geladen werden. Läuft apps/ai und ist erreichbar?",
+    "empty": "Noch keine Agenten registriert.",
+    "edit": "Bearbeiten",
+    "cancel": "Abbrechen",
+    "codeManaged": "Code-verwaltet",
+    "modelOverride": "Modell-Override",
+    "purpose": "Modell-Stufe",
+    "maxSteps": "Max. Schritte",
+    "budget": "Budget ($ / Periode)",
+    "inheritPlaceholder": "Erben",
+    "structural": "Erben (nach Struktur)",
+    "inheritModel": "Erbt · {{tier}}",
+    "inherit": "erbt",
+    "none": "keins",
+    "stepsLabel": "Schritte",
+    "budgetLabel": "Budget"
+  },
   "sections": {
     "general": "Allgemein",
     "generalDesc": "Globale KI- und Copilot-Standards.",
