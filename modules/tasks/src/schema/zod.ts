@@ -161,6 +161,7 @@ export const goalSchema = z.object({
   project_id: z.string().uuid().nullable(),
   owner_user_id: z.string().uuid().nullable(),
   owner_agent_id: z.string().uuid().nullable(),
+  owner_agent_type_key: z.string().nullable(),
   level: z.string(),
   target_date: z.string().nullable(),
   created_at: z.string(),
@@ -174,6 +175,8 @@ export const goalsListQuerySchema = z.object({
   parent_id: z.string().uuid().optional(),
   search: z.string().optional(),
   status: z.enum(["planned", "active", "achieved", "cancelled"]).optional(),
+  /** Filter to goals owned by this agent type key (e.g. "engenty.coordinator"). */
+  owner_agent_type_key: z.string().optional(),
   sortBy: z.enum(["updated_at", "created_at", "title", "status"]).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });
@@ -185,6 +188,12 @@ export const goalsPaginatedResponseSchema = z.object({
   pageSize: z.number().int(),
 });
 
+export const goalHandoffResponseSchema = z.object({
+  goal: goalSchema,
+  /** True when the coordinator planning run was enqueued. */
+  dispatched: z.boolean(),
+});
+
 export const goalCreateInputSchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable().optional(),
@@ -193,6 +202,7 @@ export const goalCreateInputSchema = z.object({
   project_id: z.string().uuid().nullable().optional(),
   owner_user_id: z.string().uuid().nullable().optional(),
   owner_agent_id: z.string().uuid().nullable().optional(),
+  owner_agent_type_key: z.string().nullable().optional(),
   level: z.string().optional(),
   target_date: z.string().nullable().optional(),
 });

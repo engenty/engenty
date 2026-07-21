@@ -11,6 +11,7 @@ import { performTaskCheckout } from "../lib/perform-task-checkout.js";
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import {
   goalCreateInputSchema,
+  goalHandoffResponseSchema,
   goalIdParamsSchema,
   goalSchema,
   goalsListQuerySchema,
@@ -35,6 +36,7 @@ import {
   taskUpdateInputSchema,
 } from "../schema/zod.js";
 import { fetchRegisteredAgentIds } from "./agent-key-validator.js";
+import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -458,6 +460,27 @@ export function registerTasksGatewayMethods(
         throw new Error("goal_not_found");
       }
       return updated;
+    },
+  });
+
+  api.registerOperation({
+    operationId: "goals_handoff",
+    summary: "Hand a goal to the coordinator (assign + plan)",
+    ...writeOp(["module.goals.write"]),
+    inputSchema: goalIdParamsSchema,
+    outputSchema: goalHandoffResponseSchema,
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = goalIdParamsSchema.parse(input);
+      return handoffGoalToCoordinator(
+        {
+          queue: options?.queue ?? null,
+          repo,
+          tenantId: ctx.auth?.tenantId ?? null,
+        },
+        params.id,
+        ctx.auth?.principalId ?? null
+      );
     },
   });
 

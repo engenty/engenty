@@ -48,6 +48,7 @@ import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
 import { registerChatCommandRoutes } from "./api/chat-command-routes.js";
+import { startCoordinatorDispatchConsumer } from "./api/coordinator-dispatch-consumer.js";
 import {
   createAgUiDebugEventBus,
   registerCopilotKitDebugEventRoutes,
@@ -729,6 +730,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stop);
       process.once("SIGINT", stop);
+      // "Hand to Coordinator" goal handoffs ride the same queue infrastructure.
+      const stopCoordinator = startCoordinatorDispatchConsumer({
+        queue: dispatchQueueService,
+      });
+      process.once("SIGTERM", stopCoordinator);
+      process.once("SIGINT", stopCoordinator);
       // Team-chat @-mentions ride the same queue infrastructure (Phase 3).
       const stopMentions = startTeamChatMentionConsumer({
         queue: dispatchQueueService,

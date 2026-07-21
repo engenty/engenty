@@ -318,7 +318,16 @@
       "created": "Created",
       "updated": "Updated",
       "descriptionPlaceholder": "Add a description…",
-      "actionsMenu": "Goal actions"
+      "actionsMenu": "Goal actions",
+      "owner": "Owner",
+      "ownerUnassigned": "Unassigned",
+      "ownerCoordinator": "Coordinator",
+      "handoff": "Hand to Coordinator",
+      "handoffRerun": "Re-run Coordinator",
+      "handoffHint": "The Coordinator plans this goal into tasks and assigns them to specialist agents.",
+      "handoffDispatched": "Coordinator is planning this goal…",
+      "handoffAssigned": "Goal assigned to the Coordinator.",
+      "handoffFailed": "Could not hand this goal to the Coordinator."
     },
     "linkedTasks": "{{count}} tasks",
     "linkedTasksTitle": "Linked tasks",

@@ -139,6 +139,19 @@ export function deleteGoal(id: string, signal?: AbortSignal) {
   });
 }
 
+export interface GoalHandoffResult {
+  dispatched: boolean;
+  goal: Goal;
+}
+
+/** Assign a goal to the coordinator and kick off a planning run. */
+export function handoffGoalToCoordinator(id: string, signal?: AbortSignal) {
+  return requestApiJson<GoalHandoffResult>(`/api/tasks/goals/${id}/handoff`, {
+    method: "POST",
+    signal,
+  });
+}
+
 export function getTaskSettings(signal?: AbortSignal) {
   return requestApiJson<TaskSettings>("/api/tasks/settings", { signal });
 }

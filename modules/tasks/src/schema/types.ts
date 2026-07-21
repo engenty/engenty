@@ -30,6 +30,8 @@ export interface Goal {
   /** Present on list responses when aggregated. */
   linked_task_count?: number;
   owner_agent_id: string | null;
+  /** Stable type key of the owning agent (e.g. "engenty.coordinator"). */
+  owner_agent_type_key: string | null;
   owner_user_id: string | null;
   parent_id: string | null;
   project_id: string | null;
@@ -189,6 +191,7 @@ export interface TasksPaginatedResponse {
 }
 
 export interface GoalsQueryParams {
+  owner_agent_type_key?: string | null;
   page?: number;
   pageSize?: number;
   parent_id?: string | null;
@@ -235,6 +238,7 @@ export interface GoalCreateInput {
   description?: string | null;
   level?: string;
   owner_agent_id?: string | null;
+  owner_agent_type_key?: string | null;
   owner_user_id?: string | null;
   parent_id?: string | null;
   project_id?: string | null;

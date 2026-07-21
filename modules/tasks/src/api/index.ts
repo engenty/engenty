@@ -6,6 +6,7 @@ import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import { buildTasksBriefingResponse } from "../lib/tasks-briefing-service.js";
 import {
   goalCreateInputSchema,
+  goalHandoffResponseSchema,
   goalIdParamsSchema,
   goalSchema,
   goalsListQuerySchema,
@@ -36,6 +37,7 @@ import {
   registerTasksGatewayMethods,
   type TasksGatewayOptions,
 } from "./gateway-methods.js";
+import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -256,6 +258,43 @@ export function registerTasksApi(
       }
       await repo.deleteGoal(params.id);
       return new Response(null, { status: 204 });
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "post",
+    path: `${GOAL_BY_ID_PATH}/handoff`,
+    operation: writeGoals(),
+    summary: "Hand a goal to the coordinator (assign + plan)",
+    tags: ["tasks", "goals"],
+    request: { params: goalIdParamsSchema },
+    responses: {
+      200: { description: "Handed off", schema: goalHandoffResponseSchema },
+      404: { description: "Not found", schema: notFoundSchema },
+    },
+    handler: async (ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = ctx.params as z.infer<typeof goalIdParamsSchema>;
+      try {
+        const result = await handoffGoalToCoordinator(
+          {
+            queue: gatewayOptions?.queue ?? null,
+            repo,
+            tenantId: ctx.auth?.tenantId ?? null,
+          },
+          params.id,
+          ctx.auth?.principalId ?? null
+        );
+        return result;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "goal_handoff_failed";
+        const status = message === "goal_not_found" ? 404 : 400;
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      }
     },
   });
 

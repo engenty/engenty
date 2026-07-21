@@ -31,6 +31,7 @@ import {
   getTasks,
   getTasksBriefing,
   getUserDisplayName,
+  handoffGoalToCoordinator,
   releaseTask,
   updateGoal,
   updateTask,
@@ -341,6 +342,21 @@ export function useDeleteGoalMutation() {
     mutationFn: (goalId: string) => deleteGoal(goalId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.goals.all });
+    },
+  });
+}
+
+export function useHandoffGoalMutation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => handoffGoalToCoordinator(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.goals.all });
+      void queryClient.invalidateQueries({
+        queryKey: taskKeys.goals.detail(id),
+      });
+      // The coordinator creates tasks under the goal; refresh their list.
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
   });
 }

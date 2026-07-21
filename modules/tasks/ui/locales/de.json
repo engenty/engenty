@@ -318,7 +318,16 @@
       "created": "Erstellt",
       "updated": "Aktualisiert",
       "descriptionPlaceholder": "Beschreibung hinzufügen…",
-      "actionsMenu": "Zielaktionen"
+      "actionsMenu": "Zielaktionen",
+      "owner": "Verantwortlich",
+      "ownerUnassigned": "Nicht zugewiesen",
+      "ownerCoordinator": "Koordinator",
+      "handoff": "An Koordinator übergeben",
+      "handoffRerun": "Koordinator erneut starten",
+      "handoffHint": "Der Koordinator plant dieses Ziel in Aufgaben und weist sie Spezialisten-Agenten zu.",
+      "handoffDispatched": "Der Koordinator plant dieses Ziel…",
+      "handoffAssigned": "Ziel dem Koordinator zugewiesen.",
+      "handoffFailed": "Ziel konnte nicht an den Koordinator übergeben werden."
     },
     "linkedTasks": "{{count}} Aufgaben",
     "linkedTasksTitle": "Verknüpfte Aufgaben",

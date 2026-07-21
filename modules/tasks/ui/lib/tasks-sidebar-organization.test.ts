@@ -66,6 +66,7 @@ function makeGoal(overrides: Partial<Goal> & Pick<Goal, "id" | "title">): Goal {
     created_at: "2026-01-01T00:00:00.000Z",
     description: null,
     owner_user_id: null,
+    owner_agent_type_key: null,
     parent_id: null,
     scope_id: "scope-1",
     status: "active",

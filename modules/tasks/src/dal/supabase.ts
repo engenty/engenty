@@ -104,6 +104,7 @@ function rowToGoal(row: Record<string, unknown>): Goal {
     project_id: (row.project_id as string | null) ?? null,
     owner_user_id: (row.owner_user_id as string | null) ?? null,
     owner_agent_id: (row.owner_agent_id as string | null) ?? null,
+    owner_agent_type_key: (row.owner_agent_type_key as string | null) ?? null,
     level: String(row.level ?? "task"),
     target_date: (row.target_date as string | null) ?? null,
     created_at: String(row.created_at),
@@ -1001,6 +1002,9 @@ export function createTasksRepoSupabase(
       if (params.status) {
         query = query.eq("status", params.status);
       }
+      if (params.owner_agent_type_key) {
+        query = query.eq("owner_agent_type_key", params.owner_agent_type_key);
+      }
       if (params.parent_id) {
         query = query.eq("parent_id", params.parent_id);
       }
@@ -1076,6 +1080,7 @@ export function createTasksRepoSupabase(
         ...(input.project_id == null ? {} : { project_id: input.project_id }),
         owner_user_id: input.owner_user_id ?? null,
         owner_agent_id: input.owner_agent_id ?? null,
+        owner_agent_type_key: input.owner_agent_type_key ?? null,
         level: input.level ?? "task",
         target_date: input.target_date ?? null,
         created_at: now,
@@ -1134,6 +1139,9 @@ export function createTasksRepoSupabase(
       }
       if (input.owner_agent_id !== undefined) {
         updates.owner_agent_id = input.owner_agent_id;
+      }
+      if (input.owner_agent_type_key !== undefined) {
+        updates.owner_agent_type_key = input.owner_agent_type_key;
       }
       if (input.level !== undefined) {
         updates.level = input.level;
