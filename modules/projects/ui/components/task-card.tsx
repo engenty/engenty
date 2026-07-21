@@ -145,7 +145,11 @@ export function TaskCard({
 
     return (
       <Badge
-        className={cn(customClass, !customClass && "border")}
+        className={cn(
+          "min-h-5 px-1.5 py-0 font-normal leading-none",
+          customClass,
+          !customClass && "border"
+        )}
         variant="secondary"
       >
         <span className="mr-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />

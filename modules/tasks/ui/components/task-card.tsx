@@ -41,7 +41,7 @@ interface TaskCardProps {
   taskStatusDefinitions?: TaskStatusDefinition[];
 }
 
-function statusIconForDefinition(
+export function statusIconForDefinition(
   def: TaskStatusDefinition,
   size: "sm" | "md" = "md"
 ) {
