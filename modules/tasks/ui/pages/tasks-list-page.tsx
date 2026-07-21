@@ -608,20 +608,22 @@ export function TasksListPage() {
       {!(isLoading || error) &&
       viewMode === "cards" &&
       filteredTasks.length > 0 ? (
-        <TasksGroupedList
-          assigneeProfiles={assigneeProfiles}
-          goals={goals}
-          onAddGeneralTask={() => handleAddTask(null)}
-          onAddTaskToGoal={(goalId) => handleAddTask(goalId)}
-          onGoalEdit={handleGoalEdit}
-          onTaskClick={handleTaskClick}
-          onTaskDelete={handleTaskDelete}
-          onTaskEdit={handleTaskEdit}
-          onTaskStatusChange={handleTaskStatusChange}
-          showAssignee={teamMembersEnabled}
-          taskStatusDefinitions={taskStatusDefinitions}
-          tasks={filteredTasks}
-        />
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <TasksGroupedList
+            assigneeProfiles={assigneeProfiles}
+            goals={goals}
+            onAddGeneralTask={() => handleAddTask(null)}
+            onAddTaskToGoal={(goalId) => handleAddTask(goalId)}
+            onGoalEdit={handleGoalEdit}
+            onTaskClick={handleTaskClick}
+            onTaskDelete={handleTaskDelete}
+            onTaskEdit={handleTaskEdit}
+            onTaskStatusChange={handleTaskStatusChange}
+            showAssignee={teamMembersEnabled}
+            taskStatusDefinitions={taskStatusDefinitions}
+            tasks={filteredTasks}
+          />
+        </div>
       ) : null}
 
       {showGroupedEmpty || showGroupedNoResults ? (

@@ -9,9 +9,9 @@ import {
 } from "@engenty/ui-core";
 import {
   Kanban,
-  LayoutGrid,
   List,
   ListFilter,
+  Rows2,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -154,9 +154,9 @@ export function TasksToolbar({
               }
             }}
             segments={[
+              { value: "cards", label: labels.cards, icon: Rows2 },
               { value: "table", label: labels.table, icon: List },
               { value: "kanban", label: labels.kanbanView, icon: Kanban },
-              { value: "cards", label: labels.cards, icon: LayoutGrid },
             ]}
             value={viewMode}
           />

@@ -134,7 +134,7 @@ export function createDefaultTasksColumnOrder(): string[] {
 
 export function createTasksDisplayDefaults() {
   return {
-    viewMode: "table" as const,
+    viewMode: "cards" as const,
     tableSize: "normal" as const,
     sortBy: "updated_at" as TasksSortColumn,
     sortOrder: "desc" as const,
