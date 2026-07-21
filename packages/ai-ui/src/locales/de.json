@@ -1171,5 +1171,17 @@
     "viewLabel": "Ansicht",
     "viewRows": "Zeilen",
     "viewCards": "Karten"
+  },
+  "agentProposals": {
+    "title": "Offene Agent-Vorschläge",
+    "kindNew": "Neuer Agent",
+    "kindRevision": "Überarbeitung",
+    "proposedBy": "Vorgeschlagen von {{agent}}",
+    "approve": "Freigeben",
+    "reject": "Ablehnen",
+    "showInstructions": "Vorgeschlagene Anweisungen anzeigen",
+    "tools": "Tools",
+    "skills": "Skills",
+    "actionFailed": "Aktion fehlgeschlagen — bitte erneut versuchen."
   }
 }
