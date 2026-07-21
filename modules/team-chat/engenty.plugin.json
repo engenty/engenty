@@ -15,7 +15,8 @@
   "optional": [
     "module.projects",
     "module.tasks",
-    "module.team"
+    "module.team",
+    "user-management-ui"
   ],
   "capabilities": {
     "operations": true,

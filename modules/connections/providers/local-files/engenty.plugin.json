@@ -1,6 +1,6 @@
 {
   "id": "connections-local-files",
-  "name": "Connections — Local Files",
+  "name": "Connections \u2014 Local Files",
   "description": "Read local folders the user grants in the browser (File System Access API)",
   "version": "0.0.1",
   "kind": "module",
@@ -13,5 +13,8 @@
     "ai": false,
     "frontendTools": false,
     "ui": true
-  }
+  },
+  "requires": [
+    "module.connections"
+  ]
 }

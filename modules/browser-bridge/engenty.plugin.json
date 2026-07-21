@@ -13,5 +13,8 @@
     "ai": false,
     "frontendTools": false,
     "ui": true
-  }
+  },
+  "requires": [
+    "module.connections"
+  ]
 }

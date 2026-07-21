@@ -18,5 +18,9 @@
     "operations": true,
     "ai": true,
     "frontendTools": false
-  }
+  },
+  "optional": [
+    "module.projects",
+    "module.tasks"
+  ]
 }

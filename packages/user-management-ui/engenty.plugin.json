@@ -11,5 +11,9 @@
       "./src",
       "./dist"
     ]
-  }
+  },
+  "provides": [
+    "user-management-ui",
+    "module.user-management-ui"
+  ]
 }

@@ -71,7 +71,7 @@
         "obtain": {
           "kind": "provider",
           "instructions": [
-            "Create a key in LlamaCloud → API keys."
+            "Create a key in LlamaCloud \u2192 API keys."
           ],
           "url": "https://cloud.llamaindex.ai"
         },
@@ -168,5 +168,9 @@
         "secret": false
       }
     ]
-  }
+  },
+  "requires": [
+    "tenant-settings",
+    "user-settings"
+  ]
 }
