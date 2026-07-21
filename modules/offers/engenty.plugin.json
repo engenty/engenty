@@ -16,9 +16,7 @@
     "module.company-profile",
     "module.pdf-templates"
   ],
-  "optional": [
-    "module.contacts"
-  ],
+  "optional": ["module.contacts"],
   "capabilities": {
     "operations": true,
     "ai": true,

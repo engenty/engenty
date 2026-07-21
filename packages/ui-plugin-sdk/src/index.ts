@@ -1,7 +1,4 @@
-import type {
-  PluginCategory,
-  PluginSourceInfo,
-} from "@engenty/plugin-sdk";
+import type { PluginCategory, PluginSourceInfo } from "@engenty/plugin-sdk";
 import type { ComponentType } from "react";
 
 export type {

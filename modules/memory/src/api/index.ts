@@ -1,4 +1,5 @@
+// biome-ignore lint/performance/noBarrelFile: module API entry built by tsup
 export {
-  registerMemoryGatewayMethods,
   type MemoryRepoFactory,
+  registerMemoryGatewayMethods,
 } from "./gateway-methods.js";

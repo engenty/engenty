@@ -9,10 +9,6 @@ import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import { buildTaskBrief } from "./task-brief.js";
-import {
-  buildPriorLearningsSection,
-  entityRefsFromContexts,
-} from "./task-prior-learnings.js";
 import { finishTaskJobRun, registerTaskJobRun } from "./task-job-run-record.js";
 import {
   isSkippedEnvelope,
@@ -20,6 +16,10 @@ import {
   taskJobInputSchema,
 } from "./task-job-schema.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
+import {
+  buildPriorLearningsSection,
+  entityRefsFromContexts,
+} from "./task-prior-learnings.js";
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -97,8 +97,11 @@ export const buildBriefStep = createStep({
     // Memory Phase 2b: start the run from what earlier runs learned. The
     // section is fail-open and empty when the tenant has no memories.
     const contexts =
-      (task as { contexts?: Array<{ context_id?: unknown; context_type?: unknown }> })
-        .contexts ?? [];
+      (
+        task as {
+          contexts?: Array<{ context_id?: unknown; context_type?: unknown }>;
+        }
+      ).contexts ?? [];
     const learnings = await buildPriorLearningsSection({
       agentTypeKey: inputData.agent_type_key,
       contexts,

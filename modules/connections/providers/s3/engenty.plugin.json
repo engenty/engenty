@@ -5,16 +5,12 @@
   "version": "0.0.1",
   "kind": "module",
   "category": "integrations",
-  "provides": [
-    "module.connections-s3"
-  ],
+  "provides": ["module.connections-s3"],
   "capabilities": {
     "operations": true,
     "ai": false,
     "frontendTools": false,
     "ui": false
   },
-  "requires": [
-    "module.connections"
-  ]
+  "requires": ["module.connections"]
 }

@@ -109,8 +109,22 @@ describe("buildPriorLearningsSection", () => {
 
   it("injects approved org memories, highest-confidence first, capped at 8", async () => {
     const orgRows = [
-      row({ confidence: "low", kind: "guideline", slug: "g-low", title: "Low", scope_kind: "org", scope_ref: null }),
-      row({ confidence: "high", kind: "guideline", slug: "g-high", title: "High", scope_kind: "org", scope_ref: null }),
+      row({
+        confidence: "low",
+        kind: "guideline",
+        slug: "g-low",
+        title: "Low",
+        scope_kind: "org",
+        scope_ref: null,
+      }),
+      row({
+        confidence: "high",
+        kind: "guideline",
+        slug: "g-high",
+        title: "High",
+        scope_kind: "org",
+        scope_ref: null,
+      }),
       ...Array.from({ length: 10 }, (_, index) =>
         row({
           confidence: "medium",

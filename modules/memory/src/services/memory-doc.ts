@@ -33,6 +33,7 @@ export const MEMORY_DOC_SECTION_TITLES: Record<MemoryKind, string> = {
 
 /** One record block as the editor sees it. `recordId: null` ⇒ typed as new. */
 export interface MemoryDocBlock {
+  agentTypeKey: string | null;
   bodyMd: string;
   kind: MemoryKind;
   recordId: string | null;
@@ -42,7 +43,6 @@ export interface MemoryDocBlock {
   title: string;
   /** Optimistic-concurrency token — the row's updated_at when loaded. */
   updatedAt: string | null;
-  agentTypeKey: string | null;
   updatedBy?: string | null;
 }
 

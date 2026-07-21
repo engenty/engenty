@@ -5,9 +5,7 @@
   "version": "0.0.1",
   "kind": "package",
   "category": "platform",
-  "provides": [
-    "user-settings"
-  ],
+  "provides": ["user-settings"],
   "capabilities": {
     "ai": false,
     "frontendTools": false,

@@ -7,13 +7,7 @@
   "ui": {
     "entry": "@engenty/user-management-ui/plugin",
     "load": "workspace",
-    "tailwindSources": [
-      "./src",
-      "./dist"
-    ]
+    "tailwindSources": ["./src", "./dist"]
   },
-  "provides": [
-    "user-management-ui",
-    "module.user-management-ui"
-  ]
+  "provides": ["user-management-ui", "module.user-management-ui"]
 }

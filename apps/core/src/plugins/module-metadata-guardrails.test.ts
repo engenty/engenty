@@ -263,7 +263,9 @@ describe("module metadata guardrails", () => {
     // Package plugins (tenant-settings, user-settings, …) are valid require
     // targets for modules even though they live outside modules/*.
     if (fs.existsSync(packagesDir)) {
-      for (const entry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+      for (const entry of fs.readdirSync(packagesDir, {
+        withFileTypes: true,
+      })) {
         if (!entry.isDirectory()) {
           continue;
         }

@@ -4,15 +4,14 @@
 
 .memory-record-block {
   position: relative;
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.5rem;
   padding: 0.625rem 0.875rem 0.75rem;
   margin: 0.625rem 0;
   background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
 }
 
 .memory-record-block::after {
-  content: attr(data-chip);
   position: absolute;
   top: 0.375rem;
   right: 0.625rem;
@@ -21,13 +20,14 @@
   color: hsl(var(--muted-foreground));
   pointer-events: none;
   user-select: none;
+  content: attr(data-chip);
 }
 
 .memory-record-block h3 {
+  padding-right: 11rem; /* keep the title clear of the chip */
   margin: 0 0 0.25rem;
   font-size: 0.9375rem;
-  font-weight: 600;
-  padding-right: 11rem; /* keep the title clear of the chip */
+  font-weight: 600; /* keep the title clear of the chip */
 }
 
 .memory-record-block p {
@@ -37,8 +37,8 @@
 
 /* Proposed org memories: amber until a human approves. */
 .memory-record-block[data-status="proposed"] {
-  border-color: hsl(38 92% 50% / 0.55);
   background: hsl(38 92% 50% / 0.06);
+  border-color: hsl(38 92% 50% / 0.55);
 }
 
 /* Reflection-sourced records get a subtle tint on the chip side. */

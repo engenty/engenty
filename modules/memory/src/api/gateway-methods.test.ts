@@ -11,8 +11,8 @@ import type {
   PluginServerOperation,
 } from "@engenty/plugin-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MemoryRecord } from "../schema/zod.js";
 import type { MemoryRecordUpsert, MemoryRepo } from "../dal/contracts.js";
+import type { MemoryRecord } from "../schema/zod.js";
 import { registerMemoryGatewayMethods } from "./gateway-methods.js";
 
 function record(overrides: Partial<MemoryRecord> = {}): MemoryRecord {

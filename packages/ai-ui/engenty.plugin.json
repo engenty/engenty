@@ -7,9 +7,6 @@
   "ui": {
     "entry": "@engenty/ai-ui/plugin",
     "load": "workspace",
-    "tailwindSources": [
-      "./src",
-      "./dist"
-    ]
+    "tailwindSources": ["./src", "./dist"]
   }
 }

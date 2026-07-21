@@ -5,13 +5,8 @@
   "version": "0.0.1",
   "kind": "module",
   "category": "engenty",
-  "provides": [
-    "module.engenty-coordinator",
-    "module.coordinator"
-  ],
-  "requires": [
-    "module.tasks"
-  ],
+  "provides": ["module.engenty-coordinator", "module.coordinator"],
+  "requires": ["module.tasks"],
   "capabilities": {
     "operations": false,
     "ai": true

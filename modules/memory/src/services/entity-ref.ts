@@ -22,7 +22,7 @@ const ENTITY_REF_PATTERN =
 
 export function parseEntityRef(ref: string): ParsedEntityRef {
   const match = ENTITY_REF_PATTERN.exec(ref.trim());
-  if (!match?.[1] || !match[2]) {
+  if (!(match?.[1] && match[2])) {
     throw new Error(
       `invalid entity ref '${ref}' — expected '<dotted-type>:<id>', e.g. 'contacts.person:<uuid>'`
     );

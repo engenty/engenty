@@ -64,9 +64,7 @@ function chipFor(block: MemoryDocBlock): string {
 function bodyContent(bodyMd: string): JSONContent[] {
   const parsed = markdownToJson(bodyMd);
   const content = parsed.content ?? [];
-  return content.length > 0
-    ? content
-    : [{ type: "paragraph" }];
+  return content.length > 0 ? content : [{ type: "paragraph" }];
 }
 
 function recordNode(block: MemoryDocBlock): JSONContent {
@@ -85,9 +83,7 @@ function recordNode(block: MemoryDocBlock): JSONContent {
     content: [
       {
         attrs: { level: 3 },
-        content: block.title
-          ? [{ text: block.title, type: "text" }]
-          : [],
+        content: block.title ? [{ text: block.title, type: "text" }] : [],
         type: "heading",
       },
       ...bodyContent(block.bodyMd),

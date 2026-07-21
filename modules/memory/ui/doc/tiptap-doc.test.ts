@@ -38,7 +38,11 @@ function record(overrides: Partial<MemoryRecord> = {}): MemoryRecord {
 describe("tiptap doc round trip", () => {
   it("blocks → doc json → blocks keeps identity and diffs to zero ops", () => {
     const records = [
-      record({ kind: "preference", slug: "short-emails", title: "Short emails" }),
+      record({
+        kind: "preference",
+        slug: "short-emails",
+        title: "Short emails",
+      }),
       record({ kind: "lesson", slug: "rate-limits", title: "Rate limits" }),
       record({
         kind: "guideline",

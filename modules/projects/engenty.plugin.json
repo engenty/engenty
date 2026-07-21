@@ -11,13 +11,8 @@
     "module.projects.write",
     "ui.route.module.projects"
   ],
-  "requires": [
-    "module.tasks"
-  ],
-  "optional": [
-    "module.contacts",
-    "module.team"
-  ],
+  "requires": ["module.tasks"],
+  "optional": ["module.contacts", "module.team"],
   "capabilities": {
     "operations": true,
     "ai": true,

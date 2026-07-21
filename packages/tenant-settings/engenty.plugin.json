@@ -5,9 +5,7 @@
   "version": "0.0.1",
   "kind": "package",
   "category": "platform",
-  "provides": [
-    "tenant-settings"
-  ],
+  "provides": ["tenant-settings"],
   "capabilities": {
     "ai": false,
     "frontendTools": false,

@@ -4,16 +4,9 @@
   "name": "KB Answers",
   "description": "Answers questions strictly from the knowledge base \u2014 read-only, scoped retrieval.",
   "module_id": "knowledge-base",
-  "instruction_keys": [
-    "knowledge-base.answers.agents"
-  ],
-  "skills": [
-    "kb-search-and-retrieve"
-  ],
-  "tools": [
-    "knowledge_base_article_search",
-    "kb_faqs_list"
-  ],
+  "instruction_keys": ["knowledge-base.answers.agents"],
+  "skills": ["kb-search-and-retrieve"],
+  "tools": ["knowledge_base_article_search", "kb_faqs_list"],
   "workspace": {
     "enabled": false
   }

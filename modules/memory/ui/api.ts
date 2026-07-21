@@ -4,7 +4,7 @@ import { requestApiJson } from "@engenty/api-client";
 import type { MemoryRecord } from "../src/schema/zod.js";
 import type { MemoryDocOp } from "../src/services/memory-doc.js";
 
-export type { MemoryRecord };
+export type { MemoryRecord } from "../src/schema/zod.js";
 
 async function invokeOperation<T>(
   operationId: string,
@@ -71,7 +71,9 @@ export class MemoryConflictError extends Error {
 }
 
 function isConflict(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("memory_record_conflict");
+  return (
+    error instanceof Error && error.message.includes("memory_record_conflict")
+  );
 }
 
 /** Execute the diff-sync ops sequentially; a 409 aborts with MemoryConflictError. */
