@@ -4,6 +4,14 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.51] - 2026-07-21
+- ADDED **[memory]** Memory document UI — TipTap doc projection + diff-sync (Phase 6)
+- ADDED **[memory]** Weekly consolidation routine (Phase 5)
+- ADDED **[memory]** Org governance + skill self-authoring (Phase 4)
+- ADDED **[memory]** Entity memory — validated refs, auto-recall, contact Agent-notes card (Phase 3)
+- ADDED **[memory]** Reflection loop — post-task reflect step + prior-learnings briefs (Phase 2)
+- ADDED **[memory]** Memory module core — store, gateway ops, retrieval source, agent tools (Phase 1)
+
 ## [0.1.50] - 2026-07-20
 - FIXED **[app-shell]** Stop settings separators from stealing /setup secondary nav
 
