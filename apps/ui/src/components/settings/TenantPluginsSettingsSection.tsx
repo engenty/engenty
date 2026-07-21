@@ -38,6 +38,7 @@ import {
 const NON_MODULE_SETTINGS_PATHS = new Set([
   "/settings/profile",
   "/settings/ai",
+  "/settings/connections",
 ]);
 
 const EXIT_MS = 280;
@@ -278,7 +279,7 @@ export function TenantPluginsSettingsSection() {
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div className="flex items-center gap-3 px-4 py-3" key={i}>
-              <Skeleton className="size-9 rounded-[10px]" />
+              <Skeleton className="size-8 rounded-lg" />
               <div className="flex flex-1 flex-col gap-1">
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-3 w-56" />

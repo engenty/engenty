@@ -57,12 +57,12 @@ export function SettingsOverviewIcon({
   return (
     <div
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-[10px]",
+        "flex size-8 shrink-0 items-center justify-center rounded-lg",
         TONE_BG[tone],
         className
       )}
     >
-      <Icon className="size-6 text-foreground" />
+      <Icon className="size-5 text-foreground" />
     </div>
   );
 }
