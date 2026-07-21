@@ -8,7 +8,9 @@ import { BoxIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { PluginListItem } from "@/lib/api/client";
+import { isManageAppEnabled, MANAGE_MODULES_HREF } from "@/lib/manage-app";
 import { usePluginsListQuery } from "@/lib/plugins-queries";
+import { useWorkspaceContextQuery } from "@/lib/workspace-context-query";
 
 /** Name prefix used by connection sub-modules (e.g. "Connections — Google"). */
 const CONNECTION_DASH = "Connections —";
@@ -103,6 +105,9 @@ function collapsePlugins(plugins: PluginListItem[]): CollapsedPlugin[] {
 export function TenantPluginsSettingsSection() {
   const { t } = useTranslation("common");
   const { currentTenant } = useWorkspaceContext();
+  const workspace = useWorkspaceContextQuery(true);
+  const handOffToManage =
+    isManageAppEnabled() && workspace.data?.isSuperAdmin === true;
   const tenantId = currentTenant?.id ?? null;
   const pluginsQuery = usePluginsListQuery(tenantId);
   const { contributions } = useUiContributions();
@@ -184,13 +189,23 @@ export function TenantPluginsSettingsSection() {
             );
           })
         )}
-        <Link
-          className="flex items-center justify-center gap-2 px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
-          to="/admin/plugins"
-        >
-          <BoxIcon className="size-3" />
-          {t("settings.plugins.manageAll")}
-        </Link>
+        {handOffToManage ? (
+          <a
+            className="flex items-center justify-center gap-2 px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
+            href={MANAGE_MODULES_HREF}
+          >
+            <BoxIcon className="size-3" />
+            {t("settings.plugins.manageAll")}
+          </a>
+        ) : (
+          <Link
+            className="flex items-center justify-center gap-2 px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
+            to="/setup/plugins"
+          >
+            <BoxIcon className="size-3" />
+            {t("settings.plugins.manageAll")}
+          </Link>
+        )}
       </div>
     </SettingsFormSection>
   );

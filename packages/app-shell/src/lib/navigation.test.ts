@@ -476,6 +476,7 @@ describe("navigation", () => {
 
     it("returns setup children for /setup paths", () => {
       const setupChildren = [
+        { to: "/setup/plugins", label: "Plugins" },
         { to: "/setup/connectors", label: "External connectors" },
       ];
       const sectionsWithSetup = [
@@ -496,12 +497,16 @@ describe("navigation", () => {
         setupChildren
       );
       expect(
+        getSecondaryNavItems("/setup/plugins", "", sectionsWithSetup)
+      ).toEqual(setupChildren);
+      expect(
         getSecondaryNavItems("/setup/connectors", "", sectionsWithSetup)
       ).toEqual(setupChildren);
     });
 
     it("does not let settings separators steal /setup secondary nav", () => {
       const setupChildren = [
+        { to: "/setup/plugins", label: "Plugins" },
         { to: "/setup/connectors", label: "External connectors" },
       ];
       const settingsChildren = [

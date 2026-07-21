@@ -331,6 +331,11 @@ export function buildNavigationSections(
               icon: Wrench,
               children: [
                 {
+                  to: "/setup/plugins",
+                  label: t("navigation.plugins"),
+                  icon: Box,
+                },
+                {
                   to: "/setup/connectors",
                   label: t("navigation.setupConnectors"),
                   icon: Cable,

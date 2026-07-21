@@ -4,6 +4,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import {
   GeneralTenantSettingsSection,
+  TenantAppearanceSettingsSection,
   TenantPluginsSettingsSection,
   TenantUsersSettingsSection,
 } from "@/components/settings";
@@ -27,9 +28,10 @@ export function SettingsPage() {
         {/* Core Tenant Settings (Centered Identity) */}
         <GeneralTenantSettingsSection />
 
-        {/* Stacked Layout: Users then Plugins */}
+        {/* Stacked Layout: Users → Appearance → Plugins */}
         <div className="space-y-8 pb-12">
           <TenantUsersSettingsSection />
+          <TenantAppearanceSettingsSection />
           <TenantPluginsSettingsSection />
         </div>
       </div>
