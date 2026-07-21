@@ -30,6 +30,7 @@
         "feature": "ai",
         "group": "AI",
         "key": "AI_GATEWAY_API_KEY",
+        "configurable": "platform",
         "obtain": {
           "kind": "provider",
           "instructions": [
@@ -97,6 +98,7 @@
         "feature": "ai",
         "group": "AI",
         "key": "OPENAI_API_KEY",
+        "configurable": "platform",
         "obtain": {
           "kind": "provider",
           "instructions": [

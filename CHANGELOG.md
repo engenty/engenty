@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.56] - 2026-07-21
+- ADDED **[ai-ui]** Agent-proposal approval UI on the admin overview
+- ADDED **[platform-settings]** Platform-wide settings, tenant credential overrides & connection agent
+- ADDED **[ai-ui]** Agent-proposal approval UI on the admin overview
+- FIXED **[platform-settings]** SLACK_BOT_TOKEN is platform-scoped in the config test
+
 ## [0.1.55] - 2026-07-21
 - ADDED **[ai]** Agent_propose — governed agent-registry writer for the coordinator
 

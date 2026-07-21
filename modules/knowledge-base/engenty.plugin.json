@@ -50,6 +50,7 @@
         "feature": "ingestion",
         "group": "Web ingest & document parsing",
         "key": "FIRECRAWL_API_KEY",
+        "configurable": "platform",
         "obtain": {
           "kind": "provider",
           "instructions": [
@@ -68,6 +69,7 @@
         "feature": "ingestion",
         "group": "Web ingest & document parsing",
         "key": "LLAMA_CLOUD_API_KEY",
+        "configurable": "platform",
         "obtain": {
           "kind": "provider",
           "instructions": [
@@ -86,6 +88,7 @@
         "feature": "ingestion",
         "group": "Web ingest & document parsing",
         "key": "EXA_API_KEY",
+        "configurable": "platform",
         "obtain": {
           "kind": "provider",
           "instructions": [
@@ -121,6 +124,7 @@
         "description": "Unsplash access key for article cover image search (picker hidden when unset).",
         "group": "Knowledge base",
         "key": "UNSPLASH_ACCESS_KEY",
+        "configurable": "platform",
         "obtain": {
           "kind": "provider",
           "instructions": [

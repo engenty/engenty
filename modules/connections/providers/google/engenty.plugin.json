@@ -26,6 +26,7 @@
         "feature": "connections-google",
         "group": "Connections \u2014 Google",
         "key": "GOOGLE_OAUTH_CLIENT_ID",
+        "configurable": "tenant",
         "obtain": {
           "kind": "provider",
           "instructions": [
@@ -47,6 +48,7 @@
         "feature": "connections-google",
         "group": "Connections \u2014 Google",
         "key": "GOOGLE_OAUTH_CLIENT_SECRET",
+        "configurable": "tenant",
         "obtain": {
           "kind": "provider",
           "instructions": [

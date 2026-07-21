@@ -12,13 +12,31 @@ export interface OAuth2Env {
   clientSecret: string;
 }
 
-export function resolveOAuth2Env(config: ConnectorOAuth2Config): OAuth2Env {
-  const clientId = config.clientIdEnv
-    ? process.env[config.clientIdEnv]
-    : undefined;
-  const clientSecret = config.clientSecretEnv
-    ? process.env[config.clientSecretEnv]
-    : undefined;
+/**
+ * Resolves a client-credential env key to its effective value. Lets a caller
+ * inject a tenant/platform-aware settings lookup (@engenty/platform-settings)
+ * without this package depending on it; falls back to process.env when the
+ * resolver returns nothing or is absent.
+ */
+export type ClientEnvResolver = (key: string) => Promise<string | undefined>;
+
+async function readClientEnv(
+  key: string | undefined,
+  resolveEnv?: ClientEnvResolver
+): Promise<string | undefined> {
+  if (!key) {
+    return;
+  }
+  const resolved = await resolveEnv?.(key);
+  return resolved ?? process.env[key];
+}
+
+export async function resolveOAuth2Env(
+  config: ConnectorOAuth2Config,
+  resolveEnv?: ClientEnvResolver
+): Promise<OAuth2Env> {
+  const clientId = await readClientEnv(config.clientIdEnv, resolveEnv);
+  const clientSecret = await readClientEnv(config.clientSecretEnv, resolveEnv);
   if (!(clientId && clientSecret)) {
     throw new Error(
       `OAuth client credentials missing: set ${config.clientIdEnv ?? "<clientIdEnv>"} and ${config.clientSecretEnv ?? "<clientSecretEnv>"}`
@@ -28,17 +46,40 @@ export function resolveOAuth2Env(config: ConnectorOAuth2Config): OAuth2Env {
 }
 
 /**
- * Resolve the OAuth client for a connector: a DB-backed
- * `resolveClientCredentials` (imported connectors) takes precedence over the
- * env pair (built-in connectors).
+ * Resolve the OAuth client for a connector. Precedence: a DB-backed
+ * `resolveClientCredentials` (imported connectors) wins; otherwise the injected
+ * `resolveEnv` (tenant → platform settings) with a process.env fallback.
  */
 export async function resolveOAuth2Credentials(
-  config: ConnectorOAuth2Config
+  config: ConnectorOAuth2Config,
+  resolveEnv?: ClientEnvResolver
 ): Promise<OAuth2Env> {
   if (config.resolveClientCredentials) {
     return await config.resolveClientCredentials();
   }
-  return resolveOAuth2Env(config);
+  return resolveOAuth2Env(config, resolveEnv);
+}
+
+/**
+ * True when the connector's OAuth client credentials resolve to non-empty
+ * values (env or injected settings) — i.e. the connect flow can start. Never
+ * throws; returns false when unconfigured.
+ */
+export async function hasOAuth2ClientCredentials(
+  config: ConnectorOAuth2Config,
+  resolveEnv?: ClientEnvResolver
+): Promise<boolean> {
+  if (config.resolveClientCredentials) {
+    try {
+      const creds = await config.resolveClientCredentials();
+      return Boolean(creds.clientId && creds.clientSecret);
+    } catch {
+      return false;
+    }
+  }
+  const clientId = await readClientEnv(config.clientIdEnv, resolveEnv);
+  const clientSecret = await readClientEnv(config.clientSecretEnv, resolveEnv);
+  return Boolean(clientId && clientSecret);
 }
 
 export async function buildAuthorizationUrl(params: {
@@ -46,12 +87,13 @@ export async function buildAuthorizationUrl(params: {
   redirectUri: string;
   scopes: string[];
   state: string;
+  resolveEnv?: ClientEnvResolver;
 }): Promise<string> {
   if (params.connector.auth.kind !== "oauth2") {
     throw new Error("buildAuthorizationUrl requires an oauth2 connector");
   }
   const { oauth2 } = params.connector.auth;
-  const env = await resolveOAuth2Credentials(oauth2);
+  const env = await resolveOAuth2Credentials(oauth2, params.resolveEnv);
   const url = new URL(oauth2.authUrl);
   url.searchParams.set("client_id", env.clientId);
   url.searchParams.set("redirect_uri", params.redirectUri);
@@ -108,9 +150,10 @@ function parseTokenResponse(
 async function postTokenEndpoint(
   config: ConnectorOAuth2Config,
   body: Record<string, string>,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  resolveEnv?: ClientEnvResolver
 ): Promise<OAuth2Tokens> {
-  const env = await resolveOAuth2Credentials(config);
+  const env = await resolveOAuth2Credentials(config, resolveEnv);
   const response = await fetchImpl(config.tokenUrl, {
     body: new URLSearchParams({
       client_id: env.clientId,
@@ -136,6 +179,7 @@ export function exchangeAuthorizationCode(params: {
   config: ConnectorOAuth2Config;
   fetchImpl?: typeof fetch;
   redirectUri: string;
+  resolveEnv?: ClientEnvResolver;
 }): Promise<OAuth2Tokens> {
   return postTokenEndpoint(
     params.config,
@@ -144,7 +188,8 @@ export function exchangeAuthorizationCode(params: {
       grant_type: "authorization_code",
       redirect_uri: params.redirectUri,
     },
-    params.fetchImpl ?? fetch
+    params.fetchImpl ?? fetch,
+    params.resolveEnv
   );
 }
 
@@ -152,6 +197,7 @@ export function refreshAccessToken(params: {
   config: ConnectorOAuth2Config;
   fetchImpl?: typeof fetch;
   refreshToken: string;
+  resolveEnv?: ClientEnvResolver;
 }): Promise<OAuth2Tokens> {
   return postTokenEndpoint(
     params.config,
@@ -159,6 +205,7 @@ export function refreshAccessToken(params: {
       grant_type: "refresh_token",
       refresh_token: params.refreshToken,
     },
-    params.fetchImpl ?? fetch
+    params.fetchImpl ?? fetch,
+    params.resolveEnv
   );
 }

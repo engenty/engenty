@@ -60,6 +60,7 @@ import {
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
+import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   type RealtimeClientSecretFetch,
@@ -77,7 +78,6 @@ import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
 import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
-import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
 import { startTeamChatNotificationConsumer } from "./api/team-chat-notification-consumer.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
@@ -154,6 +154,41 @@ export async function createApp(options: CreateAppOptions = {}) {
   // are also skipped when a store is injected via options (see below).
   const skipBackgroundTasks = process.env.VITEST === "true";
   const app = new Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>();
+
+  // Hydrate PLATFORM-scoped settings (AI provider keys, channel bot tokens) from
+  // core.platform_settings into process.env so the synchronous env readers and
+  // the Vercel AI SDK transparently pick up any Setup-UI override. Platform
+  // scope only — a change made in the UI takes effect on the next restart.
+  if (!skipBackgroundTasks) {
+    try {
+      const [{ createAiDatabaseAdapter }, { hydratePlatformSettingsIntoEnv }] =
+        await Promise.all([
+          import("./infra/database.js"),
+          import("@engenty/platform-settings"),
+        ]);
+      const settingsDb = createAiDatabaseAdapter();
+      if (settingsDb) {
+        const hydrated = await hydratePlatformSettingsIntoEnv({
+          supabase: settingsDb,
+          keys: [
+            "AI_GATEWAY_API_KEY",
+            "OPENAI_API_KEY",
+            "SLACK_BOT_TOKEN",
+            "SLACK_SIGNING_SECRET",
+            "TELEGRAM_BOT_TOKEN",
+          ],
+          logger: (msg, err) => logger.warn(msg, err),
+        });
+        if (hydrated.length > 0) {
+          logger.info("hydrated platform settings from DB", {
+            keys: hydrated,
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn("platform settings hydration failed (non-fatal)", err);
+    }
+  }
 
   /**
    * Mastra Studio runs on another origin (e.g. `http://localhost:3000`) while this API

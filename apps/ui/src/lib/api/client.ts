@@ -383,6 +383,83 @@ export function setTenantSettings(
   });
 }
 
+// ── Platform settings + tenant credential overrides ───────────────────────
+// Backed by core.platform_settings via @engenty/platform-settings. Secret
+// settings are write-only: the server never returns their value, only whether
+// one is set and where the effective value currently resolves from.
+
+export interface PlatformSettingObtain {
+  generator?: string;
+  instructions?: string[];
+  kind: string;
+  statusKeys?: string[];
+  url?: string;
+}
+
+export interface PlatformSettingView {
+  configurable: "platform" | "tenant";
+  description: string;
+  feature?: string;
+  group: string;
+  /** A DB row exists at this scope (env is overridden here). */
+  isSet: boolean;
+  key: string;
+  obtain: PlatformSettingObtain;
+  required: "always" | "feature" | "optional";
+  secret: boolean;
+  /** Which layer supplies the effective value: tenant|platform|env|default|unset. */
+  source: string;
+  type: "string" | "numeric" | "boolean" | "json" | "secret";
+  updatedAt: string | null;
+  updatedBy: string | null;
+  /** Present for non-secret settings only. */
+  value?: string | null;
+}
+
+export function listPlatformSettings(signal?: AbortSignal) {
+  return request<{ settings: PlatformSettingView[] }>(
+    "/api/platform-settings",
+    {
+      signal,
+    }
+  );
+}
+
+export function setPlatformSetting(key: string, value: string) {
+  return request<{ setting: PlatformSettingView }>(
+    `/api/platform-settings/${encodeURIComponent(key)}`,
+    { method: "PATCH", body: { value } }
+  );
+}
+
+export function deletePlatformSetting(key: string) {
+  return request<{ setting: PlatformSettingView }>(
+    `/api/platform-settings/${encodeURIComponent(key)}`,
+    { method: "DELETE" }
+  );
+}
+
+export function listTenantSettingOverrides(signal?: AbortSignal) {
+  return request<{ settings: PlatformSettingView[] }>(
+    "/api/tenant-settings-overrides",
+    { signal }
+  );
+}
+
+export function setTenantSettingOverride(key: string, value: string) {
+  return request<{ setting: PlatformSettingView }>(
+    `/api/tenant-settings-overrides/${encodeURIComponent(key)}`,
+    { method: "PATCH", body: { value } }
+  );
+}
+
+export function deleteTenantSettingOverride(key: string) {
+  return request<{ setting: PlatformSettingView }>(
+    `/api/tenant-settings-overrides/${encodeURIComponent(key)}`,
+    { method: "DELETE" }
+  );
+}
+
 /** Read all (or prefix-filtered) user settings in one request. */
 export function getUserSettings(prefix?: string, signal?: AbortSignal) {
   return request<SettingsListResponse>(

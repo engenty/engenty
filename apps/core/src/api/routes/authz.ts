@@ -115,6 +115,25 @@ export async function requireSuperAdmin(
   return { auth };
 }
 
+/**
+ * Gate for platform-wide actions that affect every tenant (e.g. installation
+ * credentials). Requires a genuine platform superadmin — a tenant admin holding
+ * `*` is rejected. Use this, not {@link requireSuperAdmin}, for platform settings.
+ */
+export async function requirePlatformSuperAdmin(
+  c: RouteContext,
+  config: Record<string, unknown>
+): Promise<{ auth: ResolvedRouteAuth } | { error: Response }> {
+  const auth = await resolveRouteAuth(c, config);
+  if (!auth) {
+    return { error: jsonApiError(c, 401, { message: "Unauthorized" }) };
+  }
+  if (!auth.isPlatformSuperAdmin) {
+    return { error: jsonApiError(c, 403, { message: "Forbidden" }) };
+  }
+  return { auth };
+}
+
 /** Build a minimal PrincipalContext from ResolvedRouteAuth for use with invokeOperation. */
 export function toPrincipalContext(auth: ResolvedRouteAuth): PrincipalContext {
   const capabilities =

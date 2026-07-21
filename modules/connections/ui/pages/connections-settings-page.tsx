@@ -194,6 +194,14 @@ function ConnectorConnectAffordance({
   connector: CatalogConnector;
   hasConnection: boolean;
 }) {
+  // OAuth connector with no client credentials anywhere (env/platform/tenant):
+  // the connect flow would fail, so surface "Needs setup" instead of Connect.
+  if (
+    connector.auth_kind === "oauth2" &&
+    !(connector.configured || hasConnection)
+  ) {
+    return <NeedsSetupAffordance />;
+  }
   if (connector.auth_kind === "api_key") {
     return (
       <ConnectCredentialsDialog
@@ -222,6 +230,29 @@ function ConnectorConnectAffordance({
       redirectTo={CONNECTIONS_SETTINGS_PATH}
       variant={hasConnection ? "outline" : "default"}
     />
+  );
+}
+
+/**
+ * Shown for an OAuth connector whose client credentials are not configured. The
+ * admin sets them in Setup → Platform settings (or, per tenant, Integration
+ * keys); a member sees only that it isn't available yet.
+ */
+function NeedsSetupAffordance() {
+  const { t } = useTranslation("connections");
+  return (
+    <Button
+      disabled
+      size="sm"
+      title={t("catalog.needsSetupHint", {
+        defaultValue:
+          "An admin must add this connector's OAuth credentials in Setup → Platform settings.",
+      })}
+      type="button"
+      variant="outline"
+    >
+      {t("catalog.needsSetup", { defaultValue: "Needs setup" })}
+    </Button>
   );
 }
 

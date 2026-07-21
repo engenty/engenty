@@ -32,6 +32,7 @@
     "testData": "Test Data",
     "settings": "Settings",
     "setup": "Setup",
+    "setupPlatform": "Platform settings",
     "setupConnectors": "External connectors",
     "manage": "Manage"
   },
@@ -508,6 +509,9 @@
     "roles": {
       "title": "Roles & permissions",
       "menuLabel": "Roles & permissions"
+    },
+    "integrationKeys": {
+      "menuLabel": "Integration keys"
     }
   },
   "featureFlags": {

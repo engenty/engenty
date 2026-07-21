@@ -103,6 +103,7 @@ import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
 import { registerFileStorageRoutes } from "./routes/file-storage-routes.js";
 import { registerGatewayRoutes } from "./routes/gateway-routes.js";
 import { registerLogInspectorRoutes } from "./routes/log-inspector-routes.js";
+import { registerPlatformSettingsRoutes } from "./routes/platform-settings-routes.js";
 import {
   registerApprovalRoutes,
   registerModuleOperationRoutes,
@@ -472,6 +473,7 @@ export function createApiApp(params: CreateApiAppParams) {
     registry: params.registry,
   });
   registerSettingsRoutes({ app, config });
+  registerPlatformSettingsRoutes({ app, config });
   registerLogInspectorRoutes({ app, config });
   registerFileStorageRoutes({ app, config });
   registerQueueRoutes({ app, config, registry: params.registry });
@@ -566,6 +568,40 @@ export async function startApiServer(
       logger.warn(
         `Supabase is not reachable at ${supabaseUrl}. ${reach.message ?? "Unknown error"}. If using local dev, start Docker and run: pnpm supabase:start`
       );
+    }
+  }
+
+  // Hydrate PLATFORM-scoped settings from core.platform_settings into
+  // process.env before loading plugins, so modules that read provider/ingest
+  // keys synchronously pick up any Setup-UI override. Platform scope only; a
+  // change made in the UI takes effect on the next restart.
+  {
+    const settingsDb = createSupabaseClientFromConfig(effectiveConfig);
+    if (settingsDb) {
+      try {
+        const [
+          { hydratePlatformSettingsIntoEnv },
+          { getConfigurableSettings },
+        ] = await Promise.all([
+          import("@engenty/platform-settings"),
+          import("../lib/configurable-settings.js"),
+        ]);
+        const platformKeys = getConfigurableSettings()
+          .filter((s) => s.configurable === "platform")
+          .map((s) => s.key);
+        const hydrated = await hydratePlatformSettingsIntoEnv({
+          supabase: settingsDb,
+          keys: platformKeys,
+          logger: (msg, err) => logger.warn(`${msg} ${err ?? ""}`),
+        });
+        if (hydrated.length > 0) {
+          logger.info(
+            `Hydrated platform settings from DB: ${hydrated.join(", ")}`
+          );
+        }
+      } catch (err) {
+        logger.warn(`platform settings hydration failed (non-fatal): ${err}`);
+      }
     }
   }
 

@@ -33,6 +33,7 @@
     "@engenty/api-client": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
+    "@engenty/platform-settings": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",

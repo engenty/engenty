@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resolveWorkspaceRoot } from "./env-files.js";
-import type {
-  ContributedEnv,
-  ContributedEnvVarSpec,
-  EnvFeatureInfo,
-  EnvVarSpec,
+import {
+  type ContributedEnv,
+  type ContributedEnvVarSpec,
+  type EnvFeatureInfo,
+  type EnvVarSpec,
+  NON_CONFIGURABLE_ENV_KEYS,
 } from "./env-manifest-types.js";
 import { resolveValidator } from "./env-validators.js";
 
@@ -132,6 +133,11 @@ function resolveContributedVar(
   spec: ContributedEnvVarSpec,
   source: string
 ): EnvVarSpec {
+  if (spec.configurable && NON_CONFIGURABLE_ENV_KEYS.includes(spec.key)) {
+    throw new Error(
+      `${spec.key} is on NON_CONFIGURABLE_ENV_KEYS and cannot be made DB-configurable (from ${source})`
+    );
+  }
   const { validate, ...rest } = spec;
   const resolved: EnvVarSpec = { ...rest };
   if (validate !== undefined) {

@@ -116,6 +116,9 @@ importers:
       '@engenty/file-storage':
         specifier: workspace:*
         version: link:../../packages/file-storage
+      '@engenty/platform-settings':
+        specifier: workspace:*
+        version: link:../../packages/platform-settings
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -295,6 +298,9 @@ importers:
       '@engenty/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@engenty/platform-settings':
+        specifier: workspace:*
+        version: link:../../packages/platform-settings
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -847,6 +853,9 @@ importers:
       '@engenty/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@engenty/platform-settings':
+        specifier: workspace:*
+        version: link:../../packages/platform-settings
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -3500,6 +3509,9 @@ importers:
 
   packages/connections-sdk:
     dependencies:
+      '@engenty/platform-settings':
+        specifier: workspace:*
+        version: link:../platform-settings
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
@@ -4036,6 +4048,28 @@ importers:
       vitest:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/platform-settings:
+    dependencies:
+      '@engenty/secrets-sdk':
+        specifier: workspace:*
+        version: link:../secrets-sdk
+      '@supabase/supabase-js':
+        specifier: ^2.108.2
+        version: 2.108.2
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/plugin-sdk:
     dependencies:

@@ -6,10 +6,12 @@ import {
   executeConnectorAction,
   getConnectorDefinition,
   grantedOperationIds,
+  hasOAuth2ClientCredentials,
   listConnectorDefinitions,
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
+import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
 
 const connectionIdSchema = z.object({ connection_id: z.string().uuid() });
 
@@ -22,6 +24,7 @@ export interface ConnectionsOperationHooks {
     requestId: string;
     tenantId: string;
   }) => Promise<void>;
+  settings: ConnectionsSettingsResolver;
 }
 
 export function registerConnectionsOperations(
@@ -53,8 +56,27 @@ export function registerConnectionsOperations(
       const overrides = await repo.listPolicyOverrides(
         visible.map((c) => c.id)
       );
+      // "configured" = the connector can actually start a connect flow. OAuth
+      // connectors need client credentials (env, platform, or this tenant's
+      // override); api_key/browser connectors are always ready (the user
+      // supplies credentials, or none are needed).
+      const clientEnv = hooks.settings.clientEnv(tenantId);
+      const configuredByConnector = new Map<string, boolean>();
+      await Promise.all(
+        connectors.map(async (connector) => {
+          const configured =
+            connector.auth.kind === "oauth2"
+              ? await hasOAuth2ClientCredentials(
+                  connector.auth.oauth2,
+                  clientEnv
+                )
+              : true;
+          configuredByConnector.set(connector.id, configured);
+        })
+      );
       return {
         connectors: connectors.map((connector) => ({
+          configured: configuredByConnector.get(connector.id) ?? true,
           actions: connector.actions.map((action) => ({
             default_policy: ACTION_GROUP_DEFAULT_POLICY[action.group],
             description: action.description,
@@ -91,6 +113,59 @@ export function registerConnectionsOperations(
           name: connector.name,
           tool_prefix: connector.toolPrefix,
         })),
+      };
+    },
+  });
+
+  // ── Guided connect (connection agent) ────────────────────────────────────
+  // Lets an agent offer the user a one-click connect card in chat. Read-only:
+  // returns whether the connector is configured (client credentials present) and
+  // already connected, so the agent can either render the connect card, tell the
+  // user it's already connected, or (when unconfigured) point an admin at Setup.
+  api.registerOperation({
+    operationId: "connections_request_connect",
+    moduleId: "connections",
+    summary:
+      "Check a connector's connect state and offer the user a connect card",
+    description:
+      "Use when the user needs to connect an integration (e.g. their email or calendar) before you can act. Returns the connector's connect state: `configured` (client credentials exist so a connect flow can start), `connected` (the caller already has a usable connection), the connected `accounts`, and `auth_kind`. When configured and not connected, a connect button is shown to the user in chat. When not configured, tell the user an admin must add the connector's credentials in Setup → Platform settings.",
+    idempotent: true,
+    riskLevel: "low",
+    requiredCapabilities: ["module.connections.read"],
+    inputSchema: z.object({
+      connector_id: z.string().describe('Connector id (e.g. "google-gmail").'),
+    }),
+    handler: async (input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      const { connector_id } = input as { connector_id: string };
+      const connector = getConnectorDefinition(connector_id);
+      if (!connector) {
+        throw new Error(`Unknown connector: ${connector_id}`);
+      }
+      const configured =
+        connector.auth.kind === "oauth2"
+          ? await hasOAuth2ClientCredentials(
+              connector.auth.oauth2,
+              hooks.settings.clientEnv(ctx.auth.tenantId)
+            )
+          : true;
+      const candidates = await repo.listCandidateConnections({
+        connectorId: connector_id,
+        principalId: ctx.auth.principalId,
+        tenantId: ctx.auth.tenantId,
+      });
+      return {
+        connector: {
+          id: connector.id,
+          name: connector.name,
+          icon: connector.icon ?? null,
+          auth_kind: connector.auth.kind,
+        },
+        configured,
+        connected: candidates.length > 0,
+        accounts: candidates.map(connectionAccountLabel),
       };
     },
   });
