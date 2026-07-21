@@ -9,12 +9,33 @@ export interface DocConverterTenantPrefs {
   provider?: "local" | "liteparse" | "llamaparse" | "gemini" | null;
 }
 
+/**
+ * Tenant-level caps. Budget caps (soft/hard cost, per-user) live in the usage
+ * policy store, not here — this carries only the tenant-default iteration cap.
+ */
+export interface AiCapsConfig {
+  /**
+   * Tenant default for max agent iterations (steps) per run.
+   * null/undefined = inherit the platform default (env `ENGENTY_AI_AGENT_MAX_STEPS`, else 24).
+   */
+  max_steps?: number | null;
+}
+
 export interface TenantAiSettings {
+  caps?: AiCapsConfig | null;
   chat_model_id?: string | null;
+  /**
+   * @deprecated Classifier had no runtime consumer; kept parse-tolerant for old
+   * stored blobs only. Not surfaced in the UI.
+   */
   classifier_model_id?: string | null;
   /** Routing / supervisor model (stored as `coordinator_model_id` for legacy compat). */
   coordinator_model_id?: string | null;
   doc_converter?: DocConverterTenantPrefs | null;
+  /** Most-capable tier: planning, decomposition, sandboxed code execution. */
+  planning_coding_model_id?: string | null;
+  /** Search / retrieval / deep-research tier. */
+  research_model_id?: string | null;
   safeguard_model_id?: string | null;
 }
 
@@ -53,6 +74,19 @@ function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
   };
 }
 
+function parseCaps(raw: unknown): AiCapsConfig | null {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const o = raw as Record<string, unknown>;
+  const rawSteps = o.max_steps;
+  const steps =
+    typeof rawSteps === "number" && Number.isFinite(rawSteps) && rawSteps > 0
+      ? Math.floor(rawSteps)
+      : null;
+  return { max_steps: steps };
+}
+
 /**
  * Parse stored `ai.config` JSON value into a normalized shape.
  * Model settings are AI Gateway ids (`provider/model`); stale direct-provider
@@ -69,8 +103,11 @@ export function parseTenantAiSettings(raw: unknown): TenantAiSettings {
   return {
     chat_model_id: parseGatewayModelId(o.chat_model_id),
     coordinator_model_id: routingModelId,
+    research_model_id: parseGatewayModelId(o.research_model_id),
+    planning_coding_model_id: parseGatewayModelId(o.planning_coding_model_id),
     classifier_model_id: parseGatewayModelId(o.classifier_model_id),
     doc_converter: parseDocConverterPrefs(o.doc_converter),
     safeguard_model_id: parseGatewayModelId(o.safeguard_model_id),
+    caps: parseCaps(o.caps),
   };
 }

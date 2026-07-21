@@ -105,12 +105,24 @@ export {
   type ChatModelResolutionPurpose,
   DEFAULT_AI_CHAT_MODEL_ID,
   DEFAULT_AI_CLASSIFIER_MODEL_ID,
+  DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
   type ResolveChatModelIdOptions,
   type ResolveSafeguardModelIdOptions,
   resolveChatModelId,
   resolveSafeguardModelId,
 } from "./config/chat-model-id.js";
+export {
+  AI_MODEL_PURPOSE_SPECS,
+  AI_MODEL_PURPOSES,
+  type AiModelPurpose,
+  type AiSettingSource,
+  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+  type ResolvedModel,
+  type ResolvePurposeModelOptions,
+  resolvePurposeModel,
+  resolvePurposeModelId,
+} from "./config/model-purposes.js";
 export type {
   ActionDefinition,
   AgentDefinition,
@@ -233,6 +245,7 @@ export {
   resolveModuleSkillsDir,
 } from "./skills/loader.js";
 export {
+  type AiCapsConfig,
   type DocConverterTenantPrefs,
   parseTenantAiSettings,
   TENANT_AI_CONFIG_KEY,

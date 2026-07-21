@@ -42,10 +42,18 @@ export {
   type ChatModelResolutionPurpose,
   DEFAULT_AI_CHAT_MODEL_ID,
   DEFAULT_AI_CLASSIFIER_MODEL_ID,
+  DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
   resolveChatModelId,
   resolveSafeguardModelId,
 } from "./config/chat-model-id.js";
+export {
+  AI_MODEL_PURPOSES,
+  type AiModelPurpose,
+  type AiSettingSource,
+  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+  type ResolvedModel,
+} from "./config/model-purposes.js";
 export type { AgentSessionStatus } from "./contracts.js";
 export type {
   AgentConfig,
@@ -81,6 +89,7 @@ export {
   isValidAgentSkillName,
 } from "./skill-name.js";
 export {
+  type AiCapsConfig,
   type DocConverterTenantPrefs,
   parseTenantAiSettings,
   TENANT_AI_CONFIG_KEY,

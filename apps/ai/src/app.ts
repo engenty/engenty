@@ -75,6 +75,7 @@ import {
 } from "./api/remote-channels.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
+import { registerAiSettingsRoutes } from "./api/settings-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
 import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
@@ -675,6 +676,7 @@ export async function createApp(options: CreateAppOptions = {}) {
       isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
     scopeResolver,
   });
+  registerAiSettingsRoutes(app, { scopeResolver });
   // External channel ingress (registerExternalChannelRoutes) ran inbound channel
   // messages through the legacy detached-run executor — removed in the 2026-06-20
   // legacy cutover. Successor: the engenty-remote channel runtime below
