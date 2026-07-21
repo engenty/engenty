@@ -1,3 +1,4 @@
+import { useSetupSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
 import { Badge, Button } from "@engenty/ui-core";
@@ -19,6 +20,9 @@ import {
 
 export function TenantPluginsPage() {
   const { t } = useTranslation("common");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } = useSetupSecondaryShellNav(
+    t("navigation.setup")
+  );
   const queryClient = useQueryClient();
   const { currentTenant } = useWorkspaceContext();
   const tenantId = currentTenant?.id ?? null;
@@ -61,11 +65,20 @@ export function TenantPluginsPage() {
     [pluginsQuery.isFetching, queryClient, tenantId, t]
   );
 
-  const breadcrumbs = useMemo(() => [{ label: t("plugins.title") }], [t]);
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("plugins.title") },
+    ],
+    [moduleRootCrumb, t]
+  );
 
   usePageConfig({
     breadcrumbs,
     actions: pageActions,
+    contentStackBackground: "paper",
+    secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
   });
 
   const togglePlugin = useCallback(

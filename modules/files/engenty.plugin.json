@@ -4,6 +4,7 @@
   "description": "Tenant file storage and previews",
   "version": "0.0.1",
   "kind": "module",
+  "category": "knowledge",
   "provides": [
     "module.files",
     "module.files.read",
@@ -16,5 +17,8 @@
     "operations": true,
     "ai": false,
     "frontendTools": false
-  }
+  },
+  "requires": [
+    "module.connections"
+  ]
 }

@@ -25,6 +25,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "team-chat-slack-bridge:menu",
     to: "/mdl/team-chat-slack-bridge/settings",
     icon: Link2,
-    order: 30,
+    // Within engenty category
+    order: 12,
   });
 }

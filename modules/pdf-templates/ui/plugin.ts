@@ -25,6 +25,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "pdf-templates:menu",
     to: "/settings/pdf-templates",
     icon: FileText,
-    order: 215,
+    // Within commercial category
+    order: 22,
   });
 }

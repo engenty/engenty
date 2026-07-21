@@ -387,7 +387,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "kb:menu.knowledge_base",
     to: "/settings/knowledge-base",
     icon: DockKnowledgeBaseIcon,
-    order: 390,
+    // Within knowledge category
+    order: 10,
   });
 
   engenty.UI.registerCopilotContribution(kbCopilotContribution);

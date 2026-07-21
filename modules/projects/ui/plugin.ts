@@ -191,7 +191,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "projects:menu.projects",
     to: "/mdl/projects/settings",
     icon: DockProjectsIcon,
-    order: 115,
+    // Within engenty category
+    order: 10,
   });
 
   // Artifacts stored (promoted) to a project from chats — panel lives in ai-ui.

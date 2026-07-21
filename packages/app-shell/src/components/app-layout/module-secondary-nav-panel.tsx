@@ -67,6 +67,17 @@ export function ModuleSecondaryNavPanel(props: {
               );
             }
 
+            if (item.type === "heading") {
+              return (
+                <div
+                  className="px-3 pt-3 pb-1 font-medium text-[11px] text-muted-foreground/80 uppercase tracking-wide"
+                  key={`heading-${item.label}-${idx}`}
+                >
+                  {item.label}
+                </div>
+              );
+            }
+
             const active = matchesPath(pathname, search, item.to);
             const isExternal =
               Boolean(item.external) || item.to.startsWith("http");

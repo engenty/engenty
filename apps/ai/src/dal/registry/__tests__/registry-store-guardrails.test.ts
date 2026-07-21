@@ -64,26 +64,36 @@ function createFakeSupabase(state: FakeRowStore): SupabaseClient {
     }),
   });
 
-  const eqChain = (matchAgentId: string) => ({
+  // Chainable eq filter: collects (column, value) pairs; maybeSingle applies
+  // them against the single stored row. Rows without a status column count as
+  // 'active' (the migration default) so the store's status filter passes.
+  const eqChain = (filters: [string, string][]) => ({
+    eq: (col: string, value: string) => eqChain([...filters, [col, value]]),
     maybeSingle: async () => {
-      if (!state.row) {
+      const row = state.row;
+      if (!row) {
         return { data: null, error: null };
       }
-      return {
-        data: state.row.agent_id === matchAgentId ? state.row : null,
-        error: null,
-      };
+      const matches = filters.every(([col, value]) => {
+        if (col === "tenant_id") {
+          return row.tenant_id === value;
+        }
+        if (col === "agent_id") {
+          return row.agent_id === value;
+        }
+        if (col === "status") {
+          return (row.status ?? "active") === value;
+        }
+        return true;
+      });
+      return { data: matches ? row : null, error: null };
     },
   });
 
   return {
     schema: () => ({
       from: () => ({
-        select: () => ({
-          eq: () => ({
-            eq: (_col: string, value: string) => eqChain(value),
-          }),
-        }),
+        select: () => eqChain([]),
         upsert,
       }),
     }),

@@ -215,6 +215,16 @@
     "diagnosticsDescription": "Plugin-Lade- und Laufzeit-Diagnosen aus der Registry."
   },
   "settings": {
+    "categories": {
+      "engenty": "Engenty",
+      "commercial": "Commercial",
+      "work": "Arbeit",
+      "knowledge": "Wissen",
+      "agents": "Agenten",
+      "integrations": "Integrationen",
+      "platform": "Plattform",
+      "other": "Sonstiges"
+    },
     "generalTitle": "Allgemeine Einstellungen",
     "generalDescription": "Platzhalter für kommende gespeicherte App-Einstellungen.",
     "general": {
@@ -421,6 +431,20 @@
         "fields": "Getroffen"
       }
     },
+    "ai": {
+      "title": "KI",
+      "overviewDescription": "Standardmodelle und Nutzung für diesen Arbeitsbereich.",
+      "modelsOverview": "Chat-Modell: {{model}}",
+      "usageOverview": "{{when}} · {{cost}}",
+      "usageOverviewWithLimit": "{{when}} · {{cost}} von {{limit}}"
+    },
+    "connections": {
+      "title": "Verbindungen",
+      "overviewDescription": "Externe Konten für Agenten und Module verknüpfen.",
+      "linkedOverview": "{{count}} verbunden",
+      "emptyOverview": "Noch keine Konten verknüpft",
+      "errorsOverview": "{{count}} benötigen Aufmerksamkeit"
+    },
     "aiModels": {
       "menuLabel": "KI-Modelle"
     },
@@ -464,11 +488,23 @@
       "manageAll": "Alle Benutzer verwalten",
       "noTeamMember": "Kein Team-Mitglied"
     },
+    "appearance": {
+      "overviewDescription": "Sprache und Farbton für diesen Arbeitsbereich festlegen. Unter Darstellung finden Sie Modus, Schriften und mehr.",
+      "manageAll": "Darstellungseinstellungen öffnen",
+      "saveFailed": "Darstellung konnte nicht gespeichert werden"
+    },
     "plugins": {
       "title": "Module",
-      "description": "Installierte Module für Ihren Arbeitsbereich.",
+      "description": "Einstellungen für Module in Ihrem Arbeitsbereich öffnen.",
       "manageAll": "Alle Plugins verwalten",
-      "noModules": "Keine Module gefunden."
+      "noModules": "Keine Module mit Einstellungen gefunden.",
+      "deactivateConfirmTitle": "{{name}} deaktivieren?",
+      "deactivateConfirmDescription": "Dieses Modul wird ausgeschaltet und aus den Einstellungen entfernt. Sie können es unter Setup → Plugins wieder aktivieren.",
+      "deactivateDependentsWarning": "Diese Module hängen davon ab und werden ebenfalls deaktiviert:",
+      "deactivateBlockedByDependents": "Diese Module hängen davon ab. Eine verpflichtende Abhängigkeit kann nicht deaktiviert werden — entfernen oder deaktivieren Sie die Abhängigkeit zuerst:",
+      "deactivateConfirmAction": "Deaktivieren",
+      "deactivateConfirmActionWithDependents": "Alle deaktivieren",
+      "mandatoryBadge": "verpflichtend"
     },
     "roles": {
       "title": "Rollen & Berechtigungen",

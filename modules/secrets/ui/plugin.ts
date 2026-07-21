@@ -1,6 +1,5 @@
 import { DockVaultIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
-import { KeyRound } from "lucide-react";
 import { SecretsImportPage } from "./pages/secrets-import-page.js";
 import { VaultPage } from "./pages/vault-page.js";
 import { SECRETS_IMPORT_PATH } from "./secrets-paths.js";
@@ -47,15 +46,5 @@ export default function plugin(engenty: EngentyPluginContext) {
     to: "/mdl/secrets",
     icon: DockVaultIcon,
     order: 500,
-  });
-
-  engenty.UI.registerSettingsItem({
-    id: "secrets_settings_menu",
-    label: "Secrets",
-    labelKey: "secrets:menu.secrets",
-    to: "/mdl/secrets",
-    icon: KeyRound,
-    order: 500,
-    requiresAdmin: false,
   });
 }

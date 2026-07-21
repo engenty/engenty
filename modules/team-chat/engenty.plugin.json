@@ -4,6 +4,7 @@
   "description": "Slack-compatible team messaging: channels, DMs, threads, with agents as first-class participants",
   "version": "0.0.1",
   "kind": "module",
+  "category": "engenty",
   "provides": [
     "module.team-chat",
     "module.team-chat.read",
@@ -11,7 +12,12 @@
     "module.team-chat.manage",
     "ui.route.module.team-chat"
   ],
-  "optional": ["module.projects", "module.tasks", "module.team"],
+  "optional": [
+    "module.projects",
+    "module.tasks",
+    "module.team",
+    "user-management-ui"
+  ],
   "capabilities": {
     "operations": true,
     "ai": true,

@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
@@ -62,17 +63,21 @@ export function ConnectionsSettingsPage() {
 
   useConnectResultToast();
 
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("breadcrumb.settings"));
+
   const breadcrumbs = useMemo<PageBreadcrumb[]>(
     () => [
-      { label: t("breadcrumb.settings"), to: "/settings" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       { label: t("breadcrumb.connections") },
     ],
-    [t]
+    [moduleRootCrumb, t]
   );
 
   usePageConfig({
     breadcrumbs,
     contentStackBackground: "paper",
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
 

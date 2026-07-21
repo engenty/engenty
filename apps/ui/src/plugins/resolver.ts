@@ -816,6 +816,12 @@ export async function resolveUiPlugins(params: {
   const navigationPrefetchNormalized =
     normalizeNavigationPrefetch(navigationPrefetch);
   const settingsNormalized = normalizeSettingsItems(settingsItems);
+  // Attach catalog `category` from the plugin summary (engenty.plugin.json).
+  // Display order of categories is PLUGIN_CATEGORIES; item `order` is within-category only.
+  const settingsItemsWithCategory = settingsNormalized.items.map((item) => ({
+    ...item,
+    category: item.category ?? pluginsById.get(item.pluginId)?.category,
+  }));
   const tabsNormalized = normalizeTabs(tabs);
   const chatCommandsNormalized = normalizeChatCommands(chatCommands);
 
@@ -847,7 +853,7 @@ export async function resolveUiPlugins(params: {
       i18nNamespaces: i18nNamespacesNormalized.items,
       liveBindings,
       navigationPrefetch: navigationPrefetchNormalized.items,
-      settingsItems: settingsNormalized.items,
+      settingsItems: settingsItemsWithCategory,
       tabs: tabsNormalized.items,
     },
     diagnostics,

@@ -255,9 +255,35 @@ describe("module metadata guardrails", () => {
 
   it("keeps first-party manifest dependency semantics resolvable", () => {
     const modulesDir = resolveModulesDir();
+    const packagesDir = path.resolve(modulesDir, "../packages");
     const manifests = listModuleManifests(modulesDir);
     const provided = new Set<string>();
     const offenders: string[] = [];
+
+    // Package plugins (tenant-settings, user-settings, …) are valid require
+    // targets for modules even though they live outside modules/*.
+    if (fs.existsSync(packagesDir)) {
+      for (const entry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+        const packageDir = path.join(packagesDir, entry.name);
+        const manifestPath = path.join(packageDir, "engenty.plugin.json");
+        if (!fs.existsSync(manifestPath)) {
+          continue;
+        }
+        // loadPluginManifest expects the plugin root directory, not the file.
+        const loaded = loadPluginManifest(packageDir);
+        if (!loaded.ok) {
+          continue;
+        }
+        for (const capability of loaded.manifest.provides ?? []) {
+          provided.add(capability);
+        }
+        provided.add(loaded.manifest.id);
+        provided.add(`module.${loaded.manifest.id}`);
+      }
+    }
 
     for (const { manifest, moduleName } of manifests) {
       const provides = readStringArray(manifest.provides) ?? [];

@@ -186,7 +186,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "contacts:menu.contacts",
     to: "/mdl/contacts/settings",
     icon: DockContactsIcon,
-    order: 120,
+    // Within work category
+    order: 10,
   });
 
   engenty.UI.registerDashboardWidget({

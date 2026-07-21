@@ -25,6 +25,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "commercial-settings:menu",
     to: "/mdl/commercial-settings/settings",
     icon: CreditCard,
+    // Within commercial category
     order: 11,
   });
 }

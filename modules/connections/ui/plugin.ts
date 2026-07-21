@@ -69,7 +69,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "connections:menu.connections",
     to: "/settings/connections",
     icon: Blocks,
-    order: 400,
+    // Promoted into Settings core (above module separator).
+    order: 5,
     // Personal surface — members manage their own connected accounts.
     requiresAdmin: false,
   });

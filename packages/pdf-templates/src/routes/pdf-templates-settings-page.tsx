@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -14,7 +15,7 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Plus, Save, SquarePen } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { CodeEditor } from "../components/code-editor.js";
 import { DesignTab } from "../components/design-tab.js";
@@ -86,11 +87,15 @@ export function PdfTemplatesSettingsPage() {
   const uploadMutation = useUploadPdfTemplateAssetMutation();
   const lastLoadedKeyRef = useRef("");
 
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("breadcrumbs.settings"));
+  const breadcrumbs = useMemo(
+    () => [...(moduleRootCrumb ? [moduleRootCrumb] : []), { label: t("menu") }],
+    [moduleRootCrumb, t]
+  );
   usePageConfig({
-    breadcrumbs: [
-      { label: t("breadcrumbs.settings"), to: "/settings" },
-      { label: t("menu") },
-    ],
+    breadcrumbs,
+    secondaryNavHeaderSlot,
   });
 
   useEffect(() => {

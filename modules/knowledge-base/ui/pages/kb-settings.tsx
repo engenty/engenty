@@ -2,6 +2,7 @@
  * KB module settings: knowledge bases list and tenant-wide configuration.
  */
 
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
@@ -33,12 +34,15 @@ export function KbSettingsPage() {
 
   const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
 
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("breadcrumb.settings"));
+
   const breadcrumbs = useMemo(
     () => [
-      { label: t("breadcrumb.settings"), to: "/settings" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       { label: t("menu.knowledge_base") },
     ],
-    [t]
+    [moduleRootCrumb, t]
   );
 
   const pageActions = useMemo(() => {
@@ -76,6 +80,7 @@ export function KbSettingsPage() {
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs,
+    secondaryNavHeaderSlot,
   });
 
   return (

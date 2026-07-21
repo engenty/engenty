@@ -4,7 +4,10 @@
   "description": "KV store for user-scoped settings (global, no tenant)",
   "version": "0.0.1",
   "kind": "package",
-  "provides": ["user-settings"],
+  "category": "platform",
+  "provides": [
+    "user-settings"
+  ],
   "capabilities": {
     "ai": false,
     "frontendTools": false,

@@ -9,21 +9,37 @@ import type {
 
 const AI_SCHEMA = "ai";
 
+export type RegistryAgentStatus = "proposed" | "active" | "archived";
+
 export interface RegistryAgentRow {
   agent_id: string;
   /** Link to the core.agents security principal; provisioned lazily. */
   core_agent_id?: string | null;
   created_at: string;
+  /** agent_type_key of the proposing agent; null = human-created. */
+  created_by_agent?: string | null;
   description: string | null;
   guardrails: Record<string, unknown> | null;
   id: string;
   instructions: string;
   model: string;
   name: string;
+  /** Pending full-config revision for an ACTIVE agent (governance). */
+  proposed_config?: Record<string, unknown> | null;
   skill_ids: string[];
+  status?: RegistryAgentStatus | null;
   sub_agents: { id: string; alias?: string }[];
   tenant_id: string;
   tool_ids: string[];
+  updated_at: string;
+}
+
+/** Governance view of a registry agent (admin/approval surfaces). */
+export interface RegistryAgentRecord {
+  config: AgentConfig;
+  created_by_agent: string | null;
+  proposed_config: Record<string, unknown> | null;
+  status: RegistryAgentStatus;
   updated_at: string;
 }
 
@@ -87,6 +103,8 @@ export function createRegistryStore(client: SupabaseClient) {
         .select()
         .eq("tenant_id", tenantId)
         .eq("agent_id", agentId)
+        // Runtime safety: proposed/archived agents never assemble or run.
+        .eq("status", "active")
         .maybeSingle();
       if (error) {
         throw new Error(`getAgentConfig: ${error.message}`);
@@ -122,11 +140,187 @@ export function createRegistryStore(client: SupabaseClient) {
       const { data, error } = await db
         .from("engenty_ai_agents")
         .select()
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        // Assignment/routing surfaces only ever see runnable agents.
+        .eq("status", "active");
       if (error) {
         throw new Error(`listAgents: ${error.message}`);
       }
       return (data as RegistryAgentRow[]).map(mapAgentRow);
+    },
+
+    /** Governance view: every row, with status + pending revision. */
+    async listAgentRecords(tenantId: string): Promise<RegistryAgentRecord[]> {
+      const { data, error } = await db
+        .from("engenty_ai_agents")
+        .select()
+        .eq("tenant_id", tenantId);
+      if (error) {
+        throw new Error(`listAgentRecords: ${error.message}`);
+      }
+      return (data as RegistryAgentRow[]).map((row) => ({
+        config: mapAgentRow(row),
+        created_by_agent: row.created_by_agent ?? null,
+        proposed_config: row.proposed_config ?? null,
+        status: row.status ?? "active",
+        updated_at: row.updated_at,
+      }));
+    },
+
+    /**
+     * Agent-driven write path: NEVER goes live directly.
+     * - no row yet → insert the config as a status='proposed' row
+     * - row is active → stash the revision in proposed_config (agent stays
+     *   online with its current config until a human approves)
+     * - row is proposed → update the pending proposal in place
+     * Archived agents are left to humans (throws).
+     */
+    async proposeAgent(
+      tenantId: string,
+      config: AgentConfig,
+      options: { proposedByAgent?: string | null } = {}
+    ): Promise<RegistryAgentRecord> {
+      const { data: existing, error: readError } = await db
+        .from("engenty_ai_agents")
+        .select()
+        .eq("tenant_id", tenantId)
+        .eq("agent_id", config.id)
+        .maybeSingle();
+      if (readError) {
+        throw new Error(`proposeAgent: ${readError.message}`);
+      }
+      const row = existing as RegistryAgentRow | null;
+      if (row && (row.status ?? "active") === "archived") {
+        throw new Error(
+          `proposeAgent: agent '${config.id}' is archived — a human must restore it first`
+        );
+      }
+      const configColumns = {
+        name: config.name,
+        description: config.description ?? null,
+        model: config.model,
+        instructions: config.instructions,
+        tool_ids: config.toolIds ?? [],
+        skill_ids: config.skillIds ?? [],
+        sub_agents: config.subAgents ?? [],
+        guardrails: config.guardrails ?? {},
+      };
+      const patch =
+        row && (row.status ?? "active") === "active"
+          ? { proposed_config: configColumns }
+          : {
+              ...configColumns,
+              status: "proposed",
+              created_by_agent:
+                options.proposedByAgent ?? row?.created_by_agent ?? null,
+            };
+      const { data, error } = await db
+        .from("engenty_ai_agents")
+        .upsert(
+          { tenant_id: tenantId, agent_id: config.id, ...patch },
+          { onConflict: "tenant_id, agent_id" }
+        )
+        .select()
+        .single();
+      if (error) {
+        throw new Error(`proposeAgent: ${error.message}`);
+      }
+      const saved = data as RegistryAgentRow;
+      return {
+        config: mapAgentRow(saved),
+        created_by_agent: saved.created_by_agent ?? null,
+        proposed_config: saved.proposed_config ?? null,
+        status: saved.status ?? "active",
+        updated_at: saved.updated_at,
+      };
+    },
+
+    /**
+     * Human approval: a proposed row goes active; an active row with a pending
+     * proposed_config has the revision applied and cleared.
+     */
+    async approveAgent(
+      tenantId: string,
+      agentId: string
+    ): Promise<AgentConfig> {
+      const { data: existing, error: readError } = await db
+        .from("engenty_ai_agents")
+        .select()
+        .eq("tenant_id", tenantId)
+        .eq("agent_id", agentId)
+        .maybeSingle();
+      if (readError) {
+        throw new Error(`approveAgent: ${readError.message}`);
+      }
+      if (!existing) {
+        throw new Error(`approveAgent: agent '${agentId}' not found`);
+      }
+      const row = existing as RegistryAgentRow;
+      const status = row.status ?? "active";
+      let patch: Record<string, unknown>;
+      if (status === "proposed") {
+        patch = { status: "active" };
+      } else if (status === "active" && row.proposed_config) {
+        patch = { ...row.proposed_config, proposed_config: null };
+      } else {
+        throw new Error(
+          `approveAgent: agent '${agentId}' has nothing pending (status '${status}')`
+        );
+      }
+      const { data, error } = await db
+        .from("engenty_ai_agents")
+        .update(patch)
+        .eq("tenant_id", tenantId)
+        .eq("agent_id", agentId)
+        .select()
+        .single();
+      if (error) {
+        throw new Error(`approveAgent: ${error.message}`);
+      }
+      return mapAgentRow(data as RegistryAgentRow);
+    },
+
+    /**
+     * Human rejection: a proposed row is deleted (it never went live); an
+     * active row just drops its pending proposed_config.
+     */
+    async rejectAgent(tenantId: string, agentId: string): Promise<boolean> {
+      const { data: existing, error: readError } = await db
+        .from("engenty_ai_agents")
+        .select()
+        .eq("tenant_id", tenantId)
+        .eq("agent_id", agentId)
+        .maybeSingle();
+      if (readError) {
+        throw new Error(`rejectAgent: ${readError.message}`);
+      }
+      if (!existing) {
+        return false;
+      }
+      const row = existing as RegistryAgentRow;
+      if ((row.status ?? "active") === "proposed") {
+        const { error } = await db
+          .from("engenty_ai_agents")
+          .delete()
+          .eq("tenant_id", tenantId)
+          .eq("agent_id", agentId);
+        if (error) {
+          throw new Error(`rejectAgent: ${error.message}`);
+        }
+        return true;
+      }
+      if (row.proposed_config) {
+        const { error } = await db
+          .from("engenty_ai_agents")
+          .update({ proposed_config: null })
+          .eq("tenant_id", tenantId)
+          .eq("agent_id", agentId);
+        if (error) {
+          throw new Error(`rejectAgent: ${error.message}`);
+        }
+        return true;
+      }
+      return false;
     },
 
     async listTools(tenantId: string): Promise<ToolConfig[]> {
@@ -158,6 +352,10 @@ export function createRegistryStore(client: SupabaseClient) {
             skill_ids: config.skillIds ?? [],
             sub_agents: config.subAgents ?? [],
             guardrails: config.guardrails ?? {},
+            // Human/admin write path: goes live directly and supersedes any
+            // pending agent proposal (agents propose via proposeAgent instead).
+            status: "active",
+            proposed_config: null,
           },
           { onConflict: "tenant_id, agent_id" }
         )

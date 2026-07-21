@@ -1,4 +1,6 @@
 import { getApiBaseUrl, getCurrentAccessToken } from "@engenty/api-client";
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
   Button,
@@ -86,6 +88,9 @@ function parseOrigins(text: string): string[] {
 }
 
 export function BrowserBridgeSettingsPage() {
+  const { t: tCommon } = useTranslation("common");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(tCommon("navigation.settings"));
   const [status, setStatus] = useState<BridgeSessionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [extensionId, setExtensionId] = useState(
@@ -94,6 +99,15 @@ export function BrowserBridgeSettingsPage() {
   const [allowlistText, setAllowlistText] = useState("");
   const [allowlistDirty, setAllowlistDirty] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: "Browser bridge" },
+    ],
+    [moduleRootCrumb]
+  );
+  usePageConfig({ breadcrumbs, secondaryNavHeaderSlot });
 
   const refresh = useCallback(async () => {
     try {
@@ -201,9 +215,6 @@ export function BrowserBridgeSettingsPage() {
       setBusy(false);
     }
   };
-
-  const breadcrumbs = useMemo(() => [{ label: "Browser bridge" }], []);
-  usePageConfig({ breadcrumbs });
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">

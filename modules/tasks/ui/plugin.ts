@@ -227,7 +227,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "tasks:menu.tasks",
     to: tasksPaths.settings,
     icon: ListTodo,
-    order: 146,
+    // Within engenty category
+    order: 11,
   });
 
   engenty.UI.registerAdminMenuItem({

@@ -38,8 +38,16 @@
   "copilotAdminLinks": {
     "title": "Engenty",
     "description": "Manage Copilot, agents, skills, and tools in the Engenty admin workspace.",
-    "hints": {
+    "rows": {
       "overview": "Dashboard, KPIs & quick actions",
+      "agents": "Browse and configure workspace agents",
+      "actions": "Actions agents can run in this workspace",
+      "skills": "Managed and custom agent skills",
+      "tools": "Module, MCP, and custom tools",
+      "connections": "Linked accounts and integrations",
+      "activity": "Recent agent runs and sessions"
+    },
+    "hints": {
       "agents": "{{count}} in catalog",
       "agentsEmpty": "No agents yet",
       "actions": "{{count}} registered · {{custom}} custom",
