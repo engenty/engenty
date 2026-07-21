@@ -4,6 +4,7 @@
   "description": "External messengers (Slack, Telegram, WhatsApp, Teams) as remote chat interfaces to engenty agents. Chat-tuned engenty.remote agent, channel bindings, and external identity pairing.",
   "version": "0.0.1",
   "kind": "module",
+  "category": "engenty",
   "provides": [
     "module.engenty-remote",
     "module.engenty-remote.read",
@@ -28,36 +29,56 @@
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "ENGENTY_REMOTE_CHANNELS_ENABLED",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"]
+        "scopes": [
+          "root",
+          "deploy"
+        ]
       },
       {
         "description": "Slack app bot token (xoxb-...) for the remote channel Slack adapter.",
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "SLACK_BOT_TOKEN",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"]
+        "scopes": [
+          "root",
+          "deploy"
+        ]
       },
       {
         "description": "Slack app signing secret used to verify remote channel webhooks.",
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "SLACK_SIGNING_SECRET",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"]
+        "scopes": [
+          "root",
+          "deploy"
+        ]
       },
       {
         "description": "Telegram bot token (from @BotFather) for the remote channel Telegram adapter.",
         "feature": "engenty-remote",
         "group": "Remote channels",
         "key": "TELEGRAM_BOT_TOKEN",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"]
+        "scopes": [
+          "root",
+          "deploy"
+        ]
       }
     ]
   }

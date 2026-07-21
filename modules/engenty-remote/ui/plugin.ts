@@ -38,6 +38,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "engenty-remote:menu",
     to: "/mdl/engenty-remote/settings",
     icon: Satellite,
-    order: 35,
+    // Within engenty category
+    order: 13,
   });
 }
