@@ -4,6 +4,7 @@ import {
   useAgentsWorkspaceShellNav,
   useWorkspaceNavData,
 } from "@engenty/ai-ui";
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -162,19 +163,22 @@ export function ConnectorDetailPage() {
   const { connectorId } = useParams<{ connectorId: string }>();
   const { data } = useConnectionsCatalogQuery();
   const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("breadcrumb.settings"));
 
   const breadcrumbs = useMemo<PageBreadcrumb[]>(
     () => [
-      { label: t("breadcrumb.settings"), to: "/settings" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
       { label: t("breadcrumb.connections"), to: CONNECTIONS_SETTINGS_PATH },
       { label: connector?.name ?? connectorId ?? "" },
     ],
-    [t, connector?.name, connectorId]
+    [moduleRootCrumb, t, connector?.name, connectorId]
   );
 
   usePageConfig({
     breadcrumbs,
     contentStackBackground: "paper",
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
 

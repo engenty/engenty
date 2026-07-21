@@ -4,6 +4,7 @@
   "description": "Canonical goals and tasks for human and agent collaboration",
   "version": "0.0.1",
   "kind": "module",
+  "category": "engenty",
   "provides": [
     "module.tasks",
     "module.tasks.read",
@@ -13,7 +14,9 @@
     "platform.work",
     "ui.route.module.tasks"
   ],
-  "optional": ["module.team"],
+  "optional": [
+    "module.team"
+  ],
   "capabilities": {
     "operations": true,
     "ai": true,

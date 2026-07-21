@@ -293,7 +293,7 @@ export function AiGeneralSettingsPage() {
               t={t}
               updateSettings={updateSettings}
             />
-            <CopilotAdminLinksSection t={t} />
+            <CopilotAdminLinksSection />
           </TabsContent>
 
           <TabsContent className="space-y-6" value="classifier">

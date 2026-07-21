@@ -2,11 +2,12 @@
 // fail-open when the delegated run cannot even be constructed, and a
 // save-averse reflection prompt.
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildReflectionPrompt,
   isMemoryReflectionEnabled,
   reflectStep,
+  runReflectStep,
 } from "../task-job-reflect-step.js";
 
 const envelope = {
@@ -57,6 +58,75 @@ describe("reflect step", () => {
       inputData: envelope,
       runId: "run-1",
     } as never);
+    expect(result).toEqual(envelope);
+  });
+});
+
+describe("runReflectStep — delegated reflection run (B: wiring)", () => {
+  /** Injectable deps that make a reflection run succeed without any runtime. */
+  function fakeDeps(overrides: Record<string, unknown> = {}) {
+    return {
+      isEnabled: () => true,
+      createStore: () => ({}) as never,
+      resolveScope: vi.fn(
+        async () => ({ tenantId: envelope.tenant_id }) as never
+      ),
+      createRegistry: vi.fn(() => ({}) as never),
+      runConversation: vi.fn(async () => ({}) as never),
+      ...overrides,
+    };
+  }
+
+  it("delegates a run with ONLY the memory tools, deny policy, and the task's agent", async () => {
+    const deps = fakeDeps();
+    const result = await runReflectStep(envelope, "run-9", deps);
+
+    // Envelope always passes through untouched (learning is a side effect).
+    expect(result).toEqual(envelope);
+    expect(deps.runConversation).toHaveBeenCalledTimes(1);
+
+    const call = (deps.runConversation as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(call.allowedToolIds).toEqual([
+      "memory_save",
+      "memory_record_search",
+    ]);
+    expect(call.approvalPolicy).toBe("deny");
+    expect(call.childAgentId).toBe(envelope.agent_type_key);
+    // Reflection is attributed to the task's run id, in its own thread.
+    expect(call.childRunId).toBe("run-9");
+    expect(call.childThreadId).not.toBe("run-9");
+    expect(call.brief).toContain("worth remembering");
+    expect(deps.createRegistry).toHaveBeenCalledWith(envelope.tenant_id);
+  });
+
+  it("does not delegate when disabled or the envelope is skipped", async () => {
+    const disabled = fakeDeps({ isEnabled: () => false });
+    await runReflectStep(envelope, "run-9", disabled);
+    expect(disabled.runConversation).not.toHaveBeenCalled();
+
+    const skipped = fakeDeps();
+    await runReflectStep(
+      { ...envelope, status: "skipped" as const },
+      "run-9",
+      skipped
+    );
+    expect(skipped.runConversation).not.toHaveBeenCalled();
+  });
+
+  it("does not delegate when no session store is configured", async () => {
+    const noStore = fakeDeps({ createStore: () => null });
+    await runReflectStep(envelope, "run-9", noStore);
+    expect(noStore.runConversation).not.toHaveBeenCalled();
+  });
+
+  it("stays fail-open when the delegated run throws", async () => {
+    const throwing = fakeDeps({
+      runConversation: vi.fn(async () => {
+        throw new Error("model unavailable");
+      }),
+    });
+    const result = await runReflectStep(envelope, "run-9", throwing);
     expect(result).toEqual(envelope);
   });
 });

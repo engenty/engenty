@@ -163,6 +163,10 @@ export function AuthenticatedRoutes({
               <Navigate replace to={COPILOT_CHAT_ROOT} />
             )
           }
+          path="/setup/roles"
+        />
+        <Route
+          element={<Navigate replace to="/setup/roles" />}
           path="/settings/roles"
         />
         <Route

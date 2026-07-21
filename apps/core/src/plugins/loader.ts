@@ -772,6 +772,7 @@ export function createPluginRecord(params: {
     packageName: params.candidate.packageName,
     manifestPath: params.manifestPath,
     kind: params.manifest.kind,
+    category: params.manifest.category,
     tier: params.manifest.tier,
     capabilities: params.manifest.capabilities,
     ui: params.manifest.ui,

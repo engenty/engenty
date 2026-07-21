@@ -23,6 +23,7 @@ import type {
   PluginEventsRuntime,
   PluginGatewayMethod,
   PluginHttpRoute,
+  PluginCategory,
   PluginOperationMeta,
   PluginProfilePolicy,
   PluginRegistrationReceipt,
@@ -55,6 +56,8 @@ export interface PluginRuntimeApi {
 export interface PluginRecord {
   aiRegistrations?: string[];
   capabilities?: PluginManifestCapabilityFlags;
+  /** Catalog group from engenty.plugin.json — see PluginCategory. */
+  category?: PluginCategory;
   cliCommands: string[];
   dependencies: string[];
   description?: string;

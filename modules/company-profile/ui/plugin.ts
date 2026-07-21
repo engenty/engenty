@@ -40,7 +40,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "company-profile:menu",
     to: "/mdl/company-profile/settings",
     icon: Building2,
-    order: 0,
+    // Within commercial category
+    order: 10,
   });
 
   engenty.UI.registerCopilotContribution(companyProfileCopilotContribution);

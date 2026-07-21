@@ -17,7 +17,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Browser bridge",
     to: "/settings/browser-bridge",
     icon: Globe,
-    order: 420,
+    // Within engenty category
+    order: 14,
     requiresAdmin: false,
   });
 }

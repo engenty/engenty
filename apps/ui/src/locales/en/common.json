@@ -214,6 +214,16 @@
     "diagnosticsDescription": "Plugin load and runtime diagnostics from registry."
   },
   "settings": {
+    "categories": {
+      "engenty": "Engenty",
+      "commercial": "Commercial",
+      "work": "Work",
+      "knowledge": "Knowledge",
+      "agents": "Agents",
+      "integrations": "Integrations",
+      "platform": "Platform",
+      "other": "Other"
+    },
     "generalTitle": "General Settings",
     "generalDescription": "Placeholders for upcoming persisted app preferences.",
     "general": {
@@ -420,6 +430,20 @@
         "fields": "Matched"
       }
     },
+    "ai": {
+      "title": "AI",
+      "overviewDescription": "Default models and usage for this workspace.",
+      "modelsOverview": "Chat model: {{model}}",
+      "usageOverview": "{{when}} · {{cost}}",
+      "usageOverviewWithLimit": "{{when}} · {{cost}} of {{limit}}"
+    },
+    "connections": {
+      "title": "Connections",
+      "overviewDescription": "Link external accounts for agents and modules.",
+      "linkedOverview": "{{count}} connected",
+      "emptyOverview": "No accounts linked yet",
+      "errorsOverview": "{{count}} need attention"
+    },
     "aiModels": {
       "menuLabel": "AI models"
     },
@@ -464,15 +488,22 @@
       "noTeamMember": "No team member"
     },
     "appearance": {
-      "overviewDescription": "Pick a color tone for this workspace. Open Appearance for language, mode, fonts, and more.",
+      "overviewDescription": "Set workspace language and color tone. Open Appearance for mode, fonts, and more.",
       "manageAll": "Open appearance settings",
       "saveFailed": "Failed to save appearance"
     },
     "plugins": {
       "title": "Modules",
-      "description": "Installed modules for your workspace.",
+      "description": "Open settings for modules in your workspace.",
       "manageAll": "Manage all plugins",
-      "noModules": "No modules found."
+      "noModules": "No modules with settings found.",
+      "deactivateConfirmTitle": "Deactivate {{name}}?",
+      "deactivateConfirmDescription": "This module will be turned off and removed from Settings. You can re-enable it under Setup → Plugins.",
+      "deactivateDependentsWarning": "These modules depend on it and will be deactivated too:",
+      "deactivateBlockedByDependents": "These modules depend on it. A mandatory dependency cannot be deactivated — disable or remove the dependency first:",
+      "deactivateConfirmAction": "Deactivate",
+      "deactivateConfirmActionWithDependents": "Deactivate all",
+      "mandatoryBadge": "mandatory"
     },
     "roles": {
       "title": "Roles & permissions",

@@ -13,8 +13,8 @@ import {
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import {
   isSkippedEnvelope,
-  taskJobEnvelopeSchema,
   type TaskJobEnvelope,
+  taskJobEnvelopeSchema,
 } from "./task-job-schema.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
 
@@ -58,56 +58,93 @@ export function buildReflectionPrompt(input: {
     .join("\n");
 }
 
+/**
+ * Seam for the reflection runtime. Defaults wire the real env-backed store,
+ * scope resolver, agent registry and delegated-conversation runner; tests
+ * inject fakes to assert the step delegates a reflection run with the right
+ * tools/scope without booting a model or Supabase.
+ */
+export interface ReflectionDeps {
+  createRegistry: (
+    tenantId: string
+  ) => ReturnType<typeof createDefaultAiRegistry>;
+  createStore: typeof createAgentSessionStoreFromEnv;
+  isEnabled: () => boolean;
+  resolveScope: typeof resolveTaskJobServiceScope;
+  runConversation: typeof runDelegatedConversation;
+}
+
+function defaultReflectionDeps(): ReflectionDeps {
+  return {
+    isEnabled: isMemoryReflectionEnabled,
+    createStore: createAgentSessionStoreFromEnv,
+    resolveScope: resolveTaskJobServiceScope,
+    createRegistry: (tenantId) =>
+      createDefaultAiRegistry({
+        databaseStore: createRegistryStoreFromEnv(),
+        moduleLoader: createDefaultModuleCapabilityLoader(),
+        tenantId,
+      }),
+    runConversation: runDelegatedConversation,
+  };
+}
+
+/**
+ * The reflection step's body, with its runtime dependencies injectable. Always
+ * resolves to the input envelope unchanged — learning is a fail-open side
+ * effect that must never alter or block task completion.
+ */
+export async function runReflectStep(
+  inputData: TaskJobEnvelope,
+  runId: string,
+  overrides: Partial<ReflectionDeps> = {}
+): Promise<TaskJobEnvelope> {
+  const deps = { ...defaultReflectionDeps(), ...overrides };
+  if (!deps.isEnabled() || isSkippedEnvelope(inputData)) {
+    return inputData;
+  }
+  try {
+    const store = deps.createStore();
+    if (!store) {
+      return inputData;
+    }
+    const scope = await deps.resolveScope(inputData.tenant_id);
+    const registry = deps.createRegistry(inputData.tenant_id);
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), REFLECTION_TIMEOUT_MS);
+    try {
+      await deps.runConversation({
+        abortSignal: abort.signal,
+        // Only the memory tools: reflection observes and writes memory, it
+        // does not act. memory writes are approval-free by design, so the
+        // leaf-default "deny" policy cannot block them.
+        allowedToolIds: ["memory_save", "memory_record_search"],
+        approvalPolicy: "deny",
+        brief: buildReflectionPrompt(inputData),
+        childAgentId: inputData.agent_type_key,
+        // Same run id as the task's registered run so reflection tokens are
+        // attributed to the task run (existing usage limits apply); its own
+        // thread so the reflection exchange never pollutes task memory.
+        childRunId: runId,
+        childThreadId: randomUUID(),
+        registry,
+        scope,
+        store,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    // Fail-open: reflection is a bonus, the task result is already written.
+    console.warn(`[task-job ${runId}] reflect step failed (non-fatal):`, error);
+  }
+  return inputData;
+}
+
 export const reflectStep = createStep({
   id: "reflect",
   inputSchema: taskJobEnvelopeSchema,
   outputSchema: taskJobEnvelopeSchema,
-  execute: async ({ inputData, runId }) => {
-    if (!isMemoryReflectionEnabled() || isSkippedEnvelope(inputData)) {
-      return inputData;
-    }
-    try {
-      const store = createAgentSessionStoreFromEnv();
-      if (!store) {
-        return inputData;
-      }
-      const scope = await resolveTaskJobServiceScope(inputData.tenant_id);
-      const registry = createDefaultAiRegistry({
-        databaseStore: createRegistryStoreFromEnv(),
-        moduleLoader: createDefaultModuleCapabilityLoader(),
-        tenantId: inputData.tenant_id,
-      });
-      const abort = new AbortController();
-      const timeout = setTimeout(() => abort.abort(), REFLECTION_TIMEOUT_MS);
-      try {
-        await runDelegatedConversation({
-          abortSignal: abort.signal,
-          // Only the memory tools: reflection observes and writes memory, it
-          // does not act. memory writes are approval-free by design, so the
-          // leaf-default "deny" policy cannot block them.
-          allowedToolIds: ["memory_save", "memory_record_search"],
-          approvalPolicy: "deny",
-          brief: buildReflectionPrompt(inputData as TaskJobEnvelope),
-          childAgentId: inputData.agent_type_key,
-          // Same run id as the task's registered run so reflection tokens are
-          // attributed to the task run (existing usage limits apply); its own
-          // thread so the reflection exchange never pollutes task memory.
-          childRunId: runId,
-          childThreadId: randomUUID(),
-          registry,
-          scope,
-          store,
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-    } catch (error) {
-      // Fail-open: reflection is a bonus, the task result is already written.
-      console.warn(
-        `[task-job ${runId}] reflect step failed (non-fatal):`,
-        error
-      );
-    }
-    return inputData;
-  },
+  execute: async ({ inputData, runId }) =>
+    runReflectStep(inputData as TaskJobEnvelope, runId),
 });

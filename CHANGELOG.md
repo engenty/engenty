@@ -4,6 +4,22 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.53] - 2026-07-21
+- ADDED **[settings]** Enhance plugin deactivation flow and add dependency handling
+- ADDED **[settings]** Add Connections overview and stronger icon tiles
+- ADDED **[settings]** Add Engenty admin links to settings overview
+- ADDED **[settings]** Move roles to Setup and add AI overview cards
+- ADDED **[engenty-remote]** Assign engenty plugin category
+- ADDED **[settings]** Add plugin categories and group Settings by catalog
+- ADDED **[settings]** Add language picker to Appearance overview card
+- ADDED **[ui]** Move plugins under Setup and add Appearance overview
+- DOCS **[memory]** Add developer and user docs for agent memory
+- FIXED **[settings]** Drop redundant labels on Appearance overview card
+- FIXED **[settings]** Restore Settings sidebar header on /settings/* pages
+- FIXED **[memory]** Remove dead copilot memory-settings page
+- OTHER Update module dependencies
+- OTHER Better icon sizes
+
 ## [0.1.52] - 2026-07-21
 - FIXED **[engenty-remote]** Resolve migration timestamp collision blocking all migrations
 - FIXED **[memory]** Declare UI in manifest so apps/ui dep survives sync (CI lockfile guard)

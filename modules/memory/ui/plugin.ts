@@ -32,7 +32,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "memory:menu.memory",
     to: "/settings/memory",
     icon: Brain,
-    order: 420,
+    // Within engenty category
+    order: 15,
     requiresAdmin: false,
   });
 }

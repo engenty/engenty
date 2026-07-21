@@ -174,14 +174,13 @@ describe("navigation", () => {
         "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
-        "/settings/roles",
         "/settings/development",
         "/settings/features",
         "/settings/search-index",
       ]);
     });
 
-    it("promotes Connections into the core settings block after Roles", () => {
+    it("promotes Connections into the core settings block after AI usage", () => {
       const ConnectionsIcon = () => null;
       const InvoicesIcon = () => null;
       const settingsChildren = (
@@ -207,6 +206,7 @@ describe("navigation", () => {
             label: "Invoices",
             pluginId: "invoices",
             to: "/mdl/invoices/settings",
+            category: "commercial" as const,
             icon: InvoicesIcon,
           },
           {
@@ -228,11 +228,16 @@ describe("navigation", () => {
         "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
-        "/settings/roles",
         "/settings/connections",
+        "",
         "",
         "/mdl/invoices/settings",
       ]);
+      expect(
+        adminChildren.find(
+          (item) => item.type === "heading" && item.label.includes("commercial")
+        )
+      ).toBeTruthy();
       expect(
         adminChildren.find((item) => item.to === "/settings/connections")?.icon
       ).toBe(ConnectionsIcon);
@@ -243,6 +248,108 @@ describe("navigation", () => {
       );
       expect(memberChildren.map((item) => item.to)).toEqual([
         "/settings/connections",
+      ]);
+    });
+
+    it("inserts category headings for module settings order bands", () => {
+      const settingsChildren = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const children = settingsChildren(
+        buildNavigationSections(
+          {
+            routes: [],
+            adminMenuItems: [],
+            copilotApps: [],
+            copilotContributions: [],
+            dashboardWidgets: [],
+            developmentPanels: [],
+            i18nNamespaces: [],
+            liveBindings: [],
+            navigationPrefetch: [],
+            settingsItems: [
+              {
+                id: "invoices_settings_menu",
+                label: "Invoices",
+                pluginId: "invoices",
+                to: "/mdl/invoices/settings",
+                category: "commercial" as const,
+                order: 20,
+              },
+              {
+                id: "projects_settings_menu",
+                label: "Projects",
+                pluginId: "projects",
+                to: "/mdl/projects/settings",
+                category: "engenty" as const,
+                order: 10,
+              },
+              {
+                id: "company_profile_settings_menu",
+                label: "Company Profile",
+                pluginId: "company-profile",
+                to: "/mdl/company-profile/settings",
+                category: "commercial" as const,
+                order: 10,
+              },
+            ],
+          },
+          { isTenantAdmin: true }
+        )
+      );
+
+      expect(
+        children.map((item) => ({
+          to: item.to,
+          type: item.type,
+          label: item.label,
+        }))
+      ).toEqual([
+        {
+          to: "/settings/appearance",
+          type: undefined,
+          label: "settings.appearanceTitle",
+        },
+        {
+          to: "/settings/ai",
+          type: undefined,
+          label: "settings.aiModels.menuLabel",
+        },
+        {
+          to: "/settings/ai-usage",
+          type: undefined,
+          label: "settings.aiUsage.menuLabel",
+        },
+        { to: "", type: "separator", label: "" },
+        {
+          to: "",
+          type: "heading",
+          label: "settings.categories.engenty",
+        },
+        {
+          to: "/mdl/projects/settings",
+          type: undefined,
+          label: "Projects",
+        },
+        {
+          to: "",
+          type: "heading",
+          label: "settings.categories.commercial",
+        },
+        {
+          to: "/mdl/company-profile/settings",
+          type: undefined,
+          label: "Company Profile",
+        },
+        {
+          to: "/mdl/invoices/settings",
+          type: undefined,
+          label: "Invoices",
+        },
       ]);
     });
 
@@ -351,6 +458,7 @@ describe("navigation", () => {
       expect(memberSettingsChildren).not.toContain("/settings/appearance");
       expect(memberSettingsChildren).not.toContain("/settings/ai");
       expect(memberSettingsChildren).not.toContain("/settings/roles");
+      expect(memberTopLevel).not.toContain("/setup");
 
       const adminTargets = buildNavigationSections(contributions, {
         isTenantAdmin: true,
@@ -359,6 +467,18 @@ describe("navigation", () => {
         .map((item) => item.to);
       expect(adminTargets).toContain("/admin/users");
       expect(adminTargets).toContain("/settings");
+      expect(adminTargets).not.toContain("/setup");
+
+      const setupChildren =
+        buildNavigationSections(contributions, { isSuperAdmin: true })
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/setup")
+          ?.children?.map((child) => child.to) ?? [];
+      expect(setupChildren).toEqual([
+        "/setup/plugins",
+        "/setup/roles",
+        "/setup/connectors",
+      ]);
     });
   });
 
@@ -477,6 +597,7 @@ describe("navigation", () => {
     it("returns setup children for /setup paths", () => {
       const setupChildren = [
         { to: "/setup/plugins", label: "Plugins" },
+        { to: "/setup/roles", label: "Roles & permissions" },
         { to: "/setup/connectors", label: "External connectors" },
       ];
       const sectionsWithSetup = [
@@ -500,6 +621,9 @@ describe("navigation", () => {
         getSecondaryNavItems("/setup/plugins", "", sectionsWithSetup)
       ).toEqual(setupChildren);
       expect(
+        getSecondaryNavItems("/setup/roles", "", sectionsWithSetup)
+      ).toEqual(setupChildren);
+      expect(
         getSecondaryNavItems("/setup/connectors", "", sectionsWithSetup)
       ).toEqual(setupChildren);
     });
@@ -507,6 +631,7 @@ describe("navigation", () => {
     it("does not let settings separators steal /setup secondary nav", () => {
       const setupChildren = [
         { to: "/setup/plugins", label: "Plugins" },
+        { to: "/setup/roles", label: "Roles & permissions" },
         { to: "/setup/connectors", label: "External connectors" },
       ];
       const settingsChildren = [

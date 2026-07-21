@@ -1,10 +1,13 @@
 {
   "id": "connections-slack",
-  "name": "Connections — Slack",
+  "name": "Connections \u2014 Slack",
   "description": "Slack connector: channels, history, search, messages, reactions via the connections framework",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-slack"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-slack"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -21,38 +24,47 @@
       {
         "description": "Slack OAuth v2 client ID for the Slack connector.",
         "feature": "connections-slack",
-        "group": "Connections — Slack",
+        "group": "Connections \u2014 Slack",
         "key": "SLACK_OAUTH_CLIENT_ID",
         "obtain": {
           "kind": "provider",
           "instructions": [
             "1. Create an app at https://api.slack.com/apps (from scratch).",
-            "2. Under OAuth & Permissions → User Token Scopes add: channels:read, groups:read, channels:history, groups:history, search:read, chat:write, reactions:write, users:read.",
-            "3. Under OAuth & Permissions → Redirect URLs add: <ENGENTY_API_BASE_URL>/api/connections/oauth/callback.",
-            "4. Copy the Client ID from Basic Information → App Credentials."
+            "2. Under OAuth & Permissions \u2192 User Token Scopes add: channels:read, groups:read, channels:history, groups:history, search:read, chat:write, reactions:write, users:read.",
+            "3. Under OAuth & Permissions \u2192 Redirect URLs add: <ENGENTY_API_BASE_URL>/api/connections/oauth/callback.",
+            "4. Copy the Client ID from Basic Information \u2192 App Credentials."
           ],
           "url": "https://api.slack.com/apps"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
         "description": "Slack OAuth v2 client secret for the Slack connector.",
         "feature": "connections-slack",
-        "group": "Connections — Slack",
+        "group": "Connections \u2014 Slack",
         "key": "SLACK_OAUTH_CLIENT_SECRET",
         "obtain": {
           "kind": "provider",
           "instructions": [
-            "Copy the Client Secret from Basic Information → App Credentials of the same Slack app."
+            "Copy the Client Secret from Basic Information \u2192 App Credentials of the same Slack app."
           ],
           "url": "https://api.slack.com/apps"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       }
     ]
-  }
+  },
+  "requires": [
+    "module.connections"
+  ]
 }

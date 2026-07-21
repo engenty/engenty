@@ -1,5 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  isPluginCategory,
+  type PluginCategory,
+  PLUGIN_CATEGORIES,
+} from "@engenty/plugin-sdk";
 import { collectManifestDiagnostics } from "./manifest-diagnostics.js";
 
 export const ENGENTY_PLUGIN_MANIFEST_FILENAME = "engenty.plugin.json";
@@ -14,11 +19,33 @@ export type PluginManifestUiLoadMode = "runtime" | "workspace";
  */
 export type PluginTier = "module" | "plugin";
 
+export type { PluginCategory };
+export { PLUGIN_CATEGORIES };
+
 export const DEFAULT_PLUGIN_TIER: PluginTier = "module";
 
 /** Normalize a raw manifest `tier` value, defaulting to "module". */
 export function resolvePluginTier(value: unknown): PluginTier {
   return value === "plugin" ? "plugin" : DEFAULT_PLUGIN_TIER;
+}
+
+/**
+ * Parse optional `category`. Absent → undefined. Present but unknown → error
+ * string for the caller to fail the load.
+ */
+export function resolvePluginCategory(
+  value: unknown
+): { ok: true; category?: PluginCategory } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true };
+  }
+  if (!isPluginCategory(value)) {
+    return {
+      ok: false,
+      error: `engenty.plugin.json category must be one of: ${PLUGIN_CATEGORIES.join(", ")}`,
+    };
+  }
+  return { ok: true, category: value };
 }
 
 export interface PluginManifestCapabilityFlags {
@@ -30,6 +57,8 @@ export interface PluginManifestCapabilityFlags {
 
 export interface PluginManifest {
   capabilities?: PluginManifestCapabilityFlags;
+  /** Catalog group — see {@link PluginCategory}. */
+  category?: PluginCategory;
   description?: string;
   id: string;
   kind?: string;
@@ -451,6 +480,15 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
       manifestPath,
     };
   }
+  const categoryResult = resolvePluginCategory(merged.category);
+  if (!categoryResult.ok) {
+    return {
+      ok: false,
+      code: "plugin.manifest.invalid",
+      error: categoryResult.error,
+      manifestPath,
+    };
+  }
   const manifest: PluginManifest = {
     id,
     name: typeof merged.name === "string" ? merged.name.trim() : undefined,
@@ -461,6 +499,7 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
     version:
       typeof merged.version === "string" ? merged.version.trim() : undefined,
     kind: typeof merged.kind === "string" ? merged.kind.trim() : undefined,
+    category: categoryResult.category,
     tier: resolvePluginTier(merged.tier),
     server,
     ui,

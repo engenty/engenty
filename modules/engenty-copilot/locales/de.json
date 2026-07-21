@@ -132,22 +132,5 @@
     "notFound": "Dieser Sub-Agent-Lauf ist im Transcript nicht mehr verfügbar.",
     "output": "Ausgabe",
     "running": "Läuft…"
-  },
-  "memory": {
-    "settingsItem": "Assistenten-Gedächtnis",
-    "title": "Assistenten-Gedächtnis",
-    "subtitle": "Was der Assistent über dich über alle Chats hinweg gelernt hat. Er pflegt dieses Profil selbst — setze es zurück, um neu zu starten.",
-    "loading": "Wird geladen…",
-    "loadFailed": "Gedächtnis-Profil konnte nicht geladen werden.",
-    "empty": "Noch nichts gespeichert. Während du chattest, merkt sich der Assistent hier dauerhafte Vorlieben und Fakten.",
-    "reset": "Gedächtnis zurücksetzen",
-    "updatedAt": "Zuletzt aktualisiert: {{time}}",
-    "fields": {
-      "preferred_language": "Bevorzugte Sprache",
-      "role": "Rolle",
-      "current_focus": "Aktueller Fokus",
-      "preferences": "Vorlieben",
-      "facts": "Fakten"
-    }
   }
 }

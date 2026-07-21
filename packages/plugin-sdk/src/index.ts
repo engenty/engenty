@@ -5,8 +5,15 @@
  */
 
 import type { FeatureFlagDefinition as _FeatureFlagDefinition } from "@engenty/feature-flags";
+import type { PluginCategory } from "./plugin-category.js";
 
 export type { FeatureFlagDefinition } from "@engenty/feature-flags";
+export type { PluginCategory } from "./plugin-category.js";
+export {
+  isPluginCategory,
+  PLUGIN_CATEGORIES,
+  pluginCategoryRank,
+} from "./plugin-category.js";
 export {
   AUTOMATION_HOOK_KB_INBOX_ITEM_CREATED,
   type AutomationHookListener,
@@ -430,6 +437,11 @@ export interface EngentyPluginManifest {
     operations?: boolean;
     ui?: boolean;
   };
+  /**
+   * Catalog group (one per plugin). See {@link PluginCategory}.
+   * Omit for uncategorized / technical plugins.
+   */
+  category?: PluginCategory;
   description: string;
   id: string;
   kind: string;

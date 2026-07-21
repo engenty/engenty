@@ -1,10 +1,13 @@
 {
   "id": "connections-microsoft",
-  "name": "Connections — Microsoft",
+  "name": "Connections \u2014 Microsoft",
   "description": "Microsoft Graph connectors: Outlook mail + calendar and OneDrive files",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-microsoft"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-microsoft"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -21,12 +24,12 @@
       {
         "description": "Application (client) ID of the Azure app registration used for the Microsoft Graph OAuth flow (tenant: common).",
         "feature": "connections-microsoft",
-        "group": "Connections — Microsoft",
+        "group": "Connections \u2014 Microsoft",
         "key": "MICROSOFT_OAUTH_CLIENT_ID",
         "obtain": {
           "kind": "provider",
           "instructions": [
-            "1. Open the Azure Portal → App registrations and create a registration (supported account types: any org directory + personal Microsoft accounts).",
+            "1. Open the Azure Portal \u2192 App registrations and create a registration (supported account types: any org directory + personal Microsoft accounts).",
             "2. Add the Web redirect URI <ENGENTY_API_BASE_URL>/api/connections/oauth/callback.",
             "3. Under API permissions, add the delegated Microsoft Graph permissions: User.Read, Mail.Read, Mail.ReadWrite, Mail.Send, Calendars.Read, Calendars.ReadWrite, Files.Read, Files.ReadWrite.",
             "4. Copy the Application (client) ID from the Overview page."
@@ -34,25 +37,34 @@
           "url": "https://portal.azure.com"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
-        "description": "Client secret of the Azure app registration (Certificates & secrets → New client secret; copy the secret Value).",
+        "description": "Client secret of the Azure app registration (Certificates & secrets \u2192 New client secret; copy the secret Value).",
         "feature": "connections-microsoft",
-        "group": "Connections — Microsoft",
+        "group": "Connections \u2014 Microsoft",
         "key": "MICROSOFT_OAUTH_CLIENT_SECRET",
         "obtain": {
           "kind": "provider",
           "instructions": [
-            "In the same app registration, open Certificates & secrets → New client secret and copy the secret Value (not the ID)."
+            "In the same app registration, open Certificates & secrets \u2192 New client secret and copy the secret Value (not the ID)."
           ],
           "url": "https://portal.azure.com"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       }
     ]
-  }
+  },
+  "requires": [
+    "module.connections"
+  ]
 }

@@ -16,6 +16,7 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Full-page chat | `/chat`, `/chat/<threadId>` |",
     "| App settings | `/settings`, `/settings/ai`, `/settings/ai-usage`, `/settings/appearance` |",
     "| Tenant plugins (setup) | `/setup/plugins` |",
+    "| Roles & permissions (setup) | `/setup/roles` |",
     "| Agents / AI workspace | `/admin/engenty` (sessions, agents, skills, actions under this prefix) |",
     "| Module plugins | `/mdl/<module-folder>` — list: `/mdl/<module-folder>`; detail: `/mdl/<module-folder>/<id>`; edit: `/mdl/<module-folder>/<id>/edit` |",
     "| Knowledge Base (per KB slug) | `/mdl/knowledge-base/<kbSlug>` — articles list: `.../articles`; article: `.../<articleId>`; edit: `.../<articleId>/edit`; new draft: `.../new/edit` |",

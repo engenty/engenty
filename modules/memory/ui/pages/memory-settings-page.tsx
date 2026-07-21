@@ -12,6 +12,7 @@ import {
   useResetWorkingMemoryMutation,
   useWorkingMemoryQuery,
 } from "@engenty/ai-ui/embed";
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { JSONContent } from "@engenty/tiptap-editor";
 import { RichEditor } from "@engenty/tiptap-editor";
@@ -30,12 +31,12 @@ import { Check, Loader2, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import type { MemoryRecord } from "../api.js";
-import { MemoryConflictError, type MemoryScopeQuery } from "../api.js";
 import {
   diffMemoryDoc,
   projectRecordsToDoc,
 } from "../../src/services/memory-doc.js";
+import type { MemoryRecord } from "../api.js";
+import { MemoryConflictError, type MemoryScopeQuery } from "../api.js";
 import { MemoryRecordNode } from "../doc/memory-record-node.js";
 import { blocksToDocJson, docJsonToBlocks } from "../doc/tiptap-doc.js";
 import {
@@ -158,7 +159,8 @@ function ScopeDocEditor({
   );
 
   const snapshotBlocks = useMemo(
-    () => projectRecordsToDoc(loadedRecordsRef.current).flatMap((s) => s.blocks),
+    () =>
+      projectRecordsToDoc(loadedRecordsRef.current).flatMap((s) => s.blocks),
     // biome-ignore lint/correctness/useExhaustiveDependencies: same snapshot identity
     [editorVersion]
   );
@@ -182,9 +184,7 @@ function ScopeDocEditor({
     try {
       await saveMutation.mutateAsync(ops);
       setDirty(false);
-      toast.success(
-        t("doc.saved", { defaultValue: "Memory saved" })
-      );
+      toast.success(t("doc.saved", { defaultValue: "Memory saved" }));
     } catch (error) {
       if (error instanceof MemoryConflictError) {
         toast.error(
@@ -352,7 +352,8 @@ function RefPicker({
     return (
       <p className="text-muted-foreground text-sm">
         {t("refs.empty", {
-          defaultValue: "No memories in this scope yet — agents create them as they work.",
+          defaultValue:
+            "No memories in this scope yet — agents create them as they work.",
         })}
       </p>
     );
@@ -377,13 +378,25 @@ function RefPicker({
 
 export function MemorySettingsPage() {
   const { t } = useTranslation("memory");
+  const { t: tCommon } = useTranslation("common");
   const { currentUserId } = useWorkspaceContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") ?? "mine";
   const selectedRef = searchParams.get("ref");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(tCommon("navigation.settings"));
+
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("title", { defaultValue: "Memory" }) },
+    ],
+    [moduleRootCrumb, t]
+  );
 
   usePageConfig({
-    breadcrumbs: [{ label: t("title", { defaultValue: "Memory" }) }],
+    breadcrumbs,
+    secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
 

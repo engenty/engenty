@@ -4,11 +4,17 @@
   "description": "Agent-controlled browser window via the engenty browser extension: navigate, observe, and (with approval) act on external web apps",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.browser-bridge"],
+  "category": "engenty",
+  "provides": [
+    "module.browser-bridge"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
     "frontendTools": false,
     "ui": true
-  }
+  },
+  "requires": [
+    "module.connections"
+  ]
 }

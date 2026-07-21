@@ -132,6 +132,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "offers:menu.offers",
     to: "/mdl/offers/settings",
     icon: DockOffersIcon,
-    order: 118,
+    // Within commercial category
+    order: 21,
   });
 }
