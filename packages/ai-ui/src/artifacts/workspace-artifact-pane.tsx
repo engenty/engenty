@@ -8,8 +8,8 @@ import {
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQueryClient } from "@engenty/query-client";
 import { Button, cn, topbarIconButtonClassName } from "@engenty/ui-core";
-import { PanelRightOpen } from "lucide-react";
-import { useEffect } from "react";
+import { Layers } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
 import { ArtifactPane } from "./artifact-pane.js";
@@ -65,10 +65,10 @@ function mergeArtifacts(
 
 /**
  * Route-level artifact pane. Always mounted on the route: it fetches the
- * scope's artifacts (the tabs), auto-opens when the agent creates a new one,
- * reconciles the active tab, and portals the ArtifactPane into the shell's
- * workspace end-pane slot. Pair with `ArtifactPaneToggle` in the page topbar
- * actions.
+ * scope's artifacts (the tabs), marks fresh ones unseen while closed (or
+ * focuses them when already open), reconciles the active tab, and portals
+ * the ArtifactPane into the shell's workspace end-pane slot. Pair with
+ * `ArtifactPaneToggle` in the page topbar actions.
  */
 export function WorkspaceArtifactPane({
   hostKey,
@@ -241,30 +241,79 @@ export function WorkspaceArtifactPane({
 
 /**
  * Opens the route's artifact pane. Renders nothing while the pane is open —
- * closing belongs to the pane's own top bar. Plain icon (no button chrome),
- * sits at the right edge of the topbar actions.
+ * closing belongs to the pane's own top bar. Muted when the scope has no
+ * artifacts (and no object tabs); badges unseen arrivals while closed.
  */
 export function ArtifactPaneToggle({
   className,
+  extraScope,
   hostKey,
+  scope,
 }: {
   className?: string;
+  extraScope?: ArtifactPaneScope | null;
   hostKey: string;
+  /** Override primary list scope (defaults to the bound copilot thread). */
+  scope?: ArtifactPaneScope;
 }) {
   const { t } = useTranslation("ai-ui");
-  const { paneOpen, setPaneOpen } = useArtifacts(hostKey);
+  const { activeThreadId } = useCopilotThreadBinding();
+  const { objectTabs, paneOpen, setPaneOpen, unseenCount } =
+    useArtifacts(hostKey);
+
+  const primaryScope: ArtifactPaneScope = scope ?? {
+    type: "thread",
+    id: activeThreadId?.trim() || null,
+  };
+  const primaryQuery = useArtifactsListQuery(
+    primaryScope.type,
+    primaryScope.id
+  );
+  const extraQuery = useArtifactsListQuery(
+    extraScope?.type ?? "task",
+    extraScope?.id ?? null
+  );
+  const artifactCount = useMemo(
+    () => mergeArtifacts(primaryQuery.data ?? [], extraQuery.data ?? []).length,
+    [extraQuery.data, primaryQuery.data]
+  );
+  const hasContent = artifactCount > 0 || objectTabs.length > 0;
+  const badgeLabel =
+    unseenCount > 99 ? "99+" : unseenCount > 0 ? String(unseenCount) : null;
+
   if (paneOpen) {
     return null;
   }
+
   return (
     <Button
-      aria-label={t("artifacts.openPane")}
-      className={cn(topbarIconButtonClassName, className)}
+      aria-label={
+        unseenCount > 0
+          ? t("artifacts.openPaneWithNew", { count: unseenCount })
+          : t("artifacts.openPane")
+      }
+      className={cn(
+        topbarIconButtonClassName,
+        // Square icon hit-target — contentBlend topbar forces !px-2 on buttons,
+        // which otherwise leaves a wide empty gap after solid CTAs.
+        "!size-7 !w-7 !min-w-7 !px-0 relative",
+        !hasContent && "opacity-40",
+        className
+      )}
+      disabled={!hasContent}
       onClick={() => setPaneOpen(true)}
       size="icon"
       variant="ghost"
     >
-      <PanelRightOpen className="size-4" />
+      <Layers className="size-4" />
+      {badgeLabel ? (
+        <span
+          aria-hidden
+          className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground leading-none"
+        >
+          {badgeLabel}
+        </span>
+      ) : null}
     </Button>
   );
 }

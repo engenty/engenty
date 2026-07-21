@@ -3,7 +3,6 @@
 // list state; this page registers shell chrome and renders panels.
 
 import {
-  ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
   type ObjectDisplayIntent,
   ObjectDisplayIntentProvider,
@@ -194,15 +193,8 @@ export function CopilotChatPage() {
     tc,
     thread.session,
   ]);
-  const topbarActions = useMemo(
-    () => (
-      <>
-        <ChatTopbarActions />
-        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
-      </>
-    ),
-    []
-  );
+  // Order: New Chat → artifacts trigger → ⋯ menu (menu stays far right).
+  const topbarActions = useMemo(() => <ChatTopbarActions />, []);
   const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
   const secondaryNavHeaderSlot = useMemo(() => <ChatShellHeader />, []);
 
