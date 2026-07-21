@@ -8,11 +8,15 @@
     "module.memory",
     "module.memory.read",
     "module.memory.write",
-    "module.memory.approve"
+    "module.memory.approve",
+    "ui.route.module.memory"
   ],
   "capabilities": {
     "operations": true,
     "ai": true
+  },
+  "ui": {
+    "entry": "@engenty/memory/ui/plugin"
   },
   "env": {
     "feature": {
