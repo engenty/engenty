@@ -120,10 +120,38 @@
     "inheritAction": "Erben",
     "inheritHint": "Erbt: {{model}}"
   },
+  "limits": {
+    "loadError": "Usage-Policy konnte nicht geladen werden. Läuft apps/ai und ist erreichbar?",
+    "enforcementTitle": "Durchsetzung & Budget",
+    "enforcementDesc": "KI-Ausgaben pro Periode begrenzen. Beobachten warnt; Durchsetzen blockiert Aufrufe ab dem Hard-Limit.",
+    "enforcementMode": "Modus",
+    "mode": {
+      "observe": "Beobachten",
+      "enforce": "Durchsetzen",
+      "observeHint": "Aufrufe über dem Limit laufen weiter; es gibt Banner und Header.",
+      "enforceHint": "Aufrufe über dem Limit werden mit strukturiertem 429 abgelehnt."
+    },
+    "softLimit": "Soft-Limit ($ / Periode)",
+    "softLimitHint": "Warnbanner für Admins; Aufrufe laufen weiter.",
+    "hardLimit": "Hard-Limit ($ / Periode)",
+    "hardLimitHint": "Bei Durchsetzung werden Aufrufe darüber blockiert.",
+    "savePolicy": "Policy speichern",
+    "iterationCapTitle": "Iterations-Cap",
+    "iterationCapDesc": "Mandanten-Standard für die Schritte pro Agent-Lauf (Plattform-Max 60). Wird mit den Modell-Einstellungen über die obere Leiste gespeichert.",
+    "iterationCap": "Max. Schritte pro Lauf",
+    "iterationCapHint": "Leer lassen, um den Plattform-Standard zu erben. Agenten können einzeln enger begrenzt werden.",
+    "allowlistTitle": "Modell-Allowlist",
+    "allowlistDesc": "Wenn gesetzt, dürfen nur diese Modelle aufgerufen werden. Leer = alle Gateway-Modelle erlaubt.",
+    "allowlistEmpty": "Alle Modelle erlaubt.",
+    "allowlistAdd": "Modell hinzufügen",
+    "allowlistRemove": "{{model}} entfernen",
+    "pro": "PRO"
+  },
   "sections": {
     "general": "Allgemein",
     "generalDesc": "Globale KI- und Copilot-Standards.",
     "models": "Modelle",
+    "limits": "Limits & Budgets",
     "copilot": "Copilot",
     "copilotDesc": "Chat-Modell-Standards für diesen Mandanten.",
     "classifier": "Klassifikation",

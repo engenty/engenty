@@ -13,6 +13,10 @@ import {
   type GatewayModelUseCase,
   listGatewayModelOptions,
 } from "./gateway-model-options-api";
+import {
+  getTenantUsagePolicy,
+  saveTenantUsagePolicy,
+} from "./usage-policy-api";
 
 export const aiSettingsKeys = {
   all: ["ai-settings"] as const,
@@ -80,6 +84,32 @@ export function useSaveAiSettingsMutation() {
     mutationFn: saveAiConfig,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: aiSettingsKeys.all });
+    },
+  });
+}
+
+export const tenantUsagePolicyKeys = {
+  all: ["ai-usage-policy"] as const,
+};
+
+export const tenantUsagePolicyOptions = queryOptions({
+  queryKey: tenantUsagePolicyKeys.all,
+  queryFn: ({ signal }) => getTenantUsagePolicy(signal),
+  staleTime: 30_000,
+});
+
+export function useTenantUsagePolicyQuery() {
+  return useQuery(tenantUsagePolicyOptions);
+}
+
+export function useSaveTenantUsagePolicyMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: saveTenantUsagePolicy,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: tenantUsagePolicyKeys.all,
+      });
     },
   });
 }

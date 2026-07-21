@@ -19,10 +19,17 @@ import { type AiScopeResolver, resolveScope } from "./http.js";
 const periodModeSchema = z.enum(["calendar", "rolling"]);
 const periodUnitSchema = z.enum(["day", "week", "month"]);
 
+// Tenant admins self-manage enforcement mode, budget caps, allow-list, and the
+// billing period. Superadmin-only fields (tier, included allowances, currency)
+// live on the admin extension below.
 const tenantPolicyPatchSchema = z.object({
   period_anchor: z.string().nullable().optional(),
   period_mode: periodModeSchema.optional(),
   period_unit: periodUnitSchema.optional(),
+  enforcement_mode: z.enum(["observe", "enforce"]).optional(),
+  soft_limit_cost_micros: z.number().int().nonnegative().nullable().optional(),
+  hard_limit_cost_micros: z.number().int().nonnegative().nullable().optional(),
+  allowed_models: z.array(z.string()).nullable().optional(),
 });
 
 const adminPolicySchema = tenantPolicyPatchSchema.extend({
@@ -30,10 +37,6 @@ const adminPolicySchema = tenantPolicyPatchSchema.extend({
   included_input_tokens: z.number().int().nonnegative().nullable().optional(),
   included_output_tokens: z.number().int().nonnegative().nullable().optional(),
   included_cost_micros: z.number().int().nonnegative().nullable().optional(),
-  hard_limit_cost_micros: z.number().int().nonnegative().nullable().optional(),
-  soft_limit_cost_micros: z.number().int().nonnegative().nullable().optional(),
-  allowed_models: z.array(z.string()).nullable().optional(),
-  enforcement_mode: z.enum(["observe", "enforce"]).optional(),
   currency: z.string().optional(),
 });
 
@@ -280,6 +283,20 @@ export function registerUsageRoutes(
         parsed.data.period_anchor === undefined
           ? current.period_anchor
           : parsed.data.period_anchor,
+      enforcement_mode:
+        parsed.data.enforcement_mode ?? current.enforcement_mode,
+      soft_limit_cost_micros:
+        parsed.data.soft_limit_cost_micros === undefined
+          ? current.soft_limit_cost_micros
+          : parsed.data.soft_limit_cost_micros,
+      hard_limit_cost_micros:
+        parsed.data.hard_limit_cost_micros === undefined
+          ? current.hard_limit_cost_micros
+          : parsed.data.hard_limit_cost_micros,
+      allowed_models:
+        parsed.data.allowed_models === undefined
+          ? current.allowed_models
+          : parsed.data.allowed_models,
       updated_at: new Date().toISOString(),
     });
     return c.json(policy);

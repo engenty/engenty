@@ -120,10 +120,38 @@
     "inheritAction": "Inherit",
     "inheritHint": "Inherits: {{model}}"
   },
+  "limits": {
+    "loadError": "Couldn't load the usage policy. Ensure apps/ai is running and reachable.",
+    "enforcementTitle": "Enforcement & budget",
+    "enforcementDesc": "Cap AI spend per period. Observe warns; enforce blocks calls once the hard limit is reached.",
+    "enforcementMode": "Mode",
+    "mode": {
+      "observe": "Observe",
+      "enforce": "Enforce",
+      "observeHint": "Over-limit calls still run; you get banners and headers.",
+      "enforceHint": "Over-limit calls are rejected with a structured 429."
+    },
+    "softLimit": "Soft limit ($ / period)",
+    "softLimitHint": "Admin warning banner; calls keep running.",
+    "hardLimit": "Hard limit ($ / period)",
+    "hardLimitHint": "When enforcing, calls are blocked past this.",
+    "savePolicy": "Save policy",
+    "iterationCapTitle": "Iteration cap",
+    "iterationCapDesc": "Tenant default for how many steps an agent run may take (platform max 60). Saved with the model settings via the top bar.",
+    "iterationCap": "Max steps per run",
+    "iterationCapHint": "Leave blank to inherit the platform default. Agents can be capped lower individually.",
+    "allowlistTitle": "Model allow-list",
+    "allowlistDesc": "When set, only these models may be called. Empty means all Gateway models are allowed.",
+    "allowlistEmpty": "All models allowed.",
+    "allowlistAdd": "Add model",
+    "allowlistRemove": "Remove {{model}}",
+    "pro": "PRO"
+  },
   "sections": {
     "general": "General",
     "generalDesc": "Global AI and copilot defaults.",
     "models": "Models",
+    "limits": "Limits & budgets",
     "copilot": "Copilot",
     "copilotDesc": "Chat model defaults for this tenant.",
     "classifier": "Classifier",

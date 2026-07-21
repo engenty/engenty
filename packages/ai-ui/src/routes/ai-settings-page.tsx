@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CopilotAdminLinksSection } from "../features/ai-settings/copilot-admin-links-section";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
+import { LimitsBudgetsTab } from "../features/ai-settings/limits-budgets-tab";
 import {
   mapGatewayModelSelectOptions,
   mergeSelectedGatewayModelOptions,
@@ -29,7 +30,7 @@ import {
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
 
 const DEFAULT_TAB = "copilot";
-const VALID_TABS = new Set([DEFAULT_TAB, "doc-converter"]);
+const VALID_TABS = new Set([DEFAULT_TAB, "limits", "doc-converter"]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
   "cheap",
@@ -222,6 +223,7 @@ export function AiGeneralSettingsPage() {
               variant="line"
             >
               <TabsTrigger value="copilot">{t("sections.models")}</TabsTrigger>
+              <TabsTrigger value="limits">{t("sections.limits")}</TabsTrigger>
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
@@ -231,7 +233,9 @@ export function AiGeneralSettingsPage() {
 
         <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-page">
           {saveError &&
-          (activeTab === "copilot" || activeTab === "doc-converter") ? (
+          (activeTab === "copilot" ||
+            activeTab === "limits" ||
+            activeTab === "doc-converter") ? (
             <div
               className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
               role="alert"
@@ -258,28 +262,30 @@ export function AiGeneralSettingsPage() {
             </div>
           ) : null}
 
-          <div className="flex items-center gap-2 text-sm">
-            <Label htmlFor="ai-settings-max-price-tier">
-              {t("fields.maxPriceTier")}
-            </Label>
-            <select
-              aria-label={t("fields.maxPriceTier")}
-              className="h-8 rounded-sm border bg-background px-2 text-sm"
-              id="ai-settings-max-price-tier"
-              onChange={(event) =>
-                setMaxPriceTier(
-                  event.target.value as "all" | GatewayModelPriceTier
-                )
-              }
-              value={maxPriceTier}
-            >
-              {PRICE_TIERS.map((tier) => (
-                <option key={tier} value={tier}>
-                  {t(`fields.priceTier.${tier}`)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {activeTab === "copilot" ? (
+            <div className="flex items-center gap-2 text-sm">
+              <Label htmlFor="ai-settings-max-price-tier">
+                {t("fields.maxPriceTier")}
+              </Label>
+              <select
+                aria-label={t("fields.maxPriceTier")}
+                className="h-8 rounded-sm border bg-background px-2 text-sm"
+                id="ai-settings-max-price-tier"
+                onChange={(event) =>
+                  setMaxPriceTier(
+                    event.target.value as "all" | GatewayModelPriceTier
+                  )
+                }
+                value={maxPriceTier}
+              >
+                {PRICE_TIERS.map((tier) => (
+                  <option key={tier} value={tier}>
+                    {t(`fields.priceTier.${tier}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <TabsContent className="space-y-6" value="copilot">
             <ModelMatrixCard
@@ -291,6 +297,15 @@ export function AiGeneralSettingsPage() {
               updateSettings={updateSettings}
             />
             <CopilotAdminLinksSection />
+          </TabsContent>
+
+          <TabsContent className="space-y-6" value="limits">
+            <LimitsBudgetsTab
+              effective={effectiveQuery.data}
+              settings={settings}
+              t={t}
+              updateSettings={updateSettings}
+            />
           </TabsContent>
 
           <TabsContent className="space-y-6" value="doc-converter">
