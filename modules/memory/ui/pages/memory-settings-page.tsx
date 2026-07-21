@@ -21,6 +21,7 @@ import {
   Badge,
   Button,
   Card,
+  DetailPageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -394,8 +395,12 @@ export function MemorySettingsPage() {
 
   usePageConfig({
     breadcrumbs,
+    contentStackBackground: "paper",
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white header so the two blend into
+    // one continuous surface (matches the contact / roles detail pages).
+    topbarOverlap: true,
   });
 
   const setTab = (next: string) => {
@@ -411,89 +416,102 @@ export function MemorySettingsPage() {
   };
 
   return (
-    <section className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-auto p-page pb-10">
-      <div>
-        <h1 className="font-semibold text-xl">
-          {t("title", { defaultValue: "Memory" })}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {t("subtitle", {
-            defaultValue:
-              "What your agents have learned — each scope is one document. Edit it like text; every block stays a tracked record.",
-          })}
-        </p>
-      </div>
-      <Tabs onValueChange={setTab} value={tab}>
-        <TabsList>
-          <TabsTrigger value="profile">
-            {t("tabs.profile", { defaultValue: "Profile" })}
-          </TabsTrigger>
-          <TabsTrigger value="mine">
-            {t("tabs.mine", { defaultValue: "My memory" })}
-          </TabsTrigger>
-          <TabsTrigger value="projects">
-            {t("tabs.projects", { defaultValue: "Projects" })}
-          </TabsTrigger>
-          <TabsTrigger value="org">
-            {t("tabs.org", { defaultValue: "Organization" })}
-          </TabsTrigger>
-          <TabsTrigger value="entities">
-            {t("tabs.entities", { defaultValue: "Entities" })}
-          </TabsTrigger>
-        </TabsList>
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <Tabs
+        className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+        onValueChange={setTab}
+        value={tab}
+      >
+        <DetailPageHeader
+          belowStrip={
+            <TabsList
+              className="-mb-px w-fit border-0 bg-transparent p-0"
+              variant="line"
+            >
+              <TabsTrigger value="profile">
+                {t("tabs.profile", { defaultValue: "Profile" })}
+              </TabsTrigger>
+              <TabsTrigger value="mine">
+                {t("tabs.mine", { defaultValue: "My memory" })}
+              </TabsTrigger>
+              <TabsTrigger value="projects">
+                {t("tabs.projects", { defaultValue: "Projects" })}
+              </TabsTrigger>
+              <TabsTrigger value="org">
+                {t("tabs.org", { defaultValue: "Organization" })}
+              </TabsTrigger>
+              <TabsTrigger value="entities">
+                {t("tabs.entities", { defaultValue: "Entities" })}
+              </TabsTrigger>
+            </TabsList>
+          }
+          description={
+            <p className="text-muted-foreground text-sm">
+              {t("subtitle", {
+                defaultValue:
+                  "What your agents have learned — each scope is one document. Edit it like text; every block stays a tracked record.",
+              })}
+            </p>
+          }
+          title={t("title", { defaultValue: "Memory" })}
+        />
 
-        <TabsContent className="pt-4" value="profile">
-          <ProfileTab />
-        </TabsContent>
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
+          <div className="mx-auto w-full max-w-5xl">
+            <TabsContent value="profile">
+              <ProfileTab />
+            </TabsContent>
 
-        <TabsContent className="pt-4" value="mine">
-          {currentUserId ? (
-            <ScopeDocEditor
-              canEdit
-              scope={{ scope_kind: "user", scope_ref: currentUserId }}
-              showApprovals={false}
-            />
-          ) : null}
-        </TabsContent>
+            <TabsContent value="mine">
+              {currentUserId ? (
+                <ScopeDocEditor
+                  canEdit
+                  scope={{ scope_kind: "user", scope_ref: currentUserId }}
+                  showApprovals={false}
+                />
+              ) : null}
+            </TabsContent>
 
-        <TabsContent className="space-y-4 pt-4" value="projects">
-          <RefPicker
-            onSelect={setRef}
-            scopeKind="project"
-            selected={selectedRef}
-          />
-          {selectedRef ? (
-            <ScopeDocEditor
-              canEdit
-              scope={{ scope_kind: "project", scope_ref: selectedRef }}
-              showApprovals={false}
-            />
-          ) : null}
-        </TabsContent>
+            <TabsContent className="space-y-4" value="projects">
+              <RefPicker
+                onSelect={setRef}
+                scopeKind="project"
+                selected={selectedRef}
+              />
+              {selectedRef ? (
+                <ScopeDocEditor
+                  canEdit
+                  scope={{ scope_kind: "project", scope_ref: selectedRef }}
+                  showApprovals={false}
+                />
+              ) : null}
+            </TabsContent>
 
-        <TabsContent className="pt-4" value="org">
-          <ScopeDocEditor
-            canEdit
-            scope={{ scope_kind: "org", scope_ref: null }}
-            showApprovals
-          />
-        </TabsContent>
+            <TabsContent value="org">
+              <ScopeDocEditor
+                canEdit
+                scope={{ scope_kind: "org", scope_ref: null }}
+                showApprovals
+              />
+            </TabsContent>
 
-        <TabsContent className="space-y-4 pt-4" value="entities">
-          <RefPicker
-            onSelect={setRef}
-            scopeKind="entity"
-            selected={selectedRef}
-          />
-          {selectedRef ? (
-            <ScopeDocEditor
-              canEdit
-              scope={{ scope_kind: "entity", scope_ref: selectedRef }}
-              showApprovals={false}
-            />
-          ) : null}
-        </TabsContent>
+            <TabsContent className="space-y-4" value="entities">
+              <RefPicker
+                onSelect={setRef}
+                scopeKind="entity"
+                selected={selectedRef}
+              />
+              {selectedRef ? (
+                <ScopeDocEditor
+                  canEdit
+                  scope={{ scope_kind: "entity", scope_ref: selectedRef }}
+                  showApprovals={false}
+                />
+              ) : null}
+            </TabsContent>
+          </div>
+        </div>
       </Tabs>
-    </section>
+    </div>
   );
 }
