@@ -8,11 +8,13 @@ import {
   ListToolbarIconButton,
 } from "@engenty/ui-core";
 import {
+  Bot,
   Kanban,
   List,
   ListFilter,
   Rows2,
   SlidersHorizontal,
+  User,
   X,
 } from "lucide-react";
 import type { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
@@ -25,7 +27,10 @@ import type {
 } from "./tasks-display-dialog.js";
 import { TasksDisplayDialog } from "./tasks-display-dialog.js";
 
+export type TasksAssigneeKind = "user" | "agent" | "";
+
 interface TasksToolbarProps {
+  assigneeKind?: TasksAssigneeKind;
   bulkActions?: React.ReactNode;
   clearSelectionLabel?: string;
   columnOrder: string[];
@@ -34,6 +39,7 @@ interface TasksToolbarProps {
   filtersExpanded: boolean;
   hasActiveFilters: boolean;
   labels: ReturnType<typeof getTasksToolbarLabels>;
+  onAssigneeKindChange?: (kind: TasksAssigneeKind) => void;
   onClearSelection?: () => void;
   onFiltersToggle: () => void;
   onSearchChange: (value: string) => void;
@@ -53,6 +59,8 @@ interface TasksToolbarProps {
 }
 
 export function TasksToolbar({
+  assigneeKind = "",
+  onAssigneeKindChange,
   searchQuery,
   onSearchChange,
   labels,
@@ -147,6 +155,19 @@ export function TasksToolbar({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
+          {onAssigneeKindChange && (
+            <ListIconSegmentToggle<TasksAssigneeKind>
+              allowDeselect
+              aria-label={labels.filterByAssigneeKind}
+              className="shrink-0"
+              onChange={(next) => onAssigneeKindChange(next)}
+              segments={[
+                { value: "user", label: labels.assigneeHuman, icon: User },
+                { value: "agent", label: labels.assigneeAgent, icon: Bot },
+              ]}
+              value={assigneeKind}
+            />
+          )}
           <ListIconSegmentToggle<TasksViewMode>
             onChange={(next) => {
               if (next !== "") {

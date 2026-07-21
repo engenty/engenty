@@ -146,6 +146,8 @@ export function registerTasksApi(
           "pageSize",
           "search",
           "status",
+          "owner_agent_type_key",
+          "owner_kind",
           "sortBy",
           "sortOrder",
         ])
@@ -342,6 +344,7 @@ export function registerTasksApi(
           "goal_id",
           "parent_id",
           "assigned_to",
+          "assignee_kind",
           "context_type",
           "context_id",
           "context_metadata_phase_id",

@@ -25,7 +25,10 @@ import type {
   GoalsSortColumn,
 } from "../components/goals-display-dialog.js";
 import { GoalsListTable } from "../components/goals-list-table.js";
-import { GoalsToolbar } from "../components/goals-toolbar.js";
+import {
+  type GoalsOwnerKind,
+  GoalsToolbar,
+} from "../components/goals-toolbar.js";
 import { useTasksGoalsListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
@@ -87,6 +90,7 @@ export function GoalsListPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<GoalStatus | "all">("all");
+  const [ownerKind, setOwnerKind] = useState<GoalsOwnerKind>("");
   const [page, setPage] = useState(1);
 
   const { openCreateGoal, pageActions, topbarDialogs } =
@@ -100,10 +104,11 @@ export function GoalsListPage() {
       pageSize,
       search: search.trim() || undefined,
       status: statusFilter === "all" ? undefined : statusFilter,
+      owner_kind: ownerKind || undefined,
       sortBy,
       sortOrder,
     }),
-    [page, pageSize, search, statusFilter, sortBy, sortOrder]
+    [page, pageSize, search, statusFilter, ownerKind, sortBy, sortOrder]
   );
 
   const listQuery = useGoalsListQuery(listParams);
@@ -146,7 +151,7 @@ export function GoalsListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, sortBy, sortOrder]);
+  }, [search, statusFilter, ownerKind, sortBy, sortOrder]);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTasksModuleSecondaryShellNav();
@@ -217,8 +222,10 @@ export function GoalsListPage() {
         columns={[...columnOptions]}
         columnVisibility={columnVisibility}
         labels={labels}
+        onOwnerKindChange={setOwnerKind}
         onSearchChange={handleSearchChange}
         onStatusFilterChange={handleStatusFilterChange}
+        ownerKind={ownerKind}
         searchQuery={search}
         setColumnOrder={setColumnOrder}
         setColumnVisibility={setColumnVisibility}
@@ -249,19 +256,20 @@ export function GoalsListPage() {
               <Target className="h-12 w-12" />
             </EmptyMedia>
             <EmptyTitle>
-              {search.trim() || statusFilter !== "all"
+              {search.trim() || statusFilter !== "all" || ownerKind !== ""
                 ? t("goals.noSearchResults")
                 : t("goals.empty")}
             </EmptyTitle>
             <EmptyDescription>{t("goals.emptyDescription")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            {search.trim() || statusFilter !== "all" ? (
+            {search.trim() || statusFilter !== "all" || ownerKind !== "" ? (
               <button
                 className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
                 onClick={() => {
                   handleSearchChange("");
                   handleStatusFilterChange("all");
+                  setOwnerKind("");
                 }}
                 type="button"
               >

@@ -85,6 +85,7 @@ export const tasksListQuerySchema = z.object({
   parent_id: z.string().uuid().optional(),
   project_id: z.string().uuid().optional(),
   assigned_to: z.string().uuid().optional(),
+  assignee_kind: z.enum(["user", "agent"]).optional(),
   context_type: z.string().optional(),
   context_id: z.string().optional(),
   context_metadata_phase_id: z.string().optional(),
@@ -177,6 +178,8 @@ export const goalsListQuerySchema = z.object({
   status: z.enum(["planned", "active", "achieved", "cancelled"]).optional(),
   /** Filter to goals owned by this agent type key (e.g. "engenty.coordinator"). */
   owner_agent_type_key: z.string().optional(),
+  /** Filter by owner kind: a human user or an agent. */
+  owner_kind: z.enum(["user", "agent"]).optional(),
   sortBy: z.enum(["updated_at", "created_at", "title", "status"]).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });

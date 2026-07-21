@@ -47,7 +47,10 @@ import {
   type TasksListFilterState,
 } from "../components/tasks-list-filter-bar.js";
 import { TasksListTable } from "../components/tasks-list-table.js";
-import { TasksToolbar } from "../components/tasks-toolbar.js";
+import {
+  type TasksAssigneeKind,
+  TasksToolbar,
+} from "../components/tasks-toolbar.js";
 import { useTasksListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksListEnrichments } from "../hooks/use-tasks-list-enrichments.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
@@ -113,6 +116,7 @@ export function TasksListPage() {
     goalId: "all",
   });
   const [page, setPage] = useState(1);
+  const [assigneeKind, setAssigneeKind] = useState<TasksAssigneeKind>("");
 
   const { openCreateTask, pageActions, topbarDialogs } =
     useTasksTopbarActions();
@@ -129,6 +133,7 @@ export function TasksListPage() {
         filters.assignee === "all" || filters.assignee === "unassigned"
           ? undefined
           : filters.assignee,
+      assignee_kind: assigneeKind || undefined,
       goal_id: filters.goalId === "all" ? undefined : filters.goalId,
       sortBy,
       sortOrder,
@@ -139,6 +144,7 @@ export function TasksListPage() {
       search,
       filters.status,
       filters.assignee,
+      assigneeKind,
       filters.goalId,
       sortBy,
       sortOrder,
@@ -323,7 +329,7 @@ export function TasksListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, filters, sortBy, sortOrder, viewMode]);
+  }, [search, filters, sortBy, sortOrder, viewMode, assigneeKind]);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTasksModuleSecondaryShellNav();
@@ -423,7 +429,8 @@ export function TasksListPage() {
     filters.status !== "all" ||
     filters.assignee !== "all" ||
     filters.priority !== "all" ||
-    filters.goalId !== "all";
+    filters.goalId !== "all" ||
+    assigneeKind !== "";
 
   const assigneeOptions = useMemo(
     () =>
@@ -453,6 +460,7 @@ export function TasksListPage() {
     <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-page">
       <div className="shrink-0 space-y-2">
         <TasksToolbar
+          assigneeKind={assigneeKind}
           bulkActions={bulkActions}
           clearSelectionLabel={t("list.clearSelection")}
           columnOrder={effectiveColumnOrder}
@@ -461,6 +469,7 @@ export function TasksListPage() {
           filtersExpanded={filtersExpanded}
           hasActiveFilters={hasActiveFilters}
           labels={labels}
+          onAssigneeKindChange={setAssigneeKind}
           onClearSelection={clearSelection}
           onFiltersToggle={() => setFiltersExpanded((prev) => !prev)}
           onSearchChange={handleSearchChange}

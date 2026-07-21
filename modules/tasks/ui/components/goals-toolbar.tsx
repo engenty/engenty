@@ -11,7 +11,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@engenty/ui-core";
-import { List, Rows2, SlidersHorizontal } from "lucide-react";
+import { Bot, List, Rows2, SlidersHorizontal, User } from "lucide-react";
 import type { GoalStatus } from "../../src/schema/types.js";
 import type { getGoalsToolbarLabels } from "../lib/goals-toolbar-labels.js";
 import { GOAL_STATUSES } from "./goal-status-badge.js";
@@ -24,13 +24,17 @@ import type {
 } from "./goals-display-dialog.js";
 import { GoalsDisplayDialog } from "./goals-display-dialog.js";
 
+export type GoalsOwnerKind = "user" | "agent" | "";
+
 interface GoalsToolbarProps {
   columnOrder: (keyof GoalsColumnVisibility)[];
   columns: GoalColumnOption[];
   columnVisibility: GoalsColumnVisibility;
   labels: ReturnType<typeof getGoalsToolbarLabels>;
+  onOwnerKindChange: (kind: GoalsOwnerKind) => void;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (status: GoalStatus | "all") => void;
+  ownerKind: GoalsOwnerKind;
   searchQuery: string;
   setColumnOrder: (order: (keyof GoalsColumnVisibility)[]) => void;
   setColumnVisibility: (value: GoalsColumnVisibility) => void;
@@ -52,6 +56,8 @@ export function GoalsToolbar({
   statusFilter,
   onStatusFilterChange,
   labels,
+  ownerKind,
+  onOwnerKindChange,
   viewMode,
   setViewMode,
   tableSize,
@@ -105,8 +111,19 @@ export function GoalsToolbar({
         {labels.paginationSummary}
       </p>
 
+      <ListIconSegmentToggle<GoalsOwnerKind>
+        allowDeselect
+        aria-label={labels.filterByOwnerKind}
+        className="ml-auto shrink-0"
+        onChange={(next) => onOwnerKindChange(next)}
+        segments={[
+          { value: "user", label: labels.ownerHuman, icon: User },
+          { value: "agent", label: labels.ownerAgent, icon: Bot },
+        ]}
+        value={ownerKind}
+      />
+
       <ListIconSegmentToggle<GoalsViewMode>
-        className="ml-auto"
         onChange={(next) => {
           if (next !== "") {
             setViewMode(next);

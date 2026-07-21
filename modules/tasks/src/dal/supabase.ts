@@ -482,6 +482,9 @@ export function createTasksRepoSupabase(
       if (params.project_id) {
         query = query.eq("project_id", params.project_id);
       }
+      if (params.assignee_kind) {
+        query = query.eq("primary_assignee_kind", params.assignee_kind);
+      }
       if (params.search?.trim()) {
         const q = `%${params.search.trim()}%`;
         query = query.or(`title.ilike.${q},identifier.ilike.${q}`);
@@ -1004,6 +1007,13 @@ export function createTasksRepoSupabase(
       }
       if (params.owner_agent_type_key) {
         query = query.eq("owner_agent_type_key", params.owner_agent_type_key);
+      }
+      if (params.owner_kind === "agent") {
+        query = query.not("owner_agent_type_key", "is", null);
+      } else if (params.owner_kind === "user") {
+        query = query
+          .is("owner_agent_type_key", null)
+          .not("owner_user_id", "is", null);
       }
       if (params.parent_id) {
         query = query.eq("parent_id", params.parent_id);

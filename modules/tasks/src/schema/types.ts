@@ -168,6 +168,8 @@ export interface TaskDetail extends Task {
 
 export interface TasksQueryParams {
   assigned_to?: string | null;
+  /** Filter by who the task is assigned to: a human user or an agent. */
+  assignee_kind?: "user" | "agent" | null;
   context_id?: string | null;
   context_metadata_phase_id?: string | null;
   context_type?: string | null;
@@ -192,6 +194,8 @@ export interface TasksPaginatedResponse {
 
 export interface GoalsQueryParams {
   owner_agent_type_key?: string | null;
+  /** Filter by owner kind: a human user or an agent. */
+  owner_kind?: "user" | "agent" | null;
   page?: number;
   pageSize?: number;
   parent_id?: string | null;
