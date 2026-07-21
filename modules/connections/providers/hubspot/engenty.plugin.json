@@ -5,9 +5,7 @@
   "version": "0.0.1",
   "kind": "module",
   "category": "integrations",
-  "provides": [
-    "module.connections-hubspot"
-  ],
+  "provides": ["module.connections-hubspot"],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -22,7 +20,5 @@
     },
     "vars": []
   },
-  "requires": [
-    "module.connections"
-  ]
+  "requires": ["module.connections"]
 }

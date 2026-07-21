@@ -4,9 +4,7 @@
   "name": "Knowledge Base Manager",
   "description": "Knowledge base capture, compilation, and maintenance.",
   "module_id": "knowledge-base",
-  "instruction_keys": [
-    "knowledge-base.manager.agents"
-  ],
+  "instruction_keys": ["knowledge-base.manager.agents"],
   "skills": [
     "kb-agentic-source-ingest",
     "kb-article-content-management",

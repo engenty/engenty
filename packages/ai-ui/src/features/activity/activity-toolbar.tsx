@@ -148,6 +148,11 @@ export function ActivityToolbar({
             <ListSearchInput
               className="w-full pr-10"
               onChange={(event) => onSearchChange(event.target.value)}
+              onOpenFilters={() => {
+                if (!filtersExpanded) {
+                  onFiltersToggle();
+                }
+              }}
               placeholder={t("activity.searchPlaceholder")}
               value={searchQuery}
               wrapperClassName="w-full"

@@ -35,10 +35,7 @@
           "kind": "manual"
         },
         "required": "optional",
-        "scopes": [
-          "root",
-          "deploy"
-        ],
+        "scopes": ["root", "deploy"],
         "secret": false
       }
     ]

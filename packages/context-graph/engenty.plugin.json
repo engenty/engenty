@@ -5,9 +5,7 @@
   "version": "0.0.1",
   "kind": "package",
   "category": "platform",
-  "provides": [
-    "context-graph"
-  ],
+  "provides": ["context-graph"],
   "capabilities": {
     "ai": false,
     "frontendTools": false,

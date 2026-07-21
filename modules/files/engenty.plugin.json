@@ -18,7 +18,5 @@
     "ai": false,
     "frontendTools": false
   },
-  "requires": [
-    "module.connections"
-  ]
+  "requires": ["module.connections"]
 }

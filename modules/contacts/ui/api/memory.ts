@@ -31,12 +31,11 @@ async function invokeOperation<T>(
 }
 
 /** Memory entity ref for a contact — mirrors the context-graph type ids. */
-export function contactEntityRef(entity: {
-  id: string;
-  type: string;
-}): string {
+export function contactEntityRef(entity: { id: string; type: string }): string {
   const typeId =
-    entity.type === "organisation" ? "contacts.organisation" : "contacts.person";
+    entity.type === "organisation"
+      ? "contacts.organisation"
+      : "contacts.person";
   return `${typeId}:${entity.id}`;
 }
 

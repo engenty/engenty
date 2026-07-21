@@ -40,10 +40,7 @@
           "url": "https://vercel.com/docs/ai-gateway"
         },
         "required": "feature",
-        "scopes": [
-          "root",
-          "deploy"
-        ],
+        "scopes": ["root", "deploy"],
         "secret": true
       },
       {
@@ -56,9 +53,7 @@
           "kind": "manual"
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": false
       },
       {
@@ -71,10 +66,7 @@
           "kind": "manual"
         },
         "required": "optional",
-        "scopes": [
-          "root",
-          "deploy"
-        ],
+        "scopes": ["root", "deploy"],
         "secret": false
       },
       {
@@ -87,10 +79,7 @@
           "kind": "manual"
         },
         "required": "optional",
-        "scopes": [
-          "root",
-          "deploy"
-        ],
+        "scopes": ["root", "deploy"],
         "secret": false
       },
       {
@@ -107,10 +96,7 @@
           "url": "https://platform.openai.com/api-keys"
         },
         "required": "optional",
-        "scopes": [
-          "root",
-          "deploy"
-        ],
+        "scopes": ["root", "deploy"],
         "secret": true
       }
     ]

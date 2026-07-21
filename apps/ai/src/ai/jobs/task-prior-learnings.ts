@@ -126,10 +126,12 @@ export async function buildPriorLearningsSection(
       .sort(
         (a, b) =>
           (confidenceRank[
-            (a as { confidence?: string }).confidence as keyof typeof confidenceRank
+            (a as { confidence?: string })
+              .confidence as keyof typeof confidenceRank
           ] ?? 1) -
           (confidenceRank[
-            (b as { confidence?: string }).confidence as keyof typeof confidenceRank
+            (b as { confidence?: string })
+              .confidence as keyof typeof confidenceRank
           ] ?? 1)
       )
       .slice(0, 8);

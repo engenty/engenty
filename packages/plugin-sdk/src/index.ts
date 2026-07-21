@@ -8,12 +8,6 @@ import type { FeatureFlagDefinition as _FeatureFlagDefinition } from "@engenty/f
 import type { PluginCategory } from "./plugin-category.js";
 
 export type { FeatureFlagDefinition } from "@engenty/feature-flags";
-export type { PluginCategory } from "./plugin-category.js";
-export {
-  isPluginCategory,
-  PLUGIN_CATEGORIES,
-  pluginCategoryRank,
-} from "./plugin-category.js";
 export {
   AUTOMATION_HOOK_KB_INBOX_ITEM_CREATED,
   type AutomationHookListener,
@@ -47,6 +41,12 @@ export type {
   PluginContextGraphServerApi,
 } from "./context-graph-registration.js";
 export { ownershipPolicy } from "./ownership-policy.js";
+export type { PluginCategory } from "./plugin-category.js";
+export {
+  isPluginCategory,
+  PLUGIN_CATEGORIES,
+  pluginCategoryRank,
+} from "./plugin-category.js";
 export {
   type CreatePluginEventsRuntimeOptions,
   createPluginEventsRuntime,

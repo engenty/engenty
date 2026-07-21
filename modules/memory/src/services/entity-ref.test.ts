@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createEntityRefValidator,
-  parseEntityRef,
-} from "./entity-ref.js";
+import { createEntityRefValidator, parseEntityRef } from "./entity-ref.js";
 
 describe("parseEntityRef", () => {
   it("parses '<dotted-type>:<id>' refs", () => {
@@ -17,7 +14,13 @@ describe("parseEntityRef", () => {
   });
 
   it("rejects malformed refs", () => {
-    for (const bad of ["", "contacts.person", "person:123", "Foo.Bar:1", ":x"]) {
+    for (const bad of [
+      "",
+      "contacts.person",
+      "person:123",
+      "Foo.Bar:1",
+      ":x",
+    ]) {
       expect(() => parseEntityRef(bad)).toThrow(/invalid entity ref/);
     }
   });

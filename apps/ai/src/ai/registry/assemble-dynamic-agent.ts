@@ -15,12 +15,11 @@ import {
   engentyCodeModeTool,
 } from "../../../ai/tools/engenty-tools/code-mode.js";
 import { ENGENTY_TOOL_EXECUTE_TOOL_ID } from "../../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
+import { AiSessionError } from "../errors.js";
 import {
   MEMORY_INSTRUCTIONS,
   MEMORY_SAVE_TOOL_ID,
 } from "../instructions/memory-instructions.js";
-
-import { AiSessionError } from "../errors.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
 import { gatewayFileDataMiddleware } from "./gateway-file-data-middleware.js";
 import type { AgentConfig, AiRegistry, MastraToolDefinition } from "./types.js";

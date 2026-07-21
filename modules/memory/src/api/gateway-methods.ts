@@ -1,16 +1,13 @@
-import type {
-  PluginAuthContext,
-  PluginServerApi,
-} from "@engenty/plugin-sdk";
+import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { MemoryRepo } from "../dal/contracts.js";
-import type { EntityRefValidator } from "../services/entity-ref.js";
 import {
   memoryRecordArchiveInputSchema,
   memoryRecordListInputSchema,
   memoryRecordSchema,
   memoryRecordUpsertInputSchema,
 } from "../schema/zod.js";
+import type { EntityRefValidator } from "../services/entity-ref.js";
 
 export type MemoryRepoFactory = (auth: PluginAuthContext) => MemoryRepo;
 
@@ -32,7 +29,12 @@ export interface MemoryGatewayOptions {
    * plugin can notify approvers. Best-effort — failures never fail the save.
    */
   onProposalCreated?: (
-    record: { id: string; slug: string; title: string; agent_type_key: string | null },
+    record: {
+      id: string;
+      slug: string;
+      title: string;
+      agent_type_key: string | null;
+    },
     auth: PluginAuthContext
   ) => Promise<void> | void;
   /** Validates entity scope_refs against the context-graph ontology. */
@@ -134,9 +136,9 @@ export function registerMemoryGatewayMethods(
       const repo = repoFactory(auth);
       const rows = await repo.list({
         ...(parsed.scope_kind ? { scope_kind: parsed.scope_kind } : {}),
-        ...(parsed.scope_ref !== undefined
-          ? { scope_ref: parsed.scope_ref }
-          : {}),
+        ...(parsed.scope_ref === undefined
+          ? {}
+          : { scope_ref: parsed.scope_ref }),
         ...(parsed.kind ? { kind: parsed.kind } : {}),
         ...(parsed.status ? { status: parsed.status } : {}),
         limit: parsed.limit,
@@ -159,7 +161,9 @@ export function registerMemoryGatewayMethods(
       const repo = repoFactory(auth);
       const record = await repo.getById(parsed.id);
       if (!record) {
-        throw new Error(`memory_record_archive: record '${parsed.id}' not found`);
+        throw new Error(
+          `memory_record_archive: record '${parsed.id}' not found`
+        );
       }
       if (record.status === "archived") {
         return record;
@@ -216,7 +220,9 @@ export function registerMemoryGatewayMethods(
       const repo = repoFactory(auth);
       const record = await repo.getById(parsed.id);
       if (!record) {
-        throw new Error(`memory_record_approve: record '${parsed.id}' not found`);
+        throw new Error(
+          `memory_record_approve: record '${parsed.id}' not found`
+        );
       }
       if (record.status !== "proposed") {
         throw new Error(

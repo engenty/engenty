@@ -29,6 +29,11 @@ export function SecretsListToolbar({
           <ListSearchInput
             className="w-full pr-10"
             onChange={(event) => onSearchChange(event.target.value)}
+            onOpenFilters={() => {
+              if (!filtersExpanded) {
+                onFiltersToggle();
+              }
+            }}
             placeholder={searchPlaceholder}
             value={searchQuery}
             wrapperClassName="w-full"

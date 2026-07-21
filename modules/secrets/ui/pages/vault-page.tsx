@@ -11,8 +11,11 @@ import {
   EmptyHeader,
   EmptyTitle,
   Skeleton,
-  TopbarActionLabel,
-  topbarIconButtonClassName,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  useListToolbarHotkeys,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import {
@@ -26,7 +29,7 @@ import {
   Users,
 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { type ComponentType, useMemo, useState } from "react";
+import { type ComponentType, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { SecretListItem } from "../api.js";
 import { SecretFormDialog } from "../components/secret-form-dialog.js";
@@ -277,15 +280,19 @@ export function VaultPage() {
     0
   );
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     setEditing(null);
     setFormOpen(true);
-  }
+  }, []);
 
   function openEdit(secret: SecretListItem) {
     setEditing(secret);
     setFormOpen(true);
   }
+
+  useListToolbarHotkeys({
+    onNewItem: openCreate,
+  });
 
   function toggleRevealAll() {
     if (revealAllActive) {
@@ -308,26 +315,31 @@ export function VaultPage() {
   const pageActions = useMemo(
     () => (
       <div className="flex items-center gap-2">
-        <Button
-          aria-label={
-            revealAllActive ? t("vault.hideAll") : t("vault.revealAll")
-          }
-          className={topbarIconButtonClassName}
-          disabled={visibleCount === 0}
-          onClick={toggleRevealAll}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {revealAllActive ? (
-            <EyeOff className="h-4 w-4" />
-          ) : (
-            <Eye className="h-4 w-4" />
-          )}
-          <TopbarActionLabel>
-            {revealAllActive ? t("vault.hideAll") : t("vault.revealAll")}
-          </TopbarActionLabel>
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={
+                  revealAllActive ? t("vault.hideAll") : t("vault.revealAll")
+                }
+                disabled={visibleCount === 0}
+                onClick={toggleRevealAll}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                {revealAllActive ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {revealAllActive ? t("vault.hideAll") : t("vault.revealAll")}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm">
@@ -348,7 +360,7 @@ export function VaultPage() {
         </DropdownMenu>
       </div>
     ),
-    [navigate, revealAllActive, t, visibleCount]
+    [navigate, openCreate, revealAllActive, t, visibleCount]
   );
 
   usePageConfig({

@@ -281,6 +281,11 @@ export function SkillCatalogToolbar({
             <ListSearchInput
               className="w-full pr-10"
               onChange={(event) => onSearchChange(event.target.value)}
+              onOpenFilters={() => {
+                if (!filtersExpanded) {
+                  onFiltersToggle();
+                }
+              }}
               placeholder={labels.searchPlaceholder}
               value={searchQuery}
               wrapperClassName="w-full"

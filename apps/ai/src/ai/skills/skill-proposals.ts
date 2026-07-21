@@ -9,8 +9,8 @@
 import { fileStorageTenantObjectKey } from "@engenty/file-storage";
 import {
   parseSkillMarkdown,
-  serializeSkillMarkdown,
   type SkillFrontmatter,
+  serializeSkillMarkdown,
 } from "./skill-frontmatter.js";
 
 export const SKILL_PROPOSAL_SOURCE = "agent-proposal";

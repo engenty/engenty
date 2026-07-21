@@ -11,13 +11,8 @@
     "module.invoices.write",
     "ui.route.module.invoices"
   ],
-  "requires": [
-    "module.commercial-settings",
-    "module.pdf-templates"
-  ],
-  "optional": [
-    "module.contacts"
-  ],
+  "requires": ["module.commercial-settings", "module.pdf-templates"],
+  "optional": ["module.contacts"],
   "capabilities": {
     "operations": true,
     "ai": true,
@@ -29,9 +24,7 @@
         "name": "module-invoices-pdfs",
         "public": false,
         "fileSizeLimit": "50MiB",
-        "allowedMimeTypes": [
-          "application/pdf"
-        ]
+        "allowedMimeTypes": ["application/pdf"]
       }
     ]
   }

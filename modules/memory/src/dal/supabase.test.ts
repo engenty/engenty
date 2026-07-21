@@ -33,8 +33,8 @@ function memoryRow(overrides: Record<string, unknown> = {}) {
 }
 
 interface Recorded {
-  method: string;
   args: unknown[];
+  method: string;
 }
 
 /**

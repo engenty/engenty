@@ -77,6 +77,11 @@ export function AgentsCatalogToolbar({
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => onSearchChange(e.target.value)}
+            onOpenFilters={() => {
+              if (!filtersExpanded) {
+                onFiltersToggle();
+              }
+            }}
             placeholder={t("agentsCatalog.searchPlaceholder")}
             value={searchQuery}
             wrapperClassName="w-full"

@@ -154,14 +154,12 @@ function ScopeDocEditor({
 
   const initialJson = useMemo(
     () => blocksToDocJson(projectRecordsToDoc(loadedRecordsRef.current)),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: rebuilt per loaded snapshot version
     [editorVersion]
   );
 
   const snapshotBlocks = useMemo(
     () =>
       projectRecordsToDoc(loadedRecordsRef.current).flatMap((s) => s.blocks),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: same snapshot identity
     [editorVersion]
   );
 

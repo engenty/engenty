@@ -4,8 +4,8 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, Button, Card } from "@engenty/ui-core";
 import { X } from "lucide-react";
-import type { ContactListItem } from "../api.js";
 import { contactEntityRef } from "../api/memory.js";
+import type { ContactListItem } from "../api.js";
 import {
   useArchiveContactMemoryMutation,
   useContactMemoriesQuery,
@@ -29,7 +29,11 @@ export function ContactAgentNotesCard({ entity }: ContactAgentNotesCardProps) {
   const archiveMutation = useArchiveContactMemoryMutation(entityRef);
 
   const records = memoriesQuery.data ?? [];
-  if (memoriesQuery.isLoading || memoriesQuery.isError || records.length === 0) {
+  if (
+    memoriesQuery.isLoading ||
+    memoriesQuery.isError ||
+    records.length === 0
+  ) {
     return null;
   }
 

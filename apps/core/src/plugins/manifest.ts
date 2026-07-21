@@ -2,10 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   isPluginCategory,
-  type PluginCategory,
   PLUGIN_CATEGORIES,
+  type PluginCategory,
 } from "@engenty/plugin-sdk";
 import { collectManifestDiagnostics } from "./manifest-diagnostics.js";
+
+export type { PluginCategory } from "@engenty/plugin-sdk";
+export { PLUGIN_CATEGORIES } from "@engenty/plugin-sdk";
 
 export const ENGENTY_PLUGIN_MANIFEST_FILENAME = "engenty.plugin.json";
 
@@ -18,9 +21,6 @@ export type PluginManifestUiLoadMode = "runtime" | "workspace";
  * Distinct from `kind` (source location) and from install-time trust levels.
  */
 export type PluginTier = "module" | "plugin";
-
-export type { PluginCategory };
-export { PLUGIN_CATEGORIES };
 
 export const DEFAULT_PLUGIN_TIER: PluginTier = "module";
 

@@ -1,11 +1,7 @@
 // React-query hooks for the contact "Agent notes" card. Keys live under
 // contactKeys.all so the contacts live binding (which also watches
 // module_memory.records) invalidates them when an agent writes a memory.
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@engenty/query-client";
+import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import { archiveMemoryRecord, listContactMemories } from "./api/memory.js";
 import { contactKeys } from "./queries.js";
 
