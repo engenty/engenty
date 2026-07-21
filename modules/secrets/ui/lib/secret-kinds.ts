@@ -54,3 +54,63 @@ export function extractDomain(url: string | null): string | null {
     return null;
   }
 }
+
+/** Primary copyable value for the compact row preview (password, API key, …). */
+export function primarySecretValue(
+  kind: SecretKind,
+  payload: Record<string, unknown>
+): string | null {
+  switch (kind) {
+    case "username_password": {
+      const password = payload.password;
+      if (typeof password === "string" && password.length > 0) {
+        return password;
+      }
+      const username = payload.username;
+      return typeof username === "string" && username.length > 0
+        ? username
+        : null;
+    }
+    case "api_key": {
+      for (const key of ["value", "key", "token", "secret"] as const) {
+        const value = payload[key];
+        if (typeof value === "string" && value.length > 0) {
+          return value;
+        }
+      }
+      return null;
+    }
+    case "credit_card": {
+      const number = payload.number;
+      return typeof number === "string" && number.length > 0 ? number : null;
+    }
+    case "note": {
+      const content = payload.content;
+      return typeof content === "string" && content.length > 0 ? content : null;
+    }
+    case "key_list": {
+      const keys = payload.keys;
+      if (!Array.isArray(keys) || keys.length === 0) {
+        return null;
+      }
+      const first = keys[0] as { value?: unknown };
+      return first.value == null ? null : String(first.value);
+    }
+    default:
+      return null;
+  }
+}
+
+/** Compact mask: first + last character with an ellipsis between. */
+export function maskSecretValue(value: string): string {
+  if (value.length === 0) {
+    return "••••••••";
+  }
+  if (value.length === 1) {
+    return `${value}…`;
+  }
+  if (value.length === 2) {
+    return `${value[0]}…${value[1]}`;
+  }
+  return `${value[0]}…${value.at(-1)}`;
+}

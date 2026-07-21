@@ -5,6 +5,7 @@ import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  parseSecretsKindFilter,
   parseSecretsScopeFilter,
   parseSecretsSidebarTab,
   type SecretsSidebarTab,
@@ -33,6 +34,7 @@ export function SecretsSidebarPanel() {
 
   const [q] = useQueryState("q", parseAsString.withDefault(""));
   const [scopeRaw] = useQueryState("scope", parseAsString);
+  const [kindRaw] = useQueryState("kind", parseAsString);
   const [client] = useQueryState("client", parseAsString);
   const [project] = useQueryState("project", parseAsString);
   const [tabRaw] = useQueryState("tab", parseAsString);
@@ -41,11 +43,12 @@ export function SecretsSidebarPanel() {
     () => ({
       q,
       scope: parseSecretsScopeFilter(scopeRaw),
+      kind: parseSecretsKindFilter(kindRaw),
       client,
       project,
       tab: parseSecretsSidebarTab(tabRaw),
     }),
-    [q, scopeRaw, client, project, tabRaw]
+    [q, scopeRaw, kindRaw, client, project, tabRaw]
   );
 
   const clientsQuery = useClientsQuery();
