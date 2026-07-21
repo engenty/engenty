@@ -60,7 +60,8 @@
       "connectionsEmpty": "No connections",
       "activity": "{{count}} sessions logged",
       "activityEmpty": "No runs or sessions yet",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "error": "Couldn't load"
     }
   },
   "docConverter": {

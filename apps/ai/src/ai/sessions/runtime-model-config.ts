@@ -9,6 +9,15 @@ export async function resolveRuntimeModelConfig(
 ): Promise<RuntimeModelConfig> {
   const tenantConfig = await opts.resolveTenantModelConfig?.(scope);
   const tenantChatModel = tenantConfig?.chatModelId?.trim() || null;
+  // `modelIdOverride` is the user's explicit per-conversation model pick
+  // (forwardedProps.engenty.model_id). It intentionally applies to BOTH tiers:
+  // the user-facing copilot is a routing-tier supervisor (subAgents > 0), so a
+  // chat-only override would leave the agent the user is actually talking to on
+  // the tenant default — ignoring their pick. The known downside is that
+  // background routing calls (thread titles, tool search) also inherit the
+  // override; isolating those from the user-facing override is a Phase-1 concern
+  // once purpose resolution is unified. Do not drop the override from routing
+  // without that separation, or the copilot stops honoring the model picker.
   return {
     chatModelId: resolveChatModelId({
       override: modelIdOverride,

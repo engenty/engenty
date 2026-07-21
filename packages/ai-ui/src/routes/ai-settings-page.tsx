@@ -13,7 +13,6 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { RotateCcw, RotateCcwSquare, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ClassifierSettingsCard } from "../features/ai-settings/classifier-settings-card";
 import { CopilotAdminLinksSection } from "../features/ai-settings/copilot-admin-links-section";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
 import { GeneralSettingsCard } from "../features/ai-settings/general-settings-card";
@@ -29,7 +28,7 @@ import {
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
 
 const DEFAULT_TAB = "copilot";
-const VALID_TABS = new Set([DEFAULT_TAB, "classifier", "doc-converter"]);
+const VALID_TABS = new Set([DEFAULT_TAB, "doc-converter"]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
   "cheap",
@@ -96,18 +95,6 @@ export function AiGeneralSettingsPage() {
         t("fields.modelUnavailable")
       ),
     [routingModelOptionsQuery.data?.items, settings.coordinator_model_id, t]
-  );
-  const classifierModelOptions = useMemo(
-    () =>
-      mergeSelectedGatewayModelOptions(
-        mapGatewayModelSelectOptions(
-          routingModelOptionsQuery.data?.items ?? [],
-          t
-        ),
-        [settings.classifier_model_id],
-        t("fields.modelUnavailable")
-      ),
-    [routingModelOptionsQuery.data?.items, settings.classifier_model_id, t]
   );
   const catalogEmpty =
     !(
@@ -221,9 +208,6 @@ export function AiGeneralSettingsPage() {
               variant="line"
             >
               <TabsTrigger value="copilot">{t("sections.copilot")}</TabsTrigger>
-              <TabsTrigger value="classifier">
-                {t("sections.classifier")}
-              </TabsTrigger>
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
@@ -233,9 +217,7 @@ export function AiGeneralSettingsPage() {
 
         <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-page">
           {saveError &&
-          (activeTab === "copilot" ||
-            activeTab === "classifier" ||
-            activeTab === "doc-converter") ? (
+          (activeTab === "copilot" || activeTab === "doc-converter") ? (
             <div
               className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
               role="alert"
@@ -294,15 +276,6 @@ export function AiGeneralSettingsPage() {
               updateSettings={updateSettings}
             />
             <CopilotAdminLinksSection />
-          </TabsContent>
-
-          <TabsContent className="space-y-6" value="classifier">
-            <ClassifierSettingsCard
-              modelOptions={classifierModelOptions}
-              settings={settings}
-              t={t}
-              updateSettings={updateSettings}
-            />
           </TabsContent>
 
           <TabsContent className="space-y-6" value="doc-converter">
