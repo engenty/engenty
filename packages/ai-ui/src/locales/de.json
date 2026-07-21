@@ -38,8 +38,16 @@
   "copilotAdminLinks": {
     "title": "Engenty",
     "description": "Copilot, Agenten, Skills und Tools im Engenty-Admin verwalten.",
-    "hints": {
+    "rows": {
       "overview": "Dashboard, KPIs & Schnellaktionen",
+      "agents": "Workspace-Agenten durchsuchen und konfigurieren",
+      "actions": "Actions, die Agenten in diesem Workspace ausführen können",
+      "skills": "Verwaltete und eigene Agent-Skills",
+      "tools": "Modul-, MCP- und eigene Tools",
+      "connections": "Verknüpfte Konten und Integrationen",
+      "activity": "Aktuelle Agent-Runs und Sessions"
+    },
+    "hints": {
       "agents": "{{count}} im Katalog",
       "agentsEmpty": "Noch keine Agenten",
       "actions": "{{count}} registriert · {{custom}} eigene",

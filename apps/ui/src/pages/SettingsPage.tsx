@@ -1,3 +1,4 @@
+import { CopilotAdminLinksSection } from "@engenty/ai-ui";
 import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
@@ -29,11 +30,12 @@ export function SettingsPage() {
         {/* Core Tenant Settings (Centered Identity) */}
         <GeneralTenantSettingsSection />
 
-        {/* Stacked Layout: Users → Appearance → AI → Plugins */}
+        {/* Stacked Layout: Users → Appearance → AI → Engenty → Plugins */}
         <div className="space-y-8 pb-12">
           <TenantUsersSettingsSection />
           <TenantAppearanceSettingsSection />
           <TenantAiSettingsSection />
+          <CopilotAdminLinksSection />
           <TenantPluginsSettingsSection />
         </div>
       </div>

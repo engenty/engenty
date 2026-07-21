@@ -38,11 +38,8 @@ import {
   buildToolsPath,
 } from "../agents-workspace/agent-workspace-url-state";
 
-interface CopilotAdminLinksSectionProps {
-  t: (key: string) => string;
-}
-
 interface AdminLinkRowProps {
+  description: string;
   hint?: ReactNode;
   Icon: LucideIcon;
   label: string;
@@ -50,6 +47,7 @@ interface AdminLinkRowProps {
 }
 
 interface AdminLinkConfig {
+  descriptionKey: string;
   hint?: ReactNode;
   Icon: LucideIcon;
   labelKey: string;
@@ -79,16 +77,27 @@ function useWorkspaceConnectionsCount() {
   });
 }
 
-function AdminLinkRow({ Icon, hint, label, to }: AdminLinkRowProps) {
+function AdminLinkRow({
+  description,
+  Icon,
+  hint,
+  label,
+  to,
+}: AdminLinkRowProps) {
   return (
     <Link
       className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
       to={to}
     >
       <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-medium">{label}</span>
+        <span className="truncate text-muted-foreground text-xs">
+          {description}
+        </span>
+      </div>
       {hint ? (
-        <span className="max-w-[45%] shrink-0 truncate text-muted-foreground text-xs tabular-nums">
+        <span className="max-w-[40%] shrink-0 truncate text-muted-foreground text-xs tabular-nums">
           {hint}
         </span>
       ) : null}
@@ -100,8 +109,8 @@ function AdminLinkRow({ Icon, hint, label, to }: AdminLinkRowProps) {
   );
 }
 
-export function CopilotAdminLinksSection({ t }: CopilotAdminLinksSectionProps) {
-  const { t: tUi } = useTranslation("ai-ui");
+export function CopilotAdminLinksSection() {
+  const { t } = useTranslation("ai-ui");
   const agentsQuery = useAiAgentsQuery();
   const actionsQuery = useAiActionsQuery();
   const skillsQuery = useAiSkillsQuery();
@@ -119,40 +128,39 @@ export function CopilotAdminLinksSection({ t }: CopilotAdminLinksSectionProps) {
   const skillCounts = useMemo(() => countSkills(skills), [skills]);
   const toolCounts = useMemo(() => countTools(tools), [tools]);
 
-  const loadingHint = tUi("copilotAdminLinks.hints.loading");
+  const loadingHint = t("copilotAdminLinks.hints.loading");
 
   const hints = useMemo(() => {
     const agentCount = agents.length;
     const connectionCount = connectionsQuery.data ?? 0;
 
     return {
-      overview: tUi("copilotAdminLinks.hints.overview"),
       agents: agentsQuery.isLoading
         ? loadingHint
         : agentCount === 0
-          ? tUi("copilotAdminLinks.hints.agentsEmpty")
-          : tUi("copilotAdminLinks.hints.agents", { count: agentCount }),
+          ? t("copilotAdminLinks.hints.agentsEmpty")
+          : t("copilotAdminLinks.hints.agents", { count: agentCount }),
       actions: actionsQuery.isLoading
         ? loadingHint
         : actionCounts.total === 0
-          ? tUi("copilotAdminLinks.hints.actionsEmpty")
-          : tUi("copilotAdminLinks.hints.actions", {
+          ? t("copilotAdminLinks.hints.actionsEmpty")
+          : t("copilotAdminLinks.hints.actions", {
               count: actionCounts.total,
               custom: actionCounts.custom,
             }),
       skills: skillsQuery.isLoading
         ? loadingHint
         : skillCounts.total === 0
-          ? tUi("copilotAdminLinks.hints.skillsEmpty")
-          : tUi("copilotAdminLinks.hints.skills", {
+          ? t("copilotAdminLinks.hints.skillsEmpty")
+          : t("copilotAdminLinks.hints.skills", {
               custom: skillCounts.custom,
               managed: skillCounts.managed,
             }),
       tools: toolsQuery.isLoading
         ? loadingHint
         : toolCounts.total === 0
-          ? tUi("copilotAdminLinks.hints.toolsEmpty")
-          : tUi("copilotAdminLinks.hints.tools", {
+          ? t("copilotAdminLinks.hints.toolsEmpty")
+          : t("copilotAdminLinks.hints.tools", {
               custom: toolCounts.custom,
               mcp: toolCounts.mcp,
               module: toolCounts.module,
@@ -160,15 +168,15 @@ export function CopilotAdminLinksSection({ t }: CopilotAdminLinksSectionProps) {
       connections: connectionsQuery.isLoading
         ? loadingHint
         : connectionCount === 0
-          ? tUi("copilotAdminLinks.hints.connectionsEmpty")
-          : tUi("copilotAdminLinks.hints.connections", {
+          ? t("copilotAdminLinks.hints.connectionsEmpty")
+          : t("copilotAdminLinks.hints.connections", {
               count: connectionCount,
             }),
       activity: sessionsQuery.isLoading
         ? loadingHint
         : sessions.length === 0
-          ? tUi("copilotAdminLinks.hints.activityEmpty")
-          : tUi("copilotAdminLinks.hints.activity", { count: sessions.length }),
+          ? t("copilotAdminLinks.hints.activityEmpty")
+          : t("copilotAdminLinks.hints.activity", { count: sessions.length }),
     };
   }, [
     actionCounts,
@@ -184,48 +192,54 @@ export function CopilotAdminLinksSection({ t }: CopilotAdminLinksSectionProps) {
     skillsQuery.isLoading,
     toolCounts,
     toolsQuery.isLoading,
-    tUi,
+    t,
   ]);
 
   const links: AdminLinkConfig[] = [
     {
       Icon: House,
-      hint: hints.overview,
+      descriptionKey: "copilotAdminLinks.rows.overview",
       labelKey: "workspace.sidebarNavHome",
       to: buildAgentsWorkspacePath(),
     },
     {
       Icon: Bot,
+      descriptionKey: "copilotAdminLinks.rows.agents",
       hint: hints.agents,
       labelKey: "workspace.sidebarAgents",
       to: buildAgentsCatalogPath(),
     },
     {
       Icon: ListChecks,
+      descriptionKey: "copilotAdminLinks.rows.actions",
       hint: hints.actions,
       labelKey: "workspace.sidebarActions",
       to: buildActionsCatalogPath(),
     },
     {
       Icon: FileTerminal,
+      descriptionKey: "copilotAdminLinks.rows.skills",
       hint: hints.skills,
       labelKey: "workspace.sidebarSkills",
       to: buildSkillsCatalogPath(),
     },
     {
       Icon: Wrench,
+      descriptionKey: "copilotAdminLinks.rows.tools",
       hint: hints.tools,
       labelKey: "workspace.sidebarTools",
       to: buildToolsPath(),
     },
     {
       Icon: Cable,
+      descriptionKey: "copilotAdminLinks.rows.connections",
       hint: hints.connections,
       labelKey: "workspace.sidebarConnections",
       to: buildConnectionsPath(),
     },
     {
       Icon: MessagesSquare,
+      descriptionKey: "copilotAdminLinks.rows.activity",
       hint: hints.activity,
       labelKey: "workspace.sidebarActivity",
       to: buildActivityPath(),
@@ -241,6 +255,7 @@ export function CopilotAdminLinksSection({ t }: CopilotAdminLinksSectionProps) {
     >
       {links.map((link) => (
         <AdminLinkRow
+          description={t(link.descriptionKey)}
           hint={link.hint}
           Icon={link.Icon}
           key={link.to}

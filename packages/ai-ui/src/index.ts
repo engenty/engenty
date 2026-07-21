@@ -188,6 +188,7 @@ export {
 // connections module's Connections page): same sidebar as the core pages.
 export { useAgentsWorkspaceShellNav } from "./features/agents-workspace/use-agents-workspace-shell-nav.js";
 export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-nav-data.js";
+export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
 export type {
   AiAdminSessionStats,
   AiRegisteredAgent,
