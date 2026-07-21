@@ -11,6 +11,11 @@
     "module.offers.write",
     "ui.route.module.offers"
   ],
+  "requires": [
+    "module.commercial-settings",
+    "module.company-profile",
+    "module.pdf-templates"
+  ],
   "optional": [
     "module.contacts"
   ],

@@ -499,7 +499,11 @@
       "noModules": "Keine Module mit Einstellungen gefunden.",
       "deactivateConfirmTitle": "{{name}} deaktivieren?",
       "deactivateConfirmDescription": "Dieses Modul wird ausgeschaltet und aus den Einstellungen entfernt. Sie können es unter Setup → Plugins wieder aktivieren.",
-      "deactivateConfirmAction": "Deaktivieren"
+      "deactivateDependentsWarning": "Diese Module hängen davon ab und werden ebenfalls deaktiviert:",
+      "deactivateBlockedByDependents": "Diese Module hängen davon ab. Eine verpflichtende Abhängigkeit kann nicht deaktiviert werden — entfernen oder deaktivieren Sie die Abhängigkeit zuerst:",
+      "deactivateConfirmAction": "Deaktivieren",
+      "deactivateConfirmActionWithDependents": "Alle deaktivieren",
+      "mandatoryBadge": "verpflichtend"
     },
     "roles": {
       "title": "Rollen & Berechtigungen",

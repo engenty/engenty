@@ -11,6 +11,10 @@
     "module.invoices.write",
     "ui.route.module.invoices"
   ],
+  "requires": [
+    "module.commercial-settings",
+    "module.pdf-templates"
+  ],
   "optional": [
     "module.contacts"
   ],

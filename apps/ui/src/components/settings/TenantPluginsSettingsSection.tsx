@@ -1,4 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,13 +23,20 @@ import { BoxIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { deactivatePlugin } from "@/lib/api/client";
 import { isManageAppEnabled, MANAGE_MODULES_HREF } from "@/lib/manage-app";
 import {
+  pluginKeys,
   usePluginsListQuery,
   useTogglePluginFromListMutation,
 } from "@/lib/plugins-queries";
 import { cn } from "@/lib/utils";
 import { useWorkspaceContextQuery } from "@/lib/workspace-context-query";
+import { invalidateUiPluginContributions } from "@/plugins/ui-plugin-contributions-queries";
+import {
+  collectEnabledDependents,
+  type PluginDependencyNode,
+} from "./plugin-dependents";
 import {
   overviewIconToneForCategory,
   SettingsOverviewIcon,
@@ -74,13 +82,28 @@ export function TenantPluginsSettingsSection() {
     workspace.data?.isSuperAdmin === true ||
     workspace.data?.isTenantAdmin === true;
   const tenantId = currentTenant?.id ?? null;
+  const queryClient = useQueryClient();
   const pluginsQuery = usePluginsListQuery(tenantId);
   const toggleMutation = useTogglePluginFromListMutation(tenantId);
 
   const [confirmRow, setConfirmRow] = useState<ModuleRow | null>(null);
+  const [cascadeBusy, setCascadeBusy] = useState(false);
   const [exitingIds, setExitingIds] = useState(() => new Set<string>());
   const [removedIds, setRemovedIds] = useState(() => new Set<string>());
   const [frozenRows, setFrozenRows] = useState<ModuleRow[] | null>(null);
+
+  const dependencyNodes = useMemo(
+    (): PluginDependencyNode[] =>
+      (pluginsQuery.data ?? []).map((plugin) => ({
+        enabled: plugin.enabled,
+        id: plugin.id,
+        mandatory: plugin.mandatory === true,
+        name: plugin.name || plugin.id,
+        provides: plugin.provides ?? [],
+        requires: plugin.requires ?? [],
+      })),
+    [pluginsQuery.data]
+  );
 
   const pluginMetaById = useMemo(() => {
     const map = new Map<
@@ -157,6 +180,28 @@ export function TenantPluginsSettingsSection() {
     t,
   ]);
 
+  const confirmDependents = useMemo(() => {
+    if (!confirmRow) {
+      return [];
+    }
+    return collectEnabledDependents(confirmRow.pluginId, dependencyNodes);
+  }, [confirmRow, dependencyNodes]);
+
+  const confirmBlockedByMandatory = useMemo(
+    () => confirmDependents.some((dependent) => dependent.mandatory),
+    [confirmDependents]
+  );
+
+  const labelForPluginId = (pluginId: string) => {
+    const row = moduleRows.find((item) => item.pluginId === pluginId);
+    if (row) {
+      return row.label;
+    }
+    return (
+      dependencyNodes.find((plugin) => plugin.id === pluginId)?.name ?? pluginId
+    );
+  };
+
   // Drop local suppressions once contributions no longer include the row.
   useEffect(() => {
     if (removedIds.size === 0 && frozenRows == null) {
@@ -208,9 +253,10 @@ export function TenantPluginsSettingsSection() {
     }));
   }, [t, visibleRows]);
 
-  const busyPluginId = toggleMutation.isPending
-    ? (toggleMutation.variables?.pluginId ?? null)
-    : null;
+  const busyPluginId =
+    cascadeBusy || toggleMutation.isPending
+      ? (toggleMutation.variables?.pluginId ?? confirmRow?.pluginId ?? null)
+      : null;
 
   const isLoading = !ready || (workspace.isLoading && !workspace.data);
 
@@ -239,34 +285,67 @@ export function TenantPluginsSettingsSection() {
 
   const confirmDeactivate = () => {
     const row = confirmRow;
-    if (!row) {
+    if (!row || confirmBlockedByMandatory || cascadeBusy) {
       return;
     }
+    const dependents = confirmDependents;
     const snapshot = frozenRows ?? moduleRows;
+    const deactivateIds = [...dependents.map((d) => d.id), row.pluginId];
+    const exitRowIds = moduleRows
+      .filter((item) => deactivateIds.includes(item.pluginId))
+      .map((item) => item.id);
+
     setConfirmRow(null);
-    toggleMutation.mutate(
-      { pluginId: row.pluginId, currentlyEnabled: true },
-      {
-        onError: () => {
-          toast.error(t("plugins.updateStateFailed"));
-        },
-        onSuccess: (response) => {
+    setCascadeBusy(true);
+
+    void (async () => {
+      try {
+        let restartRequired = false;
+        let restartMessage: string | undefined;
+        for (const pluginId of deactivateIds) {
+          const response = await deactivatePlugin(pluginId, tenantId);
           if (response.restartRequired) {
-            toast.message(response.message);
+            restartRequired = true;
+            restartMessage = response.message;
           }
-          setFrozenRows(snapshot);
-          setExitingIds((prev) => new Set(prev).add(row.id));
-          window.setTimeout(() => {
-            setRemovedIds((prev) => new Set(prev).add(row.id));
-            setExitingIds((prev) => {
-              const next = new Set(prev);
-              next.delete(row.id);
-              return next;
-            });
-          }, EXIT_MS);
-        },
+        }
+        await queryClient.invalidateQueries({
+          queryKey: pluginKeys.list(tenantId),
+        });
+        await invalidateUiPluginContributions(queryClient);
+        if (restartRequired && restartMessage) {
+          toast.message(restartMessage);
+        }
+        setFrozenRows(snapshot);
+        setExitingIds((prev) => {
+          const next = new Set(prev);
+          for (const id of exitRowIds) {
+            next.add(id);
+          }
+          return next;
+        });
+        window.setTimeout(() => {
+          setRemovedIds((prev) => {
+            const next = new Set(prev);
+            for (const id of exitRowIds) {
+              next.add(id);
+            }
+            return next;
+          });
+          setExitingIds((prev) => {
+            const next = new Set(prev);
+            for (const id of exitRowIds) {
+              next.delete(id);
+            }
+            return next;
+          });
+        }, EXIT_MS);
+      } catch {
+        toast.error(t("plugins.updateStateFailed"));
+      } finally {
+        setCascadeBusy(false);
       }
-    );
+    })();
   };
 
   return (
@@ -357,7 +436,7 @@ export function TenantPluginsSettingsSection() {
                                     })
                               }
                               checked={row.enabled && !exiting}
-                              disabled={busy || exiting}
+                              disabled={busy || exiting || cascadeBusy}
                               onCheckedChange={(checked) => {
                                 requestToggle(row, checked);
                               }}
@@ -411,11 +490,35 @@ export function TenantPluginsSettingsSection() {
             <AlertDialogDescription>
               {t("settings.plugins.deactivateConfirmDescription")}
             </AlertDialogDescription>
+            {confirmDependents.length > 0 ? (
+              <div className="space-y-2 text-sm">
+                <p className="font-medium text-foreground">
+                  {confirmBlockedByMandatory
+                    ? t("settings.plugins.deactivateBlockedByDependents")
+                    : t("settings.plugins.deactivateDependentsWarning")}
+                </p>
+                <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                  {confirmDependents.map((dependent) => (
+                    <li key={dependent.id}>
+                      {labelForPluginId(dependent.id)}
+                      {dependent.mandatory
+                        ? ` (${t("settings.plugins.mandatoryBadge")})`
+                        : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeactivate}>
-              {t("settings.plugins.deactivateConfirmAction")}
+            <AlertDialogAction
+              disabled={confirmBlockedByMandatory || cascadeBusy}
+              onClick={confirmDeactivate}
+            >
+              {confirmDependents.length > 0 && !confirmBlockedByMandatory
+                ? t("settings.plugins.deactivateConfirmActionWithDependents")
+                : t("settings.plugins.deactivateConfirmAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

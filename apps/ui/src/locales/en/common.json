@@ -499,7 +499,11 @@
       "noModules": "No modules with settings found.",
       "deactivateConfirmTitle": "Deactivate {{name}}?",
       "deactivateConfirmDescription": "This module will be turned off and removed from Settings. You can re-enable it under Setup → Plugins.",
-      "deactivateConfirmAction": "Deactivate"
+      "deactivateDependentsWarning": "These modules depend on it and will be deactivated too:",
+      "deactivateBlockedByDependents": "These modules depend on it. A mandatory dependency cannot be deactivated — disable or remove the dependency first:",
+      "deactivateConfirmAction": "Deactivate",
+      "deactivateConfirmActionWithDependents": "Deactivate all",
+      "mandatoryBadge": "mandatory"
     },
     "roles": {
       "title": "Roles & permissions",
