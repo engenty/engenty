@@ -1,4 +1,8 @@
-import { resolveChatModelId, resolveSafeguardModelId } from "@engenty/ai-core";
+import {
+  resolveChatModelId,
+  resolvePurposeModelId,
+  resolveSafeguardModelId,
+} from "@engenty/ai-core";
 import type { RuntimeModelConfig } from "../registry/index.js";
 import type { AiSessionScope, SessionServiceOptions } from "./types.js";
 
@@ -29,6 +33,16 @@ export async function resolveRuntimeModelConfig(
       purpose: "routing",
       tenantDefault:
         tenantConfig?.routingModelId?.trim() || tenantChatModel || null,
+    }),
+    // Research / planning tiers are agent-purpose tiers, not conversational — the
+    // per-conversation override does not apply to them.
+    researchModelId: resolvePurposeModelId({
+      purpose: "research",
+      tenantDefault: tenantConfig?.researchModelId?.trim() || null,
+    }),
+    planningCodingModelId: resolvePurposeModelId({
+      purpose: "planning_coding",
+      tenantDefault: tenantConfig?.planningCodingModelId?.trim() || null,
     }),
     safeguardModelId: resolveSafeguardModelId({
       tenantDefault: tenantConfig?.safeguardModelId?.trim() || null,

@@ -15,12 +15,11 @@ import {
   engentyCodeModeTool,
 } from "../../../ai/tools/engenty-tools/code-mode.js";
 import { ENGENTY_TOOL_EXECUTE_TOOL_ID } from "../../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
+import { AiSessionError } from "../errors.js";
 import {
   MEMORY_INSTRUCTIONS,
   MEMORY_SAVE_TOOL_ID,
 } from "../instructions/memory-instructions.js";
-
-import { AiSessionError } from "../errors.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
 import { gatewayFileDataMiddleware } from "./gateway-file-data-middleware.js";
 import type { AgentConfig, AiRegistry, MastraToolDefinition } from "./types.js";
@@ -55,6 +54,10 @@ export interface AssembleDynamicAgentOptions {
 
 export interface RuntimeModelConfig {
   chatModelId: string;
+  // Planning & coding tier; falls back to chat when unset.
+  planningCodingModelId?: string;
+  // Research / retrieval tier; falls back to chat when unset.
+  researchModelId?: string;
   routingModelId: string;
   // Mastra guardrail processors classify with this model id; the harness
   // resolves it from tenant `ai.config.safeguard_model_id` (defaulted).
@@ -210,12 +213,37 @@ export function resolveAgentModelId(
   config: AgentConfig,
   modelConfig: RuntimeModelConfig | undefined
 ): string {
+  // Precedence flip: an explicit per-agent pin beats the tenant/purpose default.
+  const override = config.modelOverride?.trim();
+  if (override) {
+    return override;
+  }
   if (!modelConfig) {
     return config.model;
   }
-  return isRoutingAgent(config)
-    ? modelConfig.routingModelId
-    : modelConfig.chatModelId;
+  // Inherit by purpose — explicit `purpose` wins, else structural default
+  // (supervisors route, leaves chat), preserving pre-Phase-4 behavior.
+  const purpose =
+    config.purpose ?? (isRoutingAgent(config) ? "routing" : "chat");
+  return modelForPurpose(modelConfig, purpose);
+}
+
+function modelForPurpose(
+  modelConfig: RuntimeModelConfig,
+  purpose: NonNullable<AgentConfig["purpose"]>
+): string {
+  switch (purpose) {
+    case "routing":
+      return modelConfig.routingModelId;
+    case "research":
+      return modelConfig.researchModelId ?? modelConfig.chatModelId;
+    case "planning_coding":
+      return modelConfig.planningCodingModelId ?? modelConfig.chatModelId;
+    case "safeguard":
+      return modelConfig.safeguardModelId ?? modelConfig.chatModelId;
+    default:
+      return modelConfig.chatModelId;
+  }
 }
 
 function isRoutingAgent(config: AgentConfig): boolean {

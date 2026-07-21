@@ -170,6 +170,15 @@ export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
 export const agentToolProfileSchema = z.enum(["read_only_kb"]);
 export type AgentToolProfile = z.infer<typeof agentToolProfileSchema>;
 
+/** Purpose an agent binds to for tenant model resolution (Phase 4). */
+export const agentModelPurposeSchema = z.enum([
+  "chat",
+  "routing",
+  "research",
+  "planning_coding",
+  "safeguard",
+]);
+
 export const agentConfigSchema = z.object({
   backgroundTasks: agentBackgroundConfigSchema.optional(),
   description: z.string().optional(),
@@ -177,6 +186,18 @@ export const agentConfigSchema = z.object({
   id: z.string().min(1),
   instructions: z.string().min(1),
   model: z.string().min(1),
+  /**
+   * Explicit per-agent model pin. When set, it beats the tenant/purpose default
+   * (precedence flip). Absent = inherit via {@link purpose}.
+   */
+  modelOverride: z.string().min(1).nullish(),
+  /**
+   * Which tenant model tier this agent inherits when not pinned. Defaults by
+   * structure (supervisors → routing, leaves → chat) when absent.
+   */
+  purpose: agentModelPurposeSchema.optional(),
+  /** Per-agent iteration cap (steps). Clamped to the platform max at runtime. */
+  maxSteps: z.number().int().positive().optional(),
   name: z.string().min(1),
   skillIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),
