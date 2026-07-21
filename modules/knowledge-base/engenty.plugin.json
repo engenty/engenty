@@ -53,15 +53,11 @@
         "configurable": "platform",
         "obtain": {
           "kind": "provider",
-          "instructions": [
-            "Create a key in the Firecrawl dashboard."
-          ],
+          "instructions": ["Create a key in the Firecrawl dashboard."],
           "url": "https://www.firecrawl.dev/app/api-keys"
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": true
       },
       {
@@ -72,15 +68,11 @@
         "configurable": "platform",
         "obtain": {
           "kind": "provider",
-          "instructions": [
-            "Create a key in LlamaCloud \u2192 API keys."
-          ],
+          "instructions": ["Create a key in LlamaCloud \u2192 API keys."],
           "url": "https://cloud.llamaindex.ai"
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": true
       },
       {
@@ -91,15 +83,11 @@
         "configurable": "platform",
         "obtain": {
           "kind": "provider",
-          "instructions": [
-            "Create a key in the Exa dashboard."
-          ],
+          "instructions": ["Create a key in the Exa dashboard."],
           "url": "https://dashboard.exa.ai/api-keys"
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": true
       },
       {
@@ -114,9 +102,7 @@
           ]
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": false,
         "validate": "url"
       },
@@ -133,9 +119,7 @@
           "url": "https://unsplash.com/oauth/applications"
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": true
       },
       {
@@ -149,9 +133,7 @@
           ]
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": false
       },
       {
@@ -161,20 +143,13 @@
         "key": "ENGENTY_KB_SOURCE_SCHEDULE_TZ",
         "obtain": {
           "kind": "manual",
-          "instructions": [
-            "Set to an IANA timezone name, e.g. Europe/Vienna."
-          ]
+          "instructions": ["Set to an IANA timezone name, e.g. Europe/Vienna."]
         },
         "required": "optional",
-        "scopes": [
-          "root"
-        ],
+        "scopes": ["root"],
         "secret": false
       }
     ]
   },
-  "requires": [
-    "tenant-settings",
-    "user-settings"
-  ]
+  "requires": ["tenant-settings", "user-settings"]
 }

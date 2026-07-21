@@ -174,6 +174,7 @@ describe("navigation", () => {
         "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
+        "/settings/integration-keys",
         "/settings/development",
         "/settings/features",
         "/settings/search-index",
@@ -228,6 +229,7 @@ describe("navigation", () => {
         "/settings/appearance",
         "/settings/ai",
         "/settings/ai-usage",
+        "/settings/integration-keys",
         "/settings/connections",
         "",
         "",
@@ -323,6 +325,11 @@ describe("navigation", () => {
           to: "/settings/ai-usage",
           type: undefined,
           label: "settings.aiUsage.menuLabel",
+        },
+        {
+          to: "/settings/integration-keys",
+          type: undefined,
+          label: "settings.integrationKeys.menuLabel",
         },
         { to: "", type: "separator", label: "" },
         {
@@ -475,6 +482,7 @@ describe("navigation", () => {
           .find((item) => item.to === "/setup")
           ?.children?.map((child) => child.to) ?? [];
       expect(setupChildren).toEqual([
+        "/setup/platform",
         "/setup/plugins",
         "/setup/roles",
         "/setup/connectors",

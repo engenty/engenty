@@ -34,14 +34,14 @@ interface Draft {
 }
 
 function toDraft(agent: AiRegisteredAgent): Draft {
+  const budgetMicros = agent.limits?.budget?.maxCostMicrosPerPeriod;
   return {
     modelOverride: agent.modelOverride ?? "",
     purpose: agent.purpose ?? "",
-    maxSteps: agent.maxSteps == null ? "" : String(agent.maxSteps),
+    maxSteps:
+      agent.limits?.max_steps == null ? "" : String(agent.limits.max_steps),
     budgetDollars:
-      agent.budget?.maxCostMicrosPerPeriod == null
-        ? ""
-        : String(agent.budget.maxCostMicrosPerPeriod / MICROS_PER_DOLLAR),
+      budgetMicros == null ? "" : String(budgetMicros / MICROS_PER_DOLLAR),
   };
 }
 
@@ -83,15 +83,17 @@ export function AgentsOverridesTab({
         patch: {
           modelOverride: draft.modelOverride.trim() || null,
           purpose: (draft.purpose || null) as AiRegisteredAgent["purpose"],
-          maxSteps: maxSteps && maxSteps > 0 ? maxSteps : null,
-          budget:
-            dollars && dollars > 0
-              ? {
-                  maxCostMicrosPerPeriod: Math.round(
-                    dollars * MICROS_PER_DOLLAR
-                  ),
-                }
-              : null,
+          limits: {
+            max_steps: maxSteps && maxSteps > 0 ? maxSteps : undefined,
+            budget:
+              dollars && dollars > 0
+                ? {
+                    maxCostMicrosPerPeriod: Math.round(
+                      dollars * MICROS_PER_DOLLAR
+                    ),
+                  }
+                : null,
+          },
         },
       },
       {
@@ -244,15 +246,15 @@ export function AgentsOverridesTab({
                     )}
                     <span>
                       {t("agentsTab.stepsLabel")}:{" "}
-                      {agent.maxSteps == null
+                      {agent.limits?.max_steps == null
                         ? t("agentsTab.inherit")
-                        : agent.maxSteps}
+                        : agent.limits.max_steps}
                     </span>
                     <span>
                       {t("agentsTab.budgetLabel")}:{" "}
-                      {agent.budget?.maxCostMicrosPerPeriod == null
+                      {agent.limits?.budget?.maxCostMicrosPerPeriod == null
                         ? t("agentsTab.none")
-                        : `$${agent.budget.maxCostMicrosPerPeriod / MICROS_PER_DOLLAR}`}
+                        : `$${agent.limits.budget.maxCostMicrosPerPeriod / MICROS_PER_DOLLAR}`}
                     </span>
                   </div>
                 )}

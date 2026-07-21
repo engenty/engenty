@@ -92,20 +92,20 @@ describe("memory retrieval source — buildDocument", () => {
     expect(doc?.filter_metadata).not.toHaveProperty("scope_ref");
   });
 
-  it.each(["proposed", "archived"])(
-    "returns null for %s records so they drop from the index",
-    async (status) => {
-      const source = createMemoryRetrievalSource({
-        // biome-ignore lint/suspicious/noExplicitAny: fake client
-        supabase: createFakeSupabase([memoryRow({ status })]) as any,
-      });
-      const doc = await source.buildDocument({
-        doc_id: "m1",
-        tenant_id: "tenant-1",
-      });
-      expect(doc).toBeNull();
-    }
-  );
+  it.each([
+    "proposed",
+    "archived",
+  ])("returns null for %s records so they drop from the index", async (status) => {
+    const source = createMemoryRetrievalSource({
+      // biome-ignore lint/suspicious/noExplicitAny: fake client
+      supabase: createFakeSupabase([memoryRow({ status })]) as any,
+    });
+    const doc = await source.buildDocument({
+      doc_id: "m1",
+      tenant_id: "tenant-1",
+    });
+    expect(doc).toBeNull();
+  });
 });
 
 describe("memory retrieval source — mapFilters", () => {

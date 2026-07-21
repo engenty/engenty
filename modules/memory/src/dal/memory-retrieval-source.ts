@@ -8,9 +8,7 @@
 // from the index (the host deletes when the document is gone) and archived
 // consolidation losers vanish from search automatically.
 
-import type {
-  RetrievalSourceRegistration,
-} from "@engenty/retrieval";
+import type { RetrievalSourceRegistration } from "@engenty/retrieval";
 import type { SearchIndexProvider, SearchResult } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MemoryRecord } from "../schema/zod.js";
@@ -25,16 +23,16 @@ const FAST_PATH_MAX_TERMS = 2;
 
 export interface MemorySearchFilters {
   kind?: string;
+  scope_id?: string | null;
   scope_kind?: string;
   scope_ref?: string;
-  scope_id?: string | null;
   tenant_id?: string | null;
 }
 
 export interface MemorySearchMatch {
+  matched_fields: string[];
   record: MemoryRecord;
   score: number;
-  matched_fields: string[];
 }
 
 export type MemorySearchProvider = SearchIndexProvider<
@@ -75,7 +73,7 @@ export function createMemoryRetrievalSource(options: {
     buildDocument: async ({ doc_id, tenant_id }) => {
       const found = await loadRecordsByIds([doc_id], tenant_id);
       const record = found.get(doc_id);
-      if (!record || record.status !== "active") {
+      if (record?.status !== "active") {
         return null;
       }
       return {
@@ -158,7 +156,7 @@ export function createMemoryRetrievalSource(options: {
         const results: SearchResult<MemorySearchMatch>[] = [];
         for (const match of matches) {
           const record = byId.get(match.doc_id);
-          if (!record || record.status !== "active" || seen.has(match.doc_id)) {
+          if (record?.status !== "active" || seen.has(match.doc_id)) {
             continue;
           }
           seen.add(match.doc_id);

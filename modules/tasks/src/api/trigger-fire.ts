@@ -9,10 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createTasksRepoSupabase } from "../dal/supabase.js";
 import { createTriggersRepoSupabase } from "../dal/triggers.js";
 import type { Task, TriggerDetail } from "../schema/types.js";
-import {
-  enqueueTaskDispatch,
-  isDispatchableTask,
-} from "./task-dispatch-queue.js";
+import { dispatchTaskIfReady } from "./task-dispatch-service.js";
 
 const EVENT_CONTEXT_MAX_CHARS = 4000;
 
@@ -81,8 +78,11 @@ export async function fireTrigger(input: FireTriggerInput): Promise<Task> {
     trigger.id,
     `task ${task.id} created${input.firedBy ? ` (${input.firedBy})` : ""}`
   );
-  if (input.queue && isDispatchableTask(task)) {
-    await enqueueTaskDispatch(input.queue, task, trigger.tenant_id);
+  if (input.queue) {
+    await dispatchTaskIfReady(
+      { queue: input.queue, repo: tasksRepo, tenantId: trigger.tenant_id },
+      task
+    );
   }
   return task;
 }

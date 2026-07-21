@@ -5,16 +5,12 @@
   "version": "0.0.1",
   "kind": "module",
   "category": "integrations",
-  "provides": [
-    "module.connections-local-files"
-  ],
+  "provides": ["module.connections-local-files"],
   "capabilities": {
     "operations": true,
     "ai": false,
     "frontendTools": false,
     "ui": true
   },
-  "requires": [
-    "module.connections"
-  ]
+  "requires": ["module.connections"]
 }

@@ -28,7 +28,7 @@ function platformMaxSteps(): { value: number; fromEnv: boolean } {
 }
 
 export interface ResolveAgentMaxStepsOptions {
-  /** Per-agent cap (Phase 4). */
+  /** Per-agent cap (`config.limits.max_steps`). */
   agentOverride?: number | null;
   /** Tenant default cap (`ai.config.caps.max_steps`). */
   tenantDefault?: number | null;
@@ -40,8 +40,9 @@ export interface ResolvedAgentMaxSteps {
 }
 
 /**
- * Resolve the iteration cap along agent → tenant → platform(env) → default.
- * Called with no args by existing runtime paths (platform/default only).
+ * Resolve the per-run reasoning-iteration cap with provenance, along
+ * agent → tenant → platform(env) → default. The hard ceiling (60) is always
+ * enforced — a per-agent or tenant value can only tighten the cap.
  */
 export function resolveAgentMaxStepsWithSource(
   options: ResolveAgentMaxStepsOptions = {}
@@ -61,8 +62,20 @@ export function resolveAgentMaxStepsWithSource(
   };
 }
 
+/**
+ * Resolve the per-run iteration cap. A finite per-agent `limits.max_steps`
+ * override takes precedence over the global `ENGENTY_AI_AGENT_MAX_STEPS` default
+ * and is clamped to [1, 60]; a non-finite/absent override falls back to the env
+ * default (also clamped).
+ */
 export function resolveAgentMaxSteps(
-  options: ResolveAgentMaxStepsOptions = {}
+  agentMaxStepsOverride?: number | null
 ): number {
-  return resolveAgentMaxStepsWithSource(options).value;
+  if (
+    typeof agentMaxStepsOverride === "number" &&
+    Number.isFinite(agentMaxStepsOverride)
+  ) {
+    return clampAgentMaxSteps(agentMaxStepsOverride);
+  }
+  return platformMaxSteps().value;
 }

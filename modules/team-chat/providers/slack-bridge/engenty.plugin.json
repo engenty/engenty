@@ -5,13 +5,8 @@
   "version": "0.0.1",
   "kind": "module",
   "category": "engenty",
-  "provides": [
-    "module.team-chat-slack-bridge"
-  ],
-  "requires": [
-    "module.team-chat",
-    "module.connections-slack"
-  ],
+  "provides": ["module.team-chat-slack-bridge"],
+  "requires": ["module.team-chat", "module.connections-slack"],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -34,10 +29,7 @@
           "kind": "manual"
         },
         "required": "optional",
-        "scopes": [
-          "root",
-          "deploy"
-        ],
+        "scopes": ["root", "deploy"],
         "secret": false
       }
     ]

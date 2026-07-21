@@ -18,11 +18,10 @@ const DEFAULT_AGENT_CHAT_TRIGGERS: AiAgentChatTriggers = {
 };
 
 interface RegistryAgentConfig {
-  budget?: { maxCostMicrosPerPeriod?: number | null } | null;
   description?: string;
   id: string;
+  limits?: AiRegisteredAgent["limits"];
   managed_by_module?: string | null;
-  maxSteps?: number | null;
   model?: string;
   modelOverride?: string | null;
   name: string;
@@ -35,8 +34,7 @@ interface RegistryAgentConfig {
 
 /** Per-agent runtime overrides a tenant admin can set (Phase 4). */
 export interface AiAgentOverridesPatch {
-  budget?: { maxCostMicrosPerPeriod?: number | null } | null;
-  maxSteps?: number | null;
+  limits?: AiRegisteredAgent["limits"];
   modelOverride?: string | null;
   purpose?: AiRegisteredAgent["purpose"];
 }
@@ -75,8 +73,7 @@ export function mapRegistryAgentToRegisteredAgent(
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.modelOverride ? { modelOverride: agent.modelOverride } : {}),
     ...(agent.purpose ? { purpose: agent.purpose } : {}),
-    ...(agent.maxSteps == null ? {} : { maxSteps: agent.maxSteps }),
-    ...(agent.budget ? { budget: agent.budget } : {}),
+    ...(agent.limits ? { limits: agent.limits } : {}),
     ...(agent.role ? { role: agent.role } : {}),
     ...(agent.source ? { source: agent.source } : {}),
     ...(agent.toolIds?.length ? { tools: agent.toolIds } : {}),

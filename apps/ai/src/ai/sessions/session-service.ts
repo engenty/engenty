@@ -310,6 +310,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     });
     return {
       agent,
+      agentConfig: rootConfig,
       mergedDefinitions,
       modelId,
       rootConfig,
@@ -697,6 +698,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       const runId = input.runId ?? crypto.randomUUID();
       const {
         agent,
+        agentConfig,
         modelId,
         rootConfig,
         sandboxProvider,
@@ -707,13 +709,16 @@ export function createSessionService(opts: SessionServiceOptions) {
         ...input,
         runId,
       });
+      // Per-agent iteration cap overrides the global default (clamped to the
+      // hard ceiling in the resolver).
+      const agentMaxSteps = resolveAgentMaxSteps(rootConfig?.limits?.max_steps);
       const usageStore = opts.getUsageStore();
       const preflight = await checkUsageLimits({
         tenant_id: input.scope.tenantId,
         user_id: input.scope.userId,
         agent_id: session.agent_id,
         agent_budget_cost_micros:
-          rootConfig?.budget?.maxCostMicrosPerPeriod ?? null,
+          rootConfig?.limits?.budget?.maxCostMicrosPerPeriod ?? null,
         model_id: modelId,
         feature: "copilot",
         store: usageStore,
@@ -755,7 +760,7 @@ export function createSessionService(opts: SessionServiceOptions) {
           })
         : null;
       const invocationOptions = createEngentyAgentExecutionOptions({
-        maxSteps: resolveAgentMaxSteps({ agentOverride: rootConfig?.maxSteps }),
+        maxSteps: agentMaxSteps,
         runId,
         scope: input.scope,
         threadId: input.threadId,

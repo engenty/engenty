@@ -1,8 +1,5 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@engenty/query-client";
+import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import type { MemoryDocOp } from "../src/services/memory-doc.js";
 import {
   applyMemoryDocOps,
   approveMemoryRecord,
@@ -11,7 +8,6 @@ import {
   listScopeRefs,
   type MemoryScopeQuery,
 } from "./api.js";
-import type { MemoryDocOp } from "../src/services/memory-doc.js";
 
 export const memoryKeys = {
   all: ["memory"] as const,
@@ -20,10 +16,7 @@ export const memoryKeys = {
   refs: (scopeKind: string) => [...memoryKeys.all, "refs", scopeKind] as const,
 };
 
-export function useScopeRecordsQuery(
-  scope: MemoryScopeQuery,
-  enabled = true
-) {
+export function useScopeRecordsQuery(scope: MemoryScopeQuery, enabled = true) {
   return useQuery({
     enabled,
     queryKey: memoryKeys.scope(scope),

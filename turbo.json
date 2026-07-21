@@ -79,7 +79,11 @@
         "SUPABASE_PUBLISHABLE_KEY",
         "VITE_SUPABASE_ANON_KEY"
       ],
-      "passThroughEnv": ["VITEST_MAX_FORKS", "VITEST_MIN_FORKS"]
+      "passThroughEnv": [
+        "VITEST_MAX_WORKERS",
+        "VITEST_MAX_FORKS",
+        "VITEST_MIN_FORKS"
+      ]
     },
     "//#test:scripts": {
       "inputs": ["scripts/**", "vitest.config.ts", "test/setup.ts"],
@@ -91,7 +95,11 @@
         "SUPABASE_PUBLISHABLE_KEY",
         "VITE_SUPABASE_ANON_KEY"
       ],
-      "passThroughEnv": ["VITEST_MAX_FORKS", "VITEST_MIN_FORKS"]
+      "passThroughEnv": [
+        "VITEST_MAX_WORKERS",
+        "VITEST_MAX_FORKS",
+        "VITEST_MIN_FORKS"
+      ]
     }
   }
 }

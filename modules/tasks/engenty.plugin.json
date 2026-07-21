@@ -14,9 +14,7 @@
     "platform.work",
     "ui.route.module.tasks"
   ],
-  "optional": [
-    "module.team"
-  ],
+  "optional": ["module.team"],
   "capabilities": {
     "operations": true,
     "ai": true,

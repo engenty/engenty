@@ -9,11 +9,11 @@
 // assembled per tenant + agent_type_key at run time, so the agent can't be baked
 // into a static workflow — the run-specialist step resolves and runs it.
 import { createWorkflow } from "@mastra/core/workflows";
+import { reflectStep } from "../../src/ai/jobs/task-job-reflect-step.js";
 import {
   taskJobEnvelopeSchema,
   taskJobInputSchema,
 } from "../../src/ai/jobs/task-job-schema.js";
-import { reflectStep } from "../../src/ai/jobs/task-job-reflect-step.js";
 import { runSpecialistStep } from "../../src/ai/jobs/task-job-specialist-step.js";
 import {
   buildBriefStep,

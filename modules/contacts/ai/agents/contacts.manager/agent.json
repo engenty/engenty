@@ -4,13 +4,8 @@
   "name": "Contacts Manager",
   "description": "Persona agent for researching contacts, enriching organisation records from public sources, extracting contacts from email, and HITL field suggestions.",
   "module_id": "contacts",
-  "instruction_keys": [
-    "contacts.manager.agents",
-    "contacts.manager.soul"
-  ],
-  "skills": [
-    "contacts-search"
-  ],
+  "instruction_keys": ["contacts.manager.agents", "contacts.manager.soul"],
+  "skills": ["contacts-search"],
   "tools": [
     "engentyApiCatalog",
     "engentyApi",

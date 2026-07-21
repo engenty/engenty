@@ -140,11 +140,12 @@ jobs:
       # Per-package via turbo so unchanged packages are cache hits — only the
       # affected subgraph re-runs. Supabase env defaults come from
       # test/setup.ts (identical values the old inline env block set).
-      # VITEST_MAX_FORKS caps each vitest instance's fork pool: 4 turbo tasks
-      # x default forks(=cores) would oversubscribe the 4-vCPU runner.
+      # VITEST_MAX_WORKERS caps each vitest instance's worker pool: 4 turbo
+      # tasks × default workers(=cores) would oversubscribe the 4-vCPU runner.
+      # Vitest reads VITEST_MAX_WORKERS (VITEST_MAX_FORKS is ignored).
       - name: Test
         env:
-          VITEST_MAX_FORKS: "2"
+          VITEST_MAX_WORKERS: "2"
         run: pnpm exec turbo run test test:scripts --concurrency=4
 
       # Second save under a distinct key so TEST task results persist too —

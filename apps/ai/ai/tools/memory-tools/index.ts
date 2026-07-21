@@ -28,16 +28,16 @@ const memoryKind = z.enum([
 ]);
 
 interface MemoryRecordLike {
-  id?: string;
-  slug?: string;
-  title?: string;
   body_md?: string;
+  confidence?: string;
+  id?: string;
   kind?: string;
   scope_kind?: string;
   scope_ref?: string | null;
-  confidence?: string;
-  status?: string;
+  slug?: string;
   source_kind?: string;
+  status?: string;
+  title?: string;
   updated_at?: string;
 }
 
@@ -137,7 +137,9 @@ export const memorySearchTool = createTool({
     scope_ref: z
       .string()
       .optional()
-      .describe("narrow to one user/project/entity, e.g. 'contacts.person:<id>'"),
+      .describe(
+        "narrow to one user/project/entity, e.g. 'contacts.person:<id>'"
+      ),
     kind: memoryKind.optional(),
     limit: z.number().int().min(1).max(25).default(8),
   }),
@@ -175,7 +177,11 @@ export const memorySearchTool = createTool({
           return { ...compactRecord(record), score: entry.score ?? 0 };
         })
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-      return { ok: true as const, results, total: data.total ?? results.length };
+      return {
+        ok: true as const,
+        results,
+        total: data.total ?? results.length,
+      };
     } catch (err) {
       return coreErrorToToolResult(err);
     }

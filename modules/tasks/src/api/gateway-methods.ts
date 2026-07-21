@@ -6,6 +6,7 @@ import type {
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { createTasksRepoSupabase } from "../dal/supabase.js";
+import { validateBlockedBy } from "../domain/task-blockers.js";
 import { performTaskCheckout } from "../lib/perform-task-checkout.js";
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import {
@@ -35,9 +36,9 @@ import {
 } from "../schema/zod.js";
 import { fetchRegisteredAgentIds } from "./agent-key-validator.js";
 import {
-  enqueueTaskDispatch,
-  isDispatchableTask,
-} from "./task-dispatch-queue.js";
+  dispatchTaskIfReady,
+  wakeBlockedDependents,
+} from "./task-dispatch-service.js";
 
 export type TasksRepo = ReturnType<typeof createTasksRepoSupabase>;
 
@@ -164,12 +165,22 @@ export function registerTasksGatewayMethods(
       if (parsed.primary_assignee_kind === "agent") {
         await validateAgentKey(parsed.primary_assignee_agent_type_key, options);
       }
+      if (parsed.blocked_by_task_ids?.length) {
+        parsed.blocked_by_task_ids = await validateBlockedBy(
+          null,
+          parsed.blocked_by_task_ids,
+          { loadBlockedBy: (id) => repo.getBlockedByIds(id) }
+        );
+      }
       const task = await repo.createTask(parsed, {
         createdByUserId: ctx.auth?.principalId ?? null,
         actorKind: parsed.created_by_agent_type_key ? "agent" : "user",
       });
-      if (options?.queue && ctx.auth?.tenantId && isDispatchableTask(task)) {
-        await enqueueTaskDispatch(options.queue, task, ctx.auth.tenantId);
+      if (options?.queue && ctx.auth?.tenantId) {
+        await dispatchTaskIfReady(
+          { queue: options.queue, repo, tenantId: ctx.auth.tenantId },
+          task
+        );
       }
       return task;
     },
@@ -192,6 +203,13 @@ export function registerTasksGatewayMethods(
       if (!existing) {
         throw new Error("task_not_found");
       }
+      if (patch.blocked_by_task_ids !== undefined) {
+        patch.blocked_by_task_ids = await validateBlockedBy(
+          id,
+          patch.blocked_by_task_ids,
+          { loadBlockedBy: (bid) => repo.getBlockedByIds(bid) }
+        );
+      }
       const actorKind = actor_agent_type_key ? "agent" : "user";
       const updated = await repo.updateTask(id, patch, {
         actorKind,
@@ -202,8 +220,17 @@ export function registerTasksGatewayMethods(
       if (!updated) {
         throw new Error("task_not_found");
       }
-      if (options?.queue && ctx.auth?.tenantId && isDispatchableTask(updated)) {
-        await enqueueTaskDispatch(options.queue, updated, ctx.auth.tenantId);
+      if (options?.queue && ctx.auth?.tenantId) {
+        const deps = {
+          queue: options.queue,
+          repo,
+          tenantId: ctx.auth.tenantId,
+        };
+        await dispatchTaskIfReady(deps, updated);
+        // A task reaching 'done' can unblock dependents and complete a parent.
+        if (updated.status === "done" && existing.status !== "done") {
+          await wakeBlockedDependents(deps, updated);
+        }
       }
       return updated;
     },

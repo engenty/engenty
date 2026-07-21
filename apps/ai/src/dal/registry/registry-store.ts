@@ -1,4 +1,7 @@
-import { agentGuardrailsConfigSchema } from "@engenty/ai-core";
+import {
+  agentGuardrailsConfigSchema,
+  agentLimitsConfigSchema,
+} from "@engenty/ai-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createNonExecutableDatabaseTool } from "../../ai/registry/database-tool.js";
 import type {
@@ -13,7 +16,6 @@ export type RegistryAgentStatus = "proposed" | "active" | "archived";
 
 export interface RegistryAgentRow {
   agent_id: string;
-  budget?: Record<string, unknown> | null;
   /** Link to the core.agents security principal; provisioned lazily. */
   core_agent_id?: string | null;
   created_at: string;
@@ -23,9 +25,10 @@ export interface RegistryAgentRow {
   guardrails: Record<string, unknown> | null;
   id: string;
   instructions: string;
-  max_steps?: number | null;
+  /** Per-agent operational limits (e.g. { max_steps, budget }). */
+  limits?: Record<string, unknown> | null;
   model: string;
-  /** Per-agent overrides (Phase 4); null = inherit tenant defaults. */
+  /** Per-agent model overrides (Phase 4); null = inherit tenant defaults. */
   model_override?: string | null;
   name: string;
   /** Pending full-config revision for an ACTIVE agent (governance). */
@@ -58,10 +61,20 @@ function parseGuardrails(
   return parsed.success ? parsed.data : undefined;
 }
 
+function parseLimits(
+  raw: Record<string, unknown> | null | undefined
+): AgentConfig["limits"] {
+  if (!raw || Object.keys(raw).length === 0) {
+    return;
+  }
+  const parsed = agentLimitsConfigSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
+
 function mapAgentRow(row: RegistryAgentRow): AgentConfig {
   const guardrails = parseGuardrails(row.guardrails);
+  const limits = parseLimits(row.limits);
   const purpose = row.purpose as AgentConfig["purpose"] | null | undefined;
-  const budget = row.budget as AgentConfig["budget"] | null | undefined;
   return {
     id: row.agent_id,
     name: row.name,
@@ -72,10 +85,9 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     skillIds: row.skill_ids,
     subAgents: row.sub_agents,
     ...(guardrails ? { guardrails } : {}),
+    ...(limits ? { limits } : {}),
     ...(row.model_override ? { modelOverride: row.model_override } : {}),
     ...(purpose ? { purpose } : {}),
-    ...(row.max_steps == null ? {} : { maxSteps: row.max_steps }),
-    ...(budget ? { budget } : {}),
   };
 }
 
@@ -215,10 +227,9 @@ export function createRegistryStore(client: SupabaseClient) {
         skill_ids: config.skillIds ?? [],
         sub_agents: config.subAgents ?? [],
         guardrails: config.guardrails ?? {},
+        limits: config.limits ?? {},
         model_override: config.modelOverride ?? null,
         purpose: config.purpose ?? null,
-        max_steps: config.maxSteps ?? null,
-        budget: config.budget ?? null,
       };
       const patch =
         row && (row.status ?? "active") === "active"
@@ -367,10 +378,9 @@ export function createRegistryStore(client: SupabaseClient) {
             skill_ids: config.skillIds ?? [],
             sub_agents: config.subAgents ?? [],
             guardrails: config.guardrails ?? {},
+            limits: config.limits ?? {},
             model_override: config.modelOverride ?? null,
             purpose: config.purpose ?? null,
-            max_steps: config.maxSteps ?? null,
-            budget: config.budget ?? null,
             // Human/admin write path: goes live directly and supersedes any
             // pending agent proposal (agents propose via proposeAgent instead).
             status: "active",

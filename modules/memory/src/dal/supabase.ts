@@ -100,12 +100,12 @@ export function createMemoryRepoSupabase(
           updated_by: input.updated_by ?? null,
           updated_at: now,
           ...(input.status ? { status: input.status } : {}),
-          ...(input.agent_type_key !== undefined
-            ? { agent_type_key: input.agent_type_key }
-            : {}),
-          ...(input.supersedes !== undefined
-            ? { supersedes: input.supersedes }
-            : {}),
+          ...(input.agent_type_key === undefined
+            ? {}
+            : { agent_type_key: input.agent_type_key }),
+          ...(input.supersedes === undefined
+            ? {}
+            : { supersedes: input.supersedes }),
         };
         const { data, error } = await records()
           .update(patch)

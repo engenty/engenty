@@ -107,6 +107,7 @@ export function makeMockTasksRepo(): TasksRepo {
         created_by_user_id: null,
         created_by_agent_type_key: input.created_by_agent_type_key ?? null,
         due_date: input.due_date ?? null,
+        blocked_by_task_ids: input.blocked_by_task_ids ?? [],
         request_depth: 0,
         started_at: null,
         completed_at: null,
