@@ -7,13 +7,15 @@ export interface ShellTenant {
   slug: string;
 }
 
+export type NavigationChildType = "link" | "separator" | "heading";
+
 export interface NavigationItem {
   children?: Array<{
     to: string;
     label: string;
     icon?: UiIconComponent;
     external?: boolean;
-    type?: "link" | "separator";
+    type?: NavigationChildType;
   }>;
   external?: boolean;
   icon: UiIconComponent;

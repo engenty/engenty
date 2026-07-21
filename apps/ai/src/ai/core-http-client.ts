@@ -71,6 +71,8 @@ export interface EngentyWorkspaceContext {
 }
 
 export interface EngentyPluginListItem {
+  /** Catalog group from engenty.plugin.json. */
+  category?: string;
   dependencies?: string[];
   description?: string;
   effectiveState?: {

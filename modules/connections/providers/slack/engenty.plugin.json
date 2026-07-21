@@ -4,7 +4,10 @@
   "description": "Slack connector: channels, history, search, messages, reactions via the connections framework",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-slack"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-slack"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -34,7 +37,10 @@
           "url": "https://api.slack.com/apps"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
@@ -50,7 +56,10 @@
           "url": "https://api.slack.com/apps"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       }
     ]

@@ -4,6 +4,7 @@
   "description": "Central external-service connections: OAuth, per-action permissions, approvals",
   "version": "0.0.1",
   "kind": "module",
+  "category": "integrations",
   "provides": [
     "module.connections",
     "module.connections.read",
@@ -28,9 +29,14 @@
         "feature": "connections",
         "group": "Connections",
         "key": "CONNECTIONS_TOKEN_ENC_KEY",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       },
       {
@@ -38,9 +44,14 @@
         "feature": "connections",
         "group": "Connections",
         "key": "CONNECTIONS_REDIRECT_URI",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       }
     ]

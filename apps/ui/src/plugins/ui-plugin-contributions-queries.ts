@@ -14,7 +14,7 @@ import { resolveUiPlugins, type UiResolutionDiagnostic } from "./resolver";
  * Increment when plugin catalog, resolver rules, or menu ordering semantics change so
  * production `contributionsCache` entries are not reused across deploys.
  */
-const UI_CONTRIBUTIONS_CACHE_VERSION = 6;
+const UI_CONTRIBUTIONS_CACHE_VERSION = 11;
 
 interface UiPluginGenerationEntry {
   generationId?: number;

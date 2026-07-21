@@ -4,7 +4,10 @@
   "description": "HubSpot CRM connector: list contacts via a private app access token",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-hubspot"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-hubspot"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,

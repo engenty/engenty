@@ -4,7 +4,10 @@
   "description": "Microsoft Graph connectors: Outlook mail + calendar and OneDrive files",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-microsoft"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-microsoft"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -34,7 +37,10 @@
           "url": "https://portal.azure.com"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
@@ -50,7 +56,10 @@
           "url": "https://portal.azure.com"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       }
     ]

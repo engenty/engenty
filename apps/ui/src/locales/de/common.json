@@ -214,6 +214,16 @@
     "diagnosticsDescription": "Plugin-Lade- und Laufzeit-Diagnosen aus der Registry."
   },
   "settings": {
+    "categories": {
+      "engenty": "Engenty",
+      "commercial": "Commercial",
+      "work": "Arbeit",
+      "knowledge": "Wissen",
+      "agents": "Agenten",
+      "integrations": "Integrationen",
+      "platform": "Plattform",
+      "other": "Sonstiges"
+    },
     "generalTitle": "Allgemeine Einstellungen",
     "generalDescription": "Platzhalter für kommende gespeicherte App-Einstellungen.",
     "general": {
@@ -470,9 +480,12 @@
     },
     "plugins": {
       "title": "Module",
-      "description": "Installierte Module für Ihren Arbeitsbereich.",
+      "description": "Einstellungen für Module in Ihrem Arbeitsbereich öffnen.",
       "manageAll": "Alle Plugins verwalten",
-      "noModules": "Keine Module gefunden."
+      "noModules": "Keine Module mit Einstellungen gefunden.",
+      "deactivateConfirmTitle": "{{name}} deaktivieren?",
+      "deactivateConfirmDescription": "Dieses Modul wird ausgeschaltet und aus den Einstellungen entfernt. Sie können es unter Setup → Plugins wieder aktivieren.",
+      "deactivateConfirmAction": "Deaktivieren"
     },
     "roles": {
       "title": "Rollen & Berechtigungen",

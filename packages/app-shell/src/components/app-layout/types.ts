@@ -29,7 +29,7 @@ export interface SecondaryNavLinkItem {
   icon?: any;
   label: string;
   to: string;
-  type?: "link" | "separator";
+  type?: "link" | "separator" | "heading";
 }
 
 export interface ModuleNavHeaderIcon {

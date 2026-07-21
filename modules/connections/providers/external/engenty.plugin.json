@@ -4,7 +4,10 @@
   "description": "Import any external service as a connector from OpenAPI specs, MCP servers, or the integrations.sh registry",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-external"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-external"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -23,9 +26,14 @@
         "feature": "connections-external",
         "group": "Connections — External",
         "key": "ENGENTY_INTEGRATIONS_REGISTRY_URL",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       }
     ]

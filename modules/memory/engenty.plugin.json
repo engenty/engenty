@@ -4,6 +4,7 @@
   "description": "Layered agent learning memory: free-form markdown records at user, project, org, and entity scope",
   "version": "0.0.1",
   "kind": "module",
+  "category": "engenty",
   "provides": [
     "module.memory",
     "module.memory.read",
@@ -30,9 +31,14 @@
         "feature": "memory-reflection",
         "group": "Memory — learning layer",
         "key": "ENGENTY_AI_MEMORY_REFLECTION",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       }
     ]

@@ -4,6 +4,7 @@ import type {
   UiCopilotAppContribution,
   UiIconComponent,
 } from "@engenty/ui-plugin-sdk";
+import { PLUGIN_CATEGORIES, pluginCategoryRank } from "@engenty/ui-plugin-sdk";
 import {
   BarChart3,
   Box,
@@ -212,6 +213,7 @@ export function buildNavigationSections(
       ? mapSettingsContribution(connectionsSettingsItem)
       : null;
   // Module settings below the separator — Connections is promoted above.
+  // Groups follow PLUGIN_CATEGORIES; item `order` sorts within a category only.
   const moduleSettingsItems = contributions.settingsItems
     .filter(
       (item) =>
@@ -221,7 +223,22 @@ export function buildNavigationSections(
     )
     // Module settings are tenant configuration — hidden from members, who see
     // only genuinely personal surfaces (declared via `requiresAdmin: false`).
-    .filter((item) => isAdmin || item.requiresAdmin === false);
+    .filter((item) => isAdmin || item.requiresAdmin === false)
+    .slice()
+    .sort((left, right) => {
+      const byCategory =
+        pluginCategoryRank(left.category) - pluginCategoryRank(right.category);
+      if (byCategory !== 0) {
+        return byCategory;
+      }
+      return (left.order ?? 10_000) - (right.order ?? 10_000);
+    });
+
+  const moduleSettingsChildren = appendModuleSettingsWithCategoryHeadings(
+    moduleSettingsItems,
+    mapSettingsContribution,
+    t
+  );
 
   const coreSettingsChildren = [
     // Tenant configuration — admins only. Members are end users: their Settings
@@ -278,10 +295,10 @@ export function buildNavigationSections(
   ];
   const settingsChildren = [
     ...coreSettingsChildren,
-    ...(moduleSettingsItems.length > 0
+    ...(moduleSettingsChildren.length > 0
       ? [{ to: "", label: "", type: "separator" as const }]
       : []),
-    ...moduleSettingsItems.map(mapSettingsContribution),
+    ...moduleSettingsChildren,
   ];
 
   return [
@@ -363,11 +380,69 @@ function isNavigablePath(itemPath: string): boolean {
   return pathOnly.length > 0;
 }
 
+function appendModuleSettingsWithCategoryHeadings(
+  items: SettingsMenuEntry[],
+  mapItem: (item: SettingsMenuEntry) => {
+    icon: ReturnType<typeof resolveSettingsItemIcon>;
+    label: string;
+    to: string;
+  },
+  t: TranslateFn
+) {
+  const out: Array<
+    | {
+        icon: ReturnType<typeof resolveSettingsItemIcon>;
+        label: string;
+        to: string;
+      }
+    | { label: string; to: ""; type: "heading" }
+  > = [];
+  const byCategory = new Map<string, SettingsMenuEntry[]>();
+  for (const item of items) {
+    const key = item.category ?? "other";
+    const list = byCategory.get(key) ?? [];
+    list.push(item);
+    byCategory.set(key, list);
+  }
+  const categoryKeys = [
+    ...PLUGIN_CATEGORIES,
+    ...[...byCategory.keys()].filter(
+      (key) =>
+        key === "other" ||
+        !(PLUGIN_CATEGORIES as readonly string[]).includes(key)
+    ),
+  ];
+  const seen = new Set<string>();
+  for (const category of categoryKeys) {
+    if (seen.has(category)) {
+      continue;
+    }
+    seen.add(category);
+    const group = byCategory.get(category);
+    if (!group?.length) {
+      continue;
+    }
+    out.push({
+      to: "",
+      label: t(`settings.categories.${category}`),
+      type: "heading",
+    });
+    for (const item of group) {
+      out.push(mapItem(item));
+    }
+  }
+  return out;
+}
+
 function isSecondaryNavLinkChild(child: {
   to: string;
-  type?: "link" | "separator";
+  type?: "link" | "separator" | "heading";
 }): boolean {
-  return child.type !== "separator" && isNavigablePath(child.to);
+  return (
+    child.type !== "separator" &&
+    child.type !== "heading" &&
+    isNavigablePath(child.to)
+  );
 }
 
 export function matchesPath(

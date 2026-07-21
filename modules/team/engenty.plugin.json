@@ -4,6 +4,7 @@
   "description": "Team directory, org structure, groups, and taxonomies",
   "version": "0.0.1",
   "kind": "module",
+  "category": "work",
   "provides": [
     "module.team",
     "module.team.read",

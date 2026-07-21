@@ -1,9 +1,18 @@
-import type { PluginSourceInfo } from "@engenty/plugin-sdk";
+import type {
+  PluginCategory,
+  PluginSourceInfo,
+} from "@engenty/plugin-sdk";
 import type { ComponentType } from "react";
 
 export type {
+  PluginCategory,
   PluginDiagnostic,
   PluginSourceInfo,
+} from "@engenty/plugin-sdk";
+export {
+  isPluginCategory,
+  PLUGIN_CATEGORIES,
+  pluginCategoryRank,
 } from "@engenty/plugin-sdk";
 
 export type UiPluginId = string;
@@ -130,10 +139,17 @@ export interface UiAdminMenuItemContribution {
 }
 
 export interface UiSettingsItemContribution {
+  /**
+   * Catalog group from `engenty.plugin.json` (enriched at UI resolve time).
+   * Category display order is {@link PLUGIN_CATEGORIES}; `order` sorts within
+   * the category only.
+   */
+  category?: PluginCategory;
   icon?: UiIconComponent;
   id: string;
   label: string;
   labelKey?: string;
+  /** Sort key within {@link category} only — not across categories. */
   order?: number;
   pluginId: UiPluginId;
   /**
@@ -378,6 +394,8 @@ export interface UiPluginSummary {
     operations?: boolean;
     ui?: boolean;
   };
+  /** Catalog group from engenty.plugin.json — see PluginCategory. */
+  category?: PluginCategory;
   dependencies?: string[];
   effectiveState?: {
     allowed: boolean;

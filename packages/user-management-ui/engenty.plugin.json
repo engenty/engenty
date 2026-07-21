@@ -3,9 +3,13 @@
   "name": "User Management UI",
   "version": "0.0.1",
   "kind": "package",
+  "category": "platform",
   "ui": {
     "entry": "@engenty/user-management-ui/plugin",
     "load": "workspace",
-    "tailwindSources": ["./src", "./dist"]
+    "tailwindSources": [
+      "./src",
+      "./dist"
+    ]
   }
 }

@@ -214,6 +214,16 @@
     "diagnosticsDescription": "Plugin load and runtime diagnostics from registry."
   },
   "settings": {
+    "categories": {
+      "engenty": "Engenty",
+      "commercial": "Commercial",
+      "work": "Work",
+      "knowledge": "Knowledge",
+      "agents": "Agents",
+      "integrations": "Integrations",
+      "platform": "Platform",
+      "other": "Other"
+    },
     "generalTitle": "General Settings",
     "generalDescription": "Placeholders for upcoming persisted app preferences.",
     "general": {
@@ -470,9 +480,12 @@
     },
     "plugins": {
       "title": "Modules",
-      "description": "Installed modules for your workspace.",
+      "description": "Open settings for modules in your workspace.",
       "manageAll": "Manage all plugins",
-      "noModules": "No modules found."
+      "noModules": "No modules with settings found.",
+      "deactivateConfirmTitle": "Deactivate {{name}}?",
+      "deactivateConfirmDescription": "This module will be turned off and removed from Settings. You can re-enable it under Setup → Plugins.",
+      "deactivateConfirmAction": "Deactivate"
     },
     "roles": {
       "title": "Roles & permissions",

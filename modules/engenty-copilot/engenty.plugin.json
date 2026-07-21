@@ -4,6 +4,7 @@
   "description": "Core Engenty copilot full-page chat and apps/ai UI consumer",
   "version": "0.0.1",
   "kind": "module",
+  "category": "engenty",
   "provides": [
     "module.engenty-copilot",
     "platform.copilot",
@@ -38,7 +39,10 @@
           "url": "https://vercel.com/docs/ai-gateway"
         },
         "required": "feature",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       },
       {
@@ -47,9 +51,13 @@
         "feature": "ai",
         "group": "AI",
         "key": "AI_GATEWAY_DEFAULT_MODEL",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root"],
+        "scopes": [
+          "root"
+        ],
         "secret": false
       },
       {
@@ -58,9 +66,14 @@
         "feature": "ai",
         "group": "AI",
         "key": "AI_GATEWAY_MODEL_SYNC_ENABLED",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
@@ -69,9 +82,14 @@
         "feature": "ai",
         "group": "AI",
         "key": "AI_GATEWAY_MODEL_SYNC_RUN_ON_START",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
@@ -87,7 +105,10 @@
           "url": "https://platform.openai.com/api-keys"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       }
     ]

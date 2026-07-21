@@ -1,11 +1,17 @@
 {
   "id": "team-chat-slack-bridge",
-  "name": "Team-Chat \u2014 Slack Bridge",
+  "name": "Team-Chat — Slack Bridge",
   "description": "Pro: mirrors bound team-chat channels to a remote Slack workspace (outbound replay + inbound sync) via the Slack connector",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.team-chat-slack-bridge"],
-  "requires": ["module.team-chat", "module.connections-slack"],
+  "category": "engenty",
+  "provides": [
+    "module.team-chat-slack-bridge"
+  ],
+  "requires": [
+    "module.team-chat",
+    "module.connections-slack"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -22,11 +28,16 @@
       {
         "description": "Set to false to disable the team-chat Slack bridge (event replay + inbound sync).",
         "feature": "team-chat-slack-bridge",
-        "group": "Team-Chat \u2014 Slack Bridge",
+        "group": "Team-Chat — Slack Bridge",
         "key": "ENGENTY_TEAM_CHAT_SLACK_BRIDGE_ENABLED",
-        "obtain": { "kind": "manual" },
+        "obtain": {
+          "kind": "manual"
+        },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       }
     ]

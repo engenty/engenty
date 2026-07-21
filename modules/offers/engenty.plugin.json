@@ -4,13 +4,16 @@
   "description": "Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings",
   "version": "0.0.1",
   "kind": "module",
+  "category": "commercial",
   "provides": [
     "module.offers",
     "module.offers.read",
     "module.offers.write",
     "ui.route.module.offers"
   ],
-  "optional": ["module.contacts"],
+  "optional": [
+    "module.contacts"
+  ],
   "capabilities": {
     "operations": true,
     "ai": true,

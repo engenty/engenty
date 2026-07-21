@@ -4,7 +4,10 @@
   "description": "KV store for tenant-scoped settings",
   "version": "0.0.1",
   "kind": "package",
-  "provides": ["tenant-settings"],
+  "category": "platform",
+  "provides": [
+    "tenant-settings"
+  ],
   "capabilities": {
     "ai": false,
     "frontendTools": false,

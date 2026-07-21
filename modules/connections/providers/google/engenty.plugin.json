@@ -4,7 +4,10 @@
   "description": "Google connectors for the connections framework: Gmail, Drive, Calendar, Contacts",
   "version": "0.0.1",
   "kind": "module",
-  "provides": ["module.connections-google"],
+  "category": "integrations",
+  "provides": [
+    "module.connections-google"
+  ],
   "capabilities": {
     "operations": true,
     "ai": false,
@@ -33,7 +36,10 @@
           "url": "https://console.cloud.google.com/apis/credentials"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": false
       },
       {
@@ -50,7 +56,10 @@
           "url": "https://console.cloud.google.com/apis/credentials"
         },
         "required": "optional",
-        "scopes": ["root", "deploy"],
+        "scopes": [
+          "root",
+          "deploy"
+        ],
         "secret": true
       }
     ]

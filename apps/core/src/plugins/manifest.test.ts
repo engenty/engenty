@@ -133,6 +133,7 @@ describe("loadPluginManifest", () => {
         description: "Target manifest",
         version: "1.0.0",
         kind: "module",
+        category: "work",
         server: { entry: "./src/plugin.ts" },
         ui: {
           entry: "@engenty/target/ui/custom",
@@ -159,6 +160,7 @@ describe("loadPluginManifest", () => {
     if (result.ok) {
       expect(result.manifestPath).toContain(ENGENTY_PLUGIN_MANIFEST_FILENAME);
       expect(result.manifest.id).toBe("target-plugin");
+      expect(result.manifest.category).toBe("work");
       expect(result.manifest.server).toEqual({
         entry: "./src/plugin.ts",
       });
@@ -173,6 +175,25 @@ describe("loadPluginManifest", () => {
       expect(result.manifest.capabilities?.operations).toBe(true);
       expect(result.manifest.capabilities?.ai).toBe(false);
       expect(result.diagnostics).toEqual([]);
+    }
+  });
+
+  it("rejects unknown category values", () => {
+    tmpDir = makeTempDir();
+    fs.writeFileSync(path.join(tmpDir, "plugin-entry.ts"), "export {};");
+    fs.writeFileSync(
+      path.join(tmpDir, ENGENTY_PLUGIN_MANIFEST_FILENAME),
+      JSON.stringify({
+        id: "bad-category",
+        category: "not-a-real-category",
+        server: { entry: "./plugin-entry.ts" },
+      })
+    );
+    const result = loadPluginManifest(tmpDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("plugin.manifest.invalid");
+      expect(result.error).toContain("category must be one of");
     }
   });
 

@@ -4,14 +4,20 @@
   "description": "Project management with phases, tasks, and client portal",
   "version": "0.0.1",
   "kind": "module",
+  "category": "engenty",
   "provides": [
     "module.projects",
     "module.projects.read",
     "module.projects.write",
     "ui.route.module.projects"
   ],
-  "requires": ["module.tasks"],
-  "optional": ["module.contacts", "module.team"],
+  "requires": [
+    "module.tasks"
+  ],
+  "optional": [
+    "module.contacts",
+    "module.team"
+  ],
   "capabilities": {
     "operations": true,
     "ai": true,

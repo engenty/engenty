@@ -4,6 +4,7 @@
   "description": "Shared PDF template storage, preview, and editor integration",
   "version": "0.0.1",
   "kind": "module",
+  "category": "commercial",
   "provides": [
     "module.pdf-templates",
     "module.pdf-templates.read",

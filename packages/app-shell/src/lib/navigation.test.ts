@@ -207,6 +207,7 @@ describe("navigation", () => {
             label: "Invoices",
             pluginId: "invoices",
             to: "/mdl/invoices/settings",
+            category: "commercial" as const,
             icon: InvoicesIcon,
           },
           {
@@ -231,8 +232,14 @@ describe("navigation", () => {
         "/settings/roles",
         "/settings/connections",
         "",
+        "",
         "/mdl/invoices/settings",
       ]);
+      expect(
+        adminChildren.find(
+          (item) => item.type === "heading" && item.label.includes("commercial")
+        )
+      ).toBeTruthy();
       expect(
         adminChildren.find((item) => item.to === "/settings/connections")?.icon
       ).toBe(ConnectionsIcon);
@@ -243,6 +250,113 @@ describe("navigation", () => {
       );
       expect(memberChildren.map((item) => item.to)).toEqual([
         "/settings/connections",
+      ]);
+    });
+
+    it("inserts category headings for module settings order bands", () => {
+      const settingsChildren = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const children = settingsChildren(
+        buildNavigationSections(
+          {
+            routes: [],
+            adminMenuItems: [],
+            copilotApps: [],
+            copilotContributions: [],
+            dashboardWidgets: [],
+            developmentPanels: [],
+            i18nNamespaces: [],
+            liveBindings: [],
+            navigationPrefetch: [],
+            settingsItems: [
+              {
+                id: "invoices_settings_menu",
+                label: "Invoices",
+                pluginId: "invoices",
+                to: "/mdl/invoices/settings",
+                category: "commercial" as const,
+                order: 20,
+              },
+              {
+                id: "projects_settings_menu",
+                label: "Projects",
+                pluginId: "projects",
+                to: "/mdl/projects/settings",
+                category: "engenty" as const,
+                order: 10,
+              },
+              {
+                id: "company_profile_settings_menu",
+                label: "Company Profile",
+                pluginId: "company-profile",
+                to: "/mdl/company-profile/settings",
+                category: "commercial" as const,
+                order: 10,
+              },
+            ],
+          },
+          { isTenantAdmin: true }
+        )
+      );
+
+      expect(
+        children.map((item) => ({
+          to: item.to,
+          type: item.type,
+          label: item.label,
+        }))
+      ).toEqual([
+        {
+          to: "/settings/appearance",
+          type: undefined,
+          label: "settings.appearanceTitle",
+        },
+        {
+          to: "/settings/ai",
+          type: undefined,
+          label: "settings.aiModels.menuLabel",
+        },
+        {
+          to: "/settings/ai-usage",
+          type: undefined,
+          label: "settings.aiUsage.menuLabel",
+        },
+        {
+          to: "/settings/roles",
+          type: undefined,
+          label: "settings.roles.menuLabel",
+        },
+        { to: "", type: "separator", label: "" },
+        {
+          to: "",
+          type: "heading",
+          label: "settings.categories.engenty",
+        },
+        {
+          to: "/mdl/projects/settings",
+          type: undefined,
+          label: "Projects",
+        },
+        {
+          to: "",
+          type: "heading",
+          label: "settings.categories.commercial",
+        },
+        {
+          to: "/mdl/company-profile/settings",
+          type: undefined,
+          label: "Company Profile",
+        },
+        {
+          to: "/mdl/invoices/settings",
+          type: undefined,
+          label: "Invoices",
+        },
       ]);
     });
 

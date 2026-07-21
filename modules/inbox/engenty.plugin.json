@@ -4,6 +4,7 @@
   "description": "Synced email inbox over connected mail accounts (connections framework)",
   "version": "0.0.1",
   "kind": "module",
+  "category": "work",
   "provides": [
     "module.inbox",
     "module.inbox.read",
