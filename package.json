@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.50",
+  "version": "0.1.51",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -62,6 +62,9 @@
         "source": "workspace"
       },
       "knowledge-base": {
+        "source": "workspace"
+      },
+      "memory": {
         "source": "workspace"
       },
       "offers": {

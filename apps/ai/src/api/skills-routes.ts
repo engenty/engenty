@@ -18,6 +18,10 @@ import {
   type SkillFrontmatter,
 } from "../ai/skills/skill-frontmatter.js";
 import {
+  createSkillProposalStore,
+  type SkillProposalStore,
+} from "../ai/skills/skill-proposals.js";
+import {
   createSkillStorage,
   type SkillFileInput,
   SkillReadOnlyError,
@@ -46,6 +50,23 @@ function buildSkillStorage(scope: AiSessionScope): SkillStorage | null {
     return null;
   }
   return createSkillStorage({
+    storage: createEngentyCoreFileStorageClient({
+      coreBaseUrl,
+      userAccessToken,
+    }),
+    tenantId: scope.tenantId,
+  });
+}
+
+function buildSkillProposalStore(
+  scope: AiSessionScope
+): SkillProposalStore | null {
+  const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+  const userAccessToken = scope.userAccessToken?.trim();
+  if (!(coreBaseUrl && userAccessToken)) {
+    return null;
+  }
+  return createSkillProposalStore({
     storage: createEngentyCoreFileStorageClient({
       coreBaseUrl,
       userAccessToken,
@@ -122,6 +143,95 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to list skills",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  // Proposal routes (memory Phase 4b) — agent-drafted skills awaiting human
+  // review. Declared before `:name` so `proposals` is not captured as a skill
+  // name. Approve copies the draft into the custom tier (discoverable) and
+  // removes the proposal; reject just removes it. Managed stays read-only.
+  app.get(`${AI_BASE_PATH}/skills/proposals`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = buildSkillProposalStore(resolved.scope);
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+    }
+    try {
+      return c.json({ proposals: await store.list() });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to list skill proposals",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  app.post(`${AI_BASE_PATH}/skills/proposals/:name/approve`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = buildSkillProposalStore(resolved.scope);
+    const storage = buildSkillStorage(resolved.scope);
+    if (!(store && storage)) {
+      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+    }
+    try {
+      const name = c.req.param("name");
+      assertValidAgentSkillName(name);
+      const proposal = await store.get(name);
+      if (!proposal) {
+        return c.json({ error: "skills.unknownProposal" }, 404);
+      }
+      if (await storage.managedSkillExists(name)) {
+        return c.json({ error: "skills.readOnly" }, 409);
+      }
+      const saved = await storage.upsertCustomSkill({
+        body: proposal.body,
+        frontmatter: proposal.frontmatter,
+        name,
+      });
+      await store.remove(name);
+      return c.json({ skill: saved });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to approve skill proposal",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  app.post(`${AI_BASE_PATH}/skills/proposals/:name/reject`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = buildSkillProposalStore(resolved.scope);
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+    }
+    try {
+      const name = c.req.param("name");
+      assertValidAgentSkillName(name);
+      if (!(await store.get(name))) {
+        return c.json({ error: "skills.unknownProposal" }, 404);
+      }
+      await store.remove(name);
+      return c.json({ ok: true });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to reject skill proposal",
         "agent_sessions.internalError",
         err
       );

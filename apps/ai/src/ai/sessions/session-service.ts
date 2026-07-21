@@ -766,6 +766,7 @@ export function createSessionService(opts: SessionServiceOptions) {
         const output = await engentyToolsRunAls.run(
           {
             ...(coreAgentId ? { agentId: coreAgentId } : {}),
+            agentTypeKey: session.agent_id,
             goalId: input.threadId,
             orchestratorThreadId: input.threadId,
             runId,

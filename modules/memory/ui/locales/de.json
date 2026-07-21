@@ -1,0 +1,36 @@
+{
+  "title": "Gedächtnis",
+  "subtitle": "Was deine Agenten gelernt haben — jeder Bereich ist ein Dokument. Bearbeite es wie Text; jeder Block bleibt ein nachverfolgter Eintrag.",
+  "loading": "Lädt…",
+  "menu": {
+    "memory": "Gedächtnis"
+  },
+  "tabs": {
+    "profile": "Profil",
+    "mine": "Mein Gedächtnis",
+    "projects": "Projekte",
+    "org": "Organisation",
+    "entities": "Objekte"
+  },
+  "profile": {
+    "subtitle": "Das stets verfügbare Profil, das der Assistent über dich pflegt. Es aktualisiert sich selbst; Zurücksetzen ist die einzige Bearbeitung.",
+    "reset": "Zurücksetzen",
+    "empty": "Noch kein Profil."
+  },
+  "doc": {
+    "save": "Speichern",
+    "saved": "Gedächtnis gespeichert",
+    "unsaved": "Ungespeicherte Änderungen",
+    "readOnly": "Nur lesen",
+    "noAccess": "Du hast keinen Zugriff auf diesen Gedächtnisbereich.",
+    "conflict": "Ein Agent hat dieses Gedächtnis während deiner Bearbeitung aktualisiert — neu geladen. Bitte wende deine Änderung erneut an.",
+    "changedUnderneath": "Das Gedächtnis hat sich währenddessen geändert — deine Bearbeitung bleibt erhalten.",
+    "reload": "Verwerfen & neu laden",
+    "proposals": "Offene Vorschläge",
+    "approve": "Freigeben",
+    "reject": "Ablehnen"
+  },
+  "refs": {
+    "empty": "Noch keine Einträge in diesem Bereich — Agenten legen sie bei der Arbeit an."
+  }
+}

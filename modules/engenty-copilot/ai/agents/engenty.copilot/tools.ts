@@ -33,6 +33,20 @@ export const ENGENTY_ARTIFACT_TOOL_IDS = [
 // in apps/ai createShowObjectsTool, resolved by the builtin registry).
 export const ENGENTY_OBJECT_TOOL_IDS = ["show_objects"];
 
+// Durable learning memory (modules/memory) — save/recall/archive markdown
+// memory records at user/project/org/entity scope. Implemented in apps/ai
+// (createMemoryTools), resolved by the builtin registry; agents carrying
+// these ids also get the "## Memory" instructions layer appended.
+export const ENGENTY_MEMORY_TOOL_IDS = [
+  "memory_save",
+  "memory_record_search",
+  "memory_record_archive",
+];
+
+// Skill self-authoring (approval-gated): draft a SKILL.md proposal from a
+// workflow performed successfully more than once; a human enables it.
+export const ENGENTY_SKILL_PROPOSE_TOOL_IDS = ["skill_propose"];
+
 // Generative UI — agent-authored sandboxed HTML widgets (show_widget) and
 // declarative A2UI surfaces from the engenty catalog (show_ui). Implemented
 // in apps/ai, resolved by the builtin registry.
@@ -50,7 +64,9 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   ...ENGENTY_CATALOG_TOOL_IDS,
   ...ENGENTY_VAULT_TOOL_IDS,
   ...ENGENTY_ARTIFACT_TOOL_IDS,
+  ...ENGENTY_MEMORY_TOOL_IDS,
   ...ENGENTY_OBJECT_TOOL_IDS,
+  ...ENGENTY_SKILL_PROPOSE_TOOL_IDS,
   ...ENGENTY_WIDGET_TOOL_IDS,
 ];
 

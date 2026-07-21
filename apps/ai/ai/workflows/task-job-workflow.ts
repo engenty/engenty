@@ -1,5 +1,6 @@
 // The Task Job — a durable Mastra Workflow (the Job substrate). A dispatched
-// task runs as: checkout → buildBrief → runSpecialist → writeResult → finalize.
+// task runs as: checkout → buildBrief → runSpecialist → writeResult → reflect
+// → finalize.
 // Step snapshots persist to the Mastra Postgres store, so a crash resumes at the
 // next incomplete step (restartAllActiveWorkflowRuns on boot). The dispatch
 // consumer just starts a run with the queue message as input.
@@ -12,6 +13,7 @@ import {
   taskJobEnvelopeSchema,
   taskJobInputSchema,
 } from "../../src/ai/jobs/task-job-schema.js";
+import { reflectStep } from "../../src/ai/jobs/task-job-reflect-step.js";
 import { runSpecialistStep } from "../../src/ai/jobs/task-job-specialist-step.js";
 import {
   buildBriefStep,
@@ -31,5 +33,6 @@ export const taskJobWorkflow = createWorkflow({
   .then(buildBriefStep)
   .then(runSpecialistStep)
   .then(writeResultStep)
+  .then(reflectStep)
   .then(finalizeStep)
   .commit();

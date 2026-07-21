@@ -1,0 +1,36 @@
+{
+  "id": "memory",
+  "name": "Memory",
+  "description": "Layered agent learning memory: free-form markdown records at user, project, org, and entity scope",
+  "version": "0.0.1",
+  "kind": "module",
+  "provides": [
+    "module.memory",
+    "module.memory.read",
+    "module.memory.write",
+    "module.memory.approve"
+  ],
+  "capabilities": {
+    "operations": true,
+    "ai": true
+  },
+  "env": {
+    "feature": {
+      "id": "memory-reflection",
+      "label": "Memory reflection loop",
+      "description": "Post-task reflection step that writes durable lessons via memory_save"
+    },
+    "vars": [
+      {
+        "description": "Set to true to run the bounded post-task reflection step (the specialist writes durable lessons via memory_save after each task run). Off by default.",
+        "feature": "memory-reflection",
+        "group": "Memory — learning layer",
+        "key": "ENGENTY_AI_MEMORY_REFLECTION",
+        "obtain": { "kind": "manual" },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      }
+    ]
+  }
+}

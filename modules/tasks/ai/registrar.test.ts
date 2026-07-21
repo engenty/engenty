@@ -54,6 +54,9 @@ describe("tasksAiRegistration", () => {
     expect(capability.agentConfigs?.[0]?.toolIds).toEqual([
       "engenty_tools_search",
       "engenty_tool_execute",
+      "memory_save",
+      "memory_record_search",
+      "memory_record_archive",
     ]);
     expect(capability.skills?.["task-workflow"]).toContain("task-workflow");
   });

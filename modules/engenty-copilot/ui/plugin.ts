@@ -1,8 +1,7 @@
 import { DockChatIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
-import { Brain } from "lucide-react";
 import { CopilotChatPage } from "./pages/chat-page.js";
-import { CopilotMemorySettingsPage } from "./pages/memory-settings-page.js";
+import { CopilotMemoryRedirect } from "./pages/memory-redirect.js";
 import { CopilotChatRootRedirect } from "./pages/root-redirect.js";
 import { COPILOT_CHAT_ROOT, COPILOT_MODULE } from "./paths.js";
 import { registerEngentyCopilotToolCallUi } from "./register-tool-call-ui.js";
@@ -38,10 +37,12 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 989,
   });
 
+  // The working-memory profile now lives on /settings/memory (Profile tab of
+  // the layered memory document UI, modules/memory); keep the old URL alive.
   engenty.UI.registerRoute({
     id: "engenty_copilot_memory_settings",
     path: "/mdl/engenty-copilot/memory",
-    component: CopilotMemorySettingsPage,
+    component: CopilotMemoryRedirect,
     order: 989.5,
   });
 
@@ -54,14 +55,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 995,
   });
 
-  engenty.UI.registerSettingsItem({
-    id: "engenty_copilot_memory_settings_menu",
-    label: "Assistant memory",
-    labelKey: "engenty-copilot:memory.settingsItem",
-    to: "/mdl/engenty-copilot/memory",
-    icon: Brain,
-    order: 135,
-  });
-
+  // The settings-menu row is contributed by the memory module ("Memory",
+  // /settings/memory) — no separate assistant-memory entry anymore.
   registerEngentyCopilotToolCallUi();
 }

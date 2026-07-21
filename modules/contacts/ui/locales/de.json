@@ -397,5 +397,10 @@
     "removeTitle": "Beziehung entfernen?",
     "role": "Rolle",
     "searchPeople": "Personen suchen"
+  },
+  "agentNotes": {
+    "title": "Agenten-Notizen",
+    "archive": "Archivieren",
+    "agentFallback": "Agent"
   }
 }

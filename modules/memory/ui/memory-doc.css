@@ -1,0 +1,47 @@
+/* Memory document blocks (Phase 6): bordered block + provenance chip. The
+   chip is pure CSS from data attributes, so the block needs no React
+   NodeView — the document stays one contiguous editable surface. */
+
+.memory-record-block {
+  position: relative;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem 0.75rem;
+  margin: 0.625rem 0;
+  background: hsl(var(--card));
+}
+
+.memory-record-block::after {
+  content: attr(data-chip);
+  position: absolute;
+  top: 0.375rem;
+  right: 0.625rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  user-select: none;
+}
+
+.memory-record-block h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding-right: 11rem; /* keep the title clear of the chip */
+}
+
+.memory-record-block p {
+  margin: 0.125rem 0;
+  font-size: 0.875rem;
+}
+
+/* Proposed org memories: amber until a human approves. */
+.memory-record-block[data-status="proposed"] {
+  border-color: hsl(38 92% 50% / 0.55);
+  background: hsl(38 92% 50% / 0.06);
+}
+
+/* Reflection-sourced records get a subtle tint on the chip side. */
+.memory-record-block[data-source="reflection"]::after {
+  font-style: italic;
+}
