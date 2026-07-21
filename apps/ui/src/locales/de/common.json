@@ -464,7 +464,7 @@
       "noTeamMember": "Kein Team-Mitglied"
     },
     "appearance": {
-      "overviewDescription": "Wählen Sie einen Farbton für diesen Arbeitsbereich. Unter Darstellung finden Sie Sprache, Modus, Schriften und mehr.",
+      "overviewDescription": "Sprache und Farbton für diesen Arbeitsbereich festlegen. Unter Darstellung finden Sie Modus, Schriften und mehr.",
       "manageAll": "Darstellungseinstellungen öffnen",
       "saveFailed": "Darstellung konnte nicht gespeichert werden"
     },
