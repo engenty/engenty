@@ -12,6 +12,7 @@ import {
 } from "../features/admin-overview/overview-quick-actions";
 import { OverviewRecentActivity } from "../features/admin-overview/overview-recent-activity";
 import { WorkforceStrip } from "../features/admin-overview/workforce-strip";
+import { AgentProposalsCard } from "../features/agent-proposals/agent-proposals-card";
 import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
 import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
 
@@ -56,6 +57,7 @@ export function OverviewPage() {
     <div className="min-h-0 flex-1 overflow-auto p-page">
       <div className="mx-auto max-w-5xl space-y-6">
         <OverviewQuickActions />
+        <AgentProposalsCard />
         <WorkforceStrip />
         <CapabilityCards />
         <OverviewRecentActivity />

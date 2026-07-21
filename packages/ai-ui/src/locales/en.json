@@ -1166,5 +1166,17 @@
     "viewLabel": "View",
     "viewRows": "Rows",
     "viewCards": "Cards"
+  },
+  "agentProposals": {
+    "title": "Pending agent proposals",
+    "kindNew": "New agent",
+    "kindRevision": "Revision",
+    "proposedBy": "Proposed by {{agent}}",
+    "approve": "Approve",
+    "reject": "Reject",
+    "showInstructions": "Show proposed instructions",
+    "tools": "Tools",
+    "skills": "Skills",
+    "actionFailed": "Action failed — please try again."
   }
 }
