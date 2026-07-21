@@ -155,8 +155,6 @@ function findLastAssistantMessageRow(
 }
 
 export function createSessionService(opts: SessionServiceOptions) {
-  const agentMaxSteps = resolveAgentMaxSteps();
-
   function getRequiredStore() {
     const store = opts.getStore();
     if (!store) {
@@ -312,6 +310,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     });
     return {
       agent,
+      agentConfig: rootConfig,
       mergedDefinitions,
       modelId,
       sandboxProvider,
@@ -698,6 +697,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       const runId = input.runId ?? crypto.randomUUID();
       const {
         agent,
+        agentConfig,
         modelId,
         sandboxProvider,
         subAgentSandboxProviders,
@@ -707,6 +707,9 @@ export function createSessionService(opts: SessionServiceOptions) {
         ...input,
         runId,
       });
+      // Per-agent iteration cap overrides the global default (clamped to the
+      // hard ceiling in the resolver).
+      const agentMaxSteps = resolveAgentMaxSteps(agentConfig.limits?.max_steps);
       const usageStore = opts.getUsageStore();
       const preflight = await checkUsageLimits({
         tenant_id: input.scope.tenantId,

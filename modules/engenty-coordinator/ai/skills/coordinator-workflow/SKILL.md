@@ -30,6 +30,7 @@ For each active goal, call `tasks_list` with `goal_id=<id>`. Categorise each tas
 | **Needs review** | status is `in_review` — an agent finished executing it via the task dispatcher |
 | **In progress** | has `checkout_run_id` set OR `updated_at` within last 24 hours |
 | **Pending** | assigned but not started, updated recently — agent-assigned tasks are dispatched automatically; do not nudge them |
+| **Blocked** | status is `blocked` — it has unfinished `blocked_by_task_ids`. Do NOT nudge or re-dispatch it: when its last blocker reaches `done`, it auto-unblocks (→ `todo`) and dispatches itself. Only intervene if it is blocked but has no open blockers left (a data bug — flag it) or a blocker was cancelled (cancelled does NOT auto-resolve; remove it from `blocked_by_task_ids` or the dependent waits forever) |
 | **Stale** | not in terminal status AND `updated_at` older than 3 days |
 | **Missing** | key areas of the goal have no task at all |
 
@@ -47,11 +48,14 @@ For each gap identified in Step 3, create a task with `tasks_create`:
   primary_assignee_agent_type_key: "<id from registry_agents_list — must be exact>",
   priority: "<derived from goal urgency>",
   description: "<2-5 sentences: what to do, what done looks like>",
-  due_date: "<goal.target_date if set, else null>"
+  due_date: "<goal.target_date if set, else null>",
+  blocked_by_task_ids: ["<task id>", ...]   // omit or [] when nothing blocks it
 }
 ```
 
 Do not create a task if an equivalent one already exists (same goal, same domain, non-terminal).
+
+**Wire real dependencies, never serialize by hand.** When task B genuinely needs task A's output, set `blocked_by_task_ids: ["<A's id>"]` on B — a blocker is resolved only when it reaches `done`. Tasks with no shared blockers dispatch in parallel automatically, so do NOT chain independent work into an artificial sequence; only declare a blocker when there is a real data/decision dependency. Never encode dependencies as prose in the description.
 
 ## Step 5 — Flag stale tasks
 
