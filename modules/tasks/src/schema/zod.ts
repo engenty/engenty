@@ -39,6 +39,7 @@ export const taskSchema = z.object({
   created_by_user_id: z.string().uuid().nullable(),
   created_by_agent_type_key: z.string().nullable(),
   due_date: z.string().nullable(),
+  blocked_by_task_ids: z.array(z.string().uuid()),
   request_depth: z.number().int(),
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
@@ -122,6 +123,13 @@ export const taskCreateInputSchema = z.object({
   contexts: z.array(taskContextInputSchema).optional(),
   due_date: z.string().nullable().optional(),
   created_by_agent_type_key: z.string().nullable().optional(),
+  blocked_by_task_ids: z
+    .array(z.string().uuid())
+    .max(32)
+    .optional()
+    .describe(
+      "Task ids that must reach status 'done' before this task is dispatchable. Replaces the whole set on update; [] clears. Cancelled blockers do not count as resolved."
+    ),
 });
 
 export const taskUpdateInputSchema = taskCreateInputSchema.partial().extend({

@@ -1,5 +1,6 @@
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import type { z } from "zod";
+import { validateBlockedBy } from "../domain/task-blockers.js";
 import { performTaskCheckout } from "../lib/perform-task-checkout.js";
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import { buildTasksBriefingResponse } from "../lib/tasks-briefing-service.js";
@@ -36,9 +37,9 @@ import {
   type TasksGatewayOptions,
 } from "./gateway-methods.js";
 import {
-  enqueueTaskDispatch,
-  isDispatchableTask,
-} from "./task-dispatch-queue.js";
+  dispatchTaskIfReady,
+  wakeBlockedDependents,
+} from "./task-dispatch-service.js";
 
 const UUID_PARAM =
   "{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}";
@@ -328,21 +329,23 @@ export function registerTasksApi(
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const body = taskCreateInputSchema.parse(ctx.body ?? {});
       try {
+        if (body.blocked_by_task_ids?.length) {
+          body.blocked_by_task_ids = await validateBlockedBy(
+            null,
+            body.blocked_by_task_ids,
+            { loadBlockedBy: (id) => repo.getBlockedByIds(id) }
+          );
+        }
         const task = await repo.createTask(body, {
           createdByUserId: ctx.auth?.principalId ?? null,
           actorKind: body.created_by_agent_type_key ? "agent" : "user",
         });
         // Agent-assigned tasks auto-dispatch regardless of entry path (REST
         // here mirrors the tasks_create gateway op).
-        if (
-          gatewayOptions?.queue &&
-          ctx.auth?.tenantId &&
-          isDispatchableTask(task)
-        ) {
-          await enqueueTaskDispatch(
-            gatewayOptions.queue,
-            task,
-            ctx.auth.tenantId
+        if (gatewayOptions?.queue && ctx.auth?.tenantId) {
+          await dispatchTaskIfReady(
+            { queue: gatewayOptions.queue, repo, tenantId: ctx.auth.tenantId },
+            task
           );
         }
         return new Response(JSON.stringify(task), {
@@ -402,6 +405,13 @@ export function registerTasksApi(
       const body = taskUpdateInputSchema.parse(ctx.body ?? {});
       try {
         const existing = await repo.getTask(params.id);
+        if (body.blocked_by_task_ids !== undefined) {
+          body.blocked_by_task_ids = await validateBlockedBy(
+            params.id,
+            body.blocked_by_task_ids,
+            { loadBlockedBy: (id) => repo.getBlockedByIds(id) }
+          );
+        }
         const task = await repo.updateTask(params.id, body, {
           actorKind: "user",
           hasActiveCheckout: !!existing?.checkout_run_id,
@@ -413,16 +423,16 @@ export function registerTasksApi(
             headers: { "content-type": "application/json" },
           });
         }
-        if (
-          gatewayOptions?.queue &&
-          ctx.auth?.tenantId &&
-          isDispatchableTask(task)
-        ) {
-          await enqueueTaskDispatch(
-            gatewayOptions.queue,
-            task,
-            ctx.auth.tenantId
-          );
+        if (gatewayOptions?.queue && ctx.auth?.tenantId) {
+          const deps = {
+            queue: gatewayOptions.queue,
+            repo,
+            tenantId: ctx.auth.tenantId,
+          };
+          await dispatchTaskIfReady(deps, task);
+          if (task.status === "done" && existing?.status !== "done") {
+            await wakeBlockedDependents(deps, task);
+          }
         }
         return task;
       } catch (err) {

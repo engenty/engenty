@@ -77,6 +77,7 @@ function rowToTask(row: Record<string, unknown>): Task {
       (row.primary_assignee_user_id as string | null) ?? null,
     primary_assignee_agent_type_key:
       (row.primary_assignee_agent_type_key as string | null) ?? null,
+    blocked_by_task_ids: (row.blocked_by_task_ids as string[] | null) ?? [],
     created_by_user_id: (row.created_by_user_id as string | null) ?? null,
     created_by_agent_type_key:
       (row.created_by_agent_type_key as string | null) ?? null,
@@ -576,6 +577,86 @@ export function createTasksRepoSupabase(
       };
     },
 
+    /** Append a task activity event (+ module-bus fan-out). Public seam for
+     *  the dispatch service to log blocker/children coordination events. */
+    async recordActivity(input: {
+      task_id: string;
+      event_type: TaskActivityEventType | string;
+      payload?: Record<string, unknown>;
+      actor_agent_type_key?: string | null;
+      actor_user_id?: string | null;
+    }): Promise<void> {
+      await appendActivity(input);
+    },
+
+    /** Blocker ids stored on a task, or null if the task is not in scope. */
+    async getBlockedByIds(id: string): Promise<string[] | null> {
+      const { data, error } = await tasks()
+        .select("blocked_by_task_ids")
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to load task blockers: ${error.message}`);
+      }
+      if (!data) {
+        return null;
+      }
+      return (
+        (data as { blocked_by_task_ids: string[] | null })
+          .blocked_by_task_ids ?? []
+      );
+    },
+
+    /** Map id → status for the given task ids (in this tenant/scope). */
+    async loadTaskStatuses(
+      ids: string[]
+    ): Promise<Map<string, string | undefined>> {
+      const map = new Map<string, string | undefined>();
+      if (ids.length === 0) {
+        return map;
+      }
+      const { data, error } = await tasks()
+        .select("id, status")
+        .in("id", ids)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId);
+      if (error) {
+        throw new Error(`Failed to load task statuses: ${error.message}`);
+      }
+      for (const row of (data ?? []) as { id: string; status: string }[]) {
+        map.set(String(row.id), String(row.status));
+      }
+      return map;
+    },
+
+    /** Tasks that list `taskId` in their blocker set (its dependents). */
+    async listDependents(taskId: string): Promise<Task[]> {
+      const { data, error } = await tasks()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .contains("blocked_by_task_ids", [taskId]);
+      if (error) {
+        throw new Error(`Failed to list dependents: ${error.message}`);
+      }
+      return ((data ?? []) as Record<string, unknown>[]).map(rowToTask);
+    },
+
+    /** Direct child tasks of `parentId` (in this tenant/scope). */
+    async listChildren(parentId: string): Promise<Task[]> {
+      const { data, error } = await tasks()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("parent_id", parentId);
+      if (error) {
+        throw new Error(`Failed to list children: ${error.message}`);
+      }
+      return ((data ?? []) as Record<string, unknown>[]).map(rowToTask);
+    },
+
     async createTask(
       input: TaskCreateInput,
       opts?: { createdByUserId?: string | null; actorKind?: "user" | "agent" }
@@ -631,6 +712,7 @@ export function createTasksRepoSupabase(
         created_by_user_id: opts?.createdByUserId ?? null,
         created_by_agent_type_key: input.created_by_agent_type_key ?? null,
         due_date: input.due_date ?? null,
+        blocked_by_task_ids: input.blocked_by_task_ids ?? [],
         ...(input.project_id == null ? {} : { project_id: input.project_id }),
         request_depth: 0,
         created_at: now,
@@ -735,6 +817,9 @@ export function createTasksRepoSupabase(
       }
       if (input.project_id !== undefined) {
         updates.project_id = input.project_id;
+      }
+      if (input.blocked_by_task_ids !== undefined) {
+        updates.blocked_by_task_ids = input.blocked_by_task_ids;
       }
 
       if (

@@ -42,6 +42,12 @@ export interface Goal {
 }
 
 export interface Task {
+  /**
+   * Task ids that must reach status 'done' before this task is dispatchable.
+   * Replaces the whole set on update; [] clears. Cancelled blockers do NOT
+   * count as resolved.
+   */
+  blocked_by_task_ids: string[];
   cancelled_at: string | null;
   checkout_run_id: string | null;
   collaborator_user_ids?: string[];
@@ -120,7 +126,9 @@ export type TaskActivityEventType =
   | "tasks.released"
   | "tasks.status_changed"
   | "tasks.assignee_changed"
-  | "tasks.comment_added";
+  | "tasks.comment_added"
+  | "tasks.blockers_resolved"
+  | "tasks.children_completed";
 
 export interface TaskActivity {
   actor_agent_type_key: string | null;
@@ -198,6 +206,8 @@ export interface GoalsPaginatedResponse {
 }
 
 export interface TaskCreateInput {
+  /** See Task.blocked_by_task_ids — replaces the whole set on update. */
+  blocked_by_task_ids?: string[];
   collaborator_user_ids?: string[];
   contexts?: TaskContextInput[];
   created_by_agent_type_key?: string | null;
