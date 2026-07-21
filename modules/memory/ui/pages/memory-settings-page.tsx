@@ -164,10 +164,20 @@ function ScopeDocEditor({
     [editorVersion]
   );
 
-  const onChange = useCallback((json: JSONContent) => {
-    currentJsonRef.current = json;
-    setDirty(true);
-  }, []);
+  const onChange = useCallback(
+    (json: JSONContent) => {
+      currentJsonRef.current = json;
+      // Mark dirty only on a *real* change. TipTap emits an update just from
+      // loading/normalizing the snapshot when the editor mounts (and again on
+      // the remount a live refresh triggers), so an unconditional
+      // setDirty(true) flagged "unsaved / changed underneath" the instant you
+      // opened the tab. Diff against the loaded snapshot — the same comparison
+      // the save uses — so only an actual edit dirties the document.
+      const ops = diffMemoryDoc(docJsonToBlocks(json), snapshotBlocks);
+      setDirty(ops.length > 0);
+    },
+    [snapshotBlocks]
+  );
 
   const onSave = useCallback(async () => {
     const json = currentJsonRef.current;
@@ -286,11 +296,15 @@ function ScopeDocEditor({
         </div>
       ) : null}
 
-      <div className="rounded-lg border bg-card">
+      {/* `memory-doc-editor` scopes the block-handle rail INSIDE the card (see
+          memory-doc.css); the pl-14 reserves room for that rail so headings
+          and record blocks share one left edge instead of the handle spilling
+          into the page gutter on a narrow main area. */}
+      <div className="memory-doc-editor rounded-lg border bg-card">
         <RichEditor
           content={initialJson}
           editable={canEdit}
-          editorContentClassName="min-h-[16rem] px-4 py-3"
+          editorContentClassName="min-h-[16rem] py-3 pr-4 pl-14"
           extensions={[MemoryRecordNode]}
           key={`${scope.scope_kind}:${scope.scope_ref ?? ""}:${editorVersion}`}
           onChange={onChange}
