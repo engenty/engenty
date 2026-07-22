@@ -8,8 +8,9 @@ import {
   Skeleton,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
+import { DockContextGraphIcon } from "@engenty/ui-icons";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { BookUser, MoreVertical, Plus, RefreshCw, Share2 } from "lucide-react";
+import { BookUser, MoreVertical, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { AskResult, EntityRow } from "../api.js";
@@ -141,7 +142,7 @@ export function ContextGraphPage() {
     return (
       <section className="relative flex h-full flex-col">
         <div className="flex flex-1 items-center justify-center gap-3 text-muted-foreground text-sm">
-          <Share2 className="h-5 w-5 animate-pulse opacity-50" />
+          <DockContextGraphIcon className="h-5 w-5 animate-pulse opacity-50" />
           Loading graph…
         </div>
         <Skeleton className="h-full w-full rounded-xl" />
@@ -177,7 +178,7 @@ export function ContextGraphPage() {
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
-              <Share2 className="h-12 w-12 opacity-20" />
+              <DockContextGraphIcon className="h-12 w-12 opacity-20" />
               <p className="text-sm">
                 No entities yet. Create one to get started.
               </p>
