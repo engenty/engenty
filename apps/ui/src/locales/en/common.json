@@ -679,8 +679,10 @@
     "artifactLoadFailed": "Failed to load suggestions artifact",
     "compact": "Compact",
     "dragHandle": "Drag to move",
+    "copyThread": "Copy thread",
+    "copyThreadCopied": "Copied",
     "position": {
-      "menu": "Copilot position",
+      "menu": "Copilot menu",
       "heading": "Position",
       "bottom": "Bottom dock",
       "button": "Avatar",

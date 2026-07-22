@@ -4,14 +4,17 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
 import { EngentyAvatarIcon } from "@engenty/ui-icons";
 import {
   AppWindow,
+  Copy,
   GripVertical,
   MoreVertical,
   PanelBottom,
@@ -19,14 +22,18 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 
 const GRIP_CLICK_TOLERANCE_PX = 5;
 
 export interface CopilotDrawerPositionMenuProps {
+  /** Disable copy when the thread has no pasteable text. */
+  canCopyThread?: boolean;
   /** Match compact blended topbar trigger sizing (`size-8`). */
   compactTrigger?: boolean;
+  copyThreadCopiedLabel?: string;
+  copyThreadLabel?: string;
   /** Render the trigger as a drag grip: dragging moves the dock, a plain
    *  click (no movement) opens the menu. Replaces the three-dots trigger. */
   gripLabel?: string;
@@ -34,28 +41,35 @@ export interface CopilotDrawerPositionMenuProps {
   gripPointerLeave?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   gripPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   gripPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onSelectDockPosition: (value: CopilotDockMode) => void;
-  positionBottomLabel: string;
-  positionButtonLabel: string;
-  positionDrawerLabel: string;
-  positionFloatingLabel: string;
-  positionHeadingLabel: string;
+  onCopyThread?: () => void | Promise<void>;
+  onSelectDockPosition?: (value: CopilotDockMode) => void;
+  positionBottomLabel?: string;
+  positionButtonLabel?: string;
+  positionDrawerLabel?: string;
+  positionFloatingLabel?: string;
+  positionHeadingLabel?: string;
   positionMenuAriaLabel: string;
-  positionSidebarLabel: string;
+  positionSidebarLabel?: string;
   /** Drawer is mobile-only; hide the menu entry on larger viewports. */
   showDrawerOption?: boolean;
-  value: string;
+  /** When false, only action items (e.g. copy thread) are shown. */
+  showPositionOptions?: boolean;
+  value?: string;
 }
 
 export function CopilotDrawerPositionMenu({
+  canCopyThread = true,
+  onCopyThread,
   onSelectDockPosition,
-  positionBottomLabel,
-  positionButtonLabel,
-  positionDrawerLabel,
-  positionFloatingLabel,
-  positionHeadingLabel,
+  positionBottomLabel = "Bottom dock",
+  positionButtonLabel = "Avatar",
+  positionDrawerLabel = "Drawer",
+  positionFloatingLabel = "Modal",
+  positionHeadingLabel = "Position",
   positionMenuAriaLabel,
-  positionSidebarLabel,
+  positionSidebarLabel = "Sidebar",
+  copyThreadCopiedLabel = "Copied",
+  copyThreadLabel = "Copy thread",
   compactTrigger = false,
   gripLabel,
   gripPointerDown,
@@ -63,11 +77,28 @@ export function CopilotDrawerPositionMenu({
   gripPointerLeave,
   gripPointerUp,
   showDrawerOption = false,
-  value,
+  showPositionOptions = true,
+  value = "sidebar",
 }: CopilotDrawerPositionMenuProps) {
   const gripMode = gripPointerDown != null;
   const [gripMenuOpen, setGripMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const gripStartRef = useRef<{ x: number; y: number } | null>(null);
+  const showPositions =
+    showPositionOptions && typeof onSelectDockPosition === "function";
+  const showCopy = typeof onCopyThread === "function";
+
+  const handleCopyThread = useCallback(async () => {
+    if (!(canCopyThread && onCopyThread)) {
+      return;
+    }
+    await onCopyThread();
+    setCopied(true);
+    window.setTimeout(() => {
+      setCopied(false);
+    }, 1400);
+  }, [canCopyThread, onCopyThread]);
+
   return (
     <DropdownMenu
       {...(gripMode
@@ -119,66 +150,86 @@ export function CopilotDrawerPositionMenu({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[13.5rem]">
-        <DropdownMenuLabel>{positionHeadingLabel}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          onValueChange={(next) =>
-            onSelectDockPosition(next as CopilotDockMode)
-          }
-          value={value}
-        >
-          <DropdownMenuRadioItem
+        {showCopy ? (
+          <DropdownMenuItem
             className="flex items-center gap-2"
-            value="bottom"
+            disabled={!canCopyThread}
+            onSelect={() => {
+              void handleCopyThread();
+            }}
           >
-            <PanelBottom
+            <Copy
               aria-hidden
               className="size-4 shrink-0 text-muted-foreground"
             />
-            <span>{positionBottomLabel}</span>
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            className="flex items-center gap-2"
-            value="mini-floating"
-          >
-            <EngentyAvatarIcon
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground"
-            />
-            <span>{positionButtonLabel}</span>
-          </DropdownMenuRadioItem>
-          {showDrawerOption ? (
-            <DropdownMenuRadioItem
-              className="flex items-center gap-2"
-              value="drawer"
+            <span>{copied ? copyThreadCopiedLabel : copyThreadLabel}</span>
+          </DropdownMenuItem>
+        ) : null}
+        {showCopy && showPositions ? <DropdownMenuSeparator /> : null}
+        {showPositions ? (
+          <>
+            <DropdownMenuLabel>{positionHeadingLabel}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              onValueChange={(next) =>
+                onSelectDockPosition(next as CopilotDockMode)
+              }
+              value={value}
             >
-              <PanelRightOpen
-                aria-hidden
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-              <span>{positionDrawerLabel}</span>
-            </DropdownMenuRadioItem>
-          ) : null}
-          <DropdownMenuRadioItem
-            className="flex items-center gap-2"
-            value="floating"
-          >
-            <AppWindow
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground"
-            />
-            <span>{positionFloatingLabel}</span>
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            className="flex items-center gap-2"
-            value="sidebar"
-          >
-            <PanelRight
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground"
-            />
-            <span>{positionSidebarLabel}</span>
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+              <DropdownMenuRadioItem
+                className="flex items-center gap-2"
+                value="bottom"
+              >
+                <PanelBottom
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                <span>{positionBottomLabel}</span>
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                className="flex items-center gap-2"
+                value="mini-floating"
+              >
+                <EngentyAvatarIcon
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                <span>{positionButtonLabel}</span>
+              </DropdownMenuRadioItem>
+              {showDrawerOption ? (
+                <DropdownMenuRadioItem
+                  className="flex items-center gap-2"
+                  value="drawer"
+                >
+                  <PanelRightOpen
+                    aria-hidden
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                  <span>{positionDrawerLabel}</span>
+                </DropdownMenuRadioItem>
+              ) : null}
+              <DropdownMenuRadioItem
+                className="flex items-center gap-2"
+                value="floating"
+              >
+                <AppWindow
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                <span>{positionFloatingLabel}</span>
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                className="flex items-center gap-2"
+                value="sidebar"
+              >
+                <PanelRight
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                <span>{positionSidebarLabel}</span>
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

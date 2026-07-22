@@ -101,6 +101,8 @@ export interface CopilotDrawerProps {
   open: boolean;
   openInterruptFromSession?: AgUiOpenInterruptMetadata | null;
   panelMode?: CopilotPanelMode;
+  copyThreadCopiedLabel?: string;
+  copyThreadLabel?: string;
   positionBottomLabel?: string;
   /** Compact launcher / FAB-style placement. */
   positionButtonLabel?: string;

@@ -409,6 +409,8 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         positionHeadingLabel={t("copilot.position.heading")}
         positionMenuAriaLabel={t("copilot.position.menu")}
         positionSidebarLabel={t("copilot.position.sidebar")}
+        copyThreadCopiedLabel={t("copilot.copyThreadCopied")}
+        copyThreadLabel={t("copilot.copyThread")}
         preferredDockMode={props.shell?.preferredDockMode ?? null}
         recentSessionsChooser
         requestedAgentId={props.requestedAgentId}
