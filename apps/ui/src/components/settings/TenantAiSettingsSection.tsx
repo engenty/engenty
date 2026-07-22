@@ -138,14 +138,14 @@ export function TenantAiSettingsSection() {
           Icon={SparklesIcon}
           label={t("settings.aiModels.menuLabel")}
           loading={settingsQuery.isLoading && !settingsQuery.data}
-          to="/settings/ai"
+          to="/setup/ai"
         />
         <AiOverviewRow
           description={usageDescription}
           Icon={BarChart3Icon}
           label={t("settings.aiUsage.menuLabel")}
           loading={usageQuery.isLoading && !usageQuery.data}
-          to="/settings/ai-usage"
+          to="/setup/ai?tab=usage"
         />
       </div>
     </SettingsFormSection>

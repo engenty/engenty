@@ -17,6 +17,7 @@ import {
   getTenantUsagePolicy,
   saveTenantUsagePolicy,
 } from "./usage-policy-api";
+import { getAiUsageMe, getAiUsageTenant } from "./usage-report-api";
 
 export const aiSettingsKeys = {
   all: ["ai-settings"] as const,
@@ -112,4 +113,31 @@ export function useSaveTenantUsagePolicyMutation() {
       });
     },
   });
+}
+
+export const aiUsageReportKeys = {
+  all: ["ai-usage-report"] as const,
+  me: () => [...aiUsageReportKeys.all, "me"] as const,
+  tenant: () => [...aiUsageReportKeys.all, "tenant"] as const,
+};
+
+export function useAiUsageMeQuery() {
+  return useQuery(
+    queryOptions({
+      queryKey: aiUsageReportKeys.me(),
+      queryFn: ({ signal }) => getAiUsageMe(signal),
+      staleTime: 30_000,
+    })
+  );
+}
+
+export function useAiUsageTenantQuery(enabled: boolean) {
+  return useQuery(
+    queryOptions({
+      queryKey: aiUsageReportKeys.tenant(),
+      queryFn: ({ signal }) => getAiUsageTenant(signal),
+      staleTime: 30_000,
+      enabled,
+    })
+  );
 }

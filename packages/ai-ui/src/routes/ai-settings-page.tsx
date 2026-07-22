@@ -1,4 +1,4 @@
-import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import { useSetupSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -23,6 +23,7 @@ import {
 } from "../features/ai-settings/map-gateway-model-select-options";
 import { ModelMatrixCard } from "../features/ai-settings/model-matrix-card";
 import { RealtimeVoiceCard } from "../features/ai-settings/realtime-voice-card";
+import { UsageReportTab } from "../features/ai-settings/usage-report-tab";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
   useDocConverterAvailabilityQuery,
@@ -36,8 +37,9 @@ const VALID_TABS = new Set([
   DEFAULT_TAB,
   "limits",
   "agents",
-  "doc-converter",
   "voice",
+  "usage",
+  "doc-converter",
 ]);
 const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
   "all",
@@ -51,8 +53,9 @@ const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
 export function AiGeneralSettingsPage() {
   const { t } = useTranslation("ai-ui");
   const { t: tCommon } = useTranslation("common");
-  const { moduleRootCrumb, secondaryNavHeaderSlot } =
-    useSettingsSecondaryShellNav(t("breadcrumbs.settings"));
+  const { moduleRootCrumb, secondaryNavHeaderSlot } = useSetupSecondaryShellNav(
+    tCommon("navigation.setup")
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     loading,
@@ -230,6 +233,7 @@ export function AiGeneralSettingsPage() {
               <TabsTrigger value="limits">{t("sections.limits")}</TabsTrigger>
               <TabsTrigger value="agents">{t("sections.agents")}</TabsTrigger>
               <TabsTrigger value="voice">{t("sections.voice")}</TabsTrigger>
+              <TabsTrigger value="usage">{t("sections.usage")}</TabsTrigger>
               <TabsTrigger value="doc-converter">
                 {t("sections.docConverter")}
               </TabsTrigger>
@@ -337,6 +341,10 @@ export function AiGeneralSettingsPage() {
                 t={t}
                 updateSettings={updateSettings}
               />
+            </TabsContent>
+
+            <TabsContent className="space-y-6" value="usage">
+              <UsageReportTab />
             </TabsContent>
 
             <TabsContent className="space-y-6" value="doc-converter">
