@@ -598,6 +598,7 @@
     "viewAll": "View all",
     "needsInput": "Needs your input",
     "notifications": "Notifications",
-    "openSubject": "Open"
+    "openSubject": "Open",
+    "clearAll": "Clear all"
   }
 }

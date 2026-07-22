@@ -598,6 +598,7 @@
     "viewAll": "Alle anzeigen",
     "needsInput": "Braucht deine Eingabe",
     "notifications": "Benachrichtigungen",
-    "openSubject": "Öffnen"
+    "openSubject": "Öffnen",
+    "clearAll": "Alle löschen"
   }
 }
