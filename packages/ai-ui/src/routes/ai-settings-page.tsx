@@ -2,6 +2,7 @@ import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
+  DetailPageHeader,
   Label,
   Tabs,
   TabsContent,
@@ -192,9 +193,14 @@ export function AiGeneralSettingsPage() {
   );
 
   usePageConfig({
-    breadcrumbs,
     actions: pageActions,
+    breadcrumbs,
+    contentStackBackground: "paper",
     secondaryNavHeaderSlot,
+    topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white header so the two blend into
+    // one continuous surface (matches the memory / contact detail pages).
+    topbarOverlap: true,
   });
 
   if (loading) {
@@ -208,14 +214,14 @@ export function AiGeneralSettingsPage() {
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
       <Tabs
-        className="flex w-full flex-col"
+        className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
         onValueChange={handleTabChange}
         value={activeTab}
       >
-        <header className="w-full shrink-0 border-b bg-muted/30">
-          <div className="mx-auto flex max-w-4xl items-end px-4 pt-3 pb-0 md:px-5">
+        <DetailPageHeader
+          belowStrip={
             <TabsList
               className="-mb-px w-fit border-0 bg-transparent p-0"
               variant="line"
@@ -228,112 +234,121 @@ export function AiGeneralSettingsPage() {
                 {t("sections.docConverter")}
               </TabsTrigger>
             </TabsList>
-          </div>
-        </header>
+          }
+          description={
+            <p className="text-muted-foreground text-sm">
+              {t("page.description")}
+            </p>
+          }
+          maxWidth="7xl"
+          title={t("page.title")}
+        />
 
-        <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-page">
-          {saveError &&
-          (activeTab === "copilot" ||
-            activeTab === "limits" ||
-            activeTab === "voice" ||
-            activeTab === "doc-converter") ? (
-            <div
-              className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
-              role="alert"
-            >
-              {saveError}
-            </div>
-          ) : null}
-
-          {catalogLoadError ? (
-            <div
-              className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
-              role="alert"
-            >
-              {t("sections.modelCatalogLoadError")}
-            </div>
-          ) : null}
-
-          {catalogEmpty ? (
-            <div
-              className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-950 text-sm dark:text-amber-100"
-              role="status"
-            >
-              {t("sections.modelCatalogEmpty")}
-            </div>
-          ) : null}
-
-          {activeTab === "copilot" ? (
-            <div className="flex items-center gap-2 text-sm">
-              <Label htmlFor="ai-settings-max-price-tier">
-                {t("fields.maxPriceTier")}
-              </Label>
-              <select
-                aria-label={t("fields.maxPriceTier")}
-                className="h-8 rounded-sm border bg-background px-2 text-sm"
-                id="ai-settings-max-price-tier"
-                onChange={(event) =>
-                  setMaxPriceTier(
-                    event.target.value as "all" | GatewayModelPriceTier
-                  )
-                }
-                value={maxPriceTier}
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
+          <div className="mx-auto w-full max-w-7xl space-y-6">
+            {saveError &&
+            (activeTab === "copilot" ||
+              activeTab === "limits" ||
+              activeTab === "voice" ||
+              activeTab === "doc-converter") ? (
+              <div
+                className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
+                role="alert"
               >
-                {PRICE_TIERS.map((tier) => (
-                  <option key={tier} value={tier}>
-                    {t(`fields.priceTier.${tier}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+                {saveError}
+              </div>
+            ) : null}
 
-          <TabsContent className="space-y-6" value="copilot">
-            <ModelMatrixCard
-              chatModels={chatModels}
-              effective={effectiveQuery.data}
-              maxPriceTier={maxPriceTier}
-              routingModels={routingModels}
-              settings={settings}
-              t={t}
-              updateSettings={updateSettings}
-            />
-          </TabsContent>
+            {catalogLoadError ? (
+              <div
+                className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
+                role="alert"
+              >
+                {t("sections.modelCatalogLoadError")}
+              </div>
+            ) : null}
 
-          <TabsContent className="space-y-6" value="limits">
-            <LimitsBudgetsTab
-              effective={effectiveQuery.data}
-              settings={settings}
-              t={t}
-              updateSettings={updateSettings}
-            />
-          </TabsContent>
+            {catalogEmpty ? (
+              <div
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-950 text-sm dark:text-amber-100"
+                role="status"
+              >
+                {t("sections.modelCatalogEmpty")}
+              </div>
+            ) : null}
 
-          <TabsContent className="space-y-6" value="agents">
-            <AgentsOverridesTab
-              chatModelOptions={chatModelOptions}
-              effective={effectiveQuery.data}
-              t={t}
-            />
-          </TabsContent>
+            {activeTab === "copilot" ? (
+              <div className="flex items-center gap-2 text-sm">
+                <Label htmlFor="ai-settings-max-price-tier">
+                  {t("fields.maxPriceTier")}
+                </Label>
+                <select
+                  aria-label={t("fields.maxPriceTier")}
+                  className="h-8 rounded-sm border bg-background px-2 text-sm"
+                  id="ai-settings-max-price-tier"
+                  onChange={(event) =>
+                    setMaxPriceTier(
+                      event.target.value as "all" | GatewayModelPriceTier
+                    )
+                  }
+                  value={maxPriceTier}
+                >
+                  {PRICE_TIERS.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {t(`fields.priceTier.${tier}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
-          <TabsContent className="space-y-6" value="voice">
-            <RealtimeVoiceCard
-              settings={settings}
-              t={t}
-              updateSettings={updateSettings}
-            />
-          </TabsContent>
+            <TabsContent className="space-y-6" value="copilot">
+              <ModelMatrixCard
+                chatModels={chatModels}
+                effective={effectiveQuery.data}
+                maxPriceTier={maxPriceTier}
+                routingModels={routingModels}
+                settings={settings}
+                t={t}
+                updateSettings={updateSettings}
+              />
+            </TabsContent>
 
-          <TabsContent className="space-y-6" value="doc-converter">
-            <DocConverterSettingsCard
-              availability={availabilityQuery.data}
-              availabilityLoading={availabilityQuery.isLoading}
-              settings={settings}
-              t={t}
-              updateSettings={updateSettings}
-            />
-          </TabsContent>
+            <TabsContent className="space-y-6" value="limits">
+              <LimitsBudgetsTab
+                effective={effectiveQuery.data}
+                settings={settings}
+                t={t}
+                updateSettings={updateSettings}
+              />
+            </TabsContent>
+
+            <TabsContent className="space-y-6" value="agents">
+              <AgentsOverridesTab
+                chatModelOptions={chatModelOptions}
+                effective={effectiveQuery.data}
+                t={t}
+              />
+            </TabsContent>
+
+            <TabsContent className="space-y-6" value="voice">
+              <RealtimeVoiceCard
+                settings={settings}
+                t={t}
+                updateSettings={updateSettings}
+              />
+            </TabsContent>
+
+            <TabsContent className="space-y-6" value="doc-converter">
+              <DocConverterSettingsCard
+                availability={availabilityQuery.data}
+                availabilityLoading={availabilityQuery.isLoading}
+                settings={settings}
+                t={t}
+                updateSettings={updateSettings}
+              />
+            </TabsContent>
+          </div>
         </div>
       </Tabs>
     </div>
