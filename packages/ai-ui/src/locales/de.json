@@ -60,7 +60,8 @@
       "connectionsEmpty": "Keine Verbindungen",
       "activity": "{{count}} Sessions protokolliert",
       "activityEmpty": "Noch keine Runs oder Sessions",
-      "loading": "Lädt…"
+      "loading": "Lädt…",
+      "error": "Konnte nicht geladen werden"
     }
   },
   "docConverter": {
@@ -83,12 +84,125 @@
     "save": "Speichern",
     "saving": "Speichern…",
     "reset": "Zurücksetzen",
-    "resetToDefaults": "Auf Standard zurücksetzen",
+    "resetToDefaults": "Alle auf Erben zurücksetzen",
     "close": "Schließen"
+  },
+  "matrix": {
+    "title": "Modell-Matrix",
+    "description": "Ein Modell pro Zweck. Eine leere Auswahl erbt den Plattform-Standard; das Badge zeigt, woher der effektive Wert stammt.",
+    "purpose": {
+      "chat": {
+        "label": "Chat",
+        "desc": "Antworten an Nutzer:innen — Copilot & Spezialisten-Agenten."
+      },
+      "routing": {
+        "label": "Schnell (Routing)",
+        "desc": "Supervisor-Delegation, Thread-Titel, Tool-Suche — häufig & günstig."
+      },
+      "research": {
+        "label": "Research",
+        "desc": "Such- & Retrieval-Agenten, Workspace-Suche, Deep-Research-Fanouts — langer Kontext."
+      },
+      "planning_coding": {
+        "label": "Planung & Code",
+        "desc": "Stärkste Stufe: Pläne, Task-Zerlegung, Koordinator-Vorschläge, Sandbox-Code."
+      },
+      "safeguard": {
+        "label": "Safeguard",
+        "desc": "Guardrail-Prüfungen (Moderation, PII, Prompt-Injection)."
+      }
+    },
+    "source": {
+      "pinned": "Gepinnt · Mandant",
+      "inheritPlatform": "Erbt · Plattform",
+      "inheritDefault": "Erbt · Standard"
+    },
+    "inheritAction": "Erben",
+    "inheritActionLong": "Erben (Plattform-Standard)",
+    "inheritHint": "Erbt: {{model}}",
+    "col": {
+      "purpose": "Zweck",
+      "model": "Effektives Modell",
+      "source": "Quelle"
+    },
+    "action": {
+      "change": "Ändern",
+      "pin": "Pinnen"
+    },
+    "caps": {
+      "context": "{{tokens}} Kontext",
+      "vision": "Vision",
+      "web": "Websuche",
+      "code": "Code"
+    }
+  },
+  "picker": {
+    "title": "Modell für {{purpose}} wählen",
+    "description": "Modell wählen oder den Plattform-Standard erben. Preise pro Million Tokens (Eingabe / Ausgabe)."
+  },
+  "limits": {
+    "loadError": "Usage-Policy konnte nicht geladen werden. Läuft apps/ai und ist erreichbar?",
+    "enforcementTitle": "Durchsetzung & Budget",
+    "enforcementDesc": "KI-Ausgaben pro Periode begrenzen. Beobachten warnt; Durchsetzen blockiert Aufrufe ab dem Hard-Limit.",
+    "enforcementMode": "Modus",
+    "mode": {
+      "observe": "Beobachten",
+      "enforce": "Durchsetzen",
+      "observeHint": "Aufrufe über dem Limit laufen weiter; es gibt Banner und Header.",
+      "enforceHint": "Aufrufe über dem Limit werden mit strukturiertem 429 abgelehnt."
+    },
+    "softLimit": "Soft-Limit ($ / Periode)",
+    "softLimitHint": "Warnbanner für Admins; Aufrufe laufen weiter.",
+    "hardLimit": "Hard-Limit ($ / Periode)",
+    "hardLimitHint": "Bei Durchsetzung werden Aufrufe darüber blockiert.",
+    "savePolicy": "Policy speichern",
+    "iterationCapTitle": "Iterations-Cap",
+    "iterationCapDesc": "Mandanten-Standard für die Schritte pro Agent-Lauf (Plattform-Max 60). Wird mit den Modell-Einstellungen über die obere Leiste gespeichert.",
+    "iterationCap": "Max. Schritte pro Lauf",
+    "iterationCapHint": "Leer lassen, um den Plattform-Standard zu erben. Agenten können einzeln enger begrenzt werden.",
+    "allowlistTitle": "Modell-Allowlist",
+    "allowlistDesc": "Wenn gesetzt, dürfen nur diese Modelle aufgerufen werden. Leer = alle Gateway-Modelle erlaubt.",
+    "allowlistEmpty": "Alle Modelle erlaubt.",
+    "allowlistAdd": "Modell hinzufügen",
+    "allowlistRemove": "{{model}} entfernen",
+    "pro": "PRO"
+  },
+  "agentsTab": {
+    "title": "Agent-Overrides",
+    "description": "Modell, Stufe, Iterations-Cap oder Budget je Agent festpinnen. Leer erbt den Mandanten-Standard. Code-verwaltete Agenten werden im Code gesetzt.",
+    "loadError": "Agenten konnten nicht geladen werden. Läuft apps/ai und ist erreichbar?",
+    "empty": "Noch keine Agenten registriert.",
+    "edit": "Bearbeiten",
+    "cancel": "Abbrechen",
+    "codeManaged": "Code-verwaltet",
+    "modelOverride": "Modell-Override",
+    "purpose": "Modell-Stufe",
+    "maxSteps": "Max. Schritte",
+    "budget": "Budget ($ / Periode)",
+    "inheritPlaceholder": "Erben",
+    "structural": "Erben (nach Struktur)",
+    "inheritModel": "Erbt · {{tier}}",
+    "inherit": "erbt",
+    "none": "keins",
+    "stepsLabel": "Schritte",
+    "budgetLabel": "Budget"
+  },
+  "voice": {
+    "title": "Echtzeit-Sprache",
+    "description": "Stimme und Modelle für den Echtzeit-Sprachagenten (OpenAI Realtime). Leer erbt den Plattform-Standard.",
+    "voiceLabel": "Stimme",
+    "modelLabel": "Realtime-Modell",
+    "transcriptionLabel": "Transkriptions-Modell",
+    "inheritHint": "Erbt: {{value}}",
+    "help": "Der OpenAI-API-Key wird über Umgebungsvariablen gesetzt, nicht hier gespeichert."
   },
   "sections": {
     "general": "Allgemein",
     "generalDesc": "Globale KI- und Copilot-Standards.",
+    "models": "Modelle",
+    "limits": "Limits & Budgets",
+    "voice": "Sprache",
+    "usage": "Nutzung",
     "copilot": "Copilot",
     "copilotDesc": "Chat-Modell-Standards für diesen Mandanten.",
     "classifier": "Klassifikation",
@@ -1152,6 +1266,7 @@
     "expandPane": "Artefakt-Panel maximieren",
     "collapsePane": "Artefakt-Panel verkleinern",
     "openPane": "Artefakt-Panel öffnen",
+    "openPaneWithNew": "Artefakt-Panel öffnen ({{count}} neu)",
     "resizePane": "Artefakt-Panel-Größe ändern",
     "storeAction": "Artefakt ablegen",
     "storeSearch": "Ablageziel suchen…",

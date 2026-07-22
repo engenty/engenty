@@ -2,6 +2,7 @@
 // Import domain modules directly when adding new callers; this file preserves existing import paths.
 
 export {
+  type AiAgentOverridesPatch,
   createCustomAgent,
   createCustomTool,
   deleteCustomAgent,
@@ -11,6 +12,7 @@ export {
   getCustomTool,
   getRegistryTools,
   mapRegistryAgentToRegisteredAgent,
+  patchAiAgentOverrides,
   updateCustomAgent,
   updateCustomTool,
 } from "../runtime/registry-api.js";

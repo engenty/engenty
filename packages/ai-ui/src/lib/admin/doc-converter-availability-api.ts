@@ -9,7 +9,7 @@ export async function getDocConverterAvailability(
   signal?: AbortSignal
 ): Promise<DocConverterAvailability> {
   return await request<DocConverterAvailability>(
-    "/api/ai/doc-converter/availability",
+    "/api/file-storage/doc-converter/availability",
     { signal }
   );
 }

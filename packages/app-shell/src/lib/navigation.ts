@@ -1,4 +1,4 @@
-import { DockSettingsIcon } from "@engenty/ui-core";
+import { DockSettingsIcon, DockSetupIcon } from "@engenty/ui-core";
 import type {
   UiContributions,
   UiCopilotAppContribution,
@@ -6,7 +6,6 @@ import type {
 } from "@engenty/ui-plugin-sdk";
 import { PLUGIN_CATEGORIES, pluginCategoryRank } from "@engenty/ui-plugin-sdk";
 import {
-  BarChart3,
   Box,
   Cable,
   Code2,
@@ -16,7 +15,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Wrench,
 } from "lucide-react";
 import type { NavigationItem, NavigationSection } from "../types/shell";
 
@@ -253,16 +251,6 @@ export function buildNavigationSections(
             icon: Palette,
           },
           {
-            to: "/settings/ai",
-            label: t("settings.aiModels.menuLabel"),
-            icon: Sparkles,
-          },
-          {
-            to: "/settings/ai-usage",
-            label: t("settings.aiUsage.menuLabel"),
-            icon: BarChart3,
-          },
-          {
             to: "/settings/integration-keys",
             label: t("settings.integrationKeys.menuLabel"),
             icon: KeyRound,
@@ -346,12 +334,17 @@ export function buildNavigationSections(
           ? {
               to: "/setup",
               label: t("navigation.setup"),
-              icon: Wrench,
+              icon: DockSetupIcon,
               children: [
                 {
                   to: "/setup/platform",
                   label: t("navigation.setupPlatform"),
                   icon: KeyRound,
+                },
+                {
+                  to: "/setup/ai",
+                  label: t("settings.aiModels.menuLabel"),
+                  icon: Sparkles,
                 },
                 {
                   to: "/setup/plugins",

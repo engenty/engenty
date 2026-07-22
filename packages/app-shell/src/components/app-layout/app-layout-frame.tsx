@@ -194,6 +194,7 @@ export function AppLayoutFrame({
     pathname,
     pinSecondaryNavFromHover,
     search,
+    secondaryNavAllowPinned,
     secondaryNavOpen,
     setMobileOpen,
     setSecondaryNavOpen,
@@ -396,11 +397,17 @@ export function AppLayoutFrame({
                   <ModuleSecondaryNavColumnShell
                     bodyMinWidthPx={secondaryNavWidthPx}
                     forceHover={forceHoverToggle}
-                    onToggle={pinSecondaryNavFromHover}
+                    onToggle={
+                      secondaryNavAllowPinned
+                        ? pinSecondaryNavFromHover
+                        : closeHoverPanel
+                    }
                     pathname={pathname}
                     search={search}
                     secondaryItems={overlayLinkList}
-                    toggleMode="pinOpen"
+                    toggleMode={
+                      secondaryNavAllowPinned ? "pinOpen" : "collapse"
+                    }
                   />
                 </div>
               ) : null}
@@ -423,7 +430,18 @@ export function AppLayoutFrame({
                   onMenuClick={() => setMobileOpen(true)}
                   onSecondaryNavHoverEnter={openHoverPanel}
                   onSecondaryNavHoverLeave={closeHoverPanel}
-                  onToggleSecondaryNav={() => setSecondaryNavOpen(true)}
+                  onToggleSecondaryNav={() => {
+                    if (secondaryNavAllowPinned) {
+                      setSecondaryNavOpen(true);
+                      return;
+                    }
+                    // Overlay-only pages: toggle the hover sheet, never pin width.
+                    if (overlayOpen) {
+                      closeHoverPanel();
+                      return;
+                    }
+                    openHoverPanel();
+                  }}
                   onToggleSidebarHidden={() =>
                     updateSidebarHidden(!isSidebarHidden)
                   }

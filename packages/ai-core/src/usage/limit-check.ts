@@ -9,7 +9,7 @@ import {
 import { resolveCurrentPeriod } from "./period.js";
 import { type AiUsageStore, getAiUsageStore } from "./store.js";
 
-export type UsageLimitScope = "tenant" | "user" | "model";
+export type UsageLimitScope = "tenant" | "user" | "agent" | "model";
 export type UsageLimitType = "cost" | "tokens" | "model_not_allowed";
 
 export interface UsageLimitDecision {
@@ -28,6 +28,10 @@ export interface UsageLimitDecision {
 }
 
 export interface CheckUsageLimitsParams {
+  /** Per-agent cost cap (micros) for the period; null = no agent cap. */
+  agent_budget_cost_micros?: number | null;
+  /** Agent whose per-agent budget applies to this call (Phase 4). */
+  agent_id?: string | null;
   feature?: UsageFeature;
   model_id: string;
   now?: Date;
@@ -175,6 +179,37 @@ export async function checkUsageLimits(
       period_start: period.period_start,
       period_end: period.period_end,
     };
+  }
+
+  // Per-agent budget sits between the user and tenant caps: an agent can be held
+  // to a tighter spend than its tenant. Metered by summing usage_event for the
+  // (tenant, agent) pair over the period — no per-agent totals table needed.
+  if (
+    params.agent_budget_cost_micros != null &&
+    params.agent_id &&
+    store.getAgentPeriodCostMicros
+  ) {
+    const agentCost = await store.getAgentPeriodCostMicros({
+      tenant_id: params.tenant_id,
+      agent_id: params.agent_id,
+      period_start: period.period_start,
+    });
+    if (agentCost >= params.agent_budget_cost_micros) {
+      return {
+        allowed: enforcement !== "enforce",
+        enforcement_mode: enforcement,
+        reason: "Agent cost cap reached",
+        scope: "agent",
+        limit_type: "cost",
+        remaining_cost_micros: 0,
+        remaining_tokens: null,
+        resets_at: period.period_end,
+        policy: eff,
+        user_policy: userPolicy,
+        period_start: period.period_start,
+        period_end: period.period_end,
+      };
+    }
   }
 
   if (

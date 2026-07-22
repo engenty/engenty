@@ -313,6 +313,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       agentConfig: rootConfig,
       mergedDefinitions,
       modelId,
+      rootConfig,
       sandboxProvider,
       subAgentSandboxProviders,
       session,
@@ -699,6 +700,7 @@ export function createSessionService(opts: SessionServiceOptions) {
         agent,
         agentConfig,
         modelId,
+        rootConfig,
         sandboxProvider,
         subAgentSandboxProviders,
         session,
@@ -709,11 +711,14 @@ export function createSessionService(opts: SessionServiceOptions) {
       });
       // Per-agent iteration cap overrides the global default (clamped to the
       // hard ceiling in the resolver).
-      const agentMaxSteps = resolveAgentMaxSteps(agentConfig.limits?.max_steps);
+      const agentMaxSteps = resolveAgentMaxSteps(rootConfig?.limits?.max_steps);
       const usageStore = opts.getUsageStore();
       const preflight = await checkUsageLimits({
         tenant_id: input.scope.tenantId,
         user_id: input.scope.userId,
+        agent_id: session.agent_id,
+        agent_budget_cost_micros:
+          rootConfig?.limits?.budget?.maxCostMicrosPerPeriod ?? null,
         model_id: modelId,
         feature: "copilot",
         store: usageStore,

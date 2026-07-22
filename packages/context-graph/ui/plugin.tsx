@@ -1,5 +1,5 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
-import { Share2 } from "lucide-react";
+import { DockContextGraphIcon } from "@engenty/ui-icons";
 import { CgSourcesPage } from "./pages/cg-sources-page.js";
 import { ContextGraphPage } from "./pages/context-graph-page.js";
 
@@ -33,7 +33,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Context Graph",
     labelKey: "context-graph:menu.title",
     to: "/admin/context-graph",
-    icon: Share2,
+    icon: DockContextGraphIcon,
     order: 130,
   });
 }

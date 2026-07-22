@@ -22,43 +22,47 @@ vi.mock("react-router-dom", () => ({
   }),
 }));
 
+const pageHeaderState = {
+  secondaryNavAfterItems: null as unknown,
+  secondaryNavAllowPinned: true,
+  secondaryNavHeaderSlot: null as unknown,
+  secondaryNavSearchResultsOnly: false,
+  breadcrumbs: [] as unknown[],
+};
+
 vi.mock("@engenty/ui-plugin-sdk", () => ({
-  usePageHeader: () => ({
-    secondaryNavAfterItems: null,
-    secondaryNavHeaderSlot: null,
-    secondaryNavSearchResultsOnly: false,
-    breadcrumbs: [],
-  }),
+  usePageHeader: () => pageHeaderState,
 }));
+
+const sectionsWithSecondary = [
+  {
+    id: "section1",
+    label: "Section 1",
+    items: [
+      {
+        id: "item1",
+        label: "Item 1",
+        to: "/test-path",
+        children: [
+          {
+            id: "child1",
+            label: "Child 1",
+            to: "/test-path/child",
+          },
+        ],
+      },
+    ],
+  },
+];
 
 describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
   afterEach(() => {
     vi.useRealTimers();
+    pageHeaderState.secondaryNavAllowPinned = true;
   });
 
   it("suppresses hover preview after closing pinned nav, until mouse leaves", () => {
     vi.useFakeTimers();
-
-    const sections = [
-      {
-        id: "section1",
-        label: "Section 1",
-        items: [
-          {
-            id: "item1",
-            label: "Item 1",
-            to: "/test-path",
-            children: [
-              {
-                id: "child1",
-                label: "Child 1",
-                to: "/test-path/child",
-              },
-            ],
-          },
-        ],
-      },
-    ];
 
     const persistence = {
       snapshot: { pinnedOpen: true },
@@ -67,7 +71,9 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
     };
 
     const { result } = renderHook(() =>
-      useSecondaryNavLayout(sections, { secondaryNavPersistence: persistence })
+      useSecondaryNavLayout(sectionsWithSecondary, {
+        secondaryNavPersistence: persistence,
+      })
     );
 
     // Initial state: pinned open (from persistence snapshot)
@@ -106,5 +112,36 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
 
     // Now it should open successfully because suppression was reset and timer expired!
     expect(result.current.overlayOpen).toBe(true);
+  });
+
+  it("never pins open when secondaryNavAllowPinned is false", () => {
+    pageHeaderState.secondaryNavAllowPinned = false;
+
+    const persistence = {
+      snapshot: { pinnedOpen: true },
+      pinnedHydrated: true,
+      mergePinned: vi.fn(),
+    };
+
+    const { result } = renderHook(() =>
+      useSecondaryNavLayout(sectionsWithSecondary, {
+        secondaryNavPersistence: persistence,
+      })
+    );
+
+    expect(result.current.secondaryNavOpen).toBe(false);
+    expect(result.current.secondaryNavAllowPinned).toBe(false);
+
+    act(() => {
+      result.current.setSecondaryNavOpen(true);
+    });
+    expect(result.current.secondaryNavOpen).toBe(false);
+    expect(persistence.mergePinned).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.pinSecondaryNavFromHover();
+    });
+    expect(result.current.secondaryNavOpen).toBe(false);
+    expect(persistence.mergePinned).not.toHaveBeenCalled();
   });
 });

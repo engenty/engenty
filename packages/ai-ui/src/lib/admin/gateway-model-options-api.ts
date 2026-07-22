@@ -31,6 +31,7 @@ export interface GatewayModelOption {
   available_for_rerank: boolean;
   available_for_routing: boolean;
   available_for_video: boolean;
+  context_tokens: number | null;
   display_name: string | null;
   id: string;
   input_per_mtok_micros: number | null;
@@ -40,6 +41,8 @@ export interface GatewayModelOption {
   price_tier: GatewayModelPriceTier | null;
   provider: string;
   use_cases: GatewayModelUseCase[];
+  vision: boolean;
+  web_search: boolean;
 }
 
 export async function listGatewayModelOptions(

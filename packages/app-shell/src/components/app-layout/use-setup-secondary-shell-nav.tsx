@@ -1,5 +1,5 @@
 import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
-import { Wrench } from "lucide-react";
+import { DockSetupIcon } from "@engenty/ui-core";
 import { useMemo } from "react";
 import { useShellSecondaryNav } from "../../context/shell-secondary-nav-context.js";
 import { ModuleSidebarHeaderLabel } from "./module-sidebar-header-label.js";
@@ -18,7 +18,11 @@ export function useSetupSecondaryShellNav(label: string) {
 
   const secondaryNavHeaderSlot = useMemo(
     () => (
-      <ModuleSidebarHeaderLabel icon={Wrench} label={label} to={SETUP_BASE} />
+      <ModuleSidebarHeaderLabel
+        icon={DockSetupIcon}
+        label={label}
+        to={SETUP_BASE}
+      />
     ),
     [label]
   );

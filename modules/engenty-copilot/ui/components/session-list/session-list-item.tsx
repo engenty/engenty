@@ -16,6 +16,7 @@ import type {
   AgentSessionStatus,
 } from "../../../src/lib/agent-session-types.js";
 import { useSessionList } from "./session-list-context.js";
+import { SessionTitleMarquee } from "./session-title-marquee.js";
 import {
   sessionListMenuContentClassName,
   sessionListMenuItemClassName,
@@ -25,7 +26,6 @@ import {
 export function SessionListItem(props: { row: AgentSessionDto }) {
   const list = useSessionList();
   const label = list.sessionLabel(props.row);
-  const agentLabel = list.sessionAgentLabel(props.row);
   const isActive = list.selectedThreadId === props.row.id;
   return (
     <SidebarMenuItem>
@@ -39,15 +39,8 @@ export function SessionListItem(props: { row: AgentSessionDto }) {
         type="button"
         {...shellSecondaryNavItemProps}
       >
-        <span className="flex min-w-0 items-center gap-2 text-left">
-          <SessionStatusIndicator status={props.row.status} />
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] leading-snug">{label}</span>
-            <span className="truncate text-[11px] text-muted-foreground leading-tight">
-              {agentLabel}
-            </span>
-          </span>
-        </span>
+        <SessionStatusIndicator status={props.row.status} />
+        <SessionTitleMarquee text={label} />
       </SidebarMenuButton>
       <SessionListItemMenu
         isActive={isActive}

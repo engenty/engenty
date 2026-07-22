@@ -3,7 +3,6 @@
 // list state; this page registers shell chrome and renders panels.
 
 import {
-  ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
   type ObjectDisplayIntent,
   ObjectDisplayIntentProvider,
@@ -16,18 +15,23 @@ import {
   useCopilotThreadActions,
   WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
-import { useCopilotShellOrNull } from "@engenty/app-shell";
+import {
+  ModuleSidebarHeaderLabel,
+  useCopilotShellOrNull,
+  useShellSecondaryNav,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { DockChatIcon } from "@engenty/ui-icons";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
-import { ChatShellHeader } from "../components/chat/shell-header.js";
 import { CopilotModuleErrorBoundary } from "../components/copilot-module-error-boundary.js";
 import { SessionList } from "../components/session-list/session-list.js";
 import { logCopilotChatPanel } from "../dev/chat-panel-debug.js";
 import {
+  COPILOT_CHAT_ROOT,
   copilotChatThreadPath,
   readCopilotSubRunToolCallId,
 } from "../paths.js";
@@ -48,6 +52,7 @@ export function CopilotChatPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const moduleLabel = t("menu.label");
+  const { secondaryNavOpen } = useShellSecondaryNav();
   const copilotShell = useCopilotShellOrNull();
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
@@ -126,17 +131,21 @@ export function CopilotChatPage() {
   }, [activeThreadId, navigate]);
 
   const breadcrumbs = useMemo((): PageBreadcrumb[] => {
-    const trail: PageBreadcrumb[] = [
-      {
-        compactKept: true,
-        label: (
-          <span className="truncate font-medium text-foreground">
-            {moduleLabel}
-          </span>
-        ),
-        menuLabel: moduleLabel,
-      },
-    ];
+    // When the session list is pinned, the module label lives in the sidebar
+    // header — omit the matching topbar crumb (same pattern as projects/tasks).
+    const trail: PageBreadcrumb[] = secondaryNavOpen
+      ? []
+      : [
+          {
+            compactKept: true,
+            label: (
+              <span className="truncate font-medium text-foreground">
+                {moduleLabel}
+              </span>
+            ),
+            menuLabel: moduleLabel,
+          },
+        ];
 
     if (activeThreadId && thread.session) {
       const title = thread.session.title || tc("copilot.newChat");
@@ -189,22 +198,25 @@ export function CopilotChatPage() {
   }, [
     activeThreadId,
     moduleLabel,
+    secondaryNavOpen,
     subAgentDelegation,
     subRunToolCallId,
     tc,
     thread.session,
   ]);
-  const topbarActions = useMemo(
-    () => (
-      <>
-        <ChatTopbarActions />
-        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
-      </>
-    ),
-    []
-  );
+  // Order: New Chat → artifacts trigger → ⋯ menu (menu stays far right).
+  const topbarActions = useMemo(() => <ChatTopbarActions />, []);
   const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
-  const secondaryNavHeaderSlot = useMemo(() => <ChatShellHeader />, []);
+  const secondaryNavHeaderSlot = useMemo(
+    () => (
+      <ModuleSidebarHeaderLabel
+        icon={DockChatIcon}
+        label={moduleLabel}
+        to={COPILOT_CHAT_ROOT}
+      />
+    ),
+    [moduleLabel]
+  );
 
   usePageConfig({
     actions: topbarActions,

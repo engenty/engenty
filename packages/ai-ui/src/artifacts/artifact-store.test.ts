@@ -7,6 +7,7 @@ import {
   closeObjectPaneTab,
   objectPaneTabKey,
   openObjectPaneTab,
+  setActiveArtifact,
   setArtifactPaneExpanded,
   setArtifactPaneOpen,
   useArtifactListSync,
@@ -67,7 +68,7 @@ describe("artifact list sync", () => {
     expect(result.current.activeId).toBeNull();
   });
 
-  it("auto-opens and activates an artifact that appears after the first load", () => {
+  it("marks fresh artifacts unseen while the pane is closed (no auto-open)", () => {
     const { result, rerender } = renderHook(
       ({ ids }: { ids: string[] }) => {
         useArtifactListSync({
@@ -84,7 +85,51 @@ describe("artifact list sync", () => {
 
     act(() => rerender({ ids: ["a2", "a1"] }));
     expect(result.current.activeId).toBe("a2");
+    expect(result.current.paneOpen).toBe(false);
+    expect(result.current.unseenCount).toBe(1);
+    expect(result.current.unseenIds).toEqual(["a2"]);
+  });
+
+  it("activates fresh artifacts when the pane is already open", () => {
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: string[] }) => {
+        useArtifactListSync({
+          hostKey: HOST,
+          scopeKey: "t1",
+          ids,
+          isReady: true,
+        });
+        return useArtifacts(HOST);
+      },
+      { initialProps: { ids: ["a1"] } }
+    );
+    act(() => setArtifactPaneOpen(HOST, true));
+    act(() => setActiveArtifact(HOST, "a1"));
+
+    act(() => rerender({ ids: ["a2", "a1"] }));
+    expect(result.current.activeId).toBe("a2");
     expect(result.current.paneOpen).toBe(true);
+    expect(result.current.unseenCount).toBe(0);
+  });
+
+  it("clears unseen when the pane opens", () => {
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: string[] }) => {
+        useArtifactListSync({
+          hostKey: HOST,
+          scopeKey: "t1",
+          ids,
+          isReady: true,
+        });
+        return useArtifacts(HOST);
+      },
+      { initialProps: { ids: [] } }
+    );
+    act(() => rerender({ ids: ["a1"] }));
+    expect(result.current.unseenCount).toBe(1);
+
+    act(() => setArtifactPaneOpen(HOST, true));
+    expect(result.current.unseenCount).toBe(0);
   });
 
   it("reconciles the active tab when its artifact leaves the list", () => {
