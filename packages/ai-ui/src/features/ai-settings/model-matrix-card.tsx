@@ -104,12 +104,14 @@ export function ModelMatrixCard({
               const pinned =
                 (settings[row.field] as string | null | undefined) ?? null;
               const eff = effective?.models[row.purpose];
-              const modelId = eff?.value ?? pinned ?? "";
+              // A local (unsaved) pin wins over the server-resolved effective
+              // value so the row reflects the pending change immediately.
+              const modelId = pinned ?? eff?.value ?? "";
               const catalog =
                 row.options === "routing" ? routingById : chatById;
               const model = catalog.get(modelId);
               const price = model ? formatModelPrice(model) : null;
-              const source = eff?.source ?? (pinned ? "tenant" : "default");
+              const source = pinned ? "tenant" : (eff?.source ?? "default");
 
               return (
                 <tr
