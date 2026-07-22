@@ -19,12 +19,16 @@ import type {
   GoalStatus,
   GoalsQueryParams,
 } from "../../src/schema/types.js";
+import { GoalsCards } from "../components/goals-cards.js";
 import type {
   GoalsColumnVisibility,
   GoalsSortColumn,
 } from "../components/goals-display-dialog.js";
 import { GoalsListTable } from "../components/goals-list-table.js";
-import { GoalsToolbar } from "../components/goals-toolbar.js";
+import {
+  type GoalsOwnerKind,
+  GoalsToolbar,
+} from "../components/goals-toolbar.js";
 import { useTasksGoalsListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
@@ -35,7 +39,7 @@ import { useDeleteGoalMutation, useGoalsListQuery } from "../tasks-queries.js";
 const EMPTY_GOALS: Goal[] = [];
 
 const GOALS_DISPLAY_DEFAULTS = {
-  viewMode: "table" as const,
+  viewMode: "cards" as const,
   tableSize: "normal" as const,
   sortBy: "updated_at" as GoalsSortColumn,
   sortOrder: "desc" as const,
@@ -67,14 +71,16 @@ export function GoalsListPage() {
     storageKey: "tasks-goals",
     defaults: GOALS_DISPLAY_DEFAULTS,
     validSortColumns: ["updated_at", "created_at", "title", "status"],
-    validViewModes: ["table"],
+    validViewModes: ["cards", "table"],
   });
   const {
+    viewMode,
     tableSize,
     columnVisibility,
     columnOrder,
     sortBy,
     sortOrder,
+    setViewMode,
     setTableSize,
     setColumnVisibility,
     setColumnOrder,
@@ -84,12 +90,13 @@ export function GoalsListPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<GoalStatus | "all">("all");
+  const [ownerKind, setOwnerKind] = useState<GoalsOwnerKind>("");
   const [page, setPage] = useState(1);
 
   const { openCreateGoal, pageActions, topbarDialogs } =
     useTasksTopbarActions();
 
-  const pageSize = 25;
+  const pageSize = viewMode === "cards" ? 200 : 25;
 
   const listParams = useMemo<GoalsQueryParams>(
     () => ({
@@ -97,10 +104,11 @@ export function GoalsListPage() {
       pageSize,
       search: search.trim() || undefined,
       status: statusFilter === "all" ? undefined : statusFilter,
+      owner_kind: ownerKind || undefined,
       sortBy,
       sortOrder,
     }),
-    [page, pageSize, search, statusFilter, sortBy, sortOrder]
+    [page, pageSize, search, statusFilter, ownerKind, sortBy, sortOrder]
   );
 
   const listQuery = useGoalsListQuery(listParams);
@@ -143,7 +151,7 @@ export function GoalsListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, sortBy, sortOrder]);
+  }, [search, statusFilter, ownerKind, sortBy, sortOrder]);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTasksModuleSecondaryShellNav();
@@ -214,19 +222,23 @@ export function GoalsListPage() {
         columns={[...columnOptions]}
         columnVisibility={columnVisibility}
         labels={labels}
+        onOwnerKindChange={setOwnerKind}
         onSearchChange={handleSearchChange}
         onStatusFilterChange={handleStatusFilterChange}
+        ownerKind={ownerKind}
         searchQuery={search}
         setColumnOrder={setColumnOrder}
         setColumnVisibility={setColumnVisibility}
         setSortBy={setSortBy}
         setSortOrder={setSortOrder}
         setTableSize={setTableSize}
+        setViewMode={setViewMode}
         sortBy={sortBy}
         sortOptions={[...sortOptions]}
         sortOrder={sortOrder}
         statusFilter={statusFilter}
         tableSize={tableSize}
+        viewMode={viewMode}
       />
 
       {isLoading ? <p className="text-muted-foreground text-sm">…</p> : null}
@@ -244,19 +256,20 @@ export function GoalsListPage() {
               <Target className="h-12 w-12" />
             </EmptyMedia>
             <EmptyTitle>
-              {search.trim() || statusFilter !== "all"
+              {search.trim() || statusFilter !== "all" || ownerKind !== ""
                 ? t("goals.noSearchResults")
                 : t("goals.empty")}
             </EmptyTitle>
             <EmptyDescription>{t("goals.emptyDescription")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            {search.trim() || statusFilter !== "all" ? (
+            {search.trim() || statusFilter !== "all" || ownerKind !== "" ? (
               <button
                 className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
                 onClick={() => {
                   handleSearchChange("");
                   handleStatusFilterChange("all");
+                  setOwnerKind("");
                 }}
                 type="button"
               >
@@ -275,7 +288,13 @@ export function GoalsListPage() {
         </Empty>
       ) : null}
 
-      {!(isLoading || error) && goals.length > 0 ? (
+      {!(isLoading || error) && goals.length > 0 && viewMode === "cards" ? (
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <GoalsCards goals={goals} onGoalClick={handleRowClick} />
+        </div>
+      ) : null}
+
+      {!(isLoading || error) && goals.length > 0 && viewMode === "table" ? (
         <AdminListTableView
           pagination={{
             nextLabel: t("goals.next"),

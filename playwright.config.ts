@@ -28,6 +28,9 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL: process.env.ENGENTY_E2E_BASE_URL ?? "http://localhost:5173",
+    // Portless serves the app over HTTPS with a locally-trusted (self-signed)
+    // cert; accept it so the lane can target `*.engenty.localhost` too.
+    ignoreHTTPSErrors: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

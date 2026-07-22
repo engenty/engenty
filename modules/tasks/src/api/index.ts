@@ -6,6 +6,7 @@ import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import { buildTasksBriefingResponse } from "../lib/tasks-briefing-service.js";
 import {
   goalCreateInputSchema,
+  goalHandoffResponseSchema,
   goalIdParamsSchema,
   goalSchema,
   goalsListQuerySchema,
@@ -36,6 +37,7 @@ import {
   registerTasksGatewayMethods,
   type TasksGatewayOptions,
 } from "./gateway-methods.js";
+import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -144,6 +146,8 @@ export function registerTasksApi(
           "pageSize",
           "search",
           "status",
+          "owner_agent_type_key",
+          "owner_kind",
           "sortBy",
           "sortOrder",
         ])
@@ -260,6 +264,43 @@ export function registerTasksApi(
   });
 
   api.registerHttpRoute({
+    method: "post",
+    path: `${GOAL_BY_ID_PATH}/handoff`,
+    operation: writeGoals(),
+    summary: "Hand a goal to the coordinator (assign + plan)",
+    tags: ["tasks", "goals"],
+    request: { params: goalIdParamsSchema },
+    responses: {
+      200: { description: "Handed off", schema: goalHandoffResponseSchema },
+      404: { description: "Not found", schema: notFoundSchema },
+    },
+    handler: async (ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = ctx.params as z.infer<typeof goalIdParamsSchema>;
+      try {
+        const result = await handoffGoalToCoordinator(
+          {
+            queue: gatewayOptions?.queue ?? null,
+            repo,
+            tenantId: ctx.auth?.tenantId ?? null,
+          },
+          params.id,
+          ctx.auth?.principalId ?? null
+        );
+        return result;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "goal_handoff_failed";
+        const status = message === "goal_not_found" ? 404 : 400;
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      }
+    },
+  });
+
+  api.registerHttpRoute({
     method: "get",
     path: "/api/tasks/briefing",
     operation: readTasks(),
@@ -303,6 +344,7 @@ export function registerTasksApi(
           "goal_id",
           "parent_id",
           "assigned_to",
+          "assignee_kind",
           "context_type",
           "context_id",
           "context_metadata_phase_id",

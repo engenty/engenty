@@ -20,6 +20,7 @@ import {
   buildPriorLearningsSection,
   entityRefsFromContexts,
 } from "./task-prior-learnings.js";
+import { summarizeTaskResultHeadline } from "./summarize-result-headline.js";
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -173,6 +174,16 @@ export const finalizeStep = createStep({
     });
     const failed = inputData.status === "failed";
     const taskRef = inputData.identifier ?? inputData.task_id;
+    // For completed tasks, generate a "what was done" headline from the result
+    // note so the inbox says something specific instead of the interchangeable
+    // "Task X completed and is ready for review". Best-effort; falls back below.
+    const headline =
+      !failed && inputData.result_text
+        ? await summarizeTaskResultHeadline({
+            resultText: inputData.result_text,
+            taskRef,
+          })
+        : null;
     await emitInboxNotification({
       dedupeKey: `task:${inputData.task_id}:${runId}`,
       kind: failed ? "task_failed" : "task_completed",
@@ -189,7 +200,9 @@ export const finalizeStep = createStep({
       source: "tasks",
       summary: failed
         ? `Task ${taskRef} failed and was marked blocked`
-        : `Task ${taskRef} completed and is ready for review`,
+        : headline
+          ? `${taskRef}: ${headline}`
+          : `Task ${taskRef} completed and is ready for review`,
       tenantId: inputData.tenant_id,
     });
     return { ...inputData, status: "released" as const };

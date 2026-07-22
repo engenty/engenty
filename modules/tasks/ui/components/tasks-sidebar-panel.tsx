@@ -570,55 +570,66 @@ export function TasksSidebarPanel() {
                 sidebarColumnContentInsetEndClassName
               )}
             >
-              <SidebarNavList>
-                <SidebarNavRow
-                  active={navActive.briefing}
-                  icon={LayoutDashboard}
-                  label={t("sidebar.briefing")}
-                  to={tasksPaths.briefing}
-                />
-                <SidebarNavRow
-                  active={navActive.inbox}
-                  badgeCount={inboxUnseen}
-                  icon={Inbox}
-                  label={t("sidebar.inbox")}
-                  to={tasksPaths.inbox}
-                />
-                <SidebarRow isActive={false}>
-                  <SidebarRowButton
-                    isActive={false}
-                    onClick={() => setCreateTaskOpen(true)}
-                    {...shellSecondaryNavItemProps}
-                  >
-                    <Plus aria-hidden className="size-4 shrink-0" />
-                    <span className="truncate">{t("newTask.title")}</span>
-                  </SidebarRowButton>
-                </SidebarRow>
-                <SidebarNavRow
-                  active={navActive.tasksList}
-                  icon={ListTodo}
-                  label={t("sidebar.tasks")}
-                  to={tasksPaths.list}
-                />
-                <SidebarNavRow
-                  active={navActive.goalsList}
-                  icon={Target}
-                  label={t("sidebar.goals")}
-                  to={tasksPaths.goals}
-                />
-                <SidebarNavRow
-                  active={navActive.routines}
-                  icon={Zap}
-                  label={t("tabs.routines")}
-                  to={tasksPaths.routines}
-                />
-                <SidebarNavRow
-                  active={navActive.operations}
-                  icon={Activity}
-                  label={t("menu.operations")}
-                  to={tasksPaths.operations}
-                />
-              </SidebarNavList>
+              <div className="space-y-2">
+                <div>
+                  <SidebarNavList>
+                    <SidebarNavRow
+                      active={navActive.briefing}
+                      icon={LayoutDashboard}
+                      label={t("sidebar.briefing")}
+                      to={tasksPaths.briefing}
+                    />
+                    <SidebarNavRow
+                      active={navActive.inbox}
+                      badgeCount={inboxUnseen}
+                      icon={Inbox}
+                      label={t("sidebar.inbox")}
+                      to={tasksPaths.inbox}
+                    />
+                    <SidebarNavRow
+                      active={navActive.operations}
+                      icon={Activity}
+                      label={t("menu.operations")}
+                      to={tasksPaths.operations}
+                    />
+                  </SidebarNavList>
+                </div>
+                <div>
+                  <SidebarNavSectionLabel>
+                    {t("sidebar.sectionWork")}
+                  </SidebarNavSectionLabel>
+                  <SidebarNavList>
+                    <SidebarRow isActive={false}>
+                      <SidebarRowButton
+                        isActive={false}
+                        onClick={() => setCreateTaskOpen(true)}
+                        {...shellSecondaryNavItemProps}
+                      >
+                        <Plus aria-hidden className="size-4 shrink-0" />
+                        <span className="truncate">{t("newTask.title")}</span>
+                      </SidebarRowButton>
+                    </SidebarRow>
+                    <SidebarNavRow
+                      active={navActive.tasksList}
+                      icon={ListTodo}
+                      label={t("sidebar.tasks")}
+                      to={tasksPaths.list}
+                    />
+                    <SidebarNavRow
+                      active={navActive.goalsList}
+                      icon={Target}
+                      label={t("sidebar.goals")}
+                      to={tasksPaths.goals}
+                    />
+                    <SidebarNavRow
+                      active={navActive.routines}
+                      icon={Zap}
+                      label={t("tabs.routines")}
+                      to={tasksPaths.routines}
+                    />
+                  </SidebarNavList>
+                </div>
+              </div>
             </nav>
 
             <SidebarTabStrip

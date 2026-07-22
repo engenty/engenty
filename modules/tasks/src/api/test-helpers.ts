@@ -189,6 +189,7 @@ export function makeMockTasksRepo(): TasksRepo {
         status: input.status ?? "planned",
         parent_id: input.parent_id ?? null,
         owner_user_id: input.owner_user_id ?? null,
+        owner_agent_type_key: input.owner_agent_type_key ?? null,
         target_date: input.target_date ?? null,
         created_at: now(),
         updated_at: now(),

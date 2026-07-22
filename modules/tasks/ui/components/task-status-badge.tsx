@@ -28,8 +28,10 @@ export function TaskStatusBadge({
   return (
     <Badge
       className={cn(
-        "inline-flex min-h-7 items-center",
-        compact ? "font-normal text-xxs leading-none" : "font-normal",
+        "inline-flex items-center",
+        compact
+          ? "min-h-5 px-1.5 py-0 font-normal text-xxs leading-none"
+          : "min-h-6 py-0 font-normal",
         toneClass
       )}
       variant="secondary"

@@ -9,16 +9,19 @@ allowed-tools: engenty_tools_search engenty_tool_execute registry_agents_list
 
 The Coordinator planning loop. Run this on every heartbeat or user-triggered cycle.
 
-## Step 1 — Load active goals
+## Step 1 — Select the goals you own
 
-Use `engenty_tools_search` to find the `goals_list` operation, then `engenty_tool_execute` to call it with `status=active`.
+If your brief hands you a specific `goal_id`, process ONLY that goal.
 
-If no active goals are found: output "No active goals. Coordinator idle." and stop.
+Otherwise (a heartbeat cycle), use `engenty_tools_search` to find `goals_list`, then `engenty_tool_execute` to call it with `status=active` and `owner_agent_type_key=engenty.coordinator`. This returns only the goals handed to you.
 
-## Step 2 — Claim ownership
+NEVER process a goal owned by a human (`owner_user_id` set, `owner_agent_type_key` empty) — those are human-led and off-limits.
 
-For each goal that has no `owner_agent_id`:
-- Call `goals_update` with `owner_agent_id: "engenty.coordinator"`.
+If no goals are yours: output "No goals assigned to the coordinator. Idle." and stop.
+
+## Step 2 — Ownership
+
+Ownership is already recorded (`owner_agent_type_key = engenty.coordinator`) by the "Hand to Coordinator" handoff — you do not claim it. Do NOT write `owner_agent_id`: it is a UUID FK you cannot fill.
 
 ## Step 3 — Audit existing tasks
 

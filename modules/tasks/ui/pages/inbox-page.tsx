@@ -67,12 +67,10 @@ export function InboxPage() {
       ) : listQuery.isError ? (
         <p className="text-destructive text-sm">{t("inbox.loadFailed")}</p>
       ) : (
-        <div className="max-w-3xl">
-          <InboxList
-            locale={i18n.language || "en"}
-            notifications={notifications}
-          />
-        </div>
+        <InboxList
+          locale={i18n.language || "en"}
+          notifications={notifications}
+        />
       )}
     </section>
   );

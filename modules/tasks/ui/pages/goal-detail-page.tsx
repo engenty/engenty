@@ -22,6 +22,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { MoreVertical, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { GoalStatus } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { GoalDocumentTitle } from "../components/goal-document-title.js";
@@ -36,6 +37,7 @@ import { tasksPaths } from "../lib/tasks-routes.js";
 import {
   useDeleteGoalMutation,
   useGoalDetailQuery,
+  useHandoffGoalMutation,
   useTaskSettingsQuery,
   useTasksListQuery,
   useUpdateGoalMutation,
@@ -54,6 +56,7 @@ export function GoalDetailPage() {
   const settingsQuery = useTaskSettingsQuery();
   const updateMutation = useUpdateGoalMutation(id ?? "");
   const deleteMutation = useDeleteGoalMutation();
+  const handoffMutation = useHandoffGoalMutation(id ?? "");
   const goal = goalQuery.data ?? null;
 
   const linkedTasksQuery = useTasksListQuery({
@@ -189,6 +192,22 @@ export function GoalDetailPage() {
     navigate(tasksPaths.goals);
   };
 
+  const handleHandoff = async () => {
+    if (!id) {
+      return;
+    }
+    try {
+      const result = await handoffMutation.mutateAsync();
+      toast.success(
+        result.dispatched
+          ? t("goals.detail.handoffDispatched")
+          : t("goals.detail.handoffAssigned")
+      );
+    } catch (err) {
+      showTaskSaveErrorToast(err, t, "goals.detail.handoffFailed");
+    }
+  };
+
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-page pb-10">
       {error ? (
@@ -233,6 +252,11 @@ export function GoalDetailPage() {
           <GoalPropertiesPanel
             disabled={updateMutation.isPending}
             goal={goal}
+            handoffPending={handoffMutation.isPending}
+            onHandoffToCoordinator={() => void handleHandoff()}
+            onOwnerChange={(change) => {
+              void saveGoal(change);
+            }}
             onStatusChange={(status: GoalStatus) => {
               void saveGoal({ status });
             }}
