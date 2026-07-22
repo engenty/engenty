@@ -1,0 +1,16 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "inbox.assist",
+  "name": "Inbox Assist",
+  "description": "Read, search, and triage the synced email inbox; connect and sync mail accounts.",
+  "module_id": "inbox",
+  "skills": ["inbox-triage", "inbox-connect-account", "inbox-reply-and-send"],
+  "tools": [
+    "engenty_tools_search",
+    "engenty_tool_execute",
+    "memory_save",
+    "memory_record_search",
+    "memory_record_archive"
+  ],
+  "workspace": { "preset": "staff" }
+}

@@ -25,6 +25,8 @@
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
@@ -38,6 +40,7 @@
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
+    "@mastra/core": "1.49.0",
     "@supabase/supabase-js": "^2.108.2",
     "ai": "6.0.116",
     "lucide-react": "^1.21.0",

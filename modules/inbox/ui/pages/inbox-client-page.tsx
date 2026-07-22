@@ -3,7 +3,9 @@
 // travel as `?lane=` / `?account=` search params; the selected thread is the
 // `/mdl/inbox/:threadId` route param so it deep-links.
 
+import { useEngentyFrontendTool } from "@engenty/ai-ui";
 import {
+  createFrontendToolDefinition,
   PaneResizeHandle,
   useCopilotShell,
   usePersistedEwResizePaneWidth,
@@ -23,7 +25,7 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Archive, Check, MessagesSquare, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type {
@@ -56,12 +58,59 @@ const LIST_PANE_DEFAULT_WIDTH = 380;
 const LIST_PANE_MIN_WIDTH = 280;
 const LIST_PANE_MAX_WIDTH = 560;
 
+const INBOX_LANES = ["all", "new", "triaged", "processed", "archived"] as const;
+
+const INBOX_SET_LIST_FILTER_TOOL = createFrontendToolDefinition({
+  availability: "enabled",
+  description:
+    "Set the inbox list page filters in the browser only (lane, account connection id, search text). Does not persist — refreshes or navigation away reset search; lane/account live in the URL query string for this session.",
+  parameters: {
+    additionalProperties: false,
+    properties: {
+      account: {
+        description:
+          "Connection id to filter by, or empty string to clear the account filter.",
+        type: "string",
+      },
+      lane: {
+        description: "Triage lane: all | new | triaged | processed | archived.",
+        type: "string",
+      },
+      search: {
+        description: "Client-side search box text (not persisted).",
+        type: "string",
+      },
+    },
+    type: "object",
+  },
+  name: "inbox_set_list_filter",
+  owner_module_id: "inbox",
+  title: "Set Inbox List Filter",
+});
+
+const INBOX_OPEN_THREAD_TOOL = createFrontendToolDefinition({
+  availability: "enabled",
+  description:
+    "Navigate the inbox UI to a thread detail view (`/mdl/inbox/:threadId`). Use after inbox_get_thread or search to show the user what you found.",
+  parameters: {
+    additionalProperties: false,
+    properties: {
+      thread_id: { type: "string" },
+    },
+    required: ["thread_id"],
+    type: "object",
+  },
+  name: "inbox_open_thread",
+  owner_module_id: "inbox",
+  title: "Open Inbox Thread",
+});
+
 export function InboxClientPage() {
   const { t } = useTranslation("inbox");
   const navigate = useNavigate();
   const { setCopilotContext } = useCopilotShell();
   const { threadId } = useParams<{ threadId?: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const lane = searchParams.get("lane") ?? "all";
   const account = searchParams.get("account");
   const [search, setSearch] = useState("");
@@ -139,10 +188,96 @@ export function InboxClientPage() {
   const searchQuery = useInboxSearchQuery(search);
   const syncNow = useRunSyncNowMutation();
 
-  const openThread = (id: string) => {
-    const qs = searchParams.toString();
-    navigate(`/mdl/inbox/${id}${qs ? `?${qs}` : ""}`);
-  };
+  const openThread = useCallback(
+    (id: string) => {
+      const qs = searchParams.toString();
+      navigate(`/mdl/inbox/${id}${qs ? `?${qs}` : ""}`);
+    },
+    [navigate, searchParams]
+  );
+
+  useEngentyFrontendTool(
+    INBOX_SET_LIST_FILTER_TOOL,
+    useCallback(
+      (input) => {
+        const record =
+          input && typeof input === "object" && !Array.isArray(input)
+            ? (input as Record<string, unknown>)
+            : {};
+
+        if ("lane" in record) {
+          if (typeof record.lane !== "string") {
+            throw new Error("lane must be a string when provided.");
+          }
+          if (!(INBOX_LANES as readonly string[]).includes(record.lane)) {
+            throw new Error(`lane must be one of: ${INBOX_LANES.join(", ")}.`);
+          }
+        }
+        if ("account" in record && typeof record.account !== "string") {
+          throw new Error("account must be a string when provided.");
+        }
+        if ("search" in record && typeof record.search !== "string") {
+          throw new Error("search must be a string when provided.");
+        }
+
+        const nextLane = typeof record.lane === "string" ? record.lane : lane;
+        const nextAccount =
+          typeof record.account === "string"
+            ? record.account.trim() || null
+            : account;
+
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            if (nextLane === "all") {
+              next.delete("lane");
+            } else {
+              next.set("lane", nextLane);
+            }
+            if (nextAccount) {
+              next.set("account", nextAccount);
+            } else if ("account" in record) {
+              next.delete("account");
+            }
+            return next;
+          },
+          { replace: true }
+        );
+
+        if (typeof record.search === "string") {
+          setSearch(record.search);
+        }
+        setOffset(0);
+        return {
+          account: nextAccount,
+          lane: nextLane,
+          ok: true,
+          search: typeof record.search === "string" ? record.search : search,
+        };
+      },
+      [account, lane, search, setSearchParams]
+    )
+  );
+
+  useEngentyFrontendTool(
+    INBOX_OPEN_THREAD_TOOL,
+    useCallback(
+      (input) => {
+        const record =
+          input && typeof input === "object" && !Array.isArray(input)
+            ? (input as Record<string, unknown>)
+            : {};
+        const id =
+          typeof record.thread_id === "string" ? record.thread_id.trim() : "";
+        if (!id) {
+          throw new Error("thread_id is required.");
+        }
+        openThread(id);
+        return { ok: true, thread_id: id };
+      },
+      [openThread]
+    )
+  );
 
   const threads = threadsQuery.data?.threads ?? [];
   const total = threadsQuery.data?.total ?? 0;

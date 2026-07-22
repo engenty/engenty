@@ -13,8 +13,8 @@
   ],
   "capabilities": {
     "operations": true,
-    "ai": false,
-    "frontendTools": false
+    "ai": true,
+    "frontendTools": true
   },
   "requires": ["module.connections"]
 }

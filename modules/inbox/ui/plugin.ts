@@ -1,5 +1,6 @@
 import { DockInboxIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { inboxCopilotContribution } from "./copilot-contribution.js";
 import { InboxClientPage } from "./pages/inbox-client-page.js";
 import { InboxSettingsPage } from "./pages/inbox-settings-page.js";
 
@@ -51,4 +52,6 @@ export default function plugin(engenty: EngentyPluginContext) {
     to: "/mdl/inbox",
     order: 150,
   });
+
+  engenty.UI.registerCopilotContribution(inboxCopilotContribution);
 }
