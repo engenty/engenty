@@ -78,7 +78,7 @@ export function mergeDomEntryPoints(
     if (!trimmed) {
       continue;
     }
-    (out as Record<string, string>)[key] = trimmed;
+    (out as unknown as Record<string, string>)[key] = trimmed;
   }
   return out;
 }

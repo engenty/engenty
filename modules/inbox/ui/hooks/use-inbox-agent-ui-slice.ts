@@ -51,8 +51,7 @@ export function useInboxThreadAgentUiSlice(input: {
     if (!(input.threadId && input.detail)) {
       return null;
     }
-    const subject =
-      input.detail.thread.subject?.trim() || "Email thread";
+    const subject = input.detail.thread.subject?.trim() || "Email thread";
     return {
       page: {
         ...buildAgentUiPageBrief({

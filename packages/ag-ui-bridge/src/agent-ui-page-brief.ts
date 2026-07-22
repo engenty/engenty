@@ -102,7 +102,7 @@ export function buildAgentUiPageBrief(
   out.dom_entry_points = mergeDomEntryPoints(
     buildDefaultDomEntryPoints(pageType),
     input.dom_entry_points
-  );
+  ) as unknown as JsonValue;
 
   return out;
 }

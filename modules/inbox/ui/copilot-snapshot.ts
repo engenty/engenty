@@ -1,4 +1,8 @@
-import type { InboxMessage, InboxThreadDetail, InboxThreadListItem } from "./api.js";
+import type {
+  InboxMessage,
+  InboxThreadDetail,
+  InboxThreadListItem,
+} from "./api.js";
 
 const PREVIEW_CAP = 10;
 const SNIPPET_MAX = 160;

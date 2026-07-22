@@ -376,6 +376,8 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         copilotContext={props.copilotContext}
         copilotLayout={(props.shell?.copilotLayout ?? null) as never}
         copilotSidebarRef={props.shell?.copilotSidebarRef as never}
+        copyThreadCopiedLabel={t("copilot.copyThreadCopied")}
+        copyThreadLabel={t("copilot.copyThread")}
         dockMode={props.dockMode}
         dragHandleLabel={t("copilot.dragHandle")}
         floatingChatRouteBinding
@@ -409,8 +411,6 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         positionHeadingLabel={t("copilot.position.heading")}
         positionMenuAriaLabel={t("copilot.position.menu")}
         positionSidebarLabel={t("copilot.position.sidebar")}
-        copyThreadCopiedLabel={t("copilot.copyThreadCopied")}
-        copyThreadLabel={t("copilot.copyThread")}
         preferredDockMode={props.shell?.preferredDockMode ?? null}
         recentSessionsChooser
         requestedAgentId={props.requestedAgentId}
