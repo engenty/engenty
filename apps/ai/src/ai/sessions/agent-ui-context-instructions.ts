@@ -42,11 +42,21 @@ function buildFrontendToolInstructions(
   // typed schemas are already in the tool list, so no schema dump here. This
   // block is just behavioral guidance (e.g. when to navigate vs. ask).
   const toolNames = tools.map((tool) => tool.name).join(", ");
-  return [
+  const hasDomTools = tools.some(
+    (tool) =>
+      tool.name === "browser_dom_snapshot" || tool.name === "browser_screenshot"
+  );
+  const lines = [
     "Some of your tools run in the user's browser (navigation, theme, locale, etc.). Call them directly by name like any other tool; the UI runs them and returns the result.",
     `Browser tools available now: ${toolNames}.`,
     '- For page-opening/navigation requests, use the "navigate" tool with {"to":"/mdl/<moduleId>"} (an internal path). Do not use requestDecision just to ask which page to open when a likely page or module route is known.',
-  ].join("\n");
+  ];
+  if (hasDomTools) {
+    lines.push(
+      "- Prefer browser_dom_snapshot over browser_screenshot. Scope root_selector from Current page dom_entry_points (main / list / detail / app_bar / sidebar / topbar). Fall back to main if a region selector is missing. Use browser_screenshot only for visual/layout questions the DOM cannot answer."
+    );
+  }
+  return lines.join("\n");
 }
 
 function formatRunAgentContextEntries(

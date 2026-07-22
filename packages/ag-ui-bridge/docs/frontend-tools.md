@@ -75,6 +75,18 @@ for the full sequence.
 - `getFrontendToolInputValidationError` — shared guards (e.g. internal paths for `navigate`)
 - `@engenty/ai-core` — `filterAgentUiFrontendToolsByTenant`, `stripModuleOwnedAgentUiFrontendTools`
 
+## Browser use (copilot SPA)
+
+Client-registered tools under `modules/engenty-copilot/ai/frontend-tools/browser-use/`:
+
+| Tool | When to use |
+|------|-------------|
+| `browser_dom_snapshot` | **Preferred** — pruned interactive DOM. Pass `root_selector` from Current page `dom_entry_points` (`main` / `list` / `detail` / chrome regions). |
+| `browser_screenshot` | **Last resort** — text viewport inventory for visual/layout questions the DOM cannot answer (not pixels). |
+| `browser_click` / `browser_hover` / `browser_focus` / `browser_input` / `browser_scroll` | Drive the UI using selectors from a DOM snapshot. |
+
+Shell marks regions with `data-engenty-region` (`app-bar`, `sidebar`, `topbar`, `main`). Modules should mark list/detail roots. See [Agent UI registration](../app-shell/agent-ui-registration#dom-regions-data-engenty-region).
+
 ## Related
 
 - [Agent UI state](./agent-ui-state) — `permissions.frontend_tools` in snapshots

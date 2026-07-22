@@ -398,7 +398,10 @@ export function ContactsListPage() {
   );
 
   return (
-    <section className={contactsModulePageListShellSectionClassName}>
+    <section
+      className={contactsModulePageListShellSectionClassName}
+      data-engenty-region="list"
+    >
       <div className="shrink-0 space-y-2">
         <ContactsListToolbar
           allowedContactTypes={allowedContactTypes}

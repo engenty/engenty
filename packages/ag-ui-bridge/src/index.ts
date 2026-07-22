@@ -8,6 +8,26 @@ export {
 } from "./ag-ui-sse.js";
 export type { AgentTurnMessageLike } from "./agent-turn-message.js";
 export type {
+  AgentUiDomEntryPoints,
+  AgentUiDomRegionId,
+} from "./agent-ui-dom-regions.js";
+export {
+  AGENT_UI_DOM_REGION,
+  AGENT_UI_DOM_REGION_SELECTORS,
+  buildDefaultDomEntryPoints,
+  mergeDomEntryPoints,
+} from "./agent-ui-dom-regions.js";
+export type {
+  AgentUiPageBriefInput,
+  AgentUiPageBriefKey,
+  AgentUiPageType,
+} from "./agent-ui-page-brief.js";
+export {
+  AGENT_UI_PAGE_BRIEF_KEYS,
+  buildAgentUiPageBrief,
+  isAgentUiPageBriefKey,
+} from "./agent-ui-page-brief.js";
+export type {
   AgentUiAppContextEntry,
   AgentUiDraftSnapshot,
   AgentUiRouteSnapshot,

@@ -1,4 +1,7 @@
 export type {
+  AgentUiPageBriefInput,
+  AgentUiPageBriefKey,
+  AgentUiPageType,
   EngentyFrontendToolMetadata,
   FrontendToolCallRequest,
   FrontendToolDefinition,
@@ -7,7 +10,13 @@ export type {
   Tool,
 } from "@engenty/ag-ui-bridge";
 export {
+  AGENT_UI_DOM_REGION,
+  AGENT_UI_DOM_REGION_SELECTORS,
+  AGENT_UI_PAGE_BRIEF_KEYS,
+  buildAgentUiPageBrief,
+  buildDefaultDomEntryPoints,
   createFrontendToolDefinition,
+  isAgentUiPageBriefKey,
   toAgUiTool,
 } from "@engenty/ag-ui-bridge";
 export { AppLayout, type AppLayoutProps } from "./components/app-layout";

@@ -270,7 +270,14 @@ export function CopilotShellMain({
   id: _idFromProps,
   ...rest
 }: ComponentPropsWithoutRef<"main">) {
-  return <main className={cn(className)} id="engenty-app-main" {...rest} />;
+  return (
+    <main
+      className={cn(className)}
+      data-engenty-region="main"
+      id="engenty-app-main"
+      {...rest}
+    />
+  );
 }
 
 /** Wrapper for content area (topbar + main). Assigns mainContentRef for bottom-dock anchoring. */

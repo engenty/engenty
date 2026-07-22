@@ -227,6 +227,7 @@ export function AppTopbar({
           ? "h-11 gap-1 border-0 bg-transparent px-2 py-0 shadow-none"
           : "h-[52px] gap-2 border-b bg-card/85 px-3 backdrop-blur"
       )}
+      data-engenty-region="topbar"
       data-topbar-chrome={contentBlend ? "content-blend" : undefined}
     >
       {/* When workspace sidebar is open and the topbar is transparent, extend

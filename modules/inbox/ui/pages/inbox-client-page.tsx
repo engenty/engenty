@@ -5,6 +5,7 @@
 
 import {
   PaneResizeHandle,
+  useCopilotShell,
   usePersistedEwResizePaneWidth,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -22,7 +23,7 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Archive, Check, MessagesSquare, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type {
@@ -31,6 +32,10 @@ import type {
   InboxThreadListItem,
 } from "../api.js";
 import { ThreadDetail } from "../components/thread-detail.js";
+import {
+  useInboxListAgentUiSlice,
+  useInboxThreadAgentUiSlice,
+} from "../hooks/use-inbox-agent-ui-slice.js";
 import { useInboxSecondaryNav } from "../hooks/use-inbox-secondary-nav.js";
 import { formatInboxRelativeTime } from "../lib/format-relative-time.js";
 import {
@@ -54,6 +59,7 @@ const LIST_PANE_MAX_WIDTH = 560;
 export function InboxClientPage() {
   const { t } = useTranslation("inbox");
   const navigate = useNavigate();
+  const { setCopilotContext } = useCopilotShell();
   const { threadId } = useParams<{ threadId?: string }>();
   const [searchParams] = useSearchParams();
   const lane = searchParams.get("lane") ?? "all";
@@ -141,6 +147,47 @@ export function InboxClientPage() {
   const threads = threadsQuery.data?.threads ?? [];
   const total = threadsQuery.data?.total ?? 0;
   const laneFiltered = lane !== "all" || Boolean(account);
+
+  useInboxListAgentUiSlice({
+    account,
+    lane,
+    search,
+    threads,
+    total,
+  });
+  useInboxThreadAgentUiSlice({
+    detail: threadDetail,
+    threadId: threadId ?? null,
+  });
+
+  useEffect(() => {
+    if (threadId) {
+      setCopilotContext({
+        moduleId: "inbox",
+        routeKey: "thread",
+        scope: {
+          currentModule: "inbox",
+          entityType: "inbox_thread",
+          entityId: threadId,
+          lane,
+          ...(account ? { account } : {}),
+        },
+      });
+    } else {
+      setCopilotContext({
+        moduleId: "inbox",
+        routeKey: "list",
+        scope: {
+          currentModule: "inbox",
+          entityType: "inbox_thread",
+          lane,
+          ...(account ? { account } : {}),
+        },
+      });
+    }
+    return () => setCopilotContext(null);
+  }, [account, lane, setCopilotContext, threadId]);
+
   const {
     displayedWidthPx,
     handleResizeKeyDown,
@@ -161,6 +208,7 @@ export function InboxClientPage() {
           "flex h-full min-h-0 flex-col md:w-[var(--inbox-list-width)] md:max-w-[50vw] md:shrink-0",
           threadId ? "hidden md:flex" : "flex w-full"
         )}
+        data-engenty-region="list"
         style={
           {
             "--inbox-list-width": `${displayedWidthPx}px`,
@@ -303,6 +351,7 @@ export function InboxClientPage() {
           "h-full min-h-0 min-w-0 flex-1",
           threadId ? "flex flex-col" : "hidden md:flex md:flex-col"
         )}
+        data-engenty-region="detail"
       >
         {threadId ? (
           <div className="border-b px-3 py-2 md:hidden">

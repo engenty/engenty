@@ -1,10 +1,10 @@
 import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAgentUiContextInstructions } from "./agent-ui-context-instructions.js";
+import { buildAgentUiContextInstructions } from "../agent-ui-context-instructions.js";
 
 const resolveAgentSystemPromptFromUiState = vi.fn();
 
-vi.mock("../core-http-client.js", () => ({
+vi.mock("../../core-http-client.js", () => ({
   EngentyCoreClient: class MockEngentyCoreClient {
     resolveAgentSystemPromptFromUiState = resolveAgentSystemPromptFromUiState;
   },
@@ -13,7 +13,7 @@ vi.mock("../core-http-client.js", () => ({
 
 const resolveModuleSkillCatalogHint = vi.fn();
 
-vi.mock("../skills/module-skill-hint.js", () => ({
+vi.mock("../../skills/module-skill-hint.js", () => ({
   resolveModuleSkillCatalogHint: (input: unknown) =>
     resolveModuleSkillCatalogHint(input),
 }));
@@ -67,6 +67,43 @@ describe("buildAgentUiContextInstructions", () => {
     // only need to name the browser tools so the model knows they exist.
     expect(result).toContain("test.openPanel");
     expect(result).toContain("Browser tools available now:");
+    expect(result).not.toContain("Prefer browser_dom_snapshot");
+  });
+
+  it("adds DOM-first guidance when browser DOM tools are registered", async () => {
+    const result = await buildAgentUiContextInstructions({
+      agentId: "engenty.copilot",
+      agentUi: {
+        frontend_tools: [
+          createFrontendToolDefinition({
+            availability: "enabled",
+            description: "DOM snapshot",
+            name: "browser_dom_snapshot",
+            parameters: {
+              type: "object",
+              properties: { root_selector: { type: "string" } },
+            },
+            safety: "safe",
+          }),
+          createFrontendToolDefinition({
+            availability: "enabled",
+            description: "Screenshot",
+            name: "browser_screenshot",
+            parameters: { type: "object", properties: {} },
+            safety: "safe",
+          }),
+        ],
+      },
+      scope: {
+        tenantId: "t1",
+        userAccessToken: "token",
+        userId: "u1",
+      },
+    });
+    expect(result).toContain(
+      "Prefer browser_dom_snapshot over browser_screenshot"
+    );
+    expect(result).toContain("dom_entry_points");
   });
 
   it("includes generic AG-UI snapshot instructions when snapshot is present", async () => {

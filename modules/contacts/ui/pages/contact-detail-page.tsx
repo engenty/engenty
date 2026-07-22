@@ -152,7 +152,10 @@ export function ContactDetailPage() {
       : t("person");
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+    <div
+      className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+      data-engenty-region="detail"
+    >
       <Tabs
         className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
         onValueChange={handleDetailTabChange}

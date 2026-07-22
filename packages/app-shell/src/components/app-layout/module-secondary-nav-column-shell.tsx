@@ -39,6 +39,7 @@ export function ModuleSecondaryNavColumnShell(props: {
         "flex min-h-0 flex-1 flex-col overflow-hidden",
         toggleMode === "pinOpen" ? "bg-transparent" : "ui-canvas-floating"
       )}
+      data-engenty-region="sidebar"
     >
       <div
         className={cn(

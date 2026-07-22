@@ -52,15 +52,55 @@ State must stay **small and redacted**:
 
 Slices should use stable **`id`** keys per route or feature (`tasks_detail`, `contacts.edit`). Avoid registering duplicate ids across sibling routes without unregistering on unmount (hooks clean up on unmount).
 
+## Page brief (reserved `page` keys)
+
+Prefer a shared **page brief** plus a compact module snapshot. The main copilot harness (`formatAgentUiStateHarnessInstructions` in `@engenty/ai-core`) renders a **Current page** section from these keys (size-bounded), so `engenty.copilot` sees where the user is without guessing.
+
+| Key | Purpose |
+|-----|---------|
+| `page_type` | `list` \| `detail` \| `settings` \| `briefing` \| module-specific string |
+| `page_title` | Human title (breadcrumb-level) |
+| `page_description` | One short NL sentence of what the user is looking at |
+| `list_search` | Active search |
+| `list_filters` | Compact map of active filters |
+| `list_total` | Visible/total count when known |
+| `list_preview` | Optional capped rows `{ id, label, … }` (or keep existing `*_preview` keys) |
+| `dom_entry_points` | CSS selectors for shell/page regions (`app_bar`, `sidebar`, `topbar`, `main`, plus `list` / `detail` by page type). Auto-filled by `buildAgentUiPageBrief`; override/extend via input. |
+
+Keep module-specific keys (`task_snapshot`, `inbox_thread_snapshot`, …) alongside the brief. Build the brief with `buildAgentUiPageBrief` from `@engenty/app-shell` (re-exported from `@engenty/ag-ui-bridge`).
+
+### DOM regions (`data-engenty-region`)
+
+Shell registers stable regions for agent `browser_dom_snapshot` scoping:
+
+| Region | Selector | Element |
+|--------|----------|---------|
+| `app-bar` | `[data-engenty-region="app-bar"]` | Primary nav rail |
+| `sidebar` | `[data-engenty-region="sidebar"]` | Module secondary nav column |
+| `topbar` | `[data-engenty-region="topbar"]` | App topbar |
+| `main` | `[data-engenty-region="main"]` | `#engenty-app-main` content root |
+
+List/detail pages should mark their content root with `data-engenty-region="list"` or `"detail"` so agents avoid scraping whole-page chrome. Prefer **browser_dom_snapshot** with these entry points over **browser_screenshot** (last resort for visual/layout questions).
+
 ## Typical module pattern
 
 ```tsx
-import { useRegisterAgentUiSlice } from "@engenty/app-shell";
+import {
+  buildAgentUiPageBrief,
+  useRegisterAgentUiSlice,
+} from "@engenty/app-shell";
 
-export function useTasksAgentUiSlice(taskId: string, status: string) {
+export function useTasksAgentUiSlice(taskId: string, title: string) {
   useRegisterAgentUiSlice("tasks_detail", {
-    page: { entity: "task", id: taskId },
-    selection: { status },
+    page: {
+      ...buildAgentUiPageBrief({
+        page_type: "detail",
+        page_title: title,
+        page_description: "Task detail page.",
+      }),
+      task_snapshot: { id: taskId, title },
+    },
+    selection: { entity_id: taskId, entity_type: "task" },
   });
 }
 ```

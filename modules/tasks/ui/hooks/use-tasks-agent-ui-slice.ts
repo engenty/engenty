@@ -1,4 +1,7 @@
-import { useRegisterAgentUiSlice } from "@engenty/app-shell";
+import {
+  buildAgentUiPageBrief,
+  useRegisterAgentUiSlice,
+} from "@engenty/app-shell";
 import { useMemo } from "react";
 import type {
   Goal,
@@ -21,6 +24,11 @@ export function useTasksDetailAgentUiSlice(task: Task | null) {
     const titleHint = task.title?.trim() ?? "";
     return {
       page: {
+        ...buildAgentUiPageBrief({
+          page_type: "detail",
+          page_title: titleHint || "Task",
+          page_description: "Task detail page.",
+        }),
         ...(titleHint ? { task_title: titleHint } : {}),
         goal_id: task.goal_id ?? null,
         task_snapshot: buildTaskSnapshot(task as TaskDetail),
@@ -44,7 +52,13 @@ export function useTasksListAgentUiSlice(input: {
     const preview = buildTasksPreview(input.tasks);
     return {
       page: {
-        ...(q ? { list_search: q } : {}),
+        ...buildAgentUiPageBrief({
+          page_type: "list",
+          page_title: "Tasks",
+          page_description: "Tasks list.",
+          list_search: q,
+          list_total: input.tasks.length,
+        }),
         ...(preview.length > 0 ? { tasks_preview: preview } : {}),
       },
     };
@@ -61,7 +75,13 @@ export function useTasksGoalsListAgentUiSlice(input: {
     const preview = buildGoalsPreview(input.goals);
     return {
       page: {
-        ...(input.search.trim() ? { list_search: input.search.trim() } : {}),
+        ...buildAgentUiPageBrief({
+          page_type: "list",
+          page_title: "Goals",
+          page_description: "Goals list.",
+          list_search: input.search,
+          list_total: input.goals.length,
+        }),
         ...(preview.length > 0 ? { goals_preview: preview } : {}),
       },
     };
@@ -81,6 +101,12 @@ export function useTasksGoalDetailAgentUiSlice(input: {
     const preview = buildTasksPreview(input.linkedTasks);
     return {
       page: {
+        ...buildAgentUiPageBrief({
+          page_type: "detail",
+          page_title: input.goal.title,
+          page_description: "Goal detail with linked tasks.",
+          list_total: input.linkedTasks.length,
+        }),
         goal_id: input.goal.id,
         goal_status: input.goal.status,
         goal_title: input.goal.title,
@@ -106,6 +132,11 @@ export function useTasksBriefingAgentUiSlice(input: {
     }
     return {
       page: {
+        ...buildAgentUiPageBrief({
+          page_type: "briefing",
+          page_title: "Tasks briefing",
+          page_description: `Tasks briefing (${input.mode}).`,
+        }),
         briefing_mode: input.mode,
         tasks_briefing_snapshot: buildBriefingSnapshot(input.snapshot),
       },

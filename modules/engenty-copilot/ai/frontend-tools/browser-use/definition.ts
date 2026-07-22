@@ -8,7 +8,7 @@ import { z } from "zod";
 export const BROWSER_SCREENSHOT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
-    "Capture a text description of the current browser viewport. Returns visible headings, buttons, links, form fields and their values. Use this to understand what the user currently sees.",
+    "Last-resort viewport inventory (text-only, not pixels): visible headings, buttons, links, and form fields. Prefer browser_dom_snapshot with a scoped root_selector from Current page dom_entry_points. Use this only for visual/layout questions the DOM cannot answer (overlap, spacing, what is on screen without a clear region).",
   name: "browser_screenshot",
   schema: z.object({}),
   title: "Browser Screenshot",
@@ -21,19 +21,18 @@ export const BROWSER_SCREENSHOT_SPEC = defineFrontendToolSpec({
 export const BROWSER_DOM_SNAPSHOT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
-    "Capture a pruned DOM snapshot of interactive elements on the page. Returns a list of elements with their tag, text, CSS selector, type, value, and bounding position. Use this to find elements before clicking, focusing, or typing.",
+    "Preferred way to inspect the UI: pruned interactive DOM (tag, text, CSS selector, type, value, bounds). Always prefer this over browser_screenshot. Scope with root_selector from Current page dom_entry_points (main, list, detail, app_bar, sidebar, topbar) — do not snapshot document.body/chrome unless the question is about that chrome.",
   name: "browser_dom_snapshot",
   schema: z.object({
     root_selector: z
       .string()
       .optional()
       .describe(
-        "Optional CSS selector to scope the snapshot. Defaults to document.body."
+        'CSS selector scoping the snapshot. Prefer Current page dom_entry_points (e.g. [data-engenty-region="main"] or list/detail). Defaults to document.body only when no region fits.'
       ),
   }),
   title: "DOM Snapshot",
 });
-
 /* -------------------------------------------------------------------------- */
 /*  browser_scroll                                                             */
 /* -------------------------------------------------------------------------- */
