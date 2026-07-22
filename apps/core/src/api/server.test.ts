@@ -916,6 +916,7 @@ describe("dev plugin reload watcher startup", () => {
 describe("startApiServer", () => {
   it(
     "starts HTTP server and serves requests",
+    { timeout: 180_000, retry: 1 },
     async () => {
       const dataDir = makeTempDir("engenty-core-start-test");
       const { app, server } = await startApiServer({
@@ -941,8 +942,7 @@ describe("startApiServer", () => {
       // running alongside). Give it real headroom, and retry once: the retry runs
       // in the same worker with the plugin modules already warm (~1s), so a slow
       // cold first attempt no longer flakes the suite.
-    },
-    { timeout: 180_000, retry: 1 }
+    }
   );
 
   it("does not stall boot when SUPABASE_URL is set but unreachable", async () => {
