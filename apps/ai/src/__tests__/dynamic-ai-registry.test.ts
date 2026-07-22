@@ -767,7 +767,13 @@ describe("dynamic AI registry", () => {
       "infer reasonable low-risk options"
     );
     expect(agent.config.backgroundTasks).toBeUndefined();
-    expect(Object.keys(agent.config.agents)).toEqual(["engenty_cli"]);
+    // Both builtin specialists declared in engentyCopilotAgentConfig.subAgents:
+    // engenty_cli (CLI/sandbox work) and file_analyst (tiered attachments).
+    // Keep in sync with modules/engenty-copilot/ai/agents/engenty.copilot/agent.ts.
+    expect(Object.keys(agent.config.agents)).toEqual([
+      "engenty_cli",
+      "file_analyst",
+    ]);
     expect(agent.config.tools).toHaveProperty("chatThreadSearch");
     // AG-UI frontend tools are no longer a static meta-tool on the agent config;
     // they are injected per-run as native tools (see native-frontend-tool.ts).
