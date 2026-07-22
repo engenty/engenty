@@ -41,6 +41,21 @@ Use `offers_update` with `{ id: "<offer-id>", patch: { ... } }`. Put only the fi
 
 Patchable fields: `title`, `billing_type`, `billing_interval`, `offer_date`, `valid_until`, `reference`, `currency`, `default_tax_rate`, `no_tax_reason`, `introduction`, `final_notes`, `phases_enabled`, `show_phase_index`, `show_phase_totals`, `show_tax_per_item`, recipient fields, and `client_id`. For status changes use `offers_set_status` instead.
 
+## Payment Plan (billing_plan)
+
+Fixed-price offers can carry a payment plan in `billing_plan` (patch it via
+`offers_update` like any other field, or set it to `null` to remove it):
+
+- `mode`: `"full_on_delivery"` (single payment), `"deposit_balance"` (deposit
+  now, rest on delivery), or `"milestones"` (custom schedule).
+- `milestones`: array of `{ "description": string, "date": ISO date or null,
+  "percent": number }`. The percents should sum to 100 — check before writing
+  and warn the user when they do not.
+
+Example patch: `{ "id": "<offer-id>", "patch": { "billing_plan": { "mode":
+"milestones", "milestones": [ { "description": "Kickoff", "date": null,
+"percent": 30 }, { "description": "Go-live", "date": null, "percent": 70 } ] } } }`
+
 Edits persist immediately. If the user has the offer open in the editor, they see the change live; if they have unsaved local edits, the editor shows them a conflict banner — mention that their unsaved changes are preserved.
 
 **Act directly on drafts.** When the user asks for content ("write an

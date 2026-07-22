@@ -24,4 +24,8 @@ Use this skill to find and inspect invoices.
 
 - Prefer the preloaded page/list context when answering simple questions; call the operations above for fresh or complete data.
 - Status values: `draft`, `issued`, `sent`, `paid`, `cancelled`. "Overdue" is derived (due_date passed and not paid), not a stored status.
-- Use snake_case field names.
+- Invoice operation inputs use camelCase field names (`dueDate`, `sumNetto`,
+  `sumBrutto`, `clientId`, `idOrNumber`) — this module predates the snake_case
+  convention. Inside block `content_json`, line-item fields are snake_case
+  (`quantity`, `unit_price`, `tax_rate`). Follow the field names shown in the
+  skill tables exactly; do not convert between cases.
