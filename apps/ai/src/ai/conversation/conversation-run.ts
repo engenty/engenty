@@ -20,6 +20,7 @@ import {
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { AgentSessionStatus } from "../../dal/agent-sessions/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
 import {
@@ -57,6 +58,7 @@ import {
 import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
 import { parkSessionRun } from "./session-park.js";
+import { patchThreadStatus } from "./thread-status.js";
 
 /** A tool that suspended the run, captured for the post-run interrupt. */
 interface SuspendedTool {
@@ -164,6 +166,9 @@ export async function startConversationRun(
   // Set when a frontend tool suspends and we park the session for resume — guards
   // the finally from destroying the parked controller.
   let parkedForResume = false;
+  // Terminal thread status written in `finally` so session-list dots stay in sync.
+  let threadStatus: AgentSessionStatus = "completed";
+  await patchThreadStatus({ ...input, status: "running" });
   try {
     const { memory } = createEngentySessionMemoryRuntime({
       agentId: input.agentId,
@@ -403,6 +408,7 @@ export async function startConversationRun(
           threadId: input.threadId,
         });
         parkedForResume = true;
+        threadStatus = "waiting";
         return { runId: input.runId };
       }
       const handled = await emitFrontendToolInterrupt({
@@ -428,6 +434,7 @@ export async function startConversationRun(
           threadId: input.threadId,
         });
         parkedForResume = true;
+        threadStatus = "waiting";
         return { runId: input.runId };
       }
     }
@@ -447,6 +454,7 @@ export async function startConversationRun(
         threadId: input.threadId,
         toolCallId: art.toolCallId,
       });
+      threadStatus = "waiting";
       return { runId: input.runId };
     }
 
@@ -466,6 +474,7 @@ export async function startConversationRun(
 
     if (runError && !abort.abortSignal.aborted) {
       emit({ message: runError, type: "RUN_ERROR" });
+      threadStatus = "failed";
       return { runId: input.runId };
     }
 
@@ -485,11 +494,14 @@ export async function startConversationRun(
       threadId: input.threadId,
       type: "RUN_FINISHED",
     });
+    threadStatus = "completed";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[conversation ${input.runId}] failed:`, error);
     emit({ message, type: "RUN_ERROR" });
+    threadStatus = "failed";
   } finally {
+    await patchThreadStatus({ ...input, status: threadStatus });
     abort.cleanup();
     markRunDone(input.runId);
     // Tear down the run's root sandbox — destroy() runs syncOut, persisting staged

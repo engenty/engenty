@@ -18,6 +18,7 @@ import {
 import {
   ModuleSidebarHeaderLabel,
   useCopilotShellOrNull,
+  useShellSecondaryNav,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { DockChatIcon } from "@engenty/ui-icons";
@@ -51,6 +52,7 @@ export function CopilotChatPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const moduleLabel = t("menu.label");
+  const { secondaryNavOpen } = useShellSecondaryNav();
   const copilotShell = useCopilotShellOrNull();
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
@@ -129,17 +131,21 @@ export function CopilotChatPage() {
   }, [activeThreadId, navigate]);
 
   const breadcrumbs = useMemo((): PageBreadcrumb[] => {
-    const trail: PageBreadcrumb[] = [
-      {
-        compactKept: true,
-        label: (
-          <span className="truncate font-medium text-foreground">
-            {moduleLabel}
-          </span>
-        ),
-        menuLabel: moduleLabel,
-      },
-    ];
+    // When the session list is pinned, the module label lives in the sidebar
+    // header — omit the matching topbar crumb (same pattern as projects/tasks).
+    const trail: PageBreadcrumb[] = secondaryNavOpen
+      ? []
+      : [
+          {
+            compactKept: true,
+            label: (
+              <span className="truncate font-medium text-foreground">
+                {moduleLabel}
+              </span>
+            ),
+            menuLabel: moduleLabel,
+          },
+        ];
 
     if (activeThreadId && thread.session) {
       const title = thread.session.title || tc("copilot.newChat");
@@ -192,6 +198,7 @@ export function CopilotChatPage() {
   }, [
     activeThreadId,
     moduleLabel,
+    secondaryNavOpen,
     subAgentDelegation,
     subRunToolCallId,
     tc,
@@ -215,9 +222,6 @@ export function CopilotChatPage() {
     actions: topbarActions,
     breadcrumbs,
     contentStackBackground: "paper",
-    // Session list stays available as a hover overlay — never pinned inline so
-    // the conversation column keeps the full workspace width.
-    secondaryNavAllowPinned: false,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",

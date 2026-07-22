@@ -115,8 +115,7 @@ interface PageHeaderContextValue {
   secondaryNavAfterItems: ReactNode;
   /**
    * When false, the module secondary column may only open as a hover overlay — never
-   * pinned inline (no layout width). Used by full-page copilot chat so the session
-   * list never steals space from the conversation.
+   * pinned inline (no layout width). Defaults to true.
    */
   secondaryNavAllowPinned: boolean;
   /** Rendered in the shell secondary nav column above module submenu links (e.g. search). */

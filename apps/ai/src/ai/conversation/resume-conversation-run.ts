@@ -17,6 +17,7 @@ import {
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { AgentSessionStatus } from "../../dal/agent-sessions/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import {
   loadConnectionApprovalGrants,
@@ -41,6 +42,7 @@ import {
   parkSessionRun,
   takeParkedSessionRun,
 } from "./session-park.js";
+import { patchThreadStatus } from "./thread-status.js";
 
 /** A second tool that suspended within the resumed continuation. */
 interface SuspendedAgain {
@@ -85,6 +87,8 @@ export async function resumeConversationRun(
     ? takeParkedSessionRun(input.suspendedRunId)
     : undefined;
   let reParked = false;
+  let threadStatus: AgentSessionStatus = "completed";
+  await patchThreadStatus({ ...input, status: "running" });
   try {
     if (!parked) {
       // Distinguish a duplicate answer racing the live resume (recoverable —
@@ -252,6 +256,7 @@ export async function resumeConversationRun(
           threadId: input.threadId,
         });
         reParked = true;
+        threadStatus = "waiting";
         return { runId: input.newRunId };
       }
     }
@@ -261,6 +266,7 @@ export async function resumeConversationRun(
     }
     if (runError) {
       emit({ message: runError, type: "RUN_ERROR" });
+      threadStatus = "failed";
       return { runId: input.newRunId };
     }
     // The interrupt is resolved — clear it from session metadata.
@@ -285,12 +291,13 @@ export async function resumeConversationRun(
       threadId: input.threadId,
       type: "RUN_FINISHED",
     });
+    threadStatus = "completed";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    threadStatus = reParked ? "waiting" : "failed";
     console.error(`[conversation-resume ${input.newRunId}] failed:`, error);
     emit({ message, type: "RUN_ERROR" });
   } finally {
-    markRunDone(input.newRunId);
     // Only the resume that actually TOOK the parked run owns the in-flight
     // marker — a duplicate that found nothing parked must not clear the
     // marker out from under the live resume.
@@ -309,12 +316,15 @@ export async function resumeConversationRun(
           session: parked.session,
           threadId: parked.threadId,
         });
+        threadStatus = "waiting";
       } else {
         await parked?.controller.destroy().catch(() => {
           // best-effort cleanup
         });
       }
     }
+    await patchThreadStatus({ ...input, status: threadStatus });
+    markRunDone(input.newRunId);
   }
   return { runId: input.newRunId };
 }

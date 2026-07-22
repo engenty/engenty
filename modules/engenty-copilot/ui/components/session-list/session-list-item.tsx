@@ -16,6 +16,7 @@ import type {
   AgentSessionStatus,
 } from "../../../src/lib/agent-session-types.js";
 import { useSessionList } from "./session-list-context.js";
+import { SessionTitleMarquee } from "./session-title-marquee.js";
 import {
   sessionListMenuContentClassName,
   sessionListMenuItemClassName,
@@ -38,12 +39,8 @@ export function SessionListItem(props: { row: AgentSessionDto }) {
         type="button"
         {...shellSecondaryNavItemProps}
       >
-        <span className="flex min-w-0 items-center gap-2 text-left">
-          <SessionStatusIndicator status={props.row.status} />
-          <span className="min-w-0 truncate text-[13px] leading-snug">
-            {label}
-          </span>
-        </span>
+        <SessionStatusIndicator status={props.row.status} />
+        <SessionTitleMarquee text={label} />
       </SidebarMenuButton>
       <SessionListItemMenu
         isActive={isActive}

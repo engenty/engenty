@@ -135,7 +135,7 @@ const selectContentVariants = cva(
   {
     variants: {
       variant: {
-        default: "ui-canvas-floating rounded-md shadow-md",
+        default: "ui-canvas-floating rounded-md",
         glass: "ui-canvas-glass rounded-2xl shadow-lg ring-1 ring-foreground/10",
       },
     },
