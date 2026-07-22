@@ -30,11 +30,25 @@ export interface AiRegisteredAgent {
   description: string | null;
   id: string;
   instruction_keys: string[];
+  /** Per-agent operational limits (Phase 4): iteration cap + spend budget. */
+  limits?: {
+    max_steps?: number | null;
+    budget?: { maxCostMicrosPerPeriod?: number | null } | null;
+  } | null;
   /** Module owning a synced agent (e.g. "chatbot"); null when not module-managed. */
   managed_by_module?: string | null;
   model?: string;
+  /** Per-agent model overrides (Phase 4). Null/absent = inherit tenant defaults. */
+  modelOverride?: string | null;
   module_id: string;
   name: string;
+  purpose?:
+    | "chat"
+    | "routing"
+    | "research"
+    | "planning_coding"
+    | "safeguard"
+    | null;
   role?: AiAgentRole;
   skills: string[];
   source?: AiAgentSource;

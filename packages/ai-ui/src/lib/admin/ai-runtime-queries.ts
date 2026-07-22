@@ -10,6 +10,7 @@ import {
   listSkillRegistryProviders,
   searchSkillRegistry,
 } from "../runtime/skills-api.js";
+import type { AiAgentOverridesPatch } from "./ai-runtime-api";
 import {
   type CustomAgentConfig,
   type CustomToolConfig,
@@ -37,6 +38,7 @@ import {
   getCustomTool,
   getRegistryTools,
   patchAiAgentChatPrefs,
+  patchAiAgentOverrides,
   updateAiSkill,
   updateCustomAgent,
   updateCustomTool,
@@ -94,6 +96,17 @@ export function usePatchAiAgentChatPrefsMutation() {
         mention_routing_enabled?: boolean;
       };
     }) => patchAiAgentChatPrefs(input.agentId, input.patch),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: aiRuntimeKeys.agents() });
+    },
+  });
+}
+
+export function usePatchAiAgentOverridesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { agentId: string; patch: AiAgentOverridesPatch }) =>
+      patchAiAgentOverrides(input.agentId, input.patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: aiRuntimeKeys.agents() });
     },

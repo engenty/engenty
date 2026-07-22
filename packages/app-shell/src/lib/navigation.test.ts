@@ -172,8 +172,6 @@ describe("navigation", () => {
 
       expect(visible).toEqual([
         "/settings/appearance",
-        "/settings/ai",
-        "/settings/ai-usage",
         "/settings/integration-keys",
         "/settings/development",
         "/settings/features",
@@ -181,7 +179,7 @@ describe("navigation", () => {
       ]);
     });
 
-    it("promotes Connections into the core settings block after AI usage", () => {
+    it("promotes Connections into the core settings block after integration keys", () => {
       const ConnectionsIcon = () => null;
       const InvoicesIcon = () => null;
       const settingsChildren = (
@@ -227,8 +225,6 @@ describe("navigation", () => {
 
       expect(adminChildren.map((item) => item.to)).toEqual([
         "/settings/appearance",
-        "/settings/ai",
-        "/settings/ai-usage",
         "/settings/integration-keys",
         "/settings/connections",
         "",
@@ -315,16 +311,6 @@ describe("navigation", () => {
           to: "/settings/appearance",
           type: undefined,
           label: "settings.appearanceTitle",
-        },
-        {
-          to: "/settings/ai",
-          type: undefined,
-          label: "settings.aiModels.menuLabel",
-        },
-        {
-          to: "/settings/ai-usage",
-          type: undefined,
-          label: "settings.aiUsage.menuLabel",
         },
         {
           to: "/settings/integration-keys",
@@ -483,6 +469,7 @@ describe("navigation", () => {
           ?.children?.map((child) => child.to) ?? [];
       expect(setupChildren).toEqual([
         "/setup/platform",
+        "/setup/ai",
         "/setup/plugins",
         "/setup/roles",
         "/setup/connectors",

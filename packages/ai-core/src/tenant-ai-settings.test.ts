@@ -48,4 +48,26 @@ describe("parseTenantAiSettings", () => {
       coordinator_model_id: "openai/gpt-5-mini",
     });
   });
+
+  it("parses realtime_voice prefs and normalizes an unknown provider to null", () => {
+    expect(
+      parseTenantAiSettings({
+        realtime_voice: {
+          provider: "openai",
+          openai_model: " gpt-realtime-2 ",
+          openai_voice: "cedar",
+          openai_transcription_model: "",
+        },
+      }).realtime_voice
+    ).toEqual({
+      provider: "openai",
+      openai_model: "gpt-realtime-2",
+      openai_transcription_model: null,
+      openai_voice: "cedar",
+    });
+    expect(
+      parseTenantAiSettings({ realtime_voice: { provider: "nope" } })
+        .realtime_voice
+    ).toMatchObject({ provider: null });
+  });
 });

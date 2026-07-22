@@ -36,6 +36,16 @@ export interface AiUsageStore {
     at: string;
   }): Promise<ModelPricingRecord | null>;
 
+  /**
+   * Sum cost (micros) for one agent over the period, from usage_event.
+   * Optional: stores that predate per-agent budgets may omit it.
+   */
+  getAgentPeriodCostMicros?(params: {
+    tenant_id: string;
+    agent_id: string;
+    period_start: string;
+  }): Promise<number>;
+
   /** Read the current period totals (tenant-aggregate or user) if present. */
   getPeriodTotals(params: {
     tenant_id: string;

@@ -6,15 +6,22 @@ import {
 } from "@engenty/query-client";
 import { getAiConfig, saveAiConfig } from "./ai-settings-api";
 import { getDocConverterAvailability } from "./doc-converter-availability-api";
+import { getEffectiveAiSettings } from "./effective-ai-settings-api";
 import {
   type GatewayModelAvailabilityPurpose,
   type GatewayModelPriceTier,
   type GatewayModelUseCase,
   listGatewayModelOptions,
 } from "./gateway-model-options-api";
+import {
+  getTenantUsagePolicy,
+  saveTenantUsagePolicy,
+} from "./usage-policy-api";
+import { getAiUsageMe, getAiUsageTenant } from "./usage-report-api";
 
 export const aiSettingsKeys = {
   all: ["ai-settings"] as const,
+  effective: ["ai-settings", "effective"] as const,
   modelOptions: (filters: GatewayModelOptionFilters) =>
     [...aiSettingsKeys.all, "model-options", filters] as const,
 };
@@ -50,6 +57,16 @@ export function useAiSettingsQuery() {
   return useQuery(aiSettingsOptions);
 }
 
+export const effectiveAiSettingsOptions = queryOptions({
+  queryKey: aiSettingsKeys.effective,
+  queryFn: ({ signal }) => getEffectiveAiSettings(signal),
+  staleTime: 60_000,
+});
+
+export function useEffectiveAiSettingsQuery() {
+  return useQuery(effectiveAiSettingsOptions);
+}
+
 export function useGatewayModelOptionsQuery(
   filters: GatewayModelOptionFilters
 ) {
@@ -70,4 +87,57 @@ export function useSaveAiSettingsMutation() {
       await queryClient.invalidateQueries({ queryKey: aiSettingsKeys.all });
     },
   });
+}
+
+export const tenantUsagePolicyKeys = {
+  all: ["ai-usage-policy"] as const,
+};
+
+export const tenantUsagePolicyOptions = queryOptions({
+  queryKey: tenantUsagePolicyKeys.all,
+  queryFn: ({ signal }) => getTenantUsagePolicy(signal),
+  staleTime: 30_000,
+});
+
+export function useTenantUsagePolicyQuery() {
+  return useQuery(tenantUsagePolicyOptions);
+}
+
+export function useSaveTenantUsagePolicyMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: saveTenantUsagePolicy,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: tenantUsagePolicyKeys.all,
+      });
+    },
+  });
+}
+
+export const aiUsageReportKeys = {
+  all: ["ai-usage-report"] as const,
+  me: () => [...aiUsageReportKeys.all, "me"] as const,
+  tenant: () => [...aiUsageReportKeys.all, "tenant"] as const,
+};
+
+export function useAiUsageMeQuery() {
+  return useQuery(
+    queryOptions({
+      queryKey: aiUsageReportKeys.me(),
+      queryFn: ({ signal }) => getAiUsageMe(signal),
+      staleTime: 30_000,
+    })
+  );
+}
+
+export function useAiUsageTenantQuery(enabled: boolean) {
+  return useQuery(
+    queryOptions({
+      queryKey: aiUsageReportKeys.tenant(),
+      queryFn: ({ signal }) => getAiUsageTenant(signal),
+      staleTime: 30_000,
+      enabled,
+    })
+  );
 }

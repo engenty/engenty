@@ -64,7 +64,11 @@ export function DocConverterSettingsCard({
           }
           value={provider}
         >
-          <SelectTrigger className="min-w-0 flex-1" id="doc-converter-provider">
+          <SelectTrigger
+            className="min-w-0 flex-1"
+            id="doc-converter-provider"
+            size="sm"
+          >
             <SelectValue placeholder={t("docConverter.providerPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
@@ -95,7 +99,7 @@ export function DocConverterSettingsCard({
           {t("docConverter.geminiModelLabel")}
         </Label>
         <Input
-          className="min-w-0 flex-1"
+          className="h-8 min-w-0 flex-1"
           id="doc-converter-gemini-model"
           onChange={(e) =>
             updateSettings("doc_converter", {

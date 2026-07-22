@@ -20,13 +20,33 @@ const DEFAULT_AGENT_CHAT_TRIGGERS: AiAgentChatTriggers = {
 interface RegistryAgentConfig {
   description?: string;
   id: string;
+  limits?: AiRegisteredAgent["limits"];
   managed_by_module?: string | null;
   model?: string;
+  modelOverride?: string | null;
   name: string;
+  purpose?: AiRegisteredAgent["purpose"];
   role?: AiAgentRole;
   skillIds?: string[];
   source?: AiAgentSource;
   toolIds?: string[];
+}
+
+/** Per-agent runtime overrides a tenant admin can set (Phase 4). */
+export interface AiAgentOverridesPatch {
+  limits?: AiRegisteredAgent["limits"];
+  modelOverride?: string | null;
+  purpose?: AiRegisteredAgent["purpose"];
+}
+
+export function patchAiAgentOverrides(
+  agentId: string,
+  patch: AiAgentOverridesPatch
+) {
+  return requestAiServiceJson<{ agent: unknown }>(
+    `/ai/registry/agents/${encodeURIComponent(agentId)}`,
+    { body: JSON.stringify(patch), method: "PATCH" }
+  );
 }
 
 /** Map `apps/ai` registry rows to legacy admin catalog shape for Copilot picker. */
@@ -51,6 +71,9 @@ export function mapRegistryAgentToRegisteredAgent(
     name: agent.name,
     skills: agent.skillIds ?? [],
     ...(agent.model ? { model: agent.model } : {}),
+    ...(agent.modelOverride ? { modelOverride: agent.modelOverride } : {}),
+    ...(agent.purpose ? { purpose: agent.purpose } : {}),
+    ...(agent.limits ? { limits: agent.limits } : {}),
     ...(agent.role ? { role: agent.role } : {}),
     ...(agent.source ? { source: agent.source } : {}),
     ...(agent.toolIds?.length ? { tools: agent.toolIds } : {}),

@@ -13,7 +13,6 @@ import {
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
-import { AiUsagePage } from "@/pages/AiUsagePage";
 import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
@@ -127,6 +126,10 @@ export function AuthenticatedRoutes({
               <Navigate replace to={MEMBER_SETTINGS_HOME} />
             )
           }
+          path="/setup/ai"
+        />
+        <Route
+          element={<Navigate replace to="/setup/ai" />}
           path="/settings/ai"
         />
         <Route
@@ -150,13 +153,7 @@ export function AuthenticatedRoutes({
           path="/settings/appearance"
         />
         <Route
-          element={
-            isSuperAdmin || isTenantAdmin ? (
-              <AiUsagePage />
-            ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
-            )
-          }
+          element={<Navigate replace to="/setup/ai?tab=usage" />}
           path="/settings/ai-usage"
         />
         <Route

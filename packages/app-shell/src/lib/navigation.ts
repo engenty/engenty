@@ -6,7 +6,6 @@ import type {
 } from "@engenty/ui-plugin-sdk";
 import { PLUGIN_CATEGORIES, pluginCategoryRank } from "@engenty/ui-plugin-sdk";
 import {
-  BarChart3,
   Box,
   Cable,
   Code2,
@@ -253,16 +252,6 @@ export function buildNavigationSections(
             icon: Palette,
           },
           {
-            to: "/settings/ai",
-            label: t("settings.aiModels.menuLabel"),
-            icon: Sparkles,
-          },
-          {
-            to: "/settings/ai-usage",
-            label: t("settings.aiUsage.menuLabel"),
-            icon: BarChart3,
-          },
-          {
             to: "/settings/integration-keys",
             label: t("settings.integrationKeys.menuLabel"),
             icon: KeyRound,
@@ -352,6 +341,11 @@ export function buildNavigationSections(
                   to: "/setup/platform",
                   label: t("navigation.setupPlatform"),
                   icon: KeyRound,
+                },
+                {
+                  to: "/setup/ai",
+                  label: t("settings.aiModels.menuLabel"),
+                  icon: Sparkles,
                 },
                 {
                   to: "/setup/plugins",

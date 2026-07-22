@@ -60,7 +60,8 @@
       "connectionsEmpty": "No connections",
       "activity": "{{count}} sessions logged",
       "activityEmpty": "No runs or sessions yet",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "error": "Couldn't load"
     }
   },
   "docConverter": {
@@ -83,12 +84,125 @@
     "save": "Save",
     "saving": "Saving…",
     "reset": "Reset",
-    "resetToDefaults": "Reset to defaults",
+    "resetToDefaults": "Reset all to inherited",
     "close": "Close"
+  },
+  "matrix": {
+    "title": "Model matrix",
+    "description": "One model per purpose. A blank pick inherits the platform default; the badge shows where the effective value comes from.",
+    "purpose": {
+      "chat": {
+        "label": "Chat",
+        "desc": "User-facing replies — copilot and specialist agents."
+      },
+      "routing": {
+        "label": "Fast (routing)",
+        "desc": "Supervisor delegation, thread titles, tool search — frequent and cheap."
+      },
+      "research": {
+        "label": "Research",
+        "desc": "Search & retrieval agents, workspace search, deep-research fan-outs — long context."
+      },
+      "planning_coding": {
+        "label": "Planning & coding",
+        "desc": "Most-capable tier: plans, task decomposition, coordinator proposals, sandboxed code."
+      },
+      "safeguard": {
+        "label": "Safeguard",
+        "desc": "Guardrail checks (moderation, PII, prompt injection)."
+      }
+    },
+    "source": {
+      "pinned": "Pinned · Tenant",
+      "inheritPlatform": "Inherit · Platform",
+      "inheritDefault": "Inherit · Default"
+    },
+    "inheritAction": "Inherit",
+    "inheritActionLong": "Inherit (platform default)",
+    "inheritHint": "Inherits: {{model}}",
+    "col": {
+      "purpose": "Purpose",
+      "model": "Effective model",
+      "source": "Source"
+    },
+    "action": {
+      "change": "Change",
+      "pin": "Pin"
+    },
+    "caps": {
+      "context": "{{tokens}} ctx",
+      "vision": "Vision",
+      "web": "Web search",
+      "code": "Code"
+    }
+  },
+  "picker": {
+    "title": "Choose a model for {{purpose}}",
+    "description": "Pick a model or inherit the platform default. Pricing is per million tokens (input / output)."
+  },
+  "limits": {
+    "loadError": "Couldn't load the usage policy. Ensure apps/ai is running and reachable.",
+    "enforcementTitle": "Enforcement & budget",
+    "enforcementDesc": "Cap AI spend per period. Observe warns; enforce blocks calls once the hard limit is reached.",
+    "enforcementMode": "Mode",
+    "mode": {
+      "observe": "Observe",
+      "enforce": "Enforce",
+      "observeHint": "Over-limit calls still run; you get banners and headers.",
+      "enforceHint": "Over-limit calls are rejected with a structured 429."
+    },
+    "softLimit": "Soft limit ($ / period)",
+    "softLimitHint": "Admin warning banner; calls keep running.",
+    "hardLimit": "Hard limit ($ / period)",
+    "hardLimitHint": "When enforcing, calls are blocked past this.",
+    "savePolicy": "Save policy",
+    "iterationCapTitle": "Iteration cap",
+    "iterationCapDesc": "Tenant default for how many steps an agent run may take (platform max 60). Saved with the model settings via the top bar.",
+    "iterationCap": "Max steps per run",
+    "iterationCapHint": "Leave blank to inherit the platform default. Agents can be capped lower individually.",
+    "allowlistTitle": "Model allow-list",
+    "allowlistDesc": "When set, only these models may be called. Empty means all Gateway models are allowed.",
+    "allowlistEmpty": "All models allowed.",
+    "allowlistAdd": "Add model",
+    "allowlistRemove": "Remove {{model}}",
+    "pro": "PRO"
+  },
+  "agentsTab": {
+    "title": "Per-agent overrides",
+    "description": "Pin a model, tier, iteration cap, or spend cap for individual agents. Blank inherits the tenant default. Code-managed agents are set in code.",
+    "loadError": "Couldn't load agents. Ensure apps/ai is running and reachable.",
+    "empty": "No agents registered yet.",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "codeManaged": "Code-managed",
+    "modelOverride": "Model override",
+    "purpose": "Model tier",
+    "maxSteps": "Max steps",
+    "budget": "Budget ($ / period)",
+    "inheritPlaceholder": "Inherit",
+    "structural": "Inherit (by structure)",
+    "inheritModel": "Inherit · {{tier}}",
+    "inherit": "inherit",
+    "none": "none",
+    "stepsLabel": "Steps",
+    "budgetLabel": "Budget"
+  },
+  "voice": {
+    "title": "Realtime voice",
+    "description": "Voice and models for the realtime voice agent (OpenAI Realtime). Blank inherits the platform default.",
+    "voiceLabel": "Voice",
+    "modelLabel": "Realtime model",
+    "transcriptionLabel": "Transcription model",
+    "inheritHint": "Inherits: {{value}}",
+    "help": "The OpenAI API key is set via environment variables, not stored here."
   },
   "sections": {
     "general": "General",
     "generalDesc": "Global AI and copilot defaults.",
+    "models": "Models",
+    "limits": "Limits & budgets",
+    "voice": "Voice",
+    "usage": "Usage",
     "copilot": "Copilot",
     "copilotDesc": "Chat model defaults for this tenant.",
     "classifier": "Classifier",
@@ -1139,6 +1253,7 @@
     "expandPane": "Expand artifact panel",
     "collapsePane": "Restore artifact panel size",
     "openPane": "Open artifact panel",
+    "openPaneWithNew": "Open artifact panel ({{count}} new)",
     "resizePane": "Resize artifact panel",
     "storeAction": "Store artifact",
     "storeSearch": "Search store targets…",

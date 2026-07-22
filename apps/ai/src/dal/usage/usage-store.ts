@@ -383,6 +383,22 @@ export function createAiUsageStore(
       return data ? mapPeriodTotals(data as Record<string, unknown>) : null;
     },
 
+    async getAgentPeriodCostMicros(params) {
+      const { data, error } = await events()
+        .select("cost_micros")
+        .eq("tenant_id", params.tenant_id)
+        .eq("agent_id", params.agent_id)
+        .gte("occurred_at", params.period_start);
+      if (error) {
+        throw new Error(`agent usage cost select: ${error.message}`);
+      }
+      return (data ?? []).reduce(
+        (sum, row) =>
+          sum + Number((row as { cost_micros?: number }).cost_micros ?? 0),
+        0
+      );
+    },
+
     async getTenantPolicy(tenantId) {
       const { data, error } = await tenantPolicies()
         .select("*")

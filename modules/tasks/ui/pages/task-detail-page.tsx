@@ -391,7 +391,10 @@ export function TaskDetailPage() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
+        <ArtifactPaneToggle
+          extraScope={{ type: "task", id: task.id }}
+          hostKey={ENGENTY_COPILOT_HOST_KEY}
+        />
       </>
     ) : null,
     breadcrumbs,

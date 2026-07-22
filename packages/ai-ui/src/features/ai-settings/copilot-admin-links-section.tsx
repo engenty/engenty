@@ -131,68 +131,88 @@ export function CopilotAdminLinksSection() {
   const toolCounts = useMemo(() => countTools(tools), [tools]);
 
   const loadingHint = t("copilotAdminLinks.hints.loading");
+  const errorHint = t("copilotAdminLinks.hints.error");
 
   const hints = useMemo(() => {
     const agentCount = agents.length;
     const connectionCount = connectionsQuery.data ?? 0;
 
     return {
-      agents: agentsQuery.isLoading
-        ? loadingHint
-        : agentCount === 0
-          ? t("copilotAdminLinks.hints.agentsEmpty")
-          : t("copilotAdminLinks.hints.agents", { count: agentCount }),
-      actions: actionsQuery.isLoading
-        ? loadingHint
-        : actionCounts.total === 0
-          ? t("copilotAdminLinks.hints.actionsEmpty")
-          : t("copilotAdminLinks.hints.actions", {
-              count: actionCounts.total,
-              custom: actionCounts.custom,
-            }),
-      skills: skillsQuery.isLoading
-        ? loadingHint
-        : skillCounts.total === 0
-          ? t("copilotAdminLinks.hints.skillsEmpty")
-          : t("copilotAdminLinks.hints.skills", {
-              custom: skillCounts.custom,
-              managed: skillCounts.managed,
-            }),
-      tools: toolsQuery.isLoading
-        ? loadingHint
-        : toolCounts.total === 0
-          ? t("copilotAdminLinks.hints.toolsEmpty")
-          : t("copilotAdminLinks.hints.tools", {
-              custom: toolCounts.custom,
-              mcp: toolCounts.mcp,
-              module: toolCounts.module,
-            }),
-      connections: connectionsQuery.isLoading
-        ? loadingHint
-        : connectionCount === 0
-          ? t("copilotAdminLinks.hints.connectionsEmpty")
-          : t("copilotAdminLinks.hints.connections", {
-              count: connectionCount,
-            }),
-      activity: sessionsQuery.isLoading
-        ? loadingHint
-        : sessions.length === 0
-          ? t("copilotAdminLinks.hints.activityEmpty")
-          : t("copilotAdminLinks.hints.activity", { count: sessions.length }),
+      agents: agentsQuery.isError
+        ? errorHint
+        : agentsQuery.isLoading
+          ? loadingHint
+          : agentCount === 0
+            ? t("copilotAdminLinks.hints.agentsEmpty")
+            : t("copilotAdminLinks.hints.agents", { count: agentCount }),
+      actions: actionsQuery.isError
+        ? errorHint
+        : actionsQuery.isLoading
+          ? loadingHint
+          : actionCounts.total === 0
+            ? t("copilotAdminLinks.hints.actionsEmpty")
+            : t("copilotAdminLinks.hints.actions", {
+                count: actionCounts.total,
+                custom: actionCounts.custom,
+              }),
+      skills: skillsQuery.isError
+        ? errorHint
+        : skillsQuery.isLoading
+          ? loadingHint
+          : skillCounts.total === 0
+            ? t("copilotAdminLinks.hints.skillsEmpty")
+            : t("copilotAdminLinks.hints.skills", {
+                custom: skillCounts.custom,
+                managed: skillCounts.managed,
+              }),
+      tools: toolsQuery.isError
+        ? errorHint
+        : toolsQuery.isLoading
+          ? loadingHint
+          : toolCounts.total === 0
+            ? t("copilotAdminLinks.hints.toolsEmpty")
+            : t("copilotAdminLinks.hints.tools", {
+                custom: toolCounts.custom,
+                mcp: toolCounts.mcp,
+                module: toolCounts.module,
+              }),
+      connections: connectionsQuery.isError
+        ? errorHint
+        : connectionsQuery.isLoading
+          ? loadingHint
+          : connectionCount === 0
+            ? t("copilotAdminLinks.hints.connectionsEmpty")
+            : t("copilotAdminLinks.hints.connections", {
+                count: connectionCount,
+              }),
+      activity: sessionsQuery.isError
+        ? errorHint
+        : sessionsQuery.isLoading
+          ? loadingHint
+          : sessions.length === 0
+            ? t("copilotAdminLinks.hints.activityEmpty")
+            : t("copilotAdminLinks.hints.activity", { count: sessions.length }),
     };
   }, [
     actionCounts,
+    actionsQuery.isError,
     actionsQuery.isLoading,
     agents.length,
+    agentsQuery.isError,
     agentsQuery.isLoading,
     connectionsQuery.data,
+    connectionsQuery.isError,
     connectionsQuery.isLoading,
+    errorHint,
     loadingHint,
     sessions.length,
+    sessionsQuery.isError,
     sessionsQuery.isLoading,
     skillCounts,
+    skillsQuery.isError,
     skillsQuery.isLoading,
     toolCounts,
+    toolsQuery.isError,
     toolsQuery.isLoading,
     t,
   ]);

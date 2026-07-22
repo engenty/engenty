@@ -25,12 +25,15 @@ export interface RegistryAgentRow {
   guardrails: Record<string, unknown> | null;
   id: string;
   instructions: string;
-  /** Per-agent operational limits (e.g. { max_steps }). */
+  /** Per-agent operational limits (e.g. { max_steps, budget }). */
   limits?: Record<string, unknown> | null;
   model: string;
+  /** Per-agent model overrides (Phase 4); null = inherit tenant defaults. */
+  model_override?: string | null;
   name: string;
   /** Pending full-config revision for an ACTIVE agent (governance). */
   proposed_config?: Record<string, unknown> | null;
+  purpose?: string | null;
   skill_ids: string[];
   status?: RegistryAgentStatus | null;
   sub_agents: { id: string; alias?: string }[];
@@ -71,6 +74,7 @@ function parseLimits(
 function mapAgentRow(row: RegistryAgentRow): AgentConfig {
   const guardrails = parseGuardrails(row.guardrails);
   const limits = parseLimits(row.limits);
+  const purpose = row.purpose as AgentConfig["purpose"] | null | undefined;
   return {
     id: row.agent_id,
     name: row.name,
@@ -82,6 +86,8 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     subAgents: row.sub_agents,
     ...(guardrails ? { guardrails } : {}),
     ...(limits ? { limits } : {}),
+    ...(row.model_override ? { modelOverride: row.model_override } : {}),
+    ...(purpose ? { purpose } : {}),
   };
 }
 
@@ -222,6 +228,8 @@ export function createRegistryStore(client: SupabaseClient) {
         sub_agents: config.subAgents ?? [],
         guardrails: config.guardrails ?? {},
         limits: config.limits ?? {},
+        model_override: config.modelOverride ?? null,
+        purpose: config.purpose ?? null,
       };
       const patch =
         row && (row.status ?? "active") === "active"
@@ -371,6 +379,8 @@ export function createRegistryStore(client: SupabaseClient) {
             sub_agents: config.subAgents ?? [],
             guardrails: config.guardrails ?? {},
             limits: config.limits ?? {},
+            model_override: config.modelOverride ?? null,
+            purpose: config.purpose ?? null,
             // Human/admin write path: goes live directly and supersedes any
             // pending agent proposal (agents propose via proposeAgent instead).
             status: "active",

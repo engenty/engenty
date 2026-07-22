@@ -3,7 +3,6 @@
 // list state; this page registers shell chrome and renders panels.
 
 import {
-  ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
   type ObjectDisplayIntent,
   ObjectDisplayIntentProvider,
@@ -16,18 +15,22 @@ import {
   useCopilotThreadActions,
   WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
-import { useCopilotShellOrNull } from "@engenty/app-shell";
+import {
+  ModuleSidebarHeaderLabel,
+  useCopilotShellOrNull,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { DockChatIcon } from "@engenty/ui-icons";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
-import { ChatShellHeader } from "../components/chat/shell-header.js";
 import { CopilotModuleErrorBoundary } from "../components/copilot-module-error-boundary.js";
 import { SessionList } from "../components/session-list/session-list.js";
 import { logCopilotChatPanel } from "../dev/chat-panel-debug.js";
 import {
+  COPILOT_CHAT_ROOT,
   copilotChatThreadPath,
   readCopilotSubRunToolCallId,
 } from "../paths.js";
@@ -194,22 +197,27 @@ export function CopilotChatPage() {
     tc,
     thread.session,
   ]);
-  const topbarActions = useMemo(
-    () => (
-      <>
-        <ChatTopbarActions />
-        <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
-      </>
-    ),
-    []
-  );
+  // Order: New Chat → artifacts trigger → ⋯ menu (menu stays far right).
+  const topbarActions = useMemo(() => <ChatTopbarActions />, []);
   const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
-  const secondaryNavHeaderSlot = useMemo(() => <ChatShellHeader />, []);
+  const secondaryNavHeaderSlot = useMemo(
+    () => (
+      <ModuleSidebarHeaderLabel
+        icon={DockChatIcon}
+        label={moduleLabel}
+        to={COPILOT_CHAT_ROOT}
+      />
+    ),
+    [moduleLabel]
+  );
 
   usePageConfig({
     actions: topbarActions,
     breadcrumbs,
     contentStackBackground: "paper",
+    // Session list stays available as a hover overlay — never pinned inline so
+    // the conversation column keeps the full workspace width.
+    secondaryNavAllowPinned: false,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",

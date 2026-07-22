@@ -126,6 +126,8 @@ export type DynamicAgentAssembler = (
 
 export interface RuntimeModelConfigInput {
   chatModelId?: string | null;
+  planningCodingModelId?: string | null;
+  researchModelId?: string | null;
   routingModelId?: string | null;
   safeguardModelId?: string | null;
 }

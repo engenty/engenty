@@ -170,13 +170,27 @@ export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
 export const agentToolProfileSchema = z.enum(["read_only_kb"]);
 export type AgentToolProfile = z.infer<typeof agentToolProfileSchema>;
 
+/** Purpose an agent binds to for tenant model resolution (Phase 4). */
+export const agentModelPurposeSchema = z.enum([
+  "chat",
+  "routing",
+  "research",
+  "planning_coding",
+  "safeguard",
+]);
+
 // Per-agent operational limits. A governance dial on a single agent, layered
 // over the global/tenant defaults. `max_steps` caps the agent's reasoning
-// iterations per run; when unset the global `ENGENTY_AI_AGENT_MAX_STEPS`
-// default applies. The hard ceiling (60) is still enforced at resolution — a
-// per-agent value can only tighten, never exceed it.
+// iterations per run (hard ceiling 60 — a per-agent value can only tighten);
+// `budget` caps cumulative spend over the tenant usage period, metered off
+// ai.usage_event by (tenant, agent).
 export const agentLimitsConfigSchema = z.object({
   max_steps: z.number().int().min(1).max(60).optional(),
+  budget: z
+    .object({
+      maxCostMicrosPerPeriod: z.number().int().nonnegative().nullish(),
+    })
+    .nullish(),
 });
 export type AgentLimitsConfig = z.infer<typeof agentLimitsConfigSchema>;
 
@@ -189,6 +203,16 @@ export const agentConfigSchema = z.object({
   /** Per-agent operational limits (iteration cap, …). */
   limits: agentLimitsConfigSchema.optional(),
   model: z.string().min(1),
+  /**
+   * Explicit per-agent model pin. When set, it beats the tenant/purpose default
+   * (precedence flip). Absent = inherit via {@link purpose}.
+   */
+  modelOverride: z.string().min(1).nullish(),
+  /**
+   * Which tenant model tier this agent inherits when not pinned. Defaults by
+   * structure (supervisors → routing, leaves → chat) when absent.
+   */
+  purpose: agentModelPurposeSchema.optional(),
   name: z.string().min(1),
   skillIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),

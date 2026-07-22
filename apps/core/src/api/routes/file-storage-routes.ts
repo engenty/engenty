@@ -960,6 +960,22 @@ export function registerFileStorageRoutes(params: {
     }
   });
 
+  // ── GET /api/file-storage/doc-converter/availability — cloud backend readiness ──
+  // Replaces the retired GET /api/ai/doc-converter/availability (core AI runtime
+  // split 2026-05-21). Reflects platform-hydrated env keys (LLAMA_CLOUD_API_KEY,
+  // AI_GATEWAY_API_KEY) so the AI settings doc-converter card shows real state
+  // instead of the 404 stub that always read "not configured".
+  app.get("/api/file-storage/doc-converter/availability", async (c) => {
+    const authResult = await requireAuth(c, config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const { getDocConverterCloudAvailability } = await import(
+      "@engenty/doc-converter"
+    );
+    return c.json(getDocConverterCloudAvailability());
+  });
+
   // ── POST /api/file-storage/files/extract — run doc converter and store sidecar ──
   app.post("/api/file-storage/files/extract", async (c) => {
     const authResult = await requireAuth(c, config);

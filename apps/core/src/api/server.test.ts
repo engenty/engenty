@@ -914,26 +914,36 @@ describe("dev plugin reload watcher startup", () => {
 });
 
 describe("startApiServer", () => {
-  it("starts HTTP server and serves requests", async () => {
-    const dataDir = makeTempDir("engenty-core-start-test");
-    const { app, server } = await startApiServer({
-      logger: noopApiLogger,
-      port: 0,
-      dataDir,
-      config: { securityJwtSecret: "test-secret" },
-    });
+  it(
+    "starts HTTP server and serves requests",
+    async () => {
+      const dataDir = makeTempDir("engenty-core-start-test");
+      const { app, server } = await startApiServer({
+        logger: noopApiLogger,
+        port: 0,
+        dataDir,
+        config: { securityJwtSecret: "test-secret" },
+      });
 
-    const addr = server.address();
-    expect(addr).not.toBeNull();
-    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
-    expect(port).toBeGreaterThan(0);
+      const addr = server.address();
+      expect(addr).not.toBeNull();
+      const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+      expect(port).toBeGreaterThan(0);
 
-    const res = await app.request("/api/openapi.json");
-    expect(res.status).toBe(200);
+      const res = await app.request("/api/openapi.json");
+      expect(res.status).toBe(200);
 
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  }, 90_000);
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      fs.rmSync(dataDir, { recursive: true, force: true });
+      // This case boots a full server and cold-loads every plugin via jiti — it
+      // takes ~77s locally (the suite reports import ~40-86s) and intermittently
+      // crossed the old 90s budget on CI's contended runner (2 workers, apps/ai
+      // running alongside). Give it real headroom, and retry once: the retry runs
+      // in the same worker with the plugin modules already warm (~1s), so a slow
+      // cold first attempt no longer flakes the suite.
+    },
+    { timeout: 180_000, retry: 1 }
+  );
 
   it("does not stall boot when SUPABASE_URL is set but unreachable", async () => {
     // Mirrors CI: workflow env injects SUPABASE_* without a live instance.
