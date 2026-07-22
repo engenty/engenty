@@ -54,6 +54,9 @@ export interface CSVImportWizardLabels {
   back: string;
   cancel: string;
   cancelImport: string;
+  /** Optional: shown after automatic cleanup. `{{count}}` = number of fixes. */
+  cleanedFile?: string;
+  cleanupFailed?: string;
   columnMapping: string;
   dragDrop: string;
   errorEmptyPaste: string;
@@ -107,6 +110,21 @@ export interface AiMappingRequest {
   currentMappings: ColumnMapping[];
   fieldDefinitions: ImportFieldDefinition[];
   sampleRows: string[][];
+}
+
+/** Optional server-side cleanup (deterministic + optional AI headers). */
+export interface CsvCleanupRequest {
+  csvText: string;
+  fieldDefinitions: ImportFieldDefinition[];
+  filename: string;
+}
+
+export interface CsvCleanupResponse {
+  changes: Array<{ code: string; detail?: string }>;
+  cleanedContent: string;
+  headers: string[];
+  rowCount: number;
+  usedAiHeaders: boolean;
 }
 
 export interface PreviewColumn {
@@ -181,6 +199,12 @@ export interface CSVImportWizardProps {
   matchByLabels?: MatchByLabels;
   onAiMap?: (input: AiMappingRequest) => Promise<ColumnMapping[]>;
   onBack: () => void;
+  /**
+   * Optional server cleanup (AI headers). Deterministic cleanup always runs
+   * locally first; this is called when headers were synthesized or when the
+   * caller always wants a server pass.
+   */
+  onCleanup?: (input: CsvCleanupRequest) => Promise<CsvCleanupResponse>;
   onError?: (message: string) => void;
   onImportComplete?: (summary: ImportRunSummary) => void;
   onImportProgress?: (progress: ImportRunProgress) => void;

@@ -5,6 +5,7 @@ import {
 } from "./import-presets.js";
 import type {
   ColumnMapping,
+  CsvCleanupResponse,
   ImportFieldDefinition,
   ImportPreset,
   MatchByConfig,
@@ -120,9 +121,46 @@ export function createTenantImportPresetClient(
     return mapImportAiMapResponse(result.mappings, input.csvHeaders);
   }
 
+  async function cleanupCsv(input: {
+    cleanupPath: string;
+    csvText: string;
+    domainHint?: string;
+    fieldDefinitions?: ImportFieldDefinition[];
+    useAiHeaders?: boolean;
+  }): Promise<CsvCleanupResponse> {
+    const result = await apiRequest<{
+      changes: Array<{ code: string; detail?: string }>;
+      cleanedContent: string;
+      headers: string[];
+      rowCount: number;
+      usedAiHeaders: boolean;
+    }>(input.cleanupPath, {
+      method: "POST",
+      body: JSON.stringify({
+        csvText: input.csvText,
+        domainHint: input.domainHint,
+        useAiHeaders: input.useAiHeaders,
+        fieldHints: input.fieldDefinitions?.map((field) => ({
+          key: field.key,
+          label: field.label,
+          description: field.description,
+        })),
+      }),
+    });
+
+    return {
+      cleanedContent: result.cleanedContent,
+      headers: result.headers,
+      rowCount: result.rowCount,
+      changes: result.changes ?? [],
+      usedAiHeaders: result.usedAiHeaders,
+    };
+  }
+
   return {
     getPresets,
     savePreset,
     suggestMappings,
+    cleanupCsv,
   };
 }

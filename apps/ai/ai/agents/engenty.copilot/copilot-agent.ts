@@ -12,6 +12,7 @@ import { createTool } from "@mastra/core/tools";
 import { createAgentProposeTools } from "../../tools/agent-propose-tool.js";
 import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
+import { createCleanupCsvTool } from "../../tools/cleanup-csv/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
 import { createMemoryTools } from "../../tools/memory-tools/index.js";
@@ -24,6 +25,7 @@ import { createVaultFileTools } from "../../tools/vault-files/index.js";
 import { createWebSearchTool } from "../../tools/web-search/index.js";
 
 const chatThreadSearchTool = createChatThreadSearchTool();
+const cleanupCsvTool = createCleanupCsvTool();
 const convertImageTool = createConvertImageTool();
 const webSearchTool = createWebSearchTool();
 
@@ -48,6 +50,7 @@ export function createEngentyCopilotAgentTools() {
     ...createSkillProposeTools(),
     ...createVaultFileTools(),
     ...createArtifactTools(),
+    cleanup_csv: cleanupCsvTool,
     show_objects: createShowObjectsTool(),
     show_ui: createShowUiTool(),
     show_widget: createShowWidgetTool(),

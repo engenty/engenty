@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { cleanupCSV } from "../cleanup-csv.js";
 import { applyDeterministicMapping } from "../deterministic-mapping.js";
 import { runImport } from "../import-runner.js";
 import { parseCSV } from "../parse-csv.js";
@@ -6,6 +7,8 @@ import { parseTemplate } from "../template-parser.js";
 import type {
   ColumnMapping,
   CSVImportWizardLabels,
+  CsvCleanupRequest,
+  CsvCleanupResponse,
   ImportFieldDefinition,
   ImportPreset,
   ImportPresetAdapter,
@@ -26,6 +29,7 @@ export interface UseCSVImportWizardProps {
     sampleRows: string[][];
   }) => Promise<ColumnMapping[]>;
   onBack: () => void;
+  onCleanup?: (input: CsvCleanupRequest) => Promise<CsvCleanupResponse>;
   onError?: (message: string) => void;
   onImportComplete?: (summary: ImportRunSummary) => void;
   onImportProgress?: (progress: ImportRunProgress) => void;
@@ -44,6 +48,7 @@ export function useCSVImportWizard({
   fieldDefinitions,
   labels,
   onAiMap,
+  onCleanup,
   onBack,
   onImportComplete,
   onImportProgress,
@@ -83,7 +88,40 @@ export function useCSVImportWizard({
       setError(null);
       setLoading(true);
       try {
-        const parsed = parseCSV(content);
+        let workingContent = content;
+        let cleanupChangeCount = 0;
+
+        // Always run deterministic cleanup in-process (no network).
+        const local = cleanupCSV(workingContent);
+        workingContent = local.cleanedContent;
+        cleanupChangeCount = local.changes.length;
+
+        // Optional server pass: AI header naming when headers were synthesized.
+        if (onCleanup && local.suggestAiHeaders) {
+          try {
+            const remote = await onCleanup({
+              csvText: workingContent,
+              filename,
+              fieldDefinitions,
+            });
+            if (remote.cleanedContent.trim()) {
+              workingContent = remote.cleanedContent;
+              cleanupChangeCount = Math.max(
+                cleanupChangeCount,
+                remote.changes?.length ?? 0
+              );
+            }
+          } catch (cleanupErr: unknown) {
+            const message =
+              cleanupErr instanceof Error
+                ? cleanupErr.message
+                : (labels.cleanupFailed ?? "CSV cleanup failed");
+            // Non-fatal: keep deterministic result and surface a warning.
+            onError?.(message);
+          }
+        }
+
+        const parsed = parseCSV(workingContent);
         setCSVData(parsed);
         setCsvFilename(filename);
         setMappings(
@@ -91,6 +129,13 @@ export function useCSVImportWizard({
         );
         setStep("mapping");
         await loadPresets();
+        if (cleanupChangeCount > 0) {
+          onInfo?.(
+            (labels.cleanedFile ?? "Cleaned upload ({{count}} fixes)")
+              .replace("{{count}}", String(cleanupChangeCount))
+              .replace("{{filename}}", filename)
+          );
+        }
         onInfo?.(
           labels.loadedFile
             .replace("{{count}}", String(parsed.totalRows))
@@ -107,9 +152,12 @@ export function useCSVImportWizard({
     },
     [
       fieldDefinitions,
+      labels.cleanedFile,
+      labels.cleanupFailed,
       labels.errorInvalidFile,
       labels.loadedFile,
       loadPresets,
+      onCleanup,
       onError,
       onInfo,
     ]

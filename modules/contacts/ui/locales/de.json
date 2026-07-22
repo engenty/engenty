@@ -77,6 +77,8 @@
       "noSuggestions": "Keine AI-Mapping-Vorschläge gefunden",
       "applied": "{{count}} AI-Mappings angewendet"
     },
+    "cleaned": "Upload bereinigt ({{count}} Korrekturen)",
+    "cleanupFailed": "CSV-Bereinigung fehlgeschlagen; lokale Bereinigung wird verwendet",
     "loaded": "{{count}} Zeilen aus {{filename}} geladen",
     "uploadedFile": {
       "infoTitle": "Hochgeladene Datei",

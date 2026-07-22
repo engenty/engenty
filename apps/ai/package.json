@@ -33,6 +33,7 @@
     "@engenty/engenty-remote": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/file-storage": "workspace:*",
+    "@engenty/import": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/queue": "workspace:*",
     "@engenty/retrieval": "workspace:*",

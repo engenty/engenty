@@ -39,3 +39,16 @@ export async function suggestSecretsImportMappings(input: {
     aiMapPath: "/api/secrets/import/ai-map",
   });
 }
+
+export async function cleanupSecretsImportCsv(input: {
+  csvText: string;
+  fieldDefinitions: ImportFieldDefinition[];
+}) {
+  return secretsImportPresetClient.cleanupCsv({
+    cleanupPath: "/api/secrets/import/cleanup",
+    csvText: input.csvText,
+    domainHint: "secrets",
+    fieldDefinitions: input.fieldDefinitions,
+    useAiHeaders: true,
+  });
+}

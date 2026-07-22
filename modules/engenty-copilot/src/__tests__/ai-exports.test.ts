@@ -28,9 +28,11 @@ describe("@engenty/engenty-copilot AI exports", () => {
       expect.arrayContaining([
         ...ENGENTY_CATALOG_TOOL_IDS,
         ...ENGENTY_VAULT_TOOL_IDS,
+        "cleanup_csv",
       ])
     );
     expect(engentyCopilotAgentConfig.toolIds).toContain("engenty_tool_execute");
+    expect(engentyCopilotAgentConfig.toolIds).toContain("cleanup_csv");
   });
 
   it("exports the Copilot base frontend tool catalog", () => {

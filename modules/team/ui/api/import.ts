@@ -41,6 +41,19 @@ export async function suggestTeamImportMappings(input: {
   });
 }
 
+export async function cleanupTeamImportCsv(input: {
+  csvText: string;
+  fieldDefinitions: ImportFieldDefinition[];
+}) {
+  return teamImportPresetClient.cleanupCsv({
+    cleanupPath: "/api/team/import/cleanup",
+    csvText: input.csvText,
+    domainHint: "team",
+    fieldDefinitions: input.fieldDefinitions,
+    useAiHeaders: true,
+  });
+}
+
 export async function findTeamMemberByImportId(
   importId: string
 ): Promise<TeamMemberListItem | null> {

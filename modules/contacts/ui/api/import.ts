@@ -35,3 +35,16 @@ export async function suggestContactsImportMappings(input: {
     aiMapPath: "/api/contacts/import/ai-map",
   });
 }
+
+export async function cleanupContactsImportCsv(input: {
+  csvText: string;
+  fieldDefinitions: ImportFieldDefinition[];
+}) {
+  return contactsImportPresetClient.cleanupCsv({
+    cleanupPath: "/api/contacts/import/cleanup",
+    csvText: input.csvText,
+    domainHint: "contacts",
+    fieldDefinitions: input.fieldDefinitions,
+    useAiHeaders: true,
+  });
+}

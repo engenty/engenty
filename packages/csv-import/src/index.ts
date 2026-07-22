@@ -1,5 +1,14 @@
 // Types
 
+// Functions
+export {
+  applyCsvHeaders,
+  type CsvCleanupIssue,
+  type CsvCleanupIssueCode,
+  type CsvCleanupOptions,
+  type CsvCleanupResult,
+  cleanupCSV,
+} from "./cleanup-csv.js";
 // Components
 export {
   CSVImportWizard,
@@ -31,12 +40,15 @@ export {
   importPageContentClassName,
   importPageScrollShellClassName,
 } from "./page-shell.js";
-// Functions
-export { detectDelimiter, parseCSV } from "./parse-csv.js";
+export { detectDelimiter, parseCSV, parseCSVRows } from "./parse-csv.js";
 export {
   normalizeListRecordsPayload,
   recordsToDelimitedText,
 } from "./records-to-csv.js";
+export {
+  escapeDelimitedField,
+  serializeDelimitedMatrix,
+} from "./serialize-csv.js";
 export {
   getTemplateExamples,
   parseTemplate,
@@ -51,6 +63,8 @@ export {
 export type {
   ColumnMapping,
   ConnectionImportConfig,
+  CsvCleanupRequest,
+  CsvCleanupResponse,
   ImportFieldDefinition,
   ImportPreset,
   ImportRunProgress,

@@ -390,6 +390,8 @@
       "noSuggestions": "Keine KI-Vorschläge gefunden",
       "applied": "{{count}} KI-Zuordnungen übernommen"
     },
+    "cleaned": "Upload bereinigt ({{count}} Korrekturen)",
+    "cleanupFailed": "CSV-Bereinigung fehlgeschlagen; lokale Bereinigung wird verwendet",
     "loaded": "{{count}} Zeilen aus {{filename}} geladen",
     "uploadedFile": {
       "infoTitle": "Hochgeladene Datei",

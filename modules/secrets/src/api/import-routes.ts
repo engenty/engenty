@@ -1,4 +1,7 @@
-import { registerImportAiMapRoute } from "@engenty/import/server";
+import {
+  registerImportAiMapRoute,
+  registerImportCleanupRoute,
+} from "@engenty/import/server";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 
 const SECRETS_IMPORT_AI_EXTRA_RULES = [
@@ -14,5 +17,11 @@ export function registerSecretsImportRoutes(api: PluginServerApi) {
     requiredCapabilities: ["module.secrets.read"],
     tags: ["secrets", "import"],
     extraPromptRules: SECRETS_IMPORT_AI_EXTRA_RULES,
+  });
+  registerImportCleanupRoute(api, {
+    path: "/api/secrets/import/cleanup",
+    requiredCapabilities: ["module.secrets.read"],
+    tags: ["secrets", "import"],
+    domainHint: "secrets",
   });
 }

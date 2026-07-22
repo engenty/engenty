@@ -13,6 +13,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import {
+  cleanupContactsImportCsv,
   createContact,
   findContactByImportId,
   findContactByReferenceId,
@@ -59,6 +60,12 @@ export function ContactsImportPage() {
       back: t("back", { defaultValue: "Back" }),
       cancel: t("cancel"),
       cancelImport: t("import.cancel", { defaultValue: "Cancel import" }),
+      cleanedFile: t("import.cleaned", {
+        defaultValue: "Cleaned upload ({{count}} fixes)",
+      }),
+      cleanupFailed: t("import.cleanupFailed", {
+        defaultValue: "CSV cleanup failed; using local cleanup only",
+      }),
       columnMapping: t("import.columnMapping"),
       dragDrop: t("import.csv.guidelines"),
       errorEmptyPaste: t("import.paste.empty"),
@@ -237,6 +244,12 @@ export function ContactsImportPage() {
           }
           return suggested;
         }}
+        onCleanup={async (input) =>
+          cleanupContactsImportCsv({
+            csvText: input.csvText,
+            fieldDefinitions: input.fieldDefinitions,
+          })
+        }
         onBack={() => navigate("/mdl/contacts")}
         onError={(message) => toast.error(message)}
         onImportComplete={(summary) => {
