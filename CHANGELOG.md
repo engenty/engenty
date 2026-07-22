@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.66] - 2026-07-22
+- ADDED **[tasks]** Durable tool approvals for routine/task runs + routine linkage
+
 ## [0.1.65] - 2026-07-22
 - ADDED **[ai]** Tiered chat attachments and file-analyst sub-agent
 - ADDED **[import]** Clean CSV after upload and expose cleanup_csv tool
