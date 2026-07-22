@@ -32,7 +32,9 @@ import {
   getTasksBriefing,
   getUserDisplayName,
   handoffGoalToCoordinator,
+  type ResolveToolApprovalBody,
   releaseTask,
+  resolveTaskToolApproval,
   updateGoal,
   updateTask,
   updateTaskSettings,
@@ -267,6 +269,23 @@ export function useReleaseTaskMutation(taskId: string) {
     mutationFn: (input?: { agent_session_run_id?: string }) =>
       releaseTask(taskId, input),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskDetailLiveQueries(queryClient, taskId);
+    },
+  });
+}
+
+export function useResolveToolApprovalMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      body,
+    }: {
+      taskId: string;
+      body: ResolveToolApprovalBody;
+    }) => resolveTaskToolApproval(taskId, body),
+    onSuccess: (_, { taskId }) => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       invalidateTaskDetailLiveQueries(queryClient, taskId);
     },

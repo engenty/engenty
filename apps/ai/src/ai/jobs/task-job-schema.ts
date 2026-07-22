@@ -24,8 +24,19 @@ export const taskJobStatusSchema = z.enum([
   "briefed",
   "ran",
   "failed",
+  // The specialist hit a tool requiring approval that is not yet granted: the
+  // run ended gracefully, the task is flipped to `blocked`, and a needs-input
+  // notification + comment are recorded. A human approves → re-dispatch.
+  "needs_approval",
   "released",
 ]);
+
+/** One tool-approval request surfaced by a "request"-policy run. */
+export const pendingApprovalSchema = z.object({
+  operation_id: z.string(),
+  risk_level: z.string().optional(),
+  title: z.string().optional(),
+});
 
 export const taskJobEnvelopeSchema = z.object({
   agent_type_key: z.string().min(1),
@@ -39,6 +50,13 @@ export const taskJobEnvelopeSchema = z.object({
   // The run's ai.thread id — created at checkout so the run is first-class
   // (ai.agent_run.thread_id) and the specialist runs on a drillable thread.
   thread_id: z.string().uuid().optional(),
+  // Effective approval grants for this run (task ∪ once ∪ routine), read at
+  // brief time. Optional so in-flight snapshots from before this field parse.
+  approval_grants: z.array(z.string()).optional(),
+  // The routine (trigger) that created the task, for the needs-input record.
+  trigger_id: z.string().uuid().nullable().optional(),
+  // Tool-approval requests the specialist hit under the "request" policy.
+  pending_approvals: z.array(pendingApprovalSchema).optional(),
 });
 
 export type TaskJobEnvelope = z.infer<typeof taskJobEnvelopeSchema>;

@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { createStep } from "@mastra/core/workflows";
 import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
+import { mergeApprovalGrants } from "../sessions/connection-approval-grants.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import { summarizeTaskResultHeadline } from "./summarize-result-headline.js";
 import { buildTaskBrief } from "./task-brief.js";
@@ -95,6 +96,35 @@ export const buildBriefStep = createStep({
     const invoke = await invokerFor(inputData.tenant_id);
     const task = (await invoke("tasks_get", { id: inputData.task_id })) ?? {};
     const brief = buildTaskBrief(task as Parameters<typeof buildTaskBrief>[0]);
+    // Durable tool-approval grants: task-scoped ∪ one-shot ∪ routine-scoped.
+    // Read here so the specialist's "request" pre-gate lets pre-approved ops
+    // through; the one-shot list is consumed (cleared) for this run.
+    const taskRow = task as {
+      approval_grants?: string[];
+      approval_grants_once?: string[];
+      trigger_id?: string | null;
+    };
+    const taskGrants = mergeApprovalGrants(
+      taskRow.approval_grants ?? [],
+      taskRow.approval_grants_once ?? []
+    );
+    if ((taskRow.approval_grants_once ?? []).length > 0) {
+      await invoke("tasks_clear_once_approvals", {
+        id: inputData.task_id,
+      }).catch(() => {
+        // Best-effort: worst case a once-grant survives into one extra run.
+      });
+    }
+    let approvalGrants = taskGrants;
+    if (taskRow.trigger_id) {
+      const trigger = (await invoke("triggers_get", {
+        id: taskRow.trigger_id,
+      }).catch(() => null)) as { approval_grants?: string[] } | null;
+      approvalGrants = mergeApprovalGrants(
+        taskGrants,
+        trigger?.approval_grants ?? []
+      );
+    }
     // Memory Phase 2b: start the run from what earlier runs learned. The
     // section is fail-open and empty when the tenant has no memories.
     const contexts =
@@ -111,9 +141,11 @@ export const buildBriefStep = createStep({
     });
     return {
       ...inputData,
+      approval_grants: approvalGrants,
       brief: learnings ? `${brief}\n\n${learnings}` : brief,
       identifier: readString((task as { identifier?: unknown }).identifier),
       status: "briefed" as const,
+      trigger_id: taskRow.trigger_id ?? null,
     };
   },
 });
@@ -130,9 +162,18 @@ export const writeResultStep = createStep({
     }
     const invoke = await invokerFor(inputData.tenant_id);
     const failed = inputData.status === "failed";
-    const body = failed
-      ? `run failed — ${inputData.note ?? "unknown error"}`
-      : readString(inputData.result_text) || "Run completed.";
+    const needsApproval = inputData.status === "needs_approval";
+    let body: string;
+    if (failed) {
+      body = `run failed — ${inputData.note ?? "unknown error"}`;
+    } else if (needsApproval) {
+      const ops = (inputData.pending_approvals ?? [])
+        .map((p) => `\`${p.operation_id}\``)
+        .join(", ");
+      body = `⏸ Waiting for approval to run ${ops || "a tool"} — approve from the inbox or on this task.`;
+    } else {
+      body = readString(inputData.result_text) || "Run completed.";
+    }
     await invoke("tasks_add_comment", {
       content: `🤖 ${inputData.agent_type_key}: ${body}`,
       created_by_agent_type_key: inputData.agent_type_key,
@@ -155,6 +196,7 @@ export const finalizeStep = createStep({
       return inputData;
     }
     const invoke = await invokerFor(inputData.tenant_id);
+    const needsApproval = inputData.status === "needs_approval";
     await invoke("tasks_release", {
       actor_agent_type_key: inputData.agent_type_key,
       agent_run_id: runId,
@@ -163,17 +205,51 @@ export const finalizeStep = createStep({
     await invoke("tasks_update", {
       actor_agent_type_key: inputData.agent_type_key,
       id: inputData.task_id,
-      status: inputData.status === "failed" ? "blocked" : "in_review",
+      // needs_approval and failed both park the task at `blocked`; the pending
+      // approval card/comment disambiguates the approval case in the UI.
+      status:
+        inputData.status === "failed" || needsApproval
+          ? "blocked"
+          : "in_review",
     });
     // Finish the ai.agent_run so the run-history card shows completed/failed
-    // instead of a perpetual "in progress".
+    // instead of a perpetual "in progress". A needs-approval run ended cleanly.
     await finishTaskJobRun({
       runId,
       scope: await resolveTaskJobServiceScope(inputData.tenant_id),
       status: inputData.status === "failed" ? "failed" : "completed",
     });
-    const failed = inputData.status === "failed";
     const taskRef = inputData.identifier ?? inputData.task_id;
+
+    // Needs-approval: emit a needs-input notification carrying the task +
+    // operation ids so the inbox/task/routine can resolve it, then stop (no
+    // completed/failed notification for this outcome).
+    if (needsApproval) {
+      const pendings = inputData.pending_approvals ?? [];
+      const primaryOp = pendings[0]?.operation_id ?? "a tool";
+      const operationIds = pendings.map((p) => p.operation_id);
+      await emitInboxNotification({
+        dedupeKey: `tool-approval:${inputData.task_id}:${primaryOp}`,
+        kind: "tool_approval",
+        metadata: {
+          agent_type_key: inputData.agent_type_key,
+          operation_id: primaryOp,
+          operation_ids: operationIds,
+          run_id: runId,
+          task_id: inputData.task_id,
+          task_identifier: inputData.identifier ?? null,
+          ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
+          ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
+        },
+        priority: "high",
+        source: "tasks",
+        summary: `Task ${taskRef} needs approval to run ${primaryOp}`,
+        tenantId: inputData.tenant_id,
+      });
+      return { ...inputData, status: "released" as const };
+    }
+
+    const failed = inputData.status === "failed";
     // For completed tasks, generate a "what was done" headline from the result
     // note so the inbox says something specific instead of the interchangeable
     // "Task X completed and is ready for review". Best-effort; falls back below.

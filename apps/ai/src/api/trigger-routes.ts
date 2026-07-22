@@ -50,6 +50,8 @@ const taskTemplateInputSchema = z.object({
 });
 
 const createTriggerSchema = z.object({
+  // Operation ids runs of this routine may execute without asking.
+  approval_grants: z.array(z.string().min(1)).max(64).optional(),
   // Schedule triggers require cron; event triggers require provider (+
   // resource for module events) — enforced in the handler per kind.
   cron: z.string().min(1).max(100).optional(),
@@ -67,6 +69,7 @@ const createTriggerSchema = z.object({
 });
 
 const updateTriggerSchema = z.object({
+  approval_grants: z.array(z.string().min(1)).max(64).optional(),
   cron: z.string().min(1).max(100).optional(),
   description: z.string().max(1000).nullable().optional(),
   enabled: z.boolean().optional(),
@@ -80,6 +83,7 @@ const updateTriggerSchema = z.object({
 });
 
 interface TriggerDetailRow extends SyncableTrigger {
+  approval_grants: string[];
   description: string | null;
   last_fired_at: string | null;
   last_result: string | null;
@@ -214,6 +218,7 @@ export function registerTriggerRoutes(
     }
     try {
       const trigger = (await invokerFor(resolved.scope)("triggers_create", {
+        approval_grants: data.approval_grants,
         cron: data.cron ?? null,
         description: data.description ?? null,
         enabled: data.enabled ?? true,
@@ -284,6 +289,7 @@ export function registerTriggerRoutes(
     const invoke = invokerFor(resolved.scope);
     try {
       const trigger = (await invoke("triggers_update", {
+        approval_grants: data.approval_grants,
         cron: data.cron,
         description: data.description,
         enabled: data.enabled,

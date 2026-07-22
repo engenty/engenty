@@ -6,6 +6,7 @@ import type {
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { createTasksRepoSupabase } from "../dal/supabase.js";
+import type { TriggersRepo } from "../dal/triggers.js";
 import { validateBlockedBy } from "../domain/task-blockers.js";
 import { performTaskCheckout } from "../lib/perform-task-checkout.js";
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
@@ -21,6 +22,7 @@ import {
   taskAddCommentOperationInputSchema,
   taskCheckoutInputRawSchema,
   taskCheckoutInputSchema,
+  taskClearOnceApprovalsInputSchema,
   taskCommentSchema,
   taskCreateInputSchema,
   taskDetailSchema,
@@ -33,10 +35,12 @@ import {
   taskSettingsUpdateSchema,
   tasksListQuerySchema,
   tasksPaginatedResponseSchema,
+  taskToolApprovalInputSchema,
   taskUpdateInputSchema,
 } from "../schema/zod.js";
 import { fetchRegisteredAgentIds } from "./agent-key-validator.js";
 import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
+import { resolveTaskToolApproval } from "./task-approval-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -95,6 +99,8 @@ export interface TasksGatewayOptions {
   aiServiceJwt?: string | null;
   /** Queue service for dispatching agent tasks. When absent, auto-dispatch is skipped. */
   queue?: QueueServiceLike | null;
+  /** Scoped triggers repo, for routine-scoped approval grants. */
+  triggersRepoFactory?: (auth: PluginAuthContext) => TriggersRepo;
 }
 
 async function validateAgentKey(
@@ -251,6 +257,54 @@ export function registerTasksGatewayMethods(
       if (!ok) {
         throw new Error("task_not_found");
       }
+      return { ok: true };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "tasks_resolve_tool_approval",
+    summary: "Approve or deny a pending tool approval on a task",
+    // This op IS the human approval act; it must not itself require approval.
+    ...writeOp(["module.tasks.write"]),
+    requiresApproval: false,
+    inputSchema: taskToolApprovalInputSchema,
+    outputSchema: taskSchema,
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = taskToolApprovalInputSchema.parse(input);
+      const triggersRepo =
+        options?.triggersRepoFactory && ctx.auth
+          ? options.triggersRepoFactory(ctx.auth)
+          : null;
+      return resolveTaskToolApproval(
+        {
+          actorUserId: ctx.auth?.principalId ?? null,
+          queue: options?.queue ?? null,
+          tasksRepo: repo,
+          tenantId: ctx.auth?.tenantId ?? null,
+          triggersRepo,
+        },
+        {
+          decision: parsed.decision,
+          operationId: parsed.operation_id,
+          scope: parsed.scope,
+          taskId: parsed.id,
+        }
+      );
+    },
+  });
+
+  api.registerOperation({
+    operationId: "tasks_clear_once_approvals",
+    summary: "Clear a task's one-shot tool-approval grants",
+    ...writeOp(["module.tasks.write"]),
+    requiresApproval: false,
+    inputSchema: taskClearOnceApprovalsInputSchema,
+    outputSchema: z.object({ ok: z.boolean() }),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = taskClearOnceApprovalsInputSchema.parse(input);
+      await repo.clearTaskOnceApprovalGrants(parsed.id);
       return { ok: true };
     },
   });

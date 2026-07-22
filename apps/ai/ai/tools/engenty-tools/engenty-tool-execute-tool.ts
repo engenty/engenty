@@ -155,7 +155,19 @@ async function gateRequiresApproval(input: {
   secretId?: string;
   title?: string;
 }) {
-  const policy = getEngentyToolsRunContext().approvalPolicy ?? "deny";
+  const ctx = getEngentyToolsRunContext();
+  const policy = ctx.approvalPolicy ?? "deny";
+  if (policy === "request") {
+    // Durable run with a needs-input channel: record the request and end
+    // gracefully. The workflow surfaces the inbox notification + task comment;
+    // a human approves and the task re-dispatches.
+    ctx.onApprovalRequired?.({
+      operationId: input.operationId,
+      riskLevel: input.riskLevel,
+      ...(input.title ? { title: input.title } : {}),
+    });
+    return approvalPendingResult(input.operationId);
+  }
   const suspend = input.context?.agent?.suspend;
   if (policy === "suspend" && suspend) {
     await suspend({

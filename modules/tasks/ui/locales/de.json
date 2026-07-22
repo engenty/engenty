@@ -203,6 +203,13 @@
     "noProjectMatch": "Keine passenden Projekte.",
     "clearProject": "Kein Projekt",
     "noDueDate": "Kein Fälligkeitsdatum",
+    "routine": "Routine",
+    "openRoutine": "Routine öffnen",
+    "approvedTools": "Freigegebene Tools",
+    "approvedOnce": "einmalig",
+    "removeApprovedTool": "Entfernen",
+    "pendingApprovalTitle": "Wartet auf Freigabe",
+    "pendingApprovalBody": "Der Agent benötigt deine Freigabe für {{operation}}.",
     "workspace": {
       "title": "Workspace",
       "sectionAria": "Aufgaben-Arbeitsbereich",
@@ -419,7 +426,10 @@
       "instructions": "Anweisungen",
       "agent": "Ausführender Agent",
       "manageAgent": "Agent verwalten",
-      "agentHint": "Diese Routine läuft automatisch im Hintergrund mit den Tools von ‹{{agentId}}› — ohne Rückfragen.",
+      "agentHint": "Diese Routine läuft automatisch im Hintergrund mit den Tools von ‹{{agentId}}›. Braucht ein Tool eine Freigabe, pausiert die Aufgabe und fragt nach — außer du gibst es unten vorab frei.",
+      "approvedTools": "Freigegebene Tools",
+      "approvedToolsHint": "Diese Operationen laufen ohne Rückfrage, wenn die Aufgaben dieser Routine ausgeführt werden.",
+      "addApprovedTool": "Operations-ID hinzufügen…",
       "lastExecution": "Letzter Lauf",
       "neverExecuted": "Nie gelaufen",
       "failed": "Fehlgeschlagen",
@@ -599,6 +609,10 @@
     "needsInput": "Braucht deine Eingabe",
     "notifications": "Benachrichtigungen",
     "openSubject": "Öffnen",
-    "clearAll": "Alle löschen"
+    "clearAll": "Alle löschen",
+    "approveOnce": "Einmal erlauben",
+    "approveForTask": "Für diese Aufgabe erlauben",
+    "approveForRoutine": "Für diese Routine erlauben",
+    "denyApproval": "Ablehnen"
   }
 }

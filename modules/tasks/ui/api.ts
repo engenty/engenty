@@ -203,6 +203,25 @@ export function releaseTask(
   });
 }
 
+export interface ResolveToolApprovalBody {
+  decision: "approve" | "deny";
+  operation_id: string;
+  scope?: "once" | "task" | "routine";
+}
+
+/** Approve or deny a pending tool approval on a task (durable HITL). */
+export function resolveTaskToolApproval(
+  id: string,
+  body: ResolveToolApprovalBody,
+  signal?: AbortSignal
+) {
+  return requestApiJson<Task>(`/api/tasks/${id}/tool-approvals`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
 export function getTaskRuns(id: string, signal?: AbortSignal) {
   return requestApiJson<TaskRun[]>(`/api/tasks/${id}/runs`, {
     signal,

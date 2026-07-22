@@ -82,6 +82,9 @@ function rowToTask(row: Record<string, unknown>): Task {
     created_by_agent_type_key:
       (row.created_by_agent_type_key as string | null) ?? null,
     due_date: (row.due_date as string | null) ?? null,
+    trigger_id: (row.trigger_id as string | null) ?? null,
+    approval_grants: (row.approval_grants as string[] | null) ?? [],
+    approval_grants_once: (row.approval_grants_once as string[] | null) ?? [],
     request_depth: Number(row.request_depth ?? 0),
     started_at: (row.started_at as string | null) ?? null,
     completed_at: (row.completed_at as string | null) ?? null,
@@ -717,6 +720,7 @@ export function createTasksRepoSupabase(
         created_by_agent_type_key: input.created_by_agent_type_key ?? null,
         due_date: input.due_date ?? null,
         blocked_by_task_ids: input.blocked_by_task_ids ?? [],
+        ...(input.trigger_id == null ? {} : { trigger_id: input.trigger_id }),
         ...(input.project_id == null ? {} : { project_id: input.project_id }),
         request_depth: 0,
         created_at: now,
@@ -825,6 +829,9 @@ export function createTasksRepoSupabase(
       if (input.blocked_by_task_ids !== undefined) {
         updates.blocked_by_task_ids = input.blocked_by_task_ids;
       }
+      if (input.approval_grants !== undefined) {
+        updates.approval_grants = input.approval_grants;
+      }
 
       if (
         input.primary_assignee_kind !== undefined ||
@@ -911,6 +918,60 @@ export function createTasksRepoSupabase(
         });
       }
       return updated;
+    },
+
+    /** Idempotently add an operation id to a task's approval grant list.
+     * `once` targets the one-shot list consumed by the next run. */
+    async addTaskApprovalGrant(
+      id: string,
+      operationId: string,
+      opts: { once: boolean }
+    ): Promise<Task | null> {
+      const column = opts.once ? "approval_grants_once" : "approval_grants";
+      const { data: current, error: readError } = await tasks()
+        .select(column)
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .maybeSingle();
+      if (readError) {
+        throw new Error(`Failed to load task grants: ${readError.message}`);
+      }
+      if (!current) {
+        return null;
+      }
+      const existing =
+        ((current as Record<string, unknown>)[column] as string[] | null) ?? [];
+      if (existing.includes(operationId)) {
+        return this.getTask(id);
+      }
+      const { data, error } = await tasks()
+        .update({
+          [column]: [...existing, operationId],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .select()
+        .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to add task grant: ${error.message}`);
+      }
+      return data ? rowToTask(data as Record<string, unknown>) : null;
+    },
+
+    /** Clear the one-shot grant list — called at the start of each dispatched
+     * run so "Allow once" is consumed exactly once. */
+    async clearTaskOnceApprovalGrants(id: string): Promise<void> {
+      const { error } = await tasks()
+        .update({ approval_grants_once: [] })
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId);
+      if (error) {
+        throw new Error(`Failed to clear once grants: ${error.message}`);
+      }
     },
 
     async deleteTask(id: string): Promise<boolean> {

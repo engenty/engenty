@@ -20,6 +20,7 @@ describe("registerTasksApi", () => {
     expect(routeSignatures).toContain(`GET ${GOAL_BY_ID_PATH}`);
     expect(routeSignatures).toContain(`POST ${TASK_BY_ID_PATH}/checkout`);
     expect(routeSignatures).toContain(`POST ${TASK_BY_ID_PATH}/release`);
+    expect(routeSignatures).toContain(`POST ${TASK_BY_ID_PATH}/tool-approvals`);
     expect(routeSignatures).toContain(`GET ${TASK_BY_ID_PATH}/runs`);
     expect(routeSignatures).toContain(`GET ${TASK_BY_ID_PATH}/activity`);
     expect(routeSignatures).toContain("POST /api/tasks");
@@ -51,6 +52,7 @@ describe("registerTasksApi", () => {
       "goals_update",
       "tasks_add_comment",
       "tasks_checkout",
+      "tasks_clear_once_approvals",
       "tasks_create",
       "tasks_delete",
       "tasks_get",
@@ -58,6 +60,7 @@ describe("registerTasksApi", () => {
       "tasks_list_activity",
       "tasks_list_runs",
       "tasks_release",
+      "tasks_resolve_tool_approval",
       "tasks_settings_get",
       "tasks_settings_update",
       "tasks_update",

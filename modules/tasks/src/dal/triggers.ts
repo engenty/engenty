@@ -27,6 +27,7 @@ export interface TaskTemplateCreateInput {
 export type TaskTemplateUpdateInput = Partial<TaskTemplateCreateInput>;
 
 export interface TriggerCreateInput {
+  approval_grants?: string[];
   cron?: string | null;
   description?: string | null;
   enabled?: boolean;
@@ -45,6 +46,7 @@ export interface TriggerCreateInput {
 }
 
 export interface TriggerUpdateInput {
+  approval_grants?: string[];
   cron?: string | null;
   description?: string | null;
   enabled?: boolean;
@@ -81,6 +83,7 @@ function rowToTemplate(row: Record<string, unknown>): TaskTemplate {
 
 function rowToTrigger(row: Record<string, unknown>): Trigger {
   return {
+    approval_grants: (row.approval_grants as string[] | null) ?? [],
     created_at: String(row.created_at),
     cron: (row.cron as string | null) ?? null,
     description: (row.description as string | null) ?? null,
@@ -205,6 +208,7 @@ export function createTriggersRepoSupabase(
       const now = new Date().toISOString();
       const { data, error } = await triggers()
         .insert({
+          approval_grants: input.approval_grants ?? [],
           created_at: now,
           created_by_user_id: createdByUserId ?? null,
           cron: input.cron ?? null,
@@ -279,6 +283,9 @@ export function createTriggersRepoSupabase(
     ): Promise<Trigger | null> {
       const { data, error } = await triggers()
         .update({
+          ...(patch.approval_grants === undefined
+            ? {}
+            : { approval_grants: patch.approval_grants }),
           ...(patch.cron === undefined ? {} : { cron: patch.cron ?? null }),
           ...(patch.description === undefined
             ? {}
@@ -315,6 +322,61 @@ export function createTriggersRepoSupabase(
         .maybeSingle();
       if (error) {
         throw new Error(`Failed to update trigger: ${error.message}`);
+      }
+      return data ? rowToTrigger(data as Record<string, unknown>) : null;
+    },
+
+    /** Idempotently add an operation id to the routine-wide grant list
+     * ("Allow for this routine"). Returns the updated trigger, or null. */
+    async addTriggerApprovalGrant(
+      id: string,
+      operationId: string
+    ): Promise<Trigger | null> {
+      const { data: current, error: readError } = await triggers()
+        .select("approval_grants")
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .maybeSingle();
+      if (readError) {
+        throw new Error(`Failed to load trigger grants: ${readError.message}`);
+      }
+      if (!current) {
+        return null;
+      }
+      const existing =
+        ((current as Record<string, unknown>).approval_grants as
+          | string[]
+          | null) ?? [];
+      if (existing.includes(operationId)) {
+        return this.getTriggerFlat(id);
+      }
+      const { data, error } = await triggers()
+        .update({
+          approval_grants: [...existing, operationId],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .select("*")
+        .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to add trigger grant: ${error.message}`);
+      }
+      return data ? rowToTrigger(data as Record<string, unknown>) : null;
+    },
+
+    /** Trigger row without the template join (grant reads). */
+    async getTriggerFlat(id: string): Promise<Trigger | null> {
+      const { data, error } = await triggers()
+        .select("*")
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to load trigger: ${error.message}`);
       }
       return data ? rowToTrigger(data as Record<string, unknown>) : null;
     },

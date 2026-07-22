@@ -203,6 +203,13 @@
     "noProjectMatch": "No matching projects.",
     "clearProject": "No project",
     "noDueDate": "No due date",
+    "routine": "Routine",
+    "openRoutine": "Open routine",
+    "approvedTools": "Approved tools",
+    "approvedOnce": "once",
+    "removeApprovedTool": "Remove",
+    "pendingApprovalTitle": "Waiting for approval",
+    "pendingApprovalBody": "The agent needs your approval to run {{operation}}.",
     "workspace": {
       "title": "Workspace",
       "sectionAria": "Task workspace",
@@ -419,7 +426,10 @@
       "instructions": "Instructions",
       "agent": "Executing Agent",
       "manageAgent": "Manage agent",
-      "agentHint": "This routine runs automatically in the background using the tools of ‹{{agentId}}› — without confirmation.",
+      "agentHint": "This routine runs automatically in the background using the tools of ‹{{agentId}}›. If a tool needs approval, the task pauses and asks — unless you pre-approve it below.",
+      "approvedTools": "Approved tools",
+      "approvedToolsHint": "These operations run without asking for approval when this routine's tasks execute.",
+      "addApprovedTool": "Add operation id…",
       "lastExecution": "Last Execution",
       "neverExecuted": "Never executed",
       "failed": "Failed",
@@ -599,6 +609,10 @@
     "needsInput": "Needs your input",
     "notifications": "Notifications",
     "openSubject": "Open",
-    "clearAll": "Clear all"
+    "clearAll": "Clear all",
+    "approveOnce": "Allow once",
+    "approveForTask": "Allow for this task",
+    "approveForRoutine": "Allow for this routine",
+    "denyApproval": "Deny"
   }
 }

@@ -7,6 +7,8 @@ import { requestAiServiceJson } from "../../lib/runtime/ai-service-client.js";
 export interface RoutineDto {
   /** Assignee agent of the task template. */
   agent_id: string | null;
+  /** Operation ids runs of this routine may execute without asking. */
+  approval_grants: string[];
   cron: string | null;
   description: string | null;
   enabled: boolean;
@@ -31,6 +33,7 @@ export interface RoutineDto {
 }
 
 interface TriggerDto {
+  approval_grants?: string[];
   cron: string | null;
   description: string | null;
   enabled: boolean;
@@ -58,6 +61,7 @@ interface TriggerDto {
 
 export interface CustomRoutineInput {
   agent_id: string;
+  approval_grants?: string[];
   cron?: string | null;
   description?: string | null;
   enabled?: boolean;
@@ -73,6 +77,7 @@ export interface CustomRoutineInput {
 function toRoutineDto(trigger: TriggerDto): RoutineDto {
   return {
     agent_id: trigger.task_template?.agent_type_key ?? null,
+    approval_grants: trigger.approval_grants ?? [],
     cron: trigger.cron,
     description: trigger.description,
     enabled: trigger.enabled,
@@ -146,6 +151,9 @@ function toTriggerPayload(body: Partial<CustomRoutineInput>) {
         }
       : {};
   return {
+    ...(body.approval_grants === undefined
+      ? {}
+      : { approval_grants: body.approval_grants }),
     cron: body.cron,
     description: body.description,
     enabled: body.enabled,

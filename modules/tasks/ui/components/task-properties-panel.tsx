@@ -19,11 +19,13 @@ import type {
 } from "../../src/schema/types.js";
 import { resolveTaskPriorityDotTone } from "../lib/task-priority-styles.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
+import { TaskApprovedToolsSection } from "./task-approved-tools-section.js";
 import type { TaskAssigneeValue } from "./task-assignee-picker.js";
 import { TaskAssigneePropertyRows } from "./task-assignee-property-rows.js";
 import { TaskGoalPropertyRow } from "./task-goal-property-row.js";
 import { TaskProjectPropertyRow } from "./task-project-property-row.js";
 import { TaskPropertyEmpty, TaskPropertyRow } from "./task-property-row.js";
+import { TaskRoutinePropertyRow } from "./task-routine-property-row.js";
 import { TaskStatusBadge } from "./task-status-badge.js";
 
 interface TaskPropertiesPanelProps {
@@ -229,6 +231,17 @@ export function TaskPropertiesPanel({
         section="collaborators"
         teamMembersEnabled={teamMembersEnabled}
         value={assigneeFromTask(task)}
+      />
+
+      {task.trigger_id ? (
+        <TaskRoutinePropertyRow triggerId={task.trigger_id} />
+      ) : null}
+
+      <TaskApprovedToolsSection
+        disabled={disabled}
+        grants={task.approval_grants ?? []}
+        onceGrants={task.approval_grants_once ?? []}
+        taskId={task.id}
       />
     </section>
   );

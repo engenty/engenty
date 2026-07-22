@@ -1,8 +1,85 @@
-// Read-only detail sections: instructions, executing agent, last execution.
-import type { RoutineDto } from "@engenty/ai-ui/embed";
+// Read-only detail sections: instructions, executing agent, last execution,
+// plus the editable "Approved tools" list (operations the routine may run
+// without asking for approval).
+import {
+  type RoutineDto,
+  useUpdateCustomRoutineMutation,
+} from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { ExternalLink } from "lucide-react";
+import { Button, Input } from "@engenty/ui-core";
+import { ExternalLink, Plus, ShieldCheck, X } from "lucide-react";
+import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
+
+function RoutineApprovedToolsSection({ routine }: { routine: RoutineDto }) {
+  const { t } = useTranslation("tasks");
+  const updateMutation = useUpdateCustomRoutineMutation();
+  const [draft, setDraft] = useState("");
+  const grants = routine.approval_grants ?? [];
+
+  const save = (next: string[]) => {
+    updateMutation.mutate({ body: { approval_grants: next }, id: routine.id });
+  };
+  const add = (event: FormEvent) => {
+    event.preventDefault();
+    const op = draft.trim();
+    if (op && !grants.includes(op)) {
+      save([...grants, op]);
+    }
+    setDraft("");
+  };
+  const remove = (op: string) => save(grants.filter((g: string) => g !== op));
+
+  return (
+    <div className="space-y-2">
+      <h4 className="flex items-center gap-1.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+        <ShieldCheck className="h-3.5 w-3.5" />
+        {t("routines.detail.approvedTools")}
+      </h4>
+      <p className="text-muted-foreground text-xs leading-normal">
+        {t("routines.detail.approvedToolsHint")}
+      </p>
+      {grants.length > 0 ? (
+        <ul className="flex flex-wrap gap-1.5">
+          {grants.map((op: string) => (
+            <li
+              className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs"
+              key={op}
+            >
+              <code>{op}</code>
+              <Button
+                aria-label={t("detail.removeApprovedTool")}
+                className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive"
+                disabled={updateMutation.isPending}
+                onClick={() => remove(op)}
+                size="icon"
+                variant="ghost"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form className="flex items-center gap-1.5" onSubmit={add}>
+        <Input
+          className="h-8 font-mono text-xs"
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder={t("routines.detail.addApprovedTool")}
+          value={draft}
+        />
+        <Button
+          disabled={updateMutation.isPending || draft.trim().length === 0}
+          size="icon"
+          type="submit"
+          variant="outline"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </form>
+    </div>
+  );
+}
 
 export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
   const { t } = useTranslation("tasks");
@@ -43,6 +120,8 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
           </p>
         </div>
       )}
+
+      <RoutineApprovedToolsSection routine={routine} />
 
       {(routine.last_run_at || routine.last_result) && (
         <div className="space-y-2">

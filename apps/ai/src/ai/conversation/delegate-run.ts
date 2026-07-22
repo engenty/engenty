@@ -24,6 +24,7 @@ import {
 } from "@mastra/core/request-context";
 import type { Workspace } from "@mastra/core/workspace";
 import {
+  type EngentyToolsRunContext,
   engentyToolsRunAls,
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
@@ -51,10 +52,15 @@ export interface RunDelegatedConversationInput {
   abortSignal?: AbortSignal;
   // Restrict the delegated agent to this tool allow list (Action guardrail).
   allowedToolIds?: string[];
+  // Pre-approved operation ids for this run (task ∪ once ∪ routine grants).
+  // Consulted by the "request" pre-gate so a pre-approved op runs without
+  // asking again.
+  approvalGrants?: readonly string[];
   // Gated-operation behavior for this leaf run. Default "deny" (in-chat
   // delegation: suspending would deadlock the waiting parent). Task jobs pass
-  // "defer": core decides and records durable approval requests (connections).
-  approvalPolicy?: "deny" | "defer";
+  // "defer" (core decides) or "request" (pre-gate against durable grants, then
+  // report a needs-input request the workflow surfaces + re-dispatches).
+  approvalPolicy?: "deny" | "defer" | "request";
   brief: string;
   childAgentId: string;
   // Identity for the child run — the caller generates these so it can correlate the
@@ -76,6 +82,9 @@ export interface RunDelegatedConversationInput {
     // agent proposes nothing, the run completes normally.
     suspendForApproval?: boolean;
   };
+  // "request" policy: called when a gated operation is missing from
+  // `approvalGrants`. The task job collects these to record needs-input.
+  onApprovalRequired?: EngentyToolsRunContext["onApprovalRequired"];
   // Called with human-readable lines as the child works (tool starts, etc.). The
   // `delegate` tool forwards these to the parent run's sub-agent progress card.
   onProgress?: (line: string) => void;
@@ -180,11 +189,17 @@ export async function runDelegatedConversation(
       ...getEngentyToolsRunContext(),
       ...(childCoreAgentId ? { agentId: childCoreAgentId } : {}),
       agentTypeKey: input.childAgentId,
-      approvalGrants: [],
+      // Durable task/routine grants for the "request" pre-gate; empty for
+      // in-chat delegation (grants there live on the parent's session).
+      approvalGrants: input.approvalGrants ?? [],
       // Leaf run — no interactive channel: a gated operation is denied with a
       // clear result instead of suspending (which would deadlock the parent).
-      // Task jobs override to "defer" so core records durable approval requests.
+      // Task jobs override to "defer" (core decides) or "request" (report a
+      // needs-input request the workflow surfaces + re-dispatches).
       approvalPolicy: input.approvalPolicy ?? ("deny" as const),
+      ...(input.onApprovalRequired
+        ? { onApprovalRequired: input.onApprovalRequired }
+        : {}),
       orchestratorThreadId: input.childThreadId,
       runId: input.childRunId,
       tenantId: input.scope.tenantId,
