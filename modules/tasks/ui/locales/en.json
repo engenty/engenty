@@ -19,6 +19,9 @@
     "noSearchResults": "No matching goals or tasks.",
     "goalsSection": "Goals",
     "tasksSection": "Tasks",
+    "sectionOverview": "Overview",
+    "sectionWork": "Work",
+    "sectionOps": "Operations",
     "allGoals": "All goals",
     "allTasks": "All tasks",
     "noGoals": "No goals yet.",
@@ -592,6 +595,9 @@
     "markSeen": "Mark as seen",
     "markAllSeen": "Mark all seen",
     "dismiss": "Dismiss",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "needsInput": "Needs your input",
+    "notifications": "Notifications",
+    "openSubject": "Open"
   }
 }

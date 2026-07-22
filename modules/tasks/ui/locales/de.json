@@ -19,6 +19,9 @@
     "noSearchResults": "Keine passenden Ziele oder Aufgaben.",
     "goalsSection": "Ziele",
     "tasksSection": "Aufgaben",
+    "sectionOverview": "Übersicht",
+    "sectionWork": "Arbeit",
+    "sectionOps": "Betrieb",
     "allGoals": "Alle Ziele",
     "allTasks": "Alle Aufgaben",
     "noGoals": "Noch keine Ziele.",
@@ -592,6 +595,9 @@
     "markSeen": "Als gesehen markieren",
     "markAllSeen": "Alle als gesehen markieren",
     "dismiss": "Verwerfen",
-    "viewAll": "Alle anzeigen"
+    "viewAll": "Alle anzeigen",
+    "needsInput": "Braucht deine Eingabe",
+    "notifications": "Benachrichtigungen",
+    "openSubject": "Öffnen"
   }
 }
