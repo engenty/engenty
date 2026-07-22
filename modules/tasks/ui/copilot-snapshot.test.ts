@@ -80,7 +80,7 @@ describe("buildGoalsPreview", () => {
       description: null,
       status: "active",
       owner_user_id: null,
-    owner_agent_type_key: null,
+      owner_agent_type_key: null,
       parent_id: null,
       target_date: null,
       linked_task_count: index,

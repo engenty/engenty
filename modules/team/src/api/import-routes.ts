@@ -1,4 +1,7 @@
-import { registerImportAiMapRoute } from "@engenty/import/server";
+import {
+  registerImportAiMapRoute,
+  registerImportCleanupRoute,
+} from "@engenty/import/server";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 
 const TEAM_IMPORT_AI_EXTRA_RULES = [
@@ -13,5 +16,11 @@ export function registerTeamImportRoutes(api: PluginServerApi) {
     requiredCapabilities: ["module.team.read"],
     tags: ["team", "import"],
     extraPromptRules: TEAM_IMPORT_AI_EXTRA_RULES,
+  });
+  registerImportCleanupRoute(api, {
+    path: "/api/team/import/cleanup",
+    requiredCapabilities: ["module.team.read"],
+    tags: ["team", "import"],
+    domainHint: "team",
   });
 }

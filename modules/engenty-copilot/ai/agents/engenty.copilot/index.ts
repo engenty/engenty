@@ -3,6 +3,7 @@ export {
   createEngentyCopilotAgent,
   ENGENTY_CLI_AGENT_ID,
   ENGENTY_COPILOT_AGENT_ID,
+  ENGENTY_FILE_ANALYST_AGENT_ID,
   engentyCopilotAgentConfig,
 } from "./agent.js";
 export {
@@ -14,6 +15,7 @@ export {
   createEngentyCopilotAgentTools,
   ENGENTY_CATALOG_TOOL_IDS,
   ENGENTY_COPILOT_TOOL_IDS,
+  ENGENTY_CSV_TOOL_IDS,
   ENGENTY_MEMORY_TOOL_IDS,
   ENGENTY_SKILL_PROPOSE_TOOL_IDS,
   ENGENTY_VAULT_TOOL_IDS,

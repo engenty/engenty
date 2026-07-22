@@ -46,6 +46,7 @@ describe("registerTasksApi", () => {
       "goals_create",
       "goals_delete",
       "goals_get",
+      "goals_handoff",
       "goals_list",
       "goals_update",
       "tasks_add_comment",

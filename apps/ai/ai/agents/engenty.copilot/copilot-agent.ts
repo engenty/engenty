@@ -10,8 +10,10 @@ import {
 } from "@engenty/engenty-copilot/ai";
 import { createTool } from "@mastra/core/tools";
 import { createAgentProposeTools } from "../../tools/agent-propose-tool.js";
+import { createAnalyzeFileTool } from "../../tools/analyze-file/index.js";
 import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
+import { createCleanupCsvTool } from "../../tools/cleanup-csv/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
 import { createMemoryTools } from "../../tools/memory-tools/index.js";
@@ -23,7 +25,9 @@ import { createSkillProposeTools } from "../../tools/skill-propose-tool.js";
 import { createVaultFileTools } from "../../tools/vault-files/index.js";
 import { createWebSearchTool } from "../../tools/web-search/index.js";
 
+const analyzeFileTool = createAnalyzeFileTool();
 const chatThreadSearchTool = createChatThreadSearchTool();
+const cleanupCsvTool = createCleanupCsvTool();
 const convertImageTool = createConvertImageTool();
 const webSearchTool = createWebSearchTool();
 
@@ -48,6 +52,7 @@ export function createEngentyCopilotAgentTools() {
     ...createSkillProposeTools(),
     ...createVaultFileTools(),
     ...createArtifactTools(),
+    cleanup_csv: cleanupCsvTool,
     show_objects: createShowObjectsTool(),
     show_ui: createShowUiTool(),
     show_widget: createShowWidgetTool(),
@@ -61,6 +66,8 @@ export function createBuiltinRegistryTools() {
     // Registered for resolution only — agents get it solely via their
     // toolIds (the coordinator declares it; the copilot does not).
     ...createAgentProposeTools(),
+    // File analyst (and any agent listing analyze_file in toolIds).
+    analyze_file: analyzeFileTool,
     convert_image: convertImageTool,
     proposeUpdates: proposeUpdatesTool,
     registry_agents_list: registryAgentsListTool,

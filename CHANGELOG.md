@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.65] - 2026-07-22
+- ADDED **[ai]** Tiered chat attachments and file-analyst sub-agent
+- ADDED **[import]** Clean CSV after upload and expose cleanup_csv tool
+- FIXED **[import]** Type onCleanup callbacks for module DTS builds
+- FIXED **[core]** Update startApiServer test to Vitest 4 it(name, options, fn) signature
+
 ## [0.1.64] - 2026-07-22
 - ADDED **[tasks]** LLM inbox headlines, mark-as-seen, leaner sidebar nav
 - ADDED **[tasks]** Richer inbox (needs-input vs notifications) + grouped sidebar

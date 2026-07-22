@@ -22,6 +22,8 @@ export const CONTACTS_MANAGER_DYNAMIC_TOOL_IDS = [
   "engenty_tools_search",
   "engenty_tool_execute",
   "web_search",
+  // Deterministic CSV cleanup (+ optional AI headers) before import mapping.
+  "cleanup_csv",
   // Propose researched field values for human review/approval (HITL). Surfaces a
   // field-suggestions approval card instead of a freeform chat summary.
   "proposeUpdates",

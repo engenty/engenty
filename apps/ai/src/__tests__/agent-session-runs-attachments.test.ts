@@ -4,7 +4,7 @@ import {
   isModelFeedableMime,
   latestUserAttachmentParts,
   latestUserAttachments,
-} from "../api/agent-session-runs-routes.js";
+} from "../api/attachments/tiered-attachments.js";
 
 function runInput(messages: unknown[]): RunAgentInput {
   return { messages } as unknown as RunAgentInput;
@@ -38,6 +38,7 @@ describe("latestUserAttachments", () => {
       {
         filename: "y.png",
         mimeType: "image/png",
+        sizeBytes: 10,
         storageKey: "tenants/t1/chat/uploads/1_y.png",
       },
     ]);

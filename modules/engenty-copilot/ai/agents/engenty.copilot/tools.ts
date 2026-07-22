@@ -52,6 +52,10 @@ export const ENGENTY_SKILL_PROPOSE_TOOL_IDS = ["skill_propose"];
 // in apps/ai, resolved by the builtin registry.
 export const ENGENTY_WIDGET_TOOL_IDS = ["show_widget", "show_ui"];
 
+// CSV import helpers — deterministic cleanup (+ optional AI headers).
+// Implemented in apps/ai via @engenty/import/server buildCleanupCsvTool.
+export const ENGENTY_CSV_TOOL_IDS = ["cleanup_csv"];
+
 // AG-UI frontend tools are NOT listed here: they are registered per-run as native
 // Mastra tools (the LLM calls them by name; they suspend the run and the browser
 // executes/resumes). No invoke_frontend_tool meta-tool. See
@@ -68,6 +72,7 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   ...ENGENTY_OBJECT_TOOL_IDS,
   ...ENGENTY_SKILL_PROPOSE_TOOL_IDS,
   ...ENGENTY_WIDGET_TOOL_IDS,
+  ...ENGENTY_CSV_TOOL_IDS,
 ];
 
 export interface EngentyCopilotRuntimeTools {

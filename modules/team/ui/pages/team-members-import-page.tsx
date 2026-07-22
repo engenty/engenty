@@ -2,6 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   CSVImportWizard,
   type CSVImportWizardLabels,
+  type CsvCleanupRequest,
   connectionImportSourcesForDomain,
   ImportPageShell,
   type ImportRunProgress,
@@ -15,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import {
+  cleanupTeamImportCsv,
   findTeamMemberByEmail,
   findTeamMemberByImportId,
   getTeamImportPresets,
@@ -90,6 +92,12 @@ export function TeamMembersImportPage() {
       back: t("back", { defaultValue: "Back" }),
       cancel: t("cancel"),
       cancelImport: t("import.cancel", { defaultValue: "Cancel import" }),
+      cleanedFile: t("import.cleaned", {
+        defaultValue: "Cleaned upload ({{count}} fixes)",
+      }),
+      cleanupFailed: t("import.cleanupFailed", {
+        defaultValue: "CSV cleanup failed; using local cleanup only",
+      }),
       columnMapping: t("import.columnMapping"),
       dragDrop: t("import.csv.guidelines"),
       errorEmptyPaste: t("import.paste.empty"),
@@ -283,6 +291,12 @@ export function TeamMembersImportPage() {
           return suggested;
         }}
         onBack={() => navigate(TEAM_MODULE_BASE)}
+        onCleanup={async (input: CsvCleanupRequest) =>
+          cleanupTeamImportCsv({
+            csvText: input.csvText,
+            fieldDefinitions: input.fieldDefinitions,
+          })
+        }
         onError={(message: string) => toast.error(message)}
         onImportComplete={(summary: ImportRunSummary) => {
           if (progressToastId.current !== undefined) {

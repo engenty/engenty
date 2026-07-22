@@ -1,4 +1,7 @@
-import { registerImportAiMapRoute } from "@engenty/import/server";
+import {
+  registerImportAiMapRoute,
+  registerImportCleanupRoute,
+} from "@engenty/import/server";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 
 const CONTACTS_IMPORT_AI_EXTRA_RULES = [
@@ -13,5 +16,11 @@ export function registerImportRoutes(api: PluginServerApi) {
     requiredCapabilities: ["module.contacts.read"],
     tags: ["contacts", "import"],
     extraPromptRules: CONTACTS_IMPORT_AI_EXTRA_RULES,
+  });
+  registerImportCleanupRoute(api, {
+    path: "/api/contacts/import/cleanup",
+    requiredCapabilities: ["module.contacts.read"],
+    tags: ["contacts", "import"],
+    domainHint: "contacts",
   });
 }

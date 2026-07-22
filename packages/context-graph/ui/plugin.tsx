@@ -1,5 +1,5 @@
-import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { DockContextGraphIcon } from "@engenty/ui-icons";
+import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { CgSourcesPage } from "./pages/cg-sources-page.js";
 import { ContextGraphPage } from "./pages/context-graph-page.js";
 

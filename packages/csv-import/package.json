@@ -31,7 +31,8 @@
     "@engenty/ui-icons": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
     "ai": "6.0.116",
-    "lucide-react": "^1.21.0"
+    "lucide-react": "^1.21.0",
+    "zod": "4.4.3"
   },
   "peerDependencies": {
     "react": "^19.0.0",

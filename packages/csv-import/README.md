@@ -12,12 +12,17 @@ Core package for CSV import functionality. Provides types, parsing, column mappi
 ### Functions
 - `parseCSV(content: string)` — Parse CSV with auto delimiter detection (, ; \t)
 - `detectDelimiter(content: string)` — Detect delimiter from content
+- `cleanupCSV(content, options?)` — Deterministic cleanup (line endings, multiline repair, missing headers, rewrite)
+- `applyCsvHeaders(result, headers)` — Replace synthesized headers and re-serialize
 - `applyDeterministicMapping(headers, fieldDefinitions)` — Auto-map headers to fields (EN/DE variants)
 - `normalizeImportPresets`, `serializeImportPresets`, `upsertImportPreset` — Tenant preset storage helpers
-- `createTenantImportPresetClient({ apiRequest, presetsKey })` — Preset load/save + AI map client
+- `createTenantImportPresetClient({ apiRequest, presetsKey })` — Preset load/save + AI map + cleanup client
 
 ### Server (`@engenty/import/server`)
 - `registerImportAiMapRoute(api, { path, requiredCapabilities, tags, extraPromptRules? })` — Shared AI column-mapping HTTP route for modules
+- `registerImportCleanupRoute(api, { path, requiredCapabilities, tags, domainHint? })` — Cleanup route (code-first + optional AI headers)
+- `runImportCleanup({ csvText, useAiHeaders?, … })` — Shared cleanup runner used by HTTP + agent tool
+- `buildCleanupCsvTool(createTool)` — Mastra tool factory (`cleanup_csv`) for agents
 
 ### Components
 - `CSVImportWizard` — Full import flow: upload → column mapping → preview → import

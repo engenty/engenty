@@ -77,6 +77,15 @@ Use the registered tool catalog directly for module work:
 
 Use vault_* tools only for tenant storage (Speicher) outside agent workspace mounts. Prefer workspace filesystem tools for task/copilot workspace paths under `ai/workspace/`.
 
+### Chat file attachments
+
+When the user attaches files, this run includes a **user_attachments** context block (filename, mime, size, storage_key, feed tier).
+
+- **inline_text** — small text/CSV (≤32 KiB) is already inlined under Content. Use it directly.
+- **model_native** — images/PDFs are also provided as multimodal file parts.
+- **tool_backed** — larger or non-text files: only a short preview (if any). Delegate to **agent-file_analyst** with a brief that includes the `storage_key` and the user's goal (read / summarize / ask / convert / extract).
+- Do not claim you cannot see an attached file when `user_attachments` lists it — use the inlined content or call **agent-file_analyst**.
+
 ## Frontend tools
 
 - **Frontend tools** (e.g. `navigate`, `offer_file_downloads`) — call by name to interact with the app UI.

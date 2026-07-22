@@ -125,8 +125,8 @@ export interface CopilotComposerStatusFlapProps {
   /** Called while the user drags the top resize handle. */
   onExpandedContentHeightChange?: (height: number) => void;
   /** Absolutely-positioned chrome anchored to the flap (e.g. the peeking blob
-   *  avatar) — rendered inside the flap root so it rides the flap's top edge
-   *  instead of overlapping its content. */
+   *  avatar) — rendered in an overflow-visible layer on the flap's top edge so
+   *  it rides above the flap (collapsed or expanded) without being clipped. */
   overlayAdornment?: ReactNode;
   replyText: string;
   runStatus?: AgentRunStatus | null;
@@ -258,7 +258,10 @@ export function CopilotComposerStatusFlap({
     <div
       aria-live="polite"
       className={cn(
-        "absolute inset-x-0 bottom-[calc(100%-1.25rem)] z-0 overflow-hidden rounded-t-xl border border-border border-b-0 bg-card px-3 pt-2 pb-7",
+        // overflow-visible: peeking blob avatar (and resize handle) sit on the
+        // flap's top edge — overflow-hidden was clipping them to a sliver.
+        // Expand/collapse clipping stays on the inner grid body below.
+        "absolute inset-x-0 bottom-[calc(100%-1.25rem)] z-0 overflow-visible rounded-t-xl border border-border border-b-0 bg-card px-3 pt-2 pb-7",
         "motion-safe:transition-[opacity,transform] motion-safe:duration-300 motion-safe:ease-out",
         canExpand && "cursor-pointer touch-none select-none",
         closing
@@ -280,21 +283,33 @@ export function CopilotComposerStatusFlap({
           <span className="h-1 w-10 rounded-full bg-border/80" />
         </button>
       ) : null}
-      {overlayAdornment}
+      {overlayAdornment ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0 overflow-visible">
+          {overlayAdornment}
+        </div>
+      ) : null}
       {showIdlePreview ? (
-        <div className="flex min-w-0 items-center gap-2 text-muted-foreground text-sm">
-          <MessageSquare aria-hidden className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{idlePreviewText}</span>
-          {canExpand ? (
+        // Collapsed: one-line truncated preview. Expanded: skip it — the full
+        // reply below already contains the same text; keep only a collapse cue.
+        expanded ? (
+          <div className="flex min-w-0 items-center justify-end text-muted-foreground">
             <ChevronUp
               aria-hidden
-              className={cn(
-                "size-3.5 shrink-0 opacity-60 transition-transform duration-200",
-                expanded && "rotate-180"
-              )}
+              className="size-3.5 shrink-0 rotate-180 opacity-60"
             />
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <div className="flex min-w-0 items-center gap-2 text-muted-foreground text-sm">
+            <MessageSquare aria-hidden className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{idlePreviewText}</span>
+            {canExpand ? (
+              <ChevronUp
+                aria-hidden
+                className="size-3.5 shrink-0 opacity-60 transition-transform duration-200"
+              />
+            ) : null}
+          </div>
+        )
       ) : (
         <AgentStatusTicker
           activityBaselineSignature={activityBaselineSignature}
@@ -319,7 +334,12 @@ export function CopilotComposerStatusFlap({
           <div aria-hidden={!expanded} className="min-h-0 overflow-hidden">
             <div
               className={cn(
-                "mt-1.5 cursor-auto select-text overflow-y-auto border-border/60 border-t pt-1.5 text-muted-foreground text-sm",
+                "cursor-auto select-text overflow-y-auto text-muted-foreground text-sm",
+                // Separator under the live ticker; idle-expanded has no summary
+                // row above, so skip the rule there.
+                showIdlePreview && expanded
+                  ? "pt-0.5"
+                  : "mt-1.5 border-border/60 border-t pt-1.5",
                 "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out",
                 expanded ? "opacity-100" : "opacity-0 motion-reduce:opacity-100"
               )}

@@ -226,10 +226,15 @@ async function runStartLegUntilSuspend(harness: {
 function makeMetadataStore() {
   let sessionMetadata: Record<string, unknown> = {};
   const store = {
+    // Mirror the real DAL's partial-update semantics (agent-session-store.ts):
+    // `metadata` is only patched when the caller actually passes it — a
+    // status-only update (patchThreadStatus) must not clobber it.
     updateSessionForUser: async (params: {
       metadata?: Record<string, unknown>;
     }) => {
-      sessionMetadata = params.metadata ?? {};
+      if (params.metadata !== undefined) {
+        sessionMetadata = params.metadata;
+      }
       return {} as never;
     },
   } as unknown as AgentSessionStore;
