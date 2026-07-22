@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.62] - 2026-07-22
+- ADDED **[ai-settings]** Merge AI usage as a tab + move page to /setup/ai
+- ADDED **[ai-settings]** Unified DetailPageHeader with title + tab strip
+
 ## [0.1.61] - 2026-07-21
 - ADDED **[memory]** Core DetailPageHeader tabbed header on /settings/memory
 - FIXED **[auth]** Stop dev-login ensure from revoking other Portless sessions
