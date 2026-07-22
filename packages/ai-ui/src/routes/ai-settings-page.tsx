@@ -14,7 +14,6 @@ import { RotateCcw, RotateCcwSquare, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AgentsOverridesTab } from "../features/ai-settings/agents-overrides-tab";
-import { CopilotAdminLinksSection } from "../features/ai-settings/copilot-admin-links-section";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
 import { LimitsBudgetsTab } from "../features/ai-settings/limits-budgets-tab";
 import {
@@ -307,7 +306,6 @@ export function AiGeneralSettingsPage() {
               t={t}
               updateSettings={updateSettings}
             />
-            <CopilotAdminLinksSection />
           </TabsContent>
 
           <TabsContent className="space-y-6" value="limits">
