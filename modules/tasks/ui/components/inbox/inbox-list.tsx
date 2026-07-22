@@ -8,7 +8,15 @@ import {
   useMarkInboxNotificationMutation,
 } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn } from "@engenty/ui-core";
+import {
+  Button,
+  cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@engenty/ui-core";
+import { AnimatedCheckIcon } from "@engenty/ui-icons";
 import {
   AlertTriangle,
   Bot,
@@ -17,7 +25,6 @@ import {
   Link2,
   ShieldCheck,
   Trash2,
-  X,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link } from "react-router-dom";
@@ -115,7 +122,9 @@ function InboxItem({
     notification.kind === "task_failed" ||
     notification.kind === "trigger_failed";
   const Icon = iconForKind(notification);
-  const detail = resultText(notification);
+  // Collapse whitespace so the preview is a clean flowing snippet — no lone
+  // blank/"…" lines eating a row.
+  const detail = resultText(notification)?.replace(/\s+/g, " ").trim() || null;
 
   const summaryNode = (
     <span
@@ -156,24 +165,28 @@ function InboxItem({
           </span>
         </div>
         {detail ? (
-          <p className="line-clamp-2 whitespace-pre-wrap text-muted-foreground text-xs leading-snug">
+          <p className="line-clamp-2 text-muted-foreground text-xs leading-snug">
             {detail}
           </p>
         ) : null}
       </div>
-      <Button
-        aria-label={t("inbox.dismiss")}
-        className="h-6 w-6 shrink-0 text-muted-foreground"
-        disabled={markMutation.isPending}
-        onClick={() =>
-          markMutation.mutate({ action: "dismiss", id: notification.id })
-        }
-        size="icon"
-        title={t("inbox.dismiss")}
-        variant="ghost"
-      >
-        <X className="h-3.5 w-3.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label={t("inbox.dismiss")}
+            className="group h-6 w-6 shrink-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+            disabled={markMutation.isPending}
+            onClick={() =>
+              markMutation.mutate({ action: "dismiss", id: notification.id })
+            }
+            size="icon"
+            variant="ghost"
+          >
+            <AnimatedCheckIcon aria-hidden play="hover" size="sm" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">{t("inbox.dismiss")}</TooltipContent>
+      </Tooltip>
     </li>
   );
 }
@@ -258,21 +271,23 @@ export function InboxList({
   };
 
   return (
-    <div className="space-y-5">
-      <InboxSection
-        icon={ShieldCheck}
-        locale={locale}
-        notifications={needsInput}
-        title={t("inbox.needsInput")}
-        tone="primary"
-      />
-      <InboxSection
-        icon={Link2}
-        locale={locale}
-        notifications={informational}
-        onClearAll={clearAll}
-        title={t("inbox.notifications")}
-      />
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="space-y-5">
+        <InboxSection
+          icon={ShieldCheck}
+          locale={locale}
+          notifications={needsInput}
+          title={t("inbox.needsInput")}
+          tone="primary"
+        />
+        <InboxSection
+          icon={Link2}
+          locale={locale}
+          notifications={informational}
+          onClearAll={clearAll}
+          title={t("inbox.notifications")}
+        />
+      </div>
+    </TooltipProvider>
   );
 }
