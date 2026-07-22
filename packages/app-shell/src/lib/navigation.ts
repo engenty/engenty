@@ -1,4 +1,4 @@
-import { DockSettingsIcon } from "@engenty/ui-core";
+import { DockSettingsIcon, DockSetupIcon } from "@engenty/ui-core";
 import type {
   UiContributions,
   UiCopilotAppContribution,
@@ -15,7 +15,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Wrench,
 } from "lucide-react";
 import type { NavigationItem, NavigationSection } from "../types/shell";
 
@@ -335,7 +334,7 @@ export function buildNavigationSections(
           ? {
               to: "/setup",
               label: t("navigation.setup"),
-              icon: Wrench,
+              icon: DockSetupIcon,
               children: [
                 {
                   to: "/setup/platform",
