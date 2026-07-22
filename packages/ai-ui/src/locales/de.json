@@ -118,7 +118,27 @@
       "inheritDefault": "Erbt · Standard"
     },
     "inheritAction": "Erben",
-    "inheritHint": "Erbt: {{model}}"
+    "inheritActionLong": "Erben (Plattform-Standard)",
+    "inheritHint": "Erbt: {{model}}",
+    "col": {
+      "purpose": "Zweck",
+      "model": "Effektives Modell",
+      "source": "Quelle"
+    },
+    "action": {
+      "change": "Ändern",
+      "pin": "Pinnen"
+    },
+    "caps": {
+      "context": "{{tokens}} Kontext",
+      "vision": "Vision",
+      "web": "Websuche",
+      "code": "Code"
+    }
+  },
+  "picker": {
+    "title": "Modell für {{purpose}} wählen",
+    "description": "Modell wählen oder den Plattform-Standard erben. Preise pro Million Tokens (Eingabe / Ausgabe)."
   },
   "limits": {
     "loadError": "Usage-Policy konnte nicht geladen werden. Läuft apps/ai und ist erreichbar?",

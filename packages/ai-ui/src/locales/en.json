@@ -118,7 +118,27 @@
       "inheritDefault": "Inherit · Default"
     },
     "inheritAction": "Inherit",
-    "inheritHint": "Inherits: {{model}}"
+    "inheritActionLong": "Inherit (platform default)",
+    "inheritHint": "Inherits: {{model}}",
+    "col": {
+      "purpose": "Purpose",
+      "model": "Effective model",
+      "source": "Source"
+    },
+    "action": {
+      "change": "Change",
+      "pin": "Pin"
+    },
+    "caps": {
+      "context": "{{tokens}} ctx",
+      "vision": "Vision",
+      "web": "Web search",
+      "code": "Code"
+    }
+  },
+  "picker": {
+    "title": "Choose a model for {{purpose}}",
+    "description": "Pick a model or inherit the platform default. Pricing is per million tokens (input / output)."
   },
   "limits": {
     "loadError": "Couldn't load the usage policy. Ensure apps/ai is running and reachable.",

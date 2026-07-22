@@ -1,15 +1,17 @@
 import type { AiModelPurpose } from "@engenty/ai-core/browser";
-import {
-  Badge,
-  Button,
-  Label,
-  SearchableSelect,
-  type SearchableSelectOption,
-  SettingsFormSection,
-} from "@engenty/ui-core";
-import { RotateCcw } from "lucide-react";
+import { Badge, Button, SettingsFormSection } from "@engenty/ui-core";
+import { useMemo, useState } from "react";
 import type { AiConfig } from "../../lib/admin/ai-settings-api";
 import type { EffectiveAiSettings } from "../../lib/admin/effective-ai-settings-api";
+import type {
+  GatewayModelOption,
+  GatewayModelPriceTier,
+} from "../../lib/admin/gateway-model-options-api";
+import {
+  formatModelPrice,
+  ModelCapabilityChips,
+} from "./model-catalog-display";
+import { ModelPickerDialog } from "./model-picker-dialog";
 
 type ModelField = Extract<
   keyof AiConfig,
@@ -40,9 +42,10 @@ const PURPOSE_ROWS: PurposeRow[] = [
 ];
 
 interface ModelMatrixCardProps {
-  chatModelOptions: SearchableSelectOption[];
+  chatModels: GatewayModelOption[];
   effective: EffectiveAiSettings | undefined;
-  routingModelOptions: SearchableSelectOption[];
+  maxPriceTier: "all" | GatewayModelPriceTier;
+  routingModels: GatewayModelOption[];
   settings: AiConfig;
   t: (key: string, opts?: Record<string, unknown>) => string;
   updateSettings: <K extends keyof AiConfig>(
@@ -52,90 +55,157 @@ interface ModelMatrixCardProps {
 }
 
 export function ModelMatrixCard({
-  chatModelOptions,
+  chatModels,
   effective,
-  routingModelOptions,
+  maxPriceTier,
+  routingModels,
   settings,
   t,
   updateSettings,
 }: ModelMatrixCardProps) {
+  const [editing, setEditing] = useState<PurposeRow | null>(null);
+
+  const chatById = useMemo(
+    () => new Map(chatModels.map((m) => [m.model_id, m])),
+    [chatModels]
+  );
+  const routingById = useMemo(
+    () => new Map(routingModels.map((m) => [m.model_id, m])),
+    [routingModels]
+  );
+
+  const editingModels =
+    editing?.options === "routing" ? routingModels : chatModels;
+  const editingEff = editing ? effective?.models[editing.purpose] : undefined;
+
   return (
     <SettingsFormSection
       description={t("matrix.description")}
       title={t("matrix.title")}
     >
-      <div className="flex flex-col divide-y divide-border">
-        {PURPOSE_ROWS.map((row) => {
-          const pinned =
-            (settings[row.field] as string | null | undefined) ?? null;
-          const eff = effective?.models[row.purpose];
-          const options =
-            row.options === "routing" ? routingModelOptions : chatModelOptions;
-          const inheritedValue = eff?.inherited.value ?? "";
-          const inheritedSource = eff?.inherited.source ?? "default";
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] border-collapse">
+          <thead>
+            <tr className="border-border border-b text-left">
+              <th className="pb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                {t("matrix.col.purpose")}
+              </th>
+              <th className="pb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                {t("matrix.col.model")}
+              </th>
+              <th className="pb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                {t("matrix.col.source")}
+              </th>
+              <th className="pb-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {PURPOSE_ROWS.map((row) => {
+              const pinned =
+                (settings[row.field] as string | null | undefined) ?? null;
+              const eff = effective?.models[row.purpose];
+              const modelId = eff?.value ?? pinned ?? "";
+              const catalog =
+                row.options === "routing" ? routingById : chatById;
+              const model = catalog.get(modelId);
+              const price = model ? formatModelPrice(model) : null;
+              const source = eff?.source ?? (pinned ? "tenant" : "default");
 
-          return (
-            <div
-              className="grid gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-3 sm:items-start sm:gap-4"
-              key={row.purpose}
-            >
-              <div className="sm:col-span-2">
-                <Label htmlFor={`model-${row.purpose}`}>
-                  {t(`matrix.purpose.${row.purpose}.label`)}
-                </Label>
-                <p className="mt-0.5 text-muted-foreground text-xs">
-                  {t(`matrix.purpose.${row.purpose}.desc`)}
-                </p>
-              </div>
+              return (
+                <tr
+                  className="border-border border-b align-top"
+                  key={row.purpose}
+                >
+                  <td className="py-3 pr-4">
+                    <div className="font-medium text-sm">
+                      {t(`matrix.purpose.${row.purpose}.label`)}
+                    </div>
+                    <div className="mt-0.5 max-w-xs text-muted-foreground text-xs">
+                      {t(`matrix.purpose.${row.purpose}.desc`)}
+                    </div>
+                  </td>
 
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <SearchableSelect
-                  emptyMessage={t("fields.modelSearchEmpty")}
-                  id={`model-${row.purpose}`}
-                  onValueChange={(value) =>
-                    updateSettings(row.field, value || null)
-                  }
-                  options={options}
-                  placeholder={
-                    inheritedValue
-                      ? t("matrix.inheritHint", { model: inheritedValue })
-                      : t("fields.modelSearchPlaceholder")
-                  }
-                  searchPlaceholder={t("fields.modelSearchPlaceholder")}
-                  triggerClassName="h-8 min-w-0"
-                  value={pinned ?? ""}
-                />
+                  <td className="py-3 pr-4">
+                    <div className="font-mono text-sm">{modelId}</div>
+                    {price ? (
+                      <div className="mt-0.5 font-mono text-muted-foreground text-xs tabular-nums">
+                        {price}
+                        {model?.price_tier
+                          ? ` · ${t(`fields.priceTier.${model.price_tier}`)}`
+                          : ""}
+                      </div>
+                    ) : null}
+                    {model ? (
+                      <div className="mt-1">
+                        <ModelCapabilityChips model={model} t={t} />
+                      </div>
+                    ) : null}
+                  </td>
 
-                <div className="flex items-center gap-2">
-                  {pinned ? (
-                    <>
+                  <td className="py-3 pr-4">
+                    {source === "tenant" ? (
                       <Badge variant="default">
                         {t("matrix.source.pinned")}
                       </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        {source === "platform"
+                          ? t("matrix.source.inheritPlatform")
+                          : t("matrix.source.inheritDefault")}
+                      </Badge>
+                    )}
+                  </td>
+
+                  <td className="py-3 text-right">
+                    <div className="flex flex-col items-end gap-0.5">
                       <Button
-                        className="h-6 gap-1 px-1.5 text-muted-foreground text-xs"
-                        onClick={() => updateSettings(row.field, null)}
+                        className="h-auto px-0 text-primary text-xs"
+                        onClick={() => setEditing(row)}
                         size="sm"
                         type="button"
-                        variant="ghost"
+                        variant="link"
                       >
-                        <RotateCcw className="h-3 w-3" />
-                        {t("matrix.inheritAction")}
+                        {pinned
+                          ? t("matrix.action.change")
+                          : t("matrix.action.pin")}
                       </Button>
-                    </>
-                  ) : (
-                    <Badge variant="secondary">
-                      {inheritedSource === "platform"
-                        ? t("matrix.source.inheritPlatform")
-                        : t("matrix.source.inheritDefault")}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                      {pinned ? (
+                        <Button
+                          className="h-auto px-0 text-muted-foreground text-xs"
+                          onClick={() => updateSettings(row.field, null)}
+                          size="sm"
+                          type="button"
+                          variant="link"
+                        >
+                          {t("matrix.inheritAction")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+
+      {editing ? (
+        <ModelPickerDialog
+          inheritedValue={editingEff?.inherited.value ?? ""}
+          maxPriceTier={maxPriceTier}
+          models={editingModels}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditing(null);
+            }
+          }}
+          onSelect={(modelId) => updateSettings(editing.field, modelId)}
+          open={true}
+          purposeLabel={t(`matrix.purpose.${editing.purpose}.label`)}
+          t={t}
+          value={(settings[editing.field] as string | null | undefined) ?? null}
+        />
+      ) : null}
     </SettingsFormSection>
   );
 }

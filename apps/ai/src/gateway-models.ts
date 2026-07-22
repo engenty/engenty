@@ -120,6 +120,7 @@ export interface GatewayModelOptionFilters {
 }
 
 export type GatewayModelOption = GatewayModelAvailabilityFlags & {
+  context_tokens: number | null;
   display_name: string | null;
   id: string;
   input_per_mtok_micros: number | null;
@@ -129,6 +130,8 @@ export type GatewayModelOption = GatewayModelAvailabilityFlags & {
   price_tier: GatewayModelPriceTier | null;
   provider: string;
   use_cases: GatewayModelUseCase[];
+  vision: boolean;
+  web_search: boolean;
 };
 
 export interface AiGatewayModelStore {

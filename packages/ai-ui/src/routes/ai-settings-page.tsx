@@ -69,16 +69,19 @@ export function AiGeneralSettingsPage() {
   const [maxPriceTier, setMaxPriceTier] = useState<
     "all" | GatewayModelPriceTier
   >("medium");
+  // Fetch the full catalog (all tiers); the price-tier selector filters the
+  // picker client-side, so an effective/pinned model outside the tier still
+  // resolves its pricing + capabilities in the matrix.
   const chatModelOptionsQuery = useGatewayModelOptionsQuery({
     availability_purpose: "chat",
-    max_price_tier: maxPriceTier === "all" ? undefined : maxPriceTier,
     use_case: "text",
   });
   const routingModelOptionsQuery = useGatewayModelOptionsQuery({
     availability_purpose: "routing",
-    max_price_tier: maxPriceTier === "all" ? undefined : maxPriceTier,
     use_case: "text",
   });
+  const chatModels = chatModelOptionsQuery.data?.items ?? [];
+  const routingModels = routingModelOptionsQuery.data?.items ?? [];
   const tabParam = searchParams.get("tab");
   const activeTab =
     tabParam && VALID_TABS.has(tabParam) ? tabParam : DEFAULT_TAB;
@@ -105,18 +108,6 @@ export function AiGeneralSettingsPage() {
       settings.safeguard_model_id,
       t,
     ]
-  );
-  const routingModelOptions = useMemo(
-    () =>
-      mergeSelectedGatewayModelOptions(
-        mapGatewayModelSelectOptions(
-          routingModelOptionsQuery.data?.items ?? [],
-          t
-        ),
-        [settings.coordinator_model_id],
-        t("fields.modelUnavailable")
-      ),
-    [routingModelOptionsQuery.data?.items, settings.coordinator_model_id, t]
   );
   const catalogEmpty =
     !(
@@ -299,9 +290,10 @@ export function AiGeneralSettingsPage() {
 
           <TabsContent className="space-y-6" value="copilot">
             <ModelMatrixCard
-              chatModelOptions={chatModelOptions}
+              chatModels={chatModels}
               effective={effectiveQuery.data}
-              routingModelOptions={routingModelOptions}
+              maxPriceTier={maxPriceTier}
+              routingModels={routingModels}
               settings={settings}
               t={t}
               updateSettings={updateSettings}

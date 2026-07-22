@@ -106,6 +106,7 @@ function modelOptionFromRecord(
     available_for_rerank: model.available_for_rerank,
     available_for_routing: model.available_for_routing,
     available_for_video: model.available_for_video,
+    context_tokens: model.context_tokens,
     display_name: model.display_name,
     id: model.model_id,
     label: model.display_name
@@ -117,6 +118,10 @@ function modelOptionFromRecord(
     price_tier: model.price_tier,
     provider: model.provider,
     use_cases: model.use_cases,
+    vision: model.tags.includes("vision"),
+    web_search:
+      model.tags.includes("web-search") ||
+      model.web_search_per_query_micros != null,
   };
 }
 
