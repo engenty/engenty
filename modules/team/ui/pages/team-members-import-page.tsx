@@ -2,6 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   CSVImportWizard,
   type CSVImportWizardLabels,
+  type CsvCleanupRequest,
   connectionImportSourcesForDomain,
   ImportPageShell,
   type ImportRunProgress,
@@ -289,7 +290,7 @@ export function TeamMembersImportPage() {
           }
           return suggested;
         }}
-        onCleanup={async (input) =>
+        onCleanup={async (input: CsvCleanupRequest) =>
           cleanupTeamImportCsv({
             csvText: input.csvText,
             fieldDefinitions: input.fieldDefinitions,
