@@ -106,7 +106,10 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
       "queue service unavailable — agent task auto-dispatch disabled"
     );
   }
-  registerTasksApi(server, repoOrFactory, { queue });
+  const triggersRepoFactory = createTriggersRepoFactory(
+    supabase as SupabaseClient
+  );
+  registerTasksApi(server, repoOrFactory, { queue, triggersRepoFactory });
 
   // Event-trigger ingestion edges: the in-process module event bus and the
   // public webhook route. Bus subscriptions are exact-name, replayed from the
@@ -130,15 +133,11 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     supabase: supabase as SupabaseClient,
   });
 
-  registerTriggerGatewayMethods(
-    server,
-    createTriggersRepoFactory(supabase as SupabaseClient),
-    {
-      onEventResourceAdded: eventSubscriber.ensureSubscribed,
-      queue,
-      supabase: supabase as SupabaseClient,
-    }
-  );
+  registerTriggerGatewayMethods(server, triggersRepoFactory, {
+    onEventResourceAdded: eventSubscriber.ensureSubscribed,
+    queue,
+    supabase: supabase as SupabaseClient,
+  });
 };
 
 export default registerTasksPlugin;

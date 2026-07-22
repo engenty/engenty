@@ -29,6 +29,7 @@ import {
   tasksBriefingResponseSchema,
   tasksListQuerySchema,
   tasksPaginatedResponseSchema,
+  taskToolApprovalBodySchema,
   taskUpdateInputSchema,
 } from "../schema/zod.js";
 import {
@@ -38,6 +39,7 @@ import {
   type TasksGatewayOptions,
 } from "./gateway-methods.js";
 import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
+import { resolveTaskToolApproval } from "./task-approval-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -639,6 +641,57 @@ export function registerTasksApi(
         const message =
           err instanceof Error ? err.message : "task_release_failed";
         const status = message === "task_release_run_mismatch" ? 403 : 400;
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      }
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "post",
+    path: `${TASK_BY_ID_PATH}/tool-approvals`,
+    operation: writeTasks(),
+    summary: "Approve or deny a pending tool approval on a task",
+    tags: ["tasks", "approvals"],
+    request: {
+      params: taskIdParamsSchema,
+      body: taskToolApprovalBodySchema,
+    },
+    responses: {
+      200: { description: "Resolved task", schema: taskSchema },
+      404: { description: "Not found", schema: notFoundSchema },
+    },
+    handler: async (ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = ctx.params as z.infer<typeof taskIdParamsSchema>;
+      const body = taskToolApprovalBodySchema.parse(ctx.body ?? {});
+      const triggersRepo =
+        gatewayOptions?.triggersRepoFactory && ctx.auth
+          ? gatewayOptions.triggersRepoFactory(ctx.auth)
+          : null;
+      try {
+        const task = await resolveTaskToolApproval(
+          {
+            actorUserId: ctx.auth?.principalId ?? null,
+            queue: gatewayOptions?.queue ?? null,
+            tasksRepo: repo,
+            tenantId: ctx.auth?.tenantId ?? null,
+            triggersRepo,
+          },
+          {
+            decision: body.decision,
+            operationId: body.operation_id,
+            scope: body.scope,
+            taskId: params.id,
+          }
+        );
+        return task;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "tool_approval_failed";
+        const status = message === "task_not_found" ? 404 : 400;
         return new Response(JSON.stringify({ error: message }), {
           status,
           headers: { "content-type": "application/json" },

@@ -71,6 +71,9 @@ export async function fireTrigger(input: FireTriggerInput): Promise<Task> {
       primary_assignee_kind: "agent",
       priority: template.priority,
       title: template.title,
+      // Link the task back to the routine that created it (sidebar link +
+      // "Allow for this routine" grant resolution at run time).
+      trigger_id: trigger.id,
     },
     { actorKind: "agent", createdByUserId: input.createdByUserId ?? null }
   );

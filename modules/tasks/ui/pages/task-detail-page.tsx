@@ -53,6 +53,7 @@ import { TaskArtifactsPanel } from "../components/task-artifacts-panel.js";
 import type { TaskAssigneeValue } from "../components/task-assignee-picker.js";
 import { TaskCommentsActivityTabs } from "../components/task-comments-activity-tabs.js";
 import { TaskLinkedSessionsPanel } from "../components/task-linked-sessions-panel.js";
+import { TaskPendingApprovalCard } from "../components/task-pending-approval-card.js";
 import { TaskPropertiesPanel } from "../components/task-properties-panel.js";
 import { TaskRunObserverPanel } from "../components/task-run-observer-panel.js";
 import { TaskStatusBadge } from "../components/task-status-badge.js";
@@ -237,6 +238,8 @@ function TaskDetailLoadedContent({
                 value={descriptionDraft}
               />
             </Card>
+
+            <TaskPendingApprovalCard taskId={task.id} />
 
             <LiveTaskRunsPanel
               activity={activity ?? []}

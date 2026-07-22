@@ -44,6 +44,10 @@ export interface Goal {
 }
 
 export interface Task {
+  /** Operation ids a headless run may run without asking ("Allow for task"). */
+  approval_grants?: string[];
+  /** One-shot grants, consumed (cleared) by the next dispatched run. */
+  approval_grants_once?: string[];
   /**
    * Task ids that must reach status 'done' before this task is dispatchable.
    * Replaces the whole set on update; [] clears. Cancelled blockers do NOT
@@ -74,6 +78,8 @@ export interface Task {
   status: TaskStatus;
   tenant_id: string;
   title: string;
+  /** Routine (trigger) that materialized this task, if any. */
+  trigger_id?: string | null;
   updated_at: string;
 }
 
@@ -229,11 +235,15 @@ export interface TaskCreateInput {
   project_id?: string | null;
   status?: TaskStatus;
   title: string;
+  /** Internal only — stamped by trigger-fire; not exposed on tasks_create. */
+  trigger_id?: string | null;
 }
 
 export type TaskUpdateInput = Partial<
   Omit<TaskCreateInput, "created_by_agent_type_key" | "collaborator_user_ids">
 > & {
+  /** Replace the whole "Allow for this task" grant set; [] clears. */
+  approval_grants?: string[];
   collaborator_user_ids?: string[];
   status?: TaskStatus;
 };
@@ -315,6 +325,8 @@ export interface TaskTemplate {
 }
 
 export interface Trigger {
+  /** Operation ids runs of this routine may execute without asking. */
+  approval_grants: string[];
   created_at: string;
   cron: string | null;
   description: string | null;

@@ -48,6 +48,12 @@ export const taskSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   collaborator_user_ids: z.array(z.string().uuid()).optional(),
+  // Routine (trigger) that materialized this task, if any.
+  trigger_id: z.string().uuid().nullable().optional(),
+  // Operation ids a headless run may execute without asking ("Allow for this
+  // task"). `approval_grants_once` is consumed by the next dispatched run.
+  approval_grants: z.array(z.string()).optional(),
+  approval_grants_once: z.array(z.string()).optional(),
 });
 
 export const taskCommentSchema = z.object({
@@ -136,11 +142,42 @@ export const taskCreateInputSchema = z.object({
 export const taskUpdateInputSchema = taskCreateInputSchema.partial().extend({
   title: z.string().min(1).optional(),
   collaborator_user_ids: z.array(z.string().uuid()).optional(),
+  // Replace the whole "Allow for this task" grant set; [] clears it.
+  approval_grants: z.array(z.string().min(1)).max(64).optional(),
 });
 
 export const taskIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const taskToolApprovalInputSchema = z
+  .object({
+    id: z.string().uuid(),
+    operation_id: z.string().min(1),
+    decision: z.enum(["approve", "deny"]),
+    // Required when decision === "approve".
+    scope: z.enum(["once", "task", "routine"]).optional(),
+  })
+  .refine((v) => v.decision === "deny" || v.scope !== undefined, {
+    message: "scope is required when approving",
+    path: ["scope"],
+  });
+
+export const taskClearOnceApprovalsInputSchema = z.object({
+  id: z.string().uuid(),
+});
+
+// HTTP body variant (task id comes from the path param).
+export const taskToolApprovalBodySchema = z
+  .object({
+    operation_id: z.string().min(1),
+    decision: z.enum(["approve", "deny"]),
+    scope: z.enum(["once", "task", "routine"]).optional(),
+  })
+  .refine((v) => v.decision === "deny" || v.scope !== undefined, {
+    message: "scope is required when approving",
+    path: ["scope"],
+  });
 
 export const taskCommentCreateSchema = z.object({
   content: z.string().min(1),
@@ -383,6 +420,9 @@ export const triggerSchema = z.object({
   webhook_secret: z.string().nullable(),
   last_fired_at: z.string().nullable(),
   last_result: z.string().nullable(),
+  // Operation ids that runs of this routine may execute without asking
+  // ("Allow for this routine" + pre-configuration).
+  approval_grants: z.array(z.string()),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -410,6 +450,7 @@ export const triggerCreateInputSchema = z.object({
   source: z.enum(["module", "custom"]).optional(),
   module_id: z.string().max(255).nullable().optional(),
   module_key: z.string().max(255).nullable().optional(),
+  approval_grants: z.array(z.string().min(1)).max(64).optional(),
 });
 
 export const triggerUpdateInputSchema = z.object({
@@ -424,6 +465,7 @@ export const triggerUpdateInputSchema = z.object({
   event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
   task_template_id: z.string().uuid().optional(),
   heartbeat_id: z.string().nullable().optional(),
+  approval_grants: z.array(z.string().min(1)).max(64).optional(),
 });
 
 export const triggersListQuerySchema = z.object({

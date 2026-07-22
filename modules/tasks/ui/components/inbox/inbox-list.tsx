@@ -29,6 +29,7 @@ import {
 import type { ComponentType } from "react";
 import { Link } from "react-router-dom";
 import { tasksPaths } from "../../lib/tasks-routes.js";
+import { useResolveToolApprovalMutation } from "../../tasks-queries.js";
 
 /** Kinds that require a human decision (approve/reject/review) — the HITL lane. */
 const NEEDS_INPUT_KINDS = new Set([
@@ -107,6 +108,101 @@ function iconForKind(
   }
 }
 
+/** Metadata carried by a `tool_approval` needs-input notification. */
+function toolApprovalContext(notification: InboxNotificationDto): {
+  operationId: string;
+  taskId: string;
+  triggerId: string | null;
+} | null {
+  if (notification.kind !== "tool_approval") {
+    return null;
+  }
+  const taskId = notification.metadata?.task_id;
+  const operationId = notification.metadata?.operation_id;
+  if (typeof taskId !== "string" || typeof operationId !== "string") {
+    return null;
+  }
+  const triggerId = notification.metadata?.trigger_id;
+  return {
+    operationId,
+    taskId,
+    triggerId: typeof triggerId === "string" ? triggerId : null,
+  };
+}
+
+/** Inline Allow-once / task / routine / Deny buttons for a pending approval.
+ * On resolve, the notification is dismissed (the run has already ended; the
+ * task re-dispatches on approve). Shared by the inbox and the task card. */
+export function ToolApprovalActions({
+  operationId,
+  taskId,
+  triggerId,
+  onResolved,
+}: {
+  operationId: string;
+  taskId: string;
+  triggerId: string | null;
+  onResolved?: () => void;
+}) {
+  const { t } = useTranslation("tasks");
+  const resolveMutation = useResolveToolApprovalMutation();
+  const markMutation = useMarkInboxNotificationMutation();
+  const pending = resolveMutation.isPending;
+
+  const resolve = (
+    decision: "approve" | "deny",
+    scope?: "once" | "task" | "routine"
+  ) => {
+    resolveMutation.mutate(
+      { body: { decision, operation_id: operationId, scope }, taskId },
+      { onSuccess: () => onResolved?.() }
+    );
+  };
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
+        {operationId}
+      </code>
+      <Button
+        disabled={pending}
+        onClick={() => resolve("approve", "once")}
+        size="sm"
+        variant="outline"
+      >
+        {t("inbox.approveOnce")}
+      </Button>
+      <Button
+        disabled={pending}
+        onClick={() => resolve("approve", "task")}
+        size="sm"
+        variant="outline"
+      >
+        {t("inbox.approveForTask")}
+      </Button>
+      {triggerId ? (
+        <Button
+          disabled={pending}
+          onClick={() => resolve("approve", "routine")}
+          size="sm"
+          variant="outline"
+        >
+          {t("inbox.approveForRoutine")}
+        </Button>
+      ) : null}
+      <Button
+        className="text-destructive hover:text-destructive"
+        disabled={pending || markMutation.isPending}
+        onClick={() => resolve("deny")}
+        size="sm"
+        variant="ghost"
+      >
+        {t("inbox.denyApproval")}
+      </Button>
+    </div>
+  );
+}
+
 function InboxItem({
   notification,
   locale,
@@ -122,6 +218,7 @@ function InboxItem({
     notification.kind === "task_failed" ||
     notification.kind === "trigger_failed";
   const Icon = iconForKind(notification);
+  const approval = toolApprovalContext(notification);
   // Collapse whitespace so the preview is a clean flowing snippet — no lone
   // blank/"…" lines eating a row.
   const detail = resultText(notification)?.replace(/\s+/g, " ").trim() || null;
@@ -168,6 +265,16 @@ function InboxItem({
           <p className="line-clamp-2 text-muted-foreground text-xs leading-snug">
             {detail}
           </p>
+        ) : null}
+        {approval ? (
+          <ToolApprovalActions
+            onResolved={() =>
+              markMutation.mutate({ action: "dismiss", id: notification.id })
+            }
+            operationId={approval.operationId}
+            taskId={approval.taskId}
+            triggerId={approval.triggerId}
+          />
         ) : null}
       </div>
       <Tooltip>

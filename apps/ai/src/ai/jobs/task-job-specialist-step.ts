@@ -37,10 +37,29 @@ export const runSpecialistStep = createStep({
       tenantId: inputData.tenant_id,
     });
 
+    // Collect tool-approval requests the specialist hits (deduped by op id).
+    // Under "request" the pre-gate consults `approval_grants`, so a pre-approved
+    // op runs; a miss lands here and pauses the task for human approval.
+    const pendingByOp = new Map<
+      string,
+      { operation_id: string; risk_level?: string; title?: string }
+    >();
+
     const result = await runDelegatedConversation({
-      // Headless task job: gated operations go through to core, which records
-      // durable approval requests (connections) instead of a client-side deny.
-      approvalPolicy: "defer",
+      // Headless task job with a needs-input channel: pre-gate against the
+      // task/routine grants; an ungranted gated op is reported (not run) and the
+      // task pauses at `blocked` until a human approves → re-dispatch.
+      approvalPolicy: "request",
+      approvalGrants: inputData.approval_grants ?? [],
+      onApprovalRequired: (info) => {
+        if (!pendingByOp.has(info.operationId)) {
+          pendingByOp.set(info.operationId, {
+            operation_id: info.operationId,
+            ...(info.riskLevel ? { risk_level: info.riskLevel } : {}),
+            ...(info.title ? { title: info.title } : {}),
+          });
+        }
+      },
       brief: inputData.brief ?? "",
       childAgentId: inputData.agent_type_key,
       childRunId: runId,
@@ -53,8 +72,19 @@ export const runSpecialistStep = createStep({
       ...(abortSignal ? { abortSignal } : {}),
     });
 
+    // A hard stream error wins as `failed`. Otherwise, if the specialist was
+    // blocked on approval, pause the task (needs_approval takes precedence over
+    // a nominal `ran`).
     if (result.error) {
       return { ...inputData, note: result.error, status: "failed" as const };
+    }
+    if (pendingByOp.size > 0) {
+      return {
+        ...inputData,
+        pending_approvals: [...pendingByOp.values()],
+        result_text: result.finalText,
+        status: "needs_approval" as const,
+      };
     }
     return {
       ...inputData,

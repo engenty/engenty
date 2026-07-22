@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ToolExecutionContext } from "@mastra/core/tools";
+import type { ToolRiskLevel } from "./tool-approval.js";
 
 /**
  * How the execute tool handles an operation that requires approval:
@@ -19,12 +20,20 @@ import type { ToolExecutionContext } from "@mastra/core/tools";
  * back as a structured `approval_pending` tool result (a durable approval
  * request may have been recorded, e.g. by the connections module), so the
  * agent can report the block instead of silently failing.
+ *
+ * `"request"` (durable task runs with a needs-input channel): RUN the pre-gate
+ * against the durable task/routine grant set (so a pre-approved op passes). On
+ * a gated miss, notify the run via `onApprovalRequired` and return a clear
+ * `approval_pending` result — the run ends gracefully and the workflow records
+ * a needs-input notification + task comment; a human approves and the task is
+ * re-dispatched (parked in-place resume is not available for headless runs).
  */
 export type EngentyToolApprovalPolicy =
   | "suspend"
   | "deny"
   | "artifact"
-  | "defer";
+  | "defer"
+  | "request";
 
 export interface EngentyToolsRunContext {
   // core.agents principal uuid of the acting agent. Forwarded to core as
@@ -45,6 +54,14 @@ export interface EngentyToolsRunContext {
   // Goal the agent is pursuing — the conversation thread id for chat runs.
   // Forwarded as x-engenty-goal-id; approval grants persist against it.
   goalId?: string | null;
+  // `"request"` policy: invoked when a gated operation is missing from the
+  // grant set, so the run can record a durable needs-input request. The run
+  // then returns an `approval_pending` result and ends gracefully.
+  onApprovalRequired?: (info: {
+    operationId: string;
+    riskLevel: ToolRiskLevel;
+    title?: string;
+  }) => void;
   orchestratorThreadId?: string | null;
   runId?: string | null;
   tenantId?: string | null;
