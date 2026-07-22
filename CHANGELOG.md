@@ -4,6 +4,19 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.64] - 2026-07-22
+- ADDED **[tasks]** LLM inbox headlines, mark-as-seen, leaner sidebar nav
+- ADDED **[tasks]** Richer inbox (needs-input vs notifications) + grouped sidebar
+- ADDED **[tasks]** Project-style rows + 3-dot menu for goal linked tasks
+- ADDED **[tasks]** Human/Agent filter toggle on tasks + goals lists
+- ADDED **[tasks]** Goals list cards view + view chooser (list/cards, no kanban)
+- ADDED **[tasks]** Hand a goal to the Coordinator (owner + planning kick-off)
+- FIXED **[tasks]** Bump goal-owner migration to 20260722160100 (avoid version collision with core ai_agent_overrides)
+- FIXED **[tasks]** Create agent_coordinator_dispatch pgmq queue in migration
+- FIXED **[tasks]** Cards view default + first, scrollable cards, row-cards icon
+- OTHER **[tasks]** Inbox rows — collapse preview whitespace, animated check dismiss
+- OTHER **[tasks]** Compact full-width inbox rows + Clear-all, drop per-row seen
+
 ## [0.1.63] - 2026-07-22
 - ADDED **[ui-icons]** Add Setup and Context Graph dock icons
 - FIXED **[engenty-copilot]** Pin session sidebar and polish chat list rows
