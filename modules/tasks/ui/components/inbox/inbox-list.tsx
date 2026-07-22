@@ -173,11 +173,11 @@ function InboxItem({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label={t("inbox.dismiss")}
+            aria-label={t("inbox.markSeen")}
             className="group h-6 w-6 shrink-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
             disabled={markMutation.isPending}
             onClick={() =>
-              markMutation.mutate({ action: "dismiss", id: notification.id })
+              markMutation.mutate({ action: "seen", id: notification.id })
             }
             size="icon"
             variant="ghost"
@@ -185,7 +185,7 @@ function InboxItem({
             <AnimatedCheckIcon aria-hidden play="hover" size="sm" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">{t("inbox.dismiss")}</TooltipContent>
+        <TooltipContent side="left">{t("inbox.markSeen")}</TooltipContent>
       </Tooltip>
     </li>
   );

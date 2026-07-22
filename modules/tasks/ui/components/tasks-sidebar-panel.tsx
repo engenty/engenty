@@ -572,9 +572,6 @@ export function TasksSidebarPanel() {
             >
               <div className="space-y-2">
                 <div>
-                  <SidebarNavSectionLabel>
-                    {t("sidebar.sectionOverview")}
-                  </SidebarNavSectionLabel>
                   <SidebarNavList>
                     <SidebarNavRow
                       active={navActive.briefing}
@@ -588,6 +585,12 @@ export function TasksSidebarPanel() {
                       icon={Inbox}
                       label={t("sidebar.inbox")}
                       to={tasksPaths.inbox}
+                    />
+                    <SidebarNavRow
+                      active={navActive.operations}
+                      icon={Activity}
+                      label={t("menu.operations")}
+                      to={tasksPaths.operations}
                     />
                   </SidebarNavList>
                 </div>
@@ -623,19 +626,6 @@ export function TasksSidebarPanel() {
                       icon={Zap}
                       label={t("tabs.routines")}
                       to={tasksPaths.routines}
-                    />
-                  </SidebarNavList>
-                </div>
-                <div>
-                  <SidebarNavSectionLabel>
-                    {t("sidebar.sectionOps")}
-                  </SidebarNavSectionLabel>
-                  <SidebarNavList>
-                    <SidebarNavRow
-                      active={navActive.operations}
-                      icon={Activity}
-                      label={t("menu.operations")}
-                      to={tasksPaths.operations}
                     />
                   </SidebarNavList>
                 </div>
