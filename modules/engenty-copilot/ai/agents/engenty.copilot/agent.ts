@@ -6,9 +6,10 @@ import { ENGENTY_COPILOT_TOOL_IDS } from "./tools.js";
 
 export const ENGENTY_COPILOT_AGENT_ID = "engenty.copilot";
 
-// CLI Agent is a builtin defined in apps/ai — reference by ID string only so
+// Builtin specialists defined in apps/ai — reference by ID string only so
 // the copilot module has no circular dependency on the apps layer.
 export const ENGENTY_CLI_AGENT_ID = "engenty.cli";
+export const ENGENTY_FILE_ANALYST_AGENT_ID = "engenty.file-analyst";
 
 const engentyCopilotSupervisorModel = resolveChatModelId({
   purpose: "routing",
@@ -16,14 +17,17 @@ const engentyCopilotSupervisorModel = resolveChatModelId({
 
 export const engentyCopilotAgentConfig: AgentConfig = {
   description:
-    "Supervisor copilot for Engenty. Uses registered catalog and app UI tools directly; delegates CLI/sandbox work to the engenty.cli sub-agent.",
+    "Supervisor copilot for Engenty. Uses registered catalog and app UI tools directly; delegates CLI/sandbox work to engenty.cli and file analysis to engenty.file-analyst.",
   id: ENGENTY_COPILOT_AGENT_ID,
   instructions: ENGENTY_INSTRUCTIONS,
   model: engentyCopilotSupervisorModel,
   name: "Engenty Copilot",
   skillIds: [],
   source: "builtin",
-  subAgents: [{ alias: "engenty_cli", id: ENGENTY_CLI_AGENT_ID }],
+  subAgents: [
+    { alias: "engenty_cli", id: ENGENTY_CLI_AGENT_ID },
+    { alias: "file_analyst", id: ENGENTY_FILE_ANALYST_AGENT_ID },
+  ],
   toolIds: ENGENTY_COPILOT_TOOL_IDS,
   // Personal-assistant desk: per-user `/home` (rw), `/skills` (ro), `/task`
   // when bound, tenant-shared `/shared` (rw). The sandbox powers Code Mode

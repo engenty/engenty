@@ -272,7 +272,7 @@ export function CopilotDrawerSurfaceTree({
           variant="compact"
         />
         <div
-          className="z-40"
+          className="z-40 overflow-visible"
           data-copilot-speech-scope
           key={`launcher:${surfaceInstanceKey}`}
           ref={layout.compactLauncherMeasureRef}
@@ -365,13 +365,13 @@ export function CopilotDrawerSurfaceTree({
     const bottomContent = (
       <div
         aria-label="Copilot dock"
-        className="absolute inset-x-0 bottom-0 z-10 flex justify-center px-3 pt-2 pb-4"
+        className="absolute inset-x-0 bottom-0 z-10 flex justify-center overflow-visible px-3 pt-12 pb-4"
         data-copilot-speech-scope
         key={`bottom:${surfaceInstanceKey}`}
         role="region"
       >
         <div
-          className="relative w-full max-w-2xl"
+          className="relative w-full max-w-2xl overflow-visible"
           ref={layout.bottomDockCardRef}
         >
           <CopilotCompactComposerShell

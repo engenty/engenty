@@ -20,7 +20,10 @@ function pushField(row: string[], field: string, quoted: boolean): void {
 }
 
 /** Parse delimited text into a raw matrix (no header/data split). */
-export function parseCSVRows(csvContent: string, delimiter: string): string[][] {
+export function parseCSVRows(
+  csvContent: string,
+  delimiter: string
+): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
   let currentField = "";

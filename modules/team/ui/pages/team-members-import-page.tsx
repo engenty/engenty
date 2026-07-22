@@ -290,13 +290,13 @@ export function TeamMembersImportPage() {
           }
           return suggested;
         }}
+        onBack={() => navigate(TEAM_MODULE_BASE)}
         onCleanup={async (input: CsvCleanupRequest) =>
           cleanupTeamImportCsv({
             csvText: input.csvText,
             fieldDefinitions: input.fieldDefinitions,
           })
         }
-        onBack={() => navigate(TEAM_MODULE_BASE)}
         onError={(message: string) => toast.error(message)}
         onImportComplete={(summary: ImportRunSummary) => {
           if (progressToastId.current !== undefined) {

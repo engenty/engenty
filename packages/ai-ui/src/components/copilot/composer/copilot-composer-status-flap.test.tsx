@@ -90,6 +90,31 @@ describe("CopilotComposerStatusFlap", () => {
     expect(screen.getByText("Angebotstitel wurde aktualisiert.")).toBeTruthy();
   });
 
+  it("hides the truncated idle summary when expanded (full reply is enough)", async () => {
+    const preview = "Leider immer noch nichts da – weder im Works...";
+    const full =
+      "Leider immer noch nichts da – weder im Workspace, Vault noch als Artifact.";
+    const { rerender } = renderFlap({
+      chatStatus: "streaming",
+      idlePreviewText: preview,
+      replyText: full,
+    });
+    rerender(
+      <CopilotComposerStatusFlap
+        chatStatus="ready"
+        closing={false}
+        idlePreviewText={preview}
+        messages={[]}
+        replyText={full}
+      />
+    );
+    await waitFor(() => {
+      expect(screen.getByText(full)).toBeTruthy();
+    });
+    // Truncated one-liner must not duplicate the expanded body.
+    expect(screen.queryByText(preview)).toBeNull();
+  });
+
   it("prefers the live status ticker over the idle preview while running", () => {
     // A running turn must show progress, not the stale previous reply.
     renderFlap({

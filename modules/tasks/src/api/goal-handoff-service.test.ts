@@ -83,7 +83,10 @@ describe("handoffGoalToCoordinator", () => {
     const { patches, repo } = makeRepo(makeGoal({ status: "active" }));
     const { queue } = fakeQueue();
 
-    await handoffGoalToCoordinator({ queue, repo, tenantId: "tenant" }, "goal-1");
+    await handoffGoalToCoordinator(
+      { queue, repo, tenantId: "tenant" },
+      "goal-1"
+    );
 
     expect(patches[0].input.owner_agent_type_key).toBe("engenty.coordinator");
     expect(patches[0].input.status).toBeUndefined();

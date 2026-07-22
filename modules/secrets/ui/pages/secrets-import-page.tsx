@@ -219,13 +219,13 @@ export function SecretsImportPage() {
           }
           return suggested;
         }}
+        onBack={() => navigate(SECRETS_MODULE_BASE)}
         onCleanup={async (input: CsvCleanupRequest) =>
           cleanupSecretsImportCsv({
             csvText: input.csvText,
             fieldDefinitions: input.fieldDefinitions,
           })
         }
-        onBack={() => navigate(SECRETS_MODULE_BASE)}
         onError={(message) => toast.error(message)}
         onImportComplete={(summary) => {
           if (progressToastId.current !== undefined) {

@@ -8,6 +8,7 @@ import { createStep } from "@mastra/core/workflows";
 import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
+import { summarizeTaskResultHeadline } from "./summarize-result-headline.js";
 import { buildTaskBrief } from "./task-brief.js";
 import { finishTaskJobRun, registerTaskJobRun } from "./task-job-run-record.js";
 import {
@@ -20,7 +21,6 @@ import {
   buildPriorLearningsSection,
   entityRefsFromContexts,
 } from "./task-prior-learnings.js";
-import { summarizeTaskResultHeadline } from "./summarize-result-headline.js";
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";

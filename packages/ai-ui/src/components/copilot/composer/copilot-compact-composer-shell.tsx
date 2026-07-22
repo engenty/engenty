@@ -395,8 +395,8 @@ export function CopilotCompactComposerShell({
   return (
     <div
       className={cn(
-        "relative motion-safe:transition-[padding-top] motion-safe:duration-300 motion-safe:ease-out",
-        rendered && "overflow-visible",
+        // Always visible so the peeking blob can sit above the flap/card.
+        "relative overflow-visible motion-safe:transition-[padding-top] motion-safe:duration-300 motion-safe:ease-out",
         className
       )}
       onBlur={(e) => {
@@ -527,8 +527,12 @@ export function CopilotCompactComposerShell({
           // edge so the two read as one attached surface — no gap. In-flow
           // (not absolute) so variable-height content (queue rows, approval
           // cards) pushes the transcript up instead of covering it.
-          <div className="relative -mb-5 rounded-t-xl border border-border border-b-0 bg-card px-3 pt-2.5 pb-7">
-            {avatarOverlay}
+          <div className="relative -mb-5 overflow-visible rounded-t-xl border border-border border-b-0 bg-card px-3 pt-2.5 pb-7">
+            {avatarOverlay ? (
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0 overflow-visible">
+                {avatarOverlay}
+              </div>
+            ) : null}
             {dockContent}
           </div>
         ) : null}
@@ -585,10 +589,12 @@ export function CopilotCompactComposerShell({
       {belowCard || showUsageMeter ? (
         <div
           className={cn(
-            "flex items-center justify-between gap-2 overflow-hidden pl-1 transition-all duration-300 ease-in-out",
+            "flex items-center justify-between gap-2 pl-1 transition-all duration-300 ease-in-out",
             active
-              ? "mt-1 h-7 opacity-100"
-              : "pointer-events-none mt-0 h-0 opacity-0"
+              ? // Soft card-colored frost behind the meta row (no border/chrome) —
+                // keeps model/context labels readable over busy page content.
+                "relative isolate mt-1 h-7 text-foreground opacity-100 before:pointer-events-none before:absolute before:-inset-x-3 before:-inset-y-1.5 before:-z-10 before:rounded-lg before:bg-card/75 before:shadow-[0_0_20px_14px_color-mix(in_oklch,var(--card)_70%,transparent)] supports-[backdrop-filter]:before:bg-card/50 supports-[backdrop-filter]:before:backdrop-blur-md"
+              : "pointer-events-none mt-0 h-0 overflow-hidden opacity-0"
           )}
         >
           {belowCard ?? <span />}

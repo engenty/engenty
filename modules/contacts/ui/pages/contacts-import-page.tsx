@@ -245,13 +245,13 @@ export function ContactsImportPage() {
           }
           return suggested;
         }}
+        onBack={() => navigate("/mdl/contacts")}
         onCleanup={async (input: CsvCleanupRequest) =>
           cleanupContactsImportCsv({
             csvText: input.csvText,
             fieldDefinitions: input.fieldDefinitions,
           })
         }
-        onBack={() => navigate("/mdl/contacts")}
         onError={(message) => toast.error(message)}
         onImportComplete={(summary) => {
           if (progressToastId.current !== undefined) {

@@ -26,7 +26,6 @@ import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
 import { isParkedResumeInFlight } from "../ai/conversation/session-park.js";
-import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
@@ -57,12 +56,15 @@ import {
 } from "../ai/sessions/tool-approval-grants.js";
 import { readDecisionResumeChoice } from "../ai/sessions/transcript.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
-import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type {
   AgentRunStore,
   AgentSessionStore,
 } from "../dal/agent-sessions/index.js";
+import {
+  latestUserAttachmentParts,
+  resolveTieredAttachments,
+} from "./attachments/tiered-attachments.js";
 import type { AgUiDebugEventBus } from "./copilotkit-debug-events.js";
 import {
   type AiScopeResolver,
@@ -70,6 +72,13 @@ import {
   resolveScope,
   uuidString,
 } from "./http.js";
+
+export {
+  isModelFeedableMime,
+  latestUserAttachmentParts,
+  latestUserAttachments,
+  resolveTieredAttachments,
+} from "./attachments/tiered-attachments.js";
 
 // AG-UI message content is a string or a parts array ([{ type:"text", text }]).
 // Extract plain text — never JSON.stringify, or the user turn persists as raw
@@ -133,104 +142,6 @@ function latestUserText(input: RunAgentInput): string {
   return "";
 }
 
-interface UserAttachmentRef {
-  filename?: string;
-  mimeType: string;
-  storageKey: string;
-}
-
-// MIME types the model can actually ingest. Everything else still lives in the
-// Vault (referenced on the message) but is not fed into the multimodal input.
-export function isModelFeedableMime(mimeType: string): boolean {
-  return mimeType.startsWith("image/") || mimeType === "application/pdf";
-}
-
-// Attachment references carried on the latest user turn's `image`/`document`
-// content parts (see `@engenty/ai-ui` chat-attachment-part). The storage key is
-// resolved to bytes below; the parts themselves carry no base64.
-export function latestUserAttachments(
-  input: RunAgentInput
-): UserAttachmentRef[] {
-  const messages = Array.isArray(input.messages) ? input.messages : [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i] as { content?: unknown; role?: string };
-    if (message?.role !== "user") {
-      continue;
-    }
-    const content = message.content;
-    if (!Array.isArray(content)) {
-      return [];
-    }
-    const refs: UserAttachmentRef[] = [];
-    for (const part of content) {
-      if (!part || typeof part !== "object") {
-        continue;
-      }
-      const partType = (part as { type?: unknown }).type;
-      if (partType !== "image" && partType !== "document") {
-        continue;
-      }
-      const meta = (part as { metadata?: { engenty_attachment?: unknown } })
-        .metadata?.engenty_attachment as
-        | { filename?: unknown; mimeType?: unknown; storageKey?: unknown }
-        | undefined;
-      if (!meta || typeof meta.storageKey !== "string" || !meta.storageKey) {
-        continue;
-      }
-      refs.push({
-        filename: typeof meta.filename === "string" ? meta.filename : undefined,
-        mimeType: typeof meta.mimeType === "string" ? meta.mimeType : "",
-        storageKey: meta.storageKey,
-      });
-    }
-    return refs;
-  }
-  return [];
-}
-
-// The raw `image`/`document` content parts on the latest user turn (verbatim,
-// with their `engenty_attachment` metadata). Mastra persists the user turn as
-// text-only, so these are handed to the memory storage to append to the durable
-// user message — this is what makes attachments survive a thread reload.
-export function latestUserAttachmentParts(input: RunAgentInput): unknown[] {
-  const messages = Array.isArray(input.messages) ? input.messages : [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i] as { content?: unknown; role?: string };
-    if (message?.role !== "user") {
-      continue;
-    }
-    const content = message.content;
-    if (!Array.isArray(content)) {
-      return [];
-    }
-    return content.filter((part) => {
-      if (!part || typeof part !== "object") {
-        return false;
-      }
-      const partType = (part as { type?: unknown }).type;
-      if (partType !== "image" && partType !== "document") {
-        return false;
-      }
-      const metadata = (
-        part as {
-          metadata?: {
-            engenty_attachment?: { storageKey?: unknown };
-            engenty_refs?: unknown;
-          };
-        }
-      ).metadata;
-      // The typed @-mention reference carrier persists alongside attachments so
-      // reference chips survive a thread reload.
-      if (Array.isArray(metadata?.engenty_refs)) {
-        return true;
-      }
-      const key = metadata?.engenty_attachment?.storageKey;
-      return typeof key === "string" && key.length > 0;
-    });
-  }
-  return [];
-}
-
 // Typed @-mention references on the latest user turn (the `engenty_refs`
 // carrier part — see `@engenty/ai-ui` chat-reference-part).
 export function latestUserReferenceItems(
@@ -273,58 +184,6 @@ export function latestUserReferenceItems(
     return items;
   }
   return [];
-}
-
-// Download + base64-encode the model-feedable attachments on the current turn so
-// they can be handed to `session.sendMessage({ files })`. Best-effort: a failed
-// download is logged and skipped rather than failing the whole run.
-async function resolveModelAttachments(params: {
-  coreBaseUrl?: string;
-  input: RunAgentInput;
-  userAccessToken?: string;
-}): Promise<Array<{ data: string; filename?: string; mediaType: string }>> {
-  const { userAccessToken } = params;
-  // Prefer the app-wired base URL; fall back to the env the rest of apps/ai
-  // uses (createApp() is booted without an explicit coreBaseUrl in prod).
-  const coreBaseUrl = params.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
-  if (!(coreBaseUrl && userAccessToken)) {
-    return [];
-  }
-  const refs = latestUserAttachments(params.input).filter((ref) =>
-    isModelFeedableMime(ref.mimeType)
-  );
-  if (refs.length === 0) {
-    return [];
-  }
-  const fileClient = createEngentyCoreFileStorageClient({
-    bucket: "files",
-    coreBaseUrl,
-    userAccessToken,
-  });
-  const resolved: Array<{
-    data: string;
-    filename?: string;
-    mediaType: string;
-  }> = [];
-  for (const ref of refs) {
-    try {
-      const bytes = await fileClient.download(ref.storageKey);
-      if (!bytes) {
-        continue;
-      }
-      resolved.push({
-        // Data-URL form — Mastra passes `data` verbatim into the model `file`
-        // part, and the AI SDK only reliably decodes data URLs (a raw base64
-        // string reaches the Gateway as-is and is rejected: "Invalid input").
-        data: `data:${ref.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
-        mediaType: ref.mimeType,
-        ...(ref.filename ? { filename: ref.filename } : {}),
-      });
-    } catch (err) {
-      console.error("conversation attachment resolve failed", err);
-    }
-  }
-  return resolved;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -708,11 +567,12 @@ export function registerAgentSessionRunRoutes(
       const hsConnectionGrants = await loadConnectionApprovalGrants({
         userAccessToken: scope.scope.userAccessToken,
       });
-      // Photo/PDF attachments on this turn → base64 for the model. An artifact
-      // resume carries no new user message, so there is nothing to resolve.
-      const hsAttachments = isArtifactResume
-        ? []
-        : await resolveModelAttachments({
+      // Tiered attachments: images/PDFs → multimodal files; small text/CSV →
+      // run context (≤32KiB); larger/binary → manifest + agent-file_analyst.
+      // Artifact resume carries no new user message, so there is nothing to resolve.
+      const hsTieredAttachments = isArtifactResume
+        ? { contextEntries: [], modelAttachments: [] }
+        : await resolveTieredAttachments({
             coreBaseUrl: opts.coreBaseUrl,
             input: body.data,
             userAccessToken: scope.scope.userAccessToken,
@@ -722,21 +582,24 @@ export function registerAgentSessionRunRoutes(
       const hsAttachmentParts = isArtifactResume
         ? []
         : latestUserAttachmentParts(body.data);
-      // Slash-command expansion + typed @-mention references ride the run
-      // context (system instructions) — the raw user text persists untouched.
+      // Slash-command expansion + typed @-mention references + attachment
+      // manifest/inline text ride the run context — raw user text stays untouched.
       const hsChatContextEntries =
         isArtifactResume || isResumeRun
           ? []
-          : await buildChatTurnContextEntries({
-              agentId: session.agent_id,
-              moduleLoader: opts.moduleLoader,
-              prompt: hsPrompt,
-              refs: latestUserReferenceItems(body.data),
-            });
+          : [
+              ...(await buildChatTurnContextEntries({
+                agentId: session.agent_id,
+                moduleLoader: opts.moduleLoader,
+                prompt: hsPrompt,
+                refs: latestUserReferenceItems(body.data),
+              })),
+              ...hsTieredAttachments.contextEntries,
+            ];
       void startConversationRun({
         agentId: session.agent_id,
         agentUi: agentUi ?? null,
-        attachments: hsAttachments,
+        attachments: hsTieredAttachments.modelAttachments,
         attachmentParts: hsAttachmentParts,
         approvalGrants: mergeApprovalGrants(
           hsApprovalGrants,

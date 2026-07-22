@@ -3,6 +3,7 @@ export {
   createEngentyCopilotAgent,
   ENGENTY_CLI_AGENT_ID,
   ENGENTY_COPILOT_AGENT_ID,
+  ENGENTY_FILE_ANALYST_AGENT_ID,
   engentyCopilotAgentConfig,
 } from "./agent.js";
 export {

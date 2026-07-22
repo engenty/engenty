@@ -1,5 +1,5 @@
-import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import { DockSetupIcon } from "@engenty/ui-core";
+import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { useShellSecondaryNav } from "../../context/shell-secondary-nav-context.js";
 import { ModuleSidebarHeaderLabel } from "./module-sidebar-header-label.js";
