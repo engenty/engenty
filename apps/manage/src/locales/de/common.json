@@ -260,7 +260,11 @@
     "saveOverride": "Überschreibung speichern",
     "clearOverride": "Überschreibung entfernen",
     "overrideSaved": "Überschreibung gespeichert",
-    "overrideCleared": "Überschreibung entfernt"
+    "overrideCleared": "Überschreibung entfernt",
+    "aiOverrideLabel": "KI-Governance",
+    "aiAllowList": "Modell-Erlaubnisliste",
+    "aiAllowListHint": "Komma- oder leerzeichengetrennte Gateway-Modell-IDs (z. B. openai/gpt-5-mini). Leer lassen, um alle Modelle zu erlauben. Wird im Modus „Erzwingen“ durchgesetzt.",
+    "aiHardLimit": "KI-Hartlimit ($ / Periode)"
   },
   "satellites": {
     "title": "Satelliten",

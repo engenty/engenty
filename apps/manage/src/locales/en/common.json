@@ -260,7 +260,11 @@
     "saveOverride": "Save override",
     "clearOverride": "Clear override",
     "overrideSaved": "Override saved",
-    "overrideCleared": "Override cleared"
+    "overrideCleared": "Override cleared",
+    "aiOverrideLabel": "AI governance",
+    "aiAllowList": "Model allow-list",
+    "aiAllowListHint": "Comma- or space-separated Gateway model ids (e.g. openai/gpt-5-mini). Leave blank to allow all models. Enforced when the mode is Enforce.",
+    "aiHardLimit": "AI hard limit ($ / period)"
   },
   "satellites": {
     "title": "Satellites",

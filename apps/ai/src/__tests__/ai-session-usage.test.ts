@@ -234,7 +234,9 @@ describe("AI session usage metering", () => {
         included_cost_micros: null,
         hard_limit_cost_micros: null,
         soft_limit_cost_micros: null,
-        allowed_models: ["openai/tenant-routing"],
+        // Both tenant-pinned models must be on the allow-list — with enforce
+        // mode, a pin outside the list is demoted to the platform/default.
+        allowed_models: ["openai/tenant-chat", "openai/tenant-routing"],
         enforcement_mode: "enforce",
         currency: "usd",
         created_at: "2026-01-01T00:00:00Z",

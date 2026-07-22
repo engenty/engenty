@@ -72,9 +72,20 @@ describe("toTenantUsagePolicyRow", () => {
     expect(row.period_unit).toBe("month");
   });
 
-  it("uses tier 'free' when no package is assigned", () => {
+  it("marks a packaged tenant's policy as centrally managed", () => {
+    const row = toTenantUsagePolicyRow(
+      "t1",
+      resolveEntitlements(pkg("team", 1))
+    );
+    // Locks the AI plane's tenant-facing PATCH route (409 policy_managed).
+    expect(row.managed_by).toBe("entitlement");
+  });
+
+  it("uses tier 'free' and stays self-service when no package is assigned", () => {
     const row = toTenantUsagePolicyRow("t1", resolveEntitlements(null));
     expect(row.tier).toBe("free");
     expect(row.enforcement_mode).toBe("observe");
+    // No plan → the tenant admin keeps self-service control.
+    expect(row.managed_by).toBe("tenant");
   });
 });

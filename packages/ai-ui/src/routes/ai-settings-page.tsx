@@ -1,4 +1,4 @@
-import { useSetupSecondaryShellNav } from "@engenty/app-shell";
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -29,6 +29,7 @@ import {
   useDocConverterAvailabilityQuery,
   useEffectiveAiSettingsQuery,
   useGatewayModelOptionsQuery,
+  useTenantUsagePolicyQuery,
 } from "../lib/admin/ai-settings-queries";
 import type { GatewayModelPriceTier } from "../lib/admin/gateway-model-options-api";
 
@@ -53,9 +54,8 @@ const PRICE_TIERS: Array<"all" | GatewayModelPriceTier> = [
 export function AiGeneralSettingsPage() {
   const { t } = useTranslation("ai-ui");
   const { t: tCommon } = useTranslation("common");
-  const { moduleRootCrumb, secondaryNavHeaderSlot } = useSetupSecondaryShellNav(
-    tCommon("navigation.setup")
-  );
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(tCommon("navigation.settings"));
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     loading,
@@ -70,6 +70,12 @@ export function AiGeneralSettingsPage() {
   } = useAiSettings();
   const availabilityQuery = useDocConverterAvailabilityQuery();
   const effectiveQuery = useEffectiveAiSettingsQuery();
+  const usagePolicyQuery = useTenantUsagePolicyQuery();
+  // Governance: a plan-governed tenant may still PICK models, but only within
+  // its allow-list. The picker options are filtered server-side; this note tells
+  // the admin why the catalog is smaller. Budgets (limits tab) are read-only.
+  const allowListActive =
+    (usagePolicyQuery.data?.allowed_models?.length ?? 0) > 0;
   const [maxPriceTier, setMaxPriceTier] = useState<
     "all" | GatewayModelPriceTier
   >("medium");
@@ -307,6 +313,14 @@ export function AiGeneralSettingsPage() {
             ) : null}
 
             <TabsContent className="space-y-6" value="copilot">
+              {allowListActive ? (
+                <div
+                  className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-muted-foreground text-xs"
+                  role="status"
+                >
+                  {t("matrix.allowlistNote")}
+                </div>
+              ) : null}
               <ModelMatrixCard
                 chatModels={chatModels}
                 effective={effectiveQuery.data}

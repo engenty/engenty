@@ -123,6 +123,15 @@ function pick(value: string | null | undefined): string | undefined {
 export interface ResolvePurposeModelOptions {
   /** Per-agent pinned model. */
   agentOverride?: string | null;
+  /**
+   * Governance allow-list (usage policy `allowed_models`). Session/agent/tenant
+   * pins outside the list are SKIPPED so resolution degrades to the
+   * operator-controlled platform/default layers instead of hard-failing — a
+   * plan tightening must not break existing tenants. Platform/default values
+   * are never filtered (they are the operator's own choice). Empty/null = no
+   * restriction.
+   */
+  allowedModels?: readonly string[] | null;
   purpose: AiModelPurpose;
   /** Env reader; server callers pass a `process.env`-backed reader. */
   readEnv?: (key: string) => string | undefined;
@@ -138,17 +147,22 @@ export function resolvePurposeModel(
 ): ResolvedModel {
   const spec = AI_MODEL_PURPOSE_SPECS[options.purpose];
   const read = options.readEnv ?? (() => undefined);
+  const allowList =
+    options.allowedModels && options.allowedModels.length > 0
+      ? options.allowedModels
+      : null;
+  const allowed = (value: string) => !allowList || allowList.includes(value);
 
   const session = pick(options.sessionOverride);
-  if (session) {
+  if (session && allowed(session)) {
     return { purpose: options.purpose, value: session, source: "session" };
   }
   const agent = pick(options.agentOverride);
-  if (agent) {
+  if (agent && allowed(agent)) {
     return { purpose: options.purpose, value: agent, source: "agent" };
   }
   const tenant = pick(options.tenantDefault);
-  if (tenant) {
+  if (tenant && allowed(tenant)) {
     return { purpose: options.purpose, value: tenant, source: "tenant" };
   }
   for (const key of spec.envKeys) {

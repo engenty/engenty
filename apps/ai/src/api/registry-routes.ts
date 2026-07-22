@@ -16,6 +16,29 @@ import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
 import { listModuleTools } from "./registry-module-tools.js";
 
+/**
+ * Mutating the shared agent registry (model overrides, per-agent budgets,
+ * instructions) is a tenant-admin action, not something any authenticated
+ * member may do. superadmin | tenant-admin | tenantRole==="admin" pass.
+ */
+function requireAgentAdmin(
+  c: { json: (object: unknown, status?: number) => Response },
+  scope: {
+    isSuperAdmin?: boolean;
+    isTenantAdmin?: boolean;
+    tenantRole?: "admin" | "member" | null;
+  }
+): Response | null {
+  if (
+    scope.isSuperAdmin === true ||
+    scope.isTenantAdmin === true ||
+    scope.tenantRole === "admin"
+  ) {
+    return null;
+  }
+  return c.json({ error: "agent_sessions.forbidden" }, 403);
+}
+
 export interface RegisterRegistryRoutesOptions {
   getRegistry?: (tenantId: string) => AiRegistry;
   getStore: () => RegistryStore | null;
@@ -300,6 +323,10 @@ export function registerRegistryRoutes(
     const resolved = await resolveScope(c, scopeResolver);
     if (!resolved.ok) {
       return resolved.response;
+    }
+    const adminError = requireAgentAdmin(c, resolved.scope);
+    if (adminError) {
+      return adminError;
     }
     const store = getStore();
     if (!store) {

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { PageState } from "@/components/PageState";
 import {
   clearTenantOverride,
+  type EntitlementEnforcementMode,
   setTenantOverride,
   setTenantPackage,
 } from "@/lib/api/entitlements";
@@ -40,6 +41,33 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
     const current = data?.override?.appLimits?.maxUsers;
     setSeatDraft(current == null ? "" : String(current));
   }, [data?.override?.appLimits?.maxUsers]);
+
+  // Draft AI override (allow-list + hard limit + enforcement), seeded from the
+  // current override. Empty allow-list draft = clear the restriction (all
+  // models). The resolved policy is written into `ai.tenant_usage_policy` with
+  // `managed_by='entitlement'`, which the AI plane treats as read-only for the
+  // tenant admin.
+  const [allowDraft, setAllowDraft] = useState<string>("");
+  const [aiLimitDraft, setAiLimitDraft] = useState<string>("");
+  const [aiModeDraft, setAiModeDraft] =
+    useState<EntitlementEnforcementMode>("observe");
+  useEffect(() => {
+    const ai = data?.override?.aiUsagePolicy;
+    setAllowDraft((ai?.allowed_models ?? []).join(", "));
+    setAiLimitDraft(
+      ai?.hard_limit_cost_micros == null
+        ? ""
+        : String(ai.hard_limit_cost_micros / 1_000_000)
+    );
+    setAiModeDraft(
+      ai?.enforcement_mode ??
+        data?.resolved.aiUsagePolicy.enforcement_mode ??
+        "observe"
+    );
+  }, [
+    data?.override?.aiUsagePolicy,
+    data?.resolved.aiUsagePolicy.enforcement_mode,
+  ]);
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -71,6 +99,38 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
             base.appLimits?.enforcement_mode ??
             data?.resolved.appLimits.enforcement_mode ??
             "observe",
+        },
+      });
+    },
+    onSuccess: async () => {
+      toast.success(t("entitlements.overrideSaved"));
+      await invalidate();
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : t("common.error")),
+  });
+
+  const saveAi = useMutation({
+    mutationFn: () => {
+      const models = allowDraft
+        .split(/[\s,]+/)
+        .map((m) => m.trim())
+        .filter(Boolean);
+      const limitTrimmed = aiLimitDraft.trim();
+      const dollars =
+        limitTrimmed === "" ? null : Number.parseFloat(limitTrimmed);
+      const hardMicros =
+        dollars == null || !Number.isFinite(dollars) || dollars < 0
+          ? null
+          : Math.round(dollars * 1_000_000);
+      const base = data?.override ?? {};
+      return setTenantOverride(tenantId, {
+        ...base,
+        aiUsagePolicy: {
+          ...base.aiUsagePolicy,
+          allowed_models: models.length > 0 ? models : null,
+          hard_limit_cost_micros: hardMicros,
+          enforcement_mode: aiModeDraft,
         },
       });
     },
@@ -219,6 +279,84 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
                     {t("entitlements.clearOverride")}
                   </Button>
                 ) : null}
+              </div>
+            </section>
+
+            {/* AI governance override — model allow-list + budget + enforcement.
+                Written into ai.tenant_usage_policy as managed_by='entitlement'. */}
+            <section className="space-y-2">
+              <h2 className="font-medium text-sm">
+                {t("entitlements.aiOverrideLabel")}
+              </h2>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label
+                    className="text-muted-foreground text-xs"
+                    htmlFor="ai-allowlist"
+                  >
+                    {t("entitlements.aiAllowList")}
+                  </label>
+                  <Input
+                    id="ai-allowlist"
+                    onChange={(e) => setAllowDraft(e.target.value)}
+                    placeholder="openai/gpt-5-mini, anthropic/claude-sonnet-5"
+                    value={allowDraft}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    {t("entitlements.aiAllowListHint")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="space-y-1">
+                    <label
+                      className="text-muted-foreground text-xs"
+                      htmlFor="ai-hard-limit"
+                    >
+                      {t("entitlements.aiHardLimit")}
+                    </label>
+                    <Input
+                      className="w-40"
+                      id="ai-hard-limit"
+                      inputMode="decimal"
+                      onChange={(e) => setAiLimitDraft(e.target.value)}
+                      placeholder={t("entitlements.inherit")}
+                      value={aiLimitDraft}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      className="text-muted-foreground text-xs"
+                      htmlFor="ai-mode"
+                    >
+                      {t("entitlements.enforcement")}
+                    </label>
+                    <Select
+                      onValueChange={(value) =>
+                        setAiModeDraft(value as EntitlementEnforcementMode)
+                      }
+                      value={aiModeDraft}
+                    >
+                      <SelectTrigger className="w-40" id="ai-mode">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="observe">
+                          {t("packages.mode.observe")}
+                        </SelectItem>
+                        <SelectItem value="enforce">
+                          {t("packages.mode.enforce")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    disabled={saveAi.isPending}
+                    onClick={() => saveAi.mutate()}
+                    size="sm"
+                  >
+                    {t("entitlements.saveOverride")}
+                  </Button>
+                </div>
               </div>
             </section>
           </>

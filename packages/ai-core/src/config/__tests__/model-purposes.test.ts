@@ -83,3 +83,55 @@ describe("resolvePurposeModel provenance", () => {
     ]);
   });
 });
+
+describe("resolvePurposeModel governance allow-list", () => {
+  it("keeps a tenant pin that is on the allow-list", () => {
+    expect(
+      resolvePurposeModel({
+        purpose: "chat",
+        tenantDefault: "openai/gpt-5",
+        allowedModels: ["openai/gpt-5", "openai/gpt-5-mini"],
+        readEnv: noEnv,
+      })
+    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "tenant" });
+  });
+
+  it("demotes a tenant pin outside the allow-list to platform/default", () => {
+    // The tenant pinned a now-disallowed model; resolution must fall through to
+    // the operator-controlled layers instead of returning the illegal pin.
+    const resolved = resolvePurposeModel({
+      purpose: "chat",
+      tenantDefault: "anthropic/claude-opus-4-8",
+      allowedModels: ["openai/gpt-5-mini"],
+      readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5-mini" : undefined),
+    });
+    expect(resolved).toEqual({
+      purpose: "chat",
+      value: "openai/gpt-5-mini",
+      source: "platform",
+    });
+  });
+
+  it("does not filter platform/default values against the allow-list", () => {
+    // The operator's own env/default choice is authoritative even if it is not
+    // in the list (the list constrains tenant/session pins, not the platform).
+    expect(
+      resolvePurposeModel({
+        purpose: "chat",
+        allowedModels: ["openai/gpt-5-mini"],
+        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
+      })
+    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "platform" });
+  });
+
+  it("treats an empty allow-list as no restriction", () => {
+    expect(
+      resolvePurposeModel({
+        purpose: "chat",
+        tenantDefault: "openai/gpt-5",
+        allowedModels: [],
+        readEnv: noEnv,
+      }).value
+    ).toBe("openai/gpt-5");
+  });
+});

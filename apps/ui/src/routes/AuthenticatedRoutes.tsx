@@ -126,11 +126,11 @@ export function AuthenticatedRoutes({
               <Navigate replace to={MEMBER_SETTINGS_HOME} />
             )
           }
-          path="/setup/ai"
+          path="/settings/ai"
         />
         <Route
-          element={<Navigate replace to="/setup/ai" />}
-          path="/settings/ai"
+          element={<Navigate replace to="/settings/ai" />}
+          path="/setup/ai"
         />
         <Route
           element={<Navigate replace to={AGENTS_WORKSPACE_ROOT_PATH} />}
@@ -153,7 +153,7 @@ export function AuthenticatedRoutes({
           path="/settings/appearance"
         />
         <Route
-          element={<Navigate replace to="/setup/ai?tab=usage" />}
+          element={<Navigate replace to="/settings/ai?tab=usage" />}
           path="/settings/ai-usage"
         />
         <Route

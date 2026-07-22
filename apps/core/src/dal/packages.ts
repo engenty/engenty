@@ -114,6 +114,11 @@ export function toTenantUsagePolicyRow(
     allowed_models: p.allowed_models,
     enforcement_mode: p.enforcement_mode,
     currency: p.currency,
+    // A policy materialized from an assigned plan is centrally governed: the AI
+    // plane's tenant-facing PATCH route rejects edits (409), so the plan is the
+    // single source of truth. A tenant with no package (free/un-packaged) stays
+    // self-service, so removing a plan reverts control to the tenant admin.
+    managed_by: resolved.packageId ? "entitlement" : "tenant",
     updated_at: new Date().toISOString(),
   };
 }

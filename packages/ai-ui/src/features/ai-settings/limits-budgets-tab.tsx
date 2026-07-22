@@ -59,6 +59,10 @@ export function LimitsBudgetsTab({
   const policyQuery = useTenantUsagePolicyQuery();
   const saveMutation = useSaveTenantUsagePolicyMutation();
   const server = policyQuery.data;
+  // Centrally governed by the tenant's plan → read-only here. The values still
+  // render (transparency) but the tenant admin cannot edit them; changes come
+  // from the platform operator via the manage app.
+  const managed = server?.managed_by === "entitlement";
 
   const [enforcement, setEnforcement] =
     useState<UsageEnforcementMode>("observe");
@@ -114,6 +118,19 @@ export function LimitsBudgetsTab({
 
   return (
     <div className="space-y-6">
+      {managed ? (
+        <div
+          className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm"
+          role="status"
+        >
+          <p className="font-medium text-foreground">
+            {t("limits.managedTitle")}
+          </p>
+          <p className="mt-0.5 text-muted-foreground text-xs">
+            {t("limits.managedDesc")}
+          </p>
+        </div>
+      ) : null}
       <SettingsFormSection
         description={t("limits.enforcementDesc")}
         title={t("limits.enforcementTitle")}
@@ -128,6 +145,7 @@ export function LimitsBudgetsTab({
                 {(["observe", "enforce"] as const).map((mode) => (
                   <Button
                     className="h-8 rounded-none border-0 px-4 text-xs"
+                    disabled={managed}
                     key={mode}
                     onClick={() => setEnforcement(mode)}
                     size="sm"
@@ -150,6 +168,7 @@ export function LimitsBudgetsTab({
                 <Label htmlFor="soft-limit">{t("limits.softLimit")}</Label>
                 <Input
                   className="h-8"
+                  disabled={managed}
                   id="soft-limit"
                   inputMode="decimal"
                   onChange={(e) => setSoftInput(e.target.value)}
@@ -164,6 +183,7 @@ export function LimitsBudgetsTab({
                 <Label htmlFor="hard-limit">{t("limits.hardLimit")}</Label>
                 <Input
                   className="h-8"
+                  disabled={managed}
                   id="hard-limit"
                   inputMode="decimal"
                   onChange={(e) => setHardInput(e.target.value)}
@@ -179,7 +199,7 @@ export function LimitsBudgetsTab({
             <div>
               <Button
                 className="gap-1.5"
-                disabled={!dirty || saveMutation.isPending}
+                disabled={managed || !dirty || saveMutation.isPending}
                 onClick={handleSavePolicy}
                 size="sm"
                 type="button"
@@ -251,57 +271,63 @@ export function LimitsBudgetsTab({
                   variant="outline"
                 >
                   {model}
-                  <button
-                    aria-label={t("limits.allowlistRemove", { model })}
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() =>
-                      setAllowed((prev) => prev.filter((m) => m !== model))
-                    }
-                    type="button"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                  {managed ? null : (
+                    <button
+                      aria-label={t("limits.allowlistRemove", { model })}
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() =>
+                        setAllowed((prev) => prev.filter((m) => m !== model))
+                      }
+                      type="button"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </Badge>
               ))
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Input
-              className="h-8 sm:max-w-xs"
-              onChange={(e) => setNewModel(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addModel();
-                }
-              }}
-              placeholder="provider/model"
-              value={newModel}
-            />
-            <Button
-              className="gap-1"
-              onClick={addModel}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t("limits.allowlistAdd")}
-            </Button>
-          </div>
-          <div>
-            <Button
-              className="gap-1.5"
-              disabled={!dirty || saveMutation.isPending}
-              onClick={handleSavePolicy}
-              size="sm"
-              type="button"
-              variant={dirty ? "default" : "outline"}
-            >
-              <Save className="h-3.5 w-3.5" />
-              {t("limits.savePolicy")}
-            </Button>
-          </div>
+          {managed ? null : (
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  className="h-8 sm:max-w-xs"
+                  onChange={(e) => setNewModel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addModel();
+                    }
+                  }}
+                  placeholder="provider/model"
+                  value={newModel}
+                />
+                <Button
+                  className="gap-1"
+                  onClick={addModel}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("limits.allowlistAdd")}
+                </Button>
+              </div>
+              <div>
+                <Button
+                  className="gap-1.5"
+                  disabled={!dirty || saveMutation.isPending}
+                  onClick={handleSavePolicy}
+                  size="sm"
+                  type="button"
+                  variant={dirty ? "default" : "outline"}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {t("limits.savePolicy")}
+                </Button>
+              </div>
+            </>
+          )}
         </SettingsFormSection>
       ) : null}
     </div>

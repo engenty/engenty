@@ -90,6 +90,7 @@
   "matrix": {
     "title": "Modell-Matrix",
     "description": "Ein Modell pro Zweck. Eine leere Auswahl erbt den Plattform-Standard; das Badge zeigt, woher der effektive Wert stammt.",
+    "allowlistNote": "Dein Tarif schränkt die verfügbaren Modelle ein. Die Auswahl zeigt nur die in deinem Tarif enthaltenen Modelle.",
     "purpose": {
       "chat": {
         "label": "Chat",
@@ -165,7 +166,9 @@
     "allowlistEmpty": "Alle Modelle erlaubt.",
     "allowlistAdd": "Modell hinzufügen",
     "allowlistRemove": "{{model}} entfernen",
-    "pro": "PRO"
+    "pro": "PRO",
+    "managedTitle": "Über deinen Tarif verwaltet",
+    "managedDesc": "Deine KI-Budgets und Modellfreigaben werden durch deinen Tarif festgelegt. Diese Werte werden zur Transparenz angezeigt und sind hier schreibgeschützt — wende dich an deine Plattform-Administration, um sie zu ändern."
   },
   "agentsTab": {
     "title": "Agent-Overrides",

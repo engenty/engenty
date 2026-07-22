@@ -7,9 +7,11 @@ import {
   type RunAgentInput,
   RunAgentInputSchema,
 } from "@engenty/ag-ui-bridge";
-import type {
-  AiUsageStore,
-  DynamicAiModuleCapabilityLoader,
+import {
+  type AiUsageStore,
+  checkUsageLimits,
+  type DynamicAiModuleCapabilityLoader,
+  formatUsageLimitError,
 } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
@@ -44,6 +46,7 @@ import {
 import { resolveToolCallResultInHistory } from "../ai/sessions/resolve-tool-call-history.js";
 import {
   isRunLiveInProcess,
+  markRunDone,
   markRunLive,
   subscribeRunEvents,
 } from "../ai/sessions/run-event-bus.js";
@@ -561,6 +564,26 @@ export function registerAgentSessionRunRoutes(
         });
       } catch (err) {
         console.error("conversation model config resolution failed", err);
+      }
+      // Usage-limit + model-allow-list preflight. The streaming chat path must
+      // REJECT over-limit runs, not just meter them post-hoc (parity with the
+      // non-streaming sessions.generate() preflight). Resumes of an already
+      // suspended run are intentionally not re-gated — denying a pending
+      // approval mid-run would strand the interrupt.
+      const usagePreflight = await checkUsageLimits({
+        agent_budget_cost_micros: hsModelConfig?.agentBudgetCostMicros ?? null,
+        agent_id: session.agent_id,
+        feature: "copilot",
+        model_id: hsModelConfig?.modelId ?? modelIdOverride ?? "",
+        store: opts.getUsageStore?.() ?? null,
+        tenant_id: scope.scope.tenantId,
+        user_id: scope.scope.userId,
+      });
+      if (!usagePreflight.allowed) {
+        // Not yet started: thread status is still idle, only the liveness
+        // marker set at branch entry needs clearing.
+        markRunDone(runId);
+        return c.json(formatUsageLimitError(usagePreflight), 429);
       }
       // Durable connection-level "always allow" grants (Settings → Connections)
       // merge with this chat's session grants; both feed the same pre-gate.

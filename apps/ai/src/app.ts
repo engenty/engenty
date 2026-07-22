@@ -678,6 +678,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   registerGatewayModelRoutes(app, {
     getGatewayModelStore: () =>
       isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
+    getUsageStore: () => aiUsageStore ?? null,
     scopeResolver,
   });
   registerAiSettingsRoutes(app, { scopeResolver });

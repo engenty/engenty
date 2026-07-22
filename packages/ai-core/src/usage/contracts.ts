@@ -82,6 +82,17 @@ export interface UsagePeriodTotalRecord {
   user_id: string;
 }
 
+/**
+ * Who owns a tenant's usage policy.
+ * - `tenant`: self-service (open-source / self-hosted default). The tenant admin
+ *   edits limits + allow-list via `PATCH /ai/v1/usage/policy`.
+ * - `entitlement`: centrally governed. The policy is materialized from the
+ *   tenant's entitlement package/override (`applyAiUsagePolicy`); tenant-facing
+ *   writes are rejected (409 `policy_managed`). superadmin admin-routes still
+ *   write (that IS the manage-app path).
+ */
+export type UsagePolicyManagedBy = "tenant" | "entitlement";
+
 export interface TenantUsagePolicyRecord {
   allowed_models: string[] | null;
   created_at: string;
@@ -91,6 +102,7 @@ export interface TenantUsagePolicyRecord {
   included_cost_micros: number | null;
   included_input_tokens: number | null;
   included_output_tokens: number | null;
+  managed_by: UsagePolicyManagedBy;
   period_anchor: string | null;
   period_mode: UsagePeriodMode;
   period_unit: UsagePeriodUnit;
@@ -126,4 +138,5 @@ export const DEFAULT_TENANT_USAGE_POLICY: Omit<
   allowed_models: null,
   enforcement_mode: "observe",
   currency: "usd",
+  managed_by: "tenant",
 };
