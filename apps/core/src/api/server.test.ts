@@ -944,7 +944,9 @@ describe("startApiServer", () => {
     // cold first attempt no longer flakes the suite.
   });
 
-  it("does not stall boot when SUPABASE_URL is set but unreachable", async () => {
+  it("does not stall boot when SUPABASE_URL is set but unreachable", {
+    timeout: 30_000,
+  }, async () => {
     // Mirrors CI: workflow env injects SUPABASE_* without a live instance.
     // Hydration used to fan out PostgREST calls and timeout the suite.
     const prevUrl = process.env.SUPABASE_URL;
@@ -975,5 +977,5 @@ describe("startApiServer", () => {
       }
       fs.rmSync(dataDir, { recursive: true, force: true });
     }
-  }, 30_000);
+  });
 });
