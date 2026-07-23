@@ -12,6 +12,7 @@ import {
   type CopilotRouteContext,
   ENGENTY_COPILOT_HOST_KEY,
   type FieldSuggestion,
+  registerCopilotComposerDraftSetter,
   type SubmitMessage,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useAgentHost,
@@ -108,6 +109,18 @@ function useDrawerInjectedSession(input: {
     tenantId: input.tenantId,
     userId: input.userId,
   });
+
+  // Module pages hand work to the copilot by prefilling this composer
+  // (`setCopilotComposerDraft`). Full-page chat registers the same bridge;
+  // the two surfaces are never mounted together, and latest registration wins.
+  useEffect(
+    () =>
+      registerCopilotComposerDraftSetter(
+        ENGENTY_COPILOT_HOST_KEY,
+        draftRecovery.setDraft
+      ),
+    [draftRecovery.setDraft]
+  );
 
   const latestSuggestions = useMemo<FieldSuggestion[]>(() => [], []);
 
