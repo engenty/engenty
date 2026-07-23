@@ -5,8 +5,12 @@ export {
   type InvoiceLine,
 } from "./billing.js";
 export {
+  businessPackage,
   DEFAULT_ENTITLEMENT_PACKAGES,
+  enterprisePackage,
   findEntitlementPackage,
+  freePackage,
+  teamPackage,
 } from "./catalog.js";
 export {
   checkSeatLimit,
