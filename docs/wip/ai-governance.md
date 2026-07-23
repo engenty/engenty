@@ -247,7 +247,7 @@ hosted platform stays superadmin-only.
   re-runs `applyAiUsagePolicy`.
 - **Per-tenant usage view** in manage (superadmin usage endpoints already exist:
   `GET /ai/v1/usage/admin/tenants/:tenantId`).
-- Package catalog (`packages/entitlements/src/catalog.ts`) gets real
+- Package catalog (`packages/entitlements/src/config/packages/`) gets real
   `allowed_models` per plan (today all `null`) and governance-domain defaults.
 
 ### 3.7 Tier B satellites (future-proofing, not in scope)
