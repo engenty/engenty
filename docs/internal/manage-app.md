@@ -1,3 +1,7 @@
+---
+title: "Manage App — Implementation Spec"
+---
+
 # Manage App — Implementation Spec
 
 Status: **detailed spec, ready to implement (Phase 1)** · 2026-07-13 · Branch: `spike/tenant-box` · Worktree: `engenty-pro-tenant-box`

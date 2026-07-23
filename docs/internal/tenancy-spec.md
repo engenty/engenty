@@ -1,3 +1,7 @@
+---
+title: "Engenty Tenancy Spec — Two Tiers, One Manage App"
+---
+
 # Engenty Tenancy Spec — Two Tiers, One Manage App
 
 Status: **draft spec** · 2026-07-07 · Branch: `spike/tenant-box`

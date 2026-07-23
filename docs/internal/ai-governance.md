@@ -1,3 +1,7 @@
+---
+title: "AI governance — self-managed (open) vs centrally-managed (hosted)"
+---
+
 # PLAN: AI governance — self-managed (open) vs centrally-managed (hosted) model settings & usage limits
 
 Status: IMPLEMENTED end-to-end on `spike/tenant-box` (2026-07-22, rebased onto

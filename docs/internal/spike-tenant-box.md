@@ -1,3 +1,7 @@
+---
+title: "Spike: Tenant Box + Open Design headless (phase 0)"
+---
+
 # Spike: Tenant Box + Open Design headless (phase 0)
 
 Status: **spike — disposable** · Branch: `spike/tenant-box` · Worktree: `engenty-pro-tenant-box` · 2026-07-03
