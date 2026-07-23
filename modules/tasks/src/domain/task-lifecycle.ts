@@ -1,6 +1,11 @@
 /** Canonical task status ids — aligned with projects task-status-builtins (lift in Phase 1). */
 export const TASK_TERMINAL_STATUSES = new Set(["done", "cancelled"]);
 
+/**
+ * The single source of truth for "an agent may run this task": both the dispatch
+ * gate (`isDispatchableTask`) and the DAL's `checkoutTask` read this set, so the
+ * queue can never admit a task checkout would reject.
+ */
 export const TASK_AGENT_CHECKOUT_ENTRY_STATUSES = new Set(["todo", "backlog"]);
 
 export type TaskStatus =

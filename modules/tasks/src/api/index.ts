@@ -21,6 +21,7 @@ import {
   taskDetailSchema,
   taskIdParamsSchema,
   taskReleaseInputSchema,
+  taskRunNowResponseSchema,
   taskRunsListSchema,
   taskSchema,
   taskSettingsSchema,
@@ -44,6 +45,7 @@ import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
 } from "./task-dispatch-service.js";
+import { runTaskNow } from "./task-run-now-service.js";
 
 const UUID_PARAM =
   "{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}";
@@ -641,6 +643,44 @@ export function registerTasksApi(
         const message =
           err instanceof Error ? err.message : "task_release_failed";
         const status = message === "task_release_run_mismatch" ? 403 : 400;
+        return new Response(JSON.stringify({ error: message }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      }
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "post",
+    path: `${TASK_BY_ID_PATH}/run`,
+    operation: writeTasks(),
+    summary: "Queue an agent run for this task now",
+    tags: ["tasks", "runs"],
+    request: { params: taskIdParamsSchema },
+    responses: {
+      200: {
+        description: "Dispatch result",
+        schema: taskRunNowResponseSchema,
+      },
+      404: { description: "Not found", schema: notFoundSchema },
+    },
+    handler: async (ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = ctx.params as z.infer<typeof taskIdParamsSchema>;
+      try {
+        return await runTaskNow(
+          {
+            actorUserId: ctx.auth?.principalId ?? null,
+            queue: gatewayOptions?.queue ?? null,
+            repo,
+            tenantId: ctx.auth?.tenantId ?? null,
+          },
+          { taskId: params.id }
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "task_run_failed";
+        const status = message === "task_not_found" ? 404 : 400;
         return new Response(JSON.stringify({ error: message }), {
           status,
           headers: { "content-type": "application/json" },

@@ -55,7 +55,7 @@ import { TaskCommentsActivityTabs } from "../components/task-comments-activity-t
 import { TaskLinkedSessionsPanel } from "../components/task-linked-sessions-panel.js";
 import { TaskPendingApprovalCard } from "../components/task-pending-approval-card.js";
 import { TaskPropertiesPanel } from "../components/task-properties-panel.js";
-import { TaskRunObserverPanel } from "../components/task-run-observer-panel.js";
+import { TaskReviewCard } from "../components/task-review-card.js";
 import { TaskStatusBadge } from "../components/task-status-badge.js";
 import { TaskWorkspaceStrip } from "../components/task-workspace-strip.js";
 import {
@@ -68,7 +68,11 @@ import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secon
 import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
 import { useTaskDetailCopilotContextOverride } from "../lib/task-copilot-context.js";
 import { showTaskSaveErrorToast } from "../lib/task-lifecycle-ui.js";
-import { canContinueTaskFromUserComment } from "../lib/task-run-live.js";
+import {
+  canContinueTaskFromUserComment,
+  isTaskRunLiveActive,
+  resolveCheckoutLinkedRun,
+} from "../lib/task-run-live.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 import { buildAssigneeProfileMap } from "../plugins.js";
 import { createTaskDetailLiveBindings } from "../tasks-live-cache.js";
@@ -153,6 +157,24 @@ function TaskDetailLoadedContent({
   const sidebarInlineOpen =
     detailSidebar.mode === "inline" && detailSidebar.open;
   const contentMaxWidthClass = sidebarInlineOpen ? "max-w-6xl" : "max-w-5xl";
+
+  // Re-attach the run panel to the task's live run. A dispatched run belongs to
+  // the task, not to the browser tab that started it — so opening the page (or
+  // reloading mid-run) must show the run that is actually going on. Keyed by
+  // run id so closing the panel does not immediately re-open it, and so a
+  // later run still attaches.
+  const autoAttachedRunIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const liveRun = resolveCheckoutLinkedRun(runs, task.checkout_run_id);
+    if (!(liveRun && isTaskRunLiveActive(liveRun))) {
+      return;
+    }
+    if (autoAttachedRunIdRef.current === liveRun.agent_session_run_id) {
+      return;
+    }
+    autoAttachedRunIdRef.current = liveRun.agent_session_run_id;
+    void viewRun(liveRun);
+  }, [runs, task.checkout_run_id, viewRun]);
 
   const handleAddComment = async () => {
     const content = commentDraft.trim();
@@ -239,8 +261,6 @@ function TaskDetailLoadedContent({
               />
             </Card>
 
-            <TaskPendingApprovalCard taskId={task.id} />
-
             <LiveTaskRunsPanel
               activity={activity ?? []}
               assigneeProfiles={assigneeProfiles}
@@ -255,12 +275,26 @@ function TaskDetailLoadedContent({
               runs={runs}
             />
 
-            <TaskRunObserverPanel />
-
             <TaskCommentsActivityTabs
               activity={activity ?? []}
               assigneeProfiles={assigneeProfiles}
               commentDraft={commentDraft}
+              // Decisions land at the end of the thread they belong to: the
+              // agent's "waiting for you" comment is immediately followed by
+              // the buttons that answer it.
+              decisionSlot={
+                <>
+                  <TaskReviewCard
+                    disabled={fieldsDisabled || commentMutation.isPending}
+                    onComment={async (content) => {
+                      await commentMutation.mutateAsync(content);
+                    }}
+                    onStatusChange={onStatusChange}
+                    task={task}
+                  />
+                  <TaskPendingApprovalCard task={task} />
+                </>
+              }
               disabled={commentMutation.isPending}
               onAddComment={() => void handleAddComment()}
               onCommentDraftChange={onCommentDraftChange}

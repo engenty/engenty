@@ -210,6 +210,16 @@
     "removeApprovedTool": "Remove",
     "pendingApprovalTitle": "Waiting for approval",
     "pendingApprovalBody": "The agent needs your approval to run {{operation}}.",
+    "reviewTitle": "Ready for your review",
+    "reviewBody": "{{agent}} finished this task and is waiting for your decision.",
+    "reviewBodyGeneric": "This task is finished and waiting for your decision.",
+    "reviewApprove": "Approve",
+    "reviewSendBack": "Send back",
+    "reviewFeedbackPlaceholder": "What needs to change? The agent re-runs with this feedback.",
+    "reviewFeedbackRequired": "Add feedback so the agent knows what to fix.",
+    "reviewCancel": "Cancel",
+    "reviewApproved": "Task approved and marked done.",
+    "reviewSentBack": "Sent back to the agent with your feedback.",
     "workspace": {
       "title": "Workspace",
       "sectionAria": "Task workspace",
@@ -230,13 +240,12 @@
     },
     "noCollaborators": "No collaborators",
     "liveRuns": "Live runs",
+    "runHistory": "Run history",
     "liveRunUnknownAgent": "Agent",
     "liveRunStarted": "Run started {{when}}",
     "liveRunStartedBy": "Run started {{when}} by {{name}}",
     "liveRunOpenChat": "Open agent chat",
-    "liveRunViewLog": "View run log",
-    "liveRunViewDetails": "View run details",
-    "liveRunRole": "Role: {{role}}",
+    "liveRunViewDetails": "Show details",
     "liveRunInProgress": "In progress",
     "liveRunFinished": "Finished",
     "liveRunId": "Run {{id}}…",
@@ -250,6 +259,8 @@
     "activityAssigneeChanged": "Assignee changed",
     "activityCommentAdded": "Comment added",
     "activityUnknownActor": "Someone",
+    "activitySystemActor": "System",
+    "activityAgentServiceActor": "Agent service",
     "activityAgentBadge": "Agent",
     "activityAssigneeNone": "Unassigned",
     "activityTimeJustNow": "just now",
@@ -275,7 +286,9 @@
       "stopRun": "Stop run",
       "close": "Close run log",
       "subRunOf": "Sub-agent run of {{id}}…"
-    }
+    },
+    "liveRunFinishedAt": "finished {{when}}",
+    "liveRunFinishedAtWithDuration": "finished {{when}} · took {{duration}}"
   },
   "errors": {
     "taskCheckoutRequired": "An active checkout is required before moving this task to in progress.",
@@ -613,6 +626,9 @@
     "approveOnce": "Allow once",
     "approveForTask": "Allow for this task",
     "approveForRoutine": "Allow for this routine",
-    "denyApproval": "Deny"
+    "denyApproval": "Deny",
+    "actionReview": "Review",
+    "actionApprove": "Approve",
+    "actionFix": "Fix"
   }
 }

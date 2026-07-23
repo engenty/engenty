@@ -54,6 +54,8 @@ export const taskSchema = z.object({
   // task"). `approval_grants_once` is consumed by the next dispatched run.
   approval_grants: z.array(z.string()).optional(),
   approval_grants_once: z.array(z.string()).optional(),
+  // Operations a paused run is waiting on — what the task's approval UI reads.
+  pending_approval_operation_ids: z.array(z.string()).optional(),
 });
 
 export const taskCommentSchema = z.object({
@@ -230,8 +232,10 @@ export const goalsPaginatedResponseSchema = z.object({
 
 export const goalHandoffResponseSchema = z.object({
   goal: goalSchema,
-  /** True when the coordinator planning run was enqueued. */
+  /** True when the coordination task was enqueued for a planning run. */
   dispatched: z.boolean(),
+  /** The coordination task carrying the planning run (created or reused). */
+  task: taskSchema,
 });
 
 export const goalCreateInputSchema = z.object({
@@ -284,8 +288,13 @@ export const taskRunSchema = z.object({
   role: z.enum(["checkout", "work", "review"]),
   created_at: z.string(),
   agent_type_key: z.string().nullable().optional(),
+  // Without this the thread id is stripped from the response and the run log
+  // renders empty for every run.
+  agent_thread_id: z.string().uuid().nullable().optional(),
   run_started_at: z.string().nullable().optional(),
   run_finished_at: z.string().nullable().optional(),
+  finished_at: z.string().nullable().optional(),
+  outcome: z.string().nullable().optional(),
 });
 
 export const taskActivitySchema = z.object({
@@ -347,13 +356,26 @@ export const taskCheckoutInputSchema = taskCheckoutInputRawSchema
 export const taskReleaseInputRawSchema = z.object({
   agent_session_run_id: z.string().uuid().optional(),
   agent_run_id: z.string().uuid().optional(),
+  outcome: z.enum(["completed", "failed", "needs_approval"]).optional(),
+  pending_approval_operation_ids: z.array(z.string().min(1)).max(64).optional(),
 });
 
 export const taskReleaseInputSchema = taskReleaseInputRawSchema.transform(
   (v) => ({
     agent_session_run_id: v.agent_session_run_id ?? v.agent_run_id,
+    ...(v.outcome ? { outcome: v.outcome } : {}),
+    ...(v.pending_approval_operation_ids
+      ? { pending_approval_operation_ids: v.pending_approval_operation_ids }
+      : {}),
   })
 );
+
+/** Result of an explicit "run this task now" dispatch. */
+export const taskRunNowResponseSchema = z.object({
+  // False when a live checkout already owns the task — the running run stands.
+  dispatched: z.boolean(),
+  task: taskSchema,
+});
 
 export const taskCheckoutConflictSchema = z.object({
   error: z.literal("task_checkout_conflict"),
@@ -431,9 +453,16 @@ export const triggerDetailSchema = triggerSchema.extend({
   task_template: taskTemplateSchema.nullable(),
 });
 
+/**
+ * A trigger description is not a label: for module routines it carries the
+ * whole ROUTINE.md body, which is the agent's operating procedure. The old
+ * 1000-char cap silently rejected any routine longer than a short paragraph.
+ */
+const TRIGGER_DESCRIPTION_MAX = 16_000;
+
 export const triggerCreateInputSchema = z.object({
   name: z.string().min(1).max(255),
-  description: z.string().max(1000).nullable().optional(),
+  description: z.string().max(TRIGGER_DESCRIPTION_MAX).nullable().optional(),
   kind: triggerKindSchema,
   task_template_id: z.string().uuid().optional(),
   // Inline template creation — either this or task_template_id is required.
@@ -455,7 +484,7 @@ export const triggerCreateInputSchema = z.object({
 
 export const triggerUpdateInputSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  description: z.string().max(1000).nullable().optional(),
+  description: z.string().max(TRIGGER_DESCRIPTION_MAX).nullable().optional(),
   enabled: z.boolean().optional(),
   cron: z.string().max(100).nullable().optional(),
   timezone: z.string().max(64).nullable().optional(),

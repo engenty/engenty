@@ -85,7 +85,7 @@ describe("tasks ui api", () => {
         scope_id: "default",
         task_id: "11111111-1111-4111-8111-111111111111",
         agent_session_run_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-        agent_session_id: null,
+        agent_thread_id: null,
         agent_type_key: "tasks-assist",
         created_by_user_id: null,
         run_started_at: "2026-05-22T12:00:00.000Z",

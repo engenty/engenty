@@ -23,6 +23,7 @@ import { useQueryClient } from "@engenty/query-client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { Task, TaskRun } from "../../src/schema/types.js";
+import { runTaskNow as runTaskNowApi } from "../api.js";
 import {
   isWaitingRunStatus,
   resolveCheckoutLinkedRun,
@@ -36,7 +37,6 @@ import {
 } from "../lib/task-run-observer-api.js";
 import {
   buildTaskRunObserverRouteContext,
-  buildWorkOnTaskRunPrompt,
   TASK_RUN_OBSERVER_AGENT_TYPE_KEY,
 } from "../lib/task-run-observer-binding.js";
 
@@ -336,67 +336,46 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
     [options.onRunComplete, serviceBaseUrl]
   );
 
+  // Press "work on this task" → queue the task on the DURABLE dispatch path,
+  // the same workflow-backed engine a routine or the coordinator uses.
+  //
+  // This used to open a client-side stream with a browser-minted run id, so the
+  // server never knew the run existed: no workflow snapshot, no ai.agent_run,
+  // no task_runs row and no checkout. The run vanished on reload, never showed
+  // up in run history, and left the task `in_progress` with a NULL checkout —
+  // the one shape the stale-checkout reaper cannot see, so a closed tab
+  // stranded the task permanently.
+  //
+  // Nothing is streamed here any more. The dispatched run checks the task out
+  // and the detail page attaches the observer to it (on this press and after
+  // any later reload), hydrating the transcript from the run's own thread.
   const startWorkOnTask = useCallback(async () => {
-    if (!(task && routeContext && serviceBaseUrl)) {
-      setError("AI service is not configured.");
+    if (!task) {
+      setError("Task is not loaded.");
       setStatus("error");
       return;
     }
 
     abortRef.current?.abort();
-    const abortController = new AbortController();
-    abortRef.current = abortController;
-    streamOwnedRef.current = true;
+    abortRef.current = null;
+    // The server owns this run: let the historical hydration path drive the
+    // transcript instead of a locally owned stream.
+    streamOwnedRef.current = false;
     resetConversationRef.current();
 
-    const prompt = buildWorkOnTaskRunPrompt(task);
-    setInitialPrompt(prompt);
+    setView(null);
+    setInitialPrompt(null);
+    setPendingUserText(null);
     setExpanded(true);
     setError(null);
     setStatus("starting");
-    setPendingUserText(prompt);
-
-    const userMessage = createUserMessage(prompt);
 
     try {
-      let threadId = threadIdRef.current;
-      if (!threadId) {
-        // Untitled — the backend's memory generateTitle synthesizes it from
-        // the first exchange (a client-set title would block generation).
-        const session = await createAppsAiThread({
-          agentId: TASK_RUN_OBSERVER_AGENT_TYPE_KEY,
-          routeContext,
-          serviceBaseUrl,
-          signal: abortController.signal,
-        });
-        threadId = session.id;
-        threadIdRef.current = session.id;
+      const result = await runTaskNowApi(task.id);
+      if (!result.dispatched) {
+        // A live checkout already owns it — the page attaches to that run.
+        setStatus("observing");
       }
-
-      const runInput = buildAppsAiRunInput({
-        frontendTools: [],
-        message: userMessage,
-        modelId: "",
-        pathname: location.pathname,
-        routeContext,
-        threadId,
-        state: agentUiSnapshot as RunAgentInput["state"],
-      });
-
-      setView({
-        runId: runInput.runId,
-        threadId,
-        source: "live",
-      });
-      setRunRecordStatus("running");
-
-      await runSessionStream({
-        abortController,
-        prompt,
-        runInput,
-        threadId,
-      });
-
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } catch (startError) {
       if (isAbortError(startError)) {
@@ -405,17 +384,8 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
       }
       setError(errorMessage(startError));
       setStatus("error");
-      setPendingUserText(null);
     }
-  }, [
-    agentUiSnapshot,
-    location.pathname,
-    queryClient,
-    routeContext,
-    runSessionStream,
-    serviceBaseUrl,
-    task,
-  ]);
+  }, [queryClient, task]);
 
   const viewRun = useCallback(
     async (run: TaskRun, input?: { parentRunId?: string | null }) => {

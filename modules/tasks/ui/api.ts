@@ -203,6 +203,24 @@ export function releaseTask(
   });
 }
 
+export interface RunTaskNowResponse {
+  /** False when a live checkout already owns the task. */
+  dispatched: boolean;
+  task: Task;
+}
+
+/**
+ * Queue an agent run for this task on the durable dispatch path — the same
+ * workflow-backed engine routines and the coordinator use, so the run survives
+ * a reload, appears in run history, and is recoverable by the reaper.
+ */
+export function runTaskNow(id: string, signal?: AbortSignal) {
+  return requestApiJson<RunTaskNowResponse>(`/api/tasks/${id}/run`, {
+    method: "POST",
+    signal,
+  });
+}
+
 export interface ResolveToolApprovalBody {
   decision: "approve" | "deny";
   operation_id: string;

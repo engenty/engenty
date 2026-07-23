@@ -153,28 +153,40 @@ export async function reconcileScheduler(options: {
     if (existing) {
       continue;
     }
-    await invokeOperation("triggers_create", {
-      cron: definition.schedule,
-      description: definition.description ?? null,
-      enabled: definition.enabled_by_default,
-      kind: "schedule",
-      module_id: definition.module_id,
-      module_key: definition.id,
-      name: definition.name,
-      quiet_hours: definition.quiet_hours ?? null,
-      source: "module",
-      task_template: {
-        agent_type_key: template.agent_type_key,
-        description: template.description ?? null,
+    // One malformed declaration must not take the scheduler down with it: this
+    // loop runs before heartbeat sync, so an uncaught throw here left EVERY
+    // schedule trigger without a heartbeat — a single over-long ROUTINE.md
+    // silently stopped all scheduled work.
+    try {
+      await invokeOperation("triggers_create", {
+        cron: definition.schedule,
+        description: definition.description ?? null,
+        enabled: definition.enabled_by_default,
+        kind: "schedule",
+        module_id: definition.module_id,
+        module_key: definition.id,
         name: definition.name,
-        priority: normalizePriority(template.priority),
-        title: template.title,
-      },
-    });
-    logger.info("module trigger created", {
-      moduleId: definition.module_id,
-      moduleKey: definition.id,
-    });
+        quiet_hours: definition.quiet_hours ?? null,
+        source: "module",
+        task_template: {
+          agent_type_key: template.agent_type_key,
+          description: template.description ?? null,
+          name: definition.name,
+          priority: normalizePriority(template.priority),
+          title: template.title,
+        },
+      });
+      logger.info("module trigger created", {
+        moduleId: definition.module_id,
+        moduleKey: definition.id,
+      });
+    } catch (err) {
+      logger.error("module trigger create failed — routine will not run", {
+        message: err instanceof Error ? err.message : String(err),
+        moduleId: definition.module_id,
+        moduleKey: definition.id,
+      });
+    }
   }
 
   // 2. Every schedule trigger → heartbeat.
@@ -184,15 +196,24 @@ export async function reconcileScheduler(options: {
   )) as TriggerListRow[];
   const liveHeartbeatIds = new Set<string>();
   for (const trigger of current) {
-    const heartbeatId = await syncTriggerHeartbeat(mastra, tenantId, trigger);
-    if (heartbeatId) {
-      liveHeartbeatIds.add(heartbeatId);
-      if (trigger.heartbeat_id !== heartbeatId) {
-        await invokeOperation("triggers_update", {
-          heartbeat_id: heartbeatId,
-          id: trigger.id,
-        });
+    // Same isolation as above: one unschedulable trigger (bad cron, say) must
+    // not deny every other trigger its heartbeat.
+    try {
+      const heartbeatId = await syncTriggerHeartbeat(mastra, tenantId, trigger);
+      if (heartbeatId) {
+        liveHeartbeatIds.add(heartbeatId);
+        if (trigger.heartbeat_id !== heartbeatId) {
+          await invokeOperation("triggers_update", {
+            heartbeat_id: heartbeatId,
+            id: trigger.id,
+          });
+        }
       }
+    } catch (err) {
+      logger.error("trigger heartbeat sync failed — trigger will not fire", {
+        message: err instanceof Error ? err.message : String(err),
+        triggerId: trigger.id,
+      });
     }
   }
 

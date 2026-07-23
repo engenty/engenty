@@ -1,8 +1,10 @@
 // Conductor AI surface — declared via defineModuleAi (Phase 5).
 // agents/engenty.coordinator/agent.json (+ AGENTS.md/SOUL.md/HEARTBEAT.md),
 // skills/coordinator-workflow/SKILL.md.
-// The hourly heartbeat is no longer a routine — it runs as a system job in
-// apps/ai (see actions-tasks-routines-concept spec: routine = schedule → Task).
+// The hourly heartbeat IS a routine — routines/heartbeat/ROUTINE.md, picked up
+// by defineModuleAi's routine discovery (routine = schedule → Task). It was
+// never a system job; no such job ever existed, so the coordinator simply never
+// woke on its own.
 import type {
   AiRegistration,
   DynamicAiModuleCapability,

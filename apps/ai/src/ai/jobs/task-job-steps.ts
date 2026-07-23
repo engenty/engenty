@@ -3,7 +3,7 @@
 // module-operation invoker from env (no secrets in the workflow snapshot) and
 // touches the Task via `modules/tasks` operations. The specialist (agent-loop)
 // step lives separately in task-job-specialist-step.ts.
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createStep } from "@mastra/core/workflows";
 import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
@@ -32,6 +32,30 @@ function isCheckoutConflict(error: unknown): boolean {
     return error.status === 409 || error.code === "task_checkout_conflict";
   }
   return error instanceof Error && error.message === "task_checkout_conflict";
+}
+
+/**
+ * The run's thread id, derived deterministically (UUIDv5-style, sha1 over the
+ * run id) instead of randomly. `checkout` is idempotent and may re-execute when
+ * a crash lands between the checkout call and the step snapshot; a random id
+ * would mint a second `ai.thread` on that retry and repoint the run record at a
+ * thread the run never used. Same run id → same thread id → the upsert is a
+ * no-op on resume.
+ */
+function threadIdForRun(runId: string): string {
+  const h = createHash("sha1")
+    .update(`engenty:task-job:${runId}`)
+    .digest("hex");
+  // RFC 4122 variant nibble must be 8-b; pick one deterministically from the
+  // hash without bitwise ops (lint policy).
+  const variant = "89ab"[Number.parseInt(h[16] ?? "0", 16) % 4];
+  return [
+    h.slice(0, 8),
+    h.slice(8, 12),
+    `5${h.slice(13, 16)}`,
+    `${variant}${h.slice(17, 20)}`,
+    h.slice(20, 32),
+  ].join("-");
 }
 
 async function invokerFor(tenantId: string) {
@@ -68,7 +92,7 @@ export const checkoutStep = createStep({
     // Register the run as first-class (ai.thread + ai.agent_run, status running)
     // so the task's run-history card has a real lifecycle. The run id is the
     // workflow run id checkout just bound as checkout_run_id.
-    const threadId = randomUUID();
+    const threadId = threadIdForRun(runId);
     await registerTaskJobRun({
       agentTypeKey: inputData.agent_type_key,
       runId,
@@ -145,6 +169,7 @@ export const buildBriefStep = createStep({
       brief: learnings ? `${brief}\n\n${learnings}` : brief,
       identifier: readString((task as { identifier?: unknown }).identifier),
       status: "briefed" as const,
+      title: readString((task as { title?: unknown }).title),
       trigger_id: taskRow.trigger_id ?? null,
     };
   },
@@ -201,6 +226,20 @@ export const finalizeStep = createStep({
       actor_agent_type_key: inputData.agent_type_key,
       agent_run_id: runId,
       id: inputData.task_id,
+      // Stamped onto the module's task_runs row — the durable outcome record
+      // (the ai.agent_run finish below is best-effort display enrichment).
+      outcome:
+        inputData.status === "failed"
+          ? ("failed" as const)
+          : needsApproval
+            ? ("needs_approval" as const)
+            : ("completed" as const),
+      // Durable record of what this run is waiting on, so the task's approval
+      // UI survives the inbox notification being dismissed. Always sent: an
+      // empty list is how a finished run clears a previous ask.
+      pending_approval_operation_ids: needsApproval
+        ? (inputData.pending_approvals ?? []).map((p) => p.operation_id)
+        : [],
     });
     await invoke("tasks_update", {
       actor_agent_type_key: inputData.agent_type_key,
@@ -220,6 +259,11 @@ export const finalizeStep = createStep({
       status: inputData.status === "failed" ? "failed" : "completed",
     });
     const taskRef = inputData.identifier ?? inputData.task_id;
+    // What the row is ABOUT. The task identifier is deliberately not part of
+    // it: "ENG-274" tells a reader nothing they can act on, and the row already
+    // links to the task. Falls back to the task's own title, which beats any
+    // sentence we could assemble about a task whose result we cannot summarize.
+    const subjectTitle = inputData.title?.trim() || null;
 
     // Needs-approval: emit a needs-input notification carrying the task +
     // operation ids so the inbox/task/routine can resolve it, then stop (no
@@ -243,23 +287,26 @@ export const finalizeStep = createStep({
         },
         priority: "high",
         source: "tasks",
-        summary: `Task ${taskRef} needs approval to run ${primaryOp}`,
+        // The subject, not a sentence about it — the inbox renders the action
+        // verb itself, and the operation id is already shown on the approval
+        // buttons below the row.
+        summary: subjectTitle ?? `approval to run ${primaryOp}`,
         tenantId: inputData.tenant_id,
       });
       return { ...inputData, status: "released" as const };
     }
 
     const failed = inputData.status === "failed";
-    // For completed tasks, generate a "what was done" headline from the result
-    // note so the inbox says something specific instead of the interchangeable
-    // "Task X completed and is ready for review". Best-effort; falls back below.
-    const headline =
-      !failed && inputData.result_text
-        ? await summarizeTaskResultHeadline({
-            resultText: inputData.result_text,
-            taskRef,
-          })
-        : null;
+    // Generate a "what was done" headline from the result note so the row says
+    // something specific. Best-effort — it needs a model and a result text, so
+    // the task title is the fallback. Failures get one too: "what it was trying
+    // to do" is the useful thing to read next to a failure.
+    const headline = inputData.result_text
+      ? await summarizeTaskResultHeadline({
+          resultText: inputData.result_text,
+          taskRef,
+        })
+      : null;
     await emitInboxNotification({
       dedupeKey: `task:${inputData.task_id}:${runId}`,
       kind: failed ? "task_failed" : "task_completed",
@@ -274,11 +321,7 @@ export const finalizeStep = createStep({
         : {}),
       priority: failed ? "high" : "medium",
       source: "tasks",
-      summary: failed
-        ? `Task ${taskRef} failed and was marked blocked`
-        : headline
-          ? `${taskRef}: ${headline}`
-          : `Task ${taskRef} completed and is ready for review`,
+      summary: headline ?? subjectTitle ?? `Task ${taskRef}`,
       tenantId: inputData.tenant_id,
     });
     return { ...inputData, status: "released" as const };

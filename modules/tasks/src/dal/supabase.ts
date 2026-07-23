@@ -6,6 +6,11 @@ import {
   canTransitionGoalStatus,
 } from "../domain/goal-lifecycle.js";
 import {
+  checkGoalTaskBudget,
+  type GoalTaskGuardTask,
+  MAX_OPEN_AGENT_TASKS_PER_GOAL,
+} from "../domain/goal-task-budget.js";
+import {
   assertAgentTaskGoal,
   canTransitionTaskStatus,
   normalizeTaskAssignees,
@@ -85,6 +90,8 @@ function rowToTask(row: Record<string, unknown>): Task {
     trigger_id: (row.trigger_id as string | null) ?? null,
     approval_grants: (row.approval_grants as string[] | null) ?? [],
     approval_grants_once: (row.approval_grants_once as string[] | null) ?? [],
+    pending_approval_operation_ids:
+      (row.pending_approval_operation_ids as string[] | null) ?? [],
     request_depth: Number(row.request_depth ?? 0),
     started_at: (row.started_at as string | null) ?? null,
     completed_at: (row.completed_at as string | null) ?? null,
@@ -124,6 +131,8 @@ function rowToTaskRun(row: Record<string, unknown>): TaskRun {
     agent_session_run_id: String(row.agent_session_run_id),
     role: row.role as TaskRun["role"],
     created_at: String(row.created_at),
+    finished_at: (row.finished_at as string | null) ?? null,
+    outcome: (row.outcome as string | null) ?? null,
   };
 }
 
@@ -691,6 +700,53 @@ export function createTasksRepoSupabase(
         assertAgentTaskGoal({ actorKind: "agent_create", goal_id });
       }
 
+      // A goal is the one place a looping planner can pile up duplicates, so
+      // the guard sits here — in the single create path every caller goes
+      // through — rather than in any one agent's prompt.
+      if (goal_id) {
+        const { data: siblingRows, error: siblingError } = await tasks()
+          .select("id, identifier, primary_assignee_kind, status, title")
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
+          .eq("goal_id", goal_id);
+        if (siblingError) {
+          throw new Error(`Failed to load goal tasks: ${siblingError.message}`);
+        }
+        const verdict = checkGoalTaskBudget(
+          (siblingRows ?? []) as GoalTaskGuardTask[],
+          input.title
+        );
+        if (verdict.kind === "duplicate") {
+          // Idempotent: hand back what already covers this step. A retry (or a
+          // planner that re-proposes the same step) must not double the plan.
+          const existing = await this.getTask(verdict.existing.id);
+          if (existing) {
+            record("tasks.create_deduplicated", {
+              existing_id: existing.id,
+              goal_id,
+              title: input.title,
+            });
+            return existing;
+          }
+        }
+        if (verdict.kind === "budget_exhausted") {
+          // The message itself has to carry the numbers: it is what the
+          // agent reads back as the tool result, and the structured `details`
+          // are not propagated through the gateway error envelope.
+          const err = new Error(
+            `goal_open_task_budget_exhausted: this goal already has ${verdict.open} open agent tasks (limit ${MAX_OPEN_AGENT_TASKS_PER_GOAL}). Do not create more — review the existing tasks instead.`
+          ) as Error & {
+            details: unknown;
+          };
+          err.details = {
+            goal_id,
+            limit: MAX_OPEN_AGENT_TASKS_PER_GOAL,
+            open_agent_tasks: verdict.open,
+          };
+          throw err;
+        }
+      }
+
       const assignee = normalizeTaskAssignees(input);
       const identifier = await allocateTaskIdentifier(
         supabase,
@@ -959,6 +1015,32 @@ export function createTasksRepoSupabase(
         throw new Error(`Failed to add task grant: ${error.message}`);
       }
       return data ? rowToTask(data as Record<string, unknown>) : null;
+    },
+
+    /** Drop one answered operation from the task's pending-approval list.
+     * Only approvals clear an entry: a denial keeps it so the human can still
+     * change their mind from the task instead of losing the affordance. */
+    async clearTaskPendingApproval(
+      id: string,
+      operationId: string
+    ): Promise<void> {
+      const existing = await this.getTask(id);
+      const pending = existing?.pending_approval_operation_ids ?? [];
+      if (!pending.includes(operationId)) {
+        return;
+      }
+      const { error } = await tasks()
+        .update({
+          pending_approval_operation_ids: pending.filter(
+            (op) => op !== operationId
+          ),
+        })
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId);
+      if (error) {
+        throw new Error(`Failed to clear pending approval: ${error.message}`);
+      }
     },
 
     /** Clear the one-shot grant list — called at the start of each dispatched
@@ -1302,6 +1384,9 @@ export function createTasksRepoSupabase(
           primary_assignee_user_id: null,
           checkout_run_id: runId,
           started_at: existing.started_at ?? now,
+          // A new run supersedes the previous run's unanswered ask: it will
+          // either pass the gate now or record a fresh request on release.
+          pending_approval_operation_ids: [],
           updated_at: now,
         })
         .eq("id", taskId)
@@ -1408,6 +1493,10 @@ export function createTasksRepoSupabase(
         .update({
           checkout_run_id: null,
           status: "todo",
+          // The ending run's ask is the whole truth about what is outstanding:
+          // a run that finished without asking clears whatever was pending.
+          pending_approval_operation_ids:
+            input.pending_approval_operation_ids ?? [],
           updated_at: now,
         })
         .eq("id", taskId)
@@ -1423,11 +1512,36 @@ export function createTasksRepoSupabase(
         return null;
       }
 
+      // Stamp the run outcome onto the module's own task_runs row so run
+      // history stays truthful even when the best-effort ai.agent_run write in
+      // apps/ai fails. A release without an outcome (manual/reaper) still
+      // closes the row — outcome stays null, finished_at marks the end.
+      {
+        const { error: runError } = await taskRuns()
+          .update({
+            finished_at: now,
+            outcome: input.outcome ?? null,
+          })
+          .eq("task_id", taskId)
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
+          .eq("agent_session_run_id", existing.checkout_run_id)
+          .is("finished_at", null);
+        if (runError) {
+          // Non-fatal bookkeeping: the release itself already succeeded.
+          record("tasks.run_outcome_write_failed", {
+            id: taskId,
+            run_id: existing.checkout_run_id,
+          });
+        }
+      }
+
       await appendActivity({
         task_id: taskId,
         event_type: "tasks.released",
         payload: {
           run_id: existing.checkout_run_id,
+          ...(input.outcome ? { outcome: input.outcome } : {}),
         },
         actor_user_id: opts?.actorUserId ?? null,
         actor_agent_type_key: opts?.actorAgentTypeKey ?? null,
@@ -1441,6 +1555,64 @@ export function createTasksRepoSupabase(
       const released = rowToTask(data as Record<string, unknown>);
       released.collaborator_user_ids = await loadCollaboratorIds(taskId);
       return released;
+    },
+
+    /** Tasks currently claimed by a run (checkout_run_id set) — reaper input. */
+    async listClaimedTasks(): Promise<Task[]> {
+      const { data, error } = await tasks()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .not("checkout_run_id", "is", null);
+      if (error) {
+        throw new Error(`Failed to list claimed tasks: ${error.message}`);
+      }
+      return (data ?? []).map((row) =>
+        rowToTask(row as Record<string, unknown>)
+      );
+    },
+
+    /**
+     * The state of a checkout's backing `ai.agent_run` row, for the reaper.
+     * "missing" is reported separately from "finished": a checkout normally has
+     * its run registered within seconds, but the register write is best-effort —
+     * the reaper only treats "missing" as stale after a grace window.
+     */
+    async getCheckoutRunState(
+      runId: string
+    ): Promise<"running" | "finished" | "missing"> {
+      const { data, error } = await agentSessionRuns()
+        .select("status, finished_at")
+        .eq("id", runId)
+        .maybeSingle();
+      if (error || !data) {
+        return "missing";
+      }
+      const status = String((data as { status: string }).status);
+      if (status === "running" || status === "interrupted") {
+        return "running";
+      }
+      return "finished";
+    },
+
+    /**
+     * Open (not yet finished) tasks a trigger materialized — the schedule-fire
+     * stacking guard. "Open" = still headed for a run: entry statuses, running,
+     * or paused at blocked. `in_review`/terminal tasks are finished cycles.
+     */
+    async listOpenTriggerTasks(triggerId: string): Promise<Task[]> {
+      const { data, error } = await tasks()
+        .select("*")
+        .eq("trigger_id", triggerId)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .in("status", ["todo", "backlog", "in_progress", "blocked"]);
+      if (error) {
+        throw new Error(`Failed to list trigger tasks: ${error.message}`);
+      }
+      return (data ?? []).map((row) =>
+        rowToTask(row as Record<string, unknown>)
+      );
     },
 
     async listTaskRuns(taskId: string): Promise<TaskRun[]> {
@@ -1464,21 +1636,33 @@ export function createTasksRepoSupabase(
       const sessionRunIds = [
         ...new Set(runs.map((run) => run.agent_session_run_id)),
       ];
-      const { data: sessionRuns } = await agentSessionRuns()
-        .select(
-          "id, agent_type_key, started_at, finished_at, session_id, created_by_user_id"
-        )
-        .in("id", sessionRunIds);
+      // Column names are `agent_id`/`thread_id` — the table was renamed from
+      // agent_session_run and these were `agent_type_key`/`session_id`. Selecting
+      // the old names made PostgREST reject the whole query, and because the
+      // error was discarded every run silently lost its enrichment: no
+      // finished_at (so the UI showed finished runs as perpetually "in
+      // progress") and no agent name. Errors are surfaced below, not swallowed.
+      const { data: sessionRuns, error: sessionRunsError } =
+        await agentSessionRuns()
+          .select(
+            "id, agent_id, started_at, finished_at, thread_id, created_by_user_id"
+          )
+          .in("id", sessionRunIds);
+      if (sessionRunsError) {
+        throw new Error(
+          `Failed to load task run details: ${sessionRunsError.message}`
+        );
+      }
 
       const sessionRunById = new Map(
         (sessionRuns ?? []).map((row) => [
           String((row as { id: string }).id),
           row as {
-            agent_type_key: string;
+            agent_id: string;
             created_by_user_id: string | null;
             finished_at: string | null;
-            session_id: string;
             started_at: string;
+            thread_id: string;
           },
         ])
       );
@@ -1490,8 +1674,8 @@ export function createTasksRepoSupabase(
         }
         return {
           ...run,
-          agent_session_id: sessionRun.session_id,
-          agent_type_key: sessionRun.agent_type_key,
+          agent_thread_id: sessionRun.thread_id,
+          agent_type_key: sessionRun.agent_id,
           created_by_user_id: sessionRun.created_by_user_id,
           run_started_at: sessionRun.started_at,
           run_finished_at: sessionRun.finished_at,
