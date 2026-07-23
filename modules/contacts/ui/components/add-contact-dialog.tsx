@@ -1,5 +1,6 @@
 import {
   Button,
+  CardSection,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -113,9 +114,10 @@ export function AddContactDialog({
         )}
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-3">
-            <h3 className="font-semibold text-muted-foreground text-xs uppercase">
-              {t("sectionBasicInfo")}
-            </h3>
+            <CardSection.Header
+              title={t("sectionBasicInfo")}
+              variant="meta"
+            />
             <div className="flex items-center gap-4">
               <Label className="w-32 shrink-0 text-sm" htmlFor="primary">
                 {t(config.primaryFieldLabelKey)} *

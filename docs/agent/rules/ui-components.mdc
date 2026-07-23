@@ -39,7 +39,7 @@ pnpm --filter @engenty/ui-core build
 ## Usage in App / Modules / Plugins
 
 - Import shared UI components from `@engenty/ui-core` only.
-- Settings pages with **section title + description + form card**: use **`SettingsFormSection`** (see `settings-form-section-ui.mdc`).
+- Settings / detail blocks with **section title + description + form card**: use **`CardSection`** (or the **`SettingsFormSection`** alias — see `settings-form-section-ui.mdc`).
 - Do not import app-local UI primitives from `apps/ui/src/components/ui` in module/plugin code.
 
 Example:
@@ -52,8 +52,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@engenty/ui-core";
 
 - **`variant="default"`** — bordered surface with padding (lists, standalone panels).
 - **`variant="form"`** — general form blocks (edit pages, PDF designer, etc.); not the same padding as stacked settings sections.
-- **`SettingsFormCard`** — bordered settings surface (`py-2`, horizontal padding); composed by **`SettingsFormSection`**.
-- **Do not nest `Card` inside `SettingsFormSection` children** — the section already renders a **`SettingsFormCard`**; an inner `Card` stacks borders and padding. See `settings-form-section-ui.mdc`.
+- **`SettingsFormCard`** — bordered settings surface (`default` / `compact` / `flush`); composed by **`CardSection`** / **`SettingsFormSection`**.
+- **Do not nest `Card` inside `CardSection` / `SettingsFormSection` children** — the section already renders a form card surface; an inner `Card` stacks borders and padding. See `settings-form-section-ui.mdc`.
 - **`variant="panel"`** — **no** `bg-card`, **no** outer padding, **no** border/shadow: use for sections that already sit on `bg-background` inside a scroll shell (e.g. admin workspace landing). Pair with **`CardHeader` / `CardContent` `className="p-0"`** so inner chrome does not double up.
 
 **`Card` + `CardHeader` + `CardContent` — avoid triple padding:** `variant="default"` adds outer `p-2 sm:p-4` on the root, while `CardHeader` defaults to `p-6` and `CardContent` to `p-4 pt-0`, which stacks badly on detail/settings-style layouts. Prefer one of:

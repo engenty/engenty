@@ -1,6 +1,6 @@
 import {
   Button,
-  Card,
+  CardSection,
   Checkbox,
   FormControl,
   FormField,
@@ -55,19 +55,14 @@ export function ContactNameFields<
   const nameValues = useWatch({ control }) as ContactProfileNameFormFields;
   const displayPreview = previewDisplayNameFromForm(nameValues);
   const useCustomDisplay = nameValues.custom_display_name;
-  const nameSectionTitle = displayPreview
-    ? `${t("nameSection")}: ${displayPreview}`
-    : t("nameSection");
 
   const rowLabel = (label: string) => (
     <FormLabel className={labelColClassName}>{label}</FormLabel>
   );
 
   return (
-    <div className="space-y-2">
-      <h3 className="font-medium text-base">{nameSectionTitle}</h3>
-      <Card variant="form">
-        <div className="space-y-0">
+    <CardSection cardVariant="flush" title={t("nameSection")}>
+      <div className="space-y-0">
           {onApplySplit && splitSourceLabel ? (
             <div className="flex justify-end border-border/60 border-b px-3 py-2">
               <Button
@@ -163,8 +158,7 @@ export function ContactNameFields<
               </FormItem>
             )}
           />
-        </div>
-      </Card>
-    </div>
+      </div>
+    </CardSection>
   );
 }

@@ -3,6 +3,8 @@
  * Each page needs `flex-1 min-h-0` and an explicit scroll container.
  */
 
+import { cardSectionHeaderTitleVariants } from "@engenty/ui-core";
+
 /** Single outer scroll container — `p-page` lives here. */
 export const kbModulePageShellSectionClassName =
   "flex min-h-0 flex-1 flex-col overflow-y-auto p-page";
@@ -27,9 +29,10 @@ export const kbModuleHubContentInnerClassName =
 export const kbModuleHubCoverInnerClassName =
   "mx-auto flex w-full max-w-5xl items-end justify-between gap-3 p-page pb-3 pt-0";
 
-/** Section headings on hub / category pages (DESIGN.md type scale). */
-export const kbHubSectionHeadingClassName =
-  "font-heading font-semibold text-lg leading-7 tracking-tight text-foreground";
+/** Section headings on hub / category pages — CardSection `display` header. */
+export const kbHubSectionHeadingClassName = cardSectionHeaderTitleVariants({
+  variant: "display",
+});
 
 /** Elevated card hover on `--paper` — paint-only; shadow deepens in place (DESIGN.md). */
 export const kbHubElevatedCardHoverClassName =
