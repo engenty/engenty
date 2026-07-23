@@ -106,19 +106,31 @@ describe("TenantsListPage", () => {
         id: "business",
         label: "Business",
         version: 2,
-        modules: null,
+        modules: [
+          "contacts",
+          "tasks",
+          "files",
+          "projects",
+          "knowledge-base",
+          "inbox",
+          "offers",
+          "invoices",
+          "pdf-templates",
+          "time-tracking",
+          "context-graph",
+        ],
         featureFlags: {},
         aiUsagePolicy: {
           period_mode: "calendar",
           period_unit: "month",
-          included_cost_micros: null,
-          soft_limit_cost_micros: null,
-          hard_limit_cost_micros: null,
-          enforcement_mode: "observe",
+          included_cost_micros: 100_000_000,
+          soft_limit_cost_micros: 100_000_000,
+          hard_limit_cost_micros: 200_000_000,
+          enforcement_mode: "enforce",
           currency: "usd",
           allowed_models: null,
         },
-        appLimits: { maxUsers: null, enforcement_mode: "observe" },
+        appLimits: { maxUsers: 100, enforcement_mode: "enforce" },
       },
     ]);
     createTenant.mockResolvedValue(tenant({ package_id: "business" }));
@@ -129,6 +141,9 @@ describe("TenantsListPage", () => {
     await user.type(screen.getByLabelText("Name"), "Acme");
     await user.click(screen.getByLabelText("Package"));
     await user.click(await screen.findByRole("option", { name: "Business" }));
+    expect(await screen.findByText("100")).toBeTruthy();
+    expect(screen.getByText("$200")).toBeTruthy();
+    expect(screen.getByText("Enforce")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Create tenant" }));
 
     await waitFor(() =>

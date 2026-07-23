@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
+import { PackageSummary } from "@/features/packages/PackageSummary";
 import { TenantsCards } from "@/features/tenants/TenantsCards";
 import { TenantsTable } from "@/features/tenants/TenantsTable";
 import { TenantsTableToolbar } from "@/features/tenants/TenantsTableToolbar";
@@ -199,6 +200,14 @@ export function TenantsListPage() {
       return packageLabelById.get(packageId) ?? packageId;
     },
     [packageLabelById, t]
+  );
+
+  const selectedPackage = useMemo(
+    () =>
+      packageId === NO_PACKAGE
+        ? null
+        : (packages.data ?? []).find((pkg) => pkg.id === packageId) ?? null,
+    [packageId, packages.data]
   );
 
   const pagination = {
@@ -465,6 +474,9 @@ export function TenantsListPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedPackage ? (
+                <PackageSummary pkg={selectedPackage} />
+              ) : null}
             </div>
           </div>
           <DialogFooter>
