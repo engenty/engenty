@@ -244,7 +244,7 @@ update core.tenants
   where tenant_connection_mode = 'dedicated_instance';
 
 comment on column core.tenants.tier is
-  'Tenancy tier per docs/wip/tenancy-spec.md; supersedes tenant_connection_mode (kept one release for rollback).';
+  'Tenancy tier per docs/internal/tenancy-spec.md; supersedes tenant_connection_mode (kept one release for rollback).';
 ```
 
 2. `apps/core/src/dal/superadmin.ts`:
@@ -447,7 +447,7 @@ calls `saveFlagUpdates` with exactly the staged updates; resolved badge text fli
      (and legacy `/admin/plugins`) must hand off to `/manage/modules`
    - set a tenant flag override → verify `/settings/features` in the tenant app resolves it
    - login as a non-superadmin → access-denied card, API calls return 403
-5. Update `docs/wip/tenancy-spec.md` §6: mark "Manage app v0" as in progress/done.
+5. Update `docs/internal/tenancy-spec.md` §6: mark "Manage app v0" as in progress/done.
 
 ## 5. Test plan — philosophy and budget
 

@@ -28,6 +28,9 @@ DRY_RUN="${DRY_RUN:-0}"
 
 # Paths that must NEVER land on the public repo (prefix match). Keep in sync with
 # CLOSED_PREFIXES in scripts/publish-open.sh, plus infra that is pro-only.
+# `scripts/publish-open-exclusions.test.ts` fails if the two lists drift apart —
+# they did once (packages/entitlements was closed here but not there), and a
+# one-sided list is exactly how closed code reaches the public repo.
 EXCLUDES=(
   apps/manage
   docs/internal
@@ -43,8 +46,12 @@ EXCLUDES=(
   packages/brand-assets
   packages/document-scanner
   packages/engenty-cli
+  packages/entitlements
   packages/pdf-service/assets/fonts/fontshare
   packages/plate-editor
+  # Manage-only dev helper (starts core + apps/manage); meaningless without the
+  # closed app it launches.
+  scripts/dev-portless-minimal.sh
   # Deploy pipeline is engenty-pro-only; on the public repo it just 403s
   # (its token can't push to pro-owned GHCR packages).
   .github/workflows/build-images.yml

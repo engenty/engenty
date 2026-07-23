@@ -24,7 +24,7 @@ function slugify(value: string) {
 }
 
 /**
- * Superadmin routes for the satellite registry (docs/wip/manage-app.md §7.1).
+ * Superadmin routes for the satellite registry (docs/internal/manage-app.md §7.1).
  * CRUD over `core.satellites` plus an on-demand health probe. `createDal` is
  * injectable for tests. Provisioning/lifecycle and the Management-API facade
  * build on top of this registry.

@@ -1,4 +1,4 @@
--- Billing invoices (docs/wip/manage-app.md §8). An invoice is generated for a
+-- Billing invoices (docs/internal/manage-app.md §8). An invoice is generated for a
 -- tenant + period from its package pricing and metered usage (seats now;
 -- box-seconds / storage later). Line items carry the breakdown. Costs in
 -- `_micros`. Stripe/dunning automation is deferred; status supports the manual

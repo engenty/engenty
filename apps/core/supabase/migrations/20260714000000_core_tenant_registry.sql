@@ -1,4 +1,4 @@
--- Tenant registry columns for the manage app (docs/wip/manage-app.md WP2).
+-- Tenant registry columns for the manage app (docs/internal/manage-app.md WP2).
 -- `tier` supersedes `tenant_connection_mode` (kept one release for rollback);
 -- `status` drives suspend/archive lifecycle actions in the manage console.
 
@@ -17,4 +17,4 @@ update core.tenants
   where tenant_connection_mode = 'dedicated_instance';
 
 comment on column core.tenants.tier is
-  'Tenancy tier per docs/wip/tenancy-spec.md; supersedes tenant_connection_mode (kept one release for rollback).';
+  'Tenancy tier per docs/internal/tenancy-spec.md; supersedes tenant_connection_mode (kept one release for rollback).';

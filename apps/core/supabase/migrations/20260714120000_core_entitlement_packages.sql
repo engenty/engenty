@@ -1,4 +1,4 @@
--- Commercial-package entitlements (docs/wip/manage-app.md §7.2).
+-- Commercial-package entitlements (docs/internal/manage-app.md §7.2).
 -- `core.packages` mirrors the authored `@engenty/entitlements` catalog, synced
 -- at boot with a version-based upsert (like ai.model_pricing seeds). A tenant
 -- references one package (`core.tenants.package_id`) plus an optional sparse

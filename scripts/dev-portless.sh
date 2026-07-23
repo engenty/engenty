@@ -151,9 +151,9 @@ restore_tty() {
 }
 trap restore_tty EXIT
 
+# Glob, not one filter per app: apps/manage is PRO-only and absent from the open
+# repo, and turbo hard-errors on a --filter pointing at a missing directory.
+# apps/desktop and apps/browser-extension define none of these tasks, so the
+# glob resolves to exactly the apps that can serve.
 pnpm exec turbo run "${TURBO_TASKS[@]}" \
-  --filter=./apps/core \
-  --filter=./apps/ui \
-  --filter=./apps/ai \
-  --filter=./apps/docs \
-  --filter=./apps/manage
+  "--filter=./apps/*"

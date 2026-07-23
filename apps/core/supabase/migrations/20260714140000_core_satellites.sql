@@ -1,4 +1,4 @@
--- Satellite tenant registry (docs/wip/manage-app.md §7.1, tenancy-spec Tier B).
+-- Satellite tenant registry (docs/internal/manage-app.md §7.1, tenancy-spec Tier B).
 -- A satellite is a per-tenant self-hosted stack (own supabase + apps/ai + custom
 -- modules). The manage app tracks each satellite's service endpoints, a
 -- reference to its credentials (never the secret itself), a pinned image

@@ -6,7 +6,7 @@ import { requireSuperAdmin } from "./authz.js";
 const INVOICE_STATUSES: InvoiceStatus[] = ["draft", "open", "paid", "void"];
 
 /**
- * Superadmin billing routes (docs/wip/manage-app.md §8). List/generate invoices
+ * Superadmin billing routes (docs/internal/manage-app.md §8). List/generate invoices
  * per tenant, advance invoice status (incl. the dunning -> suspend flow the
  * manage app drives), and a revenue overview. `createDal` is injectable.
  */
