@@ -251,6 +251,13 @@ export function buildNavigationSections(
             icon: Palette,
           },
           {
+            // AI models + usage limits edit TENANT config (overrides of the
+            // platform defaults), so this is a Settings surface, not a Setup one.
+            to: "/settings/ai",
+            label: t("settings.aiModels.menuLabel"),
+            icon: Sparkles,
+          },
+          {
             to: "/settings/integration-keys",
             label: t("settings.integrationKeys.menuLabel"),
             icon: KeyRound,
@@ -340,11 +347,6 @@ export function buildNavigationSections(
                   to: "/setup/platform",
                   label: t("navigation.setupPlatform"),
                   icon: KeyRound,
-                },
-                {
-                  to: "/setup/ai",
-                  label: t("settings.aiModels.menuLabel"),
-                  icon: Sparkles,
                 },
                 {
                   to: "/setup/plugins",

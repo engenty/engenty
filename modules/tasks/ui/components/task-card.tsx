@@ -19,7 +19,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@engenty/ui-core";
-import { CheckCircle2, HelpCircle, Pencil, Play, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  HelpCircle,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import type { Task, TaskStatusDefinition } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
@@ -70,10 +76,10 @@ export function statusIconForDefinition(
   }
   if (def.id === "in_progress") {
     return (
-      <Play
+      <Loader2
         className={cn(
           size === "sm" ? "h-4 w-4" : "h-5 w-5",
-          "text-orange-500 dark:text-orange-300"
+          "animate-spin text-orange-500 dark:text-orange-300"
         )}
       />
     );

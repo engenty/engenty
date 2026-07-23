@@ -166,24 +166,36 @@ export function resolveActivityActor(
   }
 
   if (item.actor_user_id) {
-    const label =
-      resolveProfileName(item.actor_user_id, assigneeProfiles) ??
-      t("detail.activityUnknownActor");
+    const known = resolveProfileName(item.actor_user_id, assigneeProfiles);
+    if (!known) {
+      // A real user id that is not a team member is the AI service principal
+      // acting on a headless run's behalf — "Someone" reads like a missing
+      // audit trail when the actor is in fact known and non-human.
+      return {
+        avatarKey: "agent-service",
+        colorKey: "violet",
+        initials: null,
+        kind: "agent",
+        label: t("detail.activityAgentServiceActor"),
+      };
+    }
     return {
       avatarKey: item.actor_user_id,
       colorKey: resolveAvatarColorKey(item.actor_user_id),
-      initials: getInitials(label),
+      initials: getInitials(known),
       kind: "user",
-      label,
+      label: known,
     };
   }
 
+  // No actor at all: an automatic transition (blocker resolution, dispatch
+  // bookkeeping) rather than an unidentified person.
   return {
-    avatarKey: "unknown",
+    avatarKey: "system",
     colorKey: "zinc",
-    initials: "?",
-    kind: "unknown",
-    label: t("detail.activityUnknownActor"),
+    initials: null,
+    kind: "agent",
+    label: t("detail.activitySystemActor"),
   };
 }
 

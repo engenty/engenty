@@ -81,6 +81,21 @@ describe("isDispatchableTask", () => {
       ).toBe(false);
     });
   }
+
+  // These used to be enqueued and then 409 at checkout (which only admits
+  // todo/backlog), leaving the run silently `skipped`. Dispatch must agree with
+  // checkout: only an assigned, planned task in an entry status runs.
+  it("rejects the request status (a human/coordinator must plan it into todo)", () => {
+    expect(
+      isDispatchableTask(makeTask({ status: "request" as Task["status"] }))
+    ).toBe(false);
+  });
+
+  it("rejects tenant-defined custom statuses", () => {
+    expect(
+      isDispatchableTask(makeTask({ status: "waiting_qa" as Task["status"] }))
+    ).toBe(false);
+  });
 });
 
 describe("enqueueTaskDispatch", () => {

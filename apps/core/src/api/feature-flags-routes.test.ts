@@ -1,6 +1,8 @@
+import type { FeatureFlagDefinition } from "@engenty/feature-flags";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { SignJWT } from "jose";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { FeatureFlagsDal } from "../dal/feature-flags.js";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
 
@@ -70,6 +72,7 @@ function createApp(registry = createRegistry()) {
       supabaseUrl: "http://127.0.0.1:54321",
       supabaseServiceRoleKey: "test-service-role",
     },
+    resolvePackageFlags: async () => ({}),
   });
   return app;
 }
@@ -81,6 +84,7 @@ describe("feature flags routes", () => {
     mockFeatureFlagsDal.getManageData.mockResolvedValue({
       global: {},
       tenant: {},
+      package: {},
       resolved: {},
     });
     mockFeatureFlagsDal.setOverrides.mockResolvedValue(undefined);
@@ -137,7 +141,8 @@ describe("feature flags routes", () => {
       expect(body.data.resolved["test.feature_b"]).toBe(false);
       expect(mockFeatureFlagsDal.getResolved).toHaveBeenCalledWith(
         "tenant-1",
-        expect.any(Array)
+        expect.any(Array),
+        {}
       );
     });
   });
@@ -240,6 +245,118 @@ describe("feature flags routes", () => {
       expect(mockFeatureFlagsDal.setOverrides).toHaveBeenCalledWith([
         { key: "valid.key", tenant_id: null, enabled: true },
       ]);
+    });
+  });
+
+  // Outcome test: a real (in-memory) DAL so a PUT is reflected by the next GET.
+  describe("tenant override round-trip (stateful DAL)", () => {
+    function createStatefulDal(): FeatureFlagsDal {
+      const overrides: Array<{
+        key: string;
+        tenant_id: string | null;
+        enabled: boolean;
+      }> = [];
+      const resolveFor = (
+        tenantId: string | null,
+        defs: FeatureFlagDefinition[]
+      ) => {
+        const out: Record<string, boolean> = {};
+        for (const def of defs) {
+          const globalOv = overrides.find(
+            (o) => o.key === def.key && o.tenant_id === null
+          );
+          const tenantOv =
+            tenantId === null
+              ? undefined
+              : overrides.find(
+                  (o) => o.key === def.key && o.tenant_id === tenantId
+                );
+          out[def.key] = tenantOv?.enabled ?? globalOv?.enabled ?? def.default;
+        }
+        return out;
+      };
+      const scopedMap = (tenantId: string | null) => {
+        const out: Record<string, boolean> = {};
+        for (const o of overrides.filter((x) => x.tenant_id === tenantId)) {
+          out[o.key] = o.enabled;
+        }
+        return out;
+      };
+      const notImplemented = () => {
+        throw new Error("not implemented");
+      };
+      return {
+        clearTenantOverride: notImplemented,
+        getGlobalOverrides: notImplemented,
+        getTenantOverrides: notImplemented,
+        getResolved: async (tenantId, defs) => resolveFor(tenantId, defs),
+        getManageData: async (tenantId, defs) => ({
+          global: scopedMap(null),
+          tenant: scopedMap(tenantId),
+          package: {},
+          resolved: resolveFor(tenantId, defs),
+        }),
+        setOverrides: async (updates) => {
+          for (const u of updates) {
+            const existing = overrides.find(
+              (o) => o.key === u.key && o.tenant_id === u.tenant_id
+            );
+            if (existing) {
+              existing.enabled = u.enabled;
+            } else {
+              overrides.push({ ...u });
+            }
+          }
+        },
+      };
+    }
+
+    function createStatefulApp() {
+      const app = new OpenAPIHono();
+      const dal = createStatefulDal();
+      registerFeatureFlagsRoutes({
+        app,
+        registry: createRegistry(),
+        config: {
+          securityJwtSecret: "test-secret",
+          supabaseUrl: "http://127.0.0.1:54321",
+          supabaseServiceRoleKey: "test-service-role",
+        },
+        createDal: () => dal,
+        resolvePackageFlags: async () => ({}),
+      });
+      return app;
+    }
+
+    it("writing a tenant override shows up in tenant + resolved, not global", async () => {
+      const token = await signToken(["core.superadmin"]);
+      const headers = {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      };
+      const app = createStatefulApp();
+
+      await app.request("/api/feature-flags/manage", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          updates: [{ key: "test.feature_b", tenant_id: "t1", enabled: true }],
+        }),
+      });
+
+      const res = await app.request("/api/feature-flags/manage?tenantId=t1", {
+        headers,
+      });
+      const body = (await res.json()) as {
+        data: {
+          global: Record<string, boolean>;
+          tenant: Record<string, boolean>;
+          resolved: Record<string, boolean>;
+        };
+      };
+      expect(body.data.tenant["test.feature_b"]).toBe(true);
+      expect(body.data.resolved["test.feature_b"]).toBe(true);
+      expect(body.data.global).not.toHaveProperty("test.feature_b");
     });
   });
 });

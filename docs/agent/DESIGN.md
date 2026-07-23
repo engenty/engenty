@@ -149,10 +149,14 @@ html {
 - **Typography utilities:** Tailwind v4 `--text-*` tokens live in `packages/design-tokens/src/tailwind-type-scale.css` (imported after `@import "tailwindcss"`). Values use **`rem`** so `.text-base` (= `1rem`) tracks the root scale. Fixed px marketing scale (`--t-h1`, `--t-ui`, …) in `ember-primitives.css` is for explicit `text-[length:var(--t-*)]` only — not a substitute for missing `--text-base`.
 
 ### Heading rules
-- **Page / entity headings** (`h1`): `font-heading font-semibold text-[28px] leading-9 tracking-tight text-foreground`
-- **Section headings** inside info/detail cards: `font-heading font-semibold text-lg leading-7 tracking-tight text-foreground`
+- **Page / entity headings** (`h1` in `DetailPageHeader`): `font-heading font-semibold text-[28px] leading-9 tracking-tight text-foreground`
+- **Section headings** — do **not** hand-roll Tailwind. Use **`CardSection.Header`** / convenience `headerVariant`:
+  - **`default`** — form/detail above a card (`font-medium text-lg`)
+  - **`meta`** — overview/meta labels (muted uppercase `text-xs`)
+  - **`display`** — hub sections (`font-heading text-lg`; also `cardSectionHeaderTitleVariants({ variant: "display" })`)
+- Static translated labels only (`Basic Information`, `Public Profile Info`). Do **not** interpolate entity values into the heading (`Name: Jane Doe` is wrong; put the value in a KV row or the page `h1`).
 - **Sidebar section labels**: `text-xxs font-semibold uppercase tracking-wider text-muted-foreground/70`
-- Body UI text is always `font-sans` (Geist). Use `font-heading` (Space Grotesk) only for H1/H2 page headings and section titles.
+- Body UI text is always `font-sans` (Geist). Use `font-heading` (Space Grotesk) only for the page/entity `h1` and `CardSection` **`display`** headers.
 
 ---
 
@@ -369,7 +373,7 @@ Alignment: `items-start` (not `items-center`) with `pt-1.5` on the label
 - `py-2 px-0` on the `Card` element (8px vertical, no horizontal — let inner rows provide horizontal padding)
 - Inner row container: `px-5 sm:px-6`
 - No stacked card + page padding (`p-page` + `p-4` = double padding → avoid)
-- One `Card` surface per `SettingsFormSection` — no nested cards
+- One `Card` surface per `CardSection` / `SettingsFormSection` — no nested cards
 
 ### Key-value rows (contact info tab)
 ```tsx

@@ -6,6 +6,11 @@
       "name": "docs.engenty",
       "script": "dev:app",
       "appPort": 3002
+    },
+    "apps/manage": {
+      "name": "manage.engenty",
+      "script": "dev:app",
+      "appPort": 5174
     }
   }
 }

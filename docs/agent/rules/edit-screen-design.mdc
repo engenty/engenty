@@ -35,8 +35,9 @@ Use this structure for edit and detail (read-only) pages so layout stays consist
 
 ## Sections and headings (outside the card)
 
-- **Section** = `<section className="space-y-2">` with heading and optional description *outside* the card, then the card as the next sibling.
-- **Heading**: `<h2 className="text-lg font-medium">` (translated). Optional: `<p className="text-sm text-muted-foreground">` below the heading.
+- Prefer **`CardSection`** from `@engenty/ui-core` (title + optional description outside, form card body). See `settings-form-section-ui.mdc`.
+- **Section** = `<section className="space-y-2">` with heading and optional description *outside* the card, then the card as the next sibling — or just use `CardSection`.
+- **Heading**: `<h2 className="font-medium text-lg">` (translated). Optional: `<p className="text-sm text-muted-foreground">` below the heading.
 - **Do not** put the section title inside the card. Heading and card are siblings inside the section.
 
 ## Cards

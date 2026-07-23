@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.67",
+  "version": "0.1.68",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -107,7 +107,7 @@
     "build": "turbo run build --concurrency=4",
     "predev": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/**",
     "dev:check": "bash scripts/predev-check.sh",
-    "dev": "turbo run api:app dev:app studio --filter=./apps/core --filter=./apps/ui --filter=./apps/ai --filter=./apps/docs",
+    "dev": "turbo run api:app dev:app studio --filter=./apps/*",
     "predev:portless": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/**",
     "dev:portless": "bash scripts/dev-portless.sh",
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",

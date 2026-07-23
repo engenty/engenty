@@ -1521,7 +1521,12 @@ export function registerApprovalRoutes(params: {
     if (authResult.error || !authResult.auth) {
       return authResult.error!;
     }
-    const pending = params.approvalService.listPending();
+    // Scope to the caller's tenant: a user only sees approvals for operations in
+    // their own tenant. The cross-tenant queue lives at /api/superadmin/approvals.
+    const tenantId = authResult.auth.tenantId;
+    const pending = params.approvalService
+      .listPending()
+      .filter((req) => req.tenantId === tenantId);
     return jsonApiSuccess(c, pending);
   });
 
@@ -1541,6 +1546,12 @@ export function registerApprovalRoutes(params: {
       decision !== "deny"
     ) {
       return jsonApiError(c, 400, { message: "Invalid decision" });
+    }
+    // Only decide requests in the caller's own tenant. Answer 404 (not 403) for
+    // a foreign id so we don't reveal that another tenant's request exists.
+    const existing = params.approvalService.get(c.req.param("id"));
+    if (!existing || existing.tenantId !== authResult.auth.tenantId) {
+      return jsonApiError(c, 404, { message: "Approval request not found" });
     }
     const decided = params.approvalService.decide({
       requestId: c.req.param("id"),

@@ -2,7 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQueryClient } from "@engenty/query-client";
 import {
   Button,
-  Card,
+  CardSection,
   DetailPageHeader,
   DropdownMenu,
   DropdownMenuContent,
@@ -222,8 +222,9 @@ export function TeamMemberDetailPage() {
       >
         <TeamMemberDetailHeader member={member} visibleTabs={visibleTabs} />
 
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-          <div className="mx-auto w-full max-w-5xl">
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+          {/* Padding inside max-w so the column aligns with DetailPageHeader. */}
+          <div className="mx-auto w-full max-w-5xl p-page pb-10">
             <TabsContent className="space-y-6" value="profile">
               <section className="space-y-2">
                 <div className="flex items-baseline gap-2">
@@ -234,22 +235,15 @@ export function TeamMemberDetailPage() {
                 </div>
                 {nameDetails}
               </section>
-              <section className="space-y-2">
-                <div>
-                  <h2 className="font-medium text-lg">
-                    {t("publicProfileInfo")}
-                  </h2>
-                  <p className="text-muted-foreground text-sm">
-                    {t("publicProfileDescription")}
-                  </p>
-                </div>
-                <Card variant="form">
-                  <Row label={t("initials")} value={member.initials} />
-                  <Row label={t("phone")} value={member.phone} />
-                  <Row label={t("position")} value={member.position} />
-                  <Row label={t("department")} value={member.department} />
-                </Card>
-              </section>
+              <CardSection
+                description={t("publicProfileDescription")}
+                title={t("publicProfileInfo")}
+              >
+                <Row label={t("initials")} value={member.initials} />
+                <Row label={t("phone")} value={member.phone} />
+                <Row label={t("position")} value={member.position} />
+                <Row label={t("department")} value={member.department} />
+              </CardSection>
             </TabsContent>
 
             {/* Extension tab content (work, time, …) from the registry. The

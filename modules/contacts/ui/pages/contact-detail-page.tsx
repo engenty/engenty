@@ -167,8 +167,9 @@ export function ContactDetailPage() {
           title={entity.display_name ?? ""}
         />
 
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-          <div className="mx-auto w-full max-w-5xl">
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+          {/* Padding inside max-w so the column aligns with DetailPageHeader. */}
+          <div className="mx-auto w-full max-w-5xl p-page pb-10">
             {error ? (
               <div className="mb-6 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm">
                 {error}

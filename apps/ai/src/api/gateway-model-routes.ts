@@ -1,3 +1,4 @@
+import type { AiUsageStore } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -154,6 +155,12 @@ export function registerGatewayModelRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     getGatewayModelStore: () => AiGatewayModelStore | null;
+    /**
+     * Usage store for the governance allow-list. When a tenant's usage policy
+     * is in `enforce` mode with a non-empty `allowed_models`, the model-options
+     * picker is filtered to that list so tenants can only choose legal models.
+     */
+    getUsageStore?: () => AiUsageStore | null;
     scopeResolver: AiScopeResolver;
   }
 ): void {
@@ -184,8 +191,32 @@ export function registerGatewayModelRoutes(
       );
     }
     const items = await store.store.listGatewayModels(parsed.data);
+    // Governance allow-list: when the tenant's usage policy is in `enforce`
+    // mode with a non-empty allow-list, only offer legal models in the picker.
+    // Observe mode / no list = unrestricted. A policy read failure never
+    // narrows the catalog (fail open — the resolver still enforces at runtime).
+    let allowed: readonly string[] | null = null;
+    if (scope.scope.tenantId) {
+      try {
+        const policy = await opts
+          .getUsageStore?.()
+          ?.getTenantPolicy(scope.scope.tenantId);
+        if (
+          policy?.enforcement_mode === "enforce" &&
+          policy.allowed_models &&
+          policy.allowed_models.length > 0
+        ) {
+          allowed = policy.allowed_models;
+        }
+      } catch {
+        allowed = null;
+      }
+    }
+    const filtered = allowed
+      ? items.filter((item) => allowed?.includes(item.model_id))
+      : items;
     return c.json({
-      items: items.map(modelOptionFromRecord),
+      items: filtered.map(modelOptionFromRecord),
     });
   });
 

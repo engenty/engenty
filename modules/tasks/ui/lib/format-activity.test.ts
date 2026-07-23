@@ -51,7 +51,10 @@ describe("format-activity helpers", () => {
     expect(actor.initials).toBe("ME");
   });
 
-  it("falls back to unknown actor label when user not in profiles map", () => {
+  // A user id that resolves to no team member is the AI service principal
+  // acting for a headless run — naming it beats "Someone", which reads like a
+  // missing audit trail for an actor that is in fact known.
+  it("attributes an unknown user id to the agent service", () => {
     const actor = resolveActivityActor(
       activity({
         event_type: "tasks.status_changed",
@@ -60,12 +63,12 @@ describe("format-activity helpers", () => {
       new Map(),
       t
     );
-    expect(actor.kind).toBe("user");
-    expect(actor.label).toBe("detail.activityUnknownActor");
+    expect(actor.kind).toBe("agent");
+    expect(actor.label).toBe("detail.activityAgentServiceActor");
     expect(actor.label).not.toMatch(/^e9513d09/);
   });
 
-  it("falls back to unknown actor label when profiles map is undefined", () => {
+  it("attributes an unknown user id to the agent service when profiles are undefined", () => {
     const actor = resolveActivityActor(
       activity({
         event_type: "tasks.status_changed",
@@ -74,8 +77,17 @@ describe("format-activity helpers", () => {
       undefined,
       t
     );
-    expect(actor.kind).toBe("user");
-    expect(actor.label).toBe("detail.activityUnknownActor");
+    expect(actor.kind).toBe("agent");
+    expect(actor.label).toBe("detail.activityAgentServiceActor");
+  });
+
+  it("labels an actor-less transition as System, not Someone", () => {
+    const actor = resolveActivityActor(
+      activity({ event_type: "tasks.status_changed" }),
+      new Map(),
+      t
+    );
+    expect(actor.label).toBe("detail.activitySystemActor");
   });
 
   it("prefers agent attribution when both agent key and user id are present", () => {

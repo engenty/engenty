@@ -167,6 +167,23 @@ function toInboxNotification(record: unknown): InboxNotification {
 /** Statuses shown in the inbox; `unseen` drives the badges. */
 const OPEN_STATUSES: InboxNotificationStatus[] = ["pending", "delivered"];
 
+/**
+ * Kinds that actually need a human decision. The badge counts only these —
+ * "task completed" notifications are FYI and inflating the badge with them
+ * trains people to ignore it, hiding the approvals that do block work. Mirrors
+ * NEEDS_INPUT_KINDS in the inbox list UI, which groups the same set under
+ * "Needs your input".
+ */
+const NEEDS_INPUT_KINDS = new Set([
+  "tool_approval",
+  "connection_approval_requested",
+  "agent_proposed",
+  "skill_proposed",
+  "memory_proposal",
+  "task_failed",
+  "trigger_failed",
+]);
+
 /** The caller's partitions: the team inbox plus their per-user thread. */
 function inboxThreadIds(tenantId: string, userId?: string | null): string[] {
   return userId
@@ -220,7 +237,9 @@ export async function countUnseenInboxNotifications(
       })
     )
   );
-  return perThread.reduce((sum, records) => sum + records.length, 0);
+  return perThread
+    .flat()
+    .filter((record) => NEEDS_INPUT_KINDS.has(String(record.kind))).length;
 }
 
 export async function setInboxNotificationStatus(input: {

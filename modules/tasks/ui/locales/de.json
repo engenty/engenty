@@ -210,6 +210,16 @@
     "removeApprovedTool": "Entfernen",
     "pendingApprovalTitle": "Wartet auf Freigabe",
     "pendingApprovalBody": "Der Agent benötigt deine Freigabe für {{operation}}.",
+    "reviewTitle": "Bereit zur Prüfung",
+    "reviewBody": "{{agent}} hat diese Aufgabe abgeschlossen und wartet auf deine Entscheidung.",
+    "reviewBodyGeneric": "Diese Aufgabe ist abgeschlossen und wartet auf deine Entscheidung.",
+    "reviewApprove": "Freigeben",
+    "reviewSendBack": "Zurückgeben",
+    "reviewFeedbackPlaceholder": "Was muss sich ändern? Der Agent läuft mit diesem Feedback erneut.",
+    "reviewFeedbackRequired": "Gib Feedback an, damit der Agent weiß, was zu korrigieren ist.",
+    "reviewCancel": "Abbrechen",
+    "reviewApproved": "Aufgabe freigegeben und als erledigt markiert.",
+    "reviewSentBack": "Mit deinem Feedback an den Agenten zurückgegeben.",
     "workspace": {
       "title": "Workspace",
       "sectionAria": "Aufgaben-Arbeitsbereich",
@@ -230,13 +240,12 @@
     },
     "noCollaborators": "Keine Mitwirkenden",
     "liveRuns": "Live-Läufe",
+    "runHistory": "Laufhistorie",
     "liveRunUnknownAgent": "Agent",
     "liveRunStarted": "Lauf gestartet {{when}}",
     "liveRunStartedBy": "Lauf gestartet {{when}} von {{name}}",
     "liveRunOpenChat": "Agent-Chat öffnen",
-    "liveRunViewLog": "Laufprotokoll anzeigen",
-    "liveRunViewDetails": "Laufdetails anzeigen",
-    "liveRunRole": "Rolle: {{role}}",
+    "liveRunViewDetails": "Details anzeigen",
     "liveRunInProgress": "In Bearbeitung",
     "liveRunFinished": "Beendet",
     "liveRunId": "Lauf {{id}}…",
@@ -250,6 +259,8 @@
     "activityAssigneeChanged": "Zuständigkeit geändert",
     "activityCommentAdded": "Kommentar hinzugefügt",
     "activityUnknownActor": "Jemand",
+    "activitySystemActor": "System",
+    "activityAgentServiceActor": "Agenten-Dienst",
     "activityAgentBadge": "Agent",
     "activityAssigneeNone": "Nicht zugewiesen",
     "activityTimeJustNow": "gerade eben",
@@ -275,7 +286,9 @@
       "stopRun": "Lauf stoppen",
       "close": "Laufprotokoll schließen",
       "subRunOf": "Sub-Agent-Lauf von {{id}}…"
-    }
+    },
+    "liveRunFinishedAt": "{{when}} beendet",
+    "liveRunFinishedAtWithDuration": "{{when}} beendet · Dauer: {{duration}}"
   },
   "errors": {
     "taskCheckoutRequired": "Für den Wechsel zu In Bearbeitung ist ein aktives Checkout erforderlich.",
@@ -613,6 +626,9 @@
     "approveOnce": "Einmal erlauben",
     "approveForTask": "Für diese Aufgabe erlauben",
     "approveForRoutine": "Für diese Routine erlauben",
-    "denyApproval": "Ablehnen"
+    "denyApproval": "Ablehnen",
+    "actionReview": "Prüfen",
+    "actionApprove": "Freigeben",
+    "actionFix": "Beheben"
   }
 }

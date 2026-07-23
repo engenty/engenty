@@ -2,6 +2,7 @@ import { groupByNamespace } from "@engenty/feature-flags";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createCoreUsersDal } from "../../dal/core-users.js";
 import { createFeatureFlagsDal } from "../../dal/feature-flags.js";
+import { createPackagesDal } from "../../dal/packages.js";
 import type { PluginRegistry } from "../../plugins/registry.js";
 import { getSecuritySecret, verifyAccessToken } from "../../security/auth.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
@@ -48,9 +49,29 @@ export function registerFeatureFlagsRoutes(params: {
   app: OpenAPIHono;
   registry: PluginRegistry;
   config: Record<string, unknown>;
+  createDal?: typeof createFeatureFlagsDal;
+  /** Resolve a tenant's commercial-package flag values. Injectable for tests. */
+  resolvePackageFlags?: (
+    tenantId: string | null
+  ) => Promise<Record<string, boolean>>;
 }) {
   const { app, registry, config } = params;
-  const dal = createFeatureFlagsDal(config);
+  const dal = (params.createDal ?? createFeatureFlagsDal)(config);
+  const resolvePackageFlags =
+    params.resolvePackageFlags ??
+    (async (tenantId: string | null) => {
+      if (!tenantId) {
+        return {};
+      }
+      try {
+        const resolved =
+          await createPackagesDal(config).getResolvedEntitlements(tenantId);
+        return resolved.featureFlags;
+      } catch {
+        // Package resolution must never break flag resolution.
+        return {};
+      }
+    });
 
   app.get("/api/feature-flags/catalog", async (c) => {
     const authResult = await requireAuth(c, config);
@@ -76,7 +97,12 @@ export function registerFeatureFlagsRoutes(params: {
       return authResult.error;
     }
     const { tenantId } = authResult;
-    const resolved = await dal.getResolved(tenantId, registry.featureFlags);
+    const packageFlags = await resolvePackageFlags(tenantId);
+    const resolved = await dal.getResolved(
+      tenantId,
+      registry.featureFlags,
+      packageFlags
+    );
     return jsonApiSuccess(c, { resolved });
   });
 
@@ -87,14 +113,18 @@ export function registerFeatureFlagsRoutes(params: {
     }
     const tenantId =
       c.req.query("tenantId") || authResult.auth.tenantId || null;
-    const { global, tenant, resolved } = await dal.getManageData(
-      tenantId,
-      registry.featureFlags
-    );
+    const packageFlags = await resolvePackageFlags(tenantId);
+    const {
+      global,
+      tenant,
+      package: pkg,
+      resolved,
+    } = await dal.getManageData(tenantId, registry.featureFlags, packageFlags);
     return jsonApiSuccess(c, {
       definitions: registry.featureFlags,
       global,
       tenant,
+      package: pkg,
       resolved,
       tenantId,
     });

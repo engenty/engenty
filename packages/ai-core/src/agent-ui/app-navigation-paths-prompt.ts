@@ -15,7 +15,7 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Dashboard | `/dashboard` |",
     "| Full-page chat | `/chat`, `/chat/<threadId>` |",
     "| App settings | `/settings`, `/settings/appearance` |",
-    "| AI models & usage (setup) | `/setup/ai` |",
+    "| AI models & usage (settings) | `/settings/ai` |",
     "| Tenant plugins (setup) | `/setup/plugins` |",
     "| Roles & permissions (setup) | `/setup/roles` |",
     "| Agents / AI workspace | `/admin/engenty` (sessions, agents, skills, actions under this prefix) |",

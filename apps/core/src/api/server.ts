@@ -95,9 +95,11 @@ import { registerAgentAuthDiscoveryRoutes } from "./routes/auth/agent-auth-disco
 import { registerAuthRoutes } from "./routes/auth/auth-routes.js";
 import { registerDevLoginRoutes } from "./routes/auth/dev-login-routes.js";
 import { registerDeviceFlowRoutes } from "./routes/auth/device-flow-routes.js";
+import { registerBillingRoutes } from "./routes/billing-routes.js";
 import { registerCoreAiRemovedRoutes } from "./routes/core-ai-removed-routes.js";
 import { registerDashboardRoutes } from "./routes/dashboard/index.js";
 import { registerDesktopBootstrapRoutes } from "./routes/desktop-bootstrap-routes.js";
+import { registerEntitlementsRoutes } from "./routes/entitlements-routes.js";
 import { registerEvlogIngestRoutes } from "./routes/evlog-ingest-routes.js";
 import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
 import { registerFileStorageRoutes } from "./routes/file-storage-routes.js";
@@ -112,6 +114,7 @@ import { registerPluginAdminRoutes } from "./routes/plugins/plugin-admin-routes.
 import { registerPluginDevReloadEventsRoutes } from "./routes/plugins/plugin-dev-reload-events-routes.js";
 import { registerPluginHttpRoutes } from "./routes/plugins/plugin-http-routes.js";
 import { registerQueueRoutes } from "./routes/queue-routes.js";
+import { registerSatellitesRoutes } from "./routes/satellites-routes.js";
 import { registerSearchIndexRoutes } from "./routes/search-index-routes.js";
 import { registerSettingsRoutes } from "./routes/settings-routes.js";
 import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
@@ -329,6 +332,9 @@ export function createApiApp(params: CreateApiAppParams) {
     registry: params.registry,
     config,
   });
+  registerEntitlementsRoutes({ app, config });
+  registerSatellitesRoutes({ app, config });
+  registerBillingRoutes({ app, config });
   const authStores = params.authStores ?? createAuthStores(config);
   // Revocation survives restarts: persisted revoked api-token ids re-enter the
   // in-memory revocation set used by verifyAccessToken.
@@ -377,6 +383,8 @@ export function createApiApp(params: CreateApiAppParams) {
   registerSuperadminRoutes({
     app,
     config,
+    auditLog: securityAuditLog,
+    approvalService,
   });
   registerAuthzRoutes({
     app,
@@ -702,6 +710,26 @@ export async function startApiServer(
         s.once("listening", async () => {
           gateway?.logEnabled();
           logger.info(`API server listening on http://${host}:${port}`);
+
+          // Sync the authored entitlements catalog into core.packages
+          // (version-based upsert, non-fatal). Mirrors the AI model-pricing
+          // seed at boot so operators see the shipped packages immediately.
+          if (supabaseUrl && supabaseServiceRoleKey) {
+            try {
+              const { createPackagesDal } = await import("../dal/packages.js");
+              const { upserted } =
+                await createPackagesDal(effectiveConfig).syncCatalog();
+              if (upserted > 0) {
+                logger.info(
+                  `Entitlement packages synced (${upserted} upserted)`
+                );
+              }
+            } catch (err) {
+              logger.info(
+                `Entitlement package sync skipped (${err instanceof Error ? err.message : "unavailable"})`
+              );
+            }
+          }
 
           // Start queue worker if plugins registered any queue handlers
           if (registry.queueHandlers.size > 0) {

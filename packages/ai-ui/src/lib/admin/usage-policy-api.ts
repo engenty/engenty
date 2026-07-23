@@ -9,11 +9,16 @@ export type UsageEnforcementMode = "observe" | "enforce";
 export type UsagePeriodMode = "calendar" | "rolling";
 export type UsagePeriodUnit = "day" | "week" | "month" | "year";
 
+/** Who governs the policy: self-service tenant admin, or the tenant's plan. */
+export type UsagePolicyManagedBy = "tenant" | "entitlement";
+
 export interface TenantUsagePolicy {
   allowed_models: string[] | null;
   currency: string;
   enforcement_mode: UsageEnforcementMode;
   hard_limit_cost_micros: number | null;
+  // Absent on older AI services → treated as self-service ("tenant").
+  managed_by?: UsagePolicyManagedBy;
   period_anchor: string | null;
   period_mode: UsagePeriodMode;
   period_unit: UsagePeriodUnit;

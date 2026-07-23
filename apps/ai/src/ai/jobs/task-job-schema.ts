@@ -47,6 +47,9 @@ export const taskJobEnvelopeSchema = z.object({
   status: taskJobStatusSchema,
   task_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
+  // The task's own title — the fallback subject for inbox rows when no
+  // headline can be generated from the result text.
+  title: z.string().optional(),
   // The run's ai.thread id — created at checkout so the run is first-class
   // (ai.agent_run.thread_id) and the specialist runs on a drillable thread.
   thread_id: z.string().uuid().optional(),

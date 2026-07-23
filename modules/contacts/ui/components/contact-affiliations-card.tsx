@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Badge, Card } from "@engenty/ui-core";
+import { Badge, CardSection } from "@engenty/ui-core";
 import { useNavigate } from "react-router-dom";
 import type { ContactListItem } from "../api.js";
 import { useContactRelationsQuery } from "../relation-queries.js";
@@ -17,14 +17,11 @@ export function ContactAffiliationsCard({
 
   if (relationsQuery.isLoading) {
     return (
-      <section className="space-y-3">
-        <h2 className="font-semibold text-lg">
-          {t("relations.affiliations", { defaultValue: "Affiliations" })}
-        </h2>
-        <Card className="px-4 py-4 text-muted-foreground text-sm">
-          {t("loading")}
-        </Card>
-      </section>
+      <CardSection
+        title={t("relations.affiliations", { defaultValue: "Affiliations" })}
+      >
+        <p className="text-muted-foreground text-sm">{t("loading")}</p>
+      </CardSection>
     );
   }
 
@@ -37,55 +34,50 @@ export function ContactAffiliationsCard({
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="font-semibold text-lg">
-        {t("relations.affiliations", { defaultValue: "Affiliations" })}
-      </h2>
-      <Card className="px-4 py-4">
-        <div className="space-y-3">
-          {organisationRelations.map((relation) => {
-            const detailLine = [
-              relation.role,
-              relation.position,
-              relation.department,
-            ]
-              .filter(Boolean)
-              .join(" · ");
-            return (
-              <div
-                className="flex items-start justify-between gap-4"
-                key={relation.id}
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      className="text-left font-medium hover:underline"
-                      onClick={() =>
-                        navigate(`/mdl/contacts/${relation.other_contact.id}`)
-                      }
-                      type="button"
-                    >
-                      {relation.other_contact.display_name}
-                    </button>
-                    {relation.is_primary ? (
-                      <Badge variant="outline">
-                        {t("relations.primaryBadge", {
-                          defaultValue: "Primary",
-                        })}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  {detailLine ? (
-                    <p className="text-muted-foreground text-sm">
-                      {detailLine}
-                    </p>
+    <CardSection
+      title={t("relations.affiliations", { defaultValue: "Affiliations" })}
+    >
+      <div className="space-y-3">
+        {organisationRelations.map((relation) => {
+          const detailLine = [
+            relation.role,
+            relation.position,
+            relation.department,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <div
+              className="flex items-start justify-between gap-4"
+              key={relation.id}
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    className="text-left font-medium hover:underline"
+                    onClick={() =>
+                      navigate(`/mdl/contacts/${relation.other_contact.id}`)
+                    }
+                    type="button"
+                  >
+                    {relation.other_contact.display_name}
+                  </button>
+                  {relation.is_primary ? (
+                    <Badge variant="outline">
+                      {t("relations.primaryBadge", {
+                        defaultValue: "Primary",
+                      })}
+                    </Badge>
                   ) : null}
                 </div>
+                {detailLine ? (
+                  <p className="text-muted-foreground text-sm">{detailLine}</p>
+                ) : null}
               </div>
-            );
-          })}
-        </div>
-      </Card>
-    </section>
+            </div>
+          );
+        })}
+      </div>
+    </CardSection>
   );
 }

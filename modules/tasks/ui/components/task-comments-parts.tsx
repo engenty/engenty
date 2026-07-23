@@ -6,6 +6,7 @@ import {
   PromptInputTextarea,
   usePromptInputController,
 } from "@engenty/ai-ui";
+import { MessageResponse } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, Button, cn } from "@engenty/ui-core";
 import { AnimatedSendIcon } from "@engenty/ui-icons";
@@ -17,10 +18,25 @@ import {
   resolveTaskCommentAudience,
 } from "../lib/format-activity.js";
 import { formatActivityTimeLabel } from "../lib/format-activity-time.js";
+import { linkifyChildren } from "./comment-object-links.js";
 import { ActivityActorAvatar } from "./task-activity-feed.js";
 
 /** Room for card shadows inside padded regions. */
 export const FEED_SCROLL_PAD_CLASS = "-mx-1.5 px-1.5 py-1";
+
+/**
+ * Object references an agent mentions become links to the record itself, so a
+ * reviewer can open what they are approving. Applied to the text-bearing
+ * markdown nodes only — code blocks keep ids literal.
+ */
+const COMMENT_MARKDOWN_COMPONENTS = {
+  li: ({ children, ...props }: { children?: React.ReactNode }) => (
+    <li {...props}>{linkifyChildren(children)}</li>
+  ),
+  p: ({ children, ...props }: { children?: React.ReactNode }) => (
+    <p {...props}>{linkifyChildren(children)}</p>
+  ),
+};
 
 /** Profiles keyed by user id, used to name comment authors. */
 export type AssigneeProfiles = Map<string, { full_name: string; id: string }>;
@@ -71,10 +87,15 @@ function TaskCommentItem({
     </div>
   );
 
+  // Agents write markdown (lists, code spans, emphasis) — rendering it raw made
+  // result comments read as noise. Same renderer the chat surface uses.
   const body = (
-    <p className="mt-1 whitespace-pre-wrap text-foreground/90 text-sm leading-relaxed">
+    <MessageResponse
+      className="mt-1 text-foreground/90 text-sm leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5"
+      components={COMMENT_MARKDOWN_COMPONENTS}
+    >
       {comment.content}
-    </p>
+    </MessageResponse>
   );
 
   const content = (

@@ -67,6 +67,11 @@ export interface Task {
   id: string;
   identifier: string;
   parent_id: string | null;
+  /**
+   * Operation ids a paused run is waiting on. Durable so the approval UI keys
+   * off the task itself, not off a dismissible inbox notification.
+   */
+  pending_approval_operation_ids?: string[];
   primary_assignee_agent_type_key: string | null;
   primary_assignee_kind: PrimaryAssigneeKind;
   primary_assignee_user_id: string | null;
@@ -113,14 +118,21 @@ export interface TaskComment {
 export type TaskRunRole = "checkout" | "work" | "review";
 
 export interface TaskRun {
-  /** Enriched from ai.agent_session_run when available. */
-  agent_session_id?: string | null;
   agent_session_run_id: string;
+  /**
+   * The run's ai thread — enriched from ai.agent_run.thread_id. The run log
+   * cannot be loaded without it: the transcript lives on the thread.
+   */
+  agent_thread_id?: string | null;
   agent_type_key?: string | null;
   created_at: string;
   /** Enriched from ai.agent_session_run when available. */
   created_by_user_id?: string | null;
+  /** Stamped by the release path — authoritative, unlike the ai.* enrichment. */
+  finished_at?: string | null;
   id: string;
+  /** completed | failed | needs_approval — stamped by the release path. */
+  outcome?: string | null;
   role: TaskRunRole;
   run_finished_at?: string | null;
   run_started_at?: string | null;
@@ -158,6 +170,13 @@ export interface TaskCheckoutInput {
 
 export interface TaskReleaseInput {
   agent_session_run_id?: string;
+  /** Run outcome stamped onto the task_runs row (completed | failed | needs_approval). */
+  outcome?: "completed" | "failed" | "needs_approval";
+  /**
+   * Operations the ending run still needs approval for. Always replaces the
+   * task's pending set — a run that ended without asking clears it.
+   */
+  pending_approval_operation_ids?: string[];
 }
 
 export interface TaskCheckoutConflictResponse {

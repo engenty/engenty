@@ -3,6 +3,7 @@ import { useQueryClient } from "@engenty/query-client";
 import {
   Button,
   Card,
+  CardSection,
   Form,
   FormControl,
   FormField,
@@ -330,66 +331,63 @@ export function TeamMemberEditPage() {
             />
           )}
 
-          <section className="space-y-2">
-            <h2 className="font-medium text-lg">{t("publicProfileInfo")}</h2>
-            <p className="text-muted-foreground text-sm">
-              {t("publicProfileDescription")}
-            </p>
-            <Card variant="form">
-              <FormField
-                control={form.control}
-                name="initials"
-                render={({ field }) => (
-                  <FormItem variant="row">
-                    <FormLabel>{t("initials")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem variant="row">
-                    <FormLabel>{t("phone")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="position"
-                render={({ field }) => (
-                  <FormItem variant="row">
-                    <FormLabel>{t("position")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem variant="row">
-                    <FormLabel>{t("department")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </Card>
-          </section>
+          <CardSection
+            description={t("publicProfileDescription")}
+            title={t("publicProfileInfo")}
+          >
+            <FormField
+              control={form.control}
+              name="initials"
+              render={({ field }) => (
+                <FormItem variant="row">
+                  <FormLabel>{t("initials")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem variant="row">
+                  <FormLabel>{t("phone")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="position"
+              render={({ field }) => (
+                <FormItem variant="row">
+                  <FormLabel>{t("position")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="department"
+              render={({ field }) => (
+                <FormItem variant="row">
+                  <FormLabel>{t("department")}</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardSection>
         </form>
       </Form>
     </TeamModulePageScroll>

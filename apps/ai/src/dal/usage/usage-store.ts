@@ -260,6 +260,7 @@ function mapTenantPolicy(
     enforcement_mode:
       row.enforcement_mode === "enforce" ? "enforce" : "observe",
     currency: String(row.currency ?? "usd"),
+    managed_by: row.managed_by === "entitlement" ? "entitlement" : "tenant",
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };

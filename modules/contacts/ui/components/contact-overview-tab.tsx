@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Badge } from "@engenty/ui-core";
+import { Badge, CardSection } from "@engenty/ui-core";
 import { AnimatedCheckIcon, AnimatedCopyIcon } from "@engenty/ui-icons";
 import { ExternalLink, MapPin } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -55,14 +55,6 @@ function hrefForOverviewKind(
     return raw.includes("://") ? raw : `https://${raw}`;
   }
   return null;
-}
-
-function SectionHeading({ children }: { children: string }) {
-  return (
-    <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-      {children}
-    </h3>
-  );
 }
 
 function OverviewValueRow({
@@ -282,9 +274,12 @@ function OrgOverviewLeft({
 
       {address ? (
         <section className="space-y-2">
-          <SectionHeading>
-            {t("detail.overviewAddressHeading", { defaultValue: "Address" })}
-          </SectionHeading>
+          <CardSection.Header
+            title={t("detail.overviewAddressHeading", {
+              defaultValue: "Address",
+            })}
+            variant="meta"
+          />
           <div className="group/ad flex items-start gap-2 text-sm">
             <p className="min-w-0 flex-1 whitespace-pre-line text-foreground">
               {address}
@@ -323,11 +318,12 @@ function OrgOverviewLeft({
 
       {hasBillingBlock ? (
         <section className="space-y-2">
-          <SectionHeading>
-            {t("detail.overviewBillingContactHeading", {
+          <CardSection.Header
+            title={t("detail.overviewBillingContactHeading", {
               defaultValue: "Billing contact",
             })}
-          </SectionHeading>
+            variant="meta"
+          />
           <div className="space-y-1">
             <OverviewOptionalRow
               kind="plain"
@@ -414,9 +410,12 @@ function PersonOverviewLeft({
 
       {address ? (
         <section className="space-y-2">
-          <SectionHeading>
-            {t("detail.overviewAddressHeading", { defaultValue: "Address" })}
-          </SectionHeading>
+          <CardSection.Header
+            title={t("detail.overviewAddressHeading", {
+              defaultValue: "Address",
+            })}
+            variant="meta"
+          />
           <div className="group/ad flex items-start gap-2 text-sm">
             <p className="min-w-0 flex-1 whitespace-pre-line text-foreground">
               {address}
@@ -455,11 +454,12 @@ function PersonOverviewLeft({
 
       {hasContactBlock ? (
         <section className="space-y-2">
-          <SectionHeading>
-            {t("detail.overviewPersonContactHeading", {
+          <CardSection.Header
+            title={t("detail.overviewPersonContactHeading", {
               defaultValue: "Contact",
             })}
-          </SectionHeading>
+            variant="meta"
+          />
           <div className="space-y-1">
             <OverviewOptionalRow kind="email" t={t} value={entity.email} />
             <OverviewOptionalRow kind="tel" t={t} value={entity.phone} />
@@ -502,7 +502,7 @@ function PeopleCards({
 
   return (
     <section className="space-y-3">
-      <p className="text-muted-foreground text-sm">{heading}</p>
+      <CardSection.Header title={heading} variant="meta" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {personRelations.map((r) => (
           <ContactPersonCard key={r.id} relation={r} />
@@ -538,7 +538,7 @@ function PersonAffiliation({
   return (
     <>
       <section className="space-y-3">
-        <p className="text-muted-foreground text-sm">{t("detail.company")}</p>
+        <CardSection.Header title={t("detail.company")} variant="meta" />
         {orgRelations.map((rel) => {
           const detailLine = [rel.position, rel.department, rel.role]
             .filter(Boolean)

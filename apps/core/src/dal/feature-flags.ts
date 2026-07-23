@@ -8,15 +8,19 @@ export interface FeatureFlagsDal {
   getGlobalOverrides: () => Promise<Record<string, boolean>>;
   getManageData: (
     tenantId: string | null,
-    definitions: FeatureFlagDefinition[]
+    definitions: FeatureFlagDefinition[],
+    /** Commercial-package flag values (compose UNDER tenant overrides). */
+    packageOverrides?: Record<string, boolean>
   ) => Promise<{
     global: Record<string, boolean>;
     tenant: Record<string, boolean>;
+    package: Record<string, boolean>;
     resolved: ResolvedFlags;
   }>;
   getResolved: (
     tenantId: string | null,
-    definitions: FeatureFlagDefinition[]
+    definitions: FeatureFlagDefinition[],
+    packageOverrides?: Record<string, boolean>
   ) => Promise<ResolvedFlags>;
   getTenantOverrides: (tenantId: string) => Promise<Record<string, boolean>>;
   setOverrides: (
@@ -72,25 +76,33 @@ export function createFeatureFlagsDal(
 
   async function getResolved(
     tenantId: string | null,
-    definitions: FeatureFlagDefinition[]
+    definitions: FeatureFlagDefinition[],
+    packageOverrides: Record<string, boolean> = {}
   ): Promise<ResolvedFlags> {
     const global = await getGlobalOverrides();
     const tenant = tenantId ? await getTenantOverrides(tenantId) : {};
-    return mergeResolved(definitions, global, tenant);
+    return mergeResolved(definitions, global, tenant, packageOverrides);
   }
 
   async function getManageData(
     tenantId: string | null,
-    definitions: FeatureFlagDefinition[]
+    definitions: FeatureFlagDefinition[],
+    packageOverrides: Record<string, boolean> = {}
   ): Promise<{
     global: Record<string, boolean>;
     tenant: Record<string, boolean>;
+    package: Record<string, boolean>;
     resolved: ResolvedFlags;
   }> {
     const global = await getGlobalOverrides();
     const tenant = tenantId ? await getTenantOverrides(tenantId) : {};
-    const resolved = mergeResolved(definitions, global, tenant);
-    return { global, tenant, resolved };
+    const resolved = mergeResolved(
+      definitions,
+      global,
+      tenant,
+      packageOverrides
+    );
+    return { global, tenant, package: packageOverrides, resolved };
   }
 
   async function setOverrides(

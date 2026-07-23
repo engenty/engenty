@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Card, MultiSelect } from "@engenty/ui-core";
+import { CardSection, MultiSelect } from "@engenty/ui-core";
 import { useCallback, useMemo } from "react";
 import { FIXED_CONTACT_ROLES } from "../api/role-menu-settings.js";
 import type { ContactListItem } from "../api.js";
@@ -23,10 +23,6 @@ const contactDetailKvLabelClassName =
 
 const contactDetailKvValueClassName =
   "min-w-0 text-foreground text-sm font-normal leading-snug break-words";
-
-/** Same display stack as the `DetailPageHeader` title (`font-heading`); section scale under the page `h1`. */
-const contactDetailSectionHeadingClassName =
-  "font-heading font-semibold text-lg tracking-tight text-foreground leading-7";
 
 interface ContactInfoTabProps {
   entity: ContactListItem;
@@ -93,11 +89,6 @@ export function ContactInfoTab({ entity }: ContactInfoTabProps) {
         ]
       : []),
   ];
-  const basicHeading =
-    !isOrg && entity.display_name
-      ? `${t("nameSection")}: ${entity.display_name}`
-      : t("sectionBasicInfo");
-
   const basicRows = [
     ...(isOrg
       ? [
@@ -174,51 +165,54 @@ export function ContactInfoTab({ entity }: ContactInfoTabProps) {
     heading: string,
     rows: Array<{ label: string; value: string }>
   ) => (
-    <section className="space-y-1.5" key={heading}>
-      <h2 className={contactDetailSectionHeadingClassName}>{heading}</h2>
-      <Card className="rounded-xl px-0 py-2 sm:px-0 sm:py-2">
+    <CardSection
+      cardClassName="py-2"
+      cardVariant="flush"
+      key={heading}
+      title={heading}
+    >
+      <div className={contactDetailKvListClassName}>
+        {rows.map((row) => (
+          <div className={contactDetailKvRowClassName} key={row.label}>
+            <p className={contactDetailKvLabelClassName}>{row.label}</p>
+            <p className={contactDetailKvValueClassName}>{row.value}</p>
+          </div>
+        ))}
+      </div>
+    </CardSection>
+  );
+
+  return (
+    <>
+      <CardSection
+        cardClassName="py-2"
+        cardVariant="flush"
+        title={t("sectionBasicInfo")}
+      >
         <div className={contactDetailKvListClassName}>
-          {rows.map((row) => (
+          {basicRows.map((row) => (
             <div className={contactDetailKvRowClassName} key={row.label}>
               <p className={contactDetailKvLabelClassName}>{row.label}</p>
               <p className={contactDetailKvValueClassName}>{row.value}</p>
             </div>
           ))}
-        </div>
-      </Card>
-    </section>
-  );
-
-  return (
-    <>
-      <section className="space-y-1.5">
-        <h2 className={contactDetailSectionHeadingClassName}>{basicHeading}</h2>
-        <Card className="rounded-xl px-0 py-2 sm:px-0 sm:py-2">
-          <div className={contactDetailKvListClassName}>
-            {basicRows.map((row) => (
-              <div className={contactDetailKvRowClassName} key={row.label}>
-                <p className={contactDetailKvLabelClassName}>{row.label}</p>
-                <p className={contactDetailKvValueClassName}>{row.value}</p>
-              </div>
-            ))}
-            <div className={contactDetailKvRowClassName}>
-              <p className={contactDetailKvLabelClassName}>{t("roles")}</p>
-              <div className="min-w-0">
-                <MultiSelect
-                  autoSize
-                  defaultValue={entity.roles ?? []}
-                  onValueChange={(values) => void handleRolesChange(values)}
-                  options={roleSelectOptions}
-                  placeholder={t("addRole")}
-                  searchable={false}
-                  showClear={false}
-                  variant="ghost"
-                />
-              </div>
+          <div className={contactDetailKvRowClassName}>
+            <p className={contactDetailKvLabelClassName}>{t("roles")}</p>
+            <div className="min-w-0">
+              <MultiSelect
+                autoSize
+                defaultValue={entity.roles ?? []}
+                onValueChange={(values) => void handleRolesChange(values)}
+                options={roleSelectOptions}
+                placeholder={t("addRole")}
+                searchable={false}
+                showClear={false}
+                variant="ghost"
+              />
             </div>
           </div>
-        </Card>
-      </section>
+        </div>
+      </CardSection>
       {renderSection(t("sectionBilling"), billingRows)}
       {renderSection(t("sectionAddress"), addressRows)}
       {renderSection(

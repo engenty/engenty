@@ -93,7 +93,7 @@ export function OverviewFooterLinks() {
   return (
     <div className="flex flex-wrap items-center gap-2 border-t pt-4">
       <Button asChild className="gap-1.5" size="sm" variant="outline">
-        <Link to="/setup/ai">
+        <Link to="/settings/ai">
           <Settings2 className="size-4" />
           {t("overview.links.aiSettings")}
         </Link>

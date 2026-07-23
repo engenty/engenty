@@ -1,13 +1,18 @@
 import type { FeatureFlagDefinition, ResolvedFlags } from "./types.js";
 
 /**
- * Merges definition defaults + global overrides + tenant overrides.
- * Precedence: tenant override > global override > definition default.
+ * Merges definition defaults + global overrides + commercial-package values +
+ * tenant overrides.
+ *
+ * Precedence: tenant override > package value > global override > definition
+ * default. The package layer is optional (defaults to none) so existing 3-arg
+ * callers keep the original tenant > global > default behavior.
  */
 export function mergeResolved(
   definitions: FeatureFlagDefinition[],
   globalOverrides: Record<string, boolean>,
-  tenantOverrides: Record<string, boolean>
+  tenantOverrides: Record<string, boolean>,
+  packageOverrides: Record<string, boolean> = {}
 ): ResolvedFlags {
   const result: ResolvedFlags = {};
 
@@ -15,6 +20,8 @@ export function mergeResolved(
     const key = def.key;
     if (tenantOverrides[key] !== undefined) {
       result[key] = tenantOverrides[key];
+    } else if (packageOverrides[key] !== undefined) {
+      result[key] = packageOverrides[key];
     } else if (globalOverrides[key] === undefined) {
       result[key] = def.default;
     } else {

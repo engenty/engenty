@@ -35,6 +35,24 @@ function withEventContext(
   return description ? `${description}\n\n${section}` : section;
 }
 
+/**
+ * Append the trigger's own description to the task brief. For module routines
+ * the ROUTINE.md BODY (the actual operating instructions) lands in
+ * `trigger.description` — without this section those instructions never reach
+ * the executing agent, which only sees the template's one-line summary.
+ */
+function withRoutineInstructions(
+  description: string | null,
+  triggerDescription: string | null
+): string | null {
+  const instructions = triggerDescription?.trim();
+  if (!instructions) {
+    return description;
+  }
+  const section = `## Routine instructions\n\n${instructions}`;
+  return description ? `${description}\n\n${section}` : section;
+}
+
 export interface FireTriggerInput {
   /** The acting user for manual fires; event/scheduled fires have none. */
   createdByUserId?: string | null;
@@ -64,9 +82,29 @@ export async function fireTrigger(input: FireTriggerInput): Promise<Task> {
     trigger.tenant_id,
     trigger.scope_id
   );
+  // Schedule stacking guard (Paperclip "concurrencyPolicy: skip"): a routine
+  // whose previous task is still open (queued, running, or paused at blocked)
+  // must not stack a sibling — hourly fires against a slow or approval-paused
+  // run would pile up identical tasks. A finished cycle (in_review/terminal)
+  // does not block the next fire. Event fires are exempt: each event is a
+  // distinct occurrence and gets its own task.
+  if (trigger.kind === "schedule") {
+    const open = await tasksRepo.listOpenTriggerTasks(trigger.id);
+    const existing = open[0];
+    if (existing) {
+      await triggersRepo.recordTriggerFire(
+        trigger.id,
+        `skipped — task ${existing.identifier ?? existing.id} from the previous fire is still open`
+      );
+      return existing;
+    }
+  }
   const task = await tasksRepo.createTask(
     {
-      description: withEventContext(template.description, input.eventContext),
+      description: withRoutineInstructions(
+        withEventContext(template.description, input.eventContext),
+        trigger.description
+      ),
       primary_assignee_agent_type_key: template.agent_type_key,
       primary_assignee_kind: "agent",
       priority: template.priority,

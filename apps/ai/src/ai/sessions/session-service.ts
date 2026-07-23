@@ -498,7 +498,11 @@ export function createSessionService(opts: SessionServiceOptions) {
       agentId: string;
       modelIdOverride?: string | null;
       scope: AiSessionScope;
-    }): Promise<{ modelConfig: RuntimeModelConfig; modelId: string }> {
+    }): Promise<{
+      agentBudgetCostMicros: number | null;
+      modelConfig: RuntimeModelConfig;
+      modelId: string;
+    }> {
       const modelConfig = await resolveRuntimeModelConfig(
         opts,
         input.scope,
@@ -512,7 +516,12 @@ export function createSessionService(opts: SessionServiceOptions) {
       const modelId = rootConfig
         ? resolveAgentModelId(rootConfig, modelConfig)
         : modelConfig.chatModelId;
-      return { modelConfig, modelId };
+      return {
+        agentBudgetCostMicros:
+          rootConfig?.limits?.budget?.maxCostMicrosPerPeriod ?? null,
+        modelConfig,
+        modelId,
+      };
     },
 
     async appendMessage(input: AppendAiSessionMessageInput) {

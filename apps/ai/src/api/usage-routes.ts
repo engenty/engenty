@@ -274,9 +274,28 @@ export function registerUsageRoutes(
       await store.store.getTenantPolicy(scope.scope.tenantId),
       scope.scope.tenantId
     );
+    // Governance lock: a centrally-managed policy is read-only to tenant admins.
+    // superadmins bypass (they may hot-fix), but the canonical central-write path
+    // is the superadmin admin-route which re-materializes from entitlements.
+    if (
+      current.managed_by === "entitlement" &&
+      scope.scope.isSuperAdmin !== true
+    ) {
+      return c.json(
+        {
+          error: "usage.policyManaged",
+          message:
+            "This tenant's AI usage policy is managed by its plan and cannot be edited here.",
+        },
+        409
+      );
+    }
     const policy = await store.store.upsertTenantPolicy({
       ...current,
       tenant_id: scope.scope.tenantId,
+      // Tenant/superadmin edits on this route never change ownership; central
+      // management is (un)set only by the entitlement apply path.
+      managed_by: current.managed_by,
       period_mode: parsed.data.period_mode ?? current.period_mode,
       period_unit: parsed.data.period_unit ?? current.period_unit,
       period_anchor:

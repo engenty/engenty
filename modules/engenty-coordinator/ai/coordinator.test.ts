@@ -41,11 +41,15 @@ describe("coordinatorAiRegistration", () => {
     );
   });
 
-  it("no longer declares the heartbeat as a routine (now a system job)", () => {
+  it("declares the hourly heartbeat as a routine", () => {
     // Per the Actions/Tasks/Routines spec, routine = schedule → Task. The
-    // coordinator heartbeat moved to a system job in apps/ai (system-jobs.ts).
+    // heartbeat was briefly believed to be a system job; no such job ever
+    // existed, which is why the coordinator never woke on its own.
     const reg = coordinatorAiRegistration();
-    expect(reg.routines ?? []).toHaveLength(0);
+    const routines = reg.routines ?? [];
+    expect(routines).toHaveLength(1);
+    expect(routines[0]?.id).toBe("engenty-coordinator.heartbeat");
+    expect(routines[0]?.schedule).toBe("0 * * * *");
   });
 
   it("includes instruction documents for AGENTS, SOUL, HEARTBEAT", () => {

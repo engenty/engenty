@@ -5,6 +5,18 @@ export function isManageGatewayPath(pathname: string): boolean {
   return pathname === "/manage" || pathname.startsWith("/manage/");
 }
 
+/**
+ * Manage is a base-pathed SPA (base `/manage/`); a bare `/manage` has no valid
+ * asset root. Returns the canonical trailing-slash location to redirect to
+ * (preserving the query string), or null when no redirect is needed.
+ */
+export function manageCanonicalRedirect(
+  pathname: string,
+  search: string
+): string | null {
+  return pathname === "/manage" ? `/manage/${search}` : null;
+}
+
 /** Fumadocs (`apps/docs`) paths when served under `/docs` on the gateway host. */
 export function isDocsGatewayPath(pathname: string): boolean {
   if (pathname === "/docs" || pathname.startsWith("/docs/")) {

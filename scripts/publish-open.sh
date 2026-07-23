@@ -46,8 +46,11 @@ CLOSED_PREFIXES=(
   "packages/brand-assets"
   "packages/document-scanner"
   "packages/engenty-cli"
+  "packages/entitlements"
   "packages/pdf-service/assets/fonts/fontshare"
   "packages/plate-editor"
+  # Manage-only dev helper (starts core + apps/manage).
+  "scripts/dev-portless-minimal.sh"
 )
 
 usage() {

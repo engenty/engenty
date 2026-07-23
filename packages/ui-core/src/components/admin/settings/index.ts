@@ -1,4 +1,16 @@
 export {
+  CardSection,
+  CardSectionBody,
+  type CardSectionBodyProps,
+  CardSectionCaption,
+  type CardSectionCaptionProps,
+  CardSectionHeader,
+  type CardSectionHeaderProps,
+  type CardSectionHeaderVariant,
+  type CardSectionProps,
+  cardSectionHeaderTitleVariants,
+} from "../../ui/card-section";
+export {
   SettingsFieldsDataRow,
   SettingsFieldsHeaderRow,
   SettingsFieldsInset,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isDocsGatewayPath,
   isManageGatewayPath,
+  manageCanonicalRedirect,
   resolveGatewayTarget,
 } from "./gateway-paths.js";
 
@@ -59,5 +60,13 @@ describe("gateway-paths", () => {
   it("resolveGatewayTarget routes UI paths", () => {
     expect(resolveGatewayTarget("/")).toBe("ui");
     expect(resolveGatewayTarget("/mdl/engenty-copilot/chat/new")).toBe("ui");
+  });
+
+  it("manageCanonicalRedirect canonicalizes only bare /manage, preserving query", () => {
+    expect(manageCanonicalRedirect("/manage", "")).toBe("/manage/");
+    expect(manageCanonicalRedirect("/manage", "?tab=x")).toBe("/manage/?tab=x");
+    // Already-canonical and deeper paths must not redirect (would loop).
+    expect(manageCanonicalRedirect("/manage/", "")).toBeNull();
+    expect(manageCanonicalRedirect("/manage/tenants", "")).toBeNull();
   });
 });

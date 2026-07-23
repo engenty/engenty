@@ -12,6 +12,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSection,
 } from "@engenty/ui-core";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -110,30 +111,26 @@ export function ContactRelationsTab({ entity }: ContactRelationsTabProps) {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-lg">
-            {t("relations.currentPeople", { defaultValue: "People" })}
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            {t("relations.currentPeopleDescription", {
-              defaultValue:
-                "Manage the current people linked to this organisation.",
-            })}
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setDialogError(null);
-            setEditingRelation(null);
-            setDialogOpen(true);
-          }}
-          type="button"
-        >
-          <Plus className="mr-2 size-4" />
-          {t("relations.addRelation", { defaultValue: "Add relation" })}
-        </Button>
-      </div>
+      <CardSection.Header
+        action={
+          <Button
+            onClick={() => {
+              setDialogError(null);
+              setEditingRelation(null);
+              setDialogOpen(true);
+            }}
+            type="button"
+          >
+            <Plus className="mr-2 size-4" />
+            {t("relations.addRelation", { defaultValue: "Add relation" })}
+          </Button>
+        }
+        description={t("relations.currentPeopleDescription", {
+          defaultValue:
+            "Manage the current people linked to this organisation.",
+        })}
+        title={t("relations.currentPeople", { defaultValue: "People" })}
+      />
 
       {dialogError ? (
         <div

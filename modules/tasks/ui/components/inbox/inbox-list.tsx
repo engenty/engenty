@@ -203,6 +203,29 @@ export function ToolApprovalActions({
   );
 }
 
+/**
+ * The one word that says what this row wants from you. Rendered coloured ahead
+ * of the subject so the lane scans as a to-do list ("Review …", "Approve …")
+ * rather than a log of things that happened to tasks.
+ */
+function actionVerbKey(notification: InboxNotificationDto): string | null {
+  switch (notification.kind) {
+    case "task_failed":
+    case "trigger_failed":
+      return "inbox.actionFix";
+    case "connection_approval_requested":
+    case "tool_approval":
+      return "inbox.actionApprove";
+    case "agent_proposed":
+    case "memory_proposal":
+    case "skill_proposed":
+    case "task_completed":
+      return "inbox.actionReview";
+    default:
+      return null;
+  }
+}
+
 function InboxItem({
   notification,
   locale,
@@ -223,6 +246,7 @@ function InboxItem({
   // blank/"…" lines eating a row.
   const detail = resultText(notification)?.replace(/\s+/g, " ").trim() || null;
 
+  const verbKey = actionVerbKey(notification);
   const summaryNode = (
     <span
       className={cn(
@@ -230,6 +254,16 @@ function InboxItem({
         unseen ? "text-foreground" : "text-muted-foreground"
       )}
     >
+      {verbKey ? (
+        <span
+          className={cn(
+            "font-semibold",
+            failure ? "text-destructive" : "text-primary"
+          )}
+        >
+          {t(verbKey)}{" "}
+        </span>
+      ) : null}
       {notification.summary}
     </span>
   );

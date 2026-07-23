@@ -32,7 +32,7 @@ Use for pages with multiple sub-sections (e.g. settings pages, detail pages with
 
 ## Stacked sections under tabs
 
-- For blocks that look like **Appearance** settings (section title, muted description, then a bordered form card), use **`SettingsFormSection`** from `@engenty/ui-core` (see `settings-form-section-ui.mdc`).
+- For blocks that look like **Appearance** settings (section title, muted description, then a bordered form card), use **`CardSection`** (or **`SettingsFormSection`**) from `@engenty/ui-core` (see `settings-form-section-ui.mdc`).
 
 ## Key Details
 

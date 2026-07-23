@@ -15,7 +15,12 @@
 // Kept behind small repo interfaces so it unit-tests with in-memory fakes.
 
 import type { QueueServiceLike } from "@engenty/plugin-sdk";
+import {
+  TASK_AGENT_CHECKOUT_ENTRY_STATUSES,
+  TASK_TERMINAL_STATUSES,
+} from "../domain/task-lifecycle.js";
 import type { Task } from "../schema/types.js";
+import { isDispatchableTask } from "./task-dispatch-queue.js";
 import {
   type DispatchRepo,
   dispatchTaskIfReady,
@@ -38,6 +43,7 @@ export interface ApprovalTasksRepo {
     operationId: string,
     opts: { once: boolean }
   ): Promise<Task | null>;
+  clearTaskPendingApproval?(id: string, operationId: string): Promise<void>;
   getTask(id: string): Promise<Task | null>;
   loadTaskStatuses(ids: string[]): Promise<Map<string, string | undefined>>;
   recordActivity(input: {
@@ -125,21 +131,26 @@ export async function resolveTaskToolApproval(
     });
   }
 
-  await tasksRepo.addComment(
-    input.taskId,
-    `✅ Approved \`${input.operationId}\` (${scopeLabel(scope)}). Re-running the task.`,
-    { createdByAgentTypeKey: APPROVAL_ACTOR }
-  );
-  await tasksRepo.recordActivity({
-    task_id: input.taskId,
-    event_type: "tasks.tool_approval_resolved",
-    payload: { decision: "approve", operation_id: input.operationId, scope },
-    actor_user_id: deps.actorUserId ?? null,
-  });
+  // The ask has been answered, so the task no longer advertises it. Denials
+  // deliberately skip this: the request stays open so the human can still
+  // approve later from the task itself.
+  await tasksRepo.clearTaskPendingApproval?.(input.taskId, input.operationId);
 
-  // Flip blocked → todo and re-dispatch so the next run passes the gate.
+  // Return the task to an entry status so the re-dispatch can actually claim it.
+  // The needs-approval path parks the task at `blocked`, but a human may have
+  // moved it since, and only todo/backlog are agent-runnable — so flip from any
+  // non-entry, non-terminal status, not just from `blocked`. A live checkout is
+  // left alone: that run still owns the task and will finalize it itself.
   let next = task;
-  if (task.status === "blocked") {
+  const claimed = Boolean(task.checkout_run_id);
+  const terminal = TASK_TERMINAL_STATUSES.has(task.status);
+  if (
+    !(
+      claimed ||
+      terminal ||
+      TASK_AGENT_CHECKOUT_ENTRY_STATUSES.has(task.status)
+    )
+  ) {
     const flipped = await tasksRepo.updateTask(
       input.taskId,
       { status: "todo" },
@@ -149,6 +160,34 @@ export async function resolveTaskToolApproval(
       next = flipped;
     }
   }
+
+  // Only promise a re-run when one is actually going to be queued — a grant on a
+  // terminal, claimed or un-dispatchable task is still recorded (it applies to
+  // the next run), but the comment must not claim the task is running again.
+  const willDispatch = Boolean(
+    deps.queue && deps.tenantId && isDispatchableTask(next)
+  );
+  await tasksRepo.addComment(
+    input.taskId,
+    `✅ Approved \`${input.operationId}\` (${scopeLabel(scope)}). ${
+      willDispatch
+        ? "Re-running the task."
+        : "The grant applies to the task's next run."
+    }`,
+    { createdByAgentTypeKey: APPROVAL_ACTOR }
+  );
+  await tasksRepo.recordActivity({
+    task_id: input.taskId,
+    event_type: "tasks.tool_approval_resolved",
+    payload: {
+      decision: "approve",
+      operation_id: input.operationId,
+      redispatched: willDispatch,
+      scope,
+    },
+    actor_user_id: deps.actorUserId ?? null,
+  });
+
   if (deps.queue && deps.tenantId) {
     // dispatchTaskIfReady only reads loadTaskStatuses/updateTask here (no
     // child/dependent walk), both present on ApprovalTasksRepo.
@@ -161,7 +200,9 @@ export async function resolveTaskToolApproval(
       next
     );
   }
-  return next;
+  // Re-read so the caller sees the cleared pending list and any status the
+  // dispatch itself set, rather than the snapshot taken before those writes.
+  return (await tasksRepo.getTask(input.taskId)) ?? next;
 }
 
 function scopeLabel(scope: ToolApprovalScope): string {

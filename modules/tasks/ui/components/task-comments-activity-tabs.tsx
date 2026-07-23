@@ -2,7 +2,7 @@ import { PromptInputProvider } from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn, Tabs, TabsContent, TabsList, TabsTrigger } from "@engenty/ui-core";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
 import type {
   TaskActivity,
@@ -22,6 +22,12 @@ interface TaskCommentsActivityTabsProps {
   activity: TaskActivity[];
   assigneeProfiles?: AssigneeProfiles;
   commentDraft: string;
+  /**
+   * Pending decision cards (review, tool approval) rendered as the last item of
+   * the comment thread. A decision is about the conversation, so it belongs at
+   * the end of it — not stranded in a panel above the run list.
+   */
+  decisionSlot?: ReactNode;
   disabled?: boolean;
   onAddComment: () => void | Promise<void>;
   onCommentDraftChange: (value: string) => void;
@@ -35,6 +41,7 @@ function TaskCommentsTabPanel({
   task,
   assigneeProfiles,
   commentDraft,
+  decisionSlot,
   disabled,
   onAddComment,
   onCommentDraftChange,
@@ -43,6 +50,7 @@ function TaskCommentsTabPanel({
 }: {
   assigneeProfiles?: AssigneeProfiles;
   commentDraft: string;
+  decisionSlot?: ReactNode;
   disabled?: boolean;
   onAddComment: () => void | Promise<void>;
   onCommentDraftChange: (value: string) => void;
@@ -109,6 +117,12 @@ function TaskCommentsTabPanel({
           task={task}
         />
 
+        {decisionSlot ? (
+          <div className={cn("space-y-3", FEED_SCROLL_PAD_CLASS)}>
+            {decisionSlot}
+          </div>
+        ) : null}
+
         <div aria-hidden className="h-px w-full" ref={sentinelRef} />
 
         {docked && composerHeight > 0 ? (
@@ -126,6 +140,7 @@ export function TaskCommentsActivityTabs({
   task,
   activity,
   commentDraft,
+  decisionSlot,
   onCommentDraftChange,
   onAddComment,
   disabled = false,
@@ -152,6 +167,7 @@ export function TaskCommentsActivityTabs({
           <TaskCommentsTabPanel
             assigneeProfiles={assigneeProfiles}
             commentDraft={commentDraft}
+            decisionSlot={decisionSlot}
             disabled={disabled}
             onAddComment={onAddComment}
             onCommentDraftChange={onCommentDraftChange}

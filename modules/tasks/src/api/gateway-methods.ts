@@ -29,6 +29,7 @@ import {
   taskIdParamsSchema,
   taskReleaseInputRawSchema,
   taskReleaseInputSchema,
+  taskRunNowResponseSchema,
   taskRunsListSchema,
   taskSchema,
   taskSettingsSchema,
@@ -45,6 +46,8 @@ import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
 } from "./task-dispatch-service.js";
+import { reapStaleCheckouts } from "./task-reaper-service.js";
+import { runTaskNow } from "./task-run-now-service.js";
 
 export type TasksRepo = ReturnType<typeof createTasksRepoSupabase>;
 
@@ -306,6 +309,61 @@ export function registerTasksGatewayMethods(
       const parsed = taskClearOnceApprovalsInputSchema.parse(input);
       await repo.clearTaskOnceApprovalGrants(parsed.id);
       return { ok: true };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "tasks_reap_stale_checkouts",
+    summary: "Release checkouts whose backing run is dead",
+    // Maintenance/liveness op run by the coordinator heartbeat: it only ever
+    // releases checkouts of dead runs (live runs are never touched), so it is
+    // safe, idempotent, and must run headless without an approval pause.
+    ...writeOp(["module.tasks.write"]),
+    riskLevel: "low" as const,
+    requiresApproval: false,
+    inputSchema: z.object({}),
+    outputSchema: z.object({
+      checked: z.number().int(),
+      reaped: z.array(
+        z.object({
+          id: z.string(),
+          identifier: z.string().nullable(),
+          run_id: z.string(),
+        })
+      ),
+    }),
+    handler: async (_input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      return reapStaleCheckouts({
+        queue: options?.queue ?? null,
+        repo,
+        tenantId: ctx.auth?.tenantId ?? null,
+      });
+    },
+  });
+
+  api.registerOperation({
+    operationId: "tasks_run_now",
+    summary: "Queue an agent run for this task now",
+    // The human pressing "work on this task" IS the authorization; gating it
+    // behind a second approval would ask them to approve their own click.
+    ...writeOp(["module.tasks.write"]),
+    riskLevel: "low" as const,
+    requiresApproval: false,
+    inputSchema: taskIdParamsSchema,
+    outputSchema: taskRunNowResponseSchema,
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = taskIdParamsSchema.parse(input);
+      return runTaskNow(
+        {
+          actorUserId: ctx.auth?.principalId ?? null,
+          queue: options?.queue ?? null,
+          repo,
+          tenantId: ctx.auth?.tenantId ?? null,
+        },
+        { taskId: parsed.id }
+      );
     },
   });
 

@@ -90,6 +90,7 @@
   "matrix": {
     "title": "Model matrix",
     "description": "One model per purpose. A blank pick inherits the platform default; the badge shows where the effective value comes from.",
+    "allowlistNote": "Your plan limits which models are available. The picker shows only the models included in your plan.",
     "purpose": {
       "chat": {
         "label": "Chat",
@@ -165,7 +166,9 @@
     "allowlistEmpty": "All models allowed.",
     "allowlistAdd": "Add model",
     "allowlistRemove": "Remove {{model}}",
-    "pro": "PRO"
+    "pro": "PRO",
+    "managedTitle": "Managed by your plan",
+    "managedDesc": "Your AI budgets and model access are set by your plan. These values are shown for transparency and are read-only here — contact your platform administrator to change them."
   },
   "agentsTab": {
     "title": "Per-agent overrides",
