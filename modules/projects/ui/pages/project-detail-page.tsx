@@ -368,6 +368,7 @@ export function ProjectDetailPage() {
   return (
     <Tabs
       className="flex h-full flex-col overflow-hidden"
+      data-engenty-region="detail"
       onValueChange={(v) => setActiveTab(v as ProjectTab)}
       value={effectiveActiveTab}
     >

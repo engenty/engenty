@@ -679,8 +679,10 @@
     "artifactLoadFailed": "Vorschlags-Artefakt konnte nicht geladen werden",
     "compact": "Kompakt",
     "dragHandle": "Zum Verschieben ziehen",
+    "copyThread": "Thread kopieren",
+    "copyThreadCopied": "Kopiert",
     "position": {
-      "menu": "Copilot-Position",
+      "menu": "Copilot-Menü",
       "heading": "Position",
       "bottom": "Unten angedockt",
       "button": "Avatar",

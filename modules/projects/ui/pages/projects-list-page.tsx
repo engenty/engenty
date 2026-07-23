@@ -363,7 +363,10 @@ export function ProjectsListPage() {
   );
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-page">
+    <section
+      className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-page"
+      data-engenty-region="list"
+    >
       <div className="shrink-0 space-y-2">
         <ProjectsTableToolbar
           bulkActions={bulkActions}

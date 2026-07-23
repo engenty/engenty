@@ -8,6 +8,7 @@ import {
   buildAgentSystemPromptFromUiState,
   extractAgentPromptContextFromAgentUi,
   formatAgentUiStateHarnessInstructions,
+  resolveCurrentPageModule,
 } from "../agent-prompt-context-from-ui.js";
 
 function makeSnapshot(
@@ -96,6 +97,38 @@ describe("extractAgentPromptContextFromAgentUi", () => {
   });
 });
 
+describe("resolveCurrentPageModule", () => {
+  it("matches /mdl/<module> when selection is absent", () => {
+    expect(
+      resolveCurrentPageModule(
+        makeSnapshot({
+          route: {
+            module_id: "inbox",
+            pathname: "/mdl/inbox",
+            route_key: "list",
+          },
+          selection: undefined,
+        })
+      )
+    ).toBe("inbox");
+  });
+
+  it("still matches legacy /module/<module>", () => {
+    expect(
+      resolveCurrentPageModule(
+        makeSnapshot({
+          route: {
+            module_id: "tasks",
+            pathname: "/module/tasks",
+            route_key: "list",
+          },
+          selection: undefined,
+        })
+      )
+    ).toBe("tasks");
+  });
+});
+
 describe("formatAgentUiStateHarnessInstructions", () => {
   it("includes pathname and page module for copilot host routes", () => {
     const text = formatAgentUiStateHarnessInstructions(
@@ -117,6 +150,53 @@ describe("formatAgentUiStateHarnessInstructions", () => {
     );
     expect(text).toContain("page_module: team");
     expect(text).toContain("Do not claim you cannot see the current URL");
+  });
+
+  it("renders Current page brief keys and remaining page payload", () => {
+    const text = formatAgentUiStateHarnessInstructions(
+      makeSnapshot({
+        route: {
+          module_id: "inbox",
+          pathname: "/mdl/inbox",
+          route_key: "list",
+        },
+        page: {
+          page_type: "list",
+          page_title: "Inbox — unhandled",
+          page_description: "Email inbox list filtered to unhandled.",
+          list_search: "invoice",
+          list_filters: { lane: "unhandled", account: "conn-1" },
+          list_total: 12,
+          dom_entry_points: {
+            app_bar: '[data-engenty-region="app-bar"]',
+            main: '[data-engenty-region="main"]',
+            list: '[data-engenty-region="list"]',
+          },
+          inbox_threads_preview: [
+            { id: "t1", subject: "Q4 invoice", from: "ap@acme.com" },
+          ],
+        },
+      })
+    );
+
+    expect(text).toContain("Current page:");
+    expect(text).toContain("- page_type: list");
+    expect(text).toContain("- page_title: Inbox — unhandled");
+    expect(text).toContain("- list_search: invoice");
+    expect(text).toContain('"lane":"unhandled"');
+    expect(text).toContain("- list_total: 12");
+    expect(text).toContain("- dom_entry_points:");
+    expect(text).toContain("data-engenty-region");
+    expect(text).toContain('\\"list\\"');
+    expect(text).toContain("- inbox_threads_preview:");
+    expect(text).toContain("Q4 invoice");
+  });
+
+  it("omits Current page when page is empty", () => {
+    const text = formatAgentUiStateHarnessInstructions(
+      makeSnapshot({ page: {} })
+    );
+    expect(text).not.toContain("Current page:");
   });
 
   it("renders described app_context entries (Ch.7)", () => {

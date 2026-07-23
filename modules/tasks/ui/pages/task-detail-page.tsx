@@ -480,7 +480,10 @@ export function TaskDetailPage() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      data-engenty-region="detail"
+    >
       {error ? (
         <p className="p-page text-destructive text-sm">{error}</p>
       ) : detailQuery.isLoading || !task ? (

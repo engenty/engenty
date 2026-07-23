@@ -107,6 +107,10 @@ export {
 } from "./copilot/drawer/copilot-drawer.js";
 export type { CopilotDrawerInjectedSession } from "./copilot/drawer/copilot-drawer-injected-session.js";
 export {
+  CopilotDrawerPositionMenu,
+  type CopilotDrawerPositionMenuProps,
+} from "./copilot/drawer/copilot-drawer-position-menu.js";
+export {
   type OpenCopilotShellInput,
   openCopilotShell,
   resolveCopilotOpenDockMode,
@@ -199,6 +203,10 @@ export {
   readStringField,
   toHumanValue,
 } from "./copilot/tool-call/tool-call-card-utils.js";
+export {
+  extractCopilotMessageCopyText,
+  formatCopilotThreadCopyText,
+} from "./copilot/transcript/copilot-thread-copy.js";
 export {
   CopilotTranscript,
   type CopilotTranscriptProps,

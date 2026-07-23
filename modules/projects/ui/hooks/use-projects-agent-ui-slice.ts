@@ -1,4 +1,7 @@
-import { useRegisterAgentUiSlice } from "@engenty/app-shell";
+import {
+  buildAgentUiPageBrief,
+  useRegisterAgentUiSlice,
+} from "@engenty/app-shell";
 import { useMemo } from "react";
 import type { ProjectWithPhasesAndTasks } from "../api.js";
 import { buildProjectSnapshot } from "../copilot-snapshot.js";
@@ -22,6 +25,11 @@ export function useProjectsDetailAgentUiSlice(input: {
     const title = input.project.title?.trim() ?? "";
     return {
       page: {
+        ...buildAgentUiPageBrief({
+          page_type: "detail",
+          page_title: title || "Project",
+          page_description: "Project detail page.",
+        }),
         project_snapshot: buildProjectSnapshot(input.project),
         ...(title ? { project_title: title } : {}),
       },
@@ -50,7 +58,13 @@ export function useProjectsListAgentUiSlice(input: {
     }));
     return {
       page: {
-        ...(q ? { list_search: q } : {}),
+        ...buildAgentUiPageBrief({
+          page_type: "list",
+          page_title: "Projects",
+          page_description: "Projects list.",
+          list_search: q,
+          list_total: input.projects.length,
+        }),
         ...(preview.length > 0 ? { projects_preview: preview } : {}),
       },
     };
@@ -69,6 +83,11 @@ export function useProjectsBriefingAgentUiSlice(input: {
     }
     return {
       page: {
+        ...buildAgentUiPageBrief({
+          page_type: "briefing",
+          page_title: "Projects briefing",
+          page_description: `Projects briefing (${input.mode}).`,
+        }),
         briefing_view: input.mode,
         projects_briefing_snapshot: input.briefingSnapshot,
       },

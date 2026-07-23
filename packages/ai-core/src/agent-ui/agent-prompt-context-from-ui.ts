@@ -1,4 +1,8 @@
 import type { AgentUiStateSnapshotV1 } from "@engenty/ag-ui-bridge";
+import {
+  AGENT_UI_PAGE_BRIEF_KEYS,
+  isAgentUiPageBriefKey,
+} from "@engenty/ag-ui-bridge";
 import { resolveAgentDefinitionById } from "../registry.js";
 
 function readString(value: unknown): string | undefined {
@@ -9,10 +13,16 @@ function readString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-const MODULE_PATH_RE = /^\/module\/([^/]+)/i;
+/** Matches `/module/<name>` (legacy) and `/mdl/<name>` (live host routes). */
+const MODULE_PATH_RE = /^\/(?:module|mdl)\/([^/]+)/i;
+
+/** Soft cap for the harness "Current page" section (~5 KiB). */
+const PAGE_HARNESS_SECTION_MAX_CHARS = 5 * 1024;
+const PAGE_VALUE_MAX_CHARS = 800;
 
 // Module the user is currently working in: selection entity type first, then
-// the `/module/<name>` route segment. Exported for the C6 skill-catalog hint.
+// the `/mdl/<name>` (or legacy `/module/<name>`) route segment. Exported for
+// the C6 skill-catalog hint.
 export function resolveCurrentPageModule(
   snapshot: AgentUiStateSnapshotV1
 ): string | undefined {
@@ -28,6 +38,92 @@ export function resolveCurrentPageModule(
     }
   }
   return;
+}
+
+function formatPageValueCompact(value: unknown): string {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length <= PAGE_VALUE_MAX_CHARS) {
+      return trimmed;
+    }
+    return `${trimmed.slice(0, PAGE_VALUE_MAX_CHARS - 1)}…`;
+  }
+  const json = JSON.stringify(value);
+  if (json.length <= PAGE_VALUE_MAX_CHARS) {
+    return json;
+  }
+  return `${json.slice(0, PAGE_VALUE_MAX_CHARS - 1)}…`;
+}
+
+function appendPageHarnessLines(
+  lines: string[],
+  page: Record<string, unknown>
+): void {
+  const briefLines: string[] = [];
+  for (const key of AGENT_UI_PAGE_BRIEF_KEYS) {
+    if (!(key in page)) {
+      continue;
+    }
+    const value = page[key];
+    if (value == null) {
+      continue;
+    }
+    if (typeof value === "string" && value.trim().length === 0) {
+      continue;
+    }
+    if (
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.keys(value as object).length === 0
+    ) {
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      continue;
+    }
+    briefLines.push(`- ${key}: ${formatPageValueCompact(value)}`);
+  }
+
+  const extraLines: string[] = [];
+  for (const [key, value] of Object.entries(page)) {
+    if (isAgentUiPageBriefKey(key)) {
+      continue;
+    }
+    if (value == null || typeof value === "function") {
+      continue;
+    }
+    if (typeof value === "string" && value.trim().length === 0) {
+      continue;
+    }
+    if (
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.keys(value).length === 0
+    ) {
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      continue;
+    }
+    extraLines.push(`- ${key}: ${formatPageValueCompact(value)}`);
+  }
+
+  if (briefLines.length === 0 && extraLines.length === 0) {
+    return;
+  }
+
+  const sectionLines = ["Current page:"];
+  let used = "Current page:\n".length;
+  for (const line of [...briefLines, ...extraLines]) {
+    const next = used + line.length + 1;
+    if (next > PAGE_HARNESS_SECTION_MAX_CHARS) {
+      sectionLines.push("- … (page context truncated)");
+      break;
+    }
+    sectionLines.push(line);
+    used = next;
+  }
+  lines.push(...sectionLines);
 }
 
 /** Bounded AG-UI route/selection summary for harness instructions on every run. */
@@ -70,8 +166,12 @@ export function formatAgentUiStateHarnessInstructions(
   lines.push(
     `- observed_at: ${snapshot.observed_at}`,
     `- sequence: ${snapshot.sequence}`,
-    "When the user asks which page, module, or URL they are on, answer from pathname and page_module above. Do not claim you cannot see the current URL."
+    "When the user asks which page, module, or URL they are on, answer from pathname, page_module, and Current page above. Do not claim you cannot see the current URL."
   );
+
+  if (snapshot.page && typeof snapshot.page === "object") {
+    appendPageHarnessLines(lines, snapshot.page as Record<string, unknown>);
+  }
 
   // Described, app-contributed context (Ch.7): "what the user is looking at".
   const appContext = snapshot.app_context ?? [];

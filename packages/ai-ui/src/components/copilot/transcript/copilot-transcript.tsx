@@ -25,6 +25,7 @@ import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
 import { CopilotAttachmentPreview } from "./copilot-attachment-preview.js";
 import { CopilotMessageContent } from "./copilot-message-content";
 import { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer";
+import { extractCopilotMessageCopyText } from "./copilot-thread-copy";
 
 export interface CopilotTranscriptProps {
   awaitingInterrupt?: boolean;
@@ -230,26 +231,6 @@ function CopilotTranscriptSandboxInterruptInline(props: {
   );
 }
 
-function extractCopyText(parts: readonly unknown[] | undefined): string {
-  const chunks: string[] = [];
-  for (const part of parts ?? []) {
-    if (!part || typeof part !== "object") {
-      continue;
-    }
-    const candidate = part as { text?: unknown; type?: unknown };
-    if (
-      (candidate.type === "text" || candidate.type === "reasoning") &&
-      typeof candidate.text === "string"
-    ) {
-      const text = candidate.text.trim();
-      if (text) {
-        chunks.push(text);
-      }
-    }
-  }
-  return chunks.join("\n\n").trim();
-}
-
 function MessageTools({
   msg,
   surface,
@@ -258,7 +239,10 @@ function MessageTools({
   surface: "default" | "chat";
 }) {
   const [copiedKind, setCopiedKind] = useState<"copy" | "link" | null>(null);
-  const text = useMemo(() => extractCopyText(msg.parts), [msg.parts]);
+  const text = useMemo(
+    () => extractCopilotMessageCopyText(msg.parts),
+    [msg.parts]
+  );
 
   const flashCopied = useCallback((kind: "copy" | "link") => {
     setCopiedKind(kind);

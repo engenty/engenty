@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.67] - 2026-07-23
+- ADDED **[inbox]** Add AI face for triage, sync, and UI tools
+- ADDED **[agent-ui]** Richer page briefs and DOM-first UI inspection
+- ADDED **[copilot]** Add copy-thread action to the drawer menu
+- FIXED **[ui]** Register the copilot composer draft bridge in the drawer
+- FIXED **[ai]** Refresh invoices and offers agent skill docs
+- FIXED **[ag-ui-bridge]** Unblock page-brief dts build for DOM region exports
+- OTHER Always allow comments on tasks by agents
+
 ## [0.1.66] - 2026-07-22
 - ADDED **[tasks]** Durable tool approvals for routine/task runs + routine linkage
 

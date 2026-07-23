@@ -1,12 +1,14 @@
 import { isAgUiOpenInterruptExpired } from "@engenty/ag-ui-bridge";
 import {
   approveCopilotOpenInterrupt,
+  CopilotDrawerPositionMenu,
   CopilotMessageQueueSurface,
   CopilotOpenInterruptBanner,
   CopilotPanelContent,
   type CopilotPanelContentProps,
   ENGENTY_COPILOT_HOST_KEY,
   formatCopilotRouteStatusLabel,
+  formatCopilotThreadCopyText,
   pendingInterruptFromTranscript,
   registerCopilotComposerDraftSetter,
   type SubmitMessage,
@@ -41,7 +43,6 @@ interface AgentChatPanelProps {
 
 const EMPTY_SUGGESTIONS: [] = [];
 const EMPTY_CANDIDATES = {};
-const HIDDEN_POSITION_MENU = <div aria-hidden className="hidden" />;
 
 export function AgentChatPanel(props: AgentChatPanelProps) {
   const { t } = useTranslation("engenty-copilot");
@@ -169,6 +170,26 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   const messages = useMemo(
     () => [...host.copilotMessages, ...realtimeVoice.transcriptMessages],
     [host.copilotMessages, realtimeVoice.transcriptMessages]
+  );
+  const threadCopyText = useMemo(
+    () => formatCopilotThreadCopyText(messages),
+    [messages]
+  );
+  const handleCopyThread = useCallback(async () => {
+    if (!threadCopyText) {
+      return;
+    }
+    await navigator.clipboard.writeText(threadCopyText);
+  }, [threadCopyText]);
+  const positionMenu = (
+    <CopilotDrawerPositionMenu
+      canCopyThread={threadCopyText.length > 0}
+      copyThreadCopiedLabel={tc("copilot.copyThreadCopied")}
+      copyThreadLabel={tc("copilot.copyThread")}
+      onCopyThread={handleCopyThread}
+      positionMenuAriaLabel={tc("copilot.position.menu")}
+      showPositionOptions={false}
+    />
   );
 
   // The executing decision/feedback chooser to dock above the composer, read from
@@ -378,7 +399,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     panelMode: "docked",
     pendingUserInsertIndex: host.pendingUserInsertIndex,
     pendingUserText: host.pendingUserText,
-    positionMenu: HIDDEN_POSITION_MENU,
+    positionMenu,
     resumeInterrupt: (feedback) =>
       host.resumeInterrupt({
         artifactId: feedback.artifactId,

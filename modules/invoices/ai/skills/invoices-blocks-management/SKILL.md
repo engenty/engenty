@@ -32,6 +32,14 @@ All numeric fields in `content_json` are numbers, not strings. `tax_rate` is a p
 
 When building an invoice from tracked hours and material bookings, map each position to a `line_item` block. Flag plausibility gaps to the user (e.g. "3 h booked but no material — bill anyway?"). Do not silently drop or invent positions.
 
+Find the source data through the catalog: `engenty_tools_search` with
+`moduleId: "time-tracking"` for tracked hours — prefer
+`time_tracking_entries_list` (raw entries) and
+`time_tracking_entries_summarize` (totals). Use the projects/tasks modules for
+scope context. If the time-tracking module is not installed or returns no
+operations, say so and ask the user to provide the positions instead of
+inventing them.
+
 ## Safety
 
 - Always read current blocks before writing.

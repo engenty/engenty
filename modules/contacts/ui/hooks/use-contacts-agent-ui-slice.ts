@@ -1,4 +1,7 @@
-import { useRegisterAgentUiSlice } from "@engenty/app-shell";
+import {
+  buildAgentUiPageBrief,
+  useRegisterAgentUiSlice,
+} from "@engenty/app-shell";
 import { useMemo } from "react";
 import {
   buildContactSnapshotForAgentUi,
@@ -16,6 +19,11 @@ export function useContactsDetailAgentUiSlice(
       entity.display_name?.trim() || entity.legal_name?.trim() || "Contact";
     return {
       page: {
+        ...buildAgentUiPageBrief({
+          page_type: "detail",
+          page_title: title,
+          page_description: "Contact detail page.",
+        }),
         contact_snapshot: buildContactSnapshotForAgentUi(entity),
         entity_title: title,
       },

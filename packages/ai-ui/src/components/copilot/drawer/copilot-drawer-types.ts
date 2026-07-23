@@ -60,6 +60,8 @@ export interface CopilotDrawerProps {
   copilotLayout?: CopilotLayoutPersistenceApi | null;
   /** Ref to shell-owned inline sidebar container. From useCopilotShell. */
   copilotSidebarRef?: MutableRefObject<HTMLDivElement | null>;
+  copyThreadCopiedLabel?: string;
+  copyThreadLabel?: string;
   defaultPanelMode?: CopilotPanelMode;
   detachLabel?: string;
   /** Shell dock mode; when set, used for surface selection. */

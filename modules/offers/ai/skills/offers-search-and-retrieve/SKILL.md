@@ -27,7 +27,8 @@ Use this preloaded data for summary questions. Call `offers_get` only when fresh
 ## Listing Offers
 
 Use `offers_list` with these optional parameters:
-- `status` — filter by `"draft"`, `"done"`, or `"accepted"`
+- `status` — filter by `"draft"`, `"ready"`, or `"accepted"`
+- `client_id` — filter to offers linked to one contact (use the contact's UUID)
 - `search` — full-text search on title and offer number
 - `page` / `pageSize` — pagination (default pageSize: 25, max: 200)
 - `sortBy` — `title`, `offer_number`, `status`, `offer_date`, `valid_until`, `created_at`
@@ -44,6 +45,6 @@ Use `offers_get_blocks` with `{ id: "<offer-id>" }` to retrieve the content bloc
 ## Presenting Results
 
 - Show offer number, title, status, and offer date in summaries.
-- Use status labels: `draft` = Draft, `done` = Ready, `accepted` = Accepted.
+- Use status labels: `draft` = Draft, `ready` = Ready, `accepted` = Accepted.
 - When listing, include total count from the response.
 - Do not expose raw UUIDs unless the user needs an exact ID for a follow-up action.

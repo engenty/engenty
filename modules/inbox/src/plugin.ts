@@ -7,7 +7,9 @@ import type {
   EntityEventPayload,
   PluginAuthContext,
 } from "@engenty/plugin-sdk";
+import { createPluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { inboxAiRegistration } from "../ai/registrar.js";
 import { registerInboxGatewayMethods } from "./api/gateway-methods.js";
 import type { EmitInboxEvent } from "./dal/contracts.js";
 import { createInboxRetrievalSource } from "./dal/inbox-retrieval-source.js";
@@ -94,6 +96,11 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     repoForAuth,
     serviceRepoFor,
   });
+
+  const { invokeOperation } = createPluginServerGatewayCaller(server);
+  server.registerAiRegistration?.(
+    inboxAiRegistration({ invokeInboxOperation: invokeOperation })
+  );
 };
 
 export default registerInboxPlugin;

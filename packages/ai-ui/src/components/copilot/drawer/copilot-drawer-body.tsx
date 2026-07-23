@@ -11,6 +11,7 @@ import { CopilotOpenInterruptBanner } from "../interrupts/copilot-open-interrupt
 import { pendingInterruptFromTranscript } from "../interrupts/pending-interrupt-from-transcript";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotPanelContent } from "../panel/copilot-panel-content";
+import { formatCopilotThreadCopyText } from "../transcript/copilot-thread-copy";
 import { CopilotDrawerPositionMenu } from "./copilot-drawer-position-menu";
 import { CopilotDrawerSurfaceTree } from "./copilot-drawer-surfaces";
 import type {
@@ -70,6 +71,8 @@ export function CopilotDrawerBody({
   setPreferredDockMode,
   copilotLayout = null,
   preferredDockMode = null,
+  copyThreadCopiedLabel = "Copied",
+  copyThreadLabel = "Copy thread",
   positionMenuAriaLabel = "Copilot position",
   positionBottomLabel = "Bottom dock",
   positionButtonLabel = "Avatar",
@@ -344,8 +347,31 @@ export function CopilotDrawerBody({
     collapseToCompactLauncher();
   }, [collapseToCompactLauncher]);
 
+  const drawerMessages = useMemo(
+    () => [...session.messages, ...realtimeVoice.transcriptMessages],
+    [session.messages, realtimeVoice.transcriptMessages]
+  );
+  const threadCopyText = useMemo(
+    () => formatCopilotThreadCopyText(drawerMessages),
+    [drawerMessages]
+  );
+  const handleCopyThread = useCallback(async () => {
+    if (!threadCopyText) {
+      return;
+    }
+    await navigator.clipboard.writeText(threadCopyText);
+  }, [threadCopyText]);
+
+  const positionMenuCopyProps = {
+    canCopyThread: threadCopyText.length > 0,
+    copyThreadCopiedLabel,
+    copyThreadLabel,
+    onCopyThread: handleCopyThread,
+  } as const;
+
   const copilotPositionDropdown = setPreferredDockMode ? (
     <CopilotDrawerPositionMenu
+      {...positionMenuCopyProps}
       compactTrigger={headerChrome === "contentBlend"}
       onSelectDockPosition={layout.handleDockPositionSelect}
       positionBottomLabel={positionBottomLabel}
@@ -363,6 +389,7 @@ export function CopilotDrawerBody({
   // Bottom dock: drag grip doubles as the position-menu trigger (no 3-dots).
   const bottomDockGripMenu = setPreferredDockMode ? (
     <CopilotDrawerPositionMenu
+      {...positionMenuCopyProps}
       gripLabel="Drag to move"
       gripPointerDown={layout.handleBottomDockGripPointerDown}
       onSelectDockPosition={layout.handleDockPositionSelect}
@@ -404,11 +431,6 @@ export function CopilotDrawerBody({
     openInterruptFromSession ??
     session.openInterruptFromSession ??
     null;
-
-  const drawerMessages = useMemo(
-    () => [...session.messages, ...realtimeVoice.transcriptMessages],
-    [session.messages, realtimeVoice.transcriptMessages]
-  );
 
   // The executing decision/feedback chooser to dock above the composer, read from
   // the transcript and gated by the authoritative pending-tool-call set from the

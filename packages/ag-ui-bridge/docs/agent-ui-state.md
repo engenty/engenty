@@ -28,8 +28,10 @@ Top-level fields:
 | `shell` | Copilot open/dock, optional active dialog |
 | `selection` | Entity id/type, focused field, selected ids |
 | `draft` | Dirty flag and compact field map |
-| `page` | Module-specific compact page payload |
+| `page` | Compact page payload: reserved brief keys (`page_type`, `page_title`, `page_description`, `list_search`, `list_filters`, `list_total`, `list_preview`, `dom_entry_points`) plus module-specific snapshots |
 | `permissions.frontend_tools` | Per-tool availability and confirmation flags |
+
+Build reserved brief keys with `buildAgentUiPageBrief`. The main-lane harness surfaces them under **Current page** (see app-shell [Agent UI registration](../app-shell/agent-ui-registration)).
 
 Deltas use `AgentUiStateDeltaV1` with JSON Patch `operations` when consumers publish incremental updates.
 

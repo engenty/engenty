@@ -239,6 +239,7 @@ export function AppSidebar({
           compact ? `${MOBILE_NAV_RAIL_WIDTH_CLASS} shrink-0` : "w-full",
           className
         )}
+        data-engenty-region="app-bar"
         style={style}
       >
         <div
