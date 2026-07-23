@@ -127,6 +127,7 @@ export function registerSuperadminRoutes(params: {
     const body = (await c.req.json().catch(() => ({}))) as {
       slug?: string;
       name?: string;
+      package_id?: string | null;
       tenant_connection_mode?: "shared_instance" | "dedicated_instance";
       tier?: string;
     };
@@ -138,11 +139,21 @@ export function registerSuperadminRoutes(params: {
         message: `tier must be one of: ${TENANT_TIERS.join(", ")}`,
       });
     }
+    if (
+      body.package_id !== undefined &&
+      body.package_id !== null &&
+      typeof body.package_id !== "string"
+    ) {
+      return jsonApiError(c, 400, { message: "package_id must be a string" });
+    }
     const tenant = await getDal().createTenant({
       slug: body.slug,
       name: body.name,
       tenant_connection_mode: body.tenant_connection_mode ?? "shared_instance",
       ...(body.tier === undefined ? {} : { tier: body.tier as TenantTier }),
+      ...(body.package_id === undefined
+        ? {}
+        : { package_id: body.package_id }),
     });
     return jsonApiSuccess(c, tenant);
   });

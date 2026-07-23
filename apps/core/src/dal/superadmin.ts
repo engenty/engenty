@@ -11,6 +11,8 @@ export interface CoreTenant {
   created_at: string;
   id: string;
   name: string;
+  /** Assigned commercial package id, or null when on the free/default tier. */
+  package_id: string | null;
   slug: string;
   status: TenantStatus;
   tenant_connection_mode: "shared_instance" | "dedicated_instance";
@@ -83,6 +85,7 @@ export interface SuperadminDal {
   createTenant: (input: {
     slug: string;
     name: string;
+    package_id?: string | null;
     tenant_connection_mode?: CoreTenant["tenant_connection_mode"];
     tier?: TenantTier;
   }) => Promise<CoreTenant>;
@@ -152,7 +155,7 @@ function toTenantRole(value: unknown): TenantRole {
 }
 
 const TENANT_COLUMNS =
-  "id, slug, name, tenant_connection_mode, tier, status, created_at, updated_at";
+  "id, slug, name, tenant_connection_mode, tier, status, package_id, created_at, updated_at";
 
 export function createSuperadminDal(
   config: Record<string, unknown>
@@ -191,6 +194,7 @@ export function createSuperadminDal(
   async function createTenant(input: {
     slug: string;
     name: string;
+    package_id?: string | null;
     tenant_connection_mode?: CoreTenant["tenant_connection_mode"];
     tier?: TenantTier;
   }) {
@@ -203,6 +207,9 @@ export function createSuperadminDal(
         tenant_connection_mode:
           input.tenant_connection_mode ?? "shared_instance",
         ...(input.tier === undefined ? {} : { tier: input.tier }),
+        ...(input.package_id === undefined
+          ? {}
+          : { package_id: input.package_id }),
       })
       .select(TENANT_COLUMNS)
       .single();

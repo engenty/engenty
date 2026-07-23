@@ -59,6 +59,7 @@ function createFakeDal(): SuperadminDal {
           input.tenant_connection_mode ?? "shared_instance",
         tier: input.tier ?? "platform",
         status: "active",
+        package_id: input.package_id ?? null,
         created_at: now,
         updated_at: now,
       };
@@ -193,6 +194,25 @@ describe("superadmin routes — tenant registry", () => {
     const id = createdBody.data.id;
     expect(createdBody.data.tier).toBe("platform");
     expect(createdBody.data.status).toBe("active");
+    expect(createdBody.data.package_id).toBeNull();
+
+    const withPackage = await app.request("/api/superadmin/tenants", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        slug: "biz",
+        name: "Biz",
+        package_id: "business",
+        tier: "satellite",
+      }),
+    });
+    expect(withPackage.status).toBe(200);
+    const withPackageBody = (await withPackage.json()) as { data: CoreTenant };
+    expect(withPackageBody.data).toMatchObject({
+      slug: "biz",
+      package_id: "business",
+      tier: "satellite",
+    });
 
     const patched = await app.request(`/api/superadmin/tenants/${id}`, {
       method: "PATCH",
@@ -209,8 +229,8 @@ describe("superadmin routes — tenant registry", () => {
 
     const list = await app.request("/api/superadmin/tenants", { headers });
     const listBody = (await list.json()) as { data: CoreTenant[] };
-    expect(listBody.data).toHaveLength(1);
-    expect(listBody.data[0]).toMatchObject({
+    expect(listBody.data).toHaveLength(2);
+    expect(listBody.data.find((row) => row.id === id)).toMatchObject({
       tier: "satellite",
       status: "suspended",
     });

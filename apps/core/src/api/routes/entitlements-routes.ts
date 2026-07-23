@@ -39,6 +39,19 @@ export function registerEntitlementsRoutes(params: {
     return jsonApiSuccess(c, { packages });
   });
 
+  app.get("/api/superadmin/packages/:id", async (c) => {
+    const authResult = await requireSuperAdmin(c, config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const id = c.req.param("id");
+    const pkg = await dal.getPackage(id);
+    if (!pkg) {
+      return jsonApiError(c, 404, { message: `Package not found: ${id}` });
+    }
+    return jsonApiSuccess(c, pkg);
+  });
+
   // Re-sync the authored catalog (version-based upsert).
   app.post("/api/superadmin/packages/sync-defaults", async (c) => {
     const authResult = await requireSuperAdmin(c, config);
