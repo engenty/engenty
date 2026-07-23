@@ -17,6 +17,11 @@ const clearTenantOverride = vi.fn();
 
 vi.mock("@/lib/api/entitlements", () => ({
   listPackages: () => listPackages(),
+  getPackage: (id: string) =>
+    listPackages().then(
+      (pkgs: EntitlementPackage[]) =>
+        pkgs.find((p) => p.id === id) ?? Promise.reject(new Error("missing"))
+    ),
   syncPackageDefaults: () => syncPackageDefaults(),
   getTenantEntitlements: (id: string) => getTenantEntitlements(id),
   setTenantPackage: (id: string, pkg: string | null) =>

@@ -33,6 +33,8 @@ interface TenantsTableProps {
   columnVisibility: TenantsColumnVisibility;
   onRowClick: (tenant: ManageTenant) => void;
   onSortChange: (column: TenantsSortColumn) => void;
+  /** Resolve `package_id` → display label (falls back to id / empty). */
+  packageLabel: (packageId: string | null) => string;
   sortBy: TenantsSortColumn;
   sortOrder: "asc" | "desc";
   tableSize: TableSize;
@@ -46,6 +48,7 @@ export function TenantsTable({
   sortBy,
   sortOrder,
   tableSize,
+  packageLabel,
   onSortChange,
   onRowClick,
 }: TenantsTableProps) {
@@ -54,9 +57,10 @@ export function TenantsTable({
 
   const labels: Record<keyof TenantsColumnVisibility, string> = {
     name: t("common.name"),
-    slug: t("common.slug"),
+    slug: t("tenants.fields.slug"),
     tier: t("tenants.fields.tier"),
     status: t("tenants.fields.status"),
+    package: t("tenants.fields.package"),
     createdAt: t("common.created"),
   };
 
@@ -118,6 +122,13 @@ export function TenantsTable({
                 return (
                   <TableCell key={key}>
                     <StatusBadge status={tenant.status} />
+                  </TableCell>
+                );
+              }
+              if (key === "package") {
+                return (
+                  <TableCell key={key}>
+                    {packageLabel(tenant.package_id)}
                   </TableCell>
                 );
               }

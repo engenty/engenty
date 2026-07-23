@@ -13,27 +13,21 @@ import {
   TableRow,
 } from "@engenty/ui-core";
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
+import {
+  formatMicros,
+  moduleSummary,
+} from "@/features/packages/package-format";
 import type { EntitlementPackage } from "@/lib/api/entitlements";
 import { syncPackageDefaults } from "@/lib/api/entitlements";
 import { packagesQuery } from "@/lib/queries/entitlements";
 
-/** "$40" style from micros, or an em dash when unlimited/absent. */
-function formatMicros(value: number | null): string {
-  if (value === null) {
-    return "—";
-  }
-  return `$${(value / 1_000_000).toLocaleString()}`;
-}
-
-function moduleSummary(modules: string[] | null, allLabel: string): string {
-  return modules === null ? allLabel : String(modules.length);
-}
-
 export function PackagesListPage() {
   const { t } = useTranslation("common");
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useQuery(packagesQuery);
 
@@ -104,7 +98,11 @@ export function PackagesListPage() {
               </TableHeader>
               <TableBody>
                 {packages.map((pkg) => (
-                  <TableRow key={pkg.id}>
+                  <TableRow
+                    className="cursor-pointer"
+                    key={pkg.id}
+                    onClick={() => navigate(`/packages/${pkg.id}`)}
+                  >
                     <TableCell>
                       <div className="font-medium">{pkg.label}</div>
                       <div className="text-muted-foreground text-xs">

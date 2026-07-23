@@ -11,6 +11,7 @@ interface TenantsCardsProps {
   columnOrder: (keyof TenantsColumnVisibility)[];
   columnVisibility: TenantsColumnVisibility;
   onCardClick: (tenant: ManageTenant) => void;
+  packageLabel: (packageId: string | null) => string;
   tableSize: TableSize;
   tenants: ManageTenant[];
 }
@@ -20,6 +21,7 @@ export function TenantsCards({
   tableSize,
   columnOrder,
   columnVisibility,
+  packageLabel,
   onCardClick,
 }: TenantsCardsProps) {
   const { t } = useTranslation("common");
@@ -30,11 +32,13 @@ export function TenantsCards({
       case "name":
         return t("common.name");
       case "slug":
-        return t("common.slug");
+        return t("tenants.fields.slug");
       case "tier":
         return t("tenants.fields.tier");
       case "status":
         return t("tenants.fields.status");
+      case "package":
+        return t("tenants.fields.package");
       case "createdAt":
         return t("common.created");
       default:
@@ -52,7 +56,7 @@ export function TenantsCards({
         return (
           <button
             className={cn(
-              "ui-canvas-raised w-full cursor-pointer rounded-lg border-0 text-left transition-[box-shadow,color]",
+              "ui-canvas-raised w-full cursor-pointer rounded-lg border-0 bg-card text-left transition-[box-shadow,color]",
               compact ? "p-3" : "p-4"
             )}
             key={tenant.id}
@@ -84,6 +88,8 @@ export function TenantsCards({
                   value = <TierBadge tier={tenant.tier} />;
                 } else if (key === "status") {
                   value = <StatusBadge status={tenant.status} />;
+                } else if (key === "package") {
+                  value = packageLabel(tenant.package_id);
                 } else {
                   value = tenant.created_at
                     ? new Date(tenant.created_at).toLocaleDateString()

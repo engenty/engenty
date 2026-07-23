@@ -39,6 +39,7 @@ const tenant: ManageTenant = {
   slug: "acme",
   tier: "platform",
   status: "active",
+  package_id: null,
   tenant_connection_mode: "shared_instance",
   created_at: "2026-07-14T00:00:00Z",
   updated_at: "2026-07-14T00:00:00Z",

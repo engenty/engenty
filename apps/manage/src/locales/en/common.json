@@ -88,8 +88,10 @@
       "success": "Tenant created."
     },
     "fields": {
+      "slug": "Slug / path",
       "tier": "Tier",
-      "status": "Status"
+      "status": "Status",
+      "package": "Package"
     },
     "tier": {
       "platform": "Platform",
@@ -283,6 +285,22 @@
     "mode": {
       "observe": "Observe",
       "enforce": "Enforce"
+    },
+    "detail": {
+      "authoredHint": "Packages are defined in code and synced to the catalog. Assign them to tenants from the tenant detail page.",
+      "limits": "App limits",
+      "seatsEnforcement": "Seats enforcement",
+      "ai": "AI usage",
+      "included": "Included cost",
+      "softLimit": "Soft limit",
+      "period": "Period",
+      "currency": "Currency",
+      "allowedModels": "Allowed models",
+      "allModels": "All models",
+      "featureFlags": "Feature flags",
+      "noFeatureFlags": "No feature flags in this package.",
+      "flagKey": "Flag",
+      "flagValue": "Value"
     }
   },
   "entitlements": {

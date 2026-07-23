@@ -1,7 +1,7 @@
 /** @vitest-environment happy-dom */
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ManageTenant } from "@/lib/api/tenants";
 import { renderPage } from "@/test-utils";
 
@@ -16,9 +16,13 @@ const { PageHeaderProvider, usePageHeader } = await import(
 
 const listTenants = vi.fn();
 const createTenant = vi.fn();
+const listPackages = vi.fn();
 vi.mock("@/lib/api/tenants", () => ({
   listTenants: () => listTenants(),
   createTenant: (input: unknown) => createTenant(input),
+}));
+vi.mock("@/lib/api/entitlements", () => ({
+  listPackages: () => listPackages(),
 }));
 
 const { TenantsListPage } = await import("./TenantsListPage");
@@ -30,6 +34,7 @@ function tenant(over: Partial<ManageTenant> = {}): ManageTenant {
     slug: "acme",
     tier: "platform",
     status: "active",
+    package_id: null,
     tenant_connection_mode: "shared_instance",
     created_at: "2026-07-14T00:00:00Z",
     updated_at: "2026-07-14T00:00:00Z",
@@ -49,6 +54,10 @@ function render() {
     </PageHeaderProvider>
   );
 }
+
+beforeEach(() => {
+  listPackages.mockResolvedValue([]);
+});
 
 afterEach(() => {
   cleanup();
@@ -80,7 +89,55 @@ describe("TenantsListPage", () => {
     await user.click(screen.getByRole("button", { name: "Create tenant" }));
 
     await waitFor(() =>
-      expect(createTenant).toHaveBeenCalledWith({ slug: "acme", name: "Acme" })
+      expect(createTenant).toHaveBeenCalledWith({
+        slug: "acme",
+        name: "Acme",
+        tier: "platform",
+        package_id: null,
+      })
+    );
+  });
+
+  it("creates a tenant with a chosen package", async () => {
+    const user = userEvent.setup();
+    listTenants.mockResolvedValue([]);
+    listPackages.mockResolvedValue([
+      {
+        id: "business",
+        label: "Business",
+        version: 2,
+        modules: null,
+        featureFlags: {},
+        aiUsagePolicy: {
+          period_mode: "calendar",
+          period_unit: "month",
+          included_cost_micros: null,
+          soft_limit_cost_micros: null,
+          hard_limit_cost_micros: null,
+          enforcement_mode: "observe",
+          currency: "usd",
+          allowed_models: null,
+        },
+        appLimits: { maxUsers: null, enforcement_mode: "observe" },
+      },
+    ]);
+    createTenant.mockResolvedValue(tenant({ package_id: "business" }));
+    render();
+
+    await screen.findByText("Nothing here yet.");
+    await user.click(screen.getByRole("button", { name: "New tenant" }));
+    await user.type(screen.getByLabelText("Name"), "Acme");
+    await user.click(screen.getByLabelText("Package"));
+    await user.click(await screen.findByRole("option", { name: "Business" }));
+    await user.click(screen.getByRole("button", { name: "Create tenant" }));
+
+    await waitFor(() =>
+      expect(createTenant).toHaveBeenCalledWith({
+        slug: "acme",
+        name: "Acme",
+        tier: "platform",
+        package_id: "business",
+      })
     );
   });
 });

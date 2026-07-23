@@ -3,6 +3,7 @@ import type { ViewMode } from "@engenty/ui-core";
 export interface TenantsColumnVisibility {
   createdAt: boolean;
   name: boolean;
+  package: boolean;
   slug: boolean;
   status: boolean;
   tier: boolean;
@@ -21,6 +22,7 @@ export const TENANTS_LIST_DISPLAY_DEFAULTS = {
     slug: true,
     tier: true,
     status: true,
+    package: true,
     createdAt: true,
   } satisfies TenantsColumnVisibility,
   columnOrder: [
@@ -28,6 +30,7 @@ export const TENANTS_LIST_DISPLAY_DEFAULTS = {
     "slug",
     "tier",
     "status",
+    "package",
     "createdAt",
   ] as (keyof TenantsColumnVisibility)[],
 };

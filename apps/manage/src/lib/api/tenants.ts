@@ -8,6 +8,8 @@ export interface ManageTenant {
   created_at: string;
   id: string;
   name: string;
+  /** Assigned commercial package id, or null when on the free/default tier. */
+  package_id: string | null;
   slug: string;
   status: TenantStatus;
   tenant_connection_mode: "shared_instance" | "dedicated_instance";
@@ -41,6 +43,7 @@ export function getTenant(id: string, signal?: AbortSignal) {
 export function createTenant(input: {
   slug: string;
   name: string;
+  package_id?: string | null;
   tier?: TenantTier;
 }) {
   return request<ManageTenant>("/api/superadmin/tenants", {

@@ -212,8 +212,8 @@ export function TenantDetailPage() {
           title={tenant.name}
         />
 
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-          <div className="mx-auto w-full max-w-7xl space-y-6">
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pb-10">
+          <div className="mx-auto w-full max-w-7xl space-y-6 p-page pb-10">
             <TabsContent value="members">
               <TenantMembersTab tenantId={id} />
             </TabsContent>

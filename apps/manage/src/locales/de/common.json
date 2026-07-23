@@ -88,8 +88,10 @@
       "success": "Mandant erstellt."
     },
     "fields": {
+      "slug": "Slug / Pfad",
       "tier": "Stufe",
-      "status": "Status"
+      "status": "Status",
+      "package": "Paket"
     },
     "tier": {
       "platform": "Plattform",
@@ -283,6 +285,22 @@
     "mode": {
       "observe": "Beobachten",
       "enforce": "Erzwingen"
+    },
+    "detail": {
+      "authoredHint": "Pakete werden im Code definiert und in den Katalog synchronisiert. Weise sie Mandanten auf der Mandantendetailseite zu.",
+      "limits": "App-Limits",
+      "seatsEnforcement": "Plätze-Durchsetzung",
+      "ai": "KI-Nutzung",
+      "included": "Enthaltenes Kontingent",
+      "softLimit": "Soft-Limit",
+      "period": "Zeitraum",
+      "currency": "Währung",
+      "allowedModels": "Erlaubte Modelle",
+      "allModels": "Alle Modelle",
+      "featureFlags": "Feature-Flags",
+      "noFeatureFlags": "Keine Feature-Flags in diesem Paket.",
+      "flagKey": "Flag",
+      "flagValue": "Wert"
     }
   },
   "entitlements": {

@@ -58,6 +58,13 @@ export function listPackages(signal?: AbortSignal) {
   ).then((r) => r.packages);
 }
 
+export function getPackage(id: string, signal?: AbortSignal) {
+  return request<EntitlementPackage>(
+    `/api/superadmin/packages/${encodeURIComponent(id)}`,
+    { signal }
+  );
+}
+
 export function syncPackageDefaults() {
   return request<{ upserted: number }>(
     "/api/superadmin/packages/sync-defaults",

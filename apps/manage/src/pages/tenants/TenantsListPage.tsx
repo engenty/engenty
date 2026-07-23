@@ -11,6 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Table,
   TableBody,
@@ -33,9 +38,12 @@ import {
   type TenantsColumnVisibility,
   type TenantsSortColumn,
 } from "@/features/tenants/tenants-list-display";
-import type { ManageTenant } from "@/lib/api/tenants";
+import type { ManageTenant, TenantTier } from "@/lib/api/tenants";
 import { createTenant } from "@/lib/api/tenants";
+import { packagesQuery } from "@/lib/queries/entitlements";
 import { tenantsQuery } from "@/lib/queries/tenants";
+
+const NO_PACKAGE = "__none__";
 
 function slugify(value: string) {
   return value
@@ -73,12 +81,15 @@ export function TenantsListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useQuery(tenantsQuery);
+  const packages = useQuery(packagesQuery);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
+  const [tier, setTier] = useState<TenantTier>("platform");
+  const [packageId, setPackageId] = useState<string>(NO_PACKAGE);
 
   const display = useListDisplayState<
     keyof TenantsColumnVisibility,
@@ -101,15 +112,27 @@ export function TenantsListPage() {
     setSortOrder,
   } = display;
 
+  const resetCreateForm = () => {
+    setName("");
+    setSlug("");
+    setSlugEdited(false);
+    setTier("platform");
+    setPackageId(NO_PACKAGE);
+  };
+
   const create = useMutation({
-    mutationFn: () => createTenant({ slug: slug.trim(), name: name.trim() }),
+    mutationFn: () =>
+      createTenant({
+        slug: slug.trim(),
+        name: name.trim(),
+        tier,
+        package_id: packageId === NO_PACKAGE ? null : packageId,
+      }),
     onSuccess: async (tenant) => {
       toast.success(t("tenants.create.success"));
       await queryClient.invalidateQueries({ queryKey: ["manage", "tenants"] });
       setCreateOpen(false);
-      setName("");
-      setSlug("");
-      setSlugEdited(false);
+      resetCreateForm();
       navigate(`/tenants/${tenant.id}`);
     },
     onError: (err) =>
@@ -158,6 +181,24 @@ export function TenantsListPage() {
       navigate(`/tenants/${tenant.id}`);
     },
     [navigate]
+  );
+
+  const packageLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const pkg of packages.data ?? []) {
+      map.set(pkg.id, pkg.label);
+    }
+    return map;
+  }, [packages.data]);
+
+  const packageLabel = useCallback(
+    (packageId: string | null) => {
+      if (!packageId) {
+        return t("entitlements.noPackage");
+      }
+      return packageLabelById.get(packageId) ?? packageId;
+    },
+    [packageLabelById, t]
   );
 
   const pagination = {
@@ -229,9 +270,10 @@ export function TenantsListPage() {
             noColumnsDisplayed: t("tenants.list.noColumnsDisplayed"),
             itemsPerPage: t("tenants.list.itemsPerPage"),
             name: t("common.name"),
-            slug: t("common.slug"),
+            slug: t("tenants.fields.slug"),
             tier: t("tenants.fields.tier"),
             status: t("tenants.fields.status"),
+            package: t("tenants.fields.package"),
             createdAt: t("common.created"),
           }}
           onPageSizeChange={(size) => {
@@ -313,6 +355,7 @@ export function TenantsListPage() {
                 columnVisibility={columnVisibility}
                 onRowClick={openTenant}
                 onSortChange={handleSortChange}
+                packageLabel={packageLabel}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 tableSize={tableSize}
@@ -330,6 +373,7 @@ export function TenantsListPage() {
                   columnOrder={columnOrder}
                   columnVisibility={columnVisibility}
                   onCardClick={openTenant}
+                  packageLabel={packageLabel}
                   tableSize={tableSize}
                   tenants={pageRows}
                 />
@@ -339,7 +383,15 @@ export function TenantsListPage() {
           )}
       </div>
 
-      <Dialog onOpenChange={setCreateOpen} open={createOpen}>
+      <Dialog
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            resetCreateForm();
+          }
+        }}
+        open={createOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("tenants.create.title")}</DialogTitle>
@@ -372,6 +424,47 @@ export function TenantsListPage() {
                 }}
                 value={slug}
               />
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm" id="tenant-tier-label">
+                {t("tenants.fields.tier")}
+              </span>
+              <Select
+                onValueChange={(value) => setTier(value as TenantTier)}
+                value={tier}
+              >
+                <SelectTrigger aria-labelledby="tenant-tier-label">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="platform">
+                    {t("tenants.tier.platform")}
+                  </SelectItem>
+                  <SelectItem value="satellite">
+                    {t("tenants.tier.satellite")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm" id="tenant-package-label">
+                {t("tenants.fields.package")}
+              </span>
+              <Select onValueChange={setPackageId} value={packageId}>
+                <SelectTrigger aria-labelledby="tenant-package-label">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PACKAGE}>
+                    {t("entitlements.noPackage")}
+                  </SelectItem>
+                  {(packages.data ?? []).map((pkg) => (
+                    <SelectItem key={pkg.id} value={pkg.id}>
+                      {pkg.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

@@ -18,6 +18,7 @@ import {
   Calendar,
   Hash,
   Layers,
+  Package,
   SlidersHorizontal,
 } from "lucide-react";
 import type {
@@ -38,6 +39,7 @@ export interface TenantsTableToolbarLabels {
   itemsPerPage: string;
   name: string;
   noColumnsDisplayed: string;
+  package: string;
   paginationSummary: string;
   searchPlaceholder: string;
   showAll: string;
@@ -77,6 +79,7 @@ export function TenantsTableToolbar(props: TenantsTableToolbarProps) {
     { key: "slug", label: props.labels.slug, icon: Hash },
     { key: "tier", label: props.labels.tier, icon: Layers },
     { key: "status", label: props.labels.status, icon: BadgeCheck },
+    { key: "package", label: props.labels.package, icon: Package },
     { key: "createdAt", label: props.labels.createdAt, icon: Calendar },
   ];
 

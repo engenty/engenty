@@ -6,6 +6,7 @@ import { LogsPage } from "@/pages/log-inspector/LogsPage";
 import { ModuleDetailPage } from "@/pages/modules/ModuleDetailPage";
 import { ModulesListPage } from "@/pages/modules/ModulesListPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { PackageDetailPage } from "@/pages/packages/PackageDetailPage";
 import { PackagesListPage } from "@/pages/packages/PackagesListPage";
 import { SatellitesListPage } from "@/pages/satellites/SatellitesListPage";
 import { SearchIndexPage } from "@/pages/search-index/SearchIndexPage";
@@ -31,6 +32,7 @@ export function ManageRoutes() {
       <Route element={<ModuleDetailPage />} path="/modules/:id" />
       <Route element={<FeatureFlagsPage />} path="/feature-flags" />
       <Route element={<PackagesListPage />} path="/packages" />
+      <Route element={<PackageDetailPage />} path="/packages/:id" />
       <Route element={<SatellitesListPage />} path="/satellites" />
       <Route element={<LogsPage />} path="/logs" />
       <Route element={<AuditPage />} path="/audit" />
