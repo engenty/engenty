@@ -312,7 +312,11 @@ export function registerTasksGatewayMethods(
   api.registerOperation({
     operationId: "tasks_add_comment",
     summary: "Add task comment",
+    // Commenting is how an agent reports progress and asks for input; it is
+    // additive, reversible and low-risk, so it must never sit behind approval.
     ...writeOp(["module.tasks.write"]),
+    riskLevel: "low" as const,
+    requiresApproval: false,
     inputSchema: taskAddCommentOperationInputSchema,
     outputSchema: taskCommentSchema,
     handler: async (input, ctx) => {
