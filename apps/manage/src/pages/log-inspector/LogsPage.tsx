@@ -4,11 +4,11 @@ import {
   AdminListTableView,
   Badge,
   Button,
-  Input,
+  ListFilterSelectTrigger,
+  ListSearchInput,
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
   STICKY_HEADER_CLASS,
   Table,
@@ -123,13 +123,27 @@ export function LogsPage() {
   const fileLabel = (file: { date: string; label?: string }) =>
     file.label ?? file.date;
 
+  const logsTitle = t("logs.title");
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {logsTitle}
+          </span>
+        ),
+        menuLabel: logsTitle,
+        to: "/logs",
+      },
+    ],
+    [logsTitle]
+  );
+
   return (
-    <PageShell
-      breadcrumbs={[{ label: t("logs.title") }]}
-      title={t("logs.title")}
-    >
+    <PageShell breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <Select
             onValueChange={(value) => {
               setDate(value);
@@ -137,9 +151,9 @@ export function LogsPage() {
             }}
             value={activeDate}
           >
-            <SelectTrigger className="w-56">
+            <ListFilterSelectTrigger className="w-56">
               <SelectValue placeholder={t("logs.selectFile")} />
-            </SelectTrigger>
+            </ListFilterSelectTrigger>
             <SelectContent>
               {(files.data ?? []).map((file) => (
                 <SelectItem key={file.date} value={file.date}>
@@ -156,9 +170,9 @@ export function LogsPage() {
             }}
             value={level}
           >
-            <SelectTrigger className="w-40">
+            <ListFilterSelectTrigger className="w-40">
               <SelectValue />
-            </SelectTrigger>
+            </ListFilterSelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_LEVELS}>{t("logs.allLevels")}</SelectItem>
               {LEVELS.map((lvl) => (
@@ -169,14 +183,19 @@ export function LogsPage() {
             </SelectContent>
           </Select>
 
-          <form className="flex items-end gap-2" onSubmit={onSearchSubmit}>
-            <Input
-              aria-label={t("common.search")}
-              className="w-64"
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t("logs.searchPlaceholder")}
-              value={searchInput}
-            />
+          <form
+            className="flex min-w-0 flex-wrap items-center gap-2"
+            onSubmit={onSearchSubmit}
+          >
+            <div className="w-full min-w-0 max-w-full sm:w-64 sm:max-w-md">
+              <ListSearchInput
+                className="w-full"
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t("logs.searchPlaceholder")}
+                value={searchInput}
+                wrapperClassName="w-full"
+              />
+            </div>
             <Button size="sm" type="submit" variant="outline">
               {t("common.search")}
             </Button>

@@ -4,11 +4,11 @@ import {
   AdminListTableView,
   Badge,
   Button,
-  Input,
+  ListFilterSelectTrigger,
+  ListSearchInput,
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
   STICKY_HEADER_CLASS,
   Table,
@@ -81,13 +81,27 @@ export function AuditPage() {
     resetPaging();
   };
 
+  const auditTitle = t("audit.title");
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {auditTitle}
+          </span>
+        ),
+        menuLabel: auditTitle,
+        to: "/audit",
+      },
+    ],
+    [auditTitle]
+  );
+
   return (
-    <PageShell
-      breadcrumbs={[{ label: t("audit.title") }]}
-      title={t("audit.title")}
-    >
+    <PageShell breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <Select
             onValueChange={(value) => {
               setTenantId(value);
@@ -98,9 +112,9 @@ export function AuditPage() {
             }}
             value={tenantId}
           >
-            <SelectTrigger className="w-56">
+            <ListFilterSelectTrigger className="w-56">
               <SelectValue />
-            </SelectTrigger>
+            </ListFilterSelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{t("audit.allTenants")}</SelectItem>
               {(tenants.data ?? []).map((tenant) => (
@@ -118,9 +132,9 @@ export function AuditPage() {
             }}
             value={type}
           >
-            <SelectTrigger className="w-48">
+            <ListFilterSelectTrigger className="w-48">
               <SelectValue placeholder={t("audit.allTypes")} />
-            </SelectTrigger>
+            </ListFilterSelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{t("audit.allTypes")}</SelectItem>
               {(distincts.data?.types ?? []).map((value) => (
@@ -138,9 +152,9 @@ export function AuditPage() {
             }}
             value={moduleId}
           >
-            <SelectTrigger className="w-48">
+            <ListFilterSelectTrigger className="w-48">
               <SelectValue placeholder={t("audit.allModules")} />
-            </SelectTrigger>
+            </ListFilterSelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{t("audit.allModules")}</SelectItem>
               {(distincts.data?.module_ids ?? []).map((value) => (
@@ -151,21 +165,28 @@ export function AuditPage() {
             </SelectContent>
           </Select>
 
-          <form className="flex items-end gap-2" onSubmit={onSubmit}>
-            <Input
-              aria-label={t("common.search")}
-              className="w-56"
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t("audit.searchPlaceholder")}
-              value={searchInput}
-            />
-            <Input
-              aria-label={t("audit.actorPlaceholder")}
-              className="w-48"
-              onChange={(e) => setActorInput(e.target.value)}
-              placeholder={t("audit.actorPlaceholder")}
-              value={actorInput}
-            />
+          <form
+            className="flex min-w-0 flex-wrap items-center gap-2"
+            onSubmit={onSubmit}
+          >
+            <div className="w-full min-w-0 max-w-full sm:w-56">
+              <ListSearchInput
+                className="w-full"
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t("audit.searchPlaceholder")}
+                value={searchInput}
+                wrapperClassName="w-full"
+              />
+            </div>
+            <div className="w-full min-w-0 max-w-full sm:w-48">
+              <ListSearchInput
+                className="w-full"
+                onChange={(e) => setActorInput(e.target.value)}
+                placeholder={t("audit.actorPlaceholder")}
+                value={actorInput}
+                wrapperClassName="w-full"
+              />
+            </div>
             <Button size="sm" type="submit" variant="outline">
               {t("common.search")}
             </Button>

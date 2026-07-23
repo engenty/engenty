@@ -177,8 +177,8 @@ export function UserDetailPage() {
         title={title}
       />
 
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-        <div className="mx-auto w-full max-w-5xl space-y-6">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pb-10">
+        <div className="mx-auto w-full max-w-5xl space-y-6 p-page pb-10">
           <div className="flex items-center gap-2 text-sm">
             <Switch
               aria-label={t("users.detail.superAdminToggle")}

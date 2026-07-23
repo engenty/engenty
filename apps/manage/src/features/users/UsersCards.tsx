@@ -56,7 +56,7 @@ export function UsersCards({
         return (
           <button
             className={cn(
-              "ui-canvas-raised w-full cursor-pointer rounded-lg border-0 text-left transition-[box-shadow,color]",
+              "ui-canvas-raised w-full cursor-pointer rounded-lg border-0 bg-card text-left transition-[box-shadow,color]",
               compact ? "p-3" : "p-4"
             )}
             key={user.id}

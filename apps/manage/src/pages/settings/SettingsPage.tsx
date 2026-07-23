@@ -3,7 +3,7 @@ import { useQuery } from "@engenty/query-client";
 import {
   AdminListTableView,
   Badge,
-  Input,
+  ListSearchInput,
   STICKY_HEADER_CLASS,
   Table,
   TableBody,
@@ -31,19 +31,35 @@ export function SettingsPage() {
     return list.filter((v) => v.key.toLowerCase().includes(term));
   }, [data, filter]);
 
+  const settingsTitle = t("settings.title");
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {settingsTitle}
+          </span>
+        ),
+        menuLabel: settingsTitle,
+        to: "/settings",
+      },
+    ],
+    [settingsTitle]
+  );
+
   return (
-    <PageShell
-      breadcrumbs={[{ label: t("settings.title") }]}
-      title={t("settings.title")}
-    >
+    <PageShell breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <Input
-          aria-label={t("settings.filterPlaceholder")}
-          className="max-w-xs shrink-0"
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder={t("settings.filterPlaceholder")}
-          value={filter}
-        />
+        <div className="w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+          <ListSearchInput
+            className="w-full"
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t("settings.filterPlaceholder")}
+            value={filter}
+            wrapperClassName="w-full"
+          />
+        </div>
         <PageState
           error={error}
           isEmpty={rows.length === 0}

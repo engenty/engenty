@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@engenty/ui-core";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
@@ -108,17 +108,34 @@ export function SatellitesListPage() {
   });
 
   const satellites = (data ?? []) as Satellite[];
+  const satellitesTitle = t("satellites.title");
+
+  const pageActions = useMemo(
+    () => (
+      <Button onClick={() => setCreateOpen(true)} size="sm">
+        {t("satellites.new")}
+      </Button>
+    ),
+    [t]
+  );
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {satellitesTitle}
+          </span>
+        ),
+        menuLabel: satellitesTitle,
+        to: "/satellites",
+      },
+    ],
+    [satellitesTitle]
+  );
 
   return (
-    <PageShell
-      actions={
-        <Button onClick={() => setCreateOpen(true)} size="sm">
-          {t("satellites.new")}
-        </Button>
-      }
-      breadcrumbs={[{ label: t("satellites.title") }]}
-      title={t("satellites.title")}
-    >
+    <PageShell actions={pageActions} breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <p className="text-muted-foreground text-sm">
           {t("satellites.subtitle")}
