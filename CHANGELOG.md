@@ -4,6 +4,49 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.68] - 2026-07-23
+- ADDED **[manage]** Enhance tenant package details and enforcement settings
+- ADDED **[manage]** Align list and detail chrome with core UI patterns
+- ADDED **[manage]** Package detail, tenants package column, and create chooser
+- ADDED **[core]** Expose tenant package_id and accept it on create
+- ADDED **[manage]** List/detail UI refresh for tenants, users and packages
+- ADDED **[manage]** Core-UI DetailPageHeader for the tenant detail page
+- ADDED **[ai]** Governance seam for self-managed vs centrally-managed AI settings
+- ADDED **[manage]** Readable feature-flag labels (P4d parity)
+- ADDED **[manage]** Search-index diagnostics console (P4d)
+- ADDED **[manage]** Tenant automation-rules tab (P4d)
+- ADDED **[manage]** Approvals queue, module lifecycle, and platform settings (P4b/P4c)
+- ADDED **[manage]** P4a observability — logs inspector + cross-tenant audit
+- ADDED **[billing]** P3 package pricing, invoices, tenant billing tab
+- ADDED **[satellites]** P2b satellite registry, health probe, manage UI
+- ADDED **[entitlements]** P2a-5 manage UI (catalog, picker, overrides, resolved)
+- ADDED **[entitlements]** P2a-4d maxUsers seat-limit enforcement
+- ADDED **[entitlements]** P2a-4c write AI usage policy on entitlement change
+- ADDED **[entitlements]** P2a-4b module allow-list enforcement
+- ADDED **[entitlements]** P2a-4a compose package feature flags
+- ADDED **[entitlements]** P2a-3 superadmin entitlements routes
+- ADDED **[entitlements]** P2a-2 core.packages DB + DAL + boot sync
+- ADDED **[entitlements]** P2a-1 authored package catalog + resolver
+- ADDED **[manage]** Tenant control-plane Phase 1 (tenants, users, modules, flags)
+- ADDED **[tasks]** Make agent task runs durable and consistent
+- CHANGED **[entitlements]** One file per commercial package
+- CHANGED **[manage]** Retrofit Phase 1 lists to the design system
+- DOCS Point entitlements catalog at config/packages
+- DOCS **[wip]** Unify tenancy plans into one two-tier spec (platform + satellites, manage app)
+- DOCS **[wip]** Tenancy & deployment architecture — converged on plane split + tenant sandboxes
+- DOCS **[wip]** Tenant sandbox runtime plan — independent base layer
+- DOCS **[wip]** Tenant-box + OD headless spike charter (phase 0)
+- FIXED **[coordinator]** Match the test to the heartbeat routine that shipped
+- FIXED **[tasks,core]** Run details reveal the thread; repair Vitest 4 test signature
+- FIXED **[core]** Tenant-scope the approval queue, add superadmin cross-tenant routes
+- FIXED **[manage]** Recover to login on an expired/invalid session
+- FIXED **[manage]** Make Phase 1 runnable via portless dev
+- OTHER Add CardSection and align detail page content columns.
+
+Centralize section title + card layouts (with header/body variants) so modules stop hand-rolling typography, and pad detail content inside max-width to match DetailPageHeader.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
 ## [0.1.67] - 2026-07-23
 - ADDED **[inbox]** Add AI face for triage, sync, and UI tools
 - ADDED **[agent-ui]** Richer page briefs and DOM-first UI inspection
