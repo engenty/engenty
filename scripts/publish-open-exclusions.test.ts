@@ -17,7 +17,10 @@ import { describe, expect, it } from "vitest";
  * dependency on it produces a public repo where `pnpm install` fails outright.
  */
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  ".."
+);
 
 function readScript(name: string): string {
   return readFileSync(path.join(repoRoot, "scripts", name), "utf8");

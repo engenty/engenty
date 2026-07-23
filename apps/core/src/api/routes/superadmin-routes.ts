@@ -151,9 +151,7 @@ export function registerSuperadminRoutes(params: {
       name: body.name,
       tenant_connection_mode: body.tenant_connection_mode ?? "shared_instance",
       ...(body.tier === undefined ? {} : { tier: body.tier as TenantTier }),
-      ...(body.package_id === undefined
-        ? {}
-        : { package_id: body.package_id }),
+      ...(body.package_id === undefined ? {} : { package_id: body.package_id }),
     });
     return jsonApiSuccess(c, tenant);
   });

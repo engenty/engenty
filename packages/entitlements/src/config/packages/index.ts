@@ -8,7 +8,8 @@
  * Core/required modules (settings, copilot) are always allowed by the
  * enforcement point, so they are omitted from package allow-lists.
  */
-export { freePackage } from "./free.js";
-export { teamPackage } from "./team.js";
+
 export { businessPackage } from "./business.js";
 export { enterprisePackage } from "./enterprise.js";
+export { freePackage } from "./free.js";
+export { teamPackage } from "./team.js";

@@ -38,9 +38,7 @@ export function ContactAgentNotesCard({ entity }: ContactAgentNotesCardProps) {
   }
 
   return (
-    <CardSection
-      title={t("agentNotes.title", { defaultValue: "Agent notes" })}
-    >
+    <CardSection title={t("agentNotes.title", { defaultValue: "Agent notes" })}>
       <div className="space-y-3">
         {records.map((record) => {
           const provenance = [

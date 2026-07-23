@@ -206,7 +206,7 @@ export function TenantsListPage() {
     () =>
       packageId === NO_PACKAGE
         ? null
-        : (packages.data ?? []).find((pkg) => pkg.id === packageId) ?? null,
+        : ((packages.data ?? []).find((pkg) => pkg.id === packageId) ?? null),
     [packageId, packages.data]
   );
 

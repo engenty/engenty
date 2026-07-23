@@ -1,8 +1,5 @@
 import type * as React from "react";
-import {
-  CardSection,
-  type CardSectionProps,
-} from "../../ui/card-section";
+import { CardSection, type CardSectionProps } from "../../ui/card-section";
 
 /**
  * @deprecated Prefer {@link CardSection}. Kept as a thin alias for settings

@@ -1,10 +1,10 @@
-import type { EntitlementPackage } from "./types.js";
 import {
   businessPackage,
   enterprisePackage,
   freePackage,
   teamPackage,
 } from "./config/packages/index.js";
+import type { EntitlementPackage } from "./types.js";
 
 /**
  * The authored commercial-package catalog. Synced into `core.packages` at boot
