@@ -60,6 +60,26 @@
   "tenants": {
     "title": "Tenants",
     "new": "New tenant",
+    "list": {
+      "searchPlaceholder": "Search tenants…",
+      "display": "Display",
+      "viewModeGroup": "View mode",
+      "paginationSummary": "{{total}} tenants",
+      "pageOf": "Page {{page}} of {{totalPages}}",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "compactView": "Compact view",
+      "tableView": "Table view",
+      "cardsView": "Cards view",
+      "sortBy": "Sort by",
+      "displayedColumns": "Displayed columns",
+      "hiddenInTable": "Hidden columns",
+      "showAll": "Show all",
+      "hideAll": "Hide all",
+      "noColumnsDisplayed": "No columns displayed",
+      "itemsPerPage": "Items per page",
+      "viewTenant": "View tenant"
+    },
     "create": {
       "title": "Create tenant",
       "nameLabel": "Name",
@@ -134,6 +154,26 @@
     "new": "New user",
     "superAdmin": "Super admin",
     "primaryTenant": "Primary tenant",
+    "list": {
+      "searchPlaceholder": "Search users…",
+      "display": "Display",
+      "viewModeGroup": "View mode",
+      "paginationSummary": "{{total}} users",
+      "pageOf": "Page {{page}} of {{totalPages}}",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "compactView": "Compact view",
+      "tableView": "Table view",
+      "cardsView": "Cards view",
+      "sortBy": "Sort by",
+      "displayedColumns": "Displayed columns",
+      "hiddenInTable": "Hidden columns",
+      "showAll": "Show all",
+      "hideAll": "Hide all",
+      "noColumnsDisplayed": "No columns displayed",
+      "itemsPerPage": "Items per page",
+      "viewUser": "View user"
+    },
     "create": {
       "title": "Create user",
       "emailLabel": "Email",
@@ -264,7 +304,8 @@
     "aiOverrideLabel": "AI governance",
     "aiAllowList": "Model allow-list",
     "aiAllowListHint": "Comma- or space-separated Gateway model ids (e.g. openai/gpt-5-mini). Leave blank to allow all models. Enforced when the mode is Enforce.",
-    "aiHardLimit": "AI hard limit ($ / period)"
+    "aiHardLimit": "AI hard limit ($ / period)",
+    "aiSaveOverride": "Save AI governance"
   },
   "satellites": {
     "title": "Satellites",

@@ -60,6 +60,26 @@
   "tenants": {
     "title": "Mandanten",
     "new": "Neuer Mandant",
+    "list": {
+      "searchPlaceholder": "Mandanten suchen…",
+      "display": "Anzeige",
+      "viewModeGroup": "Ansicht",
+      "paginationSummary": "{{total}} Mandanten",
+      "pageOf": "Seite {{page}} von {{totalPages}}",
+      "ascending": "Aufsteigend",
+      "descending": "Absteigend",
+      "compactView": "Kompakte Ansicht",
+      "tableView": "Tabellenansicht",
+      "cardsView": "Kartenansicht",
+      "sortBy": "Sortieren nach",
+      "displayedColumns": "Angezeigte Spalten",
+      "hiddenInTable": "Ausgeblendete Spalten",
+      "showAll": "Alle anzeigen",
+      "hideAll": "Alle ausblenden",
+      "noColumnsDisplayed": "Keine Spalten angezeigt",
+      "itemsPerPage": "Einträge pro Seite",
+      "viewTenant": "Mandant anzeigen"
+    },
     "create": {
       "title": "Mandant erstellen",
       "nameLabel": "Name",
@@ -134,6 +154,26 @@
     "new": "Neuer Benutzer",
     "superAdmin": "Super-Admin",
     "primaryTenant": "Primärer Mandant",
+    "list": {
+      "searchPlaceholder": "Benutzer suchen…",
+      "display": "Anzeige",
+      "viewModeGroup": "Ansicht",
+      "paginationSummary": "{{total}} Benutzer",
+      "pageOf": "Seite {{page}} von {{totalPages}}",
+      "ascending": "Aufsteigend",
+      "descending": "Absteigend",
+      "compactView": "Kompakte Ansicht",
+      "tableView": "Tabellenansicht",
+      "cardsView": "Kartenansicht",
+      "sortBy": "Sortieren nach",
+      "displayedColumns": "Angezeigte Spalten",
+      "hiddenInTable": "Ausgeblendete Spalten",
+      "showAll": "Alle anzeigen",
+      "hideAll": "Alle ausblenden",
+      "noColumnsDisplayed": "Keine Spalten angezeigt",
+      "itemsPerPage": "Einträge pro Seite",
+      "viewUser": "Benutzer anzeigen"
+    },
     "create": {
       "title": "Benutzer erstellen",
       "emailLabel": "E-Mail",
@@ -264,7 +304,8 @@
     "aiOverrideLabel": "KI-Governance",
     "aiAllowList": "Modell-Erlaubnisliste",
     "aiAllowListHint": "Komma- oder leerzeichengetrennte Gateway-Modell-IDs (z. B. openai/gpt-5-mini). Leer lassen, um alle Modelle zu erlauben. Wird im Modus „Erzwingen“ durchgesetzt.",
-    "aiHardLimit": "KI-Hartlimit ($ / Periode)"
+    "aiHardLimit": "KI-Hartlimit ($ / Periode)",
+    "aiSaveOverride": "KI-Governance speichern"
   },
   "satellites": {
     "title": "Satelliten",

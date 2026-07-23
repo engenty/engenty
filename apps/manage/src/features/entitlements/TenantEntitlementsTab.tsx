@@ -354,7 +354,7 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
                     onClick={() => saveAi.mutate()}
                     size="sm"
                   >
-                    {t("entitlements.saveOverride")}
+                    {t("entitlements.aiSaveOverride")}
                   </Button>
                 </div>
               </div>

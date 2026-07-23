@@ -5,6 +5,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ManageTenant, TenantMember } from "@/lib/api/tenants";
 import { renderPage } from "@/test-utils";
 
+// This page registers its primary actions in the shell topbar, so it needs the
+// REAL `usePageConfig` (the global setup no-ops it) plus a stand-in topbar that
+// renders whatever the page registered.
+vi.mock("@engenty/ui-plugin-sdk", async (importActual) =>
+  importActual<Record<string, unknown>>()
+);
+const { PageHeaderProvider, usePageHeader } = await import(
+  "@engenty/ui-plugin-sdk"
+);
+
 const getTenant = vi.fn();
 const listTenantMembers = vi.fn();
 const setTenantStatus = vi.fn();
@@ -46,11 +56,21 @@ const member: TenantMember = {
   updated_at: "2026-07-14T00:00:00Z",
 };
 
+function TopbarActions() {
+  return <>{usePageHeader().actions}</>;
+}
+
 function render() {
-  return renderPage(<TenantDetailPage />, {
-    path: "/tenants/:id",
-    initialEntry: "/tenants/t1",
-  });
+  return renderPage(
+    <PageHeaderProvider>
+      <TopbarActions />
+      <TenantDetailPage />
+    </PageHeaderProvider>,
+    {
+      path: "/tenants/:id",
+      initialEntry: "/tenants/t1",
+    }
+  );
 }
 
 afterEach(() => {
