@@ -1,8 +1,9 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
+  AdminListCardsView,
+  AdminListPagination,
   AdminListTableView,
-  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  STICKY_HEADER_CLASS,
+  Skeleton,
   Switch,
   Table,
   TableBody,
@@ -23,16 +24,59 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  useListDisplayState,
+  useListToolbarHotkeys,
 } from "@engenty/ui-core";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
-import { PageState } from "@/components/PageState";
+import { UsersCards } from "@/features/users/UsersCards";
+import { UsersTable } from "@/features/users/UsersTable";
+import { UsersTableToolbar } from "@/features/users/UsersTableToolbar";
+import {
+  USERS_LIST_DISPLAY_DEFAULTS,
+  type UsersColumnVisibility,
+  type UsersSortColumn,
+} from "@/features/users/users-list-display";
 import type { TenantRole } from "@/lib/api/tenants";
+import type { ManageUser } from "@/lib/api/users";
 import { createUser } from "@/lib/api/users";
 import { tenantsQuery } from "@/lib/queries/tenants";
 import { usersQuery } from "@/lib/queries/users";
+
+function sortValue(user: ManageUser, sortBy: UsersSortColumn): string {
+  if (sortBy === "email") {
+    return user.email.toLowerCase();
+  }
+  if (sortBy === "display_name") {
+    return (user.display_name ?? user.email).toLowerCase();
+  }
+  return user.created_at;
+}
+
+function filterAndSort(
+  users: ManageUser[],
+  search: string,
+  sortBy: UsersSortColumn,
+  sortOrder: "asc" | "desc"
+): ManageUser[] {
+  let result = users;
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    result = result.filter(
+      (user) =>
+        user.email.toLowerCase().includes(q) ||
+        (user.display_name ?? "").toLowerCase().includes(q)
+    );
+  }
+  return [...result].sort((a, b) => {
+    const aVal = sortValue(a, sortBy);
+    const bVal = sortValue(b, sortBy);
+    const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+    return sortOrder === "asc" ? cmp : -cmp;
+  });
+}
 
 export function UsersListPage() {
   const { t } = useTranslation("common");
@@ -41,6 +85,7 @@ export function UsersListPage() {
   const { data, isLoading, error, refetch } = useQuery(usersQuery);
   const tenants = useQuery(tenantsQuery);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -48,6 +93,27 @@ export function UsersListPage() {
   const [role, setRole] = useState<TenantRole>("member");
   const [password, setPassword] = useState("");
   const [superAdmin, setSuperAdmin] = useState(false);
+
+  const display = useListDisplayState<
+    keyof UsersColumnVisibility,
+    UsersSortColumn
+  >({
+    storageKey: "manage.users",
+    defaults: USERS_LIST_DISPLAY_DEFAULTS,
+    validSortColumns: ["email", "display_name", "created_at"],
+  });
+
+  const {
+    sortBy,
+    sortOrder,
+    viewMode,
+    tableSize,
+    pageSize,
+    columnVisibility,
+    columnOrder,
+    setSortBy,
+    setSortOrder,
+  } = display;
 
   const create = useMutation({
     mutationFn: () =>
@@ -63,86 +129,254 @@ export function UsersListPage() {
       toast.success(t("users.create.success"));
       await queryClient.invalidateQueries({ queryKey: ["manage", "users"] });
       setOpen(false);
+      setEmail("");
+      setDisplayName("");
+      setTenantId("");
+      setRole("member");
+      setPassword("");
+      setSuperAdmin(false);
       navigate(`/users/${user.id}`);
     },
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : t("common.error")),
   });
 
-  const rows = useMemo(() => {
-    const list = data ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) {
-      return list;
-    }
-    return list.filter(
-      (u) =>
-        u.email.toLowerCase().includes(term) ||
-        (u.display_name ?? "").toLowerCase().includes(term)
-    );
-  }, [data, search]);
+  useListToolbarHotkeys({
+    onNewItem: () => setOpen(true),
+  });
 
-  const tenantName = (id: string) =>
-    tenants.data?.find((tenant) => tenant.id === id)?.name ?? id;
+  const filtered = useMemo(
+    () => filterAndSort(data ?? [], search, sortBy, sortOrder),
+    [data, search, sortBy, sortOrder]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, pageSize, sortBy, sortOrder]);
+
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  const tenantMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const tenant of tenants.data ?? []) {
+      map.set(tenant.id, tenant.name);
+    }
+    return map;
+  }, [tenants.data]);
+
+  const tenantName = useCallback(
+    (id: string) => tenantMap.get(id) ?? id,
+    [tenantMap]
+  );
+
+  const handleSortChange = useCallback(
+    (column: UsersSortColumn) => {
+      if (sortBy === column) {
+        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      } else {
+        setSortBy(column);
+      }
+    },
+    [sortBy, sortOrder, setSortBy, setSortOrder]
+  );
+
+  const openUser = useCallback(
+    (user: ManageUser) => {
+      navigate(`/users/${user.id}`);
+    },
+    [navigate]
+  );
+
+  const pagination = {
+    nextLabel: t("common.next"),
+    onNext: () => setPage((p) => Math.min(totalPages, p + 1)),
+    onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+    page,
+    pageOfLabel: t("users.list.pageOf", { page, totalPages }),
+    previousLabel: t("common.previous"),
+    totalPages,
+  };
+
+  const errorMessage =
+    error instanceof Error ? error.message : error ? t("common.error") : null;
+
+  const usersTitle = t("users.title");
+
+  const pageActions = useMemo(
+    () => (
+      <Button onClick={() => setOpen(true)} size="sm">
+        {t("users.new")}
+      </Button>
+    ),
+    [t]
+  );
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {usersTitle}
+          </span>
+        ),
+        menuLabel: usersTitle,
+        to: "/users",
+      },
+    ],
+    [usersTitle]
+  );
 
   return (
-    <PageShell
-      actions={
-        <Button onClick={() => setOpen(true)} size="sm">
-          {t("users.new")}
-        </Button>
-      }
-      breadcrumbs={[{ label: t("users.title") }]}
-      title={t("users.title")}
-    >
+    <PageShell actions={pageActions} breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <Input
-          aria-label={t("common.search")}
-          className="max-w-xs shrink-0"
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t("common.search")}
-          value={search}
+        <UsersTableToolbar
+          columnOrder={columnOrder}
+          columnVisibility={columnVisibility}
+          labels={{
+            searchPlaceholder: t("users.list.searchPlaceholder"),
+            display: t("users.list.display"),
+            viewModeGroup: t("users.list.viewModeGroup"),
+            paginationSummary: t("users.list.paginationSummary", {
+              total: filtered.length,
+            }),
+            sortByName: t("users.create.nameLabel"),
+            sortByEmail: t("common.email"),
+            sortByCreatedAt: t("common.created"),
+            ascending: t("users.list.ascending"),
+            descending: t("users.list.descending"),
+            compactView: t("users.list.compactView"),
+            tableView: t("users.list.tableView"),
+            cardsView: t("users.list.cardsView"),
+            sortBy: t("users.list.sortBy"),
+            displayedColumns: t("users.list.displayedColumns"),
+            hiddenInTable: t("users.list.hiddenInTable"),
+            showAll: t("users.list.showAll"),
+            hideAll: t("users.list.hideAll"),
+            noColumnsDisplayed: t("users.list.noColumnsDisplayed"),
+            itemsPerPage: t("users.list.itemsPerPage"),
+            displayName: t("users.create.nameLabel"),
+            email: t("common.email"),
+            primaryTenant: t("users.primaryTenant"),
+            role: t("common.role"),
+            superAdmin: t("users.superAdmin"),
+            createdAt: t("common.created"),
+          }}
+          onPageSizeChange={(size) => {
+            display.setPageSize(size);
+            setPage(1);
+          }}
+          onSearchChange={setSearch}
+          onSortByChange={display.setSortBy}
+          onSortOrderChange={display.setSortOrder}
+          pageSize={pageSize}
+          searchQuery={search}
+          setColumnOrder={display.setColumnOrder}
+          setColumnVisibility={display.setColumnVisibility}
+          setTableSize={display.setTableSize}
+          setViewMode={display.setViewMode}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          tableSize={tableSize}
+          viewMode={viewMode}
         />
-        <PageState
-          error={error}
-          isEmpty={rows.length === 0}
-          isLoading={isLoading}
-          onRetry={() => void refetch()}
-        >
-          <AdminListTableView>
+
+        {errorMessage ? (
+          <div className="space-y-3">
+            <p className="text-destructive text-sm">{errorMessage}</p>
+            <Button onClick={() => void refetch()} size="sm" variant="outline">
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <AdminListTableView stickyHeaderShadow transparent>
             <Table noWrapper>
-              <TableHeader className={STICKY_HEADER_CLASS}>
+              <TableHeader>
                 <TableRow>
-                  <TableHead>{t("common.name")}</TableHead>
-                  <TableHead>{t("common.email")}</TableHead>
-                  <TableHead>{t("users.primaryTenant")}</TableHead>
+                  {columnOrder
+                    .filter((k) => columnVisibility[k])
+                    .map((key) => (
+                      <TableHead key={key}>
+                        <Skeleton className="h-4 w-20" />
+                      </TableHead>
+                    ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((user) => (
-                  <TableRow
-                    className="cursor-pointer"
-                    key={user.id}
-                    onClick={() => navigate(`/users/${user.id}`)}
-                  >
-                    <TableCell className="font-medium">
-                      {user.display_name ?? user.email}
-                      {user.is_super_admin ? (
-                        <Badge className="ml-2" variant="outline">
-                          {t("users.superAdmin")}
-                        </Badge>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.email}
-                    </TableCell>
-                    <TableCell>{tenantName(user.tenant_id)}</TableCell>
-                  </TableRow>
-                ))}
+                {Array.from({ length: 6 }, (_, i) => `skeleton-${i}`).map(
+                  (rowKey) => (
+                    <TableRow key={rowKey}>
+                      {columnOrder
+                        .filter((k) => columnVisibility[k])
+                        .map((key) => (
+                          <TableCell key={key}>
+                            <Skeleton className="h-4 w-24" />
+                          </TableCell>
+                        ))}
+                    </TableRow>
+                  )
+                )}
               </TableBody>
             </Table>
           </AdminListTableView>
-        </PageState>
+        ) : null}
+
+        {!(isLoading || error) && filtered.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{t("common.empty")}</p>
+        ) : null}
+
+        {!(isLoading || error) &&
+          filtered.length > 0 &&
+          viewMode === "table" && (
+            <AdminListTableView
+              bottomFade
+              pagination={pagination}
+              stickyHeaderShadow
+              transparent
+            >
+              <UsersTable
+                columnOrder={columnOrder}
+                columnVisibility={columnVisibility}
+                onRowClick={openUser}
+                onSortChange={handleSortChange}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                tableSize={tableSize}
+                tenantName={tenantName}
+                users={pageRows}
+              />
+            </AdminListTableView>
+          )}
+
+        {!(isLoading || error) &&
+          filtered.length > 0 &&
+          viewMode === "cards" && (
+            <>
+              <AdminListCardsView bottomFade>
+                <UsersCards
+                  columnOrder={columnOrder}
+                  columnVisibility={columnVisibility}
+                  onCardClick={openUser}
+                  tableSize={tableSize}
+                  tenantName={tenantName}
+                  users={pageRows}
+                />
+              </AdminListCardsView>
+              <AdminListPagination {...pagination} />
+            </>
+          )}
       </div>
 
       <Dialog onOpenChange={setOpen} open={open}>

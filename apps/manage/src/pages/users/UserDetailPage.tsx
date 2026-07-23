@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   Badge,
   Button,
+  DetailPageHeader,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -21,11 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@engenty/ui-core";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
 import {
   assignMember,
@@ -105,123 +106,151 @@ export function UserDetailPage() {
   }, [data?.tenant_memberships, tenants.data]);
 
   const user = data?.user;
+  const title = user?.display_name ?? user?.email ?? "…";
 
-  return (
-    <PageShell
-      actions={
-        user ? (
-          <Button
-            onClick={() => navigate(`/users/${id}/edit`)}
-            size="sm"
-            variant="outline"
-          >
-            {t("common.edit")}
-          </Button>
-        ) : null
-      }
-      breadcrumbs={[
-        { label: t("users.title"), to: "/users" },
-        { label: user?.display_name ?? user?.email ?? "…" },
-      ]}
-    >
-      <div className="space-y-6 p-page">
+  const breadcrumbs = useMemo(
+    () => [{ label: t("users.title"), to: "/users" }, { label: title }],
+    [t, title]
+  );
+
+  const pageActions = useMemo(
+    () =>
+      user ? (
+        <Button
+          onClick={() => navigate(`/users/${id}/edit`)}
+          size="sm"
+          variant="outline"
+        >
+          {t("common.edit")}
+        </Button>
+      ) : null,
+    [id, navigate, t, user]
+  );
+
+  usePageConfig({
+    actions: pageActions,
+    breadcrumbs,
+    contentStackBackground: "paper",
+    topbarChrome: "contentBlend",
+    topbarOverlap: true,
+  });
+
+  if (isLoading || error || !(data && user)) {
+    return (
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-11">
         <PageState
           error={error}
+          isEmpty={!(isLoading || error)}
           isLoading={isLoading}
           onRetry={() => void refetch()}
         >
-          {data && user ? (
-            <>
-              <section className="space-y-2">
-                <h1 className="font-semibold text-xl tracking-tight">
-                  {user.display_name ?? user.email}
-                </h1>
-                <p className="text-muted-foreground text-sm">{user.email}</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {data.identities.map((identity) => (
-                    <Badge key={identity.provider} variant="secondary">
-                      {identity.provider}
-                    </Badge>
-                  ))}
-                </div>
-              </section>
-
-              <div className="flex items-center gap-2 text-sm">
-                <Switch
-                  aria-label={t("users.detail.superAdminToggle")}
-                  checked={user.is_super_admin}
-                  onCheckedChange={() => setConfirmSuperAdmin(true)}
-                />
-                {t("users.detail.superAdminToggle")}
-              </div>
-
-              <section className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-medium text-sm">
-                    {t("users.detail.memberships")}
-                  </h2>
-                  <Button onClick={() => setAddOpen(true)} size="sm">
-                    {t("users.detail.addMembership")}
-                  </Button>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("common.name")}</TableHead>
-                      <TableHead>{t("common.role")}</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.tenant_memberships.map((membership) => (
-                      <TableRow key={membership.tenant_id}>
-                        <TableCell className="font-medium">
-                          {membership.tenant_name}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            onValueChange={(role) =>
-                              changeRole.mutate({
-                                tenantId: membership.tenant_id,
-                                role: role as TenantRole,
-                              })
-                            }
-                            value={membership.role}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">admin</SelectItem>
-                              <SelectItem value="member">member</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            onClick={() =>
-                              removeFrom.mutate(membership.tenant_id)
-                            }
-                            size="sm"
-                            variant="ghost"
-                          >
-                            {t("common.remove")}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </section>
-            </>
-          ) : null}
+          {null}
         </PageState>
+      </div>
+    );
+  }
+
+  const showEmailEyebrow =
+    Boolean(user.display_name?.trim()) && user.display_name !== user.email;
+
+  return (
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <DetailPageHeader
+        description={
+          data.identities.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {data.identities.map((identity) => (
+                <Badge key={identity.provider} variant="secondary">
+                  {identity.provider}
+                </Badge>
+              ))}
+            </div>
+          ) : null
+        }
+        eyebrow={showEmailEyebrow ? user.email : undefined}
+        maxWidth="5xl"
+        status={
+          user.is_super_admin ? (
+            <Badge variant="outline">{t("users.superAdmin")}</Badge>
+          ) : undefined
+        }
+        title={title}
+      />
+
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
+        <div className="mx-auto w-full max-w-5xl space-y-6">
+          <div className="flex items-center gap-2 text-sm">
+            <Switch
+              aria-label={t("users.detail.superAdminToggle")}
+              checked={user.is_super_admin}
+              onCheckedChange={() => setConfirmSuperAdmin(true)}
+            />
+            {t("users.detail.superAdminToggle")}
+          </div>
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-medium text-sm">
+                {t("users.detail.memberships")}
+              </h2>
+              <Button onClick={() => setAddOpen(true)} size="sm">
+                {t("users.detail.addMembership")}
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("common.name")}</TableHead>
+                  <TableHead>{t("common.role")}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.tenant_memberships.map((membership) => (
+                  <TableRow key={membership.tenant_id}>
+                    <TableCell className="font-medium">
+                      {membership.tenant_name}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        onValueChange={(role) =>
+                          changeRole.mutate({
+                            tenantId: membership.tenant_id,
+                            role: role as TenantRole,
+                          })
+                        }
+                        value={membership.role}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">admin</SelectItem>
+                          <SelectItem value="member">member</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        onClick={() => removeFrom.mutate(membership.tenant_id)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        {t("common.remove")}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </section>
+        </div>
       </div>
 
       <ConfirmDialog
         confirmLabel={t("common.confirm")}
         description={t("users.detail.superAdminConfirm")}
-        onConfirm={() => user && toggleSuperAdmin.mutate(!user.is_super_admin)}
+        onConfirm={() => toggleSuperAdmin.mutate(!user.is_super_admin)}
         onOpenChange={(open) => !open && setConfirmSuperAdmin(false)}
         open={confirmSuperAdmin}
         title={t("users.detail.superAdminToggle")}
@@ -271,6 +300,6 @@ export function UserDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageShell>
+    </div>
   );
 }

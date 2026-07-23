@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@engenty/ui-core";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
@@ -47,22 +48,39 @@ export function PackagesListPage() {
   });
 
   const packages = (data ?? []) as EntitlementPackage[];
+  const packagesTitle = t("packages.title");
+
+  const pageActions = useMemo(
+    () => (
+      <Button
+        disabled={resync.isPending}
+        onClick={() => resync.mutate()}
+        size="sm"
+        variant="outline"
+      >
+        {t("packages.resync")}
+      </Button>
+    ),
+    [resync.isPending, t]
+  );
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {packagesTitle}
+          </span>
+        ),
+        menuLabel: packagesTitle,
+        to: "/packages",
+      },
+    ],
+    [packagesTitle]
+  );
 
   return (
-    <PageShell
-      actions={
-        <Button
-          disabled={resync.isPending}
-          onClick={() => resync.mutate()}
-          size="sm"
-          variant="outline"
-        >
-          {t("packages.resync")}
-        </Button>
-      }
-      breadcrumbs={[{ label: t("packages.title") }]}
-      title={t("packages.title")}
-    >
+    <PageShell actions={pageActions} breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <p className="text-muted-foreground text-sm">
           {t("packages.subtitle")}

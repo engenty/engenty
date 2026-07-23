@@ -442,7 +442,9 @@ calls `saveFlagUpdates` with exactly the staged updates; resolved badge text fli
    - create tenant → suspend it → reactivate → edit tier
    - create user with generated password → add to the new tenant → change role → remove
    - toggle a non-mandatory module globally (banner appears) and per-tenant (effective
-     state updates in `/admin/plugins` of the tenant app after reload)
+     state updates under tenant → Modules; open installs still use `/setup/plugins`)
+   - With `VITE_MANAGE_APP_ENABLED=true` (PRO UI build), tenant-app `/setup/plugins`
+     (and legacy `/admin/plugins`) must hand off to `/manage/modules`
    - set a tenant flag override → verify `/settings/features` in the tenant app resolves it
    - login as a non-superadmin → access-denied card, API calls return 403
 5. Update `docs/wip/tenancy-spec.md` §6: mark "Manage app v0" as in progress/done.

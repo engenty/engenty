@@ -5,11 +5,7 @@ import { resolveSupabaseConfig } from "./supabase-config.js";
 export type TenantRole = "admin" | "member";
 
 export type TenantTier = "platform" | "satellite";
-export type TenantStatus =
-  | "active"
-  | "suspended"
-  | "provisioning"
-  | "archived";
+export type TenantStatus = "active" | "suspended" | "provisioning" | "archived";
 
 export interface CoreTenant {
   created_at: string;
@@ -131,15 +127,12 @@ export interface SuperadminDal {
       Pick<CoreTenant, "slug" | "name" | "tenant_connection_mode" | "tier">
     >
   ) => Promise<CoreTenant>;
-  updateTenantStatus: (
-    id: string,
-    status: TenantStatus
-  ) => Promise<CoreTenant>;
   updateTenantMemberRole: (input: {
     userId: string;
     tenantId: string;
     role: TenantRole;
   }) => Promise<void>;
+  updateTenantStatus: (id: string, status: TenantStatus) => Promise<CoreTenant>;
   updateUser: (
     id: string,
     input: {

@@ -323,6 +323,11 @@ export default defineConfig(({ command }) => {
     define: {
       "process.env": {},
       "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
+      // PRO worktree ships apps/manage — Setup → Plugins hands off to /manage/modules
+      // once main's SetupPluginsPage is merged. Override with VITE_MANAGE_APP_ENABLED=false.
+      "import.meta.env.VITE_MANAGE_APP_ENABLED": JSON.stringify(
+        process.env.VITE_MANAGE_APP_ENABLED ?? "true"
+      ),
     },
     resolve: {
       alias: buildResolveAlias(isDev),

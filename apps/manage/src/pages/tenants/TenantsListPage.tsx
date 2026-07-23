@@ -1,6 +1,8 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
+  AdminListCardsView,
+  AdminListPagination,
   AdminListTableView,
   Button,
   Dialog,
@@ -9,20 +11,29 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  STICKY_HEADER_CLASS,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  useListDisplayState,
+  useListToolbarHotkeys,
 } from "@engenty/ui-core";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
-import { PageState } from "@/components/PageState";
-import { StatusBadge, TierBadge } from "@/components/tenant-badges";
+import { TenantsCards } from "@/features/tenants/TenantsCards";
+import { TenantsTable } from "@/features/tenants/TenantsTable";
+import { TenantsTableToolbar } from "@/features/tenants/TenantsTableToolbar";
+import {
+  TENANTS_LIST_DISPLAY_DEFAULTS,
+  type TenantsColumnVisibility,
+  type TenantsSortColumn,
+} from "@/features/tenants/tenants-list-display";
+import type { ManageTenant } from "@/lib/api/tenants";
 import { createTenant } from "@/lib/api/tenants";
 import { tenantsQuery } from "@/lib/queries/tenants";
 
@@ -34,16 +45,61 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+function filterAndSort(
+  tenants: ManageTenant[],
+  search: string,
+  sortBy: TenantsSortColumn,
+  sortOrder: "asc" | "desc"
+): ManageTenant[] {
+  let result = tenants;
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    result = result.filter(
+      (tenant) =>
+        tenant.name.toLowerCase().includes(q) ||
+        tenant.slug.toLowerCase().includes(q)
+    );
+  }
+  return [...result].sort((a, b) => {
+    const aVal = sortBy === "name" ? a.name : a.created_at;
+    const bVal = sortBy === "name" ? b.name : b.created_at;
+    const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+    return sortOrder === "asc" ? cmp : -cmp;
+  });
+}
+
 export function TenantsListPage() {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useQuery(tenantsQuery);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
+
+  const display = useListDisplayState<
+    keyof TenantsColumnVisibility,
+    TenantsSortColumn
+  >({
+    storageKey: "manage.tenants",
+    defaults: TENANTS_LIST_DISPLAY_DEFAULTS,
+    validSortColumns: ["name", "created_at"],
+  });
+
+  const {
+    sortBy,
+    sortOrder,
+    viewMode,
+    tableSize,
+    pageSize,
+    columnVisibility,
+    columnOrder,
+    setSortBy,
+    setSortOrder,
+  } = display;
 
   const create = useMutation({
     mutationFn: () => createTenant({ slug: slug.trim(), name: name.trim() }),
@@ -60,76 +116,227 @@ export function TenantsListPage() {
       toast.error(err instanceof Error ? err.message : t("common.error")),
   });
 
-  const rows = useMemo(() => {
-    const list = data ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) {
-      return list;
+  useListToolbarHotkeys({
+    onNewItem: () => setCreateOpen(true),
+  });
+
+  const filtered = useMemo(
+    () => filterAndSort(data ?? [], search, sortBy, sortOrder),
+    [data, search, sortBy, sortOrder]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
     }
-    return list.filter(
-      (tenant) =>
-        tenant.name.toLowerCase().includes(term) ||
-        tenant.slug.toLowerCase().includes(term)
-    );
-  }, [data, search]);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, pageSize, sortBy, sortOrder]);
+
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  const handleSortChange = useCallback(
+    (column: TenantsSortColumn) => {
+      if (sortBy === column) {
+        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      } else {
+        setSortBy(column);
+      }
+    },
+    [sortBy, sortOrder, setSortBy, setSortOrder]
+  );
+
+  const openTenant = useCallback(
+    (tenant: ManageTenant) => {
+      navigate(`/tenants/${tenant.id}`);
+    },
+    [navigate]
+  );
+
+  const pagination = {
+    nextLabel: t("common.next"),
+    onNext: () => setPage((p) => Math.min(totalPages, p + 1)),
+    onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+    page,
+    pageOfLabel: t("tenants.list.pageOf", { page, totalPages }),
+    previousLabel: t("common.previous"),
+    totalPages,
+  };
+
+  const errorMessage =
+    error instanceof Error ? error.message : error ? t("common.error") : null;
+
+  const tenantsTitle = t("tenants.title");
+
+  const pageActions = useMemo(
+    () => (
+      <Button onClick={() => setCreateOpen(true)} size="sm">
+        {t("tenants.new")}
+      </Button>
+    ),
+    [t]
+  );
+
+  const breadcrumbs = useMemo(
+    () => [
+      {
+        // Non-primitive label so the shell keeps the text next to the nav icon
+        // (string labels are replaced by the icon alone on the root segment).
+        label: (
+          <span className="font-medium text-foreground text-sm">
+            {tenantsTitle}
+          </span>
+        ),
+        menuLabel: tenantsTitle,
+        to: "/tenants",
+      },
+    ],
+    [tenantsTitle]
+  );
 
   return (
-    <PageShell
-      actions={
-        <Button onClick={() => setCreateOpen(true)} size="sm">
-          {t("tenants.new")}
-        </Button>
-      }
-      breadcrumbs={[{ label: t("tenants.title") }]}
-      title={t("tenants.title")}
-    >
+    <PageShell actions={pageActions} breadcrumbs={breadcrumbs}>
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
-        <Input
-          aria-label={t("common.search")}
-          className="max-w-xs shrink-0"
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t("common.search")}
-          value={search}
+        <TenantsTableToolbar
+          columnOrder={columnOrder}
+          columnVisibility={columnVisibility}
+          labels={{
+            searchPlaceholder: t("tenants.list.searchPlaceholder"),
+            display: t("tenants.list.display"),
+            viewModeGroup: t("tenants.list.viewModeGroup"),
+            paginationSummary: t("tenants.list.paginationSummary", {
+              total: filtered.length,
+            }),
+            sortByName: t("common.name"),
+            sortByCreatedAt: t("common.created"),
+            ascending: t("tenants.list.ascending"),
+            descending: t("tenants.list.descending"),
+            compactView: t("tenants.list.compactView"),
+            tableView: t("tenants.list.tableView"),
+            cardsView: t("tenants.list.cardsView"),
+            sortBy: t("tenants.list.sortBy"),
+            displayedColumns: t("tenants.list.displayedColumns"),
+            hiddenInTable: t("tenants.list.hiddenInTable"),
+            showAll: t("tenants.list.showAll"),
+            hideAll: t("tenants.list.hideAll"),
+            noColumnsDisplayed: t("tenants.list.noColumnsDisplayed"),
+            itemsPerPage: t("tenants.list.itemsPerPage"),
+            name: t("common.name"),
+            slug: t("common.slug"),
+            tier: t("tenants.fields.tier"),
+            status: t("tenants.fields.status"),
+            createdAt: t("common.created"),
+          }}
+          onPageSizeChange={(size) => {
+            display.setPageSize(size);
+            setPage(1);
+          }}
+          onSearchChange={setSearch}
+          onSortByChange={display.setSortBy}
+          onSortOrderChange={display.setSortOrder}
+          pageSize={pageSize}
+          searchQuery={search}
+          setColumnOrder={display.setColumnOrder}
+          setColumnVisibility={display.setColumnVisibility}
+          setTableSize={display.setTableSize}
+          setViewMode={display.setViewMode}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          tableSize={tableSize}
+          viewMode={viewMode}
         />
-        <PageState
-          error={error}
-          isEmpty={rows.length === 0}
-          isLoading={isLoading}
-          onRetry={() => void refetch()}
-        >
-          <AdminListTableView>
+
+        {errorMessage ? (
+          <div className="space-y-3">
+            <p className="text-destructive text-sm">{errorMessage}</p>
+            <Button onClick={() => void refetch()} size="sm" variant="outline">
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <AdminListTableView stickyHeaderShadow transparent>
             <Table noWrapper>
-              <TableHeader className={STICKY_HEADER_CLASS}>
+              <TableHeader>
                 <TableRow>
-                  <TableHead>{t("common.name")}</TableHead>
-                  <TableHead>{t("common.slug")}</TableHead>
-                  <TableHead>{t("tenants.fields.tier")}</TableHead>
-                  <TableHead>{t("tenants.fields.status")}</TableHead>
+                  {columnOrder
+                    .filter((k) => columnVisibility[k])
+                    .map((key) => (
+                      <TableHead key={key}>
+                        <Skeleton className="h-4 w-20" />
+                      </TableHead>
+                    ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((tenant) => (
-                  <TableRow
-                    className="cursor-pointer"
-                    key={tenant.id}
-                    onClick={() => navigate(`/tenants/${tenant.id}`)}
-                  >
-                    <TableCell className="font-medium">{tenant.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {tenant.slug}
-                    </TableCell>
-                    <TableCell>
-                      <TierBadge tier={tenant.tier} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={tenant.status} />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {Array.from({ length: 6 }, (_, i) => `skeleton-${i}`).map(
+                  (rowKey) => (
+                    <TableRow key={rowKey}>
+                      {columnOrder
+                        .filter((k) => columnVisibility[k])
+                        .map((key) => (
+                          <TableCell key={key}>
+                            <Skeleton className="h-4 w-24" />
+                          </TableCell>
+                        ))}
+                    </TableRow>
+                  )
+                )}
               </TableBody>
             </Table>
           </AdminListTableView>
-        </PageState>
+        ) : null}
+
+        {!(isLoading || error) && filtered.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{t("common.empty")}</p>
+        ) : null}
+
+        {!(isLoading || error) &&
+          filtered.length > 0 &&
+          viewMode === "table" && (
+            <AdminListTableView
+              bottomFade
+              pagination={pagination}
+              stickyHeaderShadow
+              transparent
+            >
+              <TenantsTable
+                columnOrder={columnOrder}
+                columnVisibility={columnVisibility}
+                onRowClick={openTenant}
+                onSortChange={handleSortChange}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                tableSize={tableSize}
+                tenants={pageRows}
+              />
+            </AdminListTableView>
+          )}
+
+        {!(isLoading || error) &&
+          filtered.length > 0 &&
+          viewMode === "cards" && (
+            <>
+              <AdminListCardsView bottomFade>
+                <TenantsCards
+                  columnOrder={columnOrder}
+                  columnVisibility={columnVisibility}
+                  onCardClick={openTenant}
+                  tableSize={tableSize}
+                  tenants={pageRows}
+                />
+              </AdminListCardsView>
+              <AdminListPagination {...pagination} />
+            </>
+          )}
       </div>
 
       <Dialog onOpenChange={setCreateOpen} open={createOpen}>
