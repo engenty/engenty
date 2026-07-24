@@ -188,24 +188,49 @@ export interface QueueWorkerConfig {
       meta: { msgId: number; readCount: number }
     ) => Promise<void>
   >;
-  /** Polling interval in milliseconds (default: 2000) */
+  /**
+   * Cap on `read_ct` before the message is archived as a dead-letter
+   * (default: 5). After this many visibility-timeout redeliveries the job is
+   * given up on so a poison message cannot block the queue forever.
+   */
+  maxReads?: number;
+  /** Polling interval in milliseconds when the queues are empty (default: 2000) */
   pollIntervalMs?: number;
   /** Queue service instance */
   queue: QueueService;
+  /**
+   * Visibility timeout in seconds for `read` (default: 120). Must exceed the
+   * longest expected handler step that is NOT covered by idempotent redelivery
+   * (task-job checkout is 409-safe on redelivery mid-run).
+   */
+  visibilitySeconds?: number;
 }
+
+const DEFAULT_MAX_READS = 5;
+const DEFAULT_VISIBILITY_SECONDS = 120;
 
 /**
  * Start a polling-based queue worker that processes jobs from registered queues.
- * Returns a stop function.
+ * At-least-once delivery: messages are read with a visibility timeout, archived
+ * on success (or when read_ct exceeds maxReads), and left for redelivery on
+ * handler failure. Returns a stop function.
  */
 export function startQueueWorker(config: QueueWorkerConfig): () => void {
-  const { queue, handlers, pollIntervalMs = 2000 } = config;
+  const {
+    queue,
+    handlers,
+    pollIntervalMs = 2000,
+    maxReads = DEFAULT_MAX_READS,
+    visibilitySeconds = DEFAULT_VISIBILITY_SECONDS,
+  } = config;
   const queueNames = [...handlers.keys()];
   let running = true;
 
   logger.info("Queue worker starting", {
-    queues: queueNames,
+    maxReads,
     pollIntervalMs,
+    queues: queueNames,
+    visibilitySeconds,
   });
 
   const poll = async () => {
@@ -216,7 +241,7 @@ export function startQueueWorker(config: QueueWorkerConfig): () => void {
           break;
         }
         try {
-          const msg = await queue.pop(queueName);
+          const [msg] = await queue.read(queueName, visibilitySeconds, 1);
           if (!msg) {
             continue;
           }
@@ -224,32 +249,48 @@ export function startQueueWorker(config: QueueWorkerConfig): () => void {
           processed++;
           const handler = handlers.get(queueName)!;
           logger.info("Processing queue job", {
-            queue: queueName,
             msgId: msg.msg_id,
+            queue: queueName,
             readCount: msg.read_ct,
           });
+
+          if (msg.read_ct > maxReads) {
+            logger.error("Queue job dead-lettered", {
+              msgId: msg.msg_id,
+              queue: queueName,
+              readCount: msg.read_ct,
+            });
+            await queue.archive(queueName, msg.msg_id);
+            continue;
+          }
 
           try {
             await handler(msg.message as Record<string, unknown>, {
               msgId: msg.msg_id,
               readCount: msg.read_ct,
             });
+            await queue.archive(queueName, msg.msg_id);
             logger.info("Queue job completed", {
-              queue: queueName,
               msgId: msg.msg_id,
+              queue: queueName,
             });
           } catch (err) {
-            logger.error("Queue job failed", {
-              queue: queueName,
-              msgId: msg.msg_id,
-              error: err instanceof Error ? err.message : String(err),
-            });
+            logger.error(
+              "Queue job failed — will retry after visibility timeout",
+              {
+                error: err instanceof Error ? err.message : String(err),
+                msgId: msg.msg_id,
+                queue: queueName,
+                readCount: msg.read_ct,
+              }
+            );
+            // no ack: message reappears after visibilitySeconds with read_ct+1
           }
         } catch (err) {
           if (err instanceof Error && !err.message.includes("does not exist")) {
             logger.warn("Queue poll error", {
-              queue: queueName,
               error: err.message,
+              queue: queueName,
             });
           }
         }

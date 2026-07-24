@@ -243,6 +243,33 @@ describe("createQueueService", () => {
 // Queue Worker tests
 // ---------------------------------------------------------------------------
 
+function emptyMockQueue(overrides: Partial<QueueService> = {}): QueueService {
+  return {
+    archive: vi.fn().mockResolvedValue(true),
+    delete: vi.fn(),
+    metrics: vi.fn(),
+    pop: vi.fn(),
+    read: vi.fn().mockResolvedValue([]),
+    send: vi.fn(),
+    sendBatch: vi.fn(),
+    ...overrides,
+  };
+}
+
+function workerMsg(
+  id: number,
+  message: Record<string, unknown>,
+  readCt = 1
+): QueueMessage {
+  return {
+    enqueued_at: "2026-03-22T00:00:00Z",
+    message,
+    msg_id: id,
+    read_ct: readCt,
+    vt: "2026-03-22T00:02:00Z",
+  };
+}
+
 describe("startQueueWorker", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -252,42 +279,23 @@ describe("startQueueWorker", () => {
     vi.useRealTimers();
   });
 
-  it("processes messages from registered queues", async () => {
+  it("archives on success", async () => {
     const handlerA = vi.fn().mockResolvedValue(undefined);
     const handlerB = vi.fn().mockResolvedValue(undefined);
 
-    let popCallCount = 0;
-    const mockQueue: QueueService = {
-      pop: vi.fn(async (queueName: string) => {
-        popCallCount++;
-        // Return a message on the first call for each queue, then null
-        if (popCallCount === 1 && queueName === "queue_a") {
-          return {
-            msg_id: 1,
-            read_ct: 1,
-            enqueued_at: "2026-03-22T00:00:00Z",
-            vt: "2026-03-22T00:00:30Z",
-            message: { task: "a" },
-          };
+    let readCallCount = 0;
+    const mockQueue = emptyMockQueue({
+      read: vi.fn(async (queueName: string) => {
+        readCallCount++;
+        if (readCallCount === 1 && queueName === "queue_a") {
+          return [workerMsg(1, { task: "a" })];
         }
-        if (popCallCount === 2 && queueName === "queue_b") {
-          return {
-            msg_id: 2,
-            read_ct: 1,
-            enqueued_at: "2026-03-22T00:00:00Z",
-            vt: "2026-03-22T00:00:30Z",
-            message: { task: "b" },
-          };
+        if (readCallCount === 2 && queueName === "queue_b") {
+          return [workerMsg(2, { task: "b" })];
         }
-        return null;
+        return [];
       }),
-      send: vi.fn(),
-      sendBatch: vi.fn(),
-      read: vi.fn(),
-      archive: vi.fn(),
-      delete: vi.fn(),
-      metrics: vi.fn(),
-    };
+    });
 
     const handlers = new Map<
       string,
@@ -300,15 +308,14 @@ describe("startQueueWorker", () => {
     handlers.set("queue_b", handlerB);
 
     const stop = startQueueWorker({
-      queue: mockQueue,
       handlers,
       pollIntervalMs: 100,
+      queue: mockQueue,
+      visibilitySeconds: 90,
     });
 
-    // Let the poll loop run
     await vi.advanceTimersByTimeAsync(50);
 
-    // Handlers should have been called
     expect(handlerA).toHaveBeenCalledWith(
       { task: "a" },
       { msgId: 1, readCount: 1 }
@@ -317,38 +324,25 @@ describe("startQueueWorker", () => {
       { task: "b" },
       { msgId: 2, readCount: 1 }
     );
+    expect(mockQueue.archive).toHaveBeenCalledWith("queue_a", 1);
+    expect(mockQueue.archive).toHaveBeenCalledWith("queue_b", 2);
+    expect(mockQueue.read).toHaveBeenCalledWith("queue_a", 90, 1);
 
     stop();
   });
 
-  it("continues processing after handler errors", async () => {
+  it("does not archive on handler failure (redelivery)", async () => {
     const failingHandler = vi
       .fn()
-      .mockRejectedValueOnce(new Error("handler crash"))
-      .mockResolvedValue(undefined);
+      .mockRejectedValue(new Error("handler crash"));
 
-    let popCount = 0;
-    const mockQueue: QueueService = {
-      pop: vi.fn(async () => {
-        popCount++;
-        if (popCount <= 2) {
-          return {
-            msg_id: popCount,
-            read_ct: 1,
-            enqueued_at: "2026-03-22T00:00:00Z",
-            vt: "2026-03-22T00:00:30Z",
-            message: { n: popCount },
-          };
-        }
-        return null;
+    let reads = 0;
+    const mockQueue = emptyMockQueue({
+      read: vi.fn(async () => {
+        reads += 1;
+        return reads === 1 ? [workerMsg(9, { n: 1 })] : [];
       }),
-      send: vi.fn(),
-      sendBatch: vi.fn(),
-      read: vi.fn(),
-      archive: vi.fn(),
-      delete: vi.fn(),
-      metrics: vi.fn(),
-    };
+    });
 
     const handlers = new Map<
       string,
@@ -360,31 +354,49 @@ describe("startQueueWorker", () => {
     handlers.set("test_q", failingHandler);
 
     const stop = startQueueWorker({
-      queue: mockQueue,
       handlers,
       pollIntervalMs: 100,
+      queue: mockQueue,
     });
 
-    // Let the first two messages process
     await vi.advanceTimersByTimeAsync(50);
 
-    // Handler called twice — once failed, once succeeded
-    expect(failingHandler).toHaveBeenCalledTimes(2);
+    expect(failingHandler).toHaveBeenCalledTimes(1);
+    expect(mockQueue.archive).not.toHaveBeenCalled();
+
+    stop();
+  });
+
+  it("dead-letters when read_ct exceeds maxReads", async () => {
+    const handler = vi.fn();
+    let reads = 0;
+    const mockQueue = emptyMockQueue({
+      read: vi.fn(async () => {
+        reads += 1;
+        return reads === 1 ? [workerMsg(3, { poison: true }, 6)] : [];
+      }),
+    });
+
+    const stop = startQueueWorker({
+      handlers: new Map([["poison_q", handler]]),
+      maxReads: 5,
+      pollIntervalMs: 100,
+      queue: mockQueue,
+    });
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(mockQueue.archive).toHaveBeenCalledWith("poison_q", 3);
 
     stop();
   });
 
   it("waits pollIntervalMs when no messages", async () => {
     const handler = vi.fn();
-    const mockQueue: QueueService = {
-      pop: vi.fn().mockResolvedValue(null),
-      send: vi.fn(),
-      sendBatch: vi.fn(),
-      read: vi.fn(),
-      archive: vi.fn(),
-      delete: vi.fn(),
-      metrics: vi.fn(),
-    };
+    const mockQueue = emptyMockQueue({
+      read: vi.fn().mockResolvedValue([]),
+    });
 
     const handlers = new Map<
       string,
@@ -396,35 +408,25 @@ describe("startQueueWorker", () => {
     handlers.set("empty_q", handler);
 
     const stop = startQueueWorker({
-      queue: mockQueue,
       handlers,
       pollIntervalMs: 500,
+      queue: mockQueue,
     });
 
-    // Pop should be called once immediately
     await vi.advanceTimersByTimeAsync(10);
-    expect(mockQueue.pop).toHaveBeenCalledTimes(1);
+    expect(mockQueue.read).toHaveBeenCalledTimes(1);
 
-    // After 500ms, should poll again
     await vi.advanceTimersByTimeAsync(500);
-    expect(mockQueue.pop).toHaveBeenCalledTimes(2);
-
-    // Handler should never have been called (no messages)
+    expect(mockQueue.read).toHaveBeenCalledTimes(2);
     expect(handler).not.toHaveBeenCalled();
 
     stop();
   });
 
   it("stops when stop function is called", async () => {
-    const mockQueue: QueueService = {
-      pop: vi.fn().mockResolvedValue(null),
-      send: vi.fn(),
-      sendBatch: vi.fn(),
-      read: vi.fn(),
-      archive: vi.fn(),
-      delete: vi.fn(),
-      metrics: vi.fn(),
-    };
+    const mockQueue = emptyMockQueue({
+      read: vi.fn().mockResolvedValue([]),
+    });
 
     const handlers = new Map<
       string,
@@ -436,23 +438,21 @@ describe("startQueueWorker", () => {
     handlers.set("q", vi.fn());
 
     const stop = startQueueWorker({
-      queue: mockQueue,
       handlers,
       pollIntervalMs: 100,
+      queue: mockQueue,
     });
 
     await vi.advanceTimersByTimeAsync(10);
-    const callsBefore = (mockQueue.pop as ReturnType<typeof vi.fn>).mock.calls
+    const callsBefore = (mockQueue.read as ReturnType<typeof vi.fn>).mock.calls
       .length;
 
     stop();
 
-    // Advance well past the poll interval
     await vi.advanceTimersByTimeAsync(1000);
-    const callsAfter = (mockQueue.pop as ReturnType<typeof vi.fn>).mock.calls
+    const callsAfter = (mockQueue.read as ReturnType<typeof vi.fn>).mock.calls
       .length;
 
-    // Should not have made many more calls after stop
     expect(callsAfter - callsBefore).toBeLessThanOrEqual(1);
   });
 });
