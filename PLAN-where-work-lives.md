@@ -47,6 +47,34 @@ Thread  >  Task  >  Goal | Routine | Phase  >  Project  >  Global
    in favor of workspace writes (Phase 6). Task/routine/goal folders are siblings
    under one `ai/workspace/` convention instead of three ad-hoc inventions.
 
+### 1b. Storage roles & external stores (the store layer under the view)
+
+The hierarchy is a VIEW; underneath sit exactly two platform stores by role, plus
+external stores as projections:
+
+| Store | Role | Who writes | External connection |
+|---|---|---|---|
+| `ai.artifact` | Versioned deliverables — "what was produced"; indexed, ref-addressable, reviewable | Agents (`artifact_create`) + humans (editors) | Mirror-on-pin via the per-container storage binding (`ai.artifact_storage_binding`, unique per `(tenant, scope_type, scope_id)`) |
+| Files bucket · **agent workspace** (`ai/workspace/…`) | The machine's working directory per container tier — scratch, state, cross-run continuity | Agents via mounts (`/task /goal /routine /shared`) | None directly — deliberate: working state stays platform-side |
+| Files bucket · **file spaces** (`module_files`, per owner) | Human file manager (project Files tab) — uploads, curated docs | Humans (UI); agents only via explicit connector/file ops | **Mounted folders** (gdrive/onedrive/s3/local + `connection_id`), **N per space** — bytes live externally, projected in |
+
+Principles (bind the implementation):
+- **A project links to multiple storages** through its file space's mounts (N) — that
+  capability exists today (`20260706140000_plugin_files_connector_mounts.sql`) and is
+  untouched by this plan. The artifact-mirror binding stays at most ONE target per
+  container (it answers "where do pins go", not "what can I browse").
+- **Canonical inside, projections outside.** The platform copy of an artifact is
+  always authoritative; external copies are mirrors. An agent CAN write straight to
+  Google Drive via the connector ops (`connections_files_write`, approval-gated) —
+  but that produces a Drive file, not an artifact (no versions, no index, no
+  `module:entity:id` ref). The artifact-shaped path to Drive is: create artifact →
+  pin to a container with a Drive binding → mirror writes the external copy
+  (`apps/ai/src/ai/artifacts/artifact-mirror.ts`).
+- **Mirror must follow versions** (upgrades the known v1-only gap): with pin demoted
+  to curation, a pinned artifact's NEW versions re-mirror to the bound target
+  (Phase 6 item below). Failures stay best-effort + logged; platform copy never
+  blocks on the mirror.
+
 **Explicit non-goals (decided — do not drift):**
 - NO merge of the files and artifacts storage — unify the ADDRESSING, not the stores.
 - NO goals/phases table merge or migration (see LINKED decision).
@@ -271,6 +299,12 @@ await deps.repo.addComment(
   scoped sessions (`(resourceId=task, scope)` get-or-create), sharing the task's run
   threads. Revisit after the 1.52 train (incl. the pending parallel-approval
   regression fix) is released and stable.
+- **Mirror follows versions:** `mirrorArtifactToBoundStorage` currently fires only
+  on promote and never re-mirrors later edits (documented follow-up in
+  `docs/wip/artifacts-implementation.md`). With pin = curation (§1b), extend
+  `addVersion` in `artifact-store.ts` to re-mirror best-effort when the artifact's
+  container has a binding and the artifact is pinned there. Failures log; the
+  platform write never blocks.
 - **Deferred — connector mounts at container tiers:** external folders
   (Drive/S3) already mount into file spaces; binding them per-goal/project reuses
   `ai.artifact_storage_binding`-style scoping but is NOT needed for the model to
