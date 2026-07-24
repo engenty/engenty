@@ -284,6 +284,7 @@ export function TaskCard({
               compact
               definitions={taskStatusDefinitions}
               status={task.status}
+              task={task}
             />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-muted-foreground text-xs">

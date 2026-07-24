@@ -28,7 +28,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     primary_assignee_user_id: null,
     priority: "medium",
     project_id: null,
-    request_depth: 0,
     scope_id: "scope-1",
     started_at: null,
     status: "todo",

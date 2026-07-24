@@ -29,7 +29,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     created_by_user_id: null,
     created_by_agent_type_key: null,
     due_date: null,
-    request_depth: 0,
     started_at: null,
     completed_at: null,
     cancelled_at: null,
@@ -131,6 +130,24 @@ describe("dispatchTaskIfReady", () => {
     await dispatchTaskIfReady({ queue, repo, tenantId: "tenant" }, task);
     expect(send).not.toHaveBeenCalled();
     expect(byId.get("t1")?.status).toBe("blocked");
+  });
+
+  it("propagates markBlocked failures and records activity", async () => {
+    const blocker = makeTask({ id: "b1", status: "in_progress" });
+    const task = makeTask({ id: "t1", blocked_by_task_ids: ["b1"] });
+    const { repo, activity } = makeRepo([blocker, task]);
+    repo.updateTask = async () => {
+      throw new Error("status update failed");
+    };
+    const { queue, send } = makeQueue();
+    await expect(
+      dispatchTaskIfReady({ queue, repo, tenantId: "tenant" }, task)
+    ).rejects.toThrow("status update failed");
+    expect(send).not.toHaveBeenCalled();
+    expect(activity).toContainEqual({
+      task_id: "t1",
+      event_type: "tasks.block_failed",
+    });
   });
 });
 

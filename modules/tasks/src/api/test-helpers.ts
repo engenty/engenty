@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
   PluginHttpRoute,
-  PluginRegistrationReceipt,
   PluginServerApi,
   PluginServerOperation,
 } from "@engenty/plugin-sdk";
@@ -108,7 +107,6 @@ export function makeMockTasksRepo(): TasksRepo {
         created_by_agent_type_key: input.created_by_agent_type_key ?? null,
         due_date: input.due_date ?? null,
         blocked_by_task_ids: input.blocked_by_task_ids ?? [],
-        request_depth: 0,
         started_at: null,
         completed_at: null,
         cancelled_at: null,
@@ -116,6 +114,7 @@ export function makeMockTasksRepo(): TasksRepo {
         created_at: now(),
         updated_at: now(),
         collaborator_user_ids: input.collaborator_user_ids ?? [],
+        project_id: input.project_id ?? null,
       };
       tasks.set(id, task);
       return task;
@@ -191,6 +190,9 @@ export function makeMockTasksRepo(): TasksRepo {
         owner_user_id: input.owner_user_id ?? null,
         owner_agent_type_key: input.owner_agent_type_key ?? null,
         target_date: input.target_date ?? null,
+        level: input.level ?? "team",
+        owner_agent_id: null,
+        project_id: input.project_id ?? null,
         created_at: now(),
         updated_at: now(),
       };
@@ -341,19 +343,14 @@ export const defaultAuth = {
 export function makeMockApi() {
   const httpRoutes: PluginHttpRoute[] = [];
   const serverOperations: PluginServerOperation[] = [];
-  const noopReceipt = (): PluginRegistrationReceipt => ({
-    dispose: () => {},
-  });
-  const api: PluginServerApi = {
+  const api = {
     callGatewayMethod: async () => null,
     hasOperation: () => false,
-    registerHttpRoute: (route) => {
+    registerHttpRoute: (route: PluginHttpRoute) => {
       httpRoutes.push(route);
-      return noopReceipt();
     },
-    registerOperation: (operation) => {
+    registerOperation: (operation: PluginServerOperation) => {
       serverOperations.push(operation);
-      return noopReceipt();
     },
     registerAiRegistration: () => {},
     registerFeatureFlags: () => [],
@@ -361,9 +358,9 @@ export function makeMockApi() {
     registerRoleProfiles: () => {},
     registerResultPolicy: () => {},
     registerService: () => {},
-    registerTestDataType: () => noopReceipt(),
+    registerTestDataType: () => {},
     registerCli: () => {},
     resolvePath: (p: string) => p,
-  };
+  } as unknown as PluginServerApi;
   return { api, httpRoutes, serverOperations, defaultAuth };
 }

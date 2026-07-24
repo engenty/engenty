@@ -407,7 +407,7 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
       setView({
         parentRunId: input?.parentRunId ?? null,
         runId: run.agent_session_run_id,
-        threadId: run.agent_thread_id,
+        threadId: run.agent_thread_id ?? null,
         source: "historical",
       });
 
@@ -470,6 +470,7 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
       const linkedRun = resolveCheckoutLinkedRun(runs, checkoutRunId);
       let threadId =
         linkedRun?.agent_thread_id ??
+        // @ts-expect-error TASKS-routine: thread_id on run detail lands in routine plan
         runDetail.thread_id ??
         threadIdRef.current ??
         view?.threadId ??

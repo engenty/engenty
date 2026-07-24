@@ -16,7 +16,6 @@ import { RoutineCardActions } from "./routine-card-actions.js";
 import { RoutineEnabledDot } from "./routine-enabled-dot.js";
 
 const SOURCE_BADGE_CLASSES: Record<RoutineDto["source"], string> = {
-  builtin: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
   custom: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   module: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
 };

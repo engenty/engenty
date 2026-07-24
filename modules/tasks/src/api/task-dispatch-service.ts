@@ -53,7 +53,7 @@ export interface DispatchDeps {
   tenantId: string;
 }
 
-/** Flip a task to 'blocked' best-effort (a tenant may have removed the status). */
+/** Flip a task to 'blocked'. Status rails are non-deletable — failures are real faults. */
 async function markBlocked(deps: DispatchDeps, task: Task): Promise<void> {
   if (task.status === "blocked") {
     return;
@@ -64,9 +64,17 @@ async function markBlocked(deps: DispatchDeps, task: Task): Promise<void> {
       { status: "blocked" },
       { actorKind: "agent" }
     );
-  } catch {
-    // Non-fatal: worst case the task stays in its entry status but is never
-    // dispatched (the blocker gate below still holds). Truth-in-UI is a nicety.
+  } catch (err) {
+    // Surface it: the task would otherwise look runnable while never dispatching.
+    await deps.repo
+      .recordActivity({
+        task_id: task.id,
+        event_type: "tasks.block_failed",
+        payload: { error: err instanceof Error ? err.message : String(err) },
+        actor_agent_type_key: COORDINATION_ACTOR,
+      })
+      .catch(() => {});
+    throw err;
   }
 }
 

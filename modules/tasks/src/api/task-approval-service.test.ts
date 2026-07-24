@@ -32,7 +32,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     trigger_id: null,
     approval_grants: [],
     approval_grants_once: [],
-    request_depth: 0,
     started_at: null,
     completed_at: null,
     cancelled_at: null,

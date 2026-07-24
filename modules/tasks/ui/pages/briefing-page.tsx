@@ -48,7 +48,6 @@ export function BriefingPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("briefing.title"),
     topbarChrome: "contentBlend",
   });
 

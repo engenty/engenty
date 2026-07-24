@@ -11,7 +11,6 @@ import { Calendar, Edit, Loader2, Play, Trash2 } from "lucide-react";
 import { RoutineDetailSections } from "./routine-detail-sections.js";
 
 const SOURCE_BADGE_CLASSES: Record<RoutineDto["source"], string> = {
-  builtin: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
   custom: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   module: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
 };
@@ -116,16 +115,7 @@ export function RoutineDetailContent({
         <div className="ui-canvas-panel flex items-center gap-2 rounded-lg bg-card p-3">
           <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <RoutineTriggerChip
-              locale={locale}
-              onClearOverride={() =>
-                patchMutation.mutate({
-                  id: routine.id,
-                  patch: { schedule_override: null },
-                })
-              }
-              routine={routine}
-            />
+            <RoutineTriggerChip locale={locale} routine={routine} />
           </div>
         </div>
         {routine.next_due_at && (

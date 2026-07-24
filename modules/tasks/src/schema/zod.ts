@@ -40,7 +40,6 @@ export const taskSchema = z.object({
   created_by_agent_type_key: z.string().nullable(),
   due_date: z.string().nullable(),
   blocked_by_task_ids: z.array(z.string().uuid()),
-  request_depth: z.number().int(),
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
   cancelled_at: z.string().nullable(),
@@ -245,7 +244,6 @@ export const goalCreateInputSchema = z.object({
   parent_id: z.string().uuid().nullable().optional(),
   project_id: z.string().uuid().nullable().optional(),
   owner_user_id: z.string().uuid().nullable().optional(),
-  owner_agent_id: z.string().uuid().nullable().optional(),
   owner_agent_type_key: z.string().nullable().optional(),
   level: z.string().optional(),
   target_date: z.string().nullable().optional(),
@@ -285,7 +283,8 @@ export const taskRunSchema = z.object({
   scope_id: z.string(),
   task_id: z.string().uuid(),
   agent_session_run_id: z.string().uuid(),
-  role: z.enum(["checkout", "work", "review"]),
+  // DB allows checkout|work|review; only checkout is ever written.
+  role: z.literal("checkout"),
   created_at: z.string(),
   agent_type_key: z.string().nullable().optional(),
   // Without this the thread id is stripped from the response and the run log

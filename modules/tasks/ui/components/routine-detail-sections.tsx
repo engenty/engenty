@@ -156,17 +156,24 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
               </p>
             )}
 
-            {routine.thread_id && routine.agent_id && (
-              <div className="flex justify-end border-t pt-2">
-                <Link
-                  className="inline-flex items-center gap-1.5 font-medium text-primary text-xs hover:underline"
-                  to={`/admin/engenty/${encodeURIComponent(routine.agent_id)}/sessions/${encodeURIComponent(routine.thread_id)}`}
-                >
-                  {t("routines.detail.viewRunDetails")}
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              </div>
-            )}
+            {(() => {
+              // @ts-expect-error TASKS-routine: thread_id on RoutineDto lands in routine plan
+              const threadId = routine.thread_id;
+              if (!(threadId && routine.agent_id)) {
+                return null;
+              }
+              return (
+                <div className="flex justify-end border-t pt-2">
+                  <Link
+                    className="inline-flex items-center gap-1.5 font-medium text-primary text-xs hover:underline"
+                    to={`/admin/engenty/${encodeURIComponent(routine.agent_id)}/sessions/${encodeURIComponent(threadId)}`}
+                  >
+                    {t("routines.detail.viewRunDetails")}
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

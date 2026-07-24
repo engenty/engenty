@@ -38,13 +38,14 @@ function makeTask(
     created_by_user_id: null,
     created_by_agent_type_key: null,
     due_date: overrides.due_date ?? null,
-    request_depth: 0,
     started_at: null,
     completed_at: null,
     cancelled_at: null,
+    blocked_by_task_ids: [],
     checkout_run_id: null,
     created_at: now,
     updated_at: overrides.updated_at ?? now,
+    project_id: null,
   };
 }
 

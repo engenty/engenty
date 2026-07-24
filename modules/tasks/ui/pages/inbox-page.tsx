@@ -1,6 +1,7 @@
 // Routed inbox page (/mdl/tasks/inbox) — the tenant's team inbox over Mastra
 // notification records (task completions/failures, trigger errors).
 import {
+  type InboxNotificationDto,
   useInboxListQuery,
   useMarkAllInboxSeenMutation,
 } from "@engenty/ai-ui/embed";
@@ -30,13 +31,13 @@ export function InboxPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("inbox.title"),
     topbarChrome: "contentBlend",
   });
 
   const notifications = listQuery.data?.notifications ?? [];
   const hasUnseen = notifications.some(
-    (n) => n.status === "pending" || n.status === "delivered"
+    (n: InboxNotificationDto) =>
+      n.status === "pending" || n.status === "delivered"
   );
 
   return (

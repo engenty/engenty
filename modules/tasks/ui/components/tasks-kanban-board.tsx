@@ -1,4 +1,5 @@
 import {
+  type CollisionDetection,
   closestCenter,
   DndContext,
   type DragEndEvent,
@@ -51,6 +52,7 @@ import type {
 import { TASK_STATUS_KANBAN_DOT } from "../lib/task-status-styles.js";
 import { useUpdateTasksListMutation } from "../tasks-queries.js";
 import { TaskAssigneeLabel } from "./task-assignee-label.js";
+import { resolveBlockedReasonSuffix } from "./task-status-badge.js";
 
 function stripText(text: string | null | undefined): string {
   if (!text) {
@@ -86,6 +88,10 @@ function TasksKanbanCard({
 
   const def = statusColumns.find((d) => d.id === task.status);
   const dotClass = def ? TASK_STATUS_KANBAN_DOT[def.color] : "bg-zinc-500";
+  const blockedSuffix = resolveBlockedReasonSuffix(task, t);
+  const statusLabel = blockedSuffix
+    ? `${def?.label ?? task.status} · ${blockedSuffix}`
+    : (def?.label ?? task.status);
   const description = stripText(task.description);
   const dueLabel = task.due_date
     ? new Date(task.due_date).toLocaleDateString()
@@ -194,7 +200,7 @@ function TasksKanbanCard({
             dotClass
           )}
         >
-          {def?.label ?? task.status}
+          {statusLabel}
         </span>
         <p className="font-mono text-muted-foreground text-xs">
           {task.identifier}
@@ -464,28 +470,17 @@ export function TasksKanbanBoard({
     return () => cancelAnimationFrame(frame);
   }, [itemsByStatus]);
 
-  const collisionDetection = useCallback(
-    (args: {
-      active: { id: unknown };
-      collisionRect: {
-        left: number;
-        top: number;
-        width: number;
-        height: number;
-      };
-      droppableContainers: Iterable<{ id: unknown }>;
-    }) => {
+  const collisionDetection = useCallback<CollisionDetection>(
+    (args) => {
       const pointerHits = pointerWithin(args);
       const hits =
         pointerHits.length > 0 ? pointerHits : rectIntersection(args);
       let overId = getFirstCollision(hits, "id") ?? null;
 
-      if (overId && columnIds.includes(overId)) {
-        const columnItems = itemsByStatus[overId] ?? [];
+      if (overId && columnIds.includes(String(overId))) {
+        const columnItems = itemsByStatus[String(overId)] ?? [];
         if (columnItems.length > 0) {
-          const containers = Array.from(
-            args.droppableContainers as Iterable<{ id: unknown }>
-          );
+          const containers = Array.from(args.droppableContainers);
           const filtered = containers.filter((c) =>
             columnItems.some((t) => t.id === c.id)
           );

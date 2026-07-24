@@ -32,7 +32,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     primary_assignee_user_id: null,
     priority: "medium",
     project_id: null,
-    request_depth: 0,
     scope_id: "scope",
     started_at: "2026-07-23T00:00:00.000Z",
     status: "in_progress",

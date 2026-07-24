@@ -77,7 +77,6 @@ export interface Task {
   primary_assignee_user_id: string | null;
   priority: TaskPriority;
   project_id: string | null;
-  request_depth: number;
   scope_id: string;
   started_at: string | null;
   status: TaskStatus;
@@ -115,7 +114,8 @@ export interface TaskComment {
   tenant_id: string;
 }
 
-export type TaskRunRole = "checkout" | "work" | "review";
+/** Only `checkout` is written; `work`|`review` remain DB-allowed but unused. */
+export type TaskRunRole = "checkout";
 
 export interface TaskRun {
   agent_session_run_id: string;
@@ -270,7 +270,6 @@ export type TaskUpdateInput = Partial<
 export interface GoalCreateInput {
   description?: string | null;
   level?: string;
-  owner_agent_id?: string | null;
   owner_agent_type_key?: string | null;
   owner_user_id?: string | null;
   parent_id?: string | null;

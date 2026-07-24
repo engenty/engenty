@@ -167,7 +167,7 @@ describe("format-activity helpers", () => {
         event_type: "tasks.comment_added",
         payload: { comment_id: "c-1", content: "Hello team" },
       }),
-      { t }
+      { t, statusDefinitions: [] }
     );
     expect(message.kind).toBe("comment_added");
     expect(message.commentPreview).toBe("Hello team");

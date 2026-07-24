@@ -10,7 +10,15 @@ const BUILTIN_BY_ID = new Map(
   BUILTIN_TASK_STATUS_DEFINITIONS.map((d) => [d.id, d])
 );
 
-const REQUIRED_STATUS_ORDER = ["todo", "in_progress", "done"] as const;
+const REQUIRED_STATUS_ORDER = [
+  "todo",
+  "in_progress",
+  "done",
+  "blocked",
+  "in_review",
+  "backlog",
+  "cancelled",
+] as const;
 
 function isNonDeletableTaskStatusId(id: string): boolean {
   return (TASK_STATUS_IDS_NON_DELETABLE as Set<string>).has(id);

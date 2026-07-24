@@ -11,6 +11,7 @@ import { getTaskActivity, getTaskRuns, getTasks } from "./api.js";
 describe("tasks ui api", () => {
   it("maps paginated task list envelope into TasksPaginatedResponse", async () => {
     vi.mocked(requestApiEnvelope).mockResolvedValue({
+      ok: true,
       data: [
         {
           id: "11111111-1111-4111-8111-111111111111",
@@ -29,7 +30,6 @@ describe("tasks ui api", () => {
           created_by_user_id: null,
           created_by_agent_type_key: null,
           due_date: null,
-          request_depth: 0,
           started_at: null,
           completed_at: null,
           cancelled_at: null,

@@ -92,7 +92,7 @@ function rowToTask(row: Record<string, unknown>): Task {
     approval_grants_once: (row.approval_grants_once as string[] | null) ?? [],
     pending_approval_operation_ids:
       (row.pending_approval_operation_ids as string[] | null) ?? [],
-    request_depth: Number(row.request_depth ?? 0),
+    // request_depth column remains in DB (compat) but is unused — always 0 historically.
     started_at: (row.started_at as string | null) ?? null,
     completed_at: (row.completed_at as string | null) ?? null,
     cancelled_at: (row.cancelled_at as string | null) ?? null,
@@ -778,7 +778,7 @@ export function createTasksRepoSupabase(
         blocked_by_task_ids: input.blocked_by_task_ids ?? [],
         ...(input.trigger_id == null ? {} : { trigger_id: input.trigger_id }),
         ...(input.project_id == null ? {} : { project_id: input.project_id }),
-        request_depth: 0,
+        // request_depth: dead column kept for compat — DB default 0
         created_at: now,
         updated_at: now,
       };
@@ -1232,7 +1232,7 @@ export function createTasksRepoSupabase(
         parent_id: input.parent_id ?? null,
         ...(input.project_id == null ? {} : { project_id: input.project_id }),
         owner_user_id: input.owner_user_id ?? null,
-        owner_agent_id: input.owner_agent_id ?? null,
+        owner_agent_id: null,
         owner_agent_type_key: input.owner_agent_type_key ?? null,
         level: input.level ?? "task",
         target_date: input.target_date ?? null,
@@ -1289,9 +1289,6 @@ export function createTasksRepoSupabase(
       }
       if (input.owner_user_id !== undefined) {
         updates.owner_user_id = input.owner_user_id;
-      }
-      if (input.owner_agent_id !== undefined) {
-        updates.owner_agent_id = input.owner_agent_id;
       }
       if (input.owner_agent_type_key !== undefined) {
         updates.owner_agent_type_key = input.owner_agent_type_key;
@@ -1434,7 +1431,8 @@ export function createTasksRepoSupabase(
         scope_id: scopeId,
         task_id: taskId,
         agent_session_run_id: runId,
-        role: "checkout",
+        // DB still allows work|review; only checkout is ever written.
+        role: "checkout" as const,
         created_at: now,
       });
       if (runError) {

@@ -117,7 +117,6 @@ export function GoalDetailPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title,
     topbarChrome: "contentBlend",
   });
 

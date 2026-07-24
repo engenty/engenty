@@ -83,7 +83,7 @@ function TaskRow({
           </span>
         ) : (
           <>
-            {task?.priority && task.priority !== "normal" ? (
+            {task?.priority && task.priority !== "medium" ? (
               <Badge
                 className="shrink-0 text-[10px] capitalize"
                 variant="outline"

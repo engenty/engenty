@@ -169,6 +169,7 @@ function renderBuiltinCell(
             compact
             definitions={taskStatusDefinitions}
             status={task.status}
+            task={task}
           />
         </TableCell>
       );

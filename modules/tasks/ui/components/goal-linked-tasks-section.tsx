@@ -329,6 +329,7 @@ export function GoalLinkedTasksSection({
                       compact
                       definitions={taskStatusDefinitions}
                       status={task.status}
+                      task={task}
                     />
                   </div>
                   <div className="mt-1 font-mono text-muted-foreground text-xs">

@@ -230,6 +230,7 @@ function TaskDetailLoadedContent({
                     compact
                     definitions={taskStatusDefinitions}
                     status={task.status}
+                    task={task}
                   />
                 </p>
                 {/* -my-1 keeps the sm button from inflating the meta row height. */}
@@ -437,7 +438,6 @@ export function TaskDetailPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title,
     topbarChrome: "contentBlend",
   });
 
