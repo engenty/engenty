@@ -5,7 +5,12 @@
 import { Button, Card, CardContent, Input, Label } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { Eye, EyeOff } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  Engenty,
+  EngentyLogoMark,
+  EngentyWordmark,
+} from "../components/engenties";
 import { getApiBaseUrl } from "../lib/api-client";
 import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
 import { createInitialAdmin } from "../lib/initial-setup";
@@ -70,244 +75,48 @@ async function createFirstTenant(
 
 // ─── Left Panel ───────────────────────────────────────────────────────────────
 
-// ─── Engenty Blob Avatar (self-contained; CopilotBlobAvatar not exported) ─────
-// Replicates the copilot FAB blob with wobble + eye + pupil follow.
-// All animation CSS is injected inline so this works outside @engenty/ai-ui.
-
-const BLOB_STYLES = `
-@keyframes setup-blob-wobble {
-  0%, 100% { transform: scaleX(1) scaleY(1) rotate(0deg); }
-  25% { transform: scaleX(1.06) scaleY(0.94) rotate(-1.5deg); }
-  50% { transform: scaleX(0.96) scaleY(1.04) rotate(0.5deg); }
-  75% { transform: scaleX(1.04) scaleY(0.95) rotate(1.5deg); }
-}
-@keyframes setup-eye-drift {
-  0%, 18%, 100% { transform: translate(0, 0); }
-  24%, 38% { transform: translate(2.2px, -1.4px); }
-  44%, 60% { transform: translate(-2px, 1px); }
-  66%, 82% { transform: translate(1.2px, 1.8px); }
-  88% { transform: translate(-1px, -1.6px); }
-}
-@keyframes setup-eye-blink {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.08); }
-}
-@keyframes setup-bubble-float {
-  0%, 100% { transform: translateY(0); opacity: 0.7; }
-  50% { transform: translateY(-3px); opacity: 0.4; }
-}
-@keyframes setup-blob-shadow {
-  0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.45; }
-  50% { transform: translateX(-50%) scaleX(0.8); opacity: 0.25; }
-}
-.setup-blob { animation: setup-blob-wobble 6s ease-in-out infinite; border-radius: 48% 52% 34% 36% / 72% 70% 30% 32%; transition: background-color 800ms ease-in-out; }
-.setup-blob-lid { animation: setup-eye-blink 6s ease-in-out infinite; transform-origin: center; }
-.setup-blob-pupil { animation: setup-eye-drift 9s ease-in-out infinite; }
-.setup-blob-bubble { animation: setup-bubble-float 4s ease-in-out infinite; }
-.setup-blob-bubble-sm { animation-delay: -1.6s; animation-duration: 3.2s; }
-.setup-blob-shadow { animation: setup-blob-shadow 7s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .setup-blob, .setup-blob-lid, .setup-blob-pupil,
-  .setup-blob-bubble, .setup-blob-shadow { animation: none; }
-}
-`;
-
-const FOLLOW_MS = 4500;
-const DRIFT_MS = 5500;
-const MAX_OFFSET = 3;
-const FULL_DEFLECTION = 260;
-
-/** Mouse-tracking pupil — mirrors usePupilMouseFollow from ai-ui. */
-function useSetupPupilFollow(ref: React.RefObject<SVGGElement | null>) {
-  useEffect(() => {
-    const pupil = ref.current;
-    if (!pupil || typeof window === "undefined") {
-      return;
-    }
-    let following = false;
-    let frame = 0;
-    let lastEvent: MouseEvent | null = null;
-
-    const release = () => {
-      pupil.style.animation = "";
-      pupil.style.transform = "";
-      pupil.style.transition = "";
-    };
-
-    const apply = () => {
-      frame = 0;
-      if (!(following && lastEvent)) {
-        return;
-      }
-      const box = pupil.ownerSVGElement?.getBoundingClientRect();
-      if (!box || box.width === 0) {
-        return;
-      }
-      const dx = lastEvent.clientX - (box.left + box.width / 2);
-      const dy = lastEvent.clientY - (box.top + box.height / 2);
-      const dist = Math.hypot(dx, dy);
-      if (dist === 0) {
-        return;
-      }
-      const reach = MAX_OFFSET * Math.min(1, dist / FULL_DEFLECTION);
-      pupil.style.animation = "none";
-      pupil.style.transition = "transform 180ms ease-out";
-      pupil.style.transform = `translate(${((dx / dist) * reach).toFixed(2)}px, ${((dy / dist) * reach).toFixed(2)}px)`;
-    };
-
-    const onMove = (e: MouseEvent) => {
-      lastEvent = e;
-      if (following && frame === 0) {
-        frame = window.requestAnimationFrame(apply);
-      }
-    };
-
-    let timer = 0;
-    const schedule = () => {
-      timer = window.setTimeout(
-        () => {
-          following = !following;
-          if (following) {
-            if (frame === 0) {
-              frame = window.requestAnimationFrame(apply);
-            }
-          } else {
-            release();
-          }
-          schedule();
-        },
-        following ? FOLLOW_MS : DRIFT_MS
-      );
-    };
-    schedule();
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => {
-      window.clearTimeout(timer);
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
-      window.removeEventListener("mousemove", onMove);
-      release();
-    };
-  }, [ref]);
-}
-
-/** Body colors matching BLOB_CHARACTER_COLORS in ai-ui */
-const BLOB_COLORS = [
-  "oklch(64% 0.195 35)", // 0 ember
-  "#3358d4", // 1 iris
-  "#e08c0b", // 2 citrus
-  "#1e7d49", // 3 meadow
-  "#d23b5e", // 4 berry
-] as const;
-
-/** sizes: sm=48×56 wordmark, md=64×76 card-topper, lg=80×96 hero */
-function SetupBlobAvatar({
-  size = "lg",
-  character = 0,
-}: {
-  size?: "sm" | "md" | "lg";
-  character?: number;
-}) {
-  const pupilRef = useRef<SVGGElement>(null);
-  useSetupPupilFollow(pupilRef);
-  const dims: Record<"sm" | "md" | "lg", [number, number, string]> = {
-    sm: [48, 56, "size-6"],
-    md: [64, 76, "size-8"],
-    lg: [80, 96, "size-10"],
-  };
-  const [w, h, eyeSize] = dims[size];
-  const color = BLOB_COLORS[character % BLOB_COLORS.length];
-  const bubble1 = {
-    sm: { width: 7, height: 7, top: -4, right: -3 },
-    md: { width: 9, height: 9, top: -5, right: -3 },
-    lg: { width: 11, height: 11, top: -6, right: -4 },
-  }[size];
-  const bubble2 = {
-    sm: { width: 5, height: 5, top: -8, right: 8 },
-    md: { width: 6, height: 6, top: -10, right: 10 },
-    lg: { width: 8, height: 8, top: -12, right: 12 },
-  }[size];
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none relative"
-      style={{ width: w, height: h + 10 }}
-    >
-      <style>{BLOB_STYLES}</style>
-      {/* Blob body */}
-      <div
-        className="setup-blob absolute inset-x-0 top-0 flex items-center justify-center text-white"
-        style={{ height: h, background: color }}
-      >
-        {/* Floating bubbles */}
-        <span
-          className="setup-blob-bubble absolute rounded-full bg-white/60"
-          style={bubble1}
-        />
-        <span
-          className="setup-blob-bubble setup-blob-bubble-sm absolute rounded-full bg-white/35"
-          style={bubble2}
-        />
-        {/* Eye */}
-        <svg
-          aria-hidden="true"
-          className={`${eyeSize} shrink-0`}
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <g className="setup-blob-lid">
-            <circle
-              cx="12"
-              cy="11"
-              r="5.2"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            />
-            <g className="setup-blob-pupil" ref={pupilRef}>
-              <circle cx="12" cy="11" fill="currentColor" r="2.2" />
-            </g>
-          </g>
-        </svg>
-      </div>
-      {/* Ground shadow */}
-      <span
-        className="setup-blob-shadow absolute rounded-full bg-black/20 blur-[3px]"
-        style={{ height: 6, width: "70%", bottom: 0, left: "50%" }}
-      />
-    </div>
-  );
-}
-
-// Accent palette from DESIGN.md for the left panel elements
+/** Landing hero ember + cream accents (same as AuthLoginLayout). */
+const BRAND_EMBER = "oklch(44% 0.16 30)";
+const BRAND_CREAM = "oklch(88% 0.11 75)";
+const BRAND_MUTED = "oklch(92% 0.03 40)";
 const PANEL_STEP_COLORS = [
-  { bg: "oklch(64% 0.195 35)", ring: "oklch(64% 0.195 35 / 0.4)" }, // ember
-  { bg: "#3358d4", ring: "#3358d4aa" }, // iris
+  { bg: BRAND_CREAM },
+  { bg: "oklch(78% 0.12 264)" }, // soft cobalt on ember
 ] as const;
 
 function SetupLeftPanel({ step }: { step: Step }) {
   const t = useMemo(() => AUTH_TRANSLATIONS[detectAuthLocale()], []);
   return (
     <div
-      className="hidden flex-col justify-between lg:flex"
-      style={{
-        background:
-          "linear-gradient(160deg, oklch(20% 0.025 60) 0%, oklch(25% 0.06 285) 45%, oklch(28% 0.07 35) 100%)",
-        padding: "3rem",
-      }}
+      className="relative hidden flex-col justify-between overflow-hidden lg:flex"
+      style={{ background: BRAND_EMBER, padding: "3rem" }}
     >
-      {/* Content — fills remaining height and centers vertically */}
-      <div className="flex flex-1 flex-col justify-center space-y-8">
-        <div className="space-y-1">
-          <p
-            className="font-bold font-heading text-white tracking-tight"
-            style={{ fontSize: 22, letterSpacing: "-0.02em" }}
-          >
-            engenty
-          </p>
-          <p style={{ fontSize: 13, color: "oklch(100% 0 0 / 0.45)" }}>
-            {t.tagline}
-          </p>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute rounded-full"
+        style={{
+          width: 520,
+          height: 520,
+          top: -180,
+          right: -160,
+          background: "#fff",
+          filter: "blur(90px)",
+          opacity: 0.12,
+        }}
+      />
+
+      <div className="relative z-10 flex flex-1 flex-col justify-center space-y-8">
+        <div className="flex items-center gap-3">
+          <EngentyLogoMark size={72} />
+          <div className="space-y-1">
+            <p
+              className="font-bold font-heading text-white tracking-tight"
+              style={{ fontSize: 22, letterSpacing: "-0.02em" }}
+            >
+              <EngentyWordmark onDark />
+            </p>
+            <p style={{ fontSize: 13, color: BRAND_MUTED }}>{t.tagline}</p>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -319,13 +128,12 @@ function SetupLeftPanel({ step }: { step: Step }) {
           </h1>
           <p
             className="leading-relaxed"
-            style={{ fontSize: 14, color: "oklch(100% 0 0 / 0.5)" }}
+            style={{ fontSize: 14, color: "oklch(100% 0 0 / 0.55)" }}
           >
             {t.setup.desc}
           </p>
         </div>
 
-        {/* Step indicators */}
         <div className="grid grid-cols-2 gap-4">
           <StepIndicator
             accent={PANEL_STEP_COLORS[0].bg}
@@ -346,8 +154,15 @@ function SetupLeftPanel({ step }: { step: Step }) {
         </div>
       </div>
 
-      {/* Footer */}
-      <p className="text-white/30 text-xs">{t.footer}</p>
+      <div className="relative z-10 flex items-end justify-between gap-4">
+        <p className="text-xs" style={{ color: "oklch(100% 0 0 / 0.35)" }}>
+          {t.footer}
+        </p>
+        <div aria-hidden="true" className="flex gap-2">
+          <Engenty kind="drop" size={40} />
+          <Engenty kind="flame" size={40} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -764,11 +579,13 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                   </p>
                 </div>
                 <div className="relative">
-                  <div className="absolute -top-11 right-5 z-10">
-                    {/* Iris (1) — distinct from panel's ember (0) */}
-                    <SetupBlobAvatar character={1} size="md" />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -top-10 right-4 z-10"
+                  >
+                    <Engenty kind="round" size={88} />
                   </div>
-                  <Card className="w-full shadow-[0_8px_40px_-8px_#3358d428]">
+                  <Card className="w-full shadow-[0_8px_40px_-8px_oklch(50%_0.18_264_/_0.18)]">
                     <CardContent className="pt-12">
                       <Step1AdminForm onComplete={handleAdminComplete} />
                     </CardContent>
@@ -799,11 +616,13 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                   </p>
                 </div>
                 <div className="relative">
-                  <div className="absolute -top-11 right-5 z-10">
-                    {/* Citrus (2) — distinct from panel's iris (1) */}
-                    <SetupBlobAvatar character={2} size="md" />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -top-10 right-4 z-10"
+                  >
+                    <Engenty kind="drop" size={88} />
                   </div>
-                  <Card className="w-full shadow-[0_8px_40px_-8px_#e08c0b28]">
+                  <Card className="w-full shadow-[0_8px_40px_-8px_oklch(72%_0.16_68_/_0.22)]">
                     <CardContent className="pt-12">
                       <Step2TenantForm
                         adminCredentials={adminCredentials}
