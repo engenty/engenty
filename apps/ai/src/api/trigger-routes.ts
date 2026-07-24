@@ -1,7 +1,7 @@
 // Triggers API — management surface over the Trigger domain (tasks module)
-// plus its Mastra-heartbeat runtime state.
+// plus its Mastra-schedule runtime state.
 //
-// GET    /ai/v1/triggers            — list triggers (+ next_fire_at from the heartbeat)
+// GET    /ai/v1/triggers            — list triggers (+ next_fire_at from the schedule)
 // POST   /ai/v1/triggers            — create a trigger (schedule kind; template inline or by id)
 // PATCH  /ai/v1/triggers/:id        — update (enabled / cron / quiet hours / template)
 // DELETE /ai/v1/triggers/:id        — delete (custom triggers only)
@@ -9,7 +9,7 @@
 // POST   /ai/v1/triggers/reconcile  — full reconcile (admin)
 //
 // The trigger rows live in the tasks module and are reached via gateway
-// operations riding the caller's bearer; heartbeats are managed directly on
+// operations riding the caller's bearer; schedules are managed directly on
 // the Mastra instance. Scheduled fires happen in src/scheduler/heartbeat-hooks.
 import type {
   AiRegistry,
@@ -125,7 +125,7 @@ export function registerTriggerRoutes(
     return agent ? null : "triggers.agentNotFound";
   }
 
-  /** Sync the heartbeat after a mutation and persist a changed heartbeat id. */
+  /** Sync the schedule after a mutation and persist a changed schedule id. */
   async function syncAfterWrite(
     scope: AiSessionScope,
     trigger: TriggerDetailRow
@@ -158,7 +158,7 @@ export function registerTriggerRoutes(
       const triggers = await Promise.all(
         listed.map(async (trigger) => {
           const heartbeat = trigger.heartbeat_id
-            ? await mastra.heartbeats.get(trigger.heartbeat_id)
+            ? await mastra.schedules.get(trigger.heartbeat_id)
             : null;
           return {
             ...trigger,

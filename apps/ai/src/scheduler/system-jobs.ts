@@ -1,7 +1,7 @@
 // System jobs — internal scheduled maintenance. Not triggers: not user-facing,
-// never creates a Task. Each job is backed by its own Mastra heartbeat
+// never creates a Task. Each job is backed by its own Mastra schedule
 // (metadata `{ engenty: { kind: 'system-job', jobId, tenantId } }`) and runs
-// inside the heartbeat `prepare` hook.
+// inside the schedule `prepare` hook.
 import {
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   isAgUiOpenInterruptExpired,
@@ -14,7 +14,7 @@ const logger = createLogger({ name: "system-jobs" });
 
 export interface SystemJob {
   execute: (ctx: { db: SupabaseClient; tenantId: string }) => Promise<string>;
-  /** Stable id; the backing heartbeat is `hb_system_<id-slug>`. */
+  /** Stable id; the backing schedule stem is `hb_system-<id>` (Mastra may store `agent_hb-system-…`). */
   id: string;
   name: string;
   /** Cron, UTC. */
@@ -136,7 +136,7 @@ export function listSystemJobs(): SystemJob[] {
   ];
 }
 
-/** Run one system job by id — called from the heartbeat `prepare` hook. */
+/** Run one system job by id — called from the schedule `prepare` hook. */
 export async function runSystemJob(
   jobId: string,
   tenantId: string

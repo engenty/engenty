@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createSchedulerHeartbeatHooks } from "../heartbeat-hooks.js";
 import { buildHeartbeatMetadata } from "../heartbeat-metadata.js";
 
-function triggerHeartbeat(triggerId = "t-1") {
+function triggerSchedule(triggerId = "t-1") {
   return {
     agentId: "engenty.scheduler",
     id: `hb_trigger-${triggerId}`,
@@ -22,22 +22,22 @@ const trigger = (over?: Partial<Record<string, unknown>>) => ({
   ...over,
 });
 
-const prepareCtx = (heartbeat: ReturnType<typeof triggerHeartbeat>) =>
+const prepareCtx = (schedule: ReturnType<typeof triggerSchedule>) =>
   ({
-    agentId: heartbeat.agentId,
-    heartbeat,
+    agentId: schedule.agentId,
     mastra: {} as never,
+    schedule,
     trigger: { firedAt: new Date(), kind: "cron" as const },
   }) as never;
 
-describe("scheduler heartbeat hooks", () => {
+describe("scheduler schedule hooks", () => {
   it("fires the trigger and skips the agent run", async () => {
     const invokeOperation = vi.fn(async (op: string) =>
       op === "triggers_get" ? trigger() : { id: "task-1" }
     );
     const hooks = createSchedulerHeartbeatHooks({ invokeOperation });
 
-    const result = await hooks.prepare?.(prepareCtx(triggerHeartbeat()));
+    const result = await hooks.prepare?.(prepareCtx(triggerSchedule()));
 
     expect(result).toBeNull();
     expect(invokeOperation).toHaveBeenCalledWith("triggers_fire", {
@@ -51,7 +51,7 @@ describe("scheduler heartbeat hooks", () => {
     );
     const hooks = createSchedulerHeartbeatHooks({ invokeOperation });
 
-    const result = await hooks.prepare?.(prepareCtx(triggerHeartbeat()));
+    const result = await hooks.prepare?.(prepareCtx(triggerSchedule()));
 
     expect(result).toBeNull();
     expect(invokeOperation).not.toHaveBeenCalledWith(
@@ -66,7 +66,7 @@ describe("scheduler heartbeat hooks", () => {
     );
     const hooks = createSchedulerHeartbeatHooks({ invokeOperation });
 
-    const result = await hooks.prepare?.(prepareCtx(triggerHeartbeat()));
+    const result = await hooks.prepare?.(prepareCtx(triggerSchedule()));
 
     expect(result).toBeNull();
     expect(invokeOperation).not.toHaveBeenCalledWith(
@@ -75,7 +75,7 @@ describe("scheduler heartbeat hooks", () => {
     );
   });
 
-  it("leaves non-Engenty heartbeats alone (returns undefined)", async () => {
+  it("leaves non-Engenty schedules alone (returns undefined)", async () => {
     const invokeOperation = vi.fn();
     const hooks = createSchedulerHeartbeatHooks({ invokeOperation });
 
@@ -94,14 +94,14 @@ describe("scheduler heartbeat hooks", () => {
   it("records fire failures on the trigger row", async () => {
     const invokeOperation = vi.fn(async () => ({}));
     const hooks = createSchedulerHeartbeatHooks({ invokeOperation });
-    const heartbeat = triggerHeartbeat();
+    const schedule = triggerSchedule();
 
     await hooks.onError?.({
-      agentId: heartbeat.agentId,
+      agentId: schedule.agentId,
       error: new Error("core unreachable"),
-      heartbeat,
       mastra: {} as never,
       phase: "prepare",
+      schedule,
       trigger: { firedAt: new Date(), kind: "cron" },
     } as never);
 

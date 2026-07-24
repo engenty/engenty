@@ -1,6 +1,9 @@
-// Metadata contract between Engenty and the Mastra heartbeats that back it.
-// Every heartbeat the scheduler owns carries this under `metadata.engenty`;
-// heartbeats without it are not ours and are left alone.
+// Metadata contract between Engenty and the Mastra schedules that back it.
+// Every schedule the scheduler owns carries this under `metadata.engenty`;
+// schedules without it are not ours and are left alone.
+//
+// Orphan cleanup matches on this marker — not on id prefixes — so both legacy
+// `hb_*` rows and Mastra 1.50+ `agent_*`-prefixed rows are covered.
 
 export type EngentyHeartbeatMetadata =
   | { kind: "trigger"; tenantId: string; triggerId: string }

@@ -1,9 +1,9 @@
-// Mastra heartbeat lifecycle hooks — the entire Engenty scheduler runtime.
+// Mastra schedule lifecycle hooks — the entire Engenty scheduler runtime.
 //
-// Heartbeats are used as a pure cron substrate: every fire enters `prepare`,
+// Schedules are used as a pure cron substrate: every fire enters `prepare`,
 // which does the actual work (fire the trigger → materialize its Task, or run
 // a system job) and then returns `null` so NO agent run ever happens. The
-// heartbeat's agent (`engenty.scheduler`) exists only because the worker
+// schedule's agent (`engenty.scheduler`) exists only because the worker
 // requires a registered agent; it never executes.
 //
 // Quiet hours are enforced here (scheduled fires only) — manual "run now"
@@ -21,8 +21,8 @@ import { runSystemJob } from "./system-jobs.js";
 
 const logger = createLogger({ name: "scheduler" });
 
-/** The `heartbeat` hook bundle shape from the Mastra constructor config. */
-type SchedulerHeartbeatHooks = NonNullable<Config["heartbeat"]>;
+/** The `schedules` hook bundle shape from the Mastra constructor config. */
+type SchedulerScheduleHooks = NonNullable<Config["schedules"]>;
 
 interface TriggerRow {
   enabled: boolean;
@@ -34,17 +34,17 @@ interface TriggerRow {
 export function createSchedulerHeartbeatHooks(options?: {
   invokeOperation?: SchedulerOperationInvoker;
   now?: () => Date;
-}): SchedulerHeartbeatHooks {
+}): SchedulerScheduleHooks {
   const invoke = options?.invokeOperation ?? createSchedulerOperationInvoker();
   const now = options?.now ?? (() => new Date());
 
   return {
-    async prepare({ heartbeat }) {
+    async prepare({ schedule }) {
       const meta = readHeartbeatMetadata(
-        heartbeat.metadata as Record<string, unknown> | undefined
+        schedule.metadata as Record<string, unknown> | undefined
       );
       if (!meta) {
-        // Not an Engenty-owned heartbeat — let it fire normally.
+        // Not an Engenty-owned schedule — let it fire normally.
         return;
       }
 
@@ -58,7 +58,7 @@ export function createSchedulerHeartbeatHooks(options?: {
         id: meta.triggerId,
       })) as TriggerRow;
       if (!trigger.enabled) {
-        // Reconcile pauses disabled triggers' heartbeats; this covers the gap
+        // Reconcile pauses disabled triggers' schedules; this covers the gap
         // between a disable write and the next reconcile.
         return null;
       }
@@ -82,14 +82,14 @@ export function createSchedulerHeartbeatHooks(options?: {
       return null;
     },
 
-    async onError({ heartbeat, phase, error }) {
+    async onError({ schedule, phase, error }) {
       const meta = readHeartbeatMetadata(
-        heartbeat.metadata as Record<string, unknown> | undefined
+        schedule.metadata as Record<string, unknown> | undefined
       );
-      logger.warn("heartbeat fire failed", {
-        heartbeatId: heartbeat.id,
+      logger.warn("schedule fire failed", {
         message: error.message,
         phase,
+        scheduleId: schedule.id,
       });
       if (meta?.kind !== "trigger") {
         return;
@@ -111,7 +111,7 @@ export function createSchedulerHeartbeatHooks(options?: {
         // coalesce into one inbox entry until someone looks at it.
         dedupeKey: `trigger_failed:${meta.triggerId}`,
         kind: "trigger_failed",
-        metadata: { heartbeat_id: heartbeat.id, trigger_id: meta.triggerId },
+        metadata: { heartbeat_id: schedule.id, trigger_id: meta.triggerId },
         payload: { error: error.message.slice(0, 1000), phase },
         priority: "high",
         source: "triggers",

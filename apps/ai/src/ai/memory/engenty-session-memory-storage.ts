@@ -640,8 +640,13 @@ function mastraRoleToSessionRole(
  * wraps it as a `type: 'user'` signal (role `"signal"`, with the signal kind in
  * `content.metadata.signal.type`). Persist it as a real user turn (role `"user"` +
  * author) so the chat renders it. Without this it falls into the generic
- * signal→system mapping and the user's message vanishes from the UI. Non-user
- * signals (state / notification / control) stay `"system"`.
+ * signal→system mapping and the user's message vanishes from the UI.
+ *
+ * Explicit signal policy (Mastra 1.52 MastraDBMessage shape):
+ * - `signal.type === "user"` → store as visible user turn
+ * - other signals (state / notification / schedule / control) → store as
+ *   `system` (not dropped): the model may need the reminder, and the chat UI
+ *   already hides system rows from the main transcript
  */
 function isUserMessageSignal(message: MastraDBMessage): boolean {
   if (message.role !== "signal") {
