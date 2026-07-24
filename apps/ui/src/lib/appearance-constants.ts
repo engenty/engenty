@@ -19,11 +19,13 @@ export const APPEARANCE_KEYS = {
 export const DEFAULT_LANGUAGE = "en";
 export const DEFAULT_THEME_MODE = "system";
 /** Engenty Ember stack: Geist UI + Space Grotesk headings + Geist Mono */
-export const DEFAULT_FONT = "engenty";
+export const DEFAULT_FONT = "geist";
 export const DEFAULT_FONT_SIZE = "100";
 
 const SYSTEM_FONT_SANS =
   'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"';
+const SYSTEM_FONT_MONO =
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
 export interface FontOption {
   category: "Sans-serif" | "System" | "Monospace";
@@ -37,21 +39,20 @@ export interface FontOption {
 
 export const FONT_OPTIONS: readonly FontOption[] = [
   {
-    id: "engenty",
-    name: "System Default",
+    id: "geist",
+    name: "Geist",
     family: '"Geist", ui-sans-serif, system-ui, sans-serif',
     headingFamily: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
     monoFamily: '"Geist Mono", ui-monospace, monospace',
     category: "Sans-serif",
   },
   {
-    id: "inter",
-    name: "Inter",
-    family: '"Inter", ui-sans-serif, system-ui, sans-serif',
-    headingFamily: '"Inter", ui-sans-serif, system-ui, sans-serif',
-    monoFamily: '"Geist Mono", ui-monospace, monospace',
-    category: "Sans-serif",
-    googleFontName: "Inter",
+    id: "system",
+    name: "System Default",
+    family: SYSTEM_FONT_SANS,
+    headingFamily: SYSTEM_FONT_SANS,
+    monoFamily: SYSTEM_FONT_MONO,
+    category: "System",
   },
   {
     id: "barlow",
@@ -72,13 +73,12 @@ export const FONT_OPTIONS: readonly FontOption[] = [
     googleFontName: "Noto+Sans+Display",
   },
   {
-    id: "ibm-plex-mono",
-    name: "IBM Plex Mono",
-    family: '"IBM Plex Mono", ui-monospace, monospace',
-    headingFamily: '"IBM Plex Mono", ui-monospace, monospace',
-    monoFamily: '"IBM Plex Mono", ui-monospace, monospace',
+    id: "geist-mono",
+    name: "Geist Mono",
+    family: '"Geist Mono", ui-monospace, monospace',
+    headingFamily: '"Geist Mono", ui-monospace, monospace',
+    monoFamily: '"Geist Mono", ui-monospace, monospace',
     category: "Monospace",
-    googleFontName: "IBM+Plex+Mono",
   },
   {
     id: "fira-mono",
