@@ -1,4 +1,4 @@
-// Read-only detail sections: instructions, executing agent, last execution,
+// Read-only detail sections: instructions, executing agent, runs, workspace,
 // plus the editable "Approved tools" list (operations the routine may run
 // without asking for approval).
 import {
@@ -10,6 +10,9 @@ import { Button, Input } from "@engenty/ui-core";
 import { ExternalLink, Plus, ShieldCheck, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
+import { RoutineMemorySection } from "./routine-memory-section.js";
+import { RoutineRunsSection } from "./routine-runs-section.js";
+import { RoutineWorkspaceStrip } from "./routine-workspace-strip.js";
 
 function RoutineApprovedToolsSection({ routine }: { routine: RoutineDto }) {
   const { t } = useTranslation("tasks");
@@ -83,7 +86,6 @@ function RoutineApprovedToolsSection({ routine }: { routine: RoutineDto }) {
 
 export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
   const { t } = useTranslation("tasks");
-  const isFailing = routine.last_result?.startsWith("error:");
 
   return (
     <>
@@ -123,60 +125,13 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
 
       <RoutineApprovedToolsSection routine={routine} />
 
-      {(routine.last_run_at || routine.last_result) && (
-        <div className="space-y-2">
-          <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-            {t("routines.detail.lastExecution")}
-          </h4>
-          <div className="ui-canvas-panel space-y-2.5 rounded-lg bg-card p-4">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                {routine.last_run_at
-                  ? new Date(routine.last_run_at).toLocaleString()
-                  : t("routines.detail.neverExecuted")}
-              </span>
-              {routine.last_result && (
-                <span
-                  className={`rounded-full px-2 py-0.5 font-medium ${
-                    isFailing
-                      ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                      : "bg-green-500/10 text-green-600 dark:text-green-400"
-                  }`}
-                >
-                  {isFailing
-                    ? t("routines.detail.failed")
-                    : t("routines.detail.success")}
-                </span>
-              )}
-            </div>
-
-            {routine.last_result && (
-              <p className="break-words rounded border bg-muted/40 p-2.5 font-mono text-[11px] text-muted-foreground leading-relaxed">
-                {routine.last_result}
-              </p>
-            )}
-
-            {(() => {
-              // @ts-expect-error TASKS-routine: thread_id on RoutineDto lands in routine plan
-              const threadId = routine.thread_id;
-              if (!(threadId && routine.agent_id)) {
-                return null;
-              }
-              return (
-                <div className="flex justify-end border-t pt-2">
-                  <Link
-                    className="inline-flex items-center gap-1.5 font-medium text-primary text-xs hover:underline"
-                    to={`/admin/engenty/${encodeURIComponent(routine.agent_id)}/sessions/${encodeURIComponent(threadId)}`}
-                  >
-                    {t("routines.detail.viewRunDetails")}
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {routine.kind === "schedule" ? (
+        <>
+          <RoutineRunsSection routine={routine} />
+          <RoutineMemorySection triggerId={routine.id} />
+          <RoutineWorkspaceStrip routine={routine} />
+        </>
+      ) : null}
     </>
   );
 }

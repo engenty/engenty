@@ -355,8 +355,12 @@ export const taskCheckoutInputSchema = taskCheckoutInputRawSchema
 export const taskReleaseInputRawSchema = z.object({
   agent_session_run_id: z.string().uuid().optional(),
   agent_run_id: z.string().uuid().optional(),
-  outcome: z.enum(["completed", "failed", "needs_approval"]).optional(),
+  outcome: z
+    .enum(["completed", "completed_quiet", "failed", "needs_approval"])
+    .optional(),
   pending_approval_operation_ids: z.array(z.string().min(1)).max(64).optional(),
+  // Entry statuses only — release must not park a task at done/cancelled/etc.
+  resting_status: z.enum(["backlog", "todo"]).optional(),
 });
 
 export const taskReleaseInputSchema = taskReleaseInputRawSchema.transform(
@@ -366,6 +370,7 @@ export const taskReleaseInputSchema = taskReleaseInputRawSchema.transform(
     ...(v.pending_approval_operation_ids
       ? { pending_approval_operation_ids: v.pending_approval_operation_ids }
       : {}),
+    ...(v.resting_status ? { resting_status: v.resting_status } : {}),
   })
 );
 
@@ -492,6 +497,8 @@ export const triggerUpdateInputSchema = z.object({
   resource: z.string().max(255).nullable().optional(),
   event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
   task_template_id: z.string().uuid().optional(),
+  // Nested template patch (declaration reconcile / custom routine edit).
+  task_template: taskTemplateUpdateInputSchema.optional(),
   heartbeat_id: z.string().nullable().optional(),
   approval_grants: z.array(z.string().min(1)).max(64).optional(),
 });

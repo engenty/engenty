@@ -26,6 +26,9 @@ export interface RoutineDto {
   quiet_hours: string | null;
   resource: string | null;
   source: "module" | "custom";
+  /** Standing host task for schedule routines (Phase 2 run model B). */
+  standing_task_id: string | null;
+  standing_task_identifier: string | null;
   task_template_id: string | null;
   task_title: string | null;
   /** webhook provider only: the secret path segment of the hook URL. */
@@ -49,6 +52,8 @@ interface TriggerDto {
   quiet_hours: string | null;
   resource: string | null;
   source: "module" | "custom";
+  standing_task_id?: string | null;
+  standing_task_identifier?: string | null;
   task_template: {
     agent_type_key: string;
     description: string | null;
@@ -94,6 +99,8 @@ function toRoutineDto(trigger: TriggerDto): RoutineDto {
     quiet_hours: trigger.quiet_hours,
     resource: trigger.resource ?? null,
     source: trigger.source,
+    standing_task_id: trigger.standing_task_id ?? null,
+    standing_task_identifier: trigger.standing_task_identifier ?? null,
     task_template_id: trigger.task_template?.id ?? trigger.task_template_id,
     task_title: trigger.task_template?.title ?? null,
     webhook_secret: trigger.webhook_secret ?? null,

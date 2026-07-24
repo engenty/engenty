@@ -98,7 +98,7 @@
         "source": "workspace"
       }
     },
-    "containerRuntime": "docker"
+    "containerRuntime": "docker-desktop"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",

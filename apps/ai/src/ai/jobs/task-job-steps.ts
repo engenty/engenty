@@ -9,6 +9,11 @@ import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { mergeApprovalGrants } from "../sessions/connection-approval-grants.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
+import {
+  routineEntityRef,
+  routineWorkspaceStoragePrefix,
+} from "./routine-continuity.js";
+import { parseRoutineDisposition } from "./routine-disposition.js";
 import { summarizeTaskResultHeadline } from "./summarize-result-headline.js";
 import { buildTaskBrief } from "./task-brief.js";
 import { finishTaskJobRun, registerTaskJobRun } from "./task-job-run-record.js";
@@ -119,7 +124,6 @@ export const buildBriefStep = createStep({
     }
     const invoke = await invokerFor(inputData.tenant_id);
     const task = (await invoke("tasks_get", { id: inputData.task_id })) ?? {};
-    const brief = buildTaskBrief(task as Parameters<typeof buildTaskBrief>[0]);
     // Durable tool-approval grants: task-scoped ∪ one-shot ∪ routine-scoped.
     // Read here so the specialist's "request" pre-gate lets pre-approved ops
     // through; the one-shot list is consumed (cleared) for this run.
@@ -128,6 +132,16 @@ export const buildBriefStep = createStep({
       approval_grants_once?: string[];
       trigger_id?: string | null;
     };
+    const routineWorkspacePrefix = taskRow.trigger_id
+      ? routineWorkspaceStoragePrefix(inputData.tenant_id, taskRow.trigger_id)
+      : undefined;
+    const brief = buildTaskBrief({
+      ...(task as Parameters<typeof buildTaskBrief>[0]),
+      trigger_id: taskRow.trigger_id ?? null,
+      ...(routineWorkspacePrefix
+        ? { routine_workspace_prefix: routineWorkspacePrefix }
+        : {}),
+    });
     const taskGrants = mergeApprovalGrants(
       taskRow.approval_grants ?? [],
       taskRow.approval_grants_once ?? []
@@ -160,7 +174,10 @@ export const buildBriefStep = createStep({
     const learnings = await buildPriorLearningsSection({
       agentTypeKey: inputData.agent_type_key,
       contexts,
-      entityRefs: entityRefsFromContexts(contexts),
+      entityRefs: [
+        ...entityRefsFromContexts(contexts),
+        ...(taskRow.trigger_id ? [routineEntityRef(taskRow.trigger_id)] : []),
+      ],
       invoke,
     });
     return {
@@ -177,6 +194,7 @@ export const buildBriefStep = createStep({
 
 // 4) Record the specialist's result as a task comment (its output). Preserves the
 // ran/failed status for the finalize step. (Step 3 is the specialist run.)
+// Routine quiet disposition: no comment at all.
 export const writeResultStep = createStep({
   id: "write-result",
   inputSchema: taskJobEnvelopeSchema,
@@ -188,6 +206,32 @@ export const writeResultStep = createStep({
     const invoke = await invokerFor(inputData.tenant_id);
     const failed = inputData.status === "failed";
     const needsApproval = inputData.status === "needs_approval";
+    const isRoutine = Boolean(inputData.trigger_id);
+    let runDisposition = inputData.run_disposition;
+    let resultText = inputData.result_text;
+
+    if (!(failed || needsApproval) && isRoutine) {
+      const parsed = parseRoutineDisposition(inputData.result_text);
+      runDisposition = parsed.disposition;
+      resultText = parsed.cleanedText;
+      if (parsed.disposition === "quiet") {
+        // Fully suppressed — run row only, no comment.
+        return {
+          ...inputData,
+          result_text: resultText,
+          run_disposition: runDisposition,
+        };
+      }
+      if (parsed.disposition === "review" && parsed.reviewReason) {
+        const body = parsed.cleanedText.includes(parsed.reviewReason)
+          ? parsed.cleanedText
+          : [parsed.cleanedText, parsed.reviewReason]
+              .filter(Boolean)
+              .join("\n");
+        resultText = body;
+      }
+    }
+
     let body: string;
     if (failed) {
       body = `run failed — ${inputData.note ?? "unknown error"}`;
@@ -197,21 +241,25 @@ export const writeResultStep = createStep({
         .join(", ");
       body = `⏸ Waiting for approval to run ${ops || "a tool"} — approve from the inbox or on this task.`;
     } else {
-      body = readString(inputData.result_text) || "Run completed.";
+      body = readString(resultText) || "Run completed.";
     }
     await invoke("tasks_add_comment", {
       content: `🤖 ${inputData.agent_type_key}: ${body}`,
       created_by_agent_type_key: inputData.agent_type_key,
       id: inputData.task_id,
     });
-    return inputData;
+    return {
+      ...inputData,
+      ...(resultText === undefined ? {} : { result_text: resultText }),
+      ...(runDisposition ? { run_disposition: runDisposition } : {}),
+    };
   },
 });
 
 // 5) Release the checkout and set the terminal status. release() clears the
-// checkout (resetting to todo), so it MUST precede the status update — otherwise
-// it would clobber in_review and re-open the task for dispatch. Both ops are
-// idempotent, so a crash-resume re-runs this step safely.
+// checkout (resetting to resting status), so it MUST precede the status update —
+// otherwise it would clobber in_review and re-open the task for dispatch. Both
+// ops are idempotent, so a crash-resume re-runs this step safely.
 export const finalizeStep = createStep({
   id: "finalize",
   inputSchema: taskJobEnvelopeSchema,
@@ -222,52 +270,65 @@ export const finalizeStep = createStep({
     }
     const invoke = await invokerFor(inputData.tenant_id);
     const needsApproval = inputData.status === "needs_approval";
+    const failed = inputData.status === "failed";
+    const isRoutine = Boolean(inputData.trigger_id);
+    const disposition =
+      isRoutine && !(failed || needsApproval)
+        ? (inputData.run_disposition ?? "report")
+        : null;
+
+    const outcome = failed
+      ? ("failed" as const)
+      : needsApproval
+        ? ("needs_approval" as const)
+        : disposition === "quiet"
+          ? ("completed_quiet" as const)
+          : ("completed" as const);
+
+    // Routine quiet/report rest in backlog; review parks at in_review after
+    // release (release resting_status is backlog, then status update → in_review).
+    // Non-routine completed → release to todo then flip to in_review (unchanged).
+    const restingStatus =
+      isRoutine && (disposition === "quiet" || disposition === "report")
+        ? "backlog"
+        : isRoutine && disposition === "review"
+          ? "backlog"
+          : "todo";
+
     await invoke("tasks_release", {
       actor_agent_type_key: inputData.agent_type_key,
       agent_run_id: runId,
       id: inputData.task_id,
-      // Stamped onto the module's task_runs row — the durable outcome record
-      // (the ai.agent_run finish below is best-effort display enrichment).
-      outcome:
-        inputData.status === "failed"
-          ? ("failed" as const)
-          : needsApproval
-            ? ("needs_approval" as const)
-            : ("completed" as const),
-      // Durable record of what this run is waiting on, so the task's approval
-      // UI survives the inbox notification being dismissed. Always sent: an
-      // empty list is how a finished run clears a previous ask.
+      outcome,
       pending_approval_operation_ids: needsApproval
         ? (inputData.pending_approvals ?? []).map((p) => p.operation_id)
         : [],
+      resting_status: restingStatus,
     });
+
+    const nextStatus =
+      failed || needsApproval
+        ? "blocked"
+        : disposition === "quiet" || disposition === "report"
+          ? "backlog"
+          : disposition === "review"
+            ? "in_review"
+            : "in_review";
+
     await invoke("tasks_update", {
       actor_agent_type_key: inputData.agent_type_key,
       id: inputData.task_id,
-      // needs_approval and failed both park the task at `blocked`; the pending
-      // approval card/comment disambiguates the approval case in the UI.
-      status:
-        inputData.status === "failed" || needsApproval
-          ? "blocked"
-          : "in_review",
+      status: nextStatus,
     });
-    // Finish the ai.agent_run so the run-history card shows completed/failed
-    // instead of a perpetual "in progress". A needs-approval run ended cleanly.
+
     await finishTaskJobRun({
       runId,
       scope: await resolveTaskJobServiceScope(inputData.tenant_id),
-      status: inputData.status === "failed" ? "failed" : "completed",
+      status: failed ? "failed" : "completed",
     });
     const taskRef = inputData.identifier ?? inputData.task_id;
-    // What the row is ABOUT. The task identifier is deliberately not part of
-    // it: "ENG-274" tells a reader nothing they can act on, and the row already
-    // links to the task. Falls back to the task's own title, which beats any
-    // sentence we could assemble about a task whose result we cannot summarize.
     const subjectTitle = inputData.title?.trim() || null;
 
-    // Needs-approval: emit a needs-input notification carrying the task +
-    // operation ids so the inbox/task/routine can resolve it, then stop (no
-    // completed/failed notification for this outcome).
     if (needsApproval) {
       const pendings = inputData.pending_approvals ?? [];
       const primaryOp = pendings[0]?.operation_id ?? "a tool";
@@ -287,26 +348,47 @@ export const finalizeStep = createStep({
         },
         priority: "high",
         source: "tasks",
-        // The subject, not a sentence about it — the inbox renders the action
-        // verb itself, and the operation id is already shown on the approval
-        // buttons below the row.
         summary: subjectTitle ?? `approval to run ${primaryOp}`,
         tenantId: inputData.tenant_id,
       });
       return { ...inputData, status: "released" as const };
     }
 
-    const failed = inputData.status === "failed";
-    // Generate a "what was done" headline from the result note so the row says
-    // something specific. Best-effort — it needs a model and a result text, so
-    // the task title is the fallback. Failures get one too: "what it was trying
-    // to do" is the useful thing to read next to a failure.
+    // Quiet routine runs: no notification.
+    if (disposition === "quiet") {
+      return { ...inputData, status: "released" as const };
+    }
+
     const headline = inputData.result_text
       ? await summarizeTaskResultHeadline({
           resultText: inputData.result_text,
           taskRef,
         })
       : null;
+
+    // Review disposition: needs-input lane (human must clear in_review).
+    if (disposition === "review") {
+      await emitInboxNotification({
+        dedupeKey: `task:${inputData.task_id}:${runId}`,
+        kind: "task_review_requested",
+        metadata: {
+          agent_type_key: inputData.agent_type_key,
+          run_id: runId,
+          task_id: inputData.task_id,
+          ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
+          ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
+        },
+        ...(inputData.result_text
+          ? { payload: { result_text: inputData.result_text.slice(0, 2000) } }
+          : {}),
+        priority: "high",
+        source: "tasks",
+        summary: headline ?? subjectTitle ?? `Task ${taskRef}`,
+        tenantId: inputData.tenant_id,
+      });
+      return { ...inputData, status: "released" as const };
+    }
+
     await emitInboxNotification({
       dedupeKey: `task:${inputData.task_id}:${runId}`,
       kind: failed ? "task_failed" : "task_completed",

@@ -477,6 +477,38 @@ export function registerTasksGatewayMethods(
   });
 
   api.registerOperation({
+    operationId: "tasks_standing_by_triggers",
+    summary: "Newest non-terminal task per trigger (routine standing tasks)",
+    ...readOp(["module.tasks.read"]),
+    inputSchema: z.object({
+      trigger_ids: z.array(z.string().uuid()).max(200),
+    }),
+    outputSchema: z.object({
+      data: z.array(
+        z.object({
+          identifier: z.string(),
+          task_id: z.string().uuid(),
+          trigger_id: z.string().uuid(),
+        })
+      ),
+    }),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const { trigger_ids } = z
+        .object({ trigger_ids: z.array(z.string().uuid()).max(200) })
+        .parse(input);
+      const map = await repo.listStandingTasksByTriggerIds(trigger_ids);
+      return {
+        data: [...map.entries()].map(([triggerId, task]) => ({
+          identifier: task.identifier,
+          task_id: task.id,
+          trigger_id: triggerId,
+        })),
+      };
+    },
+  });
+
+  api.registerOperation({
     operationId: "tasks_list_activity",
     summary: "List task activity",
     ...readOp(["module.tasks.read"]),

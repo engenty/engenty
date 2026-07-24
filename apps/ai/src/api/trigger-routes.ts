@@ -91,6 +91,8 @@ interface TriggerDetailRow extends SyncableTrigger {
   module_key: string | null;
   quiet_hours: string | null;
   source: string;
+  standing_task_id?: string | null;
+  standing_task_identifier?: string | null;
   task_template: {
     agent_type_key: string;
     description: string | null;
@@ -99,6 +101,50 @@ interface TriggerDetailRow extends SyncableTrigger {
     title: string;
   } | null;
   task_template_id: string;
+}
+
+async function enrichStandingTasks(
+  invoke: (op: string, input?: unknown) => Promise<unknown>,
+  triggers: TriggerDetailRow[]
+): Promise<TriggerDetailRow[]> {
+  if (triggers.length === 0) {
+    return triggers;
+  }
+  // Op caps trigger_ids at 200 — chunk so large tenants still enrich fully.
+  const STANDING_BATCH = 200;
+  const ids = triggers.map((t) => t.id);
+  const standingRows: Array<{
+    identifier: string;
+    task_id: string;
+    trigger_id: string;
+  }> = [];
+  for (let i = 0; i < ids.length; i += STANDING_BATCH) {
+    const chunk = ids.slice(i, i + STANDING_BATCH);
+    // Core unwraps a single-key `{ data }` envelope, so the invoker returns the
+    // row array directly (same as `triggers_list`) — not `{ data: [...] }`.
+    const standingRaw = await invoke("tasks_standing_by_triggers", {
+      trigger_ids: chunk,
+    }).catch(() => []);
+    const rows = (
+      Array.isArray(standingRaw)
+        ? standingRaw
+        : ((standingRaw as { data?: unknown } | null)?.data ?? [])
+    ) as Array<{
+      identifier: string;
+      task_id: string;
+      trigger_id: string;
+    }>;
+    standingRows.push(...rows);
+  }
+  const byTrigger = new Map(standingRows.map((row) => [row.trigger_id, row]));
+  return triggers.map((trigger) => {
+    const hit = byTrigger.get(trigger.id);
+    return {
+      ...trigger,
+      standing_task_id: hit?.task_id ?? null,
+      standing_task_identifier: hit?.identifier ?? null,
+    };
+  });
 }
 
 export function registerTriggerRoutes(
@@ -155,8 +201,12 @@ export function registerTriggerRoutes(
         "triggers_list",
         {}
       )) as TriggerDetailRow[];
+      const withStanding = await enrichStandingTasks(
+        invokerFor(resolved.scope),
+        listed
+      );
       const triggers = await Promise.all(
-        listed.map(async (trigger) => {
+        withStanding.map(async (trigger) => {
           const heartbeat = trigger.heartbeat_id
             ? await mastra.schedules.get(trigger.heartbeat_id)
             : null;

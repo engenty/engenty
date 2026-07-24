@@ -4,10 +4,10 @@
 // dynamically-assembled agent, driven to completion, never throwing — a failure
 // comes back as `error` and becomes the `failed` outcome the finalize step acts on.
 //
-// v1 scope (happy path): the specialist works from the brief + its own tools. The
-// /task filesystem workspace mount is a planned follow-up; here inputs/outputs flow
-// through the Task record (brief in, result comment out).
+// Workspace file tools (workspace_read_file / workspace_write_file) are injected
+// as extraTools for this run only, scoped to the task (+ routine) prefixes.
 import { createStep } from "@mastra/core/workflows";
+import { createWorkspaceFileTools } from "../../../ai/tools/workspace-files/index.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { runDelegatedConversation } from "../conversation/delegate-run.js";
 import {
@@ -15,6 +15,7 @@ import {
   createRegistryStoreFromEnv,
 } from "../index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
+import { routineWorkspaceStoragePrefix } from "./routine-continuity.js";
 import { isSkippedEnvelope, taskJobEnvelopeSchema } from "./task-job-schema.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
 
@@ -45,6 +46,23 @@ export const runSpecialistStep = createStep({
       { operation_id: string; risk_level?: string; title?: string }
     >();
 
+    const allowedPrefixes: string[] = [];
+    if (inputData.trigger_id) {
+      // Prefer routine prefix for relative paths so durable state lands there.
+      allowedPrefixes.push(
+        routineWorkspaceStoragePrefix(inputData.tenant_id, inputData.trigger_id)
+      );
+    }
+    if (inputData.identifier) {
+      allowedPrefixes.push(
+        `tenants/${inputData.tenant_id}/ai/workspace/tasks/${inputData.identifier}/`
+      );
+    }
+    const extraTools =
+      allowedPrefixes.length > 0
+        ? createWorkspaceFileTools({ allowedPrefixes })
+        : undefined;
+
     const result = await runDelegatedConversation({
       // Headless task job with a needs-input channel: pre-gate against the
       // task/routine grants; an ungranted gated op is reported (not run) and the
@@ -66,6 +84,7 @@ export const runSpecialistStep = createStep({
       // Run on the registered ai.thread (created at checkout) so memory + the run
       // record share one drillable thread; fall back to a task-derived id.
       childThreadId: inputData.thread_id ?? `taskjob-${inputData.task_id}`,
+      ...(extraTools ? { extraTools } : {}),
       registry,
       scope,
       store,

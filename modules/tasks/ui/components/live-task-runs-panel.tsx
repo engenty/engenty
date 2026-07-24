@@ -153,8 +153,25 @@ function TaskRunCard({
             </p>
           </div>
         </div>
-        <Badge variant={active ? "default" : "secondary"}>
-          {active ? t("detail.liveRunInProgress") : t("detail.liveRunFinished")}
+        <Badge
+          className={
+            !active && run.outcome === "completed_quiet"
+              ? "opacity-70"
+              : undefined
+          }
+          variant={
+            active
+              ? "default"
+              : run.outcome === "completed_quiet"
+                ? "outline"
+                : "secondary"
+          }
+        >
+          {active
+            ? t("detail.liveRunInProgress")
+            : run.outcome === "completed_quiet"
+              ? t("detail.liveRunQuietOk")
+              : t("detail.liveRunFinished")}
         </Badge>
       </div>
 

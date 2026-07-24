@@ -33,10 +33,14 @@ export function buildReflectionPrompt(input: {
   brief?: string;
   result_text?: string;
   status?: string;
+  trigger_id?: string | null;
 }): string {
   const outcome = input.status === "failed" ? "FAILED" : "completed";
   const brief = (input.brief ?? "").slice(0, 2000);
   const result = (input.result_text ?? "").slice(0, 2000);
+  const routineScopeLine = input.trigger_id
+    ? `Save routine-specific lessons with scope_kind 'entity' and scope_ref 'tasks.routine:${input.trigger_id}' so the NEXT run starts from them.`
+    : null;
   return [
     `You just ${outcome === "FAILED" ? "attempted" : "finished"} this task (outcome: ${outcome}).`,
     "",
@@ -49,6 +53,7 @@ export function buildReflectionPrompt(input: {
     "in their notebook. Never save session details, restated task content,",
     "or anything derivable from the data.",
     "",
+    ...(routineScopeLine ? [routineScopeLine, ""] : []),
     "If there is something: memory_record_search the target scope first and",
     "re-save the same slug to update rather than duplicate. Save at most",
     "one or two records, with source_kind 'reflection'. Then stop and reply",
@@ -101,6 +106,10 @@ export async function runReflectStep(
 ): Promise<TaskJobEnvelope> {
   const deps = { ...defaultReflectionDeps(), ...overrides };
   if (!deps.isEnabled() || isSkippedEnvelope(inputData)) {
+    return inputData;
+  }
+  // Quiet routine runs: nothing notable happened — skip reflection.
+  if (inputData.run_disposition === "quiet") {
     return inputData;
   }
   try {

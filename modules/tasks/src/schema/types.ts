@@ -170,13 +170,19 @@ export interface TaskCheckoutInput {
 
 export interface TaskReleaseInput {
   agent_session_run_id?: string;
-  /** Run outcome stamped onto the task_runs row (completed | failed | needs_approval). */
-  outcome?: "completed" | "failed" | "needs_approval";
+  /** Run outcome stamped onto the task_runs row (completed | completed_quiet | failed | needs_approval). */
+  outcome?: "completed" | "completed_quiet" | "failed" | "needs_approval";
   /**
    * Operations the ending run still needs approval for. Always replaces the
    * task's pending set — a run that ended without asking clears it.
    */
   pending_approval_operation_ids?: string[];
+  /**
+   * Status to park the task at after checkout clears. Defaults to `todo`.
+   * Routine standing tasks pass `backlog` so they rest out of human todo lists.
+   * Only entry statuses — never `done` / `cancelled` / mid-lifecycle values.
+   */
+  resting_status?: "backlog" | "todo";
 }
 
 export interface TaskCheckoutConflictResponse {

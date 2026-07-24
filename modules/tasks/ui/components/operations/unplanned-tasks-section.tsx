@@ -26,7 +26,7 @@ export function UnplannedTasksSection({
         { pageSize: 100, sortBy: "updated_at", sortOrder: "desc" },
         signal
       );
-      // Filter to agent-assigned tasks without a goal
+      // Agent-assigned tasks without a goal — split routine standing tasks out.
       return result.data.filter(
         (task) => task.primary_assignee_kind === "agent" && !task.goal_id
       );
@@ -44,37 +44,60 @@ export function UnplannedTasksSection({
     );
   }
 
-  const tasks = tasksQuery.data ?? [];
-  if (tasks.length === 0) {
+  const all = tasksQuery.data ?? [];
+  const routineTasks = all.filter((task) => Boolean(task.trigger_id));
+  const unplannedTasks = all.filter((task) => !task.trigger_id);
+
+  if (all.length === 0) {
     return null;
   }
 
+  const renderGroup = (
+    title: string,
+    description: string,
+    tasks: typeof all
+  ) => {
+    if (tasks.length === 0) {
+      return null;
+    }
+    return (
+      <section className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="font-medium text-sm">{title}</h3>
+          <p className="text-muted-foreground text-xs">{description}</p>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {tasks.map((task) => (
+            <div className="contents" key={task.id}>
+              <OperationsTaskRow
+                definitions={definitions}
+                onOpenRun={(taskId) =>
+                  setExpandedTaskId(expandedTaskId === taskId ? null : taskId)
+                }
+                task={task}
+              />
+              {expandedTaskId === task.id ? (
+                <OperationsRunRows onCancelRun={onCancelRun} taskId={task.id} />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   return (
-    <section className="flex flex-col gap-2">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="font-medium text-sm">
-          {t("operations.unplanned.title")}
-        </h3>
-        <p className="text-muted-foreground text-xs">
-          {t("operations.unplanned.description")}
-        </p>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        {tasks.map((task) => (
-          <div className="contents" key={task.id}>
-            <OperationsTaskRow
-              definitions={definitions}
-              onOpenRun={(taskId) =>
-                setExpandedTaskId(expandedTaskId === taskId ? null : taskId)
-              }
-              task={task}
-            />
-            {expandedTaskId === task.id ? (
-              <OperationsRunRows onCancelRun={onCancelRun} taskId={task.id} />
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </section>
+    <>
+      {renderGroup(
+        t("operations.routines.title"),
+        t("operations.routines.description"),
+        routineTasks
+      )}
+      {renderGroup(
+        t("operations.unplanned.title"),
+        t("operations.unplanned.description"),
+        unplannedTasks
+      )}
+    </>
   );
 }

@@ -49,6 +49,9 @@ import type {
 } from "../schema/types.js";
 import { allocateTaskIdentifier } from "./task-identifier.js";
 
+/** Cap for task run history lists — standing routines accumulate forever. */
+export const TASK_RUNS_LIST_LIMIT = 30;
+
 const SCHEMA = "module_tasks";
 
 export interface TasksRepoAuditOptions {
@@ -1487,10 +1490,14 @@ export function createTasksRepoSupabase(
       }
 
       const now = new Date().toISOString();
+      const restingStatus = input.resting_status ?? "todo";
+      if (restingStatus !== "backlog" && restingStatus !== "todo") {
+        throw new Error("invalid_resting_status");
+      }
       const { data, error } = await tasks()
         .update({
           checkout_run_id: null,
-          status: "todo",
+          status: restingStatus,
           // The ending run's ask is the whole truth about what is outstanding:
           // a run that finished without asking clears whatever was pending.
           pending_approval_operation_ids:
@@ -1594,9 +1601,70 @@ export function createTasksRepoSupabase(
     },
 
     /**
-     * Open (not yet finished) tasks a trigger materialized — the schedule-fire
-     * stacking guard. "Open" = still headed for a run: entry statuses, running,
-     * or paused at blocked. `in_review`/terminal tasks are finished cycles.
+     * Tasks materialized by a trigger. With `nonTerminalOnly`, excludes
+     * done/cancelled (standing-task lookup). Ordered newest-first.
+     */
+    async listTriggerTasks(
+      triggerId: string,
+      opts?: { limit?: number; nonTerminalOnly?: boolean }
+    ): Promise<Task[]> {
+      let query = tasks()
+        .select("*")
+        .eq("trigger_id", triggerId)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .order("created_at", { ascending: false });
+      if (opts?.nonTerminalOnly) {
+        query = query.not("status", "in", "(done,cancelled)");
+      }
+      if (opts?.limit !== undefined) {
+        query = query.limit(opts.limit);
+      }
+      const { data, error } = await query;
+      if (error) {
+        throw new Error(`Failed to list trigger tasks: ${error.message}`);
+      }
+      return (data ?? []).map((row) =>
+        rowToTask(row as Record<string, unknown>)
+      );
+    },
+
+    /**
+     * Standing tasks for many triggers in one query (routine list enrichment).
+     * Returns the newest non-terminal task per trigger_id.
+     */
+    async listStandingTasksByTriggerIds(
+      triggerIds: string[]
+    ): Promise<Map<string, Task>> {
+      const result = new Map<string, Task>();
+      if (triggerIds.length === 0) {
+        return result;
+      }
+      const { data, error } = await tasks()
+        .select("*")
+        .in("trigger_id", triggerIds)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .not("status", "in", "(done,cancelled)")
+        .order("created_at", { ascending: false });
+      if (error) {
+        throw new Error(
+          `Failed to list standing trigger tasks: ${error.message}`
+        );
+      }
+      for (const row of data ?? []) {
+        const task = rowToTask(row as Record<string, unknown>);
+        if (task.trigger_id && !result.has(task.trigger_id)) {
+          result.set(task.trigger_id, task);
+        }
+      }
+      return result;
+    },
+
+    /**
+     * Open (not yet finished) tasks a trigger materialized — thin wrapper kept
+     * for callers that still want the pre-standing-task "stacking" set
+     * (entry + running + blocked, not in_review).
      */
     async listOpenTriggerTasks(triggerId: string): Promise<Task[]> {
       const { data, error } = await tasks()
@@ -1614,12 +1682,14 @@ export function createTasksRepoSupabase(
     },
 
     async listTaskRuns(taskId: string): Promise<TaskRun[]> {
+      // Immortal standing tasks accumulate forever; keep list payloads bounded.
       const { data, error } = await taskRuns()
         .select("*")
         .eq("task_id", taskId)
         .eq("tenant_id", tenantId)
         .eq("scope_id", scopeId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(TASK_RUNS_LIST_LIMIT);
       if (error) {
         throw new Error(`Failed to list task runs: ${error.message}`);
       }

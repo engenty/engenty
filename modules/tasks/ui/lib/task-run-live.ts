@@ -10,7 +10,7 @@ export const TASK_LIVE_POLL_MS = 3000;
  * Checkout alone does not keep a finished run "active".
  */
 export function isTaskRunLiveActive(run: TaskRun): boolean {
-  return !run.run_finished_at;
+  return !(run.finished_at || run.run_finished_at);
 }
 
 export function resolveCheckoutLinkedRun(

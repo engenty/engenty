@@ -1,6 +1,6 @@
 # PLAN — Promote routines from task templates to scheduled specialists
 
-**Status:** planned · 2026-07-24 · **rev 2** (run model decided: standing task)
+**Status:** implemented · 2026-07-24 · **rev 2** (run model decided: standing task)
 **Decision basis:** architecture deep-dive (claude.ai artifact `dfb53e58`), Open question 1, position C —
 > A routine IS a scheduled agent that files its work as reviewable tasks.
 
@@ -143,13 +143,13 @@ if (existing) {
 `trim()`.
 
 **Checklist**
-- [ ] Drift helper + unit tests (drifted / identical / whitespace-only).
-- [ ] Reconcile updates on drift, still never creates duplicates.
-- [ ] `enabled=false` + custom `cron` survive a reconcile with changed ROUTINE.md
+- [x] Drift helper + unit tests (drifted / identical / whitespace-only).
+- [x] Reconcile updates on drift, still never creates duplicates.
+- [x] `enabled=false` + custom `cron` survive a reconcile with changed ROUTINE.md
       (THE regression risk — test explicitly).
-- [ ] If `triggers_update` gains nested template input: zod + DAL + **op-list test**
+- [x] If `triggers_update` gains nested template input: zod + DAL + **op-list test**
       `modules/tasks/src/api/index.test.ts`.
-- [ ] `TRIGGER_DESCRIPTION_MAX = 16_000` cap still honored; per-item try/catch kept.
+- [x] `TRIGGER_DESCRIPTION_MAX = 16_000` cap still honored; per-item try/catch kept.
 - [ ] Manual: edit coordinator heartbeat ROUTINE.md → boot → description changed,
       enabled/cron untouched. (`touch apps/core/src/api-entry.ts` after module edits.)
 
@@ -228,14 +228,15 @@ replace it later without changing semantics).
   whether anything needs doing, do small work inline. For substantial work, create
   a dedicated task instead of extending this run.
   End your final message with exactly one of:
-  - `ROUTINE_OK` — nothing notable happened; the run is logged silently.
+  - `ROUTINE_OK` alone — nothing notable happened; the run is logged silently.
   - `ROUTINE_REVIEW: <one line why>` — a human should look at this run's result.
-  - neither — your result is posted as a normal report comment.
+  - a normal report (neither token, or substantive text ending with `ROUTINE_OK`
+    — trailing OK is stripped; still a report).
   ```
 
 - Parser: `apps/ai/src/ai/jobs/routine-disposition.ts` — pure function over
   `result_text`: token at start or end is stripped; a result that is ONLY the token
-  is quiet with an empty report. Returns
+  is quiet with an empty report; body + OK → report. Returns
   `{ disposition: "quiet" | "report" | "review", cleanedText }`. Unit-test the corpus:
   token-only, token+text, text+token, mid-text token (→ report, token left in place),
   no token.
@@ -251,7 +252,7 @@ and the run outcome is `completed`:
 |---|---|---|---|---|
 | `quiet` | **none** | `backlog` (resting) | `completed_quiet` | **none** |
 | `report` | cleanedText as usual | `backlog` (resting) | `completed` | existing FYI `task_completed` |
-| `review` | cleanedText + reason | `in_review` | `completed` | needs-input (review card) |
+| `review` | cleanedText + reason | `in_review` | `completed` | needs-input `task_review_requested` |
 
 `failed` → `blocked` + notification, `needs_approval` → `blocked` + pending ops —
 **both exactly as today**. Non-routine tasks (no `trigger_id`) keep the current
@@ -272,19 +273,19 @@ Delete the "close own previous in_review heartbeat tasks" clause from
 obsoletes — and note the stragglers clean up via the existing reaper/review flows.
 
 **Checklist**
-- [ ] DAL: `listTriggerTasks(triggerId, {nonTerminalOnly, limit})` (generalizes
+- [x] DAL: `listTriggerTasks(triggerId, {nonTerminalOnly, limit})` (generalizes
       `listOpenTriggerTasks`; keep the old name as a thin wrapper or update callers).
-- [ ] `releaseTask` gains `restingStatus` input; `tasks_release` zod + op-list test.
-- [ ] Fire-path branch table above as unit tests: active-run skip / in_review skip /
+- [x] `releaseTask` gains `restingStatus` input; `tasks_release` zod + op-list test.
+- [x] Fire-path branch table above as unit tests: active-run skip / in_review skip /
       blocked skip / resting re-dispatch / terminal → new generation / event trigger
       untouched.
-- [ ] Disposition parser + tests (5-case corpus).
-- [ ] Envelope field optional; finalize branch table as tests (esp. quiet = no
+- [x] Disposition parser + tests (5-case corpus).
+- [x] Envelope field optional; finalize branch table as tests (esp. quiet = no
       comment, no notification, `completed_quiet` outcome stamped).
-- [ ] Brief: routine protocol section behind `trigger_id`; prior-comments cap.
-- [ ] Coordinator ROUTINE.md: remove self-cleanup clause (Phase 1 reconcile now
+- [x] Brief: routine protocol section behind `trigger_id`; prior-comments cap.
+- [x] Coordinator ROUTINE.md: remove self-cleanup clause (Phase 1 reconcile now
       propagates the edit!).
-- [ ] Run-panel UI: `completed_quiet` outcome renders as a muted "ok" row, not an
+- [x] Run-panel UI: `completed_quiet` outcome renders as a muted "ok" row, not an
       error and not "In progress".
 - [ ] E2E (dev, tenant-matched JWT): heartbeat fire → quiet run → task rests in
       `backlog`, zero comments, zero inbox items, run row `completed_quiet`; second
@@ -325,8 +326,8 @@ export function routineEntityRef(triggerId: string): string {
   `/settings/memory`), with a hint when `ENGENTY_AI_MEMORY_REFLECTION` is off.
 
 **Checklist**
-- [ ] `routine-ref.ts` + package export + tsup entry.
-- [ ] Brief injection test; reflection prompt test (scope line iff trigger_id);
+- [x] `routine-ref.ts` + package export + tsup entry.
+- [x] Brief injection test; reflection prompt test (scope line iff trigger_id);
       quiet-run reflection skip test.
 - [ ] E2E (reflection ON): run 1 saves a lesson → run 2's brief contains it.
 
@@ -356,10 +357,10 @@ export function routineWorkspaceStoragePrefix(tenantId: string, triggerId: strin
 - Routine detail reuses the `TaskWorkspaceStrip` pattern with the routine prefix.
 
 **Checklist**
-- [ ] `routine-workspace.ts` + tests + package export.
-- [ ] Checkout bootstrap (idempotent, fail-open) behind `trigger_id`.
-- [ ] Tool audit resolved; if new tools: prefix-validation tests incl. traversal.
-- [ ] Strip on routine detail; empty state.
+- [x] `routine-workspace.ts` + tests + package export.
+- [x] Checkout bootstrap (idempotent, fail-open) behind `trigger_id`.
+- [x] Tool audit resolved; if new tools: prefix-validation tests incl. traversal.
+- [x] Strip on routine detail; empty state.
 - [ ] E2E: run 1 writes `state.md`, run 2's agent reads it (visible in thread log).
 
 ## Phase 5 — Routine ⇄ task surfaces (much simpler under model B)
@@ -381,14 +382,14 @@ export function routineWorkspaceStoragePrefix(tenantId: string, triggerId: strin
   `UnplannedTasksSection`.
 
 **Checklist**
-- [ ] Server: routine list/get enriches standing task id+identifier (one query, no
+- [x] Server: routine list/get enriches standing task id+identifier (one query, no
       N+1 over routines — batch by `trigger_id IN (…)`).
-- [ ] `pnpm --filter @engenty/ai-ui build` BEFORE touching module UI (types resolve
+- [x] `pnpm --filter @engenty/ai-ui build` BEFORE touching module UI (types resolve
       against dist).
-- [ ] Dead link removed; Runs section shows live + finished + quiet runs.
+- [x] Dead link removed; Runs section shows live + finished + quiet runs.
 - [ ] Manual `tsc --noEmit` spot-check on every touched `ui/` file; eyeball only NEW
       errors (pre-existing noise is known).
-- [ ] Realtime: runs section refetches on `task_runs` events (table is in the
+- [x] Realtime: runs section refetches on `task_runs` events (table is in the
       `supabase_realtime` publication).
 
 ## Phase 6 — Optional polish (separate commits, skip freely)

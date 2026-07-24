@@ -188,12 +188,22 @@ export function registerTriggerGatewayMethods(
     outputSchema: triggerDetailSchema,
     handler: async (input, ctx) => {
       const repo = triggersRepoFactory(requireAuth(ctx.auth));
-      const { id, ...patch } = triggerUpdateInputSchema
+      const { id, task_template, ...patch } = triggerUpdateInputSchema
         .extend({ id: z.string().uuid() })
         .parse(input);
       const updated = await repo.updateTrigger(id, patch);
       if (!updated) {
         throw new Error("trigger_not_found");
+      }
+      if (task_template) {
+        const templateId = updated.task_template_id;
+        const templateUpdated = await repo.updateTaskTemplate(
+          templateId,
+          task_template
+        );
+        if (!templateUpdated) {
+          throw new Error("task_template_not_found");
+        }
       }
       if (
         updated.kind === "event" &&

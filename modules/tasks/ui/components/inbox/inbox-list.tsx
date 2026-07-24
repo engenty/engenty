@@ -39,6 +39,7 @@ const NEEDS_INPUT_KINDS = new Set([
   "skill_proposed",
   "memory_proposal",
   "task_failed",
+  "task_review_requested",
   "trigger_failed",
 ]);
 
@@ -95,6 +96,8 @@ function iconForKind(
     case "task_failed":
     case "trigger_failed":
       return AlertTriangle;
+    case "task_review_requested":
+      return GitPullRequestArrow;
     case "connection_approval_requested":
     case "tool_approval":
       return ShieldCheck;
@@ -219,6 +222,7 @@ function actionVerbKey(notification: InboxNotificationDto): string | null {
     case "agent_proposed":
     case "memory_proposal":
     case "skill_proposed":
+    case "task_review_requested":
     case "task_completed":
       return "inbox.actionReview";
     default:
