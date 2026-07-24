@@ -27,8 +27,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/api/habbo-avatar-routes.ts src/lib/habbo-avatar-prompt.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/api/habbo-avatar-routes.ts src/lib/habbo-avatar-prompt.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
     "test": "vitest run --root ../.. modules/team/",
     "lint": "echo 'No lint yet'"
   },
@@ -50,6 +50,7 @@
     "@engenty/projects": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/tasks": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
@@ -58,6 +59,7 @@
     "@supabase/supabase-js": "^2.108.2",
     "@types/dagre": "^0.7.54",
     "@xyflow/react": "^12.11.0",
+    "ai": "6.0.116",
     "dagre": "^0.8.5",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.21.0",

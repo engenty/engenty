@@ -2,6 +2,7 @@ import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { z } from "zod";
 import { teamMembersAiRegistration } from "../ai/registrar.js";
+import { registerTeamHabboAvatarRoutes } from "./api/habbo-avatar-routes.js";
 import { registerTeamImportRoutes } from "./api/import-routes.js";
 import { registerTeamMembersApi } from "./api/index.js";
 import { registerTeamModuleRoutes } from "./api/team-module-routes.js";
@@ -32,6 +33,7 @@ const registerTeamMembersPlugin: EngentyPluginFactory = (engenty) => {
   const repoOrFactory = (auth: { tenantId: string; scopeId: string }) =>
     createTeamMemberRepoSupabase(supabase, auth.tenantId, auth.scopeId);
   registerTeamModuleRoutes(engenty.server, supabase);
+  registerTeamHabboAvatarRoutes(engenty.server);
   registerTeamImportRoutes(engenty.server);
   registerTeamMembersApi(engenty.server, repoOrFactory);
 
