@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.73] - 2026-07-24
+- ADDED **[tasks]** Standing-task schedule routines with agent disposition
+- DOCS Where-work-lives — rebase on shipped hardening + routine work (absorption list, tool-based Phase 3)
+
 ## [0.1.72] - 2026-07-24
 - ADDED **[tasks]** Harden dispatch rails, typecheck UI, and blocked reasons
 - ADDED **[queue]** At-least-once delivery with dead-letter cap
