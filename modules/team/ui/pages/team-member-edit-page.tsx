@@ -26,6 +26,7 @@ import {
   LOCATION_NONE,
   TeamMemberEditBaseInfoSection,
 } from "../components/team-member-edit-base-info-section.js";
+import { TeamMemberProfileImageField } from "../components/team-member-profile-image-field.js";
 import { ROLE_NONE } from "../components/team-member-role-field.js";
 import { TeamModulePageScroll } from "../components/team-module-page-scroll.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
@@ -335,6 +336,23 @@ export function TeamMemberEditPage() {
             description={t("publicProfileDescription")}
             title={t("publicProfileInfo")}
           >
+            {member && id && (
+              <TeamMemberProfileImageField
+                fullName={member.full_name}
+                initials={form.watch("initials") ?? null}
+                onChange={async (storageKey) => {
+                  await updateMutation.mutateAsync({
+                    profile_image_storage_key: storageKey,
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: teamMemberKeys.detailPage(id),
+                  });
+                }}
+                profileId={id}
+                storageKey={member.profile_image_storage_key ?? null}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="initials"

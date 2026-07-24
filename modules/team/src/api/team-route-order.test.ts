@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { registerTeamHabboAvatarRoutes } from "./habbo-avatar-routes.js";
 import { registerTeamImportRoutes } from "./import-routes.js";
 import { registerTeamMembersApi } from "./index.js";
 import { registerTeamModuleRoutes } from "./team-module-routes.js";
@@ -10,6 +11,7 @@ function registerTeamRoutesLikePlugin(
   supabase: unknown
 ) {
   registerTeamModuleRoutes(api, supabase);
+  registerTeamHabboAvatarRoutes(api);
   registerTeamImportRoutes(api);
   registerTeamMembersApi(api, makeMockTeamMemberRepo());
 }
@@ -41,6 +43,20 @@ describe("team plugin HTTP route order", () => {
       expect(idx, `missing route GET ${path}`).toBeGreaterThan(-1);
       expect(idx).toBeLessThan(memberByIdIdx);
     }
+  });
+
+  it("registers Habbo avatar route before GET /api/team/:id", () => {
+    const { api, httpRoutes } = makeMockApi();
+    registerTeamRoutesLikePlugin(api, {});
+
+    const memberByIdIdx = httpRoutes.findIndex(
+      (r) => r.method === "get" && r.path === "/api/team/:id"
+    );
+    const idx = httpRoutes.findIndex(
+      (r) => r.method === "post" && r.path === "/api/team/avatars/habbo"
+    );
+    expect(idx).toBeGreaterThan(-1);
+    expect(idx).toBeLessThan(memberByIdIdx);
   });
 
   it("registers import lookup routes before GET /api/team/:id", () => {

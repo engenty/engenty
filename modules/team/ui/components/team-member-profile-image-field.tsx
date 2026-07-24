@@ -11,13 +11,14 @@ import {
 } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { Trash2 } from "lucide-react";
+import { Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { getTeamFileStorageSignedUrl } from "../lib/team-file-storage-url.js";
 import {
   TEAM_MEMBER_PHOTO_ACCEPT,
   uploadTeamMemberPhotoViaVault,
 } from "../lib/team-vault-upload.js";
+import { TeamAvatarAiCreatorModal } from "./team-avatar-ai-creator-modal.js";
 
 export function TeamMemberProfileImageField(props: {
   fullName: string;
@@ -32,6 +33,7 @@ export function TeamMemberProfileImageField(props: {
   const tenantId = currentTenant?.id ?? null;
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const imageUrlQuery = useQuery({
     queryKey: ["team", "profile-image-url", props.storageKey],
@@ -93,6 +95,18 @@ export function TeamMemberProfileImageField(props: {
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              className="border-ember/40 bg-ember/10 text-ember hover:bg-ember/20"
+              disabled={props.disabled || uploading || !tenantId}
+              onClick={() => setAiModalOpen(true)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-ember" />
+              Camera / AI Avatar
+            </Button>
+
             <FileInput
               accept={TEAM_MEMBER_PHOTO_ACCEPT}
               aria-label={t("uploadProfilePicture")}
@@ -132,6 +146,13 @@ export function TeamMemberProfileImageField(props: {
           {t("profilePictureHint")}
         </p>
       </div>
+
+      <TeamAvatarAiCreatorModal
+        initialName={props.fullName}
+        onAvatarGenerated={handleFile}
+        onOpenChange={setAiModalOpen}
+        open={aiModalOpen}
+      />
     </FormItem>
   );
 }
