@@ -2,14 +2,14 @@
  * Shared Habbo avatar option labels + Gemini prompt builder (server + tests).
  */
 
-export type HabboAvatarGenOptions = {
+export interface HabboAvatarGenOptions {
   glasses?: boolean;
   hairColor?: "dark" | "blonde" | "auburn" | "silver" | "ember";
   hairStyle?: "short" | "wavy" | "spiky" | "bob" | "afro";
   outfitColor?: "ember" | "cobalt" | "moss" | "rose" | "amber" | "dark";
   outfitStyle?: "casual" | "suit" | "hoodie" | "engenty";
   skinTone?: "fair" | "medium" | "tan" | "deep";
-};
+}
 
 const SKIN_LABEL: Record<
   NonNullable<HabboAvatarGenOptions["skinTone"]>,

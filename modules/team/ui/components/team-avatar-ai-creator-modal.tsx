@@ -38,12 +38,12 @@ interface TeamAvatarAiCreatorModalProps {
   open: boolean;
 }
 
-type AvatarVariation = {
-  id: number;
+interface AvatarVariation {
   dataUrl: string;
+  id: number;
   label: string;
   options: HabboAvatarOptions;
-};
+}
 
 const VARIATION_LABELS = ["Casual Habbo", "Executive Suit", "Cyber Copilot"];
 

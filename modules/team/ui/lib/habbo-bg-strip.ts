@@ -10,7 +10,12 @@ function luma(r: number, g: number, b: number): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function isLightBackground(r: number, g: number, b: number, a: number): boolean {
+function isLightBackground(
+  r: number,
+  g: number,
+  b: number,
+  a: number
+): boolean {
   if (a < 8) {
     return true;
   }
@@ -125,9 +130,7 @@ export async function stripHabboLightBackground(
         if (data[o + 3]! === 0) {
           continue;
         }
-        if (
-          !isFringeHalo(data[o]!, data[o + 1]!, data[o + 2]!, data[o + 3]!)
-        ) {
+        if (!isFringeHalo(data[o]!, data[o + 1]!, data[o + 2]!, data[o + 3]!)) {
           continue;
         }
         let touchesTransparent = false;

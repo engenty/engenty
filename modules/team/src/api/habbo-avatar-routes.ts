@@ -49,12 +49,7 @@ const habboOptionsSchema = z.object({
     "hoodie",
     "engenty",
   ] as const).optional(),
-  skinTone: optionEnum([
-    "fair",
-    "medium",
-    "tan",
-    "deep",
-  ] as const).optional(),
+  skinTone: optionEnum(["fair", "medium", "tan", "deep"] as const).optional(),
 });
 
 const bodySchema = z.object({
@@ -142,12 +137,12 @@ async function generateOneHabboPng(args: {
 
   // Imagen / OpenAI image models via generateImage
   const promptArg =
-    reference != null
-      ? {
+    reference == null
+      ? prompt
+      : {
           images: [reference.bytes],
           text: `${prompt}\nUse the reference photo only as a loose likeness hint (still Habbo pixel art — never photoreal).`,
-        }
-      : prompt;
+        };
 
   const result = await generateImage({
     model: modelId,
@@ -188,10 +183,7 @@ export function registerTeamHabboAvatarRoutes(
     },
     handler: async (ctx) => {
       if (!readAiGatewayApiKeyFromEnv()) {
-        return bad(
-          "AI Gateway is not configured (AI_GATEWAY_API_KEY).",
-          503
-        );
+        return bad("AI Gateway is not configured (AI_GATEWAY_API_KEY).", 503);
       }
 
       const body = bodySchema.parse(await ctx.request.json().catch(() => ({})));
