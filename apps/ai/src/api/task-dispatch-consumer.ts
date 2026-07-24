@@ -3,8 +3,9 @@
 // "heartbeat dispatcher" in Paperclip terms: it does NOT execute the agent itself —
 // it starts the workflow, which checks the task out, runs the specialist, writes the
 // result, and finalizes. Durability lives in the workflow snapshot; the consumer
-// just kicks runs off (messages pop at-most-once; an in-flight run survives a crash
-// via restartAllActiveWorkflowRuns on boot).
+// awaits the run. At-least-once queue delivery is safe: a redelivered message for an
+// already-checked-out task hits checkout 409 → envelope `skipped` → downstream
+// steps no-op (see task-job-steps).
 
 import { randomUUID } from "node:crypto";
 import type { QueueService } from "@engenty/queue";
