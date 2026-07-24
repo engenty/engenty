@@ -255,6 +255,7 @@
     "liveRunViewDetails": "Show details",
     "liveRunInProgress": "In progress",
     "liveRunFinished": "Finished",
+    "liveRunQuietOk": "ok",
     "liveRunId": "Run {{id}}…",
     "copyRunId": "Copy run id",
     "releaseCheckout": "Release checkout",
@@ -454,7 +455,22 @@
       "neverExecuted": "Never executed",
       "failed": "Failed",
       "success": "Success",
-      "viewRunDetails": "View run details (Timeline)",
+      "runs": "Runs",
+      "runsEmpty": "No runs yet — the next fire creates the standing task.",
+      "runsLoadError": "Could not load runs.",
+      "runOk": "ok",
+      "runNeedsApproval": "Needs approval",
+      "openTask": "Open task {{identifier}}",
+      "workspace": "Routine workspace",
+      "workspacePath": "Storage path",
+      "workspaceEmpty": "Tenant required to resolve workspace path.",
+      "workspaceHint": "Durable folder across runs. Agents read/write via workspace_read_file / workspace_write_file.",
+      "memory": "Memory",
+      "memoryOpen": "Open memory settings",
+      "memoryEmpty": "No routine-scoped lessons yet.",
+      "memoryLoadError": "Could not load memory.",
+      "memoryUntitled": "(untitled)",
+      "memoryReflectionOff": "Lessons are saved when reflection is enabled (ENGENTY_AI_MEMORY_REFLECTION=true).",
       "webhookUrl": "Webhook URL",
       "webhookHint": "POST to this URL fires the routine; the request body is attached to the task."
     },
@@ -609,7 +625,11 @@
     },
     "unplanned": {
       "title": "Unplanned agent tasks",
-      "description": "Agent tasks without a goal"
+      "description": "Agent tasks without a goal or routine"
+    },
+    "routines": {
+      "title": "Routines",
+      "description": "Standing tasks owned by schedule routines"
     },
     "empty": {
       "title": "No active operations",

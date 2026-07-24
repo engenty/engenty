@@ -19,6 +19,7 @@ import {
   buildHeartbeatMetadata,
   readHeartbeatMetadata,
 } from "./heartbeat-metadata.js";
+import { routineDeclarationDrifted } from "./routine-declaration-drift.js";
 import type { SchedulerOperationInvoker } from "./service-invoker.js";
 import { listSystemJobs } from "./system-jobs.js";
 
@@ -106,9 +107,16 @@ export async function deleteTriggerHeartbeat(
 export const SCHEDULER_AGENT_ID = "engenty.scheduler";
 
 interface TriggerListRow extends SyncableTrigger {
+  description: string | null;
   module_id: string | null;
   module_key: string | null;
   source: string;
+  task_template: {
+    agent_type_key: string;
+    description: string | null;
+    priority: string;
+    title: string;
+  } | null;
 }
 
 /**
@@ -156,7 +164,45 @@ export async function reconcileScheduler(options: {
     const existing = byModuleKey.get(
       `${definition.module_id}:${definition.id}`
     );
+    const desired = {
+      description: definition.description ?? null,
+      template: {
+        agent_type_key: template.agent_type_key,
+        description: template.description ?? null,
+        priority: normalizePriority(template.priority),
+        title: template.title,
+      },
+    };
     if (existing) {
+      // Declaration-owned fields follow ROUTINE.md; user-owned enabled/cron/
+      // timezone/quiet_hours/approval_grants are never touched here.
+      if (routineDeclarationDrifted(existing, desired)) {
+        try {
+          await invokeOperation("triggers_update", {
+            description: desired.description,
+            id: existing.id,
+            task_template: {
+              agent_type_key: desired.template.agent_type_key,
+              description: desired.template.description,
+              name: definition.name,
+              priority: desired.template.priority,
+              title: desired.template.title,
+            },
+          });
+          logger.info("module trigger reconciled", {
+            moduleId: definition.module_id,
+            moduleKey: definition.id,
+            triggerId: existing.id,
+          });
+        } catch (err) {
+          logger.error("routine reconcile update failed", {
+            message: err instanceof Error ? err.message : String(err),
+            moduleId: definition.module_id,
+            moduleKey: definition.id,
+            triggerId: existing.id,
+          });
+        }
+      }
       continue;
     }
     // One malformed declaration must not take the scheduler down with it: this
@@ -166,7 +212,7 @@ export async function reconcileScheduler(options: {
     try {
       await invokeOperation("triggers_create", {
         cron: definition.schedule,
-        description: definition.description ?? null,
+        description: desired.description,
         enabled: definition.enabled_by_default,
         kind: "schedule",
         module_id: definition.module_id,
@@ -175,11 +221,11 @@ export async function reconcileScheduler(options: {
         quiet_hours: definition.quiet_hours ?? null,
         source: "module",
         task_template: {
-          agent_type_key: template.agent_type_key,
-          description: template.description ?? null,
+          agent_type_key: desired.template.agent_type_key,
+          description: desired.template.description,
           name: definition.name,
-          priority: normalizePriority(template.priority),
-          title: template.title,
+          priority: desired.template.priority,
+          title: desired.template.title,
         },
       });
       logger.info("module trigger created", {

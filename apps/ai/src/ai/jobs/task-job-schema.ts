@@ -58,6 +58,9 @@ export const taskJobEnvelopeSchema = z.object({
   approval_grants: z.array(z.string()).optional(),
   // The routine (trigger) that created the task, for the needs-input record.
   trigger_id: z.string().uuid().nullable().optional(),
+  // Agent-decided disposition for routine runs (quiet | report | review).
+  // Optional so in-flight snapshots from before this field parse.
+  run_disposition: z.enum(["quiet", "report", "review"]).optional(),
   // Tool-approval requests the specialist hit under the "request" policy.
   pending_approvals: z.array(pendingApprovalSchema).optional(),
 });

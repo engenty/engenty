@@ -153,4 +153,41 @@ describe("buildReflectionPrompt", () => {
     });
     expect(prompt.length).toBeLessThan(5000);
   });
+
+  it("includes routine entity scope when trigger_id is set", () => {
+    const prompt = buildReflectionPrompt({
+      ...envelope,
+      trigger_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    });
+    expect(prompt).toContain(
+      "scope_ref 'tasks.routine:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'"
+    );
+  });
+
+  it("omits routine scope line without trigger_id", () => {
+    const prompt = buildReflectionPrompt(envelope);
+    expect(prompt).not.toContain("tasks.routine:");
+  });
+});
+
+describe("runReflectStep — quiet disposition", () => {
+  it("skips reflection for quiet routine runs", async () => {
+    const deps = {
+      isEnabled: () => true,
+      createStore: () => ({}) as never,
+      resolveScope: vi.fn(async () => ({}) as never),
+      createRegistry: vi.fn(() => ({}) as never),
+      runConversation: vi.fn(async () => ({}) as never),
+    };
+    await runReflectStep(
+      {
+        ...envelope,
+        run_disposition: "quiet",
+        trigger_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      },
+      "run-9",
+      deps
+    );
+    expect(deps.runConversation).not.toHaveBeenCalled();
+  });
 });

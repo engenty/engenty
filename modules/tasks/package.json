@@ -30,14 +30,22 @@
     "./lib/task-workspace": {
       "types": "./dist/src/lib/task-workspace.d.ts",
       "default": "./dist/src/lib/task-workspace.js"
+    },
+    "./lib/routine-ref": {
+      "types": "./dist/src/lib/routine-ref.d.ts",
+      "default": "./dist/src/lib/routine-ref.js"
+    },
+    "./lib/routine-workspace": {
+      "types": "./dist/src/lib/routine-workspace.d.ts",
+      "default": "./dist/src/lib/routine-workspace.js"
     }
   },
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --watch",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "biome check ."

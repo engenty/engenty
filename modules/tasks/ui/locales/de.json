@@ -255,6 +255,7 @@
     "liveRunViewDetails": "Details anzeigen",
     "liveRunInProgress": "In Bearbeitung",
     "liveRunFinished": "Beendet",
+    "liveRunQuietOk": "ok",
     "liveRunId": "Lauf {{id}}…",
     "copyRunId": "Lauf-ID kopieren",
     "releaseCheckout": "Checkout freigeben",
@@ -454,7 +455,22 @@
       "neverExecuted": "Nie gelaufen",
       "failed": "Fehlgeschlagen",
       "success": "Erfolgreich",
-      "viewRunDetails": "Lauf-Details anzeigen (Timeline)",
+      "runs": "Läufe",
+      "runsEmpty": "Noch keine Läufe — der nächste Fire erzeugt die Standing-Task.",
+      "runsLoadError": "Läufe konnten nicht geladen werden.",
+      "runOk": "ok",
+      "runNeedsApproval": "Freigabe nötig",
+      "openTask": "Aufgabe {{identifier}} öffnen",
+      "workspace": "Routine-Workspace",
+      "workspacePath": "Speicherpfad",
+      "workspaceEmpty": "Tenant erforderlich, um den Workspace-Pfad aufzulösen.",
+      "workspaceHint": "Dauerhafter Ordner über Läufe hinweg. Agenten lesen/schreiben via workspace_read_file / workspace_write_file.",
+      "memory": "Gedächtnis",
+      "memoryOpen": "Speicher-Einstellungen öffnen",
+      "memoryEmpty": "Noch keine routine-spezifischen Lektionen.",
+      "memoryLoadError": "Gedächtnis konnte nicht geladen werden.",
+      "memoryUntitled": "(ohne Titel)",
+      "memoryReflectionOff": "Lektionen werden gespeichert, wenn Reflection aktiv ist (ENGENTY_AI_MEMORY_REFLECTION=true).",
       "webhookUrl": "Webhook-URL",
       "webhookHint": "POST an diese URL löst die Routine aus; der Request-Body wird der Aufgabe angehängt."
     },
@@ -609,7 +625,11 @@
     },
     "unplanned": {
       "title": "Ungeplante Agent-Aufgaben",
-      "description": "Agent-Aufgaben ohne Ziel"
+      "description": "Agent-Aufgaben ohne Ziel oder Routine"
+    },
+    "routines": {
+      "title": "Routinen",
+      "description": "Standing-Tasks von Zeitplan-Routinen"
     },
     "empty": {
       "title": "Keine aktiven Operationen",

@@ -65,6 +65,7 @@ describe("registerTasksApi", () => {
       "tasks_run_now",
       "tasks_settings_get",
       "tasks_settings_update",
+      "tasks_standing_by_triggers",
       "tasks_update",
     ]);
   });

@@ -181,6 +181,7 @@ const NEEDS_INPUT_KINDS = new Set([
   "skill_proposed",
   "memory_proposal",
   "task_failed",
+  "task_review_requested",
   "trigger_failed",
 ]);
 

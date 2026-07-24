@@ -4,6 +4,10 @@
 // hook + manual "run now"), the module-event subscriber, and the webhook
 // route — event fires attach the event payload so the task's agent sees what
 // happened.
+//
+// Schedule routines own ONE standing task: each fire re-dispatches it (or
+// skips when a run/review/block is outstanding). Event fires keep the
+// per-occurrence create path.
 import type { QueueServiceLike } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createTasksRepoSupabase } from "../dal/supabase.js";
@@ -53,6 +57,18 @@ function withRoutineInstructions(
   return description ? `${description}\n\n${section}` : section;
 }
 
+/** Same description builder used on create and on standing-task refresh. */
+export function routineTaskDescription(
+  template: { description: string | null },
+  trigger: { description: string | null },
+  eventContext?: Record<string, unknown>
+): string | null {
+  return withRoutineInstructions(
+    withEventContext(template.description, eventContext),
+    trigger.description
+  );
+}
+
 export interface FireTriggerInput {
   /** The acting user for manual fires; event/scheduled fires have none. */
   createdByUserId?: string | null;
@@ -82,28 +98,71 @@ export async function fireTrigger(input: FireTriggerInput): Promise<Task> {
     trigger.tenant_id,
     trigger.scope_id
   );
-  // Schedule stacking guard (Paperclip "concurrencyPolicy: skip"): a routine
-  // whose previous task is still open (queued, running, or paused at blocked)
-  // must not stack a sibling — hourly fires against a slow or approval-paused
-  // run would pile up identical tasks. A finished cycle (in_review/terminal)
-  // does not block the next fire. Event fires are exempt: each event is a
-  // distinct occurrence and gets its own task.
+
+  // Schedule routines: find-or-create one standing task and re-dispatch it.
   if (trigger.kind === "schedule") {
-    const open = await tasksRepo.listOpenTriggerTasks(trigger.id);
-    const existing = open[0];
-    if (existing) {
+    const open = await tasksRepo.listTriggerTasks(trigger.id, {
+      limit: 1,
+      nonTerminalOnly: true,
+    });
+    const standing = open[0] ?? null;
+
+    if (standing) {
+      if (standing.checkout_run_id) {
+        await triggersRepo.recordTriggerFire(
+          trigger.id,
+          `skipped — run ${standing.checkout_run_id} still active on ${standing.identifier}`
+        );
+        return standing;
+      }
+      if (standing.status === "in_review") {
+        await triggersRepo.recordTriggerFire(
+          trigger.id,
+          `skipped — ${standing.identifier} awaits human review`
+        );
+        return standing;
+      }
+      if (standing.status === "blocked") {
+        await triggersRepo.recordTriggerFire(
+          trigger.id,
+          `skipped — ${standing.identifier} is blocked`
+        );
+        return standing;
+      }
+      // Resting (backlog/todo): refresh declaration-owned description, re-run.
+      const refreshed =
+        (await tasksRepo.updateTask(standing.id, {
+          description: routineTaskDescription(template, trigger),
+        })) ?? standing;
+      let dispatched = false;
+      if (input.queue) {
+        await dispatchTaskIfReady(
+          {
+            queue: input.queue,
+            repo: tasksRepo,
+            tenantId: trigger.tenant_id,
+          },
+          refreshed
+        );
+        dispatched = true;
+      }
       await triggersRepo.recordTriggerFire(
         trigger.id,
-        `skipped — task ${existing.identifier ?? existing.id} from the previous fire is still open`
+        dispatched
+          ? `re-dispatched ${standing.identifier}`
+          : `refreshed ${standing.identifier} (no queue)`
       );
-      return existing;
+      return refreshed;
     }
+    // No standing task (first fire, or previous generation was closed): create.
   }
+
   const task = await tasksRepo.createTask(
     {
-      description: withRoutineInstructions(
-        withEventContext(template.description, input.eventContext),
-        trigger.description
+      description: routineTaskDescription(
+        template,
+        trigger,
+        input.eventContext
       ),
       primary_assignee_agent_type_key: template.agent_type_key,
       primary_assignee_kind: "agent",

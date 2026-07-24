@@ -280,11 +280,47 @@ export function makeMockTasksRepo(): TasksRepo {
       const released: Task = {
         ...existing,
         checkout_run_id: null,
-        status: "todo",
+        status: input.resting_status ?? "todo",
         updated_at: now(),
       };
       tasks.set(taskId, released);
       return released;
+    },
+    async listTriggerTasks(
+      triggerId: string,
+      opts?: { limit?: number; nonTerminalOnly?: boolean }
+    ) {
+      let rows = [...tasks.values()].filter((t) => t.trigger_id === triggerId);
+      if (opts?.nonTerminalOnly) {
+        rows = rows.filter(
+          (t) => t.status !== "done" && t.status !== "cancelled"
+        );
+      }
+      rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      if (opts?.limit !== undefined) {
+        rows = rows.slice(0, opts.limit);
+      }
+      return rows;
+    },
+    async listStandingTasksByTriggerIds(triggerIds: string[]) {
+      const result = new Map<string, Task>();
+      for (const id of triggerIds) {
+        const open = await this.listTriggerTasks(id, {
+          limit: 1,
+          nonTerminalOnly: true,
+        });
+        if (open[0]) {
+          result.set(id, open[0]);
+        }
+      }
+      return result;
+    },
+    async listOpenTriggerTasks(triggerId: string) {
+      return [...tasks.values()].filter(
+        (t) =>
+          t.trigger_id === triggerId &&
+          ["todo", "backlog", "in_progress", "blocked"].includes(t.status)
+      );
     },
     async listTaskRuns(taskId: string) {
       return [...runs.values()].filter((run) => run.task_id === taskId);

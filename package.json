@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.72",
+  "version": "0.1.73",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -98,7 +98,7 @@
         "source": "workspace"
       }
     },
-    "containerRuntime": "docker"
+    "containerRuntime": "docker-desktop"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",

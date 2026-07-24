@@ -35,6 +35,7 @@ import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.
 import {
   type AiRegistry,
   assembleDynamicAgent,
+  type MastraToolDefinition,
   type RuntimeModelConfig,
 } from "../registry/index.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
@@ -67,6 +68,8 @@ export interface RunDelegatedConversationInput {
   // child thread (drill-in) and tag progress events to the parent's sub-agent card.
   childRunId: string;
   childThreadId: string;
+  // Per-run tools merged into the leaf agent (task-job workspace file tools).
+  extraTools?: Record<string, MastraToolDefinition>;
   modelConfig?: RuntimeModelConfig | null;
   // When set, publish + persist this run's AG-UI events keyed by `childRunId` so
   // the run streams live AND replays on reattach (GET /v1/runs/:id/stream). Used
@@ -256,6 +259,7 @@ export async function runDelegatedConversation(
             ...(input.allowedToolIds
               ? { allowedToolIds: input.allowedToolIds }
               : {}),
+            ...(input.extraTools ? { extraTools: input.extraTools } : {}),
             ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
             ...(input.workspace ? { workspace: input.workspace } : {}),
           }

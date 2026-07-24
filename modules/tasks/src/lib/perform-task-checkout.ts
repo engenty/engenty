@@ -1,6 +1,7 @@
 import type { StorageService } from "@engenty/plugin-sdk";
 import type { createTasksRepoSupabase } from "../dal/supabase.js";
 import type { Task, TaskCheckoutInput } from "../schema/types.js";
+import { ensureRoutineWorkspacePrefix } from "./ensure-routine-workspace-prefix.js";
 import { ensureTaskWorkspacePrefix } from "./ensure-task-workspace-prefix.js";
 
 type TasksRepo = ReturnType<typeof createTasksRepoSupabase>;
@@ -29,6 +30,18 @@ export async function performTaskCheckout(
     );
   } catch {
     // Checkout succeeds even when prefix bootstrap fails; harness can retry ensure.
+  }
+
+  if (task.trigger_id) {
+    try {
+      await ensureRoutineWorkspacePrefix(
+        deps.storage,
+        deps.tenantId,
+        task.trigger_id
+      );
+    } catch {
+      // Fail-open: routine workspace is best-effort continuity.
+    }
   }
 
   return task;

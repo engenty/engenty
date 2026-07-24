@@ -103,17 +103,27 @@ Principles (bind the implementation):
   `requireBinding` + source `checkout`), binding resolution
   `apps/ai/src/ai/sessions/session-service.ts:355-414` (interactive path ONLY),
   loader `apps/ai/src/ai/workspace/loader.ts`.
-- Headless gap: `apps/ai/src/ai/jobs/task-job-specialist-step.ts` passes NO
-  workspace/sandbox to `runDelegatedConversation` (which accepts both —
-  `delegate-run.ts:92-97`). Header comment: "/task filesystem workspace mount is a
-  planned follow-up" — this plan IS that follow-up.
+- Headless gap — PARTIALLY CLOSED by the routine plan (2026-07-24, uncommitted):
+  `task-job-specialist-step.ts` now injects scoped HTTP-storage file tools
+  (`workspace_read_file`/`workspace_write_file`, `apps/ai/ai/tools/workspace-files/`)
+  as `extraTools`, with `allowedPrefixes` = routine prefix (when `trigger_id`) +
+  task prefix. Still NO mounted Workspace/sandbox on headless runs
+  (`runDelegatedConversation` accepts both — `delegate-run.ts`), no goal/shared
+  access, no artifact tools. Phase 3 builds on the shipped tool surface.
 - Task workspace prefix machinery: `modules/tasks/src/lib/task-workspace.ts` +
-  `ensure-task-workspace-prefix.ts` + `perform-task-checkout.ts`.
+  `ensure-task-workspace-prefix.ts` + `perform-task-checkout.ts`. The routine plan
+  added THREE more prefix builders Phase 1 must absorb:
+  `modules/tasks/src/lib/routine-workspace.ts` (+ `ensure-routine-workspace-prefix.ts`),
+  an inlined copy in `apps/ai/src/ai/jobs/routine-continuity.ts` (apps/ai avoids a
+  build-dep on the tasks module — but it CAN import `@engenty/file-storage`), and a
+  hardcoded task-prefix template string in `task-job-specialist-step.ts`.
 - Dependency wake (no info transfer): `modules/tasks/src/api/task-dispatch-service.ts:99-137`
   — dependent gets only a `tasks.blockers_resolved` activity row; briefs render
   comments, not activity (`apps/ai/src/ai/jobs/task-brief.ts`).
-- Brief contents: `task-brief.ts` — title/description/contexts/own-comments only; no
-  goal section at all.
+- Brief contents: `task-brief.ts` — title/description/contexts/own-comments; routine
+  tasks additionally get a "## Routine workspace" section + run protocol + a
+  10-comment cap (shipped with the routine plan). Still NO goal section — Phase 3's
+  "## Goal context" should follow the same section pattern.
 
 ## Phase 1 — The convention as code (pure functions, single source of truth)
 
@@ -152,12 +162,25 @@ export function workWorkspacePrefix(
   this (task identifier stays the task segment id — existing prefixes must not move).
 - `COMMONS_STORAGE_PREFIX` in `workspace-presets.ts` is re-exported from here so the
   bytes stay where they are — absorption, not migration.
-- Routine plan Phase 4's `routineWorkspaceStoragePrefix` is DELETED from that plan's
-  scope — it becomes `workWorkspacePrefix(t, "routine", triggerId)`.
+- **Status 2026-07-24:** the routine plan shipped its own prefix code before this
+  phase ran. Phase 1 is now an absorption of FOUR call sites, all producing the same
+  shapes (task tier keyed by IDENTIFIER, routine tier by trigger UUID — the helper
+  must accept both, don't assume uuid):
+  1. `modules/tasks/src/lib/routine-workspace.ts` → thin wrapper, exactly like
+     task-workspace.ts (keep its `triggerIdFromRoutineStoragePrefix` parse helper).
+  2. `apps/ai/src/ai/jobs/routine-continuity.ts` → delete its inlined
+     `routineWorkspaceStoragePrefix`, import from `@engenty/file-storage` (keep
+     `routineEntityRef` — memory ref, not storage).
+  3. `task-job-specialist-step.ts` hardcoded task prefix → `workWorkspacePrefix(t,
+     "task", identifier)`.
+  4. `workspace-presets.ts` commons constant (as planned above).
 
 **Checklist**
 - [ ] Helper + tests (every tier, global without id, id validation, round-trip parse).
-- [ ] task-workspace.ts delegates; existing prefix strings byte-identical (test).
+- [ ] task-workspace.ts AND routine-workspace.ts delegate; existing prefix strings
+      byte-identical (test against the shipped literals, incl. the routine `.keep`).
+- [ ] routine-continuity.ts + specialist-step use the helper (grep: no remaining
+      `ai/workspace/` template literals outside file-storage).
 - [ ] Package export map + tsup entry.
 
 ## Phase 2 — The container resolver (one choke point for "what's inside X")
@@ -208,18 +231,25 @@ routes and agent context both call it.
 
 ## Phase 3 — Mount the hierarchy into headless specialist runs (the keystone)
 
-Close the "planned follow-up" in `task-job-specialist-step.ts`: build a Workspace for
-the delegated run from the EXISTING preset/loader machinery (reuse
-`session-service.ts:355-414`'s binding path — extract, don't duplicate):
+**Status 2026-07-24:** the routine plan already shipped the ACCESS PATH — scoped
+`workspace_read_file`/`workspace_write_file` tools (`apps/ai/ai/tools/workspace-files/`)
+injected per-run with `allowedPrefixes` (routine + task). Phase 3 EXTENDS that shipped
+surface instead of building filesystem mounts; a real Workspace mount stays optional
+for sandbox-declaring agents only (the tools already give durable read/write over
+HTTP storage, which is all containment needs).
 
-- Mounts for a task-job run: `/task` (rw, task prefix — binding = the checked-out
-  task's identifier, which checkout already ensures exists), `/goal` (rw,
-  `workWorkspacePrefix(t,"goal",goal_id)`) when `goal_id` is set, `/routine` (rw,
-  routine prefix) when `trigger_id` is set, `/shared` (rw, global commons), `/skills`
-  (ro). Bootstrap goal/routine `.keep` on first mount (same idempotent pattern as
-  `ensure-task-workspace-prefix.ts`).
-- Sandbox: not required for mounts to work as tool-accessible storage; pass
-  `sandboxProvider` only for agents whose config declares one (unchanged behavior).
+- Extend `allowedPrefixes` in `task-job-specialist-step.ts`: `/goal` prefix
+  (`workWorkspacePrefix(t,"goal",goal_id)`) when `goal_id` is set (the envelope must
+  carry `goal_id` — add it, optional, like `trigger_id`), + the global commons prefix.
+  Order stays "most specific first" (routine → task → goal → commons) — relative
+  paths resolve into the FIRST prefix, and the tool descriptions must say so.
+  Bootstrap the goal `.keep` on first write (same idempotent pattern as
+  `ensure-routine-workspace-prefix.ts` — or lazily in the write tool, simpler).
+- Add a `workspace_list_files` sibling tool (prefix-scoped listing) — read/write
+  without list makes cross-run discovery guesswork.
+- Sandbox: unchanged — pass `sandboxProvider` only for agents whose config declares
+  one. Real `/task`-style mounts for headless runs are a follow-up only if a
+  specialist actually needs a filesystem (code execution), not for storage access.
 - **Artifact tools for specialists:** add `createArtifactTools()` to the task-job
   toolset (today copilot-only — `copilot-agent.ts:54`). Artifacts are born on the
   run's thread; containment (Phase 2) makes them task/goal/project-visible with NO
@@ -231,16 +261,19 @@ the delegated run from the EXISTING preset/loader machinery (reuse
   other"; fetched in `buildBriefStep` where the invoker already exists.
 
 **Checklist**
-- [ ] Extracted mount-builder shared by session-service (interactive) and
-      specialist-step (headless) — one implementation, two callers.
-- [ ] Specialist-step passes `workspace` (+ provider teardown handled — reuse
-      `destroyRunSandboxes` path in delegate-run, already wired at `:391-395`).
-- [ ] Artifact tools in task-job toolset; `requireThreadScope` satisfied by the run
-      thread (verify: the task-job ALS context carries the thread — it does,
-      `threadIdForRun`).
-- [ ] Brief sections (goal context + output guidance) behind their guards + tests.
-- [ ] E2E: specialist writes `/goal/notes.md`, sibling task's run reads it; artifact
-      created in run → visible on task panel with zero promotion writes.
+- [ ] Envelope gains optional `goal_id` (in-flight snapshots must parse — same rule
+      as `run_disposition`); dispatch/checkout populates it.
+- [ ] `allowedPrefixes` extended (goal + commons) + `workspace_list_files` tool +
+      prefix-order documented in the tool descriptions; key-scope tests extended
+      (goal prefix accepted, foreign goal rejected).
+- [ ] Artifact tools in task-job toolset (today copilot-only); `requireThreadScope`
+      satisfied by the run thread (verify: the task-job ALS context carries the
+      thread — it does, `threadIdForRun`).
+- [ ] Brief sections: "## Goal context" + workspace guidance for NON-routine tasks
+      too (the tools are attached to every task job, but only routine briefs mention
+      them today — close that gap).
+- [ ] E2E: specialist writes a goal-prefix file, sibling task's run reads it;
+      artifact created in run → visible on task panel with zero promotion writes.
 
 ## Phase 4 — Dependency edges carry information
 
@@ -310,27 +343,30 @@ await deps.repo.addComment(
   `ai.artifact_storage_binding`-style scoping but is NOT needed for the model to
   work. Do nothing now.
 
-## Interplay with the other plans (apply these amendments when starting them)
+## Interplay with the other plans (status 2026-07-24: both implemented)
 
-- `PLAN-routine-scheduled-specialist.md` Phase 4 (routine workspace): replace its
-  local `routineWorkspaceStoragePrefix` with `workWorkspacePrefix(t,"routine",id)`
-  (Phase 1 here) and its "verify specialist write tool" item with Phase 3's mounts —
-  the phases otherwise stand.
-- `PLAN-harness-hardening.md`: unchanged; its Phase 1 (Mastra rename) precedes this
-  plan. The goal "Planning" feedback section discussed separately slots into Phase 5
-  here or as hardening Phase 7 — either, not both.
+- `PLAN-harness-hardening.md` LANDED (v0.1.72: Mastra 1.52 schedules rename, queue
+  at-least-once, dispatch rails, UI typecheck gate). The typecheck gate exists now —
+  use it for Phase 5 UI work instead of manual `tsc`.
+- `PLAN-routine-scheduled-specialist.md` IMPLEMENTED (uncommitted at time of
+  writing). Its Phase 4 shipped a LOCAL routine prefix + scoped file tools instead of
+  waiting for this plan — see the Phase 1 absorption list and the Phase 3 status
+  note above. Routine detail UI shipped its own runs section + workspace strip;
+  Phase 5's WorkPanel absorbs the strip when it lands (runs section stays).
+- The goal "Planning" feedback section discussed separately slots into Phase 5 here
+  (hardening is closed — this plan is now its only home).
 - The §8 "auto-promote in finalizeStep" idea from the deep-dive artifact is
   SUPERSEDED by containment (Phase 2+3). Do not implement it.
-
 ## Acceptance (plan done when)
 
 1. One prefix convention serves task/routine/goal/project/global; existing task and
    commons bytes unmoved. (Phase 1)
 2. "What's inside X" is answered by exactly one resolver, used by both the artifact/
    file routes and agent context. (Phase 2)
-3. A headless specialist run has `/task`, `/goal` (when linked), `/routine` (when
-   linked), `/shared` mounted, artifact tools, and a goal-context brief section; an
-   artifact created mid-run appears on the task page with no promotion write. (Phase 3)
+3. A headless specialist run can read/write/list its task, goal (when linked),
+   routine (when linked), and commons workspace prefixes via the scoped workspace
+   tools, has artifact tools, and a goal-context brief section; an artifact created
+   mid-run appears on the task page with no promotion write. (Phase 3)
 4. A woken dependent's brief contains its blocker's result. (Phase 4)
 5. Task/goal/routine/project surfaces render the SAME work panel; a goal shows its
    tasks' and threads' artifacts; a project shows goal lanes beside phase lanes. (Phase 5)
@@ -340,7 +376,7 @@ await deps.repo.addComment(
 
 - tsx watch does not restart core on module edits → `touch apps/core/src/api-entry.ts`.
 - `modules/tasks` op-list test asserts the exact op set — update with any op change.
-- Module UI has no typecheck gate until hardening Phase 5 lands — manual `tsc` on
-  touched files.
+- Module UI typecheck gate landed with hardening Phase 5 (v0.1.72) — run it; manual
+  `tsc` no longer required.
 - Envelope schema fields must stay optional (in-flight snapshots must parse).
 - Never `git add -A` in the shared checkout.

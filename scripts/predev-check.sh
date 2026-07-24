@@ -27,8 +27,16 @@ SUPABASE_READY_WAIT_SECS="${ENGENTY_SUPABASE_READY_WAIT_SECS:-180}"
 # Metadata for the supported container runtimes. Each is a macOS app launched
 # via `open -a`; all three expose a Docker-compatible API so the rest of the
 # stack (supabase, docker CLI) works unchanged once the daemon is up.
-runtime_label() {
+# Accept legacy alias `docker` → `docker-desktop` (older package.json values).
+normalize_runtime() {
   case "$1" in
+    docker) echo "docker-desktop" ;;
+    *)      echo "$1" ;;
+  esac
+}
+
+runtime_label() {
+  case "$(normalize_runtime "$1")" in
     docker-desktop) echo "Docker Desktop" ;;
     orbstack)       echo "OrbStack" ;;
     dory)           echo "Dory" ;;
@@ -37,7 +45,7 @@ runtime_label() {
 }
 
 runtime_app() {
-  case "$1" in
+  case "$(normalize_runtime "$1")" in
     docker-desktop) echo "Docker" ;;
     orbstack)       echo "OrbStack" ;;
     dory)           echo "Dory" ;;
@@ -49,7 +57,7 @@ runtime_app() {
 # authoritative for EVERY tool that follows ~/.docker/config.json — not just
 # `pnpm dev`, but `pnpm supabase`, `db:*`, snapshots, and bare `docker` too.
 runtime_context() {
-  case "$1" in
+  case "$(normalize_runtime "$1")" in
     docker-desktop) echo "desktop-linux" ;;
     orbstack)       echo "orbstack" ;;
     dory)           echo "dory" ;;
