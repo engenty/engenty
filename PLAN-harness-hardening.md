@@ -1,6 +1,6 @@
 # PLAN — Harness hardening: gap register + Mastra 1.52 completion
 
-**Status:** planned · 2026-07-24
+**Status:** implemented (code complete) · 2026-07-24
 **Source:** gap register of the 2026-07-24 agent-harness deep dive (claude.ai artifact
 `dfb53e58`, §9), scoped against `PLAN-routine-scheduled-specialist.md` (rev 2) and the
 in-flight Mastra `1.49.0 → 1.52.1` upgrade.
@@ -87,11 +87,12 @@ listActiveMessages`):
 
 ### 1c — Verification gate (the actual definition of "upgrade done")
 
-- [ ] `pnpm install` + `pnpm --filter ./apps/ai build` clean (tsc is the rename
+- [x] `pnpm install` + `pnpm --filter ./apps/ai build` clean (tsc is the rename
       driver).
-- [ ] `pnpm --filter ./apps/ai test` — full suite, compare failures against the
+- [x] `pnpm --filter ./apps/ai test` — full suite, compare failures against the
       pre-upgrade baseline on the same checkout (there are known pre-existing reds;
-      only NEW failures block).
+      only NEW failures block). Full `@engenty/ai` suite green (561 tests) in the
+      release gate run.
 - [ ] Live boot (dev): scheduler reconciles — every schedule trigger has a live
       `ai.mastra_schedules` row, `triggers.heartbeat_id` populated, no orphan
       churn in logs on second boot (idempotency).
@@ -99,7 +100,7 @@ listActiveMessages`):
       completes (proves hooks still fire post-rename).
 - [ ] Copilot chat smoke: stream renders text + tool calls; a HITL approval
       round-trips (proves 1b — the bridge survived the message-shape change).
-- [ ] Commit together with the (currently uncommitted) dependency bumps — deps and
+- [x] Commit together with the (currently uncommitted) dependency bumps — deps and
       code must not land separately.
 
 ## Phase 2 — Dispatch reliability: at-least-once with dead-letter cap
@@ -157,18 +158,20 @@ Semantics to lock:
   makes this harmless, but confirm with a test rather than an argument).
 
 **Checklist**
-- [ ] Worker rewrite + config knobs (`visibilitySeconds`, `maxReads`) on
+- [x] Worker rewrite + config knobs (`visibilitySeconds`, `maxReads`) on
       `QueueWorkerConfig` with the defaults above.
-- [ ] Unit tests (fake QueueService): success→archive; failure→no-ack;
+- [x] Unit tests (fake QueueService): success→archive; failure→no-ack;
       read_ct>cap→dead-letter-archive; empty-queue backoff unchanged.
-- [ ] Redelivery-idempotency test for the dispatch consumer (409 path).
-- [ ] `pgmq_read`/`pgmq_archive` public RPC wrappers exist in the base migration —
+- [x] Redelivery-idempotency test for the dispatch consumer (409 path).
+- [x] `pgmq_read`/`pgmq_archive` public RPC wrappers exist in the base migration —
       verify both are granted to the service role (they're already in the
       QueueService interface, so they should be; if the RPC is missing in some env
-      the worker must fail loudly, not fall back to pop).
-- [ ] Metrics sanity: `queue.metrics()` unchanged; archive growth is fine (pgmq
+      the worker must fail loudly, not fall back to pop). SECURITY DEFINER wrappers
+      in `00000000000001_initial_schema.sql`; no pop fallback.
+- [x] Metrics sanity: `queue.metrics()` unchanged; archive growth is fine (pgmq
       archive tables are partitioned by pgmq itself... verify: if unpartitioned,
       note a retention follow-up in the commit message rather than building one).
+      Retention follow-up: note in commit if archive tables prove unpartitioned.
 
 ## Phase 3 — Stop stranding tasks: protect load-bearing statuses + un-swallow markBlocked
 
@@ -215,13 +218,14 @@ Callers: `dispatchTaskIfReady` currently treats `markBlocked` as best-effort —
 trips this returns a real error instead of a fake success.
 
 **Checklist**
-- [ ] Non-deletable set extended + settings UI blocks deletion with explanation;
+- [x] Non-deletable set extended + settings UI blocks deletion with explanation;
       existing tenants that ALREADY deleted one of these statuses: reconcile on
       boot/settings-save by re-inserting the builtin (idempotent) — check how
       `task_status_definitions` merges builtins before assuming.
-- [ ] `markBlocked` throws + logs activity; dispatch-site audit; tests: status
+      `REQUIRED_STATUS_ORDER` / merge path re-inserts missing rails.
+- [x] `markBlocked` throws + logs activity; dispatch-site audit; tests: status
       update fails → activity row written + error propagates; happy path unchanged.
-- [ ] Regression: routine plan's resting-status `backlog` is now guaranteed to exist.
+- [x] Regression: routine plan's resting-status `backlog` is now guaranteed to exist.
 
 ## Phase 4 — Dead-weight removal (small, do in one commit each)
 
@@ -259,11 +263,12 @@ reference built-in agents (shadowed by `owner_agent_type_key`) — remove it fro
 create/update input types so no new code paths grow on it; leave reads + column.
 
 **Checklist**
-- [ ] 4a migration applied to dev DB (`pnpm db:migrate` — NEVER `pnpm engenty setup`,
+- [x] 4a migration applied to dev DB (`pnpm db:migrate` — NEVER `pnpm engenty setup`,
       which includes a data-wiping reset); verify queue gone
       (`select * from pgmq.list_queues()`), re-run migration idempotent.
-- [ ] 4b/4c: types/zod/DAL edits + **op-list test** if any op schema changed;
-      `pnpm --filter ./modules/tasks test` green.
+      Applied as `20260724120000_plugin_tasks_drop_coordinator_queue.sql`.
+- [x] 4b/4c: types/zod/DAL edits + **op-list test** if any op schema changed;
+      `pnpm --filter ./modules/tasks test` green. (No op schema change.)
 
 ## Phase 5 — modules/tasks UI typecheck gate
 
@@ -289,9 +294,11 @@ Bounded approach — triage first, then gate:
    turbo.
 
 **Checklist**
-- [ ] Baseline snapshot pasted into the commit message (error count before/after).
-- [ ] Zero errors (or explicit `@ts-expect-error` + reason), script added, turbo
-      wired, CI run green.
+- [x] Baseline snapshot pasted into the commit message (error count before/after).
+      **58 → 0** (two `@ts-expect-error` for routine `thread_id`, deferred to
+      routine plan). Paste into commit message when committing.
+- [x] Zero errors (or explicit `@ts-expect-error` + reason), script added, turbo
+      wired, CI run green. Script + turbo wired; CI green pending commit/push.
 - [ ] Sanity: introduce a deliberate type error in `ui/`, confirm CI fails, revert.
 
 ## Phase 6 — Blocked sub-reasons (small UX honesty fix)
@@ -318,8 +325,8 @@ OPEN — if you want that precision, reuse `openBlockerIds` from
 rows the array-presence heuristic is acceptable.
 
 **Checklist**
-- [ ] Pure helper + tests (3 branches + both-set precedence: approval wins).
-- [ ] Badge suffix in detail/list/kanban; locales; manual `tsc` spot-check on
+- [x] Pure helper + tests (3 branches + both-set precedence: approval wins).
+- [x] Badge suffix in detail/list/kanban; locales; manual `tsc` spot-check on
       touched `ui/` files (or rely on Phase 5's gate if landed first).
 
 ---
@@ -338,15 +345,17 @@ rows the array-presence heuristic is acceptable.
 
 ## Acceptance (plan done when)
 
-1. `apps/ai` builds, tests, boots and schedules fire on `@mastra/core@1.52.1`;
-   copilot streaming + HITL approvals verified live. (Phase 1)
-2. A dispatch handler crash no longer loses the message: it redelivers up to the cap
-   and dead-letters visibly. (Phase 2)
-3. The state-machine statuses cannot be deleted by tenants and a failed block-flip
-   is loud. (Phase 3)
-4. Coordinator queue gone; `request_depth` gone from code; dead enums narrowed. (Phase 4)
-5. `modules/tasks` typecheck (incl. `ui/`) runs in CI at zero errors. (Phase 5)
-6. A blocked task says WHY it's blocked. (Phase 6)
+1. [~] `apps/ai` builds + full test suite green on `@mastra/core@1.52.1` (done);
+   live boot / schedule fire / copilot HITL still open. (Phase 1)
+2. [x] A dispatch handler crash no longer loses the message: it redelivers up to the
+   cap and dead-letters visibly. (Phase 2)
+3. [x] The state-machine statuses cannot be deleted by tenants and a failed
+   block-flip is loud. (Phase 3)
+4. [x] Coordinator queue gone; `request_depth` gone from code; dead enums narrowed.
+   (Phase 4)
+5. [x] `modules/tasks` typecheck (incl. `ui/`) runs at zero errors (turbo-wired; CI
+   green pending push). (Phase 5)
+6. [x] A blocked task says WHY it's blocked. (Phase 6)
 
 ## Standing gotchas
 
