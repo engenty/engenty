@@ -36,7 +36,22 @@ ENV VITE_ENGENTY_AI_BASE_URL=$VITE_ENGENTY_AI_BASE_URL
 # ./packages/* and ./modules/* mirror the root predev: the UI's generated
 # plugin catalog imports module/package plugins that are not package.json
 # deps of @engenty/ui, so turbo won't build them via ^build alone.
-RUN pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter='...@engenty/core' --filter=@engenty/ui --filter='./packages/*' --filter='./modules/*'
+#
+# VITE_MANAGE_APP_ENABLED is baked into the UI bundle (turbo forwards VITE_* via
+# Vite framework inference) and MUST match whether we actually ship the Manage
+# portal below — otherwise a superadmin's Setup → Plugins hands off to a /manage
+# that 404s. apps/manage is present in engenty-pro but excluded from the open
+# mirror, so key the flag off the same directory check the build guard uses.
+RUN VITE_MANAGE_APP_ENABLED=$([ -d apps/manage ] && echo true || echo false) \
+    pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter='...@engenty/core' --filter=@engenty/ui --filter='./packages/*' --filter='./modules/*'
+# Manage (closed PRO admin portal, served static under /manage) ships in
+# engenty-pro only. Guard the build so this same Dockerfile still builds on the
+# open mirror where apps/manage is absent; `mkdir -p` keeps the runtime COPY
+# valid there (an empty root stays disabled by default).
+RUN if [ -d apps/manage ]; then \
+      pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter=@engenty/manage; \
+    fi; \
+    mkdir -p apps/manage/dist
 
 FROM node:24-bookworm-slim AS runtime
 ENV PNPM_HOME="/pnpm"
@@ -55,13 +70,19 @@ COPY --from=build /app/packages ./packages
 COPY --from=build /app/modules ./modules
 COPY --from=build /app/apps/core/dist ./apps/core/dist
 COPY --from=build /app/apps/ui/dist ./apps/ui/dist
+# Manage static bundle (empty on the open mirror; see the build stage).
+COPY --from=build /app/apps/manage/dist ./manage
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8787
 ENV ENGENTY_PROD_GATEWAY=1
 ENV ENGENTY_GATEWAY_UI_ROOT=/app/apps/ui/dist
-# apps/manage is closed-source and not in this repository — /manage stays off.
+ENV ENGENTY_GATEWAY_MANAGE_ROOT=/app/manage
+# Manage (apps/manage) ships in engenty-pro but stays OFF by default: it is a
+# superadmin control plane, enabled only where intended. The PRO deployment
+# opts in via ENGENTY_GATEWAY_MANAGE_ENABLED=true in compose/Coolify, which
+# overrides this. On the open mirror /app/manage is empty, so /manage 404s.
 ENV ENGENTY_GATEWAY_MANAGE_ENABLED=false
 ENV ENGENTY_GATEWAY_AI_URL=http://engenty-ai:8790
 ENV ENGENTY_GATEWAY_DOCS_URL=http://engenty-docs:3000

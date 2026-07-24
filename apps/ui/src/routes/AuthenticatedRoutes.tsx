@@ -94,7 +94,7 @@ export function AuthenticatedRoutes({
         <Route element={<DeviceApprovalPage />} path="/auth/device" />
         <Route
           element={
-            isAdmin ? (
+            isSuperAdmin ? (
               <SetupPluginsPage isSuperAdmin={isSuperAdmin} />
             ) : (
               <Navigate replace to={COPILOT_CHAT_ROOT} />
@@ -158,7 +158,7 @@ export function AuthenticatedRoutes({
         />
         <Route
           element={
-            isSuperAdmin || isTenantAdmin ? (
+            isSuperAdmin ? (
               <RolesSettingsPage />
             ) : (
               <Navigate replace to={COPILOT_CHAT_ROOT} />
@@ -241,16 +241,22 @@ export function AuthenticatedRoutes({
           const isPersonalSettings = PERSONAL_SETTINGS_PREFIXES.some((prefix) =>
             pluginRoute.path.startsWith(prefix)
           );
+          // Setup is the install-owner (platform) surface: superadmin ONLY, and
+          // a contribution cannot widen it via requiresAdmin. Tenant config lives
+          // under /settings/*, where tenant admins are allowed.
+          const isSetupPath =
+            pluginRoute.path === "/setup" ||
+            pluginRoute.path.startsWith("/setup/");
           const defaultAdminOnly =
             pluginRoute.path.startsWith("/admin/") ||
-            pluginRoute.path === "/setup" ||
-            pluginRoute.path.startsWith("/setup/") ||
+            isSetupPath ||
             (pluginRoute.path.startsWith("/settings/") && !isPersonalSettings);
           const adminOnly = pluginRoute.requiresAdmin ?? defaultAdminOnly;
+          const blocked = isSetupPath ? !isSuperAdmin : adminOnly && !isAdmin;
           return (
             <Route
               element={
-                adminOnly && !isAdmin ? (
+                blocked ? (
                   <Navigate replace to={COPILOT_CHAT_ROOT} />
                 ) : (
                   <PluginPage />

@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.69] - 2026-07-24
+- ADDED **[deploy]** Build and ship the Manage portal in the edge image
+- FIXED **[ui]** Gate the entire /setup surface to superadmins
+- FIXED **[docs]** Add frontmatter to the internal docs moved out of docs/wip
+
 ## [0.1.68] - 2026-07-23
 - ADDED **[manage]** Enhance tenant package details and enforcement settings
 - ADDED **[manage]** Align list and detail chrome with core UI patterns
