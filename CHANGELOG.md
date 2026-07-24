@@ -4,6 +4,19 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.72] - 2026-07-24
+- ADDED **[tasks]** Harden dispatch rails, typecheck UI, and blocked reasons
+- ADDED **[queue]** At-least-once delivery with dead-letter cap
+- ADDED **[ai]** Finish Mastra 1.52 schedules upgrade and message-shape fixes
+- DOCS Update harness hardening plan checklists after implementation
+- DOCS Where-work-lives — add storage-roles doctrine (§1b) + mirror-follows-versions
+- DOCS Plan — where work lives: one scope model for artifacts, files & workspaces
+- DOCS Plan — harness hardening (gap register + Mastra 1.52 completion)
+- DOCS Plan rev 2.1 — trim discussion-only OpenClaw references, keep implementation semantics
+- DOCS Plan rev 2 — routines run on ONE standing task with agent-decided disposition
+- DOCS Plan — promote routines from task templates to scheduled specialists
+- FIXED **[team]** Use interfaces for Habbo avatar option types
+
 ## [0.1.71] - 2026-07-24
 - ADDED **[auth-ui]** Use engenties on login and setup surfaces
 - ADDED **[team]** Generate Habbo avatars via Gemini with edge cleanup
