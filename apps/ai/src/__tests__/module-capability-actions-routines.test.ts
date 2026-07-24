@@ -102,7 +102,7 @@ describe("module capability actions/routines runtime", () => {
       }
     );
     const fakeMastra = {
-      heartbeats: {
+      schedules: {
         get: vi.fn(async () => null),
         create: vi.fn(async (input: { id: string }) => ({ id: input.id })),
         list: vi.fn(async () => []),

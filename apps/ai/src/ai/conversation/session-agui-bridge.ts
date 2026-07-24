@@ -18,7 +18,18 @@ export interface SessionEventLike {
   error?: { message?: string } | unknown;
   isError?: boolean;
   message?: {
-    content?: Array<{ text?: string; type?: string }>;
+    /**
+     * Mastra 1.52 AgentController messages are `MastraDBMessage`: text lives in
+     * `content.parts`. Older session fixtures / adapters may still pass a flat
+     * content array of text blocks — both shapes are accepted.
+     */
+    content?:
+      | Array<{ text?: string; type?: string }>
+      | {
+          parts?: Array<{ text?: string; type?: string }>;
+          [key: string]: unknown;
+        }
+      | string;
     id?: string;
     role?: string;
   };
@@ -36,14 +47,36 @@ function str(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value ?? null);
 }
 
-function assistantText(content: SessionEventLike["message"]): string {
-  if (!Array.isArray(content?.content)) {
+function textFromBlocks(
+  blocks: Array<{ text?: string; type?: string }> | undefined
+): string {
+  if (!Array.isArray(blocks)) {
     return "";
   }
-  return content.content
+  return blocks
     .filter((c) => c?.type === "text")
     .map((c) => (typeof c.text === "string" ? c.text : ""))
     .join("");
+}
+
+/** Extract assistant plain text from either legacy content[] or MastraDBMessage. */
+export function assistantText(content: SessionEventLike["message"]): string {
+  if (!content) {
+    return "";
+  }
+  const raw = content.content;
+  if (typeof raw === "string") {
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    return textFromBlocks(raw);
+  }
+  if (raw && typeof raw === "object") {
+    return textFromBlocks(
+      (raw as { parts?: Array<{ text?: string; type?: string }> }).parts
+    );
+  }
+  return "";
 }
 
 /**

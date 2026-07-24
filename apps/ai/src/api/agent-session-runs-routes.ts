@@ -361,6 +361,14 @@ export function registerAgentSessionRunRoutes(
       !isParkedResume &&
       openInterrupt != null &&
       (openInterrupt.kind === "decision" || openInterrupt.kind === "feedback");
+    // Interactive chat runs the approval gate under the "artifact" policy: a gated
+    // op returns the Approve/Deny card as a decision artifact (no Mastra suspend →
+    // no run_id → not a parked resume), and the resume RE-RUNS with the persisted
+    // grant. This is the same decision-artifact re-run branch, but the resume must
+    // also persist the tool-approval grant (mirroring the parked branch's
+    // once/always/secrets handling) or the re-run's gate would re-prompt forever.
+    const isApprovalArtifactResume =
+      isArtifactResume && isToolApprovalArtifactId(openInterrupt?.artifact_id);
     if (canRunConversation && conversationStore && isParkedResume) {
       // The client answered a SPECIFIC interrupt. If it names a different one
       // than the currently open interrupt (a stale card answered after the run
@@ -488,7 +496,82 @@ export function registerAgentSessionRunRoutes(
       // Operation ids approved earlier in this chat — the execute-boundary gate
       // skips them. A fresh "Approve" on this resume is folded in below.
       let hsApprovalGrants = readToolApprovalGrants(session.metadata);
-      if (isArtifactResume) {
+      if (isApprovalArtifactResume) {
+        // Tool-approval re-run (interactive HITL): audit the decision and, on
+        // approval, persist the grant — "once" survives this request's resume
+        // runs, "always" the whole chat — so the re-executed pre-gate lets the op
+        // run. The grant (not a nudged selection) drives the continuation; a short
+        // proceed/deny note steers the model. Mirrors the parked-approval branch.
+        // Approve exactly the op the user answered: the answered interrupt id IS
+        // the artifact id (buildToolApprovalArtifact sets interrupt_id = artifact_id).
+        // The artifact branch has no answered-vs-open mismatch guard, so keying off
+        // the answered id — not whatever is currently open — avoids granting the
+        // wrong op if a stale card is answered after the run moved on.
+        const answeredArtifactId =
+          resumeEntries[0]?.interruptId ?? openInterrupt?.artifact_id;
+        const operationId =
+          parseToolApprovalOperationId(answeredArtifactId) ?? "";
+        const choice = resumeEntries[0]
+          ? readDecisionResumeChoice(resumeEntries[0])?.choiceId
+          : undefined;
+        const always = choice === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS;
+        const once = choice === TOOL_APPROVAL_CHOICE_APPROVE_ONCE;
+        auditToolApprovalDecision({
+          decision: always ? "approve_always" : once ? "approve_once" : "deny",
+          operationId,
+          tenantId: scope.scope.tenantId,
+          threadId,
+          userId: scope.scope.userId,
+        });
+        if (once || always) {
+          hsSessionMetadata = always
+            ? withToolApprovalGrant(hsSessionMetadata, operationId)
+            : withToolApprovalGrantOnce(hsSessionMetadata, operationId);
+          // Approving an agent's secret reveal also persists the durable
+          // goal-scoped grant in core (goal = this conversation thread), or core
+          // re-gates the reveal on the re-run's agent-forwarded invoke.
+          const grantContext =
+            parseToolApprovalGrantContext(answeredArtifactId);
+          if (operationId === "secrets_reveal" && grantContext) {
+            await persistSecretsGoalGrant({
+              coreBaseUrl: opts.coreBaseUrl,
+              goalId: threadId,
+              secretId: grantContext.secret_id,
+              userAccessToken: scope.scope.userAccessToken,
+            });
+          }
+        }
+        // The gate already returned the Approve/Deny card as this tool call's
+        // result; mark it resolved so the model reads a completed interaction and
+        // does not re-emit the same card, then steer the continuation.
+        await resolveToolCallResultInHistory({
+          result: { approved: once || always, operation_id: operationId },
+          scope: scope.scope,
+          store: conversationStore,
+          threadId,
+          toolCallId: openInterrupt?.tool_call_id ?? "",
+        });
+        hsPrompt =
+          once || always
+            ? `Approved: you may now run "${operationId}". Proceed with the operation.`
+            : `The user denied "${operationId}". Do not run it; continue without that operation.`;
+        hsSessionMetadata = mergeAgUiOpenInterruptMetadata(
+          hsSessionMetadata,
+          null
+        );
+        try {
+          await conversationStore.updateSessionForUser({
+            metadata: hsSessionMetadata,
+            tenantId: scope.scope.tenantId,
+            threadId,
+            userId: scope.scope.userId,
+          });
+        } catch (err) {
+          console.error("conversation approval grant persist failed", err);
+        }
+        // Fold the just-granted op into the grants the re-run's gate consults.
+        hsApprovalGrants = readToolApprovalGrants(hsSessionMetadata);
+      } else if (isArtifactResume) {
         hsPrompt = resumePayloadToModelContent(resumeEntries[0]!);
         // Mark the resolved decision/feedback tool call ANSWERED in history (write the
         // user's selection as its result) so the model sees a completed interaction

@@ -1,15 +1,20 @@
 // Regression: TWO tool calls in one step that both require approval (the
-// parallel engenty_tool_execute shape). Mastra serializes suspending tools
-// (any tool with a suspendSchema forces tool-call concurrency 1), so the
-// approvals surface ONE AT A TIME: interrupt A -> approve -> interrupt B ->
-// approve -> finish. The app's interrupt/park/resume legs must carry that
-// chain without wedging — and a resume for a tool call that is NOT suspended
-// (duplicate/stale approval click) must error WITHOUT destroying the parked
-// run, so the real interrupt stays resumable.
+// parallel `engenty_tool_execute` shape). Interactive chat gates these under the
+// "artifact" policy — a gated call RETURNS the Approve/Deny card as a decision
+// artifact (see lib/tool-approval.ts `buildToolApprovalArtifact`) instead of
+// calling Mastra's native `suspend()`. That is deliberate: two tools that BOTH
+// suspend in one step wedge on Mastra 1.52 — `resumeStream()` cannot find the
+// first suspended run once a second suspension shares the step (see the
+// mastra-1-52-parallel-approval-regression memory). The artifact path keeps
+// parallel tool calls AND is immune, because nothing suspends: both gated calls
+// return their artifact, the run loop surfaces the interrupt, and the resume
+// RE-RUNS with the persisted grant.
+//
+// This test pins that invariant: two parallel approval-gated calls each surface
+// as a decision artifact via `tool_end`, with NO `tool_suspended` and no wedge.
 import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readAgUiOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { Agent } from "@mastra/core/agent";
 import { AgentController } from "@mastra/core/agent-controller";
 import { InMemoryStore } from "@mastra/core/storage";
@@ -20,61 +25,37 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { ToolApprovalSuspendPayload } from "../../../../ai/tools/engenty-tools/index.js";
-import type { AgentSessionStore } from "../../../dal/agent-sessions/index.js";
-import { subscribeRunEvents } from "../../sessions/run-event-bus.js";
-import type { AiSessionScope } from "../../sessions/types.js";
-import { emitToolApprovalInterrupt } from "../emit-interrupt.js";
-import { resumeConversationRun } from "../resume-conversation-run.js";
-import { parkSessionRun } from "../session-park.js";
+import {
+  buildToolApprovalArtifact,
+  isToolApprovalArtifactId,
+} from "../../../../ai/tools/engenty-tools/lib/tool-approval.js";
+import { isDecisionArtifactPayload } from "../../sessions/transcript.js";
 
 const usage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
 
-/** One generic gated tool, like engenty_tool_execute: suspends unless resumed with approval. */
-function makeSuspendingTool(id: string, log: string[]) {
+/**
+ * A gated tool that mirrors the "artifact" approval policy: instead of suspending,
+ * it RETURNS the tool-approval decision artifact (what `engenty_tool_execute`
+ * returns under `approvalPolicy: "artifact"` for an ungranted gated op).
+ */
+function makeArtifactGatedTool(id: string, log: string[]) {
   return createTool({
     id,
     description: `gate ${id}`,
     inputSchema: z.object({ q: z.string().optional() }),
-    suspendSchema: z.object({
-      kind: z.literal("tool_approval"),
-      operation_id: z.string(),
-      requires_approval: z.boolean(),
-      risk_level: z.enum(["low", "medium", "high", "critical"]),
-    }),
-    resumeSchema: z.object({
-      approved: z.boolean(),
-      choice_id: z.string().optional(),
-    }),
-    execute: async (input, ctx) => {
-      const resume = (ctx as { agent?: { resumeData?: unknown } })?.agent
-        ?.resumeData as { approved?: boolean } | undefined;
+    execute: async (input) => {
       const op = (input as { q?: string })?.q ?? "?";
-      log.push(`${op}:${resume?.approved ? "approved" : "gate"}`);
-      if (resume?.approved) {
-        return { ok: true, ran: op };
-      }
-      if (resume && resume.approved === false) {
-        return { ok: false, denied: op };
-      }
-      const suspend = (
-        ctx as { agent?: { suspend?: (p: unknown) => Promise<unknown> } }
-      )?.agent?.suspend;
-      if (!suspend) {
-        throw new Error("no suspend available");
-      }
-      await suspend({
-        kind: "tool_approval",
-        operation_id: op,
-        requires_approval: true,
-        risk_level: "high",
+      log.push(op);
+      return buildToolApprovalArtifact({
+        operationId: op,
+        requiresApproval: true,
+        riskLevel: "high",
       });
-      return undefined as never;
     },
   });
 }
 
-/** Session harness: mock model issues two gated calls in step 1, text in step 2. */
+/** Session harness: mock model issues two gated calls in one step, text in step 2. */
 async function buildHarness(log: string[]) {
   let call = 0;
   const doStream = async () => {
@@ -119,7 +100,7 @@ async function buildHarness(log: string[]) {
     name: "approval-chain-repro",
     instructions: "test",
     model: model as never,
-    tools: { engenty_gate: makeSuspendingTool("engenty_gate", log) },
+    tools: { engenty_gate: makeArtifactGatedTool("engenty_gate", log) },
   } as never);
 
   const memory = new Memory({
@@ -127,7 +108,7 @@ async function buildHarness(log: string[]) {
     options: { semanticRecall: false, workingMemory: { enabled: false } },
   });
 
-  const basePath = path.join(tmpdir(), "parallel-tool-approval-resume");
+  const basePath = path.join(tmpdir(), "parallel-tool-approval-artifact");
   mkdirSync(basePath, { recursive: true });
   const controller = new AgentController({
     agent,
@@ -151,238 +132,62 @@ async function buildHarness(log: string[]) {
   return { controller, session };
 }
 
-/**
- * Drive the start executor's suspended branch (conversation-run.ts shape):
- * sendMessage, capture the first tool_suspended, persist the interrupt, park.
- * Returns the persisted open interrupt (from the mock store's metadata).
- */
-async function runStartLegUntilSuspend(harness: {
-  controller: Awaited<ReturnType<typeof buildHarness>>["controller"];
-  session: Awaited<ReturnType<typeof buildHarness>>["session"];
-  scope: AiSessionScope;
-  store: AgentSessionStore;
-  readMetadata: () => Record<string, unknown>;
-  threadId: string;
-}) {
-  const { session } = harness;
-  let suspended: {
-    runId: string;
-    suspendPayload: unknown;
-    toolCallId: string;
-  } | null = null;
-  let signalInterrupt: () => void = () => undefined;
-  const interruptSignal = new Promise<void>((resolve) => {
-    signalInterrupt = resolve;
-  });
-  const unsub = session.subscribe((event) => {
-    const e = event as {
-      type?: string;
-      toolCallId?: string;
-      suspendPayload?: unknown;
-    };
-    if (e.type === "tool_suspended" && !suspended) {
-      suspended = {
-        runId: session.getCurrentRunId() ?? "",
-        suspendPayload: e.suspendPayload,
-        toolCallId: e.toolCallId ?? "",
+describe("parallel approval-gated tool calls (artifact policy)", () => {
+  it("surfaces BOTH parallel gated calls as decision artifacts with no Mastra suspend", {
+    timeout: 60_000,
+  }, async () => {
+    const log: string[] = [];
+    const { controller, session } = await buildHarness(log);
+
+    const artifacts: Array<{ toolCallId: string; result: unknown }> = [];
+    let sawSuspend = false;
+    let runError: string | null = null;
+    let finished = false;
+    const unsub = session.subscribe((event) => {
+      const e = event as {
+        type?: string;
+        toolCallId?: string;
+        result?: unknown;
+        error?: { message?: string };
       };
-      signalInterrupt();
-    }
-  });
-  const sendDone = session
-    .sendMessage({ content: "go" })
-    .then(() => "resolved")
-    .catch(() => "error");
-  await Promise.race([sendDone, interruptSignal]);
-  unsub();
-  const sus = suspended as {
-    runId: string;
-    suspendPayload: unknown;
-    toolCallId: string;
-  } | null;
-  if (!sus) {
-    throw new Error("expected the first gated tool call to suspend");
-  }
-  await emitToolApprovalInterrupt({
-    busRunId: "bus-run-start",
-    emit: () => undefined,
-    payload: sus.suspendPayload as ToolApprovalSuspendPayload,
-    resumeRunId: sus.runId,
-    scope: harness.scope,
-    sessionMetadata: harness.readMetadata(),
-    store: harness.store,
-    threadId: harness.threadId,
-    toolCallId: sus.toolCallId,
-  });
-  parkSessionRun(sus.runId, {
-    controller: harness.controller,
-    mergedDefinitions: [],
-    session,
-    threadId: harness.threadId,
-  });
-  return { sendDone, suspended: sus };
-}
-
-function makeMetadataStore() {
-  let sessionMetadata: Record<string, unknown> = {};
-  const store = {
-    // Mirror the real DAL's partial-update semantics (agent-session-store.ts):
-    // `metadata` is only patched when the caller actually passes it — a
-    // status-only update (patchThreadStatus) must not clobber it.
-    updateSessionForUser: async (params: {
-      metadata?: Record<string, unknown>;
-    }) => {
-      if (params.metadata !== undefined) {
-        sessionMetadata = params.metadata;
+      if (e.type === "tool_suspended") {
+        sawSuspend = true;
       }
-      return {} as never;
-    },
-  } as unknown as AgentSessionStore;
-  return { readMetadata: () => sessionMetadata, store };
-}
-
-function collectRunEvents(runId: string) {
-  const events: Array<{ outcome?: { type?: string }; type?: string }> = [];
-  const unsub = subscribeRunEvents(runId, (e) => {
-    events.push(e.event as never);
-  });
-  return { events, unsub };
-}
-
-describe("parallel approval-gated tool calls (sequential HITL chain)", () => {
-  it("chains interrupt A -> approve -> interrupt B -> approve -> finish", {
-    timeout: 60_000,
-  }, async () => {
-    const log: string[] = [];
-    const { controller, session } = await buildHarness(log);
-    const threadId = session.thread.getId() ?? "thread-1";
-    const scope: AiSessionScope = { tenantId: "t1", userId: "user-1" };
-    const { readMetadata, store } = makeMetadataStore();
-
-    const { sendDone } = await runStartLegUntilSuspend({
-      controller,
-      readMetadata,
-      scope,
-      session,
-      store,
-      threadId,
+      if (e.type === "error") {
+        runError = e.error?.message ?? "run error";
+      }
+      if (e.type === "agent_end") {
+        finished = true;
+      }
+      if (
+        e.type === "tool_end" &&
+        isDecisionArtifactPayload(e.result) &&
+        isToolApprovalArtifactId(e.result.artifact_id)
+      ) {
+        artifacts.push({ result: e.result, toolCallId: e.toolCallId ?? "" });
+      }
     });
-    const interrupt1 = readAgUiOpenInterrupt(readMetadata());
-    expect(interrupt1?.interrupt_id).toBe("tool-approval|op_a");
-    expect(interrupt1?.tool_call_id).toBe("call-a");
-    expect(interrupt1?.run_id).toBeTruthy();
 
-    // Approve op_a — the continuation must surface the SECOND interrupt.
-    const resume1 = collectRunEvents("resume-run-1");
-    await resumeConversationRun({
-      newRunId: "resume-run-1",
-      resolvedToolCallId: interrupt1?.tool_call_id ?? "",
-      resumeData: { approved: true, choice_id: "approve_once" },
-      scope,
-      sessionMetadata: readMetadata(),
-      store,
-      suspendedRunId: interrupt1?.run_id ?? "",
-      threadId,
-    });
-    resume1.unsub();
-    const finished1 = resume1.events.find((e) => e.type === "RUN_FINISHED");
-    expect(finished1?.outcome?.type).toBe("interrupt");
-    const interrupt2 = readAgUiOpenInterrupt(readMetadata());
-    expect(interrupt2?.interrupt_id).toBe("tool-approval|op_b");
-    expect(interrupt2?.tool_call_id).toBe("call-b");
+    await session.sendMessage({ content: "go" });
+    unsub();
 
-    // Approve op_b — the run completes with the interrupt cleared.
-    const resume2 = collectRunEvents("resume-run-2");
-    await resumeConversationRun({
-      newRunId: "resume-run-2",
-      resolvedToolCallId: interrupt2?.tool_call_id ?? "",
-      resumeData: { approved: true, choice_id: "approve_once" },
-      scope,
-      sessionMetadata: readMetadata(),
-      store,
-      suspendedRunId: interrupt2?.run_id ?? "",
-      threadId,
-    });
-    resume2.unsub();
-    const finished2 = resume2.events.find((e) => e.type === "RUN_FINISHED");
-    expect(finished2).toBeTruthy();
-    expect(finished2?.outcome).toBeUndefined();
-    expect(resume2.events.some((e) => e.type === "RUN_ERROR")).toBe(false);
-    expect(readAgUiOpenInterrupt(readMetadata())).toBeNull();
-    expect(log).toEqual([
-      "op_a:gate",
-      "op_a:approved",
-      "op_b:gate",
-      "op_b:approved",
+    // The parallel-suspend bug can't fire: nothing suspended.
+    expect(sawSuspend).toBe(false);
+    expect(runError).toBeNull();
+    expect(finished).toBe(true);
+    // Both gated ops executed and BOTH returned an approval artifact — the two
+    // parallel calls surface independently instead of wedging on a resume.
+    expect(log.sort()).toEqual(["op_a", "op_b"]);
+    expect(artifacts).toHaveLength(2);
+    expect(artifacts.map((a) => a.toolCallId).sort()).toEqual([
+      "call-a",
+      "call-b",
     ]);
-    await expect(
-      Promise.race([
-        sendDone,
-        new Promise<string>((r) => setTimeout(() => r("pending"), 5000)),
-      ])
-    ).resolves.toBe("resolved");
-    await controller.destroy().catch(() => undefined);
-  });
-
-  it("a resume for a tool call that is not suspended errors and keeps the park", {
-    timeout: 60_000,
-  }, async () => {
-    const log: string[] = [];
-    const { controller, session } = await buildHarness(log);
-    const threadId = session.thread.getId() ?? "thread-1";
-    const scope: AiSessionScope = { tenantId: "t1", userId: "user-1" };
-    const { readMetadata, store } = makeMetadataStore();
-
-    await runStartLegUntilSuspend({
-      controller,
-      readMetadata,
-      scope,
-      session,
-      store,
-      threadId,
-    });
-    const interrupt1 = readAgUiOpenInterrupt(readMetadata());
-
-    // A duplicate/stale approval names a tool call Mastra has NOT parked
-    // (call-b has not suspended yet). This must be a terminal RUN_ERROR —
-    // NOT a silent success that clears the interrupt and destroys the park.
-    const staleResume = collectRunEvents("resume-run-stale");
-    await resumeConversationRun({
-      newRunId: "resume-run-stale",
-      resolvedToolCallId: "call-b",
-      resumeData: { approved: true, choice_id: "approve_once" },
-      scope,
-      sessionMetadata: readMetadata(),
-      store,
-      suspendedRunId: interrupt1?.run_id ?? "",
-      threadId,
-    });
-    staleResume.unsub();
-    expect(staleResume.events.some((e) => e.type === "RUN_ERROR")).toBe(true);
-    // The open interrupt survived the failed resume.
-    expect(readAgUiOpenInterrupt(readMetadata())?.interrupt_id).toBe(
-      "tool-approval|op_a"
-    );
-
-    // The park survived too: the REAL approval still resumes the chain.
-    const resume1 = collectRunEvents("resume-run-after-stale");
-    await resumeConversationRun({
-      newRunId: "resume-run-after-stale",
-      resolvedToolCallId: "call-a",
-      resumeData: { approved: true, choice_id: "approve_once" },
-      scope,
-      sessionMetadata: readMetadata(),
-      store,
-      suspendedRunId: interrupt1?.run_id ?? "",
-      threadId,
-    });
-    resume1.unsub();
-    const finished = resume1.events.find((e) => e.type === "RUN_FINISHED");
-    expect(finished?.outcome?.type).toBe("interrupt");
-    expect(readAgUiOpenInterrupt(readMetadata())?.interrupt_id).toBe(
-      "tool-approval|op_b"
-    );
-    expect(log).toContain("op_a:approved");
+    for (const a of artifacts) {
+      expect((a.result as { artifact_type?: string }).artifact_type).toBe(
+        "decision"
+      );
+    }
     await controller.destroy().catch(() => undefined);
   });
 });

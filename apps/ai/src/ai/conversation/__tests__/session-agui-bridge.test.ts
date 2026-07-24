@@ -189,4 +189,41 @@ describe("SessionAgUiConverter", () => {
       "TEXT_MESSAGE_END",
     ]);
   });
+
+  it("reads assistant text from MastraDBMessage content.parts", () => {
+    const out = run([
+      {
+        message: {
+          content: {
+            format: 2,
+            parts: [{ type: "text", text: "Hello from parts" }],
+          },
+          id: "m1",
+          role: "assistant",
+        },
+        type: "message_update",
+      },
+      {
+        message: {
+          content: {
+            format: 2,
+            parts: [{ type: "text", text: "Hello from parts!" }],
+          },
+          id: "m1",
+          role: "assistant",
+        },
+        type: "message_end",
+      },
+    ]);
+    expect(out.map((e) => e.type)).toEqual([
+      "TEXT_MESSAGE_START",
+      "TEXT_MESSAGE_CONTENT",
+      "TEXT_MESSAGE_CONTENT",
+      "TEXT_MESSAGE_END",
+    ]);
+    const deltas = out
+      .filter((e) => e.type === "TEXT_MESSAGE_CONTENT")
+      .map((e) => e.delta);
+    expect(deltas).toEqual(["Hello from parts", "!"]);
+  });
 });

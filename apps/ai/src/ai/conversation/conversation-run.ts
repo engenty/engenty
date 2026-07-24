@@ -352,9 +352,18 @@ export async function startConversationRun(
       ...getEngentyToolsRunContext(),
       ...(coreAgentId ? { agentId: coreAgentId } : {}),
       approvalGrants: input.approvalGrants ?? [],
-      // Interactive chat: a gated operation suspends the run for the user's
-      // Approve/Deny (native HITL) instead of being denied outright.
-      approvalPolicy: "suspend" as const,
+      // Interactive chat: a gated operation returns a decision ARTIFACT (the
+      // Approve/Deny card) instead of suspending the Mastra run. The artifact
+      // rides the existing decision-interrupt pipeline: the run loop detects it
+      // (isDecisionArtifactPayload), aborts, and emits the interrupt; the resume
+      // RE-RUNS the turn with the persisted grant so the tool executes. We do NOT
+      // use Mastra's native suspend here on purpose — two approval-gated calls in
+      // one step would both suspend, and Mastra 1.52 cannot resume the first when
+      // a second suspension shares the step (see
+      // [[mastra-1-52-parallel-approval-regression]]). The artifact path keeps
+      // parallel tool calls AND is immune to that bug. Frontend/sandbox HITL tools
+      // still suspend via their own execute (a different mechanism, unaffected).
+      approvalPolicy: "artifact" as const,
       goalId: input.threadId,
       // Thread-scoped tools (e.g. artifacts) read the active thread from here.
       orchestratorThreadId: input.threadId,

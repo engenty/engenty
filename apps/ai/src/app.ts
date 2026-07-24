@@ -785,8 +785,8 @@ export async function createApp(options: CreateAppOptions = {}) {
       logger.warn("task dispatch consumer not started (no database adapter)");
     }
 
-    // Trigger scheduler (Mastra heartbeats): starts workers + reconciles
-    // triggers ↔ heartbeats. Replaces the pg_cron routines tick.
+    // Trigger scheduler (Mastra schedules): starts workers + reconciles
+    // triggers ↔ schedules. Replaces the pg_cron routines tick.
     const { startScheduler } = await import("./scheduler/start.js");
     try {
       await startScheduler({

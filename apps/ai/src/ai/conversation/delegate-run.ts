@@ -110,7 +110,8 @@ export interface DelegatedConversationResult {
   suspendedForApproval?: boolean;
 }
 
-/** Extract the plain text of a session assistant message (content[] text blocks). */
+/** Extract the plain text of a session assistant message.
+ * Supports MastraDBMessage (`content.parts`) and legacy content[] text blocks. */
 function assistantTextOf(message: unknown): string {
   if (!message || typeof message !== "object") {
     return "";
@@ -119,19 +120,35 @@ function assistantTextOf(message: unknown): string {
   if (typeof content === "string") {
     return content;
   }
-  if (!Array.isArray(content)) {
-    return "";
+  if (Array.isArray(content)) {
+    return content
+      .map((block) =>
+        block &&
+        typeof block === "object" &&
+        (block as { type?: unknown }).type === "text" &&
+        typeof (block as { text?: unknown }).text === "string"
+          ? (block as { text: string }).text
+          : ""
+      )
+      .join("");
   }
-  return content
-    .map((block) =>
-      block &&
-      typeof block === "object" &&
-      (block as { type?: unknown }).type === "text" &&
-      typeof (block as { text?: unknown }).text === "string"
-        ? (block as { text: string }).text
-        : ""
-    )
-    .join("");
+  if (content && typeof content === "object") {
+    const parts = (content as { parts?: unknown }).parts;
+    if (!Array.isArray(parts)) {
+      return "";
+    }
+    return parts
+      .map((block) =>
+        block &&
+        typeof block === "object" &&
+        (block as { type?: unknown }).type === "text" &&
+        typeof (block as { text?: unknown }).text === "string"
+          ? (block as { text: string }).text
+          : ""
+      )
+      .join("");
+  }
+  return "";
 }
 
 /**

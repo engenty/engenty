@@ -1,5 +1,5 @@
-// Scheduler startup: bring the Mastra heartbeat runtime online and reconcile
-// triggers ↔ heartbeats. Replaces the pg_cron `/routines/tick` entry point —
+// Scheduler startup: bring the Mastra schedules runtime online and reconcile
+// triggers ↔ schedules. Replaces the pg_cron `/routines/tick` entry point —
 // with this, Engenty performs no cron parsing of its own.
 import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
@@ -20,7 +20,7 @@ const SCOPE_RETRY_DELAY_MS = 5000;
 const SCOPE_RETRY_MAX_DELAY_MS = 60_000;
 
 /**
- * Start heartbeat/scheduler workers and schedule the trigger reconcile.
+ * Start schedule/scheduler workers and schedule the trigger reconcile.
  *
  * Service-scope resolution distinguishes three failure modes: a missing
  * ENGENTY_AI_SERVICE_JWT env var disables the scheduler outright (same

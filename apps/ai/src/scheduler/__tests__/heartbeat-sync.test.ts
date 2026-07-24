@@ -3,14 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import { syncTriggerHeartbeat } from "../heartbeat-sync.js";
 
 function fakeMastra(existing: Record<string, unknown> | null = null) {
-  const heartbeats = {
+  const schedules = {
     create: vi.fn(async (input: { id: string }) => ({ id: input.id })),
     delete: vi.fn(async () => {}),
     get: vi.fn(async () => existing),
     update: vi.fn(async (id: string) => ({ id })),
   };
-  return { heartbeats } as unknown as Mastra & {
-    heartbeats: typeof heartbeats;
+  return { schedules } as unknown as Mastra & {
+    schedules: typeof schedules;
   };
 }
 
@@ -26,7 +26,7 @@ const scheduleTrigger = (over?: Partial<Record<string, unknown>>) => ({
 });
 
 describe("syncTriggerHeartbeat", () => {
-  it("creates a heartbeat for a new schedule trigger", async () => {
+  it("creates a schedule for a new schedule trigger", async () => {
     const mastra = fakeMastra();
     const id = await syncTriggerHeartbeat(
       mastra,
@@ -34,7 +34,7 @@ describe("syncTriggerHeartbeat", () => {
       scheduleTrigger()
     );
     expect(id).toBe("hb_trigger-t-1");
-    expect(mastra.heartbeats.create).toHaveBeenCalledWith(
+    expect(mastra.schedules.create).toHaveBeenCalledWith(
       expect.objectContaining({
         agentId: "engenty.scheduler",
         cron: "0 9 * * *",
@@ -46,7 +46,7 @@ describe("syncTriggerHeartbeat", () => {
     );
   });
 
-  it("updates a drifted heartbeat (cron change)", async () => {
+  it("updates a drifted schedule (cron change)", async () => {
     const mastra = fakeMastra({
       cron: "0 8 * * *",
       id: "hb_trigger-t-1",
@@ -59,13 +59,13 @@ describe("syncTriggerHeartbeat", () => {
       "tenant-1",
       scheduleTrigger({ heartbeat_id: "hb_trigger-t-1" })
     );
-    expect(mastra.heartbeats.update).toHaveBeenCalledWith(
+    expect(mastra.schedules.update).toHaveBeenCalledWith(
       "hb_trigger-t-1",
       expect.objectContaining({ cron: "0 9 * * *" })
     );
   });
 
-  it("pauses the heartbeat when the trigger is disabled", async () => {
+  it("pauses the schedule when the trigger is disabled", async () => {
     const mastra = fakeMastra({
       cron: "0 9 * * *",
       id: "hb_trigger-t-1",
@@ -78,7 +78,7 @@ describe("syncTriggerHeartbeat", () => {
       "tenant-1",
       scheduleTrigger({ enabled: false, heartbeat_id: "hb_trigger-t-1" })
     );
-    expect(mastra.heartbeats.update).toHaveBeenCalledWith(
+    expect(mastra.schedules.update).toHaveBeenCalledWith(
       "hb_trigger-t-1",
       expect.objectContaining({ status: "paused" })
     );
@@ -97,8 +97,8 @@ describe("syncTriggerHeartbeat", () => {
       "tenant-1",
       scheduleTrigger({ heartbeat_id: "hb_trigger-t-1" })
     );
-    expect(mastra.heartbeats.update).not.toHaveBeenCalled();
-    expect(mastra.heartbeats.create).not.toHaveBeenCalled();
+    expect(mastra.schedules.update).not.toHaveBeenCalled();
+    expect(mastra.schedules.create).not.toHaveBeenCalled();
   });
 
   it("returns null for non-schedule triggers", async () => {
@@ -109,6 +109,6 @@ describe("syncTriggerHeartbeat", () => {
       scheduleTrigger({ cron: null, kind: "event" })
     );
     expect(id).toBeNull();
-    expect(mastra.heartbeats.create).not.toHaveBeenCalled();
+    expect(mastra.schedules.create).not.toHaveBeenCalled();
   });
 });

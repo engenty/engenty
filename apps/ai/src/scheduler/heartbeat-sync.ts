@@ -1,9 +1,15 @@
-// Trigger ↔ heartbeat synchronization.
+// Trigger ↔ schedule synchronization.
 //
 // The trigger row (module_tasks.triggers, managed via gateway operations) is
-// the source of truth; the Mastra heartbeat is derived runtime state. Sync is
+// the source of truth; the Mastra schedule is derived runtime state. Sync is
 // idempotent: called after every trigger mutation and in full from
 // `reconcileScheduler` at boot.
+//
+// Mastra 1.50+ renamed heartbeats → schedules. Agent-schedule ids are
+// normalized to `agent_<slug>` on create (legacy `hb_*` ids still resolve via
+// `schedules.get`). Our create payloads keep the stable `hb_trigger-*` /
+// `hb_system-*` stems; the returned id (possibly `agent_hb-…`) is what we
+// persist onto `triggers.heartbeat_id`.
 
 import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import { listRegisteredRoutines } from "@engenty/ai-core";
@@ -30,10 +36,10 @@ export interface SyncableTrigger {
 }
 
 /**
- * Ensure a schedule trigger's heartbeat matches its row: create it when
+ * Ensure a schedule trigger's Mastra schedule matches its row: create it when
  * missing, update cron/timezone when drifted, pause/resume with `enabled`.
- * Returns the heartbeat id (persisted back onto the row by the caller when it
- * changed). Non-schedule triggers have no heartbeat.
+ * Returns the schedule id (persisted back onto the row by the caller when it
+ * changed). Non-schedule triggers have no schedule.
  */
 export async function syncTriggerHeartbeat(
   mastra: Mastra,
@@ -45,15 +51,15 @@ export async function syncTriggerHeartbeat(
   }
   const desiredStatus = trigger.enabled ? "active" : "paused";
   const existing = trigger.heartbeat_id
-    ? await mastra.heartbeats.get(trigger.heartbeat_id)
+    ? await mastra.schedules.get(trigger.heartbeat_id)
     : null;
 
   if (!existing) {
-    const created = await mastra.heartbeats.create({
+    const created = await mastra.schedules.create({
       agentId: SCHEDULER_AGENT_ID,
       cron: trigger.cron,
-      // Pre-normalized (Mastra slugifies underscores to dashes); the actual
-      // stored id is returned and persisted onto the trigger row regardless.
+      // Stable stem; Mastra normalizes to `agent_<slug>` and returns the stored
+      // id — we persist whatever comes back onto the trigger row.
       id: `hb_trigger-${trigger.id}`,
       metadata: buildHeartbeatMetadata({
         kind: "trigger",
@@ -75,7 +81,7 @@ export async function syncTriggerHeartbeat(
     existing.status !== desiredStatus ||
     existing.name !== trigger.name
   ) {
-    await mastra.heartbeats.update(existing.id, {
+    await mastra.schedules.update(existing.id, {
       cron: trigger.cron,
       name: trigger.name,
       status: desiredStatus,
@@ -92,7 +98,7 @@ export async function deleteTriggerHeartbeat(
   if (!heartbeatId) {
     return;
   }
-  await mastra.heartbeats.delete(heartbeatId).catch(() => {
+  await mastra.schedules.delete(heartbeatId).catch(() => {
     // Already gone — deletion is idempotent.
   });
 }
@@ -111,9 +117,9 @@ interface TriggerListRow extends SyncableTrigger {
  *    upsert on (module_id, module_key); user-owned fields — enabled, cron
  *    override — are only seeded on insert, template content follows the
  *    declaration).
- * 2. Every schedule trigger → its heartbeat (create/update/pause).
- * 3. System jobs → their heartbeats.
- * 4. Orphaned Engenty heartbeats (trigger deleted) → removed.
+ * 2. Every schedule trigger → its Mastra schedule (create/update/pause).
+ * 3. System jobs → their schedules.
+ * 4. Orphaned Engenty schedules (trigger deleted) → removed.
  */
 export async function reconcileScheduler(options: {
   invokeOperation: SchedulerOperationInvoker;
@@ -154,8 +160,8 @@ export async function reconcileScheduler(options: {
       continue;
     }
     // One malformed declaration must not take the scheduler down with it: this
-    // loop runs before heartbeat sync, so an uncaught throw here left EVERY
-    // schedule trigger without a heartbeat — a single over-long ROUTINE.md
+    // loop runs before schedule sync, so an uncaught throw here left EVERY
+    // schedule trigger without a schedule — a single over-long ROUTINE.md
     // silently stopped all scheduled work.
     try {
       await invokeOperation("triggers_create", {
@@ -189,45 +195,44 @@ export async function reconcileScheduler(options: {
     }
   }
 
-  // 2. Every schedule trigger → heartbeat.
+  // 2. Every schedule trigger → Mastra schedule.
   const current = (await invokeOperation(
     "triggers_list",
     {}
   )) as TriggerListRow[];
-  const liveHeartbeatIds = new Set<string>();
+  const liveScheduleIds = new Set<string>();
   for (const trigger of current) {
     // Same isolation as above: one unschedulable trigger (bad cron, say) must
-    // not deny every other trigger its heartbeat.
+    // not deny every other trigger its schedule.
     try {
-      const heartbeatId = await syncTriggerHeartbeat(mastra, tenantId, trigger);
-      if (heartbeatId) {
-        liveHeartbeatIds.add(heartbeatId);
-        if (trigger.heartbeat_id !== heartbeatId) {
+      const scheduleId = await syncTriggerHeartbeat(mastra, tenantId, trigger);
+      if (scheduleId) {
+        liveScheduleIds.add(scheduleId);
+        if (trigger.heartbeat_id !== scheduleId) {
           await invokeOperation("triggers_update", {
-            heartbeat_id: heartbeatId,
+            heartbeat_id: scheduleId,
             id: trigger.id,
           });
         }
       }
     } catch (err) {
-      logger.error("trigger heartbeat sync failed — trigger will not fire", {
+      logger.error("trigger schedule sync failed — trigger will not fire", {
         message: err instanceof Error ? err.message : String(err),
         triggerId: trigger.id,
       });
     }
   }
 
-  // 3. System jobs → heartbeats.
+  // 3. System jobs → schedules.
   for (const job of listSystemJobs()) {
-    // Mastra slugifies heartbeat ids (underscores → dashes after the `hb_`
-    // prefix) — use the already-normalized form so get() finds what create()
-    // stored.
+    // Stable stem; create() may store `agent_hb-system-…`. get() resolves both
+    // the stem and the canonical form.
     const id = `hb_system-${job.id}`;
-    const existing = await mastra.heartbeats.get(id);
+    const existing = await mastra.schedules.get(id);
     if (existing) {
-      liveHeartbeatIds.add(existing.id);
+      liveScheduleIds.add(existing.id);
     } else {
-      const created = await mastra.heartbeats.create({
+      const created = await mastra.schedules.create({
         agentId: SCHEDULER_AGENT_ID,
         cron: job.schedule,
         id,
@@ -239,25 +244,26 @@ export async function reconcileScheduler(options: {
         name: job.name,
         prompt: job.name,
       });
-      liveHeartbeatIds.add(created.id);
+      liveScheduleIds.add(created.id);
     }
   }
 
-  // 4. Orphaned Engenty heartbeats → delete.
-  const all = await mastra.heartbeats.list();
-  for (const heartbeat of all) {
-    const meta = readHeartbeatMetadata(heartbeat.metadata);
-    if (!meta || liveHeartbeatIds.has(heartbeat.id)) {
+  // 4. Orphaned Engenty schedules → delete (matched by metadata.engenty, not
+  // id prefix — covers both legacy `hb_*` and `agent_hb-*` rows).
+  const all = await mastra.schedules.list();
+  for (const schedule of all) {
+    const meta = readHeartbeatMetadata(schedule.metadata);
+    if (!meta || liveScheduleIds.has(schedule.id)) {
       continue;
     }
-    logger.info("removing orphaned scheduler heartbeat", {
-      heartbeatId: heartbeat.id,
+    logger.info("removing orphaned scheduler schedule", {
+      scheduleId: schedule.id,
     });
-    await deleteTriggerHeartbeat(mastra, heartbeat.id);
+    await deleteTriggerHeartbeat(mastra, schedule.id);
   }
 
   logger.info("scheduler reconciled", {
-    heartbeats: liveHeartbeatIds.size,
+    schedules: liveScheduleIds.size,
     triggers: current.length,
   });
 }
