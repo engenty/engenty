@@ -33,6 +33,12 @@ ARG TURBO_BUILD_CONCURRENCY=10
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV VITE_ENGENTY_AI_BASE_URL=$VITE_ENGENTY_AI_BASE_URL
+# tsup --dts spawns tsc in a worker thread whose heap defaults low; a cold build
+# of the full workspace (edge is the heaviest — core + UI + every package/module
+# + manage) OOM'd it (ERR_WORKER_OUT_OF_MEMORY on @engenty/projects). Raise the
+# worker heap; keep concurrency low (build-images.yml passes 2 for edge) so the
+# concurrent DTS workers still fit the runner's RAM.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 # ./packages/* and ./modules/* mirror the root predev: the UI's generated
 # plugin catalog imports module/package plugins that are not package.json
 # deps of @engenty/ui, so turbo won't build them via ^build alone.

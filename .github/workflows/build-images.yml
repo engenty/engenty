@@ -31,7 +31,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [edge, ai, sandbox, migrate]
+        # edge is the heaviest image (core + UI + every package/module + the
+        # Manage portal); a cold DTS build OOM'd it at 4, so give it 2. The
+        # others stay at 4.
+        include:
+          - service: edge
+            concurrency: 2
+          - service: ai
+            concurrency: 4
+          - service: sandbox
+            concurrency: 4
+          - service: migrate
+            concurrency: 4
     steps:
       - uses: actions/checkout@v4
 
@@ -69,7 +80,7 @@ jobs:
             VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ vars.VITE_SUPABASE_ANON_KEY }}
             VITE_ENGENTY_AI_BASE_URL=${{ vars.PUBLIC_APP_URL }}
-            TURBO_BUILD_CONCURRENCY=4
+            TURBO_BUILD_CONCURRENCY=${{ matrix.concurrency }}
           # Registry-backed layer cache (GHCR): no 10-GB GHA cache cap and no
           # export stalls — the GHA cache backend was the source of the ai/edge
           # build-push hangs. mode=max keeps full multi-stage layer reuse.
