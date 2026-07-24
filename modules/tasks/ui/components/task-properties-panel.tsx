@@ -99,6 +99,7 @@ export function TaskPropertiesPanel({
               compact
               definitions={taskStatusDefinitions}
               status={task.status}
+              task={task}
             />
           </TaskPropertyRow>
         </DropdownMenuTrigger>

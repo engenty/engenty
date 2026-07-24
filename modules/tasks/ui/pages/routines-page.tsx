@@ -29,7 +29,6 @@ export function RoutinesPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("routines.page.title"),
     topbarChrome: "contentBlend",
   });
 

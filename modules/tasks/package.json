@@ -39,6 +39,7 @@
     "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --clean",
     "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --watch",
     "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "biome check ."
   },
   "dependencies": {

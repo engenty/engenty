@@ -23,6 +23,7 @@ import { GoalsCards } from "../components/goals-cards.js";
 import type {
   GoalsColumnVisibility,
   GoalsSortColumn,
+  GoalsViewMode,
 } from "../components/goals-display-dialog.js";
 import { GoalsListTable } from "../components/goals-list-table.js";
 import {
@@ -169,7 +170,6 @@ export function GoalsListPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("sidebar.goals"),
     topbarChrome: "contentBlend",
   });
 
@@ -238,7 +238,7 @@ export function GoalsListPage() {
         sortOrder={sortOrder}
         statusFilter={statusFilter}
         tableSize={tableSize}
-        viewMode={viewMode}
+        viewMode={viewMode as GoalsViewMode}
       />
 
       {isLoading ? <p className="text-muted-foreground text-sm">…</p> : null}

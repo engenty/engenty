@@ -110,6 +110,13 @@
       "stale": "No recent updates"
     }
   },
+  "status": {
+    "blockedSuffix": {
+      "approval": "awaiting approval",
+      "dependencies": "waiting on {{count}} tasks",
+      "failed": "run failed"
+    }
+  },
   "list": {
     "title": "Tasks",
     "newTask": "New task",
@@ -536,7 +543,8 @@
     "staleAfterDays": "Stale after (days)",
     "staleAfterDaysHint": "Open tasks with no updates for this many days appear in the Briefing stale section.",
     "taskStatusesTitle": "Task statuses",
-    "taskStatusesDesc": "Customize workflow statuses and their order. Core statuses cannot be removed.",
+    "taskStatusesDesc": "Customize workflow statuses and their order. Statuses used by agent runs and reviews cannot be removed.",
+    "taskStatusLockedHint": "Used by agent runs and reviews — cannot be removed.",
     "taskStatusesKey": "Key",
     "taskStatusesLabelCol": "Label",
     "taskStatusesColor": "Color",

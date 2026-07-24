@@ -1,4 +1,5 @@
 import {
+  type ArtifactSummary,
   activateArtifact,
   ENGENTY_COPILOT_HOST_KEY,
   useArtifactsListQuery,
@@ -34,7 +35,7 @@ export function TaskArtifactsPanel({ taskId }: { taskId: string }) {
         </TaskPropertyRow>
       ) : (
         <div className="space-y-2">
-          {artifacts.map((artifact) => (
+          {artifacts.map((artifact: ArtifactSummary) => (
             <Button
               className="h-auto w-full justify-start gap-2 px-3 py-2"
               key={artifact.id}

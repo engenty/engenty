@@ -78,6 +78,7 @@ export function GoalsDisplayDialog({
       columnVisibility={columnVisibility}
       labels={{
         table: labels.table,
+        cards: labels.cards,
         compactView: labels.compactView,
         sortBy: labels.sortBy,
         ascending: labels.ascending,

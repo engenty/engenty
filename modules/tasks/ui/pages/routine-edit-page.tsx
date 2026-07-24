@@ -1,6 +1,7 @@
 // Routed edit page for custom routines (/mdl/tasks/routines/:id/edit).
 // Declared routines are not editable — non-custom ids redirect to the detail page.
 import {
+  type RoutineDto,
   RoutineForm,
   type RoutineFormValue,
   routineFormToPayload,
@@ -26,7 +27,8 @@ export function RoutineEditPage() {
   const routinesQuery = useRoutinesListQuery();
   const updateMutation = useUpdateCustomRoutineMutation();
   const routine =
-    routinesQuery.data?.routines.find((entry) => entry.id === id) ?? null;
+    routinesQuery.data?.routines.find((entry: RoutineDto) => entry.id === id) ??
+    null;
 
   const [value, setValue] = useState<RoutineFormValue | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -51,7 +53,6 @@ export function RoutineEditPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("routines.edit.title"),
     topbarChrome: "contentBlend",
   });
 

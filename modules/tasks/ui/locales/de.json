@@ -110,6 +110,13 @@
       "stale": "Keine aktuellen Updates"
     }
   },
+  "status": {
+    "blockedSuffix": {
+      "approval": "wartet auf Freigabe",
+      "dependencies": "wartet auf {{count}} Aufgaben",
+      "failed": "Lauf fehlgeschlagen"
+    }
+  },
   "list": {
     "title": "Aufgaben",
     "newTask": "Neue Aufgabe",
@@ -536,7 +543,8 @@
     "staleAfterDays": "Veraltet nach (Tage)",
     "staleAfterDaysHint": "Offene Aufgaben ohne Updates erscheinen nach dieser Anzahl Tage im Briefing unter Veraltet.",
     "taskStatusesTitle": "Aufgabenstatus",
-    "taskStatusesDesc": "Workflow-Status und Reihenfolge anpassen. Kernstatus können nicht entfernt werden.",
+    "taskStatusesDesc": "Workflow-Status und Reihenfolge anpassen. Statusse, die Agent-Läufe und Reviews nutzen, können nicht entfernt werden.",
+    "taskStatusLockedHint": "Wird von Agent-Läufen und Reviews genutzt — kann nicht entfernt werden.",
     "taskStatusesKey": "Schlüssel",
     "taskStatusesLabelCol": "Bezeichnung",
     "taskStatusesColor": "Farbe",

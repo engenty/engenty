@@ -17,7 +17,12 @@ describe("performTaskCheckout", () => {
     await performTaskCheckout(
       {
         repo: { checkoutTask } as never,
-        storage: { exists, upload },
+        storage: {
+          exists,
+          upload,
+          download: vi.fn(),
+          getUrl: vi.fn(),
+        },
         tenantId: TENANT_ID,
       },
       "cccccccc-cccc-4ccc-8ccc-cccccccccccc",

@@ -32,7 +32,6 @@ export function OperationsPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("operations.title"),
     topbarChrome: "contentBlend",
   });
 

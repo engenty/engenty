@@ -30,7 +30,7 @@ function formatDuration(
 function resolveRunStatus(
   run: TaskRun,
   t: (key: string) => string
-): { label: string; variant: "default" | "destructive" | "secondary" } {
+): { label: string; variant: "default" | "secondary" | "outline" } {
   if (!run.run_finished_at) {
     return { label: t("operations.run.running"), variant: "default" };
   }

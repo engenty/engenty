@@ -1,4 +1,5 @@
 import {
+  type AgentUiStateSlice,
   buildAgentUiPageBrief,
   useRegisterAgentUiSlice,
 } from "@engenty/app-shell";
@@ -40,7 +41,7 @@ export function useTasksDetailAgentUiSlice(task: Task | null) {
     };
   }, [task]);
 
-  useRegisterAgentUiSlice("tasks_detail", slice);
+  useRegisterAgentUiSlice("tasks_detail", slice as AgentUiStateSlice | null);
 }
 
 export function useTasksListAgentUiSlice(input: {
@@ -64,7 +65,7 @@ export function useTasksListAgentUiSlice(input: {
     };
   }, [input.search, input.tasks]);
 
-  useRegisterAgentUiSlice("tasks_list", slice);
+  useRegisterAgentUiSlice("tasks_list", slice as AgentUiStateSlice);
 }
 
 export function useTasksGoalsListAgentUiSlice(input: {
@@ -87,7 +88,7 @@ export function useTasksGoalsListAgentUiSlice(input: {
     };
   }, [input.goals, input.search]);
 
-  useRegisterAgentUiSlice("tasks.goals", slice);
+  useRegisterAgentUiSlice("tasks.goals", slice as AgentUiStateSlice);
 }
 
 export function useTasksGoalDetailAgentUiSlice(input: {
@@ -119,7 +120,10 @@ export function useTasksGoalDetailAgentUiSlice(input: {
     };
   }, [input.goal, input.linkedTasks]);
 
-  useRegisterAgentUiSlice("tasks.goal-detail", slice);
+  useRegisterAgentUiSlice(
+    "tasks.goal-detail",
+    slice as AgentUiStateSlice | null
+  );
 }
 
 export function useTasksBriefingAgentUiSlice(input: {
@@ -143,5 +147,5 @@ export function useTasksBriefingAgentUiSlice(input: {
     };
   }, [input.mode, input.snapshot]);
 
-  useRegisterAgentUiSlice("tasks.briefing", slice);
+  useRegisterAgentUiSlice("tasks.briefing", slice as AgentUiStateSlice | null);
 }

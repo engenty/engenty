@@ -30,11 +30,13 @@ const LABELS: TasksSidebarOrganizationLabels = {
     medium: "Medium",
     low: "Low",
   },
+  projectNone: "No project",
   status: (statusId) => statusId,
 };
 
 function makeTask(overrides: Partial<Task> & Pick<Task, "id">): Task {
   return {
+    blocked_by_task_ids: [],
     cancelled_at: null,
     checkout_run_id: null,
     completed_at: null,
@@ -50,13 +52,13 @@ function makeTask(overrides: Partial<Task> & Pick<Task, "id">): Task {
     primary_assignee_kind: "none",
     primary_assignee_user_id: null,
     priority: "medium",
-    request_depth: 0,
     scope_id: "scope-1",
     started_at: null,
     status: "todo",
     tenant_id: "tenant-1",
     title: "Task",
     updated_at: "2026-01-02T00:00:00.000Z",
+    project_id: null,
     ...overrides,
   };
 }
@@ -65,6 +67,8 @@ function makeGoal(overrides: Partial<Goal> & Pick<Goal, "id" | "title">): Goal {
   return {
     created_at: "2026-01-01T00:00:00.000Z",
     description: null,
+    level: "team",
+    owner_agent_id: null,
     owner_user_id: null,
     owner_agent_type_key: null,
     parent_id: null,
@@ -73,6 +77,7 @@ function makeGoal(overrides: Partial<Goal> & Pick<Goal, "id" | "title">): Goal {
     target_date: null,
     tenant_id: "tenant-1",
     updated_at: "2026-01-02T00:00:00.000Z",
+    project_id: null,
     ...overrides,
   };
 }

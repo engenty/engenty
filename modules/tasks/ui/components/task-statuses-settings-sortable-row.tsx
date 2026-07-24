@@ -177,7 +177,10 @@ export function TaskStatusSettingsSortableRow({
       </Popover>
       <div className="flex h-7 w-7 shrink-0 items-center justify-center">
         {row.locked ? (
-          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+          <Lock
+            aria-label={t("settings.taskStatusLockedHint")}
+            className="h-3.5 w-3.5 text-muted-foreground"
+          />
         ) : (
           <Button
             className="h-7 w-7 shrink-0"

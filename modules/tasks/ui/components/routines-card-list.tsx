@@ -79,8 +79,8 @@ export function RoutinesCardList({
   const { customRoutines, systemRoutines } = useMemo(() => {
     const routines = data?.routines ?? [];
     return {
-      customRoutines: routines.filter((r) => r.source === "custom"),
-      systemRoutines: routines.filter((r) => r.source !== "custom"),
+      customRoutines: routines.filter((r: RoutineDto) => r.source === "custom"),
+      systemRoutines: routines.filter((r: RoutineDto) => r.source !== "custom"),
     };
   }, [data?.routines]);
 

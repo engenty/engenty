@@ -34,7 +34,8 @@ export function RoutineDetailPage() {
   const routinesQuery = useRoutinesListQuery();
   const deleteMutation = useDeleteCustomRoutineMutation();
   const routine: RoutineDto | null =
-    routinesQuery.data?.routines.find((entry) => entry.id === id) ?? null;
+    routinesQuery.data?.routines.find((entry: RoutineDto) => entry.id === id) ??
+    null;
 
   const title = routine?.name ?? t("routines.page.title");
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
@@ -47,7 +48,6 @@ export function RoutineDetailPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title,
     topbarChrome: "contentBlend",
   });
 

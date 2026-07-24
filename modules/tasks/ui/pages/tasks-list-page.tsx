@@ -347,7 +347,6 @@ export function TasksListPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    title: t("sidebar.tasks"),
     topbarChrome: "contentBlend",
   });
 

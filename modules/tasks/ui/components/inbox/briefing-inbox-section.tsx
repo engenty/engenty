@@ -1,7 +1,10 @@
 // Compact inbox section on the Briefing screen: the most recent open
 // notifications with a link to the full inbox. Renders nothing while the
 // inbox is empty so the briefing stays quiet by default.
-import { useInboxListQuery } from "@engenty/ai-ui/embed";
+import {
+  type InboxNotificationDto,
+  useInboxListQuery,
+} from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { Link } from "react-router-dom";
@@ -12,7 +15,8 @@ export function BriefingInboxSection() {
   const { t, i18n } = useTranslation("tasks");
   const listQuery = useInboxListQuery({ limit: 5 });
   const notifications = (listQuery.data?.notifications ?? []).filter(
-    (n) => n.status === "pending" || n.status === "delivered"
+    (n: InboxNotificationDto) =>
+      n.status === "pending" || n.status === "delivered"
   );
 
   if (notifications.length === 0) {
