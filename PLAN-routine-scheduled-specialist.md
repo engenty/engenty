@@ -10,9 +10,8 @@
    task. One history, one storage, one status. Event triggers keep per-occurrence
    tasks (each event is a distinct occurrence).
 2. **Agent-decided disposition.** Not every run needs final human approval: the agent
-   ends a run as *quiet* (nothing notable — suppressed, OpenClaw `HEARTBEAT_OK`
-   style), *report* (worth a comment/FYI), or *review requested* (`in_review` +
-   needs-input). Automatic blanket `in_review` for routine runs is removed.
+   ends a run as *quiet* (nothing notable — suppressed entirely), *report* (worth a
+   comment/FYI), or *review requested* (`in_review` + needs-input). Automatic blanket `in_review` for routine runs is removed.
 3. **Heartbeat pattern.** A routine run is a *status check that may decide to work*:
    check state (comments, workspace, memory) → do small work inline → for big work,
    file a dedicated task instead of hogging the heartbeat run.
@@ -36,21 +35,11 @@ runs via the memory module (Phase 3), keeps a durable workspace folder (Phase 4)
 shows its run history (Phase 5). The execution engine is untouched: runs still ride
 `agent_task_dispatch` → the `task-job` workflow → checkout/release/reaper/approvals.
 
-**The OpenClaw comparison (and where we deliberately differ).** OpenClaw heartbeats
-run periodic agent turns *in the main session*; `HEARTBEAT_OK` replies are stripped
-("a message that is only HEARTBEAT_OK is dropped"), and context growth is managed by
-compaction. Their issue tracker documents the costs of that shape: same-session
-accumulation triggers compactions that can poison context, and short heartbeat
-sessions never reach the compaction threshold so compaction-triggered memory never
-fires. Our mapping keeps the good part and dodges the failure modes:
-
-| OpenClaw | engenty (this plan) |
-|---|---|
-| one main session as the stable container | one **standing task** as the stable container |
-| heartbeat turn inside that session | fire = fresh run + fresh thread ON that task (no compaction needed, threads stay drillable) |
-| `HEARTBEAT_OK` reply stripped/dropped | `ROUTINE_OK` disposition → no comment, no notification, run row only |
-| compaction → memory writes (unreliable for short sessions) | explicit reflection + distillation into routine-scoped memory (Phase 3/6) |
-| HEARTBEAT.md checklist | ROUTINE.md body on `trigger.description` → task brief |
+Design notes an implementer should hold onto: the standing task is the stable
+container, but every run gets a **fresh thread** (drillable, no compaction needed);
+long-term continuity is carried by the routine's memory + workspace + capped comments,
+never by an ever-growing thread; quiet runs are **fully suppressed** (run row only —
+no comment, no notification).
 
 **Explicit non-goals** (decided, do not drift into these):
 - NO adoption of Mastra `DurableAgent` (unwired scaffold; crash-durability stays
@@ -227,8 +216,8 @@ Semantics locked here:
 
 ### 2b — Disposition protocol: `ROUTINE_OK` / `ROUTINE_REVIEW`
 
-Marker-token protocol, mirroring OpenClaw's `HEARTBEAT_OK` (cheap, no tool plumbing;
-a structured `task_report` tool can replace it later without changing semantics).
+Marker-token protocol (cheap, no tool plumbing; a structured `task_report` tool can
+replace it later without changing semantics).
 
 - Brief instruction (routine-task section in `buildTaskBrief`, only when `trigger_id`):
 
@@ -245,8 +234,8 @@ a structured `task_report` tool can replace it later without changing semantics)
   ```
 
 - Parser: `apps/ai/src/ai/jobs/routine-disposition.ts` — pure function over
-  `result_text`: token at start or end (OpenClaw semantics: strip stray token, a
-  result that is ONLY the token is quiet with empty report). Returns
+  `result_text`: token at start or end is stripped; a result that is ONLY the token
+  is quiet with an empty report. Returns
   `{ disposition: "quiet" | "report" | "review", cleanedText }`. Unit-test the corpus:
   token-only, token+text, text+token, mid-text token (→ report, token left in place),
   no token.
@@ -406,12 +395,11 @@ export function routineWorkspaceStoragePrefix(tenantId: string, triggerId: strin
 
 - **Run distillation:** `@mastra/memory@1.23` ships `Memory.summarizeThread()` — on
   finalize of a `report`/`review` routine run, distill the run thread into a
-  one-paragraph summary (comment or routine-scoped memory). This is our replacement
-  for OpenClaw-style compaction — explicit, per-run, not context-pressure-triggered.
-- **Live-session signal delivery:** OpenClaw delivers heartbeats INTO the running
-  session. Mastra schedules can deliver fire-signals into existing threads — a future
-  alternative to skip-when-active (the fire nudges the live run instead of skipping).
-  Evaluate only after model B has soaked.
+  one-paragraph summary (comment or routine-scoped memory). Explicit and per-run,
+  not context-pressure-triggered.
+- **Live-session signal delivery:** Mastra schedules can deliver fire-signals into
+  existing threads — a future alternative to skip-when-active (the fire nudges the
+  live run instead of skipping). Evaluate only after model B has soaked.
 - **Schedules-API-native firing:** post-rename, evaluate replacing the
   heartbeat-`prepare()`-hook indirection with a scheduled invocation of
   `triggers_fire`. Behavior-neutral; keep quiet-hours + enabled checks.
