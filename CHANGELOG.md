@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.71] - 2026-07-24
+- ADDED **[auth-ui]** Use engenties on login and setup surfaces
+- ADDED **[team]** Generate Habbo avatars via Gemini with edge cleanup
+
 ## [0.1.70] - 2026-07-24
 - FIXED **[deploy]** Survive the edge cold build — raise DTS heap, drop concurrency
 
