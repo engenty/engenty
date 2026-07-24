@@ -1,9 +1,10 @@
 import {
-  fileStorageTenantObjectKey,
   pathSegmentsAfterFileStorageTenantRoot,
+  workWorkspacePrefix,
 } from "@engenty/file-storage";
 import { z } from "zod";
 import { isValidTaskIdentifier } from "../domain/task-lifecycle.js";
+
 
 const TASK_WORKSPACE_KEY_PREFIX = "task:";
 
@@ -34,13 +35,8 @@ export function taskWorkspaceStoragePrefix(
   if (!isValidTaskIdentifier(trimmed)) {
     throw new Error("task_identifier_invalid");
   }
-  return fileStorageTenantObjectKey(
-    tenantId,
-    "ai",
-    "workspace",
-    "tasks",
-    trimmed
-  );
+  // Historical callers expect no trailing slash — strip the convention's slash.
+  return workWorkspacePrefix(tenantId, "task", trimmed).replace(/\/$/, "");
 }
 
 export function parseTaskWorkspaceKey(

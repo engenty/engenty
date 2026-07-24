@@ -91,6 +91,7 @@ export const tasksListQuerySchema = z.object({
   goal_id: z.string().uuid().optional(),
   parent_id: z.string().uuid().optional(),
   project_id: z.string().uuid().optional(),
+  trigger_id: z.string().uuid().optional(),
   assigned_to: z.string().uuid().optional(),
   assignee_kind: z.enum(["user", "agent"]).optional(),
   context_type: z.string().optional(),
@@ -212,6 +213,7 @@ export const goalsListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   parent_id: z.string().uuid().optional(),
+  project_id: z.string().uuid().optional(),
   search: z.string().optional(),
   status: z.enum(["planned", "active", "achieved", "cancelled"]).optional(),
   /** Filter to goals owned by this agent type key (e.g. "engenty.coordinator"). */

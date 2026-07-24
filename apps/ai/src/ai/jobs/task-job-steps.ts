@@ -130,14 +130,54 @@ export const buildBriefStep = createStep({
     const taskRow = task as {
       approval_grants?: string[];
       approval_grants_once?: string[];
+      goal_id?: string | null;
       trigger_id?: string | null;
     };
     const routineWorkspacePrefix = taskRow.trigger_id
       ? routineWorkspaceStoragePrefix(inputData.tenant_id, taskRow.trigger_id)
       : undefined;
+    // Goal context (cheap half of "seeing each other"): goal title/status +
+    // open sibling task titles. Fetched here where the invoker already exists.
+    let goalContext:
+      | {
+          goal_sibling_titles: string[];
+          goal_status: string;
+          goal_title: string;
+        }
+      | undefined;
+    if (taskRow.goal_id) {
+      const goal = (await invoke("goals_get", {
+        id: taskRow.goal_id,
+      }).catch(() => null)) as { status?: string; title?: string } | null;
+      if (goal?.title) {
+        const siblings = (await invoke("tasks_list", {
+          goal_id: taskRow.goal_id,
+          pageSize: 11,
+        }).catch(() => null)) as {
+          data?: Array<{ id?: string; status?: string; title?: string }>;
+        } | null;
+        const siblingTitles = (siblings?.data ?? [])
+          .filter(
+            (t) =>
+              t.id !== inputData.task_id &&
+              t.status !== "done" &&
+              t.status !== "cancelled"
+          )
+          .map((t) => readString(t.title))
+          .filter(Boolean)
+          .slice(0, 10);
+        goalContext = {
+          goal_sibling_titles: siblingTitles,
+          goal_status: readString(goal.status),
+          goal_title: readString(goal.title),
+        };
+      }
+    }
     const brief = buildTaskBrief({
       ...(task as Parameters<typeof buildTaskBrief>[0]),
       trigger_id: taskRow.trigger_id ?? null,
+      ...(taskRow.goal_id ? { goal_id: taskRow.goal_id } : {}),
+      ...(goalContext ?? {}),
       ...(routineWorkspacePrefix
         ? { routine_workspace_prefix: routineWorkspacePrefix }
         : {}),
@@ -184,6 +224,7 @@ export const buildBriefStep = createStep({
       ...inputData,
       approval_grants: approvalGrants,
       brief: learnings ? `${brief}\n\n${learnings}` : brief,
+      goal_id: taskRow.goal_id ?? null,
       identifier: readString((task as { identifier?: unknown }).identifier),
       status: "briefed" as const,
       title: readString((task as { title?: unknown }).title),

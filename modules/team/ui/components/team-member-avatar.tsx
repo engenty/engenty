@@ -41,6 +41,8 @@ export function TeamMemberAvatar(props: {
   compact?: boolean;
   fullName: string;
   initials: string | null | undefined;
+  /** Makes the avatar a button (e.g. open avatar editor). */
+  onClick?: () => void;
   storageKey: string | null | undefined;
   variant?: TeamMemberAvatarVariant;
 }) {
@@ -57,7 +59,7 @@ export function TeamMemberAvatar(props: {
 
   const fallback = teamMemberAvatarInitials(props.fullName, props.initials);
 
-  return (
+  const avatar = (
     <Avatar
       className={cn("shrink-0", avatarSizeClass(variant, compact))}
       data-slot="team-member-avatar"
@@ -74,5 +76,21 @@ export function TeamMemberAvatar(props: {
         {fallback}
       </AvatarFallback>
     </Avatar>
+  );
+
+  if (!props.onClick) {
+    return avatar;
+  }
+
+  return (
+    <button
+      aria-label={`Edit profile picture for ${props.fullName}`}
+      className="group relative shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={props.onClick}
+      type="button"
+    >
+      {avatar}
+      <span className="pointer-events-none absolute inset-0 rounded-full bg-black/0 transition-colors group-hover:bg-black/25" />
+    </button>
   );
 }

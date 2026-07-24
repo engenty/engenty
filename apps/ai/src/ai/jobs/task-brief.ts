@@ -10,6 +10,12 @@ export interface TaskBriefSource {
   }>;
   contexts?: Array<{ context_type?: unknown; context_id?: unknown }>;
   description?: unknown;
+  /** Goal this task belongs to — drives the "## Goal context" section. */
+  goal_id?: unknown;
+  /** Open sibling task titles under the same goal (capped by the caller). */
+  goal_sibling_titles?: unknown;
+  goal_status?: unknown;
+  goal_title?: unknown;
   identifier?: unknown;
   /** Optional routine workspace storage prefix for the brief section. */
   routine_workspace_prefix?: unknown;
@@ -18,6 +24,11 @@ export interface TaskBriefSource {
   /** When set, this task is the standing host of a schedule routine. */
   trigger_id?: unknown;
 }
+
+/** Files/outputs guidance attached to every task job (tools are always mounted). */
+const WORKSPACE_GUIDANCE = `## Workspace & outputs
+- Durable deliverables (documents, notes, tables) → \`artifact_create\` — they appear on the task and its goal/project with no extra step.
+- Working files, scratch, and state the next run should find → \`workspace_write_file\` / \`workspace_read_file\` / \`workspace_list_files\`. A relative path (e.g. \`notes.md\`) resolves into your task workspace; the goal (when linked), routine (when linked), and shared commons folders are also reachable via their full \`tenants/…\` keys.`;
 
 function str(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -55,6 +66,25 @@ export function buildTaskBrief(task: TaskBriefSource): string {
     lines.push("", "## Linked context", ...contexts);
   }
 
+  const goalTitle = str(task.goal_title);
+  if (str(task.goal_id) && goalTitle) {
+    const goalStatus = str(task.goal_status);
+    lines.push(
+      "",
+      "## Goal context",
+      `Goal: ${goalTitle}${goalStatus ? ` (${goalStatus})` : ""}`
+    );
+    const siblings = Array.isArray(task.goal_sibling_titles)
+      ? task.goal_sibling_titles.map((t) => str(t)).filter(Boolean)
+      : [];
+    if (siblings.length > 0) {
+      lines.push(
+        "Open sibling tasks:",
+        ...siblings.map((title) => `- ${title}`)
+      );
+    }
+  }
+
   const allComments = (task.comments ?? [])
     .map((c) => {
       const who = str(c.created_by_agent_type_key) || "user";
@@ -89,6 +119,7 @@ export function buildTaskBrief(task: TaskBriefSource): string {
   if (isRoutine) {
     lines.push("", ROUTINE_RUN_PROTOCOL);
   } else {
+    lines.push("", WORKSPACE_GUIDANCE);
     lines.push(
       "",
       "Complete this task using your tools. When you are done, reply with a concise summary of what you did and the outcome — that summary is recorded as your result on the task.",

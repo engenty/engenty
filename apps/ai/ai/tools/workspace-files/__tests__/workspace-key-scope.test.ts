@@ -3,6 +3,7 @@ import { resolveWorkspaceObjectKey } from "../index.js";
 
 const TASK = "tenants/t1/ai/workspace/tasks/ENG-1/";
 const ROUTINE = "tenants/t1/ai/workspace/routines/trig-1/";
+const GOAL = "tenants/t1/ai/workspace/goals/goal-1/";
 
 describe("resolveWorkspaceObjectKey", () => {
   it("resolves a relative path under the first allowed prefix", () => {
@@ -36,5 +37,20 @@ describe("resolveWorkspaceObjectKey", () => {
     expect(() => resolveWorkspaceObjectKey("/etc/passwd", [TASK])).toThrow(
       "workspace_key_forbidden"
     );
+  });
+
+  it("allows a full key under the goal prefix", () => {
+    expect(resolveWorkspaceObjectKey(`${GOAL}shared.md`, [TASK, GOAL])).toBe(
+      `${GOAL}shared.md`
+    );
+  });
+
+  it("rejects a foreign goal prefix", () => {
+    expect(() =>
+      resolveWorkspaceObjectKey(
+        "tenants/t1/ai/workspace/goals/goal-OTHER/x.md",
+        [TASK, GOAL]
+      )
+    ).toThrow("workspace_key_forbidden");
   });
 });

@@ -83,6 +83,7 @@ import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.j
 import { startTeamChatNotificationConsumer } from "./api/team-chat-notification-consumer.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
+import { registerWorkFilesRoutes } from "./api/work-files-routes.js";
 import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
@@ -632,6 +633,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     getStore: () => registryStore ?? null,
     scopeResolver,
   });
+  registerWorkFilesRoutes(app, { scopeResolver });
   {
     const { createAiDatabaseAdapter } = await import("./infra/database.js");
     const actionDb = createAiDatabaseAdapter();

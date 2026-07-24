@@ -95,6 +95,25 @@ function makeFakeStore(): ArtifactStore {
           a.tenant_id === tenantId && (includeArchived || a.status === "active")
       );
     },
+    async listByScopes({ tenantId, scopes }) {
+      const seen = new Set<string>();
+      const out: ArtifactRow[] = [];
+      for (const scope of scopes) {
+        for (const a of artifacts.values()) {
+          if (
+            a.tenant_id === tenantId &&
+            a.scope_type === scope.scopeType &&
+            a.scope_id === scope.scopeId &&
+            a.status === "active" &&
+            !seen.has(a.id)
+          ) {
+            seen.add(a.id);
+            out.push(a);
+          }
+        }
+      }
+      return out;
+    },
     async addVersion(input) {
       const artifact = scoped(input.tenantId, input.artifactId);
       if (!artifact) {

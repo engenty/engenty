@@ -214,6 +214,7 @@ export interface TasksQueryParams {
   sortBy?: "updated_at" | "created_at" | "title" | "status" | "identifier";
   sortOrder?: "asc" | "desc";
   status?: string | null;
+  trigger_id?: string | null;
 }
 
 export interface TasksPaginatedResponse {
@@ -230,6 +231,7 @@ export interface GoalsQueryParams {
   page?: number;
   pageSize?: number;
   parent_id?: string | null;
+  project_id?: string | null;
   search?: string | null;
   sortBy?: "updated_at" | "created_at" | "title" | "status";
   sortOrder?: "asc" | "desc";

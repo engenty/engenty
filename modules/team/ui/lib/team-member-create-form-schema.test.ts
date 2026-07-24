@@ -44,4 +44,17 @@ describe("teamMemberCreateFormSchema", () => {
       expect(result.error.issues.some((i) => i.path[0] === "email")).toBe(true);
     }
   });
+
+  it("requires selecting an existing user when linking", () => {
+    const result = teamMemberCreateFormSchema.safeParse({
+      ...base,
+      connect_user_id: "",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.path[0] === "connect_user_id")
+      ).toBe(true);
+    }
+  });
 });

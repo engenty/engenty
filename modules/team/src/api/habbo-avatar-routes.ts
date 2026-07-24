@@ -60,11 +60,14 @@ const bodySchema = z.object({
   variation_count: z.number().int().min(1).max(3).optional(),
 });
 
-function bad(msg: string, status = 400) {
-  return new Response(JSON.stringify({ ok: false, error: msg }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+function bad(msg: string, status = 400, code = "bad_request") {
+  return new Response(
+    JSON.stringify({ ok: false, error: { code, message: msg } }),
+    {
+      status,
+      headers: { "content-type": "application/json" },
+    }
+  );
 }
 
 function resolveImageModel(): string {
@@ -183,10 +186,17 @@ export function registerTeamHabboAvatarRoutes(
     },
     handler: async (ctx) => {
       if (!readAiGatewayApiKeyFromEnv()) {
-        return bad("AI Gateway is not configured (AI_GATEWAY_API_KEY).", 503);
+        return bad(
+          "AI Gateway is not configured (AI_GATEWAY_API_KEY).",
+          503,
+          "not_configured"
+        );
       }
 
-      const body = bodySchema.parse(await ctx.request.json().catch(() => ({})));
+      // Framework already parses OpenAPI `request.body` into `ctx.body`.
+      // Re-reading `ctx.request.json()` yields {} after the stream is consumed,
+      // which dropped reference photos and variation_count.
+      const body = bodySchema.parse(ctx.body ?? {});
       const baseOptions: HabboAvatarGenOptions = body.options ?? {};
       const count = body.variation_count ?? 3;
       const variations = HABBO_AVATAR_VARIATIONS.slice(0, count);
@@ -238,7 +248,7 @@ export function registerTeamHabboAvatarRoutes(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         logger.warn("Habbo avatar generation failed", { modelId, error: msg });
-        return bad(msg, 502);
+        return bad(msg, 502, "generation_failed");
       }
 
       return {

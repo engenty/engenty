@@ -30,6 +30,16 @@ export const teamMemberCreateFormSchema = z
         "Password is required when creating a user account (min 6 characters)",
       path: ["password"],
     }
+  )
+  .refine(
+    (data) =>
+      data.connect_user_id === "create_new" ||
+      data.connect_user_id === "none" ||
+      data.connect_user_id.trim().length > 0,
+    {
+      message: "Select an existing user",
+      path: ["connect_user_id"],
+    }
   );
 
 export type TeamMemberCreateFormValues = z.infer<

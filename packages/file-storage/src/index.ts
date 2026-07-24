@@ -67,3 +67,10 @@ export {
   isFileStorageMarkdownMime,
   isFileStorageTextPreviewMime,
 } from "./text-preview-mime.js";
+export {
+  COMMONS_STORAGE_PREFIX,
+  parseWorkWorkspacePrefix,
+  type WorkContainerTier,
+  workWorkspacePrefix,
+  workWorkspaceRelativePrefix,
+} from "./work-workspace.js";

@@ -1,6 +1,8 @@
-// Inlined counterparts of `@engenty/tasks/lib/routine-ref` and
-// `@engenty/tasks/lib/routine-workspace` — apps/ai keeps no build-time
-// dependency on the tasks module (ops go over HTTP by operationId).
+// Memory entity ref for schedule routines. Storage prefixes live in
+// `@engenty/file-storage` (`workWorkspacePrefix`) — apps/ai keeps no
+// build-time dependency on the tasks module (ops go over HTTP by operationId).
+
+import { workWorkspacePrefix } from "@engenty/file-storage";
 
 /** Memory entity scope for a schedule routine (trigger). */
 export const ROUTINE_ENTITY_TYPE = "tasks.routine";
@@ -18,5 +20,5 @@ export function routineWorkspaceStoragePrefix(
   if (!trimmed) {
     throw new Error("trigger_id_invalid");
   }
-  return `tenants/${tenantId}/ai/workspace/routines/${trimmed}/`;
+  return workWorkspacePrefix(tenantId, "routine", trimmed);
 }

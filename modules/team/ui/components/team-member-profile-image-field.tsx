@@ -60,6 +60,7 @@ export function TeamMemberProfileImageField(props: {
         setError(
           err instanceof Error ? err.message : t("profileImageUploadFailed")
         );
+        throw err;
       } finally {
         setUploading(false);
       }
@@ -75,6 +76,7 @@ export function TeamMemberProfileImageField(props: {
       setError(
         err instanceof Error ? err.message : t("profileImageRemoveFailed")
       );
+      throw err;
     }
   }, [props.onChange, t]);
 
@@ -86,14 +88,23 @@ export function TeamMemberProfileImageField(props: {
       <FormLabel>{t("profilePicture")}</FormLabel>
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-4">
-          <Avatar className="h-16 w-16">
-            {props.storageKey && imageUrlQuery.data ? (
-              <AvatarImage alt={props.fullName} src={imageUrlQuery.data} />
-            ) : null}
-            <AvatarFallback className="bg-muted text-lg text-muted-foreground">
-              {fallback}
-            </AvatarFallback>
-          </Avatar>
+          <button
+            aria-label={t("profilePicture")}
+            className="group relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            disabled={props.disabled || uploading || !tenantId}
+            onClick={() => setAiModalOpen(true)}
+            type="button"
+          >
+            <Avatar className="h-16 w-16">
+              {props.storageKey && imageUrlQuery.data ? (
+                <AvatarImage alt={props.fullName} src={imageUrlQuery.data} />
+              ) : null}
+              <AvatarFallback className="bg-muted text-lg text-muted-foreground">
+                {fallback}
+              </AvatarFallback>
+            </Avatar>
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-black/0 transition-colors group-hover:bg-black/25" />
+          </button>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               className="border-ember/40 bg-ember/10 text-ember hover:bg-ember/20"
@@ -112,7 +123,7 @@ export function TeamMemberProfileImageField(props: {
               aria-label={t("uploadProfilePicture")}
               disabled={props.disabled || uploading || !tenantId}
               emptyLabel={t("noFileSelected")}
-              onFileChange={handleFile}
+              onFileChange={(file) => void handleFile(file)}
               selectLabel={
                 props.storageKey
                   ? t("replaceProfilePicture")
@@ -148,8 +159,10 @@ export function TeamMemberProfileImageField(props: {
       </div>
 
       <TeamAvatarAiCreatorModal
+        hasExistingAvatar={Boolean(props.storageKey)}
         initialName={props.fullName}
         onAvatarGenerated={handleFile}
+        onDeleteAvatar={handleRemove}
         onOpenChange={setAiModalOpen}
         open={aiModalOpen}
       />

@@ -497,6 +497,9 @@ export function createTasksRepoSupabase(
       if (params.project_id) {
         query = query.eq("project_id", params.project_id);
       }
+      if (params.trigger_id) {
+        query = query.eq("trigger_id", params.trigger_id);
+      }
       if (params.assignee_kind) {
         query = query.eq("primary_assignee_kind", params.assignee_kind);
       }
@@ -1130,6 +1133,31 @@ export function createTasksRepoSupabase(
       };
     },
 
+    /**
+     * Newest agent-result comment (`🤖 …`) on a task — used when waking
+     * dependents so the blocker's outcome reaches the dependent brief.
+     */
+    async getLatestAgentResultComment(taskId: string): Promise<string | null> {
+      const { data, error } = await comments()
+        .select("content")
+        .eq("task_id", taskId)
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .like("content", "🤖%")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        throw new Error(
+          `Failed to load latest agent result comment: ${error.message}`
+        );
+      }
+      const content = (data as { content?: string } | null)?.content;
+      return typeof content === "string" && content.trim()
+        ? content.trim()
+        : null;
+    },
+
     async listGoalsPaginated(
       params: GoalsQueryParams
     ): Promise<GoalsPaginatedResponse> {
@@ -1163,6 +1191,9 @@ export function createTasksRepoSupabase(
       }
       if (params.parent_id) {
         query = query.eq("parent_id", params.parent_id);
+      }
+      if (params.project_id) {
+        query = query.eq("project_id", params.project_id);
       }
       if (params.search?.trim()) {
         query = query.ilike("title", `%${params.search.trim()}%`);

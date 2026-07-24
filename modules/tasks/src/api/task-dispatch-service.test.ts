@@ -40,7 +40,10 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 /** In-memory DispatchRepo over a Map, recording comments + activity. */
-function makeRepo(tasks: Task[]) {
+function makeRepo(
+  tasks: Task[],
+  agentResults: Record<string, string | null> = {}
+) {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const comments: { taskId: string; content: string }[] = [];
   const activity: { task_id: string; event_type: string }[] = [];
@@ -70,6 +73,8 @@ function makeRepo(tasks: Task[]) {
       comments.push({ taskId, content });
       return {};
     },
+    getLatestAgentResultComment: async (taskId) =>
+      Object.hasOwn(agentResults, taskId) ? agentResults[taskId]! : null,
     recordActivity: async (input) => {
       activity.push({ task_id: input.task_id, event_type: input.event_type });
     },
@@ -153,21 +158,72 @@ describe("dispatchTaskIfReady", () => {
 
 describe("wakeBlockedDependents", () => {
   it("unblocks + dispatches a dependent whose last blocker just completed", async () => {
-    const done = makeTask({ id: "b1", status: "done" });
+    const done = makeTask({ id: "b1", status: "done", identifier: "ENG-1" });
     const dep = makeTask({
       id: "t1",
       status: "blocked",
       blocked_by_task_ids: ["b1"],
     });
-    const { repo, byId, activity } = makeRepo([done, dep]);
+    const { repo, byId, activity, comments } = makeRepo([done, dep], {
+      b1: "🤖 contacts.manager: Found the contact.",
+    });
     const { queue, send } = makeQueue();
     await wakeBlockedDependents({ queue, repo, tenantId: "tenant" }, done);
     expect(byId.get("t1")?.status).toBe("todo");
     expect(send).toHaveBeenCalledTimes(1);
+    expect(comments[0]).toEqual({
+      taskId: "t1",
+      content:
+        "Blocker ENG-1 completed: 🤖 contacts.manager: Found the contact.",
+    });
     expect(activity).toContainEqual({
       task_id: "t1",
       event_type: "tasks.blockers_resolved",
     });
+  });
+
+  it("copies a blocker result comment even when other blockers remain", async () => {
+    const done = makeTask({ id: "b1", status: "done", identifier: "ENG-1" });
+    const other = makeTask({ id: "b2", status: "in_progress" });
+    const dep = makeTask({
+      id: "t1",
+      status: "blocked",
+      blocked_by_task_ids: ["b1", "b2"],
+    });
+    const { repo, byId, comments } = makeRepo([done, other, dep], {
+      b1: "🤖 contacts.manager: First half done.",
+    });
+    const { queue, send } = makeQueue();
+    await wakeBlockedDependents({ queue, repo, tenantId: "tenant" }, done);
+    expect(byId.get("t1")?.status).toBe("blocked");
+    expect(send).not.toHaveBeenCalled();
+    expect(comments).toEqual([
+      {
+        taskId: "t1",
+        content:
+          "Blocker ENG-1 completed: 🤖 contacts.manager: First half done.",
+      },
+    ]);
+  });
+
+  it("falls back to the blocker title when no agent result comment exists", async () => {
+    const done = makeTask({
+      id: "b1",
+      status: "done",
+      identifier: "ENG-9",
+      title: "Research competitors",
+    });
+    const dep = makeTask({
+      id: "t1",
+      status: "blocked",
+      blocked_by_task_ids: ["b1"],
+    });
+    const { repo, comments } = makeRepo([done, dep]);
+    const { queue } = makeQueue();
+    await wakeBlockedDependents({ queue, repo, tenantId: "tenant" }, done);
+    expect(comments[0]?.content).toBe(
+      "Blocker ENG-9 completed: Research competitors"
+    );
   });
 
   it("leaves a dependent blocked if another blocker is still open", async () => {

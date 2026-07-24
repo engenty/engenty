@@ -1,6 +1,7 @@
 // Read-only detail sections: instructions, executing agent, runs, workspace,
 // plus the editable "Approved tools" list (operations the routine may run
 // without asking for approval).
+import { WorkPanel } from "@engenty/ai-ui";
 import {
   type RoutineDto,
   useUpdateCustomRoutineMutation,
@@ -12,7 +13,6 @@ import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { RoutineMemorySection } from "./routine-memory-section.js";
 import { RoutineRunsSection } from "./routine-runs-section.js";
-import { RoutineWorkspaceStrip } from "./routine-workspace-strip.js";
 
 function RoutineApprovedToolsSection({ routine }: { routine: RoutineDto }) {
   const { t } = useTranslation("tasks");
@@ -129,7 +129,13 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
         <>
           <RoutineRunsSection routine={routine} />
           <RoutineMemorySection triggerId={routine.id} />
-          <RoutineWorkspaceStrip routine={routine} />
+          {/* Artifacts + workspace files across this routine's task
+              generations and their run threads (Phase 2 container). The Files
+              tab replaces the old workspace-path strip. */}
+          <WorkPanel
+            container={{ id: routine.id, tier: "routine" }}
+            hostKey="engenty.work.routine"
+          />
         </>
       ) : null}
     </>

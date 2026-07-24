@@ -176,12 +176,12 @@ export function workWorkspacePrefix(
   4. `workspace-presets.ts` commons constant (as planned above).
 
 **Checklist**
-- [ ] Helper + tests (every tier, global without id, id validation, round-trip parse).
-- [ ] task-workspace.ts AND routine-workspace.ts delegate; existing prefix strings
+- [x] Helper + tests (every tier, global without id, id validation, round-trip parse).
+- [x] task-workspace.ts AND routine-workspace.ts delegate; existing prefix strings
       byte-identical (test against the shipped literals, incl. the routine `.keep`).
-- [ ] routine-continuity.ts + specialist-step use the helper (grep: no remaining
+- [x] routine-continuity.ts + specialist-step use the helper (grep: no remaining
       `ai/workspace/` template literals outside file-storage).
-- [ ] Package export map + tsup entry.
+- [x] Package export map + tsup entry.
 
 ## Phase 2 — The container resolver (one choke point for "what's inside X")
 
@@ -221,13 +221,16 @@ memoize per-request. This resolver is the ONLY place containment logic lives —
 routes and agent context both call it.
 
 **Checklist**
-- [ ] Resolver + unit tests per tier (incl. goalless routine task, parentless thread).
-- [ ] HTTP: `GET /ai/artifacts?container=<tier>:<id>` — extend the existing list
-      route (`apps/ai/src/api/artifact-routes.ts:91`) to accept a container param and
-      IN-query over `resolveWorkContainer(...)`.artifactScopes. Existing scope params
-      keep working (back-compat).
-- [ ] Files: same container param on the workspace listing route
-      (`apps/ai/src/api/workspace-routes.ts`) returning the prefixes' listings.
+- [x] Resolver + unit tests per tier (incl. goalless routine task, parentless thread).
+      `apps/ai/src/ai/work-scope/resolve-work-container.ts` + `__tests__`. Adds
+      `trigger_id` (tasks) + `project_id` (goals) list filters to the tasks module.
+- [x] HTTP: `GET /ai/artifacts?container=<tier>:<id>` — extends the list route to
+      accept a container param and IN-query over `resolveWorkContainer(...)
+      .artifactScopes` (global → `listAllByTenant`). Existing scope params keep
+      working; container wins if present. New `listByScopes` on the artifact store.
+- [x] Files: `GET /ai/work-files?container=<tier>:<id>` (new
+      `apps/ai/src/api/work-files-routes.ts`, registered from app.ts) returning
+      `{ prefixes, entries }` listed under each resolved workspace prefix.
 
 ## Phase 3 — Mount the hierarchy into headless specialist runs (the keystone)
 
@@ -261,17 +264,17 @@ HTTP storage, which is all containment needs).
   other"; fetched in `buildBriefStep` where the invoker already exists.
 
 **Checklist**
-- [ ] Envelope gains optional `goal_id` (in-flight snapshots must parse — same rule
-      as `run_disposition`); dispatch/checkout populates it.
-- [ ] `allowedPrefixes` extended (goal + commons) + `workspace_list_files` tool +
+- [x] Envelope gains optional `goal_id` (in-flight snapshots must parse — same rule
+      as `run_disposition`); populated in `buildBriefStep` from the task row (same
+      path as `trigger_id`), carried through to the specialist step.
+- [x] `allowedPrefixes` extended (goal + commons) + `workspace_list_files` tool +
       prefix-order documented in the tool descriptions; key-scope tests extended
       (goal prefix accepted, foreign goal rejected).
-- [ ] Artifact tools in task-job toolset (today copilot-only); `requireThreadScope`
-      satisfied by the run thread (verify: the task-job ALS context carries the
-      thread — it does, `threadIdForRun`).
-- [ ] Brief sections: "## Goal context" + workspace guidance for NON-routine tasks
-      too (the tools are attached to every task job, but only routine briefs mention
-      them today — close that gap).
+- [x] Artifact tools in task-job toolset (today copilot-only) via
+      `createArtifactTools()` in `extraTools`; `requireThreadScope` satisfied by the
+      run thread (`threadIdForRun`).
+- [x] Brief sections: "## Goal context" (goal title/status + open sibling task
+      titles, fetched in `buildBriefStep`) + workspace guidance for NON-routine tasks.
 - [ ] E2E: specialist writes a goal-prefix file, sibling task's run reads it;
       artifact created in run → visible on task panel with zero promotion writes.
 

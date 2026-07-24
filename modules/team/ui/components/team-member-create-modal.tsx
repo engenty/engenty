@@ -29,11 +29,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@engenty/ui-core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { Check, ChevronsUpDown, ListTree } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useForm } from "react-hook-form";
+import { type Control, useForm } from "react-hook-form";
 import {
   createTeamMember,
   listUsers,
@@ -51,10 +55,63 @@ import {
 } from "../lib/team-profile-name-form.js";
 import { TeamMemberNameFields } from "./team-member-name-fields.js";
 
+type UserLinkTab = "create_new" | "existing" | "none";
+
 interface TeamMemberCreateModalProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: (created: TeamMemberListItem) => void;
   open: boolean;
+}
+
+function userLinkTabFromConnectId(connectUserId: string): UserLinkTab {
+  if (connectUserId === "create_new") {
+    return "create_new";
+  }
+  if (connectUserId === "none") {
+    return "none";
+  }
+  return "existing";
+}
+
+function InviteRoleField({
+  control,
+  t,
+}: {
+  control: Control<TeamMemberCreateFormValues>;
+  t: (key: string) => string;
+}) {
+  return (
+    <FormField
+      control={control}
+      name="invite_role"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{t("userRole")}</FormLabel>
+          <Select
+            onValueChange={(v) =>
+              field.onChange(v as TeamMemberCreateFormValues["invite_role"])
+            }
+            value={field.value ?? "member"}
+          >
+            <FormControl>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(field.value ?? "member") === "admin"
+                    ? t("roleAdmin")
+                    : t("roleMember")}
+                </SelectValue>
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem value="member">{t("roleMember")}</SelectItem>
+              <SelectItem value="admin">{t("roleAdmin")}</SelectItem>
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
 }
 
 export function TeamMemberCreateModal({
@@ -75,6 +132,7 @@ export function TeamMemberCreateModal({
   });
 
   const connectUserId = form.watch("connect_user_id");
+  const userLinkTab = userLinkTabFromConnectId(connectUserId);
   const [fullNameVal, setFullNameVal] = useState("");
   const [showNameDetails, setShowNameDetails] = useState(false);
   const [userSearchOpen, setUserSearchOpen] = useState(false);
@@ -88,6 +146,21 @@ export function TeamMemberCreateModal({
     form.setValue("middle_name", parts.middle_name ?? "");
     form.setValue("name_prefix", parts.name_prefix ?? "");
     form.setValue("name_suffix", parts.name_suffix ?? "");
+  };
+
+  const handleUserLinkTabChange = (tab: string) => {
+    const next = tab as UserLinkTab;
+    if (next === "create_new") {
+      form.setValue("connect_user_id", "create_new");
+      return;
+    }
+    if (next === "none") {
+      form.setValue("connect_user_id", "none");
+      return;
+    }
+    if (connectUserId === "create_new" || connectUserId === "none") {
+      form.setValue("connect_user_id", "");
+    }
   };
 
   const handleSubmit = useCallback(
@@ -124,6 +197,7 @@ export function TeamMemberCreateModal({
         });
         form.reset(teamMemberCreateFormDefaults);
         setFullNameVal("");
+        setShowNameDetails(false);
         onSuccess(created);
       } catch (err: unknown) {
         setApiError(err instanceof Error ? err.message : t("createFailed"));
@@ -137,12 +211,19 @@ export function TeamMemberCreateModal({
       if (!next) {
         form.reset(teamMemberCreateFormDefaults);
         setFullNameVal("");
+        setShowNameDetails(false);
         setApiError(null);
       }
       onOpenChange(next);
     },
     [form, onOpenChange]
   );
+
+  const users = usersQuery.data ?? [];
+  const selectedExistingUser = users.find((u) => u.id === connectUserId);
+  const selectedExistingLabel = selectedExistingUser
+    ? `${selectedExistingUser.display_name || selectedExistingUser.email} (${selectedExistingUser.email})`
+    : t("searchUserPlaceholder");
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
@@ -165,56 +246,38 @@ export function TeamMemberCreateModal({
           >
             <FormItem>
               <FormLabel>{t("fullName") || "Name"}</FormLabel>
-              <FormControl>
-                <Input
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder={t("fullName") || "Name"}
-                  value={fullNameVal}
-                />
-              </FormControl>
+              <div className="flex gap-2">
+                <FormControl>
+                  <Input
+                    className="flex-1"
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder={t("fullName") || "Name"}
+                    value={fullNameVal}
+                  />
+                </FormControl>
+                <Button
+                  aria-expanded={showNameDetails}
+                  aria-label={
+                    showNameDetails ? t("hideDetails") : t("showDetails")
+                  }
+                  className="shrink-0"
+                  onClick={() => setShowNameDetails(!showNameDetails)}
+                  size="icon"
+                  type="button"
+                  variant="outline"
+                >
+                  <ListTree className="h-4 w-4" />
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
 
-            <div>
-              <Button
-                className="flex h-auto items-center gap-1.5 p-0 text-muted-foreground text-xs hover:bg-transparent"
-                onClick={() => setShowNameDetails(!showNameDetails)}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                {showNameDetails ? (
-                  <>
-                    <ChevronUp className="h-3 w-3" />
-                    {t("hideDetails") || "Details ausblenden"}
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3" />
-                    {t("showDetails") || "Details anzeigen"}
-                  </>
-                )}
-              </Button>
+            {showNameDetails ? (
+              <div>
+                <TeamMemberNameFields control={form.control} t={t} />
+              </div>
+            ) : null}
 
-              {showNameDetails && (
-                <div className="mt-3">
-                  <TeamMemberNameFields control={form.control} t={t} />
-                </div>
-              )}
-            </div>
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("email")}</FormLabel>
-                  <FormControl>
-                    <Input type="email" {...field} value={field.value ?? ""} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="member_type"
@@ -230,7 +293,7 @@ export function TeamMemberCreateModal({
                     value={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder={t("selectType")}>
                           {field.value === "external"
                             ? t("memberTypeExternal")
@@ -259,124 +322,33 @@ export function TeamMemberCreateModal({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="connect_user_id"
-              render={({ field }) => {
-                const users = usersQuery.data ?? [];
-                let selectedLabel = t("createNewUser");
-                if (field.value === "none") {
-                  selectedLabel = t("doNotConnect");
-                } else {
-                  const found = users.find((u) => u.id === field.value);
-                  if (found) {
-                    selectedLabel = `${found.display_name || found.email} (${found.email})`;
-                  }
-                }
+            <Tabs onValueChange={handleUserLinkTabChange} value={userLinkTab}>
+              <TabsList className="grid h-auto w-full grid-cols-3">
+                <TabsTrigger value="create_new">{t("tabNewUser")}</TabsTrigger>
+                <TabsTrigger value="existing">
+                  {t("tabExistingUser")}
+                </TabsTrigger>
+                <TabsTrigger value="none">{t("tabNoUser")}</TabsTrigger>
+              </TabsList>
 
-                return (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>{t("connectToUser")}</FormLabel>
-                    <Popover
-                      onOpenChange={setUserSearchOpen}
-                      open={userSearchOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            aria-expanded={userSearchOpen}
-                            className={cn(
-                              "w-full justify-between font-normal",
-                              field.value === "none" && "text-muted-foreground"
-                            )}
-                            role="combobox"
-                            variant="outline"
-                          >
-                            {selectedLabel}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="start"
-                        className="w-(--anchor-width) p-0"
-                      >
-                        <Command shouldFilter>
-                          <CommandInput placeholder={t("searchPlaceholder")} />
-                          <CommandList>
-                            <CommandEmpty>{t("notFound")}</CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => {
-                                  field.onChange("create_new");
-                                  setUserSearchOpen(false);
-                                }}
-                                value="create_new"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    field.value === "create_new"
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                {t("createNewUser")}
-                              </CommandItem>
-                              <CommandItem
-                                onSelect={() => {
-                                  field.onChange("none");
-                                  setUserSearchOpen(false);
-                                }}
-                                value="none"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    field.value === "none"
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                {t("doNotConnect")}
-                              </CommandItem>
-                              {users.map((user) => {
-                                const label = `${user.display_name || user.email} (${user.email})`;
-                                return (
-                                  <CommandItem
-                                    key={user.id}
-                                    onSelect={() => {
-                                      field.onChange(user.id);
-                                      form.setValue("email", user.email);
-                                      setUserSearchOpen(false);
-                                    }}
-                                    value={label}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        field.value === user.id
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    {label}
-                                  </CommandItem>
-                                );
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
-            />
-
-            {connectUserId === "create_new" && (
-              <>
+              <TabsContent className="mt-4 space-y-4" value="create_new">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("email")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="password"
@@ -398,44 +370,89 @@ export function TeamMemberCreateModal({
                     </FormItem>
                   )}
                 />
+                <InviteRoleField control={form.control} t={t} />
+              </TabsContent>
+
+              <TabsContent className="mt-4 space-y-4" value="existing">
                 <FormField
                   control={form.control}
-                  name="invite_role"
+                  name="connect_user_id"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("userRole")}</FormLabel>
-                      <Select
-                        onValueChange={(v) =>
-                          field.onChange(
-                            v as TeamMemberCreateFormValues["invite_role"]
-                          )
-                        }
-                        value={field.value ?? "member"}
+                    <FormItem className="flex flex-col">
+                      <FormLabel>{t("searchUser")}</FormLabel>
+                      <Popover
+                        onOpenChange={setUserSearchOpen}
+                        open={userSearchOpen}
                       >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue>
-                              {(field.value ?? "member") === "admin"
-                                ? t("roleAdmin")
-                                : t("roleMember")}
-                            </SelectValue>
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="member">
-                            {t("roleMember")}
-                          </SelectItem>
-                          <SelectItem value="admin">
-                            {t("roleAdmin")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              aria-expanded={userSearchOpen}
+                              className={cn(
+                                "w-full justify-between font-normal",
+                                !selectedExistingUser && "text-muted-foreground"
+                              )}
+                              role="combobox"
+                              variant="outline"
+                            >
+                              {selectedExistingLabel}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          className="w-(--anchor-width) p-0"
+                        >
+                          <Command shouldFilter>
+                            <CommandInput
+                              placeholder={t("searchUserPlaceholder")}
+                            />
+                            <CommandList>
+                              <CommandEmpty>{t("notFound")}</CommandEmpty>
+                              <CommandGroup>
+                                {users.map((user) => {
+                                  const label = `${user.display_name || user.email} (${user.email})`;
+                                  return (
+                                    <CommandItem
+                                      key={user.id}
+                                      onSelect={() => {
+                                        field.onChange(user.id);
+                                        form.setValue("email", user.email);
+                                        setUserSearchOpen(false);
+                                      }}
+                                      value={label}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          field.value === user.id
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {label}
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </>
-            )}
+                <InviteRoleField control={form.control} t={t} />
+              </TabsContent>
+
+              <TabsContent className="mt-4" value="none">
+                <p className="text-muted-foreground text-sm">
+                  {t("noUserHint")}
+                </p>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter>
               <Button
