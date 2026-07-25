@@ -32,7 +32,7 @@ import type { EngentyWorkspaceMountSpec } from "./contracts.js";
 // sandbox is enabled this prefix is staged locally and bind-mounted into the
 // sandbox so running code can read/write it (see loader + docker provider).
 // Re-exported from @engenty/file-storage so bytes stay where they are.
-export { COMMONS_STORAGE_PREFIX };
+export { COMMONS_STORAGE_PREFIX } from "@engenty/file-storage";
 
 // Agent/user-scoped durable home. Shares the same staged+bind-mounted+synced
 // mechanism as commons when a sandbox is enabled (its storage prefix is per-user
