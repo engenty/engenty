@@ -56,18 +56,39 @@ const TITLE_CLASS = {
     "min-w-0 font-heading font-semibold text-[28px] text-foreground leading-9 tracking-tight",
 } as const;
 
+/** Horizontal alignment for `aboveStrip` / `belowStrip` tab rows. */
+export type DetailPageHeaderStripAlign = "left" | "center" | "full" | "right";
+
+const STRIP_ALIGN_CLASS: Record<DetailPageHeaderStripAlign, string> = {
+  left: "justify-start",
+  center: "justify-center",
+  // Stretch the strip child (and nested TabsList) so triggers sit evenly across.
+  full: "w-full [&>*]:w-full [&_[data-slot=tabs-list]]:w-full",
+  right: "justify-end",
+};
+
 export interface DetailPageHeaderProps
   extends Pick<VariantProps<typeof detailPageHeaderVariants>, "variant"> {
+  /**
+   * Hub / sibling-page navigation above the title block — e.g. Plan list tabs
+   * (Tasks / Goals / Routines). Prefer this when switching changes page identity.
+   * For sections *within* one entity, use `belowStrip` instead.
+   */
+  aboveStrip?: ReactNode;
+  /** Alignment for `aboveStrip`. Default `left`. */
+  aboveStripAlign?: DetailPageHeaderStripAlign;
   /**
    * Primary section navigation flush to the header's bottom edge: a `TabsList`
    * (line variant) or a status stepper. NOT for view-mode toggles or file
    * pickers — those are content chrome and belong in the content area.
    */
   belowStrip?: ReactNode;
+  /** Alignment for `belowStrip`. Default `left`. */
+  belowStripAlign?: DetailPageHeaderStripAlign;
   className?: string;
   /**
    * When true, collapse the eyebrow + description so only the title + status +
-   * belowStrip remain — a compact "stuck" header. Drive from a scroll detector.
+   * strips remain — a compact "stuck" header. Drive from a scroll detector.
    */
   collapsed?: boolean;
   /** Override the inner container (alignment / horizontal padding). */
@@ -97,12 +118,15 @@ export interface DetailPageHeaderProps
 }
 
 /**
- * Shared detail-page header: surface + centered container + title block, with a
- * `belowStrip` slot for section tabs (or a status stepper). Presentational only
- * — the page still owns `usePageConfig` for topbar chrome and primary actions.
+ * Shared detail-page header: surface + centered container + title block, with
+ * optional `aboveStrip` / `belowStrip` slots for tab navigation. Presentational
+ * only — the page still owns `usePageConfig` for topbar chrome and primary actions.
  */
 export function DetailPageHeader({
+  aboveStrip,
+  aboveStripAlign = "left",
   belowStrip,
+  belowStripAlign = "left",
   className,
   collapsed = false,
   containerClassName,
@@ -139,6 +163,17 @@ export function DetailPageHeader({
           containerClassName
         )}
       >
+        {aboveStrip ? (
+          <div
+            className={cn(
+              "flex items-end",
+              STRIP_ALIGN_CLASS[aboveStripAlign],
+              resolvedVariant === "canvas" ? "mb-5" : "mb-3"
+            )}
+          >
+            {aboveStrip}
+          </div>
+        ) : null}
         <div
           className={cn(
             resolvedVariant === "canvas" ? "mb-0" : "mb-2",
@@ -191,6 +226,7 @@ export function DetailPageHeader({
           <div
             className={cn(
               "flex items-end",
+              STRIP_ALIGN_CLASS[belowStripAlign],
               resolvedVariant === "canvas" && "mt-6"
             )}
           >
