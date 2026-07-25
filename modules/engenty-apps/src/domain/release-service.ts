@@ -31,7 +31,7 @@ function isBuildError(error: unknown): error is AppHostBuildError {
  *
  * The build runs BEFORE approval on purpose: asking a human to sign off on a
  * release that does not compile wastes their attention, and the build log is
- * what engenty.coder iterates against. A failed build updates the draft in
+ * what engenty.app-coder iterates against. A failed build updates the draft in
  * place and throws, so the agent can read `build_log`, fix, and propose again
  * without churning version numbers.
  */

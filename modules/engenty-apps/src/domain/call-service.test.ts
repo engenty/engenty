@@ -34,10 +34,10 @@ async function seedLiveApp(manifestOverrides = {}) {
   const repo = makeFakeAppsRepo(store);
   const app = await repo.createApp(
     { name: "Travel expenses", slug: "travel-expenses" },
-    { createdBy: "engenty.coder", kind: "agent" }
+    { createdBy: "engenty.app-coder", kind: "agent" }
   );
   const draft = await repo.getOrCreateDraftVersion(app.id, {
-    createdBy: "engenty.coder",
+    createdBy: "engenty.app-coder",
     kind: "agent",
   });
   await repo.updateVersion(draft.id, {
@@ -160,7 +160,7 @@ describe("callApp", () => {
     const repo = makeFakeAppsRepo(store);
     const app = await repo.createApp(
       { name: "Draft", slug: "draft-app" },
-      { createdBy: "engenty.coder", kind: "agent" }
+      { createdBy: "engenty.app-coder", kind: "agent" }
     );
 
     await expect(

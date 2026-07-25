@@ -396,9 +396,9 @@ granularity (not per-server), and never forward an undeclared name.
 revocable; that a `requiresApproval` op still triggers the normal approval path; that the handle is
 rejected by `verifyAccessToken` as a session token.
 
-### Phase 5 — Authoring: `engenty.coder` writes Apps
+### Phase 5 — Authoring: `engenty.app-coder` writes Apps
 
-The agent that creates apps, with no git and no repo checkout. Agent `engenty.coder` (module
+The agent that creates apps, with no git and no repo checkout. Agent `engenty.app-coder` (module
 `modules/engenty-apps/ai/agents/…`, `agent.json` + `AGENTS.md` doctrine — remember `model` is
 forbidden in `agent.json`, enforced at `packages/ai-core/src/define-module-ai.ts:221`) with
 `app_create` / `app_file_write` / `app_release_propose` and a build-error feedback loop: propose →

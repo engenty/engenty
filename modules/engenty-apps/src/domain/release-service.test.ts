@@ -34,10 +34,10 @@ async function seedDraft(files: Record<string, string> = {}) {
   const repo = makeFakeAppsRepo(store);
   const app = await repo.createApp(
     { name: "Travel expenses", slug: "travel-expenses" },
-    { createdBy: "engenty.coder", kind: "agent" }
+    { createdBy: "engenty.app-coder", kind: "agent" }
   );
   const draft = await repo.getOrCreateDraftVersion(app.id, {
-    createdBy: "engenty.coder",
+    createdBy: "engenty.app-coder",
     kind: "agent",
   });
   await repo.updateVersion(draft.id, {
@@ -163,7 +163,7 @@ describe("approveRelease", () => {
     await approveRelease(deps, { appId: app.id, version: 1 });
 
     const second = await repo.getOrCreateDraftVersion(app.id, {
-      createdBy: "engenty.coder",
+      createdBy: "engenty.app-coder",
       kind: "agent",
     });
     await repo.updateVersion(second.id, {
@@ -189,7 +189,7 @@ describe("rejectRelease", () => {
     const activeId = store.apps[0].active_version_id;
 
     const second = await repo.getOrCreateDraftVersion(app.id, {
-      createdBy: "engenty.coder",
+      createdBy: "engenty.app-coder",
       kind: "agent",
     });
     await repo.updateVersion(second.id, {
@@ -233,7 +233,7 @@ describe("rollbackRelease", () => {
     await approveRelease(deps, { appId: app.id, version: 1 });
 
     const second = await repo.getOrCreateDraftVersion(app.id, {
-      createdBy: "engenty.coder",
+      createdBy: "engenty.app-coder",
       kind: "agent",
     });
     await repo.updateVersion(second.id, {

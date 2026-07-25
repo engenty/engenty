@@ -7,7 +7,7 @@ import { AppRuntime, toBuildFailure } from "../runtime.js";
  * reach us they have crossed an actor RPC boundary and arrive as a plain
  * RivetError — `instanceof AgentOSAppsError` is false even though the shape is
  * intact. An earlier version of this classifier tested by class, which turned
- * every build error into an opaque 500 and left engenty.coder with no log to
+ * every build error into an opaque 500 and left engenty.app-coder with no log to
  * iterate against. These lock in the contract-based detection.
  */
 describe("toBuildFailure", () => {

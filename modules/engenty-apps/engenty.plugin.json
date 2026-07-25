@@ -1,7 +1,7 @@
 {
   "id": "engenty-apps",
   "name": "engenty Apps",
-  "description": "Tenant-owned applications with a frontend, a backend and their own storage — authored by engenty.coder, rendered as artifacts, used by engenty.copilot and engenty.coordinator",
+  "description": "Tenant-owned applications with a frontend, a backend and their own storage — authored by engenty.app-coder, rendered as artifacts, used by engenty.copilot and engenty.coordinator",
   "version": "0.0.1",
   "kind": "module",
   "category": "engenty",

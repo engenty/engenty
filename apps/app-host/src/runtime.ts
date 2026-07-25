@@ -26,7 +26,7 @@ export interface DeployResult {
 }
 
 export interface AppBuildError {
-  /** Compiler/bundler/packer output, verbatim — this is what engenty.coder reads. */
+  /** Compiler/bundler/packer output, verbatim — this is what engenty.app-coder reads. */
   buildLog: string;
   code: string;
   message: string;
@@ -70,7 +70,7 @@ export function assertAppId(appId: string): void {
  * plain `RivetError` — `instanceof AgentOSAppsError` is false even though the
  * shape is intact. Detect by contract (an `agentos_apps_*` code carrying the
  * guest command's stdio) rather than by class, or every build error degrades to
- * an opaque 500 and engenty.coder has nothing to iterate against.
+ * an opaque 500 and engenty.app-coder has nothing to iterate against.
  */
 export function toBuildFailure(error: unknown): AppBuildFailure | null {
   if (!error || typeof error !== "object") {

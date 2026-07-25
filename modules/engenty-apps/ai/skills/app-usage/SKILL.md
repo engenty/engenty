@@ -23,7 +23,7 @@ for it:
   engenty operations it declared.
 
 If an App fits, use it. If nothing fits and the user wants a repeatable
-process rather than a one-off answer, hand the job to **engenty.coder** — that
+process rather than a one-off answer, hand the job to **engenty.app-coder** — that
 agent builds Apps. Do not attempt to build one yourself from chat.
 
 ## Opening one for the user

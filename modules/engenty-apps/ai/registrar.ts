@@ -1,5 +1,5 @@
 // engenty Apps AI surface — declared via defineModuleAi.
-// agents/engenty.coder/{agent.json,AGENTS.md}, skills/*/SKILL.md.
+// agents/engenty.app-coder/{agent.json,AGENTS.md}, skills/*/SKILL.md.
 
 import type {
   AiRegistration,

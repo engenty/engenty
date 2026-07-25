@@ -78,7 +78,7 @@ export function createAppHost(options: {
     } catch (error) {
       if (error instanceof AppBuildFailure) {
         // 422, not 500: the source is the problem, and the build log is the
-        // payload engenty.coder iterates against.
+        // payload engenty.app-coder iterates against.
         return c.json({ error: "build_failed", ...error.detail }, 422);
       }
       logger.error("deploy failed", {
