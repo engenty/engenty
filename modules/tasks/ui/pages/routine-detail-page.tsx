@@ -1,6 +1,7 @@
 // Routed detail page for a routine (/mdl/tasks/routines/:id).
 // Declared (module/builtin) routines are read-only except the enable toggle;
 // custom routines additionally get Edit and Delete.
+import { WorkspaceArtifactPane } from "@engenty/ai-ui";
 import {
   type RoutineDto,
   useDeleteCustomRoutineMutation,
@@ -21,7 +22,9 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RoutineDetailContent } from "../components/routine-detail-content.js";
+import { RoutineDetailTopbarActions } from "../components/routine-detail-topbar-actions.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
+import { ROUTINE_WORK_HOST_KEY } from "../lib/routine-work-host.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 
 export function RoutineDetailPage() {
@@ -44,7 +47,18 @@ export function RoutineDetailPage() {
     () => [...(moduleRootCrumb ? [moduleRootCrumb] : []), { label: title }],
     [moduleRootCrumb, title]
   );
+  const routineContainer = useMemo(
+    () => (routine ? { id: routine.id, tier: "routine" as const } : null),
+    [routine]
+  );
   usePageConfig({
+    actions: routine ? (
+      <RoutineDetailTopbarActions
+        onDelete={() => setDeleteOpen(true)}
+        onEdit={() => navigate(tasksPaths.routineEdit(routine.id))}
+        routine={routine}
+      />
+    ) : null,
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
@@ -68,8 +82,6 @@ export function RoutineDetailPage() {
       ) : routine ? (
         <RoutineDetailContent
           locale={i18n.language || "en"}
-          onDelete={() => setDeleteOpen(true)}
-          onEdit={() => navigate(tasksPaths.routineEdit(routine.id))}
           routine={routine}
         />
       ) : (
@@ -77,6 +89,12 @@ export function RoutineDetailPage() {
           {t("routines.detail.notFound")}
         </p>
       )}
+
+      <WorkspaceArtifactPane
+        container={routineContainer}
+        hostKey={ROUTINE_WORK_HOST_KEY}
+        scope={{ id: null, type: "thread" }}
+      />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogContent>
