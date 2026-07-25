@@ -60,6 +60,7 @@ import {
 } from "./api/gateway-model-routes.js";
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
+import { registerAppProxyRoutes } from "./api/app-proxy-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
@@ -541,6 +542,10 @@ export async function createApp(options: CreateAppOptions = {}) {
       },
     });
   }
+  // engenty Apps capability wall. Registered unconditionally: it brokers
+  // every call a tenant-authored App makes, and a missing route would fail
+  // open in the UI rather than closed.
+  registerAppProxyRoutes(app, { scopeResolver });
   registerAgentSessionRunRoutes(app, {
     // Registry + store for the streaming chat runtimes (harness_session default,
     // conversation executor).
