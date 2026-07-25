@@ -26,15 +26,11 @@ import {
   FileTerminal,
   House,
   ListChecks,
+  type LucideIcon,
   MessagesSquare,
   Wrench,
 } from "lucide-react";
-import {
-  type ComponentType,
-  type ReactNode,
-  useCallback,
-  useMemo,
-} from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import type {
   AiAgentEntry,
@@ -88,7 +84,7 @@ function WorkspaceNavLinkRow({
   pathname: string;
   search: string;
   to: string;
-  Icon: ComponentType<{ "aria-hidden"?: boolean; className?: string }>;
+  Icon: LucideIcon;
   children: ReactNode;
 }) {
   const isActive = matchesPath(pathname, search, to);
@@ -242,52 +238,52 @@ export function AgentsWorkspaceSidebar({
         </SidebarTabStrip>
       </SidebarHeader>
 
-      {primaryTab === "skills" ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {primaryTab === "skills" ? (
           <SkillCatalogSidebarPanel
             loading={skillsLoading}
             onSelectSkill={(name) => runNav(() => onSelectSkill(name))}
             selectedSkillId={selectedSkillId}
             skills={skills}
           />
-        </div>
-      ) : primaryTab === "actions" ? (
-        <AgentsWorkspaceActionsPanel
-          actions={actions}
-          actionsLoading={actionsLoading}
-          onSelectAction={(id) => runNav(() => onSelectAction(id))}
-          selectedActionId={selectedActionId}
-        />
-      ) : primaryTab === "connections" ? (
-        <AgentsWorkspaceConnectionsPanel runNav={runNav} />
-      ) : primaryTab === "agents" ? (
-        <AgentsWorkspaceAgentsPanel
-          agents={agents}
-          isLandingPage={isLandingPage}
-          onSelectAgent={(id) => runNav(() => onSelectAgent(id))}
-          pinAgent={pinAgent}
-          pinnedAgents={pinnedAgents}
-          runNav={runNav}
-          selectedAgentId={selectedAgentId}
-          unpinAgent={unpinAgent}
-        />
-      ) : (
-        <SidebarContent className="px-0 py-0">
-          <SidebarGroup className="p-0 pb-2">
-            <SidebarGroupContent>
-              <AgentsWorkspaceSessionsPanel
-                agentNameById={agentNameById}
-                isError={sessionsQuery.isError}
-                isLoading={sessionsQuery.isLoading}
-                routeActiveSessionId={routeActiveSessionId}
-                runNav={runNav}
-                searchActive={false}
-                sessions={sessionsRaw}
-              />
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-      )}
+        ) : primaryTab === "actions" ? (
+          <AgentsWorkspaceActionsPanel
+            actions={actions}
+            actionsLoading={actionsLoading}
+            onSelectAction={(id) => runNav(() => onSelectAction(id))}
+            selectedActionId={selectedActionId}
+          />
+        ) : primaryTab === "connections" ? (
+          <AgentsWorkspaceConnectionsPanel runNav={runNav} />
+        ) : primaryTab === "agents" ? (
+          <AgentsWorkspaceAgentsPanel
+            agents={agents}
+            isLandingPage={isLandingPage}
+            onSelectAgent={(id) => runNav(() => onSelectAgent(id))}
+            pinAgent={pinAgent}
+            pinnedAgents={pinnedAgents}
+            runNav={runNav}
+            selectedAgentId={selectedAgentId}
+            unpinAgent={unpinAgent}
+          />
+        ) : (
+          <SidebarContent className="px-0 py-0">
+            <SidebarGroup className="p-0 pb-2">
+              <SidebarGroupContent>
+                <AgentsWorkspaceSessionsPanel
+                  agentNameById={agentNameById}
+                  isError={sessionsQuery.isError}
+                  isLoading={sessionsQuery.isLoading}
+                  routeActiveSessionId={routeActiveSessionId}
+                  runNav={runNav}
+                  searchActive={false}
+                  sessions={sessionsRaw}
+                />
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        )}
+      </div>
     </aside>
   );
 }

@@ -30,6 +30,7 @@ import {
 import { AgentsCatalogTable } from "../features/agents-catalog/agents-catalog-table";
 import { AgentsCatalogToolbar } from "../features/agents-catalog/agents-catalog-toolbar";
 import { AGENTS_WORKSPACE_ROOT_PATH } from "../features/agents-workspace/agent-workspace-paths";
+import { EngentyCatalogPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome";
 import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
 import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
 import { useAiAgentsQuery } from "../lib/admin/ai-runtime-queries";
@@ -114,6 +115,7 @@ export function AgentsCatalogPage() {
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    topbarOverlap: true,
   });
 
   const isEmpty = !agentsQuery.isLoading && (agents ?? []).length === 0;
@@ -123,7 +125,11 @@ export function AgentsCatalogPage() {
     filteredAgents.length === 0;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-page">
+    <EngentyCatalogPageChrome
+      description={t("agentsCatalog.description")}
+      tab="agents"
+      title={t("workspace.sidebarAgents")}
+    >
       <AgentDeleteDialog
         agent={pendingDelete}
         onClose={() => setPendingDelete(null)}
@@ -196,6 +202,6 @@ export function AgentsCatalogPage() {
           </AdminListTableView>
         ) : null}
       </div>
-    </section>
+    </EngentyCatalogPageChrome>
   );
 }

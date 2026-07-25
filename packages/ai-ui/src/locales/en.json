@@ -1210,6 +1210,12 @@
     "viewDetail": "View agent"
   },
   "overview": {
+    "hubs": {
+      "navAria": "Engenty catalogs",
+      "open": "Open",
+      "agentsCount_one": "{{count}} agent",
+      "agentsCount_other": "{{count}} agents"
+    },
     "workforce": {
       "title": "Agents",
       "leadership": "Copilot",
