@@ -9,6 +9,10 @@ import {
 } from "./initial-setup-gate";
 import { refreshSupabaseAuthSession } from "./supabase-session-claims";
 
+// A hung dev/proxy backend must fail fast instead of leaving the caller's
+// promise (and any UI gated on it) pending forever.
+const SETUP_REQUEST_TIMEOUT_MS = 10_000;
+
 export async function isInitialSetupRequired(): Promise<boolean> {
   const gate = await evaluateInitialSetupGate();
   if (gate.status !== "ready") {
@@ -28,6 +32,7 @@ export async function createInitialAdmin(input: {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
+      signal: AbortSignal.timeout(SETUP_REQUEST_TIMEOUT_MS),
     }
   );
   const payload = await readResponseJsonLoose(response);
@@ -57,6 +62,7 @@ export async function initializeWorkspaceAdmin(
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
       },
+      signal: AbortSignal.timeout(SETUP_REQUEST_TIMEOUT_MS),
     }
   );
   const payload = await readResponseJsonLoose(response);
@@ -87,6 +93,7 @@ export async function ensureCurrentWorkspaceUser(
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
       },
+      signal: AbortSignal.timeout(SETUP_REQUEST_TIMEOUT_MS),
     }
   );
   const payload = await readResponseJsonLoose(response);
