@@ -6,6 +6,11 @@ import {
 } from "../lib/app-host-client.js";
 import { appManifestSchema } from "../schema/zod.js";
 import type { App, AppVersion } from "../schema/types.js";
+import {
+  bundleFrontend,
+  FrontendBuildError,
+  isBundledEntry,
+} from "./frontend-bundler.js";
 
 export interface ReleaseServiceDeps {
   appHost: AppHostClient | null;
@@ -76,17 +81,58 @@ export async function proposeRelease(
     throw new Error("app_entry_missing");
   }
 
+  /*
+   * The frontend is bundled BEFORE the app host is asked for anything: an
+   * esbuild pass costs milliseconds where a cold agentOS build VM costs half a
+   * minute, so a mistyped component should not spend a deploy cycle to find.
+   */
+  let frontendHtml: string | null = null;
+  if (isBundledEntry(frontend)) {
+    try {
+      const bundled = await bundleFrontend({
+        entry: frontend,
+        files: draft.files,
+        title: app.name,
+      });
+      frontendHtml = bundled.html;
+    } catch (error) {
+      if (error instanceof FrontendBuildError) {
+        await deps.repo.updateVersion(draft.id, {
+          build_log: error.buildLog,
+          frontend_html: null,
+          release: null,
+        });
+        const wrapped = new Error("app_build_failed") as Error & {
+          details?: unknown;
+        };
+        wrapped.details = { buildLog: error.buildLog };
+        throw wrapped;
+      }
+      throw error;
+    }
+  }
+
   if (!deps.appHost) {
     throw new Error("app_host_unavailable");
   }
 
   try {
+    /*
+     * Bundle-mode sources contain no `index.html`, and agentOS refuses to
+     * resolve a deployment without one (or a package.json). Shipping the built
+     * document under that name puts bundle mode in exactly the same deploy
+     * shape as an inline App — no second code path on the host side.
+     */
+    const deployFiles = frontendHtml
+      ? { ...draft.files, "index.html": frontendHtml }
+      : draft.files;
     const deployment = await deps.appHost.deploy(
       appHostId(deps.tenantId, app.id),
-      draft.files
+      deployFiles
     );
     const built = await deps.repo.updateVersion(draft.id, {
       build_log: null,
+      frontend_html: frontendHtml,
       manifest: manifest.data,
       release: deployment.release,
     });
@@ -195,9 +241,14 @@ export async function rollbackRelease(
     throw new Error("app_host_unavailable");
   }
 
+  // The built document was stored at propose time, so a rollback re-deploys
+  // byte-for-byte what was approved rather than rebuilding it from sources
+  // that a newer toolchain might now compile differently.
   const deployment = await deps.appHost.deploy(
     appHostId(deps.tenantId, app.id),
-    target.files
+    target.frontend_html
+      ? { ...target.files, "index.html": target.frontend_html }
+      : target.files
   );
   const restored = await deps.repo.updateVersion(target.id, {
     deployed_at: new Date().toISOString(),

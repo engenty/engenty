@@ -11,7 +11,28 @@ An App has no credentials. It never receives a token, a key or a session. Its
 one route to anything outside its own frame is the bridge, and the bridge only
 ever does what the App's manifest declared.
 
-## From the frontend
+## From a bundled App
+
+If `entry.frontend` names sources (`src/main.tsx`), import the bridge instead
+of building it. It is the same protocol below, written once and audited:
+
+```tsx
+import { action, config, data, engenty, notify } from "engenty:bridge";
+
+const threads = await engenty("inbox_threads_list", { limit: 20 });
+const saved = await data.get("draft");
+await data.set("draft", { note: "in progress" });
+const currency = await config.get("currency");
+const result = await action("collect", { amount: 12.5 });
+notify("Added the receipt.");
+```
+
+Everything it exports: `call(name, args)` for any bridge tool,
+`engenty(operationId, input)`, `action(id, input)`, the `data` and `config`
+stores (`get` / `set` / `list` / `delete`), `notify(text)`, `openLink(url)`,
+and `onSession(cb)` for the host's initial push. Every call returns a promise.
+
+## From a single-document App
 
 The frame speaks MCP JSON-RPC over `postMessage`. In practice:
 

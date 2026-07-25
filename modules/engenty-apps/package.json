@@ -40,6 +40,9 @@
     "@engenty/telemetry": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
     "@supabase/supabase-js": "^2.108.2",
+    "esbuild": "^0.28.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "uuidv7": "^1.2.1",
     "zod": "4.4.3"
   },

@@ -1,7 +1,7 @@
 ---
 name: app-authoring
 title: Authoring an engenty App
-description: File layout, manifest shape, the single-inlined-HTML frontend constraint, and the build-fix loop for creating tenant Apps.
+description: File layout, manifest shape, the two frontend shapes (single document or bundled React), and the build-fix loop for creating tenant Apps.
 allowed-tools: engenty_tools_search engenty_tool_execute
 ---
 
@@ -10,25 +10,39 @@ allowed-tools: engenty_tools_search engenty_tool_execute
 Use this when someone asks for a tool, a form, a calculator, a tracker or a
 workflow that does not exist yet as a module.
 
+## Pick a shape first
+
+| | Single document | Bundled React |
+| --- | --- | --- |
+| `entry.frontend` | `index.html` | `src/main.tsx` |
+| Good for | one screen, a form, a calculator | components, shared state, several views |
+| Frontend files | one, self-contained | as many as you like |
+
+The extension decides the mode. Nothing else has to be set, and the two cannot
+fall out of sync.
+
+**Reach for bundled React by default** unless the whole thing genuinely fits on
+one screen. Components, `useState` and real imports cost nothing here, and a
+single-document app that grows past a few hundred lines becomes very hard to
+edit through `app_file_write`.
+
 ## File layout
 
 ```
-index.html     the whole frontend — markup, CSS and JS inline
-server.js      optional backend: export default { fetch(request) }
-rules.js       optional pure rules module
-manifest       written as the `manifest` argument to app_file_write
+src/main.tsx     bundle mode: mounts into #root
+src/App.tsx      your components, imported normally
+src/styles.css   imported from a component, inlined at build
+index.html       single-document mode instead: markup, CSS and JS inline
+server.js        optional backend: export default { fetch(request) }
+rules.js         optional pure rules module
 ```
-
-`index.html` must be **self-contained**. It is inlined into a sandboxed frame
-with `default-src 'none'`, so an external stylesheet, a CDN script tag or a
-web font will simply not load. Inline everything; use system fonts.
 
 ## The manifest
 
 ```jsonc
 {
   "name": "Travel expenses",
-  "entry": { "frontend": "index.html", "backend": "server.js" },
+  "entry": { "frontend": "src/main.tsx", "backend": "server.js" },
   "engenty": { "operations": ["inbox_threads_list"] },
   "storage": { "data": true, "config": true },
   "egress": { "connect": [] },
@@ -54,6 +68,66 @@ web font will simply not load. Inline everything; use system fonts.
   world through declared engenty operations.
 - `risk` / `requiresApproval` — see the honesty rule in AGENTS.md.
 
+Always write `entry.frontend` with its extension. `src/main` is not bundle
+mode; it is a missing file.
+
+## Bundled React
+
+```tsx
+// src/main.tsx
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+import "./styles.css";
+
+createRoot(document.getElementById("root")!).render(<App />);
+```
+
+```tsx
+// src/App.tsx
+import { useEffect, useState } from "react";
+import { data } from "engenty:bridge";
+
+export function App() {
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    data.get("draft").then((saved) => setDraft(String(saved ?? "")));
+  }, []);
+  return (
+    <textarea
+      value={draft}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        void data.set("draft", event.target.value);
+      }}
+    />
+  );
+}
+```
+
+TypeScript and JSX are compiled for you. `#root` already exists in the
+document — do not write your own `index.html` in this mode.
+
+**The entire dependency surface is:**
+
+```
+react   react-dom/client   engenty:bridge
+```
+
+There is no `package.json` and no npm install. Importing anything else fails
+the build and names what you asked for. If a task seems to need a chart or a
+date library, write the twenty lines yourself.
+
+`engenty:bridge` replaces the hand-written `postMessage` plumbing: it exports
+`call`, `engenty`, `action`, `data`, `config`, `notify`, `openLink` and
+`onSession`. See the engenty-bridge skill.
+
+## Single document
+
+`index.html` must be **self-contained**. It is inlined into a sandboxed frame
+with `default-src 'none'`, so an external stylesheet, a CDN script tag or a web
+font will simply not load. Inline everything; use system fonts. The same rule
+holds in bundle mode — it is just enforced by the bundler instead of by you.
+
 ## The backend
 
 ```js
@@ -77,26 +151,29 @@ variable.
 verbatim, with a file and a line:
 
 ```
-workspace/index.js:1:33: ERROR: Expected "}" but found "1"
+src/App.tsx:12:20: ERROR: Expected "}" but found "1"
 ```
 
 Fix that file with `app_file_write` and propose again. The version number does
-not advance on a failed build, so iterating costs nothing.
+not advance on a failed build, so iterating costs nothing. The frontend is
+built before the backend is deployed, so a broken component fails in under a
+second rather than after a deploy.
 
-Two failures the log will not spell out for you:
+Three failures the log will not spell out for you:
 
-- `app_entry_missing` — `manifest.entry.frontend` names a file you never
-  wrote.
+- `app_entry_missing` — `manifest.entry.frontend` names a file you never wrote.
 - `app_manifest_invalid` — the manifest failed validation; the reason is in
   `build_log`.
+- An import that is not on the list above — the message names the specifier and
+  lists what is available.
 
 ## Worked shape: an interactive report
 
-1. `index.html` renders the current state and a form. On submit it calls the
-   bridge tool `app_action` with `{ action: "collect", input: {...} }`.
+1. `src/App.tsx` renders the current state and a form. On submit it calls
+   `action("collect", {...})` from `engenty:bridge`.
 2. `server.js` handles `/collect`: validates with `rules.js`, writes the item
    to the working store, returns the updated list.
-3. `index.html` re-renders from the response. Live rule violations come from
+3. The component re-renders from the response. Live rule violations come from
    importing `rules.js` in the page too — the same function, so the browser
    and the batch can never disagree.
 4. `finalize` is a separate high-risk action that produces the final document

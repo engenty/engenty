@@ -49,6 +49,8 @@ export interface AppVersion {
   created_by_kind: ActorKind;
   deployed_at: string | null;
   files: Record<string, string>;
+  /** The built document, for Apps whose entry names sources rather than HTML. */
+  frontend_html: string | null;
   id: string;
   manifest: AppManifest;
   release: string | null;

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { APP_BY_ID_PATH, registerAppsApi } from "./index.js";
-import { makeFakeAppsRepo, makeFakeStore, makeMockApi } from "./test-helpers.js";
+import {
+  makeFakeAppsRepo,
+  makeFakeStore,
+  makeManifest,
+  makeMockApi,
+} from "./test-helpers.js";
 
 describe("registerAppsApi", () => {
   it("registers expected HTTP routes", () => {
@@ -46,6 +51,67 @@ describe("registerAppsApi", () => {
       "app_release_rollback",
       "app_versions_list",
     ]);
+  });
+
+  describe("the frontend route", () => {
+    async function serveFrontend(version: {
+      files: Record<string, string>;
+      frontend_html?: string | null;
+      frontendEntry: string;
+    }) {
+      const store = makeFakeStore();
+      const repo = makeFakeAppsRepo(store);
+      const { api, httpRoutes } = makeMockApi();
+      registerAppsApi(api, repo);
+
+      const app = await repo.createApp(
+        { name: "Expenses", slug: "expenses" },
+        { createdBy: "engenty.app-coder", kind: "agent" }
+      );
+      const draft = await repo.getOrCreateDraftVersion(app.id, {
+        createdBy: "engenty.app-coder",
+        kind: "agent",
+      });
+      await repo.updateVersion(draft.id, {
+        files: version.files,
+        frontend_html: version.frontend_html ?? null,
+        manifest: makeManifest({
+          entry: { frontend: version.frontendEntry },
+        }),
+        status: "active",
+      });
+      await repo.updateApp(app.id, { active_version_id: draft.id });
+
+      const route = httpRoutes.find(
+        (candidate) =>
+          candidate.method === "get" && candidate.path.endsWith("/frontend")
+      );
+      return (await route?.handler({
+        params: { id: app.id },
+        request: new Request("https://engenty.test/api/apps/x/frontend"),
+      } as never)) as { html?: string } | Response;
+    }
+
+    it("serves the built document when the entry names sources", async () => {
+      const result = await serveFrontend({
+        files: { "src/main.tsx": "// sources, not a document" },
+        frontend_html: "<!doctype html><p>built</p>",
+        frontendEntry: "src/main.tsx",
+      });
+
+      expect((result as { html: string }).html).toBe(
+        "<!doctype html><p>built</p>"
+      );
+    });
+
+    it("still serves files[entry] for a single-document app", async () => {
+      const result = await serveFrontend({
+        files: { "index.html": "<h1>hand written</h1>" },
+        frontendEntry: "index.html",
+      });
+
+      expect((result as { html: string }).html).toBe("<h1>hand written</h1>");
+    });
   });
 
   it("gates activation on apps.approve, not on the module write capability", () => {

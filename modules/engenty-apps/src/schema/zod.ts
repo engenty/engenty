@@ -79,6 +79,8 @@ export const appVersionSchema = z.object({
   created_by_kind: z.enum(["agent", "user"]),
   deployed_at: z.string().nullable(),
   files: z.record(z.string(), z.string()),
+  /** The built document, for Apps whose entry names sources rather than HTML. */
+  frontend_html: z.string().nullable(),
   id: z.string().uuid(),
   manifest: appManifestSchema,
   release: z.string().nullable(),

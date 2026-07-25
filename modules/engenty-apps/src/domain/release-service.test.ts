@@ -29,7 +29,10 @@ function makeAppHost(overrides: Partial<AppHostClient> = {}): AppHostClient {
   };
 }
 
-async function seedDraft(files: Record<string, string> = {}) {
+async function seedDraft(
+  files: Record<string, string> = {},
+  manifestOverrides: Partial<Parameters<typeof makeManifest>[0]> = {}
+) {
   const store = makeFakeStore();
   const repo = makeFakeAppsRepo(store);
   const app = await repo.createApp(
@@ -42,8 +45,20 @@ async function seedDraft(files: Record<string, string> = {}) {
   });
   await repo.updateVersion(draft.id, {
     files: { "index.html": "<h1>hi</h1>", ...files },
-    manifest: makeManifest(),
+    manifest: makeManifest(manifestOverrides),
   });
+  return { app, repo, store };
+}
+
+/** A draft whose entry names sources, so propose has to bundle it. */
+async function seedBundledDraft(files: Record<string, string>) {
+  const { app, repo, store } = await seedDraft(files, {
+    entry: { backend: "server.js", frontend: "src/main.tsx" },
+  });
+  // Bundle-mode Apps carry no hand-written document.
+  const draft = store.versions[0];
+  const { "index.html": _dropped, ...sources } = draft.files;
+  await repo.updateVersion(draft.id, { files: sources });
   return { app, repo, store };
 }
 
@@ -221,6 +236,98 @@ describe("rejectRelease", () => {
     await expect(
       rejectRelease(deps, { appId: app.id, version: 1 })
     ).rejects.toThrow("app_version_not_proposed");
+  });
+});
+
+describe("proposeRelease with a bundled frontend", () => {
+  const SOURCES = {
+    "src/App.tsx": `
+      export function App() {
+        return <p className="hello">from a component</p>;
+      }
+    `,
+    "src/main.tsx": `
+      import { createRoot } from "react-dom/client";
+      import { App } from "./App";
+      createRoot(document.getElementById("root")!).render(<App />);
+    `,
+  };
+
+  it("bundles the sources and stores the built document", async () => {
+    const { app, repo, store } = await seedBundledDraft(SOURCES);
+    const appHost = makeAppHost();
+
+    const result = await proposeRelease(
+      { appHost, repo, tenantId: TENANT },
+      { appId: app.id }
+    );
+
+    expect(result.version.frontend_html).toContain("<!doctype html>");
+    expect(result.version.frontend_html).toContain("from a component");
+    expect(result.version.build_log).toBeNull();
+    expect(result.version.release).toBe("rel-abc");
+    // Sources are untouched — the build output never pollutes what the agent
+    // is editing.
+    expect(Object.keys(store.versions[0].files).sort()).toEqual([
+      "src/App.tsx",
+      "src/main.tsx",
+    ]);
+  });
+
+  it("gives agentOS an index.html so a source-only App can deploy", async () => {
+    const { app, repo } = await seedBundledDraft(SOURCES);
+    const appHost = makeAppHost();
+
+    await proposeRelease({ appHost, repo, tenantId: TENANT }, { appId: app.id });
+
+    const deployed = (appHost.deploy as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as Record<string, string>;
+    expect(deployed["index.html"]).toContain("from a component");
+    expect(deployed["src/main.tsx"]).toBeDefined();
+  });
+
+  it("records the build log and never reaches the app host on a bad component", async () => {
+    const { app, repo, store } = await seedBundledDraft({
+      "src/main.tsx": "export const broken = {",
+    });
+    const appHost = makeAppHost();
+
+    await expect(
+      proposeRelease({ appHost, repo, tenantId: TENANT }, { appId: app.id })
+    ).rejects.toThrow("app_build_failed");
+
+    expect(store.versions[0].build_log).toContain("src/main.tsx");
+    expect(store.versions[0].frontend_html).toBeNull();
+    // A frontend that cannot compile must not cost a 30s build VM to discover.
+    expect(appHost.deploy).not.toHaveBeenCalled();
+  });
+
+  it("rolls back to the stored document without rebuilding", async () => {
+    const { app, repo, store } = await seedBundledDraft(SOURCES);
+    const appHost = makeAppHost();
+    const deps = { appHost, repo, tenantId: TENANT };
+    await proposeRelease(deps, { appId: app.id });
+    await approveRelease(deps, { appId: app.id, version: 1 });
+
+    const second = await repo.getOrCreateDraftVersion(app.id, {
+      createdBy: "engenty.app-coder",
+      kind: "agent",
+    });
+    await repo.updateVersion(second.id, {
+      files: { ...SOURCES, "src/App.tsx": "export function App(){return null}" },
+      manifest: makeManifest({
+        entry: { backend: "server.js", frontend: "src/main.tsx" },
+      }),
+    });
+    await proposeRelease(deps, { appId: app.id });
+    await approveRelease(deps, { appId: app.id, version: 2 });
+
+    await rollbackRelease(deps, { appId: app.id, version: 1 });
+
+    const redeployed = (appHost.deploy as ReturnType<typeof vi.fn>).mock
+      .calls.at(-1)?.[1] as Record<string, string>;
+    expect(redeployed["index.html"]).toContain("from a component");
+    expect(store.versions[0].status).toBe("active");
   });
 });
 

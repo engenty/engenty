@@ -164,6 +164,7 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
         created_by_kind: actor.kind,
         deployed_at: null,
         files: {},
+        frontend_html: null,
         id: `ver-${store.versions.length + 1}`,
         manifest: makeManifest(),
         release: null,

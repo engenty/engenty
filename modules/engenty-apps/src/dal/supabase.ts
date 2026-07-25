@@ -48,6 +48,7 @@ function rowToVersion(row: Record<string, unknown>): AppVersion {
     created_by_kind: row.created_by_kind as ActorKind,
     deployed_at: (row.deployed_at as string | null) ?? null,
     files: (row.files as Record<string, string> | null) ?? {},
+    frontend_html: (row.frontend_html as string | null) ?? null,
     id: String(row.id),
     manifest: (row.manifest as AppManifest | null) ?? EMPTY_MANIFEST,
     release: (row.release as string | null) ?? null,
@@ -307,6 +308,7 @@ export function createAppsRepoSupabase(
         build_log?: string | null;
         deployed_at?: string | null;
         files?: Record<string, string>;
+        frontend_html?: string | null;
         manifest?: AppManifest;
         release?: string | null;
         status?: AppVersionStatus;

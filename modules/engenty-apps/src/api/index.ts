@@ -61,8 +61,11 @@ export function registerAppsApi(
           status: 404,
         });
       }
+      // Bundle-mode Apps serve what the build produced; single-file Apps serve
+      // the document their entry names. Preferring the built column is what
+      // lets both live behind one route with no flag to keep in sync.
       const entry = version.manifest.entry?.frontend ?? "index.html";
-      const html = version.files[entry];
+      const html = version.frontend_html ?? version.files[entry];
       if (typeof html !== "string") {
         return new Response(JSON.stringify({ error: "app_entry_missing" }), {
           headers: { "content-type": "application/json" },
