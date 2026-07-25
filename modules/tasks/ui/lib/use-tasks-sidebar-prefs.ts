@@ -4,6 +4,9 @@ import {
   DEFAULT_TASKS_SIDEBAR_PREFS,
   type GoalsSidebarGroupBy,
   type GoalsSidebarSortBy,
+  type RoutinesSidebarEnabledFilter,
+  type RoutinesSidebarGroupBy,
+  type RoutinesSidebarSortBy,
   type TasksSidebarGroupBy,
   type TasksSidebarPrefs,
   type TasksSidebarSortBy,
@@ -49,6 +52,11 @@ const VALID_TASK_GROUP_BY = new Set<TasksSidebarGroupBy>([
   "due_date",
 ]);
 const VALID_GOAL_GROUP_BY = new Set<GoalsSidebarGroupBy>(["none", "status"]);
+const VALID_ROUTINE_GROUP_BY = new Set<RoutinesSidebarGroupBy>([
+  "none",
+  "source",
+  "enabled",
+]);
 const VALID_TASK_SORT_BY = new Set<TasksSidebarSortBy>([
   "updated_at",
   "created_at",
@@ -62,12 +70,22 @@ const VALID_GOAL_SORT_BY = new Set<GoalsSidebarSortBy>([
   "title",
   "status",
 ]);
+const VALID_ROUTINE_SORT_BY = new Set<RoutinesSidebarSortBy>([
+  "name",
+  "last_run_at",
+  "enabled",
+]);
 const VALID_GOAL_STATUS = new Set<GoalStatus | "all">([
   "all",
   "planned",
   "active",
   "achieved",
   "cancelled",
+]);
+const VALID_ROUTINE_ENABLED = new Set<RoutinesSidebarEnabledFilter>([
+  "all",
+  "enabled",
+  "disabled",
 ]);
 
 function mergeTasksPrefs(
@@ -127,6 +145,30 @@ function mergeGoalsPrefs(
   };
 }
 
+function mergeRoutinesPrefs(
+  stored: Partial<TasksSidebarPrefs["routines"]> | undefined
+): TasksSidebarPrefs["routines"] {
+  const defaults = DEFAULT_TASKS_SIDEBAR_PREFS.routines;
+  return {
+    enabled:
+      stored?.enabled && VALID_ROUTINE_ENABLED.has(stored.enabled)
+        ? stored.enabled
+        : defaults.enabled,
+    groupBy:
+      stored?.groupBy && VALID_ROUTINE_GROUP_BY.has(stored.groupBy)
+        ? stored.groupBy
+        : defaults.groupBy,
+    sortBy:
+      stored?.sortBy && VALID_ROUTINE_SORT_BY.has(stored.sortBy)
+        ? stored.sortBy
+        : defaults.sortBy,
+    sortOrder:
+      stored?.sortOrder === "asc" || stored?.sortOrder === "desc"
+        ? stored.sortOrder
+        : defaults.sortOrder,
+  };
+}
+
 function mergePrefs(
   stored: Partial<TasksSidebarPrefs> | null
 ): TasksSidebarPrefs {
@@ -137,6 +179,7 @@ function mergePrefs(
         : DEFAULT_TASKS_SIDEBAR_PREFS.tab,
     tasks: mergeTasksPrefs(stored?.tasks),
     goals: mergeGoalsPrefs(stored?.goals),
+    routines: mergeRoutinesPrefs(stored?.routines),
   };
 }
 
@@ -182,10 +225,25 @@ export function useTasksSidebarPrefs() {
     []
   );
 
+  const updateRoutinesPrefs = useCallback(
+    (
+      updater: (
+        current: TasksSidebarPrefs["routines"]
+      ) => TasksSidebarPrefs["routines"]
+    ) => {
+      setPrefs((current) => ({
+        ...current,
+        routines: updater(current.routines),
+      }));
+    },
+    []
+  );
+
   return {
     prefs,
     setTab,
     updateGoalsPrefs,
+    updateRoutinesPrefs,
     updateTasksPrefs,
   };
 }

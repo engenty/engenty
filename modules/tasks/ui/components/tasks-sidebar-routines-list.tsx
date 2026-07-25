@@ -1,6 +1,6 @@
-// Routines tab body for the tasks secondary sidebar — lists custom + system
-// routines the same way the main routines page sections them.
-import { type RoutineDto, useRoutinesListQuery } from "@engenty/ai-ui/embed";
+// Routines tab body for the tasks secondary sidebar — respects sidebar
+// list-settings prefs (group / sort / enabled filter).
+import { useRoutinesListQuery } from "@engenty/ai-ui/embed";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -14,13 +14,18 @@ import {
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { tasksPaths } from "../lib/tasks-routes.js";
+import {
+  organizeSidebarRoutines,
+  type SidebarRoutineItem,
+  type TasksSidebarRoutinesPrefs,
+} from "../lib/tasks-sidebar-organization.js";
 
 function RoutineSidebarRow({
   active,
   routine,
 }: {
   active: boolean;
-  routine: RoutineDto;
+  routine: SidebarRoutineItem;
 }) {
   const { t } = useTranslation("tasks");
   const statusLabel = t(
@@ -63,25 +68,34 @@ function SidebarEntitySkeleton() {
 
 export function TasksSidebarRoutinesList({
   activeRoutineId,
+  prefs,
 }: {
   activeRoutineId: string | null;
+  prefs: TasksSidebarRoutinesPrefs;
 }) {
   const { t } = useTranslation("tasks");
   const routinesQuery = useRoutinesListQuery();
 
-  const { customRoutines, systemRoutines } = useMemo(() => {
+  const groups = useMemo(() => {
     const routines = routinesQuery.data?.routines ?? [];
-    return {
-      customRoutines: routines.filter((r: RoutineDto) => r.source === "custom"),
-      systemRoutines: routines.filter((r: RoutineDto) => r.source !== "custom"),
-    };
-  }, [routinesQuery.data?.routines]);
+    return organizeSidebarRoutines({
+      labels: {
+        custom: t("routines.list.myRoutines"),
+        disabled: t("routines.list.disabled"),
+        enabled: t("routines.list.enabled"),
+        system: t("routines.list.system"),
+      },
+      prefs,
+      routines,
+    });
+  }, [prefs, routinesQuery.data?.routines, t]);
 
   if (routinesQuery.isPending) {
     return <SidebarEntitySkeleton />;
   }
 
-  if (customRoutines.length === 0 && systemRoutines.length === 0) {
+  const totalCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+  if (totalCount === 0) {
     return (
       <p className="pl-2 text-muted-foreground text-xs">
         {t("sidebar.noRoutines")}
@@ -91,17 +105,19 @@ export function TasksSidebarRoutinesList({
 
   return (
     <SidebarNavList>
-      {customRoutines.length > 0 ? (
-        <div className="contents">
-          <SidebarNavSectionLabel>
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate">{t("routines.list.myRoutines")}</span>
-              <span className="shrink-0 text-muted-foreground">
-                {t("sidebar.groupCount", { count: customRoutines.length })}
+      {groups.map((group) => (
+        <div className="contents" key={group.id}>
+          {group.label ? (
+            <SidebarNavSectionLabel>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate">{group.label}</span>
+                <span className="shrink-0 text-muted-foreground">
+                  {t("sidebar.groupCount", { count: group.count })}
+                </span>
               </span>
-            </span>
-          </SidebarNavSectionLabel>
-          {customRoutines.map((routine) => (
+            </SidebarNavSectionLabel>
+          ) : null}
+          {group.items.map((routine) => (
             <RoutineSidebarRow
               active={activeRoutineId === routine.id}
               key={routine.id}
@@ -109,26 +125,7 @@ export function TasksSidebarRoutinesList({
             />
           ))}
         </div>
-      ) : null}
-      {systemRoutines.length > 0 ? (
-        <div className="contents">
-          <SidebarNavSectionLabel>
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate">{t("routines.list.system")}</span>
-              <span className="shrink-0 text-muted-foreground">
-                {t("sidebar.groupCount", { count: systemRoutines.length })}
-              </span>
-            </span>
-          </SidebarNavSectionLabel>
-          {systemRoutines.map((routine) => (
-            <RoutineSidebarRow
-              active={activeRoutineId === routine.id}
-              key={routine.id}
-              routine={routine}
-            />
-          ))}
-        </div>
-      ) : null}
+      ))}
     </SidebarNavList>
   );
 }

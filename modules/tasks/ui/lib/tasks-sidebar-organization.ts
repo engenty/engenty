@@ -36,6 +36,12 @@ export type GoalsSidebarSortBy =
   | "title"
   | "status";
 
+export type RoutinesSidebarGroupBy = "none" | "source" | "enabled";
+
+export type RoutinesSidebarSortBy = "name" | "last_run_at" | "enabled";
+
+export type RoutinesSidebarEnabledFilter = "all" | "enabled" | "disabled";
+
 export type TasksSidebarAssigneeFilter =
   | "all"
   | "none"
@@ -57,8 +63,16 @@ export interface TasksSidebarGoalsPrefs {
   status: GoalStatus | "all";
 }
 
+export interface TasksSidebarRoutinesPrefs {
+  enabled: RoutinesSidebarEnabledFilter;
+  groupBy: RoutinesSidebarGroupBy;
+  sortBy: RoutinesSidebarSortBy;
+  sortOrder: "asc" | "desc";
+}
+
 export interface TasksSidebarPrefs {
   goals: TasksSidebarGoalsPrefs;
+  routines: TasksSidebarRoutinesPrefs;
   tab: TasksSidebarTab;
   tasks: TasksSidebarTasksPrefs;
 }
@@ -100,6 +114,12 @@ export const DEFAULT_TASKS_SIDEBAR_PREFS: TasksSidebarPrefs = {
     sortBy: "updated_at",
     sortOrder: "desc",
     status: "all",
+  },
+  routines: {
+    enabled: "all",
+    groupBy: "source",
+    sortBy: "name",
+    sortOrder: "asc",
   },
 };
 
@@ -219,6 +239,115 @@ export function organizeSidebarGoals(params: {
   }
 
   return [...groups.values()].toSorted((a, b) => compareText(a.label, b.label));
+}
+
+/** Minimal routine shape for sidebar grouping — matches RoutineDto fields we use. */
+export interface SidebarRoutineItem {
+  enabled: boolean;
+  id: string;
+  last_run_at: string | null;
+  name: string;
+  source: "module" | "custom";
+}
+
+export interface RoutinesSidebarOrganizationLabels {
+  custom: string;
+  disabled: string;
+  enabled: string;
+  system: string;
+}
+
+export function organizeSidebarRoutines(params: {
+  labels: RoutinesSidebarOrganizationLabels;
+  prefs: TasksSidebarRoutinesPrefs;
+  routines: readonly SidebarRoutineItem[];
+}): TasksSidebarListGroup<SidebarRoutineItem>[] {
+  const filtered = params.routines
+    .filter((routine) => {
+      if (params.prefs.enabled === "enabled") {
+        return routine.enabled;
+      }
+      if (params.prefs.enabled === "disabled") {
+        return !routine.enabled;
+      }
+      return true;
+    })
+    .toSorted((a, b) => compareRoutines(a, b, params.prefs));
+
+  if (params.prefs.groupBy === "none") {
+    return [
+      {
+        count: filtered.length,
+        id: "all",
+        items: filtered,
+        label: "",
+      },
+    ];
+  }
+
+  const groups = new Map<string, TasksSidebarListGroup<SidebarRoutineItem>>();
+  for (const routine of filtered) {
+    const group =
+      params.prefs.groupBy === "enabled"
+        ? routine.enabled
+          ? {
+              id: "enabled",
+              label: params.labels.enabled,
+            }
+          : {
+              id: "disabled",
+              label: params.labels.disabled,
+            }
+        : routine.source === "custom"
+          ? {
+              id: "source:custom",
+              label: params.labels.custom,
+            }
+          : {
+              id: "source:system",
+              label: params.labels.system,
+            };
+
+    const existing = groups.get(group.id);
+    if (existing) {
+      existing.items.push(routine);
+      existing.count += 1;
+    } else {
+      groups.set(group.id, {
+        ...group,
+        count: 1,
+        items: [routine],
+      });
+    }
+  }
+
+  const order =
+    params.prefs.groupBy === "enabled"
+      ? ["enabled", "disabled"]
+      : ["source:custom", "source:system"];
+
+  return order
+    .map((id) => groups.get(id))
+    .filter((group): group is TasksSidebarListGroup<SidebarRoutineItem> =>
+      Boolean(group)
+    );
+}
+
+function compareRoutines(
+  a: SidebarRoutineItem,
+  b: SidebarRoutineItem,
+  prefs: TasksSidebarRoutinesPrefs
+): number {
+  const dir = prefs.sortOrder === "asc" ? 1 : -1;
+  if (prefs.sortBy === "enabled") {
+    return (Number(a.enabled) - Number(b.enabled)) * dir;
+  }
+  if (prefs.sortBy === "last_run_at") {
+    const aTime = a.last_run_at ? Date.parse(a.last_run_at) : 0;
+    const bTime = b.last_run_at ? Date.parse(b.last_run_at) : 0;
+    return (aTime - bTime) * dir;
+  }
+  return compareText(a.name, b.name) * dir;
 }
 
 function matchesTaskFilters(

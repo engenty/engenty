@@ -4,7 +4,9 @@ import {
   collectTaskAgentFilterOptions,
   collectTaskUserFilterOptions,
   DEFAULT_TASKS_SIDEBAR_PREFS,
+  organizeSidebarRoutines,
   organizeSidebarTasks,
+  type SidebarRoutineItem,
   type TasksSidebarOrganizationLabels,
 } from "./tasks-sidebar-organization.js";
 
@@ -203,5 +205,86 @@ describe("collectTaskFilterOptions", () => {
         new Map([["user-1", { full_name: "Alex", id: "user-1" }]])
       )
     ).toEqual([{ id: "user-1", label: "Alex" }]);
+  });
+});
+
+describe("organizeSidebarRoutines", () => {
+  const routineLabels = {
+    custom: "Custom",
+    disabled: "Disabled",
+    enabled: "Enabled",
+    system: "System",
+  };
+
+  function makeRoutine(
+    overrides: Partial<SidebarRoutineItem> & Pick<SidebarRoutineItem, "id">
+  ): SidebarRoutineItem {
+    return {
+      enabled: true,
+      last_run_at: null,
+      name: "Routine",
+      source: "custom",
+      ...overrides,
+    };
+  }
+
+  it("groups by source by default", () => {
+    const routines = [
+      makeRoutine({ id: "r1", name: "Custom A", source: "custom" }),
+      makeRoutine({ id: "r2", name: "System A", source: "module" }),
+    ];
+
+    const groups = organizeSidebarRoutines({
+      labels: routineLabels,
+      prefs: DEFAULT_TASKS_SIDEBAR_PREFS.routines,
+      routines,
+    });
+
+    expect(groups.map((group) => group.id)).toEqual([
+      "source:custom",
+      "source:system",
+    ]);
+  });
+
+  it("returns a flat list when groupBy is none", () => {
+    const routines = [
+      makeRoutine({ id: "r2", name: "Beta" }),
+      makeRoutine({ id: "r1", name: "Alpha" }),
+    ];
+
+    const groups = organizeSidebarRoutines({
+      labels: routineLabels,
+      prefs: {
+        ...DEFAULT_TASKS_SIDEBAR_PREFS.routines,
+        groupBy: "none",
+        sortBy: "name",
+        sortOrder: "asc",
+      },
+      routines,
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.id).toBe("all");
+    expect(groups[0]?.items.map((routine) => routine.id)).toEqual(["r1", "r2"]);
+  });
+
+  it("filters by enabled and groups by status", () => {
+    const routines = [
+      makeRoutine({ enabled: true, id: "r1", name: "On" }),
+      makeRoutine({ enabled: false, id: "r2", name: "Off" }),
+    ];
+
+    const groups = organizeSidebarRoutines({
+      labels: routineLabels,
+      prefs: {
+        ...DEFAULT_TASKS_SIDEBAR_PREFS.routines,
+        enabled: "enabled",
+        groupBy: "enabled",
+      },
+      routines,
+    });
+
+    expect(groups.map((group) => group.id)).toEqual(["enabled"]);
+    expect(groups[0]?.items.map((routine) => routine.id)).toEqual(["r1"]);
   });
 });

@@ -266,8 +266,13 @@ export function TasksSidebarPanel() {
   const [search, setSearch] = useState("");
   const trimmed = search.trim();
   const isSearching = trimmed.length > 0;
-  const { prefs, setTab, updateGoalsPrefs, updateTasksPrefs } =
-    useTasksSidebarPrefs();
+  const {
+    prefs,
+    setTab,
+    updateGoalsPrefs,
+    updateRoutinesPrefs,
+    updateTasksPrefs,
+  } = useTasksSidebarPrefs();
 
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
@@ -646,6 +651,7 @@ export function TasksSidebarPanel() {
               <TasksSidebarListSettings
                 agentFilterOptions={agentFilterOptions}
                 onGoalsPrefsChange={updateGoalsPrefs}
+                onRoutinesPrefsChange={updateRoutinesPrefs}
                 onTasksPrefsChange={updateTasksPrefs}
                 prefs={prefs}
                 tab={activeTab}
@@ -729,7 +735,10 @@ export function TasksSidebarPanel() {
             <SidebarGroup className="min-h-0 flex-1 p-0">
               <SidebarGroupContent>
                 {activeTab === "routines" ? (
-                  <TasksSidebarRoutinesList activeRoutineId={activeRoutineId} />
+                  <TasksSidebarRoutinesList
+                    activeRoutineId={activeRoutineId}
+                    prefs={prefs.routines}
+                  />
                 ) : isGoalsTab ? (
                   goalsQuery.isLoading ? (
                     <SidebarEntitySkeleton />
