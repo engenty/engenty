@@ -1,3 +1,4 @@
+import { RoutineCreateDialog } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,11 +17,13 @@ import {
 import { useTeamMembersCatalogQuery } from "./use-team-catalog-query.js";
 
 export function useTasksTopbarActions() {
-  const { t } = useTranslation("tasks");
+  const { t, i18n } = useTranslation("tasks");
+  const locale = i18n.language || "en";
   const navigate = useNavigate();
 
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
+  const [createRoutineOpen, setCreateRoutineOpen] = useState(false);
   const [createGoalId, setCreateGoalId] = useState<string | null>(null);
 
   const settingsQuery = useTaskSettingsQuery();
@@ -40,6 +43,10 @@ export function useTasksTopbarActions() {
 
   const openCreateGoal = useCallback(() => {
     setCreateGoalOpen(true);
+  }, []);
+
+  const openCreateRoutine = useCallback(() => {
+    setCreateRoutineOpen(true);
   }, []);
 
   const handleCreateTaskOpenChange = useCallback((open: boolean) => {
@@ -92,14 +99,16 @@ export function useTasksTopbarActions() {
       <TasksTopbarActions
         addNewLabel={t("addNew")}
         newGoalLabel={t("goals.newGoal")}
+        newRoutineLabel={t("routines.newRoutine")}
         newTaskLabel={t("list.newTask")}
         onCreateGoal={openCreateGoal}
+        onCreateRoutine={openCreateRoutine}
         onCreateTask={() => openCreateTask(null)}
         onOpenSettings={() => navigate(tasksPaths.settings)}
         settingsLabel={t("sidebar.settings")}
       />
     ),
-    [navigate, openCreateGoal, openCreateTask, t]
+    [navigate, openCreateGoal, openCreateRoutine, openCreateTask, t]
   );
 
   const topbarDialogs = (
@@ -120,11 +129,17 @@ export function useTasksTopbarActions() {
         teamMembersCatalog={teamMembersCatalogQuery.data ?? []}
         teamMembersEnabled={teamMembersEnabled}
       />
+      <RoutineCreateDialog
+        locale={locale}
+        onOpenChange={setCreateRoutineOpen}
+        open={createRoutineOpen}
+      />
     </>
   );
 
   return {
     openCreateGoal,
+    openCreateRoutine,
     openCreateTask,
     pageActions,
     topbarDialogs,

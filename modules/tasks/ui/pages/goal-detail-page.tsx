@@ -1,3 +1,4 @@
+import { WorkPanel } from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -245,6 +246,13 @@ export function GoalDetailPage() {
               linkedTasksLoading={linkedTasksQuery.isLoading}
               onCreateTask={openCreateTask}
               taskStatusDefinitions={taskStatusDefinitions}
+            />
+
+            {/* Aggregation surface: artifacts + files of this goal's tasks
+                and their run threads (Phase 2 container resolver). */}
+            <WorkPanel
+              container={{ id: goal.id, tier: "goal" }}
+              hostKey="engenty.work.goal"
             />
           </div>
 

@@ -1,6 +1,6 @@
 import {
-  fileStorageTenantObjectKey,
   pathSegmentsAfterFileStorageTenantRoot,
+  workWorkspacePrefix,
 } from "@engenty/file-storage";
 
 /** Storage prefix for a routine's durable workspace (survives task generations). */
@@ -12,7 +12,7 @@ export function routineWorkspaceStoragePrefix(
   if (!trimmed) {
     throw new Error("trigger_id_invalid");
   }
-  return `${fileStorageTenantObjectKey(tenantId, "ai", "workspace", "routines", trimmed)}/`;
+  return workWorkspacePrefix(tenantId, "routine", trimmed);
 }
 
 export function routineWorkspaceTenantRelativeDisplayPath(

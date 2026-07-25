@@ -6,12 +6,18 @@ import {
   ArtifactInvalidContentError,
   ArtifactUnknownTypeError,
 } from "../ai/artifacts/artifact-types.js";
+import { createScopeModuleOperationInvoker } from "../ai/sessions/task-workspace-hook.js";
+import {
+  resolveWorkContainer,
+  type WorkContainerRef,
+} from "../ai/work-scope/resolve-work-container.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { ArtifactRow, ArtifactStore } from "../dal/artifacts/index.js";
 import {
   ArtifactContentTooLargeError,
   ArtifactVersionConflictError,
 } from "../dal/artifacts/index.js";
+import type { ArtifactScopeType } from "../dal/artifacts/types.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -20,6 +26,32 @@ import {
 
 const scopeTypeSchema = z.enum(["thread", "task", "project", "goal"]);
 const promotableScopeSchema = z.enum(["task", "project", "goal"]);
+const containerTierSchema = z.enum([
+  "thread",
+  "task",
+  "goal",
+  "routine",
+  "project",
+  "global",
+]);
+
+/** Parse a `<tier>:<id>` container query param. `global` ignores the id. */
+function parseContainerParam(raw: string): WorkContainerRef | null {
+  const idx = raw.indexOf(":");
+  const tierRaw = idx === -1 ? raw : raw.slice(0, idx);
+  const id = idx === -1 ? "" : raw.slice(idx + 1).trim();
+  const tier = containerTierSchema.safeParse(tierRaw.trim());
+  if (!tier.success) {
+    return null;
+  }
+  if (tier.data === "global") {
+    return { tier: "global", id: id || "global" };
+  }
+  if (!id) {
+    return null;
+  }
+  return { tier: tier.data, id };
+}
 
 const createBodySchema = z.object({
   type: z.enum(ARTIFACT_TYPE_IDS),
@@ -92,6 +124,43 @@ export function registerArtifactRoutes(
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
       return scope.response;
+    }
+    // Container wins if present: resolve its contents and IN-query over the
+    // resolved artifact scopes (global → the whole tenant catalog).
+    const containerRaw = c.req.query("container");
+    if (containerRaw) {
+      const ref = parseContainerParam(containerRaw);
+      if (!ref) {
+        return c.json({ error: "artifacts.invalidContainer" }, 400);
+      }
+      try {
+        if (ref.tier === "global") {
+          const artifacts = await opts.artifactStore.listAllByTenant({
+            tenantId: scope.scope.tenantId,
+          });
+          return c.json({ artifacts });
+        }
+        const invoke = createScopeModuleOperationInvoker(scope.scope);
+        const resolved = await resolveWorkContainer(
+          { invoke, tenantId: scope.scope.tenantId },
+          ref
+        );
+        const artifacts = await opts.artifactStore.listByScopes({
+          tenantId: scope.scope.tenantId,
+          scopes: resolved.artifactScopes.map((s) => ({
+            scopeType: s.scope_type as ArtifactScopeType,
+            scopeId: s.scope_id,
+          })),
+        });
+        return c.json({ artifacts });
+      } catch (err) {
+        return handleRouteError(
+          c,
+          "listArtifacts (container) failed",
+          "artifacts.listFailed",
+          err
+        );
+      }
     }
     const scopeType = scopeTypeSchema.safeParse(c.req.query("scope_type"));
     const scopeId = z

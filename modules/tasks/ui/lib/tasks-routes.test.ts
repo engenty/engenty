@@ -5,6 +5,7 @@ import {
   isBriefingPath,
   isGoalDetailPath,
   isGoalsListPath,
+  isRoutineDetailPath,
   isRoutinesPath,
   isSettingsPath,
   isTaskDetailPath,
@@ -66,6 +67,23 @@ describe("matchers", () => {
     expect(isRoutinesPath("/mdl/tasks/routines")).toBe(true);
     expect(isRoutinesPath("/mdl/tasks/routines/some-id")).toBe(true);
     expect(isRoutinesPath("/mdl/tasks/list")).toBe(false);
+  });
+
+  it("extracts routine detail ids (including encoded custom:uuid)", () => {
+    expect(isRoutineDetailPath("/mdl/tasks/routines")).toBeNull();
+    expect(isRoutineDetailPath(`/mdl/tasks/routines/${ROUTINE_ID}`)).toBe(
+      ROUTINE_ID
+    );
+    expect(
+      isRoutineDetailPath(
+        `/mdl/tasks/routines/${encodeURIComponent(ROUTINE_ID)}`
+      )
+    ).toBe(ROUTINE_ID);
+    expect(
+      isRoutineDetailPath(
+        `/mdl/tasks/routines/${encodeURIComponent(ROUTINE_ID)}/edit`
+      )
+    ).toBe(ROUTINE_ID);
   });
 
   it("detects goals list and detail routes", () => {

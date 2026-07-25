@@ -17,8 +17,10 @@ import {
 import {
   Camera,
   Check,
+  ImageIcon,
   RefreshCw,
   Sparkles,
+  Trash2,
   Upload,
   User,
   VideoOff,
@@ -32,8 +34,12 @@ import {
 } from "../lib/habbo-pixel-generator.js";
 
 interface TeamAvatarAiCreatorModalProps {
+  /** When true, show a delete action for the current profile picture. */
+  hasExistingAvatar?: boolean;
   initialName?: string;
   onAvatarGenerated: (file: File) => Promise<void> | void;
+  /** Clears the member profile picture (storage key → null). */
+  onDeleteAvatar?: () => Promise<void> | void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }
@@ -47,10 +53,48 @@ interface AvatarVariation {
 
 const VARIATION_LABELS = ["Casual Habbo", "Executive Suit", "Cyber Copilot"];
 
+async function dataUrlToFile(
+  dataUrl: string,
+  filename: string,
+  mime = "image/png"
+): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: mime });
+}
+
+/** Shrink camera/upload data URLs before POSTing to the Habbo API. */
+async function compressReferenceDataUrl(
+  dataUrl: string,
+  maxEdge = 512,
+  quality = 0.85
+): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("Failed to load reference photo"));
+    el.src = dataUrl;
+  });
+  const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return dataUrl;
+  }
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
 export function TeamAvatarAiCreatorModal({
   open,
   onOpenChange,
   onAvatarGenerated,
+  onDeleteAvatar,
+  hasExistingAvatar = false,
   initialName = "Team Member",
 }: TeamAvatarAiCreatorModalProps) {
   const { t } = useTranslation("team");
@@ -74,6 +118,7 @@ export function TeamAvatarAiCreatorModal({
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [variations, setVariations] = useState<AvatarVariation[]>([]);
@@ -200,6 +245,9 @@ export function TeamAvatarAiCreatorModal({
 
     try {
       setGenerationStep("Synthesizing Habbo isometric sprites…");
+      const referenceDataUrl = capturedPhotoUrl
+        ? await compressReferenceDataUrl(capturedPhotoUrl)
+        : undefined;
       const res = await requestApiJson<{
         ok: true;
         model: string;
@@ -215,7 +263,7 @@ export function TeamAvatarAiCreatorModal({
         body: JSON.stringify({
           member_name: initialName,
           options,
-          reference_data_url: capturedPhotoUrl ?? undefined,
+          reference_data_url: referenceDataUrl,
           variation_count: 3,
         }),
       });
@@ -248,22 +296,112 @@ export function TeamAvatarAiCreatorModal({
     }
   }, [capturedPhotoUrl, initialName, options]);
 
-  const handleApply = useCallback(async () => {
+  const handleApplyGenerated = useCallback(async () => {
     const selected = variations[selectedIndex];
     if (!selected) {
       return;
     }
-
-    const res = await fetch(selected.dataUrl);
-    const blob = await res.blob();
-    const safeName = initialName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const file = new File([blob], `${safeName}_habbo_avatar.png`, {
-      type: "image/png",
-    });
-
-    await onAvatarGenerated(file);
-    onOpenChange(false);
+    setIsApplying(true);
+    setGenerationError(null);
+    try {
+      const safeName = initialName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const file = await dataUrlToFile(
+        selected.dataUrl,
+        `${safeName}_habbo_avatar.png`
+      );
+      await onAvatarGenerated(file);
+      onOpenChange(false);
+    } catch (err: unknown) {
+      setGenerationError(
+        err instanceof Error ? err.message : "Failed to apply avatar."
+      );
+    } finally {
+      setIsApplying(false);
+    }
   }, [variations, selectedIndex, initialName, onAvatarGenerated, onOpenChange]);
+
+  const handleUsePhotoAsIs = useCallback(async () => {
+    if (!capturedPhotoUrl) {
+      return;
+    }
+    setIsApplying(true);
+    setGenerationError(null);
+    try {
+      const safeName = initialName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const mime = capturedPhotoUrl.startsWith("data:image/jpeg")
+        ? "image/jpeg"
+        : "image/png";
+      const ext = mime === "image/jpeg" ? "jpg" : "png";
+      const file = await dataUrlToFile(
+        capturedPhotoUrl,
+        `${safeName}_photo.${ext}`,
+        mime
+      );
+      await onAvatarGenerated(file);
+      onOpenChange(false);
+    } catch (err: unknown) {
+      setGenerationError(
+        err instanceof Error ? err.message : "Failed to apply photo."
+      );
+    } finally {
+      setIsApplying(false);
+    }
+  }, [capturedPhotoUrl, initialName, onAvatarGenerated, onOpenChange]);
+
+  const handleDeleteAvatar = useCallback(async () => {
+    if (!onDeleteAvatar) {
+      return;
+    }
+    setIsApplying(true);
+    setGenerationError(null);
+    try {
+      await onDeleteAvatar();
+      onOpenChange(false);
+    } catch (err: unknown) {
+      setGenerationError(
+        err instanceof Error ? err.message : "Failed to remove avatar."
+      );
+    } finally {
+      setIsApplying(false);
+    }
+  }, [onDeleteAvatar, onOpenChange]);
+
+  const photoActionButtons = capturedPhotoUrl ? (
+    <div className="flex flex-wrap justify-center gap-2">
+      <Button
+        disabled={isApplying || isGenerating}
+        onClick={() => {
+          setCapturedPhotoUrl(null);
+          if (activeTab === "camera") {
+            void startCamera();
+          }
+        }}
+        size="sm"
+        variant="outline"
+      >
+        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+        {activeTab === "upload" ? "Change Photo" : "Retake Photo"}
+      </Button>
+      <Button
+        disabled={isApplying || isGenerating}
+        onClick={() => void handleUsePhotoAsIs()}
+        size="sm"
+        variant="outline"
+      >
+        <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+        Use this photo
+      </Button>
+      <Button
+        className="bg-ember text-white hover:bg-ember/90"
+        disabled={isApplying || isGenerating}
+        onClick={() => void generateAvatars()}
+        size="sm"
+      >
+        <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+        Generate Habbo Avatar
+      </Button>
+    </div>
+  ) : null;
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -347,27 +485,7 @@ export function TeamAvatarAiCreatorModal({
 
               <div className="flex justify-center gap-3">
                 {capturedPhotoUrl ? (
-                  <>
-                    <Button
-                      onClick={() => {
-                        setCapturedPhotoUrl(null);
-                        void startCamera();
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                      Retake Photo
-                    </Button>
-                    <Button
-                      className="bg-ember text-white hover:bg-ember/90"
-                      onClick={() => void generateAvatars()}
-                      size="sm"
-                    >
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                      Generate Habbo Avatar
-                    </Button>
-                  </>
+                  photoActionButtons
                 ) : (
                   <Button
                     className="bg-ember text-white hover:bg-ember/90"
@@ -409,25 +527,7 @@ export function TeamAvatarAiCreatorModal({
                 )}
               </div>
 
-              {capturedPhotoUrl && (
-                <div className="flex justify-center gap-3">
-                  <Button
-                    onClick={() => setCapturedPhotoUrl(null)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    Change Photo
-                  </Button>
-                  <Button
-                    className="bg-ember text-white hover:bg-ember/90"
-                    onClick={() => void generateAvatars()}
-                    size="sm"
-                  >
-                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                    Generate Habbo Avatar
-                  </Button>
-                </div>
-              )}
+              {capturedPhotoUrl ? photoActionButtons : null}
             </div>
           )}
 
@@ -575,19 +675,35 @@ export function TeamAvatarAiCreatorModal({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button onClick={() => onOpenChange(false)} variant="outline">
-            {t("cancel")}
-          </Button>
-          {activeTab === "ai" && variations.length > 0 && !isGenerating && (
-            <Button
-              className="bg-ember text-white hover:bg-ember/90"
-              onClick={() => void handleApply()}
-            >
-              <Check className="mr-1.5 h-4 w-4" />
-              Apply as Profile Picture
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div className="flex flex-1 justify-start">
+            {hasExistingAvatar && onDeleteAvatar ? (
+              <Button
+                disabled={isApplying || isGenerating}
+                onClick={() => void handleDeleteAvatar()}
+                type="button"
+                variant="outline"
+              >
+                <Trash2 className="mr-1.5 h-4 w-4 text-destructive" />
+                {t("removeProfilePicture")}
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => onOpenChange(false)} variant="outline">
+              {t("cancel")}
             </Button>
-          )}
+            {activeTab === "ai" && variations.length > 0 && !isGenerating ? (
+              <Button
+                className="bg-ember text-white hover:bg-ember/90"
+                disabled={isApplying}
+                onClick={() => void handleApplyGenerated()}
+              >
+                <Check className="mr-1.5 h-4 w-4" />
+                Apply as Profile Picture
+              </Button>
+            ) : null}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -28,6 +28,7 @@ import {
   type LucideIcon,
   Target,
   User,
+  Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
@@ -38,6 +39,8 @@ import { GOAL_STATUSES } from "../components/goal-status-badge.js";
 import {
   formatTaskAgentFilterLabel,
   type GoalsSidebarSortBy,
+  type RoutinesSidebarEnabledFilter,
+  type RoutinesSidebarSortBy,
   type TasksSidebarAssigneeFilter,
   type TasksSidebarPrefs,
   type TasksSidebarSortBy,
@@ -48,6 +51,11 @@ interface TasksSidebarListSettingsProps {
   agentFilterOptions: string[];
   onGoalsPrefsChange: (
     updater: (current: TasksSidebarPrefs["goals"]) => TasksSidebarPrefs["goals"]
+  ) => void;
+  onRoutinesPrefsChange: (
+    updater: (
+      current: TasksSidebarPrefs["routines"]
+    ) => TasksSidebarPrefs["routines"]
   ) => void;
   onTasksPrefsChange: (
     updater: (current: TasksSidebarPrefs["tasks"]) => TasksSidebarPrefs["tasks"]
@@ -62,6 +70,7 @@ interface TasksSidebarListSettingsProps {
 export function TasksSidebarListSettings({
   agentFilterOptions,
   onGoalsPrefsChange,
+  onRoutinesPrefsChange,
   onTasksPrefsChange,
   prefs,
   tab,
@@ -72,6 +81,7 @@ export function TasksSidebarListSettings({
   const { t } = useTranslation("tasks");
   const selectContentClassName = "z-[110]";
   const isTasksTab = tab === "tasks";
+  const isRoutinesTab = tab === "routines";
 
   return (
     <Popover>
@@ -187,6 +197,42 @@ export function TasksSidebarListSettings({
                   selected={prefs.tasks.groupBy === "due_date"}
                 />
               </div>
+            ) : isRoutinesTab ? (
+              <div className="grid grid-cols-3 gap-1">
+                <GroupModeButton
+                  icon={List}
+                  label={t("sidebar.groupNoneShort")}
+                  onClick={() =>
+                    onRoutinesPrefsChange((current) => ({
+                      ...current,
+                      groupBy: "none",
+                    }))
+                  }
+                  selected={prefs.routines.groupBy === "none"}
+                />
+                <GroupModeButton
+                  icon={Zap}
+                  label={t("sidebar.groupSource")}
+                  onClick={() =>
+                    onRoutinesPrefsChange((current) => ({
+                      ...current,
+                      groupBy: "source",
+                    }))
+                  }
+                  selected={prefs.routines.groupBy === "source"}
+                />
+                <GroupModeButton
+                  icon={CircleDot}
+                  label={t("sidebar.groupStatus")}
+                  onClick={() =>
+                    onRoutinesPrefsChange((current) => ({
+                      ...current,
+                      groupBy: "enabled",
+                    }))
+                  }
+                  selected={prefs.routines.groupBy === "enabled"}
+                />
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-1">
                 <GroupModeButton
@@ -262,6 +308,37 @@ export function TasksSidebarListSettings({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                ) : isRoutinesTab ? (
+                  <Select
+                    onValueChange={(value) =>
+                      onRoutinesPrefsChange((current) => ({
+                        ...current,
+                        sortBy: value as RoutinesSidebarSortBy,
+                      }))
+                    }
+                    value={prefs.routines.sortBy}
+                  >
+                    <SelectTrigger className="h-8 flex-1 text-xs">
+                      {t(
+                        prefs.routines.sortBy === "last_run_at"
+                          ? "routines.list.sortByLastRun"
+                          : prefs.routines.sortBy === "enabled"
+                            ? "routines.list.sortByEnabled"
+                            : "routines.list.sortByName"
+                      )}
+                    </SelectTrigger>
+                    <SelectContent className={selectContentClassName}>
+                      <SelectItem value="name">
+                        {t("routines.list.sortByName")}
+                      </SelectItem>
+                      <SelectItem value="last_run_at">
+                        {t("routines.list.sortByLastRun")}
+                      </SelectItem>
+                      <SelectItem value="enabled">
+                        {t("routines.list.sortByEnabled")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <Select
                     onValueChange={(value) =>
@@ -308,6 +385,11 @@ export function TasksSidebarListSettings({
                         ...current,
                         sortOrder,
                       }));
+                    } else if (isRoutinesTab) {
+                      onRoutinesPrefsChange((current) => ({
+                        ...current,
+                        sortOrder,
+                      }));
                     } else {
                       onGoalsPrefsChange((current) => ({
                         ...current,
@@ -316,7 +398,11 @@ export function TasksSidebarListSettings({
                     }
                   }}
                   value={
-                    isTasksTab ? prefs.tasks.sortOrder : prefs.goals.sortOrder
+                    isTasksTab
+                      ? prefs.tasks.sortOrder
+                      : isRoutinesTab
+                        ? prefs.routines.sortOrder
+                        : prefs.goals.sortOrder
                   }
                 >
                   <TabsList className="h-8 p-0.5">
@@ -427,6 +513,36 @@ export function TasksSidebarListSettings({
                   </SelectContent>
                 </CompactFilterSelect>
               </>
+            ) : isRoutinesTab ? (
+              <CompactFilterSelect
+                label={t("sidebar.filterStatus")}
+                onValueChange={(value) =>
+                  onRoutinesPrefsChange((current) => ({
+                    ...current,
+                    enabled: value as RoutinesSidebarEnabledFilter,
+                  }))
+                }
+                selectedLabel={
+                  prefs.routines.enabled === "all"
+                    ? t("sidebar.allStatuses")
+                    : prefs.routines.enabled === "enabled"
+                      ? t("routines.list.enabled")
+                      : t("routines.list.disabled")
+                }
+                value={prefs.routines.enabled}
+              >
+                <SelectContent className={selectContentClassName}>
+                  <SelectItem value="all">
+                    {t("sidebar.allStatuses")}
+                  </SelectItem>
+                  <SelectItem value="enabled">
+                    {t("routines.list.enabled")}
+                  </SelectItem>
+                  <SelectItem value="disabled">
+                    {t("routines.list.disabled")}
+                  </SelectItem>
+                </SelectContent>
+              </CompactFilterSelect>
             ) : (
               <CompactFilterSelect
                 label={t("sidebar.filterStatus")}

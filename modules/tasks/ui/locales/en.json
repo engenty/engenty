@@ -1,17 +1,18 @@
 {
   "addNew": "New",
   "menu": {
-    "tasks": "Tasks",
+    "tasks": "Plan",
     "goals": "Goals",
     "operations": "Operations"
   },
   "sidebar": {
-    "navAria": "Tasks navigation",
-    "moduleNavAria": "Tasks module",
+    "navAria": "Plan navigation",
+    "moduleNavAria": "Plan module",
     "briefing": "Briefing",
     "goals": "Goals",
     "tasks": "Tasks",
     "settings": "Settings",
+    "extraLinksAria": "Plan tools",
     "searchPlaceholder": "Search goals and tasks…",
     "searchAria": "Search goals and tasks",
     "clearSearch": "Clear search",
@@ -20,12 +21,13 @@
     "goalsSection": "Goals",
     "tasksSection": "Tasks",
     "sectionOverview": "Overview",
-    "sectionWork": "Work",
+    "sectionWork": "Lists",
     "sectionOps": "Operations",
     "allGoals": "All goals",
     "allTasks": "All tasks",
     "noGoals": "No goals yet.",
     "noTasks": "No tasks yet.",
+    "noRoutines": "No routines yet.",
     "listSettings": "List settings",
     "groupBy": "Group by",
     "groupNoneShort": "List",
@@ -35,6 +37,7 @@
     "groupGoal": "Goal",
     "groupProject": "Project",
     "groupDueDate": "Due date",
+    "groupSource": "Source",
     "sortBy": "Sort by",
     "sortUpdated": "Last updated",
     "sortCreated": "Created",
@@ -60,15 +63,17 @@
   },
   "tabs": {
     "briefing": "Briefing",
+    "inbox": "Inbox",
     "tasks": "Tasks",
     "goals": "Goals",
     "routines": "Routines"
   },
   "briefing": {
     "title": "Briefing",
-    "subtitle": "What needs your attention across tasks",
-    "subtitlePersonal": "Your personal task overview",
-    "subtitleOversight": "Team-wide task overview",
+    "kicker": "Briefing · {{day}}",
+    "subtitle": "Approvals on the left — updates on the right. Lists stay in the hubs.",
+    "subtitlePersonal": "Your personal overview — what needs you, and what’s moving.",
+    "subtitleOversight": "Team-wide view — approvals on the left, updates on the right.",
     "loading": "Loading briefing…",
     "loadFailed": "Failed to load briefing.",
     "viewAllTasks": "All tasks",
@@ -78,6 +83,33 @@
     "emptyActivity": "No recent activity.",
     "emptyRecentTasks": "No tasks yet.",
     "emptyPriorities": "Nothing needs your attention right now.",
+    "hubs": {
+      "navAria": "Plan hubs",
+      "open": "Open",
+      "inboxCount_one": "{{count}} open item",
+      "inboxCount_other": "{{count}} open items",
+      "tasksCount_one": "{{count}} open task",
+      "tasksCount_other": "{{count}} open tasks",
+      "goalsCount_one": "{{count}} goal",
+      "goalsCount_other": "{{count}} goals",
+      "routinesCount_one": "{{count}} routine",
+      "routinesCount_other": "{{count}} routines"
+    },
+    "day": {
+      "attention": "Approvals & to-dos",
+      "onYourPlate": "Current tasks",
+      "recentlyAccomplished": "Recently accomplished",
+      "emptyAttention": "No approvals or errors need you right now.",
+      "emptyPlate": "No current tasks.",
+      "emptyRecentlyDone": "No recently completed work yet."
+    },
+    "motion": {
+      "title": "Updates",
+      "now": "Now",
+      "next": "Up next",
+      "done": "Done",
+      "empty": "No updates."
+    },
     "metrics": {
       "open": "Open tasks",
       "myOpen": "My open tasks",
@@ -119,6 +151,7 @@
   },
   "list": {
     "title": "Tasks",
+    "description": "Track work across goals, assignees, and statuses.",
     "newTask": "New task",
     "searchPlaceholder": "Search tasks…",
     "empty": "No tasks yet.",
@@ -321,6 +354,7 @@
   },
   "goals": {
     "title": "Goals",
+    "description": "Organize related tasks under shared outcomes.",
     "newGoal": "New goal",
     "empty": "No goals yet.",
     "emptyDescription": "Create a goal to organize related tasks.",
@@ -413,14 +447,15 @@
     }
   },
   "routines": {
+    "newRoutine": "New routine",
     "page": {
-      "title": "Schedules & Routines",
-      "description": "Run task automations and agent routines on a schedule in the background.",
-      "create": "Create Routine"
+      "title": "Routines",
+      "description": "Automations and agent routines that run in the background — on a schedule, from events, or on demand.",
+      "create": "New routine"
     },
     "loadFailed": "Failed to load routines.",
     "list": {
-      "myRoutines": "My routines",
+      "myRoutines": "Routines",
       "system": "System",
       "addRoutine": "Add routine",
       "emptyCustom": "No custom routines yet.",
@@ -428,7 +463,17 @@
       "disable": "Disable",
       "enabled": "Enabled",
       "disabled": "Disabled",
-      "lastRun": "Last run: {{date}} · {{result}}"
+      "lastRun": "Last run: {{date}} · {{result}}",
+      "searchPlaceholder": "Search routines…",
+      "display": "Display",
+      "paginationSummary": "{{total}} routines",
+      "filterAll": "All statuses",
+      "sortBy": "Sort by",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "sortByName": "Name",
+      "sortByLastRun": "Last run",
+      "sortByEnabled": "Status"
     },
     "detail": {
       "notFound": "Routine not found.",
@@ -639,8 +684,8 @@
   },
   "inbox": {
     "title": "Inbox",
-    "subtitle": "Completed agent work and failures that need your attention.",
-    "empty": "Nothing new — completed tasks and trigger failures land here.",
+    "subtitle": "Approvals, failures, and completed agent work that need your attention.",
+    "empty": "Nothing new — approvals, failures, and completed work land here.",
     "loading": "Loading inbox…",
     "loadFailed": "Failed to load the inbox.",
     "markSeen": "Mark as seen",
@@ -648,7 +693,17 @@
     "dismiss": "Dismiss",
     "viewAll": "View all",
     "needsInput": "Needs your input",
-    "notifications": "Notifications",
+    "needsApproval": "Needs approval",
+    "errors": "Errors",
+    "notifications": "Updates",
+    "searchPlaceholder": "Search inbox…",
+    "paginationSummary": "{{total}} items",
+    "filter": {
+      "all": "All",
+      "hitl": "Needs approval",
+      "errors": "Errors",
+      "updates": "Updates"
+    },
     "openSubject": "Open",
     "clearAll": "Clear all",
     "approveOnce": "Allow once",

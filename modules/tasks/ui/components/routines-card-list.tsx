@@ -1,23 +1,24 @@
 // Card-list view for routines, sectioned like TasksGroupedList:
-// "My routines" (custom, with inline add) and "System" (builtin + module).
-import { type RoutineDto, useRoutinesListQuery } from "@engenty/ai-ui/embed";
+// custom routines first, then "System" (module) when present.
+import type { RoutineDto } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, Skeleton } from "@engenty/ui-core";
-import { AlertCircle, Plus } from "lucide-react";
+import { Skeleton } from "@engenty/ui-core";
+import { AlertCircle } from "lucide-react";
 import { useMemo } from "react";
 import { RoutineCard } from "./routine-card.js";
 
 interface RoutinesCardListProps {
+  isError?: boolean;
+  isPending?: boolean;
   locale: string;
-  onAddRoutine?: () => void;
   onEditRoutine?: (routine: RoutineDto) => void;
   onSelectRoutine?: (routine: RoutineDto) => void;
+  routines: RoutineDto[];
 }
 
 function RoutinesSection({
   emptyHint,
   locale,
-  onAdd,
   onEdit,
   onSelect,
   routines,
@@ -25,31 +26,19 @@ function RoutinesSection({
 }: {
   emptyHint?: string;
   locale: string;
-  onAdd?: () => void;
   onEdit?: (routine: RoutineDto) => void;
   onSelect?: (routine: RoutineDto) => void;
   routines: RoutineDto[];
-  title: string;
+  /** Optional section label — omit when the page header already names the list. */
+  title?: string;
 }) {
-  const { t } = useTranslation("tasks");
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-medium text-lg">{title}</h3>
-        {onAdd ? (
-          <Button
-            className="h-auto p-0"
-            onClick={onAdd}
-            size="sm"
-            variant="link"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("routines.list.addRoutine")}
-          </Button>
-        ) : null}
-      </div>
+      {title ? <h3 className="font-medium text-lg">{title}</h3> : null}
       {routines.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{emptyHint}</p>
+        emptyHint ? (
+          <p className="text-muted-foreground text-sm">{emptyHint}</p>
+        ) : null
       ) : (
         <div className="space-y-2">
           {routines.map((routine) => (
@@ -68,21 +57,22 @@ function RoutinesSection({
 }
 
 export function RoutinesCardList({
+  isError = false,
+  isPending = false,
   locale,
-  onAddRoutine,
   onEditRoutine,
   onSelectRoutine,
+  routines,
 }: RoutinesCardListProps) {
   const { t } = useTranslation("tasks");
-  const { data, isPending, isError } = useRoutinesListQuery(true);
 
-  const { customRoutines, systemRoutines } = useMemo(() => {
-    const routines = data?.routines ?? [];
-    return {
-      customRoutines: routines.filter((r: RoutineDto) => r.source === "custom"),
-      systemRoutines: routines.filter((r: RoutineDto) => r.source !== "custom"),
-    };
-  }, [data?.routines]);
+  const { customRoutines, systemRoutines } = useMemo(
+    () => ({
+      customRoutines: routines.filter((r) => r.source === "custom"),
+      systemRoutines: routines.filter((r) => r.source !== "custom"),
+    }),
+    [routines]
+  );
 
   if (isPending) {
     return (
@@ -117,11 +107,9 @@ export function RoutinesCardList({
       <RoutinesSection
         emptyHint={t("routines.list.emptyCustom")}
         locale={locale}
-        onAdd={onAddRoutine}
         onEdit={onEditRoutine}
         onSelect={onSelectRoutine}
         routines={customRoutines}
-        title={t("routines.list.myRoutines")}
       />
       {systemRoutines.length > 0 ? (
         <RoutinesSection

@@ -30,9 +30,11 @@ export function GeneralTasksSection({
   const { t } = useTranslation("tasks");
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-lg">{t("list.generalTasks")}</h3>
+        <h3 className="font-medium text-muted-foreground text-sm">
+          {t("list.generalTasks")}
+        </h3>
         {onAddTask ? (
           <Button
             className="h-auto p-0"

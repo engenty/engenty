@@ -17,7 +17,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Card } from "@engenty/ui-core";
 import { ShieldCheck } from "lucide-react";
 import type { Task } from "../../src/schema/types.js";
-import { ToolApprovalActions } from "./inbox/inbox-list.js";
+import { ToolApprovalActions } from "./inbox/tool-approval-actions.js";
 
 export function TaskPendingApprovalCard({ task }: { task: Task }) {
   const { t } = useTranslation("tasks");

@@ -196,6 +196,45 @@ export function createArtifactStore(client: SupabaseClient) {
     },
 
     /**
+     * List artifacts across several scopes at once (the container resolver's
+     * `artifactScopes`), deduped by artifact id. Sequential listByScope per
+     * scope — clearer than a compound PostgREST `.or()` and each scope is
+     * already capped. Overall unique result is limited to ~200.
+     */
+    async listByScopes(params: {
+      tenantId: string;
+      scopes: Array<{ scopeType: ArtifactScopeType; scopeId: string }>;
+      includeArchived?: boolean;
+    }): Promise<ArtifactRow[]> {
+      const OVERALL_LIMIT = 200;
+      const seen = new Set<string>();
+      const out: ArtifactRow[] = [];
+      for (const scope of params.scopes) {
+        if (out.length >= OVERALL_LIMIT) {
+          break;
+        }
+        const rows = await this.listByScope({
+          tenantId: params.tenantId,
+          scopeType: scope.scopeType,
+          scopeId: scope.scopeId,
+          ...(params.includeArchived
+            ? { includeArchived: params.includeArchived }
+            : {}),
+        });
+        for (const row of rows) {
+          if (!seen.has(row.id)) {
+            seen.add(row.id);
+            out.push(row);
+            if (out.length >= OVERALL_LIMIT) {
+              break;
+            }
+          }
+        }
+      }
+      return out;
+    },
+
+    /**
      * Tenant-wide listing across every scope — powers the admin console, which
      * surfaces where each artifact physically lives. Unlike listByScope this
      * drops the scope filters entirely; kept separate so scope-bound callers

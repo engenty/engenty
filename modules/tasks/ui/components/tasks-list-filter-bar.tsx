@@ -19,13 +19,33 @@ export interface TasksListFilterState {
   status: string; // "all" or specific status
 }
 
+export function getTasksGroupByOptions(
+  t: (key: string) => string,
+  showProjectGroupBy: boolean
+): { value: TasksGroupBy; label: string }[] {
+  return [
+    { value: "none", label: t("sidebar.groupNoneShort") },
+    { value: "status", label: t("sidebar.groupStatus") },
+    { value: "priority", label: t("sidebar.groupPriority") },
+    { value: "assignee", label: t("sidebar.groupAssignee") },
+    { value: "goal", label: t("sidebar.groupGoal") },
+    ...(showProjectGroupBy
+      ? [
+          {
+            value: "project" as const,
+            label: t("sidebar.groupProject"),
+          },
+        ]
+      : []),
+  ];
+}
+
 interface TasksListFilterBarProps {
   assigneeOptions: { id: string; name: string }[];
   filtersExpanded: boolean;
   goalOptions: Goal[];
   hasActiveChipFilters: boolean;
   onChange: (next: TasksListFilterState) => void;
-  showProjectGroupBy?: boolean;
   statusOptions: TaskStatusDefinition[];
   value: TasksListFilterState;
 }
@@ -38,20 +58,8 @@ export function TasksListFilterBar({
   statusOptions,
   assigneeOptions,
   goalOptions,
-  showProjectGroupBy = false,
 }: TasksListFilterBarProps) {
   const { t } = useTranslation("tasks");
-
-  const groupByOptions = [
-    { value: "none", label: t("sidebar.groupNoneShort", "List") },
-    { value: "status", label: t("sidebar.groupStatus", "Status") },
-    { value: "priority", label: t("sidebar.groupPriority", "Priority") },
-    { value: "assignee", label: t("sidebar.groupAssignee", "Assignee") },
-    { value: "goal", label: t("sidebar.groupGoal", "Goal") },
-    ...(showProjectGroupBy
-      ? [{ value: "project", label: t("sidebar.groupProject", "Project") }]
-      : []),
-  ];
 
   const statusFilterOptions = [
     { value: "all", label: t("list.filterAllStatuses", "All statuses") },
@@ -85,10 +93,6 @@ export function TasksListFilterBar({
       label: goal.title,
     })),
   ];
-
-  const selectedGroupByLabel = groupByOptions.find(
-    (option) => option.value === value.groupBy
-  )?.label;
 
   const selectedStatusLabel = statusFilterOptions.find(
     (option) => option.value === value.status
@@ -128,28 +132,6 @@ export function TasksListFilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="shrink-0 text-muted-foreground text-sm">
-        {t("sidebar.groupBy", "Group by:")}
-      </span>
-      <ListFilterChip
-        activeLabel={selectedGroupByLabel}
-        ariaLabel={t("sidebar.groupBy", "Group by")}
-        clearLabel="Clear group by"
-        isActive={value.groupBy !== "none"}
-        label="Group by..."
-        onClear={() => onChange({ ...value, groupBy: "none" })}
-        onSelect={(groupBy) =>
-          onChange({ ...value, groupBy: groupBy as TasksGroupBy })
-        }
-        options={groupByOptions}
-        value={value.groupBy}
-      />
-
-      <span
-        aria-hidden
-        className="hidden h-4 w-px shrink-0 bg-border sm:block"
-      />
-
       <span
         aria-hidden
         className={cn(

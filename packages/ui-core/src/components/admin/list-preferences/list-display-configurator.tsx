@@ -39,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { Switch } from "../../ui/switch";
 import { LIST_PAGE_SIZE_OPTIONS, type ListPageSize } from "./list-page-size.js";
 
 export type ViewMode = "table" | "cards" | "kanban";
@@ -68,7 +67,8 @@ export interface ListDisplayConfiguratorProps<
     table: string;
     cards: string;
     kanban?: string;
-    compactView: string;
+    /** @deprecated Compact-rows toggle removed from the display menu. */
+    compactView?: string;
     sortBy: string;
     ascending?: string;
     descending?: string;
@@ -87,13 +87,14 @@ export interface ListDisplayConfiguratorProps<
   setPageSize?: (size: ListPageSize) => void;
   setSortBy: (column: TSortColumn) => void;
   setSortOrder: (order: SortOrder) => void;
+  /** @deprecated Compact-rows toggle removed; prop kept for call-site compatibility. */
   setTableSize?: (size: TableSize) => void;
   setViewMode?: (mode: ViewMode) => void;
   // Sorting
   sortBy: TSortColumn;
   sortOptions: { value: TSortColumn; label: string }[];
   sortOrder: SortOrder;
-  // Table Size
+  /** @deprecated Compact-rows toggle removed; prop kept for call-site compatibility. */
   tableSize?: TableSize;
   // View Mode
   viewMode?: ViewMode;
@@ -180,8 +181,6 @@ export function ListDisplayConfigurator<
   viewMode,
   setViewMode,
   viewModes = ["table", "cards"],
-  tableSize,
-  setTableSize,
   pageSize,
   setPageSize,
   groupBy,
@@ -375,29 +374,6 @@ export function ListDisplayConfigurator<
         </div>
       )}
 
-      {viewMode !== "kanban" && tableSize != null && setTableSize && (
-        <>
-          <DropdownMenuSeparator />
-          <div className="px-2 py-1.5">
-            <div className="flex items-center justify-between">
-              <label
-                className="cursor-pointer text-muted-foreground text-sm"
-                htmlFor="compact-view"
-              >
-                {labels.compactView}
-              </label>
-              <Switch
-                checked={tableSize === "compact"}
-                id="compact-view"
-                onCheckedChange={(checked) =>
-                  setTableSize(checked ? "compact" : "normal")
-                }
-              />
-            </div>
-          </div>
-        </>
-      )}
-
       {pageSize != null && setPageSize && labels.itemsPerPage && (
         <>
           <DropdownMenuSeparator />
@@ -523,7 +499,7 @@ export function ListDisplayConfigurator<
           )}
       </div>
 
-      {viewMode !== "kanban" && (
+      {viewMode !== "kanban" && columns.length > 0 && (
         <>
           <DropdownMenuSeparator />
           <DndContext

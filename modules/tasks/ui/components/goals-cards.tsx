@@ -31,8 +31,9 @@ export function GoalsCards({ goals, onGoalClick }: GoalsCardsProps) {
         return (
           <button
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left transition-colors",
-              "hover:border-primary/40 hover:bg-input/25 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              "ui-canvas-raised flex w-full items-center gap-3 rounded-md bg-card px-4 py-3 text-left",
+              "cursor-pointer transition-shadow hover:shadow-[var(--e-3)]",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             )}
             key={goal.id}
             onClick={() => onGoalClick(goal)}

@@ -170,6 +170,7 @@ export {
 export {
   DetailPageHeader,
   type DetailPageHeaderProps,
+  type DetailPageHeaderStripAlign,
 } from "./components/layout/detail-page-header";
 export {
   DOC_SIDEBAR_INLINE_MIN_WIDTH_PX,

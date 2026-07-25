@@ -66,7 +66,21 @@ export function makeMockTasksRepo(): TasksRepo {
     async listTasksPaginated(params: TasksQueryParams) {
       const page = params.page ?? 1;
       const pageSize = params.pageSize ?? 25;
-      const data = [...tasks.values()];
+      const data = [...tasks.values()].filter((t) => {
+        if (params.goal_id && t.goal_id !== params.goal_id) {
+          return false;
+        }
+        if (params.project_id && t.project_id !== params.project_id) {
+          return false;
+        }
+        if (params.trigger_id && t.trigger_id !== params.trigger_id) {
+          return false;
+        }
+        if (params.status && t.status !== params.status) {
+          return false;
+        }
+        return true;
+      });
       return {
         data: data.slice((page - 1) * pageSize, page * pageSize),
         total: data.length,
@@ -163,10 +177,31 @@ export function makeMockTasksRepo(): TasksRepo {
         created_at: now(),
       };
     },
+    async getLatestAgentResultComment(taskId: string) {
+      const task = tasks.get(taskId);
+      const comments = (
+        task as { comments?: Array<{ content?: string }> } | undefined
+      )?.comments;
+      if (!comments?.length) {
+        return null;
+      }
+      for (let i = comments.length - 1; i >= 0; i -= 1) {
+        const content = comments[i]?.content?.trim() ?? "";
+        if (content.startsWith("🤖")) {
+          return content;
+        }
+      }
+      return null;
+    },
     async listGoalsPaginated(params: GoalsQueryParams) {
       const page = params.page ?? 1;
       const pageSize = params.pageSize ?? 25;
-      const data = [...goals.values()];
+      const data = [...goals.values()].filter((g) => {
+        if (params.project_id && g.project_id !== params.project_id) {
+          return false;
+        }
+        return true;
+      });
       return {
         data: data.slice((page - 1) * pageSize, page * pageSize),
         total: data.length,

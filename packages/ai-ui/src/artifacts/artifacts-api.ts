@@ -10,6 +10,28 @@ import {
 
 export type ArtifactScopeType = "thread" | "task" | "project" | "goal";
 
+/**
+ * Work container tiers (the containment hierarchy — see PLAN-where-work-lives).
+ * A container aggregates every artifact/file reachable DOWN its edges; the AI
+ * service resolves this via `?container=<tier>:<id>` (Phase 2 routes).
+ */
+export type WorkContainerTier =
+  | "task"
+  | "goal"
+  | "routine"
+  | "project"
+  | "global";
+
+export interface WorkContainerRef {
+  id: string;
+  tier: WorkContainerTier;
+}
+
+/** Serialize a container ref for the `?container=` query param. */
+export function formatWorkContainer(container: WorkContainerRef): string {
+  return `${container.tier}:${container.id}`;
+}
+
 /** List/tab row (no content). */
 export interface ArtifactSummary {
   current_version: number;
@@ -111,6 +133,23 @@ export async function listArtifacts(params: {
   const search = new URLSearchParams({
     scope_type: params.scopeType,
     scope_id: params.scopeId,
+  });
+  const data = await requestJson<{ artifacts: ArtifactSummary[] }>(
+    `${artifactsPath(params.serviceBaseUrl)}?${search.toString()}`
+  );
+  return data.artifacts;
+}
+
+/**
+ * List every artifact inside a work container (aggregated over its resolved
+ * scopes on the server). `global` returns the whole tenant catalog.
+ */
+export async function listContainerArtifacts(params: {
+  serviceBaseUrl: string;
+  container: WorkContainerRef;
+}): Promise<ArtifactSummary[]> {
+  const search = new URLSearchParams({
+    container: formatWorkContainer(params.container),
   });
   const data = await requestJson<{ artifacts: ArtifactSummary[] }>(
     `${artifactsPath(params.serviceBaseUrl)}?${search.toString()}`
@@ -246,6 +285,15 @@ export function artifactsListQueryKey(
   return [...artifactsQueryRoot, "list", scopeType, scopeId] as const;
 }
 
+export function containerArtifactsQueryKey(container: WorkContainerRef | null) {
+  return [
+    ...artifactsQueryRoot,
+    "container",
+    container?.tier ?? "none",
+    container?.id ?? "none",
+  ] as const;
+}
+
 export function artifactStorageBindingQueryKey(
   scopeType: ArtifactScopeType,
   scopeId: string
@@ -281,6 +329,24 @@ export function useArtifactsListQuery(
         serviceBaseUrl: serviceBaseUrl as string,
         scopeType,
         scopeId: scopeId as string,
+      }),
+  });
+}
+
+/**
+ * Aggregated artifact list for a work container. Disabled when the container
+ * is null. Keyed under `artifactsQueryRoot` so the realtime subscription's
+ * broad invalidation refetches it like every other artifact list.
+ */
+export function useContainerArtifactsQuery(container: WorkContainerRef | null) {
+  const serviceBaseUrl = resolveEngentyAiServiceBaseUrl();
+  return useQuery({
+    queryKey: containerArtifactsQueryKey(container),
+    enabled: Boolean(container && serviceBaseUrl),
+    queryFn: () =>
+      listContainerArtifacts({
+        serviceBaseUrl: serviceBaseUrl as string,
+        container: container as WorkContainerRef,
       }),
   });
 }

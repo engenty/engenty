@@ -20,7 +20,7 @@ const APPEARANCE_KEYS = {
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_THEME_MODE = "system";
-const DEFAULT_FONT = "engenty";
+const DEFAULT_FONT = "geist";
 const DEFAULT_FONT_SIZE = "100";
 const DEFAULT_SIDEBAR_VISIBILITY = "always";
 const DEFAULT_SIDEBAR_COLOR = "#ffffff";
@@ -32,12 +32,11 @@ const DEFAULT_TENANT_CONTRAST = "1.0";
 const DEFAULT_COLOR_BLIND = "none";
 
 const KNOWN_FONT_IDS = new Set([
-  "engenty",
+  "geist",
   "system",
-  "inter",
   "barlow",
   "noto-sans-display",
-  "ibm-plex-mono",
+  "geist-mono",
   "fira-mono",
 ]);
 

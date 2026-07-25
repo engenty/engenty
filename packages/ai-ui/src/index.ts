@@ -42,13 +42,24 @@ export {
   type ArtifactSummary,
   type ArtifactWithContent,
   artifactsQueryRoot,
+  containerArtifactsQueryKey,
+  formatWorkContainer,
+  listContainerArtifacts,
   useArtifactDetailQuery,
   useArtifactsListQuery,
+  useContainerArtifactsQuery,
+  type WorkContainerRef,
+  type WorkContainerTier,
 } from "./artifacts/artifacts-api.js";
 export {
-  ENGENTY_PROJECT_ARTIFACTS_HOST_KEY,
-  ProjectArtifactsPanel,
-} from "./artifacts/project-artifacts-panel.js";
+  listWorkFiles,
+  useWorkFilesQuery,
+  type WorkFileEntry,
+  type WorkFilesResponse,
+  workFilesQueryKey,
+  workFilesQueryRoot,
+} from "./artifacts/work-files-api.js";
+export { WorkPanel, type WorkPanelProps } from "./artifacts/work-panel.js";
 export {
   type ArtifactPaneScope,
   ArtifactPaneToggle,

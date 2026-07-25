@@ -1271,11 +1271,11 @@
     "openPane": "Artefakt-Panel öffnen",
     "openPaneWithNew": "Artefakt-Panel öffnen ({{count}} neu)",
     "resizePane": "Artefakt-Panel-Größe ändern",
-    "storeAction": "Artefakt ablegen",
-    "storeSearch": "Ablageziel suchen…",
+    "storeAction": "Artefakt anpinnen",
+    "storeSearch": "Pin-Ziel suchen…",
     "storeNoMatch": "Keine Treffer.",
-    "storeToTask": "In Aufgabe ablegen",
-    "storeToProject": "In Projekt ablegen",
+    "storeToTask": "An Aufgabe anpinnen",
+    "storeToProject": "An Projekt anpinnen",
     "storeNoProjects": "Keine Projekte verfügbar.",
     "projectEmpty": "Für dieses Projekt sind noch keine Artefakte abgelegt.",
     "scope": {
@@ -1297,6 +1297,13 @@
     "viewLabel": "Ansicht",
     "viewRows": "Zeilen",
     "viewCards": "Karten"
+  },
+  "workPanel": {
+    "label": "Arbeit",
+    "artifactsTab": "Artefakte",
+    "filesTab": "Dateien",
+    "artifactsEmpty": "Noch keine Artefakte hier.",
+    "filesEmpty": "Noch keine Arbeitsbereich-Dateien hier."
   },
   "agentProposals": {
     "title": "Offene Agent-Vorschläge",

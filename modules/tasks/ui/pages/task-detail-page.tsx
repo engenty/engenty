@@ -1,6 +1,7 @@
 import {
   ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
+  WorkPanel,
   WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
@@ -49,7 +50,6 @@ import type {
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { GoalDocumentTitle } from "../components/goal-document-title.js";
 import { LiveTaskRunsPanel } from "../components/live-task-runs-panel.js";
-import { TaskArtifactsPanel } from "../components/task-artifacts-panel.js";
 import type { TaskAssigneeValue } from "../components/task-assignee-picker.js";
 import { TaskCommentsActivityTabs } from "../components/task-comments-activity-tabs.js";
 import { TaskLinkedSessionsPanel } from "../components/task-linked-sessions-panel.js";
@@ -215,7 +215,11 @@ function TaskDetailLoadedContent({
                 isLoading={linkedSessionsQuery.isLoading}
                 sessions={linkedSessionsQuery.data ?? []}
               />
-              <TaskArtifactsPanel taskId={task.id} />
+              <WorkPanel
+                container={{ id: task.id, tier: "task" }}
+                hostKey={ENGENTY_COPILOT_HOST_KEY}
+                mountPane={false}
+              />
             </>
           }
           sidebarLabel={t("detail.sidebarLabel")}
@@ -430,7 +434,7 @@ export function TaskDetailPage() {
           </DropdownMenuContent>
         </DropdownMenu>
         <ArtifactPaneToggle
-          extraScope={{ type: "task", id: task.id }}
+          container={{ id: task.id, tier: "task" }}
           hostKey={ENGENTY_COPILOT_HOST_KEY}
         />
       </>
@@ -579,9 +583,10 @@ export function TaskDetailPage() {
         </TaskRunObserverProvider>
       )}
 
-      {/* Merge the task's stored artifacts into the chat pane so sidebar rows can open. */}
+      {/* Merge the task container's artifacts into the chat pane so the
+          sidebar WorkPanel rows open here alongside live chat artifacts. */}
       <WorkspaceArtifactPane
-        extraScope={task ? { type: "task", id: task.id } : null}
+        container={task ? { id: task.id, tier: "task" } : null}
         hostKey={ENGENTY_COPILOT_HOST_KEY}
       />
 

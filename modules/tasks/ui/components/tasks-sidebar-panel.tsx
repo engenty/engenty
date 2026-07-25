@@ -16,6 +16,7 @@ import {
   SidebarRow,
   SidebarRowActions,
   SidebarRowButton,
+  SidebarRowLeadingIcon,
   SidebarTab,
   SidebarTabStrip,
   Skeleton,
@@ -28,6 +29,7 @@ import {
   Inbox,
   LayoutDashboard,
   ListTodo,
+  type LucideIcon,
   Plus,
   Search,
   Settings,
@@ -57,6 +59,7 @@ import {
   isGoalDetailPath,
   isGoalsListPath,
   isOperationsPath,
+  isRoutineDetailPath,
   isRoutinesPath,
   isSettingsPath,
   isTaskDetailPath,
@@ -89,6 +92,7 @@ import type { TaskFormSubmitData } from "./task-form-dialog.js";
 import { resolveTaskStatusLabel } from "./task-status-badge.js";
 import { TasksModuleAddMenuSidebarTrigger } from "./tasks-module-add-menu.js";
 import { TasksSidebarListSettings } from "./tasks-sidebar-list-settings.js";
+import { TasksSidebarRoutinesList } from "./tasks-sidebar-routines-list.js";
 
 const SIDEBAR_FETCH_SIZE = 200;
 
@@ -103,7 +107,7 @@ function SidebarNavRow({
 }: {
   active: boolean;
   badgeCount?: number;
-  icon?: typeof LayoutDashboard;
+  icon?: LucideIcon;
   label: string;
   to: string;
   onCreate?: () => void;
@@ -141,6 +145,30 @@ function SidebarNavRow({
           </Button>
         </SidebarRowActions>
       ) : null}
+    </SidebarRow>
+  );
+}
+
+/** Compact footer links (KB-style secondary nav rows). */
+function SidebarSecondaryNavRow({
+  active,
+  icon: Icon,
+  label,
+  to,
+}: {
+  active: boolean;
+  icon: LucideIcon;
+  label: string;
+  to: string;
+}) {
+  return (
+    <SidebarRow isActive={active}>
+      <SidebarRowLeadingIcon icon={<Icon aria-hidden />} />
+      <SidebarRowButton asChild isActive={active} size="sm">
+        <Link to={to} {...shellSecondaryNavItemProps}>
+          <span className="truncate">{label}</span>
+        </Link>
+      </SidebarRowButton>
     </SidebarRow>
   );
 }
@@ -264,8 +292,13 @@ export function TasksSidebarPanel() {
   const [search, setSearch] = useState("");
   const trimmed = search.trim();
   const isSearching = trimmed.length > 0;
-  const { prefs, setTab, updateGoalsPrefs, updateTasksPrefs } =
-    useTasksSidebarPrefs();
+  const {
+    prefs,
+    setTab,
+    updateGoalsPrefs,
+    updateRoutinesPrefs,
+    updateTasksPrefs,
+  } = useTasksSidebarPrefs();
 
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
@@ -326,6 +359,7 @@ export function TasksSidebarPanel() {
 
   const activeGoalId = isGoalDetailPath(pathname);
   const activeTaskId = isTaskDetailPath(pathname);
+  const activeRoutineId = isRoutineDetailPath(pathname);
 
   useEffect(() => {
     if (isGoalsListPath(pathname) || activeGoalId) {
@@ -504,9 +538,103 @@ export function TasksSidebarPanel() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SidebarHeader className="gap-0 p-0 pb-3">
+        {isSearching ? null : (
+          <nav
+            aria-label={t("sidebar.moduleNavAria")}
+            className={cn(
+              "pt-2",
+              sidebarColumnContentInsetClassName,
+              sidebarColumnContentInsetEndClassName
+            )}
+          >
+            <div className="space-y-2">
+              <div>
+                <SidebarNavList>
+                  <SidebarNavRow
+                    active={navActive.briefing}
+                    icon={LayoutDashboard}
+                    label={t("sidebar.briefing")}
+                    to={tasksPaths.briefing}
+                  />
+                  <SidebarNavRow
+                    active={navActive.inbox}
+                    badgeCount={inboxUnseen}
+                    icon={Inbox}
+                    label={t("sidebar.inbox")}
+                    to={tasksPaths.inbox}
+                  />
+                </SidebarNavList>
+              </div>
+              <div>
+                <SidebarNavSectionLabel>
+                  {t("sidebar.sectionWork")}
+                </SidebarNavSectionLabel>
+                <SidebarNavList>
+                  <SidebarRow isActive={false}>
+                    <SidebarRowButton
+                      isActive={false}
+                      onClick={() => setCreateTaskOpen(true)}
+                      {...shellSecondaryNavItemProps}
+                    >
+                      <Plus aria-hidden className="size-4 shrink-0" />
+                      <span className="truncate">{t("newTask.title")}</span>
+                    </SidebarRowButton>
+                  </SidebarRow>
+                  <SidebarNavRow
+                    active={navActive.tasksList}
+                    icon={ListTodo}
+                    label={t("sidebar.tasks")}
+                    to={tasksPaths.list}
+                  />
+                  <SidebarNavRow
+                    active={navActive.goalsList}
+                    icon={Target}
+                    label={t("sidebar.goals")}
+                    to={tasksPaths.goals}
+                  />
+                  <SidebarNavRow
+                    active={navActive.routines}
+                    icon={Zap}
+                    label={t("tabs.routines")}
+                    to={tasksPaths.routines}
+                  />
+                </SidebarNavList>
+              </div>
+            </div>
+          </nav>
+        )}
+
+        <SidebarTabStrip
+          onValueChange={(value) => {
+            setSearch("");
+            setTab(value as "tasks" | "goals" | "routines");
+            if (value === "routines" && !isRoutinesPath(pathname)) {
+              navigate(tasksPaths.routines);
+            } else if (
+              value === "goals" &&
+              !isGoalsListPath(pathname) &&
+              !activeGoalId
+            ) {
+              navigate(tasksPaths.goals);
+            } else if (
+              value === "tasks" &&
+              !isTasksListPath(pathname) &&
+              !activeTaskId
+            ) {
+              navigate(tasksPaths.list);
+            }
+          }}
+          value={activeTab}
+        >
+          <SidebarTab value="tasks">{t("tabs.tasks")}</SidebarTab>
+          <SidebarTab value="goals">{t("tabs.goals")}</SidebarTab>
+          <SidebarTab value="routines">{t("tabs.routines")}</SidebarTab>
+        </SidebarTabStrip>
+
+        {/* Search / list settings sit under the tab strip — filters are tab-scoped. */}
         <div
           className={cn(
-            "flex min-w-0 items-center gap-1",
+            "flex min-w-0 items-center gap-1 pt-2",
             sidebarColumnContentInsetClassName,
             sidebarColumnContentInsetEndClassName
           )}
@@ -543,6 +671,7 @@ export function TasksSidebarPanel() {
               <TasksSidebarListSettings
                 agentFilterOptions={agentFilterOptions}
                 onGoalsPrefsChange={updateGoalsPrefs}
+                onRoutinesPrefsChange={updateRoutinesPrefs}
                 onTasksPrefsChange={updateTasksPrefs}
                 prefs={prefs}
                 tab={activeTab}
@@ -559,106 +688,6 @@ export function TasksSidebarPanel() {
             </>
           )}
         </div>
-
-        {isSearching ? null : (
-          <>
-            <nav
-              aria-label={t("sidebar.moduleNavAria")}
-              className={cn(
-                "pt-2",
-                sidebarColumnContentInsetClassName,
-                sidebarColumnContentInsetEndClassName
-              )}
-            >
-              <div className="space-y-2">
-                <div>
-                  <SidebarNavList>
-                    <SidebarNavRow
-                      active={navActive.briefing}
-                      icon={LayoutDashboard}
-                      label={t("sidebar.briefing")}
-                      to={tasksPaths.briefing}
-                    />
-                    <SidebarNavRow
-                      active={navActive.inbox}
-                      badgeCount={inboxUnseen}
-                      icon={Inbox}
-                      label={t("sidebar.inbox")}
-                      to={tasksPaths.inbox}
-                    />
-                    <SidebarNavRow
-                      active={navActive.operations}
-                      icon={Activity}
-                      label={t("menu.operations")}
-                      to={tasksPaths.operations}
-                    />
-                  </SidebarNavList>
-                </div>
-                <div>
-                  <SidebarNavSectionLabel>
-                    {t("sidebar.sectionWork")}
-                  </SidebarNavSectionLabel>
-                  <SidebarNavList>
-                    <SidebarRow isActive={false}>
-                      <SidebarRowButton
-                        isActive={false}
-                        onClick={() => setCreateTaskOpen(true)}
-                        {...shellSecondaryNavItemProps}
-                      >
-                        <Plus aria-hidden className="size-4 shrink-0" />
-                        <span className="truncate">{t("newTask.title")}</span>
-                      </SidebarRowButton>
-                    </SidebarRow>
-                    <SidebarNavRow
-                      active={navActive.tasksList}
-                      icon={ListTodo}
-                      label={t("sidebar.tasks")}
-                      to={tasksPaths.list}
-                    />
-                    <SidebarNavRow
-                      active={navActive.goalsList}
-                      icon={Target}
-                      label={t("sidebar.goals")}
-                      to={tasksPaths.goals}
-                    />
-                    <SidebarNavRow
-                      active={navActive.routines}
-                      icon={Zap}
-                      label={t("tabs.routines")}
-                      to={tasksPaths.routines}
-                    />
-                  </SidebarNavList>
-                </div>
-              </div>
-            </nav>
-
-            <SidebarTabStrip
-              onValueChange={(value) => {
-                setTab(value as "tasks" | "goals" | "routines");
-                if (value === "routines" && !isRoutinesPath(pathname)) {
-                  navigate(tasksPaths.routines);
-                } else if (
-                  value === "goals" &&
-                  !isGoalsListPath(pathname) &&
-                  !activeGoalId
-                ) {
-                  navigate(tasksPaths.goals);
-                } else if (
-                  value === "tasks" &&
-                  !isTasksListPath(pathname) &&
-                  !activeTaskId
-                ) {
-                  navigate(tasksPaths.list);
-                }
-              }}
-              value={activeTab}
-            >
-              <SidebarTab value="tasks">{t("tabs.tasks")}</SidebarTab>
-              <SidebarTab value="goals">{t("tabs.goals")}</SidebarTab>
-              <SidebarTab value="routines">{t("tabs.routines")}</SidebarTab>
-            </SidebarTabStrip>
-          </>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="min-h-0 flex-1 gap-0.5 overflow-x-hidden px-0 py-0">
@@ -726,16 +755,10 @@ export function TasksSidebarPanel() {
             <SidebarGroup className="min-h-0 flex-1 p-0">
               <SidebarGroupContent>
                 {activeTab === "routines" ? (
-                  <div className="flex flex-col gap-3 pt-2 pb-2">
-                    <SidebarNavList>
-                      <SidebarNavRow
-                        active={isRoutinesPath(pathname)}
-                        icon={Zap}
-                        label={t("tabs.routines")}
-                        to={tasksPaths.routines}
-                      />
-                    </SidebarNavList>
-                  </div>
+                  <TasksSidebarRoutinesList
+                    activeRoutineId={activeRoutineId}
+                    prefs={prefs.routines}
+                  />
                 ) : isGoalsTab ? (
                   goalsQuery.isLoading ? (
                     <SidebarEntitySkeleton />
@@ -781,9 +804,15 @@ export function TasksSidebarPanel() {
           sidebarColumnContentInsetEndClassName
         )}
       >
-        <nav aria-label={t("sidebar.settings")}>
+        <nav aria-label={t("sidebar.extraLinksAria")} className="shrink-0">
           <SidebarNavList>
-            <SidebarNavRow
+            <SidebarSecondaryNavRow
+              active={navActive.operations}
+              icon={Activity}
+              label={t("menu.operations")}
+              to={tasksPaths.operations}
+            />
+            <SidebarSecondaryNavRow
               active={navActive.settings}
               icon={Settings}
               label={t("sidebar.settings")}

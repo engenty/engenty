@@ -21,13 +21,18 @@ import type {
   AgentWorkspaceConfig,
   AgentWorkspaceMount,
 } from "@engenty/ai-core";
+import {
+  COMMONS_STORAGE_PREFIX,
+  workWorkspaceRelativePrefix,
+} from "@engenty/file-storage";
 
 import type { EngentyWorkspaceMountSpec } from "./contracts.js";
 
 // Writable, durable tenant-shared scratch space (cross-user/session). When a
 // sandbox is enabled this prefix is staged locally and bind-mounted into the
 // sandbox so running code can read/write it (see loader + docker provider).
-export const COMMONS_STORAGE_PREFIX = "ai/workspace/commons/";
+// Re-exported from @engenty/file-storage so bytes stay where they are.
+export { COMMONS_STORAGE_PREFIX } from "@engenty/file-storage";
 
 // Agent/user-scoped durable home. Shares the same staged+bind-mounted+synced
 // mechanism as commons when a sandbox is enabled (its storage prefix is per-user
@@ -120,7 +125,7 @@ export function resolveSandboxStorageRelativePath(
     if (!identifier) {
       throw new Error("sandbox_task_lifecycle_requires_task_binding");
     }
-    return `ai/workspace/tasks/${identifier}/`;
+    return workWorkspaceRelativePrefix("task", identifier);
   }
   const sandboxId =
     lifecycle === "session" ? `session-${ctx.threadId}` : `run-${ctx.runId}`;
@@ -167,7 +172,7 @@ export function resolveScopeRelativePath(
       if (!identifier) {
         return null;
       }
-      return `ai/workspace/tasks/${identifier}/`;
+      return workWorkspaceRelativePrefix("task", identifier);
     }
     default:
       return null;

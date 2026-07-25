@@ -44,12 +44,12 @@ export function GoalTasksSection({
       : null;
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-lg">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h3 className="font-medium text-sm">
             <Link
-              className="hover:text-primary hover:underline"
+              className="text-foreground hover:text-primary hover:underline"
               to={tasksPaths.goalDetail(goal.id)}
             >
               {goal.title}
@@ -65,6 +65,14 @@ export function GoalTasksSection({
               <Pencil className="h-4 w-4" />
             </Button>
           ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          {targetDate ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Calendar className="h-4 w-4" />
+              <span>{targetDate}</span>
+            </div>
+          ) : null}
           {onAddTask ? (
             <Button
               className="h-auto p-0"
@@ -77,12 +85,6 @@ export function GoalTasksSection({
             </Button>
           ) : null}
         </div>
-        {targetDate ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Calendar className="h-4 w-4" />
-            <span>{targetDate}</span>
-          </div>
-        ) : null}
       </div>
       <div className="min-h-[50px]">
         {tasks.length === 0 ? (

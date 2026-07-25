@@ -1258,11 +1258,11 @@
     "openPane": "Open artifact panel",
     "openPaneWithNew": "Open artifact panel ({{count}} new)",
     "resizePane": "Resize artifact panel",
-    "storeAction": "Store artifact",
-    "storeSearch": "Search store targets…",
+    "storeAction": "Pin artifact",
+    "storeSearch": "Search pin targets…",
     "storeNoMatch": "No matches.",
-    "storeToTask": "Store to task",
-    "storeToProject": "Store to project",
+    "storeToTask": "Pin to task",
+    "storeToProject": "Pin to project",
     "storeNoProjects": "No projects available.",
     "projectEmpty": "No artifacts stored on this project yet.",
     "scope": {
@@ -1284,6 +1284,13 @@
     "viewLabel": "View",
     "viewRows": "Rows",
     "viewCards": "Cards"
+  },
+  "workPanel": {
+    "label": "Work",
+    "artifactsTab": "Artifacts",
+    "filesTab": "Files",
+    "artifactsEmpty": "No artifacts here yet.",
+    "filesEmpty": "No workspace files here yet."
   },
   "agentProposals": {
     "title": "Pending agent proposals",

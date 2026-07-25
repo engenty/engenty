@@ -1,6 +1,7 @@
 export {
   DetailPageHeader,
   type DetailPageHeaderProps,
+  type DetailPageHeaderStripAlign,
 } from "./detail-page-header";
 export {
   DOC_SIDEBAR_INLINE_MIN_WIDTH_PX,

@@ -42,6 +42,7 @@ function makeRepo(task: Task) {
   const activity: string[] = [];
   const repo: RunTaskNowRepo = {
     addComment: async () => undefined,
+    getLatestAgentResultComment: async () => null,
     getTask: async () => task,
     listChildren: async () => [],
     listDependents: async () => [],

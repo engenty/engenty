@@ -30,6 +30,8 @@ import {
   storeArtifact,
   useArtifactDetailQuery,
   useArtifactsListQuery,
+  useContainerArtifactsQuery,
+  type WorkContainerRef,
 } from "./artifacts-api.js";
 
 /** One tab source for the pane; a null id disables the query (no tabs). */
@@ -39,6 +41,12 @@ export interface ArtifactPaneScope {
 }
 
 export interface WorkspaceArtifactPaneProps {
+  /**
+   * Work container whose aggregated artifacts fill the pane (Phase 2 resolver).
+   * Merged after the primary/extra scopes — the WorkPanel passes this so one
+   * pane shows everything reachable inside a task/goal/routine/project/global.
+   */
+  container?: WorkContainerRef | null;
   /**
    * Second tab source merged after the primary, e.g. the task a detail page
    * shows: chat artifacts and the task's stored artifacts share one pane.
@@ -71,6 +79,7 @@ function mergeArtifacts(
  * `ArtifactPaneToggle` in the page topbar actions.
  */
 export function WorkspaceArtifactPane({
+  container,
   hostKey,
   scope,
   extraScope,
@@ -100,21 +109,24 @@ export function WorkspaceArtifactPane({
     primaryScope.type,
     primaryScope.id
   );
+  const containerQuery = useContainerArtifactsQuery(container ?? null);
   const extraQuery = useArtifactsListQuery(
     extraScope?.type ?? "task",
     extraScope?.id ?? null
   );
   const artifacts = mergeArtifacts(
-    primaryQuery.data ?? [],
+    mergeArtifacts(primaryQuery.data ?? [], containerQuery.data ?? []),
     extraQuery.data ?? []
   );
 
   useArtifactListSync({
     hostKey,
-    scopeKey: `${primaryScope.type}:${primaryScope.id ?? "none"}|${extraScope?.type ?? "-"}:${extraScope?.id ?? "-"}`,
+    scopeKey: `${primaryScope.type}:${primaryScope.id ?? "none"}|c:${container ? `${container.tier}:${container.id}` : "-"}|${extraScope?.type ?? "-"}:${extraScope?.id ?? "-"}`,
     ids: artifacts.map((a) => a.id),
     isReady:
-      primaryQuery.isSuccess && (!extraScope?.id || extraQuery.isSuccess),
+      (primaryScope.id ? primaryQuery.isSuccess : true) &&
+      (container ? containerQuery.isSuccess : true) &&
+      (!extraScope?.id || extraQuery.isSuccess),
   });
 
   const activeArtifactId = isObjectPaneTabKey(activeId) ? null : activeId;
@@ -246,11 +258,13 @@ export function WorkspaceArtifactPane({
  */
 export function ArtifactPaneToggle({
   className,
+  container,
   extraScope,
   hostKey,
   scope,
 }: {
   className?: string;
+  container?: WorkContainerRef | null;
   extraScope?: ArtifactPaneScope | null;
   hostKey: string;
   /** Override primary list scope (defaults to the bound copilot thread). */
@@ -269,13 +283,18 @@ export function ArtifactPaneToggle({
     primaryScope.type,
     primaryScope.id
   );
+  const containerQuery = useContainerArtifactsQuery(container ?? null);
   const extraQuery = useArtifactsListQuery(
     extraScope?.type ?? "task",
     extraScope?.id ?? null
   );
   const artifactCount = useMemo(
-    () => mergeArtifacts(primaryQuery.data ?? [], extraQuery.data ?? []).length,
-    [extraQuery.data, primaryQuery.data]
+    () =>
+      mergeArtifacts(
+        mergeArtifacts(primaryQuery.data ?? [], containerQuery.data ?? []),
+        extraQuery.data ?? []
+      ).length,
+    [containerQuery.data, extraQuery.data, primaryQuery.data]
   );
   const hasContent = artifactCount > 0 || objectTabs.length > 0;
   const badgeLabel =

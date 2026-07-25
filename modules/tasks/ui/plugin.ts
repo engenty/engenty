@@ -223,7 +223,7 @@ export default function plugin(engenty: EngentyPluginContext) {
 
   engenty.UI.registerSettingsItem({
     id: "tasks_settings_menu",
-    label: "Tasks",
+    label: "Plan",
     labelKey: "tasks:menu.tasks",
     to: tasksPaths.settings,
     icon: ListTodo,
@@ -234,7 +234,7 @@ export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerAdminMenuItem({
     id: "tasks_module_menu",
     section: "modules",
-    label: "Tasks",
+    label: "Plan",
     labelKey: "tasks:menu.tasks",
     icon: ListTodo,
     to: tasksPaths.root,
