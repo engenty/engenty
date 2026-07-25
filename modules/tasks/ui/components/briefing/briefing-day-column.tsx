@@ -16,7 +16,7 @@ import { formatRelativeTime } from "../../lib/format-relative-time.js";
 import { isNeedsInput } from "../../lib/inbox-classification.js";
 import { tasksPaths } from "../../lib/tasks-routes.js";
 import { InboxList } from "../inbox/inbox-list.js";
-import { resolveTaskStatusLabel } from "../task-status-badge.js";
+import { TaskStatusBadge } from "../task-status-badge.js";
 
 function SectionHead({ action, title }: { action?: ReactNode; title: string }) {
   return (
@@ -53,9 +53,12 @@ function PlateRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <p className="font-semibold text-sm leading-snug">{task.title}</p>
-          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 font-medium text-[11px] text-muted-foreground">
-            {resolveTaskStatusLabel(task.status, taskStatusDefinitions)}
-          </span>
+          <TaskStatusBadge
+            compact
+            definitions={taskStatusDefinitions}
+            status={task.status}
+            task={task}
+          />
         </div>
         <p className="mt-0.5 text-muted-foreground text-xs">
           {task.identifier}

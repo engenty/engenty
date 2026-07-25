@@ -103,8 +103,28 @@ export function TasksToolbar({
     groupByOptions.find((option) => option.value === groupBy)?.label ?? groupBy;
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+    <div className="relative flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
+      {/* Left rail — bulk actions when selecting; otherwise balances the right rail. */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:min-h-8">
+        {hasSelection ? (
+          <>
+            {bulkActions}
+            <Button
+              aria-label={clearSelectionLabel}
+              className="shrink-0 gap-1"
+              onClick={onClearSelection}
+              size="sm"
+              variant="ghost"
+            >
+              <X className="h-3.5 w-3.5" />
+              {clearSelectionLabel}
+            </Button>
+          </>
+        ) : null}
+      </div>
+
+      {/* Centered search / filter / group-by — stays in the middle of the row. */}
+      <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 md:absolute md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
         <div className="relative w-full max-w-[220px] shrink-0">
           <ListSearchInput
             className="w-full pr-10"
@@ -163,23 +183,7 @@ export function TasksToolbar({
         </p>
       </div>
 
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 md:ml-auto md:shrink-0 md:justify-end">
-        {hasSelection && (
-          <>
-            {bulkActions}
-            <Button
-              aria-label={clearSelectionLabel}
-              className="shrink-0 gap-1"
-              onClick={onClearSelection}
-              size="sm"
-              variant="ghost"
-            >
-              <X className="h-3.5 w-3.5" />
-              {clearSelectionLabel}
-            </Button>
-          </>
-        )}
-
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 md:justify-end">
         <div className="flex flex-wrap items-center gap-2">
           {onAssigneeKindChange && (
             <ListIconSegmentToggle<TasksAssigneeKind>

@@ -1,6 +1,7 @@
 // Right Briefing column: now → next → recently done as one stream.
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn } from "@engenty/ui-core";
+import { Badge, cn } from "@engenty/ui-core";
+import { Check, CircleDot, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type {
@@ -16,7 +17,8 @@ type MotionKind = "now" | "next" | "done";
 
 interface MotionItem {
   kind: MotionKind;
-  meta: string;
+  kindLabel: string;
+  statusLabel: string;
   task: Task;
 }
 
@@ -24,6 +26,7 @@ function buildMotionItems(
   snapshot: TasksBriefingResponse,
   taskStatusDefinitions: TaskStatusDefinition[],
   labels: {
+    done: string;
     next: string;
     now: string;
   },
@@ -32,72 +35,118 @@ function buildMotionItems(
   const seen = new Set<string>();
   const items: MotionItem[] = [];
 
-  for (const { task } of snapshot.focus_items) {
+  const push = (kind: MotionKind, task: Task, kindLabel: string) => {
     if (seen.has(task.id)) {
-      continue;
+      return;
     }
     seen.add(task.id);
     items.push({
-      kind: "now",
+      kind,
+      kindLabel,
+      statusLabel:
+        kind === "done"
+          ? formatRelativeTime(task.completed_at ?? task.updated_at, locale)
+          : resolveTaskStatusLabel(task.status, taskStatusDefinitions),
       task,
-      meta: `${labels.now} · ${resolveTaskStatusLabel(task.status, taskStatusDefinitions)} · ${task.identifier}`,
     });
+  };
+
+  for (const { task } of snapshot.focus_items) {
+    push("now", task, labels.now);
   }
 
   for (const task of snapshot.recent_tasks) {
-    if (seen.has(task.id) || task.status !== "in_review") {
-      continue;
+    if (task.status === "in_review") {
+      push("now", task, labels.now);
     }
-    seen.add(task.id);
-    items.push({
-      kind: "now",
-      task,
-      meta: `${labels.now} · ${resolveTaskStatusLabel(task.status, taskStatusDefinitions)} · ${task.identifier}`,
-    });
   }
 
   for (const { task } of snapshot.waiting_items) {
-    if (seen.has(task.id)) {
-      continue;
-    }
-    seen.add(task.id);
-    items.push({
-      kind: "next",
-      task,
-      meta: `${labels.next} · ${resolveTaskStatusLabel(task.status, taskStatusDefinitions)} · ${task.identifier}`,
-    });
+    push("next", task, labels.next);
   }
 
   for (const task of snapshot.recent_tasks) {
-    if (seen.has(task.id)) {
-      continue;
-    }
-    if (task.status === "done" || task.status === "cancelled") {
-      continue;
-    }
     if (task.status === "todo" || task.status === "backlog") {
-      seen.add(task.id);
-      items.push({
-        kind: "next",
-        task,
-        meta: `${labels.next} · ${resolveTaskStatusLabel(task.status, taskStatusDefinitions)} · ${task.identifier}`,
-      });
+      push("next", task, labels.next);
     }
   }
 
   for (const task of snapshot.recent_tasks) {
-    if (task.status !== "done" || seen.has(task.id)) {
-      continue;
+    if (task.status === "done") {
+      push("done", task, labels.done);
     }
-    seen.add(task.id);
-    items.push({
-      kind: "done",
-      task,
-      meta: formatRelativeTime(task.completed_at ?? task.updated_at, locale),
-    });
   }
 
   return items.slice(0, 10);
+}
+
+function MotionMarker({ kind }: { kind: MotionKind }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "relative z-[1] flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm",
+        kind === "now" &&
+          "border-primary/30 bg-primary text-primary-foreground",
+        kind === "next" && "border-border bg-card text-muted-foreground",
+        kind === "done" &&
+          "border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
+      )}
+    >
+      {kind === "now" ? <Zap className="size-3.5" /> : null}
+      {kind === "next" ? <CircleDot className="size-3.5" /> : null}
+      {kind === "done" ? (
+        <Check className="size-3.5" strokeWidth={2.5} />
+      ) : null}
+    </span>
+  );
+}
+
+function MotionRow({ isLast, item }: { isLast: boolean; item: MotionItem }) {
+  return (
+    <li className="flex gap-3">
+      <div className="flex w-7 shrink-0 flex-col items-center">
+        <MotionMarker kind={item.kind} />
+        {isLast ? null : (
+          <span aria-hidden className="mt-1 w-px flex-1 bg-border" />
+        )}
+      </div>
+      <Link
+        className={cn(
+          "min-w-0 flex-1 rounded-md outline-none transition-colors",
+          "hover:bg-accent/30 focus-visible:bg-accent/30",
+          isLast ? "pb-0" : "pb-5",
+          item.kind === "done" && "opacity-80"
+        )}
+        to={tasksPaths.taskDetail(item.task.id)}
+      >
+        <div className="-mt-0.5 space-y-1 px-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              className={cn(
+                "font-medium text-[10px] uppercase tracking-wide",
+                item.kind === "now" &&
+                  "border-transparent bg-primary/15 text-primary",
+                item.kind === "next" && "border-transparent",
+                item.kind === "done" &&
+                  "border-transparent bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
+              )}
+              variant={item.kind === "next" ? "secondary" : "outline"}
+            >
+              {item.kindLabel}
+            </Badge>
+            <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+              {item.task.identifier}
+            </span>
+          </div>
+          <p className="font-semibold text-sm leading-snug">
+            {item.task.title}
+          </p>
+          <p className="text-muted-foreground text-xs">{item.statusLabel}</p>
+        </div>
+      </Link>
+    </li>
+  );
 }
 
 export function BriefingInMotion({
@@ -116,6 +165,7 @@ export function BriefingInMotion({
         snapshot,
         taskStatusDefinitions,
         {
+          done: t("briefing.motion.done"),
           next: t("briefing.motion.next"),
           now: t("briefing.motion.now"),
         },
@@ -144,42 +194,13 @@ export function BriefingInMotion({
         </p>
       ) : (
         <div className="ui-canvas-raised rounded-md bg-card px-4 py-4">
-          <ol className="relative ms-1.5 border-border border-s ps-5">
-            {items.map((item) => (
-              <li className="relative pb-5 last:pb-0" key={item.task.id}>
-                <span
-                  aria-hidden
-                  className={cn(
-                    "absolute top-1.5 -left-[1.4rem] size-2 rounded-full border-2 bg-card",
-                    item.kind === "now" && "border-primary bg-primary",
-                    item.kind === "next" && "border-muted-foreground/40",
-                    item.kind === "done" && "border-emerald-600/70"
-                  )}
-                />
-                <Link
-                  className={cn(
-                    "block min-w-0",
-                    item.kind === "done" && "opacity-70"
-                  )}
-                  to={tasksPaths.taskDetail(item.task.id)}
-                >
-                  <p className="font-semibold text-sm leading-snug hover:underline">
-                    {item.kind === "done" ? (
-                      <>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                          {t("briefing.motion.done")}{" "}
-                        </span>
-                        {item.task.title}
-                      </>
-                    ) : (
-                      item.task.title
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-muted-foreground text-xs">
-                    {item.meta}
-                  </p>
-                </Link>
-              </li>
+          <ol className="flex flex-col">
+            {items.map((item, index) => (
+              <MotionRow
+                isLast={index === items.length - 1}
+                item={item}
+                key={item.task.id}
+              />
             ))}
           </ol>
         </div>
