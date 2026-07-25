@@ -1,5 +1,5 @@
 ---
-name: team-management-hr
+name: team-content-management
 title: Manage team members
 description: List, inspect, create, update, and delete team member records, including their connected user accounts, through catalog-backed operations with approval-aware writes.
 allowed-tools: engenty_tools_search engenty_tool_execute navigate
