@@ -9,6 +9,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Tabs,
   useListDisplayState,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
@@ -31,11 +32,13 @@ import {
   type GoalsOwnerKind,
   GoalsToolbar,
 } from "../components/goals-toolbar.js";
+import { PlanListSubNav } from "../components/plan-list-sub-nav.js";
 import { useTasksGoalsListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
 import { getGoalsToolbarLabels } from "../lib/goals-toolbar-labels.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
+import { usePlanListTabNavigation } from "../lib/use-plan-list-tab-navigation.js";
 import { useDeleteGoalMutation, useGoalsListQuery } from "../tasks-queries.js";
 
 const EMPTY_GOALS: Goal[] = [];
@@ -65,6 +68,7 @@ export function GoalsListPage() {
   const { t } = useTranslation("tasks");
   const { setCopilotContext } = useCopilotShell();
   const navigate = useNavigate();
+  const onPlanTabChange = usePlanListTabNavigation();
 
   const display = useListDisplayState<
     keyof GoalsColumnVisibility,
@@ -220,8 +224,13 @@ export function GoalsListPage() {
   );
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+    <Tabs
+      className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+      onValueChange={onPlanTabChange}
+      value="goals"
+    >
       <DetailPageHeader
+        belowStrip={<PlanListSubNav />}
         description={<p>{t("goals.description")}</p>}
         maxWidth="5xl"
         title={t("goals.title")}
@@ -338,6 +347,6 @@ export function GoalsListPage() {
           {topbarDialogs}
         </div>
       </div>
-    </div>
+    </Tabs>
   );
 }

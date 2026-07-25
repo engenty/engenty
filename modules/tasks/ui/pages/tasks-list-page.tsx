@@ -21,6 +21,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Tabs,
   useListDisplayState,
   useTableSelection,
 } from "@engenty/ui-core";
@@ -35,6 +36,7 @@ import type {
   TaskUpdateInput,
 } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
+import { PlanListSubNav } from "../components/plan-list-sub-nav.js";
 import { TasksBulkEditDialog } from "../components/tasks-bulk-edit-dialog.js";
 import type { TasksSortColumn } from "../components/tasks-display-dialog.js";
 import { TasksGroupedList } from "../components/tasks-grouped-list.js";
@@ -60,6 +62,7 @@ import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
 import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 import { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
+import { usePlanListTabNavigation } from "../lib/use-plan-list-tab-navigation.js";
 import { buildAssigneeProfileMap, getTasksPluginsApi } from "../plugins.js";
 import {
   useBulkDeleteTasksMutation,
@@ -77,6 +80,7 @@ export function TasksListPage() {
   const { t } = useTranslation("tasks");
   const { setCopilotContext } = useCopilotShell();
   const navigate = useNavigate();
+  const onPlanTabChange = usePlanListTabNavigation();
 
   const displayDefaults = useMemo(() => createTasksDisplayDefaults(), []);
   const allListColumns = useMemo(() => getTasksListColumns(), []);
@@ -466,11 +470,14 @@ export function TasksListPage() {
     (search.trim() || hasActiveFilters);
 
   return (
-    <div
+    <Tabs
       className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       data-engenty-region="list"
+      onValueChange={onPlanTabChange}
+      value="tasks"
     >
       <DetailPageHeader
+        belowStrip={<PlanListSubNav />}
         description={<p>{t("list.description")}</p>}
         maxWidth="5xl"
         title={t("list.title")}
@@ -772,6 +779,6 @@ export function TasksListPage() {
           </AlertDialog>
         </div>
       </div>
-    </div>
+    </Tabs>
   );
 }
