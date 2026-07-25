@@ -477,7 +477,8 @@ export function TasksListPage() {
       value="tasks"
     >
       <DetailPageHeader
-        belowStrip={<PlanListSubNav />}
+        aboveStrip={<PlanListSubNav />}
+        aboveStripAlign="center"
         description={<p>{t("list.description")}</p>}
         maxWidth="5xl"
         title={t("list.title")}
@@ -485,7 +486,7 @@ export function TasksListPage() {
       />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 px-page pb-10">
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-6 px-page pb-10">
           <div className="shrink-0 space-y-2">
             <TasksToolbar
               assigneeKind={assigneeKind}

@@ -230,7 +230,8 @@ export function GoalsListPage() {
       value="goals"
     >
       <DetailPageHeader
-        belowStrip={<PlanListSubNav />}
+        aboveStrip={<PlanListSubNav />}
+        aboveStripAlign="center"
         description={<p>{t("goals.description")}</p>}
         maxWidth="5xl"
         title={t("goals.title")}
@@ -238,7 +239,7 @@ export function GoalsListPage() {
       />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 px-page pb-10">
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-6 px-page pb-10">
           <GoalsToolbar
             columnOrder={columnOrder}
             columns={[...columnOptions]}
