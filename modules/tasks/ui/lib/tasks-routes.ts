@@ -66,6 +66,22 @@ export function isRoutinesPath(pathname: string): boolean {
   );
 }
 
+/** Active routine id from detail/edit URL, or null on the list route. */
+export function isRoutineDetailPath(pathname: string): string | null {
+  const match = pathname.match(
+    new RegExp(`^${BASE}/routines/([^/]+)(?:/edit)?$`)
+  );
+  const raw = match?.[1];
+  if (!raw) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export function isGoalsListPath(pathname: string): boolean {
   return pathname === tasksPaths.goals;
 }

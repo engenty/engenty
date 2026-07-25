@@ -2,6 +2,7 @@ import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   AdminListTableView,
+  DetailPageHeader,
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -168,9 +169,12 @@ export function GoalsListPage() {
   usePageConfig({
     actions: pageActions,
     breadcrumbs,
+    contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white header so the two blend.
+    topbarOverlap: true,
   });
 
   useTasksGoalsListAgentUiSlice({ goals, search });
@@ -216,109 +220,127 @@ export function GoalsListPage() {
   );
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-page">
-      <GoalsToolbar
-        columnOrder={columnOrder}
-        columns={[...columnOptions]}
-        columnVisibility={columnVisibility}
-        labels={labels}
-        onOwnerKindChange={setOwnerKind}
-        onSearchChange={handleSearchChange}
-        onStatusFilterChange={handleStatusFilterChange}
-        ownerKind={ownerKind}
-        searchQuery={search}
-        setColumnOrder={setColumnOrder}
-        setColumnVisibility={setColumnVisibility}
-        setSortBy={setSortBy}
-        setSortOrder={setSortOrder}
-        setTableSize={setTableSize}
-        setViewMode={setViewMode}
-        sortBy={sortBy}
-        sortOptions={[...sortOptions]}
-        sortOrder={sortOrder}
-        statusFilter={statusFilter}
-        tableSize={tableSize}
-        viewMode={viewMode as GoalsViewMode}
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <DetailPageHeader
+        description={
+          <p className="text-muted-foreground text-sm">
+            {t("goals.description")}
+          </p>
+        }
+        maxWidth="5xl"
+        title={t("goals.title")}
       />
 
-      {isLoading ? <p className="text-muted-foreground text-sm">…</p> : null}
-
-      {!isLoading && error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
-          {error}
-        </div>
-      ) : null}
-
-      {!(isLoading || error) && goals.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Target className="h-12 w-12" />
-            </EmptyMedia>
-            <EmptyTitle>
-              {search.trim() || statusFilter !== "all" || ownerKind !== ""
-                ? t("goals.noSearchResults")
-                : t("goals.empty")}
-            </EmptyTitle>
-            <EmptyDescription>{t("goals.emptyDescription")}</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            {search.trim() || statusFilter !== "all" || ownerKind !== "" ? (
-              <button
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                onClick={() => {
-                  handleSearchChange("");
-                  handleStatusFilterChange("all");
-                  setOwnerKind("");
-                }}
-                type="button"
-              >
-                {t("goals.clearFilters")}
-              </button>
-            ) : (
-              <button
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                onClick={() => openCreateGoal()}
-                type="button"
-              >
-                {t("goals.newGoal")}
-              </button>
-            )}
-          </EmptyContent>
-        </Empty>
-      ) : null}
-
-      {!(isLoading || error) && goals.length > 0 && viewMode === "cards" ? (
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <GoalsCards goals={goals} onGoalClick={handleRowClick} />
-        </div>
-      ) : null}
-
-      {!(isLoading || error) && goals.length > 0 && viewMode === "table" ? (
-        <AdminListTableView
-          pagination={{
-            nextLabel: t("goals.next"),
-            onNext: () => setPage((prev) => Math.min(totalPages, prev + 1)),
-            onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
-            page,
-            pageOfLabel: t("goals.pageOf", { page, totalPages }),
-            previousLabel: t("goals.previous"),
-            totalPages,
-          }}
-        >
-          <GoalsListTable
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 p-page pb-10">
+          <GoalsToolbar
             columnOrder={columnOrder}
+            columns={[...columnOptions]}
             columnVisibility={columnVisibility}
-            goals={goals}
-            onDelete={handleDelete}
-            onEdit={handleEdit}
-            onRowClick={handleRowClick}
-            tableSize={tableSize ?? "normal"}
+            labels={labels}
+            onOwnerKindChange={setOwnerKind}
+            onSearchChange={handleSearchChange}
+            onStatusFilterChange={handleStatusFilterChange}
+            ownerKind={ownerKind}
+            searchQuery={search}
+            setColumnOrder={setColumnOrder}
+            setColumnVisibility={setColumnVisibility}
+            setSortBy={setSortBy}
+            setSortOrder={setSortOrder}
+            setTableSize={setTableSize}
+            setViewMode={setViewMode}
+            sortBy={sortBy}
+            sortOptions={[...sortOptions]}
+            sortOrder={sortOrder}
+            statusFilter={statusFilter}
+            tableSize={tableSize}
+            viewMode={viewMode as GoalsViewMode}
           />
-        </AdminListTableView>
-      ) : null}
 
-      {topbarDialogs}
-    </section>
+          {isLoading ? (
+            <p className="text-muted-foreground text-sm">…</p>
+          ) : null}
+
+          {!isLoading && error ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
+              {error}
+            </div>
+          ) : null}
+
+          {!(isLoading || error) && goals.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Target className="h-12 w-12" />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {search.trim() || statusFilter !== "all" || ownerKind !== ""
+                    ? t("goals.noSearchResults")
+                    : t("goals.empty")}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {t("goals.emptyDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                {search.trim() || statusFilter !== "all" || ownerKind !== "" ? (
+                  <button
+                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                    onClick={() => {
+                      handleSearchChange("");
+                      handleStatusFilterChange("all");
+                      setOwnerKind("");
+                    }}
+                    type="button"
+                  >
+                    {t("goals.clearFilters")}
+                  </button>
+                ) : (
+                  <button
+                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                    onClick={() => openCreateGoal()}
+                    type="button"
+                  >
+                    {t("goals.newGoal")}
+                  </button>
+                )}
+              </EmptyContent>
+            </Empty>
+          ) : null}
+
+          {!(isLoading || error) && goals.length > 0 && viewMode === "cards" ? (
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+              <GoalsCards goals={goals} onGoalClick={handleRowClick} />
+            </div>
+          ) : null}
+
+          {!(isLoading || error) && goals.length > 0 && viewMode === "table" ? (
+            <AdminListTableView
+              pagination={{
+                nextLabel: t("goals.next"),
+                onNext: () => setPage((prev) => Math.min(totalPages, prev + 1)),
+                onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
+                page,
+                pageOfLabel: t("goals.pageOf", { page, totalPages }),
+                previousLabel: t("goals.previous"),
+                totalPages,
+              }}
+            >
+              <GoalsListTable
+                columnOrder={columnOrder}
+                columnVisibility={columnVisibility}
+                goals={goals}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+                onRowClick={handleRowClick}
+                tableSize={tableSize ?? "normal"}
+              />
+            </AdminListTableView>
+          ) : null}
+
+          {topbarDialogs}
+        </div>
+      </div>
+    </div>
   );
 }

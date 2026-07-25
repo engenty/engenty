@@ -26,6 +26,7 @@
     "allTasks": "All tasks",
     "noGoals": "No goals yet.",
     "noTasks": "No tasks yet.",
+    "noRoutines": "No routines yet.",
     "listSettings": "List settings",
     "groupBy": "Group by",
     "groupNoneShort": "List",
@@ -119,6 +120,7 @@
   },
   "list": {
     "title": "Tasks",
+    "description": "Track work across goals, assignees, and statuses.",
     "newTask": "New task",
     "searchPlaceholder": "Search tasks…",
     "empty": "No tasks yet.",
@@ -321,6 +323,7 @@
   },
   "goals": {
     "title": "Goals",
+    "description": "Organize related tasks under shared outcomes.",
     "newGoal": "New goal",
     "empty": "No goals yet.",
     "emptyDescription": "Create a goal to organize related tasks.",
@@ -414,13 +417,13 @@
   },
   "routines": {
     "page": {
-      "title": "Schedules & Routines",
-      "description": "Run task automations and agent routines on a schedule in the background.",
+      "title": "Routines",
+      "description": "Automations and agent routines that run in the background — on a schedule, from events, or on demand.",
       "create": "Create Routine"
     },
     "loadFailed": "Failed to load routines.",
     "list": {
-      "myRoutines": "My routines",
+      "myRoutines": "Routines",
       "system": "System",
       "addRoutine": "Add routine",
       "emptyCustom": "No custom routines yet.",
@@ -428,7 +431,17 @@
       "disable": "Disable",
       "enabled": "Enabled",
       "disabled": "Disabled",
-      "lastRun": "Last run: {{date}} · {{result}}"
+      "lastRun": "Last run: {{date}} · {{result}}",
+      "searchPlaceholder": "Search routines…",
+      "display": "Display",
+      "paginationSummary": "{{total}} routines",
+      "filterAll": "All statuses",
+      "sortBy": "Sort by",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "sortByName": "Name",
+      "sortByLastRun": "Last run",
+      "sortByEnabled": "Status"
     },
     "detail": {
       "notFound": "Routine not found.",

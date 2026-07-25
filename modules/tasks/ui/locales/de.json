@@ -26,6 +26,7 @@
     "allTasks": "Alle Aufgaben",
     "noGoals": "Noch keine Ziele.",
     "noTasks": "Noch keine Aufgaben.",
+    "noRoutines": "Noch keine Routinen.",
     "listSettings": "Listeneinstellungen",
     "groupBy": "Gruppieren nach",
     "groupNoneShort": "Liste",
@@ -119,6 +120,7 @@
   },
   "list": {
     "title": "Aufgaben",
+    "description": "Verfolge Arbeit über Ziele, Zuständigkeiten und Status hinweg.",
     "newTask": "Neue Aufgabe",
     "searchPlaceholder": "Aufgaben suchen…",
     "empty": "Noch keine Aufgaben.",
@@ -321,6 +323,7 @@
   },
   "goals": {
     "title": "Ziele",
+    "description": "Bündele zusammengehörige Aufgaben unter gemeinsamen Zielen.",
     "newGoal": "Neues Ziel",
     "empty": "Noch keine Ziele.",
     "emptyDescription": "Lege ein Ziel an, um zusammengehörige Aufgaben zu bündeln.",
@@ -414,13 +417,13 @@
   },
   "routines": {
     "page": {
-      "title": "Zeitpläne & Routinen",
-      "description": "Führe Aufgaben-Automatisierungen und Agenten-Routinen nach Zeitplan im Hintergrund aus.",
+      "title": "Routinen",
+      "description": "Automatisierungen und Agenten-Routinen, die im Hintergrund laufen — nach Zeitplan, bei Events oder bei Bedarf.",
       "create": "Routine erstellen"
     },
     "loadFailed": "Laden der Routinen fehlgeschlagen.",
     "list": {
-      "myRoutines": "Meine Routinen",
+      "myRoutines": "Routinen",
       "system": "System",
       "addRoutine": "Routine hinzufügen",
       "emptyCustom": "Noch keine eigenen Routinen.",
@@ -428,7 +431,17 @@
       "disable": "Deaktivieren",
       "enabled": "Aktiviert",
       "disabled": "Deaktiviert",
-      "lastRun": "Letzter Lauf: {{date}} · {{result}}"
+      "lastRun": "Letzter Lauf: {{date}} · {{result}}",
+      "searchPlaceholder": "Routinen suchen…",
+      "display": "Anzeige",
+      "paginationSummary": "{{total}} Routinen",
+      "filterAll": "Alle Status",
+      "sortBy": "Sortieren nach",
+      "ascending": "Aufsteigend",
+      "descending": "Absteigend",
+      "sortByName": "Name",
+      "sortByLastRun": "Letzter Lauf",
+      "sortByEnabled": "Status"
     },
     "detail": {
       "notFound": "Routine nicht gefunden.",

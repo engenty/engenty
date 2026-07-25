@@ -1,70 +1,172 @@
 // Routines list page — rows navigate to the routed detail page;
 // creation stays a dialog (analogous to task/goal creation).
-import { RoutineCreateDialog } from "@engenty/ai-ui/embed";
+import {
+  RoutineCreateDialog,
+  type RoutineDto,
+  useRoutinesListQuery,
+} from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button } from "@engenty/ui-core";
+import { Button, DetailPageHeader } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RoutinesCardList } from "../components/routines-card-list.js";
+import type {
+  RoutinesEnabledFilter,
+  RoutinesSortColumn,
+} from "../components/routines-display-dialog.js";
+import { RoutinesToolbar } from "../components/routines-toolbar.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
+import { getRoutinesToolbarLabels } from "../lib/routines-toolbar-labels.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
+
+function compareRoutines(
+  a: RoutineDto,
+  b: RoutineDto,
+  sortBy: RoutinesSortColumn,
+  sortOrder: "asc" | "desc"
+): number {
+  const dir = sortOrder === "asc" ? 1 : -1;
+  if (sortBy === "enabled") {
+    return (Number(a.enabled) - Number(b.enabled)) * dir;
+  }
+  if (sortBy === "last_run_at") {
+    const aTime = a.last_run_at ? Date.parse(a.last_run_at) : 0;
+    const bTime = b.last_run_at ? Date.parse(b.last_run_at) : 0;
+    return (aTime - bTime) * dir;
+  }
+  return a.name.localeCompare(b.name) * dir;
+}
 
 export function RoutinesPage() {
   const { t, i18n } = useTranslation("tasks");
   const locale = i18n.language || "en";
   const navigate = useNavigate();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [enabledFilter, setEnabledFilter] =
+    useState<RoutinesEnabledFilter>("all");
+  const [sortBy, setSortBy] = useState<RoutinesSortColumn>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const routinesQuery = useRoutinesListQuery(true);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTasksModuleSecondaryShellNav();
 
   const breadcrumbs = useMemo(
-    () => (moduleRootCrumb ? [moduleRootCrumb] : []),
-    [moduleRootCrumb]
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("tabs.routines") },
+    ],
+    [moduleRootCrumb, t]
+  );
+
+  const pageActions = useMemo(
+    () => (
+      <Button
+        className="inline-flex items-center gap-1.5"
+        onClick={() => setIsCreateOpen(true)}
+        size="sm"
+        type="button"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {t("routines.page.create")}
+      </Button>
+    ),
+    [t]
   );
 
   usePageConfig({
+    actions: pageActions,
     breadcrumbs,
+    contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    // Float the transparent topbar over the white header so the two blend.
+    topbarOverlap: true,
   });
 
+  const filteredRoutines = useMemo(() => {
+    const routines = routinesQuery.data?.routines ?? [];
+    const q = search.trim().toLowerCase();
+    return routines
+      .filter((routine: RoutineDto) => {
+        if (enabledFilter === "enabled" && !routine.enabled) {
+          return false;
+        }
+        if (enabledFilter === "disabled" && routine.enabled) {
+          return false;
+        }
+        if (!q) {
+          return true;
+        }
+        return (
+          routine.name.toLowerCase().includes(q) ||
+          (routine.description?.toLowerCase().includes(q) ?? false) ||
+          (routine.agent_id?.toLowerCase().includes(q) ?? false)
+        );
+      })
+      .sort((a, b) => compareRoutines(a, b, sortBy, sortOrder));
+  }, [enabledFilter, routinesQuery.data?.routines, search, sortBy, sortOrder]);
+
+  const labels = useMemo(
+    () => getRoutinesToolbarLabels(t, filteredRoutines.length),
+    [filteredRoutines.length, t]
+  );
+
+  const sortOptions = useMemo(
+    () =>
+      [
+        { value: "name" as const, label: labels.sortByName },
+        { value: "last_run_at" as const, label: labels.sortByLastRun },
+        { value: "enabled" as const, label: labels.sortByEnabled },
+      ] as const,
+    [labels]
+  );
+
   return (
-    <section className="flex h-full min-h-0 flex-col gap-6 overflow-auto p-page">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="font-semibold text-2xl tracking-tight">
-            {t("routines.page.title")}
-          </h1>
-          <p className="max-w-xl text-muted-foreground text-sm">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <DetailPageHeader
+        description={
+          <p className="text-muted-foreground text-sm">
             {t("routines.page.description")}
           </p>
+        }
+        maxWidth="5xl"
+        title={t("routines.page.title")}
+      />
+
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-page pb-10">
+          <RoutinesToolbar
+            enabledFilter={enabledFilter}
+            labels={labels}
+            onEnabledFilterChange={setEnabledFilter}
+            onSearchChange={setSearch}
+            searchQuery={search}
+            setSortBy={setSortBy}
+            setSortOrder={setSortOrder}
+            sortBy={sortBy}
+            sortOptions={[...sortOptions]}
+            sortOrder={sortOrder}
+          />
+
+          <RoutinesCardList
+            isError={routinesQuery.isError}
+            isPending={routinesQuery.isPending}
+            locale={locale}
+            onEditRoutine={(routine) =>
+              navigate(tasksPaths.routineEdit(routine.id))
+            }
+            onSelectRoutine={(routine) =>
+              navigate(tasksPaths.routineDetail(routine.id))
+            }
+            routines={filteredRoutines}
+          />
         </div>
-
-        <Button
-          className="inline-flex shrink-0 items-center gap-1.5"
-          onClick={() => setIsCreateOpen(true)}
-          type="button"
-        >
-          <Plus className="h-4 w-4" />
-          {t("routines.page.create")}
-        </Button>
-      </div>
-
-      <div className="min-h-0 flex-1">
-        <RoutinesCardList
-          locale={locale}
-          onAddRoutine={() => setIsCreateOpen(true)}
-          onEditRoutine={(routine) =>
-            navigate(tasksPaths.routineEdit(routine.id))
-          }
-          onSelectRoutine={(routine) =>
-            navigate(tasksPaths.routineDetail(routine.id))
-          }
-        />
       </div>
 
       <RoutineCreateDialog
@@ -72,6 +174,6 @@ export function RoutinesPage() {
         onOpenChange={setIsCreateOpen}
         open={isCreateOpen}
       />
-    </section>
+    </div>
   );
 }

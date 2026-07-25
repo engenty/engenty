@@ -57,6 +57,7 @@ import {
   isGoalDetailPath,
   isGoalsListPath,
   isOperationsPath,
+  isRoutineDetailPath,
   isRoutinesPath,
   isSettingsPath,
   isTaskDetailPath,
@@ -89,6 +90,7 @@ import type { TaskFormSubmitData } from "./task-form-dialog.js";
 import { resolveTaskStatusLabel } from "./task-status-badge.js";
 import { TasksModuleAddMenuSidebarTrigger } from "./tasks-module-add-menu.js";
 import { TasksSidebarListSettings } from "./tasks-sidebar-list-settings.js";
+import { TasksSidebarRoutinesList } from "./tasks-sidebar-routines-list.js";
 
 const SIDEBAR_FETCH_SIZE = 200;
 
@@ -326,6 +328,7 @@ export function TasksSidebarPanel() {
 
   const activeGoalId = isGoalDetailPath(pathname);
   const activeTaskId = isTaskDetailPath(pathname);
+  const activeRoutineId = isRoutineDetailPath(pathname);
 
   useEffect(() => {
     if (isGoalsListPath(pathname) || activeGoalId) {
@@ -726,16 +729,7 @@ export function TasksSidebarPanel() {
             <SidebarGroup className="min-h-0 flex-1 p-0">
               <SidebarGroupContent>
                 {activeTab === "routines" ? (
-                  <div className="flex flex-col gap-3 pt-2 pb-2">
-                    <SidebarNavList>
-                      <SidebarNavRow
-                        active={isRoutinesPath(pathname)}
-                        icon={Zap}
-                        label={t("tabs.routines")}
-                        to={tasksPaths.routines}
-                      />
-                    </SidebarNavList>
-                  </div>
+                  <TasksSidebarRoutinesList activeRoutineId={activeRoutineId} />
                 ) : isGoalsTab ? (
                   goalsQuery.isLoading ? (
                     <SidebarEntitySkeleton />
