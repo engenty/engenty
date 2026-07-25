@@ -1,0 +1,32 @@
+{
+  "name": "@engenty/app-host",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm run dev:app",
+    "dev:app": "tsx watch --clear-screen=false src/index.ts",
+    "dev:portless": "pnpm run dev:app",
+    "start": "node dist/index.js",
+    "build": "tsup src/index.ts --format esm --dts --clean --sourcemap",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "pnpm exec biome check ."
+  },
+  "dependencies": {
+    "@engenty/environment": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@hono/node-server": "^2.0.5",
+    "@rivet-dev/agentos": "0.2.14",
+    "@rivet-dev/agentos-apps": "0.2.14",
+    "hono": "^4.12.26",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

@@ -146,7 +146,7 @@ To build the images on GitHub Actions instead of on the VPS, see **Prebuilt imag
 
 ## Prebuilt images via CI (GitHub Actions → GHCR)
 
-`.github/workflows/build-images.yml` builds the `edge`, `ai`, and `sandbox` images on GitHub runners and pushes them to `ghcr.io/<org>/engenty-{edge,ai,sandbox}` on each push to `main`. Point Coolify at **`docker-compose.prebuilt.yaml`** (base directory still `/deploy`) — it pulls those images instead of building, so deploys take ~2 min instead of ~25.
+`.github/workflows/build-images.yml` builds the `edge`, `ai`, `sandbox`, and `app-host` images on GitHub runners and pushes them to `ghcr.io/<org>/engenty-{edge,ai,sandbox,app-host}` on each push to `main`. Point Coolify at **`docker-compose.prebuilt.yaml`** (base directory still `/deploy`) — it pulls those images instead of building, so deploys take ~2 min instead of ~25.
 
 Setup:
 
@@ -215,6 +215,7 @@ docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up --build
 | `Dockerfile.edge` | Core API + prod gateway + UI static |
 | `Dockerfile.ai` | AI service |
 | `Dockerfile.sandbox` | Agent sandbox runtime image (build-only) |
+| `Dockerfile.app-host` | engenty Apps runtime (internal only — no published port, no gateway route) |
 | `Dockerfile.studio` | Mastra Studio (profile) |
 | `Dockerfile.docs` | Fumadocs Next (profile) |
 | `.env.example` | Env template (generated — `pnpm env:example:write`) |

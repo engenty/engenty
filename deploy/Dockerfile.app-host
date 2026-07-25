@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1
+#
+# apps/app-host — runtime for tenant-authored engenty Apps.
+#
+# Unlike every other service here, this one supervises TWO native child
+# processes that ship as platform packages inside node_modules:
+#   - @rivetkit/engine-cli-<platform>/rivet-engine   (the Rivet Engine)
+#   - @rivet-dev/agentos-sidecar-<platform>          (the agentOS sidecar)
+# RivetKit spawns both from registry.start(); there is no separate engine
+# deployment. Two consequences the other Dockerfiles do not have:
+#   1. the image MUST be built for its target architecture, because pnpm
+#      resolves those optional platform packages for the BUILD platform;
+#   2. ~/.rivetkit holds the engine's durable store and must be a volume, or
+#      every restart loses the deployed releases.
+#
+# This service publishes NO port and is NOT a gateway target. It runs tenant
+# code, so it deliberately has no origin of its own — see PLAN-engenty-apps.md
+# §2.3.
+FROM node:24-bookworm-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+WORKDIR /app
+
+FROM base AS deps
+ENV ENGENTY_SKIP_INSTALL_BUILD=1
+COPY pnpm-lock.yaml ./
+RUN pnpm fetch
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+# patches/ carries the @rivet-dev/agentos-apps fix without which deployApp()
+# cannot succeed at all — see SPIKE-agentos-apps.md §2.
+COPY patches ./patches
+COPY scripts ./scripts
+COPY apps ./apps
+COPY packages ./packages
+COPY modules ./modules
+RUN pnpm install --frozen-lockfile --offline
+
+FROM deps AS build
+ARG TURBO_BUILD_CONCURRENCY=4
+RUN pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter=@engenty/app-host
+
+FROM node:24-bookworm-slim AS runtime
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/app-host/package.json ./apps/app-host/
+COPY --from=deps /app/node_modules ./node_modules
+# pnpm links workspace deps inside the importer's own node_modules, so ship
+# that link dir and the packages/ tree it points into.
+COPY --from=deps /app/apps/app-host/node_modules ./apps/app-host/node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/apps/app-host/dist ./apps/app-host/dist
+
+# Fail the build rather than the first deploy if the patch did not survive
+# install, and prove both native binaries are present and executable.
+RUN node -e "const fs=require('fs');const p=require.resolve('@rivet-dev/agentos-apps',{paths:['/app/apps/app-host']});if(!fs.readFileSync(p,'utf8').includes('engenty patch (2026-07-25)')){throw new Error('agentos-apps patch missing — deployApp() would fail at runtime')}console.log('agentos-apps patch present')"
+RUN ENGINE="$(find /app/node_modules/.pnpm -type f -name rivet-engine | head -1)" \
+  && test -n "$ENGINE" && test -x "$ENGINE" \
+  && echo "rivet-engine present: $ENGINE" \
+  || (echo "rivet-engine binary missing — this image must be built for its target architecture" && exit 1)
+RUN SIDECAR="$(find /app/node_modules/.pnpm -type f -name agentos-sidecar | head -1)" \
+  && test -n "$SIDECAR" && test -x "$SIDECAR" \
+  && echo "agentos-sidecar present: $SIDECAR" \
+  || (echo "agentos-sidecar binary missing — this image must be built for its target architecture" && exit 1)
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV ENGENTY_APP_HOST_PORT=8795
+# RivetKit keeps its durable engine store under $HOME/.rivetkit. Point HOME at
+# the mounted volume, or every restart drops all deployed app releases.
+ENV HOME=/data
+RUN mkdir -p /data
+
+# Deliberately no EXPOSE: nothing outside the internal engenty network may
+# reach this service.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8795/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "apps/app-host/dist/index.js"]

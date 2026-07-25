@@ -41,6 +41,8 @@ jobs:
             concurrency: 4
           - service: sandbox
             concurrency: 4
+          - service: app-host
+            concurrency: 4
           - service: migrate
             concurrency: 4
     steps:

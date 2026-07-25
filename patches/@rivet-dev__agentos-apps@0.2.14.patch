@@ -1,0 +1,79 @@
+diff --git a/dist/index.js b/dist/index.js
+index 3ad028b5ae341edfc14038aa3e3c9612b31a54c4..68fb7bdd73c8185d77f9780561beb6ab006c3089 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -3063,51 +3063,39 @@ function createAppsActors(options = {}) {
+     }
+   };
+   const createBuildVm = async () => {
+-    const outputDirectory = await mkdtemp(
+-      join(tmpdir(), "agentos-apps-build-output-")
+-    );
++    // engenty patch (2026-07-25) — see SPIKE-agentos-apps.md §2.
++    //
++    // Upstream mounts a host tmpdir at /agentos-app-output via
++    // createHostDirBackend and has the guest `tar` write the packed release
++    // into it. Guest processes cannot write through that backend in
++    // @rivet-dev/agentos-core 0.2.13/0.2.14 — every write fails with
++    // "Permission denied (os error 2)" — so the pack step fails and NO
++    // deployApp() call can succeed, including the package's own README
++    // example. Host-side vm.writeFiles() into the same mount works, which
++    // isolates the fault to the guest path.
++    //
++    // Pack into the guest VFS instead (verified working) and read the
++    // artifact out with the host-side AgentOs API. Remove this patch once
++    // upstream fixes the mount backend.
++    //
++    // Caveat: vm.readFile goes over the sidecar bridge, capped by
++    // maxPreadBytes (15 MiB). Artifacts above that need chunked reads.
+     const artifactGuestPath = "/agentos-app-output/agentos-app.tar";
+-    const artifactHostPath = join(outputDirectory, "agentos-app.tar");
+-    let vm;
++    const vm = await AgentOs.create({ ...buildVmOptions });
+     try {
+-      vm = await AgentOs.create({
+-        ...buildVmOptions,
+-        mounts: [
+-          ...buildVmOptions.mounts ?? [],
+-          {
+-            path: "/agentos-app-output",
+-            readOnly: false,
+-            plugin: createHostDirBackend({
+-              hostPath: outputDirectory,
+-              readOnly: false
+-            })
+-          }
+-        ]
+-      });
++      await vm.mkdir("/agentos-app-output");
+     } catch (error) {
+-      await rm(outputDirectory, { recursive: true, force: true });
++      await vm.dispose();
+       throw error;
+     }
+     return {
+       artifactGuestPath,
+       writeFiles: (...args) => vm.writeFiles(...args),
+       execArgv: (...args) => vm.execArgv(...args),
+-      artifactSize: async () => (await stat(artifactHostPath)).size,
+-      readArtifact: async () => new Uint8Array(await readFile(artifactHostPath)),
++      artifactSize: async () => Number((await vm.stat(artifactGuestPath)).size),
++      readArtifact: async () => new Uint8Array(await vm.readFile(artifactGuestPath)),
+       dispose: async () => {
+-        const results = await Promise.allSettled([
+-          vm.dispose(),
+-          rm(outputDirectory, { recursive: true, force: true })
+-        ]);
+-        const failures = results.flatMap(
+-          (result) => result.status === "rejected" ? [result.reason] : []
+-        );
+-        if (failures.length > 0) {
+-          throw new AggregateError(
+-            failures,
+-            "failed to dispose AgentOS Apps build VM output"
+-          );
+-        }
++        await vm.dispose();
+       }
+     };
+   };

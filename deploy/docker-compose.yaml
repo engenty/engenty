@@ -119,6 +119,10 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # engenty Apps. Reached over internal Docker DNS only; app-host publishes
+      # no port and is not a gateway target.
+      ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
     volumes:
       # Mirror the host sandbox dir 1:1 (same path inside and outside the
       # container) so sibling sandbox containers can bind-mount staging dirs.
@@ -128,6 +132,30 @@ services:
       - /opt/engenty/sandboxes:/opt/engenty/sandboxes
       # Required when ENGENTY_SANDBOX_PROVIDER=docker — spawns sibling containers via Docker Engine.
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - engenty
+
+  # Runtime for tenant-authored engenty Apps. Serves NO public traffic: no
+  # published port, no gateway target, no Traefik labels. Only engenty-ai talks
+  # to it, over internal Docker DNS with a shared secret. Apps themselves are
+  # rendered in opaque-origin iframes in the SPA, so they never get an origin
+  # that could read the platform session — see PLAN-engenty-apps.md §2.3.
+  engenty-app-host:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.app-host
+    container_name: engenty-app-host
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      ENGENTY_APP_HOST_PORT: 8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    volumes:
+      # RivetKit's engine store lives at $HOME/.rivetkit (HOME=/data in the
+      # image). Named volume, not a bind: nothing on the host needs to read it,
+      # but losing it drops every deployed app release.
+      - engenty-app-host-data:/data
     networks:
       - engenty
 
@@ -192,3 +220,7 @@ services:
 networks:
   engenty:
     driver: bridge
+
+volumes:
+  # Durable RivetKit engine store for apps/app-host (deployed app releases).
+  engenty-app-host-data:
