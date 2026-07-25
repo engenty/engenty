@@ -1223,6 +1223,12 @@
     "viewDetail": "Agent anzeigen"
   },
   "overview": {
+    "hubs": {
+      "navAria": "Engenty-Kataloge",
+      "open": "Öffnen",
+      "agentsCount_one": "{{count}} Agent",
+      "agentsCount_other": "{{count}} Agenten"
+    },
     "workforce": {
       "title": "Agenten",
       "leadership": "Copilot",
@@ -1240,9 +1246,9 @@
       "toolsTitle": "Tools",
       "toolsBreakdown": "{{module}} Modul · {{mcp}} MCP · {{custom}} eigene",
       "toolsEmpty": "Noch keine Tools — Modul-Tools erscheinen, sobald ihre Module aktiviert sind.",
-      "actionsTitle": "Actions",
+      "actionsTitle": "Aktionen",
       "actionsBreakdown": "{{shipped}} mitgeliefert · {{custom}} eigene",
-      "actionsEmpty": "Noch keine Actions registriert."
+      "actionsEmpty": "Noch keine Aktionen registriert."
     },
     "activity": {
       "title": "Letzte Aktivität",

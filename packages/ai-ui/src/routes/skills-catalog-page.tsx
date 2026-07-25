@@ -18,6 +18,7 @@ import {
   AGENTS_WORKSPACE_ROOT_PATH,
   buildSkillDetailPath,
 } from "../features/agents-workspace/agent-workspace-url-state";
+import { EngentyCatalogPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome";
 import { getSkillModuleId } from "../features/agents-workspace/skill-record-utils";
 import {
   filterAndSortSkills,
@@ -266,10 +267,15 @@ export function SkillsCatalogPage() {
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    topbarOverlap: true,
   });
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-page">
+    <EngentyCatalogPageChrome
+      description={t("skillsCatalog.description")}
+      tab="skills"
+      title={t("workspace.sidebarSkills")}
+    >
       <CreateSkillModal
         existingSkillNames={existingSkillNames}
         onCreated={onSkillCreated}
@@ -462,6 +468,6 @@ export function SkillsCatalogPage() {
           </AdminListTableView>
         ) : null}
       </div>
-    </section>
+    </EngentyCatalogPageChrome>
   );
 }

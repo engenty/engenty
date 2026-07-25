@@ -17,6 +17,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useMemo, useState } from "react";
 import { useAllArtifactsQuery } from "../artifacts/artifacts-api";
 import { AGENTS_WORKSPACE_ROOT_PATH } from "../features/agents-workspace/agent-workspace-paths";
+import { EngentyCatalogPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome";
 import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
 import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
 import { ArtifactsCatalogCards } from "../features/artifacts-catalog/artifacts-catalog-cards";
@@ -182,6 +183,7 @@ export function ArtifactsCatalogPage() {
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    topbarOverlap: true,
   });
 
   const isEmpty = !artifactsQuery.isLoading && rows.length === 0;
@@ -189,7 +191,11 @@ export function ArtifactsCatalogPage() {
     !artifactsQuery.isLoading && rows.length > 0 && groups.length === 0;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-page">
+    <EngentyCatalogPageChrome
+      description={t("artifactsCatalog.lede")}
+      tab="artifacts"
+      title={t("artifactsCatalog.title")}
+    >
       <ArtifactsCatalogToolbar
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}
@@ -287,6 +293,6 @@ export function ArtifactsCatalogPage() {
           </AdminListTableView>
         ) : null}
       </div>
-    </section>
+    </EngentyCatalogPageChrome>
   );
 }

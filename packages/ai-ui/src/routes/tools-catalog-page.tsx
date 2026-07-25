@@ -21,6 +21,7 @@ import {
   AGENTS_WORKSPACE_ROOT_PATH,
   buildToolCreatePath,
 } from "../features/agents-workspace/agent-workspace-paths";
+import { EngentyCatalogPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome";
 import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
 import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
 import { ToolDeleteDialog } from "../features/tools-catalog/tool-delete-dialog";
@@ -108,6 +109,7 @@ export function ToolsCatalogPage() {
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    topbarOverlap: true,
   });
 
   const isEmpty = !toolsQuery.isLoading && (tools ?? []).length === 0;
@@ -117,7 +119,11 @@ export function ToolsCatalogPage() {
     filteredTools.length === 0;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-page">
+    <EngentyCatalogPageChrome
+      description={t("toolsCatalog.description")}
+      tab="tools"
+      title={t("toolsCatalog.title")}
+    >
       <ToolDeleteDialog
         onClose={() => setPendingDelete(null)}
         tool={pendingDelete}
@@ -184,6 +190,6 @@ export function ToolsCatalogPage() {
           </AdminListTableView>
         ) : null}
       </div>
-    </section>
+    </EngentyCatalogPageChrome>
   );
 }

@@ -6,6 +6,7 @@ import {
   AGENTS_WORKSPACE_ROOT_PATH,
   buildConnectionDetailPath,
   CONNECTIONS_ROOT_PATH,
+  EngentyCanvasPageChrome,
   useAgentsWorkspaceShellNav,
   useWorkspaceNavData,
 } from "@engenty/ai-ui";
@@ -82,6 +83,7 @@ export function ConnectionsWorkspacePage() {
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    topbarOverlap: true,
   });
 
   const rows = useMemo(
@@ -90,30 +92,25 @@ export function ConnectionsWorkspacePage() {
   );
 
   return (
-    <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-      <div className="mx-auto w-full max-w-5xl space-y-3 pt-4">
-        <div>
-          <h2 className="font-semibold text-lg">{t("admin.listTitle")}</h2>
-          <p className="text-muted-foreground text-sm">
-            {t("admin.listDescription")}
-          </p>
-        </div>
-        {catalogQuery.isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : rows.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>{t("admin.listEmpty")}</EmptyTitle>
-              <EmptyDescription>
-                {t("admin.listEmptyDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <ConnectionsTable rows={rows} />
-        )}
-      </div>
-    </section>
+    <EngentyCanvasPageChrome
+      description={t("admin.listDescription")}
+      title={t("admin.listTitle")}
+    >
+      {catalogQuery.isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : rows.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t("admin.listEmpty")}</EmptyTitle>
+            <EmptyDescription>
+              {t("admin.listEmptyDescription")}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <ConnectionsTable rows={rows} />
+      )}
+    </EngentyCanvasPageChrome>
   );
 }
 

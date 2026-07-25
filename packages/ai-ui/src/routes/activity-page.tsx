@@ -39,6 +39,7 @@ import {
   ActivityToolbar,
 } from "../features/activity/activity-toolbar";
 import { AGENTS_WORKSPACE_ROOT_PATH } from "../features/agents-workspace/agent-workspace-paths";
+import { EngentyCanvasPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome";
 import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
 import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
 import { useAdminAiSessionsQuery } from "../lib/admin/ai-runtime-queries";
@@ -214,6 +215,7 @@ export function ActivityPage() {
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
+    topbarOverlap: true,
   });
 
   const isEmpty = !sessionsQuery.isLoading && allEntries.length === 0;
@@ -221,7 +223,10 @@ export function ActivityPage() {
     !sessionsQuery.isLoading && allEntries.length > 0 && filtered.length === 0;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-page">
+    <EngentyCanvasPageChrome
+      description={t("activity.description")}
+      title={t("activity.title")}
+    >
       <Link
         className="flex shrink-0 items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-muted-foreground text-sm transition hover:bg-muted/70 hover:text-foreground"
         to={OPERATIONS_COCKPIT_PATH}
@@ -327,6 +332,6 @@ export function ActivityPage() {
           </AdminListTableView>
         ) : null}
       </div>
-    </section>
+    </EngentyCanvasPageChrome>
   );
 }

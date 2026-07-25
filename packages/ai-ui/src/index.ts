@@ -197,6 +197,7 @@ export {
 } from "./features/agents-workspace/agent-workspace-url-state.js";
 // Shell nav for module-owned pages living under /admin/engenty (e.g. the
 // connections module's Connections page): same sidebar as the core pages.
+export { EngentyCanvasPageChrome } from "./features/agents-workspace/engenty-catalog-page-chrome.js";
 export { useAgentsWorkspaceShellNav } from "./features/agents-workspace/use-agents-workspace-shell-nav.js";
 export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-nav-data.js";
 export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
