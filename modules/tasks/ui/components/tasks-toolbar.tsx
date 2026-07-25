@@ -3,9 +3,14 @@ import {
   cn,
   DropdownMenu,
   DropdownMenuTrigger,
+  ListFilterSelectTrigger,
   ListIconSegmentToggle,
   ListSearchInput,
   ListToolbarIconButton,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectValue,
 } from "@engenty/ui-core";
 import {
   Bot,
@@ -26,6 +31,7 @@ import type {
   TasksViewMode,
 } from "./tasks-display-dialog.js";
 import { TasksDisplayDialog } from "./tasks-display-dialog.js";
+import type { TasksGroupBy } from "./tasks-list-filter-bar.js";
 
 export type TasksAssigneeKind = "user" | "agent" | "";
 
@@ -37,11 +43,14 @@ interface TasksToolbarProps {
   columns: TaskColumnOption[];
   columnVisibility: TasksColumnVisibility;
   filtersExpanded: boolean;
+  groupBy: TasksGroupBy;
+  groupByOptions: { value: TasksGroupBy; label: string }[];
   hasActiveFilters: boolean;
   labels: ReturnType<typeof getTasksToolbarLabels>;
   onAssigneeKindChange?: (kind: TasksAssigneeKind) => void;
   onClearSelection?: () => void;
   onFiltersToggle: () => void;
+  onGroupByChange: (groupBy: TasksGroupBy) => void;
   onSearchChange: (value: string) => void;
   searchQuery: string;
   selectedCount?: number;
@@ -63,6 +72,9 @@ export function TasksToolbar({
   onAssigneeKindChange,
   searchQuery,
   onSearchChange,
+  groupBy,
+  groupByOptions,
+  onGroupByChange,
   labels,
   viewMode,
   setViewMode,
@@ -87,18 +99,13 @@ export function TasksToolbar({
   clearSelectionLabel,
 }: TasksToolbarProps) {
   const hasSelection = selectedCount > 0;
+  const selectedGroupByLabel =
+    groupByOptions.find((option) => option.value === groupBy)?.label ?? groupBy;
 
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-        <div
-          className={cn(
-            "relative w-full min-w-0 max-w-full",
-            hasSelection
-              ? "sm:max-w-xs md:max-w-[16rem]"
-              : "sm:max-w-md md:max-w-lg lg:max-w-xl"
-          )}
-        >
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-[220px] shrink-0">
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => onSearchChange(e.target.value)}
@@ -132,6 +139,25 @@ export function TasksToolbar({
             </span>
           </ListToolbarIconButton>
         </div>
+
+        <Select
+          onValueChange={(value) => onGroupByChange(value as TasksGroupBy)}
+          value={groupBy}
+        >
+          <ListFilterSelectTrigger className="min-w-[10rem]">
+            <SelectValue placeholder={selectedGroupByLabel}>
+              {`${labels.groupBy}: ${selectedGroupByLabel}`}
+            </SelectValue>
+          </ListFilterSelectTrigger>
+          <SelectContent>
+            {groupByOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
           {hasSelection ? labels.selectedSummary : labels.paginationSummary}
         </p>

@@ -1,13 +1,13 @@
 {
   "addNew": "Neu",
   "menu": {
-    "tasks": "Aufgaben",
+    "tasks": "Plan",
     "goals": "Ziele",
     "operations": "Betrieb"
   },
   "sidebar": {
-    "navAria": "Aufgaben-Navigation",
-    "moduleNavAria": "Aufgaben-Modul",
+    "navAria": "Plan-Navigation",
+    "moduleNavAria": "Plan-Modul",
     "briefing": "Briefing",
     "goals": "Ziele",
     "tasks": "Aufgaben",
@@ -20,7 +20,7 @@
     "goalsSection": "Ziele",
     "tasksSection": "Aufgaben",
     "sectionOverview": "Übersicht",
-    "sectionWork": "Arbeit",
+    "sectionWork": "Listen",
     "sectionOps": "Betrieb",
     "allGoals": "Alle Ziele",
     "allTasks": "Alle Aufgaben",

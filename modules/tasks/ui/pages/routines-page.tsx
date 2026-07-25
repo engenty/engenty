@@ -130,17 +130,14 @@ export function RoutinesPage() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
       <DetailPageHeader
-        description={
-          <p className="text-muted-foreground text-sm">
-            {t("routines.page.description")}
-          </p>
-        }
+        description={<p>{t("routines.page.description")}</p>}
         maxWidth="5xl"
         title={t("routines.page.title")}
+        variant="canvas"
       />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-page pb-10">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-page pb-10">
           <RoutinesToolbar
             enabledFilter={enabledFilter}
             labels={labels}

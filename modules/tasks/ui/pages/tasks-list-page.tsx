@@ -44,6 +44,7 @@ import {
   getTasksListColumns,
 } from "../components/tasks-list-columns.js";
 import {
+  getTasksGroupByOptions,
   TasksListFilterBar,
   type TasksListFilterState,
 } from "../components/tasks-list-filter-bar.js";
@@ -444,6 +445,11 @@ export function TasksListPage() {
     [teamMembersCatalogQuery.data]
   );
 
+  const groupByOptions = useMemo(
+    () => getTasksGroupByOptions(t, projectsEnabled),
+    [projectsEnabled, t]
+  );
+
   const showGroupedEmpty =
     viewMode === "cards" &&
     !(isLoading || error) &&
@@ -465,17 +471,14 @@ export function TasksListPage() {
       data-engenty-region="list"
     >
       <DetailPageHeader
-        description={
-          <p className="text-muted-foreground text-sm">
-            {t("list.description")}
-          </p>
-        }
+        description={<p>{t("list.description")}</p>}
         maxWidth="5xl"
         title={t("list.title")}
+        variant="canvas"
       />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 p-page pb-10">
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 px-page pb-10">
           <div className="shrink-0 space-y-2">
             <TasksToolbar
               assigneeKind={assigneeKind}
@@ -485,11 +488,16 @@ export function TasksListPage() {
               columns={[...columnOptions]}
               columnVisibility={effectiveColumnVisibility}
               filtersExpanded={filtersExpanded}
+              groupBy={filters.groupBy}
+              groupByOptions={groupByOptions}
               hasActiveFilters={hasActiveFilters}
               labels={labels}
               onAssigneeKindChange={setAssigneeKind}
               onClearSelection={clearSelection}
               onFiltersToggle={() => setFiltersExpanded((prev) => !prev)}
+              onGroupByChange={(groupBy) =>
+                setFilters((current) => ({ ...current, groupBy }))
+              }
               onSearchChange={handleSearchChange}
               searchQuery={search}
               selectedCount={selectedIds.size}
@@ -511,7 +519,6 @@ export function TasksListPage() {
               goalOptions={goals}
               hasActiveChipFilters={hasActiveFilters}
               onChange={handleFiltersChange}
-              showProjectGroupBy={projectsEnabled}
               statusOptions={taskStatusDefinitions}
               value={filters}
             />
@@ -644,6 +651,7 @@ export function TasksListPage() {
               <TasksGroupedList
                 assigneeProfiles={assigneeProfiles}
                 goals={goals}
+                groupBy={filters.groupBy}
                 onAddGeneralTask={() => handleAddTask(null)}
                 onAddTaskToGoal={(goalId) => handleAddTask(goalId)}
                 onGoalEdit={handleGoalEdit}
@@ -651,6 +659,7 @@ export function TasksListPage() {
                 onTaskDelete={handleTaskDelete}
                 onTaskEdit={handleTaskEdit}
                 onTaskStatusChange={handleTaskStatusChange}
+                projectTitleById={projectTitleById}
                 showAssignee={teamMembersEnabled}
                 taskStatusDefinitions={taskStatusDefinitions}
                 tasks={filteredTasks}

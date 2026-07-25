@@ -5,15 +5,17 @@ import { cn } from "../../lib/utils";
 const detailPageHeaderVariants = cva("w-full shrink-0", {
   variants: {
     /**
-     * Both sit on the white `card` surface (distinct from the paper canvas).
-     * `blended`: sticky, hairline bottom border. The white surface extends up
-     * under a transparent floating topbar — pair with the page's
+     * `blended`: sticky card surface with hairline bottom border. Extends under a
+     * transparent floating topbar — pair with
      * `usePageConfig({ topbarChrome: "contentBlend", topbarOverlap: true })`.
-     * `framed`: static, soft bottom shadow — a standalone raised band.
+     * `framed`: static raised card band with soft bottom shadow.
+     * `canvas`: no distinct surface — title sits on the page canvas (`paper` /
+     * background) with more open whitespace. Prefer for calm list hubs.
      */
     variant: {
       blended: "border-border border-b bg-card",
       framed: "bg-card shadow-bottom shadow-sm",
+      canvas: "bg-transparent",
     },
     sticky: {
       true: "sticky top-0 z-10",
@@ -40,6 +42,18 @@ const CONTAINER_PADDING = {
   // (smaller desktop / secondary nav open).
   blended: "px-2 pt-14 sm:px-4 md:px-5",
   framed: "px-4 py-4 sm:px-6",
+  // Extra bottom padding opens space before the content / toolbar row.
+  canvas: "px-2 pt-14 pb-8 sm:px-4 md:px-5 md:pb-10",
+} as const;
+
+const TITLE_CLASS = {
+  blended:
+    "min-w-0 font-heading font-semibold text-2xl text-foreground leading-tight tracking-tight",
+  framed:
+    "min-w-0 font-heading font-semibold text-2xl text-foreground leading-tight tracking-tight",
+  // DESIGN.md page/entity h1 scale — airier hub title on the canvas.
+  canvas:
+    "min-w-0 font-heading font-semibold text-[28px] text-foreground leading-9 tracking-tight",
 } as const;
 
 export interface DetailPageHeaderProps
@@ -71,11 +85,11 @@ export interface DetailPageHeaderProps
   media?: ReactNode;
   /**
    * Right-aligned slot beside the title for entity *state* — status badges, a
-   * "Failed" chip, an active toggle. Primary *actions* (Edit, Run) belong in
-   * the shell topbar via `usePageConfig({ actions })`, not here.
+   * "Failed" chip, an active toggle. Primary *actions* (Edit, Run) belong in the
+   * shell topbar via `usePageConfig({ actions })`, not here.
    */
   status?: ReactNode;
-  /** Defaults to sticky for `blended`, non-sticky for `framed`. */
+  /** Defaults to sticky for `blended`, non-sticky for `framed` / `canvas`. */
   sticky?: boolean;
   title: ReactNode;
   /** Override the default page-title typography. */
@@ -102,14 +116,18 @@ export function DetailPageHeader({
   titleClassName,
   variant = "blended",
 }: DetailPageHeaderProps) {
-  const isSticky = sticky ?? variant === "blended";
+  const resolvedVariant = variant ?? "blended";
+  const isSticky = sticky ?? resolvedVariant === "blended";
   return (
     <header
       className={cn(
-        detailPageHeaderVariants({ sticky: isSticky, variant }),
+        detailPageHeaderVariants({
+          sticky: isSticky,
+          variant: resolvedVariant,
+        }),
         "transition-colors duration-200",
-        // Frosted glass once collapsed/stuck — floats over content like a modal.
-        collapsed && "bg-card/85 backdrop-blur",
+        // Frosted glass once collapsed/stuck — only for elevated surfaces.
+        collapsed && resolvedVariant !== "canvas" && "bg-card/85 backdrop-blur",
         className
       )}
     >
@@ -117,11 +135,16 @@ export function DetailPageHeader({
         className={cn(
           "mx-auto flex w-full flex-col",
           CONTAINER_MAX_WIDTH[maxWidth],
-          CONTAINER_PADDING[variant ?? "blended"],
+          CONTAINER_PADDING[resolvedVariant],
           containerClassName
         )}
       >
-        <div className={cn("mb-2", media && "flex items-start gap-5")}>
+        <div
+          className={cn(
+            resolvedVariant === "canvas" ? "mb-0" : "mb-2",
+            media && "flex items-start gap-5"
+          )}
+        >
           {media ? <div className="shrink-0">{media}</div> : null}
           <div className={cn(media && "min-w-0 flex-1")}>
             {eyebrow ? (
@@ -135,12 +158,7 @@ export function DetailPageHeader({
               </div>
             ) : null}
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-              <h1
-                className={cn(
-                  "min-w-0 font-heading font-semibold text-2xl text-foreground leading-tight tracking-tight",
-                  titleClassName
-                )}
-              >
+              <h1 className={cn(TITLE_CLASS[resolvedVariant], titleClassName)}>
                 {title}
               </h1>
               {status ? <div className="shrink-0">{status}</div> : null}
@@ -149,15 +167,36 @@ export function DetailPageHeader({
               <div
                 className={cn(
                   "overflow-hidden transition-all duration-200",
-                  collapsed ? "max-h-0 opacity-0" : "mt-1 max-h-24 opacity-100"
+                  collapsed
+                    ? "max-h-0 opacity-0"
+                    : resolvedVariant === "canvas"
+                      ? "mt-2 max-h-32 opacity-100"
+                      : "mt-1 max-h-24 opacity-100"
                 )}
               >
-                <div className="max-w-3xl">{description}</div>
+                <div
+                  className={cn(
+                    "max-w-3xl",
+                    resolvedVariant === "canvas" &&
+                      "text-muted-foreground text-sm leading-relaxed"
+                  )}
+                >
+                  {description}
+                </div>
               </div>
             ) : null}
           </div>
         </div>
-        {belowStrip ? <div className="flex items-end">{belowStrip}</div> : null}
+        {belowStrip ? (
+          <div
+            className={cn(
+              "flex items-end",
+              resolvedVariant === "canvas" && "mt-6"
+            )}
+          >
+            {belowStrip}
+          </div>
+        ) : null}
       </div>
     </header>
   );
