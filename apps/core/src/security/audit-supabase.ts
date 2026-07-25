@@ -183,7 +183,7 @@ export function createAuditStoreSupabase(
           const value = String(raw);
           values.push(value);
           cursor = value;
-          if (values.length > 5_000) {
+          if (values.length > 5000) {
             break;
           }
         }
