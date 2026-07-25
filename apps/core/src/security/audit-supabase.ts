@@ -154,32 +154,46 @@ export function createAuditStoreSupabase(
     },
 
     async distincts(tenant_id?: string) {
-      let typesQuery = table()
-        .select("type")
-        .not("type", "is", null)
-        .order("type");
-      let moduleQuery = table()
-        .select("module_id")
-        .not("module_id", "is", null)
-        .order("module_id");
-      if (tenant_id) {
-        typesQuery = typesQuery.eq("tenant_id", tenant_id);
-        moduleQuery = moduleQuery.eq("tenant_id", tenant_id);
-      }
-      const [typesRes, moduleRes] = await Promise.all([
-        typesQuery,
-        moduleQuery,
+      // Walk distinct values with keyset pagination (one row per value).
+      // A plain capped SELECT ordered by column only returns the first N
+      // *rows*, so busy early module_ids starve later ones (e.g. "invoices").
+      const collectDistinct = async (column: "type" | "module_id") => {
+        const values: string[] = [];
+        let cursor: string | undefined;
+        for (;;) {
+          let query = table()
+            .select(column)
+            .not(column, "is", null)
+            .order(column)
+            .limit(1);
+          if (tenant_id) {
+            query = query.eq("tenant_id", tenant_id);
+          }
+          if (cursor !== undefined) {
+            query = query.gt(column, cursor);
+          }
+          const { data, error } = await query;
+          if (error) {
+            throw new Error(`Audit distincts failed: ${error.message}`);
+          }
+          const raw = data?.[0]?.[column];
+          if (raw == null || !String(raw)) {
+            break;
+          }
+          const value = String(raw);
+          values.push(value);
+          cursor = value;
+          if (values.length > 5_000) {
+            break;
+          }
+        }
+        return values;
+      };
+
+      const [types, module_ids] = await Promise.all([
+        collectDistinct("type"),
+        collectDistinct("module_id"),
       ]);
-      const types = [
-        ...new Set((typesRes.data ?? []).map((r) => String(r.type))),
-      ].sort();
-      const module_ids = [
-        ...new Set(
-          (moduleRes.data ?? []).map((r) => String(r.module_id ?? ""))
-        ),
-      ]
-        .filter(Boolean)
-        .sort();
       return { types, module_ids };
     },
   };
