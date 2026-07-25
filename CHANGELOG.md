@@ -4,6 +4,23 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.74] - 2026-07-25
+- ADDED **[tasks]** Center list toolbar and polish briefing motion stream
+- ADDED **[tasks]** Redesign Plan briefing hub and calm list surfaces
+- ADDED **[ui-core]** Add aboveStrip and belowStrip alignment options to DetailPageHeader
+- ADDED **[tasks]** Add Plan list header tabs for tasks, goals, routines
+- ADDED **[tasks]** Calm list headers, group-by toolbar, and Plan module label
+- ADDED **[tasks]** Unify list page headers and routines list controls
+- ADDED **[workspace]** Enhance workspace file tools and context handling
+- ADDED **[ui]** Make Geist the default appearance font, OS stack as System Default
+- CHANGED **[tasks]** Update DetailPageHeader to use aboveStrip for navigation
+- FIXED **[team]** Align skill frontmatter name with pack folder
+- FIXED **[core]** Collect audit distincts via keyset so later module ids appear
+- FIXED **[tasks]** Unblock typecheck for run-now repo and list helpers
+- FIXED **[ai]** Re-export commons storage prefix via export-from
+- FIXED **[tasks]** Apply sidebar list settings to routines
+- FIXED **[tasks]** Move sidebar search under list tabs
+
 ## [0.1.73] - 2026-07-24
 - ADDED **[tasks]** Standing-task schedule routines with agent disposition
 - DOCS Where-work-lives — rebase on shipped hardening + routine work (absorption list, tool-based Phase 3)
