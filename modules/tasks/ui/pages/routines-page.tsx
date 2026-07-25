@@ -93,7 +93,9 @@ export function RoutinesPage() {
           (routine.agent_id?.toLowerCase().includes(q) ?? false)
         );
       })
-      .sort((a, b) => compareRoutines(a, b, sortBy, sortOrder));
+      .sort((a: RoutineDto, b: RoutineDto) =>
+        compareRoutines(a, b, sortBy, sortOrder)
+      );
   }, [enabledFilter, routinesQuery.data?.routines, search, sortBy, sortOrder]);
 
   const labels = useMemo(

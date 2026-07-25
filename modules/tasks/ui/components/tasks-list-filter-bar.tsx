@@ -20,20 +20,20 @@ export interface TasksListFilterState {
 }
 
 export function getTasksGroupByOptions(
-  t: (key: string, fallback?: string) => string,
+  t: (key: string) => string,
   showProjectGroupBy: boolean
 ): { value: TasksGroupBy; label: string }[] {
   return [
-    { value: "none", label: t("sidebar.groupNoneShort", "List") },
-    { value: "status", label: t("sidebar.groupStatus", "Status") },
-    { value: "priority", label: t("sidebar.groupPriority", "Priority") },
-    { value: "assignee", label: t("sidebar.groupAssignee", "Assignee") },
-    { value: "goal", label: t("sidebar.groupGoal", "Goal") },
+    { value: "none", label: t("sidebar.groupNoneShort") },
+    { value: "status", label: t("sidebar.groupStatus") },
+    { value: "priority", label: t("sidebar.groupPriority") },
+    { value: "assignee", label: t("sidebar.groupAssignee") },
+    { value: "goal", label: t("sidebar.groupGoal") },
     ...(showProjectGroupBy
       ? [
           {
             value: "project" as const,
-            label: t("sidebar.groupProject", "Project"),
+            label: t("sidebar.groupProject"),
           },
         ]
       : []),
