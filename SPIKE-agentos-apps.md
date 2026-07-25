@@ -8,7 +8,8 @@ Result of the gate defined in [PLAN-engenty-apps.md](PLAN-engenty-apps.md) §6 P
 **Verdict: the gate does not pass unmodified.** Self-hosting works and is genuinely self-contained,
 but `deployApp()` — the package's single core function, and its own README example — fails on every
 published version until the dependency is patched. Per-app SQLite, the plan's "local storage", is
-additionally unproven.
+additionally unproven — though a follow-up spike (§4a) narrowed *why*: SQLite works, the guest just
+cannot reach any actor.
 
 ---
 
@@ -133,7 +134,7 @@ Two problems, both unresolved:
    `gateway_response_start_timeout … Timed out during response_start after 300000 ms` on the way
    through. Dependencies are installed inside the disposable build VM on every deploy, so this is
    the per-deploy cost, not a one-off. Six minutes per release is not an acceptable authoring loop
-   for `engenty.coder`.
+   for `engenty.app-coder`.
 2. **Every request 500s — second independent bug, root-caused.** The guest actor registers with the
    Engine (its actor key appears in the host log) but the guest cannot open a socket to its scoped
    Engine proxy. A diagnostic app deployed to read its own environment and probe the endpoint with a
@@ -163,8 +164,48 @@ Two problems, both unresolved:
 
 So there are **two** independent defects in the published preview: guest→host-dir-mount writes (§2)
 and guest→loopback-exempt TCP. The first has a patch; the second is inside the sidecar's network
-stack and is not patchable from our side. Per-app SQLite therefore stays unavailable, which is why
-`module_apps.app_data` is the v1 store.
+stack and is not patchable from our side. Per-app SQLite via the in-guest path therefore stays
+unavailable, which is why `module_apps.app_data` is the v1 store.
+
+### 4a. Re-spiked 2026-07-25 against the Rivet cookbooks — SQLite itself is fine
+
+Rivet's [per-tenant database cookbook](https://rivet.dev/cookbook/per-tenant-database/) and the
+kitchen-sink [`sqlite-raw.ts`](https://github.com/rivet-dev/rivet/blob/main/examples/kitchen-sink/src/actors/state/sqlite-raw.ts)
+both work, so the obvious question is why ours doesn't. Answered by running the cookbook's exact
+pattern in *our* process, against *our* registry:
+
+```js
+const probeActor = actor({
+  db: db({ onMigrate: async (c) => { await c.execute("CREATE TABLE IF NOT EXISTS probe (…)"); } }),
+  actions: { addNote: …, listNotes: … },
+});
+const { appsActors } = setupApps();
+setup({ use: { ...appsActors, probeActor } }).start();
+const handle = createClient().probeActor.getOrCreate(["tenant-spike", "app-spike"]);
+```
+
+It passed on the first run — rows written and read back out of a real per-key SQLite database.
+
+**So `rivetkit/db` is not broken, and the cookbooks are not wrong.** The distinction the cookbooks
+never have to make is *who defines the actor*:
+
+| | Actor defined by | Reaches the Engine via | Works |
+|---|---|---|---|
+| Cookbook / kitchen-sink | the host process | in-process registry | **yes — verified here** |
+| Our Apps, in-guest path | tenant code inside the app VM | `net.connect` to the scoped proxy | no — §4.2 |
+
+Every Rivet cookbook is a single trusted process that owns its own actors. That is the case that
+works, and it is not the case we have: an engenty App is untrusted tenant code inside an agentOS
+guest VM, and the only path from there to an actor is the loopback bridge that returns an empty
+socket handle. The blocker was never SQLite — it is that **the guest cannot reach any actor at all**,
+and per-app SQLite was simply the first thing that needed to.
+
+This reframes the fix. Rather than waiting on the sidecar's network bridge, the host can define a
+trusted per-app storage actor itself — keyed `[tenantId, appId]`, exactly the cookbook's
+key-is-the-tenant isolation model — and let the guest reach it through the *existing* engenty bridge
+that already carries `data_get`/`data_set`/`data_delete`/`data_list`, which does not touch the broken
+path. That swaps the `app_data` table for real per-app SQLite behind the same four operations, with
+no change to any App. It is not implemented; §5's `app_data` remains what ships.
 
 ## 5. What this means for the plan
 
