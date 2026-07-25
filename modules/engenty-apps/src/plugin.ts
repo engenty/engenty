@@ -22,8 +22,23 @@ const registerEngentyAppsPlugin: EngentyPluginFactory = (engenty) => {
   }
 
   /**
-   * Off by default. Apps run tenant-authored code, so a tenant opts in
-   * deliberately rather than discovering the surface by accident.
+   * Deployment-wide kill switch. Unlike the feature flag below, this one is
+   * load-bearing: with it off the operations are never registered, so there is
+   * no surface to reach at all. Per-tenant gating is module licensing
+   * (engenty-apps is absent from the free/team packages); per-app gating is
+   * `app_archive`.
+   */
+  if (process.env.ENGENTY_APPS_ENABLED?.trim().toLowerCase() === "false") {
+    logger.warn("ENGENTY_APPS_ENABLED=false — engenty Apps operations disabled");
+    return;
+  }
+
+  /**
+   * Visibility flag for the settings surface. Note this is NOT a server-side
+   * gate: no module in this repo reads feature flags in an operation handler,
+   * and there is no request-time resolver on PluginServerApi to do it with.
+   * The switches that actually stop things are the env kill switch above,
+   * module licensing, and app_archive.
    */
   server.registerFeatureFlags([
     {

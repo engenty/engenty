@@ -434,16 +434,44 @@ routine-driven monthly batch over the same rules.
 
 ### Phase 7 — Hardening
 
-- `createNamespace: true` per app; per-app CPU and memory limits (note the existing Docker sandbox
-  sets *none* — `docker-sandbox-provider.ts:52-58` passes no `network`/`memory`/`cpuQuota` despite
-  `DockerSandboxOptions` supporting them; do not repeat that here).
-- Egress deny-by-default, manifest-declared hosts only.
-- `app_data_export` snapshot to the tenant's storage target via `connections_files_write`, so app
-  data is not trapped outside Postgres backups.
-- Rollback = activate the previous `app_versions` row. Kill switch = `apps.enabled` off, plus
-  per-app `status: archived`.
-- Hostile-tenant option: one sidecar container per tenant. Possible precisely because agentOS is a
-  library, so this is a deployment change and not a rewrite.
+Done, and what each is actually worth:
+
+- **`createNamespace: true` per app** — on by default, verified live: a deployed app lands in its
+  own namespace (`agentos-app-<id>-<hash>`), not a shared one.
+- **Resource ceilings.** agentOS Apps exposes replica scaling but **no per-app memory or CPU knob**,
+  so the container boundary is the only real lever: `mem_limit: 3g`, `cpus: 2.0`,
+  `pids_limit: 4096` on `engenty-app-host`, plus `maxReplicas` lowered from the package default of
+  128 to 32. This is weaker than per-app limits and should be said out loud rather than implied.
+  (The existing Docker sandbox sets *no* limits at all — `docker-sandbox-provider.ts:52-58` passes
+  no `network`/`memory`/`cpuQuota` despite `DockerSandboxOptions` supporting them. Not repeated
+  here.)
+- **Egress deny-by-default** — enforced for the frontend by the frame CSP (`default-src 'none'`
+  base, `connect-src` opened only for manifest-declared hosts). For the *backend*, agentOS exposes
+  no per-release network permission, so a backend's outbound access is whatever the sidecar allows.
+  Treat that as unbounded until upstream exposes it; it is the strongest argument for the
+  per-tenant sidecar below.
+- **`app_data_export`** — exports the App's working store, so app data is retrievable rather than
+  trapped. It returns the snapshot; writing it to a storage target is a routine's job, not the
+  operation's.
+- **Rollback** — `app_release_rollback` redeploys a previous version from its stored source. It
+  needs nothing from the app host's own state, which is precisely why source lives in Postgres.
+- **Kill switches, in order of blast radius.** `ENGENTY_APPS_ENABLED=false` (deployment-wide: the
+  module registers no operations at all, so there is no surface to reach); module licensing
+  (per tenant); `app_archive` (per app). The `apps.enabled` feature flag is **not** one of them —
+  no module in this repo reads a feature flag in an operation handler and `PluginServerApi` has no
+  request-time resolver, so it gates settings visibility only. The plan previously claimed
+  otherwise; that was wrong.
+- **Capability handles** are minted and revoked per invocation, expire in ≤300s, and the registry
+  sweeps expired entries so it cannot grow without bound.
+
+Still open, deliberately:
+
+- **Hostile-tenant isolation.** Many app VMs share one sidecar process. Adequate for the real threat
+  model (buggy AI-generated code inside one tenant), not for a tenant actively attacking the host.
+  The answer is one sidecar container per tenant — a deployment change rather than a rewrite,
+  precisely because agentOS is a library. Do this before onboarding a tenant we do not trust.
+- **Multi-replica apps/ai.** Capability handles live in-process; a second replica cannot resolve a
+  peer's handle. Fails closed, but it caps apps/ai at one replica while Apps are in use.
 
 ---
 

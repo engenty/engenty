@@ -216,6 +216,33 @@ docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up --build
 | `Dockerfile.ai` | AI service |
 | `Dockerfile.sandbox` | Agent sandbox runtime image (build-only) |
 | `Dockerfile.app-host` | engenty Apps runtime (internal only — no published port, no gateway route) |
+
+## engenty Apps (`engenty-app-host`)
+
+`engenty-app-host` runs tenant-authored code, so it is deliberately the least
+reachable service in the stack: no published port, no gateway route, no Traefik
+labels. Only `engenty-ai` talks to it, over internal Docker DNS, with the shared
+secret in `ENGENTY_APP_HOST_TOKEN`. **The service refuses to boot in production
+without that token** — set it.
+
+Two operational facts that differ from every other service here:
+
+- It supervises **two native child processes** (`rivet-engine` and
+  `agentos-sidecar`) that ship as platform-specific npm packages. The image must
+  therefore be built for the architecture it will run on; the Dockerfile fails
+  the build rather than the first deploy if the binaries are missing.
+- It needs a **durable volume**. RivetKit keeps deployed app releases under
+  `$HOME/.rivetkit` (`HOME=/data` in the image, mounted as
+  `engenty-app-host-data`). Losing that volume takes every deployed App offline
+  until each is redeployed from its stored source in Postgres.
+
+To take Apps out of service: `ENGENTY_APPS_ENABLED=false` on `engenty-edge`
+removes the whole operation surface. A single App is disabled with
+`app_archive`; a single tenant, by module licensing.
+
+`ENGENTY_APP_HOST_TOKEN` is also the reason the two services must be restarted
+together after rotating it — `engenty-ai` presents it on every call.
+
 | `Dockerfile.studio` | Mastra Studio (profile) |
 | `Dockerfile.docs` | Fumadocs Next (profile) |
 | `.env.example` | Env template (generated — `pnpm env:example:write`) |

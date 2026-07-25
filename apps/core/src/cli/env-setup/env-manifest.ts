@@ -359,6 +359,17 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     scopes: ["root"],
     secret: false,
   },
+  {
+    description:
+      "Deployment-wide kill switch for engenty Apps. Set to false and the module registers no operations at all — nothing to reach. Per-tenant gating is module licensing; per-app gating is app_archive.",
+    exampleValue: "true",
+    group: "engenty Apps",
+    key: "ENGENTY_APPS_ENABLED",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
 
   // ── Logging & debug ──
   {

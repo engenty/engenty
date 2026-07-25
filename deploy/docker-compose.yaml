@@ -151,6 +151,12 @@ services:
       HOST: 0.0.0.0
       ENGENTY_APP_HOST_PORT: 8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    # Bounds on tenant-authored code. agentos-apps exposes replica scaling but
+    # no per-app memory knob, so the container is where the ceiling lives: each
+    # app VM is ~22 MB plus the two native child processes. Raise deliberately.
+    mem_limit: 3g
+    cpus: 2.0
+    pids_limit: 4096
     volumes:
       # RivetKit's engine store lives at $HOME/.rivetkit (HOME=/data in the
       # image). Named volume, not a bind: nothing on the host needs to read it,
