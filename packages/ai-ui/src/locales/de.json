@@ -1309,7 +1309,11 @@
     "artifactsTab": "Artefakte",
     "filesTab": "Dateien",
     "artifactsEmpty": "Noch keine Artefakte hier.",
-    "filesEmpty": "Noch keine Arbeitsbereich-Dateien hier."
+    "filesEmpty": "Noch keine Arbeitsbereich-Dateien hier.",
+    "downloadFile": "Herunterladen",
+    "filePreviewLoading": "Vorschau wird vorbereitet…",
+    "fileNoPreview": "Für diesen Dateityp ist keine Vorschau verfügbar.",
+    "filePreviewTruncated": "Vorschau gekürzt — lade die Datei herunter für den vollständigen Inhalt."
   },
   "agentProposals": {
     "title": "Offene Agent-Vorschläge",
