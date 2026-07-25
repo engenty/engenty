@@ -1,0 +1,52 @@
+{
+  "name": "@engenty/engenty-apps",
+  "version": "0.0.1",
+  "description": "Tenant-owned applications: source of truth, governance and catalog operations",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./dist/src/plugin.d.ts",
+  "engenty": {
+    "migrationsDir": "./supabase/migrations"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/plugin.d.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
+    },
+    "./schema/types": {
+      "types": "./dist/src/schema/types.d.ts",
+      "default": "./dist/src/schema/types.js"
+    },
+    "./schema/zod": {
+      "types": "./dist/src/schema/zod.d.ts",
+      "default": "./dist/src/schema/zod.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts --format esm --dts --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts --format esm --dts --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@hono/zod-openapi": "^1.4.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "uuidv7": "^1.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

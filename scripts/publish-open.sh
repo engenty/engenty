@@ -33,6 +33,8 @@ CLOSED_PREFIXES=(
   "apps/manage"
   "docs/internal"
   "modules/banking"
+  # engenty-apps is PRO-only for now (decision 2026-07-25, PLAN-engenty-apps.md §9).
+  "modules/engenty-apps"
   "modules/team-hr"
   # The team-chat module is open; its Slack bridge is a pro provider
   # (decision 2026-07-17, built 2026-07-19).

@@ -43,6 +43,9 @@
       "contacts": {
         "source": "workspace"
       },
+      "engenty-apps": {
+        "source": "workspace"
+      },
       "engenty-coordinator": {
         "source": "workspace"
       },
