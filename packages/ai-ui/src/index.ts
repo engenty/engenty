@@ -13,6 +13,12 @@ export {
   type ArtifactStoreTarget,
 } from "./artifacts/artifact-pin-menu.js";
 export {
+  type AppArtifactHandle,
+  AppArtifactView,
+  appFrontendQueryKey,
+  parseAppHandle,
+} from "./artifacts/app-artifact-view.js";
+export {
   type ArtifactEditorProps,
   type ArtifactViewProps,
   registerArtifactEditor,
