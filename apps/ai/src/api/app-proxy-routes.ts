@@ -49,12 +49,29 @@ const logger = createLogger({ name: "apps/ai/app-proxy" });
 /** Bridge tool names an App may call. Anything else is rejected outright. */
 const BRIDGE_TOOLS = new Set([
   "app_action",
+  "config_delete",
+  "config_get",
+  "config_list",
+  "config_set",
   "data_delete",
   "data_get",
   "data_list",
   "data_set",
   "engenty_call",
 ]);
+
+/**
+ * Config tools an App may call. Reads resolve the caller's own value over the
+ * tenant-wide default; writes always land at the caller's own level. An App
+ * therefore cannot set a default for everyone — that is an admin action, and
+ * it goes through `app_config_set` with an explicit user_id instead.
+ */
+const CONFIG_TOOLS: Record<string, string> = {
+  config_delete: "app_config_delete",
+  config_get: "app_config_get",
+  config_list: "app_config_list",
+  config_set: "app_config_set",
+};
 
 const callBodySchema = z.object({
   arguments: z.record(z.string(), z.unknown()).default({}),
@@ -83,6 +100,7 @@ interface AppDetail {
     manifest: {
       actions?: { id: string; requiresApproval?: boolean; risk: string }[];
       engenty?: { operations?: string[] };
+      storage?: { config?: boolean; data?: boolean };
     };
     version: number;
   } | null;
@@ -110,6 +128,7 @@ function coreClient(userAccessToken: string): EngentyCoreClient {
 interface ResolvedApp {
   actions: { id: string; requiresApproval?: boolean; risk: string }[];
   allowedOperations: string[];
+  storage: { config: boolean; data: boolean };
   version: number;
 }
 
@@ -126,6 +145,10 @@ async function loadApp(
   return {
     actions: detail.active_version.manifest.actions ?? [],
     allowedOperations: detail.active_version.manifest.engenty?.operations ?? [],
+    storage: {
+      config: detail.active_version.manifest.storage?.config === true,
+      data: detail.active_version.manifest.storage?.data === true,
+    },
     version: detail.active_version.version,
   };
 }
@@ -369,7 +392,39 @@ export function registerAppProxyRoutes(
           }
         }
 
+        case "config_delete":
+        case "config_get":
+        case "config_list":
+        case "config_set": {
+          // A manifest flag that nothing checks is not a declaration, it is
+          // decoration. Same rule the operations allow-list follows: what the
+          // App did not declare does not exist for it.
+          if (!resolved.storage.config) {
+            return c.json({ error: "apps.storageNotDeclared", store: "config" }, 403);
+          }
+          const call = dataArgsSchema.safeParse(args);
+          if (!call.success) {
+            return c.json({ error: "apps.invalidArguments" }, 400);
+          }
+          // user_id comes from the authenticated caller, never from the App —
+          // the same rule session_id follows below. An App cannot read or
+          // write another user's config by asking for it, and because it can
+          // only ever name its own level it cannot overwrite the tenant-wide
+          // default either.
+          const result = await client.invokeTool(CONFIG_TOOLS[name], {
+            app_id: appId,
+            key: call.data.key,
+            prefix: call.data.prefix,
+            user_id: caller.userId,
+            value: call.data.value,
+          });
+          return c.json({ ok: true, result });
+        }
+
         default: {
+          if (!resolved.storage.data) {
+            return c.json({ error: "apps.storageNotDeclared", store: "data" }, 403);
+          }
           const call = dataArgsSchema.safeParse(args);
           if (!call.success) {
             return c.json({ error: "apps.invalidArguments" }, 400);

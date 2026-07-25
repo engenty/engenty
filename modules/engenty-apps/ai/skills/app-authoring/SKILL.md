@@ -30,7 +30,7 @@ web font will simply not load. Inline everything; use system fonts.
   "name": "Travel expenses",
   "entry": { "frontend": "index.html", "backend": "server.js" },
   "engenty": { "operations": ["inbox_threads_list"] },
-  "storage": { "data": true },
+  "storage": { "data": true, "config": true },
   "egress": { "connect": [] },
   "actions": [
     { "id": "collect",  "risk": "low",  "summary": "Add a receipt to the current report" },
@@ -45,6 +45,10 @@ web font will simply not load. Inline everything; use system fonts.
   with `engenty_tools_search`; do not guess.
 - `actions` — each maps to a path in the backend. `{ "id": "collect" }` means
   the backend must answer `POST /collect`.
+- `storage.data` / `storage.config` — declare only what you use; both are
+  enforced, and an undeclared store returns `apps.storageNotDeclared`.
+  `data` is session-scoped working state, `config` is what survives between
+  instances. See the engenty-bridge skill for which to reach for.
 - `egress.connect` — hosts the App may reach directly. Leave it empty. It is
   deny-all by default and that is almost always right: an App reaches the
   world through declared engenty operations.

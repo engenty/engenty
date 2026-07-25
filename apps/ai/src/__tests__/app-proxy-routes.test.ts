@@ -38,6 +38,7 @@ const APP_DETAIL = {
         { id: "finalize", requiresApproval: true, risk: "high" },
       ],
       engenty: { operations: ["inbox_threads_list"] },
+      storage: { config: true, data: true },
     },
     version: 1,
   },
@@ -301,6 +302,143 @@ describe("POST /ai/apps/:appId/call — working store", () => {
       ["data_list", "app_data_list"],
       ["data_set", "app_data_set"],
       ["data_delete", "app_data_delete"],
+    ]) {
+      invokeTool.mockClear();
+      invokeTool.mockImplementation(async (toolId: string) =>
+        toolId === "app_get" ? APP_DETAIL : { ok: true }
+      );
+      await app.request(`/ai/apps/${APP_ID}/call`, {
+        body: callBody(name, { key: "k" }),
+        headers: authed,
+        method: "POST",
+      });
+      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(true);
+    }
+  });
+});
+
+describe("POST /ai/apps/:appId/call — undeclared storage", () => {
+  function withStorage(storage: Record<string, boolean>) {
+    invokeTool.mockImplementation(async (toolId: string) =>
+      toolId === "app_get"
+        ? {
+            ...APP_DETAIL,
+            active_version: {
+              ...APP_DETAIL.active_version,
+              manifest: { ...APP_DETAIL.active_version.manifest, storage },
+            },
+          }
+        : { ok: true }
+    );
+  }
+
+  it("refuses data access an App never declared", async () => {
+    withStorage({ config: true, data: false });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("data_get", { key: "k" }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "apps.storageNotDeclared",
+      store: "data",
+    });
+    expect(invokeTool.mock.calls.some(([id]) => id === "app_data_get")).toBe(false);
+  });
+
+  it("refuses config access an App never declared", async () => {
+    withStorage({ config: false, data: true });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("config_get", { key: "k" }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "apps.storageNotDeclared",
+      store: "config",
+    });
+    expect(invokeTool.mock.calls.some(([id]) => id === "app_config_get")).toBe(
+      false
+    );
+  });
+
+  it("treats a manifest with no storage block as declaring neither", async () => {
+    invokeTool.mockImplementation(async (toolId: string) =>
+      toolId === "app_get"
+        ? {
+            ...APP_DETAIL,
+            active_version: {
+              ...APP_DETAIL.active_version,
+              manifest: { engenty: { operations: [] } },
+            },
+          }
+        : { ok: true }
+    );
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("data_get", { key: "k" }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("POST /ai/apps/:appId/call — config", () => {
+  it("stamps the caller's user id, ignoring any the guest supplies", async () => {
+    const { app } = makeApp();
+    await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: JSON.stringify({
+        arguments: { key: "theme", user_id: "somebody-else", value: "dark" },
+        name: "config_set",
+        session_id: "sess-1",
+      }),
+      headers: authed,
+      method: "POST",
+    });
+    const call = invokeTool.mock.calls.find(([id]) => id === "app_config_set");
+    expect(call?.[1]).toMatchObject({ app_id: APP_ID, user_id: USER });
+  });
+
+  it("never lets an App write the tenant-wide default", async () => {
+    const { app } = makeApp();
+    await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: JSON.stringify({
+        arguments: { key: "theme", user_id: null, value: "dark" },
+        name: "config_set",
+        session_id: "sess-1",
+      }),
+      headers: authed,
+      method: "POST",
+    });
+    const call = invokeTool.mock.calls.find(([id]) => id === "app_config_set");
+    // A null user_id would mean "the default for everyone". The proxy always
+    // substitutes the caller, so the App cannot reach that level at all.
+    expect(call?.[1]).toMatchObject({ user_id: USER });
+  });
+
+  it("carries no session id — config is not session state", async () => {
+    const { app } = makeApp();
+    await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("config_get", { key: "theme" }),
+      headers: authed,
+      method: "POST",
+    });
+    const call = invokeTool.mock.calls.find(([id]) => id === "app_config_get");
+    expect(call?.[1]).not.toHaveProperty("session_id");
+  });
+
+  it("maps each config bridge tool to its operation", async () => {
+    const { app } = makeApp();
+    for (const [name, operationId] of [
+      ["config_get", "app_config_get"],
+      ["config_list", "app_config_list"],
+      ["config_set", "app_config_set"],
+      ["config_delete", "app_config_delete"],
     ]) {
       invokeTool.mockClear();
       invokeTool.mockImplementation(async (toolId: string) =>

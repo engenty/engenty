@@ -23,7 +23,7 @@ export interface AppManifest {
   name: string;
   /** Path to the pure rules module, if the App has one. See §7 of the plan. */
   rules?: string;
-  storage: { data: boolean };
+  storage: { config: boolean; data: boolean };
 }
 
 export interface App {
@@ -87,6 +87,18 @@ export interface AppDataEntry {
   session_id: string;
   tenant_id: string;
   updated_at: string;
+  value: unknown;
+}
+
+export interface AppConfigEntry {
+  app_id: string;
+  created_at: string;
+  key: string;
+  scope_id: string;
+  tenant_id: string;
+  updated_at: string;
+  /** Null is the tenant-wide default; a uuid is that user's own value. */
+  user_id: string | null;
   value: unknown;
 }
 

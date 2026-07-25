@@ -142,10 +142,47 @@ create table if not exists module_apps.app_data (
 create index if not exists idx_module_apps_data_session
   on module_apps.app_data (tenant_id, app_id, session_id);
 
+-- ── App config ─────────────────────────────────────────────────────────────
+--
+-- `app_data` is session-scoped: its key includes session_id, so an App's
+-- working state belongs to one artifact instance and dies with it. That leaves
+-- an App unable to remember anything about a tenant or a user across
+-- instances. This table is that missing axis — durable, no session_id.
+--
+-- Two levels, distinguished by user_id:
+--   user_id is null → the tenant-wide default for this app, set by an admin.
+--   user_id is set  → that user's own value, which shadows the default.
+-- Reads resolve user-then-default; see `resolveConfig` in the DAL.
+
+create table if not exists module_apps.app_config (
+  id uuid primary key,
+  tenant_id uuid not null references core.tenants(id) on delete cascade,
+  scope_id text not null,
+  app_id uuid not null references module_apps.apps(id) on delete cascade,
+  user_id uuid,
+  key text not null check (length(key) between 1 and 200),
+  value jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Postgres treats NULLs as distinct in a unique constraint, so a single
+-- `unique (tenant_id, app_id, user_id, key)` would happily admit duplicate
+-- tenant-wide rows. Two partial indexes are the correct spelling: one per
+-- level, each total over the rows it covers.
+create unique index if not exists uq_module_apps_config_user
+  on module_apps.app_config (tenant_id, app_id, user_id, key)
+  where user_id is not null;
+
+create unique index if not exists uq_module_apps_config_default
+  on module_apps.app_config (tenant_id, app_id, key)
+  where user_id is null;
+
 -- ── RLS ────────────────────────────────────────────────────────────────────
 --
 -- Every table carries tenant_id, so RLS is mandatory (scripts/check-rls-coverage.mjs).
--- apps / app_versions / app_data follow the standard tenant+scope pattern.
+-- apps / app_versions / app_data / app_config follow the standard tenant+scope
+-- pattern.
 -- app_capability and app_consent are service-role-only: RLS on with no
 -- policies denies every authenticated principal, which is what we want for a
 -- credential table — nothing but the proxy should ever read a handle row.
@@ -155,6 +192,7 @@ alter table module_apps.app_versions enable row level security;
 alter table module_apps.app_capability enable row level security;
 alter table module_apps.app_consent enable row level security;
 alter table module_apps.app_data enable row level security;
+alter table module_apps.app_config enable row level security;
 
 create policy apps_read_own_scope on module_apps.apps
 for select using (
@@ -169,6 +207,15 @@ for select using (
 create policy app_data_read_own_scope on module_apps.app_data
 for select using (
   tenant_id = core.current_tenant_id() and core.has_scope(scope_id)
+);
+
+-- A tenant-wide default is readable by the whole scope; a user-level value is
+-- readable only by the user it belongs to.
+create policy app_config_read_own_scope on module_apps.app_config
+for select using (
+  tenant_id = core.current_tenant_id()
+  and core.has_scope(scope_id)
+  and (user_id is null or user_id = auth.uid())
 );
 
 -- Writes go through the gateway operations (service role), never straight from
@@ -193,5 +240,6 @@ grant usage on schema module_apps to authenticated;
 grant select on table module_apps.apps to authenticated;
 grant select on table module_apps.app_versions to authenticated;
 grant select on table module_apps.app_data to authenticated;
+grant select on table module_apps.app_config to authenticated;
 
 notify pgrst, 'reload schema';

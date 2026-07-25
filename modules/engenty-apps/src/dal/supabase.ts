@@ -4,6 +4,7 @@ import type {
   ActorKind,
   App,
   AppCapability,
+  AppConfigEntry,
   AppDataEntry,
   AppManifest,
   AppVersion,
@@ -18,7 +19,7 @@ const EMPTY_MANIFEST: AppManifest = {
   engenty: { operations: [] },
   entry: { frontend: "index.html" },
   name: "",
-  storage: { data: false },
+  storage: { config: false, data: false },
 };
 
 function rowToApp(row: Record<string, unknown>): App {
@@ -70,6 +71,19 @@ function rowToDataEntry(row: Record<string, unknown>): AppDataEntry {
   };
 }
 
+function rowToConfigEntry(row: Record<string, unknown>): AppConfigEntry {
+  return {
+    app_id: String(row.app_id),
+    created_at: String(row.created_at),
+    key: String(row.key),
+    scope_id: String(row.scope_id),
+    tenant_id: String(row.tenant_id),
+    updated_at: String(row.updated_at),
+    user_id: row.user_id == null ? null : String(row.user_id),
+    value: row.value,
+  };
+}
+
 export type AppsRepoSupabase = ReturnType<typeof createAppsRepoSupabase>;
 
 /**
@@ -87,6 +101,7 @@ export function createAppsRepoSupabase(
   const capabilities = () => supabase.schema(SCHEMA).from("app_capability");
   const consents = () => supabase.schema(SCHEMA).from("app_consent");
   const data = () => supabase.schema(SCHEMA).from("app_data");
+  const config = () => supabase.schema(SCHEMA).from("app_config");
 
   return {
     async listApps(filter?: { status?: App["status"] }): Promise<App[]> {
@@ -551,6 +566,175 @@ export function createAppsRepoSupabase(
         .eq("key", input.key);
       if (error) {
         throw new Error(`Failed to delete app data: ${error.message}`);
+      }
+    },
+
+    async getConfig(input: {
+      appId: string;
+      key: string;
+      userId?: string | null;
+    }): Promise<AppConfigEntry | null> {
+      const base = config()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("app_id", input.appId)
+        .eq("key", input.key);
+      const { data: row, error } = await (input.userId
+        ? base.eq("user_id", input.userId)
+        : base.is("user_id", null)
+      ).maybeSingle();
+      if (error) {
+        throw new Error(`Failed to read app config: ${error.message}`);
+      }
+      return row ? rowToConfigEntry(row as Record<string, unknown>) : null;
+    },
+
+    /**
+     * The read an App actually makes: the user's own value if they have set
+     * one, otherwise the tenant-wide default. Called with no userId this is
+     * just the default.
+     */
+    async resolveConfig(input: {
+      appId: string;
+      key: string;
+      userId?: string | null;
+    }): Promise<AppConfigEntry | null> {
+      if (input.userId) {
+        const own = await this.getConfig(input);
+        if (own) {
+          return own;
+        }
+      }
+      return await this.getConfig({
+        appId: input.appId,
+        key: input.key,
+        userId: null,
+      });
+    },
+
+    async listConfig(input: {
+      appId: string;
+      prefix?: string;
+      userId?: string | null;
+    }): Promise<AppConfigEntry[]> {
+      let query = config()
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("app_id", input.appId)
+        .order("key", { ascending: true });
+      if (input.prefix) {
+        query = query.like("key", `${input.prefix}%`);
+      }
+      // Both levels in one round trip, merged below — a user's value shadows
+      // the default for the same key, which is the same rule resolveConfig
+      // applies to a single key.
+      query = input.userId
+        ? query.or(`user_id.is.null,user_id.eq.${input.userId}`)
+        : query.is("user_id", null);
+      const { data: rows, error } = await query;
+      if (error) {
+        throw new Error(`Failed to list app config: ${error.message}`);
+      }
+      const merged = new Map<string, AppConfigEntry>();
+      for (const raw of rows ?? []) {
+        const entry = rowToConfigEntry(raw as Record<string, unknown>);
+        const existing = merged.get(entry.key);
+        if (!existing || (existing.user_id === null && entry.user_id !== null)) {
+          merged.set(entry.key, entry);
+        }
+      }
+      return [...merged.values()].sort((a, b) => a.key.localeCompare(b.key));
+    },
+
+    async setConfig(input: {
+      appId: string;
+      key: string;
+      userId?: string | null;
+      value: unknown;
+    }): Promise<AppConfigEntry> {
+      const now = new Date().toISOString();
+
+      // No .upsert() here: uniqueness is enforced by two PARTIAL indexes (see
+      // the migration), and `on conflict` cannot name a partial index through
+      // PostgREST. Update-then-insert is the honest equivalent — and the index
+      // still backstops a lost race, which we resolve by retrying the update.
+      //
+      // The level filter is spelled out at each call site rather than factored
+      // into a helper: a generic over Supabase's builder types makes tsc give
+      // up with TS2589 ("type instantiation is excessively deep").
+      const updateQuery = config()
+        .update({ updated_at: now, value: input.value })
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("app_id", input.appId)
+        .eq("key", input.key);
+      const updated = await (input.userId
+        ? updateQuery.eq("user_id", input.userId)
+        : updateQuery.is("user_id", null)
+      ).select();
+      if (updated.error) {
+        throw new Error(`Failed to write app config: ${updated.error.message}`);
+      }
+      if (updated.data && updated.data.length > 0) {
+        return rowToConfigEntry(updated.data[0] as Record<string, unknown>);
+      }
+
+      const row = {
+        app_id: input.appId,
+        created_at: now,
+        id: uuidv7(),
+        key: input.key,
+        scope_id: scopeId,
+        tenant_id: tenantId,
+        updated_at: now,
+        user_id: input.userId ?? null,
+        value: input.value,
+      };
+      const inserted = await config().insert(row).select().single();
+      if (!inserted.error) {
+        return rowToConfigEntry(inserted.data as Record<string, unknown>);
+      }
+      // 23505 = unique violation: a concurrent writer inserted the same level
+      // between our update and our insert. Their row is now the one to update.
+      if ((inserted.error as { code?: string }).code !== "23505") {
+        throw new Error(`Failed to write app config: ${inserted.error.message}`);
+      }
+      const retryQuery = config()
+        .update({ updated_at: now, value: input.value })
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("app_id", input.appId)
+        .eq("key", input.key);
+      const retried = await (input.userId
+        ? retryQuery.eq("user_id", input.userId)
+        : retryQuery.is("user_id", null)
+      )
+        .select()
+        .single();
+      if (retried.error) {
+        throw new Error(`Failed to write app config: ${retried.error.message}`);
+      }
+      return rowToConfigEntry(retried.data as Record<string, unknown>);
+    },
+
+    async deleteConfig(input: {
+      appId: string;
+      key: string;
+      userId?: string | null;
+    }): Promise<void> {
+      const base = config()
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("app_id", input.appId)
+        .eq("key", input.key);
+      const { error } = await (input.userId
+        ? base.eq("user_id", input.userId)
+        : base.is("user_id", null));
+      if (error) {
+        throw new Error(`Failed to delete app config: ${error.message}`);
       }
     },
   };

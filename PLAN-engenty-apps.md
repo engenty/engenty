@@ -272,6 +272,13 @@ New module `modules/engenty-apps`, schema `module_apps` (migration named
   through the proxy as `kind: "data"`. The app-facing API is deliberately a narrow
   `get/set/delete/list` over `(session_id, key)` so the backing store can become per-app SQLite later
   without changing a single App.
+- **`app_config`** — durable config, the axis `app_data` deliberately lacks. Same narrow key/value
+  API but **no `session_id`**: this is what an App remembers about a tenant or a user between
+  artifact instances. `user_id` null is the tenant-wide default, a uuid is that user's own value,
+  and reads resolve user-then-default. Uniqueness is two *partial* indexes, one per level, because a
+  single unique constraint over a nullable column admits duplicate defaults. Apps reach it as
+  `config_*` through the proxy, which stamps the caller's own `user_id` — so an App can never write
+  the tenant-wide default, only an admin can, via `app_config_set` with an explicit `user_id`.
 
 **Manifest** (`app_versions.manifest`), validated by zod at the write boundary:
 
@@ -280,7 +287,7 @@ New module `modules/engenty-apps`, schema `module_apps` (migration named
   "name": "Travel expenses",
   "entry": { "frontend": "index.html", "backend": "server.ts" },
   "engenty": { "operations": ["inbox_threads_list", "connections_files_write"] },
-  "storage": { "sqlite": true },
+  "storage": { "data": true, "config": true },   // both enforced by the proxy, not decorative
   "egress": { "connect": [] },          // deny-by-default; declared hosts only
   "actions": [                          // what copilot/coordinator may invoke
     { "id": "collect",  "risk": "low",  "summary": "…" },

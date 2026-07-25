@@ -48,9 +48,12 @@ export const appManifestSchema = z.object({
   }),
   name: z.string().min(1).max(120),
   rules: appFilePathSchema.optional(),
-  storage: z.object({ data: z.boolean().default(false) }).default({
-    data: false,
-  }),
+  storage: z
+    .object({
+      config: z.boolean().default(false),
+      data: z.boolean().default(false),
+    })
+    .default({ config: false, data: false }),
 });
 
 export const appSchema = z.object({
@@ -197,6 +200,39 @@ export const appDataExportResultSchema = z.object({
     appDataEntrySchema.extend({ session_id: z.string() })
   ),
   exported_at: z.string(),
+});
+
+/**
+ * App config. Unlike `app_data` there is no session_id — that is the point:
+ * config is what an App remembers about a tenant or a user between artifact
+ * instances. `user_id` selects the level (omitted ⇒ the tenant-wide default).
+ */
+export const appConfigGetInputSchema = z.object({
+  app_id: z.string().uuid(),
+  key: appDataKeySchema,
+  user_id: z.string().uuid().optional(),
+});
+
+export const appConfigSetInputSchema = appConfigGetInputSchema.extend({
+  value: z.unknown(),
+});
+
+export const appConfigListInputSchema = z.object({
+  app_id: z.string().uuid(),
+  prefix: z.string().max(200).optional(),
+  user_id: z.string().uuid().optional(),
+});
+
+export const appConfigEntrySchema = z.object({
+  key: z.string(),
+  /** Which level the returned value actually came from. */
+  scope: z.enum(["default", "user"]),
+  updated_at: z.string(),
+  value: z.unknown(),
+});
+
+export const appConfigListResultSchema = z.object({
+  entries: z.array(appConfigEntrySchema),
 });
 
 export const notFoundSchema = z.object({ error: z.string() });

@@ -6,6 +6,7 @@ import type {
 import type { AppsRepo } from "./gateway-methods.js";
 import type {
   App,
+  AppConfigEntry,
   AppDataEntry,
   AppManifest,
   AppVersion,
@@ -57,13 +58,14 @@ export function makeManifest(overrides: Partial<AppManifest> = {}): AppManifest 
     engenty: { operations: ["inbox_threads_list"] },
     entry: { backend: "server.js", frontend: "index.html" },
     name: "Travel expenses",
-    storage: { data: true },
+    storage: { config: true, data: true },
     ...overrides,
   };
 }
 
 export interface FakeAppsStore {
   apps: App[];
+  config: AppConfigEntry[];
   data: AppDataEntry[];
   versions: AppVersion[];
 }
@@ -116,9 +118,26 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
           )
       );
     },
+    deleteConfig: async ({ appId, key, userId }) => {
+      store.config = store.config.filter(
+        (entry) =>
+          !(
+            entry.app_id === appId &&
+            entry.key === key &&
+            entry.user_id === (userId ?? null)
+          )
+      );
+    },
     getApp: async (id) => store.apps.find((app) => app.id === id) ?? null,
     getAppBySlug: async (slug) =>
       store.apps.find((app) => app.slug === slug) ?? null,
+    getConfig: async ({ appId, key, userId }) =>
+      store.config.find(
+        (entry) =>
+          entry.app_id === appId &&
+          entry.key === key &&
+          entry.user_id === (userId ?? null)
+      ) ?? null,
     getConsent: async () => null,
     getData: async ({ appId, key, sessionId }) =>
       store.data.find(
@@ -181,6 +200,26 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
       ),
     listApps: async (filter) =>
       store.apps.filter((app) => !filter?.status || app.status === filter.status),
+    listConfig: async ({ appId, prefix, userId }) => {
+      const merged = new Map<string, AppConfigEntry>();
+      for (const entry of store.config) {
+        if (entry.app_id !== appId) {
+          continue;
+        }
+        if (prefix && !entry.key.startsWith(prefix)) {
+          continue;
+        }
+        if (entry.user_id !== null && entry.user_id !== (userId ?? null)) {
+          continue;
+        }
+        const existing = merged.get(entry.key);
+        // A user value shadows the default, mirroring the DAL's merge.
+        if (!existing || (existing.user_id === null && entry.user_id !== null)) {
+          merged.set(entry.key, entry);
+        }
+      }
+      return [...merged.values()].sort((a, b) => a.key.localeCompare(b.key));
+    },
     listData: async ({ appId, prefix, sessionId }) =>
       store.data.filter(
         (entry) =>
@@ -194,7 +233,43 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
         .sort((a, b) => b.version - a.version),
     recordConsent: async () => {},
     resolveCapability: async () => null,
+    resolveConfig: async ({ appId, key, userId }) =>
+      store.config.find(
+        (entry) =>
+          entry.app_id === appId && entry.key === key && entry.user_id === userId
+      ) ??
+      store.config.find(
+        (entry) =>
+          entry.app_id === appId && entry.key === key && entry.user_id === null
+      ) ??
+      null,
     revokeCapability: async () => {},
+    setConfig: async ({ appId, key, userId, value }) => {
+      const level = userId ?? null;
+      const existing = store.config.find(
+        (entry) =>
+          entry.app_id === appId &&
+          entry.key === key &&
+          entry.user_id === level
+      );
+      if (existing) {
+        existing.value = value;
+        existing.updated_at = now();
+        return existing;
+      }
+      const entry: AppConfigEntry = {
+        app_id: appId,
+        created_at: now(),
+        key,
+        scope_id: defaultAuth.scopeId,
+        tenant_id: defaultAuth.tenantId,
+        updated_at: now(),
+        user_id: level,
+        value,
+      };
+      store.config.push(entry);
+      return entry;
+    },
     setData: async ({ appId, key, sessionId, value }) => {
       const existing = store.data.find(
         (entry) =>
@@ -241,5 +316,5 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
 }
 
 export function makeFakeStore(): FakeAppsStore {
-  return { apps: [], data: [], versions: [] };
+  return { apps: [], config: [], data: [], versions: [] };
 }

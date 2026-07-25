@@ -200,12 +200,40 @@ guest VM, and the only path from there to an actor is the loopback bridge that r
 socket handle. The blocker was never SQLite — it is that **the guest cannot reach any actor at all**,
 and per-app SQLite was simply the first thing that needed to.
 
-This reframes the fix. Rather than waiting on the sidecar's network bridge, the host can define a
-trusted per-app storage actor itself — keyed `[tenantId, appId]`, exactly the cookbook's
+This reframes the available fix. Rather than waiting on the sidecar's network bridge, the host could
+define the per-app storage actor itself — keyed `[tenantId, appId]`, exactly the cookbook's
 key-is-the-tenant isolation model — and let the guest reach it through the *existing* engenty bridge
 that already carries `data_get`/`data_set`/`data_delete`/`data_list`, which does not touch the broken
-path. That swaps the `app_data` table for real per-app SQLite behind the same four operations, with
-no change to any App. It is not implemented; §5's `app_data` remains what ships.
+path. That would swap the `app_data` table for real per-app SQLite behind the same four operations,
+with no change to any App.
+
+### 4b. Decision — SQLite rejected, Postgres kept
+
+**We are not doing that.** Restoring the original plan is not a goal in itself, and per-app SQLite
+loses more than it gains.
+
+The migration header states the invariant the whole architecture rests on:
+
+> Postgres is the source of truth. The app host is a runtime: losing all of its actor state means
+> redeploying from `app_versions.files`, not losing an app.
+
+Per-app SQLite breaks it. Working data would live only in app-host's RocksDB store — a named Docker
+volume, on a preview dependency running a patched `dist/`. Losing that volume would mean losing
+tenant data rather than a rebuildable runtime. Today app-host can be deleted wholesale and nothing
+is lost.
+
+Everything else follows from the same fact: `app_data_export`, RLS, the tenant-delete cascade, one
+backup story, and agent/human access through gateway ops all exist *because* the data is in
+Postgres. Each would need rebuilding against the actor store.
+
+What SQLite actually buys is SQL inside the App — joins, indexes, aggregates, transactions across
+keys. No App we have scoped needs that. If a genuinely data-heavy App appears, this section is the
+design to revisit, for that App alone.
+
+What the re-spike changed instead: `app_data` is session-scoped, so an App could not remember
+anything between artifact instances. That gap is now filled by `module_apps.app_config` (PLAN §5) —
+durable, no `session_id`, tenant-default and per-user levels — which is the axis that was actually
+missing, rather than the storage engine.
 
 ## 5. What this means for the plan
 

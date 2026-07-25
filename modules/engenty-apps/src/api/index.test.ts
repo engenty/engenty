@@ -27,6 +27,10 @@ describe("registerAppsApi", () => {
       "app_archive",
       "app_call",
       "app_call_privileged",
+      "app_config_delete",
+      "app_config_get",
+      "app_config_list",
+      "app_config_set",
       "app_create",
       "app_data_delete",
       "app_data_export",
@@ -109,5 +113,104 @@ describe("registerAppsApi", () => {
     expect(byId.get("app_data_get")?.requiredCapabilities).toEqual([
       "module.engenty-apps.read",
     ]);
+  });
+
+  it("leaves app config un-gated but write-capability guarded", () => {
+    const repo = makeFakeAppsRepo(makeFakeStore());
+    const { api, serverOperations } = makeMockApi();
+    registerAppsApi(api, repo);
+
+    const byId = new Map(serverOperations.map((op) => [op.operationId, op]));
+    for (const id of [
+      "app_config_get",
+      "app_config_list",
+      "app_config_set",
+      "app_config_delete",
+    ]) {
+      expect(byId.get(id)?.requiresApproval).toBe(false);
+      expect(byId.get(id)?.riskLevel).toBe("low");
+    }
+    expect(byId.get("app_config_set")?.requiredCapabilities).toEqual([
+      "module.engenty-apps.write",
+    ]);
+    expect(byId.get("app_config_get")?.requiredCapabilities).toEqual([
+      "module.engenty-apps.read",
+    ]);
+  });
+});
+
+describe("app config levels", () => {
+  const USER = "00000000-0000-4000-8000-0000000000aa";
+  const OTHER = "00000000-0000-4000-8000-0000000000bb";
+
+  it("resolves a user's own value over the tenant default", async () => {
+    const repo = makeFakeAppsRepo(makeFakeStore());
+    await repo.setConfig({ appId: "app-1", key: "theme", userId: null, value: "light" });
+
+    expect(
+      (await repo.resolveConfig({ appId: "app-1", key: "theme", userId: USER }))
+        ?.value
+    ).toBe("light");
+
+    await repo.setConfig({ appId: "app-1", key: "theme", userId: USER, value: "dark" });
+
+    expect(
+      (await repo.resolveConfig({ appId: "app-1", key: "theme", userId: USER }))
+        ?.value
+    ).toBe("dark");
+    // The default is untouched — a user setting their own value must not
+    // rewrite what everyone else sees.
+    expect(
+      (await repo.resolveConfig({ appId: "app-1", key: "theme", userId: OTHER }))
+        ?.value
+    ).toBe("light");
+  });
+
+  it("keeps one user's value invisible to another", async () => {
+    const repo = makeFakeAppsRepo(makeFakeStore());
+    await repo.setConfig({ appId: "app-1", key: "filter", userId: USER, value: "mine" });
+
+    expect(
+      await repo.resolveConfig({ appId: "app-1", key: "filter", userId: OTHER })
+    ).toBeNull();
+    expect(
+      await repo.listConfig({ appId: "app-1", userId: OTHER })
+    ).toEqual([]);
+  });
+
+  it("shadows per key in a listing, not per store", async () => {
+    const repo = makeFakeAppsRepo(makeFakeStore());
+    await repo.setConfig({ appId: "app-1", key: "a", userId: null, value: "default-a" });
+    await repo.setConfig({ appId: "app-1", key: "b", userId: null, value: "default-b" });
+    await repo.setConfig({ appId: "app-1", key: "b", userId: USER, value: "user-b" });
+
+    const entries = await repo.listConfig({ appId: "app-1", userId: USER });
+    expect(entries.map((e) => [e.key, e.value])).toEqual([
+      ["a", "default-a"],
+      ["b", "user-b"],
+    ]);
+  });
+
+  it("deletes only the level it was asked for", async () => {
+    const repo = makeFakeAppsRepo(makeFakeStore());
+    await repo.setConfig({ appId: "app-1", key: "k", userId: null, value: "default" });
+    await repo.setConfig({ appId: "app-1", key: "k", userId: USER, value: "user" });
+
+    await repo.deleteConfig({ appId: "app-1", key: "k", userId: USER });
+
+    // Removing an override falls back to the default rather than to nothing.
+    expect(
+      (await repo.resolveConfig({ appId: "app-1", key: "k", userId: USER }))?.value
+    ).toBe("default");
+  });
+
+  it("has no session axis — config outlives an artifact instance", async () => {
+    const repo = makeFakeAppsRepo(makeFakeStore());
+    await repo.setConfig({ appId: "app-1", key: "k", userId: USER, value: 1 });
+    // There is no session_id to pass; the same read succeeds from any
+    // instance, which is the whole reason this table exists next to app_data.
+    expect(
+      (await repo.resolveConfig({ appId: "app-1", key: "k", userId: USER }))?.value
+    ).toBe(1);
   });
 });

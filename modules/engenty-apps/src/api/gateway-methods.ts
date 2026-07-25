@@ -19,6 +19,10 @@ import {
   appActionsListResultSchema,
   appCallInputSchema,
   appCallResultSchema,
+  appConfigGetInputSchema,
+  appConfigListInputSchema,
+  appConfigListResultSchema,
+  appConfigSetInputSchema,
   appCreateInputSchema,
   appDataExportInputSchema,
   appDataExportResultSchema,
@@ -556,5 +560,116 @@ export function registerAppsGatewayMethods(
     operationId: "app_data_export",
     outputSchema: appDataExportResultSchema,
     summary: "Export an app's working store",
+  });
+
+  // ── App config ───────────────────────────────────────────────────────────
+  //
+  // Writes here are ordinary writes, not approval-gated: an App's config
+  // namespace reaches nothing outside that App, so the blast radius of a bad
+  // value is "this app behaves differently", not an external side effect.
+  // That is the same call `app_data_set` makes.
+
+  api.registerOperation({
+    ...readOp(),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = appConfigGetInputSchema.parse(input);
+      const entry = await repo.resolveConfig({
+        appId: parsed.app_id,
+        key: parsed.key,
+        userId: parsed.user_id ?? null,
+      });
+      return {
+        key: parsed.key,
+        scope: entry?.user_id ? ("user" as const) : ("default" as const),
+        updated_at: entry?.updated_at ?? "",
+        value: entry?.value ?? null,
+      };
+    },
+    inputSchema: appConfigGetInputSchema,
+    operationId: "app_config_get",
+    outputSchema: z.object({
+      key: z.string(),
+      scope: z.enum(["default", "user"]),
+      updated_at: z.string(),
+      value: z.unknown(),
+    }),
+    summary: "Read one app config key, resolving user over tenant default",
+  });
+
+  api.registerOperation({
+    ...readOp(),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = appConfigListInputSchema.parse(input);
+      const entries = await repo.listConfig({
+        appId: parsed.app_id,
+        prefix: parsed.prefix,
+        userId: parsed.user_id ?? null,
+      });
+      return {
+        entries: entries.map((entry) => ({
+          key: entry.key,
+          scope: entry.user_id ? ("user" as const) : ("default" as const),
+          updated_at: entry.updated_at,
+          value: entry.value,
+        })),
+      };
+    },
+    inputSchema: appConfigListInputSchema,
+    operationId: "app_config_list",
+    outputSchema: appConfigListResultSchema,
+    summary: "List an app's config keys",
+  });
+
+  api.registerOperation({
+    ...readOp(),
+    idempotent: false,
+    requiredCapabilities: ["module.engenty-apps.write"],
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = appConfigSetInputSchema.parse(input);
+      const entry = await repo.setConfig({
+        appId: parsed.app_id,
+        key: parsed.key,
+        userId: parsed.user_id ?? null,
+        value: parsed.value ?? null,
+      });
+      return {
+        key: entry.key,
+        scope: entry.user_id ? ("user" as const) : ("default" as const),
+        updated_at: entry.updated_at,
+        value: entry.value,
+      };
+    },
+    inputSchema: appConfigSetInputSchema,
+    operationId: "app_config_set",
+    outputSchema: z.object({
+      key: z.string(),
+      scope: z.enum(["default", "user"]),
+      updated_at: z.string(),
+      value: z.unknown(),
+    }),
+    summary: "Write one app config key at the user or tenant-default level",
+  });
+
+  api.registerOperation({
+    ...readOp(),
+    idempotent: false,
+    requiredCapabilities: ["module.engenty-apps.write"],
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = appConfigGetInputSchema.parse(input);
+      await repo.deleteConfig({
+        appId: parsed.app_id,
+        key: parsed.key,
+        userId: parsed.user_id ?? null,
+      });
+      return { deleted: true };
+    },
+    inputSchema: appConfigGetInputSchema,
+    operationId: "app_config_delete",
+    outputSchema: z.object({ deleted: z.boolean() }),
+    summary: "Delete one app config key at the given level",
   });
 }

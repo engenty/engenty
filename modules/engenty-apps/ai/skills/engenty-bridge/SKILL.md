@@ -56,8 +56,38 @@ parent.postMessage(
 | `data_set` | `{ key, value }` | Write one key |
 | `data_list` | `{ prefix? }` | List keys in this session |
 | `data_delete` | `{ key }` | Delete one key |
+| `config_get` | `{ key }` | Read one config key |
+| `config_set` | `{ key, value }` | Write one config key |
+| `config_list` | `{ prefix? }` | List config keys |
+| `config_delete` | `{ key }` | Delete one config key |
 
 Anything else is rejected. There is no `shell`, no `fetch`, no `sql`.
+
+## Two stores, and picking the right one
+
+They look identical and they are not interchangeable:
+
+| | `data_*` | `config_*` |
+| --- | --- | --- |
+| Scope | **this session** — one artifact instance | this **user**, or the tenant |
+| Lifetime | dies with the instance | outlives every instance |
+| Use for | the work in progress: a half-filled form, a draft, a running total | what the App should remember: a preference, a default, a saved filter |
+
+Open the same App twice and you get two `data_*` stores and one `config_*`. So
+a draft expense report belongs in `data_*`; "this user prefers EUR" belongs in
+`config_*`. Putting working state in `config_*` means two open instances fight
+over the same keys.
+
+Both must be declared, or every call returns `apps.storageNotDeclared`:
+
+```jsonc
+"storage": { "data": true, "config": true }
+```
+
+`config_set` always writes **that user's own value**. You cannot set a
+tenant-wide default from inside an App — that is an admin action. Reads fall
+back to the tenant default when the user has no value of their own, so
+`config_get` is how you read a default an admin set for everyone.
 
 ## What the allow-list actually means
 
