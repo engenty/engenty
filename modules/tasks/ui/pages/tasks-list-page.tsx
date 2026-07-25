@@ -485,8 +485,8 @@ export function TasksListPage() {
         variant="canvas"
       />
 
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-6 px-page pb-10">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-5xl flex-col px-page pb-10">
           <div className="shrink-0 space-y-2">
             <TasksToolbar
               assigneeKind={assigneeKind}
@@ -532,113 +532,113 @@ export function TasksListPage() {
             />
           </div>
 
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">…</p>
-          ) : null}
+          <div className="mt-6">
+            {isLoading ? (
+              <p className="text-muted-foreground text-sm">…</p>
+            ) : null}
 
-          {!isLoading && error ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
-              {error}
-            </div>
-          ) : null}
+            {!isLoading && error ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
+                {error}
+              </div>
+            ) : null}
 
-          {!(isLoading || error) &&
-          filteredTasks.length === 0 &&
-          viewMode !== "cards" ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ListTodo className="h-12 w-12" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {search.trim() || hasActiveFilters
-                    ? t("list.noSearchResults")
-                    : t("list.empty")}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {t("list.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                {search.trim() || hasActiveFilters ? (
-                  <button
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => {
-                      setSearch("");
-                      setFilters({
-                        groupBy: filters.groupBy,
-                        status: "all",
-                        assignee: "all",
-                        priority: "all",
-                        goalId: "all",
-                      });
-                    }}
-                    type="button"
-                  >
-                    {t("list.clearSearch")}
-                  </button>
-                ) : (
-                  <button
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => handleAddTask(null)}
-                    type="button"
-                  >
-                    {t("list.newTask")}
-                  </button>
-                )}
-              </EmptyContent>
-            </Empty>
-          ) : null}
+            {!(isLoading || error) &&
+            filteredTasks.length === 0 &&
+            viewMode !== "cards" ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ListTodo className="h-12 w-12" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {search.trim() || hasActiveFilters
+                      ? t("list.noSearchResults")
+                      : t("list.empty")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {t("list.emptyDescription")}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  {search.trim() || hasActiveFilters ? (
+                    <button
+                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => {
+                        setSearch("");
+                        setFilters({
+                          groupBy: filters.groupBy,
+                          status: "all",
+                          assignee: "all",
+                          priority: "all",
+                          goalId: "all",
+                        });
+                      }}
+                      type="button"
+                    >
+                      {t("list.clearSearch")}
+                    </button>
+                  ) : (
+                    <button
+                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => handleAddTask(null)}
+                      type="button"
+                    >
+                      {t("list.newTask")}
+                    </button>
+                  )}
+                </EmptyContent>
+              </Empty>
+            ) : null}
 
-          {!(isLoading || error) &&
-            filteredTasks.length > 0 &&
-            viewMode === "table" && (
-              <AdminListTableView
-                bottomFade
-                pagination={{
-                  nextLabel: t("list.next"),
-                  onNext: () =>
-                    setPage((prev) => Math.min(totalPages, prev + 1)),
-                  onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
-                  page,
-                  pageOfLabel: t("list.pageOf", { page, totalPages }),
-                  previousLabel: t("list.previous"),
-                  totalPages,
-                }}
-                scrollClassName={
-                  filters.groupBy === "none" ? undefined : "rounded-lg"
-                }
-                stickyHeaderShadow
-                transparent={filters.groupBy !== "none"}
-              >
-                <TasksListTable
-                  assigneeProfiles={assigneeProfiles}
-                  columnOrder={effectiveColumnOrder}
-                  columns={listColumns}
-                  columnVisibility={effectiveColumnVisibility}
-                  enrichments={enrichments}
-                  goals={goals}
-                  groupBy={filters.groupBy}
-                  navigate={navigate}
-                  onDelete={handleTaskDelete}
-                  onEdit={handleTaskEdit}
-                  onRowClick={handleTaskClick}
-                  onSelectAll={handleSelectAll}
-                  onSelectOne={handleSelectOne}
-                  projectTitleById={projectTitleById}
-                  selectedIds={selectedIds}
-                  showAssignee={teamMembersEnabled}
-                  tableSize={tableSize ?? "normal"}
-                  taskStatusDefinitions={taskStatusDefinitions}
-                  tasks={filteredTasks}
-                />
-              </AdminListTableView>
-            )}
+            {!(isLoading || error) &&
+              filteredTasks.length > 0 &&
+              viewMode === "table" && (
+                <AdminListTableView
+                  bottomFade
+                  pagination={{
+                    nextLabel: t("list.next"),
+                    onNext: () =>
+                      setPage((prev) => Math.min(totalPages, prev + 1)),
+                    onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
+                    page,
+                    pageOfLabel: t("list.pageOf", { page, totalPages }),
+                    previousLabel: t("list.previous"),
+                    totalPages,
+                  }}
+                  scrollClassName={
+                    filters.groupBy === "none" ? undefined : "rounded-lg"
+                  }
+                  stickyHeaderShadow
+                  transparent={filters.groupBy !== "none"}
+                >
+                  <TasksListTable
+                    assigneeProfiles={assigneeProfiles}
+                    columnOrder={effectiveColumnOrder}
+                    columns={listColumns}
+                    columnVisibility={effectiveColumnVisibility}
+                    enrichments={enrichments}
+                    goals={goals}
+                    groupBy={filters.groupBy}
+                    navigate={navigate}
+                    onDelete={handleTaskDelete}
+                    onEdit={handleTaskEdit}
+                    onRowClick={handleTaskClick}
+                    onSelectAll={handleSelectAll}
+                    onSelectOne={handleSelectOne}
+                    projectTitleById={projectTitleById}
+                    selectedIds={selectedIds}
+                    showAssignee={teamMembersEnabled}
+                    tableSize={tableSize ?? "normal"}
+                    taskStatusDefinitions={taskStatusDefinitions}
+                    tasks={filteredTasks}
+                  />
+                </AdminListTableView>
+              )}
 
-          {!(isLoading || error) &&
-            filteredTasks.length > 0 &&
-            viewMode === "kanban" && (
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+            {!(isLoading || error) &&
+              filteredTasks.length > 0 &&
+              viewMode === "kanban" && (
                 <TasksKanbanBoard
                   assigneeProfiles={assigneeProfiles}
                   listParams={listParams}
@@ -649,13 +649,11 @@ export function TasksListPage() {
                   statusColumns={taskStatusDefinitions}
                   tasks={filteredTasks}
                 />
-              </div>
-            )}
+              )}
 
-          {!(isLoading || error) &&
-          viewMode === "cards" &&
-          filteredTasks.length > 0 ? (
-            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            {!(isLoading || error) &&
+            viewMode === "cards" &&
+            filteredTasks.length > 0 ? (
               <TasksGroupedList
                 assigneeProfiles={assigneeProfiles}
                 goals={goals}
@@ -672,68 +670,68 @@ export function TasksListPage() {
                 taskStatusDefinitions={taskStatusDefinitions}
                 tasks={filteredTasks}
               />
-            </div>
-          ) : null}
+            ) : null}
 
-          {showGroupedEmpty || showGroupedNoResults ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ListTodo className="h-12 w-12" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {search.trim() || hasActiveFilters
-                    ? t("list.noSearchResults")
-                    : t("list.empty")}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {t("list.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                {search.trim() || hasActiveFilters ? (
-                  <button
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => {
-                      setSearch("");
-                      setFilters({
-                        groupBy: filters.groupBy,
-                        status: "all",
-                        assignee: "all",
-                        priority: "all",
-                        goalId: "all",
-                      });
-                    }}
-                    type="button"
-                  >
-                    {t("list.clearSearch")}
-                  </button>
-                ) : (
-                  <button
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => handleAddTask(null)}
-                    type="button"
-                  >
-                    {t("list.newTask")}
-                  </button>
-                )}
-              </EmptyContent>
-            </Empty>
-          ) : null}
+            {showGroupedEmpty || showGroupedNoResults ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ListTodo className="h-12 w-12" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {search.trim() || hasActiveFilters
+                      ? t("list.noSearchResults")
+                      : t("list.empty")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {t("list.emptyDescription")}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  {search.trim() || hasActiveFilters ? (
+                    <button
+                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => {
+                        setSearch("");
+                        setFilters({
+                          groupBy: filters.groupBy,
+                          status: "all",
+                          assignee: "all",
+                          priority: "all",
+                          goalId: "all",
+                        });
+                      }}
+                      type="button"
+                    >
+                      {t("list.clearSearch")}
+                    </button>
+                  ) : (
+                    <button
+                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => handleAddTask(null)}
+                      type="button"
+                    >
+                      {t("list.newTask")}
+                    </button>
+                  )}
+                </EmptyContent>
+              </Empty>
+            ) : null}
 
-          {!(isLoading || error) &&
-          filteredTasks.length > 0 &&
-          viewMode === "cards" ? (
-            <AdminListPagination
-              nextLabel={t("list.next")}
-              onNext={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              onPrevious={() => setPage((prev) => Math.max(1, prev - 1))}
-              page={page}
-              pageOfLabel={t("list.pageOf", { page, totalPages })}
-              previousLabel={t("list.previous")}
-              totalPages={totalPages}
-            />
-          ) : null}
+            {!(isLoading || error) &&
+            filteredTasks.length > 0 &&
+            viewMode === "cards" ? (
+              <AdminListPagination
+                nextLabel={t("list.next")}
+                onNext={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                onPrevious={() => setPage((prev) => Math.max(1, prev - 1))}
+                page={page}
+                pageOfLabel={t("list.pageOf", { page, totalPages })}
+                previousLabel={t("list.previous")}
+                totalPages={totalPages}
+              />
+            ) : null}
+          </div>
 
           {topbarDialogs}
 

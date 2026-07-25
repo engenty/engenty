@@ -238,8 +238,8 @@ export function GoalsListPage() {
         variant="canvas"
       />
 
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-6 px-page pb-10">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-5xl flex-col px-page pb-10">
           <GoalsToolbar
             columnOrder={columnOrder}
             columns={[...columnOptions]}
@@ -264,86 +264,93 @@ export function GoalsListPage() {
             viewMode={viewMode as GoalsViewMode}
           />
 
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">…</p>
-          ) : null}
+          <div className="mt-6">
+            {isLoading ? (
+              <p className="text-muted-foreground text-sm">…</p>
+            ) : null}
 
-          {!isLoading && error ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
-              {error}
-            </div>
-          ) : null}
+            {!isLoading && error ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
+                {error}
+              </div>
+            ) : null}
 
-          {!(isLoading || error) && goals.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Target className="h-12 w-12" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {search.trim() || statusFilter !== "all" || ownerKind !== ""
-                    ? t("goals.noSearchResults")
-                    : t("goals.empty")}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {t("goals.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                {search.trim() || statusFilter !== "all" || ownerKind !== "" ? (
-                  <button
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => {
-                      handleSearchChange("");
-                      handleStatusFilterChange("all");
-                      setOwnerKind("");
-                    }}
-                    type="button"
-                  >
-                    {t("goals.clearFilters")}
-                  </button>
-                ) : (
-                  <button
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => openCreateGoal()}
-                    type="button"
-                  >
-                    {t("goals.newGoal")}
-                  </button>
-                )}
-              </EmptyContent>
-            </Empty>
-          ) : null}
+            {!(isLoading || error) && goals.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Target className="h-12 w-12" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {search.trim() || statusFilter !== "all" || ownerKind !== ""
+                      ? t("goals.noSearchResults")
+                      : t("goals.empty")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {t("goals.emptyDescription")}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  {search.trim() ||
+                  statusFilter !== "all" ||
+                  ownerKind !== "" ? (
+                    <button
+                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => {
+                        handleSearchChange("");
+                        handleStatusFilterChange("all");
+                        setOwnerKind("");
+                      }}
+                      type="button"
+                    >
+                      {t("goals.clearFilters")}
+                    </button>
+                  ) : (
+                    <button
+                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => openCreateGoal()}
+                      type="button"
+                    >
+                      {t("goals.newGoal")}
+                    </button>
+                  )}
+                </EmptyContent>
+              </Empty>
+            ) : null}
 
-          {!(isLoading || error) && goals.length > 0 && viewMode === "cards" ? (
-            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            {!(isLoading || error) &&
+            goals.length > 0 &&
+            viewMode === "cards" ? (
               <GoalsCards goals={goals} onGoalClick={handleRowClick} />
-            </div>
-          ) : null}
+            ) : null}
 
-          {!(isLoading || error) && goals.length > 0 && viewMode === "table" ? (
-            <AdminListTableView
-              pagination={{
-                nextLabel: t("goals.next"),
-                onNext: () => setPage((prev) => Math.min(totalPages, prev + 1)),
-                onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
-                page,
-                pageOfLabel: t("goals.pageOf", { page, totalPages }),
-                previousLabel: t("goals.previous"),
-                totalPages,
-              }}
-            >
-              <GoalsListTable
-                columnOrder={columnOrder}
-                columnVisibility={columnVisibility}
-                goals={goals}
-                onDelete={handleDelete}
-                onEdit={handleEdit}
-                onRowClick={handleRowClick}
-                tableSize={tableSize ?? "normal"}
-              />
-            </AdminListTableView>
-          ) : null}
+            {!(isLoading || error) &&
+            goals.length > 0 &&
+            viewMode === "table" ? (
+              <AdminListTableView
+                pagination={{
+                  nextLabel: t("goals.next"),
+                  onNext: () =>
+                    setPage((prev) => Math.min(totalPages, prev + 1)),
+                  onPrevious: () => setPage((prev) => Math.max(1, prev - 1)),
+                  page,
+                  pageOfLabel: t("goals.pageOf", { page, totalPages }),
+                  previousLabel: t("goals.previous"),
+                  totalPages,
+                }}
+              >
+                <GoalsListTable
+                  columnOrder={columnOrder}
+                  columnVisibility={columnVisibility}
+                  goals={goals}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                  onRowClick={handleRowClick}
+                  tableSize={tableSize ?? "normal"}
+                />
+              </AdminListTableView>
+            ) : null}
+          </div>
 
           {topbarDialogs}
         </div>

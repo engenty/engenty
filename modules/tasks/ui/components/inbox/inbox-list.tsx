@@ -1,8 +1,7 @@
 // Inbox entries (Mastra notification records) — shared by the inbox page and
-// the Briefing section. Split into two lanes: "Needs input" (HITL — approvals,
-// proposals, failures that require a human decision) above "Notifications"
-// (informational — completed agent work, mentions). Each entry shows the
-// agent's actual result text so it says what happened, not just "task X done".
+// the Briefing section. Split into lanes: HITL approvals, errors, then
+// informational updates. Each entry shows the agent's result text so it says
+// what happened, not just "task X done".
 import {
   type InboxNotificationDto,
   useMarkInboxNotificationMutation,
@@ -28,24 +27,15 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link } from "react-router-dom";
+import {
+  type InboxKindFilter,
+  isError,
+  isHitl,
+  isNeedsInput,
+  matchesInboxKindFilter,
+} from "../../lib/inbox-classification.js";
 import { tasksPaths } from "../../lib/tasks-routes.js";
-import { useResolveToolApprovalMutation } from "../../tasks-queries.js";
-
-/** Kinds that require a human decision (approve/reject/review) — the HITL lane. */
-const NEEDS_INPUT_KINDS = new Set([
-  "tool_approval",
-  "connection_approval_requested",
-  "agent_proposed",
-  "skill_proposed",
-  "memory_proposal",
-  "task_failed",
-  "task_review_requested",
-  "trigger_failed",
-]);
-
-function isNeedsInput(n: InboxNotificationDto): boolean {
-  return NEEDS_INPUT_KINDS.has(n.kind);
-}
+import { ToolApprovalActions } from "./tool-approval-actions.js";
 
 function relativeTime(iso: string, locale: string): string {
   const then = new Date(iso).getTime();
@@ -133,79 +123,6 @@ function toolApprovalContext(notification: InboxNotificationDto): {
   };
 }
 
-/** Inline Allow-once / task / routine / Deny buttons for a pending approval.
- * On resolve, the notification is dismissed (the run has already ended; the
- * task re-dispatches on approve). Shared by the inbox and the task card. */
-export function ToolApprovalActions({
-  operationId,
-  taskId,
-  triggerId,
-  onResolved,
-}: {
-  operationId: string;
-  taskId: string;
-  triggerId: string | null;
-  onResolved?: () => void;
-}) {
-  const { t } = useTranslation("tasks");
-  const resolveMutation = useResolveToolApprovalMutation();
-  const markMutation = useMarkInboxNotificationMutation();
-  const pending = resolveMutation.isPending;
-
-  const resolve = (
-    decision: "approve" | "deny",
-    scope?: "once" | "task" | "routine"
-  ) => {
-    resolveMutation.mutate(
-      { body: { decision, operation_id: operationId, scope }, taskId },
-      { onSuccess: () => onResolved?.() }
-    );
-  };
-
-  return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-      <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
-        {operationId}
-      </code>
-      <Button
-        disabled={pending}
-        onClick={() => resolve("approve", "once")}
-        size="sm"
-        variant="outline"
-      >
-        {t("inbox.approveOnce")}
-      </Button>
-      <Button
-        disabled={pending}
-        onClick={() => resolve("approve", "task")}
-        size="sm"
-        variant="outline"
-      >
-        {t("inbox.approveForTask")}
-      </Button>
-      {triggerId ? (
-        <Button
-          disabled={pending}
-          onClick={() => resolve("approve", "routine")}
-          size="sm"
-          variant="outline"
-        >
-          {t("inbox.approveForRoutine")}
-        </Button>
-      ) : null}
-      <Button
-        className="text-destructive hover:text-destructive"
-        disabled={pending || markMutation.isPending}
-        onClick={() => resolve("deny")}
-        size="sm"
-        variant="ghost"
-      >
-        {t("inbox.denyApproval")}
-      </Button>
-    </div>
-  );
-}
-
 /**
  * The one word that says what this row wants from you. Rendered coloured ahead
  * of the subject so the lane scans as a to-do list ("Review …", "Approve …")
@@ -241,9 +158,7 @@ function InboxItem({
   const markMutation = useMarkInboxNotificationMutation();
   const unseen = isUnseen(notification);
   const href = notificationHref(notification);
-  const failure =
-    notification.kind === "task_failed" ||
-    notification.kind === "trigger_failed";
+  const failure = isError(notification);
   const Icon = iconForKind(notification);
   const approval = toolApprovalContext(notification);
   // Collapse whitespace so the preview is a clean flowing snippet — no lone
@@ -275,14 +190,14 @@ function InboxItem({
   return (
     <li
       className={cn(
-        "flex items-start gap-2.5 rounded-md border px-3 py-2",
-        unseen ? "bg-card" : "bg-muted/20",
-        failure && "border-destructive/30"
+        "ui-canvas-raised flex items-start gap-3 rounded-md bg-card px-4 py-3",
+        !unseen && "opacity-70",
+        failure && "ring-1 ring-destructive/25"
       )}
     >
       <Icon
         className={cn(
-          "mt-0.5 h-3.5 w-3.5 shrink-0",
+          "mt-0.5 h-4 w-4 shrink-0",
           failure ? "text-destructive" : "text-muted-foreground"
         )}
       />
@@ -300,7 +215,7 @@ function InboxItem({
           </span>
         </div>
         {detail ? (
-          <p className="line-clamp-2 text-muted-foreground text-xs leading-snug">
+          <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
             {detail}
           </p>
         ) : null}
@@ -348,7 +263,7 @@ function InboxSection({
   title: string;
   notifications: InboxNotificationDto[];
   locale: string;
-  tone?: "primary";
+  tone?: "primary" | "destructive";
   onClearAll?: (notifications: InboxNotificationDto[]) => void;
 }) {
   const { t } = useTranslation("tasks");
@@ -356,14 +271,18 @@ function InboxSection({
     return null;
   }
   return (
-    <section className="space-y-1.5">
+    <section className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+        <h2 className="flex items-center gap-2 font-medium text-muted-foreground text-sm">
           <Icon
-            className={cn("h-3.5 w-3.5", tone === "primary" && "text-primary")}
+            className={cn(
+              "h-3.5 w-3.5",
+              tone === "primary" && "text-primary",
+              tone === "destructive" && "text-destructive"
+            )}
           />
           {title}
-          <span className="text-muted-foreground/70">
+          <span className="text-muted-foreground/70 tabular-nums">
             ({notifications.length})
           </span>
         </h2>
@@ -379,7 +298,7 @@ function InboxSection({
           </Button>
         ) : null}
       </div>
-      <ul className="space-y-1.5">
+      <ul className="flex flex-col gap-2">
         {notifications.map((notification) => (
           <InboxItem
             key={notification.id}
@@ -393,21 +312,31 @@ function InboxSection({
 }
 
 export function InboxList({
+  grouped = true,
+  kindFilter = "all",
   locale,
   notifications,
 }: {
+  /** When false, render a flat list (e.g. Briefing Attention lane). */
+  grouped?: boolean;
+  kindFilter?: InboxKindFilter;
   locale: string;
   notifications: InboxNotificationDto[];
 }) {
   const { t } = useTranslation("tasks");
   const markMutation = useMarkInboxNotificationMutation();
 
-  if (notifications.length === 0) {
+  const filtered = notifications.filter((n) =>
+    matchesInboxKindFilter(n, kindFilter)
+  );
+
+  if (filtered.length === 0) {
     return <p className="text-muted-foreground text-sm">{t("inbox.empty")}</p>;
   }
 
-  const needsInput = notifications.filter(isNeedsInput);
-  const informational = notifications.filter((n) => !isNeedsInput(n));
+  const hitl = filtered.filter(isHitl);
+  const errors = filtered.filter(isError);
+  const updates = filtered.filter((n) => !isNeedsInput(n));
 
   const clearAll = (items: InboxNotificationDto[]) => {
     for (const item of items) {
@@ -415,20 +344,44 @@ export function InboxList({
     }
   };
 
+  // Filtered or flat views stay a single lane; grouped "all" keeps sections.
+  if (!grouped || kindFilter !== "all") {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <ul className="flex flex-col gap-2">
+          {filtered.map((notification) => (
+            <InboxItem
+              key={notification.id}
+              locale={locale}
+              notification={notification}
+            />
+          ))}
+        </ul>
+      </TooltipProvider>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="space-y-5">
+      <div className="space-y-6">
         <InboxSection
           icon={ShieldCheck}
           locale={locale}
-          notifications={needsInput}
-          title={t("inbox.needsInput")}
+          notifications={hitl}
+          title={t("inbox.needsApproval")}
           tone="primary"
+        />
+        <InboxSection
+          icon={AlertTriangle}
+          locale={locale}
+          notifications={errors}
+          title={t("inbox.errors")}
+          tone="destructive"
         />
         <InboxSection
           icon={Link2}
           locale={locale}
-          notifications={informational}
+          notifications={updates}
           onClearAll={clearAll}
           title={t("inbox.notifications")}
         />

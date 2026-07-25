@@ -5,13 +5,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { ChevronDown, ListTodo, Plus, Settings, Target } from "lucide-react";
+import {
+  ChevronDown,
+  ListTodo,
+  Plus,
+  Settings,
+  Target,
+  Zap,
+} from "lucide-react";
 
 interface TasksTopbarActionsProps {
   addNewLabel: string;
   newGoalLabel: string;
+  newRoutineLabel: string;
   newTaskLabel: string;
   onCreateGoal: () => void;
+  onCreateRoutine: () => void;
   onCreateTask: () => void;
   onOpenSettings: () => void;
   settingsLabel: string;
@@ -20,8 +29,10 @@ interface TasksTopbarActionsProps {
 export function TasksTopbarActions({
   addNewLabel,
   newGoalLabel,
+  newRoutineLabel,
   newTaskLabel,
   onCreateGoal,
+  onCreateRoutine,
   onCreateTask,
   onOpenSettings,
   settingsLabel,
@@ -46,13 +57,17 @@ export function TasksTopbarActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={onCreateTask}>
+            <ListTodo className="mr-2 h-4 w-4" />
+            {newTaskLabel}
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={onCreateGoal}>
             <Target className="mr-2 h-4 w-4" />
             {newGoalLabel}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onCreateTask}>
-            <ListTodo className="mr-2 h-4 w-4" />
-            {newTaskLabel}
+          <DropdownMenuItem onClick={onCreateRoutine}>
+            <Zap className="mr-2 h-4 w-4" />
+            {newRoutineLabel}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

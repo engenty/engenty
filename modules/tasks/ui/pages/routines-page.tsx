@@ -1,14 +1,9 @@
 // Routines list page — rows navigate to the routed detail page;
 // creation stays a dialog (analogous to task/goal creation).
-import {
-  RoutineCreateDialog,
-  type RoutineDto,
-  useRoutinesListQuery,
-} from "@engenty/ai-ui/embed";
+import { type RoutineDto, useRoutinesListQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, DetailPageHeader, Tabs } from "@engenty/ui-core";
+import { DetailPageHeader, Tabs } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlanListSubNav } from "../components/plan-list-sub-nav.js";
@@ -19,6 +14,7 @@ import type {
 } from "../components/routines-display-dialog.js";
 import { RoutinesToolbar } from "../components/routines-toolbar.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
+import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
 import { getRoutinesToolbarLabels } from "../lib/routines-toolbar-labels.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 import { usePlanListTabNavigation } from "../lib/use-plan-list-tab-navigation.js";
@@ -46,7 +42,7 @@ export function RoutinesPage() {
   const locale = i18n.language || "en";
   const navigate = useNavigate();
   const onPlanTabChange = usePlanListTabNavigation();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const { pageActions, topbarDialogs } = useTasksTopbarActions();
   const [search, setSearch] = useState("");
   const [enabledFilter, setEnabledFilter] =
     useState<RoutinesEnabledFilter>("all");
@@ -64,21 +60,6 @@ export function RoutinesPage() {
       { label: t("tabs.routines") },
     ],
     [moduleRootCrumb, t]
-  );
-
-  const pageActions = useMemo(
-    () => (
-      <Button
-        className="inline-flex items-center gap-1.5"
-        onClick={() => setIsCreateOpen(true)}
-        size="sm"
-        type="button"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        {t("routines.page.create")}
-      </Button>
-    ),
-    [t]
   );
 
   usePageConfig({
@@ -146,7 +127,7 @@ export function RoutinesPage() {
       />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-page pb-10">
+        <div className="mx-auto flex w-full max-w-5xl flex-col px-page pb-10">
           <RoutinesToolbar
             enabledFilter={enabledFilter}
             labels={labels}
@@ -160,26 +141,24 @@ export function RoutinesPage() {
             sortOrder={sortOrder}
           />
 
-          <RoutinesCardList
-            isError={routinesQuery.isError}
-            isPending={routinesQuery.isPending}
-            locale={locale}
-            onEditRoutine={(routine) =>
-              navigate(tasksPaths.routineEdit(routine.id))
-            }
-            onSelectRoutine={(routine) =>
-              navigate(tasksPaths.routineDetail(routine.id))
-            }
-            routines={filteredRoutines}
-          />
+          <div className="mt-6">
+            <RoutinesCardList
+              isError={routinesQuery.isError}
+              isPending={routinesQuery.isPending}
+              locale={locale}
+              onEditRoutine={(routine) =>
+                navigate(tasksPaths.routineEdit(routine.id))
+              }
+              onSelectRoutine={(routine) =>
+                navigate(tasksPaths.routineDetail(routine.id))
+              }
+              routines={filteredRoutines}
+            />
+          </div>
         </div>
       </div>
 
-      <RoutineCreateDialog
-        locale={locale}
-        onOpenChange={setIsCreateOpen}
-        open={isCreateOpen}
-      />
+      {topbarDialogs}
     </Tabs>
   );
 }

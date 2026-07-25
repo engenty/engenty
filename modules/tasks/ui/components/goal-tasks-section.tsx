@@ -44,7 +44,7 @@ export function GoalTasksSection({
       : null;
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h3 className="font-medium text-sm">

@@ -15,15 +15,13 @@ export function BriefingModeToggle({
   personalLabel,
 }: BriefingModeToggleProps) {
   return (
-    <div
-      className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5"
-      role="group"
-    >
+    <div className="inline-flex rounded-full bg-muted/70 p-0.5" role="group">
       <button
+        aria-pressed={mode === "personal"}
         className={cn(
-          "rounded-md px-3 py-1.5 font-medium text-sm transition-colors",
+          "rounded-full px-3 py-1.5 font-medium text-xs transition-colors",
           mode === "personal"
-            ? "bg-background text-foreground shadow-sm"
+            ? "bg-card text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground"
         )}
         onClick={() => onModeChange("personal")}
@@ -32,10 +30,11 @@ export function BriefingModeToggle({
         {personalLabel}
       </button>
       <button
+        aria-pressed={mode === "oversight"}
         className={cn(
-          "rounded-md px-3 py-1.5 font-medium text-sm transition-colors",
+          "rounded-full px-3 py-1.5 font-medium text-xs transition-colors",
           mode === "oversight"
-            ? "bg-background text-foreground shadow-sm"
+            ? "bg-card text-foreground shadow-sm"
             : "text-muted-foreground hover:text-foreground"
         )}
         onClick={() => onModeChange("oversight")}

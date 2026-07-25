@@ -10,6 +10,10 @@ export function usePlanListTabNavigation() {
   return useCallback(
     (value: string) => {
       const tab = value as PlanListTab;
+      if (tab === "inbox") {
+        navigate(tasksPaths.inbox);
+        return;
+      }
       if (tab === "goals") {
         navigate(tasksPaths.goals);
         return;

@@ -123,7 +123,7 @@ export function TasksGroupedList({
 
   if (groupBy === "goal" && goalGrouped) {
     return (
-      <div className="pb-6">
+      <div className="space-y-6 pb-6">
         <GeneralTasksSection
           assigneeProfiles={assigneeProfiles}
           onAddTask={onAddGeneralTask}
@@ -177,9 +177,9 @@ export function TasksGroupedList({
   }
 
   return (
-    <div className="pb-6">
+    <div className="space-y-6 pb-6">
       {groups.map((group) => (
-        <div className="mt-6 space-y-3" key={group.id}>
+        <div className="space-y-3" key={group.id}>
           <h3 className="font-medium text-muted-foreground text-sm">
             {group.label}
           </h3>

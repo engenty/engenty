@@ -16,6 +16,7 @@ import {
   SidebarRow,
   SidebarRowActions,
   SidebarRowButton,
+  SidebarRowLeadingIcon,
   SidebarTab,
   SidebarTabStrip,
   Skeleton,
@@ -28,6 +29,7 @@ import {
   Inbox,
   LayoutDashboard,
   ListTodo,
+  type LucideIcon,
   Plus,
   Search,
   Settings,
@@ -105,7 +107,7 @@ function SidebarNavRow({
 }: {
   active: boolean;
   badgeCount?: number;
-  icon?: typeof LayoutDashboard;
+  icon?: LucideIcon;
   label: string;
   to: string;
   onCreate?: () => void;
@@ -143,6 +145,30 @@ function SidebarNavRow({
           </Button>
         </SidebarRowActions>
       ) : null}
+    </SidebarRow>
+  );
+}
+
+/** Compact footer links (KB-style secondary nav rows). */
+function SidebarSecondaryNavRow({
+  active,
+  icon: Icon,
+  label,
+  to,
+}: {
+  active: boolean;
+  icon: LucideIcon;
+  label: string;
+  to: string;
+}) {
+  return (
+    <SidebarRow isActive={active}>
+      <SidebarRowLeadingIcon icon={<Icon aria-hidden />} />
+      <SidebarRowButton asChild isActive={active} size="sm">
+        <Link to={to} {...shellSecondaryNavItemProps}>
+          <span className="truncate">{label}</span>
+        </Link>
+      </SidebarRowButton>
     </SidebarRow>
   );
 }
@@ -537,12 +563,6 @@ export function TasksSidebarPanel() {
                     label={t("sidebar.inbox")}
                     to={tasksPaths.inbox}
                   />
-                  <SidebarNavRow
-                    active={navActive.operations}
-                    icon={Activity}
-                    label={t("menu.operations")}
-                    to={tasksPaths.operations}
-                  />
                 </SidebarNavList>
               </div>
               <div>
@@ -784,9 +804,15 @@ export function TasksSidebarPanel() {
           sidebarColumnContentInsetEndClassName
         )}
       >
-        <nav aria-label={t("sidebar.settings")}>
+        <nav aria-label={t("sidebar.extraLinksAria")} className="shrink-0">
           <SidebarNavList>
-            <SidebarNavRow
+            <SidebarSecondaryNavRow
+              active={navActive.operations}
+              icon={Activity}
+              label={t("menu.operations")}
+              to={tasksPaths.operations}
+            />
+            <SidebarSecondaryNavRow
               active={navActive.settings}
               icon={Settings}
               label={t("sidebar.settings")}

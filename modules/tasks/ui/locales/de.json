@@ -12,6 +12,7 @@
     "goals": "Ziele",
     "tasks": "Aufgaben",
     "settings": "Einstellungen",
+    "extraLinksAria": "Plan-Werkzeuge",
     "searchPlaceholder": "Ziele und Aufgaben suchen…",
     "searchAria": "Ziele und Aufgaben suchen",
     "clearSearch": "Suche löschen",
@@ -58,19 +59,21 @@
     "dueThisWeek": "Diese Woche fällig",
     "dueLater": "Später fällig",
     "dueOverdue": "Überfällig",
-    "inbox": "Posteingang"
+    "inbox": "Inbox"
   },
   "tabs": {
     "briefing": "Briefing",
+    "inbox": "Inbox",
     "tasks": "Aufgaben",
     "goals": "Ziele",
     "routines": "Routinen"
   },
   "briefing": {
     "title": "Briefing",
-    "subtitle": "Was in deinen Aufgaben Aufmerksamkeit braucht",
-    "subtitlePersonal": "Dein persönlicher Aufgabenüberblick",
-    "subtitleOversight": "Teamweiter Aufgabenüberblick",
+    "kicker": "Briefing · {{day}}",
+    "subtitle": "Freigaben links — Updates rechts. Listen bleiben in den Bereichen.",
+    "subtitlePersonal": "Dein persönlicher Überblick — was dich braucht, und was gerade läuft.",
+    "subtitleOversight": "Blick übers Team — Freigaben links, Updates rechts.",
     "loading": "Briefing wird geladen…",
     "loadFailed": "Briefing konnte nicht geladen werden.",
     "viewAllTasks": "Alle Aufgaben",
@@ -79,7 +82,34 @@
     "priorities": "Deine Prioritäten",
     "emptyActivity": "Keine aktuelle Aktivität.",
     "emptyRecentTasks": "Noch keine Aufgaben.",
-    "emptyPriorities": "Aktuell braucht nichts deine Aufmerksamkeit.",
+    "emptyPriorities": "Gerade gibt es nichts, das dich braucht.",
+    "hubs": {
+      "navAria": "Plan-Bereiche",
+      "open": "Öffnen",
+      "inboxCount_one": "{{count}} offener Eintrag",
+      "inboxCount_other": "{{count}} offene Einträge",
+      "tasksCount_one": "{{count}} aktuelle Aufgabe",
+      "tasksCount_other": "{{count}} aktuelle Aufgaben",
+      "goalsCount_one": "{{count}} Ziel",
+      "goalsCount_other": "{{count}} Ziele",
+      "routinesCount_one": "{{count}} Routine",
+      "routinesCount_other": "{{count}} Routinen"
+    },
+    "day": {
+      "attention": "Freigaben & To-dos",
+      "onYourPlate": "Aktuelle Aufgaben",
+      "recentlyAccomplished": "Kürzlich erledigt",
+      "emptyAttention": "Keine Freigaben oder Fehler brauchen dich gerade.",
+      "emptyPlate": "Keine aktuellen Aufgaben.",
+      "emptyRecentlyDone": "Noch keine kürzlich erledigte Arbeit."
+    },
+    "motion": {
+      "title": "Updates",
+      "now": "Jetzt",
+      "next": "Als Nächstes",
+      "done": "Erledigt",
+      "empty": "Keine Updates."
+    },
     "metrics": {
       "open": "Offene Aufgaben",
       "myOpen": "Meine offenen Aufgaben",
@@ -88,11 +118,11 @@
       "blockedHint": "blockiert",
       "waiting": "Wartend",
       "waitingHint": "wartet auf andere",
-      "attention": "Braucht Aufmerksamkeit",
+      "attention": "Freigaben & To-dos",
       "staleHint": "veraltet"
     },
     "focus": "Fokus",
-    "attention": "Braucht Aufmerksamkeit",
+    "attention": "Freigaben & To-dos",
     "waiting": "Wartend",
     "stale": "Veraltet",
     "emptyFocus": "Aktuell nichts im Fokus.",
@@ -417,10 +447,11 @@
     }
   },
   "routines": {
+    "newRoutine": "Neue Routine",
     "page": {
       "title": "Routinen",
       "description": "Automatisierungen und Agenten-Routinen, die im Hintergrund laufen — nach Zeitplan, bei Events oder bei Bedarf.",
-      "create": "Routine erstellen"
+      "create": "Neue Routine"
     },
     "loadFailed": "Laden der Routinen fehlgeschlagen.",
     "list": {
@@ -652,17 +683,27 @@
     }
   },
   "inbox": {
-    "title": "Posteingang",
-    "subtitle": "Abgeschlossene Agenten-Arbeit und Fehler, die deine Aufmerksamkeit brauchen.",
-    "empty": "Nichts Neues — abgeschlossene Aufgaben und Trigger-Fehler landen hier.",
-    "loading": "Posteingang wird geladen…",
-    "loadFailed": "Posteingang konnte nicht geladen werden.",
+    "title": "Inbox",
+    "subtitle": "Freigaben, Fehler und abgeschlossene Agenten-Arbeit, die dich brauchen.",
+    "empty": "Nichts Neues — Freigaben, Fehler und abgeschlossene Arbeit landen hier.",
+    "loading": "Inbox wird geladen…",
+    "loadFailed": "Inbox konnte nicht geladen werden.",
     "markSeen": "Als gelesen markieren",
     "markAllSeen": "Alle als gesehen markieren",
     "dismiss": "Verwerfen",
     "viewAll": "Alle anzeigen",
     "needsInput": "Braucht deine Eingabe",
-    "notifications": "Benachrichtigungen",
+    "needsApproval": "Braucht Freigabe",
+    "errors": "Fehler",
+    "notifications": "Updates",
+    "searchPlaceholder": "Inbox suchen…",
+    "paginationSummary": "{{total}} Einträge",
+    "filter": {
+      "all": "Alle",
+      "hitl": "Freigaben",
+      "errors": "Fehler",
+      "updates": "Updates"
+    },
     "openSubject": "Öffnen",
     "clearAll": "Alle löschen",
     "approveOnce": "Einmal erlauben",
