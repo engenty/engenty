@@ -285,9 +285,7 @@ export function artifactsListQueryKey(
   return [...artifactsQueryRoot, "list", scopeType, scopeId] as const;
 }
 
-export function containerArtifactsQueryKey(
-  container: WorkContainerRef | null
-) {
+export function containerArtifactsQueryKey(container: WorkContainerRef | null) {
   return [
     ...artifactsQueryRoot,
     "container",
@@ -340,9 +338,7 @@ export function useArtifactsListQuery(
  * is null. Keyed under `artifactsQueryRoot` so the realtime subscription's
  * broad invalidation refetches it like every other artifact list.
  */
-export function useContainerArtifactsQuery(
-  container: WorkContainerRef | null
-) {
+export function useContainerArtifactsQuery(container: WorkContainerRef | null) {
   const serviceBaseUrl = resolveEngentyAiServiceBaseUrl();
   return useQuery({
     queryKey: containerArtifactsQueryKey(container),

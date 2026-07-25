@@ -5,7 +5,6 @@ import {
 import { z } from "zod";
 import { isValidTaskIdentifier } from "../domain/task-lifecycle.js";
 
-
 const TASK_WORKSPACE_KEY_PREFIX = "task:";
 
 const TASK_WORKSPACE_STORAGE_PREFIX_PATTERN =

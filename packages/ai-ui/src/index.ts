@@ -53,11 +53,11 @@ export {
 } from "./artifacts/artifacts-api.js";
 export {
   listWorkFiles,
+  useWorkFilesQuery,
   type WorkFileEntry,
   type WorkFilesResponse,
   workFilesQueryKey,
   workFilesQueryRoot,
-  useWorkFilesQuery,
 } from "./artifacts/work-files-api.js";
 export { WorkPanel, type WorkPanelProps } from "./artifacts/work-panel.js";
 export {

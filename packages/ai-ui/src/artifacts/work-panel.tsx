@@ -25,7 +25,7 @@ import {
   useContainerArtifactsQuery,
   type WorkContainerRef,
 } from "./artifacts-api.js";
-import { type WorkFileEntry, useWorkFilesQuery } from "./work-files-api.js";
+import { useWorkFilesQuery, type WorkFileEntry } from "./work-files-api.js";
 import { WorkspaceArtifactPane } from "./workspace-artifact-pane.js";
 
 type ArtifactsViewMode = "rows" | "cards";
@@ -195,7 +195,10 @@ export function WorkPanel({
     activateArtifact(hostKey, artifact.id);
 
   return (
-    <section aria-label={t("workPanel.label")} className={cn("w-full", className)}>
+    <section
+      aria-label={t("workPanel.label")}
+      className={cn("w-full", className)}
+    >
       <Tabs defaultValue="artifacts">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <TabsList>

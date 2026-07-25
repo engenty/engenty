@@ -9,10 +9,7 @@ import {
   normalizeAppsAiServiceBaseUrl,
   resolveEngentyAiServiceBaseUrl,
 } from "../ag-ui/apps-ai/apps-ai-api.js";
-import {
-  formatWorkContainer,
-  type WorkContainerRef,
-} from "./artifacts-api.js";
+import { formatWorkContainer, type WorkContainerRef } from "./artifacts-api.js";
 
 /** One workspace file under a container's resolved prefixes. */
 export interface WorkFileEntry {
