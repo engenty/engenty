@@ -507,9 +507,109 @@ export function TasksSidebarPanel() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SidebarHeader className="gap-0 p-0 pb-3">
+        {isSearching ? null : (
+          <nav
+            aria-label={t("sidebar.moduleNavAria")}
+            className={cn(
+              "pt-2",
+              sidebarColumnContentInsetClassName,
+              sidebarColumnContentInsetEndClassName
+            )}
+          >
+            <div className="space-y-2">
+              <div>
+                <SidebarNavList>
+                  <SidebarNavRow
+                    active={navActive.briefing}
+                    icon={LayoutDashboard}
+                    label={t("sidebar.briefing")}
+                    to={tasksPaths.briefing}
+                  />
+                  <SidebarNavRow
+                    active={navActive.inbox}
+                    badgeCount={inboxUnseen}
+                    icon={Inbox}
+                    label={t("sidebar.inbox")}
+                    to={tasksPaths.inbox}
+                  />
+                  <SidebarNavRow
+                    active={navActive.operations}
+                    icon={Activity}
+                    label={t("menu.operations")}
+                    to={tasksPaths.operations}
+                  />
+                </SidebarNavList>
+              </div>
+              <div>
+                <SidebarNavSectionLabel>
+                  {t("sidebar.sectionWork")}
+                </SidebarNavSectionLabel>
+                <SidebarNavList>
+                  <SidebarRow isActive={false}>
+                    <SidebarRowButton
+                      isActive={false}
+                      onClick={() => setCreateTaskOpen(true)}
+                      {...shellSecondaryNavItemProps}
+                    >
+                      <Plus aria-hidden className="size-4 shrink-0" />
+                      <span className="truncate">{t("newTask.title")}</span>
+                    </SidebarRowButton>
+                  </SidebarRow>
+                  <SidebarNavRow
+                    active={navActive.tasksList}
+                    icon={ListTodo}
+                    label={t("sidebar.tasks")}
+                    to={tasksPaths.list}
+                  />
+                  <SidebarNavRow
+                    active={navActive.goalsList}
+                    icon={Target}
+                    label={t("sidebar.goals")}
+                    to={tasksPaths.goals}
+                  />
+                  <SidebarNavRow
+                    active={navActive.routines}
+                    icon={Zap}
+                    label={t("tabs.routines")}
+                    to={tasksPaths.routines}
+                  />
+                </SidebarNavList>
+              </div>
+            </div>
+          </nav>
+        )}
+
+        <SidebarTabStrip
+          onValueChange={(value) => {
+            setSearch("");
+            setTab(value as "tasks" | "goals" | "routines");
+            if (value === "routines" && !isRoutinesPath(pathname)) {
+              navigate(tasksPaths.routines);
+            } else if (
+              value === "goals" &&
+              !isGoalsListPath(pathname) &&
+              !activeGoalId
+            ) {
+              navigate(tasksPaths.goals);
+            } else if (
+              value === "tasks" &&
+              !isTasksListPath(pathname) &&
+              !activeTaskId
+            ) {
+              navigate(tasksPaths.list);
+            }
+          }}
+          value={activeTab}
+        >
+          <SidebarTab value="tasks">{t("tabs.tasks")}</SidebarTab>
+          <SidebarTab value="goals">{t("tabs.goals")}</SidebarTab>
+          <SidebarTab value="routines">{t("tabs.routines")}</SidebarTab>
+        </SidebarTabStrip>
+
+        {/* Search / list settings sit under the tab strip — filters are tab-scoped. */}
         <div
           className={cn(
-            "flex min-w-0 items-center gap-1",
+            "flex min-w-0 items-center gap-1 pt-2",
             sidebarColumnContentInsetClassName,
             sidebarColumnContentInsetEndClassName
           )}
@@ -562,106 +662,6 @@ export function TasksSidebarPanel() {
             </>
           )}
         </div>
-
-        {isSearching ? null : (
-          <>
-            <nav
-              aria-label={t("sidebar.moduleNavAria")}
-              className={cn(
-                "pt-2",
-                sidebarColumnContentInsetClassName,
-                sidebarColumnContentInsetEndClassName
-              )}
-            >
-              <div className="space-y-2">
-                <div>
-                  <SidebarNavList>
-                    <SidebarNavRow
-                      active={navActive.briefing}
-                      icon={LayoutDashboard}
-                      label={t("sidebar.briefing")}
-                      to={tasksPaths.briefing}
-                    />
-                    <SidebarNavRow
-                      active={navActive.inbox}
-                      badgeCount={inboxUnseen}
-                      icon={Inbox}
-                      label={t("sidebar.inbox")}
-                      to={tasksPaths.inbox}
-                    />
-                    <SidebarNavRow
-                      active={navActive.operations}
-                      icon={Activity}
-                      label={t("menu.operations")}
-                      to={tasksPaths.operations}
-                    />
-                  </SidebarNavList>
-                </div>
-                <div>
-                  <SidebarNavSectionLabel>
-                    {t("sidebar.sectionWork")}
-                  </SidebarNavSectionLabel>
-                  <SidebarNavList>
-                    <SidebarRow isActive={false}>
-                      <SidebarRowButton
-                        isActive={false}
-                        onClick={() => setCreateTaskOpen(true)}
-                        {...shellSecondaryNavItemProps}
-                      >
-                        <Plus aria-hidden className="size-4 shrink-0" />
-                        <span className="truncate">{t("newTask.title")}</span>
-                      </SidebarRowButton>
-                    </SidebarRow>
-                    <SidebarNavRow
-                      active={navActive.tasksList}
-                      icon={ListTodo}
-                      label={t("sidebar.tasks")}
-                      to={tasksPaths.list}
-                    />
-                    <SidebarNavRow
-                      active={navActive.goalsList}
-                      icon={Target}
-                      label={t("sidebar.goals")}
-                      to={tasksPaths.goals}
-                    />
-                    <SidebarNavRow
-                      active={navActive.routines}
-                      icon={Zap}
-                      label={t("tabs.routines")}
-                      to={tasksPaths.routines}
-                    />
-                  </SidebarNavList>
-                </div>
-              </div>
-            </nav>
-
-            <SidebarTabStrip
-              onValueChange={(value) => {
-                setTab(value as "tasks" | "goals" | "routines");
-                if (value === "routines" && !isRoutinesPath(pathname)) {
-                  navigate(tasksPaths.routines);
-                } else if (
-                  value === "goals" &&
-                  !isGoalsListPath(pathname) &&
-                  !activeGoalId
-                ) {
-                  navigate(tasksPaths.goals);
-                } else if (
-                  value === "tasks" &&
-                  !isTasksListPath(pathname) &&
-                  !activeTaskId
-                ) {
-                  navigate(tasksPaths.list);
-                }
-              }}
-              value={activeTab}
-            >
-              <SidebarTab value="tasks">{t("tabs.tasks")}</SidebarTab>
-              <SidebarTab value="goals">{t("tabs.goals")}</SidebarTab>
-              <SidebarTab value="routines">{t("tabs.routines")}</SidebarTab>
-            </SidebarTabStrip>
-          </>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="min-h-0 flex-1 gap-0.5 overflow-x-hidden px-0 py-0">
