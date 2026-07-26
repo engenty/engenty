@@ -13,6 +13,9 @@ import {
 import { getTenantById, getUserById } from "./crud.js";
 import { listTenantsForUser } from "./memberships.js";
 
+/** Fallback when the tenant has no commercial package (single-tenant local install). */
+export const LOCAL_PLAN_LABEL = "local";
+
 export interface WorkspaceContext {
   canSwitchTenant: boolean;
   currentTenant: { id: string; slug: string; name: string } | null;
@@ -26,6 +29,11 @@ export interface WorkspaceContext {
   isSuperAdmin: boolean;
   isTenantAdmin: boolean;
   onboarded: boolean;
+  /**
+   * Commercial package label for the current tenant (e.g. "Team"), or
+   * {@link LOCAL_PLAN_LABEL} when none is assigned.
+   */
+  planLabel: string;
   resolvedAppearance: ResolvedAppearance;
   /** BCP-47 language tags for KB translate targets; tenant setting `i18n.supported_locales` (comma-separated). */
   tenantRole: "admin" | "member" | null;
@@ -75,6 +83,44 @@ async function loadTenantSupportedLocales(
   return ["en", "de"];
 }
 
+/**
+ * Resolve the sidebar plan label from the tenant's assigned commercial package.
+ * Unassigned → {@link LOCAL_PLAN_LABEL} (typical single-tenant local install).
+ */
+export async function resolveTenantPlanLabel(
+  client: SupabaseClient,
+  tenantId: string
+): Promise<string> {
+  const tenantRow = await client
+    .schema("core")
+    .from("tenants")
+    .select("package_id")
+    .eq("id", tenantId)
+    .maybeSingle();
+  if (tenantRow.error) {
+    return LOCAL_PLAN_LABEL;
+  }
+  const packageId =
+    (tenantRow.data as { package_id: string | null } | null)?.package_id ??
+    null;
+  if (!packageId) {
+    return LOCAL_PLAN_LABEL;
+  }
+  const pkgRow = await client
+    .schema("core")
+    .from("packages")
+    .select("label")
+    .eq("id", packageId)
+    .maybeSingle();
+  if (pkgRow.error || !pkgRow.data) {
+    return packageId;
+  }
+  const label = String(
+    (pkgRow.data as { label: string | null }).label ?? ""
+  ).trim();
+  return label || packageId;
+}
+
 export async function getWorkspaceContext(
   client: SupabaseClient,
   accessToken: string,
@@ -106,6 +152,7 @@ export async function getWorkspaceContext(
       currentTenant: null,
       tenants: [],
       canSwitchTenant: false,
+      planLabel: LOCAL_PLAN_LABEL,
       resolvedAppearance,
       tenantRole: null,
       tenantSupportedLocales: [],
@@ -125,10 +172,12 @@ export async function getWorkspaceContext(
           .order("name", { ascending: true })
       ).data ?? [])
     : await listTenantsForUser(client, authUser.id);
-  const [resolvedAppearance, tenantSupportedLocales] = await Promise.all([
-    getResolvedAppearance(client, tenantId, authUser.id),
-    loadTenantSupportedLocales(client, tenantId),
-  ]);
+  const [resolvedAppearance, tenantSupportedLocales, planLabel] =
+    await Promise.all([
+      getResolvedAppearance(client, tenantId, authUser.id),
+      loadTenantSupportedLocales(client, tenantId),
+      resolveTenantPlanLabel(client, tenantId),
+    ]);
   return {
     onboarded: true,
     userId: authUser.id,
@@ -144,6 +193,7 @@ export async function getWorkspaceContext(
     currentTenant: tenant,
     tenants,
     canSwitchTenant: tenants.length > 1,
+    planLabel,
     resolvedAppearance,
     tenantRole: row?.role ?? null,
     tenantSupportedLocales,

@@ -101,7 +101,7 @@ Generation routes use `@engenty/ai-core` policy and metering helpers with an `ap
 
 When the service starts with database env configured, `apps/ai` seeds the shared default model-pricing catalog into **`ai.model_pricing`** if a model has no pricing row yet. Later operator-managed pricing rows are preserved; the newest `valid_from` row wins during metering.
 
-The Gateway catalog sync stores Vercel AI Gateway model metadata in **`ai.gateway_model`** and audit rows in **`ai.gateway_model_sync_run`**. The official Gateway API currently includes stable model names, descriptions, provider, type, tags, context windows, release timestamps, and pricing fields; latency, throughput, ZDR, and no-training stay nullable until a stable source exists.
+The gateway catalog sync stores model metadata in **`ai.model`** — one row per `(gateway, model_id)`, written by the gateway adapters registered in `src/model-gateways/` — and audit rows in **`ai.gateway_model_sync_run`**. The official Gateway API currently includes stable model names, descriptions, provider, type, tags, context windows, release timestamps, and pricing fields; latency, throughput, ZDR, and no-training stay nullable until a stable source exists.
 
 The main UI settings page reads this service through `VITE_ENGENTY_AI_BASE_URL` at `/ai/v1/usage/*`. Usage settings are server-enforced for tenant admins and superadmins; normal tenant members receive `403`.
 

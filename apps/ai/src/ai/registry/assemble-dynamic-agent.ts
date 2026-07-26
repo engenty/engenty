@@ -1,3 +1,4 @@
+import { isModelAllowed, type ModelAllowList } from "@engenty/ai-core";
 import { Agent, type SubAgent } from "@mastra/core/agent";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Mastra } from "@mastra/core/mastra";
@@ -54,6 +55,12 @@ export interface AssembleDynamicAgentOptions {
 
 export interface RuntimeModelConfig {
   chatModelId: string;
+  /**
+   * The tenant's governance grants, resolved once per session alongside the
+   * model ids. Carried here so per-agent pins can be checked without a policy
+   * read per assembled agent. Absent/unrestricted = no filtering.
+   */
+  grants?: ModelAllowList | null;
   // Planning & coding tier; falls back to chat when unset.
   planningCodingModelId?: string;
   // Research / retrieval tier; falls back to chat when unset.
@@ -153,8 +160,7 @@ async function assembleDynamicAgentWithAncestors(
     buildGuardrailProcessors(config.guardrails, {
       agentId: config.id,
       safeguardModelId:
-        options.modelConfig?.safeguardModelId ??
-        "openrouter/openai/gpt-oss-safeguard-20b",
+        options.modelConfig?.safeguardModelId ?? "openai/gpt-oss-safeguard-20b",
     });
   // History hygiene, always on (before the guardrail classifiers): strip bulky
   // `engenty_tool_execute` transcripts from RECALLED history — the last two
@@ -213,9 +219,17 @@ export function resolveAgentModelId(
   config: AgentConfig,
   modelConfig: RuntimeModelConfig | undefined
 ): string {
-  // Precedence flip: an explicit per-agent pin beats the tenant/purpose default.
+  // Precedence flip: an explicit per-agent pin beats the tenant/purpose default
+  // — but only within the tenant's grants. An ungoverned pin used to be returned
+  // verbatim, which let a pinned sub-agent run a model the tenant is not
+  // licensed for: sub-agents are assembled here and never reach the usage
+  // preflight, so nothing downstream would have caught it. A disallowed pin now
+  // falls through to purpose inheritance, which is itself governed.
   const override = config.modelOverride?.trim();
-  if (override) {
+  if (
+    override &&
+    (!modelConfig?.grants || isModelAllowed(override, modelConfig.grants))
+  ) {
     return override;
   }
   if (!modelConfig) {

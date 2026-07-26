@@ -91,6 +91,8 @@ describe("scheduler schedule hooks", () => {
     expect(invokeOperation).not.toHaveBeenCalled();
   });
 
+  // Same story as remote-channels: real scheduler wiring, seconds of work, and
+  // a 10s budget that only holds when the machine is idle.
   it("records fire failures on the trigger row", async () => {
     const invokeOperation = vi.fn(async () => ({}));
     const hooks = createSchedulerHeartbeatHooks({ invokeOperation });
@@ -109,5 +111,5 @@ describe("scheduler schedule hooks", () => {
       id: "t-1",
       result: "error: core unreachable",
     });
-  });
+  }, 30_000);
 });

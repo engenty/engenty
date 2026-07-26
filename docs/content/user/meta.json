@@ -3,5 +3,11 @@
   "description": "Using Engenty day to day — the copilot, agents, and modules.",
   "root": true,
   "icon": "LifeBuoy",
-  "pages": ["README", "getting-started", "connect-slack", "memory"]
+  "pages": [
+    "README",
+    "getting-started",
+    "model-effort",
+    "connect-slack",
+    "memory"
+  ]
 }

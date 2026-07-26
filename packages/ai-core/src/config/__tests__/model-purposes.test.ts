@@ -112,13 +112,57 @@ describe("resolvePurposeModel governance allow-list", () => {
     });
   });
 
-  it("does not filter platform/default values against the allow-list", () => {
-    // The operator's own env/default choice is authoritative even if it is not
-    // in the list (the list constrains tenant/session pins, not the platform).
+  it("filters the platform layer too, falling through to an allowed default", () => {
+    // The platform layer used to be exempt from the list, on the theory that the
+    // operator's own choice is authoritative. But the resolved id is handed
+    // straight to `checkUsageLimits`, which does NOT exempt it — so an env value
+    // outside the list produced a 429 on every turn. Resolution must land on
+    // something the preflight will accept.
     expect(
       resolvePurposeModel({
         purpose: "chat",
         allowedModels: ["openai/gpt-5-mini"],
+        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
+      })
+    ).toEqual({
+      purpose: "chat",
+      value: "openai/gpt-5-mini",
+      source: "default",
+    });
+  });
+
+  it("substitutes a granted model when every layer is disallowed", () => {
+    // No layer yields a legal id — including the package default. Rather than
+    // return an id the preflight will reject (bricking the tenant with no way
+    // out from the picker), fall back to the first granted model.
+    expect(
+      resolvePurposeModel({
+        purpose: "chat",
+        allowedModels: ["anthropic/claude-sonnet-5"],
+        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
+      })
+    ).toEqual({
+      purpose: "chat",
+      value: "anthropic/claude-sonnet-5",
+      source: "governance",
+    });
+  });
+
+  it("honours a provider grant without any model listed", () => {
+    expect(
+      resolvePurposeModel({
+        purpose: "chat",
+        allowedProviders: ["openai"],
+        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
+      })
+    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "platform" });
+  });
+
+  it("ignores case and stray whitespace in the allow-list", () => {
+    expect(
+      resolvePurposeModel({
+        purpose: "chat",
+        allowedModels: [" OpenAI/GPT-5 "],
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
       })
     ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "platform" });

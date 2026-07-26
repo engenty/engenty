@@ -15,6 +15,7 @@ import type {
   GatewayModelSyncRunRecord,
   GatewayModelSyncSettingsRecord,
   GatewayModelUpsertInput,
+  ModelBindingRecord,
 } from "../../gateway-models.js";
 
 const AI_SCHEMA = "ai";
@@ -89,6 +90,7 @@ function mapGatewayModel(row: Record<string, unknown>): GatewayModelRecord {
     created_at: String(row.created_at),
     description: asNullableString(row.description),
     display_name: asNullableString(row.display_name),
+    gateway: String(row.gateway),
     input_per_mtok_micros: asNullableNumber(row.input_per_mtok_micros),
     last_seen_at: String(row.last_seen_at),
     last_synced_at: String(row.last_synced_at),
@@ -167,6 +169,7 @@ export function chunkGatewayModelBatch<T>(
 }
 
 const GATEWAY_MODEL_AVAILABILITY_SELECT = [
+  "gateway",
   "model_id",
   "available_for_chat",
   "available_for_routing",
@@ -176,12 +179,19 @@ const GATEWAY_MODEL_AVAILABILITY_SELECT = [
   "available_for_rerank",
 ].join(",");
 
+/** Catalog rows are identified by (gateway, model_id), so the cache key is too. */
+function gatewayModelKey(row: { gateway: string; model_id: string }): string {
+  return `${row.gateway}\t${row.model_id}`;
+}
+
 function mapGatewayModelAvailabilityRow(
   row: Record<string, unknown>
 ): [string, GatewayModelAvailabilityFlags] {
-  const modelId = String(row.model_id);
   return [
-    modelId,
+    gatewayModelKey({
+      gateway: String(row.gateway),
+      model_id: String(row.model_id),
+    }),
     {
       available_for_chat: asBoolean(row.available_for_chat),
       available_for_embedding: asBoolean(row.available_for_embedding),
@@ -257,6 +267,8 @@ function mapTenantPolicy(
     hard_limit_cost_micros: asNullableNumber(row.hard_limit_cost_micros),
     soft_limit_cost_micros: asNullableNumber(row.soft_limit_cost_micros),
     allowed_models: asStringArray(row.allowed_models),
+    allowed_providers: asStringArray(row.allowed_providers),
+    allowed_efforts: asStringArray(row.allowed_efforts),
     enforcement_mode:
       row.enforcement_mode === "enforce" ? "enforce" : "observe",
     currency: String(row.currency ?? "usd"),
@@ -342,15 +354,60 @@ export function createAiUsageStore(
   const db = client.schema(AI_SCHEMA);
   const coreDb = client.schema("core");
   const pricing = () => db.from("model_pricing");
-  const gatewayModels = () => db.from("gateway_model");
+  const gatewayModels = () => db.from("model");
   const gatewayModelSyncRuns = () => db.from("gateway_model_sync_run");
   const gatewayModelSyncSettings = () => db.from("gateway_model_sync_settings");
   const events = () => db.from("usage_event");
   const totals = () => db.from("usage_period_total");
+  const modelBindings = () => db.from("model_binding");
   const tenantPolicies = () => db.from("tenant_usage_policy");
   const userPolicies = () => db.from("user_usage_policy");
 
   return {
+    async listModelBindings(scope = "platform") {
+      const { data, error } = await modelBindings()
+        .select("*")
+        .eq("scope", scope)
+        .order("role", { ascending: true });
+      if (error) {
+        throw new Error(`Failed to list model bindings: ${error.message}`);
+      }
+      return (data ?? []) as ModelBindingRecord[];
+    },
+
+    async seedModelBindings(rows) {
+      if (rows.length === 0) {
+        return 0;
+      }
+      // `ignoreDuplicates` is the whole contract: seeding must never overwrite a
+      // role an operator has already bound. Re-running it on every boot is
+      // therefore safe, which is what lets a new role ship without a migration.
+      const { data, error } = await modelBindings()
+        .upsert(rows as unknown as Record<string, unknown>[], {
+          onConflict: "scope,role",
+          ignoreDuplicates: true,
+        })
+        .select("role");
+      if (error) {
+        throw new Error(`Failed to seed model bindings: ${error.message}`);
+      }
+      return (data ?? []).length;
+    },
+
+    async upsertModelBinding(row) {
+      const { data, error } = await modelBindings()
+        .upsert(
+          { ...row, updated_at: new Date().toISOString() },
+          { onConflict: "scope,role" }
+        )
+        .select("*")
+        .single();
+      if (error) {
+        throw new Error(`Failed to bind role ${row.role}: ${error.message}`);
+      }
+      return data as ModelBindingRecord;
+    },
+
     async getActiveModelPricing(params) {
       const { data, error } = await pricing()
         .select("*")
@@ -516,6 +573,9 @@ export function createAiUsageStore(
           ].join(",")
         );
       }
+      if (filters.gateway) {
+        query = query.eq("gateway", filters.gateway);
+      }
       if (filters.provider) {
         query = query.eq("provider", filters.provider);
       }
@@ -586,8 +646,8 @@ export function createAiUsageStore(
           string,
           unknown
         >[]) {
-          const [modelId, flags] = mapGatewayModelAvailabilityRow(row);
-          existingAvailability.set(modelId, flags);
+          const [key, flags] = mapGatewayModelAvailabilityRow(row);
+          existingAvailability.set(key, flags);
         }
       }
 
@@ -598,10 +658,10 @@ export function createAiUsageStore(
             modelBatch.map((model) =>
               preserveExistingAvailability(
                 model,
-                existingAvailability.get(model.model_id)
+                existingAvailability.get(gatewayModelKey(model))
               )
             ),
-            { onConflict: "model_id" }
+            { onConflict: "gateway,model_id" }
           )
           .select("model_id");
         if (error) {
@@ -612,16 +672,22 @@ export function createAiUsageStore(
       return upserted;
     },
 
-    async updateGatewayModelAvailability(modelId, patch) {
-      const { data, error } = await gatewayModels()
-        .update(patch)
-        .eq("model_id", modelId)
-        .select("*")
-        .single();
+    async updateGatewayModelAvailability(modelId, patch, gateway) {
+      let query = gatewayModels().update(patch).eq("model_id", modelId);
+      if (gateway) {
+        query = query.eq("gateway", gateway);
+      }
+      // Not `.single()`: without a gateway this patches the id on every gateway
+      // serving it, and returning the first row keeps the caller's contract.
+      const { data, error } = await query.select("*");
       if (error) {
         throw new Error(`gateway model availability update: ${error.message}`);
       }
-      return mapGatewayModel(data as Record<string, unknown>);
+      const row = (data ?? [])[0];
+      if (!row) {
+        throw new Error(`gateway model not found: ${modelId}`);
+      }
+      return mapGatewayModel(row as Record<string, unknown>);
     },
 
     async insertGatewayModelSyncRun(input) {

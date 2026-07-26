@@ -19,6 +19,7 @@ const DEFAULT_AGENT_CHAT_TRIGGERS: AiAgentChatTriggers = {
 
 interface RegistryAgentConfig {
   description?: string;
+  effort?: AiRegisteredAgent["effort"];
   id: string;
   limits?: AiRegisteredAgent["limits"];
   managed_by_module?: string | null;
@@ -34,6 +35,8 @@ interface RegistryAgentConfig {
 
 /** Per-agent runtime overrides a tenant admin can set (Phase 4). */
 export interface AiAgentOverridesPatch {
+  /** Effort tier for this agent; `null` = inherit. */
+  effort?: AiRegisteredAgent["effort"];
   limits?: AiRegisteredAgent["limits"];
   modelOverride?: string | null;
   purpose?: AiRegisteredAgent["purpose"];
@@ -70,6 +73,7 @@ export function mapRegistryAgentToRegisteredAgent(
     module_id: moduleId,
     name: agent.name,
     skills: agent.skillIds ?? [],
+    ...(agent.effort ? { effort: agent.effort } : {}),
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.modelOverride ? { modelOverride: agent.modelOverride } : {}),
     ...(agent.purpose ? { purpose: agent.purpose } : {}),

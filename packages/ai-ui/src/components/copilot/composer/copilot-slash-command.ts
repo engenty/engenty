@@ -3,7 +3,7 @@
 // draft. The canonical command string is ASCII (localized labels participate in
 // the typeahead filter only, never as the persisted token).
 
-export type ChatSlashCommandKind = "prompt" | "action" | "ui";
+export type ChatSlashCommandKind = "prompt" | "action" | "skill" | "ui";
 
 export interface ChatSlashCommand {
   /** Hint rendered after the command in the menu, e.g. "<contact>". */
@@ -85,7 +85,8 @@ export function parseLeadingSlashCommand(
 
 /**
  * Filter the catalog for the typeahead menu. Matches the canonical command
- * token plus the (possibly localized) label — label matching is filter-only.
+ * token plus the (possibly localized) label and description — label /
+ * description matching is filter-only (never the persisted token).
  */
 export function filterSlashCommands(
   commands: readonly ChatSlashCommand[],
@@ -98,7 +99,8 @@ export function filterSlashCommands(
   return commands.filter(
     (c) =>
       c.command.toLowerCase().includes(q) ||
-      (c.label ?? "").toLowerCase().includes(q)
+      (c.label ?? "").toLowerCase().includes(q) ||
+      (c.description ?? "").toLowerCase().includes(q)
   );
 }
 

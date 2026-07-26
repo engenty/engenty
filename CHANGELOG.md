@@ -4,6 +4,25 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.77] - 2026-07-26
+- ADDED **[ai-ui]** Gate expert model pinning on developer mode, show bound models
+- ADDED **[manage]** Add the role binding console
+- ADDED **[ai]** Effort selector replaces the model picker
+- ADDED **[ai]** Make the gateway a column behind an adapter interface
+- ADDED **[ai]** Let modules declare the model roles they need
+- ADDED **[ai]** Plans grant effort tiers instead of enumerating model ids
+- ADDED **[ai]** Resolve models from role bindings instead of env and constants
+- ADDED **[ai-ui]** Include agents in the composer @ mention picker
+- ADDED **[manage]** Add AI model console and allow-list editors
+- ADDED **[ai]** Govern model selection through one shared allow-list
+- ADDED **[ai]** Realtime voice cascade providers and chat-command skills
+- ADDED **[manage]** Add platform settings under Settings with secondary nav
+- DOCS How effort levels and model configuration work
+- FIXED **[ai]** Isolate the placeholder session workspace per user
+- FIXED **[core]** Make the model-gateway migration re-runnable
+- FIXED **[ai-ui]** Correct import depth in use-mention-agent-candidates
+- FIXED **[manage]** Drop duplicate formatMicros import from the merge
+
 ## [0.1.76] - 2026-07-26
 - ADDED **[kb-filesystem-sync]** Migrate KB filesystem sync module from legacy repo
 - ADDED **[doc-converter]** Add Mistral OCR as a document extraction provider

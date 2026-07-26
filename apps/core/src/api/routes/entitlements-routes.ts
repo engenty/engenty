@@ -1,4 +1,5 @@
 import { parseEntitlementOverride } from "@engenty/entitlements";
+import { createLogger } from "@engenty/telemetry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
@@ -17,15 +18,30 @@ export function registerEntitlementsRoutes(params: {
 }) {
   const { app, config } = params;
   const dal = (params.createDal ?? createPackagesDal)(config);
+  const logger = createLogger({ name: "entitlements" });
 
-  // Best-effort: propagate the resolved AI usage policy into the usage engine's
-  // store after an entitlement change. A failure here must not fail the
-  // entitlement write (the assignment already persisted).
-  const syncAiPolicy = async (tenantId: string) => {
+  /**
+   * Propagate the resolved AI usage policy into the usage engine's store after
+   * an entitlement change. Still non-fatal — the assignment already persisted
+   * and re-running is safe — but no longer silent.
+   *
+   * A swallowed failure here is worse than it looks: `ai.tenant_usage_policy`
+   * keeps the previous `allowed_models` while the manage UI happily shows the
+   * new plan, and if the row never existed at all `managed_by` stays at its
+   * `'tenant'` default, quietly handing a plan-governed policy back to the
+   * tenant admin to rewrite. Callers surface `policySynced: false` so the UI can
+   * say so instead of implying success.
+   */
+  const syncAiPolicy = async (
+    tenantId: string
+  ): Promise<{ error?: string; synced: boolean }> => {
     try {
       await dal.applyAiUsagePolicy(tenantId);
-    } catch {
-      // swallow: policy propagation is eventually-consistent, not transactional
+      return { synced: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("AI usage policy propagation failed", { tenantId, message });
+      return { error: message, synced: false };
     }
   };
 
@@ -70,6 +86,28 @@ export function registerEntitlementsRoutes(params: {
     }
     const result = await dal.restoreDefaults();
     return jsonApiSuccess(c, result);
+  });
+
+  // Roll a package's current policy out to every tenant already assigned to it.
+  // Without this, editing a package only changes what NEW assignments get.
+  app.post("/api/superadmin/packages/:id/reapply", async (c) => {
+    const authResult = await requireSuperAdmin(c, config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const id = c.req.param("id");
+    const pkg = await dal.getPackage(id);
+    if (!pkg) {
+      return jsonApiError(c, 404, { message: `Package not found: ${id}` });
+    }
+    const result = await dal.reapplyPackagePolicies(id);
+    if (result.failures.length > 0) {
+      logger.error("Package policy re-apply had failures", {
+        failures: result.failures.length,
+        packageId: id,
+      });
+    }
+    return jsonApiSuccess(c, { packageId: id, ...result });
   });
 
   // Resolved entitlements for a tenant: assignment + override + composed view,
@@ -118,8 +156,13 @@ export function registerEntitlementsRoutes(params: {
       }
     }
     await dal.setTenantPackage(tenantId, packageId);
-    await syncAiPolicy(tenantId);
-    return jsonApiSuccess(c, { tenantId, packageId });
+    const sync = await syncAiPolicy(tenantId);
+    return jsonApiSuccess(c, {
+      tenantId,
+      packageId,
+      policySynced: sync.synced,
+      ...(sync.error ? { policySyncError: sync.error } : {}),
+    });
   });
 
   // Replace a tenant's sparse override blob.
@@ -139,8 +182,13 @@ export function registerEntitlementsRoutes(params: {
       });
     }
     await dal.setTenantOverride(tenantId, override);
-    await syncAiPolicy(tenantId);
-    return jsonApiSuccess(c, { tenantId, override });
+    const sync = await syncAiPolicy(tenantId);
+    return jsonApiSuccess(c, {
+      tenantId,
+      override,
+      policySynced: sync.synced,
+      ...(sync.error ? { policySyncError: sync.error } : {}),
+    });
   });
 
   // Drop a tenant's override (revert to the package's values).
@@ -151,7 +199,12 @@ export function registerEntitlementsRoutes(params: {
     }
     const tenantId = c.req.param("id");
     await dal.clearTenantOverride(tenantId);
-    await syncAiPolicy(tenantId);
-    return jsonApiSuccess(c, { tenantId, cleared: true });
+    const sync = await syncAiPolicy(tenantId);
+    return jsonApiSuccess(c, {
+      tenantId,
+      cleared: true,
+      policySynced: sync.synced,
+      ...(sync.error ? { policySyncError: sync.error } : {}),
+    });
   });
 }

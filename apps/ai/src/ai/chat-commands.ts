@@ -1,6 +1,8 @@
 // Assembles the effective chat slash-command catalog for the current request:
 // in-process registrations (apps/ai-local) plus module COMMAND.md definitions
 // delivered over the core module-capability channel — mirroring module-actions.
+// User-selected skills (`/skill-name`) expand here too when no command claims
+// the token (Claude Code / Cursor style slash skill selection).
 import {
   type ChatCommandDefinition,
   type DynamicAiModuleCapabilityLoader,
@@ -8,6 +10,8 @@ import {
   listRegisteredChatCommands,
   parseLeadingChatCommand,
 } from "@engenty/ai-core";
+
+import type { SkillStorage } from "./skills/skill-storage.js";
 
 // Core built-ins (prompt kind — `ui` built-ins live client-side). Core wins
 // token collisions against module commands.
@@ -58,17 +62,80 @@ export interface ChatTurnReferenceItem {
   ref: string;
 }
 
+/** Leading `/token rest` parse without a catalog — used for skill lookup. */
+export function parseLeadingSlashToken(
+  text: string
+): { argsText: string; token: string } | null {
+  const trimmed = text.trimStart();
+  if (!trimmed.startsWith("/")) {
+    return null;
+  }
+  const tokenEnd = trimmed.search(/\s/);
+  const token = (
+    tokenEnd < 0 ? trimmed.slice(1) : trimmed.slice(1, tokenEnd)
+  ).toLowerCase();
+  if (!token) {
+    return null;
+  }
+  const argsText = tokenEnd < 0 ? "" : trimmed.slice(tokenEnd + 1).trim();
+  return { argsText, token };
+}
+
+/**
+ * Expand a user-selected skill into run-scoped instructions. Prefer injecting
+ * the skill body (Claude Code / Cursor style) so the model does not need a
+ * tool round-trip; fall back to a load directive when the body is unavailable.
+ */
+export function expandChatSkillSelection(input: {
+  argsText: string;
+  body?: string;
+  description?: string;
+  name: string;
+}): string {
+  const { argsText, body, description, name } = input;
+  const header = [
+    `The user selected skill "/${name}" via slash command.`,
+    description ? `Skill summary: ${description}` : null,
+    argsText
+      ? `User input after the skill token:\n${argsText}`
+      : "No additional user input after the skill token — follow the skill's default workflow and ask if you need more.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const trimmedBody = body?.trim();
+  if (trimmedBody) {
+    return [
+      header,
+      "",
+      "Follow these skill instructions for this turn (the body is already provided — do not call the skill tool to reload it):",
+      "",
+      `# Skill: ${name}`,
+      "",
+      trimmedBody,
+    ].join("\n");
+  }
+
+  return [
+    header,
+    `Load skill "${name}" immediately with the skill tool, then follow its instructions to fulfil the request.`,
+  ].join("\n");
+}
+
 /**
  * Run-scoped AG-UI context entries for the current user turn: the expansion of
- * a leading slash command and/or the typed @-mention references. Rides
- * `RunAgentInput.context` (rendered into system instructions) so the raw
- * `/command` text stays the persisted user turn and history is never rewritten.
+ * a leading slash command or skill selection and/or the typed @-mention
+ * references. Rides `RunAgentInput.context` (rendered into system instructions)
+ * so the raw `/command` text stays the persisted user turn and history is
+ * never rewritten.
  */
 export async function buildChatTurnContextEntries(params: {
   agentId: string | null | undefined;
   moduleLoader?: DynamicAiModuleCapabilityLoader;
   prompt: string;
   refs: readonly ChatTurnReferenceItem[];
+  /** Optional skill catalog — enables `/skill-name` expansion when no command matches. */
+  skillStorage?: SkillStorage | null;
 }): Promise<Array<{ description: string; value: string }>> {
   const entries: Array<{ description: string; value: string }> = [];
 
@@ -84,6 +151,22 @@ export async function buildChatTurnContextEntries(params: {
           description: "chat_command",
           value: expandChatCommand(match),
         });
+      } else if (params.skillStorage) {
+        const leading = parseLeadingSlashToken(params.prompt);
+        if (leading) {
+          const skill = await params.skillStorage.getSkill(leading.token);
+          if (skill) {
+            entries.push({
+              description: "chat_skill",
+              value: expandChatSkillSelection({
+                argsText: leading.argsText,
+                body: skill.body,
+                description: skill.description,
+                name: skill.name,
+              }),
+            });
+          }
+        }
       }
     } catch (error) {
       // Catalog resolution is best-effort — an unmatched command is plain text.

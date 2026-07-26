@@ -11,22 +11,26 @@
  * remains safe to import from `@engenty/ai-core/browser`.
  */
 
-/** Default AI Gateway model ids (single source; re-exported by chat-model-id). */
-export const DEFAULT_AI_CHAT_MODEL_ID = "openai/gpt-5-mini";
-/** Small / non-reasoning default kept for legacy classifier callers. */
-export const DEFAULT_AI_CLASSIFIER_MODEL_ID = "openai/gpt-5-nano";
-/**
- * Default for the planning & coding tier (sandboxed code execution, plan
- * authoring). Independently configurable so it never rides on the chat default,
- * because not all chat models accept the Mastra workspace tool message format.
- */
-export const DEFAULT_AI_PLANNING_CODING_MODEL_ID = "openai/gpt-5-mini";
-/** @deprecated Alias of {@link DEFAULT_AI_PLANNING_CODING_MODEL_ID}. */
-export const DEFAULT_AI_CODE_EXECUTION_MODEL_ID =
-  DEFAULT_AI_PLANNING_CODING_MODEL_ID;
-/** Default safeguard model for Mastra guardrail processors. */
-export const DEFAULT_AI_SAFEGUARD_MODEL_ID =
-  "openrouter/openai/gpt-oss-safeguard-20b";
+import {
+  firstAllowedModelId,
+  isModelAllowed,
+  type ModelAllowList,
+} from "../usage/model-allow-list.js";
+import {
+  DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+  DEFAULT_AI_SAFEGUARD_MODEL_ID,
+} from "./model-defaults.js";
+
+export {
+  DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_CLASSIFIER_MODEL_ID,
+  DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
+  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+  DEFAULT_AI_SAFEGUARD_MODEL_ID,
+} from "./model-defaults.js";
+
+import { type ModelBindings, PURPOSE_TO_ROLE } from "./model-roles.js";
 
 /**
  * The tunable LLM purposes surfaced in the AI settings model matrix. Document
@@ -55,7 +59,9 @@ export type AiSettingSource =
   | "agent"
   | "tenant"
   | "platform"
-  | "default";
+  | "default"
+  /** Every configured layer was outside the allow-list; a granted model was substituted. */
+  | "governance";
 
 export interface ResolvedModel {
   purpose: AiModelPurpose;
@@ -127,11 +133,25 @@ export interface ResolvePurposeModelOptions {
    * Governance allow-list (usage policy `allowed_models`). Session/agent/tenant
    * pins outside the list are SKIPPED so resolution degrades to the
    * operator-controlled platform/default layers instead of hard-failing — a
-   * plan tightening must not break existing tenants. Platform/default values
-   * are never filtered (they are the operator's own choice). Empty/null = no
+   * plan tightening must not break existing tenants. Empty/null = no
    * restriction.
    */
   allowedModels?: readonly string[] | null;
+  /** Governance provider allow-list (usage policy `allowed_providers`). */
+  allowedProviders?: readonly string[] | null;
+  /**
+   * Platform role bindings. When supplied, the bound model IS the platform
+   * layer and the env keys are not consulted — bindings are seeded from those
+   * same env vars once, at boot, so there is exactly one place to look
+   * afterwards. Omit to keep the pre-binding env behaviour.
+   */
+  bindings?: ModelBindings;
+  /**
+   * Dev mode: ignore the allow-list entirely so the whole catalog is testable.
+   * Governance still applies in the preflight, so this is a resolution-time
+   * convenience, not a way to bill an unlicensed model in production.
+   */
+  devMode?: boolean;
   purpose: AiModelPurpose;
   /** Env reader; server callers pass a `process.env`-backed reader. */
   readEnv?: (key: string) => string | undefined;
@@ -147,11 +167,12 @@ export function resolvePurposeModel(
 ): ResolvedModel {
   const spec = AI_MODEL_PURPOSE_SPECS[options.purpose];
   const read = options.readEnv ?? (() => undefined);
-  const allowList =
-    options.allowedModels && options.allowedModels.length > 0
-      ? options.allowedModels
-      : null;
-  const allowed = (value: string) => !allowList || allowList.includes(value);
+  const policy: ModelAllowList = {
+    allowed_models: options.allowedModels ?? null,
+    allowed_providers: options.allowedProviders ?? null,
+  };
+  const allowed = (value: string) =>
+    options.devMode === true || isModelAllowed(value, policy);
 
   const session = pick(options.sessionOverride);
   if (session && allowed(session)) {
@@ -165,12 +186,44 @@ export function resolvePurposeModel(
   if (tenant && allowed(tenant)) {
     return { purpose: options.purpose, value: tenant, source: "tenant" };
   }
-  for (const key of spec.envKeys) {
-    const fromEnv = pick(read(key));
-    if (fromEnv) {
-      return { purpose: options.purpose, value: fromEnv, source: "platform" };
+  // The platform layer: a binding when the table has been populated, else the
+  // env vars it will be seeded from.
+  const bound = options.bindings
+    ? pick(
+        options.bindings.get(PURPOSE_TO_ROLE[options.purpose] ?? "")?.modelId
+      )
+    : undefined;
+  if (bound) {
+    if (allowed(bound)) {
+      return { purpose: options.purpose, value: bound, source: "platform" };
+    }
+  } else {
+    for (const key of spec.envKeys) {
+      const fromEnv = pick(read(key));
+      if (fromEnv && allowed(fromEnv)) {
+        return { purpose: options.purpose, value: fromEnv, source: "platform" };
+      }
     }
   }
+  if (allowed(spec.defaultModelId)) {
+    return {
+      purpose: options.purpose,
+      value: spec.defaultModelId,
+      source: "default",
+    };
+  }
+  // Every layer is disallowed. The platform/default layers used to be returned
+  // unchecked here, which handed `checkUsageLimits` a model it then rejected —
+  // every turn 429'd with `model_not_allowed` and no way out from the UI, since
+  // the picker only offers granted models. Land on a granted model instead.
+  const granted = firstAllowedModelId(policy);
+  if (granted) {
+    return { purpose: options.purpose, value: granted, source: "governance" };
+  }
+  // Provider-only grant excluding the default: there is no id to fall back to
+  // without a catalog lookup, which this pure resolver has no access to. The
+  // preflight will reject — the write boundary is responsible for refusing a
+  // policy that grants no model for a required purpose.
   return {
     purpose: options.purpose,
     value: spec.defaultModelId,

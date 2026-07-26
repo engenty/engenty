@@ -710,7 +710,7 @@
   },
   "sidebar": {
     "brand": "engenty",
-    "plan": "Lokal",
+    "plan": "local",
     "search": "Suchen",
     "search_placeholder": "Suchen",
     "tenantSwitcher": {
@@ -724,6 +724,8 @@
   },
   "about": {
     "version": "Version {{version}}",
+    "tenant": "Mandant",
+    "plan": "Plan",
     "tagline": "People & Agents. As One Team."
   },
   "profile": {

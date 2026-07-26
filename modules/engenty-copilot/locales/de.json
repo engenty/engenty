@@ -18,6 +18,7 @@
     "missingScope": "Mandant oder Benutzer fehlt; nach der Anmeldung neu laden.",
     "agentChooserLabel": "Agent auswählen",
     "modelChooserLabel": "Modell auswählen",
+    "effortExpertToggle": "Expertenmodus: Modell wählen",
     "modelChooser": {
       "searchPlaceholder": "Modelle durchsuchen…",
       "emptyMessage": "Keine Modelle gefunden.",

@@ -13,6 +13,7 @@ import {
   type GatewayModelUseCase,
   listGatewayModelOptions,
 } from "./gateway-model-options-api";
+import { listModelRoleBindings } from "./model-bindings-api";
 import {
   getTenantUsagePolicy,
   saveTenantUsagePolicy,
@@ -140,4 +141,14 @@ export function useAiUsageTenantQuery(enabled: boolean) {
       enabled,
     })
   );
+}
+
+export const modelRoleBindingsOptions = queryOptions({
+  queryKey: ["ai-settings", "model-role-bindings"] as const,
+  queryFn: ({ signal }) => listModelRoleBindings(signal),
+  staleTime: 60_000,
+});
+
+export function useModelRoleBindingsQuery() {
+  return useQuery(modelRoleBindingsOptions);
 }

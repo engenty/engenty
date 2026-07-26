@@ -34,6 +34,10 @@
       "types": "./dist/ui/paths.d.ts",
       "default": "./dist/ui/paths.js"
     },
+    "./ui/effort-control": {
+      "types": "./dist/ui/components/chat/copilot-effort-control.d.ts",
+      "default": "./dist/ui/components/chat/copilot-effort-control.js"
+    },
     "./ui/model-chooser-control": {
       "types": "./dist/ui/components/chat/copilot-model-chooser-control.d.ts",
       "default": "./dist/ui/components/chat/copilot-model-chooser-control.js"

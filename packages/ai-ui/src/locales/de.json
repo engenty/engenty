@@ -141,6 +141,42 @@
       "code": "Code"
     }
   },
+  "effort": {
+    "ariaLabel": "Aufwand wählen",
+    "label": "Aufwand",
+    "notInPlan": "Nicht in deinem Tarif enthalten",
+    "choice": {
+      "auto": {
+        "label": "Automatisch",
+        "desc": "Engenty bestimmt den Aufwand pro Anfrage."
+      },
+      "low": {
+        "label": "Niedrig",
+        "desc": "Schnelle Abfragen und kurze Änderungen."
+      },
+      "medium": {
+        "label": "Mittel",
+        "desc": "Alltagsarbeit — der ausgewogene Standard."
+      },
+      "high": {
+        "label": "Hoch",
+        "desc": "Schwierige Aufgaben, die mehr Nachdenken wert sind."
+      }
+    },
+    "tiers": {
+      "title": "Aufwandsstufen",
+      "description": "Wie viel Nachdenken dieser Workspace einkaufen darf. Nutzer wählen eine Stufe, nie eine Modell-ID; die Plattform bindet jede Stufe an ein Modell.",
+      "managedNote": "Dein Tarif bestimmt, welche Aufwandsstufen dieser Workspace nutzen kann.",
+      "keepOne": "Mindestens eine Stufe muss verfügbar bleiben.",
+      "save": "Stufen speichern",
+      "loadError": "Aufwandsstufen konnten nicht geladen werden."
+    },
+    "expert": {
+      "toggle": "Expertenmodus: Modelle per ID festpinnen",
+      "hint": "Self-Hosted- und Experten-Installationen können weiterhin ein Modell je Zweck festpinnen. Ein gepinntes Modell schlägt die Aufwandsstufe.",
+      "pickModel": "Modell wählen…"
+    }
+  },
   "picker": {
     "title": "Modell für {{purpose}} wählen",
     "description": "Modell wählen oder den Plattform-Standard erben. Preise pro Million Tokens (Eingabe / Ausgabe)."
@@ -192,7 +228,10 @@
     "inherit": "erbt",
     "none": "keins",
     "stepsLabel": "Schritte",
-    "budgetLabel": "Budget"
+    "budgetLabel": "Budget",
+    "effort": "Aufwand",
+    "inheritEffort": "Aufwand erben",
+    "expertToggle": "Expertenmodus: Modell-ID festpinnen"
   },
   "voice": {
     "title": "Echtzeit-Sprache",

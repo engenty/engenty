@@ -1,13 +1,17 @@
 // The composer's slash-command catalog: core built-ins + module UI
 // contributions (`registerChatCommand`) + the server COMMAND.md catalog
-// (`GET /ai/v1/chat-commands`). Server rows are authoritative for
-// prompt/action kinds; a UI contribution with the same token only decorates
-// them (icon, localized labels). `ui`-kind commands exist client-side only.
+// (`GET /ai/v1/chat-commands`) + tenant skills (`GET /ai/skills`) as
+// selectable `/skill-name` rows (Claude Code / Cursor style). Server rows are
+// authoritative for prompt/action kinds; a UI contribution with the same token
+// only decorates them (icon, localized labels). `ui`-kind commands exist
+// client-side only. Skills yield to command tokens on collision.
 
 import {
   type ChatCommandCatalogEntry,
   type ChatSlashCommand,
+  type FileStorageSkillSummary,
   getAppsAiChatCommands,
+  getFileStorageSkills,
   resolveEngentyAiServiceBaseUrl,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -16,6 +20,7 @@ import { useUiContributions } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 
 const CHAT_COMMANDS_QUERY_KEY = ["engenty-copilot", "chat-commands"] as const;
+const CHAT_SKILLS_QUERY_KEY = ["engenty-copilot", "chat-skills"] as const;
 
 function argsHint(
   args: ChatCommandCatalogEntry["args"] | undefined
@@ -26,6 +31,31 @@ function argsHint(
   return args
     .map((arg) => (arg.required ? `<${arg.name}>` : `<${arg.name}?>`))
     .join(" ");
+}
+
+function skillSlashRows(
+  skills: readonly FileStorageSkillSummary[],
+  seen: ReadonlySet<string>
+): ChatSlashCommand[] {
+  // Custom shadows managed for the same name — keep one row per token.
+  const byName = new Map<string, FileStorageSkillSummary>();
+  for (const skill of skills) {
+    const existing = byName.get(skill.name);
+    if (!existing || (existing.tier === "managed" && skill.tier === "custom")) {
+      byName.set(skill.name, skill);
+    }
+  }
+  return [...byName.values()]
+    .filter((skill) => !seen.has(skill.name))
+    .toSorted((a, b) => a.name.localeCompare(b.name))
+    .map((skill) => ({
+      command: skill.name,
+      description: skill.description,
+      group: "Skills",
+      kind: "skill" as const,
+      label: skill.title?.trim() || skill.name,
+      pluginId: "skills",
+    }));
 }
 
 export function useChatSlashCommands(input: {
@@ -42,6 +72,13 @@ export function useChatSlashCommands(input: {
     enabled: Boolean(serviceBaseUrl),
     queryFn: () => getAppsAiChatCommands(serviceBaseUrl),
     queryKey: CHAT_COMMANDS_QUERY_KEY,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const skillsQuery = useQuery({
+    enabled: Boolean(serviceBaseUrl),
+    queryFn: ({ signal }) => getFileStorageSkills(signal),
+    queryKey: CHAT_SKILLS_QUERY_KEY,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -115,6 +152,9 @@ export function useChatSlashCommands(input: {
       });
     }
 
+    // Skills as `/skill-name` rows — yield to any command token already claimed.
+    commands.push(...skillSlashRows(skillsQuery.data?.skills ?? [], seen));
+
     return commands;
   }, [
     catalogQuery.data,
@@ -122,6 +162,7 @@ export function useChatSlashCommands(input: {
     i18n,
     input.builtins,
     input.runFrontendTool,
+    skillsQuery.data?.skills,
     t,
   ]);
 }

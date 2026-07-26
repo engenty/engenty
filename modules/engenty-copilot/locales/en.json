@@ -18,6 +18,7 @@
     "missingScope": "Workspace tenant or user is not available; reload after sign-in.",
     "agentChooserLabel": "Choose agent",
     "modelChooserLabel": "Choose model",
+    "effortExpertToggle": "Expert: choose a model",
     "modelChooser": {
       "searchPlaceholder": "Search models…",
       "emptyMessage": "No models match your search.",

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseAuthVerificationConfig } from "./auth.js";
-import { getWorkspaceContext } from "./workspace.js";
+import {
+  getWorkspaceContext,
+  LOCAL_PLAN_LABEL,
+  resolveTenantPlanLabel,
+} from "./workspace.js";
 
 const testAuthConfig: SupabaseAuthVerificationConfig = {
   anonKey: "test-anon-key",
@@ -97,12 +101,20 @@ function makeClient(overrides: Record<string, unknown> = {}) {
         }
         if (table === "tenants") {
           return {
-            select: () => ({
+            select: (cols?: string) => ({
               eq: () => ({
-                maybeSingle: async () => ({
-                  error: null,
-                  data: { id: "tenant-1", slug: "acme", name: "Acme Inc" },
-                }),
+                maybeSingle: async () => {
+                  if (cols === "package_id") {
+                    return {
+                      error: null,
+                      data: { package_id: null },
+                    };
+                  }
+                  return {
+                    error: null,
+                    data: { id: "tenant-1", slug: "acme", name: "Acme Inc" },
+                  };
+                },
               }),
               in: () => ({
                 order: async () => ({
@@ -116,6 +128,15 @@ function makeClient(overrides: Record<string, unknown> = {}) {
                   { id: "tenant-1", slug: "acme", name: "Acme Inc" },
                   { id: "tenant-2", slug: "beta", name: "Beta" },
                 ],
+              }),
+            }),
+          };
+        }
+        if (table === "packages") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ error: null, data: null }),
               }),
             }),
           };
@@ -186,6 +207,7 @@ describe("getWorkspaceContext", () => {
     expect(ctx.tenantRole).toBeNull();
     expect(ctx.tenants).toEqual([]);
     expect(ctx.canSwitchTenant).toBe(false);
+    expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
     expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
     expect(ctx.tenantSupportedLocales).toEqual([]);
   });
@@ -213,6 +235,7 @@ describe("getWorkspaceContext", () => {
     expect(ctx.tenantRole).toBe("member");
     expect(ctx.tenants).toHaveLength(1);
     expect(ctx.canSwitchTenant).toBe(false);
+    expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
     expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
     expect(ctx.tenantSupportedLocales).toEqual(["en", "de"]);
   });
@@ -283,7 +306,98 @@ describe("getWorkspaceContext", () => {
     expect(ctx.tenantRole).toBe("admin");
     expect(ctx.tenants).toHaveLength(2);
     expect(ctx.canSwitchTenant).toBe(true);
+    expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
     expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
     expect(ctx.tenantSupportedLocales).toEqual(["en", "de"]);
+  });
+});
+
+describe("resolveTenantPlanLabel", () => {
+  it("returns local when the tenant has no package", async () => {
+    const client = {
+      schema: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                error: null,
+                data: { package_id: null },
+              }),
+            }),
+          }),
+        }),
+      }),
+    };
+    await expect(
+      resolveTenantPlanLabel(client as never, "tenant-1")
+    ).resolves.toBe(LOCAL_PLAN_LABEL);
+  });
+
+  it("returns the package label when assigned", async () => {
+    const client = {
+      schema: () => ({
+        from: (table: string) => {
+          if (table === "tenants") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    error: null,
+                    data: { package_id: "team" },
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "packages") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    error: null,
+                    data: { label: "Team" },
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        },
+      }),
+    };
+    await expect(
+      resolveTenantPlanLabel(client as never, "tenant-1")
+    ).resolves.toBe("Team");
+  });
+
+  it("falls back to the package id when the label row is missing", async () => {
+    const client = {
+      schema: () => ({
+        from: (table: string) => {
+          if (table === "tenants") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    error: null,
+                    data: { package_id: "custom-plan" },
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ error: null, data: null }),
+              }),
+            }),
+          };
+        },
+      }),
+    };
+    await expect(
+      resolveTenantPlanLabel(client as never, "tenant-1")
+    ).resolves.toBe("custom-plan");
   });
 });

@@ -18,6 +18,7 @@ import {
   useCopilotSelectedThread,
   useCopilotThreadActions,
   useCopilotVoice,
+  useMentionAgentCandidates,
 } from "@engenty/ai-ui";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -31,7 +32,7 @@ import {
 import { useChatSlashCommands } from "../../hooks/chat/use-chat-slash-commands.js";
 import { useMentionRefSearch } from "../../hooks/chat/use-mention-ref-search.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
-import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
+import { CopilotEffortControl } from "./copilot-effort-control.js";
 
 interface AgentChatPanelProps {
   compactContextControl?: ReactNode;
@@ -100,6 +101,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     builtins: slashBuiltins,
     runFrontendTool,
   });
+  const mentionAgentCandidates = useMentionAgentCandidates();
   const mentionRefSearch = useMentionRefSearch();
   const [selectedSuggestions, setSelectedSuggestions] = useState<
     Record<string, boolean>
@@ -297,11 +299,12 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     />
   ) : null;
 
-  // Agent chooser is hidden on the main copilot lane;
-  // model chooser stays visible (model selection is deferred but not retired).
+  // Agent chooser is hidden on the main copilot lane; the effort selector is
+  // the model control people see (the model-id chooser sits behind its expert
+  // switch).
   const composerLeadingControl = (
     <div className="flex min-w-0 items-center gap-1">
-      <CopilotModelChooserControl disabled={composerDisabled} />
+      <CopilotEffortControl disabled={composerDisabled} />
       {realtimeVoice.composerLeadingControl}
     </div>
   );
@@ -380,6 +383,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     emptyStateSubtitle: props.emptyStateSubtitle,
     emptyStateTitle: props.emptyStateTitle,
     error: panelError,
+    mentionAgentCandidates,
     mentionRefSearch,
     slashCommands,
     headerVariant: "docked",

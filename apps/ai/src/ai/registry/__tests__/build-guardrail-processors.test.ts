@@ -50,7 +50,7 @@ vi.mock("ai", () => ({
 
 import { buildGuardrailProcessors } from "../build-guardrail-processors.js";
 
-const SAFEGUARD_MODEL = "openrouter/openai/gpt-oss-safeguard-20b";
+const SAFEGUARD_MODEL = "openai/gpt-oss-safeguard-20b";
 
 function options() {
   return { agentId: "chatbot.test", safeguardModelId: SAFEGUARD_MODEL };

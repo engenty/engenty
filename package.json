@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.76",
+  "version": "0.1.77",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -43,10 +43,16 @@
       "contacts": {
         "source": "workspace"
       },
+      "engenty-apps": {
+        "source": "workspace"
+      },
       "engenty-coordinator": {
         "source": "workspace"
       },
       "engenty-copilot": {
+        "source": "workspace"
+      },
+      "engenty-remote": {
         "source": "workspace"
       },
       "files": {
@@ -86,6 +92,15 @@
         "source": "workspace"
       },
       "team-chat": {
+        "source": "workspace"
+      },
+      "team-hr": {
+        "source": "workspace"
+      },
+      "time-tracking": {
+        "source": "workspace"
+      },
+      "team-chat-slack-bridge": {
         "source": "workspace"
       }
     },

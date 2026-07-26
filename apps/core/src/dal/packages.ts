@@ -2,6 +2,7 @@ import {
   DEFAULT_ENTITLEMENT_PACKAGES,
   type EntitlementOverride,
   type EntitlementPackage,
+  normalizeEntitlementPackage,
   type ResolvedEntitlements,
   resolveEntitlements,
 } from "@engenty/entitlements";
@@ -35,6 +36,18 @@ export interface PackagesDal {
   getTenantPackageId: (tenantId: string) => Promise<string | null>;
   /** The synced catalog (from `core.packages`). */
   listPackages: () => Promise<EntitlementPackage[]>;
+  /**
+   * Re-materialize `ai.tenant_usage_policy` for every tenant holding `packageId`.
+   *
+   * The boot catalog sync only touches `core.packages`. A tenant's policy row is
+   * written once, when its package or override changes — so editing a package's
+   * limits or allow-list afterwards never reached the tenants on it, and they
+   * stayed on a stale row indefinitely. This is the explicit roll-out.
+   */
+  reapplyPackagePolicies: (packageId: string) => Promise<{
+    failures: { message: string; tenantId: string }[];
+    reapplied: number;
+  }>;
   /** Force-reset every authored entry to its catalog value. */
   restoreDefaults: (
     catalog?: readonly EntitlementPackage[]
@@ -54,9 +67,9 @@ export interface PackagesDal {
 }
 
 interface PackageRow {
-  ai_usage_policy: EntitlementPackage["aiUsagePolicy"];
-  app_limits: EntitlementPackage["appLimits"];
-  feature_flags: Record<string, boolean>;
+  ai_usage_policy: Partial<EntitlementPackage["aiUsagePolicy"]> | null;
+  app_limits: Partial<EntitlementPackage["appLimits"]> | null;
+  feature_flags: Record<string, boolean> | null;
   id: string;
   label: string;
   modules: string[] | null;
@@ -65,7 +78,7 @@ interface PackageRow {
 }
 
 function rowToPackage(row: PackageRow): EntitlementPackage {
-  return {
+  return normalizeEntitlementPackage({
     id: row.id,
     version: row.version,
     label: row.label,
@@ -74,7 +87,7 @@ function rowToPackage(row: PackageRow): EntitlementPackage {
     aiUsagePolicy: row.ai_usage_policy,
     appLimits: row.app_limits,
     ...(row.pricing ? { pricing: row.pricing } : {}),
-  };
+  });
 }
 
 function packageToRow(pkg: EntitlementPackage): PackageRow & {
@@ -112,6 +125,8 @@ export function toTenantUsagePolicyRow(
     hard_limit_cost_micros: p.hard_limit_cost_micros,
     soft_limit_cost_micros: p.soft_limit_cost_micros,
     allowed_models: p.allowed_models,
+    allowed_providers: p.allowed_providers,
+    allowed_efforts: p.allowed_efforts,
     enforcement_mode: p.enforcement_mode,
     currency: p.currency,
     // A policy materialized from an assigned plan is centrally governed: the AI
@@ -124,18 +139,22 @@ export function toTenantUsagePolicyRow(
 }
 
 /**
- * The authored entries that need upserting: those missing from the DB or whose
- * DB version is older than the authored version. Pure so the sync policy is
- * testable without a database.
+ * The authored entries that need seeding: those absent from `core.packages`.
+ *
+ * The authored catalog is a SEED, not the source of truth. `core.packages` is
+ * edited in the manage console, so a version bump must never overwrite what an
+ * operator configured there — the old behavior (upsert whenever the authored
+ * version was newer) silently reverted live plan settings on the next boot, and
+ * gave no hint it had happened. Use `restoreDefaults` for the deliberate
+ * "put it back the way the repo says" action.
+ *
+ * Pure so the sync policy is testable without a database.
  */
-export function selectStalePackages(
+export function selectSeedablePackages(
   existing: ReadonlyMap<string, number>,
   catalog: readonly EntitlementPackage[]
 ): EntitlementPackage[] {
-  return catalog.filter((pkg) => {
-    const current = existing.get(pkg.id);
-    return current === undefined || current < pkg.version;
-  });
+  return catalog.filter((pkg) => !existing.has(pkg.id));
 }
 
 export function createPackagesDal(
@@ -184,18 +203,18 @@ export function createPackagesDal(
         r.version,
       ])
     );
-    const stale = selectStalePackages(existing, catalog);
-    if (stale.length === 0) {
+    const seedable = selectSeedablePackages(existing, catalog);
+    if (seedable.length === 0) {
       return { upserted: 0 };
     }
     const { error: upsertError } = await packages().upsert(
-      stale.map(packageToRow),
+      seedable.map(packageToRow),
       { onConflict: "id" }
     );
     if (upsertError) {
       throw new Error(`Failed to sync packages: ${upsertError.message}`);
     }
-    return { upserted: stale.length };
+    return { upserted: seedable.length };
   }
 
   async function restoreDefaults(
@@ -219,6 +238,37 @@ export function createPackagesDal(
       throw new Error(`Failed to read tenant package: ${error.message}`);
     }
     return (data as { package_id: string | null } | null)?.package_id ?? null;
+  }
+
+  async function reapplyPackagePolicies(packageId: string): Promise<{
+    failures: { message: string; tenantId: string }[];
+    reapplied: number;
+  }> {
+    const { data, error } = await tenants()
+      .select("id")
+      .eq("package_id", packageId);
+    if (error) {
+      throw new Error(
+        `Failed to list tenants for package ${packageId}: ${error.message}`
+      );
+    }
+    const ids = ((data ?? []) as { id: string }[]).map((row) => row.id);
+    const failures: { message: string; tenantId: string }[] = [];
+    let reapplied = 0;
+    // Sequential on purpose: this is an admin-triggered roll-out over a handful
+    // of tenants, and one bad row must not abort the rest.
+    for (const tenantId of ids) {
+      try {
+        await applyAiUsagePolicy(tenantId);
+        reapplied += 1;
+      } catch (err) {
+        failures.push({
+          message: err instanceof Error ? err.message : String(err),
+          tenantId,
+        });
+      }
+    }
+    return { failures, reapplied };
   }
 
   async function setTenantPackage(
@@ -317,6 +367,7 @@ export function createPackagesDal(
     clearTenantOverride,
     getResolvedEntitlements,
     applyAiUsagePolicy,
+    reapplyPackagePolicies,
     getManageData,
   };
 }

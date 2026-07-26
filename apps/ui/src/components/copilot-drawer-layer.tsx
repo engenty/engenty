@@ -28,7 +28,7 @@ import {
 import { getCurrentAccessToken } from "@engenty/api-client";
 import type { CopilotDockMode } from "@engenty/app-shell";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
-import { CopilotModelChooserControl } from "@engenty/engenty-copilot/ui/model-chooser-control";
+import { CopilotEffortControl } from "@engenty/engenty-copilot/ui/effort-control";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
 import { usePageHeader } from "@engenty/ui-plugin-sdk";
@@ -384,7 +384,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         chooserMenuSessionsLoading={threads.isLoading}
         clearLabel={t("copilot.newChat")}
         compactLabel={t("copilot.compact")}
-        composerLeadingControl={<CopilotModelChooserControl />}
+        composerLeadingControl={<CopilotEffortControl />}
         composerPlaceholder={t("copilot.typeMessage")}
         copilotContext={props.copilotContext}
         copilotLayout={(props.shell?.copilotLayout ?? null) as never}

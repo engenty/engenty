@@ -123,12 +123,29 @@ export {
   resolvePurposeModel,
   resolvePurposeModelId,
 } from "./config/model-purposes.js";
+export {
+  AI_EFFORT_LEVELS,
+  AI_PLATFORM_ROLES,
+  type AiEffort,
+  type AiEffortChoice,
+  type AiRoleSpec,
+  bindingsFromList,
+  effortOfRole,
+  GRADED_ROLE_PREFIX,
+  graded,
+  type ModelBinding,
+  type ModelBindings,
+  mergeDeclaredRoles,
+  PURPOSE_TO_ROLE,
+  seedBindings,
+} from "./config/model-roles.js";
 export type {
   ActionDefinition,
   AgentDefinition,
   AgentSessionStatus,
   AiRegistration,
   InstructionDocumentDefinition,
+  ModelRoleDefinition,
   RoutineDefinition,
   RoutineTarget,
   RoutineTargetKind,
@@ -245,6 +262,7 @@ export {
   listModuleDynamicCapabilitySeeds,
   listRegisteredActions,
   listRegisteredChatCommands,
+  listRegisteredModelRoles,
   listRegisteredRoutines,
   registerAiRegistration,
   resolveActionDefinitionById,
@@ -385,6 +403,13 @@ export {
   TENANT_AGGREGATE_USER_ID,
 } from "./usage/contracts.js";
 export {
+  ceilingEffort,
+  clampEffort,
+  type EffortGrant,
+  isEffortAllowed,
+  isEffortUnrestricted,
+} from "./usage/effort-grants.js";
+export {
   type CheckUsageLimitsParams,
   checkUsageLimits,
   formatUsageLimitError,
@@ -393,6 +418,14 @@ export {
   type UsageLimitScope,
   type UsageLimitType,
 } from "./usage/limit-check.js";
+export {
+  canonicalModelId,
+  firstAllowedModelId,
+  isModelAllowed,
+  isUnrestricted,
+  type ModelAllowList,
+  providerOfModelId,
+} from "./usage/model-allow-list.js";
 export {
   type ResolvedPeriod,
   resolveCurrentPeriod,

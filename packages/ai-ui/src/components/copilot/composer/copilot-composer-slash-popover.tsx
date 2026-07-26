@@ -76,7 +76,7 @@ export function CopilotComposerSlashPopover({
                   <CommandItem
                     className="flex min-h-0 cursor-pointer items-baseline gap-2 rounded-none px-2 py-1.5 text-xs"
                     key={c.command}
-                    keywords={[c.command, c.label ?? ""]}
+                    keywords={[c.command, c.label ?? "", c.description ?? ""]}
                     onMouseEnter={() => setSlashHighlight(rowIndex)}
                     onPointerDown={(ev) => ev.preventDefault()}
                     onSelect={() => applySlashPick(c)}
@@ -85,6 +85,11 @@ export function CopilotComposerSlashPopover({
                     <span className="shrink-0 font-medium font-mono leading-tight">
                       /{c.command}
                     </span>
+                    {c.kind === "skill" ? (
+                      <span className="shrink-0 text-muted-foreground/70 text-xxs leading-tight">
+                        skill
+                      </span>
+                    ) : null}
                     {c.argsHint ? (
                       <span className="shrink-0 font-mono text-muted-foreground/70 text-xxs leading-tight">
                         {c.argsHint}

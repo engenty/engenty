@@ -1,5 +1,6 @@
 import { env } from "@engenty/telemetry";
 import { type AiModelPurpose, resolvePurposeModel } from "./model-purposes.js";
+import type { ModelBindings } from "./model-roles.js";
 
 /**
  * Thin back-compat facade over {@link resolvePurposeModel}.
@@ -30,6 +31,12 @@ export type ChatModelResolutionPurpose = "chat" | "routing" | "code_execution";
 export interface ResolveChatModelIdOptions {
   /** Governance allow-list; see {@link resolvePurposeModel}. */
   allowedModels?: readonly string[] | null;
+  /** Governance provider allow-list; see {@link resolvePurposeModel}. */
+  allowedProviders?: readonly string[] | null;
+  /** Platform role bindings; see {@link resolvePurposeModel}. */
+  bindings?: ModelBindings;
+  /** Dev mode: skip the allow-list at resolution time. */
+  devMode?: boolean;
   /** Request-level override (e.g. copilot param, tool arg). */
   override?: string | null | undefined;
   purpose: ChatModelResolutionPurpose;
@@ -50,6 +57,9 @@ function toPurpose(purpose: ChatModelResolutionPurpose): AiModelPurpose {
 export function resolveChatModelId(options: ResolveChatModelIdOptions): string {
   return resolvePurposeModel({
     allowedModels: options.allowedModels ?? null,
+    allowedProviders: options.allowedProviders ?? null,
+    ...(options.bindings ? { bindings: options.bindings } : {}),
+    ...(options.devMode === undefined ? {} : { devMode: options.devMode }),
     purpose: toPurpose(options.purpose),
     sessionOverride: options.override,
     tenantDefault: options.tenantDefault,
@@ -59,6 +69,12 @@ export function resolveChatModelId(options: ResolveChatModelIdOptions): string {
 
 export interface ResolveSafeguardModelIdOptions {
   allowedModels?: readonly string[] | null;
+  /** Governance provider allow-list; see {@link resolvePurposeModel}. */
+  allowedProviders?: readonly string[] | null;
+  /** Platform role bindings; see {@link resolvePurposeModel}. */
+  bindings?: ModelBindings;
+  /** Dev mode: skip the allow-list at resolution time. */
+  devMode?: boolean;
   override?: string | null | undefined;
   readEnv?: (key: string) => string | undefined;
   tenantDefault?: string | null | undefined;
@@ -71,6 +87,9 @@ export function resolveSafeguardModelId(
 ): string {
   return resolvePurposeModel({
     allowedModels: options.allowedModels ?? null,
+    allowedProviders: options.allowedProviders ?? null,
+    ...(options.bindings ? { bindings: options.bindings } : {}),
+    ...(options.devMode === undefined ? {} : { devMode: options.devMode }),
     purpose: "safeguard",
     sessionOverride: options.override,
     tenantDefault: options.tenantDefault,

@@ -23,6 +23,66 @@ export function getMentionQueryAtCursor(
 }
 
 /**
+ * Canonical @-mention handle for an agent id (`contacts.manager` →
+ * `contacts-manager`). Dots become hyphens so the token stays one
+ * whitespace-delimited word in the plain textarea.
+ */
+export function agentIdToMentionHandle(agentId: string): string {
+  return agentId.trim().toLowerCase().replaceAll(".", "-");
+}
+
+export interface MentionAgentCandidateInput {
+  chat_triggers?: {
+    include_in_chat_picker?: boolean;
+    is_active?: boolean;
+    mention_routing_enabled?: boolean;
+  };
+  id: string;
+  name?: string | null;
+}
+
+/**
+ * Agents offered in the composer @ picker. Mirrors the agent chooser filters
+ * (`is_active` + `include_in_chat_picker`) and also respects
+ * `mention_routing_enabled` when present (default true).
+ */
+export function buildMentionAgentCandidates(
+  agents: readonly MentionAgentCandidateInput[]
+): Array<{ handle: string; id: string; name: string }> {
+  const out: Array<{ handle: string; id: string; name: string }> = [];
+  const seenHandles = new Set<string>();
+  for (const agent of agents) {
+    const id = agent.id?.trim();
+    if (!id) {
+      continue;
+    }
+    const triggers = agent.chat_triggers;
+    if (triggers) {
+      if (triggers.is_active === false) {
+        continue;
+      }
+      if (triggers.include_in_chat_picker === false) {
+        continue;
+      }
+      if (triggers.mention_routing_enabled === false) {
+        continue;
+      }
+    }
+    const handle = agentIdToMentionHandle(id);
+    if (!handle || seenHandles.has(handle)) {
+      continue;
+    }
+    seenHandles.add(handle);
+    out.push({
+      handle,
+      id,
+      name: agent.name?.trim() || id,
+    });
+  }
+  return out.toSorted((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
  * If the trimmed message starts with `@handle` matching a candidate (longest handle wins),
  * returns the remainder as `text` and the agent id.
  */

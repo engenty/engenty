@@ -6,6 +6,7 @@ import {
   type UsageFeature,
   type UserUsagePolicyRecord,
 } from "./contracts.js";
+import { isModelAllowed } from "./model-allow-list.js";
 import { resolveCurrentPeriod } from "./period.js";
 import { type AiUsageStore, getAiUsageStore } from "./store.js";
 
@@ -90,12 +91,10 @@ export async function checkUsageLimits(
   const period = resolveCurrentPeriod(eff, now);
   const enforcement = eff.enforcement_mode;
 
-  // Model allow-list check first — independent of accumulated usage.
-  if (
-    eff.allowed_models &&
-    eff.allowed_models.length > 0 &&
-    !eff.allowed_models.includes(params.model_id)
-  ) {
+  // Model allow-list check first — independent of accumulated usage. Shares
+  // `isModelAllowed` with the picker and the purpose resolver so the three can
+  // never disagree about what is legal.
+  if (!isModelAllowed(params.model_id, eff)) {
     return {
       allowed: enforcement !== "enforce",
       enforcement_mode: enforcement,

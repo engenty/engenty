@@ -8,6 +8,8 @@ import {
   RunAgentInputSchema,
 } from "@engenty/ag-ui-bridge";
 import {
+  AI_EFFORT_LEVELS,
+  type AiEffort,
   type AiUsageStore,
   checkUsageLimits,
   type DynamicAiModuleCapabilityLoader,
@@ -28,6 +30,7 @@ import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
 import { isParkedResumeInFlight } from "../ai/conversation/session-park.js";
+import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
@@ -59,6 +62,8 @@ import {
 } from "../ai/sessions/tool-approval-grants.js";
 import { readDecisionResumeChoice } from "../ai/sessions/transcript.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
+import { createSkillStorage } from "../ai/skills/skill-storage.js";
+import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type {
   AgentRunStore,
@@ -193,6 +198,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/**
+ * The user's effort pick (`forwardedProps.engenty.effort`). Travels alongside
+ * `model_id` rather than replacing it: an expert / self-hosted install may still
+ * pin a model, and that pin keeps precedence.
+ *
+ * `auto` is accepted on the wire but not yet acted on — router-sized effort is
+ * still to come, and treating it as "no pick" degrades to the tenant default
+ * rather than guessing.
+ */
+function resolveEffortChoice(input: RunAgentInput): AiEffort | null {
+  const forwardedProps = isRecord(input.forwardedProps)
+    ? input.forwardedProps
+    : {};
+  if (!isRecord(forwardedProps.engenty)) {
+    return null;
+  }
+  const effort = forwardedProps.engenty.effort;
+  if (typeof effort !== "string") {
+    return null;
+  }
+  const value = effort.trim().toLowerCase();
+  return (AI_EFFORT_LEVELS as readonly string[]).includes(value)
+    ? (value as AiEffort)
+    : null;
+}
+
 function resolveModelIdOverride(input: RunAgentInput): string | null {
   const forwardedProps = isRecord(input.forwardedProps)
     ? input.forwardedProps
@@ -313,6 +344,7 @@ export function registerAgentSessionRunRoutes(
         })
       : null;
     const modelIdOverride = resolveModelIdOverride(body.data);
+    const effort = resolveEffortChoice(body.data);
 
     try {
       await opts.aiService.sessions.assertNativeMemoryAvailable({
@@ -642,6 +674,7 @@ export function registerAgentSessionRunRoutes(
       try {
         hsModelConfig = await opts.aiService.sessions.resolveRunModelConfig({
           agentId: session.agent_id,
+          effort,
           modelIdOverride,
           scope: scope.scope,
         });
@@ -688,8 +721,20 @@ export function registerAgentSessionRunRoutes(
       const hsAttachmentParts = isArtifactResume
         ? []
         : latestUserAttachmentParts(body.data);
-      // Slash-command expansion + typed @-mention references + attachment
+      // Slash-command / skill expansion + typed @-mention references + attachment
       // manifest/inline text ride the run context — raw user text stays untouched.
+      const hsCoreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+      const hsUserAccessToken = scope.scope.userAccessToken?.trim();
+      const hsSkillStorage =
+        hsCoreBaseUrl && hsUserAccessToken
+          ? createSkillStorage({
+              storage: createEngentyCoreFileStorageClient({
+                coreBaseUrl: hsCoreBaseUrl,
+                userAccessToken: hsUserAccessToken,
+              }),
+              tenantId: scope.scope.tenantId,
+            })
+          : null;
       const hsChatContextEntries =
         isArtifactResume || isResumeRun
           ? []
@@ -699,6 +744,7 @@ export function registerAgentSessionRunRoutes(
                 moduleLoader: opts.moduleLoader,
                 prompt: hsPrompt,
                 refs: latestUserReferenceItems(body.data),
+                skillStorage: hsSkillStorage,
               })),
               ...hsTieredAttachments.contextEntries,
             ];

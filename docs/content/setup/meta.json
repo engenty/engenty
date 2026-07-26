@@ -3,5 +3,5 @@
   "description": "Install and deploy your own Engenty instance.",
   "root": true,
   "icon": "Server",
-  "pages": ["README", "coolify", "platform-settings"]
+  "pages": ["README", "coolify", "platform-settings", "ai-models"]
 }

@@ -7,8 +7,12 @@ import {
   deriveGatewayModelPriceTiers,
   type GatewayModelRecord,
   type GatewayModelSyncRunRecord,
-  normalizeGatewayModel,
+  syncGatewayModels,
 } from "../gateway-models.js";
+import {
+  type ModelGateway,
+  normalizeGatewayModel,
+} from "../model-gateways/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -62,6 +66,7 @@ function gatewayModel(
     created_at: "2026-05-17T00:00:00.000Z",
     description: null,
     display_name: "Example",
+    gateway: "vercel",
     input_per_mtok_micros: 1,
     last_seen_at: "2026-05-17T00:00:00.000Z",
     last_synced_at: "2026-05-17T00:00:00.000Z",
@@ -100,10 +105,12 @@ function makeStore(): AiUsageStore & AiGatewayModelStore {
     insertModelPricing: vi.fn(async (record) => pricingRow(record.model_id)),
     listGatewayModelSyncRuns: vi.fn(async () => []),
     listGatewayModels: vi.fn(async () => []),
+    listModelBindings: vi.fn(async () => []),
     listModelPricing: vi.fn(async () => []),
     listUsedModelPricing: vi.fn(async () => []),
     listUserPolicies: vi.fn(),
     markGatewayModelSyncSettingsRun: vi.fn(),
+    seedModelBindings: vi.fn(async () => 0),
     summarizeUsageByModel: vi.fn(),
     summarizeUsageByThread: vi.fn(),
     summarizeUsageByUser: vi.fn(),
@@ -120,6 +127,10 @@ function makeStore(): AiUsageStore & AiGatewayModelStore {
       gatewayModel({ model_id: modelId, ...patch })
     ),
     upsertGatewayModels: vi.fn(async (models) => models.length),
+    upsertModelBinding: vi.fn(async (row) => ({
+      ...row,
+      updated_at: "2026-05-17T00:00:00.000Z",
+    })),
     upsertTenantPolicy: vi.fn(),
     upsertUserPolicy: vi.fn(),
   };
@@ -281,6 +292,7 @@ describe("Gateway model sync", () => {
     expect(body.model_count).toBe(1);
     expect(store.upsertGatewayModels).toHaveBeenCalledWith([
       expect.objectContaining({
+        gateway: "vercel",
         model_id: "openai/gpt-example",
         price_tier: "low", // score = 250k×0.75 + 2M×0.25 = 687.5k > 500k → low
       }),
@@ -291,6 +303,43 @@ describe("Gateway model sync", () => {
         model_id: "openai/gpt-example",
       })
     );
+  });
+
+  it("tags each adapter's rows with its own gateway and counts them apart", async () => {
+    const store = makeStore();
+    const stubGateway = (id: string, modelId: string): ModelGateway => ({
+      id,
+      listModels: async (opts) => [
+        normalizeGatewayModel(
+          { id: modelId, owned_by: "openai", type: "language" },
+          { now: opts.now }
+        ),
+      ],
+      sourceUrl: `https://${id}.example/models`,
+    });
+
+    const result = await syncGatewayModels(store, {
+      gateways: [
+        stubGateway("vercel", "openai/gpt-a"),
+        stubGateway("openrouter", "openai/gpt-b"),
+      ],
+      trigger: "manual",
+    });
+
+    expect(result.model_count).toBe(2);
+    expect(result.by_gateway).toEqual({
+      openrouter: { model_count: 1, updated_model_count: 1 },
+      vercel: { model_count: 1, updated_model_count: 1 },
+    });
+    expect(store.upsertGatewayModels).toHaveBeenNthCalledWith(1, [
+      expect.objectContaining({ gateway: "vercel", model_id: "openai/gpt-a" }),
+    ]);
+    expect(store.upsertGatewayModels).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({
+        gateway: "openrouter",
+        model_id: "openai/gpt-b",
+      }),
+    ]);
   });
 
   it("rejects Gateway catalog routes for non-superadmins", async () => {
@@ -359,7 +408,8 @@ describe("Gateway model sync", () => {
     expect(body.available_for_chat).toBe(false);
     expect(store.updateGatewayModelAvailability).toHaveBeenCalledWith(
       "openai/gpt-example",
-      { available_for_chat: false }
+      { available_for_chat: false },
+      undefined
     );
   });
 

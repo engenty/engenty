@@ -1,4 +1,5 @@
 import type { Message } from "@engenty/ag-ui-bridge";
+import type { AiEffort } from "@engenty/ai-core";
 import {
   type AgentWorkspaceConfig,
   agUiMessageText,
@@ -496,6 +497,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     // resolveRunWorkspaces above.
     async resolveRunModelConfig(input: {
       agentId: string;
+      effort?: AiEffort | null;
       modelIdOverride?: string | null;
       scope: AiSessionScope;
     }): Promise<{
@@ -506,7 +508,8 @@ export function createSessionService(opts: SessionServiceOptions) {
       const modelConfig = await resolveRuntimeModelConfig(
         opts,
         input.scope,
-        input.modelIdOverride
+        input.modelIdOverride,
+        input.effort
       );
       const registry =
         opts.createRegistry?.(input.scope) ??
@@ -875,7 +878,17 @@ export function createSessionService(opts: SessionServiceOptions) {
     },
 
     async listMessages(input: ListAiSessionMessagesInput) {
-      const { store } = await getRequiredSession(input);
+      // Ownership check, not just tenancy. `getRequiredSession` filters on
+      // tenant + thread, which leaves any authenticated member of the tenant
+      // able to read a colleague's transcript from the thread id alone. Every
+      // sibling here (getSession, updateSession, deleteSession, listSessions)
+      // already scopes to the owner; this one did not. RLS would have caught it,
+      // but the AI service connects with the service-role key and bypasses it,
+      // so these filters are the whole boundary.
+      const { session, store } = await getRequiredSession(input);
+      if (session.created_by_user_id !== input.scope.userId) {
+        throw new AiSessionError("agent_threads.notFound");
+      }
       const messages = await store.listMessagesOrdered({
         tenantId: input.scope.tenantId,
         threadId: input.threadId,

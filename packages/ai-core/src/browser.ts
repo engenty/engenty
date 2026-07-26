@@ -54,6 +54,22 @@ export {
   DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   type ResolvedModel,
 } from "./config/model-purposes.js";
+export {
+  AI_EFFORT_LEVELS,
+  AI_PLATFORM_ROLES,
+  type AiEffort,
+  type AiEffortChoice,
+  type AiRoleSpec,
+  bindingsFromList,
+  effortOfRole,
+  GRADED_ROLE_PREFIX,
+  graded,
+  type ModelBinding,
+  type ModelBindings,
+  mergeDeclaredRoles,
+  PURPOSE_TO_ROLE,
+  seedBindings,
+} from "./config/model-roles.js";
 export type { AgentSessionStatus } from "./contracts.js";
 export type {
   AgentConfig,
@@ -142,11 +158,26 @@ export {
   DEFAULT_TENANT_USAGE_POLICY,
   TENANT_AGGREGATE_USER_ID,
 } from "./usage/contracts.js";
+export {
+  ceilingEffort,
+  clampEffort,
+  type EffortGrant,
+  isEffortAllowed,
+  isEffortUnrestricted,
+} from "./usage/effort-grants.js";
 export type {
   UsageLimitErrorBody,
   UsageLimitScope,
   UsageLimitType,
 } from "./usage/limit-check.js";
+export {
+  canonicalModelId,
+  firstAllowedModelId,
+  isModelAllowed,
+  isUnrestricted,
+  type ModelAllowList,
+  providerOfModelId,
+} from "./usage/model-allow-list.js";
 export {
   type ResolvedPeriod,
   resolveCurrentPeriod,

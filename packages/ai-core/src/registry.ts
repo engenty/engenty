@@ -182,6 +182,21 @@ export function listRegisteredSkills(): SkillDefinition[] {
   );
 }
 
+/** Model roles declared by modules, tagged with the module that declared them. */
+export function listRegisteredModelRoles(): {
+  default_model_id: string;
+  label: string;
+  module_id: string;
+  role: string;
+}[] {
+  return Array.from(aiRegistrations.values()).flatMap(({ registration }) =>
+    (registration.model_roles ?? []).map((definition) => ({
+      ...definition,
+      module_id: registration.module_id,
+    }))
+  );
+}
+
 /** List all registered action definitions across active orchestrator registrations. */
 export function listRegisteredActions(): ActionDefinition[] {
   return Array.from(aiRegistrations.values()).flatMap(

@@ -51,6 +51,7 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
       },
       tenants: [{ id: "tenant-1", slug: "default", name: "Default Tenant" }],
       canSwitchTenant: false,
+      planLabel: "local",
       resolvedAppearance: {
         font: "engenty",
         fontSize: "100",

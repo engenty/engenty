@@ -1,3 +1,4 @@
+import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import {
   Badge,
   Button,
@@ -6,6 +7,7 @@ import {
   SearchableSelect,
   type SearchableSelectOption,
   SettingsFormSection,
+  Switch,
 } from "@engenty/ui-core";
 import { useState } from "react";
 import {
@@ -14,6 +16,8 @@ import {
 } from "../../lib/admin/ai-runtime-queries";
 import type { AiRegisteredAgent } from "../../lib/admin/ai-runtime-types";
 import type { EffectiveAiSettings } from "../../lib/admin/effective-ai-settings-api";
+import { EffortSelector } from "../ai-effort/effort-selector";
+import { useEffortGrant } from "../ai-effort/use-effort-grant";
 
 const MICROS_PER_DOLLAR = 1_000_000;
 
@@ -28,6 +32,7 @@ const PURPOSE_VALUES = [
 
 interface Draft {
   budgetDollars: string;
+  effort: AiEffortChoice;
   maxSteps: string;
   modelOverride: string;
   purpose: string;
@@ -36,6 +41,7 @@ interface Draft {
 function toDraft(agent: AiRegisteredAgent): Draft {
   const budgetMicros = agent.limits?.budget?.maxCostMicrosPerPeriod;
   return {
+    effort: agent.effort ?? "auto",
     modelOverride: agent.modelOverride ?? "",
     purpose: agent.purpose ?? "",
     maxSteps:
@@ -57,8 +63,13 @@ export function AgentsOverridesTab({
 }: AgentsOverridesTabProps) {
   const agentsQuery = useAiAgentsQuery();
   const saveMutation = usePatchAiAgentOverridesMutation();
+  const { allowedEfforts } = useEffortGrant();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  // Model ids and the legacy purpose tier are the expert layer; effort is what
+  // an admin normally sets. Sticky across rows so a self-hosted admin flips it
+  // once per visit.
+  const [expertModels, setExpertModels] = useState(false);
 
   const agents = agentsQuery.data?.agents ?? [];
 
@@ -81,6 +92,7 @@ export function AgentsOverridesTab({
       {
         agentId,
         patch: {
+          effort: draft.effort === "auto" ? null : draft.effort,
           modelOverride: draft.modelOverride.trim() || null,
           purpose: (draft.purpose || null) as AiRegisteredAgent["purpose"],
           limits: {
@@ -157,43 +169,71 @@ export function AgentsOverridesTab({
                 {isEditing && draft ? (
                   <div className="grid gap-3 rounded-md border bg-muted/20 p-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
-                      <Label htmlFor={`ov-model-${agent.id}`}>
-                        {t("agentsTab.modelOverride")}
-                      </Label>
-                      <SearchableSelect
-                        emptyMessage={t("fields.modelSearchEmpty")}
-                        id={`ov-model-${agent.id}`}
-                        onValueChange={(v) =>
-                          setDraft({ ...draft, modelOverride: v })
-                        }
-                        options={chatModelOptions}
-                        placeholder={t("agentsTab.inheritPlaceholder")}
-                        searchPlaceholder={t("fields.modelSearchPlaceholder")}
-                        triggerClassName="h-8 w-full"
-                        value={draft.modelOverride}
+                      <Label>{t("agentsTab.effort")}</Label>
+                      <EffortSelector
+                        allowedEfforts={allowedEfforts}
+                        onChange={(effort) => setDraft({ ...draft, effort })}
+                        value={draft.effort}
+                        variant="field"
                       />
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor={`ov-purpose-${agent.id}`}>
-                        {t("agentsTab.purpose")}
-                      </Label>
-                      <select
-                        className="h-8 rounded-md border bg-background px-2 text-sm"
-                        id={`ov-purpose-${agent.id}`}
-                        onChange={(e) =>
-                          setDraft({ ...draft, purpose: e.target.value })
-                        }
-                        value={draft.purpose}
+                    <div className="flex items-center gap-2 sm:justify-end">
+                      <Switch
+                        checked={expertModels}
+                        id={`ov-expert-${agent.id}`}
+                        onCheckedChange={setExpertModels}
+                      />
+                      <Label
+                        className="cursor-pointer font-normal text-muted-foreground text-xs"
+                        htmlFor={`ov-expert-${agent.id}`}
                       >
-                        {PURPOSE_VALUES.map((p) => (
-                          <option key={p || "inherit"} value={p}>
-                            {p
-                              ? t(`matrix.purpose.${p}.label`)
-                              : t("agentsTab.structural")}
-                          </option>
-                        ))}
-                      </select>
+                        {t("agentsTab.expertToggle")}
+                      </Label>
                     </div>
+                    {expertModels ? (
+                      <>
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor={`ov-model-${agent.id}`}>
+                            {t("agentsTab.modelOverride")}
+                          </Label>
+                          <SearchableSelect
+                            emptyMessage={t("fields.modelSearchEmpty")}
+                            id={`ov-model-${agent.id}`}
+                            onValueChange={(v) =>
+                              setDraft({ ...draft, modelOverride: v })
+                            }
+                            options={chatModelOptions}
+                            placeholder={t("agentsTab.inheritPlaceholder")}
+                            searchPlaceholder={t(
+                              "fields.modelSearchPlaceholder"
+                            )}
+                            triggerClassName="h-8 w-full"
+                            value={draft.modelOverride}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor={`ov-purpose-${agent.id}`}>
+                            {t("agentsTab.purpose")}
+                          </Label>
+                          <select
+                            className="h-8 rounded-md border bg-background px-2 text-sm"
+                            id={`ov-purpose-${agent.id}`}
+                            onChange={(e) =>
+                              setDraft({ ...draft, purpose: e.target.value })
+                            }
+                            value={draft.purpose}
+                          >
+                            {PURPOSE_VALUES.map((p) => (
+                              <option key={p || "inherit"} value={p}>
+                                {p
+                                  ? t(`matrix.purpose.${p}.label`)
+                                  : t("agentsTab.structural")}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    ) : null}
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor={`ov-steps-${agent.id}`}>
                         {t("agentsTab.maxSteps")}
@@ -237,6 +277,11 @@ export function AgentsOverridesTab({
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
+                    <Badge variant={agent.effort ? "default" : "secondary"}>
+                      {agent.effort
+                        ? t(`effort.choice.${agent.effort}.label`)
+                        : t("agentsTab.inheritEffort")}
+                    </Badge>
                     {pinnedModel ? (
                       <Badge className="font-mono" variant="default">
                         {pinnedModel}
