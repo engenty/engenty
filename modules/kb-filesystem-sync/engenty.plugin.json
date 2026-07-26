@@ -1,0 +1,25 @@
+{
+  "id": "kb-filesystem-sync",
+  "name": "KB Filesystem Sync",
+  "description": "Bidirectional sync of the Knowledge Base structure to file storage using the Open Knowledge Format (OKF).",
+  "version": "0.0.1",
+  "kind": "module",
+  "category": "knowledge",
+  "provides": [
+    "module.kb-filesystem-sync",
+    "module.kb-filesystem-sync.read",
+    "module.kb-filesystem-sync.write"
+  ],
+  "requires": ["module.knowledge-base"],
+  "capabilities": {
+    "operations": true
+  },
+  "supabase": {
+    "storageBuckets": [
+      {
+        "name": "kb-sync",
+        "public": false
+      }
+    ]
+  }
+}

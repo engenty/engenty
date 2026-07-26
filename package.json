@@ -64,6 +64,9 @@
       "invoices": {
         "source": "workspace"
       },
+      "kb-filesystem-sync": {
+        "source": "workspace"
+      },
       "knowledge-base": {
         "source": "workspace"
       },
