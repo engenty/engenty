@@ -65,6 +65,21 @@ export function RoutineDetailTopbarActions({
 
   return (
     <div className="flex items-center gap-0.5">
+      <Button
+        className="mr-0.5 gap-1.5 font-medium"
+        disabled={runMutation.isPending || !routine.enabled}
+        onClick={() => runMutation.mutate(routine.id)}
+        size="sm"
+        type="button"
+      >
+        {runMutation.isPending ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Play className="size-3.5 fill-current" />
+        )}
+        {t("routines.detail.runNow")}
+      </Button>
+
       {isCustom ? (
         <Button
           aria-label={t("routines.detail.edit")}
@@ -119,21 +134,6 @@ export function RoutineDetailTopbarActions({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-
-      <Button
-        className="gap-1.5 font-medium"
-        disabled={runMutation.isPending || !routine.enabled}
-        onClick={() => runMutation.mutate(routine.id)}
-        size="sm"
-        type="button"
-      >
-        {runMutation.isPending ? (
-          <Loader2 className="size-3.5 animate-spin" />
-        ) : (
-          <Play className="size-3.5 fill-current" />
-        )}
-        {t("routines.detail.runNow")}
-      </Button>
 
       <ArtifactPaneToggle
         container={container}
