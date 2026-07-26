@@ -67,7 +67,10 @@ function makeApp(capabilities = new AppCapabilityRegistry()) {
   return { app, capabilities };
 }
 
-const authed = { authorization: "Bearer user-jwt", "content-type": "application/json" };
+const authed = {
+  authorization: "Bearer user-jwt",
+  "content-type": "application/json",
+};
 
 function callBody(name: string, args: Record<string, unknown> = {}) {
   return JSON.stringify({ arguments: args, name, session_id: "sess-1" });
@@ -214,16 +217,19 @@ describe("POST /ai/apps/:appId/call — actions", () => {
   it("routes a low-risk action to the unprivileged operation", async () => {
     const { app } = makeApp();
     const res = await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: callBody("app_action", { action: "collect", input: { amount: 35 } }),
+      body: callBody("app_action", {
+        action: "collect",
+        input: { amount: 35 },
+      }),
       headers: authed,
       method: "POST",
     });
     expect(res.status).toBe(200);
     const call = invokeTool.mock.calls.find(([id]) => id === "app_call");
     expect(call).toBeDefined();
-    expect(invokeTool.mock.calls.some(([id]) => id === "app_call_privileged")).toBe(
-      false
-    );
+    expect(
+      invokeTool.mock.calls.some(([id]) => id === "app_call_privileged")
+    ).toBe(false);
   });
 
   it("routes a high-risk action to the approval-gated operation", async () => {
@@ -312,7 +318,9 @@ describe("POST /ai/apps/:appId/call — working store", () => {
         headers: authed,
         method: "POST",
       });
-      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(true);
+      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(
+        true
+      );
     }
   });
 });
@@ -345,7 +353,9 @@ describe("POST /ai/apps/:appId/call — undeclared storage", () => {
       error: "apps.storageNotDeclared",
       store: "data",
     });
-    expect(invokeTool.mock.calls.some(([id]) => id === "app_data_get")).toBe(false);
+    expect(invokeTool.mock.calls.some(([id]) => id === "app_data_get")).toBe(
+      false
+    );
   });
 
   it("refuses config access an App never declared", async () => {
@@ -449,7 +459,9 @@ describe("POST /ai/apps/:appId/call — config", () => {
         headers: authed,
         method: "POST",
       });
-      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(true);
+      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(
+        true
+      );
     }
   });
 });

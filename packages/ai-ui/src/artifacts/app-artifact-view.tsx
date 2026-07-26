@@ -103,7 +103,9 @@ async function callAppAction(params: {
     // Surface the proxy's own reason — "this app never declared that
     // operation" is far more useful to a developer than "HTTP 403".
     throw new Error(
-      payload?.message ?? payload?.error ?? `App call failed (HTTP ${res.status})`
+      payload?.message ??
+        payload?.error ??
+        `App call failed (HTTP ${res.status})`
     );
   }
   return payload?.result ?? {};

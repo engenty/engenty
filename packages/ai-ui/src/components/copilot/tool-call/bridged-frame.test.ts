@@ -25,7 +25,9 @@ describe("buildWidgetCsp", () => {
   });
 
   it("keeps resource hosts out of connect-src", () => {
-    const csp = buildWidgetCsp({ resourceDomains: ["https://cdn.example.com"] });
+    const csp = buildWidgetCsp({
+      resourceDomains: ["https://cdn.example.com"],
+    });
     expect(csp).toContain("img-src data: blob: https://cdn.example.com");
     expect(csp).toContain("connect-src 'none'");
   });
@@ -45,7 +47,7 @@ describe("injectCspMeta", () => {
 
   it("prepends the policy when the document has no head", () => {
     const out = injectCspMeta("<p>bare fragment</p>", "default-src 'none'");
-    expect(out.startsWith("<meta http-equiv=\"Content-Security-Policy\"")).toBe(
+    expect(out.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(
       true
     );
   });

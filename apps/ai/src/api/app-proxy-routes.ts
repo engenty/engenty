@@ -295,9 +295,17 @@ export function registerAppProxyRoutes(
       resolved = await loadApp(client, appId);
     } catch (err) {
       if (err instanceof EngentyCoreHttpError) {
-        return c.json({ error: "apps.appUnavailable" }, err.status === 404 ? 404 : 502);
+        return c.json(
+          { error: "apps.appUnavailable" },
+          err.status === 404 ? 404 : 502
+        );
       }
-      return handleRouteError(c, "app lookup failed", "apps.appUnavailable", err);
+      return handleRouteError(
+        c,
+        "app lookup failed",
+        "apps.appUnavailable",
+        err
+      );
     }
     if (!resolved) {
       return c.json({ error: "apps.appNotActive" }, 404);
@@ -332,7 +340,10 @@ export function registerAppProxyRoutes(
             !caller.allowedOperations.includes(operationId)
           ) {
             return c.json(
-              { error: "apps.operationNotInCapability", operation_id: operationId },
+              {
+                error: "apps.operationNotInCapability",
+                operation_id: operationId,
+              },
               403
             );
           }
@@ -400,7 +411,10 @@ export function registerAppProxyRoutes(
           // decoration. Same rule the operations allow-list follows: what the
           // App did not declare does not exist for it.
           if (!resolved.storage.config) {
-            return c.json({ error: "apps.storageNotDeclared", store: "config" }, 403);
+            return c.json(
+              { error: "apps.storageNotDeclared", store: "config" },
+              403
+            );
           }
           const call = dataArgsSchema.safeParse(args);
           if (!call.success) {
@@ -423,7 +437,10 @@ export function registerAppProxyRoutes(
 
         default: {
           if (!resolved.storage.data) {
-            return c.json({ error: "apps.storageNotDeclared", store: "data" }, 403);
+            return c.json(
+              { error: "apps.storageNotDeclared", store: "data" },
+              403
+            );
           }
           const call = dataArgsSchema.safeParse(args);
           if (!call.success) {
