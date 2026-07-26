@@ -31,6 +31,10 @@ const tenantPolicyPatchSchema = z.object({
   hard_limit_cost_micros: z.number().int().nonnegative().nullable().optional(),
   allowed_models: z.array(z.string()).nullable().optional(),
   allowed_providers: z.array(z.string()).nullable().optional(),
+  allowed_efforts: z
+    .array(z.enum(["low", "medium", "high"]))
+    .nullable()
+    .optional(),
 });
 
 const adminPolicySchema = tenantPolicyPatchSchema.extend({
@@ -321,6 +325,10 @@ export function registerUsageRoutes(
         parsed.data.allowed_providers === undefined
           ? current.allowed_providers
           : parsed.data.allowed_providers,
+      allowed_efforts:
+        parsed.data.allowed_efforts === undefined
+          ? current.allowed_efforts
+          : parsed.data.allowed_efforts,
       updated_at: new Date().toISOString(),
     });
     return c.json(policy);
@@ -563,6 +571,10 @@ export function registerUsageRoutes(
         parsed.data.allowed_providers === undefined
           ? current.allowed_providers
           : parsed.data.allowed_providers,
+      allowed_efforts:
+        parsed.data.allowed_efforts === undefined
+          ? current.allowed_efforts
+          : parsed.data.allowed_efforts,
       enforcement_mode:
         parsed.data.enforcement_mode ?? current.enforcement_mode,
       currency: parsed.data.currency ?? current.currency,

@@ -20,6 +20,7 @@ export const aiUsagePolicySchema = z.object({
   currency: z.string().min(1),
   allowed_models: z.array(z.string()).nullable(),
   allowed_providers: z.array(z.string()).nullable(),
+  allowed_efforts: z.array(z.enum(["low", "medium", "high"])).nullable(),
 });
 
 export const appLimitsSchema = z.object({

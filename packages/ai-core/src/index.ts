@@ -400,6 +400,13 @@ export {
   TENANT_AGGREGATE_USER_ID,
 } from "./usage/contracts.js";
 export {
+  ceilingEffort,
+  clampEffort,
+  type EffortGrant,
+  isEffortAllowed,
+  isEffortUnrestricted,
+} from "./usage/effort-grants.js";
+export {
   type CheckUsageLimitsParams,
   checkUsageLimits,
   formatUsageLimitError,

@@ -94,6 +94,8 @@ export interface UsagePeriodTotalRecord {
 export type UsagePolicyManagedBy = "tenant" | "entitlement";
 
 export interface TenantUsagePolicyRecord {
+  /** Licensed effort tiers; null/empty = all. */
+  allowed_efforts: string[] | null;
   allowed_models: string[] | null;
   /**
    * Provider allow-list matched against `ai.gateway_model.provider`.
@@ -142,6 +144,7 @@ export const DEFAULT_TENANT_USAGE_POLICY: Omit<
   soft_limit_cost_micros: null,
   allowed_models: null,
   allowed_providers: null,
+  allowed_efforts: null,
   enforcement_mode: "observe",
   currency: "usd",
   managed_by: "tenant",

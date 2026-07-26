@@ -49,6 +49,7 @@ export const FREE_AI_USAGE_POLICY: EntitlementAiUsagePolicy = {
   currency: "usd",
   allowed_models: null,
   allowed_providers: null,
+  allowed_efforts: null,
 };
 
 /** App limits applied to a tenant with no package: unlimited seats, observe. */

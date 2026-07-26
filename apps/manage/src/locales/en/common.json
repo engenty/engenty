@@ -307,7 +307,9 @@
       "reapply": "Re-apply to tenants",
       "reapplyHint": "Tenants already on this package keep their current policy until re-applied.",
       "reapplyDone": "Re-applied to {{count}} tenants",
-      "reapplyPartial": "Re-applied to {{count}} tenants, {{failed}} failed"
+      "reapplyPartial": "Re-applied to {{count}} tenants, {{failed}} failed",
+      "allowedEfforts": "Licensed effort",
+      "allEfforts": "Low, medium and high"
     }
   },
   "entitlements": {

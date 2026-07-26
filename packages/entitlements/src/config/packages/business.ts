@@ -32,6 +32,7 @@ export const businessPackage: EntitlementPackage = {
     currency: "usd",
     allowed_models: null,
     allowed_providers: null,
+    allowed_efforts: null,
   },
   appLimits: { maxUsers: 100, enforcement_mode: "enforce" },
   pricing: {

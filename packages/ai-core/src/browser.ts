@@ -157,6 +157,13 @@ export {
   DEFAULT_TENANT_USAGE_POLICY,
   TENANT_AGGREGATE_USER_ID,
 } from "./usage/contracts.js";
+export {
+  ceilingEffort,
+  clampEffort,
+  type EffortGrant,
+  isEffortAllowed,
+  isEffortUnrestricted,
+} from "./usage/effort-grants.js";
 export type {
   UsageLimitErrorBody,
   UsageLimitScope,

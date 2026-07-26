@@ -125,6 +125,7 @@ export function toTenantUsagePolicyRow(
     soft_limit_cost_micros: p.soft_limit_cost_micros,
     allowed_models: p.allowed_models,
     allowed_providers: p.allowed_providers,
+    allowed_efforts: p.allowed_efforts,
     enforcement_mode: p.enforcement_mode,
     currency: p.currency,
     // A policy materialized from an assigned plan is centrally governed: the AI

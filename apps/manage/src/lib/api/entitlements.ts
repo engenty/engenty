@@ -3,6 +3,11 @@ import { request } from "./http";
 export type EntitlementEnforcementMode = "observe" | "enforce";
 
 export interface EntitlementAiUsagePolicy {
+  /**
+   * Licensed effort tiers. This is the grant a commercial plan should use —
+   * unlike a model-id list it never goes stale when a vendor ships something.
+   */
+  allowed_efforts: string[] | null;
   allowed_models: string[] | null;
   /** Provider allow-list; additive with allowed_models. null/empty = any. */
   allowed_providers: string[] | null;

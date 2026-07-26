@@ -23,10 +23,18 @@ export type EntitlementEnforcementMode = "observe" | "enforce";
  * The free-text `tier` on that record is superseded by the package id.
  */
 export interface EntitlementAiUsagePolicy {
+  /**
+   * Effort tiers this plan licenses (`low` / `medium` / `high`); null/empty =
+   * all of them. This is the grant a commercial plan should actually use: it
+   * talks about how much thinking a tenant may buy, so it never goes stale when
+   * a vendor ships a new model. The two model lists below remain for
+   * self-hosted and expert-mode installs.
+   */
+  allowed_efforts: string[] | null;
   /** Model allow-list; null/empty = all models permitted. */
   allowed_models: string[] | null;
   /**
-   * Provider allow-list matched against `ai.gateway_model.provider`; null/empty
+   * Provider allow-list matched against the catalog's `provider`; null/empty
    * = all providers permitted. Additive with {@link allowed_models}: a model is
    * legal if it matches either list, so a vendor grant needs no per-model
    * upkeep when that vendor ships something new.

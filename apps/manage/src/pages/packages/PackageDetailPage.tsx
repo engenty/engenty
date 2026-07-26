@@ -117,6 +117,14 @@ function PackageFields({ pkg }: { pkg: EntitlementPackage }) {
             }
           />
           <Field
+            label={t("packages.detail.allowedEfforts")}
+            value={
+              ai.allowed_efforts === null || ai.allowed_efforts.length === 0
+                ? t("packages.detail.allEfforts")
+                : ai.allowed_efforts.join(", ")
+            }
+          />
+          <Field
             label={t("packages.detail.allowedProviders")}
             value={
               ai.allowed_providers === null || ai.allowed_providers.length === 0

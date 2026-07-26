@@ -307,7 +307,9 @@
       "reapply": "Auf Mandanten anwenden",
       "reapplyHint": "Mandanten mit diesem Paket behalten ihre aktuelle Richtlinie, bis sie erneut angewendet wird.",
       "reapplyDone": "Auf {{count}} Mandanten angewendet",
-      "reapplyPartial": "Auf {{count}} Mandanten angewendet, {{failed}} fehlgeschlagen"
+      "reapplyPartial": "Auf {{count}} Mandanten angewendet, {{failed}} fehlgeschlagen",
+      "allowedEfforts": "Lizenzierte Stufen",
+      "allEfforts": "Niedrig, mittel und hoch"
     }
   },
   "entitlements": {

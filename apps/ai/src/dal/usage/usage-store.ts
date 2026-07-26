@@ -259,6 +259,7 @@ function mapTenantPolicy(
     soft_limit_cost_micros: asNullableNumber(row.soft_limit_cost_micros),
     allowed_models: asStringArray(row.allowed_models),
     allowed_providers: asStringArray(row.allowed_providers),
+    allowed_efforts: asStringArray(row.allowed_efforts),
     enforcement_mode:
       row.enforcement_mode === "enforce" ? "enforce" : "observe",
     currency: String(row.currency ?? "usd"),
