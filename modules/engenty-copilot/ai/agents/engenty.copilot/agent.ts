@@ -10,6 +10,12 @@ export const ENGENTY_COPILOT_AGENT_ID = "engenty.copilot";
 // the copilot module has no circular dependency on the apps layer.
 export const ENGENTY_CLI_AGENT_ID = "engenty.cli";
 export const ENGENTY_FILE_ANALYST_AGENT_ID = "engenty.file-analyst";
+// App-building specialist from the (optional, tenant-scoped) engenty-apps
+// module — referenced by ID string only, same reasoning as the two above.
+// AGENTS.md already mandates delegating app-build requests here; this alias
+// is what makes that delegation possible at all (there was no agent-app_coder
+// tool without it, so the copilot fell back to engenty.cli for app requests).
+export const ENGENTY_APP_CODER_AGENT_ID = "engenty.app-coder";
 
 const engentyCopilotSupervisorModel = resolveChatModelId({
   purpose: "routing",
@@ -17,7 +23,7 @@ const engentyCopilotSupervisorModel = resolveChatModelId({
 
 export const engentyCopilotAgentConfig: AgentConfig = {
   description:
-    "Supervisor copilot for Engenty. Uses registered catalog and app UI tools directly; delegates CLI/sandbox work to engenty.cli and file analysis to engenty.file-analyst.",
+    "Supervisor copilot for Engenty. Uses registered catalog and app UI tools directly; delegates CLI/sandbox work to engenty.cli, file analysis to engenty.file-analyst, and app-building requests to engenty.app-coder.",
   id: ENGENTY_COPILOT_AGENT_ID,
   instructions: ENGENTY_INSTRUCTIONS,
   model: engentyCopilotSupervisorModel,
@@ -27,6 +33,7 @@ export const engentyCopilotAgentConfig: AgentConfig = {
   subAgents: [
     { alias: "engenty_cli", id: ENGENTY_CLI_AGENT_ID },
     { alias: "file_analyst", id: ENGENTY_FILE_ANALYST_AGENT_ID },
+    { alias: "app_coder", id: ENGENTY_APP_CODER_AGENT_ID },
   ],
   toolIds: ENGENTY_COPILOT_TOOL_IDS,
   // Personal-assistant desk: per-user `/home` (rw), `/skills` (ro), `/task`

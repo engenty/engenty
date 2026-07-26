@@ -12,6 +12,10 @@ import {
   actionJobWorkflow,
 } from "./workflows/action-job-workflow.js";
 import {
+  APP_BUILD_WORKFLOW_ID,
+  appBuildWorkflow,
+} from "./workflows/app-build-workflow.js";
+import {
   TASK_JOB_WORKFLOW_ID,
   taskJobWorkflow,
 } from "./workflows/task-job-workflow.js";
@@ -35,6 +39,7 @@ export const mastra = new Mastra({
   schedules: createSchedulerHeartbeatHooks(),
   workflows: {
     [ACTION_JOB_WORKFLOW_ID]: actionJobWorkflow,
+    [APP_BUILD_WORKFLOW_ID]: appBuildWorkflow,
     [TASK_JOB_WORKFLOW_ID]: taskJobWorkflow,
   },
   ...(engentyMastraStorage ? { storage: engentyMastraStorage } : {}),

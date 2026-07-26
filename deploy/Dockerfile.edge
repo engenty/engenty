@@ -16,6 +16,10 @@ ENV ENGENTY_SKIP_INSTALL_BUILD=1
 # this split, copying full source before `pnpm install` invalidated the install
 # layer on every commit, forcing a full network re-resolve each build.
 COPY pnpm-lock.yaml ./
+# The lockfile records a patched dependency, so `pnpm fetch` resolves the patch
+# and dies with ERR_PNPM_PATCH_NOT_FOUND unless patches/ is already present.
+# This is what broke every deploy image from v0.1.75 onward.
+COPY patches ./patches
 RUN pnpm fetch
 COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY scripts ./scripts
