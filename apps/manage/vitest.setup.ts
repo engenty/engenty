@@ -40,3 +40,13 @@ vi.mock("@engenty/ui-plugin-sdk", async (importActual) => ({
   ...(await importActual<Record<string, unknown>>()),
   usePageConfig: () => undefined,
 }));
+
+// Settings pages call useSettingsSecondaryShellNav (needs ShellSecondaryNav
+// context from AppLayout). Standalone page tests get a no-op return.
+vi.mock("@engenty/app-shell", async (importActual) => ({
+  ...(await importActual<Record<string, unknown>>()),
+  useSettingsSecondaryShellNav: () => ({
+    moduleRootCrumb: null,
+    secondaryNavHeaderSlot: null,
+  }),
+}));

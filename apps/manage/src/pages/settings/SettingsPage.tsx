@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
@@ -12,8 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@engenty/ui-core";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
-import { PageShell } from "@/components/PageShell";
 import { PageState } from "@/components/PageState";
 import { envVarsQuery } from "@/lib/queries/settings";
 
@@ -21,6 +22,9 @@ export function SettingsPage() {
   const { t } = useTranslation("common");
   const { data, isLoading, error, refetch } = useQuery(envVarsQuery);
   const [filter, setFilter] = useState("");
+  const title = t("settings.environment.menuLabel");
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("navigation.settings"));
 
   const rows = useMemo(() => {
     const list = data ?? [];
@@ -31,25 +35,19 @@ export function SettingsPage() {
     return list.filter((v) => v.key.toLowerCase().includes(term));
   }, [data, filter]);
 
-  const settingsTitle = t("settings.title");
-
   const breadcrumbs = useMemo(
-    () => [
-      {
-        label: (
-          <span className="font-medium text-foreground text-sm">
-            {settingsTitle}
-          </span>
-        ),
-        menuLabel: settingsTitle,
-        to: "/settings",
-      },
-    ],
-    [settingsTitle]
+    () => [...(moduleRootCrumb ? [moduleRootCrumb] : []), { label: title }],
+    [moduleRootCrumb, title]
   );
 
+  usePageConfig({
+    breadcrumbs,
+    topbarChrome: "contentBlend",
+    secondaryNavHeaderSlot,
+  });
+
   return (
-    <PageShell breadcrumbs={breadcrumbs}>
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto">
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <div className="w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
           <ListSearchInput
@@ -106,6 +104,6 @@ export function SettingsPage() {
           </AdminListTableView>
         </PageState>
       </div>
-    </PageShell>
+    </div>
   );
 }

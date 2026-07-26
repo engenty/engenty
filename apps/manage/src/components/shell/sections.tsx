@@ -1,12 +1,14 @@
 import type { NavigationSection } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
+  KeyRound,
   LayoutGrid,
   Package,
   Puzzle,
   Satellite as SatelliteIcon,
   ScrollText,
   Search,
+  Server,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -55,6 +57,18 @@ export function useManageSections(): NavigationSection[] {
           icon: SlidersHorizontal,
           label: t("navigation.settings"),
           to: "/settings",
+          children: [
+            {
+              to: "/settings/environment",
+              label: t("settings.environment.menuLabel"),
+              icon: Server,
+            },
+            {
+              to: "/settings/setup",
+              label: t("settings.setup.menuLabel"),
+              icon: KeyRound,
+            },
+          ],
         },
         {
           icon: Search,

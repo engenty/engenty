@@ -437,6 +437,13 @@
     "columns": {
       "key": "Key",
       "value": "Value"
+    },
+    "environment": {
+      "menuLabel": "Environment"
+    },
+    "setup": {
+      "menuLabel": "Platform settings",
+      "intro": "Installation-wide keys and credentials. Values set here override the corresponding environment variables for every tenant. Secrets are stored encrypted and never shown again."
     }
   },
   "searchIndex": {
