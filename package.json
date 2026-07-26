@@ -116,7 +116,7 @@
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
     "typecheck": "turbo run typecheck --concurrency=4",
-    "test": "VITEST_MAX_WORKERS=2 turbo run test test:scripts --concurrency=4",
+    "test": "NODE_OPTIONS=\"--localstorage-file=${TMPDIR:-/tmp}/engenty-vitest-localstorage\" VITEST_MAX_WORKERS=2 turbo run test test:scripts --concurrency=4",
     "test:all": "vitest run",
     "test:scripts": "vitest run scripts/",
     "test:smoke": "playwright test",
