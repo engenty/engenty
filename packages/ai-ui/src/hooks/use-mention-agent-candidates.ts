@@ -6,8 +6,8 @@ import { useMemo } from "react";
 import {
   buildMentionAgentCandidates,
   type MentionAgentCandidateInput,
-} from "../../components/copilot/composer/copilot-agent-mention.js";
-import { useAiAgentsQuery } from "../../lib/admin/ai-runtime-queries.js";
+} from "../components/copilot/composer/copilot-agent-mention.js";
+import { useAiAgentsQuery } from "../lib/admin/ai-runtime-queries.js";
 
 export function useMentionAgentCandidates(): Array<{
   handle: string;
