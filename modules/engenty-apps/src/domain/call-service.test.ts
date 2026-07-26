@@ -41,7 +41,10 @@ async function seedLiveApp(manifestOverrides = {}) {
     kind: "agent",
   });
   await repo.updateVersion(draft.id, {
-    files: { "index.html": "<h1>hi</h1>" },
+    files: {
+      "index.html": "<h1>hi</h1>",
+      "server.js": "export default { fetch: () => Response.json({}) };",
+    },
     manifest: makeManifest(manifestOverrides),
   });
   const appHost = makeAppHost();

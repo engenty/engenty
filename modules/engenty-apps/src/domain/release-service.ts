@@ -32,6 +32,43 @@ function isBuildError(error: unknown): error is AppHostBuildError {
 }
 
 /**
+ * Compose what actually ships to the app host.
+ *
+ * Two deliberate injections on top of the stored source tree:
+ *
+ * - A bundled frontend goes in as `index.html`, putting bundle mode in the
+ *   same deploy shape as a hand-written document.
+ * - When the manifest declares a backend, a synthetic `package.json` naming it
+ *   as `main` goes in too. Without one, agentOS's plan resolver sees
+ *   `index.html`, classifies the whole deployment as a static site, and the
+ *   backend never executes — `POST /collect` comes back `405 Allow: GET, HEAD`
+ *   from a file server (verified against agentos-apps 0.2.14). `type: module`
+ *   because the documented backend shape is `export default { fetch }`.
+ *
+ * An app that ships its own `package.json` is left alone: the author has
+ * taken over the plan, and clobbering it would be worse than trusting it.
+ */
+export function composeDeployFiles(input: {
+  appId: string;
+  backend: string | undefined;
+  files: Record<string, string>;
+  frontendHtml: string | null;
+}): Record<string, string> {
+  const out: Record<string, string> = input.frontendHtml
+    ? { ...input.files, "index.html": input.frontendHtml }
+    : { ...input.files };
+  if (input.backend && !out["package.json"]) {
+    out["package.json"] = JSON.stringify({
+      main: input.backend,
+      name: `engenty-app-${input.appId}`,
+      private: true,
+      type: "module",
+    });
+  }
+  return out;
+}
+
+/**
  * Build the current draft and leave it proposed, awaiting approval.
  *
  * The build runs BEFORE approval on purpose: asking a human to sign off on a
@@ -81,6 +118,14 @@ export async function proposeRelease(
     throw new Error("app_entry_missing");
   }
 
+  const backend = manifest.data.entry.backend;
+  if (backend && !draft.files[backend]) {
+    await deps.repo.updateVersion(draft.id, {
+      build_log: `entry.backend "${backend}" is not among the app's files`,
+    });
+    throw new Error("app_entry_missing");
+  }
+
   /*
    * The frontend is bundled BEFORE the app host is asked for anything: an
    * esbuild pass costs milliseconds where a cold agentOS build VM costs half a
@@ -117,18 +162,14 @@ export async function proposeRelease(
   }
 
   try {
-    /*
-     * Bundle-mode sources contain no `index.html`, and agentOS refuses to
-     * resolve a deployment without one (or a package.json). Shipping the built
-     * document under that name puts bundle mode in exactly the same deploy
-     * shape as an inline App — no second code path on the host side.
-     */
-    const deployFiles = frontendHtml
-      ? { ...draft.files, "index.html": frontendHtml }
-      : draft.files;
     const deployment = await deps.appHost.deploy(
       appHostId(deps.tenantId, app.id),
-      deployFiles
+      composeDeployFiles({
+        appId: app.id,
+        backend,
+        files: draft.files,
+        frontendHtml,
+      })
     );
     const built = await deps.repo.updateVersion(draft.id, {
       build_log: null,
@@ -246,9 +287,12 @@ export async function rollbackRelease(
   // that a newer toolchain might now compile differently.
   const deployment = await deps.appHost.deploy(
     appHostId(deps.tenantId, app.id),
-    target.frontend_html
-      ? { ...target.files, "index.html": target.frontend_html }
-      : target.files
+    composeDeployFiles({
+      appId: app.id,
+      backend: target.manifest.entry?.backend,
+      files: target.files,
+      frontendHtml: target.frontend_html,
+    })
   );
   const restored = await deps.repo.updateVersion(target.id, {
     deployed_at: new Date().toISOString(),

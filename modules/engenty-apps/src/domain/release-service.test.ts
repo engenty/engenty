@@ -44,20 +44,32 @@ async function seedDraft(
     kind: "agent",
   });
   await repo.updateVersion(draft.id, {
-    files: { "index.html": "<h1>hi</h1>", ...files },
+    files: {
+      "index.html": "<h1>hi</h1>",
+      "server.js": "export default { fetch: () => Response.json({}) };",
+      ...files,
+    },
     manifest: makeManifest(manifestOverrides),
   });
   return { app, repo, store };
 }
 
-/** A draft whose entry names sources, so propose has to bundle it. */
+/**
+ * A frontend-only draft whose entry names sources, so propose has to bundle
+ * it. No backend — what backends add to the deploy payload has its own
+ * describe below.
+ */
 async function seedBundledDraft(files: Record<string, string>) {
   const { app, repo, store } = await seedDraft(files, {
-    entry: { backend: "server.js", frontend: "src/main.tsx" },
+    entry: { frontend: "src/main.tsx" },
   });
   // Bundle-mode Apps carry no hand-written document.
   const draft = store.versions[0];
-  const { "index.html": _dropped, ...sources } = draft.files;
+  const {
+    "index.html": _document,
+    "server.js": _backend,
+    ...sources
+  } = draft.files;
   await repo.updateVersion(draft.id, { files: sources });
   return { app, repo, store };
 }
@@ -182,7 +194,10 @@ describe("approveRelease", () => {
       kind: "agent",
     });
     await repo.updateVersion(second.id, {
-      files: { "index.html": "<h1>v2</h1>" },
+      files: {
+        "index.html": "<h1>v2</h1>",
+        "server.js": "export default { fetch: () => Response.json({}) };",
+      },
       manifest: makeManifest(),
     });
     await proposeRelease(deps, { appId: app.id });
@@ -208,7 +223,10 @@ describe("rejectRelease", () => {
       kind: "agent",
     });
     await repo.updateVersion(second.id, {
-      files: { "index.html": "<h1>v2</h1>" },
+      files: {
+        "index.html": "<h1>v2</h1>",
+        "server.js": "export default { fetch: () => Response.json({}) };",
+      },
       manifest: makeManifest(),
     });
     await proposeRelease(deps, { appId: app.id });
@@ -236,6 +254,81 @@ describe("rejectRelease", () => {
     await expect(
       rejectRelease(deps, { appId: app.id, version: 1 })
     ).rejects.toThrow("app_version_not_proposed");
+  });
+});
+
+describe("the deploy payload's backend entrypoint", () => {
+  function deployedFiles(appHost: AppHostClient): Record<string, string> {
+    return (appHost.deploy as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as Record<string, string>;
+  }
+
+  it("injects a package.json naming the backend, or agentOS serves it as a static site", async () => {
+    const { app, repo } = await seedDraft();
+    const appHost = makeAppHost();
+
+    await proposeRelease({ appHost, repo, tenantId: TENANT }, { appId: app.id });
+
+    const manifest = JSON.parse(deployedFiles(appHost)["package.json"]) as {
+      main: string;
+      type: string;
+    };
+    expect(manifest.main).toBe("server.js");
+    // The documented backend shape is `export default { fetch }` — ESM.
+    expect(manifest.type).toBe("module");
+  });
+
+  it("ships no package.json for a frontend-only app", async () => {
+    const { app, repo } = await seedDraft({}, {
+      entry: { frontend: "index.html" },
+    });
+    const appHost = makeAppHost();
+
+    await proposeRelease({ appHost, repo, tenantId: TENANT }, { appId: app.id });
+
+    expect(deployedFiles(appHost)["package.json"]).toBeUndefined();
+  });
+
+  it("leaves an app-authored package.json untouched", async () => {
+    const authored = JSON.stringify({ main: "custom.js", type: "module" });
+    const { app, repo } = await seedDraft({
+      "custom.js": "export default { fetch: () => new Response('') };",
+      "package.json": authored,
+    });
+    const appHost = makeAppHost();
+
+    await proposeRelease({ appHost, repo, tenantId: TENANT }, { appId: app.id });
+
+    expect(deployedFiles(appHost)["package.json"]).toBe(authored);
+  });
+
+  it("rejects a declared backend that was never written", async () => {
+    const { app, repo, store } = await seedDraft();
+    const draft = store.versions[0];
+    const { "server.js": _dropped, ...withoutBackend } = draft.files;
+    await repo.updateVersion(draft.id, { files: withoutBackend });
+    const appHost = makeAppHost();
+
+    await expect(
+      proposeRelease({ appHost, repo, tenantId: TENANT }, { appId: app.id })
+    ).rejects.toThrow("app_entry_missing");
+
+    expect(store.versions[0].build_log).toContain('entry.backend "server.js"');
+    expect(appHost.deploy).not.toHaveBeenCalled();
+  });
+
+  it("re-injects the backend entrypoint on rollback", async () => {
+    const { app, repo } = await seedDraft();
+    const appHost = makeAppHost();
+    const deps = { appHost, repo, tenantId: TENANT };
+    await proposeRelease(deps, { appId: app.id });
+    await approveRelease(deps, { appId: app.id, version: 1 });
+
+    await rollbackRelease(deps, { appId: app.id, version: 1 });
+
+    const redeployed = (appHost.deploy as ReturnType<typeof vi.fn>).mock
+      .calls.at(-1)?.[1] as Record<string, string>;
+    expect(JSON.parse(redeployed["package.json"]).main).toBe("server.js");
   });
 });
 
@@ -316,7 +409,7 @@ describe("proposeRelease with a bundled frontend", () => {
     await repo.updateVersion(second.id, {
       files: { ...SOURCES, "src/App.tsx": "export function App(){return null}" },
       manifest: makeManifest({
-        entry: { backend: "server.js", frontend: "src/main.tsx" },
+        entry: { frontend: "src/main.tsx" },
       }),
     });
     await proposeRelease(deps, { appId: app.id });
@@ -344,7 +437,10 @@ describe("rollbackRelease", () => {
       kind: "agent",
     });
     await repo.updateVersion(second.id, {
-      files: { "index.html": "<h1>v2</h1>" },
+      files: {
+        "index.html": "<h1>v2</h1>",
+        "server.js": "export default { fetch: () => Response.json({}) };",
+      },
       manifest: makeManifest(),
     });
     await proposeRelease(deps, { appId: app.id });
