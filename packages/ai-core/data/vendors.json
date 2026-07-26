@@ -1,3 +1,11 @@
 {
-  "vendors": ["anthropic", "google", "mistral", "openai"]
+  "vendors": [
+    "anthropic",
+    "google",
+    "mistral",
+    "openai",
+    "cohere",
+    "deepseek",
+    "kimi"
+  ]
 }

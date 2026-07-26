@@ -38,10 +38,26 @@ async function main() {
   const { registerEngentySandboxShutdownHook } = await import(
     "./ai/sandbox/register-sandbox-shutdown-hook.js"
   );
-  const app = await createApp();
+  const { createNodeWebSocket } = await import("@hono/node-ws");
+  // The cascade voice broker needs WS upgrades on this server. createApp
+  // registers the route with the upgrade helper; injectWebSocket attaches
+  // the upgrade listener to the node server below.
+  const wsBridge: { inject: ((server: unknown) => void) | null } = {
+    inject: null,
+  };
+  const app = await createApp({
+    createUpgradeWebSocket: (honoApp) => {
+      const nodeWs = createNodeWebSocket({ app: honoApp });
+      wsBridge.inject = (server) =>
+        nodeWs.injectWebSocket(
+          server as Parameters<typeof nodeWs.injectWebSocket>[0]
+        );
+      return nodeWs.upgradeWebSocket;
+    },
+  });
   registerEngentySandboxShutdownHook();
 
-  serve(
+  const server = serve(
     {
       fetch: app.fetch,
       port,
@@ -57,6 +73,7 @@ async function main() {
       });
     }
   );
+  wsBridge.inject?.(server);
 }
 
 main().catch((err) => {

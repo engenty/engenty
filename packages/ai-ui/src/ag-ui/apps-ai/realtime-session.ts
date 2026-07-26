@@ -1,3 +1,4 @@
+import type { RealtimeServerCascadeSession } from "@engenty/ai-core/browser";
 import {
   appsAiRequestHeaders,
   normalizeAppsAiServiceBaseUrl,
@@ -13,14 +14,31 @@ export interface AppsAiRealtimeSessionRequest {
   voice?: string;
 }
 
-export interface AppsAiRealtimeSessionResponse {
+/**
+ * Direct browser↔vendor WebRTC session. `kind` is optional so older backends
+ * (and the chatbot public endpoint) that don't send the discriminator yet
+ * still parse as the WebRTC arm.
+ */
+export interface AppsAiRealtimeWebRtcSessionResponse {
   client_secret: {
     expires_at: number | null;
     value: string;
   };
+  kind?: "webrtc-direct";
   model: string;
   provider: "openai";
+  transcription_model?: string;
   voice: string;
+}
+
+export type AppsAiRealtimeSessionResponse =
+  | AppsAiRealtimeWebRtcSessionResponse
+  | RealtimeServerCascadeSession;
+
+export function isServerCascadeSession(
+  session: AppsAiRealtimeSessionResponse
+): session is RealtimeServerCascadeSession {
+  return "kind" in session && session.kind === "server-cascade";
 }
 
 export interface CreateAppsAiRealtimeSessionOptions

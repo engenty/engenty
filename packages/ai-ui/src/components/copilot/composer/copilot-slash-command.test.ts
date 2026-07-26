@@ -69,6 +69,25 @@ describe("filterSlashCommands", () => {
     ).toEqual(["create-offer"]);
     expect(filterSlashCommands(COMMANDS, "").length).toBe(COMMANDS.length);
   });
+
+  it("matches skill descriptions for typeahead", () => {
+    const withSkill: ChatSlashCommand[] = [
+      ...COMMANDS,
+      {
+        command: "contacts-search",
+        description: "Find people and companies",
+        group: "Skills",
+        kind: "skill",
+        label: "Contacts search",
+      },
+    ];
+    expect(
+      filterSlashCommands(withSkill, "people").map((c) => c.command)
+    ).toEqual(["contacts-search"]);
+    expect(
+      filterSlashCommands(withSkill, "contacts-search").map((c) => c.command)
+    ).toEqual(["contacts-search"]);
+  });
 });
 
 describe("groupSlashCommands", () => {

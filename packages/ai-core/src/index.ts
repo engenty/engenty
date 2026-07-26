@@ -215,6 +215,30 @@ export {
   parseObjectRef,
   readObjectRenderMeta,
 } from "./objects/object-ref.js";
+export {
+  type CascadeClientMessage,
+  type CascadeServerMessage,
+  type CascadeToolCall,
+  parseCascadeMessage,
+} from "./realtime/cascade-protocol.js";
+export {
+  composeVoiceInstructions,
+  type VoiceRegister,
+  voiceRegisterInstructions,
+} from "./realtime/locale-register.js";
+export {
+  type LegacyRealtimeProviderId,
+  normalizeRealtimeProviderId,
+  type RealtimeProviderId,
+  type RealtimeServerCascadeSession,
+  type RealtimeSessionDescriptor,
+  RealtimeSessionError,
+  type RealtimeSessionRequest,
+  type RealtimeSessionScope,
+  type RealtimeVoiceProvider,
+  type RealtimeVoiceTenantPrefs,
+  type RealtimeWebRtcDirectSession,
+} from "./realtime/provider.js";
 export type { ModuleDynamicCapabilitySeed } from "./registry.js";
 export {
   listActiveAiRegistrations,
@@ -250,7 +274,6 @@ export {
   type AiCapsConfig,
   type DocConverterTenantPrefs,
   parseTenantAiSettings,
-  type RealtimeVoiceTenantPrefs,
   TENANT_AI_CONFIG_KEY,
   type TenantAiSettings,
 } from "./tenant-ai-settings.js";

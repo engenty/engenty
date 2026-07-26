@@ -1317,5 +1317,28 @@
     "tools": "Tools",
     "skills": "Skills",
     "actionFailed": "Action failed — please try again."
+  },
+  "realtimeVoice": {
+    "title": "Realtime voice",
+    "description": "Provider and voice for realtime voice conversations in the copilot and chatbot.",
+    "providerLabel": "Provider",
+    "providerPlaceholder": "Select provider",
+    "providerOpenAi": "OpenAI Realtime (speech-to-speech)",
+    "providerVoxtralElevenLabs": "Voxtral + ElevenLabs (cascade)",
+    "openAiHelp": "Direct speech-to-speech via OpenAI Realtime over WebRTC. Lowest latency; voice and accent are fixed by OpenAI.",
+    "cascadePipelineHelp": "Voxtral transcription → your copilot agent → ElevenLabs voice, brokered by the server. Enables Austrian/Bavarian dialect voices; requires MISTRAL_API_KEY and ELEVENLABS_API_KEY on the server.",
+    "openAiModel": "Realtime model",
+    "openAiTranscriptionModel": "Transcription model",
+    "openAiVoice": "Voice",
+    "voxtralSttModel": "Voxtral STT model",
+    "elevenLabsTtsModel": "ElevenLabs TTS model",
+    "elevenLabsVoiceId": "ElevenLabs voice id",
+    "elevenLabsVoiceIdPlaceholder": "Voice id (e.g. an Austrian dialect voice)",
+    "voiceRegisterLabel": "German register",
+    "voiceRegisterOff": "Off (default wording)",
+    "voiceRegisterAt": "Austrian German (de-AT)",
+    "voiceRegisterDe": "Standard German (de-DE)",
+    "voiceRegisterCh": "Swiss High German (de-CH)",
+    "voiceRegisterHelp": "Steers the assistant's word choice (Jänner, Sackerl, Grüß Gott) on every provider. The spoken accent comes from the selected voice."
   }
 }

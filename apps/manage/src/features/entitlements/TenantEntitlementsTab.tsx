@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageState } from "@/components/PageState";
+import { formatMicros } from "@/features/packages/package-format";
 import {
   clearTenantOverride,
   type EntitlementEnforcementMode,
@@ -20,7 +21,6 @@ import {
   setTenantPackage,
 } from "@/lib/api/entitlements";
 import { tenantEntitlementsQuery } from "@/lib/queries/entitlements";
-import { formatMicros } from "@/features/packages/package-format";
 
 const NONE = "__none__";
 

@@ -91,13 +91,13 @@
       "team": {
         "source": "workspace"
       },
+      "team-chat": {
+        "source": "workspace"
+      },
       "team-hr": {
         "source": "workspace"
       },
       "time-tracking": {
-        "source": "workspace"
-      },
-      "team-chat": {
         "source": "workspace"
       },
       "team-chat-slack-bridge": {

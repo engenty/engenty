@@ -290,6 +290,10 @@ export {
 } from "./lib/chat-reference-part.js";
 // --- Chat attachments (reused by module chat surfaces, e.g. team-chat) ---
 export { getFileStorageSignedUrl } from "./lib/file-storage-signed-url.js";
+export {
+  type FileStorageSkillSummary,
+  getFileStorageSkills,
+} from "./lib/runtime/skills-api.js";
 export type { TranscribeSpeechAudio } from "./lib/speech/use-speech-to-text.js";
 export {
   CHAT_ATTACHMENT_MAX_BYTES,

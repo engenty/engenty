@@ -1330,5 +1330,28 @@
     "tools": "Tools",
     "skills": "Skills",
     "actionFailed": "Aktion fehlgeschlagen — bitte erneut versuchen."
+  },
+  "realtimeVoice": {
+    "title": "Realtime-Sprache",
+    "description": "Anbieter und Stimme für Sprachgespräche in Echtzeit im Copilot und Chatbot.",
+    "providerLabel": "Anbieter",
+    "providerPlaceholder": "Anbieter wählen",
+    "providerOpenAi": "OpenAI Realtime (Speech-to-Speech)",
+    "providerVoxtralElevenLabs": "Voxtral + ElevenLabs (Kaskade)",
+    "openAiHelp": "Direktes Speech-to-Speech über OpenAI Realtime via WebRTC. Geringste Latenz; Stimme und Akzent sind durch OpenAI vorgegeben.",
+    "cascadePipelineHelp": "Voxtral-Transkription → Ihr Copilot-Agent → ElevenLabs-Stimme, serverseitig vermittelt. Ermöglicht österreichische/bayerische Dialektstimmen; benötigt MISTRAL_API_KEY und ELEVENLABS_API_KEY am Server.",
+    "openAiModel": "Realtime-Modell",
+    "openAiTranscriptionModel": "Transkriptionsmodell",
+    "openAiVoice": "Stimme",
+    "voxtralSttModel": "Voxtral-STT-Modell",
+    "elevenLabsTtsModel": "ElevenLabs-TTS-Modell",
+    "elevenLabsVoiceId": "ElevenLabs-Stimmen-ID",
+    "elevenLabsVoiceIdPlaceholder": "Stimmen-ID (z. B. eine österreichische Dialektstimme)",
+    "voiceRegisterLabel": "Deutsches Register",
+    "voiceRegisterOff": "Aus (Standard-Wortwahl)",
+    "voiceRegisterAt": "Österreichisches Deutsch (de-AT)",
+    "voiceRegisterDe": "Bundesdeutsches Hochdeutsch (de-DE)",
+    "voiceRegisterCh": "Schweizer Hochdeutsch (de-CH)",
+    "voiceRegisterHelp": "Steuert die Wortwahl des Assistenten (Jänner, Sackerl, Grüß Gott) bei jedem Anbieter. Der gesprochene Akzent kommt von der gewählten Stimme."
   }
 }

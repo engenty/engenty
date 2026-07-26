@@ -84,6 +84,7 @@ describe("realtime session routes", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({
+      kind: "webrtc-direct",
       provider: "openai",
       model: "gpt-realtime-2",
       transcription_model: "gpt-realtime-whisper",
@@ -165,6 +166,43 @@ describe("realtime session routes", () => {
       String((openAiFetch.mock.calls[0]?.[1] as RequestInit).body)
     );
     expect(requestBody.session.audio.output.voice).toBe("cedar");
+  });
+
+  it("appends the tenant voice register to the session instructions", async () => {
+    const openAiFetch = vi.fn<RealtimeClientSecretFetch>(async () =>
+      Response.json({
+        expires_at: 1_800_000_000,
+        value: "ek_test",
+      })
+    );
+    const app = await createIsolatedApp({
+      openAiRealtimeApiKey: () => "sk-server",
+      openAiRealtimeFetch: openAiFetch,
+      realtimeVoiceConfigResolver: async () => ({
+        provider: "openai",
+        voice_register: "de-AT",
+      }),
+      scopeResolver,
+    });
+
+    const res = await app.request("http://localhost/ai/v1/realtime/sessions", {
+      headers: {
+        Authorization: "Bearer test-token",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({ instructions: "Help briefly" }),
+    });
+
+    expect(res.status).toBe(200);
+    const requestBody = JSON.parse(
+      String((openAiFetch.mock.calls[0]?.[1] as RequestInit).body)
+    );
+    expect(requestBody.session.instructions).toMatch(/^Help briefly\n\n/);
+    expect(requestBody.session.instructions).toContain(
+      "österreichisches Deutsch"
+    );
+    expect(requestBody.session.instructions).toContain("Jänner");
   });
 
   it("does not mint an OpenAI session when tenant selects Mistral", async () => {
