@@ -13,7 +13,6 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageState } from "@/components/PageState";
-import { formatMicros } from "@/features/packages/package-format";
 import {
   allowListToStored,
   formatAllowList,
