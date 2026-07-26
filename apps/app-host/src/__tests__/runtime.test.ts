@@ -78,6 +78,17 @@ describe("AppRuntime.deploy guards", () => {
       /invalid app id/
     );
   });
+
+  it("rejects an id past agentOS's 63-character ceiling", async () => {
+    // agentOS raises this as an opaque build failure; catching it here names
+    // the id and its length instead.
+    await expect(
+      runtime.deploy({ appId: `a${"b".repeat(63)}`, files: {} })
+    ).rejects.toThrow(/invalid app id .* \(64 chars\)/);
+    await expect(
+      runtime.deploy({ appId: `a${"b".repeat(62)}`, files: {} })
+    ).rejects.not.toThrow(/invalid app id/);
+  });
 });
 
 describe("loadAppHostConfig", () => {

@@ -71,12 +71,23 @@ export interface AppHostClientOptions {
 /**
  * Compose a routing id for the app host. The tenant prefix keeps two tenants
  * that both created an app with the same local id from colliding on a single
- * shared host, and the shape satisfies app-host's own id validation.
+ * shared host.
+ *
+ * agentOS caps its own app ids at 63 characters. Two full 32-char normalized
+ * UUIDs plus separators come to 69, so a real tenant/app pair was rejected at
+ * deploy time with `appId must be 1-63 …` — every App failed, while short test
+ * ids passed. The app half stays whole because it is a UUIDv7 and already
+ * unique on its own; the tenant half is defence in depth and readability, so
+ * truncating it costs nothing.
  */
+const APP_HOST_ID_TENANT_CHARS = 12;
+
 export function appHostId(tenantId: string, appId: string): string {
   const normalize = (value: string) =>
     value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return `t-${normalize(tenantId).slice(0, 32)}-a-${normalize(appId).slice(0, 32)}`;
+  const tenant = normalize(tenantId).slice(0, APP_HOST_ID_TENANT_CHARS);
+  const app = normalize(appId).slice(0, 32);
+  return `t-${tenant}-a-${app}`;
 }
 
 export function createAppHostClient(

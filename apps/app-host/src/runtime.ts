@@ -14,8 +14,13 @@ const logger = createLogger({ name: "apps/app-host:runtime" });
  * URL-safe app ids only. The id is used for Rivet routing AND namespace
  * isolation, so anything that could escape a path segment is rejected here
  * rather than deeper in the stack.
+ *
+ * The 63-character ceiling mirrors agentOS's own limit. It used to be 128,
+ * which let an over-long id through to `deployApp()` and surface as an opaque
+ * build failure instead of a validation error naming the id.
  */
-const APP_ID_RE = /^[a-z0-9][a-z0-9-]{0,127}$/;
+const APP_ID_MAX_LENGTH = 63;
+const APP_ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export interface DeployResult {
   appId: string;
@@ -59,7 +64,8 @@ export interface GuestResponse {
 export function assertAppId(appId: string): void {
   if (!APP_ID_RE.test(appId)) {
     throw new Error(
-      `invalid app id "${appId}" — expected ^[a-z0-9][a-z0-9-]{0,127}$`
+      `invalid app id "${appId}" (${appId.length} chars) — expected ` +
+        `^[a-z0-9][a-z0-9-]{0,${APP_ID_MAX_LENGTH - 1}}$`
     );
   }
 }
