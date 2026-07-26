@@ -13,7 +13,7 @@ export const SLOT_PORT_STEP = 10;
 export const SLOT_REGISTRY_DIR = ".engenty";
 export const SLOT_REGISTRY_FILE = "dev-slots.json";
 
-/** @typedef {{ ui: number; core: number; ai: number; docs: number; studio: number; manage: number }} DevPorts */
+/** @typedef {{ ui: number; core: number; ai: number; docs: number; studio: number; manage: number; appHost: number }} DevPorts */
 
 /** @typedef {{ slot: number; ports: DevPorts }} DomainSlotEntry */
 
@@ -28,6 +28,9 @@ const BASE_PORTS = {
   // Manage is a gateway sub-path (/manage), like the UI — served on its own
   // localhost port, reached through the gateway origin (no direct portless host).
   manage: 5174,
+  // apps/app-host serves tenant-authored code. It gets NO Portless host and NO
+  // gateway URL — only apps/ai talks to it, server-to-server.
+  appHost: 8795,
 };
 
 export function resolveWorkspaceRoot(
@@ -108,6 +111,7 @@ export function portsForSlot(slot) {
     docs: BASE_PORTS.docs + step,
     studio: BASE_PORTS.studio + step,
     manage: BASE_PORTS.manage + step,
+    appHost: BASE_PORTS.appHost + step,
   };
 }
 
@@ -231,6 +235,9 @@ export function buildGatewayEnvExports(ports, options = {}) {
     ENGENTY_AI_PORT: String(ports.ai),
     ENGENTY_DOCS_PORT: String(ports.docs),
     ENGENTY_MANAGE_PORT: String(ports.manage),
+    ENGENTY_APP_HOST_PORT: String(ports.appHost),
+    // apps/ai reaches app-host directly; deliberately NOT a gateway URL.
+    ENGENTY_APP_HOST_URL: `http://127.0.0.1:${ports.appHost}`,
     ENGENTY_DEV_GATEWAY_UI_URL: `http://127.0.0.1:${ports.ui}`,
     ENGENTY_DEV_GATEWAY_AI_URL: `http://127.0.0.1:${ports.ai}`,
     ENGENTY_DEV_GATEWAY_DOCS_URL: `http://127.0.0.1:${ports.docs}`,

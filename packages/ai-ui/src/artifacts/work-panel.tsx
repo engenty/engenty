@@ -15,7 +15,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@engenty/ui-core";
-import { FileText, LayoutGrid, List, Shapes } from "lucide-react";
+import { LayoutGrid, List, Shapes } from "lucide-react";
 import { useState } from "react";
 import { ArtifactStoragePicker } from "./artifact-storage-picker.js";
 import { activateArtifact } from "./artifact-store.js";
@@ -25,7 +25,7 @@ import {
   useContainerArtifactsQuery,
   type WorkContainerRef,
 } from "./artifacts-api.js";
-import { useWorkFilesQuery, type WorkFileEntry } from "./work-files-api.js";
+import { WorkFilesTab } from "./work-files-tab.js";
 import { WorkspaceArtifactPane } from "./workspace-artifact-pane.js";
 
 type ArtifactsViewMode = "rows" | "cards";
@@ -43,20 +43,6 @@ function bindingScopeType(
     return tier;
   }
   return null;
-}
-
-function formatBytes(bytes: number | null): string | null {
-  if (bytes == null) {
-    return null;
-  }
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  const kb = bytes / 1024;
-  if (kb < 1024) {
-    return `${kb.toFixed(kb < 10 ? 1 : 0)} KB`;
-  }
-  return `${(kb / 1024).toFixed(1)} MB`;
 }
 
 function ArtifactRowCard({
@@ -117,23 +103,6 @@ function ArtifactGridCard({
   );
 }
 
-function WorkFileRow({ entry }: { entry: WorkFileEntry }) {
-  const size = formatBytes(entry.size_bytes);
-  return (
-    <div className="flex w-full items-center gap-3 rounded-md border bg-card p-3">
-      <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-mono text-sm">
-        {entry.filename}
-      </span>
-      {size ? (
-        <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-          {size}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 export interface WorkPanelProps {
   className?: string;
   container: WorkContainerRef;
@@ -164,9 +133,7 @@ export function WorkPanel({
 }: WorkPanelProps) {
   const { t, i18n } = useTranslation("ai-ui");
   const artifactsQuery = useContainerArtifactsQuery(container);
-  const filesQuery = useWorkFilesQuery(container);
   const artifacts = artifactsQuery.data ?? [];
-  const files = filesQuery.data?.entries ?? [];
   const [viewMode, setViewMode] = useState<ArtifactsViewMode>(() => {
     try {
       return localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "cards"
@@ -274,24 +241,7 @@ export function WorkPanel({
         </TabsContent>
 
         <TabsContent value="files">
-          {filesQuery.isLoading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
-          ) : files.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <FileText className="h-6 w-6 text-muted-foreground/50" />
-              <p className="max-w-sm text-muted-foreground text-sm">
-                {t("workPanel.filesEmpty")}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {files.map((entry) => (
-                <WorkFileRow entry={entry} key={entry.key} />
-              ))}
-            </div>
-          )}
+          <WorkFilesTab container={container} hostKey={hostKey} />
         </TabsContent>
       </Tabs>
 

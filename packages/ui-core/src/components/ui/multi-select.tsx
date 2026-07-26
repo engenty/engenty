@@ -926,7 +926,12 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 														<span
 															className={cn(
 																screenSize === "mobile" && "truncate"
-															)}>
+															)}
+															title={
+																option.value !== option.label
+																	? option.value
+																	: undefined
+															}>
 															{option.label}
 														</span>
 														<div
@@ -1055,12 +1060,13 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 						role="listbox"
 						aria-multiselectable="true"
 						aria-label="Available options"
+						align={align}
+						collisionPadding={12}
 						className={cn(
-							"w-auto p-0",
+							"w-(--anchor-width) min-w-[min(100%,280px)] p-0",
 							getPopoverAnimationClass(),
-							screenSize === "mobile" && "w-[85vw] max-w-[280px]",
-							screenSize === "tablet" && "w-[70vw] max-w-md",
-							screenSize === "desktop" && "w-[var(--radix-popover-trigger-width)] min-w-[280px]",
+							screenSize === "mobile" && "max-w-[min(85vw,280px)]",
+							screenSize === "tablet" && "max-w-md",
 							popoverClassName
 						)}
 						style={{
@@ -1070,7 +1076,6 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 							maxHeight: screenSize === "mobile" ? "70vh" : "60vh",
 							touchAction: "manipulation",
 						}}
-						align={align}
 					>
 						<Command>
 							{searchable && (
@@ -1152,12 +1157,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 														}${option.disabled ? ", disabled" : ""}`}
 														className={cn(
 															"cursor-pointer",
+															option.value !== option.label && "items-start py-2",
 															option.disabled && "opacity-50 cursor-not-allowed"
 														)}
 														disabled={option.disabled}>
 														<div
 															className={cn(
 																"mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+																option.value !== option.label && "mt-0.5",
 																isSelected
 																	? "bg-primary text-primary-foreground"
 																	: "opacity-50 [&_svg]:invisible"
@@ -1171,7 +1178,16 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 																aria-hidden="true"
 															/>
 														)}
-														<span>{option.label}</span>
+														<span className="flex min-w-0 flex-col gap-0.5">
+															<span className="truncate font-medium">
+																{option.label}
+															</span>
+															{option.value !== option.label ? (
+																<span className="truncate font-mono text-muted-foreground text-xs">
+																	{option.value}
+																</span>
+															) : null}
+														</span>
 													</CommandItem>
 												);
 											})}
@@ -1193,12 +1209,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 													}${option.disabled ? ", disabled" : ""}`}
 													className={cn(
 														"cursor-pointer",
+														option.value !== option.label && "items-start py-2",
 														option.disabled && "opacity-50 cursor-not-allowed"
 													)}
 													disabled={option.disabled}>
 													<div
 														className={cn(
 															"mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+															option.value !== option.label && "mt-0.5",
 															isSelected
 																? "bg-primary text-primary-foreground"
 																: "opacity-50 [&_svg]:invisible"
@@ -1212,7 +1230,16 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 															aria-hidden="true"
 														/>
 													)}
-													<span>{option.label}</span>
+													<span className="flex min-w-0 flex-col gap-0.5">
+														<span className="truncate font-medium">
+															{option.label}
+														</span>
+														{option.value !== option.label ? (
+															<span className="truncate font-mono text-muted-foreground text-xs">
+																{option.value}
+															</span>
+														) : null}
+													</span>
 												</CommandItem>
 											);
 										})}

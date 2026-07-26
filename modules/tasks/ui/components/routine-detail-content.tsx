@@ -1,13 +1,12 @@
-// Body of the routine detail page: badge, toggle, actions, triggers.
+// Body of the routine detail page: badge, toggle, triggers (CTAs live in topbar).
 import {
   type RoutineDto,
   RoutineTriggerChip,
   usePatchRoutineStateMutation,
-  useRunRoutineNowMutation,
 } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, Switch } from "@engenty/ui-core";
-import { Calendar, Edit, Loader2, Play, Trash2 } from "lucide-react";
+import { Switch } from "@engenty/ui-core";
+import { Calendar } from "lucide-react";
 import { RoutineDetailSections } from "./routine-detail-sections.js";
 
 const SOURCE_BADGE_CLASSES: Record<RoutineDto["source"], string> = {
@@ -17,21 +16,15 @@ const SOURCE_BADGE_CLASSES: Record<RoutineDto["source"], string> = {
 
 export interface RoutineDetailContentProps {
   locale: string;
-  onDelete: () => void;
-  onEdit: () => void;
   routine: RoutineDto;
 }
 
 export function RoutineDetailContent({
   routine,
   locale,
-  onEdit,
-  onDelete,
 }: RoutineDetailContentProps) {
   const { t } = useTranslation("tasks");
   const patchMutation = usePatchRoutineStateMutation();
-  const runMutation = useRunRoutineNowMutation();
-  const isCustom = routine.source === "custom";
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -69,45 +62,6 @@ export function RoutineDetailContent({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          className="gap-2 font-medium"
-          disabled={runMutation.isPending || !routine.enabled}
-          onClick={() => runMutation.mutate(routine.id)}
-          size="sm"
-          type="button"
-        >
-          {runMutation.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Play className="h-3.5 w-3.5 fill-current" />
-          )}
-          {t("routines.detail.runNow")}
-        </Button>
-        {isCustom && (
-          <Button
-            className="gap-1.5"
-            onClick={onEdit}
-            size="sm"
-            variant="outline"
-          >
-            <Edit className="h-3.5 w-3.5" />
-            {t("routines.detail.edit")}
-          </Button>
-        )}
-        {isCustom && (
-          <Button
-            className="gap-1.5 text-destructive hover:bg-destructive/10"
-            onClick={onDelete}
-            size="sm"
-            variant="outline"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t("routines.detail.delete")}
-          </Button>
-        )}
-      </div>
-
       <div className="space-y-2">
         <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           {t("routines.detail.triggers")}
@@ -133,7 +87,7 @@ export function RoutineDetailContent({
           <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
             {t("routines.detail.webhookUrl")}
           </h4>
-          <div className="select-all break-all rounded-lg border bg-muted/40 p-3 font-mono text-xs">
+          <div className="ui-canvas-panel select-all break-all rounded-lg bg-card p-3 font-mono text-xs">
             {`${window.location.origin}/api/tasks/trigger-hooks/${routine.id}/${routine.webhook_secret}`}
           </div>
           <p className="text-muted-foreground text-xs">

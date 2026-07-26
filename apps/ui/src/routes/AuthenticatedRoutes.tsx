@@ -24,6 +24,7 @@ import {
 import { RolesSettingsPage } from "@/pages/RolesSettingsPage";
 import { SearchIndexSettingsPage } from "@/pages/SearchIndexSettingsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { SetupPage } from "@/pages/SetupPage";
 import { SetupPluginsPage } from "@/pages/SetupPluginsPage";
 import { ChatLegacySessionRedirect } from "@/routes/chat-legacy-redirect.tsx";
 
@@ -95,7 +96,17 @@ export function AuthenticatedRoutes({
         <Route
           element={
             isSuperAdmin ? (
-              <SetupPluginsPage isSuperAdmin={isSuperAdmin} />
+              <SetupPage />
+            ) : (
+              <Navigate replace to={COPILOT_CHAT_ROOT} />
+            )
+          }
+          path="/setup"
+        />
+        <Route
+          element={
+            isSuperAdmin ? (
+              <SetupPluginsPage />
             ) : (
               <Navigate replace to={COPILOT_CHAT_ROOT} />
             )

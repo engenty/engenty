@@ -4,6 +4,35 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.75] - 2026-07-26
+- ADDED **[ai-ui]** Open work files in the chat-style artifact pane
+- ADDED **[tasks]** Move routine actions into the topbar
+- ADDED **[tasks]** Polish routine detail with cards, markdown, and tool picker
+- ADDED **[ai-ui]** Browse work-panel files as a card grid with preview
+- ADDED **[ai-ui]** Calm Engenty admin list hubs like Plan
+- ADDED **[apps]** Bundle multi-file React frontends on the host
+- ADDED **[apps]** Add app_config, and enforce the storage manifest flags
+- ADDED **[apps]** Harden the engenty Apps runtime
+- ADDED **[apps]** Make Apps usable by copilot and coordinator
+- ADDED **[apps]** Add engenty.coder — the agent that authors engenty Apps
+- ADDED **[apps]** Add the engenty Apps capability wall in apps/ai
+- ADDED **[apps]** Render engenty Apps in the artifact pane via a bridged frame
+- ADDED **[apps]** Add modules/engenty-apps — apps, versions, governance, catalog ops
+- ADDED **[apps]** Add apps/app-host — runtime for tenant-authored engenty Apps
+- CHANGED **[apps]** Rename engenty.coder to engenty.app-coder
+- DOCS **[apps]** Add engenty Apps end-to-end test plan
+- DOCS **[apps]** Re-spike SQLite against the Rivet cookbooks
+- DOCS **[apps]** Add engenty Apps plan + Phase 0 agentOS spike findings
+- FIXED **[test]** Enable Node localStorage for happy-dom vitest runs
+- FIXED **[apps]** Satisfy lint for app-host and engenty-apps
+- FIXED **[ui]** Keep Setup in the tenant app and add overview page
+- FIXED **[tasks]** Put routine run CTA leftmost in the topbar
+- FIXED **[apps]** Unwrap store envelopes in engenty:bridge
+- FIXED **[apps]** Keep the app-host id inside agentOS's 63-character limit
+- FIXED **[apps]** Give agentOS a backend entrypoint, or App backends never run
+- FIXED Strip closed plugins from the public engenty.plugins map
+- FIXED **[auth]** Time out setup fetches so a hung backend cannot hang login
+
 ## [0.1.74] - 2026-07-25
 - ADDED **[tasks]** Center list toolbar and polish briefing motion stream
 - ADDED **[tasks]** Redesign Plan briefing hub and calm list surfaces

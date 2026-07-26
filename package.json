@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.74",
+  "version": "0.1.75",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -43,10 +43,16 @@
       "contacts": {
         "source": "workspace"
       },
+      "engenty-apps": {
+        "source": "workspace"
+      },
       "engenty-coordinator": {
         "source": "workspace"
       },
       "engenty-copilot": {
+        "source": "workspace"
+      },
+      "engenty-remote": {
         "source": "workspace"
       },
       "files": {
@@ -82,7 +88,16 @@
       "team": {
         "source": "workspace"
       },
+      "team-hr": {
+        "source": "workspace"
+      },
+      "time-tracking": {
+        "source": "workspace"
+      },
       "team-chat": {
+        "source": "workspace"
+      },
+      "team-chat-slack-bridge": {
         "source": "workspace"
       }
     },
@@ -101,7 +116,7 @@
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
     "typecheck": "turbo run typecheck --concurrency=4",
-    "test": "VITEST_MAX_WORKERS=2 turbo run test test:scripts --concurrency=4",
+    "test": "NODE_OPTIONS=\"--localstorage-file=${TMPDIR:-/tmp}/engenty-vitest-localstorage\" VITEST_MAX_WORKERS=2 turbo run test test:scripts --concurrency=4",
     "test:all": "vitest run",
     "test:scripts": "vitest run scripts/",
     "test:smoke": "playwright test",
@@ -205,6 +220,9 @@
       "postcss": ">=8.5.10",
       "uuid": ">=11.1.1",
       "mermaid": ">=11.15.0"
+    },
+    "patchedDependencies": {
+      "@rivet-dev/agentos-apps@0.2.14": "patches/@rivet-dev__agentos-apps@0.2.14.patch"
     }
   },
   "workspaces": [

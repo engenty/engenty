@@ -44,6 +44,10 @@ const API_CONNECTION_LOST_MESSAGE =
 const API_BACKEND_UNAVAILABLE_MESSAGE =
   "Backend is unavailable. It may be restarting or still starting up; retry in a moment.";
 
+// A request that is sent but never answered (dev-server restart, hung proxy)
+// must fail fast rather than leaving callers pending forever.
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+
 export interface RequestApiJsonOptions extends Omit<RequestInit, "body"> {
   authToken?: string;
   baseUrl?: string;
@@ -170,6 +174,7 @@ export async function requestApiJson<T>(
   const token = authToken ?? (await getCurrentAccessToken()) ?? "";
   const response = await fetch(`${baseUrl ?? getApiBaseUrl()}${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(DEFAULT_REQUEST_TIMEOUT_MS),
     headers: {
       ...(body instanceof FormData
         ? {}
@@ -180,6 +185,8 @@ export async function requestApiJson<T>(
     body: createRequestBody(body),
   }).catch((error: unknown) => {
     if (isAbortError(error)) {
+      // Callers (and our own default timeout below) treat an abort as a
+      // cancellation, not a reportable failure — propagate it untouched.
       throw error;
     }
 

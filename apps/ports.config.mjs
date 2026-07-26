@@ -25,4 +25,9 @@ export const ports = {
   ai: fromEnv("ENGENTY_AI_PORT", 8790),
   docs: fromEnv("ENGENTY_DOCS_PORT", 3002),
   manage: fromEnv("ENGENTY_MANAGE_PORT", 5174),
+  // apps/app-host — internal only. Never published, never a gateway target,
+  // never a Portless host: it serves tenant-authored code and must not be
+  // same-origin with anything. Listed here purely so local dev and the
+  // stale-port sweep know about it.
+  appHost: fromEnv("ENGENTY_APP_HOST_PORT", 8795),
 };

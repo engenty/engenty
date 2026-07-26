@@ -105,11 +105,36 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # engenty Apps — see docker-compose.yaml.
+      ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
     volumes:
       # Literal path — Coolify rejects ${} in volume definitions; must match
       # ENGENTY_LOCAL_WORKSPACE_ROOT above (see docker-compose.yaml).
       - /opt/engenty/sandboxes:/opt/engenty/sandboxes
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - engenty
+
+  # Runtime for tenant-authored engenty Apps — no published port, no gateway
+  # target, no Traefik labels. See docker-compose.yaml for the full note.
+  engenty-app-host:
+    image: ghcr.io/engenty/engenty-app-host:latest
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      ENGENTY_APP_HOST_PORT: 8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    # Bounds on tenant-authored code. agentos-apps exposes replica scaling but
+    # no per-app memory knob, so the container is where the ceiling lives: each
+    # app VM is ~22 MB plus the two native child processes. Raise deliberately.
+    mem_limit: 3g
+    cpus: 2.0
+    pids_limit: 4096
+    volumes:
+      - engenty-app-host-data:/data
     networks:
       - engenty
 
@@ -165,3 +190,7 @@ services:
 networks:
   engenty:
     driver: bridge
+
+volumes:
+  # Durable RivetKit engine store for apps/app-host (deployed app releases).
+  engenty-app-host-data:

@@ -5,18 +5,24 @@ import {
   activateArtifact,
   clearArtifactsForTests,
   closeObjectPaneTab,
+  closeWorkFilePaneTab,
   objectPaneTabKey,
+  openArtifactPane,
   openObjectPaneTab,
+  openWorkFilePaneTab,
   setActiveArtifact,
   setArtifactPaneExpanded,
   setArtifactPaneOpen,
   useArtifactListSync,
   useArtifacts,
+  workFilePaneTabKey,
 } from "./artifact-store";
 
 const HOST = "test-host";
 const CONTACT_REF = { module: "contacts", entity: "contact", id: "c1" };
 const CONTACT_KEY = objectPaneTabKey(CONTACT_REF);
+const FILE_ENTRY = { entryKey: "workspace/report.md", filename: "report.md" };
+const FILE_KEY = workFilePaneTabKey(FILE_ENTRY.entryKey);
 
 describe("artifact pane state", () => {
   beforeEach(() => {
@@ -66,6 +72,35 @@ describe("artifact list sync", () => {
     );
     expect(result.current.paneOpen).toBe(false);
     expect(result.current.activeId).toBeNull();
+  });
+
+  it("seeds the active tab when openArtifactPane runs after a cold load", () => {
+    const { result } = renderHook(
+      ({ ids }: { ids: string[] }) => {
+        useArtifactListSync({
+          hostKey: HOST,
+          scopeKey: "t1",
+          ids,
+          isReady: true,
+        });
+        return useArtifacts(HOST);
+      },
+      { initialProps: { ids: ["a1", "a2"] } }
+    );
+    expect(result.current.activeId).toBeNull();
+
+    act(() => openArtifactPane(HOST, "a1"));
+    expect(result.current.paneOpen).toBe(true);
+    expect(result.current.activeId).toBe("a1");
+  });
+
+  it("openArtifactPane keeps an existing active tab", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() => activateArtifact(HOST, "a2"));
+    act(() => setArtifactPaneOpen(HOST, false));
+    act(() => openArtifactPane(HOST, "a1"));
+    expect(result.current.paneOpen).toBe(true);
+    expect(result.current.activeId).toBe("a2");
   });
 
   it("marks fresh artifacts unseen while the pane is closed (no auto-open)", () => {
@@ -233,5 +268,47 @@ describe("object pane tabs", () => {
     expect(result.current.activeId).toBe(CONTACT_KEY);
     // ...and the emptied artifact list must not close the pane.
     expect(result.current.paneOpen).toBe(true);
+  });
+});
+
+describe("work-file pane tabs", () => {
+  beforeEach(() => {
+    clearArtifactsForTests(HOST);
+  });
+
+  it("opens a file into the split pane and dedupes by storage key", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() => openWorkFilePaneTab(HOST, FILE_ENTRY));
+    expect(result.current.paneOpen).toBe(true);
+    expect(result.current.activeId).toBe(FILE_KEY);
+    expect(result.current.fileTabs).toEqual([
+      {
+        key: FILE_KEY,
+        entryKey: FILE_ENTRY.entryKey,
+        filename: FILE_ENTRY.filename,
+      },
+    ]);
+
+    act(() =>
+      openWorkFilePaneTab(HOST, {
+        entryKey: FILE_ENTRY.entryKey,
+        filename: "report-v2.md",
+      })
+    );
+    expect(result.current.fileTabs).toHaveLength(1);
+    expect(result.current.fileTabs[0].filename).toBe("report-v2.md");
+  });
+
+  it("closing the active file tab falls back to an artifact, then closes", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() => openWorkFilePaneTab(HOST, FILE_ENTRY));
+    act(() => closeWorkFilePaneTab(HOST, FILE_KEY, ["a1"]));
+    expect(result.current.activeId).toBe("a1");
+    expect(result.current.paneOpen).toBe(true);
+
+    act(() => openWorkFilePaneTab(HOST, FILE_ENTRY));
+    act(() => closeWorkFilePaneTab(HOST, FILE_KEY, []));
+    expect(result.current.paneOpen).toBe(false);
+    expect(result.current.activeId).toBeNull();
   });
 });

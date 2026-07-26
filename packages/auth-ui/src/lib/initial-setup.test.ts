@@ -71,6 +71,7 @@ describe("initial setup core API integration", () => {
           authorization: "Bearer session-token",
           "content-type": "application/json",
         },
+        signal: expect.any(AbortSignal),
       }
     );
   });
@@ -101,6 +102,7 @@ describe("initial setup core API integration", () => {
           authorization: "Bearer session-token",
           "content-type": "application/json",
         },
+        signal: expect.any(AbortSignal),
       }
     );
   });

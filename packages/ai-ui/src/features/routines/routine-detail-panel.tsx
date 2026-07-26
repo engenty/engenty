@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useCallback } from "react";
 import { Link } from "react-router-dom";
+import { MessageResponse } from "../../components/presentation.js";
+import { COMPACT_MARKDOWN_PROSE_CLASSNAME } from "../../lib/admin/compact-markdown-prose-classname.js";
 import { RoutineTriggerChip } from "./routine-trigger-chip.js";
 import type { RoutineDto } from "./routines-api.js";
 import {
@@ -201,8 +203,10 @@ export function RoutineDetailPanel({
               <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
                 {isDe ? "Anweisungen" : "Instructions"}
               </h4>
-              <div className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border bg-muted/40 p-3.5 font-mono text-foreground text-xs leading-relaxed">
-                {routine.prompt}
+              <div className="ui-canvas-panel max-h-60 overflow-y-auto rounded-lg bg-card p-3.5">
+                <MessageResponse className={COMPACT_MARKDOWN_PROSE_CLASSNAME}>
+                  {routine.prompt}
+                </MessageResponse>
               </div>
             </div>
           )}

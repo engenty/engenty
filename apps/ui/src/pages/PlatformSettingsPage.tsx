@@ -3,7 +3,10 @@
 // ingest keys — with environment variables as the fallback. The same panel,
 // scoped to "tenant", backs the tenant-admin integration-keys page.
 
-import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import {
+  useSettingsSecondaryShellNav,
+  useSetupSecondaryShellNav,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
@@ -19,8 +22,11 @@ function PlatformSettingsPageInner({
   intro: string;
 }) {
   const { t } = useTranslation("common");
+  // Platform lives under Setup; tenant integration keys stay under Settings.
+  const setupNav = useSetupSecondaryShellNav(t("navigation.setup"));
+  const settingsNav = useSettingsSecondaryShellNav(t("navigation.settings"));
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
-    useSettingsSecondaryShellNav(t("navigation.settings"));
+    scope === "platform" ? setupNav : settingsNav;
 
   const breadcrumbs = useMemo(
     () => [...(moduleRootCrumb ? [moduleRootCrumb] : []), { label: title }],
@@ -47,21 +53,23 @@ function PlatformSettingsPageInner({
 }
 
 export function PlatformSettingsPage() {
+  const { t } = useTranslation("common");
   return (
     <PlatformSettingsPageInner
       intro="Installation-wide keys and credentials. Values set here override the corresponding environment variables for every tenant. Secrets are stored encrypted and never shown again."
       scope="platform"
-      title="Platform settings"
+      title={t("navigation.setupPlatform")}
     />
   );
 }
 
 export function TenantIntegrationKeysPage() {
+  const { t } = useTranslation("common");
   return (
     <PlatformSettingsPageInner
       intro="Override integration credentials for your tenant — for example, connect with your own OAuth app or bot token. Leave a field blank to use the platform default."
       scope="tenant"
-      title="Integration keys"
+      title={t("settings.integrationKeys.menuLabel")}
     />
   );
 }

@@ -326,6 +326,51 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     secret: false,
   },
 
+  // ── engenty Apps (tenant-authored apps) ──
+  {
+    description:
+      "Internal URL of apps/app-host (apps/ai → app-host). Never published and never a gateway target — app-host runs tenant-authored code, so it gets no origin of its own.",
+    exampleValue: "http://127.0.0.1:8795",
+    group: "engenty Apps",
+    key: "ENGENTY_APP_HOST_URL",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
+  {
+    description:
+      "Shared secret apps/ai presents on every app-host internal call. Required in production — app-host refuses to boot without it.",
+    exampleValue: "generate-a-random-64-char-secret",
+    group: "engenty Apps",
+    key: "ENGENTY_APP_HOST_TOKEN",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    description: "Local port for apps/app-host (internal only).",
+    exampleValue: "8795",
+    group: "engenty Apps",
+    key: "ENGENTY_APP_HOST_PORT",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
+  {
+    description:
+      "Deployment-wide kill switch for engenty Apps. Set to false and the module registers no operations at all — nothing to reach. Per-tenant gating is module licensing; per-app gating is app_archive.",
+    exampleValue: "true",
+    group: "engenty Apps",
+    key: "ENGENTY_APPS_ENABLED",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
+
   // ── Logging & debug ──
   {
     description: "CLI/server log level: debug | info | warn | error.",

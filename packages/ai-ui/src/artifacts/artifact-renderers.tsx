@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@engenty/ui-core";
 import type { ComponentType } from "react";
+import { AppArtifactView } from "./app-artifact-view.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
 
 /**
@@ -175,4 +176,7 @@ function MarkdownArtifactEditor({
 registerArtifactRenderer("markdown", MarkdownArtifactView);
 registerArtifactRenderer("html", HtmlArtifactView);
 registerArtifactRenderer("table", TableArtifactView);
+// engenty Apps: a bridged, opaque-origin frame rather than a bare iframe —
+// see app-artifact-view.tsx.
+registerArtifactRenderer("app", AppArtifactView);
 registerArtifactEditor("markdown", MarkdownArtifactEditor);

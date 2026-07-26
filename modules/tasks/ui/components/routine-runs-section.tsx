@@ -32,7 +32,13 @@ function outcomeBadge(run: TaskRun, t: (key: string) => string) {
   return { label: t("detail.liveRunFinished"), muted: false };
 }
 
-export function RoutineRunsSection({ routine }: { routine: RoutineDto }) {
+export function RoutineRunsSection({
+  hideHeading = false,
+  routine,
+}: {
+  hideHeading?: boolean;
+  routine: RoutineDto;
+}) {
   const { t } = useTranslation("tasks");
   const { currentTenant, currentUserId } = useWorkspaceContext();
   const taskId = routine.standing_task_id;
@@ -74,9 +80,11 @@ export function RoutineRunsSection({ routine }: { routine: RoutineDto }) {
   if (!taskId) {
     return (
       <div className="space-y-2">
-        <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-          {t("routines.detail.runs")}
-        </h4>
+        {hideHeading ? null : (
+          <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+            {t("routines.detail.runs")}
+          </h4>
+        )}
         <p className="text-muted-foreground text-xs">
           {routine.last_result
             ? routine.last_result
@@ -87,25 +95,33 @@ export function RoutineRunsSection({ routine }: { routine: RoutineDto }) {
   }
 
   const runs = runsQuery.data ?? [];
+  const openTaskLink =
+    routine.standing_task_identifier == null ? null : (
+      <Link
+        className="inline-flex items-center gap-1 font-medium text-primary text-xs hover:underline"
+        to={tasksPaths.taskDetail(taskId)}
+      >
+        {t("routines.detail.openTask", {
+          identifier: routine.standing_task_identifier,
+        })}
+        <ExternalLink className="h-3 w-3" />
+      </Link>
+    );
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-          {t("routines.detail.runs")}
-        </h4>
-        {routine.standing_task_identifier ? (
-          <Link
-            className="inline-flex items-center gap-1 font-medium text-primary text-xs hover:underline"
-            to={tasksPaths.taskDetail(taskId)}
-          >
-            {t("routines.detail.openTask", {
-              identifier: routine.standing_task_identifier,
-            })}
-            <ExternalLink className="h-3 w-3" />
-          </Link>
-        ) : null}
-      </div>
+      {hideHeading ? (
+        openTaskLink ? (
+          <div className="flex justify-end">{openTaskLink}</div>
+        ) : null
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+            {t("routines.detail.runs")}
+          </h4>
+          {openTaskLink}
+        </div>
+      )}
       {runsQuery.isPending ? (
         <p className="text-muted-foreground text-xs">…</p>
       ) : runsQuery.isError ? (

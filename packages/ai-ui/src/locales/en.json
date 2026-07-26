@@ -1296,7 +1296,11 @@
     "artifactsTab": "Artifacts",
     "filesTab": "Files",
     "artifactsEmpty": "No artifacts here yet.",
-    "filesEmpty": "No workspace files here yet."
+    "filesEmpty": "No workspace files here yet.",
+    "downloadFile": "Download",
+    "filePreviewLoading": "Preparing preview…",
+    "fileNoPreview": "No preview available for this file type.",
+    "filePreviewTruncated": "Preview truncated — download the file for the full content."
   },
   "agentProposals": {
     "title": "Pending agent proposals",

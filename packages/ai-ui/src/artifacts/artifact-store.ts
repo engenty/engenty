@@ -15,9 +15,8 @@ import {
  * Artifact pane UI state, keyed per host. The artifact *list* is server data
  * (see artifacts-api.ts) — the tabs are the active thread's artifacts. This
  * store holds only the transient view state: which tab is active and whether
- * the pane is open / expanded — plus `objectTabs`, session-transient tabs for
- * module objects opened by reference (they vanish on reload; the transcript
- * card re-opens them in one click).
+ * the pane is open / expanded — plus session-transient tabs for module objects
+ * and workspace files (they vanish on reload; the list/card re-opens them).
  */
 export interface ObjectPaneTab {
   /** Tab id in the shared tab strip: `object:<module>:<entity>:<id>`. */
@@ -26,8 +25,17 @@ export interface ObjectPaneTab {
   title: string;
 }
 
+export interface WorkFilePaneTab {
+  /** Storage key passed to signed-URL / download APIs. */
+  entryKey: string;
+  filename: string;
+  /** Tab id in the shared tab strip: `workfile:<entryKey>`. */
+  key: string;
+}
+
 export interface ArtifactPaneState {
   activeId: string | null;
+  fileTabs: WorkFilePaneTab[];
   objectTabs: ObjectPaneTab[];
   paneExpanded: boolean;
   paneOpen: boolean;
@@ -45,6 +53,7 @@ interface ArtifactStore {
 
 const EMPTY_STATE: ArtifactPaneState = {
   activeId: null,
+  fileTabs: [],
   objectTabs: [],
   paneExpanded: false,
   paneOpen: false,
@@ -52,6 +61,7 @@ const EMPTY_STATE: ArtifactPaneState = {
 };
 
 const OBJECT_TAB_PREFIX = "object:";
+const WORK_FILE_TAB_PREFIX = "workfile:";
 
 export function objectPaneTabKey(ref: ObjectRef): string {
   return `${OBJECT_TAB_PREFIX}${formatObjectRef(ref)}`;
@@ -65,6 +75,23 @@ export function objectRefFromPaneTabKey(key: string): ObjectRef | null {
   return key.startsWith(OBJECT_TAB_PREFIX)
     ? parseObjectRef(key.slice(OBJECT_TAB_PREFIX.length))
     : null;
+}
+
+export function workFilePaneTabKey(entryKey: string): string {
+  return `${WORK_FILE_TAB_PREFIX}${entryKey}`;
+}
+
+export function isWorkFilePaneTabKey(id: string | null): boolean {
+  return Boolean(id?.startsWith(WORK_FILE_TAB_PREFIX));
+}
+
+/** Object or work-file tab — not an artifact id from the server list. */
+export function isTransientPaneTabKey(id: string | null): boolean {
+  return isObjectPaneTabKey(id) || isWorkFilePaneTabKey(id);
+}
+
+function firstTransientTabKey(state: ArtifactPaneState): string | null {
+  return state.objectTabs[0]?.key ?? state.fileTabs[0]?.key ?? null;
 }
 
 const stores = new Map<string, ArtifactStore>();
@@ -93,6 +120,7 @@ function setState(hostKey: string, next: ArtifactPaneState) {
     next.paneOpen === prev.paneOpen &&
     next.paneExpanded === prev.paneExpanded &&
     next.objectTabs === prev.objectTabs &&
+    next.fileTabs === prev.fileTabs &&
     sameIdList(next.unseenIds, prev.unseenIds)
   ) {
     return;
@@ -127,6 +155,26 @@ export function setArtifactPaneOpen(hostKey: string, open: boolean) {
     paneOpen: open,
     paneExpanded: open ? state.paneExpanded : false,
     unseenIds: open ? [] : state.unseenIds,
+  });
+}
+
+/**
+ * Open the pane. When nothing is focused yet (cold load → topbar toggle),
+ * `fallbackActiveId` becomes the active tab so the body is not empty while
+ * tabs are visible.
+ */
+export function openArtifactPane(
+  hostKey: string,
+  fallbackActiveId?: string | null
+) {
+  const { state } = getStore(hostKey);
+  const activeId =
+    state.activeId ?? fallbackActiveId ?? firstTransientTabKey(state);
+  setState(hostKey, {
+    ...state,
+    activeId,
+    paneOpen: true,
+    unseenIds: [],
   });
 }
 
@@ -201,7 +249,69 @@ export function closeObjectPaneTab(
   }
   let next: Partial<ArtifactPaneState> = { objectTabs };
   if (state.activeId === key) {
-    const fallback = remainingArtifactIds[0] ?? objectTabs[0]?.key ?? null;
+    const fallback =
+      remainingArtifactIds[0] ??
+      objectTabs[0]?.key ??
+      state.fileTabs[0]?.key ??
+      null;
+    next = fallback
+      ? { ...next, activeId: fallback }
+      : { ...next, activeId: null, paneOpen: false, paneExpanded: false };
+  }
+  setState(hostKey, { ...state, ...next });
+}
+
+/**
+ * Open (or refocus) a workspace file as a pane tab — same split as artifacts.
+ * Transient: closing or reloading discards the tab; the Files grid re-opens it.
+ */
+export function openWorkFilePaneTab(
+  hostKey: string,
+  file: { entryKey: string; filename: string },
+  opts?: { expanded?: boolean }
+) {
+  const { state } = getStore(hostKey);
+  const key = workFilePaneTabKey(file.entryKey);
+  const filename = file.filename.trim() || file.entryKey;
+  const existing = state.fileTabs.find((tab) => tab.key === key);
+  const fileTabs = existing
+    ? existing.filename === filename
+      ? state.fileTabs
+      : state.fileTabs.map((tab) =>
+          tab.key === key ? { ...tab, filename } : tab
+        )
+    : [...state.fileTabs, { key, entryKey: file.entryKey, filename }];
+  setState(hostKey, {
+    ...state,
+    fileTabs,
+    activeId: key,
+    paneOpen: true,
+    paneExpanded: opts?.expanded ?? state.paneExpanded,
+    unseenIds: [],
+  });
+}
+
+/**
+ * Close a work-file tab. Falls back to artifacts / other transient tabs, then
+ * closes the pane when nothing remains.
+ */
+export function closeWorkFilePaneTab(
+  hostKey: string,
+  key: string,
+  remainingArtifactIds: string[] = []
+) {
+  const { state } = getStore(hostKey);
+  const fileTabs = state.fileTabs.filter((tab) => tab.key !== key);
+  if (fileTabs.length === state.fileTabs.length) {
+    return;
+  }
+  let next: Partial<ArtifactPaneState> = { fileTabs };
+  if (state.activeId === key) {
+    const fallback =
+      remainingArtifactIds[0] ??
+      state.objectTabs[0]?.key ??
+      fileTabs[0]?.key ??
+      null;
     next = fallback
       ? { ...next, activeId: fallback }
       : { ...next, activeId: null, paneOpen: false, paneExpanded: false };
@@ -215,6 +325,8 @@ export function clearArtifactsForTests(hostKey: string) {
 
 export interface UseArtifactPaneResult extends ArtifactPaneState {
   activate: (id: string) => void;
+  /** Open the pane, optionally focusing a tab when none is active. */
+  openPane: (fallbackActiveId?: string | null) => void;
   setActive: (id: string | null) => void;
   setPaneExpanded: (expanded: boolean) => void;
   setPaneOpen: (open: boolean) => void;
@@ -264,9 +376,13 @@ export function useArtifactListSync(params: {
           setActiveArtifact(hostKey, fresh[0]);
           markUnseenArtifacts(hostKey, fresh);
         }
-      } else if (emptied && getStore(hostKey).state.objectTabs.length === 0) {
-        // Closing (archiving) the last tab closes the pane — unless object
-        // tabs are still open.
+      } else if (
+        emptied &&
+        getStore(hostKey).state.objectTabs.length === 0 &&
+        getStore(hostKey).state.fileTabs.length === 0
+      ) {
+        // Closing (archiving) the last tab closes the pane — unless transient
+        // object/file tabs are still open.
         setArtifactPaneOpen(hostKey, false);
       }
     }
@@ -281,16 +397,13 @@ export function useArtifactListSync(params: {
         });
       }
     }
-    // Object tabs are not in the artifact list; never steal their focus.
-    if (isObjectPaneTabKey(getStore(hostKey).state.activeId)) {
+    // Transient tabs are not in the artifact list; never steal their focus.
+    if (isTransientPaneTabKey(getStore(hostKey).state.activeId)) {
       return;
     }
     const nextState = getStore(hostKey).state;
     if (nextState.activeId && !ids.includes(nextState.activeId)) {
-      setActiveArtifact(
-        hostKey,
-        ids[0] ?? nextState.objectTabs[0]?.key ?? null
-      );
+      setActiveArtifact(hostKey, ids[0] ?? firstTransientTabKey(nextState));
     } else if (!nextState.activeId && nextState.paneOpen && ids.length > 0) {
       setActiveArtifact(hostKey, ids[0]);
     }
@@ -319,6 +432,8 @@ export function useArtifacts(hostKey: string): UseArtifactPaneResult {
       setPaneExpanded: (expanded: boolean) =>
         setArtifactPaneExpanded(hostKey, expanded),
       setPaneOpen: (open: boolean) => setArtifactPaneOpen(hostKey, open),
+      openPane: (fallbackActiveId?: string | null) =>
+        openArtifactPane(hostKey, fallbackActiveId),
       togglePane: () =>
         setArtifactPaneOpen(hostKey, !getStore(hostKey).state.paneOpen),
       unseenCount: state.unseenIds.length,

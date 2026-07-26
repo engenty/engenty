@@ -2,6 +2,10 @@
 // Declared (module/builtin) routines are read-only except the enable toggle;
 // custom routines additionally get Edit and Delete.
 import {
+  ENGENTY_COPILOT_HOST_KEY,
+  WorkspaceArtifactPane,
+} from "@engenty/ai-ui";
+import {
   type RoutineDto,
   useDeleteCustomRoutineMutation,
   useRoutinesListQuery,
@@ -21,6 +25,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RoutineDetailContent } from "../components/routine-detail-content.js";
+import { RoutineDetailTopbarActions } from "../components/routine-detail-topbar-actions.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 
@@ -44,7 +49,18 @@ export function RoutineDetailPage() {
     () => [...(moduleRootCrumb ? [moduleRootCrumb] : []), { label: title }],
     [moduleRootCrumb, title]
   );
+  const routineContainer = useMemo(
+    () => (routine ? { id: routine.id, tier: "routine" as const } : null),
+    [routine]
+  );
   usePageConfig({
+    actions: routine ? (
+      <RoutineDetailTopbarActions
+        onDelete={() => setDeleteOpen(true)}
+        onEdit={() => navigate(tasksPaths.routineEdit(routine.id))}
+        routine={routine}
+      />
+    ) : null,
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
@@ -68,8 +84,6 @@ export function RoutineDetailPage() {
       ) : routine ? (
         <RoutineDetailContent
           locale={i18n.language || "en"}
-          onDelete={() => setDeleteOpen(true)}
-          onEdit={() => navigate(tasksPaths.routineEdit(routine.id))}
           routine={routine}
         />
       ) : (
@@ -77,6 +91,12 @@ export function RoutineDetailPage() {
           {t("routines.detail.notFound")}
         </p>
       )}
+
+      {/* Same chat host as task detail — WorkPanel rows + live artifacts share one pane. */}
+      <WorkspaceArtifactPane
+        container={routineContainer}
+        hostKey={ENGENTY_COPILOT_HOST_KEY}
+      />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogContent>

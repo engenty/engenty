@@ -35,6 +35,8 @@ EXCLUDES=(
   apps/manage
   docs/internal
   modules/banking
+  # engenty-apps is PRO-only for now (see publish-open.sh)
+  modules/engenty-apps
   # engenty-remote starts pro-only (see publish-open.sh)
   modules/engenty-remote
   modules/team-hr

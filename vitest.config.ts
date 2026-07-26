@@ -1,8 +1,13 @@
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 const repoRoot = path.resolve(import.meta.dirname);
+
+// Node ≥22 web Storage is gated behind `--localstorage-file`; without it the
+// undefined getter shadows happy-dom/jsdom Storage used by browser tests.
+const localStorageFile = path.join(tmpdir(), "engenty-vitest-localstorage");
 
 export default defineConfig({
   plugins: [
@@ -21,6 +26,7 @@ export default defineConfig({
   root: repoRoot,
   test: {
     pool: "forks",
+    execArgv: [`--localstorage-file=${localStorageFile}`],
     include: [
       "apps/**/*.test.ts",
       "apps/**/*.test.tsx",

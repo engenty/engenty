@@ -44,7 +44,7 @@ export function getArtifactType(type: string): ArtifactTypeDescriptor {
  * The registered built-in types, for deriving input schemas (tool + route
  * zod enums) from one source. Extend here when adding a type.
  */
-export const ARTIFACT_TYPE_IDS = ["markdown", "html", "table"] as const;
+export const ARTIFACT_TYPE_IDS = ["markdown", "html", "table", "app"] as const;
 
 function assertNonEmpty(content: string, label: string): void {
   if (typeof content !== "string" || content.trim().length === 0) {
@@ -62,6 +62,39 @@ registerArtifactType({
   type: "html",
   mimeType: "text/html",
   validate: (content) => assertNonEmpty(content, "html"),
+});
+
+/**
+ * An engenty App instance. The content is a handle, not the app: the App's
+ * source, manifest and versions live in `module_apps`, and its working state
+ * lives in its own store. Keeping the artifact tiny is what lets an App of any
+ * size be scoped to a thread/task/project through the ordinary artifact
+ * machinery — see PLAN-engenty-apps.md §5.
+ */
+registerArtifactType({
+  mimeType: "application/vnd.engenty.app+json",
+  type: "app",
+  validate: (content) => {
+    assertNonEmpty(content, "app");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new ArtifactInvalidContentError(
+        "app content must be a JSON handle: {app_id, session_id}"
+      );
+    }
+    const handle = parsed as { app_id?: unknown; session_id?: unknown };
+    if (typeof handle?.app_id !== "string" || handle.app_id.length === 0) {
+      throw new ArtifactInvalidContentError("app handle needs an app_id");
+    }
+    if (
+      typeof handle?.session_id !== "string" ||
+      handle.session_id.length === 0
+    ) {
+      throw new ArtifactInvalidContentError("app handle needs a session_id");
+    }
+  },
 });
 
 registerArtifactType({
