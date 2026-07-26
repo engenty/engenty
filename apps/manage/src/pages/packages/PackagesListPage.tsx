@@ -112,20 +112,20 @@ export function PackagesListPage() {
                     <TableCell>
                       {moduleSummary(pkg.modules, t("packages.allModules"))}
                     </TableCell>
-                    <TableCell>{pkg.appLimits.maxUsers ?? "∞"}</TableCell>
+                    <TableCell>{pkg.appLimits?.maxUsers ?? "∞"}</TableCell>
                     <TableCell>
-                      {formatMicros(pkg.aiUsagePolicy.hard_limit_cost_micros)}
+                      {formatMicros(pkg.aiUsagePolicy?.hard_limit_cost_micros)}
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          pkg.aiUsagePolicy.enforcement_mode === "enforce"
+                          pkg.aiUsagePolicy?.enforcement_mode === "enforce"
                             ? "default"
                             : "secondary"
                         }
                       >
                         {t(
-                          `packages.mode.${pkg.aiUsagePolicy.enforcement_mode}`
+                          `packages.mode.${pkg.aiUsagePolicy?.enforcement_mode ?? "observe"}`
                         )}
                       </Badge>
                     </TableCell>

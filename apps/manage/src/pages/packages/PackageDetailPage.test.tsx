@@ -64,4 +64,24 @@ describe("PackageDetailPage", () => {
     expect(screen.getByText("contacts, projects")).toBeTruthy();
     expect(screen.getByText("contacts.csv_import")).toBeTruthy();
   });
+
+  it("renders when allowed_efforts is missing from the payload", async () => {
+    const { allowed_efforts: _omit, ...aiWithoutEfforts } =
+      teamPkg.aiUsagePolicy;
+    getPackage.mockResolvedValue({
+      ...teamPkg,
+      aiUsagePolicy: aiWithoutEfforts as EntitlementPackage["aiUsagePolicy"],
+    });
+    renderPage(
+      <PageHeaderProvider>
+        <PackageDetailPage />
+      </PageHeaderProvider>,
+      { path: "/packages/:id", initialEntry: "/packages/team" }
+    );
+
+    expect(await screen.findByRole("heading", { name: "Team" })).toBeTruthy();
+    expect(
+      screen.getByText(/Low, medium and high|Niedrig, mittel/i)
+    ).toBeTruthy();
+  });
 });

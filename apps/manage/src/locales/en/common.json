@@ -456,6 +456,9 @@
     "setup": {
       "menuLabel": "Platform settings",
       "intro": "Installation-wide keys and credentials. Values set here override the corresponding environment variables for every tenant. Secrets are stored encrypted and never shown again."
+    },
+    "aiModels": {
+      "menuLabel": "AI models"
     }
   },
   "searchIndex": {
@@ -537,6 +540,7 @@
       "allProviders": "All providers",
       "allGateways": "All gateways",
       "age": "Release age",
+      "clear": "Clear filter",
       "maxPriceTier": "Max price tier",
       "maxOutputPrice": "Max output $/Mtok",
       "webSearchOnly": "Web search only"
@@ -595,5 +599,19 @@
       "updated": "Updated",
       "pricingRows": "Pricing rows"
     }
+  },
+  "modelBindings": {
+    "title": "Role bindings",
+    "intro": "Which model does which job. Everything else in the product talks about effort or purpose — this is the one place a model id is the subject. Edit a field and press Enter or click away to save.",
+    "gradedHeading": "General purpose — what users pick between",
+    "fixedHeading": "Specialist roles — never surfaced to end users",
+    "role": "Role",
+    "kind": "Kind",
+    "model": "Model",
+    "gateway": "Gateway",
+    "graded": "Graded",
+    "fixed": "Fixed",
+    "usingDefault": "Never bound — running on its built-in default",
+    "saved": "Bound {{role}}"
   }
 }

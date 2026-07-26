@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   ToggleRight,
   Users,
+  Workflow,
 } from "lucide-react";
 
 export function useManageSections(): NavigationSection[] {
@@ -69,17 +70,22 @@ export function useManageSections(): NavigationSection[] {
               label: t("settings.setup.menuLabel"),
               icon: KeyRound,
             },
+            {
+              to: "/settings/ai-models",
+              label: t("settings.aiModels.menuLabel"),
+              icon: BrainCircuit,
+            },
+            {
+              to: "/settings/ai-models/bindings",
+              label: t("modelBindings.title"),
+              icon: Workflow,
+            },
           ],
         },
         {
           icon: Search,
           label: t("navigation.searchIndex"),
           to: "/search-index",
-        },
-        {
-          icon: BrainCircuit,
-          label: t("navigation.aiModels"),
-          to: "/ai-models",
         },
       ],
     },

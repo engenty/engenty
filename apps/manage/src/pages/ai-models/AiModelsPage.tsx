@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
@@ -23,13 +24,9 @@ import {
   DropdownMenuTrigger,
   Input,
   ListDisplayConfigurator,
+  ListFilterChip,
   ListSearchInput,
   ListToolbarIconButton,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   STICKY_HEADER_CLASS,
   Table,
   TableBody,
@@ -116,6 +113,8 @@ const SORT_COLUMN_BY_KEY: Partial<Record<CatalogColumnKey, CatalogSortColumn>> =
 export function AiModelsPage() {
   const { t } = useTranslation("common");
   const queryClient = useQueryClient();
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("navigation.settings"));
 
   const [search, setSearch] = useState("");
   const [gateway, setGateway] = useState<string>(ALL);
@@ -175,6 +174,9 @@ export function AiModelsPage() {
   );
 
   const models = useQuery(gatewayModelsQuery(filters));
+  // Facets stay on the unfiltered catalog so choosing e.g. "alibaba" does not
+  // collapse the provider menu to a single option (drill-down trap).
+  const facetCatalog = useQuery(gatewayModelsQuery({}));
   const syncRuns = useQuery(gatewayModelSyncRunsQuery());
   const latestRun = syncRuns.data?.[0];
 
@@ -217,15 +219,14 @@ export function AiModelsPage() {
   });
 
   const allModels = models.data ?? [];
+  const facetModels = facetCatalog.data ?? allModels;
   const providers = useMemo(
-    () => [...new Set(allModels.map((model) => model.provider))].sort(),
-    [allModels]
+    () => [...new Set(facetModels.map((model) => model.provider))].sort(),
+    [facetModels]
   );
-  // Derived from the loaded page, so a gateway with no rows left never offers a
-  // filter that would return nothing.
   const gateways = useMemo(
-    () => [...new Set(allModels.map((model) => model.gateway))].sort(),
-    [allModels]
+    () => [...new Set(facetModels.map((model) => model.gateway))].sort(),
+    [facetModels]
   );
 
   const rows = useMemo(() => {
@@ -340,58 +341,87 @@ export function AiModelsPage() {
 
   const pageActions = useMemo(
     () => (
-      <div className="flex shrink-0 items-center gap-1">
-        <Button
-          disabled={sync.isPending}
-          onClick={() => {
-            setRestoreMessage(null);
-            sync.mutate();
-          }}
-          size="sm"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 shrink-0 ${sync.isPending ? "animate-spin" : ""}`}
-          />
-          <span className="hidden sm:inline">{t("aiModels.sync")}</span>
-        </Button>
-        <Button
-          disabled={allModels.length === 0}
-          onClick={downloadPricing}
-          size="sm"
-          variant="outline"
-        >
-          <Download className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden sm:inline">{t("aiModels.download")}</span>
-        </Button>
-        <Button
-          disabled={restore.isPending}
-          onClick={() => {
-            setRestoreMessage(null);
-            setRestoreOpen(true);
-          }}
-          size="sm"
-          variant="outline"
-        >
-          <RotateCcw className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden sm:inline">
-            {t("aiModels.restoreDefaults")}
-          </span>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link to="/ai-models/pricing-history">
-            <History className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden md:inline">{t("aiModels.history")}</span>
-          </Link>
-        </Button>
+      <div className="flex shrink-0 items-center gap-3">
+        {latestRun ? (
+          <button
+            className="hidden items-center gap-2 text-muted-foreground text-xs hover:text-foreground sm:flex"
+            onClick={() => setSyncRunsOpen(true)}
+            type="button"
+          >
+            <span>{t("aiModels.lastSync")}</span>
+            <Badge
+              className={syncStatusBadgeClassName(latestRun.status)}
+              variant="outline"
+            >
+              {t(`aiModels.syncStatus.${latestRun.status}`)}
+            </Badge>
+            <span>{new Date(latestRun.started_at).toLocaleString()}</span>
+          </button>
+        ) : null}
+        <div className="flex items-center gap-1">
+          <Button
+            disabled={sync.isPending}
+            onClick={() => {
+              setRestoreMessage(null);
+              sync.mutate();
+            }}
+            size="sm"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 shrink-0 ${sync.isPending ? "animate-spin" : ""}`}
+            />
+            <span className="hidden sm:inline">{t("aiModels.sync")}</span>
+          </Button>
+          <Button
+            disabled={allModels.length === 0}
+            onClick={downloadPricing}
+            size="sm"
+            variant="outline"
+          >
+            <Download className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">{t("aiModels.download")}</span>
+          </Button>
+          <Button
+            disabled={restore.isPending}
+            onClick={() => {
+              setRestoreMessage(null);
+              setRestoreOpen(true);
+            }}
+            size="sm"
+            variant="outline"
+          >
+            <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">
+              {t("aiModels.restoreDefaults")}
+            </span>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/settings/ai-models/pricing-history">
+              <History className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden md:inline">{t("aiModels.history")}</span>
+            </Link>
+          </Button>
+        </div>
       </div>
     ),
-    [allModels.length, downloadPricing, restore.isPending, sync, t]
+    [allModels.length, downloadPricing, latestRun, restore.isPending, sync, t]
   );
 
-  const breadcrumbs = useMemo(() => [{ label: t("aiModels.title") }], [t]);
+  const breadcrumbs = useMemo(
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("settings.aiModels.menuLabel") },
+    ],
+    [moduleRootCrumb, t]
+  );
 
   return (
-    <PageShell actions={pageActions} breadcrumbs={breadcrumbs}>
+    <PageShell
+      actions={pageActions}
+      breadcrumbs={breadcrumbs}
+      secondaryNavHeaderSlot={secondaryNavHeaderSlot}
+      topbarChrome="contentBlend"
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <p className="text-muted-foreground text-sm">
           {t("aiModels.description")}
@@ -497,9 +527,16 @@ export function AiModelsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <FilterSelect
-            label={t("aiModels.columns.useCase")}
-            onChange={(value) =>
+          <ListFilterChip
+            activeLabel={
+              useCase === ALL ? undefined : t(`aiModels.useCase.${useCase}`)
+            }
+            ariaLabel={t("aiModels.columns.useCase")}
+            clearLabel={t("aiModels.filters.clear")}
+            isActive={useCase !== ALL}
+            label={t("aiModels.useCase.all")}
+            onClear={() => setUseCase(ALL)}
+            onSelect={(value) =>
               setUseCase(value as AiModelUseCase | typeof ALL)
             }
             options={[
@@ -511,45 +548,82 @@ export function AiModelsPage() {
             ]}
             value={useCase}
           />
-          <FilterSelect
-            label={t("aiModels.columns.gateway")}
-            onChange={setGateway}
+          <ListFilterChip
+            activeLabel={gateway === ALL ? undefined : gateway}
+            ariaLabel={t("aiModels.columns.gateway")}
+            clearLabel={t("aiModels.filters.clear")}
+            isActive={gateway !== ALL}
+            label={t("aiModels.filters.allGateways")}
+            onClear={() => setGateway(ALL)}
+            onSelect={setGateway}
             options={[
               { value: ALL, label: t("aiModels.filters.allGateways") },
               ...gateways.map((value) => ({ value, label: value })),
             ]}
             value={gateway}
           />
-          <FilterSelect
-            label={t("aiModels.columns.provider")}
-            onChange={setProvider}
+          <ListFilterChip
+            activeLabel={provider === ALL ? undefined : provider}
+            ariaLabel={t("aiModels.columns.provider")}
+            clearLabel={t("aiModels.filters.clear")}
+            isActive={provider !== ALL}
+            label={t("aiModels.filters.allProviders")}
+            onClear={() => setProvider(ALL)}
+            onSelect={setProvider}
             options={[
               { value: ALL, label: t("aiModels.filters.allProviders") },
               ...providers.map((value) => ({ value, label: value })),
             ]}
             value={provider}
           />
-          <FilterSelect
-            label={t("aiModels.columns.activated")}
-            onChange={(value) => setActivationFilter(value as ActivationFilter)}
+          <ListFilterChip
+            activeLabel={
+              activationFilter === ALL
+                ? undefined
+                : t(`aiModels.activationFilter.${activationFilter}`)
+            }
+            ariaLabel={t("aiModels.columns.activated")}
+            clearLabel={t("aiModels.filters.clear")}
+            isActive={activationFilter !== ALL}
+            label={t("aiModels.activationFilter.all")}
+            onClear={() => setActivationFilter(ALL)}
+            onSelect={(value) => setActivationFilter(value as ActivationFilter)}
             options={ACTIVATION_FILTERS.map((value) => ({
               value,
               label: t(`aiModels.activationFilter.${value}`),
             }))}
             value={activationFilter}
           />
-          <FilterSelect
-            label={t("aiModels.filters.age")}
-            onChange={(value) => setReleaseAgeFilter(value as ReleaseAgeFilter)}
+          <ListFilterChip
+            activeLabel={
+              releaseAgeFilter === ALL
+                ? undefined
+                : t(`aiModels.age.${releaseAgeFilter}`)
+            }
+            ariaLabel={t("aiModels.filters.age")}
+            clearLabel={t("aiModels.filters.clear")}
+            isActive={releaseAgeFilter !== ALL}
+            label={t("aiModels.age.all")}
+            onClear={() => setReleaseAgeFilter(ALL)}
+            onSelect={(value) => setReleaseAgeFilter(value as ReleaseAgeFilter)}
             options={RELEASE_AGE_FILTERS.map((value) => ({
               value,
               label: t(`aiModels.age.${value}`),
             }))}
             value={releaseAgeFilter}
           />
-          <FilterSelect
-            label={t("aiModels.filters.maxPriceTier")}
-            onChange={(value) =>
+          <ListFilterChip
+            activeLabel={
+              maxPriceTier === ALL
+                ? undefined
+                : t(`aiModels.priceTier.${maxPriceTier}`)
+            }
+            ariaLabel={t("aiModels.filters.maxPriceTier")}
+            clearLabel={t("aiModels.filters.clear")}
+            isActive={maxPriceTier !== ALL}
+            label={t("aiModels.priceTier.all")}
+            onClear={() => setMaxPriceTier(ALL)}
+            onSelect={(value) =>
               setMaxPriceTier(value as AiModelPriceTier | typeof ALL)
             }
             options={[
@@ -579,22 +653,6 @@ export function AiModelsPage() {
               {t("aiModels.filters.webSearchOnly")}
             </label>
           </div>
-          {latestRun ? (
-            <button
-              className="ml-auto flex items-center gap-2 text-muted-foreground text-xs hover:text-foreground"
-              onClick={() => setSyncRunsOpen(true)}
-              type="button"
-            >
-              <span>{t("aiModels.lastSync")}</span>
-              <Badge
-                className={syncStatusBadgeClassName(latestRun.status)}
-                variant="outline"
-              >
-                {t(`aiModels.syncStatus.${latestRun.status}`)}
-              </Badge>
-              <span>{new Date(latestRun.started_at).toLocaleString()}</span>
-            </button>
-          ) : null}
         </div>
 
         <PageState
@@ -796,33 +854,6 @@ export function AiModelsPage() {
         </DialogContent>
       </Dialog>
     </PageShell>
-  );
-}
-
-function FilterSelect({
-  label,
-  onChange,
-  options,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  options: { label: string; value: string }[];
-  value: string;
-}) {
-  return (
-    <Select onValueChange={onChange} value={value}>
-      <SelectTrigger aria-label={label} className="h-8 w-auto min-w-32">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 

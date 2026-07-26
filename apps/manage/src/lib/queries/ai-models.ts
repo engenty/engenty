@@ -1,4 +1,4 @@
-import { queryOptions } from "@engenty/query-client";
+import { keepPreviousData, queryOptions } from "@engenty/query-client";
 import {
   type AiGatewayModelFilters,
   listGatewayModelSyncRuns,
@@ -13,6 +13,10 @@ export const gatewayModelsQuery = (filters: AiGatewayModelFilters) =>
   queryOptions({
     queryKey: [...AI_MODELS_QUERY_KEY, "catalog", filters],
     queryFn: ({ signal }) => listGatewayModels(filters, signal),
+    // Keep the previous page while filters refetch. Facet dropdowns (provider /
+    // gateway) are derived from this list; an empty interim list makes Base UI
+    // Select drop the selected value back to its initial "all".
+    placeholderData: keepPreviousData,
   });
 
 export const gatewayModelSyncRunsQuery = (limit = 20) =>

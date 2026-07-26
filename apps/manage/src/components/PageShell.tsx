@@ -17,11 +17,15 @@ export function PageShell({
   title,
   actions,
   children,
+  secondaryNavHeaderSlot,
+  topbarChrome,
 }: {
   actions?: ReactNode;
   breadcrumbs: Breadcrumb[];
   children: ReactNode;
+  secondaryNavHeaderSlot?: ReactNode;
   title?: ReactNode;
+  topbarChrome?: "default" | "contentBlend";
 }) {
   const memoCrumbs = useMemo(
     () =>
@@ -36,6 +40,8 @@ export function PageShell({
   usePageConfig({
     breadcrumbs: memoCrumbs,
     ...(actions === undefined ? {} : { actions }),
+    ...(secondaryNavHeaderSlot === undefined ? {} : { secondaryNavHeaderSlot }),
+    ...(topbarChrome === undefined ? {} : { topbarChrome }),
   });
 
   return (

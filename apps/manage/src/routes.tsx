@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AiModelPricingHistoryPage } from "@/pages/ai-models/AiModelPricingHistoryPage";
 import { AiModelsPage } from "@/pages/ai-models/AiModelsPage";
+import { ModelBindingsPage } from "@/pages/ai-models/ModelBindingsPage";
 import { ApprovalsPage } from "@/pages/approvals/ApprovalsPage";
 import { AuditPage } from "@/pages/audit/AuditPage";
 import { FeatureFlagsPage } from "@/pages/feature-flags/FeatureFlagsPage";
@@ -46,12 +47,24 @@ export function ManageRoutes() {
       />
       <Route element={<SettingsPage />} path="/settings/environment" />
       <Route element={<SetupPage />} path="/settings/setup" />
-      <Route element={<SearchIndexPage />} path="/search-index" />
-      <Route element={<AiModelsPage />} path="/ai-models" />
+      <Route element={<AiModelsPage />} path="/settings/ai-models" />
+      <Route
+        element={<ModelBindingsPage />}
+        path="/settings/ai-models/bindings"
+      />
       <Route
         element={<AiModelPricingHistoryPage />}
+        path="/settings/ai-models/pricing-history"
+      />
+      <Route
+        element={<Navigate replace to="/settings/ai-models" />}
+        path="/ai-models"
+      />
+      <Route
+        element={<Navigate replace to="/settings/ai-models/pricing-history" />}
         path="/ai-models/pricing-history"
       />
+      <Route element={<SearchIndexPage />} path="/search-index" />
       <Route element={<NotFoundPage />} path="*" />
     </Routes>
   );

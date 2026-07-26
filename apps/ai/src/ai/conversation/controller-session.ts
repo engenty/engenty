@@ -47,30 +47,44 @@ export interface CreateConversationSessionInput {
   /** The run's authenticated user — the memory `resourceId` and session owner. */
   userId: string;
   /**
-   * The run's workspace, when the agent has one. A Session REQUIRES a valid
-   * workspace instance (and the Workspace constructor requires at least a
-   * filesystem, sandbox, or skills) — runs without one get the shared
-   * scratch-directory fallback from {@link fallbackSessionWorkspace}. The
-   * session-level workspace feeds no tools to the agent (workspace tools ride
-   * the AGENT's own workspace), so the fallback cannot leak capabilities.
+   * The run's workspace, when the agent has one. A Session requires a workspace
+   * instance, so runs without one get {@link placeholderSessionWorkspace}. The
+   * session-level workspace feeds no tools to the agent — workspace tools ride
+   * the AGENT's own workspace — so an empty one costs nothing.
    */
   workspace?: Workspace;
 }
 
-// One inert filesystem workspace shared by all sessions whose run has no
-// workspace of its own. Rooted in a scratch dir nothing writes to.
-let fallbackWorkspace: Workspace | null = null;
-
-function fallbackSessionWorkspace(): Workspace {
-  if (!fallbackWorkspace) {
-    const basePath = path.join(tmpdir(), "engenty-session-noop-workspace");
-    mkdirSync(basePath, { recursive: true });
-    fallbackWorkspace = new Workspace({
-      filesystem: new LocalFilesystem({ basePath }),
-      name: "engenty-session-fallback",
-    });
-  }
-  return fallbackWorkspace;
+/**
+ * A placeholder workspace for runs whose agent has none of its own, isolated
+ * per user.
+ *
+ * A Session requires a workspace, and `Workspace` rejects a config with no
+ * filesystem, sandbox or skills at construction time — so something has to be
+ * handed over. What it must NOT be is one shared instance: the previous
+ * fallback memoised a single workspace over one `tmpdir()` path and gave it to
+ * every such run in the process, which put every tenant on the same directory.
+ * Nothing mounts this workspace today, so nothing leaked — but it was a
+ * cross-tenant file surface waiting for the first tool that did.
+ *
+ * Rooting it per user removes that without inventing a fake skill, whose
+ * visibility to the model would be a behaviour change rather than a fix.
+ * Bounded by user count, not by run count.
+ */
+function placeholderSessionWorkspace(userId: string): Workspace {
+  // The id comes from a verified token, but this builds a path — keep it to
+  // characters that cannot escape the base directory.
+  const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_") || "unknown";
+  const basePath = path.join(
+    tmpdir(),
+    "engenty-session-placeholder-workspace",
+    safeUserId
+  );
+  mkdirSync(basePath, { recursive: true });
+  return new Workspace({
+    filesystem: new LocalFilesystem({ basePath }),
+    name: "engenty-session-placeholder",
+  });
 }
 
 /**
@@ -98,7 +112,7 @@ export async function createConversationSession(
     id: input.id,
     ownerId: input.userId,
     resourceId: input.userId,
-    workspace: input.workspace ?? fallbackSessionWorkspace(),
+    workspace: input.workspace ?? placeholderSessionWorkspace(input.userId),
   });
   await session.thread.switch({ threadId: input.threadId });
   await session.state.set({ yolo: true });

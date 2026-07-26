@@ -1,5 +1,6 @@
 /** @vitest-environment happy-dom */
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "@/test-utils";
 
@@ -187,6 +188,69 @@ describe("AiModelsPage", () => {
     expect(
       await screen.findByText("Restored 7 pricing rows and 5 activation flags.")
     ).toBeTruthy();
+  });
+
+  it("keeps a provider filter selected and lets you clear or switch it", async () => {
+    const user = userEvent.setup();
+    listGatewayModels.mockImplementation(
+      async (filters: { provider?: string } = {}) => {
+        const rows = [
+          model(),
+          model({
+            display_name: "Claude Test",
+            model_id: "anthropic/claude-test",
+            provider: "anthropic",
+            providers: ["anthropic"],
+          }),
+        ];
+        return filters.provider
+          ? rows.filter((row) => row.provider === filters.provider)
+          : rows;
+      }
+    );
+    listGatewayModelSyncRuns.mockResolvedValue([]);
+
+    renderCatalog();
+
+    await user.click(await screen.findByLabelText("Provider"));
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: "anthropic" })
+    );
+
+    await waitFor(() =>
+      expect(listGatewayModels).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: "anthropic" }),
+        expect.anything()
+      )
+    );
+    expect(screen.getByLabelText("Provider").textContent).toContain(
+      "anthropic"
+    );
+    expect(screen.queryByText("openai/gpt-test")).toBeNull();
+    expect(screen.getByText("anthropic/claude-test")).toBeTruthy();
+
+    // Full facet list stays available after narrowing — switch without clearing.
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: "openai" })
+    );
+
+    await waitFor(() =>
+      expect(listGatewayModels).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: "openai" }),
+        expect.anything()
+      )
+    );
+    expect(screen.getByText("openai/gpt-test")).toBeTruthy();
+
+    await user.click(screen.getByLabelText("Clear filter"));
+
+    await waitFor(() =>
+      expect(listGatewayModels).toHaveBeenCalledWith({}, expect.anything())
+    );
+    expect(screen.getByLabelText("Provider").textContent).toContain(
+      "All providers"
+    );
   });
 });
 

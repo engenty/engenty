@@ -68,6 +68,7 @@ import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
+import { registerModelBindingRoutes } from "./api/model-binding-routes.js";
 import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   createVoxtralElevenLabsProvider,
@@ -748,6 +749,11 @@ export async function createApp(options: CreateAppOptions = {}) {
       scopeResolver,
     });
   }
+  registerModelBindingRoutes(app, {
+    getGatewayModelStore: () =>
+      isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
+    scopeResolver,
+  });
   registerGatewayModelRoutes(app, {
     getGatewayModelStore: () =>
       isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,

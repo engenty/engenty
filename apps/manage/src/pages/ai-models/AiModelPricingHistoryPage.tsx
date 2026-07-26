@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
@@ -19,23 +20,28 @@ import { PageState } from "@/components/PageState";
 import { modelPricingHistoryQuery } from "@/lib/queries/ai-models";
 import { formatMicros } from "./model-catalog";
 
+const AI_MODELS_PATH = "/settings/ai-models";
+
 export function AiModelPricingHistoryPage() {
   const { t } = useTranslation("common");
   const pricing = useQuery(modelPricingHistoryQuery);
   const rows = pricing.data ?? [];
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("navigation.settings"));
 
   const breadcrumbs = useMemo(
     () => [
-      { label: t("aiModels.title"), to: "/ai-models" },
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("settings.aiModels.menuLabel"), to: AI_MODELS_PATH },
       { label: t("aiModels.historyTitle") },
     ],
-    [t]
+    [moduleRootCrumb, t]
   );
 
   const actions = useMemo(
     () => (
       <Button asChild size="sm" variant="outline">
-        <Link to="/ai-models">
+        <Link to={AI_MODELS_PATH}>
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
           {t("aiModels.backToCatalog")}
         </Link>
@@ -45,7 +51,12 @@ export function AiModelPricingHistoryPage() {
   );
 
   return (
-    <PageShell actions={actions} breadcrumbs={breadcrumbs}>
+    <PageShell
+      actions={actions}
+      breadcrumbs={breadcrumbs}
+      secondaryNavHeaderSlot={secondaryNavHeaderSlot}
+      topbarChrome="contentBlend"
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-page">
         <p className="text-muted-foreground text-sm">
           {t("aiModels.historyDescription")}

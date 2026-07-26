@@ -17,7 +17,10 @@ import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageState } from "@/components/PageState";
-import { formatMicros } from "@/features/packages/package-format";
+import {
+  formatAllowListValue,
+  formatMicros,
+} from "@/features/packages/package-format";
 import {
   type EntitlementPackage,
   reapplyPackagePolicies,
@@ -35,7 +38,7 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 
 function PackageFields({ pkg }: { pkg: EntitlementPackage }) {
   const { t } = useTranslation("common");
-  const flagEntries = Object.entries(pkg.featureFlags).sort(([a], [b]) =>
+  const flagEntries = Object.entries(pkg.featureFlags ?? {}).sort(([a], [b]) =>
     a.localeCompare(b)
   );
   const ai = pkg.aiUsagePolicy;
@@ -47,26 +50,28 @@ function PackageFields({ pkg }: { pkg: EntitlementPackage }) {
         <div className="divide-y divide-border rounded-lg border border-border px-3">
           <Field
             label={t("packages.columns.seats")}
-            value={pkg.appLimits.maxUsers ?? "∞"}
+            value={pkg.appLimits?.maxUsers ?? "∞"}
           />
           <Field
             label={t("packages.detail.seatsEnforcement")}
             value={
               <Badge
                 variant={
-                  pkg.appLimits.enforcement_mode === "enforce"
+                  pkg.appLimits?.enforcement_mode === "enforce"
                     ? "default"
                     : "secondary"
                 }
               >
-                {t(`packages.mode.${pkg.appLimits.enforcement_mode}`)}
+                {t(
+                  `packages.mode.${pkg.appLimits?.enforcement_mode ?? "observe"}`
+                )}
               </Badge>
             }
           />
           <Field
             label={t("packages.columns.modules")}
             value={
-              pkg.modules === null
+              pkg.modules == null
                 ? t("packages.allModules")
                 : pkg.modules.length === 0
                   ? "—"
@@ -81,56 +86,56 @@ function PackageFields({ pkg }: { pkg: EntitlementPackage }) {
         <div className="divide-y divide-border rounded-lg border border-border px-3">
           <Field
             label={t("packages.columns.aiLimit")}
-            value={formatMicros(ai.hard_limit_cost_micros)}
+            value={formatMicros(ai?.hard_limit_cost_micros)}
           />
           <Field
             label={t("packages.detail.included")}
-            value={formatMicros(ai.included_cost_micros)}
+            value={formatMicros(ai?.included_cost_micros)}
           />
           <Field
             label={t("packages.detail.softLimit")}
-            value={formatMicros(ai.soft_limit_cost_micros)}
+            value={formatMicros(ai?.soft_limit_cost_micros)}
           />
           <Field
             label={t("packages.columns.enforcement")}
             value={
               <Badge
                 variant={
-                  ai.enforcement_mode === "enforce" ? "default" : "secondary"
+                  ai?.enforcement_mode === "enforce" ? "default" : "secondary"
                 }
               >
-                {t(`packages.mode.${ai.enforcement_mode}`)}
+                {t(`packages.mode.${ai?.enforcement_mode ?? "observe"}`)}
               </Badge>
             }
           />
           <Field
             label={t("packages.detail.period")}
-            value={`${ai.period_mode} / ${ai.period_unit}`}
+            value={`${ai?.period_mode ?? "—"} / ${ai?.period_unit ?? "—"}`}
           />
-          <Field label={t("packages.detail.currency")} value={ai.currency} />
+          <Field
+            label={t("packages.detail.currency")}
+            value={ai?.currency ?? "—"}
+          />
           <Field
             label={t("packages.detail.allowedModels")}
-            value={
-              ai.allowed_models === null || ai.allowed_models.length === 0
-                ? t("packages.detail.allModels")
-                : ai.allowed_models.join(", ")
-            }
+            value={formatAllowListValue(
+              ai?.allowed_models,
+              t("packages.detail.allModels")
+            )}
           />
           <Field
             label={t("packages.detail.allowedEfforts")}
-            value={
-              ai.allowed_efforts === null || ai.allowed_efforts.length === 0
-                ? t("packages.detail.allEfforts")
-                : ai.allowed_efforts.join(", ")
-            }
+            value={formatAllowListValue(
+              ai?.allowed_efforts,
+              t("packages.detail.allEfforts")
+            )}
           />
           <Field
             label={t("packages.detail.allowedProviders")}
-            value={
-              ai.allowed_providers === null || ai.allowed_providers.length === 0
-                ? t("packages.detail.allProviders")
-                : ai.allowed_providers.join(", ")
-            }
+            value={formatAllowListValue(
+              ai?.allowed_providers,
+              t("packages.detail.allProviders")
+            )}
           />
         </div>
       </section>
@@ -241,12 +246,14 @@ export function PackageDetailPage() {
         status={
           <Badge
             variant={
-              data.aiUsagePolicy.enforcement_mode === "enforce"
+              data.aiUsagePolicy?.enforcement_mode === "enforce"
                 ? "default"
                 : "secondary"
             }
           >
-            {t(`packages.mode.${data.aiUsagePolicy.enforcement_mode}`)}
+            {t(
+              `packages.mode.${data.aiUsagePolicy?.enforcement_mode ?? "observe"}`
+            )}
           </Badge>
         }
         title={data.label}

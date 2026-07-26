@@ -456,6 +456,9 @@
     "setup": {
       "menuLabel": "Plattform-Einstellungen",
       "intro": "Installationsweite Schlüssel und Anmeldedaten. Werte hier überschreiben die entsprechenden Umgebungsvariablen für alle Mandanten. Geheimnisse werden verschlüsselt gespeichert und nie erneut angezeigt."
+    },
+    "aiModels": {
+      "menuLabel": "KI-Modelle"
     }
   },
   "searchIndex": {
@@ -537,6 +540,7 @@
       "allProviders": "Alle Provider",
       "allGateways": "Alle Gateways",
       "age": "Alter",
+      "clear": "Filter zurücksetzen",
       "maxPriceTier": "Max. Preisstufe",
       "maxOutputPrice": "Max. Output $/Mtok",
       "webSearchOnly": "Nur Websuche"
@@ -595,5 +599,19 @@
       "updated": "Aktualisiert",
       "pricingRows": "Preiszeilen"
     }
+  },
+  "modelBindings": {
+    "title": "Rollenzuordnung",
+    "intro": "Welches Modell welche Aufgabe erledigt. Überall sonst geht es um Aufwand oder Zweck — hier ist die Modell-ID selbst das Thema. Feld ändern und Enter drücken oder wegklicken zum Speichern.",
+    "gradedHeading": "Allzweck — wonach Nutzer wählen",
+    "fixedHeading": "Spezialrollen — für Endnutzer nie sichtbar",
+    "role": "Rolle",
+    "kind": "Art",
+    "model": "Modell",
+    "gateway": "Gateway",
+    "graded": "Gestuft",
+    "fixed": "Fest",
+    "usingDefault": "Nie zugeordnet — nutzt den eingebauten Standard",
+    "saved": "{{role}} zugeordnet"
   }
 }
