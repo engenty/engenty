@@ -265,6 +265,15 @@ publish_commit() {
     fi
   fi
 
+  # Public tree omits closed modules; keep engenty.plugins in sync so CI
+  # `plugins:check` does not fail on pro-only slugs left in package.json.
+  node scripts/strip-closed-plugins-manifest.mjs
+  if ! git diff --quiet -- package.json; then
+    git add package.json
+    git commit -m "chore: strip closed plugins from public engenty.plugins"
+    log "Stripped closed plugins from public package.json engenty.plugins."
+  fi
+
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log "[dry-run] Would push $publish_tip → $UPSTREAM_REMOTE/$TARGET_BRANCH"
   else
@@ -288,6 +297,12 @@ sync_pro() {
   log "Syncing $ORIGIN_REMOTE/$TARGET_BRANCH from $UPSTREAM_REMOTE/$TARGET_BRANCH..."
   git fetch "$UPSTREAM_REMOTE" "$TARGET_BRANCH"
   git merge "$UPSTREAM_REMOTE/$TARGET_BRANCH" --no-edit
+  # Public strip must not disable pro-only plugins that still live on disk.
+  node scripts/ensure-local-closed-plugins-manifest.mjs
+  if ! git diff --quiet -- package.json; then
+    git add package.json
+    git commit -m "chore: restore closed plugins after public sync"
+  fi
   git push "$ORIGIN_REMOTE" "$saved_branch"
 }
 
