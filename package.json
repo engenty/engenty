@@ -43,16 +43,10 @@
       "contacts": {
         "source": "workspace"
       },
-      "engenty-apps": {
-        "source": "workspace"
-      },
       "engenty-coordinator": {
         "source": "workspace"
       },
       "engenty-copilot": {
-        "source": "workspace"
-      },
-      "engenty-remote": {
         "source": "workspace"
       },
       "files": {
@@ -91,16 +85,7 @@
       "team": {
         "source": "workspace"
       },
-      "team-hr": {
-        "source": "workspace"
-      },
-      "time-tracking": {
-        "source": "workspace"
-      },
       "team-chat": {
-        "source": "workspace"
-      },
-      "team-chat-slack-bridge": {
         "source": "workspace"
       }
     },
