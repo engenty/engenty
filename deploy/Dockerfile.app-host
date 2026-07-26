@@ -25,11 +25,14 @@ WORKDIR /app
 FROM base AS deps
 ENV ENGENTY_SKIP_INSTALL_BUILD=1
 COPY pnpm-lock.yaml ./
+# patches/ carries the @rivet-dev/agentos-apps fix without which deployApp()
+# cannot succeed at all — see SPIKE-agentos-apps.md §2. It must be copied BEFORE
+# `pnpm fetch`, not after: the lockfile records the patch, so fetch resolves it
+# and fails with ERR_PNPM_PATCH_NOT_FOUND if the file is not there yet. This
+# ordering broke every deploy image build from v0.1.75 onward.
+COPY patches ./patches
 RUN pnpm fetch
 COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
-# patches/ carries the @rivet-dev/agentos-apps fix without which deployApp()
-# cannot succeed at all — see SPIKE-agentos-apps.md §2.
-COPY patches ./patches
 COPY scripts ./scripts
 COPY apps ./apps
 COPY packages ./packages
