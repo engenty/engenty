@@ -21,6 +21,7 @@ import { type AiScopeResolver, resolveScope } from "./http.js";
 
 const listQuerySchema = z.object({
   availability_purpose: z.enum(GATEWAY_MODEL_AVAILABILITY_PURPOSES).optional(),
+  gateway: z.string().trim().min(1).optional(),
   max_output_per_mtok_micros: z.coerce.number().int().nonnegative().optional(),
   max_price_tier: z.enum(GATEWAY_MODEL_PRICE_TIERS).optional(),
   price_tier: z.enum(GATEWAY_MODEL_PRICE_TIERS).optional(),
@@ -35,6 +36,7 @@ const listQuerySchema = z.object({
 
 const modelOptionsQuerySchema = z.object({
   availability_purpose: z.enum(GATEWAY_MODEL_AVAILABILITY_PURPOSES).optional(),
+  gateway: z.string().trim().min(1).optional(),
   max_price_tier: z.enum(GATEWAY_MODEL_PRICE_TIERS).optional(),
   search: z.string().trim().min(1).optional(),
   use_case: z.enum(GATEWAY_MODEL_USE_CASES).optional(),
@@ -48,6 +50,9 @@ const availabilityPatchSchema = z
     available_for_rerank: z.boolean().optional(),
     available_for_routing: z.boolean().optional(),
     available_for_video: z.boolean().optional(),
+    // Optional: omitted, the patch applies to the id on every gateway serving
+    // it, which is what a client that predates multiple gateways expects.
+    gateway: z.string().trim().min(1).optional(),
     model_id: z.string().trim().min(1),
   })
   .refine(
@@ -114,6 +119,7 @@ function modelOptionFromRecord(
     available_for_video: model.available_for_video,
     context_tokens: model.context_tokens,
     display_name: model.display_name,
+    gateway: model.gateway,
     id: model.model_id,
     label: model.display_name
       ? `${model.display_name} (${model.model_id})`
@@ -182,6 +188,7 @@ export function registerGatewayModelRoutes(
     }
     const parsed = modelOptionsQuerySchema.safeParse({
       availability_purpose: c.req.query("availability_purpose"),
+      gateway: c.req.query("gateway"),
       max_price_tier: c.req.query("max_price_tier"),
       search: c.req.query("search"),
       use_case: c.req.query("use_case"),
@@ -240,6 +247,7 @@ export function registerGatewayModelRoutes(
     }
     const parsed = listQuerySchema.safeParse({
       availability_purpose: c.req.query("availability_purpose"),
+      gateway: c.req.query("gateway"),
       max_output_per_mtok_micros: c.req.query("max_output_per_mtok_micros"),
       max_price_tier: c.req.query("max_price_tier"),
       price_tier: c.req.query("price_tier"),
@@ -286,7 +294,8 @@ export function registerGatewayModelRoutes(
     }
     const model = await store.store.updateGatewayModelAvailability(
       parsed.data.model_id,
-      availabilityPatchFromBody(parsed.data)
+      availabilityPatchFromBody(parsed.data),
+      parsed.data.gateway
     );
     return c.json(model);
   });

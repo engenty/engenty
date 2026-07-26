@@ -54,6 +54,7 @@ import {
   Power,
   RefreshCw,
   RotateCcw,
+  Route,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -117,6 +118,7 @@ export function AiModelsPage() {
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
+  const [gateway, setGateway] = useState<string>(ALL);
   const [provider, setProvider] = useState<string>(ALL);
   const [useCase, setUseCase] = useState<AiModelUseCase | typeof ALL>(ALL);
   const [maxPriceTier, setMaxPriceTier] = useState<
@@ -151,6 +153,7 @@ export function AiModelsPage() {
   // client-side because the catalog endpoint does not model them.
   const filters = useMemo(
     () => ({
+      ...(gateway === ALL ? {} : { gateway }),
       ...(provider === ALL ? {} : { provider }),
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(useCase === ALL ? {} : { use_case: useCase }),
@@ -160,7 +163,15 @@ export function AiModelsPage() {
         : { max_output_per_mtok_micros: dollarsToMicros(maxOutputDollars) }),
       ...(webSearchOnly ? { web_search: true } : {}),
     }),
-    [maxOutputDollars, maxPriceTier, provider, search, useCase, webSearchOnly]
+    [
+      gateway,
+      maxOutputDollars,
+      maxPriceTier,
+      provider,
+      search,
+      useCase,
+      webSearchOnly,
+    ]
   );
 
   const models = useQuery(gatewayModelsQuery(filters));
@@ -210,6 +221,12 @@ export function AiModelsPage() {
     () => [...new Set(allModels.map((model) => model.provider))].sort(),
     [allModels]
   );
+  // Derived from the loaded page, so a gateway with no rows left never offers a
+  // filter that would return nothing.
+  const gateways = useMemo(
+    () => [...new Set(allModels.map((model) => model.gateway))].sort(),
+    [allModels]
+  );
 
   const rows = useMemo(() => {
     const nowMs = Date.now();
@@ -236,6 +253,7 @@ export function AiModelsPage() {
   const setActivation = useCallback(
     (model: AiGatewayModel, activated: boolean) => {
       availability.mutate({
+        gateway: model.gateway,
         model_id: model.model_id,
         ...activationFlagsForModel(model, activated),
       });
@@ -249,6 +267,7 @@ export function AiModelsPage() {
       await Promise.all(
         selected.map((model) =>
           availability.mutateAsync({
+            gateway: model.gateway,
             model_id: model.model_id,
             ...activationFlagsForModel(model, activated),
           })
@@ -291,6 +310,7 @@ export function AiModelsPage() {
       cachedPrice: t("aiModels.columns.cachedPerMtok"),
       capabilities: t("aiModels.columns.capabilities"),
       context: t("aiModels.columns.context"),
+      gateway: t("aiModels.columns.gateway"),
       inputPrice: t("aiModels.columns.inputPerMtok"),
       model: t("aiModels.columns.model"),
       outputPrice: t("aiModels.columns.outputPerMtok"),
@@ -305,6 +325,7 @@ export function AiModelsPage() {
     () => [
       { key: "activated", label: columnLabels.activated, icon: Power },
       { key: "model", label: columnLabels.model, icon: Bot },
+      { key: "gateway", label: columnLabels.gateway, icon: Route },
       { key: "useCase", label: columnLabels.useCase, icon: Layers },
       { key: "priceTier", label: columnLabels.priceTier, icon: DollarSign },
       { key: "context", label: columnLabels.context, icon: Gauge },
@@ -489,6 +510,15 @@ export function AiModelsPage() {
               })),
             ]}
             value={useCase}
+          />
+          <FilterSelect
+            label={t("aiModels.columns.gateway")}
+            onChange={setGateway}
+            options={[
+              { value: ALL, label: t("aiModels.filters.allGateways") },
+              ...gateways.map((value) => ({ value, label: value })),
+            ]}
+            value={gateway}
           />
           <FilterSelect
             label={t("aiModels.columns.provider")}
@@ -878,6 +908,8 @@ function ModelCell({
           </div>
         </TableCell>
       );
+    case "gateway":
+      return <TableCell className="text-xs">{model.gateway}</TableCell>;
     case "useCase":
       return (
         <TableCell className="text-xs">{model.use_cases.join(", ")}</TableCell>
@@ -978,7 +1010,7 @@ function ModelCard({
             </Badge>
           </div>
           <p className="text-muted-foreground text-xs">
-            {model.use_cases.join(", ")} ·{" "}
+            {model.gateway} · {model.use_cases.join(", ")} ·{" "}
             {formatMicros(model.output_per_mtok_micros)}
           </p>
         </div>

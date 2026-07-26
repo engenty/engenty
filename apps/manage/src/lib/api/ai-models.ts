@@ -34,6 +34,8 @@ export interface AiGatewayModel extends AiModelAvailabilityFlags {
   cached_input_per_mtok_micros: number | null;
   context_tokens: number | null;
   display_name: string | null;
+  /** Who serves the model (vercel). Not the vendor — that is `provider`. */
+  gateway: string;
   input_per_mtok_micros: number | null;
   last_synced_at: string;
   model_id: string;
@@ -59,6 +61,11 @@ export interface AiGatewayModelSyncRun {
 }
 
 export interface AiGatewayModelSyncResult {
+  /** Model + updated counts per gateway id, for a sync that spans several. */
+  by_gateway: Record<
+    string,
+    { model_count: number; updated_model_count: number }
+  >;
   inserted_pricing_count: number;
   model_count: number;
   run: AiGatewayModelSyncRun;
@@ -84,6 +91,7 @@ export interface AiModelPricingRestoreResult {
 
 /** Server-side catalog filters. Anything omitted is left unfiltered. */
 export interface AiGatewayModelFilters {
+  gateway?: string;
   max_output_per_mtok_micros?: number;
   max_price_tier?: AiModelPriceTier;
   provider?: string;
@@ -97,6 +105,9 @@ export function listGatewayModels(
   signal?: AbortSignal
 ) {
   const params = new URLSearchParams();
+  if (filters.gateway) {
+    params.set("gateway", filters.gateway);
+  }
   if (filters.max_output_per_mtok_micros != null) {
     params.set(
       "max_output_per_mtok_micros",
@@ -126,7 +137,10 @@ export function listGatewayModels(
 }
 
 export function updateGatewayModelAvailability(
-  input: { model_id: string } & Partial<AiModelAvailabilityFlags>
+  input: {
+    gateway?: string;
+    model_id: string;
+  } & Partial<AiModelAvailabilityFlags>
 ) {
   return requestAi<AiGatewayModel>("/ai/v1/gateway/models/availability", {
     method: "PATCH",

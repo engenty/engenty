@@ -24,6 +24,7 @@ export interface CatalogColumnVisibility {
   cachedPrice: boolean;
   capabilities: boolean;
   context: boolean;
+  gateway: boolean;
   inputPrice: boolean;
   model: boolean;
   outputPrice: boolean;
@@ -47,6 +48,7 @@ export const CATALOG_DISPLAY_DEFAULTS = {
   columnOrder: [
     "activated",
     "model",
+    "gateway",
     "useCase",
     "priceTier",
     "context",
@@ -61,6 +63,7 @@ export const CATALOG_DISPLAY_DEFAULTS = {
     cachedPrice: true,
     capabilities: true,
     context: true,
+    gateway: true,
     inputPrice: true,
     model: true,
     outputPrice: true,

@@ -100,7 +100,7 @@ export async function seedAiUsageModelPricing(
  * seed values or is missing entirely.
  *
  * When `gatewayStore` is provided and a seed entry carries `available_for_*`
- * flags, those flags are applied to the `gateway_model` row as well —
+ * flags, those flags are applied to the `ai.model` catalog row as well —
  * restoring the active/inactive state that was captured at export time.
  *
  * Both operations use a single batch fetch to avoid N+1 round-trips.

@@ -1,6 +1,8 @@
 import type { ModelPricingRecord } from "@engenty/ai-core";
-
-export const GATEWAY_MODELS_URL = "https://ai-gateway.vercel.sh/v1/models";
+import {
+  listModelGateways,
+  type ModelGateway,
+} from "./model-gateways/index.js";
 
 export const GATEWAY_MODEL_USE_CASES = [
   "text",
@@ -57,6 +59,8 @@ export interface GatewayModelRecord {
   created_at: string;
   description: string | null;
   display_name: string | null;
+  /** Which gateway serves this row. Never part of `model_id`. */
+  gateway: string;
   input_per_mtok_micros: number | null;
   last_seen_at: string;
   last_synced_at: string;
@@ -103,6 +107,7 @@ export interface GatewayModelSyncSettingsRecord {
 
 export interface GatewayModelListFilters {
   availability_purpose?: GatewayModelAvailabilityPurpose | null;
+  gateway?: string | null;
   max_output_per_mtok_micros?: number | null;
   max_price_tier?: GatewayModelPriceTier | null;
   price_tier?: GatewayModelPriceTier | null;
@@ -114,6 +119,7 @@ export interface GatewayModelListFilters {
 
 export interface GatewayModelOptionFilters {
   availability_purpose?: GatewayModelAvailabilityPurpose | null;
+  gateway?: string | null;
   max_price_tier?: GatewayModelPriceTier | null;
   search?: string | null;
   use_case?: GatewayModelUseCase | null;
@@ -122,6 +128,7 @@ export interface GatewayModelOptionFilters {
 export type GatewayModelOption = GatewayModelAvailabilityFlags & {
   context_tokens: number | null;
   display_name: string | null;
+  gateway: string;
   id: string;
   input_per_mtok_micros: number | null;
   label: string;
@@ -172,9 +179,14 @@ export interface AiGatewayModelStore {
   seedModelBindings(
     rows: readonly Omit<ModelBindingRecord, "updated_at">[]
   ): Promise<number>;
+  /**
+   * Patch availability for a catalog row. Omitting `gateway` patches every
+   * gateway serving the id, which is what a pricing-seed restore wants.
+   */
   updateGatewayModelAvailability(
     modelId: string,
-    patch: Partial<GatewayModelAvailabilityFlags>
+    patch: Partial<GatewayModelAvailabilityFlags>,
+    gateway?: string
   ): Promise<GatewayModelRecord>;
   updateGatewayModelSyncRun(
     id: string,
@@ -202,112 +214,27 @@ export type GatewayModelUpsertInput = Omit<
   "created_at" | "updated_at"
 >;
 
-interface GatewayApiModel {
-  context_window?: number;
-  created?: number;
-  description?: string;
-  id: string;
-  max_tokens?: number;
-  name?: string;
-  object?: string;
-  owned_by?: string;
-  pricing?: Record<string, unknown>;
-  released?: number;
-  tags?: string[];
-  type?: string;
-}
-
-interface GatewayApiResponse {
-  data?: GatewayApiModel[];
-  object?: string;
-}
-
 interface SyncGatewayModelsOptions {
   fetchImpl?: typeof fetch;
+  /** Defaults to every registered adapter; narrow it in tests. */
+  gateways?: readonly ModelGateway[];
   now?: Date;
-  sourceUrl?: string;
   trigger: "manual" | "scheduled";
   updatePricing?: boolean;
 }
 
+export interface GatewaySyncCounts {
+  model_count: number;
+  updated_model_count: number;
+}
+
 export interface SyncGatewayModelsResult {
+  /** Per-gateway counts, keyed by gateway id. Not persisted on the run row. */
+  by_gateway: Record<string, GatewaySyncCounts>;
   inserted_pricing_count: number;
   model_count: number;
   run: GatewayModelSyncRunRecord;
   updated_model_count: number;
-}
-
-function unixSecondsToIso(value: unknown): string | null {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    return null;
-  }
-  return new Date(value * 1000).toISOString();
-}
-
-function nullableNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  return null;
-}
-
-function tokenPriceToMicrosPerMtok(value: unknown): number | null {
-  if (typeof value !== "string" && typeof value !== "number") {
-    return null;
-  }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return null;
-  }
-  return Math.round(parsed * 1_000_000 * 1_000_000);
-}
-
-function normalizeProvider(model: GatewayApiModel): string {
-  return (model.owned_by || model.id.split("/")[0] || "unknown").toLowerCase();
-}
-
-function deriveUseCases(model: GatewayApiModel): GatewayModelUseCase[] {
-  const haystack =
-    `${model.id} ${model.name ?? ""} ${model.description ?? ""}`.toLowerCase();
-  const useCases = new Set<GatewayModelUseCase>();
-  switch (model.type) {
-    case "embedding":
-      useCases.add("embed");
-      break;
-    case "image":
-      useCases.add("image");
-      break;
-    case "reranking":
-      useCases.add("rerank");
-      break;
-    case "video":
-      useCases.add("video");
-      break;
-    default:
-      useCases.add("text");
-      break;
-  }
-  if (
-    model.type === "language" &&
-    /\b(code|coder|coding|codestral|devstral|programming)\b/.test(haystack)
-  ) {
-    useCases.add("code");
-  }
-  return [...useCases];
-}
-
-function defaultAvailabilityForUseCases(
-  useCases: GatewayModelUseCase[]
-): GatewayModelAvailabilityFlags {
-  return {
-    available_for_chat: useCases.includes("text") || useCases.includes("code"),
-    available_for_embedding: useCases.includes("embed"),
-    available_for_image: useCases.includes("image"),
-    available_for_rerank: useCases.includes("rerank"),
-    available_for_routing:
-      useCases.includes("text") || useCases.includes("code"),
-    available_for_video: useCases.includes("video"),
-  };
 }
 
 /**
@@ -402,77 +329,6 @@ export function applyGatewayModelPriceTiers<
   }));
 }
 
-function buildCapabilities(model: GatewayApiModel): Record<string, unknown> {
-  const tags = new Set(model.tags ?? []);
-  return {
-    explicit_caching: tags.has("explicit-caching"),
-    file_input: tags.has("file-input"),
-    image_generation: tags.has("image-generation"),
-    implicit_caching: tags.has("implicit-caching"),
-    max_output_tokens: nullableNumber(model.max_tokens),
-    reasoning: tags.has("reasoning"),
-    tool_use: tags.has("tool-use"),
-    vision: tags.has("vision"),
-    web_search: tags.has("web-search"),
-  };
-}
-
-export function normalizeGatewayModel(
-  model: GatewayApiModel,
-  opts: { now: Date; sourceUrl?: string } = { now: new Date() }
-): GatewayModelUpsertInput {
-  const provider = normalizeProvider(model);
-  const pricing = model.pricing ?? {};
-  const tags = model.tags ?? [];
-  const useCases = deriveUseCases(model);
-  return {
-    ...defaultAvailabilityForUseCases(useCases),
-    cached_input_per_mtok_micros: tokenPriceToMicrosPerMtok(
-      pricing.input_cache_read
-    ),
-    capabilities: buildCapabilities(model),
-    context_tokens: nullableNumber(model.context_window),
-    description: model.description ?? null,
-    display_name: model.name ?? null,
-    input_per_mtok_micros: tokenPriceToMicrosPerMtok(pricing.input),
-    last_seen_at: opts.now.toISOString(),
-    last_synced_at: opts.now.toISOString(),
-    max_output_tokens: nullableNumber(model.max_tokens),
-    model_id: model.id,
-    no_training_supported: null,
-    output_per_mtok_micros: tokenPriceToMicrosPerMtok(pricing.output),
-    price_tier: null,
-    provider,
-    providers: [provider],
-    raw_json: model as unknown as Record<string, unknown>,
-    released_at: unixSecondsToIso(model.released),
-    source_url: opts.sourceUrl ?? GATEWAY_MODELS_URL,
-    tags,
-    type: model.type ?? null,
-    use_cases: useCases,
-    web_search_per_query_micros: tokenPriceToMicrosPerMtok(pricing.web_search),
-    zdr_supported: null,
-  };
-}
-
-export async function fetchGatewayModels(
-  opts: { fetchImpl?: typeof fetch; sourceUrl?: string } = {}
-): Promise<GatewayModelUpsertInput[]> {
-  const sourceUrl = opts.sourceUrl ?? GATEWAY_MODELS_URL;
-  const response = await (opts.fetchImpl ?? fetch)(sourceUrl);
-  if (!response.ok) {
-    throw new Error(`Gateway models fetch failed: ${response.status}`);
-  }
-  const payload = (await response.json()) as GatewayApiResponse;
-  return applyGatewayModelPriceTiers(
-    (payload.data ?? [])
-      .filter((model): model is GatewayApiModel => typeof model.id === "string")
-      .map((model) =>
-        normalizeGatewayModel(model, { now: new Date(), sourceUrl })
-      )
-  );
-}
-
 function pricingChanged(
   current: ModelPricingRecord | null,
   model: GatewayModelUpsertInput
@@ -503,21 +359,26 @@ export async function syncGatewayModels(
     trigger: opts.trigger,
   });
   try {
-    const sourceUrl = opts.sourceUrl ?? GATEWAY_MODELS_URL;
-    const response = await (opts.fetchImpl ?? fetch)(sourceUrl);
-    if (!response.ok) {
-      throw new Error(`Gateway models fetch failed: ${response.status}`);
-    }
-    const payload = (await response.json()) as GatewayApiResponse;
     const now = opts.now ?? new Date();
-    const models = applyGatewayModelPriceTiers(
-      (payload.data ?? [])
-        .filter(
-          (model): model is GatewayApiModel => typeof model.id === "string"
+    const byGateway: Record<string, GatewaySyncCounts> = {};
+    const models: GatewayModelUpsertInput[] = [];
+    let updatedModelCount = 0;
+    for (const gateway of opts.gateways ?? listModelGateways()) {
+      const rows = applyGatewayModelPriceTiers(
+        (await gateway.listModels({ fetchImpl: opts.fetchImpl, now })).map(
+          // Tagged here rather than in the adapter, so no gateway can write
+          // rows into another gateway's half of the catalog.
+          (model) => ({ ...model, gateway: gateway.id })
         )
-        .map((model) => normalizeGatewayModel(model, { now, sourceUrl }))
-    );
-    const updatedModelCount = await store.upsertGatewayModels(models);
+      );
+      const updated = await store.upsertGatewayModels(rows);
+      byGateway[gateway.id] = {
+        model_count: rows.length,
+        updated_model_count: updated,
+      };
+      models.push(...rows);
+      updatedModelCount += updated;
+    }
     let insertedPricingCount = 0;
     if (opts.updatePricing) {
       const nowIso = now.toISOString();
@@ -539,11 +400,15 @@ export async function syncGatewayModels(
         }
       }
 
+      // Pricing is keyed by model id alone, so two gateways serving the same
+      // model contribute one row — the first one that reports a change.
+      const priced = new Set<string>();
       for (const model of models) {
         const current = activeByModel.get(model.model_id) ?? null;
-        if (!pricingChanged(current, model)) {
+        if (priced.has(model.model_id) || !pricingChanged(current, model)) {
           continue;
         }
+        priced.add(model.model_id);
         await store.insertModelPricing({
           cached_input_per_mtok_micros: model.cached_input_per_mtok_micros ?? 0,
           currency: "usd",
@@ -565,6 +430,7 @@ export async function syncGatewayModels(
       updated_model_count: updatedModelCount,
     });
     return {
+      by_gateway: byGateway,
       inserted_pricing_count: insertedPricingCount,
       model_count: models.length,
       run: completed,

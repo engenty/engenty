@@ -62,6 +62,7 @@ function model(overrides: Record<string, unknown> = {}) {
     cached_input_per_mtok_micros: 100,
     context_tokens: 128_000,
     display_name: "GPT Test",
+    gateway: "vercel",
     input_per_mtok_micros: 1000,
     last_synced_at: "2026-07-20T00:00:00Z",
     model_id: "openai/gpt-test",
@@ -114,6 +115,8 @@ describe("AiModelsPage", () => {
     expect(await screen.findByText("openai/gpt-test")).toBeTruthy();
     expect(screen.getByText("anthropic/claude-test")).toBeTruthy();
     expect(screen.getByText("2 of 2 models")).toBeTruthy();
+    // Gateway is its own column now, not a prefix on the model id.
+    expect(screen.getAllByText("vercel").length).toBe(2);
     expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByText("Inactive")).toBeTruthy();
     expect(screen.getByText("Succeeded")).toBeTruthy();
@@ -132,6 +135,7 @@ describe("AiModelsPage", () => {
       expect(updateGatewayModelAvailability).toHaveBeenCalled()
     );
     expect(updateGatewayModelAvailability.mock.calls[0][0]).toEqual({
+      gateway: "vercel",
       model_id: "openai/gpt-test",
       available_for_chat: true,
       available_for_embedding: false,
