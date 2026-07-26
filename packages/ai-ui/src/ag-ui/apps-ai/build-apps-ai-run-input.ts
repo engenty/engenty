@@ -5,6 +5,7 @@ import type {
   RunAgentInput,
 } from "@engenty/ag-ui-bridge";
 import { isAgentUiStateSnapshotV1, toAgUiTool } from "@engenty/ag-ui-bridge";
+import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import type { EngentyAgUiRouteContext } from "../engenty-ag-ui-route-context.js";
 
 function createRunId(): string {
@@ -45,6 +46,7 @@ export function resolveAppsAiRunState(input: {
 }
 
 function buildAppsAiRunInputBase(params: {
+  effort?: AiEffortChoice | null;
   frontendTools: FrontendToolDefinition[];
   messages: readonly Message[];
   modelId?: string | null;
@@ -92,6 +94,10 @@ function buildAppsAiRunInputBase(params: {
     ],
     forwardedProps: {
       engenty: {
+        // Effort travels *alongside* model_id, never instead of it: a
+        // self-hosted install that pins a model in expert mode must keep
+        // winning over the tier the composer suggests.
+        ...(params.effort ? { effort: params.effort } : {}),
         ...(modelId ? { model_id: modelId } : {}),
         ...(routeContext.scope && Object.keys(routeContext.scope).length > 0
           ? { scope: routeContext.scope }
@@ -107,6 +113,7 @@ function buildAppsAiRunInputBase(params: {
 }
 
 export function buildAppsAiRunInput(params: {
+  effort?: AiEffortChoice | null;
   frontendTools: FrontendToolDefinition[];
   message: Message;
   modelId?: string | null;
@@ -125,6 +132,7 @@ export type AppsAiResumeEntry = NonNullable<RunAgentInput["resume"]>[number];
 
 /** Official AG-UI interrupt resume — no new user messages on the wire. */
 export function buildAppsAiResumeRunInput(params: {
+  effort?: AiEffortChoice | null;
   frontendTools: FrontendToolDefinition[];
   modelId?: string | null;
   pathname: string;
@@ -134,6 +142,7 @@ export function buildAppsAiResumeRunInput(params: {
   state: RunAgentInput["state"];
 }): RunAgentInput {
   const base = buildAppsAiRunInputBase({
+    effort: params.effort,
     frontendTools: params.frontendTools,
     messages: [],
     modelId: params.modelId,

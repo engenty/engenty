@@ -210,6 +210,19 @@ export {
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";
+// --- Effort: the end-user "how much thinking" control ---
+export {
+  AI_EFFORT_CHOICES,
+  buildEffortChoiceOptions,
+  type EffortChoiceOption,
+  isEffortRestricted,
+  resolveEffortChoice,
+  toEffortGrant,
+} from "./features/ai-effort/effort-choices.js";
+export {
+  EffortSelector,
+  type EffortSelectorProps,
+} from "./features/ai-effort/effort-selector.js";
 // --- Inbox (Mastra notifications; rendered by the tasks module) ---
 export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
 export { listInbox } from "./features/inbox/inbox-api.js";

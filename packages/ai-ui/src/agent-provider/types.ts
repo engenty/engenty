@@ -7,6 +7,7 @@ import type {
   JsonValue,
   RunAgentInput,
 } from "@engenty/ag-ui-bridge";
+import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import type { ReactNode } from "react";
 import type { EngentyAgUiPendingSend } from "../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
@@ -81,6 +82,8 @@ export interface HostConfig {
   agentId: string;
   /** Parsed `/chat/:threadId` from the URL — trumps bound id for reset guards. */
   authoritativeUrlThreadId?: string | null;
+  /** User's effort pick for this lane (`forwardedProps.engenty.effort`). */
+  effort?: AiEffortChoice | null;
   hostKey: string;
   /** When false, TanStack `initialMessages` never hydrate this host (e.g. closed drawer). */
   hydrateEnabled?: boolean;

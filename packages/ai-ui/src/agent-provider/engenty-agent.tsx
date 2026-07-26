@@ -101,6 +101,9 @@ function createHostConfig(props: EngentyAgentProps): HostConfig {
     routeContext: props.routeContext,
     threadId: props.threadId,
   };
+  if (props.effort !== undefined) {
+    hostConfig.effort = props.effort;
+  }
   if (props.initialMessages !== undefined) {
     hostConfig.initialMessages = props.initialMessages;
   }
@@ -163,6 +166,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
     () => createHostConfig(props),
     [
       props.agentId,
+      props.effort,
       props.hostKey,
       props.initialMessages,
       props.messagesQueryKey,
@@ -248,6 +252,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
   const session = useEngentyAgUiAppsAiSession({
     agentId: effectiveHostConfig.agentId,
     agentToolInvalidation: ai.agentToolInvalidation,
+    effort: effectiveHostConfig.effort,
     hostKey: effectiveHostConfig.hostKey,
     executeFrontendTool: ai.executeFrontendTool,
     formatRequestError: ai.formatRequestError,
@@ -446,6 +451,7 @@ export function useAgentHostConfig(
   }, [
     host.configureHost,
     childPatch.agentId,
+    childPatch.effort,
     childPatch.initialMessages,
     childPatch.messagesQueryKey,
     childPatch.modelId,

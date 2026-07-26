@@ -213,7 +213,11 @@ export {
 export { EngentyCanvasPageChrome } from "./features/agents-workspace/engenty-catalog-page-chrome.js";
 export { useAgentsWorkspaceShellNav } from "./features/agents-workspace/use-agents-workspace-shell-nav.js";
 export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-nav-data.js";
+// Grant lookup is Tier 2: it reads the tenant usage policy over the admin HTTP
+// client, which the embed entry deliberately does not pull in.
+export { useEffortGrant } from "./features/ai-effort/use-effort-grant.js";
 export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
+export { EffortTiersCard } from "./features/ai-settings/effort-tiers-card.js";
 export { useMentionAgentCandidates } from "./hooks/use-mention-agent-candidates.js";
 export type {
   AiAdminSessionStats,

@@ -141,6 +141,42 @@
       "code": "Code"
     }
   },
+  "effort": {
+    "ariaLabel": "Choose effort",
+    "label": "Effort",
+    "notInPlan": "Not included in your plan",
+    "choice": {
+      "auto": {
+        "label": "Auto",
+        "desc": "Let Engenty size the work for each request."
+      },
+      "low": {
+        "label": "Low",
+        "desc": "Quick lookups and short edits."
+      },
+      "medium": {
+        "label": "Medium",
+        "desc": "Everyday work — the balanced default."
+      },
+      "high": {
+        "label": "High",
+        "desc": "Hard problems worth the extra thinking."
+      }
+    },
+    "tiers": {
+      "title": "Effort tiers",
+      "description": "How much thinking your workspace may buy. People pick a tier, never a model id; the platform binds each tier to a model.",
+      "managedNote": "Your plan decides which effort tiers this workspace can use.",
+      "keepOne": "At least one tier has to stay available.",
+      "save": "Save tiers",
+      "loadError": "Couldn't load the effort tiers."
+    },
+    "expert": {
+      "toggle": "Expert: pin models by id",
+      "hint": "Self-hosted and expert installs can still pin a model per purpose. A pinned model wins over the effort tier.",
+      "pickModel": "Pick a model…"
+    }
+  },
   "picker": {
     "title": "Choose a model for {{purpose}}",
     "description": "Pick a model or inherit the platform default. Pricing is per million tokens (input / output)."
@@ -192,7 +228,10 @@
     "inherit": "inherit",
     "none": "none",
     "stepsLabel": "Steps",
-    "budgetLabel": "Budget"
+    "budgetLabel": "Budget",
+    "effort": "Effort",
+    "inheritEffort": "Inherit effort",
+    "expertToggle": "Expert: pin a model id"
   },
   "voice": {
     "title": "Realtime voice",

@@ -32,7 +32,7 @@ import {
 import { useChatSlashCommands } from "../../hooks/chat/use-chat-slash-commands.js";
 import { useMentionRefSearch } from "../../hooks/chat/use-mention-ref-search.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
-import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
+import { CopilotEffortControl } from "./copilot-effort-control.js";
 
 interface AgentChatPanelProps {
   compactContextControl?: ReactNode;
@@ -299,11 +299,12 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     />
   ) : null;
 
-  // Agent chooser is hidden on the main copilot lane;
-  // model chooser stays visible (model selection is deferred but not retired).
+  // Agent chooser is hidden on the main copilot lane; the effort selector is
+  // the model control people see (the model-id chooser sits behind its expert
+  // switch).
   const composerLeadingControl = (
     <div className="flex min-w-0 items-center gap-1">
-      <CopilotModelChooserControl disabled={composerDisabled} />
+      <CopilotEffortControl disabled={composerDisabled} />
       {realtimeVoice.composerLeadingControl}
     </div>
   );

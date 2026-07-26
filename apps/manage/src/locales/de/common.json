@@ -505,6 +505,7 @@
       "model": "Modell",
       "modelId": "Modell-ID",
       "provider": "Provider",
+      "gateway": "Gateway",
       "useCase": "Anwendungsfall",
       "priceTier": "Preisstufe",
       "context": "Kontext",
@@ -534,6 +535,7 @@
     },
     "filters": {
       "allProviders": "Alle Provider",
+      "allGateways": "Alle Gateways",
       "age": "Alter",
       "maxPriceTier": "Max. Preisstufe",
       "maxOutputPrice": "Max. Output $/Mtok",

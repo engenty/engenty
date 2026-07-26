@@ -1,6 +1,7 @@
 // Shared admin/runtime DTO shapes for AI catalog, sessions, runs, and the custom registry.
 // Consumed by admin pages, TanStack query hooks, and apps/ai HTTP client modules.
 
+import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import type { UIMessage } from "ai";
 import type { AiInstructionDocument } from "./instruction-settings-api.js";
 
@@ -28,6 +29,12 @@ export interface AiRegisteredAgent {
   agent_origin?: "custom" | "registry";
   chat_triggers?: AiAgentChatTriggers;
   description: string | null;
+  /**
+   * How much thinking this agent's work deserves — the tier-level counterpart
+   * of {@link modelOverride}. Absent = inherit. Requires the AI service to
+   * persist `effort` on the registry row; until then the PATCH is a no-op.
+   */
+  effort?: AiEffortChoice | null;
   id: string;
   instruction_keys: string[];
   /** Per-agent operational limits (Phase 4): iteration cap + spend budget. */

@@ -1,5 +1,8 @@
 import {
+  type AiEffort,
   bindingsFromList,
+  clampEffort,
+  graded,
   type ModelBindings,
   resolveChatModelId,
   resolvePurposeModelId,
@@ -11,7 +14,8 @@ import type { AiSessionScope, SessionServiceOptions } from "./types.js";
 export async function resolveRuntimeModelConfig(
   opts: SessionServiceOptions,
   scope: AiSessionScope,
-  modelIdOverride?: string | null
+  modelIdOverride?: string | null,
+  effort?: AiEffort | null
 ): Promise<RuntimeModelConfig> {
   const tenantConfig = await opts.resolveTenantModelConfig?.(scope);
   const tenantChatModel = tenantConfig?.chatModelId?.trim() || null;
@@ -42,6 +46,7 @@ export async function resolveRuntimeModelConfig(
     // would have written anyway — never fail a run over a binding read.
     bindings = undefined;
   }
+  let allowedEfforts: readonly string[] | null = null;
   let allowedModels: readonly string[] | null = null;
   let allowedProviders: readonly string[] | null = null;
   if (scope.tenantId) {
@@ -49,6 +54,7 @@ export async function resolveRuntimeModelConfig(
       const policy = await opts
         .getUsageStore()
         ?.getTenantPolicy(scope.tenantId);
+      allowedEfforts = policy?.allowed_efforts ?? null;
       if (policy?.enforcement_mode === "enforce") {
         allowedModels = policy.allowed_models ?? null;
         allowedProviders = policy.allowed_providers ?? null;
@@ -67,6 +73,19 @@ export async function resolveRuntimeModelConfig(
   // override; isolating those from the user-facing override is a Phase-1 concern
   // once purpose resolution is unified. Do not drop the override from routing
   // without that separation, or the copilot stops honoring the model picker.
+  // The effort pick becomes a model by way of the graded role binding, clamped
+  // to what the plan grants: a tenant on a low-only plan who asks for high gets
+  // low and an answer rather than an error. An explicit `model_id` still wins —
+  // expert and self-hosted installs pin models deliberately.
+  const clamped =
+    effort == null
+      ? null
+      : clampEffort(effort, { allowed_efforts: allowedEfforts as never });
+  const effortModelId = clamped
+    ? (bindings?.get(graded(clamped))?.modelId ?? null)
+    : null;
+  const sessionModelId = modelIdOverride ?? effortModelId;
+
   return {
     // Carried so per-agent pins are checked against the same grants, without a
     // policy read per assembled sub-agent.
@@ -79,7 +98,7 @@ export async function resolveRuntimeModelConfig(
       allowedProviders,
       bindings,
       devMode,
-      override: modelIdOverride,
+      override: sessionModelId,
       purpose: "chat",
       tenantDefault: tenantChatModel,
     }),
@@ -88,7 +107,7 @@ export async function resolveRuntimeModelConfig(
       allowedProviders,
       bindings,
       devMode,
-      override: modelIdOverride,
+      override: sessionModelId,
       purpose: "routing",
       tenantDefault:
         tenantConfig?.routingModelId?.trim() || tenantChatModel || null,

@@ -17,6 +17,7 @@ import {
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterruptEventValue,
 } from "@engenty/ag-ui-bridge";
+import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import {
@@ -133,6 +134,8 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
   agentToolInvalidation?: ReadonlyMap<string, readonly (readonly unknown[])[]>;
   /** URL session uuid when `/chat/:id` — trumps bound id for reset decisions. */
   authoritativeUrlThreadId?: string | null;
+  /** User's per-conversation effort pick; absent = no explicit choice. */
+  effort?: AiEffortChoice | null;
   executeFrontendTool: (
     request: FrontendToolCallRequest
   ) => Promise<JsonValue> | JsonValue;
@@ -959,6 +962,7 @@ export function useEngentyAgUiAppsAiSession(
         await runSessionStream({
           abortController,
           runInput: buildAppsAiRunInput({
+            effort: options.effort,
             frontendTools: options.frontendTools,
             message: userMessage,
             modelId: options.modelId,
@@ -1034,6 +1038,7 @@ export function useEngentyAgUiAppsAiSession(
             };
 
       const runInput = buildAppsAiResumeRunInput({
+        effort: options.effort,
         frontendTools: options.frontendTools,
         modelId: options.modelId,
         pathname: options.pathname,

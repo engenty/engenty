@@ -1,4 +1,5 @@
 import type { Message } from "@engenty/ag-ui-bridge";
+import type { AiEffort } from "@engenty/ai-core";
 import {
   type AgentWorkspaceConfig,
   agUiMessageText,
@@ -496,6 +497,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     // resolveRunWorkspaces above.
     async resolveRunModelConfig(input: {
       agentId: string;
+      effort?: AiEffort | null;
       modelIdOverride?: string | null;
       scope: AiSessionScope;
     }): Promise<{
@@ -506,7 +508,8 @@ export function createSessionService(opts: SessionServiceOptions) {
       const modelConfig = await resolveRuntimeModelConfig(
         opts,
         input.scope,
-        input.modelIdOverride
+        input.modelIdOverride,
+        input.effort
       );
       const registry =
         opts.createRegistry?.(input.scope) ??

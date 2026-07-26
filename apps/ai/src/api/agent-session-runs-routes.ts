@@ -8,6 +8,8 @@ import {
   RunAgentInputSchema,
 } from "@engenty/ag-ui-bridge";
 import {
+  AI_EFFORT_LEVELS,
+  type AiEffort,
   type AiUsageStore,
   checkUsageLimits,
   type DynamicAiModuleCapabilityLoader,
@@ -196,6 +198,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/**
+ * The user's effort pick (`forwardedProps.engenty.effort`). Travels alongside
+ * `model_id` rather than replacing it: an expert / self-hosted install may still
+ * pin a model, and that pin keeps precedence.
+ *
+ * `auto` is accepted on the wire but not yet acted on — router-sized effort is
+ * still to come, and treating it as "no pick" degrades to the tenant default
+ * rather than guessing.
+ */
+function resolveEffortChoice(input: RunAgentInput): AiEffort | null {
+  const forwardedProps = isRecord(input.forwardedProps)
+    ? input.forwardedProps
+    : {};
+  if (!isRecord(forwardedProps.engenty)) {
+    return null;
+  }
+  const effort = forwardedProps.engenty.effort;
+  if (typeof effort !== "string") {
+    return null;
+  }
+  const value = effort.trim().toLowerCase();
+  return (AI_EFFORT_LEVELS as readonly string[]).includes(value)
+    ? (value as AiEffort)
+    : null;
+}
+
 function resolveModelIdOverride(input: RunAgentInput): string | null {
   const forwardedProps = isRecord(input.forwardedProps)
     ? input.forwardedProps
@@ -316,6 +344,7 @@ export function registerAgentSessionRunRoutes(
         })
       : null;
     const modelIdOverride = resolveModelIdOverride(body.data);
+    const effort = resolveEffortChoice(body.data);
 
     try {
       await opts.aiService.sessions.assertNativeMemoryAvailable({
@@ -645,6 +674,7 @@ export function registerAgentSessionRunRoutes(
       try {
         hsModelConfig = await opts.aiService.sessions.resolveRunModelConfig({
           agentId: session.agent_id,
+          effort,
           modelIdOverride,
           scope: scope.scope,
         });

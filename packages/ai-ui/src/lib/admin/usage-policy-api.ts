@@ -13,6 +13,8 @@ export type UsagePeriodUnit = "day" | "week" | "month" | "year";
 export type UsagePolicyManagedBy = "tenant" | "entitlement";
 
 export interface TenantUsagePolicy {
+  /** Licensed effort tiers; null/empty = all. Absent on older AI services. */
+  allowed_efforts?: string[] | null;
   allowed_models: string[] | null;
   currency: string;
   enforcement_mode: UsageEnforcementMode;
@@ -27,6 +29,7 @@ export interface TenantUsagePolicy {
 
 /** Fields a tenant admin may patch. Omit a field to leave it unchanged. */
 export interface TenantUsagePolicyPatch {
+  allowed_efforts?: string[] | null;
   allowed_models?: string[] | null;
   enforcement_mode?: UsageEnforcementMode;
   hard_limit_cost_micros?: number | null;

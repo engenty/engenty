@@ -58,6 +58,38 @@ describe("buildAppsAiRunInput", () => {
     });
   });
 
+  it("carries the effort pick alongside a pinned model id", () => {
+    const input = buildAppsAiRunInput({
+      effort: "high",
+      frontendTools: [],
+      message: { id: "user-1", role: "user", content: "Hello" },
+      modelId: "openai/gpt-5.1",
+      pathname: "/mdl/engenty-copilot/chat/new",
+      routeContext,
+      threadId: "session-1",
+      state: {},
+    });
+
+    expect(RunAgentInputSchema.parse(input)).toEqual(input);
+    expect(input.forwardedProps).toEqual({
+      engenty: { effort: "high", model_id: "openai/gpt-5.1" },
+    });
+  });
+
+  it("omits effort when the lane has no explicit pick", () => {
+    const input = buildAppsAiRunInput({
+      frontendTools: [],
+      message: { id: "user-1", role: "user", content: "Hello" },
+      modelId: null,
+      pathname: "/mdl/engenty-copilot/chat/new",
+      routeContext,
+      threadId: "session-1",
+      state: {},
+    });
+
+    expect(input.forwardedProps).toEqual({ engenty: {} });
+  });
+
   it("passes route scope in forwardedProps when present", () => {
     const input = buildAppsAiRunInput({
       frontendTools: [],
@@ -149,6 +181,7 @@ describe("buildAppsAiRunInput", () => {
 describe("buildAppsAiResumeRunInput", () => {
   it("builds RunAgentInput with official resume entries only", () => {
     const input = buildAppsAiResumeRunInput({
+      effort: "low",
       frontendTools: [],
       modelId: "openai/gpt-4.1-mini",
       pathname: "/mdl/engenty-copilot/chat/session-1",
@@ -170,6 +203,9 @@ describe("buildAppsAiResumeRunInput", () => {
 
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
     expect(input.messages).toEqual([]);
+    expect(input.forwardedProps).toEqual({
+      engenty: { effort: "low", model_id: "openai/gpt-4.1-mini" },
+    });
     expect(input.resume).toEqual([
       {
         interruptId: "int-abc123",

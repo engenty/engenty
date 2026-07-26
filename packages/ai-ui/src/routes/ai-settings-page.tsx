@@ -4,6 +4,7 @@ import {
   Button,
   DetailPageHeader,
   Label,
+  Switch,
   Tabs,
   TabsContent,
   TabsList,
@@ -16,6 +17,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AgentsOverridesTab } from "../features/ai-settings/agents-overrides-tab";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
+import { EffortTiersCard } from "../features/ai-settings/effort-tiers-card";
 import { LimitsBudgetsTab } from "../features/ai-settings/limits-budgets-tab";
 import {
   mapGatewayModelSelectOptions,
@@ -79,6 +81,9 @@ export function AiGeneralSettingsPage() {
   const [maxPriceTier, setMaxPriceTier] = useState<
     "all" | GatewayModelPriceTier
   >("medium");
+  // Model ids are the expert layer now: effort tiers are what a tenant admin
+  // governs. The matrix is not retired — self-hosted installs still pin models.
+  const [expertModels, setExpertModels] = useState(false);
   // Fetch the full catalog (all tiers); the price-tier selector filters the
   // picker client-side, so an effective/pinned model outside the tier still
   // resolves its pricing + capabilities in the matrix.
@@ -287,7 +292,7 @@ export function AiGeneralSettingsPage() {
               </div>
             ) : null}
 
-            {activeTab === "copilot" ? (
+            {activeTab === "copilot" && expertModels ? (
               <div className="flex items-center gap-2 text-sm">
                 <Label htmlFor="ai-settings-max-price-tier">
                   {t("fields.maxPriceTier")}
@@ -313,23 +318,48 @@ export function AiGeneralSettingsPage() {
             ) : null}
 
             <TabsContent className="space-y-6" value="copilot">
-              {allowListActive ? (
-                <div
-                  className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-muted-foreground text-xs"
-                  role="status"
+              <EffortTiersCard t={t} />
+
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <Switch
+                  checked={expertModels}
+                  id="ai-settings-expert-models"
+                  onCheckedChange={setExpertModels}
+                />
+                <Label
+                  className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5"
+                  htmlFor="ai-settings-expert-models"
                 >
-                  {t("matrix.allowlistNote")}
-                </div>
+                  <span className="font-medium text-sm">
+                    {t("effort.expert.toggle")}
+                  </span>
+                  <span className="font-normal text-muted-foreground text-xs">
+                    {t("effort.expert.hint")}
+                  </span>
+                </Label>
+              </div>
+
+              {expertModels ? (
+                <>
+                  {allowListActive ? (
+                    <div
+                      className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-muted-foreground text-xs"
+                      role="status"
+                    >
+                      {t("matrix.allowlistNote")}
+                    </div>
+                  ) : null}
+                  <ModelMatrixCard
+                    chatModels={chatModels}
+                    effective={effectiveQuery.data}
+                    maxPriceTier={maxPriceTier}
+                    routingModels={routingModels}
+                    settings={settings}
+                    t={t}
+                    updateSettings={updateSettings}
+                  />
+                </>
               ) : null}
-              <ModelMatrixCard
-                chatModels={chatModels}
-                effective={effectiveQuery.data}
-                maxPriceTier={maxPriceTier}
-                routingModels={routingModels}
-                settings={settings}
-                t={t}
-                updateSettings={updateSettings}
-              />
             </TabsContent>
 
             <TabsContent className="space-y-6" value="limits">
