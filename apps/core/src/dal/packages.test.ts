@@ -3,7 +3,7 @@ import {
   resolveEntitlements,
 } from "@engenty/entitlements";
 import { describe, expect, it } from "vitest";
-import { selectStalePackages, toTenantUsagePolicyRow } from "./packages.js";
+import { selectSeedablePackages, toTenantUsagePolicyRow } from "./packages.js";
 
 function pkg(id: string, version: number): EntitlementPackage {
   return {
@@ -21,37 +21,36 @@ function pkg(id: string, version: number): EntitlementPackage {
       enforcement_mode: "observe",
       currency: "usd",
       allowed_models: null,
+      allowed_providers: null,
     },
     appLimits: { maxUsers: null, enforcement_mode: "observe" },
   };
 }
 
-describe("selectStalePackages", () => {
+describe("selectSeedablePackages", () => {
   const catalog = [pkg("free", 2), pkg("team", 3)];
 
-  it("upserts entries missing from the DB", () => {
-    expect(selectStalePackages(new Map(), catalog).map((p) => p.id)).toEqual([
-      "free",
-      "team",
-    ]);
+  it("seeds entries missing from the DB", () => {
+    expect(selectSeedablePackages(new Map(), catalog).map((p) => p.id)).toEqual(
+      ["free", "team"]
+    );
   });
 
-  it("upserts only entries whose DB version is older", () => {
+  it("never overwrites an existing row, even for a newer authored version", () => {
+    // `core.packages` is operator-editable in the manage console. Re-seeding on
+    // a version bump used to silently revert those edits on the next boot.
     const existing = new Map([
-      ["free", 2], // same version — skip
-      ["team", 1], // older — upsert
+      ["free", 1], // authored 2 — still left alone
+      ["team", 3],
     ]);
-    expect(selectStalePackages(existing, catalog).map((p) => p.id)).toEqual([
-      "team",
-    ]);
+    expect(selectSeedablePackages(existing, catalog)).toEqual([]);
   });
 
-  it("never downgrades: a newer DB version is left alone", () => {
-    const existing = new Map([
-      ["free", 5],
-      ["team", 9],
+  it("seeds only the genuinely absent entry", () => {
+    const existing = new Map([["free", 2]]);
+    expect(selectSeedablePackages(existing, catalog).map((p) => p.id)).toEqual([
+      "team",
     ]);
-    expect(selectStalePackages(existing, catalog)).toEqual([]);
   });
 });
 

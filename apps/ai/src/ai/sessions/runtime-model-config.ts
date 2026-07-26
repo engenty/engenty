@@ -18,6 +18,7 @@ export async function resolveRuntimeModelConfig(
   // resolution time (observe mode never changes behavior). A policy read
   // failure must not break model resolution.
   let allowedModels: readonly string[] | null = null;
+  let allowedProviders: readonly string[] | null = null;
   if (scope.tenantId) {
     try {
       const policy = await opts
@@ -25,9 +26,11 @@ export async function resolveRuntimeModelConfig(
         ?.getTenantPolicy(scope.tenantId);
       if (policy?.enforcement_mode === "enforce") {
         allowedModels = policy.allowed_models ?? null;
+        allowedProviders = policy.allowed_providers ?? null;
       }
     } catch {
       allowedModels = null;
+      allowedProviders = null;
     }
   }
   // `modelIdOverride` is the user's explicit per-conversation model pick
@@ -40,14 +43,22 @@ export async function resolveRuntimeModelConfig(
   // once purpose resolution is unified. Do not drop the override from routing
   // without that separation, or the copilot stops honoring the model picker.
   return {
+    // Carried so per-agent pins are checked against the same grants, without a
+    // policy read per assembled sub-agent.
+    grants:
+      allowedModels || allowedProviders
+        ? { allowed_models: allowedModels, allowed_providers: allowedProviders }
+        : null,
     chatModelId: resolveChatModelId({
       allowedModels,
+      allowedProviders,
       override: modelIdOverride,
       purpose: "chat",
       tenantDefault: tenantChatModel,
     }),
     routingModelId: resolveChatModelId({
       allowedModels,
+      allowedProviders,
       override: modelIdOverride,
       purpose: "routing",
       tenantDefault:
@@ -57,16 +68,19 @@ export async function resolveRuntimeModelConfig(
     // per-conversation override does not apply to them.
     researchModelId: resolvePurposeModelId({
       allowedModels,
+      allowedProviders,
       purpose: "research",
       tenantDefault: tenantConfig?.researchModelId?.trim() || null,
     }),
     planningCodingModelId: resolvePurposeModelId({
       allowedModels,
+      allowedProviders,
       purpose: "planning_coding",
       tenantDefault: tenantConfig?.planningCodingModelId?.trim() || null,
     }),
     safeguardModelId: resolveSafeguardModelId({
       allowedModels,
+      allowedProviders,
       tenantDefault: tenantConfig?.safeguardModelId?.trim() || null,
     }),
   };

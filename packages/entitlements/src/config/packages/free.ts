@@ -19,6 +19,7 @@ export const freePackage: EntitlementPackage = {
     enforcement_mode: "enforce",
     currency: "usd",
     allowed_models: null,
+    allowed_providers: null,
   },
   appLimits: { maxUsers: 3, enforcement_mode: "enforce" },
   pricing: {

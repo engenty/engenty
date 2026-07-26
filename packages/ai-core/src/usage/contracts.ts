@@ -95,6 +95,11 @@ export type UsagePolicyManagedBy = "tenant" | "entitlement";
 
 export interface TenantUsagePolicyRecord {
   allowed_models: string[] | null;
+  /**
+   * Provider allow-list matched against `ai.gateway_model.provider`.
+   * null/empty = unrestricted. Additive with {@link allowed_models}.
+   */
+  allowed_providers: string[] | null;
   created_at: string;
   currency: string;
   enforcement_mode: UsageEnforcementMode;
@@ -136,6 +141,7 @@ export const DEFAULT_TENANT_USAGE_POLICY: Omit<
   hard_limit_cost_micros: null,
   soft_limit_cost_micros: null,
   allowed_models: null,
+  allowed_providers: null,
   enforcement_mode: "observe",
   currency: "usd",
   managed_by: "tenant",
