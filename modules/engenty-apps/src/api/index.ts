@@ -1,16 +1,16 @@
 import type { PluginServerApi } from "@engenty/plugin-sdk";
-import {
-  type AppsGatewayOptions,
-  registerAppsGatewayMethods,
-  type RepoOrFactory,
-  getRepo,
-} from "./gateway-methods.js";
+import { z } from "@hono/zod-openapi";
 import {
   appIdParamsSchema,
   appVersionSchema,
   notFoundSchema,
 } from "../schema/zod.js";
-import { z } from "@hono/zod-openapi";
+import {
+  type AppsGatewayOptions,
+  getRepo,
+  type RepoOrFactory,
+  registerAppsGatewayMethods,
+} from "./gateway-methods.js";
 
 const UUID_PARAM =
   "{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}";
@@ -56,10 +56,13 @@ export function registerAppsApi(
           ? await repo.getVersion(app.active_version_id)
           : null;
       if (!version) {
-        return new Response(JSON.stringify({ error: "app_version_not_found" }), {
-          headers: { "content-type": "application/json" },
-          status: 404,
-        });
+        return new Response(
+          JSON.stringify({ error: "app_version_not_found" }),
+          {
+            headers: { "content-type": "application/json" },
+            status: 404,
+          }
+        );
       }
       // Bundle-mode Apps serve what the build produced; single-file Apps serve
       // the document their entry names. Preferring the built column is what

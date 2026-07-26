@@ -74,9 +74,9 @@ describe("AppRuntime.deploy guards", () => {
   });
 
   it("rejects a traversal app id before reaching the build VM", async () => {
-    await expect(runtime.deploy({ appId: "../etc", files: {} })).rejects.toThrow(
-      /invalid app id/
-    );
+    await expect(
+      runtime.deploy({ appId: "../etc", files: {} })
+    ).rejects.toThrow(/invalid app id/);
   });
 
   it("rejects an id past agentOS's 63-character ceiling", async () => {

@@ -50,12 +50,15 @@ describe("assertAppId", () => {
     expect(() => assertAppId("t-0000-app-1")).not.toThrow();
   });
 
-  it.each(["../escape", "UPPER", "has_underscore", "", "a".repeat(129)])(
-    "rejects %j",
-    (id) => {
-      expect(() => assertAppId(id)).toThrow(/invalid app id/);
-    }
-  );
+  it.each([
+    "../escape",
+    "UPPER",
+    "has_underscore",
+    "",
+    "a".repeat(129),
+  ])("rejects %j", (id) => {
+    expect(() => assertAppId(id)).toThrow(/invalid app id/);
+  });
 });
 
 describe("createAppHost", () => {

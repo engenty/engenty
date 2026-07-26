@@ -18,7 +18,9 @@ describe("appHostId", () => {
   });
 
   it("keeps the app uuid whole, since that is what makes the id unique", () => {
-    expect(appHostId(TENANT, APP)).toContain("019f9d3ed7c977c48c2f97f52273c37b");
+    expect(appHostId(TENANT, APP)).toContain(
+      "019f9d3ed7c977c48c2f97f52273c37b"
+    );
   });
 
   it("separates two apps in one tenant, and one app across two tenants", () => {

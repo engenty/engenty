@@ -226,10 +226,10 @@ function appFilesPlugin(files: Record<string, string>): Plugin {
         path: BRIDGE_SPECIFIER,
       }));
 
-      pluginBuild.onLoad(
-        { filter: /.*/, namespace: BRIDGE_NAMESPACE },
-        () => ({ contents: BRIDGE_SOURCE, loader: "js" as Loader })
-      );
+      pluginBuild.onLoad({ filter: /.*/, namespace: BRIDGE_NAMESPACE }, () => ({
+        contents: BRIDGE_SOURCE,
+        loader: "js" as Loader,
+      }));
 
       pluginBuild.onResolve({ filter: /.*/ }, (args) => {
         if (args.kind === "entry-point") {

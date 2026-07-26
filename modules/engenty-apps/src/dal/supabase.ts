@@ -118,7 +118,9 @@ export function createAppsRepoSupabase(
       if (error) {
         throw new Error(`Failed to list apps: ${error.message}`);
       }
-      return (rows ?? []).map((row) => rowToApp(row as Record<string, unknown>));
+      return (rows ?? []).map((row) =>
+        rowToApp(row as Record<string, unknown>)
+      );
     },
 
     async getApp(id: string): Promise<App | null> {
@@ -643,7 +645,10 @@ export function createAppsRepoSupabase(
       for (const raw of rows ?? []) {
         const entry = rowToConfigEntry(raw as Record<string, unknown>);
         const existing = merged.get(entry.key);
-        if (!existing || (existing.user_id === null && entry.user_id !== null)) {
+        if (
+          !existing ||
+          (existing.user_id === null && entry.user_id !== null)
+        ) {
           merged.set(entry.key, entry);
         }
       }
@@ -701,7 +706,9 @@ export function createAppsRepoSupabase(
       // 23505 = unique violation: a concurrent writer inserted the same level
       // between our update and our insert. Their row is now the one to update.
       if ((inserted.error as { code?: string }).code !== "23505") {
-        throw new Error(`Failed to write app config: ${inserted.error.message}`);
+        throw new Error(
+          `Failed to write app config: ${inserted.error.message}`
+        );
       }
       const retryQuery = config()
         .update({ updated_at: now, value: input.value })

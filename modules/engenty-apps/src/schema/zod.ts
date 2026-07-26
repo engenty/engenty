@@ -198,9 +198,7 @@ export const appDataExportInputSchema = z.object({
 
 export const appDataExportResultSchema = z.object({
   app_id: z.string().uuid(),
-  entries: z.array(
-    appDataEntrySchema.extend({ session_id: z.string() })
-  ),
+  entries: z.array(appDataEntrySchema.extend({ session_id: z.string() })),
   exported_at: z.string(),
 });
 

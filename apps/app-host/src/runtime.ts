@@ -90,7 +90,7 @@ export function toBuildFailure(error: unknown): AppBuildFailure | null {
   const code = typeof candidate.code === "string" ? candidate.code : null;
   const isAppsError =
     error instanceof AgentOSAppsError ||
-    (code !== null && code.startsWith("agentos_apps_"));
+    (code?.startsWith("agentos_apps_") ?? false);
   if (!(isAppsError && code)) {
     return null;
   }

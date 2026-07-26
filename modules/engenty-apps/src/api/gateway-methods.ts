@@ -13,7 +13,6 @@ import {
   rollbackRelease,
 } from "../domain/release-service.js";
 import type { AppHostClient } from "../lib/app-host-client.js";
-import { appManifestSchema } from "../schema/zod.js";
 import {
   appActionsListInputSchema,
   appActionsListResultSchema,
@@ -34,6 +33,7 @@ import {
   appFileWriteInputSchema,
   appIdParamsSchema,
   appListQuerySchema,
+  appManifestSchema,
   appReleaseDecisionInputSchema,
   appReleaseProposeInputSchema,
   appSchema,

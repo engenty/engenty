@@ -211,14 +211,24 @@ describe("app config levels", () => {
 
   it("resolves a user's own value over the tenant default", async () => {
     const repo = makeFakeAppsRepo(makeFakeStore());
-    await repo.setConfig({ appId: "app-1", key: "theme", userId: null, value: "light" });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "theme",
+      userId: null,
+      value: "light",
+    });
 
     expect(
       (await repo.resolveConfig({ appId: "app-1", key: "theme", userId: USER }))
         ?.value
     ).toBe("light");
 
-    await repo.setConfig({ appId: "app-1", key: "theme", userId: USER, value: "dark" });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "theme",
+      userId: USER,
+      value: "dark",
+    });
 
     expect(
       (await repo.resolveConfig({ appId: "app-1", key: "theme", userId: USER }))
@@ -227,28 +237,53 @@ describe("app config levels", () => {
     // The default is untouched — a user setting their own value must not
     // rewrite what everyone else sees.
     expect(
-      (await repo.resolveConfig({ appId: "app-1", key: "theme", userId: OTHER }))
-        ?.value
+      (
+        await repo.resolveConfig({
+          appId: "app-1",
+          key: "theme",
+          userId: OTHER,
+        })
+      )?.value
     ).toBe("light");
   });
 
   it("keeps one user's value invisible to another", async () => {
     const repo = makeFakeAppsRepo(makeFakeStore());
-    await repo.setConfig({ appId: "app-1", key: "filter", userId: USER, value: "mine" });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "filter",
+      userId: USER,
+      value: "mine",
+    });
 
     expect(
       await repo.resolveConfig({ appId: "app-1", key: "filter", userId: OTHER })
     ).toBeNull();
-    expect(
-      await repo.listConfig({ appId: "app-1", userId: OTHER })
-    ).toEqual([]);
+    expect(await repo.listConfig({ appId: "app-1", userId: OTHER })).toEqual(
+      []
+    );
   });
 
   it("shadows per key in a listing, not per store", async () => {
     const repo = makeFakeAppsRepo(makeFakeStore());
-    await repo.setConfig({ appId: "app-1", key: "a", userId: null, value: "default-a" });
-    await repo.setConfig({ appId: "app-1", key: "b", userId: null, value: "default-b" });
-    await repo.setConfig({ appId: "app-1", key: "b", userId: USER, value: "user-b" });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "a",
+      userId: null,
+      value: "default-a",
+    });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "b",
+      userId: null,
+      value: "default-b",
+    });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "b",
+      userId: USER,
+      value: "user-b",
+    });
 
     const entries = await repo.listConfig({ appId: "app-1", userId: USER });
     expect(entries.map((e) => [e.key, e.value])).toEqual([
@@ -259,14 +294,25 @@ describe("app config levels", () => {
 
   it("deletes only the level it was asked for", async () => {
     const repo = makeFakeAppsRepo(makeFakeStore());
-    await repo.setConfig({ appId: "app-1", key: "k", userId: null, value: "default" });
-    await repo.setConfig({ appId: "app-1", key: "k", userId: USER, value: "user" });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "k",
+      userId: null,
+      value: "default",
+    });
+    await repo.setConfig({
+      appId: "app-1",
+      key: "k",
+      userId: USER,
+      value: "user",
+    });
 
     await repo.deleteConfig({ appId: "app-1", key: "k", userId: USER });
 
     // Removing an override falls back to the default rather than to nothing.
     expect(
-      (await repo.resolveConfig({ appId: "app-1", key: "k", userId: USER }))?.value
+      (await repo.resolveConfig({ appId: "app-1", key: "k", userId: USER }))
+        ?.value
     ).toBe("default");
   });
 
@@ -276,7 +322,8 @@ describe("app config levels", () => {
     // There is no session_id to pass; the same read succeeds from any
     // instance, which is the whole reason this table exists next to app_data.
     expect(
-      (await repo.resolveConfig({ appId: "app-1", key: "k", userId: USER }))?.value
+      (await repo.resolveConfig({ appId: "app-1", key: "k", userId: USER }))
+        ?.value
     ).toBe(1);
   });
 });

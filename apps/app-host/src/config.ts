@@ -13,9 +13,9 @@ export interface AppHostConfig {
   internalToken: string | null;
   /** Hard ceiling on a single deployment's total source bytes. */
   maxSourceBytes: number;
-  port: number;
   /** Per-app Rivet namespace. Phase 7 default; see PLAN-engenty-apps.md §6. */
   perAppNamespace: boolean;
+  port: number;
   production: boolean;
   /** Upper bound on how long a guest request may take. */
   requestTimeoutMs: number;

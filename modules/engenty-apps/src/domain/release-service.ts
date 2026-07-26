@@ -4,8 +4,8 @@ import {
   type AppHostClient,
   appHostId,
 } from "../lib/app-host-client.js";
-import { appManifestSchema } from "../schema/zod.js";
 import type { App, AppVersion } from "../schema/types.js";
+import { appManifestSchema } from "../schema/zod.js";
 import {
   bundleFrontend,
   FrontendBuildError,

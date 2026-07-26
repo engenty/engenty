@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { registerAppsApi } from "../src/api/index.js";
 import {
   makeFakeAppsRepo,
   makeFakeStore,
   makeMockApi,
 } from "../src/api/test-helpers.js";
-import { registerAppsApi } from "../src/api/index.js";
 import { appsAiRegistration } from "./registrar.js";
 
 /**
@@ -48,7 +48,9 @@ describe("consumption surface", () => {
   it("makes a headless privileged call pause rather than proceed", () => {
     // This is what turns a monthly batch into an approval prompt instead of a
     // silent commit — the contract, not any code in the run loop.
-    expect(operations().get("app_call_privileged")?.requiresApproval).toBe(true);
+    expect(operations().get("app_call_privileged")?.requiresApproval).toBe(
+      true
+    );
   });
 
   it("seeds the consumption skills as module skills", () => {

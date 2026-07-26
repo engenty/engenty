@@ -3,7 +3,6 @@ import type {
   PluginServerApi,
   PluginServerOperation,
 } from "@engenty/plugin-sdk";
-import type { AppsRepo } from "./gateway-methods.js";
 import type {
   App,
   AppConfigEntry,
@@ -11,6 +10,7 @@ import type {
   AppManifest,
   AppVersion,
 } from "../schema/types.js";
+import type { AppsRepo } from "./gateway-methods.js";
 
 export const defaultAuth = {
   principalId: "00000000-0000-4000-8000-000000000002",
@@ -43,7 +43,9 @@ export function makeMockApi() {
   return { api, defaultAuth, httpRoutes, serverOperations };
 }
 
-export function makeManifest(overrides: Partial<AppManifest> = {}): AppManifest {
+export function makeManifest(
+  overrides: Partial<AppManifest> = {}
+): AppManifest {
   return {
     actions: [
       { id: "collect", risk: "low", summary: "Collect a receipt" },
@@ -200,7 +202,9 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
           (!sessionId || entry.session_id === sessionId)
       ),
     listApps: async (filter) =>
-      store.apps.filter((app) => !filter?.status || app.status === filter.status),
+      store.apps.filter(
+        (app) => !filter?.status || app.status === filter.status
+      ),
     listConfig: async ({ appId, prefix, userId }) => {
       const merged = new Map<string, AppConfigEntry>();
       for (const entry of store.config) {
@@ -215,7 +219,10 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
         }
         const existing = merged.get(entry.key);
         // A user value shadows the default, mirroring the DAL's merge.
-        if (!existing || (existing.user_id === null && entry.user_id !== null)) {
+        if (
+          !existing ||
+          (existing.user_id === null && entry.user_id !== null)
+        ) {
           merged.set(entry.key, entry);
         }
       }
@@ -237,7 +244,9 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
     resolveConfig: async ({ appId, key, userId }) =>
       store.config.find(
         (entry) =>
-          entry.app_id === appId && entry.key === key && entry.user_id === userId
+          entry.app_id === appId &&
+          entry.key === key &&
+          entry.user_id === userId
       ) ??
       store.config.find(
         (entry) =>
@@ -249,9 +258,7 @@ export function makeFakeAppsRepo(store: FakeAppsStore): AppsRepo {
       const level = userId ?? null;
       const existing = store.config.find(
         (entry) =>
-          entry.app_id === appId &&
-          entry.key === key &&
-          entry.user_id === level
+          entry.app_id === appId && entry.key === key && entry.user_id === level
       );
       if (existing) {
         existing.value = value;

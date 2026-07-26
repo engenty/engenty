@@ -70,7 +70,10 @@ export function createAppHost(options: {
     const appId = c.req.param("appId");
     const parsed = deployBodySchema.safeParse(await c.req.json());
     if (!parsed.success) {
-      return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+      return c.json(
+        { error: "invalid_body", issues: parsed.error.issues },
+        400
+      );
     }
     try {
       const result = await runtime.deploy({ appId, files: parsed.data.files });
@@ -99,7 +102,10 @@ export function createAppHost(options: {
     const appId = c.req.param("appId");
     const parsed = requestBodySchema.safeParse(await c.req.json());
     if (!parsed.success) {
-      return c.json({ error: "invalid_body", issues: parsed.error.issues }, 400);
+      return c.json(
+        { error: "invalid_body", issues: parsed.error.issues },
+        400
+      );
     }
     try {
       const response = await runtime.request(appId, parsed.data);

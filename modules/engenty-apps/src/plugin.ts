@@ -29,7 +29,9 @@ const registerEngentyAppsPlugin: EngentyPluginFactory = (engenty) => {
    * `app_archive`.
    */
   if (process.env.ENGENTY_APPS_ENABLED?.trim().toLowerCase() === "false") {
-    logger.warn("ENGENTY_APPS_ENABLED=false — engenty Apps operations disabled");
+    logger.warn(
+      "ENGENTY_APPS_ENABLED=false — engenty Apps operations disabled"
+    );
     return;
   }
 

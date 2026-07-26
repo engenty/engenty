@@ -101,12 +101,7 @@ describe("bundleFrontend", () => {
       html.lastIndexOf("</script>")
     );
     // `sink` stays a free variable in the bundle and binds to this parameter.
-    new Function(
-      "window",
-      "parent",
-      "sink",
-      source
-    )(
+    new Function("window", "parent", "sink", source)(
       {
         addEventListener: (
           _type: string,
@@ -134,9 +129,9 @@ describe("bundleFrontend", () => {
     );
 
     // The App announced itself, which is what makes the host push initial data.
-    expect(posted.some((m) => m.method === "ui/notifications/initialized")).toBe(
-      true
-    );
+    expect(
+      posted.some((m) => m.method === "ui/notifications/initialized")
+    ).toBe(true);
     const call = posted.find((m) => m.method === "tools/call");
     expect((call?.params as { name: string }).name).toBe("data_get");
 
