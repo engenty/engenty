@@ -1,6 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { deployApp } from "@rivet-dev/agentos-apps";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadAppHostConfig } from "../config.js";
 import { AppRuntime, toBuildFailure } from "../runtime.js";
+
+/**
+ * `deployApp()` talks to the Rivet engine on localhost:6420 — it is the build
+ * VM, not a pure function. The guard tests below are about what happens ahead
+ * of that call, so it is stubbed: unstubbed, a deploy that clears the guards
+ * retries `failed to fetch metadata` until the test timeout anywhere no engine
+ * happens to be listening, which is every CI runner.
+ */
+vi.mock("@rivet-dev/agentos-apps", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@rivet-dev/agentos-apps")>()),
+  deployApp: vi.fn(),
+}));
+
+const deployAppMock = vi.mocked(deployApp);
 
 /**
  * agentOS Apps raises build failures inside the app actor, so by the time they
@@ -64,6 +79,17 @@ describe("AppRuntime.deploy guards", () => {
     scaling: { maxReplicas: 1, minReplicas: 0, targetConcurrency: 1 },
   });
 
+  beforeEach(() => {
+    deployAppMock.mockReset();
+    deployAppMock.mockResolvedValue({
+      appId: "deployed",
+      namespace: "default",
+      pool: "default",
+      regions: ["default"],
+      release: "rel-1",
+    });
+  });
+
   it("rejects oversized source before reaching the build VM", async () => {
     await expect(
       runtime.deploy({
@@ -71,12 +97,14 @@ describe("AppRuntime.deploy guards", () => {
         files: { "index.html": "x".repeat(2000) },
       })
     ).rejects.toThrow(/over the 1000 byte limit/);
+    expect(deployAppMock).not.toHaveBeenCalled();
   });
 
   it("rejects a traversal app id before reaching the build VM", async () => {
     await expect(
       runtime.deploy({ appId: "../etc", files: {} })
     ).rejects.toThrow(/invalid app id/);
+    expect(deployAppMock).not.toHaveBeenCalled();
   });
 
   it("rejects an id past agentOS's 63-character ceiling", async () => {
@@ -85,9 +113,17 @@ describe("AppRuntime.deploy guards", () => {
     await expect(
       runtime.deploy({ appId: `a${"b".repeat(63)}`, files: {} })
     ).rejects.toThrow(/invalid app id .* \(64 chars\)/);
-    await expect(
-      runtime.deploy({ appId: `a${"b".repeat(62)}`, files: {} })
-    ).rejects.not.toThrow(/invalid app id/);
+    expect(deployAppMock).not.toHaveBeenCalled();
+  });
+
+  it("lets an id at the ceiling through to the build VM", async () => {
+    const appId = `a${"b".repeat(62)}`;
+    await expect(runtime.deploy({ appId, files: {} })).resolves.toMatchObject({
+      release: "rel-1",
+    });
+    expect(deployAppMock).toHaveBeenCalledWith(
+      expect.objectContaining({ appId })
+    );
   });
 });
 
