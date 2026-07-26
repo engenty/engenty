@@ -15,6 +15,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { RotateCcw, RotateCcwSquare, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useDeveloperModeEnabled } from "../components/ag-ui-inspector/ag-ui-inspector-hooks";
 import { AgentsOverridesTab } from "../features/ai-settings/agents-overrides-tab";
 import { DocConverterSettingsCard } from "../features/ai-settings/doc-converter-settings-card";
 import { EffortTiersCard } from "../features/ai-settings/effort-tiers-card";
@@ -84,6 +85,11 @@ export function AiGeneralSettingsPage() {
   // Model ids are the expert layer now: effort tiers are what a tenant admin
   // governs. The matrix is not retired — self-hosted installs still pin models.
   const [expertModels, setExpertModels] = useState(false);
+  // Pinning a model by id is plumbing: useful to a self-hosted operator, noise
+  // to everyone else. Developer mode is the line the product already draws
+  // around exactly that, so the toggle only exists behind it.
+  const developerMode = useDeveloperModeEnabled();
+  const expertActive = developerMode && expertModels;
   // Fetch the full catalog (all tiers); the price-tier selector filters the
   // picker client-side, so an effective/pinned model outside the tier still
   // resolves its pricing + capabilities in the matrix.
@@ -292,7 +298,7 @@ export function AiGeneralSettingsPage() {
               </div>
             ) : null}
 
-            {activeTab === "copilot" && expertModels ? (
+            {activeTab === "copilot" && expertActive ? (
               <div className="flex items-center gap-2 text-sm">
                 <Label htmlFor="ai-settings-max-price-tier">
                   {t("fields.maxPriceTier")}
@@ -320,26 +326,28 @@ export function AiGeneralSettingsPage() {
             <TabsContent className="space-y-6" value="copilot">
               <EffortTiersCard t={t} />
 
-              <div className="flex items-start gap-3 rounded-md border p-3">
-                <Switch
-                  checked={expertModels}
-                  id="ai-settings-expert-models"
-                  onCheckedChange={setExpertModels}
-                />
-                <Label
-                  className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5"
-                  htmlFor="ai-settings-expert-models"
-                >
-                  <span className="font-medium text-sm">
-                    {t("effort.expert.toggle")}
-                  </span>
-                  <span className="font-normal text-muted-foreground text-xs">
-                    {t("effort.expert.hint")}
-                  </span>
-                </Label>
-              </div>
+              {developerMode ? (
+                <div className="flex items-start gap-3 rounded-md border p-3">
+                  <Switch
+                    checked={expertModels}
+                    id="ai-settings-expert-models"
+                    onCheckedChange={setExpertModels}
+                  />
+                  <Label
+                    className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5"
+                    htmlFor="ai-settings-expert-models"
+                  >
+                    <span className="font-medium text-sm">
+                      {t("effort.expert.toggle")}
+                    </span>
+                    <span className="font-normal text-muted-foreground text-xs">
+                      {t("effort.expert.hint")}
+                    </span>
+                  </Label>
+                </div>
+              ) : null}
 
-              {expertModels ? (
+              {expertActive ? (
                 <>
                   {allowListActive ? (
                     <div

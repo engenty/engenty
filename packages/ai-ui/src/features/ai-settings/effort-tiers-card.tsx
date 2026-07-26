@@ -9,6 +9,7 @@ import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  useModelRoleBindingsQuery,
   useSaveTenantUsagePolicyMutation,
   useTenantUsagePolicyQuery,
 } from "../../lib/admin/ai-settings-queries";
@@ -28,7 +29,18 @@ function normalize(allowed: readonly string[] | null | undefined): AiEffort[] {
 
 export function EffortTiersCard({ t }: EffortTiersCardProps) {
   const policyQuery = useTenantUsagePolicyQuery();
+  const bindingsQuery = useModelRoleBindingsQuery();
   const saveMutation = useSaveTenantUsagePolicyMutation();
+  // Which model each tier actually runs. Read-only here, and shown even so:
+  // a tier name without its model tells the admin nothing about what they are
+  // licensing, which is the complaint this answers.
+  const modelForEffort = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const binding of bindingsQuery.data?.items ?? []) {
+      map.set(binding.role, binding.model_id);
+    }
+    return map;
+  }, [bindingsQuery.data]);
   const server = policyQuery.data;
   // Plan-governed policies are read-only here; the platform operator changes
   // them through the manage app (same rule as the limits tab).
@@ -103,6 +115,11 @@ export function EffortTiersCard({ t }: EffortTiersCardProps) {
                     <span className="mt-0.5 block text-muted-foreground text-xs">
                       {t(`effort.choice.${effort}.desc`)}
                     </span>
+                    {modelForEffort.get(`model.${effort}`) ? (
+                      <code className="mt-1 block font-mono text-[11px] text-muted-foreground">
+                        {modelForEffort.get(`model.${effort}`)}
+                      </code>
+                    ) : null}
                   </span>
                 </label>
               );

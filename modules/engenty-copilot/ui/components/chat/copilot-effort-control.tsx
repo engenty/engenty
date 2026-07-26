@@ -3,6 +3,7 @@ import {
   ENGENTY_COPILOT_HOST_KEY,
   useAgentHost,
   useAgentHostConfig,
+  useDeveloperModeEnabled,
   useEngentyAIContext,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -15,11 +16,18 @@ import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
  * model id. The model chooser is not retired — it lives behind the expert
  * switch inside this menu, because a self-hosted install that pins a specific
  * model still needs to reach it.
+ *
+ * The expert switch itself is gated on developer mode. Offering "choose a
+ * model" to everyone reintroduces exactly the decision this control exists to
+ * take away: three hundred ids in front of someone who wanted to ask a
+ * question. Developer mode is already the line the product draws around
+ * plumbing that is useful to see and unhelpful to be shown.
  */
 export function CopilotEffortControl(props: { disabled?: boolean }) {
   const { t } = useTranslation("engenty-copilot");
   const ai = useEngentyAIContext();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
+  const developerMode = useDeveloperModeEnabled();
   const {
     allowedEfforts,
     effort,
@@ -27,6 +35,10 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
     setEffort,
     toggleExpertModels,
   } = useChatEffortChoice();
+  // A pin made in developer mode must not keep steering the turn after the mode
+  // is switched off — the control that produced it is gone, so it would be
+  // unreachable and invisible.
+  const expertActive = developerMode && expertModels;
 
   useAgentHostConfig({
     effort,
@@ -34,7 +46,7 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
     // Leaving expert mode drops the pin: host config only ever merges, so
     // without this an experiment with a model id would silently outlive the
     // switch that produced it.
-    ...(expertModels ? {} : { modelId: null }),
+    ...(expertActive ? {} : { modelId: null }),
   });
 
   // Deliberately NOT disabled while awaiting an interrupt: a parked run is
@@ -49,18 +61,20 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
         allowedEfforts={allowedEfforts}
         disabled={disabled}
         footer={
-          <DropdownMenuCheckboxItem
-            checked={expertModels}
-            onCheckedChange={toggleExpertModels}
-            onSelect={(event) => event.preventDefault()}
-          >
-            {t("chat.effortExpertToggle")}
-          </DropdownMenuCheckboxItem>
+          developerMode ? (
+            <DropdownMenuCheckboxItem
+              checked={expertModels}
+              onCheckedChange={toggleExpertModels}
+              onSelect={(event) => event.preventDefault()}
+            >
+              {t("chat.effortExpertToggle")}
+            </DropdownMenuCheckboxItem>
+          ) : null
         }
         onChange={setEffort}
         value={effort}
       />
-      {expertModels ? (
+      {expertActive ? (
         <CopilotModelChooserControl disabled={props.disabled} />
       ) : null}
     </>

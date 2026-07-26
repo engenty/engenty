@@ -32,21 +32,26 @@ export function registerModelBindingRoutes(
     if (!scope.ok) {
       return scope.response;
     }
-    if (scope.scope.isSuperAdmin !== true) {
-      return c.json({ error: "modelBindings.superadminRequired" }, 403);
-    }
     const store = opts.getGatewayModelStore();
     if (!store) {
       return c.json({ error: "modelBindings.unconfiguredDatabase" }, 503);
     }
+    // A tenant admin cannot change a binding, but hiding it entirely is what
+    // made the effort screen unreadable: "medium" means nothing without knowing
+    // what medium runs. They get the graded roles read-only; the specialist
+    // roles stay superadmin-only because they are platform plumbing.
+    const superAdmin = scope.scope.isSuperAdmin === true;
     // Join the known role catalogue with what is actually bound, so a role that
     // has never been bound still appears — with its seed shown as the fallback.
     // Listing only bound rows would hide exactly the roles someone needs to fix.
     const bound = new Map(
       (await store.listModelBindings()).map((row) => [row.role, row])
     );
-    const roles = mergeDeclaredRoles(listRegisteredModelRoles());
+    const roles = mergeDeclaredRoles(listRegisteredModelRoles()).filter(
+      (spec) => superAdmin || spec.surface === "graded"
+    );
     return c.json({
+      editable: superAdmin,
       items: roles.map((spec) => {
         const binding = bound.get(spec.role);
         return {

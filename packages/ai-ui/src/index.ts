@@ -79,6 +79,7 @@ export {
   WorkspaceArtifactPane,
   type WorkspaceArtifactPaneProps,
 } from "./artifacts/workspace-artifact-pane.js";
+export { useDeveloperModeEnabled } from "./components/ag-ui-inspector/ag-ui-inspector-hooks.js";
 // --- Dev tooling (not embed API) ---
 export {
   AgUiAgentInspectorWidget,
