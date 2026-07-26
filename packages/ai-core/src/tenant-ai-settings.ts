@@ -13,19 +13,6 @@ export interface DocConverterTenantPrefs {
 }
 
 /**
- * Tenant realtime-voice-agent preferences (OpenAI Realtime). Consumed by the
- * `/ai` realtime session route's voice-config resolver; null fields fall back to
- * the route defaults (gpt-realtime-2 / gpt-realtime-whisper / marin).
- */
-export interface RealtimeVoiceTenantPrefs {
-  openai_model?: string | null;
-  openai_transcription_model?: string | null;
-  openai_voice?: string | null;
-  /** Only "openai" is served today; "mistral" is rejected (501) at the route. */
-  provider?: "openai" | "mistral" | null;
-}
-
-/**
  * Tenant-level caps. Budget caps (soft/hard cost, per-user) live in the usage
  * policy store, not here — this carries only the tenant-default iteration cap.
  */
@@ -117,14 +104,11 @@ function parseRealtimeVoicePrefs(
         ? provider
         : null,
     openai_model: trimmedOrNull(o.openai_model),
-    openai_transcription_model: trimmedOrNull(
-      o.openai_transcription_model
-    ),
+    openai_transcription_model: trimmedOrNull(o.openai_transcription_model),
     openai_voice: trimmedOrNull(o.openai_voice),
     // Legacy mistral_* keys are read as fallbacks for one release.
     voxtral_stt_model:
-      trimmedOrNull(o.voxtral_stt_model) ??
-      trimmedOrNull(o.mistral_stt_model),
+      trimmedOrNull(o.voxtral_stt_model) ?? trimmedOrNull(o.mistral_stt_model),
     elevenlabs_tts_model:
       trimmedOrNull(o.elevenlabs_tts_model) ??
       trimmedOrNull(o.mistral_tts_model),
@@ -135,7 +119,6 @@ function parseRealtimeVoicePrefs(
         : null,
   };
 }
-
 
 function parseCaps(raw: unknown): AiCapsConfig | null {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
