@@ -21,6 +21,7 @@ export const enterprisePackage: EntitlementPackage = {
     enforcement_mode: "observe",
     currency: "usd",
     allowed_models: null,
+    allowed_providers: null,
   },
   appLimits: { maxUsers: null, enforcement_mode: "observe" },
   pricing: {

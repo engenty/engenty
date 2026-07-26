@@ -1,4 +1,9 @@
-import type { AiUsageStore } from "@engenty/ai-core";
+import {
+  type AiUsageStore,
+  isModelAllowed,
+  isUnrestricted,
+  type ModelAllowList,
+} from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -195,25 +200,25 @@ export function registerGatewayModelRoutes(
     // mode with a non-empty allow-list, only offer legal models in the picker.
     // Observe mode / no list = unrestricted. A policy read failure never
     // narrows the catalog (fail open — the resolver still enforces at runtime).
-    let allowed: readonly string[] | null = null;
+    let grants: ModelAllowList | null = null;
     if (scope.scope.tenantId) {
       try {
         const policy = await opts
           .getUsageStore?.()
           ?.getTenantPolicy(scope.scope.tenantId);
-        if (
-          policy?.enforcement_mode === "enforce" &&
-          policy.allowed_models &&
-          policy.allowed_models.length > 0
-        ) {
-          allowed = policy.allowed_models;
+        if (policy?.enforcement_mode === "enforce" && !isUnrestricted(policy)) {
+          grants = policy;
         }
       } catch {
-        allowed = null;
+        grants = null;
       }
     }
-    const filtered = allowed
-      ? items.filter((item) => allowed?.includes(item.model_id))
+    // `item.provider` is the catalog's own column, which beats deriving the
+    // vendor from the id — that is what makes a provider grant exact.
+    const filtered = grants
+      ? items.filter((item) =>
+          isModelAllowed(item.model_id, grants, item.provider)
+        )
       : items;
     return c.json({
       items: filtered.map(modelOptionFromRecord),

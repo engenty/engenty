@@ -15,6 +15,11 @@ import { toast } from "sonner";
 import { PageState } from "@/components/PageState";
 import { formatMicros } from "@/features/packages/package-format";
 import {
+  allowListToStored,
+  formatAllowList,
+} from "@/features/entitlements/allow-list-input";
+import { formatMicros } from "@/features/packages/package-format";
+import {
   clearTenantOverride,
   type EntitlementEnforcementMode,
   setTenantOverride,
@@ -49,12 +54,14 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
   // `managed_by='entitlement'`, which the AI plane treats as read-only for the
   // tenant admin.
   const [allowDraft, setAllowDraft] = useState<string>("");
+  const [providerDraft, setProviderDraft] = useState<string>("");
   const [aiLimitDraft, setAiLimitDraft] = useState<string>("");
   const [aiModeDraft, setAiModeDraft] =
     useState<EntitlementEnforcementMode>("observe");
   useEffect(() => {
     const ai = data?.override?.aiUsagePolicy;
-    setAllowDraft((ai?.allowed_models ?? []).join(", "));
+    setAllowDraft(formatAllowList(ai?.allowed_models));
+    setProviderDraft(formatAllowList(ai?.allowed_providers));
     setAiLimitDraft(
       ai?.hard_limit_cost_micros == null
         ? ""
@@ -75,11 +82,27 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
       queryKey: ["manage", "tenants", tenantId, "entitlements"],
     });
 
+  // Every entitlement write re-materializes `ai.tenant_usage_policy`. That
+  // propagation is non-transactional, so a success toast on its own would imply
+  // enforcement changed when it may not have.
+  const reportSync = (
+    result: { policySyncError?: string; policySynced: boolean },
+    ok: string
+  ) => {
+    if (result.policySynced) {
+      toast.success(ok);
+      return;
+    }
+    toast.error(t("entitlements.policySyncFailed"), {
+      description: result.policySyncError,
+    });
+  };
+
   const assign = useMutation({
     mutationFn: (packageId: string | null) =>
       setTenantPackage(tenantId, packageId),
-    onSuccess: async () => {
-      toast.success(t("entitlements.packageSaved"));
+    onSuccess: async (result) => {
+      reportSync(result, t("entitlements.packageSaved"));
       await invalidate();
     },
     onError: (err) =>
@@ -103,8 +126,8 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
         },
       });
     },
-    onSuccess: async () => {
-      toast.success(t("entitlements.overrideSaved"));
+    onSuccess: async (result) => {
+      reportSync(result, t("entitlements.overrideSaved"));
       await invalidate();
     },
     onError: (err) =>
@@ -113,10 +136,6 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
 
   const saveAi = useMutation({
     mutationFn: () => {
-      const models = allowDraft
-        .split(/[\s,]+/)
-        .map((m) => m.trim())
-        .filter(Boolean);
       const limitTrimmed = aiLimitDraft.trim();
       const dollars =
         limitTrimmed === "" ? null : Number.parseFloat(limitTrimmed);
@@ -129,14 +148,15 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
         ...base,
         aiUsagePolicy: {
           ...base.aiUsagePolicy,
-          allowed_models: models.length > 0 ? models : null,
+          allowed_models: allowListToStored(allowDraft),
+          allowed_providers: allowListToStored(providerDraft),
           hard_limit_cost_micros: hardMicros,
           enforcement_mode: aiModeDraft,
         },
       });
     },
-    onSuccess: async () => {
-      toast.success(t("entitlements.overrideSaved"));
+    onSuccess: async (result) => {
+      reportSync(result, t("entitlements.overrideSaved"));
       await invalidate();
     },
     onError: (err) =>
@@ -145,8 +165,8 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
 
   const clearOverride = useMutation({
     mutationFn: () => clearTenantOverride(tenantId),
-    onSuccess: async () => {
-      toast.success(t("entitlements.overrideCleared"));
+    onSuccess: async (result) => {
+      reportSync(result, t("entitlements.overrideCleared"));
       await invalidate();
     },
     onError: (err) =>
@@ -303,6 +323,23 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
                   />
                   <p className="text-muted-foreground text-xs">
                     {t("entitlements.aiAllowListHint")}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label
+                    className="text-muted-foreground text-xs"
+                    htmlFor="ai-providerlist"
+                  >
+                    {t("entitlements.aiProviderList")}
+                  </label>
+                  <Input
+                    id="ai-providerlist"
+                    onChange={(e) => setProviderDraft(e.target.value)}
+                    placeholder="anthropic, openai"
+                    value={providerDraft}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    {t("entitlements.aiProviderListHint")}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">

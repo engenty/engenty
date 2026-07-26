@@ -394,6 +394,14 @@ export {
   type UsageLimitType,
 } from "./usage/limit-check.js";
 export {
+  canonicalModelId,
+  firstAllowedModelId,
+  isModelAllowed,
+  isUnrestricted,
+  type ModelAllowList,
+  providerOfModelId,
+} from "./usage/model-allow-list.js";
+export {
   type ResolvedPeriod,
   resolveCurrentPeriod,
 } from "./usage/period.js";

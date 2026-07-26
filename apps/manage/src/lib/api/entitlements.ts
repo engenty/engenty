@@ -4,6 +4,8 @@ export type EntitlementEnforcementMode = "observe" | "enforce";
 
 export interface EntitlementAiUsagePolicy {
   allowed_models: string[] | null;
+  /** Provider allow-list; additive with allowed_models. null/empty = any. */
+  allowed_providers: string[] | null;
   currency: string;
   enforcement_mode: EntitlementEnforcementMode;
   hard_limit_cost_micros: number | null;
@@ -86,26 +88,60 @@ export function getTenantEntitlements(tenantId: string, signal?: AbortSignal) {
   );
 }
 
+/**
+ * Assigning a package re-materializes `ai.tenant_usage_policy`. That propagation
+ * used to fail silently, leaving the tenant on a stale allow-list while the UI
+ * showed the new plan — `policySynced` is how the caller can tell.
+ */
 export function setTenantPackage(tenantId: string, packageId: string | null) {
-  return request<{ tenantId: string; packageId: string | null }>(
-    `/api/superadmin/tenants/${encodeURIComponent(tenantId)}/package`,
-    { method: "PUT", body: { packageId } }
-  );
+  return request<{
+    packageId: string | null;
+    policySyncError?: string;
+    policySynced: boolean;
+    tenantId: string;
+  }>(`/api/superadmin/tenants/${encodeURIComponent(tenantId)}/package`, {
+    method: "PUT",
+    body: { packageId },
+  });
 }
 
 export function setTenantOverride(
   tenantId: string,
   override: EntitlementOverride
 ) {
-  return request<{ tenantId: string; override: EntitlementOverride }>(
+  return request<{
+    override: EntitlementOverride;
+    policySyncError?: string;
+    policySynced: boolean;
+    tenantId: string;
+  }>(
     `/api/superadmin/tenants/${encodeURIComponent(tenantId)}/entitlement-override`,
     { method: "PUT", body: override }
   );
 }
 
 export function clearTenantOverride(tenantId: string) {
-  return request<{ tenantId: string; cleared: boolean }>(
+  return request<{
+    cleared: boolean;
+    policySyncError?: string;
+    policySynced: boolean;
+    tenantId: string;
+  }>(
     `/api/superadmin/tenants/${encodeURIComponent(tenantId)}/entitlement-override`,
     { method: "DELETE" }
   );
+}
+
+/**
+ * Roll a package's current policy out to every tenant already on it. Editing a
+ * package otherwise only affects tenants assigned to it afterwards.
+ */
+export function reapplyPackagePolicies(packageId: string) {
+  return request<{
+    failures: { message: string; tenantId: string }[];
+    packageId: string;
+    reapplied: number;
+  }>(`/api/superadmin/packages/${encodeURIComponent(packageId)}/reapply`, {
+    method: "POST",
+  });
 }

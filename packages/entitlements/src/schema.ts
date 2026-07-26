@@ -19,6 +19,7 @@ export const aiUsagePolicySchema = z.object({
   enforcement_mode: enforcementMode,
   currency: z.string().min(1),
   allowed_models: z.array(z.string()).nullable(),
+  allowed_providers: z.array(z.string()).nullable(),
 });
 
 export const appLimitsSchema = z.object({

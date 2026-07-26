@@ -23,8 +23,15 @@ export type EntitlementEnforcementMode = "observe" | "enforce";
  * The free-text `tier` on that record is superseded by the package id.
  */
 export interface EntitlementAiUsagePolicy {
-  /** Model allow-list; null = all models permitted. */
+  /** Model allow-list; null/empty = all models permitted. */
   allowed_models: string[] | null;
+  /**
+   * Provider allow-list matched against `ai.gateway_model.provider`; null/empty
+   * = all providers permitted. Additive with {@link allowed_models}: a model is
+   * legal if it matches either list, so a vendor grant needs no per-model
+   * upkeep when that vendor ships something new.
+   */
+  allowed_providers: string[] | null;
   currency: string;
   enforcement_mode: EntitlementEnforcementMode;
   /** Hard cap; requests blocked past this in `enforce` mode. null = none. */

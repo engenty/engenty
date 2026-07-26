@@ -36,6 +36,7 @@ function createStatefulDal(): PackagesDal {
 
   return {
     applyAiUsagePolicy: async () => {},
+    reapplyPackagePolicies: async () => ({ failures: [], reapplied: 0 }),
     listPackages: async () => [...catalog],
     getPackage: async (id) => findPkg(id),
     syncCatalog: async () => ({ upserted: 0 }),

@@ -1,6 +1,7 @@
 import type { NavigationSection } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
+  BrainCircuit,
   KeyRound,
   LayoutGrid,
   Package,
@@ -74,6 +75,11 @@ export function useManageSections(): NavigationSection[] {
           icon: Search,
           label: t("navigation.searchIndex"),
           to: "/search-index",
+        },
+        {
+          icon: BrainCircuit,
+          label: t("navigation.aiModels"),
+          to: "/ai-models",
         },
       ],
     },

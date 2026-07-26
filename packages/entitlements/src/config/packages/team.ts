@@ -27,6 +27,7 @@ export const teamPackage: EntitlementPackage = {
     enforcement_mode: "enforce",
     currency: "usd",
     allowed_models: null,
+    allowed_providers: null,
   },
   appLimits: { maxUsers: 25, enforcement_mode: "enforce" },
   pricing: {

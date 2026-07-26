@@ -139,7 +139,10 @@ function makeDynamicAssembler(
 }
 
 describe("AI session usage metering", () => {
-  it("blocks generation when usage policy denies the model", async () => {
+  it("runs on a granted model when the platform default is denied", async () => {
+    // The tenant granted `openai/other-model`. Resolution must land on it
+    // rather than on the platform default: returning the default unchecked made
+    // the preflight reject every turn, bricking the tenant with no way out.
     const usageStore = makeUsageStore({
       getTenantPolicy: vi.fn(async () => ({
         tenant_id: tenantId,
@@ -153,6 +156,46 @@ describe("AI session usage metering", () => {
         hard_limit_cost_micros: null,
         soft_limit_cost_micros: null,
         allowed_models: ["openai/other-model"],
+        allowed_providers: null,
+        enforcement_mode: "enforce",
+        currency: "usd",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      })),
+    });
+    const harness = createAiService({
+      assembleDynamicAgent: makeDynamicAssembler({ text: "ok" }),
+      getStore: () => makeSessionStore(),
+      getUsageStore: () => usageStore,
+      mastra: {} as never,
+    });
+
+    await expect(
+      harness.sessions.generate({
+        scope: { tenantId, userId },
+        threadId,
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("blocks generation when no granted model can be substituted", async () => {
+    // A provider-only grant that excludes the default leaves the resolver with
+    // no id to name — the preflight is the last line of defence and must still
+    // reject rather than run an unlicensed model.
+    const usageStore = makeUsageStore({
+      getTenantPolicy: vi.fn(async () => ({
+        tenant_id: tenantId,
+        tier: "test",
+        period_mode: "calendar",
+        period_unit: "month",
+        period_anchor: null,
+        included_input_tokens: null,
+        included_output_tokens: null,
+        included_cost_micros: null,
+        hard_limit_cost_micros: null,
+        soft_limit_cost_micros: null,
+        allowed_models: null,
+        allowed_providers: ["some-other-vendor"],
         enforcement_mode: "enforce",
         currency: "usd",
         created_at: "2026-01-01T00:00:00Z",
