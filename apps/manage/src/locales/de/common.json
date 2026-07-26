@@ -447,6 +447,13 @@
     "columns": {
       "key": "Schlüssel",
       "value": "Wert"
+    },
+    "environment": {
+      "menuLabel": "Umgebung"
+    },
+    "setup": {
+      "menuLabel": "Plattform-Einstellungen",
+      "intro": "Installationsweite Schlüssel und Anmeldedaten. Werte hier überschreiben die entsprechenden Umgebungsvariablen für alle Mandanten. Geheimnisse werden verschlüsselt gespeichert und nie erneut angezeigt."
     }
   },
   "searchIndex": {

@@ -13,6 +13,7 @@ import { PackagesListPage } from "@/pages/packages/PackagesListPage";
 import { SatellitesListPage } from "@/pages/satellites/SatellitesListPage";
 import { SearchIndexPage } from "@/pages/search-index/SearchIndexPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { SetupPage } from "@/pages/settings/SetupPage";
 import { TenantDetailPage } from "@/pages/tenants/TenantDetailPage";
 import { TenantEditPage } from "@/pages/tenants/TenantEditPage";
 import { TenantsListPage } from "@/pages/tenants/TenantsListPage";
@@ -39,7 +40,12 @@ export function ManageRoutes() {
       <Route element={<LogsPage />} path="/logs" />
       <Route element={<AuditPage />} path="/audit" />
       <Route element={<ApprovalsPage />} path="/approvals" />
-      <Route element={<SettingsPage />} path="/settings" />
+      <Route
+        element={<Navigate replace to="/settings/environment" />}
+        path="/settings"
+      />
+      <Route element={<SettingsPage />} path="/settings/environment" />
+      <Route element={<SetupPage />} path="/settings/setup" />
       <Route element={<SearchIndexPage />} path="/search-index" />
       <Route element={<AiModelsPage />} path="/ai-models" />
       <Route
