@@ -127,6 +127,13 @@
       "noData": "No data"
     }
   },
+  "setup": {
+    "overviewDescription": "Installation-wide configuration for this Engenty instance.",
+    "platformDescription": "Keys, credentials, and platform defaults.",
+    "pluginsDescription": "Activate and configure plugins for the install.",
+    "rolesDescription": "Roles, capabilities, and assignments.",
+    "connectorsDescription": "Import and manage external connectors."
+  },
   "plugins": {
     "title": "Plugins",
     "description": "List, inspect, and activate or deactivate plugins. Changes require API runtime restart.",

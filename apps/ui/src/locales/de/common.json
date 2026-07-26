@@ -127,6 +127,13 @@
       "noData": "Keine Daten"
     }
   },
+  "setup": {
+    "overviewDescription": "Installationsweite Konfiguration für diese Engenty-Instanz.",
+    "platformDescription": "Schlüssel, Zugangsdaten und Plattform-Standards.",
+    "pluginsDescription": "Plugins für die Installation aktivieren und konfigurieren.",
+    "rolesDescription": "Rollen, Capabilities und Zuweisungen.",
+    "connectorsDescription": "Externe Connectors importieren und verwalten."
+  },
   "plugins": {
     "title": "Plugins",
     "description": "Plugins anzeigen, inspizieren, aktivieren oder deaktivieren. Änderungen erfordern API-Neustart.",
