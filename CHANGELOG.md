@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.76] - 2026-07-26
+- ADDED **[kb-filesystem-sync]** Migrate KB filesystem sync module from legacy repo
+- ADDED **[doc-converter]** Add Mistral OCR as a document extraction provider
+- FIXED **[manage]** Unify money formatting to Intl.NumberFormat + pin test locale
+- FIXED **[app-host]** Stub deployApp so runtime guard tests need no Rivet engine
+
 ## [0.1.75] - 2026-07-26
 - ADDED **[ai-ui]** Open work files in the chat-style artifact pane
 - ADDED **[tasks]** Move routine actions into the topbar
