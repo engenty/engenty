@@ -83,6 +83,101 @@ describe("bundleFrontend", () => {
     expect(html).toContain("app_action");
   });
 
+  /**
+   * Run a bundle against a fake host so assertions are about what the App
+   * actually receives, not about strings in the output.
+   */
+  async function runAgainstFakeHost(appSource: string) {
+    const { html } = await bundleFrontend({
+      entry: "main.ts",
+      files: { "main.ts": appSource },
+      title: "Store",
+    });
+    const posted: Record<string, unknown>[] = [];
+    const listeners: ((event: { data: unknown }) => void)[] = [];
+    const sink: { value?: unknown } = {};
+    const source = html.slice(
+      html.indexOf("<script>") + "<script>".length,
+      html.lastIndexOf("</script>")
+    );
+    // `sink` stays a free variable in the bundle and binds to this parameter.
+    new Function(
+      "window",
+      "parent",
+      "sink",
+      source
+    )(
+      {
+        addEventListener: (
+          _type: string,
+          fn: (event: { data: unknown }) => void
+        ) => listeners.push(fn),
+      },
+      {
+        postMessage: (message: Record<string, unknown>) => posted.push(message),
+      },
+      sink
+    );
+    const reply = (result: unknown) => {
+      const request = posted.find((m) => m.method === "tools/call");
+      for (const listener of listeners) {
+        listener({ data: { jsonrpc: "2.0", id: request?.id, result } });
+      }
+    };
+    return { posted, reply, sink };
+  }
+
+  it("hands an App its value, not the store's envelope", async () => {
+    const { posted, reply, sink } = await runAgainstFakeHost(
+      `import { data } from "engenty:bridge";
+       data.get("todos").then((value) => { sink.value = value; });`
+    );
+
+    // The App announced itself, which is what makes the host push initial data.
+    expect(posted.some((m) => m.method === "ui/notifications/initialized")).toBe(
+      true
+    );
+    const call = posted.find((m) => m.method === "tools/call");
+    expect((call?.params as { name: string }).name).toBe("data_get");
+
+    // app_data_get answers { key, value, updated_at }. Handing that straight to
+    // the App means `Array.isArray(saved)` is false and the list silently
+    // renders empty — which is exactly what happened in the browser.
+    reply({ key: "todos", updated_at: "2026-07-26T00:00:00Z", value: [1, 2] });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sink.value).toEqual([1, 2]);
+  });
+
+  it("hands an App the entries array from a list", async () => {
+    const { reply, sink } = await runAgainstFakeHost(
+      `import { config } from "engenty:bridge";
+       config.list("pref.").then((entries) => { sink.value = entries; });`
+    );
+
+    reply({ entries: [{ key: "pref.currency", scope: "user", value: "EUR" }] });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sink.value).toEqual([
+      { key: "pref.currency", scope: "user", value: "EUR" },
+    ]);
+  });
+
+  it("reads a missing key as undefined rather than an empty envelope", async () => {
+    const { reply, sink } = await runAgainstFakeHost(
+      `import { data } from "engenty:bridge";
+       data.get("absent").then((value) => { sink.value = value === undefined ? "undefined" : value; });`
+    );
+
+    reply({});
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sink.value).toBe("undefined");
+  });
+
   it("reports a syntax error with file and line", async () => {
     const failure = await bundleFrontend({
       entry: "main.tsx",

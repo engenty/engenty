@@ -166,17 +166,34 @@ export function action(id, input) {
   return call("app_action", { action: id, input: input || {} });
 }
 
+// The store operations answer with an envelope — { key, value, updated_at } for
+// a read, { entries: [...] } for a list. Unwrapping here is the whole point of
+// the bridge: otherwise every App re-learns the envelope, and an App that
+// forgets silently reads an object where it expected its value.
+const unwrapValue = (result) =>
+  result && typeof result === "object" && "value" in result
+    ? result.value
+    : undefined;
+const unwrapEntries = (result) =>
+  result && Array.isArray(result.entries) ? result.entries : [];
+
 export const data = {
-  get: (key) => call("data_get", { key }),
+  get: (key) => call("data_get", { key }).then(unwrapValue),
   set: (key, value) => call("data_set", { key, value }),
-  list: (prefix) => call("data_list", prefix === undefined ? {} : { prefix }),
+  list: (prefix) =>
+    call("data_list", prefix === undefined ? {} : { prefix }).then(
+      unwrapEntries,
+    ),
   delete: (key) => call("data_delete", { key }),
 };
 
 export const config = {
-  get: (key) => call("config_get", { key }),
+  get: (key) => call("config_get", { key }).then(unwrapValue),
   set: (key, value) => call("config_set", { key, value }),
-  list: (prefix) => call("config_list", prefix === undefined ? {} : { prefix }),
+  list: (prefix) =>
+    call("config_list", prefix === undefined ? {} : { prefix }).then(
+      unwrapEntries,
+    ),
   delete: (key) => call("config_delete", { key }),
 };
 
