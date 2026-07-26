@@ -5,8 +5,11 @@ import {
 } from "./catalog.js";
 import {
   checkSeatLimit,
+  FREE_AI_USAGE_POLICY,
   FREE_ENTITLEMENTS,
   isModuleLicensed,
+  normalizeAiUsagePolicy,
+  normalizeEntitlementPackage,
   resolveEntitlements,
 } from "./resolver.js";
 import { parseEntitlementOverride } from "./schema.js";
@@ -134,5 +137,44 @@ describe("parseEntitlementOverride", () => {
     expect(() =>
       parseEntitlementOverride({ appLimits: { enforcement_mode: "nope" } })
     ).toThrow();
+  });
+});
+
+describe("normalizeAiUsagePolicy", () => {
+  it("defaults missing allow-list fields to null", () => {
+    const normalized = normalizeAiUsagePolicy({
+      period_mode: "calendar",
+      period_unit: "month",
+      included_cost_micros: 1,
+      hard_limit_cost_micros: 2,
+      soft_limit_cost_micros: null,
+      enforcement_mode: "enforce",
+      currency: "usd",
+      allowed_models: null,
+      allowed_providers: null,
+      // allowed_efforts intentionally omitted (legacy DB rows)
+    });
+    expect(normalized.allowed_efforts).toBeNull();
+    expect(normalized.hard_limit_cost_micros).toBe(2);
+  });
+
+  it("fills a completely missing policy from the free default", () => {
+    expect(normalizeAiUsagePolicy(undefined)).toEqual(FREE_AI_USAGE_POLICY);
+  });
+});
+
+describe("normalizeEntitlementPackage", () => {
+  it("tolerates legacy packages without allowed_efforts", () => {
+    const legacy = {
+      ...team,
+      aiUsagePolicy: {
+        ...team.aiUsagePolicy,
+        allowed_efforts: undefined as unknown as null,
+      },
+    };
+    const normalized = normalizeEntitlementPackage(legacy);
+    expect(normalized.aiUsagePolicy.allowed_efforts).toBeNull();
+    const resolved = resolveEntitlements(normalized);
+    expect(resolved.aiUsagePolicy.allowed_efforts).toBeNull();
   });
 });

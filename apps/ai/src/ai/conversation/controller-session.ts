@@ -71,7 +71,7 @@ export interface CreateConversationSessionInput {
  * visibility to the model would be a behaviour change rather than a fix.
  * Bounded by user count, not by run count.
  */
-function placeholderSessionWorkspace(userId: string): Workspace {
+export function placeholderSessionWorkspace(userId: string): Workspace {
   // The id comes from a verified token, but this builds a path — keep it to
   // characters that cannot escape the base directory.
   const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_") || "unknown";

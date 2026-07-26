@@ -69,6 +69,8 @@ export const WorkspaceContextSchema = z.object({
     })
   ),
   canSwitchTenant: z.boolean(),
+  /** Commercial package label, or "local" when none is assigned. */
+  planLabel: z.string(),
   resolvedAppearance: ResolvedAppearanceSchema,
   tenantRole: TenantRoleSchema.nullable(),
   tenantSupportedLocales: z.array(z.string()),

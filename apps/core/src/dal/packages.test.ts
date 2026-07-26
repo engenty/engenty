@@ -22,6 +22,7 @@ function pkg(id: string, version: number): EntitlementPackage {
       currency: "usd",
       allowed_models: null,
       allowed_providers: null,
+      allowed_efforts: null,
     },
     appLimits: { maxUsers: null, enforcement_mode: "observe" },
   };

@@ -514,6 +514,8 @@ export interface WorkspaceContextResponse {
   isSuperAdmin: boolean;
   isTenantAdmin: boolean;
   onboarded: boolean;
+  /** Commercial package label, or "local" when none is assigned. */
+  planLabel: string;
   resolvedAppearance: ResolvedAppearance;
   /** BCP-47 tags from tenant `i18n.supported_locales` (comma-separated); defaults `en`,`de`. */
   tenantRole: "admin" | "member" | null;

@@ -332,7 +332,7 @@ function App() {
               sections={sections}
               shell={{
                 appTitle: t("sidebar.brand"),
-                appSubtitle: t("sidebar.plan"),
+                appSubtitle: workspaceContext.planLabel || t("sidebar.plan"),
                 searchPlaceholder: t("sidebar.search", {
                   context: "placeholder",
                 }),
@@ -364,7 +364,7 @@ function App() {
                   },
                   brandLabel: brandName,
                   logoUrl: brandLogoUrl,
-                  planLabel: t("sidebar.plan"),
+                  planLabel: workspaceContext.planLabel || t("sidebar.plan"),
                   noTenantLabel: t("sidebar.tenantSwitcher.noTenant"),
                   switchTenantAriaLabel: t("sidebar.appMenu.aria"),
                   appVersion,
@@ -387,8 +387,11 @@ function App() {
             </AppLayout>
             <AboutDialog
               brandLabel={t("sidebar.brand")}
+              logoUrl={brandLogoUrl}
               onOpenChange={setAboutOpen}
               open={aboutOpen}
+              planLabel={workspaceContext.planLabel || t("sidebar.plan")}
+              tenantName={workspaceContext.currentTenant?.name}
               version={appVersion}
             />
             <AgUiAgentInspectorWidget serviceBaseUrl={aiServiceBaseUrl} />

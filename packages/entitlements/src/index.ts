@@ -18,6 +18,9 @@ export {
   FREE_APP_LIMITS,
   FREE_ENTITLEMENTS,
   isModuleLicensed,
+  normalizeAiUsagePolicy,
+  normalizeAppLimits,
+  normalizeEntitlementPackage,
   resolveEntitlements,
   type SeatCheckResult,
 } from "./resolver.js";

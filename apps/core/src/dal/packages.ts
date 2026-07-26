@@ -2,6 +2,7 @@ import {
   DEFAULT_ENTITLEMENT_PACKAGES,
   type EntitlementOverride,
   type EntitlementPackage,
+  normalizeEntitlementPackage,
   type ResolvedEntitlements,
   resolveEntitlements,
 } from "@engenty/entitlements";
@@ -66,9 +67,9 @@ export interface PackagesDal {
 }
 
 interface PackageRow {
-  ai_usage_policy: EntitlementPackage["aiUsagePolicy"];
-  app_limits: EntitlementPackage["appLimits"];
-  feature_flags: Record<string, boolean>;
+  ai_usage_policy: Partial<EntitlementPackage["aiUsagePolicy"]> | null;
+  app_limits: Partial<EntitlementPackage["appLimits"]> | null;
+  feature_flags: Record<string, boolean> | null;
   id: string;
   label: string;
   modules: string[] | null;
@@ -77,7 +78,7 @@ interface PackageRow {
 }
 
 function rowToPackage(row: PackageRow): EntitlementPackage {
-  return {
+  return normalizeEntitlementPackage({
     id: row.id,
     version: row.version,
     label: row.label,
@@ -86,7 +87,7 @@ function rowToPackage(row: PackageRow): EntitlementPackage {
     aiUsagePolicy: row.ai_usage_policy,
     appLimits: row.app_limits,
     ...(row.pricing ? { pricing: row.pricing } : {}),
-  };
+  });
 }
 
 function packageToRow(pkg: EntitlementPackage): PackageRow & {

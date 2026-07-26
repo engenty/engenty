@@ -59,6 +59,53 @@ export const FREE_APP_LIMITS: EntitlementAppLimits = {
 };
 
 /**
+ * Fill missing AI-policy fields (e.g. older `core.packages` JSON that predate
+ * `allowed_efforts`) so callers never see `undefined` on required keys.
+ */
+export function normalizeAiUsagePolicy(
+  policy: Partial<EntitlementAiUsagePolicy> | null | undefined
+): EntitlementAiUsagePolicy {
+  return {
+    ...FREE_AI_USAGE_POLICY,
+    ...policy,
+    allowed_models: policy?.allowed_models ?? null,
+    allowed_providers: policy?.allowed_providers ?? null,
+    allowed_efforts: policy?.allowed_efforts ?? null,
+  };
+}
+
+/** Same as {@link normalizeAiUsagePolicy} for seat limits. */
+export function normalizeAppLimits(
+  limits: Partial<EntitlementAppLimits> | null | undefined
+): EntitlementAppLimits {
+  return {
+    ...FREE_APP_LIMITS,
+    ...limits,
+    maxUsers: limits?.maxUsers ?? null,
+  };
+}
+
+/** Normalize a package row read from storage / the wire. */
+export function normalizeEntitlementPackage(
+  pkg: Omit<
+    EntitlementPackage,
+    "aiUsagePolicy" | "appLimits" | "featureFlags"
+  > & {
+    aiUsagePolicy?: Partial<EntitlementAiUsagePolicy> | null;
+    appLimits?: Partial<EntitlementAppLimits> | null;
+    featureFlags?: Record<string, boolean> | null;
+  }
+): EntitlementPackage {
+  return {
+    ...pkg,
+    modules: pkg.modules ?? null,
+    featureFlags: pkg.featureFlags ?? {},
+    aiUsagePolicy: normalizeAiUsagePolicy(pkg.aiUsagePolicy),
+    appLimits: normalizeAppLimits(pkg.appLimits),
+  };
+}
+
+/**
  * Resolved entitlements for a tenant with no assigned package: all modules
  * allowed, no package flags, observe-only policies. The starting point that a
  * package (and then an override) narrows.
@@ -90,10 +137,10 @@ export function resolveEntitlements(
   const base: ResolvedEntitlements = pkg
     ? {
         packageId: pkg.id,
-        modules: pkg.modules,
-        featureFlags: { ...pkg.featureFlags },
-        aiUsagePolicy: { ...pkg.aiUsagePolicy },
-        appLimits: { ...pkg.appLimits },
+        modules: pkg.modules ?? null,
+        featureFlags: { ...(pkg.featureFlags ?? {}) },
+        aiUsagePolicy: normalizeAiUsagePolicy(pkg.aiUsagePolicy),
+        appLimits: normalizeAppLimits(pkg.appLimits),
       }
     : {
         packageId: null,
@@ -111,8 +158,14 @@ export function resolveEntitlements(
     packageId: base.packageId,
     modules: override.modules === undefined ? base.modules : override.modules,
     featureFlags: { ...base.featureFlags, ...override.featureFlags },
-    aiUsagePolicy: { ...base.aiUsagePolicy, ...override.aiUsagePolicy },
-    appLimits: { ...base.appLimits, ...override.appLimits },
+    aiUsagePolicy: normalizeAiUsagePolicy({
+      ...base.aiUsagePolicy,
+      ...override.aiUsagePolicy,
+    }),
+    appLimits: normalizeAppLimits({
+      ...base.appLimits,
+      ...override.appLimits,
+    }),
   };
 }
 

@@ -56,6 +56,8 @@ export interface CoreUsersDal {
     currentTenant: { id: string; slug: string; name: string } | null;
     tenants: Array<{ id: string; slug: string; name: string }>;
     canSwitchTenant: boolean;
+    /** Commercial package label, or "local" when none is assigned. */
+    planLabel: string;
     resolvedAppearance: {
       font: string;
       fontSize: string;
