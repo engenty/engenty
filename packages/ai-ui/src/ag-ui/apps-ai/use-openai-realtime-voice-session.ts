@@ -15,6 +15,7 @@ import type {
   ConnectOpenAiRealtimeWebRtcOptions,
   OpenAiRealtimeWebRtcConnection,
 } from "./openai-realtime-webrtc.js";
+import { createOpenAiResponseGate } from "./openai-response-gate.js";
 import {
   type RealtimeVoiceToolCallRequest,
   type RealtimeVoiceToolDefinition,
@@ -83,14 +84,15 @@ function legacyOpenAiConnectAsTransport(
     tools = [],
     ...options
   }: ConnectRealtimeVoiceTransportOptions) => {
+    const gate = createOpenAiResponseGate();
     const connection = await connect({
       ...options,
       clientEvents: [
         ...(options.clientEvents ?? []),
         ...openAiRealtimeVoiceSessionToolEvents(tools),
       ],
-      onEvent: openAiRawEventHandler(options.onEvent, onVoiceEvent),
+      onEvent: openAiRawEventHandler(options.onEvent, onVoiceEvent, gate),
     });
-    return openAiConnectionAsTransport(connection);
+    return openAiConnectionAsTransport(connection, gate);
   };
 }

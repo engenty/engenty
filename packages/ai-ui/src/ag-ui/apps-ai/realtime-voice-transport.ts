@@ -8,6 +8,10 @@ import {
   connectOpenAiRealtimeWebRtc,
   type OpenAiRealtimeWebRtcConnection,
 } from "./openai-realtime-webrtc.js";
+import {
+  createOpenAiResponseGate,
+  type OpenAiResponseGate,
+} from "./openai-response-gate.js";
 import { createAppsAiRealtimeSession } from "./realtime-session.js";
 import { connectServerCascadeTransport } from "./realtime-voice-cascade-transport.js";
 import type {
@@ -42,24 +46,27 @@ export async function connectRealtimeVoiceTransport({
       signal: options.signal,
     });
   }
+  const gate = createOpenAiResponseGate();
   const connection = await connectOpenAiRealtimeWebRtc({
     ...options,
     clientEvents: [
       ...(options.clientEvents ?? []),
       ...openAiRealtimeVoiceSessionToolEvents(tools),
     ],
-    onEvent: openAiRawEventHandler(options.onEvent, onVoiceEvent),
+    onEvent: openAiRawEventHandler(options.onEvent, onVoiceEvent, gate),
     session,
   });
-  return openAiConnectionAsTransport(connection);
+  return openAiConnectionAsTransport(connection, gate);
 }
 
 export function openAiRawEventHandler(
   onEvent: ((event: unknown) => void) | undefined,
-  onVoiceEvent: ((event: RealtimeVoiceEvent) => void) | undefined
+  onVoiceEvent: ((event: RealtimeVoiceEvent) => void) | undefined,
+  gate?: OpenAiResponseGate
 ): (event: unknown) => void {
   return (event) => {
     onEvent?.(event);
+    gate?.observe(event);
     if (!onVoiceEvent) {
       return;
     }
@@ -73,16 +80,26 @@ export function openAiConnectionAsTransport(
   connection: Pick<
     OpenAiRealtimeWebRtcConnection,
     "disconnect" | "remoteAudio" | "sendEvent" | "setMuted"
-  >
+  >,
+  gate?: OpenAiResponseGate
 ): RealtimeVoiceTransport {
+  gate?.attach((event) => connection.sendEvent(event));
   return {
-    disconnect: () => connection.disconnect(),
+    disconnect: () => {
+      gate?.reset();
+      connection.disconnect();
+    },
     remoteAudio: connection.remoteAudio,
     sendEvent: (event) => connection.sendEvent(event),
     sendToolOutput: (callId, output) => {
-      for (const event of openAiRealtimeVoiceToolOutputEvents(callId, output)) {
+      for (const event of openAiRealtimeVoiceToolOutputEvents(callId, output, {
+        // The gate owns response.create so a tool result never collides with
+        // an in-flight assistant response.
+        includeResponseCreate: !gate,
+      })) {
         connection.sendEvent(event);
       }
+      gate?.request();
     },
     setMuted: (muted) => connection.setMuted(muted),
   };

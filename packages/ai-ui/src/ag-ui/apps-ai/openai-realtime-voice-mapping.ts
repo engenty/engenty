@@ -176,12 +176,17 @@ export function openAiRealtimeVoiceSessionToolEvents(
   ];
 }
 
-/** OpenAI client events that return a tool result and resume the turn. */
+/**
+ * OpenAI client events that return a tool result and resume the turn. Callers
+ * that own response scheduling (see `createOpenAiResponseGate`) pass
+ * `includeResponseCreate: false` and request the turn themselves.
+ */
 export function openAiRealtimeVoiceToolOutputEvents(
   callId: string,
-  output: unknown
+  output: unknown,
+  options: { includeResponseCreate?: boolean } = {}
 ): readonly unknown[] {
-  return [
+  const events: unknown[] = [
     {
       item: {
         call_id: callId,
@@ -190,8 +195,11 @@ export function openAiRealtimeVoiceToolOutputEvents(
       },
       type: "conversation.item.create",
     },
-    { type: "response.create" },
   ];
+  if (options.includeResponseCreate !== false) {
+    events.push({ type: "response.create" });
+  }
+  return events;
 }
 
 /** Map one raw OpenAI realtime event onto normalized voice events. */
@@ -212,10 +220,14 @@ export function openAiEventsToRealtimeVoiceEvents(
   }
   const status = realtimeVoiceStatusFromOpenAiEvent(event);
   if (status === "error") {
-    events.push({
-      type: "error",
-      message: readOpenAiRealtimeErrorMessage(event),
-    });
+    // Recoverable server errors leave the data channel and audio up — surfacing
+    // them would tear down a live conversation over a refused duplicate request.
+    if (!isRecoverableOpenAiRealtimeError(event)) {
+      events.push({
+        type: "error",
+        message: readOpenAiRealtimeErrorMessage(event),
+      });
+    }
   } else if (status === "speaking" || status === "listening") {
     events.push({ type: "status", status });
   }
@@ -229,6 +241,24 @@ function isOpenAiRealtimeEventType(event: unknown, type: string): boolean {
     "type" in event &&
     event.type === type
   );
+}
+
+// Server error codes the session survives: the call stays fully usable.
+const RECOVERABLE_REALTIME_ERROR_CODES = new Set([
+  "conversation_already_has_active_response",
+  "response_cancel_not_active",
+]);
+
+function isRecoverableOpenAiRealtimeError(event: unknown): boolean {
+  if (!(event && typeof event === "object")) {
+    return false;
+  }
+  const error = (event as Record<string, unknown>).error;
+  if (!(error && typeof error === "object")) {
+    return false;
+  }
+  const code = (error as Record<string, unknown>).code;
+  return typeof code === "string" && RECOVERABLE_REALTIME_ERROR_CODES.has(code);
 }
 
 function readOpenAiRealtimeErrorMessage(event: unknown): string {
