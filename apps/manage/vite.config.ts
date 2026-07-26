@@ -4,7 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 // Single source of truth for service ports (apps/ports.config.mjs). Manage binds
-// `ports.manage` (5174) and proxies /api,/gateway to wherever core resolves.
+// `ports.manage` (5174), proxies /api,/gateway to wherever core resolves, and
+// /ai to the AI service.
 import { ports } from "../ports.config.mjs";
 
 const appRoot = path.resolve(import.meta.dirname, ".");
@@ -116,6 +117,13 @@ export default defineConfig(({ command }) => {
         },
         "/gateway": {
           target: `http://127.0.0.1:${ports.core}`,
+          changeOrigin: true,
+        },
+        // Superadmin AI-plane surfaces (gateway model catalog, usage policy)
+        // live on the AI service. In prod the gateway routes /ai/* there for
+        // us; in dev nothing did, so those calls 404'd.
+        "/ai": {
+          target: `http://127.0.0.1:${ports.ai}`,
           changeOrigin: true,
         },
       },

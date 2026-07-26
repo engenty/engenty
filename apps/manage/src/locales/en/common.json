@@ -28,7 +28,8 @@
     "audit": "Audit",
     "approvals": "Approvals",
     "settings": "Settings",
-    "searchIndex": "Search index"
+    "searchIndex": "Search index",
+    "aiModels": "AI models"
   },
   "common": {
     "save": "Save",
@@ -287,7 +288,7 @@
       "enforce": "Enforce"
     },
     "detail": {
-      "authoredHint": "Packages are defined in code and synced to the catalog. Assign them to tenants from the tenant detail page.",
+      "authoredHint": "Packages are seeded from code when missing, then managed here. Assign them to tenants from the tenant detail page.",
       "limits": "App limits",
       "seatsEnforcement": "Seats enforcement",
       "ai": "AI usage",
@@ -300,7 +301,13 @@
       "featureFlags": "Feature flags",
       "noFeatureFlags": "No feature flags in this package.",
       "flagKey": "Flag",
-      "flagValue": "Value"
+      "flagValue": "Value",
+      "allowedProviders": "Allowed providers",
+      "allProviders": "All providers",
+      "reapply": "Re-apply to tenants",
+      "reapplyHint": "Tenants already on this package keep their current policy until re-applied.",
+      "reapplyDone": "Re-applied to {{count}} tenants",
+      "reapplyPartial": "Re-applied to {{count}} tenants, {{failed}} failed"
     }
   },
   "entitlements": {
@@ -323,7 +330,10 @@
     "aiAllowList": "Model allow-list",
     "aiAllowListHint": "Comma- or space-separated Gateway model ids (e.g. openai/gpt-5-mini). Leave blank to allow all models. Enforced when the mode is Enforce.",
     "aiHardLimit": "AI hard limit ($ / period)",
-    "aiSaveOverride": "Save AI governance"
+    "aiSaveOverride": "Save AI governance",
+    "aiProviderList": "Allowed providers",
+    "aiProviderListHint": "Comma- or space-separated provider slugs (e.g. anthropic, openai). A provider grant covers every model that vendor ships, including ones released later. Combined with the model list: a model is allowed if it matches either.",
+    "policySyncFailed": "Saved, but the tenant's AI policy was not updated"
   },
   "satellites": {
     "title": "Satellites",
@@ -459,6 +469,120 @@
       "status": "status",
       "search": "search",
       "backfill": "backfill"
+    }
+  },
+  "aiModels": {
+    "title": "AI models",
+    "description": "Catalog of gateway models. Activate the ones tenants may use, keep pricing in sync, and inspect what changed.",
+    "sync": "Sync now",
+    "syncSuccess": "Synced {{count}} models, {{pricing}} pricing rows inserted.",
+    "download": "Download pricing",
+    "restoreDefaults": "Restore defaults",
+    "restoreDefaultsConfirm": "This inserts new pricing rows from the shipped defaults and restores their activation flags. Existing history is kept.",
+    "restoreDefaultsSuccess": "Restored {{count}} pricing rows and {{availability}} activation flags.",
+    "history": "Pricing history",
+    "historyTitle": "Pricing history",
+    "historyDescription": "Pricing rows that usage events were billed against.",
+    "backToCatalog": "Back to catalog",
+    "lastSync": "Last sync",
+    "activateSelected": "Activate {{count}}",
+    "deactivateSelected": "Deactivate {{count}}",
+    "clearSelection": "Clear",
+    "selectAll": "Select all models",
+    "selectRow": "Select model",
+    "toggleActivation": "Activate {{model}}",
+    "columns": {
+      "activated": "Activated",
+      "model": "Model",
+      "modelId": "Model ID",
+      "provider": "Provider",
+      "useCase": "Use case",
+      "priceTier": "Price tier",
+      "context": "Context",
+      "releaseDate": "Released",
+      "capabilities": "Capabilities",
+      "inputPerMtok": "Input / Mtok",
+      "outputPerMtok": "Output / Mtok",
+      "cachedPerMtok": "Cached / Mtok",
+      "reasoningPerMtok": "Reasoning / Mtok",
+      "validFrom": "Valid from"
+    },
+    "list": {
+      "searchPlaceholder": "openai/gpt, image, web-search…",
+      "display": "Display",
+      "paginationSummary": "{{count}} of {{total}} models",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "compactView": "Compact view",
+      "tableView": "Table view",
+      "cardsView": "Cards view",
+      "sortBy": "Sort by",
+      "displayedColumns": "Displayed columns",
+      "hiddenInTable": "Hidden columns",
+      "showAll": "Show all",
+      "hideAll": "Hide all",
+      "noColumnsDisplayed": "No columns displayed"
+    },
+    "filters": {
+      "allProviders": "All providers",
+      "age": "Release age",
+      "maxPriceTier": "Max price tier",
+      "maxOutputPrice": "Max output $/Mtok",
+      "webSearchOnly": "Web search only"
+    },
+    "useCase": {
+      "all": "All use cases",
+      "text": "Text",
+      "code": "Code",
+      "image": "Image",
+      "video": "Video",
+      "embed": "Embedding",
+      "rerank": "Rerank"
+    },
+    "priceTier": {
+      "all": "Any price tier",
+      "cheap": "Cheap",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "expensive": "Expensive",
+      "unknown": "Unknown"
+    },
+    "activation": {
+      "active": "Active",
+      "custom": "Custom",
+      "inactive": "Inactive"
+    },
+    "activationFilter": {
+      "all": "Any activation",
+      "active": "Active only",
+      "inactive": "Inactive only"
+    },
+    "age": {
+      "all": "Any age",
+      "week": "Released < 1 week",
+      "month": "Released < 1 month",
+      "quarter": "Released < 3 months",
+      "year": "Released < 1 year"
+    },
+    "syncStatus": {
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed"
+    },
+    "syncTrigger": {
+      "manual": "Manual",
+      "scheduled": "Scheduled"
+    },
+    "syncRuns": {
+      "title": "Sync history",
+      "empty": "No sync runs yet.",
+      "startedAt": "Started",
+      "status": "Status",
+      "trigger": "Trigger",
+      "models": "Models",
+      "updated": "Updated",
+      "pricingRows": "Pricing rows"
     }
   }
 }

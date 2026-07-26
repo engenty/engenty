@@ -1,7 +1,8 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
+import { useMutation, useQuery } from "@engenty/query-client";
 import {
   Badge,
+  Button,
   DetailPageHeader,
   Table,
   TableBody,
@@ -14,9 +15,13 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "sonner";
 import { PageState } from "@/components/PageState";
 import { formatMicros } from "@/features/packages/package-format";
-import type { EntitlementPackage } from "@/lib/api/entitlements";
+import {
+  type EntitlementPackage,
+  reapplyPackagePolicies,
+} from "@/lib/api/entitlements";
 import { packageQuery } from "@/lib/queries/entitlements";
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
@@ -106,11 +111,17 @@ function PackageFields({ pkg }: { pkg: EntitlementPackage }) {
           <Field
             label={t("packages.detail.allowedModels")}
             value={
-              ai.allowed_models === null
+              ai.allowed_models === null || ai.allowed_models.length === 0
                 ? t("packages.detail.allModels")
-                : ai.allowed_models.length === 0
-                  ? "—"
-                  : ai.allowed_models.join(", ")
+                : ai.allowed_models.join(", ")
+            }
+          />
+          <Field
+            label={t("packages.detail.allowedProviders")}
+            value={
+              ai.allowed_providers === null || ai.allowed_providers.length === 0
+                ? t("packages.detail.allProviders")
+                : ai.allowed_providers.join(", ")
             }
           />
         </div>
@@ -155,6 +166,29 @@ export function PackageDetailPage() {
   const { t } = useTranslation("common");
   const { id = "" } = useParams();
   const { data, isLoading, error, refetch } = useQuery(packageQuery(id));
+
+  // Editing a package only changes what future assignments materialize. Tenants
+  // already on it keep the `ai.tenant_usage_policy` row written when they were
+  // assigned, so a plan change needs an explicit roll-out.
+  const reapply = useMutation({
+    mutationFn: () => reapplyPackagePolicies(id),
+    onSuccess: (result) => {
+      if (result.failures.length > 0) {
+        toast.error(
+          t("packages.detail.reapplyPartial", {
+            failed: result.failures.length,
+            count: result.reapplied,
+          })
+        );
+        return;
+      }
+      toast.success(
+        t("packages.detail.reapplyDone", { count: result.reapplied })
+      );
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : t("common.error")),
+  });
 
   const breadcrumbs = useMemo(
     () => [
@@ -212,6 +246,19 @@ export function PackageDetailPage() {
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pb-10">
         <div className="mx-auto w-full max-w-5xl p-page pb-10">
+          <div className="mb-4 flex items-center justify-end gap-3">
+            <p className="text-muted-foreground text-xs">
+              {t("packages.detail.reapplyHint")}
+            </p>
+            <Button
+              disabled={reapply.isPending}
+              onClick={() => reapply.mutate()}
+              size="sm"
+              variant="outline"
+            >
+              {t("packages.detail.reapply")}
+            </Button>
+          </div>
           <PackageFields pkg={data} />
         </div>
       </div>

@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { AiModelPricingHistoryPage } from "@/pages/ai-models/AiModelPricingHistoryPage";
+import { AiModelsPage } from "@/pages/ai-models/AiModelsPage";
 import { ApprovalsPage } from "@/pages/approvals/ApprovalsPage";
 import { AuditPage } from "@/pages/audit/AuditPage";
 import { FeatureFlagsPage } from "@/pages/feature-flags/FeatureFlagsPage";
@@ -39,6 +41,11 @@ export function ManageRoutes() {
       <Route element={<ApprovalsPage />} path="/approvals" />
       <Route element={<SettingsPage />} path="/settings" />
       <Route element={<SearchIndexPage />} path="/search-index" />
+      <Route element={<AiModelsPage />} path="/ai-models" />
+      <Route
+        element={<AiModelPricingHistoryPage />}
+        path="/ai-models/pricing-history"
+      />
       <Route element={<NotFoundPage />} path="*" />
     </Routes>
   );

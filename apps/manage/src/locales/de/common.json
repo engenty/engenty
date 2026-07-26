@@ -28,7 +28,8 @@
     "audit": "Audit",
     "approvals": "Freigaben",
     "settings": "Einstellungen",
-    "searchIndex": "Suchindex"
+    "searchIndex": "Suchindex",
+    "aiModels": "KI-Modelle"
   },
   "common": {
     "save": "Speichern",
@@ -287,7 +288,7 @@
       "enforce": "Erzwingen"
     },
     "detail": {
-      "authoredHint": "Pakete werden im Code definiert und in den Katalog synchronisiert. Weise sie Mandanten auf der Mandantendetailseite zu.",
+      "authoredHint": "Pakete werden aus dem Code angelegt, sofern nicht vorhanden, und danach hier verwaltet. Weise sie Mandanten auf der Mandantendetailseite zu.",
       "limits": "App-Limits",
       "seatsEnforcement": "Plätze-Durchsetzung",
       "ai": "KI-Nutzung",
@@ -300,7 +301,13 @@
       "featureFlags": "Feature-Flags",
       "noFeatureFlags": "Keine Feature-Flags in diesem Paket.",
       "flagKey": "Flag",
-      "flagValue": "Wert"
+      "flagValue": "Wert",
+      "allowedProviders": "Erlaubte Anbieter",
+      "allProviders": "Alle Anbieter",
+      "reapply": "Auf Mandanten anwenden",
+      "reapplyHint": "Mandanten mit diesem Paket behalten ihre aktuelle Richtlinie, bis sie erneut angewendet wird.",
+      "reapplyDone": "Auf {{count}} Mandanten angewendet",
+      "reapplyPartial": "Auf {{count}} Mandanten angewendet, {{failed}} fehlgeschlagen"
     }
   },
   "entitlements": {
@@ -323,7 +330,10 @@
     "aiAllowList": "Modell-Erlaubnisliste",
     "aiAllowListHint": "Komma- oder leerzeichengetrennte Gateway-Modell-IDs (z. B. openai/gpt-5-mini). Leer lassen, um alle Modelle zu erlauben. Wird im Modus „Erzwingen“ durchgesetzt.",
     "aiHardLimit": "KI-Hartlimit ($ / Periode)",
-    "aiSaveOverride": "KI-Governance speichern"
+    "aiSaveOverride": "KI-Governance speichern",
+    "aiProviderList": "Erlaubte Anbieter",
+    "aiProviderListHint": "Komma- oder leerzeichengetrennte Anbieter-Slugs (z. B. anthropic, openai). Eine Anbieterfreigabe umfasst alle Modelle dieses Anbieters, auch später veröffentlichte. Kombiniert mit der Modellliste: Ein Modell ist erlaubt, wenn es einer der beiden Listen entspricht.",
+    "policySyncFailed": "Gespeichert, aber die KI-Richtlinie des Mandanten wurde nicht aktualisiert"
   },
   "satellites": {
     "title": "Satelliten",
@@ -459,6 +469,120 @@
       "status": "Status",
       "search": "Suche",
       "backfill": "Backfill"
+    }
+  },
+  "aiModels": {
+    "title": "KI-Modelle",
+    "description": "Katalog der Gateway-Modelle. Aktiviere die Modelle, die Mandanten nutzen dürfen, halte die Preise synchron und sieh nach, was sich geändert hat.",
+    "sync": "Jetzt synchronisieren",
+    "syncSuccess": "{{count}} Modelle synchronisiert, {{pricing}} Preiszeilen eingefügt.",
+    "download": "Preise herunterladen",
+    "restoreDefaults": "Standard wiederherstellen",
+    "restoreDefaultsConfirm": "Fügt neue Preiszeilen aus den ausgelieferten Standardwerten ein und stellt deren Aktivierungs-Flags wieder her. Die bestehende Historie bleibt erhalten.",
+    "restoreDefaultsSuccess": "{{count}} Preiszeilen und {{availability}} Aktivierungs-Flags wiederhergestellt.",
+    "history": "Preishistorie",
+    "historyTitle": "Preishistorie",
+    "historyDescription": "Preiszeilen, gegen die Nutzungsereignisse abgerechnet wurden.",
+    "backToCatalog": "Zurück zum Katalog",
+    "lastSync": "Letzte Synchronisierung",
+    "activateSelected": "{{count}} aktivieren",
+    "deactivateSelected": "{{count}} deaktivieren",
+    "clearSelection": "Aufheben",
+    "selectAll": "Alle Modelle auswählen",
+    "selectRow": "Modell auswählen",
+    "toggleActivation": "{{model}} aktivieren",
+    "columns": {
+      "activated": "Aktiviert",
+      "model": "Modell",
+      "modelId": "Modell-ID",
+      "provider": "Provider",
+      "useCase": "Anwendungsfall",
+      "priceTier": "Preisstufe",
+      "context": "Kontext",
+      "releaseDate": "Veröffentlicht",
+      "capabilities": "Fähigkeiten",
+      "inputPerMtok": "Input / Mtok",
+      "outputPerMtok": "Output / Mtok",
+      "cachedPerMtok": "Cache / Mtok",
+      "reasoningPerMtok": "Reasoning / Mtok",
+      "validFrom": "Gültig ab"
+    },
+    "list": {
+      "searchPlaceholder": "openai/gpt, image, web-search…",
+      "display": "Ansicht",
+      "paginationSummary": "{{count}} von {{total}} Modellen",
+      "ascending": "Aufsteigend",
+      "descending": "Absteigend",
+      "compactView": "Kompakte Ansicht",
+      "tableView": "Tabellenansicht",
+      "cardsView": "Kartenansicht",
+      "sortBy": "Sortieren nach",
+      "displayedColumns": "Angezeigte Spalten",
+      "hiddenInTable": "Ausgeblendete Spalten",
+      "showAll": "Alle anzeigen",
+      "hideAll": "Alle ausblenden",
+      "noColumnsDisplayed": "Keine Spalten angezeigt"
+    },
+    "filters": {
+      "allProviders": "Alle Provider",
+      "age": "Alter",
+      "maxPriceTier": "Max. Preisstufe",
+      "maxOutputPrice": "Max. Output $/Mtok",
+      "webSearchOnly": "Nur Websuche"
+    },
+    "useCase": {
+      "all": "Alle Anwendungsfälle",
+      "text": "Text",
+      "code": "Code",
+      "image": "Bild",
+      "video": "Video",
+      "embed": "Embedding",
+      "rerank": "Rerank"
+    },
+    "priceTier": {
+      "all": "Beliebige Preisstufe",
+      "cheap": "Sehr günstig",
+      "low": "Günstig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "expensive": "Teuer",
+      "unknown": "Unbekannt"
+    },
+    "activation": {
+      "active": "Aktiv",
+      "custom": "Individuell",
+      "inactive": "Inaktiv"
+    },
+    "activationFilter": {
+      "all": "Beliebiger Status",
+      "active": "Nur aktive",
+      "inactive": "Nur inaktive"
+    },
+    "age": {
+      "all": "Beliebiges Alter",
+      "week": "Veröffentlicht < 1 Woche",
+      "month": "Veröffentlicht < 1 Monat",
+      "quarter": "Veröffentlicht < 3 Monate",
+      "year": "Veröffentlicht < 1 Jahr"
+    },
+    "syncStatus": {
+      "running": "Läuft",
+      "succeeded": "Erfolgreich",
+      "failed": "Fehlgeschlagen"
+    },
+    "syncTrigger": {
+      "manual": "Manuell",
+      "scheduled": "Geplant"
+    },
+    "syncRuns": {
+      "title": "Sync-Historie",
+      "empty": "Noch keine Sync-Läufe.",
+      "startedAt": "Gestartet",
+      "status": "Status",
+      "trigger": "Auslöser",
+      "models": "Modelle",
+      "updated": "Aktualisiert",
+      "pricingRows": "Preiszeilen"
     }
   }
 }

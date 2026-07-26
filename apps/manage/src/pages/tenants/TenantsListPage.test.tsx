@@ -142,7 +142,7 @@ describe("TenantsListPage", () => {
     await user.click(screen.getByLabelText("Package"));
     await user.click(await screen.findByRole("option", { name: "Business" }));
     expect(await screen.findByText("100")).toBeTruthy();
-    expect(screen.getByText("$200")).toBeTruthy();
+    expect(screen.getByText("$200.00")).toBeTruthy();
     expect(screen.getByText("Enforce")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Create tenant" }));
 
