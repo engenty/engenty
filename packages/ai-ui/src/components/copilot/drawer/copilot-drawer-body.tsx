@@ -5,6 +5,7 @@ import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { useUiCoreMediaQuery } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
+import { useMentionAgentCandidates } from "../../../hooks/use-mention-agent-candidates.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
 import { CopilotOpenInterruptBanner } from "../interrupts/copilot-open-interrupt-banner";
@@ -246,6 +247,7 @@ export function CopilotDrawerBody({
     agentChooserLabels ?? defaultAgentChooserLabels;
 
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const mentionAgentCandidates = useMentionAgentCandidates();
   const activeThreadId = session.activeThreadId;
   const setActiveThreadId = session.setActiveThreadId;
   const threadIdRef = useRef<string | null>(activeThreadId);
@@ -469,6 +471,7 @@ export function CopilotDrawerBody({
           ),
     title: title ?? "Enhance",
     error: session.error ?? null,
+    mentionAgentCandidates,
     messages: drawerMessages,
     pendingUserInsertIndex: session.pendingUserInsertIndex,
     pendingUserText: session.pendingUserText,

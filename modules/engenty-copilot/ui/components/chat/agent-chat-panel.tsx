@@ -18,6 +18,7 @@ import {
   useCopilotSelectedThread,
   useCopilotThreadActions,
   useCopilotVoice,
+  useMentionAgentCandidates,
 } from "@engenty/ai-ui";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -100,6 +101,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     builtins: slashBuiltins,
     runFrontendTool,
   });
+  const mentionAgentCandidates = useMentionAgentCandidates();
   const mentionRefSearch = useMentionRefSearch();
   const [selectedSuggestions, setSelectedSuggestions] = useState<
     Record<string, boolean>
@@ -380,6 +382,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     emptyStateSubtitle: props.emptyStateSubtitle,
     emptyStateTitle: props.emptyStateTitle,
     error: panelError,
+    mentionAgentCandidates,
     mentionRefSearch,
     slashCommands,
     headerVariant: "docked",

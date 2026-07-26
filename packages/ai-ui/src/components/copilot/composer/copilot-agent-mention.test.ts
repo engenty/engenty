@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentIdToMentionHandle,
+  buildMentionAgentCandidates,
   getMentionQueryAtCursor,
   stripLeadingMentionToken,
 } from "./copilot-agent-mention.js";
@@ -22,6 +24,51 @@ describe("getMentionQueryAtCursor", () => {
 
   it("returns null when @ is part of a word", () => {
     expect(getMentionQueryAtCursor("foo@bar", 7)).toBeNull();
+  });
+});
+
+describe("agentIdToMentionHandle", () => {
+  it("replaces dots with hyphens", () => {
+    expect(agentIdToMentionHandle("contacts.manager")).toBe("contacts-manager");
+    expect(agentIdToMentionHandle("engenty.copilot")).toBe("engenty-copilot");
+  });
+});
+
+describe("buildMentionAgentCandidates", () => {
+  it("maps ids to handles and filters inactive / non-mentionable agents", () => {
+    const candidates = buildMentionAgentCandidates([
+      { id: "contacts.manager", name: "Contacts" },
+      {
+        chat_triggers: {
+          include_in_chat_picker: true,
+          is_active: false,
+          mention_routing_enabled: true,
+        },
+        id: "offers.manager",
+        name: "Offers",
+      },
+      {
+        chat_triggers: {
+          include_in_chat_picker: true,
+          is_active: true,
+          mention_routing_enabled: false,
+        },
+        id: "inbox.manager",
+        name: "Inbox",
+      },
+      {
+        chat_triggers: {
+          include_in_chat_picker: false,
+          is_active: true,
+          mention_routing_enabled: true,
+        },
+        id: "tasks.manager",
+        name: "Tasks",
+      },
+    ]);
+    expect(candidates).toEqual([
+      { handle: "contacts-manager", id: "contacts.manager", name: "Contacts" },
+    ]);
   });
 });
 
