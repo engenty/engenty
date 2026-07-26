@@ -135,6 +135,7 @@ export {
   graded,
   type ModelBinding,
   type ModelBindings,
+  mergeDeclaredRoles,
   PURPOSE_TO_ROLE,
   seedBindings,
 } from "./config/model-roles.js";
@@ -144,6 +145,7 @@ export type {
   AgentSessionStatus,
   AiRegistration,
   InstructionDocumentDefinition,
+  ModelRoleDefinition,
   RoutineDefinition,
   RoutineTarget,
   RoutineTargetKind,
@@ -260,6 +262,7 @@ export {
   listModuleDynamicCapabilitySeeds,
   listRegisteredActions,
   listRegisteredChatCommands,
+  listRegisteredModelRoles,
   listRegisteredRoutines,
   registerAiRegistration,
   resolveActionDefinitionById,

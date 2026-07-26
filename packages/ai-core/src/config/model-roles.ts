@@ -196,3 +196,39 @@ function envSeedFor(
   }
   return;
 }
+
+/**
+ * Merge module-declared roles into the platform set for seeding.
+ *
+ * A module may not redefine a platform role — if `coder` shipped a `router`
+ * role it would silently retarget every routing call in the product. First
+ * declaration wins for module-vs-module collisions, which is arbitrary but
+ * deterministic; the binding console surfaces `declaredBy` so a collision is
+ * visible rather than mysterious.
+ */
+export function mergeDeclaredRoles(
+  declared: readonly {
+    default_model_id: string;
+    label: string;
+    module_id: string;
+    role: string;
+  }[],
+  platform: readonly AiRoleSpec[] = AI_PLATFORM_ROLES
+): AiRoleSpec[] {
+  const seen = new Set(platform.map((spec) => spec.role));
+  const merged = [...platform];
+  for (const entry of declared) {
+    if (seen.has(entry.role)) {
+      continue;
+    }
+    seen.add(entry.role);
+    merged.push({
+      declaredBy: entry.module_id,
+      defaultModelId: entry.default_model_id,
+      label: entry.label,
+      role: entry.role,
+      surface: "fixed",
+    });
+  }
+  return merged;
+}

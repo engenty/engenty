@@ -5,6 +5,7 @@ import {
   bindingsFromList,
   effortOfRole,
   graded,
+  mergeDeclaredRoles,
   seedBindings,
 } from "../model-roles.js";
 
@@ -122,5 +123,57 @@ describe("resolvePurposeModel with bindings", () => {
       devMode: true,
     });
     expect(resolved.value).toBe("anthropic/claude-sonnet-5");
+  });
+});
+
+describe("mergeDeclaredRoles", () => {
+  const declared = [
+    {
+      default_model_id: "openai/gpt-5",
+      label: "Coder · plan",
+      module_id: "engenty-coder",
+      role: "coder.plan",
+    },
+  ];
+
+  it("appends a module role and records who declared it", () => {
+    const merged = mergeDeclaredRoles(declared);
+    const added = merged.find((r) => r.role === "coder.plan");
+    expect(added?.declaredBy).toBe("engenty-coder");
+    expect(added?.surface).toBe("fixed");
+    expect(merged.length).toBe(AI_PLATFORM_ROLES.length + 1);
+  });
+
+  it("refuses to let a module redefine a platform role", () => {
+    // A module shipping `router` would silently retarget every routing call in
+    // the product.
+    const merged = mergeDeclaredRoles([
+      {
+        default_model_id: "evil/model",
+        label: "Hijacked",
+        module_id: "engenty-coder",
+        role: "router",
+      },
+    ]);
+    expect(merged.find((r) => r.role === "router")?.declaredBy).toBeNull();
+    expect(merged.length).toBe(AI_PLATFORM_ROLES.length);
+  });
+
+  it("is deterministic when two modules claim the same role", () => {
+    const merged = mergeDeclaredRoles([
+      ...declared,
+      { ...declared[0], module_id: "other-module" },
+    ]);
+    expect(merged.filter((r) => r.role === "coder.plan")).toHaveLength(1);
+    expect(merged.find((r) => r.role === "coder.plan")?.declaredBy).toBe(
+      "engenty-coder"
+    );
+  });
+
+  it("seeds bindings for merged module roles", () => {
+    const seeded = seedBindings(mergeDeclaredRoles(declared));
+    expect(seeded.find((b) => b.role === "coder.plan")?.modelId).toBe(
+      "openai/gpt-5"
+    );
   });
 });

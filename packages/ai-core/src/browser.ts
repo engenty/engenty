@@ -66,6 +66,7 @@ export {
   graded,
   type ModelBinding,
   type ModelBindings,
+  mergeDeclaredRoles,
   PURPOSE_TO_ROLE,
   seedBindings,
 } from "./config/model-roles.js";

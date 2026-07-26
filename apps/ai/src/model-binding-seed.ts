@@ -1,4 +1,8 @@
-import { seedBindings } from "@engenty/ai-core";
+import {
+  listRegisteredModelRoles,
+  mergeDeclaredRoles,
+  seedBindings,
+} from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import type { AiGatewayModelStore } from "./gateway-models.js";
 
@@ -20,7 +24,11 @@ export async function seedModelBindingsIfMissing(
   store: AiGatewayModelStore,
   readEnv: (key: string) => string | undefined = (key) => process.env[key]
 ): Promise<number> {
-  const rows = seedBindings(undefined, readEnv).map((binding) => ({
+  // Module-declared roles are merged in here rather than at registration, so a
+  // module installed after boot still gets its roles seeded on the next start
+  // without a migration of its own.
+  const roles = mergeDeclaredRoles(listRegisteredModelRoles());
+  const rows = seedBindings(roles, readEnv).map((binding) => ({
     gateway: binding.gateway,
     model_id: binding.modelId,
     role: binding.role,

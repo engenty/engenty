@@ -180,6 +180,28 @@ export interface RoutineDefinition {
 }
 
 /** Registry payload for module AI registration. */
+/**
+ * A job a module needs a model for, declared alongside its tools and agents.
+ *
+ * Without this a module that wants its own model — a coder that plans with one
+ * model and edits with another, an OCR pass with a vision model — has to either
+ * hard-code an id or push a new platform-wide purpose. Both make the platform
+ * responsible for knowing what jobs a module invents. Declaring the role
+ * instead means the module says what it needs, and a superadmin decides what
+ * fills it.
+ */
+export interface ModelRoleDefinition {
+  /** Seed model id, used until someone rebinds the role. */
+  default_model_id: string;
+  /** Shown in the binding console. */
+  label: string;
+  /**
+   * Namespaced by convention (`coder.plan`), because role ids share one table
+   * across every installed module.
+   */
+  role: string;
+}
+
 export interface AiRegistration {
   actions?: ActionDefinition[];
   agents?: AgentDefinition[];
@@ -187,6 +209,7 @@ export interface AiRegistration {
   chat_commands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   dynamic?: AiRegistrationDynamicCapability;
   instruction_documents?: InstructionDocumentDefinition[];
+  model_roles?: ModelRoleDefinition[];
   module_id: string;
   routines?: RoutineDefinition[];
   skills?: SkillDefinition[];
