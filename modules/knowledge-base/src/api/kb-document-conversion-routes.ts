@@ -74,12 +74,14 @@ export function registerKbDocumentConversionRoutes(
               converterConfig = {
                 provider:
                   p === "llamaparse" ||
+                  p === "mistral" ||
                   p === "gemini" ||
                   p === "liteparse" ||
                   p === "local"
                     ? p
                     : "local",
                 gemini_model: dc?.gemini_model ?? undefined,
+                mistral_model: dc?.mistral_model ?? undefined,
               };
             } catch (cfgErr) {
               logger.warn("Could not load tenant AI config for doc converter", {

@@ -18,6 +18,7 @@ import {
   type LlamaParseTier,
 } from "./providers/llamaparse/index.js";
 import { LocalProvider } from "./providers/local/index.js";
+import { MistralOcrProvider } from "./providers/mistral/index.js";
 
 const logger = createLogger({ name: "doc-converter" });
 
@@ -25,6 +26,7 @@ export type ConverterProviderName =
   | "local"
   | "liteparse"
   | "llamaparse"
+  | "mistral"
   | "gemini";
 
 /**
@@ -36,6 +38,7 @@ export type ConverterProviderName =
  */
 const FALLBACK_PROVIDER_ORDER: ConverterProviderName[] = [
   "llamaparse",
+  "mistral",
   "gemini",
   "liteparse",
   "local",
@@ -55,6 +58,10 @@ export interface ConverterConfig {
   llamaparse_api_key?: string;
   /** LlamaParse parsing tier */
   llamaparse_tier?: LlamaParseTier;
+  /** API key for Mistral OCR (optional; falls back to MISTRAL_API_KEY) */
+  mistral_api_key?: string;
+  /** Model id for Mistral OCR (e.g. mistral-ocr-latest) */
+  mistral_model?: string;
   /** Preferred provider. Falls back to local if unavailable. */
   provider?: ConverterProviderName;
 }
@@ -77,6 +84,17 @@ export class Converter {
         new LlamaParseProvider({
           apiKey: llamaKey,
           tier: config?.llamaparse_tier,
+        })
+      );
+    }
+
+    const mistralKey =
+      config?.mistral_api_key?.trim() || env("MISTRAL_API_KEY")?.trim();
+    if (mistralKey) {
+      this.registerProvider(
+        new MistralOcrProvider({
+          apiKey: mistralKey,
+          model: config?.mistral_model,
         })
       );
     }
