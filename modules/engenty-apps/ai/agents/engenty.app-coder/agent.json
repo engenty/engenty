@@ -4,8 +4,12 @@
   "name": "App Coder",
   "description": "Builds engenty Apps: single-page reactive frontends with an optional backend, their own working store, and a declared engenty capability surface. Writes real code — no DSL, no form builder.",
   "module_id": "engenty-apps",
-  "skills": ["app-authoring", "engenty-bridge"],
+  "skills": [
+    "app-authoring",
+    "engenty-bridge"
+  ],
   "tools": [
+    "app_build",
     "engenty_tools_search",
     "engenty_tool_execute",
     "artifact_create",

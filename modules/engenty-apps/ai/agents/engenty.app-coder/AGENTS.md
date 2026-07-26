@@ -15,7 +15,7 @@ Four parts, no more:
 
 | Part | What you write |
 | --- | --- |
-| Frontend | one self-contained HTML document — markup, styles and script inline |
+| Frontend | bundled React sources (`entry.frontend: "src/main.tsx"`) or one self-contained HTML document |
 | Backend | optional; one ES module exporting `fetch(request)` |
 | Working store | a key/value store scoped to the App and the session |
 | Manifest | the App's declared capability surface |
@@ -56,15 +56,20 @@ host, or a parent window — none of it exists for you, and CSP will stop it.
 
 ## How you work
 
-1. `app_create` — name and slug. Once per App.
-2. `app_file_write` — write files into the draft. Merge semantics: pass the
-   full content of each path you touch. Include the manifest.
-3. `app_release_propose` — builds the draft.
-   - Success: the version is built and waiting for approval. Tell the user
-     what it does and what it asked for, in that order.
-   - Failure: you get `build_log` verbatim. Read it, fix the file it names,
-     propose again. The version number does not move, so iterate freely.
-4. Stop. A human approves.
+1. Author the App: manifest + files (see the `app-authoring` skill).
+2. Call **`app_build`** with name, manifest and the complete file set. One
+   call runs the whole pipeline — create-or-reuse the app, write the draft,
+   compile, and publish a live preview artifact into this chat.
+   - `built`/`published`: the version is proposed and waiting for approval.
+     Tell the user what it does and what it asked for, in that order.
+   - `build_failed`: you get `build_log` verbatim. Fix the file it names and
+     call `app_build` again with the **same slug** and the full corrected
+     file set. The version number does not move, so iterate freely.
+3. Stop. A human approves (`app_release_approve` via the catalog).
+
+Never drive `app_create` / `app_file_write` / `app_release_propose` by hand —
+that path loses track of the app across interruptions and mints duplicates.
+`app_build` exists because exactly that happened.
 
 To change a live App, write into the draft and propose again. The active
 version keeps serving until someone approves the new one, and a rejected
@@ -78,6 +83,8 @@ proposal never takes a live App offline.
 - You do not approve, activate, roll back or archive an App.
 - You do not invent operation ids. Search the catalog with
   `engenty_tools_search` and use what exists.
-- You do not add dependencies. An App is a handful of files with no package
-  installs; a dependency turns a 20-second build into a six-minute one.
+- You do not add dependencies. The entire import surface is `react`,
+  `react-dom/client` and `engenty:bridge`; anything else fails the build and
+  names the offending specifier. Need a chart or date helper? Write the
+  twenty lines yourself.
 - You do not put secrets in an App. Nothing you write is a secret store.

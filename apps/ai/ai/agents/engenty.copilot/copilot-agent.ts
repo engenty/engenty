@@ -11,6 +11,7 @@ import {
 import { createTool } from "@mastra/core/tools";
 import { createAgentProposeTools } from "../../tools/agent-propose-tool.js";
 import { createAnalyzeFileTool } from "../../tools/analyze-file/index.js";
+import { createAppBuildTools } from "../../tools/app-build-tool.js";
 import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
 import { createCleanupCsvTool } from "../../tools/cleanup-csv/index.js";
@@ -66,6 +67,9 @@ export function createBuiltinRegistryTools() {
     // Registered for resolution only — agents get it solely via their
     // toolIds (the coordinator declares it; the copilot does not).
     ...createAgentProposeTools(),
+    // App-build composite (engenty.app-coder declares it; the copilot does
+    // not — app requests should be delegated, not built inline).
+    ...createAppBuildTools(),
     // File analyst (and any agent listing analyze_file in toolIds).
     analyze_file: analyzeFileTool,
     convert_image: convertImageTool,
