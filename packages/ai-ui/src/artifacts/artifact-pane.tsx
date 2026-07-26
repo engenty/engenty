@@ -19,8 +19,9 @@ import {
   resolveArtifactEditor,
   resolveArtifactRenderer,
 } from "./artifact-renderers.js";
-import type { ObjectPaneTab } from "./artifact-store.js";
+import type { ObjectPaneTab, WorkFilePaneTab } from "./artifact-store.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
+import { downloadWorkFile, WorkFilePreview } from "./work-file-preview.js";
 
 const SOURCE_FILE_BY_TYPE: Record<string, { ext: string; mime: string }> = {
   html: { ext: "html", mime: "text/html" },
@@ -53,6 +54,8 @@ export interface ArtifactPaneProps {
   activeId: string | null;
   artifacts: ArtifactSummary[];
   className?: string;
+  /** Workspace-file tabs sharing the strip with artifact tabs (see artifact-store). */
+  fileTabs?: WorkFilePaneTab[];
   isContentLoading: boolean;
   /** Module-object tabs sharing the strip with artifact tabs (see artifact-store). */
   objectTabs?: ObjectPaneTab[];
@@ -97,6 +100,7 @@ export function ArtifactPane({
   onSetExpanded,
   onSetPaneOpen,
   onStore,
+  fileTabs = [],
   objectTabs = [],
   paneExpanded,
   storePending,
@@ -105,14 +109,29 @@ export function ArtifactPane({
 }: ArtifactPaneProps) {
   const { t } = useTranslation("ai-ui");
   const ExpandIcon = paneExpanded ? Minimize2 : Maximize2;
+  const [fileDownloading, setFileDownloading] = useState(false);
 
   const activeObjectTab =
     objectTabs.find((tab) => tab.key === activeId) ?? null;
-  const active = activeObjectTab
-    ? null
-    : (artifacts.find((a) => a.id === activeId) ?? null);
+  const activeFileTab = fileTabs.find((tab) => tab.key === activeId) ?? null;
+  const active =
+    activeObjectTab || activeFileTab
+      ? null
+      : (artifacts.find((a) => a.id === activeId) ?? null);
   const Renderer = active ? resolveArtifactRenderer(active.type) : null;
   const Editor = active ? resolveArtifactEditor(active.type) : null;
+
+  const downloadActiveFile = async () => {
+    if (!activeFileTab || fileDownloading) {
+      return;
+    }
+    setFileDownloading(true);
+    try {
+      await downloadWorkFile(activeFileTab.entryKey, activeFileTab.filename);
+    } finally {
+      setFileDownloading(false);
+    }
+  };
 
   // Edit session: draft lives in a ref (the editor fires per keystroke), the
   // base content/version are captured at edit start so a concurrent agent
@@ -228,6 +247,17 @@ export function ArtifactPane({
                     <Download className="h-4 w-4" />
                   </Button>
                 ) : null}
+                {activeFileTab ? (
+                  <Button
+                    aria-label={t("workPanel.downloadFile")}
+                    disabled={fileDownloading}
+                    onClick={() => void downloadActiveFile()}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                ) : null}
                 {active && onStore ? (
                   <ArtifactPinMenu
                     disabled={storePending}
@@ -267,6 +297,7 @@ export function ArtifactPane({
             items={[
               ...artifacts.map((a) => ({ id: a.id, label: a.title })),
               ...objectTabs.map((tab) => ({ id: tab.key, label: tab.title })),
+              ...fileTabs.map((tab) => ({ id: tab.key, label: tab.filename })),
             ]}
             onActivate={onActivate}
             onClose={onClose}
@@ -287,6 +318,18 @@ export function ArtifactPane({
       ) : null}
       {activeObjectTab ? (
         <ObjectPaneBody objectRef={activeObjectTab.ref} />
+      ) : activeFileTab ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <WorkFilePreview
+            entryKey={activeFileTab.entryKey}
+            filename={activeFileTab.filename}
+            labels={{
+              loading: t("workPanel.filePreviewLoading"),
+              noPreview: t("workPanel.fileNoPreview"),
+              truncated: t("workPanel.filePreviewTruncated"),
+            }}
+          />
+        </div>
       ) : active && isEditingActive && Editor ? (
         <Editor
           artifact={active}

@@ -1,26 +1,10 @@
-// Files tab for WorkPanel: card grid + detail sheet (preview + download).
+// Files tab for WorkPanel: card grid; open preview in the workspace split pane.
 import { useTranslation } from "@engenty/i18n/ui";
-import {
-  adminListCardsGridClassName,
-  Badge,
-  Button,
-  cn,
-  SidePanel,
-  SidePanelContent,
-  SidePanelDescription,
-  SidePanelHeader,
-  SidePanelTitle,
-  Spinner,
-} from "@engenty/ui-core";
-import { Download, FileText } from "lucide-react";
-import { useState } from "react";
+import { adminListCardsGridClassName, cn, Spinner } from "@engenty/ui-core";
+import { FileText } from "lucide-react";
+import { openWorkFilePaneTab } from "./artifact-store.js";
 import type { WorkContainerRef } from "./artifacts-api.js";
-import {
-  downloadWorkFile,
-  WorkFilePreview,
-  workFileIcon,
-  workFileMime,
-} from "./work-file-preview.js";
+import { workFileIcon, workFileMime } from "./work-file-preview.js";
 import { useWorkFilesQuery, type WorkFileEntry } from "./work-files-api.js";
 
 const CARD_CN =
@@ -74,24 +58,17 @@ function WorkFileCard({
   );
 }
 
-export function WorkFilesTab({ container }: { container: WorkContainerRef }) {
+export function WorkFilesTab({
+  container,
+  hostKey,
+}: {
+  container: WorkContainerRef;
+  /** Same host as WorkPanel / WorkspaceArtifactPane — opens the end-pane split. */
+  hostKey: string;
+}) {
   const { t } = useTranslation("ai-ui");
   const filesQuery = useWorkFilesQuery(container);
   const files = filesQuery.data?.entries ?? [];
-  const [selected, setSelected] = useState<WorkFileEntry | null>(null);
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownload = async () => {
-    if (!selected || downloading) {
-      return;
-    }
-    setDownloading(true);
-    try {
-      await downloadWorkFile(selected.key, selected.filename);
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   if (filesQuery.isLoading) {
     return (
@@ -112,80 +89,20 @@ export function WorkFilesTab({ container }: { container: WorkContainerRef }) {
     );
   }
 
-  const selectedMime = selected ? workFileMime(selected.filename) : null;
-  const selectedSize = selected ? formatBytes(selected.size_bytes) : null;
-
   return (
-    <>
-      <div className={adminListCardsGridClassName("compact")}>
-        {files.map((entry) => (
-          <WorkFileCard
-            entry={entry}
-            key={entry.key}
-            onOpen={() => setSelected(entry)}
-          />
-        ))}
-      </div>
-
-      <SidePanel
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelected(null);
+    <div className={adminListCardsGridClassName("compact")}>
+      {files.map((entry) => (
+        <WorkFileCard
+          entry={entry}
+          key={entry.key}
+          onOpen={() =>
+            openWorkFilePaneTab(hostKey, {
+              entryKey: entry.key,
+              filename: entry.filename,
+            })
           }
-        }}
-        open={Boolean(selected)}
-      >
-        <SidePanelContent className="flex w-full flex-col gap-0 sm:max-w-lg lg:max-w-xl">
-          {selected ? (
-            <>
-              <SidePanelHeader className="border-b px-1 pb-3">
-                <div className="flex items-start justify-between gap-3 pr-8">
-                  <div className="min-w-0 space-y-1.5">
-                    <SidePanelTitle
-                      className="truncate font-mono text-base"
-                      title={selected.filename}
-                    >
-                      {selected.filename}
-                    </SidePanelTitle>
-                    <SidePanelDescription className="flex flex-wrap items-center gap-2">
-                      {selectedMime ? (
-                        <Badge variant="secondary">{selectedMime}</Badge>
-                      ) : null}
-                      {selectedSize ? (
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {selectedSize}
-                        </span>
-                      ) : null}
-                    </SidePanelDescription>
-                  </div>
-                  <Button
-                    className="shrink-0 gap-1.5"
-                    disabled={downloading}
-                    onClick={() => void handleDownload()}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Download className="size-3.5" />
-                    {t("workPanel.downloadFile")}
-                  </Button>
-                </div>
-              </SidePanelHeader>
-              <div className="min-h-0 flex-1 overflow-y-auto px-1 py-4">
-                <WorkFilePreview
-                  entryKey={selected.key}
-                  filename={selected.filename}
-                  labels={{
-                    loading: t("workPanel.filePreviewLoading"),
-                    noPreview: t("workPanel.fileNoPreview"),
-                    truncated: t("workPanel.filePreviewTruncated"),
-                  }}
-                />
-              </div>
-            </>
-          ) : null}
-        </SidePanelContent>
-      </SidePanel>
-    </>
+        />
+      ))}
+    </div>
   );
 }

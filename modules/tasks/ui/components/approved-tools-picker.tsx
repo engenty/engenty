@@ -100,11 +100,17 @@ export function ApprovedToolsPicker({
         heading: moduleId,
         options: entries
           .slice()
-          .sort((a, b) => a.operationId.localeCompare(b.operationId))
+          .sort((a, b) => {
+            const labelA = a.summary?.trim() || a.operationId;
+            const labelB = b.summary?.trim() || b.operationId;
+            return (
+              labelA.localeCompare(labelB) ||
+              a.operationId.localeCompare(b.operationId)
+            );
+          })
           .map((contract) => ({
-            label: contract.summary
-              ? `${contract.operationId} — ${contract.summary}`
-              : contract.operationId,
+            // Label-first: pills show summary; list shows summary bold + key muted.
+            label: contract.summary?.trim() || contract.operationId,
             value: contract.operationId,
           })),
       }));
@@ -128,14 +134,17 @@ export function ApprovedToolsPicker({
         warningLabel={t("routines.detail.approvedToolsUnknown")}
       />
       <MultiSelect
+        align="start"
         className="w-full min-w-0"
         deduplicateOptions
         defaultValue={knownSelected}
         disabled={disabled || contractsQuery.isLoading}
         hideSelectAll
+        maxCount={8}
         onValueChange={(selected) => onChange([...selected, ...unknownIds])}
         options={groups}
         placeholder={t("routines.detail.addApprovedTool")}
+        popoverClassName="z-50"
         searchable
       />
     </div>

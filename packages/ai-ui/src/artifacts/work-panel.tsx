@@ -241,7 +241,7 @@ export function WorkPanel({
         </TabsContent>
 
         <TabsContent value="files">
-          <WorkFilesTab container={container} />
+          <WorkFilesTab container={container} hostKey={hostKey} />
         </TabsContent>
       </Tabs>
 

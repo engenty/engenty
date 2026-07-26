@@ -1,6 +1,6 @@
 // Topbar actions on routine detail: run CTA, edit/delete icons, overflow menu,
 // plus artifacts pane (chat-style) and runs sheet.
-import { ArtifactPaneToggle } from "@engenty/ai-ui";
+import { ArtifactPaneToggle, ENGENTY_COPILOT_HOST_KEY } from "@engenty/ai-ui";
 import {
   type RoutineDto,
   useRunRoutineNowMutation,
@@ -30,7 +30,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getTaskRuns } from "../api.js";
-import { ROUTINE_WORK_HOST_KEY } from "../lib/routine-work-host.js";
 import { taskKeys } from "../tasks-queries.js";
 import { RoutineRunsSection } from "./routine-runs-section.js";
 
@@ -137,8 +136,7 @@ export function RoutineDetailTopbarActions({
 
       <ArtifactPaneToggle
         container={container}
-        hostKey={ROUTINE_WORK_HOST_KEY}
-        scope={{ id: null, type: "thread" }}
+        hostKey={ENGENTY_COPILOT_HOST_KEY}
       />
       <Button
         aria-label={t("routines.detail.openRuns")}

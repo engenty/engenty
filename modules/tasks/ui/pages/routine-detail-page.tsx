@@ -1,7 +1,10 @@
 // Routed detail page for a routine (/mdl/tasks/routines/:id).
 // Declared (module/builtin) routines are read-only except the enable toggle;
 // custom routines additionally get Edit and Delete.
-import { WorkspaceArtifactPane } from "@engenty/ai-ui";
+import {
+  ENGENTY_COPILOT_HOST_KEY,
+  WorkspaceArtifactPane,
+} from "@engenty/ai-ui";
 import {
   type RoutineDto,
   useDeleteCustomRoutineMutation,
@@ -24,7 +27,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { RoutineDetailContent } from "../components/routine-detail-content.js";
 import { RoutineDetailTopbarActions } from "../components/routine-detail-topbar-actions.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
-import { ROUTINE_WORK_HOST_KEY } from "../lib/routine-work-host.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 
 export function RoutineDetailPage() {
@@ -90,10 +92,10 @@ export function RoutineDetailPage() {
         </p>
       )}
 
+      {/* Same chat host as task detail — WorkPanel rows + live artifacts share one pane. */}
       <WorkspaceArtifactPane
         container={routineContainer}
-        hostKey={ROUTINE_WORK_HOST_KEY}
-        scope={{ id: null, type: "thread" }}
+        hostKey={ENGENTY_COPILOT_HOST_KEY}
       />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>

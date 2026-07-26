@@ -5,6 +5,12 @@
 // Tier 3 (transitional ui-core re-exports): removed — copilot + AI Elements live in ai-ui (Phase 2).
 
 export {
+  type AppArtifactHandle,
+  AppArtifactView,
+  appFrontendQueryKey,
+  parseAppHandle,
+} from "./artifacts/app-artifact-view.js";
+export {
   ArtifactPane,
   type ArtifactPaneProps,
 } from "./artifacts/artifact-pane.js";
@@ -12,12 +18,6 @@ export {
   ArtifactPinMenu,
   type ArtifactStoreTarget,
 } from "./artifacts/artifact-pin-menu.js";
-export {
-  type AppArtifactHandle,
-  AppArtifactView,
-  appFrontendQueryKey,
-  parseAppHandle,
-} from "./artifacts/app-artifact-view.js";
 export {
   type ArtifactEditorProps,
   type ArtifactViewProps,
@@ -32,16 +32,23 @@ export {
   activateArtifact,
   clearArtifactsForTests,
   closeObjectPaneTab,
+  closeWorkFilePaneTab,
   isObjectPaneTabKey,
+  isTransientPaneTabKey,
+  isWorkFilePaneTabKey,
   type ObjectPaneTab,
   objectPaneTabKey,
   objectRefFromPaneTabKey,
+  openArtifactPane,
   openObjectPaneTab,
+  openWorkFilePaneTab,
   setActiveArtifact,
   setArtifactPaneExpanded,
   setArtifactPaneOpen,
   type UseArtifactPaneResult,
   useArtifacts,
+  type WorkFilePaneTab,
+  workFilePaneTabKey,
 } from "./artifacts/artifact-store.js";
 export {
   type ArtifactScopeType,

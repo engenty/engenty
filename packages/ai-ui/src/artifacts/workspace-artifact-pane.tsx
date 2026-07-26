@@ -16,7 +16,10 @@ import { ArtifactPane } from "./artifact-pane.js";
 import type { ArtifactStoreTarget } from "./artifact-pin-menu.js";
 import {
   closeObjectPaneTab,
+  closeWorkFilePaneTab,
   isObjectPaneTabKey,
+  isTransientPaneTabKey,
+  isWorkFilePaneTabKey,
   useArtifactListSync,
   useArtifacts,
 } from "./artifact-store.js";
@@ -97,6 +100,7 @@ export function WorkspaceArtifactPane({
 
   const {
     activeId,
+    fileTabs,
     objectTabs,
     paneExpanded,
     paneOpen,
@@ -129,7 +133,7 @@ export function WorkspaceArtifactPane({
       (!extraScope?.id || extraQuery.isSuccess),
   });
 
-  const activeArtifactId = isObjectPaneTabKey(activeId) ? null : activeId;
+  const activeArtifactId = isTransientPaneTabKey(activeId) ? null : activeId;
   const activeVersion = artifacts.find(
     (a) => a.id === activeArtifactId
   )?.current_version;
@@ -211,13 +215,22 @@ export function WorkspaceArtifactPane({
         activeId={activeId}
         artifacts={artifacts}
         className={paneExpanded ? "my-2 mr-2 ml-2 min-w-0 flex-1" : "my-2 mr-2"}
+        fileTabs={fileTabs}
         isContentLoading={detailQuery.isLoading}
         objectTabs={objectTabs}
         onActivate={activate}
         onClose={(id) => {
-          // Object tabs are transient view state; artifact tabs archive.
+          // Object/file tabs are transient view state; artifact tabs archive.
           if (isObjectPaneTabKey(id)) {
             closeObjectPaneTab(
+              hostKey,
+              id,
+              artifacts.map((a) => a.id)
+            );
+            return;
+          }
+          if (isWorkFilePaneTabKey(id)) {
+            closeWorkFilePaneTab(
               hostKey,
               id,
               artifacts.map((a) => a.id)
@@ -272,7 +285,7 @@ export function ArtifactPaneToggle({
 }) {
   const { t } = useTranslation("ai-ui");
   const { activeThreadId } = useCopilotThreadBinding();
-  const { objectTabs, paneOpen, setPaneOpen, unseenCount } =
+  const { fileTabs, objectTabs, openPane, paneOpen, unseenCount } =
     useArtifacts(hostKey);
 
   const primaryScope: ArtifactPaneScope = scope ?? {
@@ -288,15 +301,16 @@ export function ArtifactPaneToggle({
     extraScope?.type ?? "task",
     extraScope?.id ?? null
   );
-  const artifactCount = useMemo(
+  const artifacts = useMemo(
     () =>
       mergeArtifacts(
         mergeArtifacts(primaryQuery.data ?? [], containerQuery.data ?? []),
         extraQuery.data ?? []
-      ).length,
+      ),
     [containerQuery.data, extraQuery.data, primaryQuery.data]
   );
-  const hasContent = artifactCount > 0 || objectTabs.length > 0;
+  const hasContent =
+    artifacts.length > 0 || objectTabs.length > 0 || fileTabs.length > 0;
   const badgeLabel =
     unseenCount > 99 ? "99+" : unseenCount > 0 ? String(unseenCount) : null;
 
@@ -320,7 +334,11 @@ export function ArtifactPaneToggle({
         className
       )}
       disabled={!hasContent}
-      onClick={() => setPaneOpen(true)}
+      onClick={() =>
+        openPane(
+          artifacts[0]?.id ?? objectTabs[0]?.key ?? fileTabs[0]?.key ?? null
+        )
+      }
       size="icon"
       variant="ghost"
     >

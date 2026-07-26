@@ -1,7 +1,7 @@
 // Read-only detail sections: instructions, executing agent, runs, workspace,
 // plus the editable "Approved tools" list (operations the routine may run
 // without asking for approval).
-import { WorkPanel } from "@engenty/ai-ui";
+import { ENGENTY_COPILOT_HOST_KEY, WorkPanel } from "@engenty/ai-ui";
 import {
   MessageResponse,
   type RoutineDto,
@@ -10,7 +10,6 @@ import {
 import { useTranslation } from "@engenty/i18n/ui";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ROUTINE_WORK_HOST_KEY } from "../lib/routine-work-host.js";
 import { ApprovedToolsPicker } from "./approved-tools-picker.js";
 import { RoutineMemorySection } from "./routine-memory-section.js";
 import { RoutineRunsSection } from "./routine-runs-section.js";
@@ -109,7 +108,7 @@ export function RoutineDetailSections({ routine }: { routine: RoutineDto }) {
               tab replaces the old workspace-path strip. */}
           <WorkPanel
             container={{ id: routine.id, tier: "routine" }}
-            hostKey={ROUTINE_WORK_HOST_KEY}
+            hostKey={ENGENTY_COPILOT_HOST_KEY}
             mountPane={false}
           />
         </>
