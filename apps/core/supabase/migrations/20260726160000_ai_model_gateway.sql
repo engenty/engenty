@@ -31,12 +31,43 @@ ALTER TABLE "ai"."model"
 -- appear once per gateway, with its own pricing and availability.
 ALTER TABLE "ai"."model" DROP CONSTRAINT IF EXISTS "gateway_model_pkey";
 
-ALTER TABLE "ai"."model"
-    ADD CONSTRAINT "model_pkey" PRIMARY KEY ("gateway", "model_id");
+-- Guarded so the whole migration is re-runnable. Postgres has no
+-- `ADD CONSTRAINT IF NOT EXISTS` and no `RENAME CONSTRAINT IF EXISTS`, so a
+-- failure in any later statement would otherwise leave this file permanently
+-- unrunnable: the retry dies on the constraint the first attempt already
+-- created. That is a bad place to be on a production database at 3am.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM "pg_constraint"
+        WHERE "conrelid" = 'ai.model'::"regclass" AND "conname" = 'model_pkey'
+    ) THEN
+        ALTER TABLE "ai"."model"
+            ADD CONSTRAINT "model_pkey" PRIMARY KEY ("gateway", "model_id");
+    END IF;
+END
+$$;
 
-ALTER TABLE "ai"."model" RENAME CONSTRAINT "gateway_model_price_tier_check" TO "model_price_tier_check";
-
-ALTER TABLE "ai"."model" RENAME CONSTRAINT "gateway_model_use_cases_check" TO "model_use_cases_check";
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM "pg_constraint"
+        WHERE "conrelid" = 'ai.model'::"regclass"
+          AND "conname" = 'gateway_model_price_tier_check'
+    ) THEN
+        ALTER TABLE "ai"."model"
+            RENAME CONSTRAINT "gateway_model_price_tier_check" TO "model_price_tier_check";
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM "pg_constraint"
+        WHERE "conrelid" = 'ai.model'::"regclass"
+          AND "conname" = 'gateway_model_use_cases_check'
+    ) THEN
+        ALTER TABLE "ai"."model"
+            RENAME CONSTRAINT "gateway_model_use_cases_check" TO "model_use_cases_check";
+    END IF;
+END
+$$;
 
 ALTER INDEX IF EXISTS "ai"."gateway_model_available_chat_idx" RENAME TO "model_available_chat_idx";
 
