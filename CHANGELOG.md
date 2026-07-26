@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.78] - 2026-07-26
+- ADDED **[apps]** App-build workflow — the durable sequence behind app_build
+- FIXED **[deploy]** Copy patches before pnpm fetch so images build again
+- FIXED **[copilot]** Give the supervisor an agent-app_coder delegation tool
+- OTHER Moved plans out of repo
+
 ## [0.1.77] - 2026-07-26
 - ADDED **[ai-ui]** Gate expert model pinning on developer mode, show bound models
 - ADDED **[manage]** Add the role binding console
