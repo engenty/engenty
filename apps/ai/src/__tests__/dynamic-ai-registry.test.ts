@@ -108,6 +108,33 @@ function provider(
   };
 }
 
+// engenty.app-coder is not a builtin — it's registered by the (optional,
+// tenant-scoped) engenty-apps module. Stub it so tests can assemble the
+// copilot's full subAgents tree the same way a tenant with that module
+// active would; production never resolves subAgents eagerly like this (see
+// conversation-run.ts's skipSubAgents + lazy per-delegation-tool-call
+// resolution), so an inactive module there degrades to a failed tool call,
+// not a broken assembly.
+function builtinProviderWithAppCoderStub(): CompositeAiRegistry {
+  return new CompositeAiRegistry([
+    createBuiltinProvider(),
+    provider({
+      getAgentConfig: vi.fn(async (id) =>
+        id === "engenty.app-coder"
+          ? {
+              id: "engenty.app-coder",
+              instructions: "app-coder-skill",
+              model: "openai/app-coder",
+              name: "App Coder",
+              skillIds: [],
+              toolIds: [],
+            }
+          : undefined
+      ),
+    }),
+  ]);
+}
+
 function makeSession(agentId = "engenty.copilot"): AgentSessionRow {
   return {
     agent_id: agentId,
@@ -561,7 +588,7 @@ describe("dynamic AI registry", () => {
 
   it("applies tenant model config to the builtin Engenty Copilot supervisor", async () => {
     const agent = (await assembleDynamicAgent(
-      createBuiltinProvider(),
+      builtinProviderWithAppCoderStub(),
       "engenty.copilot",
       {
         modelConfig: {
@@ -733,7 +760,7 @@ describe("dynamic AI registry", () => {
 
   it("assembles the built-in Engenty Copilot config as a supervisor-ready agent", async () => {
     const agent = (await assembleDynamicAgent(
-      createBuiltinProvider(),
+      builtinProviderWithAppCoderStub(),
       "engenty.copilot"
     )) as unknown as {
       config: {
@@ -767,12 +794,14 @@ describe("dynamic AI registry", () => {
       "infer reasonable low-risk options"
     );
     expect(agent.config.backgroundTasks).toBeUndefined();
-    // Both builtin specialists declared in engentyCopilotAgentConfig.subAgents:
-    // engenty_cli (CLI/sandbox work) and file_analyst (tiered attachments).
+    // All specialists declared in engentyCopilotAgentConfig.subAgents:
+    // engenty_cli (CLI/sandbox work), file_analyst (tiered attachments), and
+    // app_coder (app-building, stubbed above since it's module-provided).
     // Keep in sync with modules/engenty-copilot/ai/agents/engenty.copilot/agent.ts.
     expect(Object.keys(agent.config.agents)).toEqual([
       "engenty_cli",
       "file_analyst",
+      "app_coder",
     ]);
     expect(agent.config.tools).toHaveProperty("chatThreadSearch");
     // AG-UI frontend tools are no longer a static meta-tool on the agent config;
