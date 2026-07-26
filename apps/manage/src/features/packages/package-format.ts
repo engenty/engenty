@@ -1,11 +1,14 @@
 /** Shared package display helpers for list + detail pages. */
 
-/** "$40" style from micros, or an em dash when unlimited/absent. */
+/** USD currency formatting from micros, or an em dash when unlimited/absent. */
 export function formatMicros(value: number | null): string {
   if (value === null) {
     return "—";
   }
-  return `$${(value / 1_000_000).toLocaleString()}`;
+  return (value / 1_000_000).toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+  });
 }
 
 export function moduleSummary(

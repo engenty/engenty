@@ -1,6 +1,11 @@
 import { vi } from "vitest";
 import en from "./src/locales/en/common.json";
 
+// The suite runs in an English world. Alongside the i18n mock below, the
+// `test` script pins LC_ALL=en_US.UTF-8 — Intl reads the machine locale at
+// process start, so it cannot be set from here, and without it assertions on
+// `toLocaleString` output (money, dates) fail on non-en-US machines.
+
 function resolveKey(key: string, params?: Record<string, unknown>): string {
   const value = key
     .split(".")

@@ -20,6 +20,7 @@ import {
   setTenantPackage,
 } from "@/lib/api/entitlements";
 import { tenantEntitlementsQuery } from "@/lib/queries/entitlements";
+import { formatMicros } from "@/features/packages/package-format";
 
 const NONE = "__none__";
 
@@ -215,11 +216,9 @@ export function TenantEntitlementsTab({ tenantId }: { tenantId: string }) {
                 />
                 <SummaryRow
                   label={t("entitlements.aiLimit")}
-                  value={
-                    data.resolved.aiUsagePolicy.hard_limit_cost_micros === null
-                      ? "—"
-                      : `$${(data.resolved.aiUsagePolicy.hard_limit_cost_micros / 1_000_000).toLocaleString()}`
-                  }
+                  value={formatMicros(
+                    data.resolved.aiUsagePolicy.hard_limit_cost_micros
+                  )}
                 />
                 <SummaryRow
                   label={t("entitlements.enforcement")}

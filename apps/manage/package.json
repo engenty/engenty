@@ -11,7 +11,7 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "lint": "biome check .",
-    "test": "vitest run",
+    "test": "LC_ALL=en_US.UTF-8 vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
