@@ -29,3 +29,7 @@ export {
   type LlamaParseTier,
 } from "./providers/llamaparse/index.js";
 export { LocalProvider } from "./providers/local/index.js";
+export {
+  MistralOcrProvider,
+  type MistralOcrProviderConfig,
+} from "./providers/mistral/index.js";

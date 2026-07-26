@@ -157,10 +157,15 @@ async function resolveDocConverterConfig(
   const p = dc?.provider ?? "local";
   return {
     provider:
-      p === "llamaparse" || p === "gemini" || p === "liteparse" || p === "local"
+      p === "llamaparse" ||
+      p === "mistral" ||
+      p === "gemini" ||
+      p === "liteparse" ||
+      p === "local"
         ? p
         : "local",
     gemini_model: dc?.gemini_model ?? undefined,
+    mistral_model: dc?.mistral_model ?? undefined,
   };
 }
 
@@ -963,8 +968,8 @@ export function registerFileStorageRoutes(params: {
   // ── GET /api/file-storage/doc-converter/availability — cloud backend readiness ──
   // Replaces the retired GET /api/ai/doc-converter/availability (core AI runtime
   // split 2026-05-21). Reflects platform-hydrated env keys (LLAMA_CLOUD_API_KEY,
-  // AI_GATEWAY_API_KEY) so the AI settings doc-converter card shows real state
-  // instead of the 404 stub that always read "not configured".
+  // MISTRAL_API_KEY, AI_GATEWAY_API_KEY) so the AI settings doc-converter card
+  // shows real state instead of the 404 stub that always read "not configured".
   app.get("/api/file-storage/doc-converter/availability", async (c) => {
     const authResult = await requireAuth(c, config);
     if ("error" in authResult) {

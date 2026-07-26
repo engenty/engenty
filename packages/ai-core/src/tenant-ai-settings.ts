@@ -6,7 +6,8 @@ export const TENANT_AI_CONFIG_KEY = "ai.config" as const;
 
 export interface DocConverterTenantPrefs {
   gemini_model?: string | null;
-  provider?: "local" | "liteparse" | "llamaparse" | "gemini" | null;
+  mistral_model?: string | null;
+  provider?: "local" | "liteparse" | "llamaparse" | "mistral" | "gemini" | null;
 }
 
 /**
@@ -75,10 +76,12 @@ function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
   const o = raw as Record<string, unknown>;
   const provider = o.provider;
   const gemini_model = o.gemini_model;
+  const mistral_model = o.mistral_model;
   const normalizedProvider =
     provider === "local" ||
     provider === "liteparse" ||
     provider === "llamaparse" ||
+    provider === "mistral" ||
     provider === "gemini"
       ? provider
       : null;
@@ -86,6 +89,8 @@ function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
     provider: normalizedProvider,
     gemini_model:
       typeof gemini_model === "string" ? gemini_model.trim() || null : null,
+    mistral_model:
+      typeof mistral_model === "string" ? mistral_model.trim() || null : null,
   };
 }
 

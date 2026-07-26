@@ -71,13 +71,17 @@
     "providerLocal": "Local (pdf-parse + mammoth)",
     "providerLiteParseLocal": "LiteParse (local)",
     "providerLlamaParse": "LlamaParse (cloud)",
+    "providerMistral": "Mistral OCR (cloud)",
     "providerGemini": "Gemini vision (AI Gateway)",
     "geminiModelLabel": "Gemini model id",
     "geminiModelHelp": "AI Gateway model id (e.g. google/gemini-2.5-flash). Leave empty to use the default.",
+    "mistralModelLabel": "Mistral OCR model id",
+    "mistralModelHelp": "Mistral OCR model id (e.g. mistral-ocr-latest). Leave empty to use the default.",
     "availabilityHeading": "Server configuration",
     "availabilityLoading": "Checking environment…",
     "backendReady": "Configured",
     "backendMissingLlama": "Not configured (set LLAMA_CLOUD_API_KEY)",
+    "backendMissingMistral": "Not configured (set MISTRAL_API_KEY)",
     "backendMissingGemini": "Not configured (set AI_GATEWAY_API_KEY)"
   },
   "actions": {

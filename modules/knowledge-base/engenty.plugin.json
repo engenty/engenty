@@ -76,6 +76,23 @@
         "secret": true
       },
       {
+        "description": "Mistral OCR document parsing (Document AI /v1/ocr).",
+        "feature": "ingestion",
+        "group": "Web ingest & document parsing",
+        "key": "MISTRAL_API_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "Create a key in the Mistral console \u2192 API keys."
+          ],
+          "url": "https://console.mistral.ai/api-keys"
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": true
+      },
+      {
         "description": "Exa web search tool (optional; tool disabled when unset).",
         "feature": "ingestion",
         "group": "Web ingest & document parsing",

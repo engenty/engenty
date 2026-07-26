@@ -6,10 +6,12 @@ import { env } from "@engenty/telemetry";
  */
 export function getDocConverterCloudAvailability(): {
   llamaparse: boolean;
+  mistral: boolean;
   gemini: boolean;
 } {
   return {
     llamaparse: !!env("LLAMA_CLOUD_API_KEY")?.trim(),
+    mistral: !!env("MISTRAL_API_KEY")?.trim(),
     gemini: !!env("AI_GATEWAY_API_KEY")?.trim(),
   };
 }

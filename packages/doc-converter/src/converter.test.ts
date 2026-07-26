@@ -10,6 +10,7 @@ describe("Converter", () => {
 
   it("registers local + liteparse when no cloud keys are set", async () => {
     Reflect.deleteProperty(process.env, "LLAMA_CLOUD_API_KEY");
+    Reflect.deleteProperty(process.env, "MISTRAL_API_KEY");
     Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
     vi.resetModules();
     const { Converter: C } = await import("./converter.js");
@@ -23,6 +24,7 @@ describe("Converter", () => {
 
   it("registers llamaparse when LLAMA_CLOUD_API_KEY is set", async () => {
     process.env.LLAMA_CLOUD_API_KEY = "lk-test";
+    Reflect.deleteProperty(process.env, "MISTRAL_API_KEY");
     Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
     vi.resetModules();
     const { Converter: C } = await import("./converter.js");
@@ -36,6 +38,7 @@ describe("Converter", () => {
 
   it("registers gemini when AI_GATEWAY_API_KEY is set", async () => {
     Reflect.deleteProperty(process.env, "LLAMA_CLOUD_API_KEY");
+    Reflect.deleteProperty(process.env, "MISTRAL_API_KEY");
     process.env.AI_GATEWAY_API_KEY = "gk-test";
     vi.resetModules();
     const { Converter: C } = await import("./converter.js");
@@ -47,8 +50,23 @@ describe("Converter", () => {
     expect(ids).toEqual(["gemini", "liteparse", "local"]);
   });
 
+  it("registers mistral when MISTRAL_API_KEY is set", async () => {
+    Reflect.deleteProperty(process.env, "LLAMA_CLOUD_API_KEY");
+    Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
+    process.env.MISTRAL_API_KEY = "mk-test";
+    vi.resetModules();
+    const { Converter: C } = await import("./converter.js");
+    const c = new C();
+    const ids = c
+      .listProviders()
+      .map((p) => p.id)
+      .sort();
+    expect(ids).toEqual(["liteparse", "local", "mistral"]);
+  });
+
   it("prefers vision (gemini) over local OCR (liteparse) for images so ImageMagick isn't needed", async () => {
     Reflect.deleteProperty(process.env, "LLAMA_CLOUD_API_KEY");
+    Reflect.deleteProperty(process.env, "MISTRAL_API_KEY");
     process.env.AI_GATEWAY_API_KEY = "gk-test";
     vi.resetModules();
     const { Converter: C } = await import("./converter.js");
@@ -85,6 +103,7 @@ describe("Converter", () => {
 
   it("falls back from preferred cloud to local when mime is unsupported", async () => {
     process.env.LLAMA_CLOUD_API_KEY = "lk-test";
+    Reflect.deleteProperty(process.env, "MISTRAL_API_KEY");
     Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
     vi.resetModules();
     const { Converter: C } = await import("./converter.js");
