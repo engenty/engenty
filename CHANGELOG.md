@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.79] - 2026-07-26
+- FIXED **[deploy]** Verify the agentos-apps patch without require.resolve
+
 ## [0.1.78] - 2026-07-26
 - ADDED **[apps]** App-build workflow — the durable sequence behind app_build
 - FIXED **[deploy]** Copy patches before pnpm fetch so images build again

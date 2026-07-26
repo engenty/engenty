@@ -61,7 +61,16 @@ COPY --from=build /app/apps/app-host/dist ./apps/app-host/dist
 
 # Fail the build rather than the first deploy if the patch did not survive
 # install, and prove both native binaries are present and executable.
-RUN node -e "const fs=require('fs');const p=require.resolve('@rivet-dev/agentos-apps',{paths:['/app/apps/app-host']});if(!fs.readFileSync(p,'utf8').includes('engenty patch (2026-07-25)')){throw new Error('agentos-apps patch missing — deployApp() would fail at runtime')}console.log('agentos-apps patch present')"
+# Resolved from the filesystem, not `require.resolve`: agentos-apps declares no
+# `main` and its `exports` map defines only an `import` condition, so a CJS
+# resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED whether or not the patch applied.
+# The guard could never pass — it just never ran, because `pnpm fetch` failed
+# first.
+RUN PKG="$(readlink -f /app/apps/app-host/node_modules/@rivet-dev/agentos-apps)" \
+  && test -n "$PKG" && test -d "$PKG" \
+  && grep -rq 'engenty patch (2026-07-25)' "$PKG" \
+  && echo "agentos-apps patch present: $PKG" \
+  || (echo "agentos-apps patch missing — deployApp() would fail at runtime" && exit 1)
 RUN ENGINE="$(find /app/node_modules/.pnpm -type f -name rivet-engine | head -1)" \
   && test -n "$ENGINE" && test -x "$ENGINE" \
   && echo "rivet-engine present: $ENGINE" \
