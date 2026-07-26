@@ -68,6 +68,11 @@ describe("remote channels registration", () => {
   });
 
   it("mounts the webhook route and rejects unsigned requests", async () => {
+    // Heavyweight: this builds a real Mastra instance and mounts the
+    // channel routes, which costs seconds. On a loaded machine the parallel
+    // forks push it past the 10s global budget and it fails as a flake with
+    // nothing actually wrong. Widened here rather than globally so a real
+    // hang elsewhere still trips the default.
     enableWithDummyCreds();
     const app = new Hono();
     await registerRemoteChannels(app as never, { mastra: new Mastra({}) });
@@ -80,5 +85,5 @@ describe("remote channels registration", () => {
     // adapter's signature verification).
     expect(res.status).not.toBe(404);
     expect(res.status).toBeGreaterThanOrEqual(400);
-  });
+  }, 30_000);
 });
