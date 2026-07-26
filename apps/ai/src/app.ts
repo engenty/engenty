@@ -194,6 +194,8 @@ export async function createApp(options: CreateAppOptions = {}) {
           supabase: settingsDb,
           keys: [
             "AI_GATEWAY_API_KEY",
+            "ELEVENLABS_API_KEY",
+            "MISTRAL_API_KEY",
             "OPENAI_API_KEY",
             "SLACK_BOT_TOKEN",
             "SLACK_SIGNING_SECRET",
