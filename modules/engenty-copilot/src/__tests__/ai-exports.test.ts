@@ -21,6 +21,7 @@ describe("@engenty/engenty-copilot AI exports", () => {
     expect(engentyCopilotAgentConfig.subAgents).toEqual([
       { alias: "engenty_cli", id: "engenty.cli" },
       { alias: "file_analyst", id: "engenty.file-analyst" },
+      { alias: "app_coder", id: "engenty.app-coder" },
     ]);
   });
 

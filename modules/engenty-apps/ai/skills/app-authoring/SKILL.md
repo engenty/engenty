@@ -147,17 +147,20 @@ variable.
 
 ## The build-fix loop
 
-`app_release_propose` builds the draft. On failure you get `build_log`
-verbatim, with a file and a line:
+Call `app_build` with `{ name, slug, manifest, files }` — it creates (or
+reuses) the app, writes the draft, compiles it, and publishes a live preview
+artifact into the chat. On failure you get `build_log` verbatim, with a file
+and a line:
 
 ```
 src/App.tsx:12:20: ERROR: Expected "}" but found "1"
 ```
 
-Fix that file with `app_file_write` and propose again. The version number does
-not advance on a failed build, so iterating costs nothing. The frontend is
-built before the backend is deployed, so a broken component fails in under a
-second rather than after a deploy.
+Fix that file and call `app_build` again with the **same slug** and the
+complete corrected file set. The version number does not advance on a failed
+build, so iterating costs nothing. The frontend is built before the backend
+is deployed, so a broken component fails in under a second rather than after
+a deploy.
 
 Three failures the log will not spell out for you:
 
