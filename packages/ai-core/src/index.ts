@@ -123,6 +123,21 @@ export {
   resolvePurposeModel,
   resolvePurposeModelId,
 } from "./config/model-purposes.js";
+export {
+  AI_EFFORT_LEVELS,
+  AI_PLATFORM_ROLES,
+  type AiEffort,
+  type AiEffortChoice,
+  type AiRoleSpec,
+  bindingsFromList,
+  effortOfRole,
+  GRADED_ROLE_PREFIX,
+  graded,
+  type ModelBinding,
+  type ModelBindings,
+  PURPOSE_TO_ROLE,
+  seedBindings,
+} from "./config/model-roles.js";
 export type {
   ActionDefinition,
   AgentDefinition,

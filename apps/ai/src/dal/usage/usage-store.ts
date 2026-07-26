@@ -15,6 +15,7 @@ import type {
   GatewayModelSyncRunRecord,
   GatewayModelSyncSettingsRecord,
   GatewayModelUpsertInput,
+  ModelBindingRecord,
 } from "../../gateway-models.js";
 
 const AI_SCHEMA = "ai";
@@ -348,10 +349,55 @@ export function createAiUsageStore(
   const gatewayModelSyncSettings = () => db.from("gateway_model_sync_settings");
   const events = () => db.from("usage_event");
   const totals = () => db.from("usage_period_total");
+  const modelBindings = () => db.from("model_binding");
   const tenantPolicies = () => db.from("tenant_usage_policy");
   const userPolicies = () => db.from("user_usage_policy");
 
   return {
+    async listModelBindings(scope = "platform") {
+      const { data, error } = await modelBindings()
+        .select("*")
+        .eq("scope", scope)
+        .order("role", { ascending: true });
+      if (error) {
+        throw new Error(`Failed to list model bindings: ${error.message}`);
+      }
+      return (data ?? []) as ModelBindingRecord[];
+    },
+
+    async seedModelBindings(rows) {
+      if (rows.length === 0) {
+        return 0;
+      }
+      // `ignoreDuplicates` is the whole contract: seeding must never overwrite a
+      // role an operator has already bound. Re-running it on every boot is
+      // therefore safe, which is what lets a new role ship without a migration.
+      const { data, error } = await modelBindings()
+        .upsert(rows as unknown as Record<string, unknown>[], {
+          onConflict: "scope,role",
+          ignoreDuplicates: true,
+        })
+        .select("role");
+      if (error) {
+        throw new Error(`Failed to seed model bindings: ${error.message}`);
+      }
+      return (data ?? []).length;
+    },
+
+    async upsertModelBinding(row) {
+      const { data, error } = await modelBindings()
+        .upsert(
+          { ...row, updated_at: new Date().toISOString() },
+          { onConflict: "scope,role" }
+        )
+        .select("*")
+        .single();
+      if (error) {
+        throw new Error(`Failed to bind role ${row.role}: ${error.message}`);
+      }
+      return data as ModelBindingRecord;
+    },
+
     async getActiveModelPricing(params) {
       const { data, error } = await pricing()
         .select("*")

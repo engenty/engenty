@@ -160,8 +160,7 @@ async function assembleDynamicAgentWithAncestors(
     buildGuardrailProcessors(config.guardrails, {
       agentId: config.id,
       safeguardModelId:
-        options.modelConfig?.safeguardModelId ??
-        "openrouter/openai/gpt-oss-safeguard-20b",
+        options.modelConfig?.safeguardModelId ?? "openai/gpt-oss-safeguard-20b",
     });
   // History hygiene, always on (before the guardrail classifiers): strip bulky
   // `engenty_tool_execute` transcripts from RECALLED history — the last two

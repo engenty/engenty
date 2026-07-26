@@ -114,6 +114,7 @@ import {
   bootstrapGatewayModelsIfEmpty,
   startGatewayModelSyncScheduler,
 } from "./gateway-model-sync-scheduler.js";
+import { seedModelBindingsIfMissing } from "./model-binding-seed.js";
 import { startEmailNotifier } from "./notifications/email-notifier.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
 import {
@@ -773,6 +774,15 @@ export async function createApp(options: CreateAppOptions = {}) {
       await bootstrapGatewayModelsIfEmpty(aiUsageStore);
     } catch (err) {
       logger.warn("Gateway model bootstrap sync failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+    try {
+      await seedModelBindingsIfMissing(aiUsageStore);
+    } catch (err) {
+      // Non-fatal: resolution falls back to the authored defaults, which is
+      // exactly what the seed would have written.
+      logger.warn("Model binding seed failed", {
         message: err instanceof Error ? err.message : String(err),
       });
     }

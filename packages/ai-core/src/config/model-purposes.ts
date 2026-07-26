@@ -16,23 +16,21 @@ import {
   isModelAllowed,
   type ModelAllowList,
 } from "../usage/model-allow-list.js";
+import {
+  DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+  DEFAULT_AI_SAFEGUARD_MODEL_ID,
+} from "./model-defaults.js";
 
-/** Default AI Gateway model ids (single source; re-exported by chat-model-id). */
-export const DEFAULT_AI_CHAT_MODEL_ID = "openai/gpt-5-mini";
-/** Small / non-reasoning default kept for legacy classifier callers. */
-export const DEFAULT_AI_CLASSIFIER_MODEL_ID = "openai/gpt-5-nano";
-/**
- * Default for the planning & coding tier (sandboxed code execution, plan
- * authoring). Independently configurable so it never rides on the chat default,
- * because not all chat models accept the Mastra workspace tool message format.
- */
-export const DEFAULT_AI_PLANNING_CODING_MODEL_ID = "openai/gpt-5-mini";
-/** @deprecated Alias of {@link DEFAULT_AI_PLANNING_CODING_MODEL_ID}. */
-export const DEFAULT_AI_CODE_EXECUTION_MODEL_ID =
-  DEFAULT_AI_PLANNING_CODING_MODEL_ID;
-/** Default safeguard model for Mastra guardrail processors. */
-export const DEFAULT_AI_SAFEGUARD_MODEL_ID =
-  "openrouter/openai/gpt-oss-safeguard-20b";
+export {
+  DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_CLASSIFIER_MODEL_ID,
+  DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
+  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+  DEFAULT_AI_SAFEGUARD_MODEL_ID,
+} from "./model-defaults.js";
+
+import { type ModelBindings, PURPOSE_TO_ROLE } from "./model-roles.js";
 
 /**
  * The tunable LLM purposes surfaced in the AI settings model matrix. Document
@@ -141,6 +139,19 @@ export interface ResolvePurposeModelOptions {
   allowedModels?: readonly string[] | null;
   /** Governance provider allow-list (usage policy `allowed_providers`). */
   allowedProviders?: readonly string[] | null;
+  /**
+   * Platform role bindings. When supplied, the bound model IS the platform
+   * layer and the env keys are not consulted — bindings are seeded from those
+   * same env vars once, at boot, so there is exactly one place to look
+   * afterwards. Omit to keep the pre-binding env behaviour.
+   */
+  bindings?: ModelBindings;
+  /**
+   * Dev mode: ignore the allow-list entirely so the whole catalog is testable.
+   * Governance still applies in the preflight, so this is a resolution-time
+   * convenience, not a way to bill an unlicensed model in production.
+   */
+  devMode?: boolean;
   purpose: AiModelPurpose;
   /** Env reader; server callers pass a `process.env`-backed reader. */
   readEnv?: (key: string) => string | undefined;
@@ -160,7 +171,8 @@ export function resolvePurposeModel(
     allowed_models: options.allowedModels ?? null,
     allowed_providers: options.allowedProviders ?? null,
   };
-  const allowed = (value: string) => isModelAllowed(value, policy);
+  const allowed = (value: string) =>
+    options.devMode === true || isModelAllowed(value, policy);
 
   const session = pick(options.sessionOverride);
   if (session && allowed(session)) {
@@ -174,10 +186,23 @@ export function resolvePurposeModel(
   if (tenant && allowed(tenant)) {
     return { purpose: options.purpose, value: tenant, source: "tenant" };
   }
-  for (const key of spec.envKeys) {
-    const fromEnv = pick(read(key));
-    if (fromEnv && allowed(fromEnv)) {
-      return { purpose: options.purpose, value: fromEnv, source: "platform" };
+  // The platform layer: a binding when the table has been populated, else the
+  // env vars it will be seeded from.
+  const bound = options.bindings
+    ? pick(
+        options.bindings.get(PURPOSE_TO_ROLE[options.purpose] ?? "")?.modelId
+      )
+    : undefined;
+  if (bound) {
+    if (allowed(bound)) {
+      return { purpose: options.purpose, value: bound, source: "platform" };
+    }
+  } else {
+    for (const key of spec.envKeys) {
+      const fromEnv = pick(read(key));
+      if (fromEnv && allowed(fromEnv)) {
+        return { purpose: options.purpose, value: fromEnv, source: "platform" };
+      }
     }
   }
   if (allowed(spec.defaultModelId)) {

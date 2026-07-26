@@ -134,6 +134,14 @@ export type GatewayModelOption = GatewayModelAvailabilityFlags & {
   web_search: boolean;
 };
 
+export interface ModelBindingRecord {
+  gateway: string;
+  model_id: string;
+  role: string;
+  scope: string;
+  updated_at: string;
+}
+
 export interface AiGatewayModelStore {
   getActiveModelPricing(params: {
     at: string;
@@ -155,9 +163,15 @@ export interface AiGatewayModelStore {
   listGatewayModels(
     filters?: GatewayModelListFilters
   ): Promise<GatewayModelRecord[]>;
+  /** Every role binding for a scope, as stored. */
+  listModelBindings(scope?: string): Promise<ModelBindingRecord[]>;
   /** List pricing catalog (most recent valid_from first). */
   listModelPricing(): Promise<ModelPricingRecord[]>;
   markGatewayModelSyncSettingsRun(successAt?: string | null): Promise<void>;
+  /** Insert bindings that do not exist yet; never overwrite a bound role. */
+  seedModelBindings(
+    rows: readonly Omit<ModelBindingRecord, "updated_at">[]
+  ): Promise<number>;
   updateGatewayModelAvailability(
     modelId: string,
     patch: Partial<GatewayModelAvailabilityFlags>
@@ -177,6 +191,10 @@ export interface AiGatewayModelStore {
     >
   ): Promise<GatewayModelSyncRunRecord>;
   upsertGatewayModels(models: GatewayModelUpsertInput[]): Promise<number>;
+  /** Rebind one role. */
+  upsertModelBinding(
+    row: Omit<ModelBindingRecord, "updated_at">
+  ): Promise<ModelBindingRecord>;
 }
 
 export type GatewayModelUpsertInput = Omit<

@@ -54,6 +54,21 @@ export {
   DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   type ResolvedModel,
 } from "./config/model-purposes.js";
+export {
+  AI_EFFORT_LEVELS,
+  AI_PLATFORM_ROLES,
+  type AiEffort,
+  type AiEffortChoice,
+  type AiRoleSpec,
+  bindingsFromList,
+  effortOfRole,
+  GRADED_ROLE_PREFIX,
+  graded,
+  type ModelBinding,
+  type ModelBindings,
+  PURPOSE_TO_ROLE,
+  seedBindings,
+} from "./config/model-roles.js";
 export type { AgentSessionStatus } from "./contracts.js";
 export type {
   AgentConfig,

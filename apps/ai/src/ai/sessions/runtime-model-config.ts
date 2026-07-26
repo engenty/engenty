@@ -1,4 +1,6 @@
 import {
+  bindingsFromList,
+  type ModelBindings,
   resolveChatModelId,
   resolvePurposeModelId,
   resolveSafeguardModelId,
@@ -17,6 +19,29 @@ export async function resolveRuntimeModelConfig(
   // the policy's allowed_models are demoted to the platform/default layers at
   // resolution time (observe mode never changes behavior). A policy read
   // failure must not break model resolution.
+  // Dev mode exposes the whole catalog so a new model can be tried without
+  // editing governance. The preflight still enforces, so this cannot bill an
+  // unlicensed model in production — it only stops resolution from filtering.
+  const devMode = ["1", "true", "yes", "on"].includes(
+    (process.env.ENGENTY_AI_DEV_MODELS ?? "").toLowerCase()
+  );
+  let bindings: ModelBindings | undefined;
+  try {
+    const rows = await opts.getUsageStore()?.listModelBindings?.();
+    if (rows && rows.length > 0) {
+      bindings = bindingsFromList(
+        rows.map((r) => ({
+          gateway: r.gateway,
+          modelId: r.model_id,
+          role: r.role,
+        }))
+      );
+    }
+  } catch {
+    // Unbound roles fall back to the authored defaults, which is what the seed
+    // would have written anyway — never fail a run over a binding read.
+    bindings = undefined;
+  }
   let allowedModels: readonly string[] | null = null;
   let allowedProviders: readonly string[] | null = null;
   if (scope.tenantId) {
@@ -52,6 +77,8 @@ export async function resolveRuntimeModelConfig(
     chatModelId: resolveChatModelId({
       allowedModels,
       allowedProviders,
+      bindings,
+      devMode,
       override: modelIdOverride,
       purpose: "chat",
       tenantDefault: tenantChatModel,
@@ -59,6 +86,8 @@ export async function resolveRuntimeModelConfig(
     routingModelId: resolveChatModelId({
       allowedModels,
       allowedProviders,
+      bindings,
+      devMode,
       override: modelIdOverride,
       purpose: "routing",
       tenantDefault:
@@ -69,18 +98,24 @@ export async function resolveRuntimeModelConfig(
     researchModelId: resolvePurposeModelId({
       allowedModels,
       allowedProviders,
+      bindings,
+      devMode,
       purpose: "research",
       tenantDefault: tenantConfig?.researchModelId?.trim() || null,
     }),
     planningCodingModelId: resolvePurposeModelId({
       allowedModels,
       allowedProviders,
+      bindings,
+      devMode,
       purpose: "planning_coding",
       tenantDefault: tenantConfig?.planningCodingModelId?.trim() || null,
     }),
     safeguardModelId: resolveSafeguardModelId({
       allowedModels,
       allowedProviders,
+      bindings,
+      devMode,
       tenantDefault: tenantConfig?.safeguardModelId?.trim() || null,
     }),
   };
