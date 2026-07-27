@@ -36,6 +36,10 @@ import {
 } from "../../ai/tools/engenty-tools/lib/run-context.js";
 import { registryAgentsListTool } from "../../ai/tools/registry-agents-list-tool.js";
 import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
+import {
+  getServiceAccessToken,
+  isServiceCredentialConfigured,
+} from "../ai/service-credential.js";
 import { createSchedulerOperationInvoker } from "../scheduler/service-invoker.js";
 
 const logger = createLogger({ name: "remote-channels" });
@@ -117,9 +121,11 @@ async function mintActorToken(input: {
   ) {
     return cached.token;
   }
-  const serviceJwt = process.env.ENGENTY_AI_SERVICE_JWT?.trim();
+  const serviceJwt = await getServiceAccessToken();
   if (!serviceJwt) {
-    throw new Error("remote-channels: ENGENTY_AI_SERVICE_JWT is required");
+    throw new Error(
+      "remote-channels: a service credential (ENGENTY_AI_SERVICE_JWT or ENGENTY_AI_SERVICE_EMAIL/PASSWORD) is required"
+    );
   }
   const response = await fetch(
     `${getEngentyCoreBaseUrlFromEnv()}/api/auth/actor-token`,
@@ -310,9 +316,9 @@ export async function registerRemoteChannels(
   if (!isRemoteChannelsEnabled()) {
     return;
   }
-  if (!process.env.ENGENTY_AI_SERVICE_JWT?.trim()) {
+  if (!isServiceCredentialConfigured()) {
     logger.warn(
-      "remote channels enabled but ENGENTY_AI_SERVICE_JWT is missing; skipping"
+      "remote channels enabled but no service credential is configured (ENGENTY_AI_SERVICE_JWT or ENGENTY_AI_SERVICE_EMAIL/PASSWORD); skipping"
     );
     return;
   }
