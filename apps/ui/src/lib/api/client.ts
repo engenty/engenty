@@ -416,13 +416,43 @@ export interface PlatformSettingView {
   value?: string | null;
 }
 
+/** Install-wide facts the setup UI shows alongside the settings themselves. */
+export interface PlatformSettingsContext {
+  /** Public origin of this installation ("" when no base URL is configured). */
+  apiBaseUrl: string;
+  /** Loopback alternative to offer when the redirect host is unusable. */
+  loopbackRedirectUri: string | null;
+  /** Redirect/callback URL to register with every OAuth provider. */
+  oauthRedirectUri: string | null;
+  /** The redirect host is one providers refuse (a `*.localhost` subdomain). */
+  redirectHostRejected: boolean;
+}
+
+/**
+ * Deploy-scope keys the UI can only report on: they are read from each
+ * service's own process environment, never from the settings store.
+ */
+export interface DeploymentEnvVar {
+  description: string;
+  feature?: string;
+  group: string;
+  /** Non-empty in the server's environment. Values are never returned. */
+  isSet: boolean;
+  key: string;
+  required: "always" | "feature" | "optional";
+  secret: boolean;
+}
+
+export interface PlatformSettingsListResponse {
+  context?: PlatformSettingsContext;
+  deploymentEnv?: DeploymentEnvVar[];
+  settings: PlatformSettingView[];
+}
+
 export function listPlatformSettings(signal?: AbortSignal) {
-  return request<{ settings: PlatformSettingView[] }>(
-    "/api/platform-settings",
-    {
-      signal,
-    }
-  );
+  return request<PlatformSettingsListResponse>("/api/platform-settings", {
+    signal,
+  });
 }
 
 export function setPlatformSetting(key: string, value: string) {
@@ -440,7 +470,7 @@ export function deletePlatformSetting(key: string) {
 }
 
 export function listTenantSettingOverrides(signal?: AbortSignal) {
-  return request<{ settings: PlatformSettingView[] }>(
+  return request<PlatformSettingsListResponse>(
     "/api/tenant-settings-overrides",
     { signal }
   );

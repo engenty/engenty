@@ -4,11 +4,14 @@
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import { Button, Input, SettingsFormSection, Switch } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
+import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  type DeploymentEnvVar,
   deletePlatformSetting,
   listPlatformSettings,
+  type PlatformSettingsContext,
   type PlatformSettingView,
   setPlatformSetting,
 } from "@/lib/api/platform-settings";
@@ -49,10 +52,162 @@ function groupSettings(
   }));
 }
 
+function groupDeploymentEnv(
+  vars: DeploymentEnvVar[]
+): Map<string, DeploymentEnvVar[]> {
+  const byGroup = new Map<string, DeploymentEnvVar[]>();
+  for (const envVar of vars) {
+    const bucket = byGroup.get(envVar.group);
+    if (bucket) {
+      bucket.push(envVar);
+    } else {
+      byGroup.set(envVar.group, [envVar]);
+    }
+  }
+  return byGroup;
+}
+
 function obtainUrl(setting: PlatformSettingView): string | null {
   return setting.obtain.kind === "provider" && setting.obtain.url
     ? setting.obtain.url
     : null;
+}
+
+/** A group needs the callback callout when its steps talk about a redirect URI. */
+function groupUsesRedirectUri(items: PlatformSettingView[]): boolean {
+  return items.some((s) =>
+    s.obtain.instructions?.some((line) => /redirect|callback/i.test(line))
+  );
+}
+
+/**
+ * Read-only status for a key only the deployment environment can supply —
+ * the value is never sent to the browser, just whether it is present.
+ */
+function DeploymentEnvRows({ vars }: { vars: DeploymentEnvVar[] }) {
+  if (vars.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-3 rounded-md border border-dashed bg-muted/30 p-3">
+      <p className="text-muted-foreground text-xs">
+        Set in the deployment environment (Coolify env vars,{" "}
+        <code className="font-mono">deploy/.env</code>) and read at boot — not
+        editable here. Restart the services after changing one.
+      </p>
+      {vars.map((envVar) => (
+        <div className="space-y-1" key={envVar.key}>
+          <div className="flex items-center justify-between gap-2">
+            <code className="font-medium font-mono text-sm">{envVar.key}</code>
+            <span
+              className={`rounded-full px-2 py-0.5 font-medium text-[11px] ${
+                envVar.isSet
+                  ? "bg-muted/60 text-muted-foreground"
+                  : envVar.required === "optional"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-destructive/10 text-destructive"
+              }`}
+            >
+              {envVar.isSet ? "Set" : "Not set"}
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs">{envVar.description}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CopyValue({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2">
+      <code className="min-w-0 flex-1 break-all rounded bg-background/80 px-2 py-1 font-mono text-xs">
+        {value}
+      </code>
+      <Button
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          } catch {
+            toast.error("Could not copy — select the text instead");
+          }
+        }}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {copied ? (
+          <Check className="size-3.5" />
+        ) : (
+          <Copy className="size-3.5" />
+        )}
+        {copied ? "Copied" : "Copy"}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Every OAuth connector shares one callback route, so the URL to register in
+ * the provider console (Google, Microsoft, Slack, …) is the same for all of
+ * them — show it once per group, ready to paste.
+ */
+function RedirectUriCallout({
+  context,
+}: {
+  context: PlatformSettingsContext | undefined;
+}) {
+  if (!context?.oauthRedirectUri) {
+    return (
+      <div className="rounded-md border border-dashed bg-muted/40 p-3 text-muted-foreground text-xs">
+        Set <code className="font-mono">PUBLIC_APP_URL</code> (or{" "}
+        <code className="font-mono">ENGENTY_API_BASE_URL</code>) so this
+        installation can tell you the exact OAuth redirect URI to register.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+      <p className="font-medium text-xs">
+        Authorized redirect URI — paste this into the provider&apos;s OAuth app
+      </p>
+      <CopyValue value={context.oauthRedirectUri} />
+      <p className="text-muted-foreground text-xs">
+        Register this exact URL (no trailing slash, no extra path). Every
+        connector shares it — it is the only redirect URI engenty ever uses. The
+        app origin alone (for example{" "}
+        <code className="font-mono">{context.apiBaseUrl || "https://…"}</code>)
+        is not a valid redirect URI, though Google also wants that origin under
+        &quot;Authorized JavaScript origins&quot;.
+      </p>
+      {context.redirectHostRejected ? (
+        <div className="space-y-2 border-border/60 border-t pt-2">
+          <p className="text-muted-foreground text-xs">
+            <span className="font-medium text-foreground">
+              Local development:
+            </span>{" "}
+            providers reject <code className="font-mono">*.localhost</code>{" "}
+            hosts — only <code className="font-mono">localhost</code> and{" "}
+            <code className="font-mono">127.0.0.1</code> with a port are
+            accepted. Register the loopback URL below instead and set{" "}
+            <code className="font-mono">CONNECTIONS_REDIRECT_URI</code> to it,
+            so the flow sends exactly what the provider has on file.
+          </p>
+          {context.loopbackRedirectUri ? (
+            <CopyValue value={context.loopbackRedirectUri} />
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              Set <code className="font-mono">ENGENTY_CORE_BASE_URL</code> to
+              see the loopback URL for this checkout.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function SettingControl({
@@ -196,6 +351,11 @@ export function PlatformSettingsPanel() {
   }
 
   const groups = groupSettings(settings);
+  const context = query.data?.context;
+  const deployByGroup = groupDeploymentEnv(query.data?.deploymentEnv ?? []);
+  const deployOnlyGroups = [...deployByGroup.entries()].filter(
+    ([group]) => !groups.some((g) => g.group === group)
+  );
 
   return (
     <>
@@ -226,6 +386,13 @@ export function PlatformSettingsPanel() {
                 <p className="text-muted-foreground text-xs">
                   {setting.description}
                 </p>
+                {setting.obtain.instructions?.length ? (
+                  <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground text-xs">
+                    {setting.obtain.instructions.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ul>
+                ) : null}
                 {obtainUrl(setting) ? (
                   <a
                     className="inline-block text-primary text-xs hover:underline"
@@ -241,7 +408,20 @@ export function PlatformSettingsPanel() {
                 </div>
               </div>
             ))}
+            {groupUsesRedirectUri(items) ? (
+              <RedirectUriCallout context={context} />
+            ) : null}
+            <DeploymentEnvRows vars={deployByGroup.get(group) ?? []} />
           </div>
+        </SettingsFormSection>
+      ))}
+      {deployOnlyGroups.map(([group, vars]) => (
+        <SettingsFormSection
+          description="Read from the deployment environment at boot — shown here so a missing key surfaces before it breaks a flow."
+          key={group}
+          title={group}
+        >
+          <DeploymentEnvRows vars={vars} />
         </SettingsFormSection>
       ))}
     </>
