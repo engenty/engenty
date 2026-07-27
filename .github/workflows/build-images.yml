@@ -95,21 +95,55 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Trigger the deploy over SSH instead of Coolify's HTTP API: the API is
-      # IP-allowlisted to the operator's addresses and GitHub runner IPs are
-      # dynamic. SSH (port 22) is not allowlisted; the key is pinned to a forced
-      # command on the VPS (see deploy/scripts/coolify-deploy.sh) so it can ONLY
-      # queue this app's deployment — no shell, no other action. The forced
-      # command ignores whatever command we send, so `true` is enough.
-      - name: Trigger Coolify deploy over SSH
+      # Two routes to the same action (queue a deployment of this app), tried in
+      # order. Neither is a fallback for a *failing* deploy — they are fallbacks
+      # for an unreachable control plane, which is what actually breaks here.
+      #
+      # 1. HTTPS to Coolify's API. Preferred when COOLIFY_API_TOKEN is set:
+      #    port 443 is the one port that must stay open for the panel to work at
+      #    all, so it cannot be closed to runners without also locking the
+      #    operator out of the UI.
+      # 2. SSH, with the key pinned to a forced command on the VPS (see
+      #    deploy/scripts/coolify-deploy.sh) so a leaked key can ONLY queue this
+      #    app's deployment — no shell, no other action. The forced command
+      #    ignores whatever we send, so `true` is enough.
+      #
+      # This job used to be SSH-only, on the premise that port 22 was not
+      # IP-allowlisted. That premise is false: since v0.1.79 the runners time out
+      # on 22 while the same host answers instantly from the operator's address.
+      - name: Trigger Coolify deploy
         env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
           DEPLOY_SSH_KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
           DEPLOY_HOST: ${{ vars.VPS_DEPLOY_HOST }}
         run: |
-          test -n "$DEPLOY_SSH_KEY" || { echo "VPS_DEPLOY_SSH_KEY secret is not set"; exit 1; }
+          set -uo pipefail
+
+          if [ -n "${COOLIFY_API_TOKEN:-}" ]; then
+            test -n "$COOLIFY_URL"      || { echo "COOLIFY_URL variable is not set"; exit 1; }
+            test -n "$COOLIFY_APP_UUID" || { echo "COOLIFY_APP_UUID variable is not set"; exit 1; }
+            echo "Queueing deploy via Coolify API…"
+            code=$(curl -sS --max-time 60 -o /tmp/deploy.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
+              "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_APP_UUID}&force=false") || code=000
+            # Print the body either way: on success it carries the deployment
+            # uuid, and on failure it is the only thing that distinguishes a bad
+            # token (401) from an IP allowlist (403) from a wrong uuid (404).
+            cat /tmp/deploy.json; echo
+            if [ "$code" = "200" ]; then
+              echo "Deploy queued (HTTP 200)."
+              exit 0
+            fi
+            echo "Coolify API returned HTTP ${code} — falling back to SSH."
+          fi
+
+          test -n "$DEPLOY_SSH_KEY" || { echo "No COOLIFY_API_TOKEN and no VPS_DEPLOY_SSH_KEY — nothing to deploy with"; exit 1; }
           test -n "$DEPLOY_HOST"    || { echo "VPS_DEPLOY_HOST variable is not set"; exit 1; }
           install -m 700 -d ~/.ssh
           install -m 600 /dev/stdin ~/.ssh/ci_deploy_key <<< "$DEPLOY_SSH_KEY"
+          echo "Queueing deploy over SSH…"
           ssh -i ~/.ssh/ci_deploy_key \
             -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=20 \
             "root@${DEPLOY_HOST}" true
