@@ -24,6 +24,38 @@ export interface InviteUserInput {
 
 import type { User } from "@supabase/supabase-js";
 
+/**
+ * What `/api/users/setup/context` answers. `tenantRole` widens past
+ * {@link TenantRole} because a service principal holds no membership row —
+ * see the note on `WorkspaceContext.tenantRole` in workspace.ts.
+ */
+export interface WorkspaceContextResult {
+  canSwitchTenant: boolean;
+  currentTenant: { id: string; slug: string; name: string } | null;
+  currentUser: {
+    display_name: string | null;
+    email: string | null;
+    id: string;
+    initials: string | null;
+    role: TenantRole | null;
+  };
+  isSuperAdmin: boolean;
+  isTenantAdmin: boolean;
+  onboarded: boolean;
+  /** Commercial package label, or "local" when none is assigned. */
+  planLabel: string;
+  resolvedAppearance: {
+    font: string;
+    fontSize: string;
+    language: string;
+    themeMode: string;
+  };
+  tenantRole: TenantRole | "service" | null;
+  tenantSupportedLocales: string[];
+  tenants: Array<{ id: string; slug: string; name: string }>;
+  userId: string;
+}
+
 export interface CoreUsersDal {
   createInitialAdmin: (input: {
     email: string;
@@ -35,38 +67,17 @@ export interface CoreUsersDal {
   ensureCurrentAuthUser: (
     accessToken: string
   ) => Promise<{ user: CoreUser; created: boolean }>;
+  getServiceWorkspaceContext: (params: {
+    principalId: string;
+    tenantId: string;
+  }) => Promise<WorkspaceContextResult>;
   getSetupStatus: () => Promise<{
     initialSetupRequired: boolean;
     usersCount: number;
   }>;
   getTenantIdForAuthUser: (accessToken: string) => Promise<string | null>;
   getUserById: (id: string, tenantId: string) => Promise<CoreUser | null>;
-  getWorkspaceContext: (accessToken: string) => Promise<{
-    onboarded: boolean;
-    userId: string;
-    currentUser: {
-      id: string;
-      email: string | null;
-      display_name: string | null;
-      initials: string | null;
-      role: TenantRole | null;
-    };
-    isSuperAdmin: boolean;
-    isTenantAdmin: boolean;
-    currentTenant: { id: string; slug: string; name: string } | null;
-    tenants: Array<{ id: string; slug: string; name: string }>;
-    canSwitchTenant: boolean;
-    /** Commercial package label, or "local" when none is assigned. */
-    planLabel: string;
-    resolvedAppearance: {
-      font: string;
-      fontSize: string;
-      language: string;
-      themeMode: string;
-    };
-    tenantRole: TenantRole | null;
-    tenantSupportedLocales: string[];
-  }>;
+  getWorkspaceContext: (accessToken: string) => Promise<WorkspaceContextResult>;
   initializeAdminForAuthUser: (
     accessToken: string
   ) => Promise<{ user: CoreUser }>;

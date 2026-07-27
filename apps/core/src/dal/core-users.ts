@@ -9,4 +9,5 @@ export {
   type GlobalRole,
   type InviteUserInput,
   type TenantRole,
+  type WorkspaceContextResult,
 } from "./core-users/index.js";

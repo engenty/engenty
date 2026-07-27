@@ -41,9 +41,10 @@ import {
   isDecisionArtifactPayload,
   isFeedbackArtifactPayload,
 } from "../sessions/transcript.js";
-import type {
-  AgentUiProducerContext,
-  AiSessionScope,
+import {
+  type AgentUiProducerContext,
+  type AiSessionScope,
+  scopeAccessToken,
 } from "../sessions/types.js";
 import {
   type ConversationController,
@@ -370,8 +371,8 @@ export async function startConversationRun(
       runId: input.runId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
-      ...(input.scope.userAccessToken
-        ? { userAccessToken: input.scope.userAccessToken }
+      ...(scopeAccessToken(input.scope)
+        ? { userAccessToken: scopeAccessToken(input.scope) }
         : {}),
     };
     const sendDone = engentyToolsRunAls

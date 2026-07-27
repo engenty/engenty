@@ -14,9 +14,18 @@
 // bearer token in an env var.
 //
 // ENGENTY_AI_SERVICE_JWT still wins when set. It is the local-dev path
-// (pnpm service:jwt) and the escape hatch; a deployment sets either it or the
-// email/password pair, not both.
+// (pnpm service:jwt) and the escape hatch; a deployment sets one credential
+// form, not several.
+//
+// Resolution order (PLAN-service-identity.md, CP4):
+//   1. ENGENTY_AI_SERVICE_JWT     — static override, no I/O
+//   2. ENGENTY_AI_SERVICE_SECRET  — exchange at core for a 15-min engenty
+//                                   service token. The target: no Supabase
+//                                   user, revocable, capability-clamped.
+//   3. ENGENTY_AI_SERVICE_EMAIL/PASSWORD — Supabase password grant. Removed at
+//                                   CP6, once prod has soaked on (2).
 import { createLogger } from "@engenty/telemetry";
+import { getEngentyCoreBaseUrlFromEnv } from "./core-http-client.js";
 
 const logger = createLogger({ name: "service-credential" });
 
@@ -44,11 +53,86 @@ function passwordCredential(): { email: string; password: string } | null {
   return email && password ? { email, password } : null;
 }
 
+/**
+ * The durable service credential, as `<credentialId>.<rawSecret>`.
+ *
+ * One env var carries both exchange inputs so operators have a single value to
+ * set and rotate. A malformed value is treated as unconfigured rather than
+ * silently half-parsed — an id with no secret would otherwise produce a
+ * confusing 401 from core instead of an obvious "not configured".
+ */
+function exchangeCredential(): { credentialId: string; secret: string } | null {
+  const raw = process.env.ENGENTY_AI_SERVICE_SECRET?.trim();
+  if (!raw) {
+    return null;
+  }
+  const separator = raw.indexOf(".");
+  if (separator <= 0) {
+    return null;
+  }
+  const credentialId = raw.slice(0, separator).trim();
+  const secret = raw.slice(separator + 1).trim();
+  return credentialId && secret ? { credentialId, secret } : null;
+}
+
 /** True when any form of service credential is configured. The scheduler and
  * remote channels use this for their boot-time "disabled — not configured"
  * decision; it never performs I/O. */
 export function isServiceCredentialConfigured(): boolean {
-  return staticJwt() !== null || passwordCredential() !== null;
+  return (
+    staticJwt() !== null ||
+    exchangeCredential() !== null ||
+    passwordCredential() !== null
+  );
+}
+
+/**
+ * Exchange the durable secret for a short-lived engenty service token.
+ *
+ * Unlike the password grant this never touches Supabase auth: core verifies
+ * the secret against `core.service_credential` and signs a principal token.
+ * An auth outage no longer stops scheduled triggers.
+ */
+async function exchangeForServiceToken(credential: {
+  credentialId: string;
+  secret: string;
+}): Promise<CachedSession> {
+  const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+  if (!coreBaseUrl) {
+    throw new Error(
+      "service-credential: a core base URL is required to exchange ENGENTY_AI_SERVICE_SECRET"
+    );
+  }
+  const response = await fetch(
+    `${coreBaseUrl.replace(/\/$/, "")}/api/auth/service-token`,
+    {
+      body: JSON.stringify({
+        credentialId: credential.credentialId,
+        secret: credential.secret,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    }
+  );
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `service-credential: token exchange failed for credential ${credential.credentialId} — HTTP ${response.status} ${body.slice(0, 300)}`
+    );
+  }
+  const session = (await response.json()) as {
+    expiresIn?: number;
+    token?: string;
+  };
+  if (!session.token) {
+    throw new Error(
+      "service-credential: token exchange response carried no token"
+    );
+  }
+  return {
+    accessToken: session.token,
+    expiresAtMs: Date.now() + (session.expiresIn ?? 900) * 1000,
+  };
 }
 
 async function loginWithPassword(credential: {
@@ -100,6 +184,23 @@ async function loginWithPassword(credential: {
 }
 
 /**
+ * Pick how to mint, in the documented order: durable secret exchanged at core
+ * first, Supabase password grant as the CP6-doomed fallback. Null when neither
+ * is configured.
+ */
+function resolveMinter(): (() => Promise<CachedSession>) | null {
+  const exchange = exchangeCredential();
+  if (exchange) {
+    return () => exchangeForServiceToken(exchange);
+  }
+  const password = passwordCredential();
+  if (password) {
+    return () => loginWithPassword(password);
+  }
+  return null;
+}
+
+/**
  * Current access token for the service principal, minting or renewing as
  * needed. Returns null only when no credential is configured at all —
  * a configured-but-failing credential throws, because "no token" and
@@ -112,8 +213,8 @@ export async function getServiceAccessToken(): Promise<string | null> {
   if (jwt) {
     return jwt;
   }
-  const credential = passwordCredential();
-  if (!credential) {
+  const mint = resolveMinter();
+  if (!mint) {
     return null;
   }
   if (
@@ -123,7 +224,7 @@ export async function getServiceAccessToken(): Promise<string | null> {
     return cachedSession.accessToken;
   }
   if (!inflightLogin) {
-    inflightLogin = loginWithPassword(credential)
+    inflightLogin = mint()
       .then((session) => {
         cachedSession = session;
         logger.info("service access token minted", {

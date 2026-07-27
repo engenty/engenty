@@ -22,7 +22,10 @@ import {
   initializeAdminForAuthUser,
 } from "./setup.js";
 import type { CoreUsersDal } from "./types.js";
-import { getWorkspaceContext } from "./workspace.js";
+import {
+  getServiceWorkspaceContext,
+  getWorkspaceContext,
+} from "./workspace.js";
 
 /**
  * Creates a tenant-scoped core users DAL backed by a Supabase service-role client.
@@ -53,6 +56,8 @@ export function createCoreUsersDal(
       ensureCurrentAuthUser(client, token, identityAdmin, authConfig),
     getWorkspaceContext: (token) =>
       getWorkspaceContext(client, token, authConfig),
+    getServiceWorkspaceContext: (serviceParams) =>
+      getServiceWorkspaceContext(client, serviceParams),
     initializeAdminForAuthUser: (token) =>
       initializeAdminForAuthUser(client, token, identityAdmin, authConfig),
     createInitialAdmin: (input) =>
@@ -80,4 +85,5 @@ export type {
   GlobalRole,
   InviteUserInput,
   TenantRole,
+  WorkspaceContextResult,
 } from "./types.js";

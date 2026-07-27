@@ -20,7 +20,7 @@ import {
   ensureTenantManagedSkillsSeed,
 } from "../workspace/tenant-skills-seed.js";
 import { DEFAULT_SKILL_DISCOVERY_PATHS } from "../workspace/workspace-presets.js";
-import type { AiSessionScope } from "./types.js";
+import { type AiSessionScope, scopeAccessToken } from "./types.js";
 import { resolveEngentyWorkspaceRuntimeSpec } from "./workspace-runtime-spec.js";
 
 const logger = createLogger({ name: "ai.workspace.agent-hook" });
@@ -41,7 +41,7 @@ async function maybeSeedTenantManagedSkills(
     return;
   }
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(scope)?.trim();
   if (!(coreBaseUrl && userAccessToken)) {
     return;
   }

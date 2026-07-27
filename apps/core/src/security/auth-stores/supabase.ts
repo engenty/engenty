@@ -3,6 +3,7 @@ import type {
   ApiTokenRecord,
   AuthStores,
   DeviceAuthorizationRecord,
+  ServiceCredentialRecord,
   SessionRecord,
 } from "./types.js";
 
@@ -158,6 +159,32 @@ function apiTokenToRow(record: ApiTokenRecord): Row {
   };
 }
 
+function serviceCredentialFromRow(row: Row): ServiceCredentialRecord {
+  return {
+    capabilities: (row.capabilities as string[]) ?? [],
+    createdAt: toEpoch(row.created_at),
+    disabledAt: row.disabled_at ? toEpoch(row.disabled_at) : undefined,
+    id: String(row.id),
+    lastUsedAt: row.last_used_at ? toEpoch(row.last_used_at) : undefined,
+    name: String(row.name ?? ""),
+    secretHash: String(row.secret_hash),
+    tenantId: String(row.tenant_id),
+  };
+}
+
+function serviceCredentialToRow(record: ServiceCredentialRecord): Row {
+  return {
+    capabilities: record.capabilities,
+    created_at: toIso(record.createdAt),
+    disabled_at: toIso(record.disabledAt),
+    id: record.id,
+    last_used_at: toIso(record.lastUsedAt),
+    name: record.name,
+    secret_hash: record.secretHash,
+    tenant_id: record.tenantId,
+  };
+}
+
 export function createSupabaseAuthStores(client: SupabaseClient): AuthStores {
   const core = () => client.schema("core");
   return {
@@ -242,6 +269,48 @@ export function createSupabaseAuthStores(client: SupabaseClient): AuthStores {
         if (error) {
           throw new Error(`device_authorizations update: ${error.message}`);
         }
+      },
+    },
+    serviceCredentials: {
+      async get(id) {
+        const { data } = await core()
+          .from("service_credential")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+        return data ? serviceCredentialFromRow(data) : null;
+      },
+      async insert(record) {
+        const { error } = await core()
+          .from("service_credential")
+          .insert(serviceCredentialToRow(record));
+        if (error) {
+          throw new Error(`service_credential insert: ${error.message}`);
+        }
+      },
+      async listForTenant(tenantId) {
+        const { data } = await core()
+          .from("service_credential")
+          .select("*")
+          .eq("tenant_id", tenantId);
+        return (data ?? []).map(serviceCredentialFromRow);
+      },
+      async revoke(id) {
+        const { error } = await core()
+          .from("service_credential")
+          .update({ disabled_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) {
+          throw new Error(`service_credential revoke: ${error.message}`);
+        }
+      },
+      async touch(id, atEpochSeconds) {
+        // Best-effort: a failed last_used_at write must never fail the
+        // exchange the caller is actually waiting on.
+        await core()
+          .from("service_credential")
+          .update({ last_used_at: toIso(atEpochSeconds) })
+          .eq("id", id);
       },
     },
     sessions: {

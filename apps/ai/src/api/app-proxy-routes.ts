@@ -7,6 +7,7 @@ import {
   EngentyCoreHttpError,
   getEngentyCoreBaseUrlFromEnv,
 } from "../ai/core-http-client.js";
+import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import {
   type AppCapabilityRegistry,
@@ -212,7 +213,8 @@ export function registerAppProxyRoutes(
     if (!scope.ok) {
       return { ok: false, response: scope.response };
     }
-    if (!scope.scope.userAccessToken) {
+    const callerToken = scopeAccessToken(scope.scope);
+    if (!callerToken) {
       return {
         ok: false,
         response: c.json({ error: "apps.unauthorized" }, 401),
@@ -223,7 +225,7 @@ export function registerAppProxyRoutes(
       fromCapability: false,
       ok: true,
       tenantId: scope.scope.tenantId,
-      userAccessToken: scope.scope.userAccessToken,
+      userAccessToken: callerToken,
       userId: scope.scope.userId,
     };
   }
@@ -238,7 +240,7 @@ export function registerAppProxyRoutes(
     if (!scope.ok) {
       return scope.response;
     }
-    const token = scope.scope.userAccessToken;
+    const token = scopeAccessToken(scope.scope);
     if (!token) {
       return c.json({ error: "apps.unauthorized" }, 401);
     }

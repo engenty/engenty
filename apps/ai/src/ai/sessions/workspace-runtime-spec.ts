@@ -14,7 +14,7 @@ import {
   resolveTenantLocalWorkspaceBasePath,
 } from "../workspace/local-workspace-paths.js";
 import { resolveEngentyWorkspaceFsMode } from "../workspace/workspace-fs-mode.js";
-import type { AiSessionScope } from "./types.js";
+import { type AiSessionScope, scopeAccessToken } from "./types.js";
 
 // Mastra requires a valid SQL identifier for the vector index name. Derive a
 // stable per-tenant name so ephemeral per-run workspaces reuse one persisted
@@ -48,7 +48,7 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
   skillDiscoveryPaths?: string[];
 }) {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = input.scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(input.scope)?.trim();
   const homeMount = input.mounts.find((mount) => mount.mountPath === "/home");
   const sandboxMount = input.mounts.find(
     (mount) =>

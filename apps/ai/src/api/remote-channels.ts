@@ -124,7 +124,7 @@ async function mintActorToken(input: {
   const serviceJwt = await getServiceAccessToken();
   if (!serviceJwt) {
     throw new Error(
-      "remote-channels: a service credential (ENGENTY_AI_SERVICE_JWT or ENGENTY_AI_SERVICE_EMAIL/PASSWORD) is required"
+      "remote-channels: a service credential (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT) is required"
     );
   }
   const response = await fetch(
@@ -318,7 +318,7 @@ export async function registerRemoteChannels(
   }
   if (!isServiceCredentialConfigured()) {
     logger.warn(
-      "remote channels enabled but no service credential is configured (ENGENTY_AI_SERVICE_JWT or ENGENTY_AI_SERVICE_EMAIL/PASSWORD); skipping"
+      "remote channels enabled but no service credential is configured (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT); skipping"
     );
     return;
   }

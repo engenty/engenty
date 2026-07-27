@@ -61,7 +61,7 @@ import {
   withToolApprovalGrantOnce,
 } from "../ai/sessions/tool-approval-grants.js";
 import { readDecisionResumeChoice } from "../ai/sessions/transcript.js";
-import type { AiSessionScope } from "../ai/sessions/types.js";
+import { type AiSessionScope, scopeAccessToken } from "../ai/sessions/types.js";
 import { createSkillStorage } from "../ai/skills/skill-storage.js";
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
@@ -340,7 +340,7 @@ export function registerAgentSessionRunRoutes(
       ? await filterAgentUiFrontendToolsForScope({
           agentUi: runContext,
           tenantId: scope.scope.tenantId,
-          userAccessToken: scope.scope.userAccessToken,
+          userAccessToken: scopeAccessToken(scope.scope),
         })
       : null;
     const modelIdOverride = resolveModelIdOverride(body.data);
@@ -491,7 +491,7 @@ export function registerAgentSessionRunRoutes(
               coreBaseUrl: opts.coreBaseUrl,
               goalId: threadId,
               secretId: grantContext.secret_id,
-              userAccessToken: scope.scope.userAccessToken,
+              userAccessToken: scopeAccessToken(scope.scope),
             });
           }
         }
@@ -569,7 +569,7 @@ export function registerAgentSessionRunRoutes(
               coreBaseUrl: opts.coreBaseUrl,
               goalId: threadId,
               secretId: grantContext.secret_id,
-              userAccessToken: scope.scope.userAccessToken,
+              userAccessToken: scopeAccessToken(scope.scope),
             });
           }
         }
@@ -704,7 +704,7 @@ export function registerAgentSessionRunRoutes(
       // Durable connection-level "always allow" grants (Settings → Connections)
       // merge with this chat's session grants; both feed the same pre-gate.
       const hsConnectionGrants = await loadConnectionApprovalGrants({
-        userAccessToken: scope.scope.userAccessToken,
+        userAccessToken: scopeAccessToken(scope.scope),
       });
       // Tiered attachments: images/PDFs → multimodal files; small text/CSV →
       // run context (≤32KiB); larger/binary → manifest + agent-file_analyst.
@@ -714,7 +714,7 @@ export function registerAgentSessionRunRoutes(
         : await resolveTieredAttachments({
             coreBaseUrl: opts.coreBaseUrl,
             input: body.data,
-            userAccessToken: scope.scope.userAccessToken,
+            userAccessToken: scopeAccessToken(scope.scope),
           });
       // Durable transcript parts for this turn (persisted so attachments render
       // on reload); empty on an artifact resume (no new user message).
@@ -724,7 +724,7 @@ export function registerAgentSessionRunRoutes(
       // Slash-command / skill expansion + typed @-mention references + attachment
       // manifest/inline text ride the run context — raw user text stays untouched.
       const hsCoreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-      const hsUserAccessToken = scope.scope.userAccessToken?.trim();
+      const hsUserAccessToken = scopeAccessToken(scope.scope)?.trim();
       const hsSkillStorage =
         hsCoreBaseUrl && hsUserAccessToken
           ? createSkillStorage({

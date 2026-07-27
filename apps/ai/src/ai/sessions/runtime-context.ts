@@ -5,7 +5,7 @@ import {
   type EngentyWorkspaceContext,
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
-import type { AiSessionScope } from "./types.js";
+import { type AiSessionScope, scopeAccessToken } from "./types.js";
 
 export async function buildRuntimeContextInstructions(input: {
   scope: AiSessionScope;
@@ -25,7 +25,7 @@ export async function buildRuntimeContextInstructions(input: {
     `- superadmin: ${input.scope.isSuperAdmin === true}`
   );
 
-  const userAccessToken = input.scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(input.scope)?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!(userAccessToken && coreBaseUrl)) {
     lines.push(

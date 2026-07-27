@@ -30,7 +30,7 @@ import {
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
 import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
-import type { AiSessionScope } from "../sessions/types.js";
+import { type AiSessionScope, scopeAccessToken } from "../sessions/types.js";
 import {
   emitFrontendToolInterrupt,
   emitToolApprovalInterrupt,
@@ -181,7 +181,7 @@ export async function resumeConversationRun(
       approvalGrants: mergeApprovalGrants(
         readToolApprovalGrants(input.sessionMetadata ?? {}),
         await loadConnectionApprovalGrants({
-          userAccessToken: input.scope.userAccessToken,
+          userAccessToken: scopeAccessToken(input.scope),
         })
       ),
       approvalPolicy: "suspend" as const,
@@ -191,8 +191,8 @@ export async function resumeConversationRun(
       runId: input.newRunId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
-      ...(input.scope.userAccessToken
-        ? { userAccessToken: input.scope.userAccessToken }
+      ...(scopeAccessToken(input.scope)
+        ? { userAccessToken: scopeAccessToken(input.scope) }
         : {}),
     };
     const resumeDone = engentyToolsRunAls

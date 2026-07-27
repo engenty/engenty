@@ -8,7 +8,7 @@ import { createLogger } from "@engenty/telemetry";
 import type { Hono } from "hono";
 
 import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
-import type { AiSessionScope } from "../ai/sessions.js";
+import { type AiSessionScope, scopeAccessToken } from "../ai/sessions.js";
 import {
   createDefaultSkillRegistryProviderRegistry,
   type SkillRegistryProviderRegistry,
@@ -45,7 +45,7 @@ export interface RegisterSkillsRoutesOptions {
 
 function buildSkillStorage(scope: AiSessionScope): SkillStorage | null {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(scope)?.trim();
   if (!(coreBaseUrl && userAccessToken)) {
     return null;
   }
@@ -62,7 +62,7 @@ function buildSkillProposalStore(
   scope: AiSessionScope
 ): SkillProposalStore | null {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(scope)?.trim();
   if (!(coreBaseUrl && userAccessToken)) {
     return null;
   }

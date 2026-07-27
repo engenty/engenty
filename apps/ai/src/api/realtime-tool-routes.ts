@@ -26,6 +26,7 @@ import {
   withToolApprovalGrant,
   withToolApprovalGrantOnce,
 } from "../ai/sessions/tool-approval-grants.js";
+import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AgentSessionStore } from "../dal/agent-sessions/index.js";
 import { createApiCatalogSearchStore } from "../dal/api-catalog/api-catalog-search-store.js";
@@ -130,7 +131,7 @@ export function registerRealtimeToolRoutes(
           coreBaseUrl: opts.coreBaseUrl,
           goalId: body.data.thread_id,
           secretId: args.input.secret_id,
-          userAccessToken: scope.scope.userAccessToken,
+          userAccessToken: scopeAccessToken(scope.scope),
         });
       }
     }
@@ -157,7 +158,7 @@ export function registerRealtimeToolRoutes(
           goalId: body.data.thread_id ?? null,
           orchestratorThreadId: body.data.thread_id ?? null,
           tenantId: scope.scope.tenantId,
-          userAccessToken: scope.scope.userAccessToken,
+          userAccessToken: scopeAccessToken(scope.scope),
           userId: scope.scope.userId,
         },
         () =>

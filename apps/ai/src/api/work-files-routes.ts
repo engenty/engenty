@@ -7,6 +7,7 @@ import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../ai/sessions/task-workspace-hook.js";
+import { scopeAccessToken } from "../ai/sessions/types.js";
 import { resolveWorkContainer } from "../ai/work-scope/resolve-work-container.js";
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
@@ -75,7 +76,7 @@ export function registerWorkFilesRoutes(
       return c.json({ error: "work_files.invalidContainer" }, 400);
     }
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-    const userAccessToken = scope.scope.userAccessToken?.trim();
+    const userAccessToken = scopeAccessToken(scope.scope)?.trim();
     if (!(coreBaseUrl && userAccessToken)) {
       return c.json({ error: "work_files.unconfigured" }, 503);
     }

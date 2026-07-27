@@ -63,7 +63,11 @@ export async function resolveSchedulerServiceScope(): Promise<SchedulerServiceSc
   }
   return {
     ok: true,
-    scope: { ...resolved.scope, userAccessToken: serviceJwt },
+    scope: {
+      ...resolved.scope,
+      credential: { kind: "service", token: serviceJwt },
+      userAccessToken: serviceJwt,
+    },
   };
 }
 
@@ -76,7 +80,7 @@ export function createSchedulerOperationInvoker(): SchedulerOperationInvoker {
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
     if (!(serviceJwt && coreBaseUrl)) {
       throw new Error(
-        "scheduler: a service credential (ENGENTY_AI_SERVICE_JWT or ENGENTY_AI_SERVICE_EMAIL/PASSWORD) and a core base URL are required for scheduled trigger fires"
+        "scheduler: a service credential (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT) and a core base URL are required for scheduled trigger fires"
       );
     }
     const client = new EngentyCoreClient({

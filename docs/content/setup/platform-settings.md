@@ -52,7 +52,7 @@ a setting removes the database row and falls back to the environment variable.
 Bootstrap secrets and anything read before the database is reachable are
 **never** DB-configurable and must remain in `.env`:
 
-- `ENGENTY_SECURITY_JWT_SECRET`, `ENGENTY_AI_SERVICE_JWT`
+- `ENGENTY_SECURITY_JWT_SECRET`, `ENGENTY_AI_SERVICE_JWT`, `ENGENTY_AI_SERVICE_SECRET`, `ENGENTY_AI_SERVICE_EMAIL`, `ENGENTY_AI_SERVICE_PASSWORD` — the AI service credential is read before the process can authenticate to read anything ([service identity](../dev/service-identity.md))
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_DB_URL` (and the `VITE_` variants)
 - `CONNECTIONS_TOKEN_ENC_KEY`, `SECRETS_ENC_KEY` — an encryption key cannot live inside the data it encrypts
 

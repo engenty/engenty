@@ -6,6 +6,7 @@ import {
 } from "@engenty/platform-settings";
 import { createLogger } from "@engenty/telemetry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
+import { getEnvManifest } from "../../cli/env-setup/env-manifest.js";
 import {
   type ConfigurableSetting,
   getConfigurableSettings,
@@ -14,6 +15,136 @@ import {
 import { createSupabaseClientFromConfig } from "../../security/auth-stores/supabase.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requirePlatformSuperAdmin, requireSuperAdmin } from "./authz.js";
+
+/** Path the connections module serves the OAuth callback on. */
+const OAUTH_CALLBACK_PATH = "/api/connections/oauth/callback";
+
+/**
+ * Public origin of this installation. Deploys set ENGENTY_API_BASE_URL to
+ * PUBLIC_APP_URL (single origin behind the edge gateway); dev sets both.
+ */
+export function publicApiBaseUrl(): string {
+  const raw =
+    process.env.ENGENTY_API_BASE_URL?.trim() ||
+    process.env.PUBLIC_APP_URL?.trim() ||
+    "";
+  return raw.replace(/\/$/, "");
+}
+
+/**
+ * The env manifest writes provider instructions against
+ * `<ENGENTY_API_BASE_URL>` because it has no runtime origin. Resolve it here so
+ * the setup UI shows the literal URL an operator pastes into a provider console.
+ */
+export function expandPlaceholders(text: string): string {
+  const base = publicApiBaseUrl();
+  return base ? text.replaceAll("<ENGENTY_API_BASE_URL>", base) : text;
+}
+
+/**
+ * CONNECTIONS_REDIRECT_URI wins when set (core behind a proxy on a different
+ * origin); otherwise the callback sits on the public origin.
+ */
+export function resolveOAuthRedirectUri(
+  override?: string | null
+): string | null {
+  const configured = override?.trim();
+  if (configured) {
+    return configured;
+  }
+  const base = publicApiBaseUrl();
+  return base ? `${base}${OAUTH_CALLBACK_PATH}` : null;
+}
+
+/**
+ * Providers only accept public hostnames, plus the loopback exceptions
+ * `localhost` and `127.0.0.1`. Portless dev serves the app on `*.localhost`
+ * subdomains, which Google (and most others) reject outright — worth warning
+ * about instead of letting an operator paste a URL that can never be saved.
+ */
+export function isProviderRejectedRedirectHost(uri: string | null): boolean {
+  if (!uri) {
+    return false;
+  }
+  let host: string;
+  try {
+    host = new URL(uri).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return host !== "localhost" && host.endsWith(".localhost");
+}
+
+/**
+ * Loopback fallback for local dev: core's own origin, which providers do
+ * accept. Register this and point CONNECTIONS_REDIRECT_URI at it.
+ */
+export function loopbackRedirectUri(): string | null {
+  const raw = process.env.ENGENTY_CORE_BASE_URL?.trim();
+  if (!raw) {
+    return null;
+  }
+  try {
+    return `${new URL(raw).origin}${OAUTH_CALLBACK_PATH}`;
+  } catch {
+    return null;
+  }
+}
+
+function expandObtain(
+  obtain: ConfigurableSetting["obtain"]
+): ConfigurableSetting["obtain"] {
+  if (!obtain.instructions) {
+    return obtain;
+  }
+  return {
+    ...obtain,
+    instructions: obtain.instructions.map(expandPlaceholders),
+  };
+}
+
+/**
+ * Deploy-scope keys that no UI can write: services read them from their own
+ * process env at boot (app-host never touches the settings DB), and the token
+ * encryption key must not live in the database whose rows it encrypts. Showing
+ * their presence still beats discovering a missing one in the container logs.
+ */
+interface DeploymentEnvView {
+  description: string;
+  feature?: string;
+  group: string;
+  /** Non-empty in core's own environment. Values are never returned. */
+  isSet: boolean;
+  key: string;
+  required: "always" | "feature" | "optional";
+  secret: boolean;
+}
+
+function deploymentEnvStatus(): DeploymentEnvView[] {
+  return getEnvManifest()
+    .filter((spec) => spec.scopes.includes("deploy") && !spec.configurable)
+    .map((spec) => ({
+      description: expandPlaceholders(spec.description),
+      ...(spec.feature ? { feature: spec.feature } : {}),
+      group: spec.group,
+      isSet: Boolean(process.env[spec.key]?.trim()),
+      key: spec.key,
+      required: spec.required,
+      secret: spec.secret,
+    }));
+}
+
+/** Install-wide facts the setup UI shows alongside the settings themselves. */
+interface SettingsContext {
+  /** Public origin; "" when neither base-URL env is set. */
+  apiBaseUrl: string;
+  /** Loopback alternative to offer when the redirect host is unusable. */
+  loopbackRedirectUri: string | null;
+  /** Redirect/callback URL to register with every OAuth provider, or null. */
+  oauthRedirectUri: string | null;
+  /** The redirect host is one providers refuse (a `*.localhost` subdomain). */
+  redirectHostRejected: boolean;
+}
 
 interface SettingView {
   configurable: "platform" | "tenant";
@@ -43,8 +174,8 @@ function toView(
   const base: SettingView = {
     key: spec.key,
     group: spec.group,
-    description: spec.description,
-    obtain: spec.obtain,
+    description: expandPlaceholders(spec.description),
+    obtain: expandObtain(spec.obtain),
     required: spec.required,
     feature: spec.feature,
     secret: spec.secret,
@@ -174,6 +305,28 @@ export function registerPlatformSettingsRoutes(params: {
 
   const specByKey = new Map(getConfigurableSettings().map((s) => [s.key, s]));
 
+  async function settingsContext(
+    tenantId?: string | null
+  ): Promise<SettingsContext> {
+    // CONNECTIONS_REDIRECT_URI is a deploy-scope var, not DB-configurable in
+    // most builds — the resolver only knows configurable keys, so fall back to
+    // the environment the same way the connections module itself does.
+    const override = specByKey.has("CONNECTIONS_REDIRECT_URI")
+      ? (
+          await resolver.resolveSettingMeta("CONNECTIONS_REDIRECT_URI", {
+            tenantId,
+          })
+        ).value
+      : process.env.CONNECTIONS_REDIRECT_URI;
+    const oauthRedirectUri = resolveOAuthRedirectUri(override);
+    return {
+      apiBaseUrl: publicApiBaseUrl(),
+      loopbackRedirectUri: loopbackRedirectUri(),
+      oauthRedirectUri,
+      redirectHostRejected: isProviderRejectedRedirectHost(oauthRedirectUri),
+    };
+  }
+
   // ── Platform scope (superadmin) ───────────────────────────────────────────
   app.get("/api/platform-settings", async (c) => {
     const authResult = await requirePlatformSuperAdmin(c, config);
@@ -189,7 +342,11 @@ export function registerPlatformSettingsRoutes(params: {
         return toView(spec, meta.source, meta.value, row);
       })
     );
-    return jsonApiSuccess(c, { settings });
+    return jsonApiSuccess(c, {
+      context: await settingsContext(null),
+      deploymentEnv: deploymentEnvStatus(),
+      settings,
+    });
   });
 
   app.patch("/api/platform-settings/:key", async (c) => {
@@ -260,7 +417,10 @@ export function registerPlatformSettingsRoutes(params: {
           return toView(spec, meta.source, meta.value, row);
         })
     );
-    return jsonApiSuccess(c, { settings });
+    return jsonApiSuccess(c, {
+      context: await settingsContext(tenantId),
+      settings,
+    });
   });
 
   app.patch("/api/tenant-settings-overrides/:key", async (c) => {
