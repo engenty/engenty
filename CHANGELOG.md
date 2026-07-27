@@ -4,6 +4,14 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.81] - 2026-07-27
+- ADDED **[setup]** Show the OAuth redirect URI and deploy-env status on /setup/platform
+- ADDED **[ai]** Split scope identity from data-access credential (CP4)
+- ADDED **[core]** Answer workspace context for service principals (CP3)
+- ADDED **[core]** Durable service credentials and short-lived service tokens (CP2)
+- DOCS Service identity operator guide; record CP1-CP4 as implemented
+- DOCS Inventory userAccessToken consumers for service identity (CP1)
+
 ## [0.1.80] - 2026-07-27
 - ADDED **[ai]** Self-renewing service credential for headless runs
 - DOCS Plan the first-class service identity (PLAN-service-identity.md)
