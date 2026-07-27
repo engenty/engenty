@@ -22,12 +22,14 @@ const SCOPE_RETRY_MAX_DELAY_MS = 60_000;
 /**
  * Start schedule/scheduler workers and schedule the trigger reconcile.
  *
- * Service-scope resolution distinguishes three failure modes: a missing
- * ENGENTY_AI_SERVICE_JWT env var disables the scheduler outright (same
- * failure mode as the old tick without its Vault secret), a 401 from core
- * disables it too (a rejected token never heals on its own), while any
+ * Service-scope resolution distinguishes three failure modes: no service
+ * credential configured (neither ENGENTY_AI_SERVICE_JWT nor the
+ * ENGENTY_AI_SERVICE_EMAIL/PASSWORD pair) disables the scheduler outright
+ * (same failure mode as the old tick without its Vault secret), a 401 from
+ * core disables it too (a rejected token never heals on its own), while any
  * other failed resolution (core unreachable — e.g. the AI app won the
- * dev-stack boot race) is retried indefinitely on a capped backoff.
+ * dev-stack boot race — or a transient sign-in failure) is retried
+ * indefinitely on a capped backoff.
  *
  * The reconcile is DEFERRED past boot: the module capability loader blocks
  * until plugin registration settles (awaiting it inside createApp deadlocks
@@ -77,7 +79,7 @@ export async function startScheduler(options: {
     }
     if (resolved.reason === "jwt_missing") {
       logger.warn(
-        "scheduler disabled — ENGENTY_AI_SERVICE_JWT is not set; scheduled triggers will not fire"
+        "scheduler disabled — no service credential configured (set ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT); scheduled triggers will not fire"
       );
       return;
     }

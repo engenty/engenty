@@ -500,16 +500,33 @@ if (validateRes.status !== 200) {
 }
 ok(`Validation passed (HTTP ${validateRes.status})`);
 
-// 8. Write token to .env.local
-step("Writing ENGENTY_AI_SERVICE_JWT to .env.local");
+// 8. Write token + credential to .env.local. The email/password pair is what
+// deployments should carry (apps/ai renews its own tokens from it — see
+// apps/ai/src/ai/service-credential.ts); the static JWT remains for local dev.
+// Persisting the password matters because this script RESETS it on every run:
+// an operator who set ENGENTY_AI_SERVICE_PASSWORD in production from a
+// previous run must know a re-run invalidated it.
+step("Writing service credential to .env.local");
 let envContent = readFileSync(ENV_PATH, "utf8");
 envContent = replaceOrAppendEnvLine(
   envContent,
   "ENGENTY_AI_SERVICE_JWT",
   token
 );
+envContent = replaceOrAppendEnvLine(
+  envContent,
+  "ENGENTY_AI_SERVICE_EMAIL",
+  SERVICE_EMAIL
+);
+envContent = replaceOrAppendEnvLine(
+  envContent,
+  "ENGENTY_AI_SERVICE_PASSWORD",
+  password
+);
 writeFileSync(ENV_PATH, envContent, "utf8");
-ok(".env.local updated");
+ok(
+  ".env.local updated (JWT + ENGENTY_AI_SERVICE_EMAIL/PASSWORD — copy the pair into production env to enable self-renewing service tokens)"
+);
 
 // 9. Optionally upsert Vault secret via psql
 if (args.vault) {

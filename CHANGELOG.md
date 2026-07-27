@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.80] - 2026-07-27
+- ADDED **[ai]** Self-renewing service credential for headless runs
+- DOCS Plan the first-class service identity (PLAN-service-identity.md)
+- FIXED **[deploy]** Give edge the app-host URL and token
+
 ## [0.1.79] - 2026-07-26
 - FIXED **[deploy]** Verify the agentos-apps patch without require.resolve
 

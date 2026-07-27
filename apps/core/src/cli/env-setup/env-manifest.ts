@@ -96,12 +96,34 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "Service JWT for apps/ai task dispatcher (same token the coordinator pg_cron job uses for its tenant). Local dev: run `pnpm service:jwt` (scripts/mint-service-jwt.mjs) to mint a long-lived token for the dedicated service identity.",
+      "Static service JWT for apps/ai (scheduler, task dispatcher, remote channels). Local-dev escape hatch: run `pnpm service:jwt` (scripts/mint-service-jwt.mjs). Deployments should prefer ENGENTY_AI_SERVICE_EMAIL/PASSWORD — a static token silently dies when the Supabase JWT expiry hits.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_JWT",
     obtain: { kind: "manual" },
     required: "optional",
     scopes: ["root"],
+    secret: true,
+  },
+
+  {
+    description:
+      "Email of the AI service identity (default service@engenty.local, provisioned by `pnpm service:jwt`). With ENGENTY_AI_SERVICE_PASSWORD, apps/ai signs itself in and renews its own short-lived access tokens — the durable, revocable alternative to a static ENGENTY_AI_SERVICE_JWT.",
+    group: "API security",
+    key: "ENGENTY_AI_SERVICE_EMAIL",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
+
+  {
+    description:
+      "Password of the AI service identity. Paired with ENGENTY_AI_SERVICE_EMAIL; revoke by disabling or deleting the service user in Supabase.",
+    group: "API security",
+    key: "ENGENTY_AI_SERVICE_PASSWORD",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
     secret: true,
   },
 
