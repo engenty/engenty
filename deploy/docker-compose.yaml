@@ -59,6 +59,12 @@ services:
       ENGENTY_DOCS_BASE_URL: ${PUBLIC_APP_URL}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # engenty Apps — the modules/engenty-apps plugin runs HERE, in core, not
+      # only in apps/ai: it is what builds and calls deployed apps. Without
+      # these two it logs "ENGENTY_APP_HOST_URL unset" at boot and every app
+      # build fails, while app-host itself sits there perfectly healthy.
+      ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
     depends_on:
       engenty-migrate:
         condition: service_completed_successfully
