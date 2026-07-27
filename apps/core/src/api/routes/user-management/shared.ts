@@ -21,6 +21,12 @@ interface CoreAuthLike {
 }
 
 export const TenantRoleSchema = z.enum(["admin", "member"]);
+/**
+ * `tenantRole` as reported by workspace context. Wider than
+ * {@link TenantRoleSchema} because a service principal has no membership row —
+ * `"service"` never appears in `core.user_tenant_roles`, only here.
+ */
+export const WorkspaceRoleSchema = z.enum(["admin", "member", "service"]);
 export const GlobalRoleSchema = z.enum(["superadmin"]);
 
 export const ErrorSchema = apiErrorResponseSchema;
@@ -72,7 +78,7 @@ export const WorkspaceContextSchema = z.object({
   /** Commercial package label, or "local" when none is assigned. */
   planLabel: z.string(),
   resolvedAppearance: ResolvedAppearanceSchema,
-  tenantRole: TenantRoleSchema.nullable(),
+  tenantRole: WorkspaceRoleSchema.nullable(),
   tenantSupportedLocales: z.array(z.string()),
 });
 export const CoreUserSchema = z.object({

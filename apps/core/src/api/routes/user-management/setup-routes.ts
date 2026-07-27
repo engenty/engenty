@@ -1,5 +1,9 @@
 import { apiSuccessSchema } from "@engenty/api-contracts";
 import { createRoute, z } from "@hono/zod-openapi";
+import {
+  getSecuritySecret,
+  verifyAccessToken,
+} from "../../../security/auth.js";
 import { jsonApiError } from "../api-response.js";
 import {
   connectivityFailureResponse,
@@ -301,6 +305,24 @@ export function registerUserManagementSetupRoutes(
     const token = readBearer(c);
     if (!token) {
       return jsonApiError(c, 401, { message: "Unauthorized" });
+    }
+    // Service principals first (PLAN-service-identity.md, CP3). They hold no
+    // row in auth.users, so the user path below would reject the token at
+    // resolveAuthUser before any of this could answer. This check is cheap and
+    // local — verifyAccessToken is signature-only, no round trip — and it can
+    // only match a token core itself signed.
+    const principal = await verifyAccessToken(
+      c.req.header("authorization"),
+      getSecuritySecret(params.config),
+      { transport: "rest" }
+    );
+    if (principal?.principalType === "service") {
+      return jsonApiSuccessOrDatabaseDown(c, params.config, () =>
+        dal.getServiceWorkspaceContext({
+          principalId: principal.principalId,
+          tenantId: principal.tenantId,
+        })
+      );
     }
     return jsonApiSuccessOrDatabaseDown(c, params.config, () =>
       dal.getWorkspaceContext(token)

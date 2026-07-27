@@ -18,7 +18,9 @@ const workspaceContextScopeSchema = z.object({
   isSuperAdmin: z.boolean().default(false),
   isTenantAdmin: z.boolean().default(false),
   onboarded: z.boolean(),
-  tenantRole: z.enum(["admin", "member"]).nullable().default(null),
+  // "service" is a principal without a membership row — see CP3 in
+  // PLAN-service-identity.md. It must never widen into isTenantAdmin below.
+  tenantRole: z.enum(["admin", "member", "service"]).nullable().default(null),
   userId: uuidString,
 });
 

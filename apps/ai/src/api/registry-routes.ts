@@ -26,7 +26,7 @@ function requireAgentAdmin(
   scope: {
     isSuperAdmin?: boolean;
     isTenantAdmin?: boolean;
-    tenantRole?: "admin" | "member" | null;
+    tenantRole?: "admin" | "member" | "service" | null;
   }
 ): Response | null {
   if (

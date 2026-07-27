@@ -41,7 +41,7 @@ export interface ExternalChannelDispatchScope {
   isSuperAdmin?: boolean;
   isTenantAdmin?: boolean;
   tenantId: string;
-  tenantRole?: "admin" | "member" | null;
+  tenantRole?: "admin" | "member" | "service" | null;
   userAccessToken?: string;
   userId: string;
 }

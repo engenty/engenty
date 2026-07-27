@@ -35,8 +35,14 @@ export interface WorkspaceContext {
    */
   planLabel: string;
   resolvedAppearance: ResolvedAppearance;
-  /** BCP-47 language tags for KB translate targets; tenant setting `i18n.supported_locales` (comma-separated). */
-  tenantRole: "admin" | "member" | null;
+  /**
+   * `"service"` is NOT a tenant membership role — no row in
+   * `core.user_tenant_roles` ever holds it. It is the marker for a principal
+   * that has no membership at all and whose authority comes entirely from the
+   * capabilities in its token. Callers that branch on this must treat it as
+   * "member, minus the human" — never as an admin.
+   */
+  tenantRole: "admin" | "member" | "service" | null;
   tenantSupportedLocales: string[];
   tenants: Array<{ id: string; slug: string; name: string }>;
   userId: string;
@@ -197,5 +203,53 @@ export async function getWorkspaceContext(
     resolvedAppearance,
     tenantRole: row?.role ?? null,
     tenantSupportedLocales,
+  };
+}
+
+/**
+ * Workspace context for a service principal (PLAN-service-identity.md, CP3).
+ *
+ * A service credential has no row in `auth.users` and no membership, so the
+ * user path above cannot answer for it — `resolveAuthUser` would reject the
+ * token before anything else ran. What a headless run actually needs from this
+ * endpoint is narrow: a tenant to act in, and `onboarded: true` so the AI
+ * scope resolver doesn't bounce it. Everything human-shaped is deliberately
+ * empty rather than faked.
+ *
+ * `canSwitchTenant` is false and `tenants` holds only the credential's own
+ * tenant: a service credential is minted per tenant, and letting one enumerate
+ * or hop tenants would re-create exactly the ambient authority this plan
+ * removes.
+ */
+export async function getServiceWorkspaceContext(
+  client: SupabaseClient,
+  params: { principalId: string; tenantId: string }
+): Promise<WorkspaceContext> {
+  const [tenant, resolvedAppearance, tenantSupportedLocales, planLabel] =
+    await Promise.all([
+      getTenantById(client, params.tenantId),
+      getResolvedAppearance(client, params.tenantId, params.principalId),
+      loadTenantSupportedLocales(client, params.tenantId),
+      resolveTenantPlanLabel(client, params.tenantId),
+    ]);
+  return {
+    canSwitchTenant: false,
+    currentTenant: tenant,
+    currentUser: {
+      display_name: null,
+      email: null,
+      id: params.principalId,
+      initials: null,
+      role: null,
+    },
+    isSuperAdmin: false,
+    isTenantAdmin: false,
+    onboarded: true,
+    planLabel,
+    resolvedAppearance,
+    tenantRole: "service",
+    tenantSupportedLocales,
+    tenants: tenant ? [tenant] : [],
+    userId: params.principalId,
   };
 }
