@@ -67,7 +67,11 @@ Opt-in via environment — master switch + at least one platform:
 
 ```bash
 ENGENTY_REMOTE_CHANNELS_ENABLED=true
-ENGENTY_AI_SERVICE_JWT=…        # pnpm service:jwt
+ENGENTY_AI_SERVICE_JWT=…        # pnpm service:jwt — dev only; in a deployment
+                                # use ENGENTY_AI_SERVICE_SECRET instead. The
+                                # credential needs `core.users.impersonate`,
+                                # which is what actor-token minting checks.
+                                # See ./service-identity.md
 # Slack (can be the same Slack app as the team-chat bridge — add a bot token):
 SLACK_BOT_TOKEN=xoxb-…
 SLACK_SIGNING_SECRET=…

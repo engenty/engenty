@@ -1,7 +1,49 @@
 # PLAN: First-class service identity (decouple headless AI runs from Supabase sessions)
 
-Status: **planned** · Owner: unassigned · Prerequisite: v0.1.80 (self-renewing
-service credential, `apps/ai/src/ai/service-credential.ts`) is shipped.
+Status: **CP1–CP4 implemented** · CP5–CP6 blocked on production · Prerequisite:
+v0.1.80 (self-renewing service credential,
+`apps/ai/src/ai/service-credential.ts`) is shipped.
+
+| CP | State |
+|---|---|
+| CP1 Inventory | ✅ [docs/wip/service-identity-inventory.md](docs/wip/service-identity-inventory.md) — **bucket B is empty** |
+| CP2 `core.service_credential` + `POST /api/auth/service-token` | ✅ 16 tests; migration applied locally |
+| CP3 Workspace context for service principals | ✅ 4 tests |
+| CP4 `AiScopeCredential` + `ENGENTY_AI_SERVICE_SECRET` | ✅ 690 apps/ai tests green |
+| CP5 Prod cutover + one-week soak | ⛔ needs prod credential + Coolify + elapsed time |
+| CP6 Remove the Supabase service user | ⛔ gated on CP5 — doing it now deletes production's only working path |
+
+**Operator documentation:** [docs/content/dev/service-identity.md](docs/content/dev/service-identity.md).
+
+## Deviations from the plan as written
+
+Recorded here so the next reader is not surprised by the code:
+
+1. **Bucket B turned out to be empty.** The plan assumed a population of direct
+   PostgREST-with-user-JWT calls that would break under an engenty token.
+   `apps/ai` builds exactly one Supabase client and it uses the service-role
+   key. This removed most of CP4's expected risk — see the inventory for the
+   evidence, including why `ENGENTY_WORKSPACE_FS_PROVIDER=supabase` is not a
+   counter-example.
+2. **`capabilities` is `jsonb`, not `text[]`.** Matches `core.api_tokens`, so
+   both tables share one row-mapper shape.
+3. **Credential management got its own routes.** The plan named only the
+   exchange endpoint; creating and revoking need an authenticated,
+   capability-clamped path, so `POST/GET/DELETE /api/auth/service-credentials`
+   exist alongside it. The CLI drives those.
+4. **`credential` is optional, and `userAccessToken` is a shim function, not a
+   getter.** Roughly half the consumers treat a missing credential as "degrade
+   this feature", not "fail". Making it required would convert a set of soft
+   feature-gates into hard failures — a much larger behavioral change than CP4
+   intends. Reads go through `scopeAccessToken()` / `resolveScopeCredential()`.
+5. **CP4 did not rename the downstream option-bag property**
+   (`EngentyCoreClientOptions.userAccessToken` and friends). That is a
+   mechanical CP6 rename; see the inventory's closing section for why it was
+   scoped out.
+6. **One extra fix, from CP1's findings:** app-capability handle TTL is now
+   clamped to the captured token's remaining life. A 15-minute service token
+   makes it possible for a 5-minute handle to outlive its own credential and
+   fail silently at the App backend; 1-hour Supabase sessions hid this.
 
 ## Why this plan exists
 
@@ -245,21 +287,53 @@ email/password env (regression) and once with only `ENGENTY_AI_SERVICE_SECRET`
 
 ### CP5 — Prove it in production
 
-- Create the prod credential: `engenty service-token create --tenant <prod>`.
-- Set `ENGENTY_AI_SERVICE_SECRET` in Coolify; **remove**
-  `ENGENTY_AI_SERVICE_EMAIL/PASSWORD`.
-- Release. Verify in logs: `service access token minted` (from
-  service-credential.ts), scheduler online, a real trigger fires, a task-job
-  dispatch completes, remote-channels actor-token minting still works.
-- Soak for at least a week (one full trigger cycle of every schedule) before
-  CP6.
+**Not startable from a dev machine** — it needs a credential minted against the
+production tenant, Coolify env access, and a week of elapsed time. Runbook:
+
+1. Authenticate the CLI against production, then mint the credential. Grant
+   `core.users.impersonate` only if remote channels are live there:
+   ```bash
+   pnpm engenty service-token create --name ai-service \
+     --api-url https://engenty.engrd.xyz \
+     --capability module.read,module.write,module.execute \
+     --capability core.users.impersonate
+   ```
+   The secret prints once. Note the migration must be applied first — it ships
+   with the release, via the `engenty-migrate` one-shot.
+2. In Coolify set `ENGENTY_AI_SERVICE_SECRET=<credentialId>.<rawSecret>` on
+   `engenty-ai`. Leave `ENGENTY_AI_SERVICE_EMAIL/PASSWORD` in place for this
+   step — the secret takes precedence, so they are a rollback, not a conflict.
+   Confirm `ENGENTY_AI_SERVICE_JWT` is **unset**: it overrides everything.
+3. Redeploy. Verify, in order:
+   - `service access token minted` in the `engenty-ai` logs;
+   - no `scheduler disabled — no service credential configured`;
+   - `pnpm engenty service-token list` shows a non-null `lastUsedAt`;
+   - a real scheduled trigger fires; a task-job dispatch completes;
+   - if remote channels are live, one inbound message still round-trips
+     (that exercises actor-token minting, i.e. the capability grant).
+4. Once green, **remove** `ENGENTY_AI_SERVICE_EMAIL/PASSWORD` from Coolify and
+   redeploy. This is the step that proves the Supabase user is unused.
+5. Soak at least a week — one full cycle of every schedule — before CP6.
+
+Rollback at any point: clear `ENGENTY_AI_SERVICE_SECRET`, restore
+`ENGENTY_AI_SERVICE_EMAIL/PASSWORD`, redeploy. The password grant is still in
+the binary until CP6.
 
 ### CP6 — Remove the Supabase service user
+
+**Do not start before CP5 step 4 has soaked.** Every item below deletes a path
+production currently depends on; as of today production has no service
+credential configured at all, so shipping CP6 now would leave the scheduler
+with nothing to authenticate as.
 
 - Delete the password-grant branch from `service-credential.ts`; drop
   `ENGENTY_AI_SERVICE_EMAIL/PASSWORD` from manifest + compose + `.env.example`.
 - Delete the `userAccessToken` shim; `credential` is the only field. (The
-  compiler finds any straggler.)
+  compiler finds any straggler — including the ~22 test files that build scope
+  literals, and the downstream option bags CP4 left named `userAccessToken`:
+  `EngentyCoreClientOptions`, `AppCapabilityGrant`, `ExternalChannelDispatchScope`,
+  `EngentyToolsRunContext`. Rename those to `accessToken` in the same pass;
+  that is what makes the grep in "Definition of done" pass.)
 - Gut `scripts/mint-service-jwt.mjs` down to its one remaining job (the
   `--vault` pg_cron secret) or delete it; update `pnpm service:jwt` docs.
 - Remove the Supabase-JWT fallback the actor-token route documents for the
@@ -272,12 +346,17 @@ email/password env (regression) and once with only `ENGENTY_AI_SERVICE_SECRET`
 
 ## Risks / decisions an implementer must not make silently
 
-- **Capability string for actor-token minting**: read
-  `actor-token-routes.ts` for the exact check; granting the service too much
-  here recreates the "fake human" problem with extra steps.
-- **`tenantRole: "service"`** will hit every place that switches on tenant
-  role. Grep for `tenantRole` before CP3 and decide each site (most should
-  treat it like `member`-with-capabilities; none should treat it as admin).
+- **Capability string for actor-token minting**: it is
+  `core.users.impersonate` (`ACTOR_TOKEN_CAPABILITY` in
+  `actor-token-routes.ts`). Covered by `*`, **not** by `module.*`. Grant it
+  only when remote channels are actually in use.
+- ~~**`tenantRole: "service"`** will hit every place that switches on tenant
+  role~~ — audited at CP3. All 41 sites either set the role (Supabase-user
+  paths, unaffected) or test `=== "admin"` / `=== "member"` with a
+  least-privilege fall-through (`resolve-grants.ts`, `user-capabilities.ts`,
+  the apps/ai admin gates). A service principal is therefore denied, never
+  escalated. Three local `tenantRole?: "admin" | "member" | null` declarations
+  in apps/ai were widened so the tree compiles.
 - **Multi-tenant scheduling** (one scheduler serving N tenants) becomes
   *possible* with per-tenant credentials but is explicitly out of scope —
   the scheduler's single-tenant assertion in

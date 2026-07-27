@@ -16,6 +16,7 @@
     "generative-ui",
     "ci-pipeline",
     "module-packaging",
+    "service-identity",
     "remote-channels"
   ]
 }
