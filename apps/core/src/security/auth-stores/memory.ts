@@ -2,6 +2,7 @@ import type {
   ApiTokenRecord,
   AuthStores,
   DeviceAuthorizationRecord,
+  ServiceCredentialRecord,
   SessionRecord,
 } from "./types.js";
 
@@ -14,6 +15,7 @@ export function createMemoryAuthStores(): AuthStores {
   const devices = new Map<string, DeviceAuthorizationRecord>();
   const sessions = new Map<string, SessionRecord>();
   const apiTokens = new Map<string, ApiTokenRecord>();
+  const serviceCredentials = new Map<string, ServiceCredentialRecord>();
 
   return {
     apiTokens: {
@@ -73,6 +75,42 @@ export function createMemoryAuthStores(): AuthStores {
         const existing = devices.get(deviceCodeHash);
         if (existing) {
           devices.set(deviceCodeHash, { ...existing, ...patch });
+        }
+        return Promise.resolve();
+      },
+    },
+    serviceCredentials: {
+      get(id) {
+        return Promise.resolve(serviceCredentials.get(id) ?? null);
+      },
+      insert(record) {
+        serviceCredentials.set(record.id, { ...record });
+        return Promise.resolve();
+      },
+      listForTenant(tenantId) {
+        return Promise.resolve(
+          [...serviceCredentials.values()].filter(
+            (credential) => credential.tenantId === tenantId
+          )
+        );
+      },
+      revoke(id) {
+        const existing = serviceCredentials.get(id);
+        if (existing) {
+          serviceCredentials.set(id, {
+            ...existing,
+            disabledAt: nowEpochSeconds(),
+          });
+        }
+        return Promise.resolve();
+      },
+      touch(id, atEpochSeconds) {
+        const existing = serviceCredentials.get(id);
+        if (existing) {
+          serviceCredentials.set(id, {
+            ...existing,
+            lastUsedAt: atEpochSeconds,
+          });
         }
         return Promise.resolve();
       },

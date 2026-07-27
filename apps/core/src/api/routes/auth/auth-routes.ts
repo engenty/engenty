@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { jwtVerify, SignJWT } from "jose";
 import { uuidv7 } from "uuidv7";
@@ -61,6 +61,25 @@ export function checkRateLimit(key: string): boolean {
   current.count += 1;
   authRateWindows.set(key, current);
   return true;
+}
+
+/** Access-token lifetime handed out by `POST /api/auth/service-token`. */
+export const SERVICE_TOKEN_TTL_SECONDS = 900;
+
+/**
+ * Prefix for the raw half of a service credential. Makes a leaked secret
+ * greppable in logs and unmistakable for a JWT.
+ */
+const SERVICE_SECRET_PREFIX = "engsvc";
+
+/** Compare two hex digests without leaking their difference through timing. */
+function hashesMatch(a: string, b: string): boolean {
+  const left = Buffer.from(a, "utf8");
+  const right = Buffer.from(b, "utf8");
+  if (left.length !== right.length) {
+    return false;
+  }
+  return timingSafeEqual(left, right);
 }
 
 export async function signPrincipalToken(params: {
@@ -349,6 +368,203 @@ export function registerAuthRoutes(params: {
       sid: principal.sessionId,
     });
   });
+
+  // ---------------------------------------------------------------------
+  // Service credentials (PLAN-service-identity.md, CP2).
+  //
+  // The exchange route below is the ONLY unauthenticated write in this file,
+  // by design: the credential *is* the authentication. It differs from
+  // /api/auth/api-tokens in the one way that matters — what it hands back is
+  // a 15-minute access token, not a 30-day bearer. The durable half never
+  // travels as an Authorization header and can be revoked without waiting for
+  // an expiry.
+  // ---------------------------------------------------------------------
+
+  params.app.post("/api/auth/service-token", async (c) => {
+    const sourceIp = c.req.header("x-forwarded-for") ?? "unknown";
+    const body = (await c.req.json().catch(() => ({}))) as {
+      credentialId?: string;
+      secret?: string;
+    };
+    const credentialId = String(body.credentialId ?? "").trim();
+    const secret = String(body.secret ?? "");
+    if (!(credentialId && secret)) {
+      return c.json({ error: "credentialId and secret are required" }, 400);
+    }
+    if (!checkRateLimit(`service-token:${credentialId}:${sourceIp}`)) {
+      recordCoreAuditEvent(params.auditLog, {
+        type: "auth.rate_limited",
+        detail: { credentialId, route: "service-token", sourceIp },
+      });
+      return c.json({ error: "Too Many Requests" }, 429);
+    }
+    const signingSecret = getSecuritySecret(params.config);
+    if (!signingSecret) {
+      return c.json({ error: "Auth secret not configured" }, 500);
+    }
+
+    const credential = await params.stores.serviceCredentials.get(credentialId);
+    // Unknown, disabled and wrong-secret all answer identically. A caller
+    // holding a bad secret learns only "no".
+    const rejected =
+      !credential ||
+      credential.disabledAt !== undefined ||
+      !hashesMatch(toHash(secret), credential.secretHash);
+    if (rejected) {
+      recordCoreAuditEvent(params.auditLog, {
+        type: "auth.service_token_rejected",
+        tenantId: credential?.tenantId,
+        detail: {
+          credentialId,
+          reason: credential
+            ? credential.disabledAt
+              ? "disabled"
+              : "bad_secret"
+            : "unknown",
+          sourceIp,
+        },
+      });
+      return c.json({ error: "invalid_client" }, 401);
+    }
+
+    const tokenId = uuidv7();
+    const principal: PrincipalContext = {
+      audience: ["engenty"],
+      authMethod: "service_credential",
+      capabilities: credential.capabilities,
+      delegationChain: [],
+      moduleIds: [],
+      permissions: [],
+      principalId: credential.id,
+      principalType: "service",
+      roleProfiles: [],
+      roles: [],
+      scopes: [],
+      tenantId: credential.tenantId,
+      tokenType: "access",
+    };
+    const token = await signPrincipalToken({
+      expiresInSeconds: SERVICE_TOKEN_TTL_SECONDS,
+      principal,
+      secret: signingSecret,
+      tokenId,
+      tokenType: "access",
+    });
+    // Never let telemetry bookkeeping fail the mint the caller is waiting on.
+    await params.stores.serviceCredentials
+      .touch(credential.id, nowEpochSeconds())
+      .catch(() => undefined);
+    recordCoreAuditEvent(params.auditLog, {
+      type: "auth.service_token_minted",
+      actorId: credential.id,
+      tenantId: credential.tenantId,
+      detail: {
+        capabilities: credential.capabilities,
+        credentialName: credential.name,
+        tokenId,
+        ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
+      },
+    });
+    return c.json({
+      expiresAt: new Date(
+        (nowEpochSeconds() + SERVICE_TOKEN_TTL_SECONDS) * 1000
+      ).toISOString(),
+      expiresIn: SERVICE_TOKEN_TTL_SECONDS,
+      token,
+      tokenType: "Bearer",
+    });
+  });
+
+  params.app.post("/api/auth/service-credentials", async (c) => {
+    const authResult = await requireAuth(c, params.config);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    const principal = authResult.auth;
+    const body = (await c.req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    const name = String(body.name ?? "").trim();
+    if (!name) {
+      return c.json({ error: "name is required" }, 400);
+    }
+    // Same clamp as api-tokens: a credential can never outrank its creator.
+    const capabilities = clampCapabilities(
+      parseArray(body.capabilities),
+      principal.capabilities
+    );
+    const id = uuidv7();
+    const rawSecret = randomToken(SERVICE_SECRET_PREFIX);
+    await params.stores.serviceCredentials.insert({
+      capabilities,
+      createdAt: nowEpochSeconds(),
+      id,
+      name,
+      secretHash: toHash(rawSecret),
+      tenantId: principal.tenantId,
+    });
+    recordCoreAuditEvent(params.auditLog, {
+      type: "auth.service_credential_created",
+      actorId: principal.principalId,
+      tenantId: principal.tenantId,
+      detail: { capabilities, credentialId: id, name },
+    });
+    return c.json({
+      capabilities,
+      credentialId: id,
+      name,
+      // The one and only time the raw secret exists outside the caller.
+      // `<credentialId>.<rawSecret>` is the ENGENTY_AI_SERVICE_SECRET format.
+      secret: `${id}.${rawSecret}`,
+    });
+  });
+
+  params.app.get("/api/auth/service-credentials", async (c) => {
+    const authResult = await requireAuth(c, params.config);
+    if (authResult.error || !authResult.auth) {
+      return authResult.error!;
+    }
+    const credentials = (
+      await params.stores.serviceCredentials.listForTenant(
+        authResult.auth.tenantId
+      )
+    ).map((credential) => ({
+      capabilities: credential.capabilities,
+      createdAt: new Date(credential.createdAt * 1000).toISOString(),
+      credentialId: credential.id,
+      disabled: credential.disabledAt !== undefined,
+      lastUsedAt: credential.lastUsedAt
+        ? new Date(credential.lastUsedAt * 1000).toISOString()
+        : null,
+      name: credential.name,
+    }));
+    return c.json({ credentials });
+  });
+
+  params.app.delete(
+    "/api/auth/service-credentials/:credentialId",
+    async (c) => {
+      const authResult = await requireAuth(c, params.config);
+      if (authResult.error || !authResult.auth) {
+        return authResult.error!;
+      }
+      const credentialId = c.req.param("credentialId");
+      const record = await params.stores.serviceCredentials.get(credentialId);
+      // Cross-tenant reads answer 404, not 403 — don't confirm existence.
+      if (!record || record.tenantId !== authResult.auth.tenantId) {
+        return c.json({ error: "Credential not found" }, 404);
+      }
+      await params.stores.serviceCredentials.revoke(credentialId);
+      recordCoreAuditEvent(params.auditLog, {
+        type: "auth.service_credential_revoked",
+        actorId: authResult.auth.principalId,
+        tenantId: authResult.auth.tenantId,
+        detail: { credentialId, name: record.name },
+      });
+      return c.json({ ok: true });
+    }
+  );
 
   params.app.post("/api/auth/api-tokens", async (c) => {
     const authResult = await requireAuth(c, params.config);

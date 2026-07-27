@@ -96,8 +96,35 @@ export interface ApiTokenStore {
   revoke(id: string): Promise<void>;
 }
 
+/**
+ * A durable secret that can only be exchanged for a short-lived access token.
+ * Unlike `ApiTokenRecord` there is no issued JWT here — the credential is not
+ * itself a bearer, which is what lets it live in an env var safely.
+ */
+export interface ServiceCredentialRecord {
+  capabilities: string[];
+  createdAt: number;
+  disabledAt?: number;
+  id: string;
+  lastUsedAt?: number;
+  name: string;
+  /** sha256 of the raw secret — the raw value is shown once at creation. */
+  secretHash: string;
+  tenantId: string;
+}
+
+export interface ServiceCredentialStore {
+  get(id: string): Promise<ServiceCredentialRecord | null>;
+  insert(record: ServiceCredentialRecord): Promise<void>;
+  listForTenant(tenantId: string): Promise<ServiceCredentialRecord[]>;
+  /** Revoke = set `disabledAt`; the access-token TTL is the revocation lag. */
+  revoke(id: string): Promise<void>;
+  touch(id: string, atEpochSeconds: number): Promise<void>;
+}
+
 export interface AuthStores {
   apiTokens: ApiTokenStore;
   devices: DeviceAuthorizationStore;
+  serviceCredentials: ServiceCredentialStore;
   sessions: SessionStore;
 }

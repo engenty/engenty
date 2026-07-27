@@ -11,6 +11,7 @@ import { registerEnvCommands } from "./cli/env-setup/env-commands.js";
 import { registerModulesCommands } from "./cli/module-commands.js";
 import { registerPluginCommands } from "./cli/plugin-commands.js";
 import { shouldDeferPluginBoot } from "./cli/plugin-create/plugin-create-cli-path.js";
+import { registerServiceCredentialCommands } from "./cli/service-credential-commands.js";
 import { registerSetupCommands } from "./cli/setup/setup-commands.js";
 import { registerSkillsCommands } from "./cli/tools/skills-commands.js";
 import { registerToolsCommands } from "./cli/tools/tools-commands.js";
@@ -38,6 +39,7 @@ export async function createCli(): Promise<Command> {
 
   const existingCommands = new Set(program.commands.map((c) => c.name()));
   registerAuthCommands(program);
+  registerServiceCredentialCommands(program);
   registerEnvCommands(program);
   registerSetupCommands(program);
   registerDbCommands(program);
