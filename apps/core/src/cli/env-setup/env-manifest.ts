@@ -96,7 +96,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "Static service JWT for apps/ai (scheduler, task dispatcher, remote channels). Local-dev escape hatch: run `pnpm service:jwt` (scripts/mint-service-jwt.mjs). Deployments should prefer ENGENTY_AI_SERVICE_EMAIL/PASSWORD — a static token silently dies when the Supabase JWT expiry hits.",
+      "Static service JWT for apps/ai (scheduler, task dispatcher, remote channels). Local-dev escape hatch: run `pnpm service:jwt` (scripts/mint-service-jwt.mjs). Overrides every other service credential when set. Deployments should use ENGENTY_AI_SERVICE_SECRET — a static token silently dies when its expiry hits.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_JWT",
     obtain: { kind: "manual" },
@@ -107,7 +107,18 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "Email of the AI service identity (default service@engenty.local, provisioned by `pnpm service:jwt`). With ENGENTY_AI_SERVICE_PASSWORD, apps/ai signs itself in and renews its own short-lived access tokens — the durable, revocable alternative to a static ENGENTY_AI_SERVICE_JWT.",
+      "Durable service credential for apps/ai, as `<credentialId>.<secret>` from `engenty service-token create --name ai-service`. apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation. Preferred over ENGENTY_AI_SERVICE_EMAIL/PASSWORD, which it overrides when both are set.",
+    group: "API security",
+    key: "ENGENTY_AI_SERVICE_SECRET",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+
+  {
+    description:
+      "Email of the AI service identity (default service@engenty.local, provisioned by `pnpm service:jwt`). With ENGENTY_AI_SERVICE_PASSWORD, apps/ai signs itself in and renews its own short-lived access tokens. Superseded by ENGENTY_AI_SERVICE_SECRET; kept until the Supabase service user is retired.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_EMAIL",
     obtain: { kind: "manual" },

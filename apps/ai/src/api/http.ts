@@ -7,7 +7,11 @@ import {
   getEngentyCoreBaseUrlFromEnv,
 } from "../ai/core-http-client.js";
 import { AiSessionError } from "../ai/errors.js";
-import type { AiSessionScope } from "../ai/sessions.js";
+import {
+  type AiScopeCredential,
+  type AiSessionScope,
+  scopeAccessToken,
+} from "../ai/sessions.js";
 
 const logger = createLogger({ name: "apps/ai/http" });
 
@@ -119,6 +123,13 @@ export function createCoreAiScopeResolver(
       return {
         ok: true,
         scope: {
+          // Core just told us what this bearer is. Deriving the kind here —
+          // rather than guessing at each consumer — is the whole point of the
+          // credential union.
+          credential: {
+            kind: parsed.data.tenantRole === "service" ? "service" : "user",
+            token: userAccessToken,
+          },
           isSuperAdmin: parsed.data.isSuperAdmin,
           isTenantAdmin:
             parsed.data.isTenantAdmin ||
@@ -152,14 +163,19 @@ export function createStaticAiScopeResolver(
   scope: AiSessionScope
 ): AiScopeResolver {
   return async ({ authorization }) => {
-    const userAccessToken =
-      scope.userAccessToken ?? parseBearerToken(authorization);
+    const configured = scopeAccessToken(scope);
+    const userAccessToken = configured ?? parseBearerToken(authorization);
+    if (!userAccessToken) {
+      return { ok: true, scope };
+    }
+    // A token arriving on the request is a caller's session; only a token
+    // baked into the static scope keeps whatever kind it was given.
+    const credential: AiScopeCredential = configured
+      ? (scope.credential ?? { kind: "user", token: configured })
+      : { kind: "user", token: userAccessToken };
     return {
       ok: true,
-      scope: {
-        ...scope,
-        ...(userAccessToken ? { userAccessToken } : {}),
-      },
+      scope: { ...scope, credential, userAccessToken },
     };
   };
 }

@@ -43,6 +43,35 @@ interface StoredGrant extends AppCapabilityGrant {
 /** Upper bound on a handle's life. Short enough that leakage has a horizon. */
 export const CAPABILITY_TTL_MS = 300_000;
 
+/**
+ * A handle can never outlive the token it captured. Supabase sessions (1 h)
+ * always covered the 5-minute TTL, so this never mattered; engenty service
+ * tokens live 15 minutes, and a handle minted from an 11-minute-old token
+ * would otherwise resolve to a credential that 401s. The failure is silent —
+ * the App backend just gets rejected — so the clamp is cheap insurance.
+ *
+ * Returns the token's remaining life in ms, or null when the token carries no
+ * readable `exp` (opaque tokens keep the full TTL, as before).
+ */
+export function tokenRemainingMs(token: string, nowMs: number): number | null {
+  const payload = token.split(".")[1];
+  if (!payload) {
+    return null;
+  }
+  try {
+    const claims = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8")
+    ) as { exp?: unknown };
+    if (typeof claims.exp !== "number") {
+      return null;
+    }
+    return claims.exp * 1000 - nowMs;
+  } catch {
+    // Not a JWT, or not one we can read. Nothing to clamp against.
+    return null;
+  }
+}
+
 function hashHandle(handle: string): string {
   return createHash("sha256").update(handle, "utf8").digest("hex");
 }
@@ -60,9 +89,12 @@ export class AppCapabilityRegistry {
   mint(grant: AppCapabilityGrant, nowMs = Date.now()): string {
     this.sweep(nowMs);
     const handle = randomBytes(32).toString("base64url");
+    const remaining = tokenRemainingMs(grant.userAccessToken, nowMs);
+    const lifeMs =
+      remaining === null ? this.ttlMs : Math.min(this.ttlMs, remaining);
     this.grants.set(hashHandle(handle), {
       ...grant,
-      expiresAtMs: nowMs + this.ttlMs,
+      expiresAtMs: nowMs + lifeMs,
     });
     return handle;
   }

@@ -90,3 +90,58 @@ describe("AppCapabilityRegistry", () => {
     expect(registry.size()).toBe(1);
   });
 });
+
+/**
+ * A handle must never outlive the token it captured. With 1-hour Supabase
+ * sessions the 5-minute TTL was always the binding constraint; 15-minute
+ * engenty service tokens make it possible for the captured credential to
+ * expire first, which would fail silently at the App backend.
+ */
+describe("AppCapabilityRegistry — handle life is clamped to the token's", () => {
+  const NOW = 1_700_000_000_000;
+
+  function jwtExpiringAt(epochSeconds: number): string {
+    const payload = Buffer.from(
+      JSON.stringify({ exp: epochSeconds, sub: "svc" }),
+      "utf8"
+    ).toString("base64url");
+    return `header.${payload}.signature`;
+  }
+
+  it("clamps to the token's remaining life when that is shorter than the TTL", () => {
+    const registry = new AppCapabilityRegistry();
+    // 90s of token left, against a 300s handle TTL.
+    const token = jwtExpiringAt(Math.floor(NOW / 1000) + 90);
+    const handle = registry.mint({ ...grant, userAccessToken: token }, NOW);
+
+    expect(registry.resolve(handle, NOW + 89_000)).not.toBeNull();
+    expect(registry.resolve(handle, NOW + 91_000)).toBeNull();
+  });
+
+  it("keeps the full TTL when the token outlives it", () => {
+    const registry = new AppCapabilityRegistry();
+    const token = jwtExpiringAt(Math.floor(NOW / 1000) + 3600);
+    const handle = registry.mint({ ...grant, userAccessToken: token }, NOW);
+
+    expect(
+      registry.resolve(handle, NOW + CAPABILITY_TTL_MS - 1)
+    ).not.toBeNull();
+    expect(registry.resolve(handle, NOW + CAPABILITY_TTL_MS)).toBeNull();
+  });
+
+  it("keeps the full TTL for a token with no readable expiry", () => {
+    const registry = new AppCapabilityRegistry();
+    // Opaque tokens (and anything that isn't a JWT) behave exactly as before.
+    const handle = registry.mint({ ...grant, userAccessToken: "opaque" }, NOW);
+    expect(
+      registry.resolve(handle, NOW + CAPABILITY_TTL_MS - 1)
+    ).not.toBeNull();
+  });
+
+  it("refuses a handle minted from an already-expired token", () => {
+    const registry = new AppCapabilityRegistry();
+    const token = jwtExpiringAt(Math.floor(NOW / 1000) - 10);
+    const handle = registry.mint({ ...grant, userAccessToken: token }, NOW);
+    expect(registry.resolve(handle, NOW)).toBeNull();
+  });
+});

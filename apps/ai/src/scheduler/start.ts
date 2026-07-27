@@ -24,7 +24,7 @@ const SCOPE_RETRY_MAX_DELAY_MS = 60_000;
  *
  * Service-scope resolution distinguishes three failure modes: no service
  * credential configured (neither ENGENTY_AI_SERVICE_JWT nor the
- * ENGENTY_AI_SERVICE_EMAIL/PASSWORD pair) disables the scheduler outright
+ * ENGENTY_AI_SERVICE_SECRET) disables the scheduler outright
  * (same failure mode as the old tick without its Vault secret), a 401 from
  * core disables it too (a rejected token never heals on its own), while any
  * other failed resolution (core unreachable — e.g. the AI app won the
@@ -79,7 +79,7 @@ export async function startScheduler(options: {
     }
     if (resolved.reason === "jwt_missing") {
       logger.warn(
-        "scheduler disabled — no service credential configured (set ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT); scheduled triggers will not fire"
+        "scheduler disabled — no service credential configured (set ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_EMAIL/PASSWORD); scheduled triggers will not fire"
       );
       return;
     }

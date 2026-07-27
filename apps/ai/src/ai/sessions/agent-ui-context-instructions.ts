@@ -19,7 +19,11 @@ import {
 import { resolveModuleSkillCatalogHint } from "../skills/module-skill-hint.js";
 import { createSkillStorage } from "../skills/skill-storage.js";
 import { createEngentyCoreFileStorageClient } from "../workspace/core-file-storage-client.js";
-import type { AgentUiProducerContext, AiSessionScope } from "./types.js";
+import {
+  type AgentUiProducerContext,
+  type AiSessionScope,
+  scopeAccessToken,
+} from "./types.js";
 
 const logger = createLogger({ name: "ai.harness.agent-ui-context" });
 
@@ -89,7 +93,7 @@ async function resolveModuleSkillHintSection(input: {
   }
   const moduleId = resolveCurrentPageModule(input.snapshot);
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = input.scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(input.scope)?.trim();
   if (!(moduleId && coreBaseUrl && userAccessToken)) {
     return "";
   }
@@ -123,7 +127,7 @@ async function resolveCorePagePrompt(input: {
   scope: AiSessionScope;
   snapshot: AgentUiStateSnapshotV1;
 }): Promise<string> {
-  const userAccessToken = input.scope.userAccessToken?.trim();
+  const userAccessToken = scopeAccessToken(input.scope)?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!(userAccessToken && coreBaseUrl)) {
     return "";

@@ -8,6 +8,7 @@ import {
   INTERNAL_MCP_APP_SERVER_URL,
   InternalMcpAppCallError,
 } from "../ai/mcp-apps/internal.js";
+import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import {
   type AiScopeResolver,
@@ -73,7 +74,7 @@ export function registerMcpAppRoutes(
         const result = await callInternalMcpAppTool({
           arguments: parsed.data.arguments,
           toolName: parsed.data.tool_name,
-          userAccessToken: scope.scope.userAccessToken,
+          userAccessToken: scopeAccessToken(scope.scope),
         });
         return c.json({ ok: true, result });
       } catch (err) {

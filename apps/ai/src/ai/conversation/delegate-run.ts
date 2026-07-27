@@ -42,7 +42,7 @@ import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
 import { markRunDone, markRunLive } from "../sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../sessions/run-tracking.js";
-import type { AiSessionScope } from "../sessions/types.js";
+import { type AiSessionScope, scopeAccessToken } from "../sessions/types.js";
 import {
   type ConversationController,
   createConversationSession,
@@ -224,16 +224,16 @@ export async function runDelegatedConversation(
       runId: input.childRunId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
-      ...(input.scope.userAccessToken
-        ? { userAccessToken: input.scope.userAccessToken }
+      ...(scopeAccessToken(input.scope)
+        ? { userAccessToken: scopeAccessToken(input.scope) }
         : {}),
     };
     // Belt-and-suspenders: also carry the token on the Mastra requestContext (the
     // `mastra__authToken` key the server sets from the HTTP Authorization header),
     // for tools that DO forward the execution context.
     const requestContext = new RequestContext();
-    if (input.scope.userAccessToken) {
-      requestContext.set(MASTRA_AUTH_TOKEN_KEY, input.scope.userAccessToken);
+    if (scopeAccessToken(input.scope)) {
+      requestContext.set(MASTRA_AUTH_TOKEN_KEY, scopeAccessToken(input.scope));
     }
 
     // Construct AND drive the session inside the engenty-tools ALS scope. A HEADLESS

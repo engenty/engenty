@@ -21,13 +21,64 @@ import type {
 import type { SessionRunTracker } from "./run-tracking.js";
 import type { AssistantDynamicToolPart } from "./transcript.js";
 
+/**
+ * The credential a scope carries, and — the point of the union — WHAT it is.
+ *
+ * Both kinds are bearers toward core, so nothing that merely forwards a token
+ * needs to care. The distinction exists so that anything which does something
+ * credential-specific (talks to Supabase directly, assumes a row in
+ * `auth.users`, attributes an action to a human) is forced to say so.
+ *
+ * See docs/wip/service-identity-inventory.md: as of CP1 no call site in
+ * apps/ai sends this token anywhere but core, and this type is what keeps that
+ * true as the tree grows.
+ */
+export type AiScopeCredential =
+  | { kind: "user"; token: string } // Supabase session — a real person
+  | { kind: "service"; token: string }; // engenty service token — headless
+
 export interface AiSessionScope {
+  /**
+   * Preferred over {@link AiSessionScope.userAccessToken}. Optional for the
+   * same reason the old field was: about half the consumers treat a missing
+   * credential as "degrade this feature", not "fail the request".
+   */
+  credential?: AiScopeCredential;
   isSuperAdmin?: boolean;
   isTenantAdmin?: boolean;
   tenantId: string;
   tenantRole?: "admin" | "member" | "service" | null;
+  /**
+   * @deprecated Shim kept so scope literals (notably in tests) keep compiling
+   * through the CP4→CP6 window. Read through {@link resolveScopeCredential} /
+   * {@link scopeAccessToken}, never directly. Removed at CP6.
+   */
   userAccessToken?: string;
   userId: string;
+}
+
+/**
+ * The scope's credential, whichever field carries it.
+ *
+ * A bare `userAccessToken` is reported as `kind: "user"` — that is what it
+ * always meant before the split, and headless callers set `credential`
+ * explicitly.
+ */
+export function resolveScopeCredential(
+  scope: Pick<AiSessionScope, "credential" | "userAccessToken">
+): AiScopeCredential | null {
+  if (scope.credential?.token.trim()) {
+    return scope.credential;
+  }
+  const legacy = scope.userAccessToken?.trim();
+  return legacy ? { kind: "user", token: legacy } : null;
+}
+
+/** The bearer to send toward core, or undefined when the scope has none. */
+export function scopeAccessToken(
+  scope: Pick<AiSessionScope, "credential" | "userAccessToken">
+): string | undefined {
+  return resolveScopeCredential(scope)?.token;
 }
 
 export interface CreateAiSessionInput {

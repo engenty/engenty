@@ -134,6 +134,21 @@ cannot leak it into spans. It is not forwarded to any third party.
    (`{ ..., userAccessToken: "test-token" }`) keep compiling through the shim;
    they are migrated at CP6 when the compiler forces it.
 
+## What CP4 actually changed (and what it deliberately did not)
+
+CP4 migrated every read of **`AiSessionScope.userAccessToken`** to
+`scopeAccessToken(scope)` / `resolveScopeCredential(scope)`.
+
+It did **not** rename the same-named property on the downstream option bags
+that carry a bearer onward — `EngentyCoreClientOptions.userAccessToken`,
+`AppCapabilityGrant.userAccessToken`, `ExternalChannelDispatchScope`,
+`EngentyToolsRunContext`. Those are "the bearer to send", genuinely agnostic to
+which kind of credential produced it, and renaming ~40 mechanical sites would
+have buried the parts of CP4 that carry actual risk (the exchange path, the
+scope-kind derivation, the TTL clamp). They are a CP6 rename, when the shim
+goes and the compiler enumerates them — which is also when the plan's
+`grep -rn "userAccessToken" apps/ai/src` acceptance check can pass.
+
 ## Acceptance
 
 - [x] Every non-test `userAccessToken` consumer under `apps/ai/src` is bucketed.

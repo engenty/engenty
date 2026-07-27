@@ -74,6 +74,7 @@ import type {
   SessionServiceOptions,
   UpdateAiSessionInput,
 } from "./types.js";
+import { scopeAccessToken } from "./types.js";
 import { usageFromOutput } from "./usage.js";
 
 // Session harness: Mastra Memory is the sole writer for user/assistant transcript
@@ -278,7 +279,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       agentUi: input.agentUi,
       tenantId: input.scope.tenantId,
       userAccessToken:
-        input.scope.userAccessToken ??
+        scopeAccessToken(input.scope) ??
         input.authorization?.replace(/^Bearer\s+/i, "").trim(),
     });
     const isChatbotAgent = session.agent_id?.startsWith("chatbot.") ?? false;
@@ -791,7 +792,7 @@ export function createSessionService(opts: SessionServiceOptions) {
             orchestratorThreadId: input.threadId,
             runId,
             tenantId: input.scope.tenantId,
-            userAccessToken: input.scope.userAccessToken,
+            userAccessToken: scopeAccessToken(input.scope),
             userId: input.scope.userId,
           },
           () => agent.generate(modelMessages as never, invocationOptions)

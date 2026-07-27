@@ -11,7 +11,7 @@ import {
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
 import { AiSessionError } from "../errors.js";
-import type { AiSessionScope } from "./types.js";
+import { type AiSessionScope, scopeAccessToken } from "./types.js";
 
 // Workspace-key contract shared with the tasks module (`task:<IDENTIFIER>`).
 // Inlined here so the AI harness has no build-time dependency on @engenty/tasks —
@@ -89,7 +89,7 @@ export function createScopeModuleOperationInvoker(
   scope: AiSessionScope
 ): ModuleOperationInvoker {
   return async (operationId, input) => {
-    const userAccessToken = scope.userAccessToken?.trim();
+    const userAccessToken = scopeAccessToken(scope)?.trim();
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
     if (!(userAccessToken && coreBaseUrl)) {
       throw new Error(
