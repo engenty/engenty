@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.82] - 2026-08-01
+- FIXED **[db]** Grant service_role on core tables created after the baseline grant
+
 ## [0.1.81] - 2026-07-27
 - ADDED **[setup]** Show the OAuth redirect URI and deploy-env status on /setup/platform
 - ADDED **[ai]** Split scope identity from data-access credential (CP4)
