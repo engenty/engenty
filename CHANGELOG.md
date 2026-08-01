@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.85] - 2026-08-01
+- ADDED **[ai]** Voice option dropdowns and fix Voxtral realtime STT
+- FIXED **[ui]** Format generated About-dialog JSON so CI lint stays green
+
 ## [0.1.84] - 2026-08-01
 - ADDED **[ui]** Add About Changelog and Credits modals
 - FIXED **[tasks]** Move group-by to the right with a muted label
