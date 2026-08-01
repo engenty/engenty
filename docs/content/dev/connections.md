@@ -198,6 +198,29 @@ redirect URI with each provider (override with `CONNECTIONS_REDIRECT_URI`
 behind a proxy). Required env per provider is documented in `.env.example`
 (Google Cloud Console, Azure App registrations, api.slack.com).
 
+Every connector shares that one callback route, so a provider only ever needs
+this single redirect URI — not one per connector. **Setup → Platform settings**
+resolves the placeholder against the running installation and shows the literal
+URL with a copy button next to each OAuth group, so you do not have to assemble
+it by hand. The app origin on its own is not a valid redirect URI, though Google
+additionally wants it under "Authorized JavaScript origins".
+
+**Local development.** Providers reject `*.localhost` redirect hosts — only
+`localhost` and `127.0.0.1` with a port are accepted, so the Portless origin
+(`https://engenty.localhost`) cannot be registered with Google. Point
+`CONNECTIONS_REDIRECT_URI` at core's loopback origin instead and register that
+exact URL:
+
+```bash
+CONNECTIONS_REDIRECT_URI=http://127.0.0.1:8787/api/connections/oauth/callback
+```
+
+The callback lands on core directly and then redirects back to
+`ENGENTY_UI_BASE_URL`, so the browser flow is unchanged. Worktrees run on their
+own port slot (8797, 8807, …) and each needs its own value plus its own entry in
+the provider console — the setup screen shows the loopback URL for the checkout
+you are looking at, derived from `ENGENTY_CORE_BASE_URL`.
+
 **Client-credential resolution.** A connector's `clientIdEnv` / `clientSecretEnv`
 are resolved through the settings store, not just `process.env`: a tenant
 override → a platform setting → the environment variable (see
