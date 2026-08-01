@@ -98,6 +98,14 @@ With none of them set, the scheduler logs `scheduler disabled — no service
 credential configured` at boot and **no scheduled trigger ever fires**. That
 message is the thing to grep for when triggers go quiet.
 
+The credential being present is not the same as the scheduler working. Boot
+goes: scope resolves (`scheduler service scope resolved`) → workers start →
+five seconds later the reconcile turns trigger rows and system jobs into Mastra
+schedules. A `scheduler reconcile failed` line means the credential is fine but
+**nothing is scheduled** — the triggers exist in the database and no schedule
+backs them. Both lines are worth an alert; the second is the quieter failure,
+because everything up to it looks healthy.
+
 ## What a service principal can see
 
 A service credential has no row in `auth.users` and no tenant membership.

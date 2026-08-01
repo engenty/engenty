@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.83",
+  "version": "0.1.84",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -163,6 +163,7 @@
     "purge:light": "bash scripts/purge.sh --light",
     "push": "bash scripts/publish-open.sh",
     "push:snapshot": "bash scripts/publish-open-snapshot.sh",
+    "about:data": "node scripts/write-about-data.mjs",
     "release": "node scripts/release.mjs",
     "release:changelog": "node scripts/release.mjs --changelog",
     "release:desktop": "node scripts/release-desktop.mjs"

@@ -269,9 +269,17 @@ async function main() {
     block = openEditor(block);
   }
 
-  // Write changelog + structured JSON.
+  // Write changelog + structured JSON + slim UI copy for About → Changelog.
   prependToChangelog(block);
   writeFileSync(CHANGELOG_JSON, cliff(["--context"]), "utf8");
+  execFileSync(
+    process.execPath,
+    [path.join(ROOT, "scripts", "write-about-data.mjs"), "--changelog"],
+    {
+      cwd: ROOT,
+      stdio: "inherit",
+    }
+  );
   out(
     `\n${c.green("✔")} CHANGELOG.md + changelog.json written for ${c.b(tag)}`
   );
@@ -289,7 +297,9 @@ async function main() {
   const pkg = JSON.parse(readFileSync(PKG, "utf8"));
   pkg.version = version;
   writeFileSync(PKG, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
-  git("add package.json CHANGELOG.md changelog.json");
+  git(
+    "add package.json CHANGELOG.md changelog.json apps/ui/src/data/changelog.json"
+  );
   execSync(`git commit -m "chore(release): ${tag}"`, {
     cwd: ROOT,
     stdio: "inherit",

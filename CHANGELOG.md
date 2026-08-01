@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.84] - 2026-08-01
+- ADDED **[ui]** Add About Changelog and Credits modals
+- FIXED **[tasks]** Move group-by to the right with a muted label
+- FIXED **[tasks]** Stop clipping the list toolbar on empty lists
+- FIXED **[ai]** Run the scheduler reconcile under an authenticated tools context
+
 ## [0.1.83] - 2026-08-01
 - ADDED **[db]** Grants coverage guard, and RLS on the last three uncovered tables
 - DOCS OAuth redirect URIs, deploy-only keys, and the database guards

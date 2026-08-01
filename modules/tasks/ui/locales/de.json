@@ -163,6 +163,7 @@
     "viewTable": "Tabelle",
     "viewKanban": "Kanban",
     "viewGrouped": "Gruppiert",
+    "groupedByLabel": "Gruppiert:",
     "filterByAssigneeKind": "Nach Zuständigkeit filtern",
     "assigneeHuman": "Personen",
     "assigneeAgent": "Agenten",

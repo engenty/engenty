@@ -44,8 +44,13 @@ pnpm release --changelog   # just draft/write the changelog, no bump/commit/tag
    choose). It shows the resulting `vX.Y.Z`.
 3. Lets you **edit the entry** in `$EDITOR` before committing.
 4. Writes `CHANGELOG.md` (compact) **and** `changelog.json` (structured — the
-   source for docs/website generation), then bumps `package.json`, commits
-   `chore(release): vX.Y.Z`, and tags it.
+   source for docs/website generation), plus a slim
+   `apps/ui/src/data/changelog.json` for the in-app About → Changelog dialog,
+   then bumps `package.json`, commits `chore(release): vX.Y.Z`, and tags it.
+
+Regenerate About data anytime with `pnpm about:data` (slim changelog + OSS
+credits list from `pnpm licenses list`). Commit the outputs under
+`apps/ui/src/data/`.
 
 `pnpm release` itself never pushes, builds, or deploys — it only writes the
 release commit and tag locally.
