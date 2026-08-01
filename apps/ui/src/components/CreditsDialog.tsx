@@ -8,6 +8,7 @@ import {
 } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AboutDockNav, type AboutDockNavItem } from "@/components/AboutDockNav";
+import { useAboutSectionScrollSpy } from "@/components/about-scroll-spy";
 import {
   AboutDialogSearch,
   countTextMatches,
@@ -18,7 +19,6 @@ import {
   useAboutDialogHotkeys,
   useScrollActiveSearchHit,
 } from "@/components/about-search";
-import { useAboutSectionScrollSpy } from "@/components/about-scroll-spy";
 import {
   CreditRow,
   creditMatchCount,

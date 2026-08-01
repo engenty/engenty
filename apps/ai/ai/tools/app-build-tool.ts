@@ -100,7 +100,7 @@ export const appBuildTool = createTool({
       ...(envelope.build_log ? { build_log: envelope.build_log } : {}),
       next_step: describeNextStep(envelope),
       status: envelope.status,
-      ...(envelope.version !== undefined ? { version: envelope.version } : {}),
+      ...(envelope.version === undefined ? {} : { version: envelope.version }),
     };
   },
 });

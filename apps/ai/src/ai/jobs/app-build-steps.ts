@@ -170,9 +170,9 @@ export const publishArtifactStep = createStep({
     const { artifact } = await store.create({
       content: JSON.stringify({
         app_id: inputData.app_id,
-        ...(inputData.version !== undefined
-          ? { app_version: inputData.version }
-          : {}),
+        ...(inputData.version === undefined
+          ? {}
+          : { app_version: inputData.version }),
         session_id: inputData.session_id ?? `chat-${inputData.thread_id}`,
       }),
       createdBy: als.userId ?? null,
