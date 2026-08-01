@@ -123,10 +123,13 @@ export {
   BuiltinProvider,
   CompositeAiRegistry,
   createBuiltinProvider,
+  createSessionAgentStateChannel,
   DatabaseProvider,
   type DynamicAiDatabaseStore,
   type DynamicAiModuleCapability,
   type DynamicAiModuleCapabilityLoader,
+  FunctionAgentProvider,
+  type FunctionAgentStateChannel,
   ModuleProvider,
 } from "./registry/index.js";
 export type {

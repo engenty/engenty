@@ -23,8 +23,11 @@ For a compact docs hub, see [docs/README.md](docs/README.md).
 | Tutorial | Description |
 |----------|-------------|
 | [Build tools](docs/howto-build-tools.md) | Implement tools using `ToolExecutionContext`, `callGatewayMethod`, and scope |
+| [Agent Workspaces](docs/howto-workspaces.md) | Add a Mastra workspace to an agent — presets, sandbox, search |
 | [Artifacts and HITL](docs/howto-artifacts-hitl.md) | Stream structured suggestions as artifacts for human-in-the-loop approval |
 | [AI config](docs/howto-ai-config.md) | Configurable models and instruction seeds |
+| [Declare a module's AI surface](docs/howto-define-module-ai.md) | `defineModuleAi` directory convention for agents, skills, actions, routines |
+| [Agent Hooks](docs/howto-agent-hooks.md) | Compose an agent as a function with `useModel`/`useTool`/`useThreadState` instead of a static `agent.json` |
 
 ## Package Layout
 

@@ -1,4 +1,9 @@
-import { isModelAllowed, type ModelAllowList } from "@engenty/ai-core";
+import {
+  type AgentResolveContext,
+  isModelAllowed,
+  type ModelAllowList,
+  renderedToolsOf,
+} from "@engenty/ai-core";
 import { Agent, type SubAgent } from "@mastra/core/agent";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Mastra } from "@mastra/core/mastra";
@@ -41,6 +46,13 @@ export interface AssembleDynamicAgentOptions {
   mastra?: Mastra;
   memory?: MastraMemory;
   modelConfig?: RuntimeModelConfig;
+  /**
+   * The thread this assembly serves (PLAN-agent-hooks D5). Passed to the
+   * registry for the ROOT agent only, so a function agent renders over its
+   * thread-state snapshot. Sub-agents always resolve bare (delegates have no
+   * thread-state channel of their own).
+   */
+  resolveContext?: AgentResolveContext;
   // Skip attaching `config.subAgents` as Mastra `Agent.agents` (the in-process
   // subagent mechanism). Set by the conversation executor, which instead exposes
   // `agent-<alias>` delegation tools that spawn each sub-agent as its own child
@@ -92,7 +104,12 @@ async function assembleDynamicAgentWithAncestors(
   options: AssembleDynamicAgentOptions = {},
   attachMemory = false
 ): Promise<Agent> {
-  const config = await registry.getAgentConfig(agentId);
+  // Root-only resolve context: a function agent renders over the thread's
+  // state snapshot; sub-agents resolve bare (base face).
+  const config = await registry.getAgentConfig(
+    agentId,
+    attachMemory ? options.resolveContext : undefined
+  );
   if (!config) {
     throw new AiSessionError("agent_threads.unknownAgentType", undefined, {
       agent_id: agentId,
@@ -128,6 +145,14 @@ async function assembleDynamicAgentWithAncestors(
   // its config tools; they win on name clash. Built mutably so the value keeps the
   // exact type Mastra's Agent generic infers from `Object.fromEntries`.
   const agentTools = Object.fromEntries(tools);
+  // Function-agent inline tools (PLAN-agent-hooks D4): hook-composed closures
+  // ride the RENDERED_TOOLS symbol on the config. Merge order: config tools <
+  // rendered tools < extraTools (runtime frontend/delegation tools stay
+  // authoritative on name clash).
+  const renderedTools = renderedToolsOf(config);
+  if (renderedTools) {
+    Object.assign(agentTools, renderedTools);
+  }
   if (attachMemory && options.extraTools) {
     Object.assign(agentTools, options.extraTools);
   }

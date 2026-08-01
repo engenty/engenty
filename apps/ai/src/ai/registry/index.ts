@@ -19,6 +19,12 @@ export {
   createNonExecutableDatabaseTool,
   dynamicToolMissingExecutionMetadata,
 } from "./database-tool.js";
+export {
+  type AgentStateSessionStore,
+  createSessionAgentStateChannel,
+  FunctionAgentProvider,
+  type FunctionAgentStateChannel,
+} from "./function-provider.js";
 export { ModuleProvider } from "./module-provider.js";
 export {
   type AgentConfig,

@@ -4,6 +4,17 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.86] - 2026-08-01
+- ADDED **[ai-core,ai]** Module function agents via defineModuleAi agentFns (Phase 4)
+- ADDED **[ai]** Convert engenty.file-analyst to a function agent + phase-machine demo (Phase 3)
+- ADDED **[ai]** FunctionAgentProvider — function agents render per thread with durable agent_state (Phase 2)
+- ADDED **[ai-core]** Agent hooks — useX render layer producing AgentConfig (Phase 1)
+- DOCS Add dev-server skill and fix the worktree first-run setup gap
+- DOCS **[ai-core]** Document Agent Hooks — howto-agent-hooks.md with a phase-machine example
+- DOCS Scope agent-hooks plan (useX authoring layer over AgentConfig)
+- FIXED **[ai]** Thread resolveContext into the /generate assembly path
+- FIXED Sync .env.example files with the env manifest
+
 ## [0.1.85] - 2026-08-01
 - ADDED **[ai]** Voice option dropdowns and fix Voxtral realtime STT
 - FIXED **[ui]** Format generated About-dialog JSON so CI lint stays green

@@ -1,6 +1,8 @@
 export {
   type AgentConfig,
+  type AgentFnDescriptor,
   type AgentGuardrailsConfig,
+  type AgentResolveContext,
   type AgentWorkspaceConfig,
   type AgentWorkspaceMount,
   type AiCapabilitySource,

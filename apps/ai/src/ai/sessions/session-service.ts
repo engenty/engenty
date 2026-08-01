@@ -292,6 +292,15 @@ export function createSessionService(opts: SessionServiceOptions) {
       extraTools: nativeFrontendTools,
       mastra: opts.mastra,
       modelConfig,
+      // Root-only resolve context (PLAN-agent-hooks D5): lets a function
+      // agent render over this thread's persisted `agent_state` instead of
+      // its bare/default face, so `useThreadState` setters (e.g. a
+      // useMachine transition tool) have a durable store to write through.
+      resolveContext: {
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+        userId: input.scope.userId,
+      },
       ...(taskWorkspace ? { workspace: taskWorkspace } : {}),
       ...(subAgentWorkspaces ? { subAgentWorkspaces } : {}),
     };

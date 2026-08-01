@@ -224,6 +224,13 @@ export async function startConversationRun(
     // Assemble WITHOUT memory — the Harness provides memory to its mode agents.
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
+      // Function agents render over this thread's agent_state snapshot
+      // (PLAN-agent-hooks D5); data configs ignore the context.
+      resolveContext: {
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+        userId: input.scope.userId,
+      },
       ...(useChildRunDelegation ? { skipSubAgents: true } : {}),
       ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
       ...(input.workspace ? { workspace: input.workspace } : {}),

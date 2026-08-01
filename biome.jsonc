@@ -28,6 +28,22 @@
       "javascript": { "globals": ["chrome"] }
     },
     {
+      // Engenty agent hooks are NOT React hooks: state is string-keyed
+      // (PLAN-agent-hooks D3), so conditional hook calls are legal by design
+      // — the React rule's slot-indexing premise does not apply.
+      "includes": [
+        "packages/ai-core/src/hooks/**",
+        "packages/ai-core/src/__tests__/agent-hooks.test.ts",
+        "apps/ai/src/ai/agents/function-agents.ts",
+        "apps/ai/src/ai/agents/function-agents/**",
+        "apps/ai/src/__tests__/function-agent-provider.test.ts",
+        "apps/ai/ai/agents/**"
+      ],
+      "linter": {
+        "rules": { "correctness": { "useHookAtTopLevel": "off" } }
+      }
+    },
+    {
       "includes": [
         "modules/**/src/dal/index.ts",
         "modules/**/ui/index.ts",

@@ -4,6 +4,66 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "87f1b4f",
+        "message": "add dev-server skill and fix the worktree first-run setup gap",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "beea3d7",
+        "message": "thread resolveContext into the /generate assembly path",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "09d4288",
+        "message": "document Agent Hooks — howto-agent-hooks.md with a phase-machine example",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "d0f881e",
+        "message": "module function agents via defineModuleAi agentFns (Phase 4)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5037fc1",
+        "message": "convert engenty.file-analyst to a function agent + phase-machine demo (Phase 3)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "50e8ac2",
+        "message": "FunctionAgentProvider — function agents render per thread with durable agent_state (Phase 2)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "64ad40f",
+        "message": "agent hooks — useX render layer producing AgentConfig (Phase 1)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f978dcc",
+        "message": "scope agent-hooks plan (useX authoring layer over AgentConfig)",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "980358c",
+        "message": "sync .env.example files with the env manifest",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.85",
+    "timestamp": 1785605051,
+    "commits": [
+      {
         "id": "888680c",
         "message": "voice option dropdowns and fix Voxtral realtime STT",
         "group": "Added",

@@ -35,6 +35,7 @@ import {
   type MastraToolDefinition,
   toModuleActionCapability,
 } from "./dynamic-contracts.js";
+import type { AgentFnDescriptor } from "./hooks/types.js";
 import { loadSkillDefinitionsFromDirectory } from "./skills/loader.js";
 
 const AGENT_ID_PATTERN = /^[a-z0-9-]+\.[a-z0-9-]+$/;
@@ -47,6 +48,12 @@ export interface AgentConfigOverride extends Partial<Omit<AgentConfig, "id">> {
 export interface DefineModuleAiOptions {
   /** Code-level AgentDefinitions (dynamic prompts, chat routing) — passed through to AiRegistration.agents. */
   agentDefinitions?: () => AgentDefinition[];
+  /**
+   * Function agents (hook-composed bodies, conventionally authored in
+   * agent.ts beside the agent directory). In-process channel like `tools`;
+   * replaces a scanned agent.json config of the same id.
+   */
+  agentFns?: AgentFnDescriptor[];
   /** Merge/override scanned agent.json configs by id (model resolvers, workspace, instructions). */
   agents?: AgentConfigOverride[];
   /** Allow ACTION.md agent_id values outside this module's agents (cross-module refs). */
@@ -384,12 +391,21 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
     },
 
     dynamicCapability(): DynamicAiModuleCapability {
-      const agentConfigs = buildAgentConfigs();
+      const scannedConfigs = buildAgentConfigs();
+      const agentFns = options.agentFns ?? [];
+      // A function agent replaces a scanned agent.json config of the same id
+      // (PLAN-agent-hooks D7): the json file may remain as documentation or
+      // for the aiRegistration channel, but the function wins here.
+      const fnIds = new Set(agentFns.map((descriptor) => descriptor.id));
+      const agentConfigs = scannedConfigs.filter(
+        (config) => !fnIds.has(config.id)
+      );
       const skillMarkdown = buildSkillMarkdown();
       // Actions/routines travel in serializable form (JSON Schema, no zod) so
-      // apps/ai can consume them over the core capability endpoint.
+      // apps/ai can consume them over the core capability endpoint. Action
+      // agent-id validation sees BOTH channels (json + function agents).
       const actions = buildActions(
-        new Set(agentConfigs.map((config) => config.id))
+        new Set([...scannedConfigs.map((config) => config.id), ...fnIds])
       ).map(toModuleActionCapability);
       const routines = buildRoutines();
       const chatCommands = buildChatCommands();
@@ -397,6 +413,7 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
         agentConfigs,
         moduleId: options.moduleId,
         ...(actions.length > 0 ? { actions } : {}),
+        ...(agentFns.length > 0 ? { agentFns } : {}),
         ...(chatCommands.length > 0 ? { chatCommands } : {}),
         ...(routines.length > 0 ? { routines } : {}),
         ...(Object.keys(skillMarkdown).length > 0

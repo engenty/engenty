@@ -15,5 +15,7 @@ description: Hub for AI Core how-tos (tools, artifacts, config, cleanup plan).
 - [Agent Workspaces](howto-workspaces)
 - [Artifacts and HITL](howto-artifacts-hitl)
 - [AI config](howto-ai-config)
+- [Declare a module's AI surface](howto-define-module-ai)
+- [Agent Hooks](howto-agent-hooks)
 
 When you add or remove a how-to file, update this list and the table in the package [README.md](https://github.com/engenty/engenty/blob/main/packages/ai-core/README.md).

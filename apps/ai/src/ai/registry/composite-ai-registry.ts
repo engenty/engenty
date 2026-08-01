@@ -1,5 +1,6 @@
 import type {
   AgentConfig,
+  AgentResolveContext,
   AiRegistry,
   AiRegistryProvider,
   MastraToolDefinition,
@@ -12,9 +13,12 @@ export class CompositeAiRegistry implements AiRegistry {
     this.providers = providers;
   }
 
-  async getAgentConfig(id: string): Promise<AgentConfig | undefined> {
+  async getAgentConfig(
+    id: string,
+    context?: AgentResolveContext
+  ): Promise<AgentConfig | undefined> {
     for (const provider of this.providers) {
-      const config = await provider.getAgentConfig(id);
+      const config = await provider.getAgentConfig(id, context);
       if (config) {
         return config;
       }

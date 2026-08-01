@@ -71,6 +71,7 @@ vi.mock("@mastra/core/agent", async (importOriginal) => {
   };
 });
 
+import { builtinFunctionAgents } from "../ai/agents/function-agents.js";
 import { createDefaultAiRegistry } from "../ai/agents.js";
 import { assembleDynamicAgent } from "../ai/registry/assemble-dynamic-agent.js";
 import { createBuiltinProvider } from "../ai/registry/builtin-provider.js";
@@ -80,6 +81,7 @@ import {
   type DynamicAiDatabaseStore,
 } from "../ai/registry/database-provider.js";
 import { createNonExecutableDatabaseTool } from "../ai/registry/database-tool.js";
+import { FunctionAgentProvider } from "../ai/registry/function-provider.js";
 import { ModuleProvider } from "../ai/registry/module-provider.js";
 import type {
   AgentConfig,
@@ -118,6 +120,9 @@ function provider(
 function builtinProviderWithAppCoderStub(): CompositeAiRegistry {
   return new CompositeAiRegistry([
     createBuiltinProvider(),
+    // engenty.file-analyst is a function agent (referenced from the
+    // copilot's subAgents), so the eager-assembly tests need its provider.
+    new FunctionAgentProvider(builtinFunctionAgents),
     provider({
       getAgentConfig: vi.fn(async (id) =>
         id === "engenty.app-coder"

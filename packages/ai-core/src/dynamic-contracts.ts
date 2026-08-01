@@ -2,6 +2,8 @@ import { z } from "zod";
 // Type-only import — contracts.ts imports AgentConfig from this file, so keep
 // this cycle erased at runtime.
 import type { ActionDefinition, RoutineDefinition } from "./contracts.js";
+// Type-only (no runtime cycle): hooks/types.ts imports AgentConfig from here.
+import type { AgentFnDescriptor } from "./hooks/types.js";
 
 export const agentSubAgentConfigSchema = z.object({
   alias: z.string().min(1).optional(),
@@ -178,6 +180,7 @@ export const agentModelPurposeSchema = z.enum([
   "planning_coding",
   "safeguard",
 ]);
+export type AgentModelPurpose = z.infer<typeof agentModelPurposeSchema>;
 
 // Per-agent operational limits. A governance dial on a single agent, layered
 // over the global/tenant defaults. `max_steps` caps the agent's reasoning
@@ -244,8 +247,23 @@ export type AiCapabilitySource = NonNullable<AgentConfig["source"]>;
 
 export type MastraToolDefinition = object;
 
+/**
+ * The thread a config resolution is for (PLAN-agent-hooks D5). Optional and
+ * ignored by data providers; the function-agent provider uses it to load the
+ * thread's `agent_state` snapshot before rendering. Absent = bare render
+ * (catalog listings, delegate lookups): function agents show their base face.
+ */
+export interface AgentResolveContext {
+  tenantId: string;
+  threadId: string;
+  userId: string;
+}
+
 export interface AiRegistry {
-  getAgentConfig(id: string): Promise<AgentConfig | undefined>;
+  getAgentConfig(
+    id: string,
+    context?: AgentResolveContext
+  ): Promise<AgentConfig | undefined>;
   getTool(id: string): Promise<MastraToolDefinition | undefined>;
 }
 
@@ -282,6 +300,12 @@ export interface DynamicAiModuleCapability {
   // Serializable ACTION.md definitions declared by the module.
   actions?: ModuleActionCapability[];
   agentConfigs?: AgentConfig[];
+  // Function agents (PLAN-agent-hooks Phase 4): hook-composed agent bodies,
+  // authored in module code (conventionally agent.ts beside agent.json) and
+  // passed through `defineModuleAi({ agentFns })`. In-process only — they
+  // ride the same non-serializable channel as `tools`. A function replaces a
+  // scanned agent.json config of the same id (D7).
+  agentFns?: AgentFnDescriptor[];
   // Serializable COMMAND.md chat slash commands declared by the module.
   chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;

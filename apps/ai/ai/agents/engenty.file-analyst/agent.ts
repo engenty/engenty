@@ -1,20 +1,25 @@
-import type { AgentConfig } from "@engenty/ai-core";
-import { resolveChatModelId } from "@engenty/ai-core";
+// First builtin converted to a function agent (PLAN-agent-hooks Phase 3).
+// The hooks render into the same AgentConfig the old static object was —
+// instructions stay in their own file (files are the content medium, D7).
+// Conversion note: the old static `model` column carried a routing-flavored
+// fallback that only applied on modelConfig-less dev paths; runtime
+// resolution (no purpose, no subAgents → chat tier) is unchanged.
+import type { AgentFnDescriptor } from "@engenty/ai-core";
+import { useRegisteredTool } from "@engenty/ai-core";
 import { ENGENTY_FILE_ANALYST_INSTRUCTIONS } from "./instructions.js";
 import { ENGENTY_FILE_ANALYST_TOOL_IDS } from "./tools.js";
 
 export const ENGENTY_FILE_ANALYST_AGENT_ID = "engenty.file-analyst";
 
-const fileAnalystModel = resolveChatModelId({ purpose: "routing" });
-
-export const engentyFileAnalystAgentConfig: AgentConfig = {
+export const engentyFileAnalystAgent: AgentFnDescriptor = {
   description:
     "File analyst for chat attachments and vault files. Reads, summarizes, answers questions, converts to markdown, and extracts structured info (CSV headers/rows, key-values, emails). Pass storage_key + goal in the brief.",
+  fn: () => {
+    for (const id of ENGENTY_FILE_ANALYST_TOOL_IDS) {
+      useRegisteredTool(id);
+    }
+    return ENGENTY_FILE_ANALYST_INSTRUCTIONS;
+  },
   id: ENGENTY_FILE_ANALYST_AGENT_ID,
-  instructions: ENGENTY_FILE_ANALYST_INSTRUCTIONS,
-  model: fileAnalystModel,
   name: "File Analyst",
-  skillIds: [],
-  source: "builtin",
-  toolIds: ENGENTY_FILE_ANALYST_TOOL_IDS,
 };

@@ -163,6 +163,8 @@ export {
   type AgentConfig,
   type AgentGuardrailsConfig,
   type AgentLimitsConfig,
+  type AgentModelPurpose,
+  type AgentResolveContext,
   type AgentToolProfile,
   type AgentWorkspaceConfig,
   type AgentWorkspaceMount,
@@ -185,6 +187,31 @@ export {
 } from "./dynamic-contracts.js";
 export type { EmailContactExtraction } from "./extract/email-contact.js";
 export { extractEmailContactInfo } from "./extract/email-contact.js";
+export {
+  type AgentFn,
+  type AgentFnDescriptor,
+  type AgentRenderContext,
+  createHookStateStore,
+  guardedTool,
+  type HookStateStore,
+  isRendering,
+  RENDERED_TOOLS,
+  renderAgentFn,
+  renderedToolsOf,
+  type ThreadStateSetter,
+  useGuardrails,
+  useInstruction,
+  useLimits,
+  useMachine,
+  useModel,
+  usePurpose,
+  useRegisteredTool,
+  useSkillHint,
+  useSubagent,
+  useThreadState,
+  useTool,
+  useWorkspace,
+} from "./hooks/index.js";
 export type { InboundRoutingContext } from "./inbound-contracts.js";
 export {
   type AgentLayeredPromptInput,

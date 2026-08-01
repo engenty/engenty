@@ -40,6 +40,7 @@ import {
   createChatSearchRetrievalFromEnv,
   createDefaultAiRegistry,
   createDefaultModuleCapabilityLoader,
+  createSessionAgentStateChannel,
   createTenantModelConfigResolverFromEnv,
 } from "./ai/index.js";
 import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
@@ -328,6 +329,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
     }
   }
+  // Durable channel for function-agent thread state (metadata.agent_state).
+  // Only run-serving registries carry it; catalog/instruction registries
+  // render function agents bare (their base face), which is correct there.
+  const agentStateChannel = createSessionAgentStateChannel(
+    () => agentSessionStore ?? null
+  );
   const aiService = createAiService({
     mastra,
     getRunStore: () => agentRunStore,
@@ -339,6 +346,7 @@ export async function createApp(options: CreateAppOptions = {}) {
       createDefaultAiRegistry({
         databaseStore: registryStore,
         moduleLoader: moduleCapabilityLoader,
+        stateChannel: agentStateChannel,
         tenantId: scope.tenantId,
       }),
   });
@@ -579,6 +587,7 @@ export async function createApp(options: CreateAppOptions = {}) {
       createDefaultAiRegistry({
         databaseStore: registryStore,
         moduleLoader: moduleCapabilityLoader,
+        stateChannel: agentStateChannel,
         tenantId: scope.tenantId,
       }),
     coreBaseUrl: options.coreBaseUrl,

@@ -3,7 +3,6 @@ import {
   createBuiltinRegistryTools,
   engentyCopilotAgentConfig,
 } from "../../../ai/agents/engenty.copilot/copilot-agent.js";
-import { engentyFileAnalystAgentConfig } from "../../../ai/agents/engenty.file-analyst/index.js";
 import type {
   AgentConfig,
   AiRegistryProvider,
@@ -49,8 +48,7 @@ export function createBuiltinProvider(): BuiltinProvider {
       // CLI Agent is registered here so the registry can resolve it when
       // the copilot's subAgents list references "engenty.cli" by ID.
       engentyCLIAgentConfig,
-      // File analyst — chat attachments / vault file deep-dives.
-      engentyFileAnalystAgentConfig,
+      // engenty.file-analyst moved to builtinFunctionAgents (function agent).
     ],
     tools: createBuiltinRegistryTools(),
   });

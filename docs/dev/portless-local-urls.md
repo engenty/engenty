@@ -68,6 +68,15 @@ git worktree add ../engenty-pro-tab-ui -b fix/tab-ui upstream/main
 cd ../engenty-pro-tab-ui
 pnpm install
 
+# REQUIRED once per worktree — supabase/config.toml and the generated UI
+# plugin catalog are gitignored, so a fresh worktree has neither. Skipping
+# this makes `supabase start` derive project_id from the directory name
+# instead of the shared "engenty-local" stack (Docker port collision on
+# :54322) and `dev:portless` fails later with "Missing generated UI plugin
+# catalog". Plugin selection is already committed, so this runs
+# non-interactively.
+pnpm engenty setup --local
+
 # explicit domain (recommended)
 pnpm dev:portless --domain=tab-ui
 # → https://tab-ui.engenty.localhost

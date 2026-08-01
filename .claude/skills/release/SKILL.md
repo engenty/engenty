@@ -58,9 +58,12 @@ git push origin main
 ```bash
 git worktree add ../engenty-pro-x -b feat/x main
 cd ../engenty-pro-x && pnpm install
+pnpm engenty setup --local                   # REQUIRED once — config.toml + generated UI catalog are gitignored
 pnpm dev:portless --domain=x                 # → https://x.engenty.localhost (own port slot)
 # land it: merge feat/x back to main from any checkout, then push origin main
 ```
+Starting the dev server **as Claude Code** (preview_start/launch.json, the
+.localhost URL, common failure modes): see the [`dev-server` skill](../dev-server/SKILL.md).
 Headless/Playwright: hit `http://localhost:<slot port>`, not the HTTPS URL. See [`docs/dev/portless-local-urls.md`](../../../docs/dev/portless-local-urls.md).
 
 **d) Worktree + dedicated DB** (isolated Supabase — for schema-breaking / destructive work)

@@ -50,6 +50,7 @@ CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core ex
 - **Local env:** `pnpm dev:env` (menu), `pnpm dev:env:init`, `pnpm dev:env:check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
 - **Deploy env:** copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
 - **Portless (required for agent preview):** `pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless` (sudo proxy), `pnpm dev:portless`, `pnpm dev:portless --domain=<name>`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
+- **Starting a dev server as Claude Code** (worktree or main, `preview_start`/`launch.json`, first-run `pnpm engenty setup --local`, the `.localhost` URL): see the [`dev-server` skill](./.claude/skills/dev-server/SKILL.md) — a new worktree needs setup run once before `dev:portless` works (config.toml + generated UI catalog are gitignored)
 - **Manifest / CI:** `pnpm env:example:write`, `pnpm env:example:check` — regenerate committed `.env.example` files
 - **Clean caches:** `pnpm clean` — remove `node_modules`, `dist`, Turbo/Next caches (then `pnpm install`)
 - **Full local reset:** `pnpm purge` — or `pnpm purge:light` (env + generated setup + caches, keeps `node_modules`); `pnpm purge -- --yes --quiet` for scripted full purge

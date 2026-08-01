@@ -7,6 +7,8 @@
     "howto-build-tools",
     "howto-workspaces",
     "howto-artifacts-hitl",
-    "howto-ai-config"
+    "howto-ai-config",
+    "howto-define-module-ai",
+    "howto-agent-hooks"
   ]
 }

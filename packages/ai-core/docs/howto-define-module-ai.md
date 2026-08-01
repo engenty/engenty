@@ -14,6 +14,7 @@ boilerplate (skill markdown loaders, manifest plumbing, capability assembly).
 modules/<name>/ai/
   registrar.ts                      # defineModuleAi() call — nothing else
   agents/<agent-id>/agent.json      # + AGENTS.md (identity/rules), optional SOUL.md
+  agents/<agent-id>/agent.ts        # OR a hook-composed agent (passed via options.agentFns)
   skills/<skill-name>/SKILL.md
   actions/<action-id>/ACTION.md
   routines/<routine-id>/ROUTINE.md
@@ -54,6 +55,7 @@ export const offersDynamicAiCapability = () => moduleAi.dynamicCapability();
 | Option | Use |
 |---|---|
 | `agents` | `AgentConfigOverride[]` merged by id onto scanned configs — model (via `resolveChatModelId`), workspace, instructions. An override id with no scanned dir must be a full config. |
+| `agentFns` | `AgentFnDescriptor[]` — hook-composed agents (conventionally `agents/<id>/agent.ts`), passed through to `dynamicCapability().agentFns`. A function replaces a scanned `agent.json` of the same id. See [How-to: Agent Hooks](howto-agent-hooks). |
 | `agentDefinitions` | Code-level `AgentDefinition[]` (dynamic `build_system_prompt`, chat routing) → `AiRegistration.agents` verbatim. |
 | `tools` | Tool id → Mastra tool builder, → `dynamicCapability().tools`. |
 | `skills` / `skillMarkdown` | Escape hatch replacing the SKILL.md scan (chatbot dynamic skills). |
