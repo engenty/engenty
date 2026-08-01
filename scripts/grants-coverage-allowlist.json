@@ -1,0 +1,23 @@
+{
+  "comment": "Tables in core/module_* schemas that DELIBERATELY lack some service_role DML. Each entry MUST have a justification. `missing` lists the verbs intentionally withheld — an offender passes only if every verb it lacks is listed here, so losing an unrelated grant still fails the check. Omit `missing` to allow any. The guard is scripts/check-grants-coverage.mjs. Note that service_role bypasses RLS, so a missing grant makes a table unreachable for the API — it is not a security control, it is append-only enforcement at best.",
+  "allow": [
+    {
+      "schema": "module_kb",
+      "table": "article_versions",
+      "missing": ["update", "delete"],
+      "reason": "Append-only version history: granted select+insert on purpose in 20260616001200_plugin_kb.sql so a revision can never be rewritten or removed."
+    },
+    {
+      "schema": "module_kb",
+      "table": "faq_versions",
+      "missing": ["update", "delete"],
+      "reason": "Append-only version history, same rationale as article_versions."
+    },
+    {
+      "schema": "module_kb",
+      "table": "kb_activity_log",
+      "missing": ["update", "delete"],
+      "reason": "Append-only audit trail: an activity log the service can write but never amend."
+    }
+  ]
+}

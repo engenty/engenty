@@ -166,3 +166,10 @@ jobs:
       # RLS. Runnable locally (`pnpm check:rls-coverage`) against the dev DB.
       - name: RLS coverage guard
         run: pnpm check:rls-coverage
+
+      # Grants coverage guard. Same soft-skip semantics as the RLS guard above.
+      # Catches the `grant ... on all tables` snapshot trap that left four core
+      # tables unwritable by service_role until v0.1.82 — a class of bug the
+      # unit suite cannot see, because the auth stores fall back to memory.
+      - name: Grants coverage guard
+        run: pnpm check:grants-coverage
