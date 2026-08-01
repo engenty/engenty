@@ -123,7 +123,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "contacts:menu.contacts",
     to: "/mdl/contacts",
     icon: DockContactsIcon,
-    order: 120,
+    // Within work category (matches settings order)
+    order: 10,
   });
 
   engenty.UI.registerAdminMenuItem({

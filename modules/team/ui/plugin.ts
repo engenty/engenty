@@ -315,7 +315,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "team:menu",
     to: TEAM_MODULE_BASE,
     icon: DockTeamMembersIcon,
-    order: 115,
+    // Within work category (matches settings order)
+    order: 20,
   });
 
   engenty.UI.registerDashboardWidget({

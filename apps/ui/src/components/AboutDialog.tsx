@@ -74,19 +74,9 @@ export function AboutDialog({
             <DialogDescription className="sr-only">
               {t("about.version", { version })}
             </DialogDescription>
-            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-muted-foreground text-sm">
-              <span>{t("about.version", { version })}</span>
-              <button
-                className="font-medium text-primary text-sm underline underline-offset-4 hover:text-primary/80"
-                onClick={() => {
-                  onOpenChange(false);
-                  setChangelogOpen(true);
-                }}
-                type="button"
-              >
-                {t("about.changelog")}
-              </button>
-            </div>
+            <p className="text-muted-foreground text-sm">
+              {t("about.tagline")}
+            </p>
           </DialogHeader>
           <dl className="mx-auto grid max-w-[16rem] grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
             {tenantName ? (
@@ -102,20 +92,30 @@ export function AboutDialog({
               {planLabel}
             </dd>
           </dl>
-          <p className="pt-2 text-center text-muted-foreground text-sm">
-            {t("about.tagline")}
-          </p>
-          <div className="flex justify-center">
-            <button
-              className="font-medium text-primary text-sm underline underline-offset-4 hover:text-primary/80"
-              onClick={() => {
-                onOpenChange(false);
-                setCreditsOpen(true);
-              }}
-              type="button"
-            >
-              {t("about.credits")}
-            </button>
+          <div className="flex flex-col items-center justify-center gap-y-1">
+            <div className="text-muted-foreground text-sm">{version}</div>
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+              <button
+                className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+                onClick={() => {
+                  onOpenChange(false);
+                  setCreditsOpen(true);
+                }}
+                type="button"
+              >
+                {t("about.credits")}
+              </button>
+              <button
+                className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+                onClick={() => {
+                  onOpenChange(false);
+                  setChangelogOpen(true);
+                }}
+                type="button"
+              >
+                {t("about.changelog")}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

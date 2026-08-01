@@ -16,6 +16,8 @@ export function AppLayout({
   defaultTopbarTitle,
   children,
   currentUserId = null,
+  modulesReorderable,
+  onModulesReorder,
   shellUiHost,
   secondaryNavPersistence,
 }: AppLayoutProps) {
@@ -32,6 +34,8 @@ export function AppLayout({
             appMenuActions={appMenuActions}
             defaultTopbarTitle={defaultTopbarTitle}
             fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
+            modulesReorderable={modulesReorderable}
+            onModulesReorder={onModulesReorder}
             secondaryNavPersistence={secondaryNavPersistence}
             sections={sections}
             shell={shell}

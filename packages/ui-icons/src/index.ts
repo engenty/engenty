@@ -16,6 +16,7 @@ export * from "./icons/LeadsIcon";
 export * from "./icons/OffersIcon";
 export * from "./icons/PluginsIcon";
 export * from "./icons/ProjectsIcon";
+export * from "./icons/SecretsIcon";
 export * from "./icons/SettingsIcon";
 export * from "./icons/SetupIcon";
 export * from "./icons/TeamMembersIcon";

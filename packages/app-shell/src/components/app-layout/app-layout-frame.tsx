@@ -30,6 +30,8 @@ export function AppLayoutFrame({
   sections,
   shell,
   defaultTopbarTitle,
+  modulesReorderable,
+  onModulesReorder,
   secondaryNavPersistence,
   children,
 }: AppLayoutFrameProps & { children: ReactNode }) {
@@ -287,8 +289,10 @@ export function AppLayoutFrame({
         >
           <AppSidebar
             compact={sidebarMode === "compact"}
+            modulesReorderable={modulesReorderable}
             onItemHoverEnter={openNavItemHover}
             onItemHoverLeave={closeNavItemHover}
+            onModulesReorder={onModulesReorder}
             sections={sections}
             shell={shell}
             sidebarWidth={sidebarWidth}

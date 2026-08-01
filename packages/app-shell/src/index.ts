@@ -118,10 +118,20 @@ export {
 export type {
   NavigationItem,
   NavigationSection,
+  NavigationSectionId,
   ShellSidebarConfig,
   ShellTenant,
   TenantSwitcherConfig,
 } from "./types/shell";
+export {
+  createDefaultShellDockModuleOrderSnapshot,
+  parseShellDockModuleOrderSnapshot,
+  SHELL_DOCK_MODULE_ORDER_NOOP,
+  SHELL_DOCK_MODULE_ORDER_TENANT_SETTING_NAME,
+  type ShellDockModuleOrderPersistence,
+  type ShellDockModuleOrderPersistenceApi,
+  type ShellDockModuleOrderSnapshotV1,
+} from "./types/shell-dock-module-order";
 export {
   createDefaultShellSecondaryNavPinnedSnapshot,
   mergeShellSecondaryNavPinnedSnapshot,

@@ -50,7 +50,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "inbox:menu.inbox",
     icon: DockInboxIcon,
     to: "/mdl/inbox",
-    order: 150,
+    // Within work category — after Contacts / Team (no settings row)
+    order: 30,
   });
 
   engenty.UI.registerCopilotContribution(inboxCopilotContribution);

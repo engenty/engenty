@@ -1,4 +1,4 @@
-import { DockVaultIcon } from "@engenty/ui-icons";
+import { DockSecretsIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { SecretsImportPage } from "./pages/secrets-import-page.js";
 import { VaultPage } from "./pages/vault-page.js";
@@ -44,7 +44,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     label: "Secrets",
     labelKey: "secrets:menu.secrets",
     to: "/mdl/secrets",
-    icon: DockVaultIcon,
-    order: 500,
+    icon: DockSecretsIcon,
+    // Within platform category
+    order: 10,
   });
 }

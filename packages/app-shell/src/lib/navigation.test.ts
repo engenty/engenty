@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NavigationSection } from "../types/shell";
 import {
+  applyDockModuleOrder,
   buildNavigationSections,
   getSecondaryNavItems,
   matchesPath,
@@ -98,6 +99,222 @@ describe("navigation", () => {
       expect(sections[1]?.items.map((item) => item.to)).toEqual([
         "/mdl/contacts",
       ]);
+    });
+
+    it("applies a persisted dock module order over category defaults", () => {
+      const sections = buildNavigationSections({
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "invoices_module_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            section: "modules",
+            category: "commercial",
+            to: "/mdl/invoices",
+            order: 20,
+          },
+          {
+            id: "contacts_module_menu",
+            label: "Contacts",
+            pluginId: "contacts",
+            section: "modules",
+            category: "work",
+            to: "/mdl/contacts",
+            order: 10,
+          },
+          {
+            id: "kb_menu",
+            label: "Knowledge Base",
+            pluginId: "knowledge-base",
+            section: "modules",
+            category: "knowledge",
+            to: "/mdl/knowledge-base",
+            order: 10,
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+
+      const reordered = applyDockModuleOrder(sections, [
+        "kb_menu",
+        "invoices_module_menu",
+      ]);
+      expect(
+        reordered.find((s) => s.id === "modules")?.items.map((i) => i.id)
+      ).toEqual(["kb_menu", "invoices_module_menu", "contacts_module_menu"]);
+    });
+
+    it("orders modules section by plugin category then within-category order", () => {
+      const sections = buildNavigationSections({
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "secrets_module_menu",
+            label: "Secrets",
+            pluginId: "secrets",
+            section: "modules",
+            category: "platform",
+            to: "/mdl/secrets",
+            order: 10,
+          },
+          {
+            id: "team_module_menu",
+            label: "Team",
+            pluginId: "team",
+            section: "modules",
+            category: "work",
+            to: "/mdl/team",
+            order: 20,
+          },
+          {
+            id: "invoices_module_menu",
+            label: "Invoices",
+            pluginId: "invoices",
+            section: "modules",
+            category: "commercial",
+            to: "/mdl/invoices",
+            order: 20,
+          },
+          {
+            id: "contacts_module_menu",
+            label: "Contacts",
+            pluginId: "contacts",
+            section: "modules",
+            category: "work",
+            to: "/mdl/contacts",
+            order: 10,
+          },
+          {
+            id: "kb_menu",
+            label: "Knowledge Base",
+            pluginId: "knowledge-base",
+            section: "modules",
+            category: "knowledge",
+            to: "/mdl/knowledge-base",
+            order: 10,
+          },
+          {
+            id: "team_chat_module_menu",
+            label: "Team Chat",
+            pluginId: "team-chat",
+            section: "modules",
+            category: "engenty",
+            to: "/mdl/team-chat",
+            order: 16,
+          },
+          {
+            id: "offers_module_menu",
+            label: "Offers",
+            pluginId: "offers",
+            section: "modules",
+            category: "commercial",
+            to: "/mdl/offers",
+            order: 21,
+          },
+          {
+            id: "tasks_module_menu",
+            label: "Plan",
+            pluginId: "tasks",
+            section: "modules",
+            category: "engenty",
+            to: "/mdl/tasks",
+            order: 11,
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+
+      expect(sections[0]?.items.map((item) => item.to)).toEqual(["/mdl/tasks"]);
+      expect(sections[1]?.items.map((item) => item.to)).toEqual([
+        "/mdl/team-chat",
+        "/mdl/invoices",
+        "/mdl/offers",
+        "/mdl/contacts",
+        "/mdl/team",
+        "/mdl/knowledge-base",
+        "/mdl/secrets",
+      ]);
+    });
+
+    it("promotes Engenty into the primary sidebar top section for admins", () => {
+      const contributions = {
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "ai_ui_admin_menu",
+            label: "Engenty",
+            pluginId: "ai-ui",
+            section: "admin" as const,
+            to: "/admin/engenty",
+          },
+          {
+            id: "user_management_menu",
+            label: "Users",
+            pluginId: "user-management",
+            section: "admin" as const,
+            to: "/admin/users",
+          },
+          {
+            id: "tasks_module_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            section: "modules" as const,
+            to: "/mdl/tasks",
+          },
+        ],
+        copilotApps: [
+          {
+            id: "engenty_copilot_app",
+            label: "Engenty Copilot",
+            pluginId: "engenty-copilot",
+            to: "/mdl/engenty-copilot/chat",
+            icon: () => null,
+          },
+        ],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+
+      const adminSections = buildNavigationSections(contributions, {
+        isTenantAdmin: true,
+      });
+      expect(adminSections[0]?.items.map((item) => item.to)).toEqual([
+        "/mdl/engenty-copilot/chat",
+        "/mdl/tasks",
+        "/admin/engenty",
+      ]);
+      const adminRail =
+        adminSections
+          .find((section) => section.label === "navigation.admin")
+          ?.items.map((item) => item.to) ?? [];
+      expect(adminRail).not.toContain("/admin/engenty");
+      expect(adminRail).toContain("/admin/users");
+
+      const memberTop =
+        buildNavigationSections(contributions, {})[0]?.items.map(
+          (item) => item.to
+        ) ?? [];
+      expect(memberTop).not.toContain("/admin/engenty");
     });
 
     it("shows Setup admin nav for superadmins only", () => {

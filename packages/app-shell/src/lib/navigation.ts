@@ -59,7 +59,6 @@ const ADMIN_NAV_ORDER_SETUP = 150;
  * Ensures sidebar order even if `order` on contributions is stale (e.g. dev session cache).
  */
 const ADMIN_MENU_SORT_RANK_BY_ID: Record<string, number> = {
-  ai_ui_admin_menu: 100,
   files_admin_menu: 110,
   audit_logs_menu: 120,
   user_management_menu: 130,
@@ -85,6 +84,7 @@ function mapTopLevelEntryToNavItem(
     }));
 
   return {
+    id: entry.id,
     to: entry.to,
     label: resolveContributionLabel(entry, t),
     icon: entry.icon ?? Box,
@@ -98,6 +98,7 @@ function mapCopilotAppToNavItem(
   t: TranslateFn
 ): NavigationItem {
   return {
+    id: app.id,
     to: app.to,
     label: resolveContributionLabel(app, t),
     icon: app.icon ?? Box,
@@ -179,20 +180,41 @@ export function buildNavigationSections(
   const projectsMenuItem = contributions.adminMenuItems.find(
     (entry) => entry.id === "projects_module_menu"
   );
-  const moduleItems = buildSectionItems(
-    contributions.adminMenuItems.filter(
-      (entry) =>
-        entry.section === "modules" &&
-        entry.id !== "tasks_module_menu" &&
-        entry.id !== "projects_module_menu"
-    ),
-    t
+  // Engenty (agents workspace) is an admin console but lives in the primary
+  // top rail with copilot / tasks / projects — not the bottom admin stack.
+  const engentyMenuItem = contributions.adminMenuItems.find(
+    (entry) => entry.id === "ai_ui_admin_menu"
+  );
+  // Modules rail mirrors Settings: PLUGIN_CATEGORIES, then `order` within
+  // category. Children keep parent linkage via the full filtered entry list.
+  const moduleMenuEntries = contributions.adminMenuItems.filter(
+    (entry) =>
+      entry.section === "modules" &&
+      entry.id !== "tasks_module_menu" &&
+      entry.id !== "projects_module_menu"
+  );
+  const moduleTopLevel = moduleMenuEntries
+    .filter((entry) => !entry.parentId)
+    .slice()
+    .sort((left, right) => {
+      const byCategory =
+        pluginCategoryRank(left.category) - pluginCategoryRank(right.category);
+      if (byCategory !== 0) {
+        return byCategory;
+      }
+      return (left.order ?? 10_000) - (right.order ?? 10_000);
+    });
+  const moduleItems = moduleTopLevel.map((entry) =>
+    mapTopLevelEntryToNavItem(entry, moduleMenuEntries, t)
   );
   const copilotNavItems = buildCopilotNavItems(contributions.copilotApps, t);
-  // Admin-section entries (/admin/* consoles: users, audit logs, files, agents
-  // workspace, context graph) are tenant-admin surfaces — hidden for members.
+  // Admin-section entries (/admin/* consoles: users, audit logs, files,
+  // context graph) are tenant-admin surfaces — hidden for members. Engenty is
+  // promoted into the top rail below and excluded here.
   const adminMenuEntries = isAdmin
-    ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
+    ? contributions.adminMenuItems.filter(
+        (entry) => entry.section === "admin" && entry.id !== "ai_ui_admin_menu"
+      )
     : [];
   // Connections is a personal surface (`requiresAdmin: false`) but lives in the
   // core settings block (after AI usage, before developer-mode / module rows),
@@ -299,6 +321,7 @@ export function buildNavigationSections(
 
   return [
     {
+      id: "primary",
       items: [
         ...copilotNavItems,
         ...(tasksMenuItem
@@ -319,19 +342,31 @@ export function buildNavigationSections(
               ),
             ]
           : []),
+        ...(isAdmin && engentyMenuItem
+          ? [
+              mapTopLevelEntryToNavItem(
+                engentyMenuItem,
+                contributions.adminMenuItems,
+                t
+              ),
+            ]
+          : []),
       ],
     },
     {
+      id: "modules",
       label: t("navigation.modules"),
       items: moduleItems,
     },
     {
+      id: "admin",
       label: t("navigation.admin"),
       items: (() => {
         const settingsItem = {
           // Keep the gear at /settings for everyone so the settings secondary
           // nav resolves on every /settings/* page; the route guard redirects
           // members off the admin-only General page to /settings/appearance.
+          id: "shell_settings",
           to: "/settings",
           label: t("navigation.settings"),
           icon: DockSettingsIcon,
@@ -339,6 +374,7 @@ export function buildNavigationSections(
         };
         const setupItem = isSuperAdmin
           ? {
+              id: "shell_setup",
               to: "/setup",
               label: t("navigation.setup"),
               icon: DockSetupIcon,
@@ -449,6 +485,52 @@ function isSecondaryNavLinkChild(child: {
     child.type !== "heading" &&
     isNavigablePath(child.to)
   );
+}
+
+/**
+ * Apply a tenant-persisted order to the modules rail section. Unknown ids are
+ * skipped; modules missing from `order` keep default category order at the end.
+ */
+export function applyDockModuleOrder(
+  sections: NavigationSection[],
+  order: string[] | null | undefined
+): NavigationSection[] {
+  if (!order?.length) {
+    return sections;
+  }
+  return sections.map((section) => {
+    if (section.id !== "modules") {
+      return section;
+    }
+    const byId = new Map<string, NavigationItem>();
+    for (const item of section.items) {
+      if (item.id) {
+        byId.set(item.id, item);
+      }
+    }
+    const ordered: NavigationItem[] = [];
+    const seen = new Set<string>();
+    for (const id of order) {
+      const item = byId.get(id);
+      if (!item || seen.has(id)) {
+        continue;
+      }
+      ordered.push(item);
+      seen.add(id);
+    }
+    for (const item of section.items) {
+      if (!item.id) {
+        ordered.push(item);
+        continue;
+      }
+      if (seen.has(item.id)) {
+        continue;
+      }
+      ordered.push(item);
+      seen.add(item.id);
+    }
+    return { ...section, items: ordered };
+  });
 }
 
 export function matchesPath(

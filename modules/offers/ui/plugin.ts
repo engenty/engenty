@@ -120,7 +120,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "offers:menu.offers",
     to: "/mdl/offers",
     icon: DockOffersIcon,
-    order: 118,
+    // Within commercial category (matches settings order)
+    order: 21,
   });
 
   // The former Drafts/Ready/Accepted quick links moved into the sidebar

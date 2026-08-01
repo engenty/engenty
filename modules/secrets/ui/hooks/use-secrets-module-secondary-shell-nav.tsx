@@ -3,7 +3,7 @@ import {
   useShellSecondaryNav,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { DockVaultIcon } from "@engenty/ui-icons";
+import { DockSecretsIcon } from "@engenty/ui-icons";
 import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { SecretsSidebarPanel } from "../components/secrets-sidebar-panel.js";
@@ -23,7 +23,7 @@ export function useSecretsModuleSecondaryShellNav() {
   const secondaryNavHeaderSlot = useMemo(
     () => (
       <ModuleSidebarHeaderLabel
-        icon={DockVaultIcon}
+        icon={DockSecretsIcon}
         label={t("menu.secrets")}
         to={SECRETS_MODULE_BASE}
       />

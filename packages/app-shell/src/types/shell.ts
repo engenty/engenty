@@ -19,6 +19,8 @@ export interface NavigationItem {
   }>;
   external?: boolean;
   icon: UiIconComponent;
+  /** Stable contribution id (admin menu / copilot app) for dock reorder. */
+  id?: string;
   label: string;
   to: string;
   /** Reactive count badge on the icon — a hook the sidebar calls per item;
@@ -26,9 +28,13 @@ export interface NavigationItem {
   useBadgeCount?: () => number | undefined;
 }
 
+/** Stable section key for shell layout (independent of i18n labels). */
+export type NavigationSectionId = "primary" | "modules" | "admin";
+
 export interface NavigationSection {
   collapsible?: boolean;
   defaultExpanded?: boolean;
+  id?: NavigationSectionId;
   items: NavigationItem[];
   label?: string;
 }

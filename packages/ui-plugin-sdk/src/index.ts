@@ -117,10 +117,17 @@ export type UiRouteScope = "authenticated" | "public";
 export type UiAdminMenuSection = "modules" | "admin";
 
 export interface UiAdminMenuItemContribution {
+  /**
+   * Catalog group from `engenty.plugin.json` (enriched at UI resolve time).
+   * Primary-rail modules section follows {@link PLUGIN_CATEGORIES}; `order`
+   * sorts within the category only — same rules as settings items.
+   */
+  category?: PluginCategory;
   icon?: UiIconComponent;
   id: string;
   label: string;
   labelKey?: string;
+  /** Sort key within {@link category} only — not across categories. */
   order?: number;
   parentId?: string;
   pluginId: UiPluginId;

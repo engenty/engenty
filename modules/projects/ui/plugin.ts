@@ -182,7 +182,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "projects:menu.projects",
     to: "/mdl/projects",
     icon: DockProjectsIcon,
-    order: 140,
+    // Within engenty category (matches settings order; promoted to top rail)
+    order: 10,
   });
 
   engenty.UI.registerSettingsItem({

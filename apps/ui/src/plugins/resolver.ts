@@ -822,6 +822,10 @@ export async function resolveUiPlugins(params: {
     ...item,
     category: item.category ?? pluginsById.get(item.pluginId)?.category,
   }));
+  const adminMenuItemsWithCategory = menuNormalized.items.map((item) => ({
+    ...item,
+    category: item.category ?? pluginsById.get(item.pluginId)?.category,
+  }));
   const tabsNormalized = normalizeTabs(tabs);
   const chatCommandsNormalized = normalizeChatCommands(chatCommands);
 
@@ -841,7 +845,7 @@ export async function resolveUiPlugins(params: {
   return {
     contributions: {
       routes: routesNormalized.items,
-      adminMenuItems: menuNormalized.items,
+      adminMenuItems: adminMenuItemsWithCategory,
       backgroundComponents,
       brandSource: filtered.brandSource,
       chatCommands: chatCommandsNormalized.items,

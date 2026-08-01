@@ -14,6 +14,7 @@ import {
   useAgentUiFrontendTools,
   useAgentUiStateSnapshot,
 } from "@engenty/app-shell";
+import { applyDockModuleOrder } from "@engenty/app-shell/navigation";
 import {
   gateFailureToNavigationState,
   getSupabaseAuthClient,
@@ -44,6 +45,7 @@ import { switchCurrentTenant } from "@/lib/api/client";
 import { useCopilotLayoutPersistence } from "@/lib/copilot-layout-persistence";
 import { buildLiveBindingMaps } from "@/lib/live-bindings";
 import { isModuleHubChatRoute } from "@/lib/module-chat-routes";
+import { useShellDockModuleOrderPersistence } from "@/lib/shell-dock-module-order-persistence";
 import { useShellSecondaryNavPinnedPersistence } from "@/lib/shell-secondary-nav-pinned-persistence";
 import { useAuthenticatedAppBootstrap } from "@/lib/use-authenticated-app-bootstrap";
 import { usePublicUiPluginContributions } from "@/plugins/public-ui-plugin-contributions";
@@ -171,6 +173,20 @@ function App() {
   const secondaryNavPersistence = useShellSecondaryNavPinnedPersistence({
     enabled: shellPersistenceEnabled,
   });
+
+  const dockModuleOrderPersistence = useShellDockModuleOrderPersistence({
+    enabled: shellPersistenceEnabled,
+    tenantId: workspaceContext?.currentTenant?.id ?? "",
+  });
+
+  const orderedSections = useMemo(
+    () =>
+      applyDockModuleOrder(
+        sections,
+        dockModuleOrderPersistence.snapshot?.order
+      ),
+    [sections, dockModuleOrderPersistence.snapshot?.order]
+  );
 
   const appMenuActions = useAppMenuActions();
 
@@ -311,7 +327,7 @@ function App() {
               userId={workspaceContext.userId}
             />
             <DesktopBridge
-              sections={sections}
+              sections={orderedSections}
               tenantId={workspaceContext.currentTenant?.id ?? ""}
             />
             {contributions.backgroundComponents.map((entry) => (
@@ -328,8 +344,10 @@ function App() {
               currentUserId={workspaceContext.userId}
               defaultTopbarTitle={t("navigation.dashboard")}
               fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
+              modulesReorderable={isTenantAdmin || isSuperAdmin}
+              onModulesReorder={dockModuleOrderPersistence.setOrder}
               secondaryNavPersistence={secondaryNavPersistence}
-              sections={sections}
+              sections={orderedSections}
               shell={{
                 appTitle: t("sidebar.brand"),
                 appSubtitle: workspaceContext.planLabel || t("sidebar.plan"),

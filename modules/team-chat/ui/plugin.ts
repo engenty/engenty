@@ -60,7 +60,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "team-chat:menu.teamChat",
     icon: MessagesSquare,
     to: "/mdl/team-chat",
-    order: 160,
+    // Within engenty category — after Projects / Plan (promoted to top rail)
+    order: 16,
     // Slack home-badge semantics: mentions everywhere + DM unreads.
     useBadgeCount: useTeamChatBadgeCount,
   });

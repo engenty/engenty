@@ -62,7 +62,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "invoices:menu",
     to: "/mdl/invoices",
     icon: DockInvoicesIcon,
-    order: 100,
+    // Within commercial category (matches settings order)
+    order: 20,
   });
 
   engenty.UI.registerSettingsItem({

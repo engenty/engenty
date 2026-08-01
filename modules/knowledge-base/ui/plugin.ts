@@ -377,8 +377,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "kb:menu.knowledge_base",
     to: "/mdl/knowledge-base",
     icon: DockKnowledgeBaseIcon,
-    // With peers ~100–200; 300 sorted last and was often below the fold in the dock.
-    order: 125,
+    // Within knowledge category (matches settings order)
+    order: 10,
   });
 
   engenty.UI.registerSettingsItem({

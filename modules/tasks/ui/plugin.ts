@@ -238,7 +238,8 @@ export default function plugin(engenty: EngentyPluginContext) {
     labelKey: "tasks:menu.tasks",
     icon: ListTodo,
     to: tasksPaths.root,
-    order: 145,
+    // Within engenty category (matches settings order; promoted to top rail)
+    order: 11,
     // Unseen inbox count on the app-bar icon (the shell calls this hook from
     // an always-mounted per-item component).
     useBadgeCount: () => useInboxUnseenCountQuery().data?.count,

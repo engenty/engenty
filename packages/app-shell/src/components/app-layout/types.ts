@@ -11,6 +11,10 @@ export interface AppLayoutProps {
   currentUserId?: string | null;
   defaultTopbarTitle?: string;
   fetchResolvedFeatureFlags: () => Promise<Record<string, boolean>>;
+  /** Tenant admins can drag-reorder modules-rail icons. */
+  modulesReorderable?: boolean;
+  /** Persist modules-rail order (contribution ids) to tenant-settings. */
+  onModulesReorder?: (orderedIds: string[]) => void;
   /** User-settings persistence for global module secondary nav pinned open/closed. */
   secondaryNavPersistence?: ShellSecondaryNavPinnedPersistence;
   sections: NavigationSection[];

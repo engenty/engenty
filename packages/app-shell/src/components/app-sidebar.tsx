@@ -19,6 +19,7 @@ import type {
 } from "../types/shell";
 import { MOBILE_NAV_RAIL_WIDTH_CLASS } from "./app-layout/constants";
 import { SidebarTenantSwitcher } from "./sidebar-tenant-switcher";
+import { SortableModulesRail } from "./sortable-modules-rail";
 
 type AppSidebarSurface = "rail" | "panel";
 
@@ -47,9 +48,13 @@ interface AppSidebarProps {
   className?: string;
   compact?: boolean;
   footer?: ReactNode;
+  /** When true, modules-section icons can be drag-reordered (tenant admins). */
+  modulesReorderable?: boolean;
   /** Fired when hovering a compact-mode icon that has secondary-nav children. */
   onItemHoverEnter?: (item: NavigationItem) => void;
   onItemHoverLeave?: () => void;
+  /** Persist a new modules-rail order (contribution ids). */
+  onModulesReorder?: (orderedIds: string[]) => void;
   onNavigate?: () => void;
   sections: NavigationSection[];
   shell: ShellSidebarConfig;
@@ -62,8 +67,10 @@ interface AppSidebarProps {
 export function AppSidebar({
   sections,
   compact = false,
+  modulesReorderable = false,
   onItemHoverEnter,
   onItemHoverLeave,
+  onModulesReorder,
   onNavigate,
   shell,
   footer,
@@ -109,7 +116,14 @@ export function AppSidebar({
   const otherAdminItems =
     adminSection?.items.filter((i) => i.to !== "/settings") ?? [];
 
-  const renderItem = (item: NavigationItem, inFlyout = false) => {
+  const renderItem = (
+    item: NavigationItem,
+    inFlyout = false,
+    options?: {
+      /** No <a>/<Link> — used while rearranging so drop can't navigate. */ inert?: boolean;
+    }
+  ) => {
+    const inert = options?.inert === true;
     const mode = shell.dockLabelMode ?? "tooltip";
     const isDockGrow = mode === "dock-grow" && compact && !inFlyout;
 
@@ -129,7 +143,8 @@ export function AppSidebar({
           ? "bg-muted font-medium text-foreground"
           : "bg-sidebar-accent font-medium text-sidebar-accent-foreground"),
       inFlyout && "min-w-[140px] justify-start px-2",
-      isDockGrow && "group/item-grow"
+      isDockGrow && "group/item-grow",
+      inert && "cursor-grab"
     );
 
     const content = (
@@ -160,9 +175,15 @@ export function AppSidebar({
             paddingBottom: `${8 * iconScale}px`,
           };
 
-    const element = itemExternal ? (
+    // Inert tiles have no href — native link-drag hard-navigation can't fire.
+    const element = inert ? (
+      <div aria-hidden className={itemClass} style={itemStyle}>
+        {content}
+      </div>
+    ) : itemExternal ? (
       <a
         className={itemClass}
+        draggable={false}
         href={item.to}
         onClick={onNavigate}
         style={itemStyle}
@@ -172,6 +193,7 @@ export function AppSidebar({
     ) : (
       <Link
         className={itemClass}
+        draggable={false}
         onClick={onNavigate}
         style={itemStyle}
         to={item.to}
@@ -179,6 +201,10 @@ export function AppSidebar({
         {content}
       </Link>
     );
+
+    if (inert) {
+      return <div key={item.to}>{element}</div>;
+    }
 
     if (compact && !inFlyout) {
       const hasChildNav =
@@ -341,7 +367,13 @@ export function AppSidebar({
           )}
         >
           {mainSections.map((section, index) => {
-            const sectionKey = section.label ?? `section-${index}`;
+            const sectionKey =
+              section.id ?? section.label ?? `section-${index}`;
+            const canReorderModules =
+              modulesReorderable &&
+              !!onModulesReorder &&
+              section.id === "modules" &&
+              section.items.some((item) => item.id);
             return (
               <div className="mb-2" key={sectionKey}>
                 {!compact && section.label && (
@@ -356,9 +388,19 @@ export function AppSidebar({
                     {section.label}
                   </p>
                 )}
-                <div className="space-y-1">
-                  {section.items.map((item) => renderItem(item, false))}
-                </div>
+                {canReorderModules ? (
+                  <SortableModulesRail
+                    items={section.items}
+                    onReorder={onModulesReorder}
+                    renderItem={(item, { rearranging }) =>
+                      renderItem(item, false, { inert: rearranging })
+                    }
+                  />
+                ) : (
+                  <div className="space-y-1">
+                    {section.items.map((item) => renderItem(item, false))}
+                  </div>
+                )}
                 {index < mainSections.length - 1 && (
                   <Separator
                     className={cn(

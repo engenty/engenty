@@ -727,7 +727,7 @@
     "tenant": "Tenant",
     "plan": "Plan",
     "tagline": "People & Agents. As One Team.",
-    "changelog": "Changelog",
+    "changelog": "CHANGELOG",
     "changelogTitle": "Changelog",
     "changelogDescription": "Release history from Conventional Commits.",
     "changelogEmpty": "No releases yet.",

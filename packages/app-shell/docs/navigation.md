@@ -32,9 +32,13 @@ Returns `NavigationSection[]` consumed by `AppLayout` / `AppSidebar`:
 
 | Section | Contents |
 |---------|----------|
-| Top | Dashboard + copilot app entries |
-| Modules | `section: "modules"` admin menu contributions |
-| Admin | Admin contributions + fixed Settings and Plugins rows |
+| Top | Copilot apps + promoted Tasks / Projects / Engenty (Engenty admins only) |
+| Modules | Remaining `section: "modules"` items, sorted like Settings (`PLUGIN_CATEGORIES` then within-category `order`); tenant admins can drag-reorder (persisted as `shell.dock_module_order`) |
+| Admin | Remaining admin contributions + fixed Settings and Setup rows |
+
+`applyDockModuleOrder(sections, order)` overlays a tenant-persisted id list on the modules section. Unknown ids are skipped; new modules append in default category order.
+
+**Rearrange UX:** long-press a modules-rail icon → wobble + drag; click outside (or Escape) persists `shell.dock_module_order` and exits. Normal clicks still navigate.
 
 Admin contribution order uses stable **`id` ranks** (`ADMIN_MENU_SORT_RANK_BY_ID`) so dev session cache does not reorder the rail incorrectly.
 

@@ -4,6 +4,30 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "e240680",
+        "message": "long-press rearrange for tenant dock module order",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "774ca82",
+        "message": "promote Engenty in dock and order modules by category",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e606cb3",
+        "message": "rearrange About dialog tagline and footer links",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.86",
+    "timestamp": 1785618772,
+    "commits": [
+      {
         "id": "87f1b4f",
         "message": "add dev-server skill and fix the worktree first-run setup gap",
         "group": "Docs",

@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.87] - 2026-08-01
+- ADDED **[ui]** Long-press rearrange for tenant dock module order
+- ADDED **[ui]** Promote Engenty in dock and order modules by category
+- FIXED **[ui]** Rearrange About dialog tagline and footer links
+
 ## [0.1.86] - 2026-08-01
 - ADDED **[ai-core,ai]** Module function agents via defineModuleAi agentFns (Phase 4)
 - ADDED **[ai]** Convert engenty.file-analyst to a function agent + phase-machine demo (Phase 3)

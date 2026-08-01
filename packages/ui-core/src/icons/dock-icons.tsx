@@ -15,6 +15,7 @@ export {
   DockOffersIcon,
   DockPluginsIcon,
   DockProjectsIcon,
+  DockSecretsIcon,
   DockSettingsIcon,
   DockSetupIcon,
   DockTeamMembersIcon,
