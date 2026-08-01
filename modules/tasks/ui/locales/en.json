@@ -163,6 +163,7 @@
     "viewTable": "Table",
     "viewKanban": "Kanban",
     "viewGrouped": "Grouped",
+    "groupedByLabel": "Grouped:",
     "filterByAssigneeKind": "Filter by assignee",
     "assigneeHuman": "People",
     "assigneeAgent": "Agents",

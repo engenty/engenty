@@ -37,7 +37,7 @@ export function getTasksToolbarLabels(
     dueDate: t("list.dueDate"),
     updatedAt: t("list.updated"),
     filterAllStatuses: t("list.filterAllStatuses"),
-    groupBy: t("sidebar.groupBy"),
+    groupedByLabel: t("list.groupedByLabel"),
   };
 }
 
