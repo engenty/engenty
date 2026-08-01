@@ -38,6 +38,28 @@ Each field shows where its effective value currently comes from (tenant,
 platform, environment, or default), so you can see at a glance whether a key is
 set and which layer is winning.
 
+## What the setup screen tells you
+
+Beyond the editable fields, each group renders the context an operator needs to
+fill it in:
+
+- **Provider instructions** from the setting's `obtain.instructions`, with
+  `<ENGENTY_API_BASE_URL>` resolved against the running installation — no
+  placeholder to substitute by hand.
+- **The OAuth redirect URI** for any group whose steps mention one, as the
+  literal URL with a copy button. Every connector shares the same callback, and
+  a `*.localhost` origin comes with a warning plus the loopback alternative,
+  because providers refuse `*.localhost` hosts (see
+  [Connections](../dev/connections.md)).
+- **Deployment-environment keys** as read-only **Set / Not set** rows in their
+  group. These are the keys the UI deliberately cannot write (below) — values
+  never leave the server, only their presence. This is what turns a missing
+  `CONNECTIONS_TOKEN_ENC_KEY` into something you can see on the page instead of
+  a failed OAuth callback and a line in the container log.
+
+After changing a deployment-environment key, restart the services — they are
+read at boot.
+
 ## Secrets are write-only
 
 Settings marked as secrets (API keys, client secrets, bot tokens) are stored

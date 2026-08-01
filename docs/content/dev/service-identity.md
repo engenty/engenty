@@ -1,3 +1,8 @@
+---
+title: Service identity
+description: How headless work in apps/ai authenticates — the AI service principal, issuing and revoking its durable credential, and how a running process exchanges that credential for a short-lived token.
+---
+
 # Service identity
 
 Headless work in `apps/ai` — the trigger scheduler, the task-job substrate,

@@ -130,6 +130,28 @@ Open `deploy/.env` and set at least these:
 > **built**. If you change any of them later, you must **rebuild** the edge image
 > (Step 5 / the rebuild note below).
 
+Set these too, unless you want the matching feature switched off. They are
+read from the process environment at boot and **cannot** be set from
+**Setup → Platform settings** — that page shows them as read-only *Set / Not
+set* rows so a missing one is visible before it breaks a flow:
+
+| Variable | Generate | What breaks without it |
+|----------|----------|------------------------|
+| `CONNECTIONS_TOKEN_ENC_KEY` | `openssl rand -base64 32` | Every OAuth connect fails at the *end*: the provider returns tokens, storing them raises "cannot encrypt/decrypt connection tokens", and the UI redirects to `?error=exchange_failed` |
+| `ENGENTY_APP_HOST_TOKEN` | `openssl rand -hex 32` | `engenty-app-host` refuses to boot and crash-loops; engenty Apps unavailable |
+| `ENGENTY_AI_SERVICE_SECRET` | `engenty service-token create --name ai-service` | Scheduler stays disabled — no scheduled trigger, routine, or heartbeat fires |
+
+`CONNECTIONS_TOKEN_ENC_KEY` is permanent: rotating it makes every stored
+connection token undecryptable and all connections have to be re-authorized.
+Set it before your first connection, not after.
+
+For `ENGENTY_AI_SERVICE_SECRET`, log in against the deployment first
+(`engenty auth login --api-url https://your-domain`), then create the
+credential — it prints `<credentialId>.<secret>` once. It is revocable
+(`engenty service-token revoke`) and preferable to a static
+`ENGENTY_AI_SERVICE_JWT`, which dies silently at expiry. See
+[service identity](../dev/service-identity.md).
+
 ## Step 4 — Add the app in Coolify
 
 In your Coolify dashboard:
@@ -230,6 +252,18 @@ You can run these from the server (or trigger a redeploy in Coolify):
 - **The AI service crash-loops with `Could not query the database for the
   schema cache`.** The Engenty schemas aren't exposed through the Supabase
   API — see the exposed-schemas step in Step 2.
+- **Connecting a Google/Microsoft/Slack account ends on
+  `?error=exchange_failed`.** The provider side is usually fine — check
+  `docker logs engenty-edge | grep "oauth code exchange failed"` for the real
+  reason. The common one is a missing `CONNECTIONS_TOKEN_ENC_KEY` (Step 3);
+  the second is a redirect URI that does not match the one the setup screen
+  shows, character for character.
+- **A CLI or API call fails with `permission denied for table <x>`.** A
+  database GRANT is missing for `service_role`, not an RLS problem (RLS denial
+  reads as an empty result or a policy violation). Run
+  `pnpm check:grants-coverage` against a migrated database to list every
+  affected table; the fix is a migration, see
+  [CI pipeline](../dev/ci-pipeline.md).
 - **Coolify rejects the deploy with `Invalid volume target: contains forbidden
   character '${'`.** Coolify forbids variable substitution in compose volume
   definitions; the sandbox mount in `deploy/docker-compose.yaml` is a literal

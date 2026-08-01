@@ -72,6 +72,44 @@ To enable it:
 3. Optionally export the same three variables locally (`.zshrc`) so local
    builds seed the cache CI reads.
 
+## Database guards
+
+Two checks assert database-level invariants that the unit suite structurally
+cannot see — the auth stores fall back to an in-memory implementation, so no
+test ever asks Postgres whether a grant or a policy exists. Both query the local
+Supabase container and **soft-skip** when it is not running (CI has no migrated
+DB today, so they are no-ops there until one is added); pass `--require-db` to
+turn a skip into a failure.
+
+| Command | Invariant |
+| --- | --- |
+| `pnpm check:rls-coverage` | Every table with a `tenant_id` column has row-level security enabled. Service-role-only tables need no policies — RLS-on with zero policies is deny-all. |
+| `pnpm check:grants-coverage` | Every table in `core` and `module_*` is reachable by `service_role` (select/insert/update/delete). |
+
+Each has an allowlist for deliberate exceptions
+(`scripts/rls-coverage-allowlist.json`, `scripts/grants-coverage-allowlist.json`)
+and every entry must carry a justification. Grant exceptions declare *which*
+verbs are withheld, so an append-only table still fails the check if it loses an
+unrelated grant.
+
+The grants guard exists because `grant ... on all tables in schema x` is
+expanded once, against the tables that exist at that instant. A table created
+later in the same migration silently gets nothing — which is how four `core`
+tables (`device_authorizations`, `sessions`, `api_tokens`, `service_credential`)
+shipped unwritable and only surfaced when device login was first run against a
+deployment. When adding a schema, write both halves:
+
+```sql
+grant select, insert, update, delete on all tables in schema x to service_role;
+alter default privileges in schema x
+  grant select, insert, update, delete on tables to service_role;
+```
+
+The second line is the one that keeps future tables covered. Note that
+`service_role` bypasses RLS, so the table grant is the only database-side gate
+on the server lane: a missing grant does not restrict a table, it makes it
+unreachable.
+
 ## Skipped paths
 
 Pushes touching only root-level markdown (plans, `AGENTS.md`, `README.md`,

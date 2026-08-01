@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.83] - 2026-08-01
+- ADDED **[db]** Grants coverage guard, and RLS on the last three uncovered tables
+- DOCS OAuth redirect URIs, deploy-only keys, and the database guards
+
 ## [0.1.82] - 2026-08-01
 - FIXED **[db]** Grant service_role on core tables created after the baseline grant
 
