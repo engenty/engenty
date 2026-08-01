@@ -85,6 +85,7 @@ import {
   registerRealtimeSessionRoutes,
 } from "./api/realtime-session-routes.js";
 import { registerRealtimeToolRoutes } from "./api/realtime-tool-routes.js";
+import { registerRealtimeVoiceOptionsRoutes } from "./api/realtime-voice-options-routes.js";
 import { registerRegistryRoutes } from "./api/registry-routes.js";
 import {
   registerRemoteChannels,
@@ -145,8 +146,11 @@ export interface CreateAppOptions {
   ) => UpgradeWebSocket;
   disableGatewayModelScheduler?: boolean;
   disableTaskDispatch?: boolean;
+  elevenLabsRealtimeApiKey?: () => string | null;
+  elevenLabsVoicesFetch?: typeof fetch;
   events?: PluginEventsApi;
   externalChannelsConfig?: ExternalChannelConfig;
+  mistralRealtimeApiKey?: () => string | null;
   moduleCapabilityLoader?: DynamicAiModuleCapabilityLoader | null;
   openAiRealtimeApiKey?: () => string | null;
   openAiRealtimeFetch?: RealtimeClientSecretFetch;
@@ -625,6 +629,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       options.realtimeVoiceConfigResolver === undefined
         ? createRealtimeVoiceConfigResolverFromEnv()
         : options.realtimeVoiceConfigResolver,
+    scopeResolver,
+  });
+  registerRealtimeVoiceOptionsRoutes(app, {
+    elevenLabsApiKey: options.elevenLabsRealtimeApiKey,
+    elevenLabsFetch: options.elevenLabsVoicesFetch,
+    mistralApiKey: options.mistralRealtimeApiKey,
     scopeResolver,
   });
   if (upgradeWebSocket && cascadeMistralKey && cascadeElevenLabsKey) {

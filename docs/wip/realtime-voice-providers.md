@@ -46,13 +46,19 @@ hook knows no vendor event names.
 - The cascade provider registers **only** when both keys resolve. Otherwise a
   tenant that selected it gets a clean HTTP 501 rather than a broken session.
   Default stays `openai`.
+- **Dropdown catalogs** — `GET /ai/v1/realtime/voice-options` returns curated
+  STT/TTS/OpenAI model+voice lists plus ElevenLabs voices proxied via
+  `GET https://api.elevenlabs.io/v1/voices` (platform key stays on the server).
+  Settings → AI → Voice renders these as selects; a missing/invalid ElevenLabs
+  key surfaces as `elevenlabs_voices_error` instead of an empty silent list.
 
 ## Deferred
 
-- **Live vendor smoke test.** The cascade is unit-tested but has never run
-  against real Voxtral/ElevenLabs endpoints. Verify the Voxtral realtime WS
-  endpoint (overridable via `MISTRAL_REALTIME_TRANSCRIBE_URL`) against current
-  Mistral docs before enabling it for a tenant.
+- **Live vendor smoke test.** Voxtral WS auth/protocol now matches the current
+  Mistral realtime SDK (`Authorization` header + `?model=` + `session.created`
+  / `session.update`). Still verify end-to-end with a real mic against
+  ElevenLabs TTS (key needs `voices_read` + `text_to_speech`) before treating
+  a tenant as GA. Override URL via `MISTRAL_REALTIME_TRANSCRIBE_URL` if needed.
 - Latency + barge-in measurement gate before treating the cascade as GA.
 - Chatbot embed still has its own voice path; unify it onto the registry.
 - Streaming agent text deltas into the cascade TTS leg (today the turn is

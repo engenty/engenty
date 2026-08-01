@@ -1371,8 +1371,17 @@
     "openAiVoice": "Voice",
     "voxtralSttModel": "Voxtral STT model",
     "elevenLabsTtsModel": "ElevenLabs TTS model",
-    "elevenLabsVoiceId": "ElevenLabs voice id",
+    "elevenLabsVoiceId": "ElevenLabs voice",
+    "elevenLabsVoicePlaceholder": "Select a voice",
     "elevenLabsVoiceIdPlaceholder": "Voice id (e.g. an Austrian dialect voice)",
+    "optionDefault": "Default (recommended)",
+    "cascadeKeysMissing": "Cascade needs MISTRAL_API_KEY and ELEVENLABS_API_KEY on the server (Setup → Platform). Restart apps/ai after changing keys.",
+    "errors": {
+      "elevenLabsApiKeyMissing": "ElevenLabs API key is not configured on the server.",
+      "elevenLabsApiKeyMissingPermissions": "ElevenLabs API key is missing permissions (needs at least voices_read + text_to_speech). Create a new key in the ElevenLabs console with those scopes, update .env.local / Setup → Platform, and restart apps/ai.",
+      "elevenLabsApiKeyInvalid": "ElevenLabs API key was rejected (401/403). Update it in Setup → Platform and restart apps/ai.",
+      "elevenLabsVoicesUnavailable": "Could not load ElevenLabs voices. Check the server key and network, then retry."
+    },
     "voiceRegisterLabel": "German register",
     "voiceRegisterOff": "Off (default wording)",
     "voiceRegisterAt": "Austrian German (de-AT)",
