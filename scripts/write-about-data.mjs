@@ -301,9 +301,8 @@ const written = [
   ...(writeCredits ? [OUT_CREDITS] : []),
 ];
 if (written.length > 0) {
-  execFileSync(
-    "pnpm",
-    ["exec", "biome", "format", "--write", ...written],
-    { cwd: ROOT, stdio: "inherit" }
-  );
+  execFileSync("pnpm", ["exec", "biome", "format", "--write", ...written], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
 }
