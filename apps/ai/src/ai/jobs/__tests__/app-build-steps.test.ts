@@ -50,7 +50,9 @@ describe("ensureAppStep", () => {
   it("reuses an existing app with the same slug instead of minting a sibling", async () => {
     // The chat E2E's defining failure: three duplicate apps. This is the fix.
     invoke.mockImplementation(async (op: string) =>
-      op === "app_list" ? { apps: [{ id: APP_ID, slug: "todo" }] } : { ok: true }
+      op === "app_list"
+        ? { apps: [{ id: APP_ID, slug: "todo" }] }
+        : { ok: true }
     );
 
     const envelope = await ensureAppStep.execute({ inputData: input } as never);

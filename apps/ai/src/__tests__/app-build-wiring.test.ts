@@ -24,7 +24,10 @@ describe("app-coder tool wiring", () => {
 
     const builtin = createBuiltinRegistryTools() as Record<string, unknown>;
     for (const id of agentJson.tools) {
-      expect(builtin[id], `tool "${id}" must be registered in apps/ai`).toBeDefined();
+      expect(
+        builtin[id],
+        `tool "${id}" must be registered in apps/ai`
+      ).toBeDefined();
     }
   });
 
