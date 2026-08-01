@@ -292,3 +292,18 @@ if (writeChangelog) {
 if (writeCredits) {
   writeOssCredits();
 }
+
+// The minified JSON.stringify output above satisfies no formatter's opinion in
+// particular; run it through Biome so `pnpm check`'s lint step (which runs
+// Biome over changed files) doesn't fail on generated output every release.
+const written = [
+  ...(writeChangelog ? [OUT_CHANGELOG] : []),
+  ...(writeCredits ? [OUT_CREDITS] : []),
+];
+if (written.length > 0) {
+  execFileSync(
+    "pnpm",
+    ["exec", "biome", "format", "--write", ...written],
+    { cwd: ROOT, stdio: "inherit" }
+  );
+}
