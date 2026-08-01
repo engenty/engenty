@@ -4,6 +4,8 @@
 import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import type { Mastra } from "@mastra/core/mastra";
+import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
+import { getServiceAccessToken } from "../ai/service-credential.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
 import { reconcileScheduler } from "./heartbeat-sync.js";
 import {
@@ -44,12 +46,32 @@ export async function startScheduler(options: {
 
     const runReconcile = async (attempt: number): Promise<void> => {
       try {
-        await reconcileScheduler({
-          invokeOperation: createSchedulerOperationInvoker(),
-          mastra: options.mastra,
-          moduleLoader: options.moduleLoader,
-          tenantId: scope.tenantId,
-        });
+        // The module capability loader reads its bearer from the Engenty-tools
+        // ALS, which is normally entered by the HTTP middleware. A reconcile
+        // has no request behind it, so enter it here with a freshly vended
+        // service token. Without this the loader throws "…this run does not
+        // include an end-user bearer token" on step 1 and NOTHING downstream
+        // runs — no trigger and no system job ever gets its schedule.
+        const serviceToken = await getServiceAccessToken();
+        if (!serviceToken) {
+          throw new Error(
+            "scheduler: no service credential available to reconcile triggers"
+          );
+        }
+        await engentyToolsRunAls.run(
+          {
+            tenantId: scope.tenantId,
+            userAccessToken: serviceToken,
+            userId: scope.userId,
+          },
+          () =>
+            reconcileScheduler({
+              invokeOperation: createSchedulerOperationInvoker(),
+              mastra: options.mastra,
+              moduleLoader: options.moduleLoader,
+              tenantId: scope.tenantId,
+            })
+        );
       } catch (err) {
         if (attempt < RECONCILE_RETRIES) {
           setTimeout(

@@ -1,15 +1,18 @@
 import type { Mastra } from "@mastra/core/mastra";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import { startScheduler } from "../start.js";
 
 const resolveSchedulerServiceScope = vi.hoisted(() => vi.fn());
 const reconcileScheduler = vi.hoisted(() => vi.fn(async () => {}));
+const getServiceAccessToken = vi.hoisted(() => vi.fn());
 
 vi.mock("../service-invoker.js", () => ({
   createSchedulerOperationInvoker: () => vi.fn(),
   resolveSchedulerServiceScope,
 }));
 vi.mock("../heartbeat-sync.js", () => ({ reconcileScheduler }));
+vi.mock("../../ai/service-credential.js", () => ({ getServiceAccessToken }));
 
 const scope = {
   isSuperAdmin: false,
@@ -40,6 +43,8 @@ describe("startScheduler", () => {
     vi.useFakeTimers();
     resolveSchedulerServiceScope.mockReset();
     reconcileScheduler.mockReset();
+    getServiceAccessToken.mockReset();
+    getServiceAccessToken.mockResolvedValue("service-token");
   });
 
   afterEach(() => {
@@ -102,6 +107,42 @@ describe("startScheduler", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(14);
     expect(startWorkers).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconciles inside the Engenty-tools ALS so the capability loader has a bearer", async () => {
+    // The loader reads its token from the ALS, which only the HTTP middleware
+    // normally enters. Without this the boot reconcile threw "…does not include
+    // an end-user bearer token" and no trigger ever got its schedule.
+    resolveSchedulerServiceScope.mockResolvedValue({ ok: true, scope });
+    let seen: ReturnType<typeof getEngentyToolsRunContext> | null = null;
+    reconcileScheduler.mockImplementation(async () => {
+      seen = getEngentyToolsRunContext();
+    });
+    const { mastra } = fakeMastra();
+
+    await startScheduler({ mastra });
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(reconcileScheduler).toHaveBeenCalledTimes(1);
+    expect(seen).toEqual({
+      tenantId: "tenant-1",
+      userAccessToken: "service-token",
+      userId: "user-1",
+    });
+  });
+
+  it("retries the reconcile and re-vends the token on each attempt", async () => {
+    // A token minted at scope resolution could be minutes stale by the last
+    // retry; getServiceAccessToken caches and renews, so ask it every time.
+    resolveSchedulerServiceScope.mockResolvedValue({ ok: true, scope });
+    reconcileScheduler.mockRejectedValue(new Error("core unreachable"));
+    const { mastra } = fakeMastra();
+
+    await startScheduler({ mastra });
+    await vi.runAllTimersAsync();
+
+    expect(reconcileScheduler).toHaveBeenCalledTimes(4); // initial + 3 retries
+    expect(getServiceAccessToken).toHaveBeenCalledTimes(4);
   });
 
   it("disables permanently without retrying when core rejects the JWT with 401", async () => {

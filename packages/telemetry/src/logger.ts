@@ -34,6 +34,28 @@ function ensureEvlog(): void {
   initEvlog();
 }
 
+/**
+ * Merge meta into the log record without letting it overwrite the record's own
+ * fields. `{ message: err.message }` is the convention across the tree, and
+ * spreading it last replaced the log's message — a failing scheduler reconcile
+ * printed as a bare "…bearer token" line with no hint of what had failed.
+ * The caller's value is kept as `detail` rather than dropped.
+ */
+function buildRecord(
+  tag: string,
+  message: string,
+  meta: Record<string, unknown>
+): Record<string, unknown> {
+  const { message: metaMessage, tag: metaTag, ...rest } = meta;
+  return {
+    ...rest,
+    ...(metaMessage === undefined ? {} : { detail: metaMessage }),
+    ...(metaTag === undefined ? {} : { scope: metaTag }),
+    tag,
+    message,
+  };
+}
+
 /** Creates a LOG_LEVEL-aware runtime logger. Respects LOG_LEVEL and optional debug override env. Uses evlog for structured output. */
 export function createLogger(opts: CreateLoggerOptions = {}): RuntimeLogger {
   const {
@@ -59,7 +81,7 @@ export function createLogger(opts: CreateLoggerOptions = {}): RuntimeLogger {
       if (shouldLog("debug")) {
         ensureEvlog();
         if (meta && Object.keys(meta).length > 0) {
-          log.debug({ tag, message: msg, ...meta });
+          log.debug(buildRecord(tag, msg, meta));
         } else {
           log.debug(tag, msg);
         }
@@ -69,7 +91,7 @@ export function createLogger(opts: CreateLoggerOptions = {}): RuntimeLogger {
       if (shouldLog("info")) {
         ensureEvlog();
         if (meta && Object.keys(meta).length > 0) {
-          log.info({ tag, message: msg, ...meta });
+          log.info(buildRecord(tag, msg, meta));
         } else {
           log.info(tag, msg);
         }
@@ -79,7 +101,7 @@ export function createLogger(opts: CreateLoggerOptions = {}): RuntimeLogger {
       if (shouldLog("warn")) {
         ensureEvlog();
         if (meta && Object.keys(meta).length > 0) {
-          log.warn({ tag, message: msg, ...meta });
+          log.warn(buildRecord(tag, msg, meta));
         } else {
           log.warn(tag, msg);
         }
@@ -89,7 +111,7 @@ export function createLogger(opts: CreateLoggerOptions = {}): RuntimeLogger {
       if (shouldLog("error")) {
         ensureEvlog();
         if (meta && Object.keys(meta).length > 0) {
-          log.error({ tag, message: msg, ...meta });
+          log.error(buildRecord(tag, msg, meta));
         } else {
           log.error(tag, msg);
         }
