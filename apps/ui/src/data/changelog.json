@@ -4,6 +4,24 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "888680c",
+        "message": "voice option dropdowns and fix Voxtral realtime STT",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "aad1526",
+        "message": "format generated About-dialog JSON so CI lint stays green",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.84",
+    "timestamp": 1785589708,
+    "commits": [
+      {
         "id": "e906e9b",
         "message": "move group-by to the right with a muted label",
         "group": "Fixed",
