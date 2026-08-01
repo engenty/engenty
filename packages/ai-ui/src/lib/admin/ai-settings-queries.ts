@@ -14,6 +14,7 @@ import {
   listGatewayModelOptions,
 } from "./gateway-model-options-api";
 import { listModelRoleBindings } from "./model-bindings-api";
+import { getRealtimeVoiceOptions } from "./realtime-voice-options-api";
 import {
   getTenantUsagePolicy,
   saveTenantUsagePolicy,
@@ -25,6 +26,7 @@ export const aiSettingsKeys = {
   effective: ["ai-settings", "effective"] as const,
   modelOptions: (filters: GatewayModelOptionFilters) =>
     [...aiSettingsKeys.all, "model-options", filters] as const,
+  realtimeVoiceOptions: ["ai-settings", "realtime-voice-options"] as const,
 };
 
 export interface GatewayModelOptionFilters {
@@ -66,6 +68,16 @@ export const effectiveAiSettingsOptions = queryOptions({
 
 export function useEffectiveAiSettingsQuery() {
   return useQuery(effectiveAiSettingsOptions);
+}
+
+export const realtimeVoiceOptionsOptions = queryOptions({
+  queryKey: aiSettingsKeys.realtimeVoiceOptions,
+  queryFn: ({ signal }) => getRealtimeVoiceOptions(signal),
+  staleTime: 60_000,
+});
+
+export function useRealtimeVoiceOptionsQuery() {
+  return useQuery(realtimeVoiceOptionsOptions);
 }
 
 export function useGatewayModelOptionsQuery(

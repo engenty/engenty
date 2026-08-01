@@ -49,21 +49,22 @@ CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core ex
 - **Local DB:** `pnpm db:init` (fresh), `pnpm db:migrate`, `pnpm db:reset`, `pnpm db:snapshot`, `pnpm db:restore` — thin aliases for `engenty db *`
 - **Local env:** `pnpm dev:env` (menu), `pnpm dev:env:init`, `pnpm dev:env:check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
 - **Deploy env:** copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
-- **Portless (optional):** `pnpm portless:setup`, `pnpm portless` (sudo proxy), `pnpm dev:portless`, `pnpm dev:portless --domain=<name>`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
+- **Portless (required for agent preview):** `pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless` (sudo proxy), `pnpm dev:portless`, `pnpm dev:portless --domain=<name>`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
 - **Manifest / CI:** `pnpm env:example:write`, `pnpm env:example:check` — regenerate committed `.env.example` files
 - **Clean caches:** `pnpm clean` — remove `node_modules`, `dist`, Turbo/Next caches (then `pnpm install`)
 - **Full local reset:** `pnpm purge` — or `pnpm purge:light` (env + generated setup + caches, keeps `node_modules`); `pnpm purge -- --yes --quiet` for scripted full purge
 - **Scoped:** `pnpm --filter @engenty/<name> build|test|dev`
 
-Default dev URL: `http://localhost:5173` (Vite proxies `/api` and `/ai`). Portless HTTPS: `https://engenty.localhost`.
+Human/CLI Vite URL: `http://localhost:5173` (proxies `/api` and `/ai`). **Agent preview:** Portless HTTPS only — main `https://engenty.localhost`, worktree `https://<name>.engenty.localhost`.
 
 ## Browser verification
 
-- **Headless / Playwright:** always `http://localhost:5173`; browser smoke suite: `pnpm test:smoke` (e2e/smoke, needs the dev stack)
-- **Claude Code preview / system-trusted cert:** `https://engenty.localhost` when Portless is running
-- **Agent login:** `/auth/agent-login` on the origin you test (requires `ENGENTY_DEV_PASS`, non-prod)
-- Sessions are per-origin — log in on the origin you actually load
-- Full stack must be running (`pnpm dev`) before browser tests
+- **Cursor browser / interactive agent preview:** always Portless — `https://engenty.localhost` (main) or `https://<name>.engenty.localhost` (worktree). Do **not** use `http://localhost:5173`.
+- **Headless / Playwright:** Portless with CA trust or `ignoreHTTPSErrors`; loopback `http://localhost:<ENGENTY_UI_PORT>` only when e2e docs require it. Smoke suite: `pnpm test:smoke` (e2e/smoke, needs the dev stack).
+- **Agent login:** `/auth/agent-login` on the **same Portless origin** you test (requires `ENGENTY_DEV_PASS`, non-prod)
+- Sessions are per-origin — a `localhost` login does not apply to `*.engenty.localhost`
+- Full stack + `pnpm portless` must be running before browser tests
+- Workspace rule detail: `/code/engenty/AGENTS.md` → Worktree workflow + Agent login
 
 ## Module contract
 

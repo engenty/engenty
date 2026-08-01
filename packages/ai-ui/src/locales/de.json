@@ -1384,8 +1384,17 @@
     "openAiVoice": "Stimme",
     "voxtralSttModel": "Voxtral-STT-Modell",
     "elevenLabsTtsModel": "ElevenLabs-TTS-Modell",
-    "elevenLabsVoiceId": "ElevenLabs-Stimmen-ID",
+    "elevenLabsVoiceId": "ElevenLabs-Stimme",
+    "elevenLabsVoicePlaceholder": "Stimme wählen",
     "elevenLabsVoiceIdPlaceholder": "Stimmen-ID (z. B. eine österreichische Dialektstimme)",
+    "optionDefault": "Standard (empfohlen)",
+    "cascadeKeysMissing": "Für die Kaskade braucht der Server MISTRAL_API_KEY und ELEVENLABS_API_KEY (Setup → Plattform). Nach Änderungen apps/ai neu starten.",
+    "errors": {
+      "elevenLabsApiKeyMissing": "ElevenLabs-API-Schlüssel ist am Server nicht konfiguriert.",
+      "elevenLabsApiKeyMissingPermissions": "ElevenLabs-API-Schlüssel fehlt Berechtigungen (mindestens voices_read + text_to_speech). Neuen Key in der ElevenLabs-Konsole mit diesen Scopes anlegen, in .env.local / Setup → Plattform eintragen und apps/ai neu starten.",
+      "elevenLabsApiKeyInvalid": "ElevenLabs-API-Schlüssel wurde abgelehnt (401/403). In Setup → Plattform aktualisieren und apps/ai neu starten.",
+      "elevenLabsVoicesUnavailable": "ElevenLabs-Stimmen konnten nicht geladen werden. Schlüssel und Netzwerk prüfen, dann erneut versuchen."
+    },
     "voiceRegisterLabel": "Deutsches Register",
     "voiceRegisterOff": "Aus (Standard-Wortwahl)",
     "voiceRegisterAt": "Österreichisches Deutsch (de-AT)",

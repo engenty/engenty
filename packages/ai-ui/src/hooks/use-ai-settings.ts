@@ -67,6 +67,10 @@ function realtimeVoiceSignature(rv: AiConfig["realtime_voice"]): string {
     rv.openai_model ?? "",
     rv.openai_transcription_model ?? "",
     rv.openai_voice ?? "",
+    rv.voxtral_stt_model ?? rv.mistral_stt_model ?? "",
+    rv.elevenlabs_tts_model ?? rv.mistral_tts_model ?? "",
+    rv.elevenlabs_voice_id ?? "",
+    rv.voice_register ?? "",
   ].join("|");
 }
 
