@@ -120,6 +120,16 @@ as least privilege, so a service principal is denied admin surfaces (agent
 registry mutation, usage administration) rather than waved through. Its
 authority is exactly the capability list baked into its credential.
 
+That last sentence is enforced literally in the operation policy: when the
+platform service credential acts **on its own behalf** (no agent in the chain),
+high-risk operations are *not* escalated to human approval — the scheduler's
+trigger reconcile and fires are unattended by definition, so an escalation
+would deadlock them, which is exactly how production ran with zero triggers
+("Approval required" on `triggers_create`). The moment an agent rides the same
+token (headless task runs forward `x-engenty-agent-id`), the escalation
+returns: that is the durable-approvals lane, and it is keyed on the agent, not
+the bearer.
+
 **When a headless run needs to act *as a user*** — a remote-channel turn, for
 instance — the answer is not a broader service credential. It is an **actor
 token**: `POST /api/auth/actor-token` mints a short-lived token carrying that

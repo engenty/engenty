@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.88] - 2026-08-02
+- ADDED **[connections]** In-chat popup connect flow for the agent connect card
+- FIXED **[connections]** Unwrap the chat-run {ok, data} envelope in the connect card matcher
+- FIXED **[core]** Exempt the platform service credential from approval escalation
+
 ## [0.1.87] - 2026-08-01
 - ADDED **[ui]** Long-press rearrange for tenant dock module order
 - ADDED **[ui]** Promote Engenty in dock and order modules by category

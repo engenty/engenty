@@ -14,6 +14,17 @@ const logger = createLogger({ name: "connections-oauth" });
 
 const FLOW_TTL_MS = 10 * 60 * 1000;
 
+export interface ConnectionsConnectedEvent {
+  connectorId: string;
+  sharing: "personal" | "org";
+  tenantId: string;
+}
+
+export interface ConnectionsOAuthRouteOptions {
+  /** Fired after a connection is created/refreshed via the OAuth callback. */
+  onConnected?: (event: ConnectionsConnectedEvent) => Promise<void> | void;
+}
+
 function apiBaseUrl(): string {
   const base = process.env.ENGENTY_API_BASE_URL?.trim();
   if (!base) {
@@ -44,7 +55,8 @@ function uiRedirect(target: string | null): string {
 export function registerConnectionsOAuthRoutes(
   api: PluginServerApi,
   repo: ConnectionsRepo,
-  settings: ConnectionsSettingsResolver
+  settings: ConnectionsSettingsResolver,
+  options: ConnectionsOAuthRouteOptions = {}
 ): void {
   // GET /api/connections/:connectorId/connect?sharing=personal|org&redirect_to=/settings/connections
   api.registerHttpRoute({
@@ -118,7 +130,20 @@ export function registerConnectionsOAuthRoutes(
       };
       if (query?.error) {
         logger.warn("oauth callback returned error", { error: query.error });
-        return hono.redirect(`${uiRedirect(null)}?error=${query.error}`);
+        // Consume the flow (when the provider echoed our state) so the user
+        // returns to where the flow started — e.g. the in-chat popup
+        // completion page — instead of the settings fallback.
+        const flow = query.state
+          ? await repo.consumePendingFlow(query.state)
+          : null;
+        const connectorParam = flow
+          ? `&connector=${encodeURIComponent(flow.connector_id)}`
+          : "";
+        return hono.redirect(
+          `${uiRedirect(flow?.redirect_to ?? null)}?error=${encodeURIComponent(
+            query.error
+          )}${connectorParam}`
+        );
       }
       if (!(query?.code && query?.state)) {
         return hono.json({ error: "Missing code or state" }, 400);
@@ -180,14 +205,28 @@ export function registerConnectionsOAuthRoutes(
           detail: { connector: connector.id, sharing: flow.sharing },
           type: "connection.connected",
         });
-        return hono.redirect(`${uiRedirect(flow.redirect_to)}?connected=1`);
+        try {
+          await options.onConnected?.({
+            connectorId: connector.id,
+            sharing: flow.sharing,
+            tenantId: flow.tenant_id,
+          });
+        } catch (error) {
+          logger.error("onConnected hook failed", {
+            connector: connector.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        return hono.redirect(
+          `${uiRedirect(flow.redirect_to)}?connected=1&connector=${encodeURIComponent(connector.id)}`
+        );
       } catch (error) {
         logger.error("oauth code exchange failed", {
           connector: connector.id,
           error: error instanceof Error ? error.message : String(error),
         });
         return hono.redirect(
-          `${uiRedirect(flow.redirect_to)}?error=exchange_failed`
+          `${uiRedirect(flow.redirect_to)}?error=exchange_failed&connector=${encodeURIComponent(connector.id)}`
         );
       }
     },

@@ -1,6 +1,7 @@
 import { CONNECTIONS_ROOT_PATH } from "@engenty/ai-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { Blocks } from "lucide-react";
+import { ConnectCompletePage } from "./pages/connect-complete-page.js";
 import { ConnectionsSettingsPage } from "./pages/connections-settings-page.js";
 import {
   ConnectionsWorkspacePage,
@@ -29,6 +30,16 @@ export default function plugin(engenty: EngentyPluginContext) {
     component: ConnectionsSettingsPage,
     order: 400,
     // Per-user surface: a member links their own accounts for agents to use.
+    requiresAdmin: false,
+  });
+
+  // Popup landing page for the in-chat connect flow: posts the OAuth result
+  // to window.opener and closes (see ui/connect-popup.ts for the contract).
+  engenty.UI.registerRoute({
+    id: "connections_oauth_complete",
+    path: "/connections/oauth/complete",
+    component: ConnectCompletePage,
+    order: 402,
     requiresAdmin: false,
   });
 

@@ -195,6 +195,23 @@ export function isMcpAppWidgetToolPart(
   );
 }
 
+/**
+ * Connect-request tool parts (`connections_request_connect`) render as the
+ * full-width in-chat connect card (registered by the connections module) —
+ * same escape from the collapsed tool timeline as object renders: a connect
+ * button folded into a one-line "Used N tools" step is unusable.
+ */
+export function isConnectRequestToolPart(
+  part: ToolPartLike,
+  toolName: string
+): boolean {
+  const resolved = getToolResolvedName(part, toolName);
+  return (
+    toolName === "connections_request_connect" ||
+    resolved === "connections_request_connect"
+  );
+}
+
 export function getProgressLabel(event: ProgressEventLike): string | undefined {
   switch (event.type) {
     case "coordinator.decision": {

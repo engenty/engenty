@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getToolName, getToolState } from "./copilot-message-parts";
+import {
+  getToolName,
+  getToolState,
+  isConnectRequestToolPart,
+} from "./copilot-message-parts";
 
 describe("copilot message parts", () => {
   it("prefers explicit tool names over legacy typed part names", () => {
@@ -13,6 +17,27 @@ describe("copilot message parts", () => {
 
   it("does not expose unnamed legacy invocation placeholders as tools", () => {
     expect(getToolName({ type: "tool-invocation" })).toBe("");
+  });
+
+  it("classifies connect-request tool parts by direct and resolved name", () => {
+    expect(
+      isConnectRequestToolPart(
+        { type: "dynamic-tool" },
+        "connections_request_connect"
+      )
+    ).toBe(true);
+    expect(
+      isConnectRequestToolPart(
+        {
+          type: "dynamic-tool",
+          resolvedToolName: "connections_request_connect",
+        },
+        "engenty_tool_execute"
+      )
+    ).toBe(true);
+    expect(
+      isConnectRequestToolPart({ type: "dynamic-tool" }, "connections_catalog")
+    ).toBe(false);
   });
 
   it("treats tool parts with output as completed even when state lags", () => {

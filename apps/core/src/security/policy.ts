@@ -76,8 +76,20 @@ export async function evaluatePolicy(
   if (profileDecision) {
     return profileDecision;
   }
+  // The platform's own service credential acting on its own behalf (no agent
+  // in the chain) is unattended by definition — the scheduler's trigger
+  // reconcile and fires have no human who could ever answer an approval, so
+  // escalating deadlocks them. Its authority is the capability clamp baked
+  // into the credential, checked above. An agent riding the service token
+  // (headless task runs forward x-engenty-agent-id) keeps the escalation:
+  // that is the durable-approvals lane.
+  const isPlatformServiceLane =
+    auth.principalType === "service" &&
+    auth.authMethod === "service_credential" &&
+    !auth.agentId;
   if (
     auth.principalType !== "user" &&
+    !isPlatformServiceLane &&
     (input.requiresApproval ||
       input.riskLevel === "high" ||
       input.riskLevel === "critical")

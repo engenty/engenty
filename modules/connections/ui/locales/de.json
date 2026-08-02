@@ -32,6 +32,16 @@
     "approvalDecided": "Anfrage {{decision}}.",
     "approvalDecideFailed": "Entscheidung fehlgeschlagen: {{error}}"
   },
+  "chatCard": {
+    "connected": "Verbunden",
+    "connectPrompt": "Verbinden Sie Ihr Konto, um fortzufahren",
+    "connectFailed": "Verbinden fehlgeschlagen — bitte erneut versuchen",
+    "notConfigured": "Noch nicht verfügbar — ein Admin muss die Zugangsdaten dieses Konnektors unter Setup → Plattformeinstellungen hinterlegen",
+    "connectedContinue": "Ich habe {{name}} verbunden — bitte fahre fort."
+  },
+  "connectComplete": {
+    "closing": "Wird abgeschlossen — Sie können dieses Fenster schließen."
+  },
   "status": {
     "active": "Verbunden",
     "error": "Fehler",

@@ -32,6 +32,16 @@
     "approvalDecided": "Request {{decision}}.",
     "approvalDecideFailed": "Deciding the request failed: {{error}}"
   },
+  "chatCard": {
+    "connected": "Connected",
+    "connectPrompt": "Connect your account to continue",
+    "connectFailed": "Connecting failed — try again",
+    "notConfigured": "Not available yet — an admin must add this connector's credentials in Setup → Platform settings",
+    "connectedContinue": "I've connected {{name}} — please continue."
+  },
+  "connectComplete": {
+    "closing": "Finishing up — you can close this window."
+  },
   "status": {
     "active": "Connected",
     "error": "Error",

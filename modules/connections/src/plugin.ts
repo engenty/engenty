@@ -39,8 +39,21 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // Tenant/platform-aware OAuth client-credential overrides (Setup UI).
   const settings = createConnectionsSettingsResolver(supabaseRaw);
 
-  registerConnectionsOAuthRoutes(server, repo, settings);
-  registerConnectionsCredentialsRoutes(server, repo);
+  // Chat connect cards, task re-dispatch, and notification fan-out subscribe
+  // to this event; the connect routes themselves stay transport-only.
+  const onConnected = async (event: {
+    connectorId: string;
+    sharing: "personal" | "org";
+    tenantId: string;
+  }) => {
+    await events.modules.emit(
+      "connections.connected",
+      { connector_id: event.connectorId, sharing: event.sharing },
+      { tenantId: event.tenantId }
+    );
+  };
+  registerConnectionsOAuthRoutes(server, repo, settings, { onConnected });
+  registerConnectionsCredentialsRoutes(server, repo, { onConnected });
 
   registerConnectionsOperations(server, repo, {
     settings,

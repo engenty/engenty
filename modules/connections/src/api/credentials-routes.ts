@@ -4,6 +4,7 @@ import {
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
+import type { ConnectionsOAuthRouteOptions } from "./oauth-routes.js";
 
 const connectBody = z.object({
   credentials: z.record(z.string(), z.string()),
@@ -22,7 +23,8 @@ interface Hono {
  */
 export function registerConnectionsCredentialsRoutes(
   server: PluginServerApi,
-  repo: ConnectionsRepo
+  repo: ConnectionsRepo,
+  options: ConnectionsOAuthRouteOptions = {}
 ): void {
   server.registerHttpRoute({
     method: "post",
@@ -93,6 +95,15 @@ export function registerConnectionsCredentialsRoutes(
         detail: { connection_id: connection.id, connector: connector.id },
         type: "connection.connected",
       });
+      try {
+        await options.onConnected?.({
+          connectorId: connector.id,
+          sharing: body.sharing,
+          tenantId: ctx.auth.tenantId,
+        });
+      } catch {
+        // Connection stored; the event hook must not fail the response.
+      }
       return hono.json({ connection_id: connection.id });
     },
   });

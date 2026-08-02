@@ -4,6 +4,30 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "bb2407b",
+        "message": "unwrap the chat-run {ok, data} envelope in the connect card matcher",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0e8b445",
+        "message": "in-chat popup connect flow for the agent connect card",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e8fb1dd",
+        "message": "exempt the platform service credential from approval escalation",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.87",
+    "timestamp": 1785621463,
+    "commits": [
+      {
         "id": "e240680",
         "message": "long-press rearrange for tenant dock module order",
         "group": "Added",
