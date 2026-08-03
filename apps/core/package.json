@@ -37,6 +37,7 @@
     "@engenty/ag-ui-bridge": "workspace:*",
     "@engenty/ai-core": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
+    "@engenty/approvals-sdk": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
     "@engenty/doc-converter": "workspace:*",
     "@engenty/entitlements": "workspace:*",

@@ -44,9 +44,10 @@ export interface Goal {
 }
 
 export interface Task {
-  /** Operation ids a headless run may run without asking ("Allow for task"). */
+  /** Operation ids a headless run may run without asking ("Allow for task").
+   * Lives in core.approval_grants (subject = task id); hydrated on DETAIL. */
   approval_grants?: string[];
-  /** One-shot grants, consumed (cleared) by the next dispatched run. */
+  /** One-shot grants, reaped after the run they unlocked. Hydrated on DETAIL. */
   approval_grants_once?: string[];
   /**
    * Task ids that must reach status 'done' before this task is dispatchable.
@@ -269,8 +270,6 @@ export interface TaskCreateInput {
 export type TaskUpdateInput = Partial<
   Omit<TaskCreateInput, "created_by_agent_type_key" | "collaborator_user_ids">
 > & {
-  /** Replace the whole "Allow for this task" grant set; [] clears. */
-  approval_grants?: string[];
   collaborator_user_ids?: string[];
   status?: TaskStatus;
 };

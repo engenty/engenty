@@ -25,7 +25,8 @@ function mapMessageRow(raw: DbThreadMessageRow): AgentSessionMessageRow {
 
 export interface CreateAgentSessionInput {
   agentId: string;
-  createdByUserId: string;
+  /** Null when the creator is not a human (service-principal task runs). */
+  createdByUserId: string | null;
   id?: string;
   metadata?: Record<string, unknown>;
   routeContext?: Record<string, unknown>;
@@ -85,18 +86,22 @@ export function createAgentSessionStore(client: SupabaseClient) {
         throw new Error(`thread upsert: ${error.message}`);
       }
       const row = mapSessionRow(session as DbThreadRow);
-      const { error: pError } = await db.from("thread_participant").upsert(
-        {
-          tenant_id: input.tenantId,
-          thread_id: row.id,
-          principal_type: "user" satisfies SessionPrincipalType,
-          principal_id: input.createdByUserId,
-          role: "owner" satisfies SessionParticipantRole,
-        },
-        { onConflict: "thread_id,principal_type,principal_id" }
-      );
-      if (pError) {
-        throw new Error(`thread_participant upsert: ${pError.message}`);
+      // A service-created thread has no human owner; the participant row's
+      // principal types only cover users and groups, so it gets none.
+      if (input.createdByUserId) {
+        const { error: pError } = await db.from("thread_participant").upsert(
+          {
+            tenant_id: input.tenantId,
+            thread_id: row.id,
+            principal_type: "user" satisfies SessionPrincipalType,
+            principal_id: input.createdByUserId,
+            role: "owner" satisfies SessionParticipantRole,
+          },
+          { onConflict: "thread_id,principal_type,principal_id" }
+        );
+        if (pError) {
+          throw new Error(`thread_participant upsert: ${pError.message}`);
+        }
       }
       return { session: row };
     },

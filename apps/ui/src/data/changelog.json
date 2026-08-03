@@ -4,6 +4,138 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "52ed238",
+        "message": "satisfy required apiKey.verify in repo test fixture",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1a135ff",
+        "message": "routing table, dedicated tenant threads, chat controls (R1-R3)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7930748",
+        "message": "WiP",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "b93c2f0",
+        "message": "evaluatePolicy spends approval grants itself (D2 phase 3)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0c9012b",
+        "message": "plan for remote-channels consolidation (routing table, dedicated threads, credentials)",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "9c24038",
+        "message": "drop task-row grant columns — core store is the only grant store (D2)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ec5a5a7",
+        "message": "dispatch reads approval grants from the core store (D2 2d)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2c97123",
+        "message": "task approvals mint core grants the gates can spend (D2 2c)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dad040c",
+        "message": "enable channels by opt-out, delete legacy channel cluster",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "ddbcf6b",
+        "message": "authorize the destination of proactive sends",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6c76f9b",
+        "message": "fold connections approvals into the core store",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "092dde9",
+        "message": "move the approval store client into @engenty/approvals-sdk",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "a1a2f8c",
+        "message": "mount channel webhooks under /ai so they ride the core gateway",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3e8946e",
+        "message": "stop in-chat secret grants from outliving their goal",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6186c98",
+        "message": "one approval gate for all three transports",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "2f839d4",
+        "message": "bound and reap approval grants now that they outlive the process",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0d1ee91",
+        "message": "make approvals durable — one store for requests and grants",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cc8620a",
+        "message": "make the turbo remote cache actually cache",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d01fcfe",
+        "message": "give the supervisor app_build instead of only delegation",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d251a12",
+        "message": "keep service-principal ids out of user columns",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bbfa58b",
+        "message": "record the v0.1.89 release of the security sweep",
+        "group": "Docs",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.89",
+    "timestamp": 1785764455,
+    "commits": [
+      {
         "id": "7e451f0",
         "message": "scope connector write authority per connector (CON-02)",
         "group": "Fixed",

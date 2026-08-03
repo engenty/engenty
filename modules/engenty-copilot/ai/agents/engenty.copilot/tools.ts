@@ -61,6 +61,14 @@ export const ENGENTY_CSV_TOOL_IDS = ["cleanup_csv"];
 // executes/resumes). No invoke_frontend_tool meta-tool. See
 // plans/006-ag-ui-native-frontend-tools.md.
 export const ENGENTY_COPILOT_TOOL_IDS = [
+  // App building. Originally delegation-only (agent-app_coder), but two live
+  // runs showed the routing-tier supervisor dodging delegation and scaffolding
+  // "apps" in its own workspace instead — files no user can ever run. The
+  // model's path of least resistance must BE the correct path, so the copilot
+  // now carries app_build itself: one call runs the durable workflow and
+  // publishes the real preview. Delegation remains the route for iterative,
+  // multi-step builds; AGENTS.md draws that line.
+  "app_build",
   "chatThreadSearch",
   "requestDecision",
   "requestFeedback",

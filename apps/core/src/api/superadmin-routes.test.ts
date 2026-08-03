@@ -1,3 +1,7 @@
+import {
+  createApprovalService,
+  createFakeApprovalDb,
+} from "@engenty/approvals-sdk";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
@@ -7,7 +11,6 @@ import type {
   TenantMember,
   TenantRole,
 } from "../dal/superadmin.js";
-import { createApprovalService } from "../security/approval-service.js";
 import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
 
 async function signToken(capabilities: string[]) {
@@ -380,21 +383,23 @@ describe("superadmin routes — seat limit (maxUsers)", () => {
 describe("superadmin routes — cross-tenant approvals", () => {
   function createAppWithApprovals() {
     const app = new OpenAPIHono();
-    const approvalService = createApprovalService();
+    const approvalService = createApprovalService(
+      createFakeApprovalDb().client
+    );
     registerSuperadminRoutes({ app, config: CONFIG, approvalService });
     return { app, approvalService };
   }
 
   it("lists pending requests from every tenant", async () => {
     const { app, approvalService } = createAppWithApprovals();
-    approvalService.request({
+    await approvalService.request({
       actorId: "agent-a",
       tenantId: "tenant-a",
       moduleId: "contacts",
       operationId: "contacts.delete",
       reason: "bulk delete",
     });
-    approvalService.request({
+    await approvalService.request({
       actorId: "agent-b",
       tenantId: "tenant-b",
       moduleId: "invoices",
@@ -415,7 +420,7 @@ describe("superadmin routes — cross-tenant approvals", () => {
 
   it("decides a request belonging to another tenant", async () => {
     const { app, approvalService } = createAppWithApprovals();
-    const pending = approvalService.request({
+    const pending = await approvalService.request({
       actorId: "agent-a",
       tenantId: "tenant-a",
       moduleId: "contacts",
@@ -434,7 +439,7 @@ describe("superadmin routes — cross-tenant approvals", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { status: string } };
     expect(body.data.status).toBe("approved");
-    expect(approvalService.listPending()).toHaveLength(0);
+    expect(await approvalService.listPendingAllTenants()).toHaveLength(0);
   });
 
   it("rejects a non-superadmin token", async () => {

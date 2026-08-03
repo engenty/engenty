@@ -2,7 +2,7 @@ import {
   type ConnectionsRepo,
   getConnectorDefinition,
 } from "@engenty/connections-sdk";
-import type { PluginServerApi } from "@engenty/plugin-sdk";
+import { actorUserIdFromAuth, type PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { ConnectionsOAuthRouteOptions } from "./oauth-routes.js";
 
@@ -86,7 +86,7 @@ export function registerConnectionsCredentialsRoutes(
         expiresAt: null,
         externalAccount: account.label,
         grantedScopes: [],
-        ownerUserId: ctx.auth.principalId,
+        ownerUserId: actorUserIdFromAuth(ctx.auth),
         refreshToken: null,
         sharing: body.sharing,
         tenantId: ctx.auth.tenantId,

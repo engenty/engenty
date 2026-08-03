@@ -5,9 +5,10 @@
 // `blocked` with a needs-input inbox notification + comment. A human then
 // approves the operation from the inbox, the task, or the routine, choosing a
 // scope:
-//   - "once":    grant added to the task's one-shot list (consumed next run).
-//   - "task":    grant added to the task's persistent list.
-//   - "routine": grant added to the linked trigger's list (needs trigger_id).
+//   - "once":    one-shot core grant on the task (reaped after the next run).
+//   - "task":    standing core grant on the task.
+//   - "routine": grant added to the linked trigger's config list (needs
+//                trigger_id) + a core grant on the trigger subject.
 // Approving flips the task `blocked → todo` and re-dispatches it; the next run
 // passes the pre-gate because the effective grant set now covers the op.
 // Denying leaves the task blocked and records a comment.
@@ -38,11 +39,6 @@ export interface ApprovalTasksRepo {
     content: string,
     opts?: { createdByAgentTypeKey?: string; createdByUserId?: string | null }
   ): Promise<unknown>;
-  addTaskApprovalGrant(
-    id: string,
-    operationId: string,
-    opts: { once: boolean }
-  ): Promise<Task | null>;
   clearTaskPendingApproval?(id: string, operationId: string): Promise<void>;
   getTask(id: string): Promise<Task | null>;
   loadTaskStatuses(ids: string[]): Promise<Map<string, string | undefined>>;
@@ -64,8 +60,38 @@ export interface ApprovalTriggersRepo {
   addTriggerApprovalGrant(id: string, operationId: string): Promise<unknown>;
 }
 
+/**
+ * The core approval store (core.approval_grants) — since the task-row grant
+ * columns were dropped, the ONLY store a tool approval lands in. Approving
+ * writes here; dispatch READS the run's grant set from here (2d); core-side
+ * gates (connections profile policy, escalation) consume here via the run's
+ * forwarded task/trigger id. Optional: absent in unit fakes and in the
+ * connections-resume path, where decide already minted the core grant.
+ */
+export interface CoreGrantsWriter {
+  grant(input: {
+    grantedBy?: string | null;
+    operationId: string;
+    scope: "once" | "task" | "trigger";
+    subjectId: string;
+  }): Promise<void>;
+  /** One subject's unexpired grants, split one-shot vs standing — the read
+   * behind the task detail's "Approved tools" section. */
+  listBySubject(input: {
+    subjectId: string;
+  }): Promise<{ once: string[]; standing: string[] }>;
+  /** Unexpired operation ids granted to any of these subjects, deduped. */
+  listOperationIds(input: { subjectIds: string[] }): Promise<string[]>;
+  /** Revoke one operation's grants on a subject (scope-blind) — the human
+   * "remove approved tool" affordance. */
+  revoke(input: { operationId: string; subjectId: string }): Promise<void>;
+  /** Reap a subject's one-shot grants — called after the run they unlocked. */
+  revokeOnce(input: { subjectId: string }): Promise<void>;
+}
+
 export interface ResolveToolApprovalDeps {
   actorUserId?: string | null;
+  coreGrants?: CoreGrantsWriter | null;
   queue?: QueueServiceLike | null;
   tasksRepo: ApprovalTasksRepo;
   tenantId?: string | null;
@@ -125,9 +151,18 @@ export async function resolveTaskToolApproval(
       task.trigger_id,
       input.operationId
     );
+    await deps.coreGrants?.grant({
+      grantedBy: deps.actorUserId ?? null,
+      operationId: input.operationId,
+      scope: "trigger",
+      subjectId: task.trigger_id,
+    });
   } else {
-    await tasksRepo.addTaskApprovalGrant(input.taskId, input.operationId, {
-      once: scope === "once",
+    await deps.coreGrants?.grant({
+      grantedBy: deps.actorUserId ?? null,
+      operationId: input.operationId,
+      scope: scope === "once" ? "once" : "task",
+      subjectId: input.taskId,
     });
   }
 

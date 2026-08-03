@@ -1,4 +1,5 @@
 import type { PluginServerApi } from "@engenty/plugin-sdk";
+import { actorUserIdFromAuth } from "@engenty/plugin-sdk";
 import type { z } from "zod";
 import { validateBlockedBy } from "../domain/task-blockers.js";
 import { performTaskCheckout } from "../lib/perform-task-checkout.js";
@@ -21,6 +22,7 @@ import {
   taskDetailSchema,
   taskIdParamsSchema,
   taskReleaseInputSchema,
+  taskRevokeApprovalGrantInputSchema,
   taskRunNowResponseSchema,
   taskRunsListSchema,
   taskSchema,
@@ -289,7 +291,7 @@ export function registerTasksApi(
             tenantId: ctx.auth?.tenantId ?? null,
           },
           params.id,
-          ctx.auth?.principalId ?? null
+          actorUserIdFromAuth(ctx.auth)
         );
         return result;
       } catch (err) {
@@ -383,7 +385,7 @@ export function registerTasksApi(
           );
         }
         const task = await repo.createTask(body, {
-          createdByUserId: ctx.auth?.principalId ?? null,
+          createdByUserId: actorUserIdFromAuth(ctx.auth),
           actorKind: body.created_by_agent_type_key ? "agent" : "user",
         });
         // Agent-assigned tasks auto-dispatch regardless of entry path (REST
@@ -430,6 +432,19 @@ export function registerTasksApi(
           headers: { "content-type": "application/json" },
         });
       }
+      // Approved tools live in core.approval_grants (subject = task id) since
+      // the task-row grant columns were dropped; the detail view is the one
+      // read that still wants them split standing vs once.
+      if (gatewayOptions?.coreGrantsFactory && ctx.auth) {
+        const grants = await gatewayOptions
+          .coreGrantsFactory(ctx.auth)
+          .listBySubject({ subjectId: params.id })
+          .catch(() => null);
+        if (grants) {
+          task.approval_grants = grants.standing;
+          task.approval_grants_once = grants.once;
+        }
+      }
       return task;
     },
   });
@@ -461,7 +476,7 @@ export function registerTasksApi(
         const task = await repo.updateTask(params.id, body, {
           actorKind: "user",
           hasActiveCheckout: !!existing?.checkout_run_id,
-          actorUserId: ctx.auth?.principalId ?? null,
+          actorUserId: actorUserIdFromAuth(ctx.auth),
         });
         if (!task) {
           return new Response(JSON.stringify({ error: "task_not_found" }), {
@@ -546,7 +561,7 @@ export function registerTasksApi(
       }
       const body = taskCommentCreateSchema.parse(ctx.body ?? {});
       const comment = await repo.addComment(params.id, body.content, {
-        createdByUserId: ctx.auth?.principalId ?? null,
+        createdByUserId: actorUserIdFromAuth(ctx.auth),
       });
       return new Response(JSON.stringify(comment), {
         status: 201,
@@ -584,7 +599,7 @@ export function registerTasksApi(
           params.id,
           body,
           {
-            actorUserId: ctx.auth?.principalId ?? null,
+            actorUserId: actorUserIdFromAuth(ctx.auth),
           }
         );
         return task;
@@ -630,7 +645,7 @@ export function registerTasksApi(
       try {
         const task = await repo.releaseTask(params.id, body, {
           actorKind: "user",
-          actorUserId: ctx.auth?.principalId ?? null,
+          actorUserId: actorUserIdFromAuth(ctx.auth),
         });
         if (!task) {
           return new Response(JSON.stringify({ error: "task_not_found" }), {
@@ -671,7 +686,7 @@ export function registerTasksApi(
       try {
         return await runTaskNow(
           {
-            actorUserId: ctx.auth?.principalId ?? null,
+            actorUserId: actorUserIdFromAuth(ctx.auth),
             queue: gatewayOptions?.queue ?? null,
             repo,
             tenantId: ctx.auth?.tenantId ?? null,
@@ -714,7 +729,11 @@ export function registerTasksApi(
       try {
         const task = await resolveTaskToolApproval(
           {
-            actorUserId: ctx.auth?.principalId ?? null,
+            actorUserId: actorUserIdFromAuth(ctx.auth),
+            coreGrants:
+              gatewayOptions?.coreGrantsFactory && ctx.auth
+                ? gatewayOptions.coreGrantsFactory(ctx.auth)
+                : null,
             queue: gatewayOptions?.queue ?? null,
             tasksRepo: repo,
             tenantId: ctx.auth?.tenantId ?? null,
@@ -737,6 +756,49 @@ export function registerTasksApi(
           headers: { "content-type": "application/json" },
         });
       }
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "post",
+    path: `${TASK_BY_ID_PATH}/approval-grants/revoke`,
+    operation: writeTasks(),
+    summary: "Revoke an approved tool from a task",
+    tags: ["tasks", "approvals"],
+    request: {
+      params: taskIdParamsSchema,
+      body: taskRevokeApprovalGrantInputSchema,
+    },
+    responses: {
+      200: { description: "Revoked", schema: taskSchema },
+      404: { description: "Not found", schema: notFoundSchema },
+    },
+    handler: async (ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const params = ctx.params as z.infer<typeof taskIdParamsSchema>;
+      const body = taskRevokeApprovalGrantInputSchema.parse(ctx.body ?? {});
+      const task = await repo.getTask(params.id);
+      if (!task) {
+        return new Response(JSON.stringify({ error: "task_not_found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (gatewayOptions?.coreGrantsFactory && ctx.auth) {
+        const coreGrants = gatewayOptions.coreGrantsFactory(ctx.auth);
+        await coreGrants.revoke({
+          operationId: body.operation_id,
+          subjectId: params.id,
+        });
+        const grants = await coreGrants
+          .listBySubject({ subjectId: params.id })
+          .catch(() => null);
+        if (grants) {
+          task.approval_grants = grants.standing;
+          task.approval_grants_once = grants.once;
+        }
+      }
+      return task;
     },
   });
 

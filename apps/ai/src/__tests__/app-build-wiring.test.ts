@@ -62,6 +62,19 @@ describe("app-coder tool wiring", () => {
     }
   });
 
+  it("gives the copilot app_build — the pit of success for app requests", async () => {
+    // Two live runs showed the routing-tier supervisor scaffolding fake apps
+    // in its own workspace instead of delegating. The fix: the correct
+    // one-call path is in its own tool belt. If either side of this wiring
+    // drops, the dodge comes back silently.
+    const { ENGENTY_COPILOT_TOOL_IDS } = await import(
+      "@engenty/engenty-copilot/ai"
+    );
+    expect(ENGENTY_COPILOT_TOOL_IDS).toContain("app_build");
+    const builtin = createBuiltinRegistryTools() as Record<string, unknown>;
+    expect(builtin.app_build).toBeDefined();
+  });
+
   it("keeps app_build's contract: build or build_log, never silence", async () => {
     const { appBuildTool } = await import("../../ai/tools/app-build-tool.js");
     expect(appBuildTool.id).toBe("app_build");

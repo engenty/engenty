@@ -1,7 +1,7 @@
+import type { createApprovalService } from "@engenty/approvals-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 import type { PluginRegistry } from "../../plugins/registry.js";
-import type { createApprovalService } from "../../security/approval-service.js";
 import type { SecurityAuditLogAdapter } from "../../security/audit-adapter.js";
 import {
   generateTestData,

@@ -176,3 +176,75 @@ describe("registerTasksGatewayMethods — agent key validation", () => {
     ).rejects.toThrow("unknown_agent_type_key");
   });
 });
+
+describe("approval grant store ops (D2 2d)", () => {
+  function makeCoreGrantsFake(ops: string[]) {
+    const calls: { listSubjects?: string[]; revoked?: string } = {};
+    return {
+      calls,
+      factory: () => ({
+        grant: async () => {
+          // not exercised here
+        },
+        listBySubject: async () => ({ once: [], standing: ops }),
+        listOperationIds: async (input: { subjectIds: string[] }) => {
+          calls.listSubjects = input.subjectIds;
+          return ops;
+        },
+        revoke: async () => {
+          // not exercised here
+        },
+        revokeOnce: async (input: { subjectId: string }) => {
+          calls.revoked = input.subjectId;
+        },
+      }),
+    };
+  }
+
+  it("tasks_approval_grants_effective reads the core store, not the columns", async () => {
+    const repo = makeMockTasksRepo();
+    const task = await repo.createTask({
+      title: "T",
+      primary_assignee_kind: "none",
+    });
+    const core = makeCoreGrantsFake(["gmail_send", "contacts_delete"]);
+    const mock = makeMockApi();
+    registerTasksGatewayMethods(mock.api, repo, {
+      coreGrantsFactory: core.factory,
+    });
+    const op = mock.serverOperations.find(
+      (o) => o.operationId === "tasks_approval_grants_effective"
+    );
+    const result = (await (
+      op!.handler as (input: unknown, ctx: unknown) => Promise<unknown>
+    )({ id: task.id }, { auth: defaultAuth })) as {
+      approval_grants: string[];
+    };
+    expect(result.approval_grants.sort()).toEqual([
+      "contacts_delete",
+      "gmail_send",
+    ]);
+    expect(core.calls.listSubjects).toEqual([task.id]);
+  });
+
+  it("tasks_clear_once_approvals also reaps the task's core once-grants", async () => {
+    const repo = makeMockTasksRepo();
+    const task = await repo.createTask({
+      title: "T",
+      primary_assignee_kind: "none",
+    });
+    const core = makeCoreGrantsFake([]);
+    const mock = makeMockApi();
+    registerTasksGatewayMethods(mock.api, repo, {
+      coreGrantsFactory: core.factory,
+    });
+    const op = mock.serverOperations.find(
+      (o) => o.operationId === "tasks_clear_once_approvals"
+    );
+    await (op!.handler as (input: unknown, ctx: unknown) => Promise<unknown>)(
+      { id: task.id },
+      { auth: defaultAuth }
+    );
+    expect(core.calls.revoked).toBe(task.id);
+  });
+});

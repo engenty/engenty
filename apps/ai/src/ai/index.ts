@@ -39,42 +39,6 @@ export {
   createDefaultAiRegistry,
 } from "./agents.js";
 export { ENGENTY_STREAM_UNTIL_IDLE_MAX_IDLE_MS } from "./background-tasks.js";
-export type {
-  ExternalChannelInteraction,
-  ExternalChannelInteractionResult,
-  ExternalChannelToolApprovalAction,
-  ExternalChannelToolApprovalResult,
-} from "./channel-interactions.js";
-export {
-  handleExternalChannelToolApprovalInteraction,
-  normalizeExternalChannelInteraction,
-} from "./channel-interactions.js";
-export type {
-  ExternalChannelFetch,
-  ExternalChannelOutboundInput,
-  ExternalChannelOutboundResult,
-  ExternalChannelOutboundSender,
-} from "./channel-outbound.js";
-export {
-  createHttpExternalChannelOutboundSender,
-  createNoopExternalChannelOutboundSender,
-  sendExternalChannelReply,
-} from "./channel-outbound.js";
-export type {
-  ExternalChannelConfig,
-  ExternalChannelIngressEvent,
-  ExternalChannelMultimodalConfig,
-  ExternalChannelOutboundMode,
-  ExternalChannelProvider,
-  ExternalChannelProviderConfig,
-  ExternalChannelVerificationMode,
-} from "./channels.js";
-export {
-  createExternalChannelConfigFromEnv,
-  EXTERNAL_CHANNEL_PROVIDERS,
-  isExternalChannelProvider,
-  normalizeExternalChannelIngress,
-} from "./channels.js";
 export type { EngentyWorkspaceContext } from "./core-http-client.js";
 export {
   EngentyCoreClient,

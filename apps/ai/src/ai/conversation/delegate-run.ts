@@ -97,6 +97,15 @@ export interface RunDelegatedConversationInput {
   sandboxProvider?: EngentySandboxProvider;
   scope: AiSessionScope;
   store: AgentSessionStore;
+  /**
+   * Task this delegated run executes (headless task jobs). Threaded into the
+   * tools context and forwarded to core as x-engenty-task-id so the approval
+   * gate can spend task-scoped grants and stamp the task on requests it files.
+   */
+  taskId?: string | null;
+  /** Trigger/routine behind the task — forwarded so routine-scoped grants
+   * open core's gate for this run. */
+  triggerId?: string | null;
   workspace?: Workspace;
 }
 
@@ -258,6 +267,8 @@ export async function runDelegatedConversation(
       // publishes to the parent conversation, not this drill-in thread.
       orchestratorThreadId: input.childThreadId,
       runId: input.childRunId,
+      ...(input.taskId ? { taskId: input.taskId } : {}),
+      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
       ...(scopeAccessToken(input.scope)

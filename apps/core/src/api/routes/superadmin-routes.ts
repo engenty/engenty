@@ -1,11 +1,11 @@
+import type {
+  ApprovalDecision,
+  createApprovalService,
+} from "@engenty/approvals-sdk";
 import { checkSeatLimit } from "@engenty/entitlements";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
 import { createSuperadminDal } from "../../dal/superadmin.js";
-import type {
-  ApprovalDecision,
-  createApprovalService,
-} from "../../security/approval-service.js";
 import {
   createNoopAuditLog,
   type SecurityAuditLogAdapter,
@@ -571,7 +571,8 @@ export function registerSuperadminRoutes(params: {
     if ("error" in authResult) {
       return authResult.error;
     }
-    const pending = params.approvalService?.listPending() ?? [];
+    const pending =
+      (await params.approvalService?.listPendingAllTenants()) ?? [];
     return jsonApiSuccess(c, pending);
   });
 
@@ -592,8 +593,16 @@ export function registerSuperadminRoutes(params: {
     if (!(decision && APPROVAL_DECISIONS.includes(decision))) {
       return jsonApiError(c, 400, { message: "Invalid decision" });
     }
-    const decided = approvalService.decide({
+    // Superadmins decide across tenants, but `decide` is deliberately
+    // tenant-scoped — resolve the owning tenant from the request itself rather
+    // than giving the service a nullable-tenant path that a bug could reach.
+    const existing = await approvalService.get(c.req.param("id"));
+    if (!existing) {
+      return jsonApiError(c, 404, { message: "Approval request not found" });
+    }
+    const decided = await approvalService.decide({
       requestId: c.req.param("id"),
+      tenantId: existing.tenantId,
       decision,
       decidedBy: authResult.auth.userId ?? "",
     });

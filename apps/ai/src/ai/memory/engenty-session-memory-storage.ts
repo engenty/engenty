@@ -22,6 +22,8 @@ import {
   TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
 } from "../sessions/tool-approval-grants.js";
+import type { AiScopeCredential } from "../sessions/types.js";
+import { scopeAttributionUserId } from "../sessions/types.js";
 
 const DEFAULT_MESSAGE_LIMIT = 500;
 const UUID_PATTERN =
@@ -43,6 +45,10 @@ const HITL_SESSION_METADATA_KEYS = [
 ] as const;
 
 export interface EngentySessionMemoryScope {
+  /** Present when the caller holds a full AiSessionScope; distinguishes a
+   * human scope from the service principal (whose userId is a credential id
+   * that must not be written to user-FK columns). */
+  credential?: AiScopeCredential;
   tenantId: string;
   userId: string;
 }
@@ -141,10 +147,11 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     const { session } = await this.#store.upsertSession({
       id: thread.id,
       tenantId: this.#scope.tenantId,
-      // Owner is the run's authenticated user. A sub-agent's Mastra `resourceId`
+      // Owner is the run's authenticated user — null for a service scope,
+      // whose userId is a credential id. A sub-agent's Mastra `resourceId`
       // can be a non-user value (its own resource), which violates the
       // thread.created_by_user_id FK — so never derive the owner from it.
-      createdByUserId: this.#scope.userId,
+      createdByUserId: scopeAttributionUserId(this.#scope),
       agentId: resolveAgentTypeKey(thread.metadata, this.#agentId),
       title: thread.title ?? null,
       metadata: strippedMetadata,

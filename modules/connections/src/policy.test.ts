@@ -115,37 +115,32 @@ function policyInput(overrides: {
 }
 
 describe("connections profile policy — who owns the approval UX", () => {
-  let onAutonomousAsk: ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
     __resetConnectorRegistryForTests();
     registerTestConnector();
     handler.mockClear();
-    onAutonomousAsk = vi.fn(() => Promise.resolve());
   });
 
   afterEach(() => {
     __resetConnectorRegistryForTests();
   });
 
-  it("escalates an App-originated write and records the approval request", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), {
-      onAutonomousAsk: onAutonomousAsk as never,
-    });
+  it("escalates an App-originated write with the connection it resolved", async () => {
+    const policy = createConnectionsProfilePolicy(repo());
     const decision = await policy(
       policyInput({ callOrigin: "app", principalType: "user" })
     );
 
     expect(decision?.action).toBe("require_approval");
     expect(decision?.reason).toContain("connection_approval_pending");
-    expect(onAutonomousAsk).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actionId: "send_message",
-        connectionId: CONNECTION_ID,
-        operationId: "testmail_send_message",
-        tenantId: TENANT,
-      })
-    );
+    // The policy no longer writes a request row of its own; the context it
+    // attaches is what core's gate stores so the approvals UI can say which
+    // connection the ask resolved to.
+    expect(decision?.approvalContext).toEqual({
+      action_id: "send_message",
+      connection_id: CONNECTION_ID,
+      connector_id: "testmail",
+    });
     // The gate decides; it must never be the thing that runs the action.
     expect(handler).not.toHaveBeenCalled();
   });
@@ -154,27 +149,20 @@ describe("connections profile policy — who owns the approval UX", () => {
     // Same user, same write, no app origin: `null` hands the approval card to
     // the AI pre-gate, which IS running in chat. Changing this would put two
     // approval prompts in front of every chat connector call.
-    const policy = createConnectionsProfilePolicy(repo(), {
-      onAutonomousAsk: onAutonomousAsk as never,
-    });
+    const policy = createConnectionsProfilePolicy(repo());
     const decision = await policy(policyInput({ principalType: "user" }));
 
     expect(decision).toBeNull();
-    expect(onAutonomousAsk).not.toHaveBeenCalled();
   });
 
   it("still escalates an agent principal", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), {
-      onAutonomousAsk: onAutonomousAsk as never,
-    });
+    const policy = createConnectionsProfilePolicy(repo());
     const decision = await policy(policyInput({ principalType: "agent" }));
     expect(decision?.action).toBe("require_approval");
   });
 
   it("allows an App-originated read — reads were never the hole", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), {
-      onAutonomousAsk: onAutonomousAsk as never,
-    });
+    const policy = createConnectionsProfilePolicy(repo());
     const decision = await policy(
       policyInput({
         callOrigin: "app",
@@ -182,7 +170,6 @@ describe("connections profile policy — who owns the approval UX", () => {
       })
     );
     expect(decision?.action).toBe("allow");
-    expect(onAutonomousAsk).not.toHaveBeenCalled();
   });
 
   it("denies an App-originated write on a connection with autonomy off", async () => {
@@ -190,8 +177,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     // own autonomous_mode clamp. A connection its owner marked "off" now
     // refuses outright rather than asking.
     const policy = createConnectionsProfilePolicy(
-      repo(connection({ autonomous_mode: "off" })),
-      { onAutonomousAsk: onAutonomousAsk as never }
+      repo(connection({ autonomous_mode: "off" }))
     );
     const decision = await policy(policyInput({ callOrigin: "app" }));
     expect(decision?.action).toBe("deny");
@@ -218,8 +204,7 @@ describe("connections profile policy — who owns the approval UX", () => {
 
     it("denies a write to a connector the role does not name", async () => {
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" })),
-        { onAutonomousAsk: onAutonomousAsk as never }
+        repo(connection({ connector_id: "testchat" }))
       );
       const decision = await policy(
         policyInput({
@@ -229,15 +214,12 @@ describe("connections profile policy — who owns the approval UX", () => {
       );
       expect(decision?.action).toBe("deny");
       expect(decision?.reason).toContain("connection_connector_not_permitted");
-      // Denied before any approval request is recorded or handler reached.
-      expect(onAutonomousAsk).not.toHaveBeenCalled();
+      // Denied before any approval escalation or handler is reached.
       expect(handler).not.toHaveBeenCalled();
     });
 
     it("allows the write to the connector it does name", async () => {
-      const policy = createConnectionsProfilePolicy(repo(), {
-        onAutonomousAsk: onAutonomousAsk as never,
-      });
+      const policy = createConnectionsProfilePolicy(repo());
       const decision = await policy(
         policyInput({
           capabilities: gmailScoped,
@@ -250,8 +232,7 @@ describe("connections profile policy — who owns the approval UX", () => {
 
     it("does not restrict reads on the unnamed connector", async () => {
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" })),
-        { onAutonomousAsk: onAutonomousAsk as never }
+        repo(connection({ connector_id: "testchat" }))
       );
       const decision = await policy(
         policyInput({
@@ -264,8 +245,7 @@ describe("connections profile policy — who owns the approval UX", () => {
 
     it("leaves an unscoped broad grant able to drive every connector", async () => {
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" })),
-        { onAutonomousAsk: onAutonomousAsk as never }
+        repo(connection({ connector_id: "testchat" }))
       );
       const decision = await policy(
         policyInput({
@@ -280,8 +260,7 @@ describe("connections profile policy — who owns the approval UX", () => {
       // The two gates compose: scope refuses first, so CON-01's approval
       // request is never even recorded for a connector the role cannot use.
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" })),
-        { onAutonomousAsk: onAutonomousAsk as never }
+        repo(connection({ connector_id: "testchat" }))
       );
       const decision = await policy(
         policyInput({
@@ -291,14 +270,12 @@ describe("connections profile policy — who owns the approval UX", () => {
         })
       );
       expect(decision?.action).toBe("deny");
-      expect(onAutonomousAsk).not.toHaveBeenCalled();
+      expect(decision?.approvalContext).toBeUndefined();
     });
   });
 
   it("abstains on operations that are not connector actions", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), {
-      onAutonomousAsk: onAutonomousAsk as never,
-    });
+    const policy = createConnectionsProfilePolicy(repo());
     expect(
       await policy(
         policyInput({ callOrigin: "app", operationId: "tasks_create" })

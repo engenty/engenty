@@ -35,6 +35,7 @@ function connection(
 
 function fakeRepo(connections: ConnectionSummary[]): ConnectionsRepo {
   return {
+    consumeApprovalGrant: async () => false,
     getConnection: async ({ connectionId }: { connectionId: string }) =>
       connections.find((c) => c.id === connectionId) ?? null,
     listApprovalRequests: async () => [],

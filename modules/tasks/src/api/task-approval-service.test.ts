@@ -3,6 +3,7 @@ import type { Task } from "../schema/types.js";
 import {
   type ApprovalTasksRepo,
   type ApprovalTriggersRepo,
+  type CoreGrantsWriter,
   resolveTaskToolApproval,
 } from "./task-approval-service.js";
 import { AGENT_TASK_DISPATCH_QUEUE } from "./task-dispatch-queue.js";
@@ -45,15 +46,9 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 function makeTasksRepo(task: Task) {
   const comments: string[] = [];
   const activity: { event_type: string; payload?: unknown }[] = [];
-  const taskGrants: string[] = [...(task.approval_grants ?? [])];
-  const onceGrants: string[] = [...(task.approval_grants_once ?? [])];
   const repo: ApprovalTasksRepo = {
     addComment: async (_id, content) => {
       comments.push(content);
-    },
-    addTaskApprovalGrant: async (_id, operationId, opts) => {
-      (opts.once ? onceGrants : taskGrants).push(operationId);
-      return { ...task, approval_grants: [...taskGrants] };
     },
     clearTaskPendingApproval: async (_id, operationId) => {
       task.pending_approval_operation_ids = (
@@ -72,7 +67,7 @@ function makeTasksRepo(task: Task) {
       return task;
     },
   };
-  return { activity, comments, onceGrants, repo, taskGrants };
+  return { activity, comments, repo };
 }
 
 function makeTriggersRepo() {
@@ -85,15 +80,47 @@ function makeTriggersRepo() {
   return { grants, repo };
 }
 
+function makeCoreGrants() {
+  const grants: {
+    operationId: string;
+    scope: string;
+    subjectId: string;
+  }[] = [];
+  const writer: CoreGrantsWriter = {
+    grant: async (input) => {
+      grants.push({
+        operationId: input.operationId,
+        scope: input.scope,
+        subjectId: input.subjectId,
+      });
+    },
+    listBySubject: async () => ({ once: [], standing: [] }),
+    listOperationIds: async () => grants.map((g) => g.operationId),
+    revoke: async () => {
+      // not exercised by these tests
+    },
+    revokeOnce: async () => {
+      // not exercised by these tests
+    },
+  };
+  return { grants, writer };
+}
+
 const queue = () => ({ send: vi.fn(async () => {}) }) as never;
 
 describe("resolveTaskToolApproval", () => {
   it("approve 'task' adds a persistent grant, flips blocked→todo, re-dispatches", async () => {
     const task = makeTask();
     const tasks = makeTasksRepo(task);
+    const core = makeCoreGrants();
     const q = queue();
     const result = await resolveTaskToolApproval(
-      { queue: q, tasksRepo: tasks.repo, tenantId: "tenant" },
+      {
+        coreGrants: core.writer,
+        queue: q,
+        tasksRepo: tasks.repo,
+        tenantId: "tenant",
+      },
       {
         decision: "approve",
         operationId: "contacts_delete",
@@ -101,7 +128,9 @@ describe("resolveTaskToolApproval", () => {
         taskId: task.id,
       }
     );
-    expect(tasks.taskGrants).toContain("contacts_delete");
+    expect(core.grants).toEqual([
+      { operationId: "contacts_delete", scope: "task", subjectId: task.id },
+    ]);
     expect(result.status).toBe("todo");
     expect((q as { send: ReturnType<typeof vi.fn> }).send).toHaveBeenCalledWith(
       AGENT_TASK_DISPATCH_QUEUE,
@@ -137,9 +166,15 @@ describe("resolveTaskToolApproval", () => {
       status: "in_progress",
     });
     const tasks = makeTasksRepo(task);
+    const core = makeCoreGrants();
     const q = queue();
     await resolveTaskToolApproval(
-      { queue: q, tasksRepo: tasks.repo, tenantId: "tenant" },
+      {
+        coreGrants: core.writer,
+        queue: q,
+        tasksRepo: tasks.repo,
+        tenantId: "tenant",
+      },
       {
         decision: "approve",
         operationId: "contacts_delete",
@@ -147,7 +182,9 @@ describe("resolveTaskToolApproval", () => {
         taskId: task.id,
       }
     );
-    expect(tasks.taskGrants).toContain("contacts_delete");
+    expect(core.grants).toEqual([
+      { operationId: "contacts_delete", scope: "task", subjectId: task.id },
+    ]);
     expect(task.status).toBe("in_progress");
     expect(
       (q as { send: ReturnType<typeof vi.fn> }).send
@@ -159,8 +196,14 @@ describe("resolveTaskToolApproval", () => {
   it("approve 'once' adds a one-shot grant only", async () => {
     const task = makeTask();
     const tasks = makeTasksRepo(task);
+    const core = makeCoreGrants();
     await resolveTaskToolApproval(
-      { queue: queue(), tasksRepo: tasks.repo, tenantId: "tenant" },
+      {
+        coreGrants: core.writer,
+        queue: queue(),
+        tasksRepo: tasks.repo,
+        tenantId: "tenant",
+      },
       {
         decision: "approve",
         operationId: "x_op",
@@ -168,8 +211,9 @@ describe("resolveTaskToolApproval", () => {
         taskId: task.id,
       }
     );
-    expect(tasks.onceGrants).toContain("x_op");
-    expect(tasks.taskGrants).not.toContain("x_op");
+    expect(core.grants).toEqual([
+      { operationId: "x_op", scope: "once", subjectId: task.id },
+    ]);
   });
 
   it("approve 'routine' writes the trigger grant", async () => {
@@ -191,6 +235,64 @@ describe("resolveTaskToolApproval", () => {
       }
     );
     expect(triggers.grants).toEqual([{ id: "trigger-1", op: "y_op" }]);
+  });
+
+  it("writes each approval scope into the core grant store", async () => {
+    // The core row is the ONLY store (columns dropped): dispatch reads it for
+    // the pre-gate set, core-side gates spend it via the forwarded task id.
+    const cases: {
+      scope: "once" | "task" | "routine";
+      expected: { scope: string; subject: (task: Task) => string };
+    }[] = [
+      { scope: "once", expected: { scope: "once", subject: (t) => t.id } },
+      { scope: "task", expected: { scope: "task", subject: (t) => t.id } },
+      {
+        scope: "routine",
+        expected: { scope: "trigger", subject: () => "trig-1" },
+      },
+    ];
+    for (const c of cases) {
+      const task = makeTask({ trigger_id: "trig-1" });
+      const tasks = makeTasksRepo(task);
+      const triggers = makeTriggersRepo();
+      const core = makeCoreGrants();
+      await resolveTaskToolApproval(
+        {
+          coreGrants: core.writer,
+          tasksRepo: tasks.repo,
+          triggersRepo: triggers.repo,
+        },
+        {
+          decision: "approve",
+          operationId: "gmail_send",
+          scope: c.scope,
+          taskId: task.id,
+        }
+      );
+      expect(core.grants).toEqual([
+        {
+          operationId: "gmail_send",
+          scope: c.expected.scope,
+          subjectId: c.expected.subject(task),
+        },
+      ]);
+    }
+  });
+
+  it("writes no core grant on deny", async () => {
+    const task = makeTask();
+    const tasks = makeTasksRepo(task);
+    const core = makeCoreGrants();
+    await resolveTaskToolApproval(
+      { coreGrants: core.writer, tasksRepo: tasks.repo },
+      {
+        decision: "deny",
+        operationId: "gmail_send",
+        scope: "task",
+        taskId: task.id,
+      }
+    );
+    expect(core.grants).toEqual([]);
   });
 
   it("approve 'routine' without a trigger throws", async () => {
@@ -254,7 +356,6 @@ describe("resolveTaskToolApproval", () => {
       { decision: "deny", operationId: "d_op", taskId: task.id }
     );
     expect(result.status).toBe("blocked");
-    expect(tasks.taskGrants).toEqual([]);
     expect(tasks.comments.join(" ")).toContain("Denied");
   });
 });

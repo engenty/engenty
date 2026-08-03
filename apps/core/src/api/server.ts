@@ -2,6 +2,10 @@ import fs from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import {
+  createApprovalService,
+  revokeApprovalGrantsForSubject,
+} from "@engenty/approvals-sdk";
+import {
   ENGENTY_DESKTOP_APP_ORIGIN,
   isEngentyDevelopmentEnvironment,
 } from "@engenty/environment";
@@ -40,7 +44,6 @@ import { createGatedQueueHandlers } from "../plugins/queue-handler-gating.js";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { reloadBackendPlugin } from "../plugins/reload-executor.js";
 import { createAgentEscalationPolicy } from "../security/agent-escalation-policy.js";
-import { createApprovalService } from "../security/approval-service.js";
 import {
   createPersistentAuditLog,
   type SecurityAuditLogAdapter,
@@ -66,7 +69,8 @@ function isAgentEscalationEnabled(config: Record<string, unknown>): boolean {
   );
 }
 
-function createGoalGrantClient(config: Record<string, unknown>) {
+/** Service-role client for core's own tables (goal grants, approval store). */
+function createCoreServiceClient(config: Record<string, unknown>) {
   const { url, serviceRoleKey } = resolveSupabaseConfig(config);
   return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -137,6 +141,12 @@ extendZodWithOpenApi(zod);
 const defaultLogger: ApiLogger = createBootApiLogger();
 
 export interface CreateApiAppParams {
+  /**
+   * Override the approval store (tests back it with an in-memory double).
+   * The default talks to core's tables, so a caller without a reachable
+   * Supabase must inject one or every gated operation fails at the store.
+   */
+  approvalService?: ReturnType<typeof createApprovalService>;
   /** Inject audit log (e.g. noop for tests when Supabase not available). */
   auditLog?: SecurityAuditLogAdapter;
   /** Override auth stores (tests use memory stores). */
@@ -250,7 +260,16 @@ export function createApiApp(params: CreateApiAppParams) {
       : createBootApiLogger();
   };
 
-  const approvalService = createApprovalService();
+  // One service-role client for core's own tables, shared by the approval store
+  // and the session-grant reaper below. An injected service (tests) brings its
+  // own store, so there is no client to share and no reaper to wire.
+  const approvals = params.approvalService
+    ? { client: null, service: params.approvalService }
+    : (() => {
+        const client = createCoreServiceClient(config);
+        return { client, service: createApprovalService(client) };
+      })();
+  const approvalService = approvals.service;
   const grantsService = createGrantsService(config, {
     getRegistry: () => params.registry.roleProfiles,
   });
@@ -262,7 +281,7 @@ export function createApiApp(params: CreateApiAppParams) {
   // behind a flag: inert until apps/ai forwards an agent/goal id. Default off so
   // no behavior change until the AI service opts in.
   if (isAgentEscalationEnabled(config)) {
-    const escalationClient = createGoalGrantClient(config);
+    const escalationClient = createCoreServiceClient(config);
     const escalationPolicy = createAgentEscalationPolicy({
       resolveAgentCapabilities: (agentId, tenantId) =>
         grantsService
@@ -362,6 +381,16 @@ export function createApiApp(params: CreateApiAppParams) {
     app,
     config,
     auditLog: securityAuditLog,
+    ...(approvals.client
+      ? {
+          revokeSessionApprovalGrants: (tenantId: string, sessionId: string) =>
+            revokeApprovalGrantsForSubject(approvals.client, {
+              scope: "session",
+              subjectId: sessionId,
+              tenantId,
+            }),
+        }
+      : {}),
     stores: authStores,
   });
   // Delegated actor tokens (engenty-remote): the AI service mints short-lived

@@ -1,4 +1,4 @@
-import type { PluginServerApi } from "@engenty/plugin-sdk";
+import { actorUserIdFromAuth, type PluginServerApi } from "@engenty/plugin-sdk";
 import {
   canReadSecret,
   decryptPayload,
@@ -162,7 +162,7 @@ export function registerSecretsOperations(
           description: input.description ?? null,
           payload_enc,
           dek_id: dekId,
-          created_by: ctx.auth.principalId,
+          created_by: actorUserIdFromAuth(ctx.auth),
         });
       if (error) {
         throw new Error(`secrets_create: ${error.message}`);

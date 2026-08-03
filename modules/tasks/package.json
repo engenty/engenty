@@ -55,6 +55,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@engenty/ag-ui-bridge": "workspace:*",
+    "@engenty/approvals-sdk": "workspace:*",
     "@engenty/ai-core": "workspace:*",
     "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",

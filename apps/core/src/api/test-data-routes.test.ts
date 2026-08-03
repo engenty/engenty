@@ -1,10 +1,13 @@
+import {
+  createApprovalService,
+  createFakeApprovalDb,
+} from "@engenty/approvals-sdk";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { SignJWT } from "jose";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
-import { createApprovalService } from "../security/approval-service.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { TestDataLlmHttpError } from "../services/test-data-generator.js";
 import { registerTestDataRoutes } from "./routes/test-data-routes.js";
@@ -46,7 +49,7 @@ function createApp(registry?: PluginRegistry) {
   const app = new OpenAPIHono();
   registerTestDataRoutes({
     app,
-    approvalService: createApprovalService(),
+    approvalService: createApprovalService(createFakeApprovalDb().client),
     auditLog: createNoopAuditLog(),
     config: {
       securityJwtSecret: "test-secret",

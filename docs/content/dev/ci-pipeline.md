@@ -50,14 +50,24 @@ process over everything, useful for debugging cross-package interference) and
   Supabase env vars, so cache hits are only served when none of them changed.
 - Supabase env defaults for tests come from `test/setup.ts` — CI sets nothing.
 
-## Optional remote cache
+## Remote cache
 
-When the repo has a `TURBO_API` variable and `TURBO_TOKEN` secret configured,
-CI switches turbo to a **remote cache** (shared across branches, runs, and —
-if developers set the same env locally — machines). Until then the
-`actions/cache` fallback above is used.
+**Deployed** — `TURBO_API`, `TURBO_TEAM` and `TURBO_TOKEN` are configured on the
+repo, so turbo uses a **remote cache** (shared across branches, runs, and — if
+developers set the same env locally — machines). The `actions/cache` fallback
+above still runs alongside it and covers what the remote cache misses.
 
-To enable it:
+> **Upload timeout — the failure mode to watch.** turbo's default is 60s, and
+> the largest module artifacts (a `dist/` with bundled `.d.ts`) do not finish in
+> that. A timed-out upload is only a **warning** —
+> `the cache artifact for <hash> was too large to upload within the timeout` —
+> so the build goes green while the artifact is never written, and every later
+> run misses that task again. It stays invisible until something else fails.
+> Both workflows therefore set `TURBO_REMOTE_CACHE_UPLOAD_TIMEOUT: "300"`.
+> If a job is mysteriously slow, grep its log for `too large to upload` before
+> anything else.
+
+If it ever needs re-provisioning:
 
 1. Deploy a [turborepo-remote-cache](https://github.com/ducktors/turborepo-remote-cache)
    instance (a single small container; S3/storage-backed) — e.g. as a Coolify

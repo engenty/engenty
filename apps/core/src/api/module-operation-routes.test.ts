@@ -1,4 +1,8 @@
 import { ENGENTY_API_CATALOG_TOOL_ID } from "@engenty/ai-core";
+import {
+  createApprovalService,
+  createFakeApprovalDb,
+} from "@engenty/approvals-sdk";
 import type {
   PluginHttpRouteContext,
   PluginPolicyInput,
@@ -1305,6 +1309,7 @@ describe("module operation routes", () => {
       capabilities: ["module.contacts.write"],
     });
     const app = createApiApp({
+      approvalService: createApprovalService(createFakeApprovalDb().client),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1462,6 +1467,7 @@ describe("module operation routes", () => {
       moduleIds: ["invoices", "contacts"],
     });
     const app = createApiApp({
+      approvalService: createApprovalService(createFakeApprovalDb().client),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",

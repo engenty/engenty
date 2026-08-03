@@ -161,6 +161,15 @@ export interface EngentyCoreClientOptions {
   fetchImpl?: typeof fetch;
   goalId?: string;
   requestTimeoutMs?: number;
+  /**
+   * Task a headless run is executing, forwarded as x-engenty-task-id — the
+   * subject core's approval gate spends task-scoped grants against, and the
+   * link stamped onto any approval request the gate files.
+   */
+  taskId?: string;
+  /** Trigger/routine behind the task, forwarded as x-engenty-trigger-id —
+   * the subject routine-scoped grants are spent against. */
+  triggerId?: string;
   userAccessToken: string;
 }
 
@@ -275,6 +284,12 @@ export class EngentyCoreClient {
             : {}),
           ...(this.options.goalId
             ? { "x-engenty-goal-id": this.options.goalId }
+            : {}),
+          ...(this.options.taskId
+            ? { "x-engenty-task-id": this.options.taskId }
+            : {}),
+          ...(this.options.triggerId
+            ? { "x-engenty-trigger-id": this.options.triggerId }
             : {}),
           ...init.headers,
         },

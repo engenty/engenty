@@ -1,10 +1,14 @@
 import { formatZodErrorForApiError, isZodError } from "@engenty/api-contracts";
+import type { createApprovalService } from "@engenty/approvals-sdk";
 import type { PluginHttpRoute } from "@engenty/plugin-sdk";
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
 import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
 import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
 import type { PluginRegistry } from "../../../plugins/registry.js";
-import type { createApprovalService } from "../../../security/approval-service.js";
+import {
+  emitApprovalRequested,
+  fileApprovalRequest,
+} from "../../../security/approval-gate.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import { recordModuleAuditEvent } from "../../../security/audit-service.js";
 import type { AuthProvider } from "../../../security/auth-provider.js";
@@ -250,7 +254,8 @@ function mountPluginRoute(
           body,
         },
       },
-      params.registry
+      params.registry,
+      { approvalService: params.approvalService }
     );
     if (policy.action === "deny") {
       recordModuleAuditEvent(
@@ -272,42 +277,27 @@ function mountPluginRoute(
       }) as never;
     }
     if (policy.action === "require_approval") {
-      const granted = params.approvalService.consumeGrant({
-        actorId: auth!.principalId,
+      // evaluatePolicy already spent any covering grant — this is a real ask.
+      const gate = await fileApprovalRequest({
+        approvalService: params.approvalService,
+        auditLog: params.auditLog,
+        auth: auth!,
+        component: "plugin-http",
         moduleId: operation?.moduleId ?? params.pluginId,
         operationId,
-        sessionId: auth!.sessionId,
+        onRequested: emitApprovalRequested(params.registry, auth!),
+        reason: policy.reason,
+        ...(policy.approvalContext ? { context: policy.approvalContext } : {}),
       });
-      if (!granted) {
-        const req = params.approvalService.request({
-          actorId: auth!.principalId,
-          tenantId: auth!.tenantId,
-          moduleId: operation?.moduleId ?? params.pluginId,
-          operationId,
-          reason: policy.reason,
-        });
-        recordModuleAuditEvent(
-          params.auditLog,
-          operation?.moduleId ?? params.pluginId,
-          {
-            type: "approval.created",
-            actorId: auth!.principalId,
-            tenantId: auth!.tenantId,
-            moduleId: operation?.moduleId ?? params.pluginId,
-            operationId,
-            detail: { approvalRequestId: req.id },
-          },
-          { component: "plugin-http" }
-        );
-        return jsonApiError(c, 202, {
-          code: "approval_required",
-          message: "Approval required",
-          details: {
-            approvalRequestId: req.id,
-            reason: policy.reason,
-          },
-        }) as never;
-      }
+      return jsonApiError(c, 202, {
+        code: "approval_required",
+        message: "Approval required",
+        details: {
+          approvalRequestId: gate.approvalRequestId,
+          expiresAt: gate.expiresAt,
+          reason: gate.reason,
+        },
+      }) as never;
     }
     recordModuleAuditEvent(
       params.auditLog,

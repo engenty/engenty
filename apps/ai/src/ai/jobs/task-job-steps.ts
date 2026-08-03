@@ -7,7 +7,6 @@ import { createHash } from "node:crypto";
 import { createStep } from "@mastra/core/workflows";
 import { emitInboxNotification } from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
-import { mergeApprovalGrants } from "../sessions/connection-approval-grants.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import {
   routineEntityRef,
@@ -131,8 +130,6 @@ export const buildBriefStep = createStep({
     // Read here so the specialist's "request" pre-gate lets pre-approved ops
     // through; the one-shot list is consumed (cleared) for this run.
     const taskRow = task as {
-      approval_grants?: string[];
-      approval_grants_once?: string[];
       goal_id?: string | null;
       trigger_id?: string | null;
     };
@@ -185,27 +182,16 @@ export const buildBriefStep = createStep({
         ? { routine_workspace_prefix: routineWorkspacePrefix }
         : {}),
     });
-    const taskGrants = mergeApprovalGrants(
-      taskRow.approval_grants ?? [],
-      taskRow.approval_grants_once ?? []
-    );
-    if ((taskRow.approval_grants_once ?? []).length > 0) {
-      await invoke("tasks_clear_once_approvals", {
-        id: inputData.task_id,
-      }).catch(() => {
-        // Best-effort: worst case a once-grant survives into one extra run.
-      });
-    }
-    let approvalGrants = taskGrants;
-    if (taskRow.trigger_id) {
-      const trigger = (await invoke("triggers_get", {
-        id: taskRow.trigger_id,
-      }).catch(() => null)) as { approval_grants?: string[] } | null;
-      approvalGrants = mergeApprovalGrants(
-        taskGrants,
-        trigger?.approval_grants ?? []
-      );
-    }
+    // Effective grant set for the run's pre-gate, computed by the tasks
+    // module from the core approval store + routine config (2d) — the legacy
+    // task-row columns are no longer read. Once-grants stay live in core so a
+    // core-side gate can spend them DURING the run; write-result reaps the
+    // ones nobody spent. A failed read grants nothing (fail closed): the op
+    // gates again rather than running unapproved.
+    const effective = (await invoke("tasks_approval_grants_effective", {
+      id: inputData.task_id,
+    }).catch(() => null)) as { approval_grants?: string[] } | null;
+    const approvalGrants = effective?.approval_grants ?? [];
     // Memory Phase 2b: start the run from what earlier runs learned. The
     // section is fail-open and empty when the tenant has no memories.
     const contexts =
@@ -248,6 +234,16 @@ export const writeResultStep = createStep({
       return inputData;
     }
     const invoke = await invokerFor(inputData.tenant_id);
+    // End the one-shot grants this run was dispatched with. Core once-rows
+    // outlive dispatch on purpose (a gate may spend them mid-run); this is
+    // where the unspent ones die. Same placement contract as the old
+    // dispatch-time column clear: best-effort, worst case a once-grant
+    // survives into one extra run.
+    await invoke("tasks_clear_once_approvals", {
+      id: inputData.task_id,
+    }).catch(() => {
+      // Best-effort by design.
+    });
     const failed = inputData.status === "failed";
     const needsApproval = inputData.status === "needs_approval";
     const isRoutine = Boolean(inputData.trigger_id);

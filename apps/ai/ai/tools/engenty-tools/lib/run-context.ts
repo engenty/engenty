@@ -64,7 +64,15 @@ export interface EngentyToolsRunContext {
   }) => void;
   orchestratorThreadId?: string | null;
   runId?: string | null;
+  // Task a headless run is executing. Forwarded as x-engenty-task-id so
+  // core's approval gate can spend task-scoped grants ("this task may do X",
+  // approved before the retry's principal existed) and stamp the task on any
+  // request it files — the link that lets an approval resume the task.
+  taskId?: string | null;
   tenantId?: string | null;
+  // Trigger/routine that materialized the task. Forwarded as
+  // x-engenty-trigger-id so routine-scoped grants open the gate too.
+  triggerId?: string | null;
   userAccessToken?: string;
   // The thread the human is actually watching. Root runs set it to their own
   // thread; a delegated child run inherits it (delegate-run overrides

@@ -10,6 +10,7 @@ import {
 } from "../index.js";
 import { ensureAgentSessionRunStarted } from "../sessions/run-tracking.js";
 import type { AiSessionScope } from "../sessions/types.js";
+import { scopeAttributionUserId } from "../sessions/types.js";
 
 const logger = createLogger({ name: "action-job-run-record" });
 
@@ -34,7 +35,7 @@ export async function registerActionRun(
   }
   await store.upsertSession({
     agentId: input.agentId,
-    createdByUserId: input.scope.userId,
+    createdByUserId: scopeAttributionUserId(input.scope),
     id: input.threadId,
     metadata: { action_id: input.actionId, source: "action-job" },
     routeContext: {
@@ -47,7 +48,7 @@ export async function registerActionRun(
   });
   await ensureAgentSessionRunStarted(runStore, {
     agentId: input.agentId,
-    createdByUserId: input.scope.userId,
+    createdByUserId: scopeAttributionUserId(input.scope),
     id: input.runId,
     tenantId: input.scope.tenantId,
     threadId: input.threadId,

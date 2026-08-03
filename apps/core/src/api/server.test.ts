@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  createApprovalService,
+  createFakeApprovalDb,
+} from "@engenty/approvals-sdk";
 import type {
   PluginGatewayContext,
   PluginHttpRouteContext,
@@ -532,6 +536,7 @@ describe("createApiApp", () => {
     const securityJwtSecret = "test-security-secret";
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
+      approvalService: createApprovalService(createFakeApprovalDb().client),
       logger: noopApiLogger,
       registry: {
         ...makeEmptyRegistry(),

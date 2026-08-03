@@ -4,6 +4,29 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.90] - 2026-08-03
+- ADDED **[remote]** Routing table, dedicated tenant threads, chat controls (R1-R3)
+- ADDED **[core]** EvaluatePolicy spends approval grants itself (D2 phase 3)
+- ADDED **[tasks,approvals]** Drop task-row grant columns — core store is the only grant store (D2)
+- ADDED **[core,tasks,ai]** Dispatch reads approval grants from the core store (D2 2d)
+- ADDED **[core,tasks]** Task approvals mint core grants the gates can spend (D2 2c)
+- ADDED **[connections,core]** Fold connections approvals into the core store
+- ADDED **[core]** Make approvals durable — one store for requests and grants
+- ADDED **[copilot]** Give the supervisor app_build instead of only delegation
+- CHANGED **[remote]** Enable channels by opt-out, delete legacy channel cluster
+- CHANGED **[core]** Move the approval store client into @engenty/approvals-sdk
+- CHANGED **[core]** One approval gate for all three transports
+- DOCS Plan for remote-channels consolidation (routing table, dedicated threads, credentials)
+- DOCS **[plan]** Record the v0.1.89 release of the security sweep
+- FIXED **[connections-sdk]** Satisfy required apiKey.verify in repo test fixture
+- FIXED **[remote]** Authorize the destination of proactive sends
+- FIXED **[remote]** Mount channel webhooks under /ai so they ride the core gateway
+- FIXED **[secrets]** Stop in-chat secret grants from outliving their goal
+- FIXED **[core]** Bound and reap approval grants now that they outlive the process
+- FIXED **[ci]** Make the turbo remote cache actually cache
+- FIXED **[core,ai,modules]** Keep service-principal ids out of user columns
+- OTHER WiP
+
 ## [0.1.89] - 2026-08-03
 - ADDED **[tasks]** Say what a tool approval is about, and fix the card layout
 - ADDED **[projects]** Lean projects - optional time planning, editable client

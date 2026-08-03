@@ -74,6 +74,19 @@ export function resolveScopeCredential(
   return legacy ? { kind: "user", token: legacy } : null;
 }
 
+/**
+ * The user id to write into user-attribution columns (FKs to core.users), or
+ * null when the scope's principal is not a human — a service scope's `userId`
+ * is the credential id, which core.users does not contain.
+ */
+export function scopeAttributionUserId(
+  scope: Pick<AiSessionScope, "credential" | "userAccessToken" | "userId">
+): string | null {
+  return resolveScopeCredential(scope)?.kind === "service"
+    ? null
+    : scope.userId;
+}
+
 /** The bearer to send toward core, or undefined when the scope has none. */
 export function scopeAccessToken(
   scope: Pick<AiSessionScope, "credential" | "userAccessToken">

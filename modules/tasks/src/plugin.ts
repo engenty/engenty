@@ -5,6 +5,7 @@ import {
 import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tasksAiRegistration } from "../ai/registrar.js";
+import { subscribeConnectionsApprovalResume } from "./api/connections-approval-subscriber.js";
 import { registerTasksApi } from "./api/index.js";
 import { createTriggerEventSubscriber } from "./api/trigger-event-subscriber.js";
 import {
@@ -12,6 +13,7 @@ import {
   registerTriggerGatewayMethods,
 } from "./api/trigger-gateway-methods.js";
 import { registerTriggerWebhookRoute } from "./api/trigger-webhook-route.js";
+import { createCoreGrantsWriter } from "./dal/core-grants.js";
 import { createTasksRepoSupabase } from "./dal/supabase.js";
 
 const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
@@ -109,7 +111,15 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
   const triggersRepoFactory = createTriggersRepoFactory(
     supabase as SupabaseClient
   );
-  registerTasksApi(server, repoOrFactory, { queue, triggersRepoFactory });
+  // Tool approvals dual-write: the task-row grant columns stay the run
+  // transport, while core.approval_grants is what core-side gates spend.
+  const coreGrantsFactory = (auth: { tenantId: string }) =>
+    createCoreGrantsWriter(supabase as SupabaseClient, auth.tenantId);
+  registerTasksApi(server, repoOrFactory, {
+    coreGrantsFactory,
+    queue,
+    triggersRepoFactory,
+  });
 
   // Event-trigger ingestion edges: the in-process module event bus and the
   // public webhook route. Bus subscriptions are exact-name, replayed from the
@@ -129,6 +139,13 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     });
   }, 3000);
   registerTriggerWebhookRoute(server, {
+    queue,
+    supabase: supabase as SupabaseClient,
+  });
+
+  // Approving a task-linked connections request resumes the blocked task.
+  subscribeConnectionsApprovalResume({
+    events: engenty.events,
     queue,
     supabase: supabase as SupabaseClient,
   });

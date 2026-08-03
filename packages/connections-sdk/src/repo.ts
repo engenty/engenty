@@ -1,4 +1,13 @@
+import {
+  type ApprovalRequestRow,
+  consumeApprovalGrant,
+  createApprovalService,
+  getApprovalRequest,
+  insertApprovalRequest,
+  listApprovalRequestsForModule,
+} from "@engenty/approvals-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { listConnectorDefinitions } from "./registry.js";
 import { decryptToken, encryptToken } from "./token-crypto.js";
 import type {
   ApprovalRequestRecord,
@@ -11,6 +20,41 @@ import type {
 } from "./types.js";
 
 const SCHEMA = "module_connections";
+
+/**
+ * Approval requests live in CORE's store (core.approval_requests /
+ * core.approval_grants, D2), not in a module table. `module_connections.
+ * approval_requests` was this module's own request ledger — request-only, so
+ * approving a row closed it without ever unblocking the run that was waiting.
+ * The connector-specific columns ride in the core request's `context`; this
+ * file maps them back into the record shape the module's UI already speaks.
+ */
+const APPROVALS_MODULE_ID = "connections";
+
+function toApprovalRequestRecord(
+  row: ApprovalRequestRow
+): ApprovalRequestRecord {
+  const context = (row.context ?? {}) as {
+    action_id?: string;
+    connection_id?: string;
+    input_summary?: Record<string, unknown> | null;
+    task_id?: string | null;
+  };
+  return {
+    action_id: context.action_id ?? "",
+    connection_id: context.connection_id ?? "",
+    created_at: row.created_at,
+    decided_at: row.decided_at,
+    decided_by: row.decided_by,
+    id: row.id,
+    input_summary: context.input_summary ?? null,
+    operation_id: row.operation_id,
+    requested_by: row.actor_id,
+    status: row.status,
+    task_id: context.task_id ?? null,
+    tenant_id: row.tenant_id,
+  };
+}
 
 const CONNECTION_COLUMNS =
   "id, tenant_id, connector_id, owner_user_id, sharing, autonomous_mode, non_owner_max_group, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
@@ -56,22 +100,44 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       taskId?: string | null;
       tenantId: string;
     }): Promise<ApprovalRequestRecord> {
-      const rows = throwOnError(
-        await db()
-          .from("approval_requests")
-          .insert({
-            action_id: input.actionId,
-            connection_id: input.connectionId,
-            input_summary: input.inputSummary ?? null,
-            operation_id: input.operationId,
-            requested_by: input.requestedBy,
-            status: "pending",
-            task_id: input.taskId ?? null,
-            tenant_id: input.tenantId,
-          })
-          .select("*")
-      );
-      return (rows as ApprovalRequestRecord[])[0];
+      const row = await insertApprovalRequest(supabase, {
+        actorId: input.requestedBy,
+        context: {
+          action_id: input.actionId,
+          connection_id: input.connectionId,
+          input_summary: input.inputSummary ?? null,
+          task_id: input.taskId ?? null,
+        },
+        // Same waiting period core's own gate gives a request: long enough
+        // for the connection owner to find it in tomorrow's inbox.
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        moduleId: APPROVALS_MODULE_ID,
+        operationId: input.operationId,
+        reason:
+          "connection_approval_pending: a human must approve this action; the request was sent to the connection owner",
+        tenantId: input.tenantId,
+      });
+      return toApprovalRequestRecord(row);
+    },
+
+    /**
+     * Spend a standing approval for (principal, operation) if one exists —
+     * consulted BEFORE filing a request, so a human's "approve" actually
+     * unblocks the retried run instead of re-queueing it forever.
+     */
+    async consumeApprovalGrant(input: {
+      operationId: string;
+      principalId: string;
+      taskId?: string | null;
+      tenantId: string;
+    }): Promise<boolean> {
+      return await consumeApprovalGrant(supabase, {
+        actorId: input.principalId,
+        moduleId: APPROVALS_MODULE_ID,
+        operationId: input.operationId,
+        tenantId: input.tenantId,
+        ...(input.taskId ? { subjectIds: [input.taskId] } : {}),
+      });
     },
 
     async createPendingFlow(flow: PendingOAuthFlow): Promise<void> {
@@ -103,26 +169,33 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       );
     },
 
+    /**
+     * Decide via core's approval service so an approval MINTS the grant the
+     * blocked run will spend on retry ("allow once" semantics — the grant
+     * burns on first use). Returns null when the request was not pending —
+     * already decided, expired, or another approver won the race.
+     */
     async decideApprovalRequest(params: {
       decidedBy: string;
       id: string;
       status: "approved" | "denied";
       tenantId: string;
     }): Promise<ApprovalRequestRecord | null> {
-      const rows = throwOnError(
-        await db()
-          .from("approval_requests")
-          .update({
-            decided_at: new Date().toISOString(),
-            decided_by: params.decidedBy,
-            status: params.status,
-          })
-          .eq("id", params.id)
-          .eq("tenant_id", params.tenantId)
-          .eq("status", "pending")
-          .select("*")
-      ) as ApprovalRequestRecord[];
-      return rows[0] ?? null;
+      const service = createApprovalService(supabase);
+      const decided = await service.decide({
+        decidedBy: params.decidedBy,
+        decision: params.status === "approved" ? "allow_once" : "deny",
+        requestId: params.id,
+        tenantId: params.tenantId,
+      });
+      // decide() answers a lost race with the already-decided row; only the
+      // caller that actually flipped pending → decided reports success, so a
+      // second approver cannot double-fire downstream (grants, re-dispatch).
+      if (!decided || decided.decidedBy !== params.decidedBy) {
+        return null;
+      }
+      const row = await getApprovalRequest(supabase, params.id);
+      return row ? toApprovalRequestRecord(row) : null;
     },
 
     async getConnection(params: {
@@ -139,20 +212,30 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       return rows[0] ?? null;
     },
 
+    async getApprovalRequest(
+      id: string
+    ): Promise<ApprovalRequestRecord | null> {
+      const row = await getApprovalRequest(supabase, id);
+      return row ? toApprovalRequestRecord(row) : null;
+    },
+
     async listApprovalRequests(params: {
       status?: ApprovalRequestRecord["status"];
       tenantId: string;
     }): Promise<ApprovalRequestRecord[]> {
-      let query = db()
-        .from("approval_requests")
-        .select("*")
-        .eq("tenant_id", params.tenantId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (params.status) {
-        query = query.eq("status", params.status);
-      }
-      return throwOnError(await query) as ApprovalRequestRecord[];
+      // Core's gate files a connector action's request under the CONNECTOR
+      // module's provenance (e.g. "connections-google"), not "connections" —
+      // the list has to cover the whole family or the approvals UI never
+      // shows the requests that actually block runs.
+      const rows = await listApprovalRequestsForModule(supabase, {
+        moduleId: [
+          APPROVALS_MODULE_ID,
+          ...listConnectorDefinitions().map((def) => def.moduleId),
+        ],
+        tenantId: params.tenantId,
+        ...(params.status ? { status: params.status } : {}),
+      });
+      return rows.map(toApprovalRequestRecord);
     },
 
     async listConnections(params: {

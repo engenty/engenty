@@ -13,6 +13,7 @@ import {
 } from "../index.js";
 import { ensureAgentSessionRunStarted } from "../sessions/run-tracking.js";
 import type { AiSessionScope } from "../sessions/types.js";
+import { scopeAttributionUserId } from "../sessions/types.js";
 
 const logger = createLogger({ name: "task-job-run-record" });
 
@@ -44,7 +45,7 @@ export async function registerTaskJobRun(
   try {
     await store.upsertSession({
       agentId: input.agentTypeKey,
-      createdByUserId: input.scope.userId,
+      createdByUserId: scopeAttributionUserId(input.scope),
       id: input.threadId,
       metadata: { source: "task-job" },
       routeContext: {
@@ -58,7 +59,7 @@ export async function registerTaskJobRun(
     });
     await ensureAgentSessionRunStarted(runStore, {
       agentId: input.agentTypeKey,
-      createdByUserId: input.scope.userId,
+      createdByUserId: scopeAttributionUserId(input.scope),
       id: input.runId,
       tenantId: input.scope.tenantId,
       threadId: input.threadId,

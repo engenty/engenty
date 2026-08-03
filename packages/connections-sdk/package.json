@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@engenty/approvals-sdk": "workspace:*",
     "@engenty/platform-settings": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/telemetry": "workspace:*",

@@ -188,6 +188,16 @@ export function registerAuthRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
   auditLog: SecurityAuditLogAdapter;
+  /**
+   * Drop the session's approval grants when its token is revoked. Logging out
+   * has to withdraw an elevation the user consented to for that session; the
+   * grant's own TTL is a backstop, not the answer. Omitted only by tests that
+   * do not exercise approvals.
+   */
+  revokeSessionApprovalGrants?: (
+    tenantId: string,
+    sessionId: string
+  ) => Promise<void>;
   stores: AuthStores;
 }) {
   params.app.get("/api/auth/.well-known/openid-configuration", (c) => {
@@ -355,6 +365,9 @@ export function registerAuthRoutes(params: {
           await params.stores.sessions.update(sid, {
             revokedAt: nowEpochSeconds(),
           });
+          if (revokedTenantId) {
+            await params.revokeSessionApprovalGrants?.(revokedTenantId, sid);
+          }
         }
       } catch {
         return c.json({ error: "invalid_token" }, 400);

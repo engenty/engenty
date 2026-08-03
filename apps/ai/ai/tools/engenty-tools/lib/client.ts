@@ -36,6 +36,8 @@ export function getCurrentEngentyToolsClient(
       userAccessToken,
       ...(ctx.agentId ? { agentId: ctx.agentId } : {}),
       ...(ctx.goalId ? { goalId: ctx.goalId } : {}),
+      ...(ctx.taskId ? { taskId: ctx.taskId } : {}),
+      ...(ctx.triggerId ? { triggerId: ctx.triggerId } : {}),
     }),
   };
 }

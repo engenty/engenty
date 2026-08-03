@@ -35,6 +35,7 @@ import {
   type ResolveToolApprovalBody,
   releaseTask,
   resolveTaskToolApproval,
+  revokeTaskApprovalGrant,
   updateGoal,
   updateTask,
   updateTaskSettings,
@@ -286,6 +287,18 @@ export function useResolveToolApprovalMutation() {
       body: ResolveToolApprovalBody;
     }) => resolveTaskToolApproval(taskId, body),
     onSuccess: (_, { taskId }) => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      invalidateTaskDetailLiveQueries(queryClient, taskId);
+    },
+  });
+}
+
+export function useRevokeApprovalGrantMutation(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (operationId: string) =>
+      revokeTaskApprovalGrant(taskId, operationId),
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       invalidateTaskDetailLiveQueries(queryClient, taskId);
     },

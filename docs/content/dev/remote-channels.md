@@ -63,10 +63,11 @@ the apps/ai consumer delivers via the live Chat SDK (`chat.thread(id).post`).
 
 ## Enabling (dev)
 
-Opt-in via environment — master switch + at least one platform:
+Configuring a platform is what turns the runtime on — there is no separate
+opt-in. `ENGENTY_REMOTE_CHANNELS_ENABLED=false` is the kill switch over the top,
+for shutting ingress off without rotating or deleting a bot token.
 
 ```bash
-ENGENTY_REMOTE_CHANNELS_ENABLED=true
 ENGENTY_AI_SERVICE_JWT=…        # pnpm service:jwt — dev only; in a deployment
                                 # use ENGENTY_AI_SERVICE_SECRET instead. The
                                 # credential needs `core.users.impersonate`,
@@ -80,17 +81,19 @@ TELEGRAM_BOT_TOKEN=…            # from @BotFather
 ```
 
 Then create a binding in **Settings → Remote channels** (platform + unmapped
-sender policy). Webhook endpoints (under the /ai base path):
+sender policy). Webhook endpoints — on the **gateway origin** (apps/core), which
+proxies `/ai/*` to apps/ai; apps/ai is never exposed directly:
 
 ```
 POST /ai/api/agents/engenty.remote/channels/slack/webhook
 POST /ai/api/agents/engenty.remote/channels/telegram/webhook
 ```
 
-Slack: point the app's **Event Subscriptions** at the webhook (e.g. via
-`npx cloudflared tunnel`), subscribe to `app_mention` + `message.im`, scopes
-`app_mentions:read`, `im:history`, `chat:write`, `users:read`. Telegram:
-`setWebhook` to the telegram path.
+Slack: point the app's **Event Subscriptions** at the webhook on the gateway
+host (e.g. `npx cloudflared tunnel` to the core gateway, port 8787 in dev),
+subscribe to `app_mention` + `message.im`, scopes `app_mentions:read`,
+`im:history`, `chat:write`, `users:read`. Telegram: `setWebhook` to the
+telegram path on the same origin.
 
 ## Deploy notes
 

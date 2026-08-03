@@ -1,3 +1,7 @@
+import {
+  createApprovalService,
+  createFakeApprovalDb,
+} from "@engenty/approvals-sdk";
 import { describe, expect, it } from "vitest";
 import { createAgentEscalationPolicy } from "./agent-escalation-policy.js";
 import type { PrincipalContext } from "./auth.js";
@@ -217,5 +221,131 @@ describe("evaluatePolicy", () => {
       }
     );
     expect(decision.action).toBe("require_approval");
+  });
+
+  describe("grant consumption (D2 phase 3)", () => {
+    // The policy engine spends approval grants itself: a covering grant turns
+    // require_approval into allow, so transports only ever see
+    // require_approval when a human genuinely has to answer.
+    function grantStore(granted: boolean) {
+      const calls: Parameters<
+        NonNullable<
+          NonNullable<Parameters<typeof evaluatePolicy>[2]>["approvalService"]
+        >["consumeGrant"]
+      >[0][] = [];
+      return {
+        calls,
+        approvalService: {
+          consumeGrant: async (input: (typeof calls)[number]) => {
+            calls.push(input);
+            return granted;
+          },
+        },
+      };
+    }
+
+    it("turns require_approval into allow when a grant covers the call", async () => {
+      const store = grantStore(true);
+      const decision = await evaluatePolicy(
+        highRiskWrite(principal({ principalType: "agent" })),
+        undefined,
+        store
+      );
+      expect(decision).toEqual({ action: "allow", reason: "approval grant" });
+    });
+
+    it("keeps require_approval when no grant covers the call", async () => {
+      const store = grantStore(false);
+      const decision = await evaluatePolicy(
+        highRiskWrite(principal({ principalType: "agent" })),
+        undefined,
+        store
+      );
+      expect(decision.action).toBe("require_approval");
+    });
+
+    it("never consults grants when the decision is allow or deny", async () => {
+      const store = grantStore(true);
+      await evaluatePolicy(highRiskWrite(principal()), undefined, store);
+      await evaluatePolicy(
+        highRiskWrite(principal({ capabilities: ["module.read"] })),
+        undefined,
+        store
+      );
+      expect(store.calls).toHaveLength(0);
+    });
+
+    it("binds the consume to the run's task/trigger/goal subjects", async () => {
+      const store = grantStore(true);
+      await evaluatePolicy(
+        highRiskWrite(
+          principal({
+            goalId: "goal-1",
+            principalType: "agent",
+            sessionId: "sess-1",
+            taskId: "task-1",
+            triggerId: "trig-1",
+          })
+        ),
+        undefined,
+        store
+      );
+      expect(store.calls[0]).toMatchObject({
+        actorId: "p-1",
+        moduleId: "tasks",
+        operationId: "triggers_create",
+        sessionId: "sess-1",
+        subjectIds: ["task-1", "trig-1", "goal-1"],
+        tenantId: "t-1",
+      });
+    });
+
+    it("burns a real once-grant so the next call escalates again", async () => {
+      const db = createFakeApprovalDb();
+      const approvalService = createApprovalService(db.client);
+      const auth = principal({ principalType: "agent" });
+      const req = await approvalService.request({
+        actorId: auth.principalId,
+        moduleId: "tasks",
+        operationId: "triggers_create",
+        reason: "high risk",
+        tenantId: auth.tenantId,
+      });
+      await approvalService.decide({
+        decidedBy: "user-1",
+        decision: "allow_once",
+        requestId: req.id,
+        tenantId: auth.tenantId,
+      });
+
+      const deps = { approvalService };
+      const first = await evaluatePolicy(highRiskWrite(auth), undefined, deps);
+      const second = await evaluatePolicy(highRiskWrite(auth), undefined, deps);
+      expect(first.action).toBe("allow");
+      expect(second.action).toBe("require_approval");
+    });
+
+    it("spends grants for profile-policy escalations too", async () => {
+      const store = grantStore(true);
+      const decision = await evaluatePolicy(
+        highRiskWrite(principal()),
+        {
+          profilePolicies: [
+            {
+              pluginConfig: {},
+              pluginId: "tasks",
+              policy: () => ({
+                action: "require_approval" as const,
+                reason: "profile says ask",
+              }),
+              source: "test",
+            },
+          ],
+        },
+        store
+      );
+      expect(decision.action).toBe("allow");
+      expect(store.calls).toHaveLength(1);
+    });
   });
 });

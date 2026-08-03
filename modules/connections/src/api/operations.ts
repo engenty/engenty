@@ -21,7 +21,11 @@ const policySchema = z.enum(["allow", "ask", "deny"]);
 export interface ConnectionsOperationHooks {
   onApprovalDecided: (params: {
     approved: boolean;
+    /** Connector operation id the approval was gating (grant currency). */
+    operationId: string;
     requestId: string;
+    /** Task blocked on this approval, when the ask came from a task run. */
+    taskId: string | null;
     tenantId: string;
   }) => Promise<void>;
   settings: ConnectionsSettingsResolver;
@@ -488,6 +492,21 @@ export function registerConnectionsOperations(
         grant_always?: boolean;
         request_id: string;
       };
+      // Owner check BEFORE deciding. It used to run after: a non-owner's
+      // decide flipped the row to decided, then threw — burning the request
+      // so the actual owner found nothing left to approve.
+      const pendingRequest = await repo.getApprovalRequest(parsed.request_id);
+      if (
+        !pendingRequest ||
+        pendingRequest.tenant_id !== ctx.auth.tenantId ||
+        pendingRequest.status !== "pending"
+      ) {
+        throw new Error("approval_request_not_pending");
+      }
+      await assertOwnerOrThrow(repo, ctx.auth, pendingRequest.connection_id);
+      // Approving mints a one-shot core grant for the requesting principal
+      // (inside decideApprovalRequest) — that grant is what the retried run
+      // spends to get past the gate.
       const decided = await repo.decideApprovalRequest({
         decidedBy: ctx.auth.principalId,
         id: parsed.request_id,
@@ -497,7 +516,6 @@ export function registerConnectionsOperations(
       if (!decided) {
         throw new Error("approval_request_not_pending");
       }
-      await assertOwnerOrThrow(repo, ctx.auth, decided.connection_id);
       if (parsed.approved && parsed.grant_always) {
         await repo.setPolicyOverride({
           connectionId: decided.connection_id,
@@ -507,7 +525,9 @@ export function registerConnectionsOperations(
       }
       await hooks.onApprovalDecided({
         approved: parsed.approved,
+        operationId: decided.operation_id,
         requestId: decided.id,
+        taskId: decided.task_id,
         tenantId: ctx.auth.tenantId,
       });
       ctx.recordAuditEvent?.({

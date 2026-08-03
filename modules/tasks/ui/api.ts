@@ -240,6 +240,19 @@ export function resolveTaskToolApproval(
   });
 }
 
+/** Revoke an approved tool from a task (grants live in the core store). */
+export function revokeTaskApprovalGrant(
+  id: string,
+  operationId: string,
+  signal?: AbortSignal
+) {
+  return requestApiJson<Task>(`/api/tasks/${id}/approval-grants/revoke`, {
+    method: "POST",
+    body: JSON.stringify({ operation_id: operationId }),
+    signal,
+  });
+}
+
 export function getTaskRuns(id: string, signal?: AbortSignal) {
   return requestApiJson<TaskRun[]>(`/api/tasks/${id}/runs`, {
     signal,

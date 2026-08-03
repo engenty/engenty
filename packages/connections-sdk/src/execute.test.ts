@@ -34,13 +34,24 @@ function connection(
 
 interface FakeRepoState {
   connections: ConnectionSummary[];
+  /** Standing core approval grants the gate may consume, by operation id. */
+  grants?: string[];
   overrides?: ConnectionPolicyOverride[];
   pending?: Partial<ApprovalRequestRecord>[];
 }
 
 function fakeRepo(state: FakeRepoState) {
   const createdRequests: Record<string, unknown>[] = [];
+  const grants = [...(state.grants ?? [])];
   const repo = {
+    consumeApprovalGrant: async ({ operationId }: { operationId: string }) => {
+      const at = grants.indexOf(operationId);
+      if (at === -1) {
+        return false;
+      }
+      grants.splice(at, 1);
+      return true;
+    },
     createApprovalRequest: async (input: Record<string, unknown>) => {
       createdRequests.push(input);
       return {
@@ -311,6 +322,47 @@ describe("executeConnectorAction", () => {
     expect(onApprovalRequested).toHaveBeenCalledWith(
       expect.objectContaining({ id: "req-1", status: "pending" })
     );
+  });
+
+  it("spends a standing grant instead of re-asking — approve must unblock", async () => {
+    // The regression this whole fold fixes: a human's "approve" minted
+    // nothing the retried run could use, so the same ask re-queued forever.
+    const target = connection({
+      autonomous_mode: "full",
+      id: "c-1",
+      owner_user_id: "svc-1",
+    });
+    const { createdRequests, repo } = fakeRepo({
+      connections: [target],
+      grants: ["gmail_create_draft"],
+    });
+    const handler = vi.fn(() => Promise.resolve({ ok: true }));
+    const first = await executeConnectorAction({
+      action: makeAction({ group: "write", handler, id: "create_draft" }),
+      connector,
+      input: {},
+      isAutonomous: true,
+      principal: { principalId: "svc-1", principalType: "service" },
+      repo,
+      taskId: "task-7",
+      tenantId: "tenant-1",
+    });
+    expect(first.output).toEqual({ ok: true });
+    expect(createdRequests).toHaveLength(0);
+
+    // The grant was one-shot: the second identical call is gated again.
+    await expect(
+      executeConnectorAction({
+        action: makeAction({ group: "write", handler, id: "create_draft" }),
+        connector,
+        input: {},
+        isAutonomous: true,
+        principal: { principalId: "svc-1", principalType: "service" },
+        repo,
+        taskId: "task-7",
+        tenantId: "tenant-1",
+      })
+    ).rejects.toMatchObject({ code: "connection_approval_pending" });
   });
 
   it("dedupes the approval request while an identical one is pending", async () => {

@@ -4,6 +4,7 @@
 // (offers-search-and-retrieve, offers-create-and-edit,
 // offers-blocks-management) are written against exactly this surface.
 import {
+  actorUserIdFromAuth,
   createPluginServerGatewayCaller,
   type PluginAuthContext,
   type PluginServerApi,
@@ -404,7 +405,7 @@ export function registerOffersGatewayMethods(
         show_phase_totals: false,
         metadata_json: {},
         settings_json: {},
-        created_by: ctx.auth?.principalId ?? null,
+        created_by: actorUserIdFromAuth(ctx.auth),
       };
       const created = await repo.create(createInput);
       await ensureClientRoleOnEntity(ops, parsed.client_id, ctx.auth);

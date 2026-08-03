@@ -225,10 +225,27 @@ a fresh worktree lacks the generated root `supabase/migrations` and derives the 
 container name from the directory name; both pass in the real checkout, where the full
 `pnpm test` is 138/138.
 
-## Not done / still owed
+## Released
 
-1. **Push + release.** `e557f3ac4` is local. Cut the patch release via the `release` skill
-   when you are happy with it.
+**v0.1.89**, cut 2026-08-03 via the `release` skill (`RELEASE_BUMP=patch`), pushed with
+`git push origin main --follow-tags` — the tag is what triggers the image build, the
+Coolify deploy, and the public-mirror sync.
+
+The release carries 25 commits: this security sweep (`e557f3ac4`), CON-02
+(`7e451f087`), and a backlog of unreleased work that had accumulated since v0.1.88
+(GitHub connector, inline App rendering in chat, projects changes, the Gondolin
+deletion). The release commit stages only `package.json` / `CHANGELOG.md` /
+`changelog.json` / `apps/ui/src/data/changelog.json`, so the co-worker's in-flight
+`principalType` work stayed out of it.
+
+**Release notes to communicate** (both are intentional behaviour changes):
+1. App-originated connector writes now pause for approval instead of firing, and obey
+   the connection's `autonomous_mode` clamp. Reads are unaffected.
+2. `/api/auth/service-credentials` and `/api/auth/api-tokens` now require
+   `core.credentials.manage` and refuse derived callers — a CLI run authenticated with
+   an *API token* via `ENGENTY_TOKEN` gets 403 where it used to succeed.
+
+## Not done / still owed
 2. **Dev-stack behavioral verification.** Three items are unit-verified but not reproduced against a running stack: the AUTH-01 and AUTH-02 chains, and WS3's "headless task calling a high-risk op without a grant must pause into the durable task-approval flow". WS4's Gmail end-to-end (build a tiny App declaring `gmail_send_message`, confirm no mail is sent) is likewise owed.
 3. **`pnpm check` repo-wide** still fails on the pre-existing lint debt CI deliberately does not gate on. My files are clean.
 

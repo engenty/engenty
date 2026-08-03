@@ -1,12 +1,16 @@
 import { formatZodErrorForApiError, isZodError } from "@engenty/api-contracts";
+import type {
+  ApprovalDecision,
+  createApprovalService,
+} from "@engenty/approvals-sdk";
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
 import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
 import type { PluginRegistry } from "../../../plugins/registry.js";
-import type {
-  ApprovalDecision,
-  createApprovalService,
-} from "../../../security/approval-service.js";
+import {
+  emitApprovalRequested,
+  fileApprovalRequest,
+} from "../../../security/approval-gate.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import {
   recordCoreAuditEvent,
@@ -620,7 +624,8 @@ export async function invokeOperation(params: {
       transport,
       input,
     },
-    registry
+    registry,
+    { approvalService }
   );
   if (decision.action === "deny") {
     recordModuleAuditEvent(auditLog, moduleId, {
@@ -637,44 +642,26 @@ export async function invokeOperation(params: {
     });
   }
   if (decision.action === "require_approval") {
-    const hasGrant = approvalService.consumeGrant({
-      actorId: auth.principalId,
+    // evaluatePolicy already spent any covering grant — this is a real ask.
+    const gate = await fileApprovalRequest({
+      approvalService,
+      auditLog,
+      auth,
       moduleId,
       operationId,
-      sessionId: auth.sessionId,
+      onRequested: emitApprovalRequested(registry, auth),
+      reason: decision.reason,
+      ...(decision.approvalContext
+        ? { context: decision.approvalContext }
+        : {}),
     });
-    if (!hasGrant) {
-      const req = approvalService.request({
-        actorId: auth.principalId,
-        tenantId: auth.tenantId,
-        moduleId,
-        operationId,
-        reason: decision.reason,
-      });
-      recordModuleAuditEvent(auditLog, moduleId, {
-        type: "policy.require_approval",
-        actorId: auth.principalId,
-        tenantId: auth.tenantId,
-        moduleId,
-        operationId,
-        detail: { approvalRequestId: req.id },
-      });
-      recordModuleAuditEvent(auditLog, moduleId, {
-        type: "approval.created",
-        actorId: auth.principalId,
-        tenantId: auth.tenantId,
-        moduleId,
-        operationId,
-        detail: { approvalRequestId: req.id },
-      });
-      throw new InvokeOperationError("Approval required", 202, {
-        ok: false,
-        status: "approval_required",
-        approvalRequestId: req.id,
-        expiresAt: req.expiresAt,
-        reason: decision.reason,
-      });
-    }
+    throw new InvokeOperationError("Approval required", 202, {
+      ok: false,
+      status: "approval_required",
+      approvalRequestId: gate.approvalRequestId,
+      expiresAt: gate.expiresAt,
+      reason: gate.reason,
+    });
   }
   recordModuleAuditEvent(auditLog, moduleId, {
     type: "policy.allow",
@@ -715,6 +702,7 @@ export async function invokeOperation(params: {
         tenantId: auth.tenantId,
         scopeId: "default",
         principalId: auth.principalId,
+        principalType: auth.principalType,
         capabilities: auth.capabilities,
         // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
         // can audit the acting agent instead of the impersonated user.
@@ -825,6 +813,8 @@ async function requireAuth(
   // capabilities remain the hard ceiling, checked upstream.
   const headerAgentId = c.req.header("x-engenty-agent-id");
   const headerGoalId = c.req.header("x-engenty-goal-id");
+  const headerTaskId = c.req.header("x-engenty-task-id");
+  const headerTriggerId = c.req.header("x-engenty-trigger-id");
   // CON-01: an engenty App drives core with the VIEWING USER's token, so every
   // policy that reads `principalType` sees an ordinary interactive user — and
   // the connections gate then stands aside for the AI pre-gate that, outside
@@ -840,6 +830,11 @@ async function requireAuth(
         : (headerAgentId ?? resolved.agentId),
     ...(headerOrigin === "app" ? { callOrigin: "app" as const } : {}),
     goalId: headerGoalId ?? resolved.goalId,
+    // Task/trigger the headless run is executing — subjects for task- and
+    // routine-scoped approval grants, and (task) the link that lets an
+    // approval resume the blocked task.
+    taskId: headerTaskId ?? resolved.taskId,
+    triggerId: headerTriggerId ?? resolved.triggerId,
   };
   return { error: null, auth };
 }
@@ -1121,7 +1116,8 @@ export async function executeModuleOperation(params: {
       transport,
       input: params.input,
     },
-    params.registry
+    params.registry,
+    { approvalService: params.approvalService }
   );
   if (decision.action === "deny") {
     recordModuleAuditEvent(params.auditLog, moduleId, {
@@ -1139,46 +1135,28 @@ export async function executeModuleOperation(params: {
   }
 
   if (decision.action === "require_approval") {
-    const hasGrant = params.approvalService.consumeGrant({
-      actorId: auth.principalId,
+    // evaluatePolicy already spent any covering grant — this is a real ask.
+    const gate = await fileApprovalRequest({
+      approvalService: params.approvalService,
+      auditLog: params.auditLog,
+      auth,
       moduleId,
       operationId: params.operationId,
-      sessionId: auth.sessionId,
+      onRequested: emitApprovalRequested(params.registry, auth),
+      reason: decision.reason,
+      ...(decision.approvalContext
+        ? { context: decision.approvalContext }
+        : {}),
     });
-    if (!hasGrant) {
-      const req = params.approvalService.request({
-        actorId: auth.principalId,
-        tenantId: auth.tenantId,
-        moduleId,
-        operationId: params.operationId,
-        reason: decision.reason,
-      });
-      recordModuleAuditEvent(params.auditLog, moduleId, {
-        type: "policy.require_approval",
-        actorId: auth.principalId,
-        tenantId: auth.tenantId,
-        moduleId,
-        operationId: params.operationId,
-        detail: { approvalRequestId: req.id },
-      });
-      recordModuleAuditEvent(params.auditLog, moduleId, {
-        type: "approval.created",
-        actorId: auth.principalId,
-        tenantId: auth.tenantId,
-        moduleId,
-        operationId: params.operationId,
-        detail: { approvalRequestId: req.id },
-      });
-      return jsonApiError(params.c, 202, {
-        code: "approval_required",
-        message: "Approval required",
-        details: {
-          approvalRequestId: req.id,
-          expiresAt: req.expiresAt,
-          reason: decision.reason,
-        },
-      });
-    }
+    return jsonApiError(params.c, 202, {
+      code: "approval_required",
+      message: "Approval required",
+      details: {
+        approvalRequestId: gate.approvalRequestId,
+        expiresAt: gate.expiresAt,
+        reason: gate.reason,
+      },
+    });
   }
 
   recordModuleAuditEvent(params.auditLog, moduleId, {
@@ -1224,6 +1202,7 @@ export async function executeModuleOperation(params: {
         tenantId: auth.tenantId,
         scopeId: "default",
         principalId: auth.principalId,
+        principalType: auth.principalType,
         capabilities: auth.capabilities,
         // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
         // can audit the acting agent instead of the impersonated user.
@@ -1575,10 +1554,11 @@ export function registerApprovalRoutes(params: {
     }
     // Scope to the caller's tenant: a user only sees approvals for operations in
     // their own tenant. The cross-tenant queue lives at /api/superadmin/approvals.
-    const tenantId = authResult.auth.tenantId;
-    const pending = params.approvalService
-      .listPending()
-      .filter((req) => req.tenantId === tenantId);
+    // The filter is the store's, not a post-filter here — listing every tenant's
+    // queue and narrowing it in JS put one missed line between two tenants.
+    const pending = await params.approvalService.listPending(
+      authResult.auth.tenantId
+    );
     return jsonApiSuccess(c, pending);
   });
 
@@ -1601,12 +1581,13 @@ export function registerApprovalRoutes(params: {
     }
     // Only decide requests in the caller's own tenant. Answer 404 (not 403) for
     // a foreign id so we don't reveal that another tenant's request exists.
-    const existing = params.approvalService.get(c.req.param("id"));
+    const existing = await params.approvalService.get(c.req.param("id"));
     if (!existing || existing.tenantId !== authResult.auth.tenantId) {
       return jsonApiError(c, 404, { message: "Approval request not found" });
     }
-    const decided = params.approvalService.decide({
+    const decided = await params.approvalService.decide({
       requestId: c.req.param("id"),
+      tenantId: authResult.auth.tenantId,
       decision,
       decidedBy: authResult.auth.principalId,
       sessionId: authResult.auth.sessionId,

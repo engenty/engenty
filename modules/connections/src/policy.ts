@@ -14,24 +14,6 @@ import type {
   PluginPolicyInput,
   PluginProfilePolicy,
 } from "@engenty/plugin-sdk";
-import { createLogger } from "@engenty/telemetry";
-
-const logger = createLogger({ name: "connections-policy" });
-
-export interface ConnectionsPolicyHooks {
-  /**
-   * Called when an autonomous principal hits an `ask` action: records the
-   * durable approval request and notifies approvers. Must be idempotent per
-   * (connection, operation, principal) while a request is pending.
-   */
-  onAutonomousAsk: (params: {
-    actionId: string;
-    connectionId: string;
-    operationId: string;
-    requestedBy: string;
-    tenantId: string;
-  }) => Promise<void>;
-}
 
 /**
  * The authoritative gate for connector operations, registered as an async
@@ -43,13 +25,13 @@ export interface ConnectionsPolicyHooks {
  *   approval stays with the AI-side native suspend/resume pre-gate.
  * - autonomous callers — agent/service principals, AND user-token calls whose
  *   origin is an engenty App (no chat pre-gate behind them) — `ask` →
- *   require_approval (202) plus a durable approval request; explicit `allow`
+ *   require_approval with connection context attached; core's approval gate
+ *   consumes a standing grant or files the durable request. Explicit `allow`
  *   overrides return `allow`, bypassing core's default approval requirement
  *   for non-user principals.
  */
 export function createConnectionsProfilePolicy(
-  repo: ConnectionsRepo,
-  hooks: ConnectionsPolicyHooks
+  repo: ConnectionsRepo
 ): PluginProfilePolicy {
   return async (input: PluginPolicyInput) => {
     const match = resolveConnectorOperation(input.operationId);
@@ -130,22 +112,19 @@ export function createConnectionsProfilePolicy(
       // static contract; core stays permissive for user principals.
       return null;
     }
-    try {
-      await hooks.onAutonomousAsk({
-        actionId: action.id,
-        connectionId: connection.id,
-        operationId: input.operationId,
-        requestedBy: input.auth.principalId,
-        tenantId: input.auth.tenantId,
-      });
-    } catch (error) {
-      logger.warn("failed to record autonomous approval request", {
-        error: error instanceof Error ? error.message : String(error),
-        operationId: input.operationId,
-      });
-    }
+    // Core's approval gate takes it from here: consume a standing grant or
+    // file ONE deduped request in core.approval_requests (and emit
+    // `approval.requested`). This policy used to write a request row of its
+    // own here — a second ledger nobody consumed, filed even when a grant let
+    // the call through. The context rides along so the approvals UI can say
+    // which connection the ask resolved to.
     return {
       action: "require_approval",
+      approvalContext: {
+        action_id: action.id,
+        connection_id: connection.id,
+        connector_id: connector.id,
+      },
       reason:
         "connection_approval_pending: a human must approve this action; the request was sent to the connection owner",
     };

@@ -212,8 +212,30 @@ export interface PluginAuthContext {
   /** Goal the agent is pursuing (x-engenty-goal-id); pairs with agentId. */
   goalId?: string;
   principalId: string;
+  /**
+   * What kind of principal `principalId` names: a core.users id ("user"), a
+   * core.service_credential id ("service"), or a core.agents id ("agent").
+   * Absent means "user" — the assumption every caller made before service
+   * principals existed. Handlers must not write `principalId` into a
+   * user-FK column without checking this; use `actorUserIdFromAuth`.
+   */
+  principalType?: "user" | "agent" | "service";
   scopeId: string;
   tenantId: string;
+}
+
+/**
+ * The acting user's id for attribution columns (actor_user_id and friends),
+ * or null when the caller is not a user — a service or agent principal's id
+ * must never land in a column with a foreign key to core.users.
+ */
+export function actorUserIdFromAuth(
+  auth?: Pick<PluginAuthContext, "principalId" | "principalType">
+): string | null {
+  if (!auth) {
+    return null;
+  }
+  return (auth.principalType ?? "user") === "user" ? auth.principalId : null;
 }
 
 /** Input for recording a module audit event. Core fills actorId, tenantId, moduleId. */
@@ -431,6 +453,13 @@ export interface PluginPolicyInput {
 
 export interface PluginPolicyDecision {
   action: "allow" | "deny" | "require_approval";
+  /**
+   * With `require_approval`: module-specific detail stored on the approval
+   * request core files (e.g. which connection an ask resolved to), so the
+   * module's approvals UI can describe the blocked call without keeping a
+   * request store of its own.
+   */
+  approvalContext?: Record<string, unknown>;
   reason: string;
 }
 

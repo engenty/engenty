@@ -1,7 +1,7 @@
+import type { createApprovalService } from "@engenty/approvals-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { TenantPluginOverridesDal } from "../../dal/tenant-plugin-overrides.js";
 import type { PluginRegistry } from "../../plugins/registry.js";
-import type { createApprovalService } from "../../security/approval-service.js";
 import type { SecurityAuditLogAdapter } from "../../security/audit-adapter.js";
 import type { AuthProvider } from "../../security/auth-provider.js";
 import { jsonApiError } from "./api-response.js";

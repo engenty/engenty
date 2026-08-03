@@ -61,7 +61,7 @@ export interface SessionRunTracker {
 
 export function createSessionRunTracker(params: {
   agentId: string;
-  createdByUserId: string;
+  createdByUserId: string | null;
   modelId?: string | null;
   runId: string;
   runStore: AgentRunStore | null;

@@ -28,6 +28,12 @@ function buildMethodMap(
 
 export interface MethodInvokerAuth {
   principalId: string;
+  /**
+   * Carried through to the handler's `PluginAuthContext`. Omitting it makes
+   * `actorUserIdFromAuth` treat the caller as a user, which would put a
+   * service-credential or agent id into a core.users FK column.
+   */
+  principalType?: "user" | "agent" | "service";
   scopeId?: string;
   tenantId: string | null;
 }
@@ -75,6 +81,9 @@ export function createMethodInvoker(params: {
       auth: auth
         ? {
             principalId: auth.principalId,
+            ...(auth.principalType
+              ? { principalType: auth.principalType }
+              : {}),
             tenantId: auth.tenantId ?? "default",
             scopeId: auth.scopeId ?? "default",
           }

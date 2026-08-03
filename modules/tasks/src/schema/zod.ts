@@ -50,7 +50,9 @@ export const taskSchema = z.object({
   // Routine (trigger) that materialized this task, if any.
   trigger_id: z.string().uuid().nullable().optional(),
   // Operation ids a headless run may execute without asking ("Allow for this
-  // task"). `approval_grants_once` is consumed by the next dispatched run.
+  // task"). Stored in core.approval_grants (subject = task id) and hydrated
+  // onto the DETAIL response only; `approval_grants_once` is reaped after the
+  // run it unlocked.
   approval_grants: z.array(z.string()).optional(),
   approval_grants_once: z.array(z.string()).optional(),
   // Operations a paused run is waiting on — what the task's approval UI reads.
@@ -144,8 +146,12 @@ export const taskCreateInputSchema = z.object({
 export const taskUpdateInputSchema = taskCreateInputSchema.partial().extend({
   title: z.string().min(1).optional(),
   collaborator_user_ids: z.array(z.string().uuid()).optional(),
-  // Replace the whole "Allow for this task" grant set; [] clears it.
-  approval_grants: z.array(z.string().min(1)).max(64).optional(),
+});
+
+// Revoking an approved tool goes through the dedicated revoke route (the
+// grants live in core.approval_grants, not on the task row).
+export const taskRevokeApprovalGrantInputSchema = z.object({
+  operation_id: z.string().min(1),
 });
 
 export const taskIdParamsSchema = z.object({

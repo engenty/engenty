@@ -91,8 +91,8 @@ function rowToTask(row: Record<string, unknown>): Task {
       (row.created_by_agent_type_key as string | null) ?? null,
     due_date: (row.due_date as string | null) ?? null,
     trigger_id: (row.trigger_id as string | null) ?? null,
-    approval_grants: (row.approval_grants as string[] | null) ?? [],
-    approval_grants_once: (row.approval_grants_once as string[] | null) ?? [],
+    // approval_grants / approval_grants_once live in core.approval_grants
+    // (subject = task id) — the detail route hydrates them from there.
     pending_approval_operation_ids:
       (row.pending_approval_operation_ids as string[] | null) ?? [],
     // request_depth column remains in DB (compat) but is unused — always 0 historically.
@@ -891,10 +891,6 @@ export function createTasksRepoSupabase(
       if (input.blocked_by_task_ids !== undefined) {
         updates.blocked_by_task_ids = input.blocked_by_task_ids;
       }
-      if (input.approval_grants !== undefined) {
-        updates.approval_grants = input.approval_grants;
-      }
-
       if (
         input.primary_assignee_kind !== undefined ||
         input.primary_assignee_user_id !== undefined ||
@@ -982,47 +978,6 @@ export function createTasksRepoSupabase(
       return updated;
     },
 
-    /** Idempotently add an operation id to a task's approval grant list.
-     * `once` targets the one-shot list consumed by the next run. */
-    async addTaskApprovalGrant(
-      id: string,
-      operationId: string,
-      opts: { once: boolean }
-    ): Promise<Task | null> {
-      const column = opts.once ? "approval_grants_once" : "approval_grants";
-      const { data: current, error: readError } = await tasks()
-        .select(column)
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .maybeSingle();
-      if (readError) {
-        throw new Error(`Failed to load task grants: ${readError.message}`);
-      }
-      if (!current) {
-        return null;
-      }
-      const existing =
-        ((current as Record<string, unknown>)[column] as string[] | null) ?? [];
-      if (existing.includes(operationId)) {
-        return this.getTask(id);
-      }
-      const { data, error } = await tasks()
-        .update({
-          [column]: [...existing, operationId],
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .select()
-        .maybeSingle();
-      if (error) {
-        throw new Error(`Failed to add task grant: ${error.message}`);
-      }
-      return data ? rowToTask(data as Record<string, unknown>) : null;
-    },
-
     /** Drop one answered operation from the task's pending-approval list.
      * Only approvals clear an entry: a denial keeps it so the human can still
      * change their mind from the task instead of losing the affordance. */
@@ -1046,19 +1001,6 @@ export function createTasksRepoSupabase(
         .eq("scope_id", scopeId);
       if (error) {
         throw new Error(`Failed to clear pending approval: ${error.message}`);
-      }
-    },
-
-    /** Clear the one-shot grant list — called at the start of each dispatched
-     * run so "Allow once" is consumed exactly once. */
-    async clearTaskOnceApprovalGrants(id: string): Promise<void> {
-      const { error } = await tasks()
-        .update({ approval_grants_once: [] })
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId);
-      if (error) {
-        throw new Error(`Failed to clear once grants: ${error.message}`);
       }
     },
 

@@ -6,6 +6,13 @@ export type PolicyAction = "allow" | "deny" | "require_approval";
 
 export interface PolicyDecision {
   action: PolicyAction;
+  /**
+   * With `require_approval`: module detail a profile policy attached (e.g.
+   * which connection an ask resolved to). The approval gate stores it on the
+   * request it files, so the owning module's UI can describe the blocked call.
+   * Profile-policy decisions pass through evaluatePolicy verbatim, carrying it.
+   */
+  approvalContext?: Record<string, unknown>;
   reason: string;
 }
 
@@ -19,6 +26,24 @@ export interface PolicyInput {
   riskLevel: "low" | "medium" | "high" | "critical";
   scopeId?: string;
   transport?: "gateway" | "module_ops" | "mcp" | "http";
+}
+
+/**
+ * Stores the policy engine may consult beyond the token itself. Structural on
+ * purpose (matches `createApprovalService(...).consumeGrant`) so policy.ts
+ * stays decoupled from the sdk's concrete service type.
+ */
+export interface PolicyDeps {
+  approvalService?: {
+    consumeGrant(input: {
+      actorId: string;
+      moduleId: string;
+      operationId: string;
+      sessionId?: string;
+      subjectIds?: string[];
+      tenantId: string;
+    }): Promise<boolean>;
+  } | null;
 }
 
 function hasCapability(auth: PrincipalContext, required: string): boolean {
@@ -52,7 +77,48 @@ async function evaluateProfilePolicies(
   return null;
 }
 
+/**
+ * The full policy decision, grants included (D2 phase 3). A standing or
+ * subject-bound approval is authorization state exactly like a capability, so
+ * the policy engine consults it here instead of every transport pairing a
+ * "require_approval" result with its own consume-then-request sequence. When
+ * the decision would be `require_approval` and a grant covers the call, the
+ * grant is SPENT (a once-grant is deleted) and the decision becomes `allow` —
+ * callers only ever see `require_approval` when a human genuinely has to
+ * answer, and their sole remaining job is to file the request.
+ */
 export async function evaluatePolicy(
+  input: PolicyInput,
+  registry?: Pick<PluginRegistry, "profilePolicies">,
+  deps?: PolicyDeps
+): Promise<PolicyDecision> {
+  const decision = await evaluatePolicyRules(input, registry);
+  if (decision.action !== "require_approval" || !deps?.approvalService) {
+    return decision;
+  }
+  const { auth } = input;
+  // The run's task, trigger and goal are the subjects its grants may be bound
+  // to: an approval given for THIS task's (or routine's) work must open the
+  // gate for whichever principal ended up executing the retry, and for
+  // nothing outside that work.
+  const subjectIds = [auth.taskId, auth.triggerId, auth.goalId].filter(
+    (id): id is string => !!id
+  );
+  const granted = await deps.approvalService.consumeGrant({
+    actorId: auth.principalId,
+    moduleId: input.moduleId,
+    operationId: input.operationId,
+    tenantId: auth.tenantId,
+    ...(auth.sessionId ? { sessionId: auth.sessionId } : {}),
+    ...(subjectIds.length > 0 ? { subjectIds } : {}),
+  });
+  if (granted) {
+    return { action: "allow", reason: "approval grant" };
+  }
+  return decision;
+}
+
+async function evaluatePolicyRules(
   input: PolicyInput,
   registry?: Pick<PluginRegistry, "profilePolicies">
 ): Promise<PolicyDecision> {

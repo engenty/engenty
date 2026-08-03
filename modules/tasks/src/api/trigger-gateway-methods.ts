@@ -5,10 +5,11 @@
 // it is the one execution path shared by scheduled fires (the apps/ai
 // heartbeat hook), manual "run now", and (later) event-driven fires.
 import { randomBytes } from "node:crypto";
-import type {
-  PluginAuthContext,
-  PluginServerApi,
-  QueueServiceLike,
+import {
+  actorUserIdFromAuth,
+  type PluginAuthContext,
+  type PluginServerApi,
+  type QueueServiceLike,
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -135,7 +136,7 @@ export function registerTriggerGatewayMethods(
         }
         const template = await repo.createTaskTemplate(
           parsed.task_template,
-          auth.principalId ?? null
+          actorUserIdFromAuth(auth)
         );
         templateId = template.id;
       }
@@ -163,7 +164,7 @@ export function registerTriggerGatewayMethods(
               ? randomBytes(24).toString("hex")
               : null,
         },
-        auth.principalId ?? null
+        actorUserIdFromAuth(auth)
       );
       if (
         trigger.kind === "event" &&
@@ -257,8 +258,13 @@ export function registerTriggerGatewayMethods(
       if (!trigger) {
         throw new Error("trigger_not_found");
       }
+      // `created_by_user_id` on both `trigger` and the materialized task is a
+      // core.users FK, and this path is the one the scheduler drives as the AI
+      // service principal — whose principalId is a core.service_credential id.
+      // Writing it raw makes the insert fail the FK, so a service fire records
+      // nothing. Unattended fires simply have no human creator.
       return fireTrigger({
-        createdByUserId: auth.principalId ?? null,
+        createdByUserId: actorUserIdFromAuth(auth),
         queue: options.queue ?? null,
         supabase: options.supabase,
         trigger,
@@ -309,7 +315,7 @@ export function registerTriggerGatewayMethods(
       const repo = triggersRepoFactory(auth);
       return repo.createTaskTemplate(
         taskTemplateCreateInputSchema.parse(input),
-        auth.principalId ?? null
+        actorUserIdFromAuth(auth)
       );
     },
   });

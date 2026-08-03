@@ -12,6 +12,42 @@ import { z } from "zod";
 const SCHEMA = "module_secrets";
 
 /**
+ * How long an in-chat "yes, this agent may read that secret" stays good.
+ * Long enough to cover the conversation it was given in, short enough that an
+ * abandoned goal stops carrying live secret access.
+ */
+const GOAL_GRANT_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The row an approved in-chat reveal writes to `core.agent_goal_grants`.
+ *
+ * `agent_id: null` means "any agent on this goal", matching canReadSecret's
+ * goal-grant branch. The expiry is what makes the grant's stated lifetime —
+ * dies with the conversation — actually true: nothing reaps these rows when a
+ * goal reaches a terminal status, so an unbounded row would authorize every
+ * future agent on that goal forever. A lapsed grant just re-gates the reveal
+ * and asks the human again, which is how a secret grant should fail.
+ */
+export function buildGoalGrantRow(input: {
+  capability: string;
+  goalId: string;
+  grantedBy: string;
+  now?: number;
+  tenantId: string;
+}) {
+  return {
+    agent_id: null,
+    capability: input.capability,
+    expires_at: new Date(
+      (input.now ?? Date.now()) + GOAL_GRANT_TTL_MS
+    ).toISOString(),
+    goal_id: input.goalId,
+    granted_by: input.grantedBy,
+    tenant_id: input.tenantId,
+  };
+}
+
+/**
  * The ONLY path that returns plaintext. Server-side decrypt, gated by
  * resolve.canReadSecret (owner_scope membership + grants), and every call is
  * written to access_log. Never exposed as a column grant. See plan §5.
@@ -152,21 +188,21 @@ export function registerSecretsRevealRoutes(
         return hono.json({ error: "Forbidden" }, 403);
       }
 
-      // agent_id null = "any agent on this goal": the grant lives and dies
-      // with the conversation, matching canReadSecret's goal-grant branch.
       const { error: grantError } = await supabase
         .schema("core")
         .from("agent_goal_grants")
         .upsert(
-          {
-            tenant_id: ctx.auth.tenantId,
-            goal_id: goalId,
-            agent_id: null,
+          buildGoalGrantRow({
             capability: `secrets.read:${secret.id}`,
-            granted_by: ctx.auth.principalId,
-          },
+            goalId,
+            grantedBy: ctx.auth.principalId,
+            tenantId: ctx.auth.tenantId,
+          }),
           {
-            ignoreDuplicates: true,
+            // Not ignoreDuplicates: now that grants lapse, a second approval
+            // has to renew the existing row. Skipping the write would leave an
+            // expired grant in place and re-ask the human forever.
+            ignoreDuplicates: false,
             onConflict: "tenant_id, goal_id, agent_id, capability",
           }
         );

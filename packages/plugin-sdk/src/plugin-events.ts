@@ -16,6 +16,14 @@ export const PLUGIN_OPERATION_EVENTS = [
   "operation.error",
 ] as const;
 
+// The approval gate's lifecycle, emitted by core for every module's gated
+// operations — one name for notification fan-out and tenant triggers, instead
+// of each module inventing its own `<module>.approval.requested` flavor.
+export const PLUGIN_APPROVAL_EVENTS = [
+  "approval.requested",
+  "approval.decided",
+] as const;
+
 export const PLUGIN_AGENT_EVENTS = [
   "agent.beforeRun",
   "agent.context",
@@ -31,12 +39,14 @@ export const PLUGIN_FRONTEND_TOOL_EVENTS = [
 
 export type PluginLifecycleEventName = (typeof PLUGIN_LIFECYCLE_EVENTS)[number];
 export type PluginOperationEventName = (typeof PLUGIN_OPERATION_EVENTS)[number];
+export type PluginApprovalEventName = (typeof PLUGIN_APPROVAL_EVENTS)[number];
 export type PluginAgentEventName = (typeof PLUGIN_AGENT_EVENTS)[number];
 export type PluginFrontendToolEventName =
   (typeof PLUGIN_FRONTEND_TOOL_EVENTS)[number];
 export type PluginCoreEventName =
   | PluginLifecycleEventName
   | PluginOperationEventName
+  | PluginApprovalEventName
   | PluginAgentEventName
   | PluginFrontendToolEventName;
 export type PluginModuleEventName = string & {};

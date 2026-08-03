@@ -103,6 +103,12 @@ export const runSpecialistStep = createStep({
       // Run on the registered ai.thread (created at checkout) so memory + the run
       // record share one drillable thread; fall back to a task-derived id.
       childThreadId: inputData.thread_id ?? `taskjob-${inputData.task_id}`,
+      // Forwarded to core as x-engenty-task-id / x-engenty-trigger-id:
+      // task- and routine-scoped grants open the gate for this run, and a
+      // gated miss files a request that names the task — which is what lets
+      // the approval re-dispatch it.
+      taskId: inputData.task_id,
+      ...(inputData.trigger_id ? { triggerId: inputData.trigger_id } : {}),
       extraTools,
       registry,
       scope,

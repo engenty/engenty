@@ -101,23 +101,34 @@ export async function executeConnectorAction(
     });
   }
   if (resolved.decision === "ask" && params.isAutonomous) {
-    const request = await recordApprovalRequest({
-      action,
-      connection,
-      connector,
-      principal,
-      repo,
+    // A standing approval unblocks the call — this is what makes a human's
+    // "approve" mean something to the retried run. Without this consume, the
+    // decided request just closed and the next attempt queued a fresh one.
+    const granted = await repo.consumeApprovalGrant({
+      operationId: connectorOperationId(connector, action.id),
+      principalId: principal.principalId,
       taskId: params.taskId ?? null,
       tenantId,
     });
-    if (request) {
-      await params.onApprovalRequested?.(request);
+    if (!granted) {
+      const request = await recordApprovalRequest({
+        action,
+        connection,
+        connector,
+        principal,
+        repo,
+        taskId: params.taskId ?? null,
+        tenantId,
+      });
+      if (request) {
+        await params.onApprovalRequested?.(request);
+      }
+      throw new ConnectionsActionError(
+        "connection_approval_pending",
+        "a human must approve this action; the request was sent to the connection owner",
+        { action_id: action.id, connection_id: connection.id }
+      );
     }
-    throw new ConnectionsActionError(
-      "connection_approval_pending",
-      "a human must approve this action; the request was sent to the connection owner",
-      { action_id: action.id, connection_id: connection.id }
-    );
   }
   // decision "ask" with a live principal proceeds: the AI-side native
   // suspend/resume pre-gate already handled the approval UX upstream.

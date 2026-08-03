@@ -4,6 +4,7 @@ import type {
   PluginServerApi,
   QueueServiceLike,
 } from "@engenty/plugin-sdk";
+import { actorUserIdFromAuth } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { createTasksRepoSupabase } from "../dal/supabase.js";
 import type { TriggersRepo } from "../dal/triggers.js";
@@ -41,7 +42,10 @@ import {
 } from "../schema/zod.js";
 import { fetchRegisteredAgentIds } from "./agent-key-validator.js";
 import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
-import { resolveTaskToolApproval } from "./task-approval-service.js";
+import {
+  type CoreGrantsWriter,
+  resolveTaskToolApproval,
+} from "./task-approval-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -100,6 +104,9 @@ export interface TasksGatewayOptions {
   aiBaseUrl?: string | null;
   /** Service JWT for apps/ai registry calls. When absent, agent key validation is skipped. */
   aiServiceJwt?: string | null;
+  /** Core approval-grant writer (D2): the durable half of a tool approval,
+   * spent by core-side gates via the run's forwarded task id. */
+  coreGrantsFactory?: (auth: PluginAuthContext) => CoreGrantsWriter;
   /** Queue service for dispatching agent tasks. When absent, auto-dispatch is skipped. */
   queue?: QueueServiceLike | null;
   /** Scoped triggers repo, for routine-scoped approval grants. */
@@ -184,7 +191,7 @@ export function registerTasksGatewayMethods(
         );
       }
       const task = await repo.createTask(parsed, {
-        createdByUserId: ctx.auth?.principalId ?? null,
+        createdByUserId: actorUserIdFromAuth(ctx.auth),
         actorKind: parsed.created_by_agent_type_key ? "agent" : "user",
       });
       if (options?.queue && ctx.auth?.tenantId) {
@@ -225,7 +232,7 @@ export function registerTasksGatewayMethods(
       const updated = await repo.updateTask(id, patch, {
         actorKind,
         hasActiveCheckout: !!existing.checkout_run_id,
-        actorUserId: ctx.auth?.principalId ?? null,
+        actorUserId: actorUserIdFromAuth(ctx.auth),
         actorAgentTypeKey: actor_agent_type_key ?? null,
       });
       if (!updated) {
@@ -281,7 +288,11 @@ export function registerTasksGatewayMethods(
           : null;
       return resolveTaskToolApproval(
         {
-          actorUserId: ctx.auth?.principalId ?? null,
+          actorUserId: actorUserIdFromAuth(ctx.auth),
+          coreGrants:
+            options?.coreGrantsFactory && ctx.auth
+              ? options.coreGrantsFactory(ctx.auth)
+              : null,
           queue: options?.queue ?? null,
           tasksRepo: repo,
           tenantId: ctx.auth?.tenantId ?? null,
@@ -298,6 +309,48 @@ export function registerTasksGatewayMethods(
   });
 
   api.registerOperation({
+    operationId: "tasks_approval_grants_effective",
+    summary: "Effective tool-approval grant set for a task's next run",
+    ...readOp(["module.tasks.read"]),
+    inputSchema: taskClearOnceApprovalsInputSchema,
+    outputSchema: z.object({ approval_grants: z.array(z.string()) }),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const parsed = taskClearOnceApprovalsInputSchema.parse(input);
+      const task = await repo.getTask(parsed.id);
+      if (!task) {
+        throw new Error("task_not_found");
+      }
+      // The core store is where approvals land (2c dual-write + backfill);
+      // the trigger's approval_grants column is routine CONFIG — part of the
+      // trigger's definition, not an approval artifact — so it stays a source
+      // in its own right. The legacy task columns are deliberately NOT read:
+      // everything they held was backfilled, and new approvals dual-write.
+      const coreGrants =
+        options?.coreGrantsFactory && ctx.auth
+          ? options.coreGrantsFactory(ctx.auth)
+          : null;
+      const subjectIds = [
+        parsed.id,
+        ...(task.trigger_id ? [task.trigger_id] : []),
+      ];
+      const fromCore =
+        (await coreGrants?.listOperationIds({ subjectIds })) ?? [];
+      let fromTriggerConfig: string[] = [];
+      if (task.trigger_id && options?.triggersRepoFactory && ctx.auth) {
+        const trigger = await options
+          .triggersRepoFactory(ctx.auth)
+          .getTrigger(task.trigger_id)
+          .catch(() => null);
+        fromTriggerConfig = trigger?.approval_grants ?? [];
+      }
+      return {
+        approval_grants: [...new Set([...fromCore, ...fromTriggerConfig])],
+      };
+    },
+  });
+
+  api.registerOperation({
     operationId: "tasks_clear_once_approvals",
     summary: "Clear a task's one-shot tool-approval grants",
     ...writeOp(["module.tasks.write"]),
@@ -305,9 +358,15 @@ export function registerTasksGatewayMethods(
     inputSchema: taskClearOnceApprovalsInputSchema,
     outputSchema: z.object({ ok: z.boolean() }),
     handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const parsed = taskClearOnceApprovalsInputSchema.parse(input);
-      await repo.clearTaskOnceApprovalGrants(parsed.id);
+      // The core once-rows outlive dispatch on purpose (a core-side gate
+      // spends them DURING the run); this call, after the run, is what ends
+      // the ones nobody spent.
+      if (options?.coreGrantsFactory && ctx.auth) {
+        await options.coreGrantsFactory(ctx.auth).revokeOnce({
+          subjectId: parsed.id,
+        });
+      }
       return { ok: true };
     },
   });
@@ -357,7 +416,7 @@ export function registerTasksGatewayMethods(
       const parsed = taskIdParamsSchema.parse(input);
       return runTaskNow(
         {
-          actorUserId: ctx.auth?.principalId ?? null,
+          actorUserId: actorUserIdFromAuth(ctx.auth),
           queue: options?.queue ?? null,
           repo,
           tenantId: ctx.auth?.tenantId ?? null,
@@ -391,7 +450,7 @@ export function registerTasksGatewayMethods(
               createdByAgentTypeKey: created_by_agent_type_key,
               createdByUserId: null,
             }
-          : { createdByUserId: ctx.auth?.principalId ?? null }),
+          : { createdByUserId: actorUserIdFromAuth(ctx.auth) }),
       });
     },
   });
@@ -416,7 +475,7 @@ export function registerTasksGatewayMethods(
           id,
           parsed,
           {
-            actorUserId: ctx.auth?.principalId ?? null,
+            actorUserId: actorUserIdFromAuth(ctx.auth),
           }
         );
       } catch (err) {
@@ -448,7 +507,7 @@ export function registerTasksGatewayMethods(
       const { id, actor_agent_type_key, ...releaseInput } = raw;
       const released = await repo.releaseTask(id, releaseInput, {
         actorKind: actor_agent_type_key ? "agent" : "user",
-        actorUserId: ctx.auth?.principalId ?? null,
+        actorUserId: actorUserIdFromAuth(ctx.auth),
         actorAgentTypeKey: actor_agent_type_key ?? null,
       });
       if (!released) {
@@ -627,7 +686,7 @@ export function registerTasksGatewayMethods(
           tenantId: ctx.auth?.tenantId ?? null,
         },
         params.id,
-        ctx.auth?.principalId ?? null
+        actorUserIdFromAuth(ctx.auth)
       );
     },
   });

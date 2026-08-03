@@ -1,11 +1,12 @@
 // "Approved tools" section on the task sidebar — lists the operation ids this
 // task may run without asking (persistent grants, plus one-shot grants marked
-// "once"). Persistent grants can be revoked; the replace-set PATCH mirrors the
-// blocked-by-task-ids editing pattern. Hidden when there are no grants.
+// "once"). The grants live in core.approval_grants (subject = task id), so
+// revoking goes through the dedicated revoke route, not a task PATCH. Hidden
+// when there are no grants.
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { ShieldCheck, X } from "lucide-react";
-import { useUpdateTaskMutation } from "../tasks-queries.js";
+import { useRevokeApprovalGrantMutation } from "../tasks-queries.js";
 
 export function TaskApprovedToolsSection({
   taskId,
@@ -19,16 +20,14 @@ export function TaskApprovedToolsSection({
   disabled?: boolean;
 }) {
   const { t } = useTranslation("tasks");
-  const updateMutation = useUpdateTaskMutation(taskId);
+  const revokeMutation = useRevokeApprovalGrantMutation(taskId);
 
   if (grants.length === 0 && onceGrants.length === 0) {
     return null;
   }
 
   const remove = (operationId: string) => {
-    updateMutation.mutate({
-      approval_grants: grants.filter((g) => g !== operationId),
-    });
+    revokeMutation.mutate(operationId);
   };
 
   return (
@@ -47,7 +46,7 @@ export function TaskApprovedToolsSection({
             <Button
               aria-label={t("detail.removeApprovedTool")}
               className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive"
-              disabled={disabled || updateMutation.isPending}
+              disabled={disabled || revokeMutation.isPending}
               onClick={() => remove(op)}
               size="icon"
               variant="ghost"

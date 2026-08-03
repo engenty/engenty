@@ -67,8 +67,11 @@ export function createBuiltinRegistryTools() {
     // Registered for resolution only — agents get it solely via their
     // toolIds (the coordinator declares it; the copilot does not).
     ...createAgentProposeTools(),
-    // App-build composite (engenty.app-coder declares it; the copilot does
-    // not — app requests should be delegated, not built inline).
+    // App-build composite. Declared by engenty.app-coder AND the copilot: the
+    // copilot was originally delegation-only, but live runs showed the
+    // routing-tier supervisor scaffolding fake "apps" in its workspace rather
+    // than delegating — so the correct one-call path is in its own hands now
+    // (see ENGENTY_COPILOT_TOOL_IDS in modules/engenty-copilot).
     ...createAppBuildTools(),
     // File analyst (and any agent listing analyze_file in toolIds).
     analyze_file: analyzeFileTool,

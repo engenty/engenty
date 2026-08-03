@@ -25,7 +25,6 @@ import type { UpgradeWebSocket } from "hono/ws";
 import { mastra } from "../ai/index.js";
 import { engentyToolsRunAls } from "../ai/tools/engenty-tools/lib/run-context.js";
 import { mirrorArtifactToBoundStorage } from "./ai/artifacts/artifact-mirror.js";
-import type { ExternalChannelConfig } from "./ai/channels.js";
 import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
@@ -150,7 +149,6 @@ export interface CreateAppOptions {
   elevenLabsRealtimeApiKey?: () => string | null;
   elevenLabsVoicesFetch?: typeof fetch;
   events?: PluginEventsApi;
-  externalChannelsConfig?: ExternalChannelConfig;
   mistralRealtimeApiKey?: () => string | null;
   moduleCapabilityLoader?: DynamicAiModuleCapabilityLoader | null;
   openAiRealtimeApiKey?: () => string | null;
@@ -202,6 +200,10 @@ export async function createApp(options: CreateAppOptions = {}) {
           keys: [
             "AI_GATEWAY_API_KEY",
             "ELEVENLABS_API_KEY",
+            // The remote-channel master switch is platform-configurable, so the
+            // Setup UI offers it — without hydration that toggle would silently
+            // do nothing here, since isRemoteChannelsEnabled() reads process.env.
+            "ENGENTY_REMOTE_CHANNELS_ENABLED",
             "MISTRAL_API_KEY",
             "OPENAI_API_KEY",
             "SLACK_BOT_TOKEN",
@@ -781,11 +783,16 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   registerAiSettingsRoutes(app, { scopeResolver });
   // External channel ingress (registerExternalChannelRoutes) ran inbound channel
-  // messages through the legacy detached-run executor — removed in the 2026-06-20
-  // legacy cutover. Successor: the engenty-remote channel runtime below
-  // (Mastra AgentChannels + Chat SDK adapters), opt-in via
-  // ENGENTY_REMOTE_CHANNELS_ENABLED.
-  await registerRemoteChannels(app, { mastra });
+  // messages through the legacy detached-run executor — routes removed in the
+  // 2026-06-20 cutover, its stranded config/outbound helpers (ai/channels.ts and
+  // friends, ENGENTY_AI_SLACK_*/DISCORD_*) deleted after. Successor: the
+  // engenty-remote channel runtime below
+  // (Mastra AgentChannels + Chat SDK adapters), which activates when a platform
+  // is configured and is killed by ENGENTY_REMOTE_CHANNELS_ENABLED=false.
+  await registerRemoteChannels(app, {
+    mastra,
+    sessionStore: agentSessionStore,
+  });
 
   if (
     !(

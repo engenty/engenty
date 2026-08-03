@@ -57,53 +57,35 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
 
   registerConnectionsOperations(server, repo, {
     settings,
-    onApprovalDecided: async ({ approved, requestId, tenantId }) => {
+    // task_id/operation_id ride along so the tasks module can resume the
+    // blocked run the approval was really about (subscriber pattern — no
+    // import between the modules).
+    onApprovalDecided: async ({
+      approved,
+      operationId,
+      requestId,
+      taskId,
+      tenantId,
+    }) => {
       await events.modules.emit(
         "connections.approval.decided",
-        { approved, request_id: requestId },
+        {
+          approved,
+          operation_id: operationId,
+          request_id: requestId,
+          task_id: taskId,
+        },
         { tenantId }
       );
     },
   });
 
-  server.registerProfilePolicy(
-    createConnectionsProfilePolicy(repo, {
-      onAutonomousAsk: async (params) => {
-        // Dedupe: one pending request per (connection, operation, principal).
-        const pending = await repo.listApprovalRequests({
-          status: "pending",
-          tenantId: params.tenantId,
-        });
-        const exists = pending.some(
-          (r) =>
-            r.connection_id === params.connectionId &&
-            r.operation_id === params.operationId &&
-            r.requested_by === params.requestedBy
-        );
-        if (exists) {
-          return;
-        }
-        const request = await repo.createApprovalRequest({
-          actionId: params.actionId,
-          connectionId: params.connectionId,
-          operationId: params.operationId,
-          requestedBy: params.requestedBy,
-          tenantId: params.tenantId,
-        });
-        // Notification fan-out (inbox, triggers) subscribes to this event.
-        await events.modules.emit(
-          "connections.approval.requested",
-          {
-            action_id: params.actionId,
-            connection_id: params.connectionId,
-            operation_id: params.operationId,
-            request_id: request.id,
-          },
-          { tenantId: params.tenantId }
-        );
-      },
-    })
-  );
+  // Approval REQUESTS are core's now: the profile policy returns
+  // `require_approval` with connection context, and core's approval gate files
+  // the deduped request in core.approval_requests + emits `approval.requested`.
+  // The onAutonomousAsk hook that wrote module_connections.approval_requests
+  // here is gone with the second ledger it fed.
+  server.registerProfilePolicy(createConnectionsProfilePolicy(repo));
 };
 
 export default registerConnectionsPlugin;

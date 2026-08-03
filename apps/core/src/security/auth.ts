@@ -44,10 +44,21 @@ export interface PrincipalContext {
   roles: string[];
   scopes: string[];
   sessionId?: string;
+  /**
+   * Task a headless run is executing (forwarded x-engenty-task-id). The
+   * approval gate consumes task-scoped grants against it, and stamps it on
+   * the requests it files so an approval can resume the blocked task. Like
+   * agentId/goalId it can only ever NARROW or contextualize — capabilities
+   * remain the ceiling.
+   */
+  taskId?: string;
   tenantId: string;
   tokenId?: string;
   tokenType: "access" | "refresh" | "api_token" | "unknown";
   transport?: "rest" | "cli" | "mcp" | "http" | "gateway" | "module_ops";
+  /** Trigger/routine that materialized the task (x-engenty-trigger-id) —
+   * subject for routine-scoped approval grants. Same narrowing-only rule. */
+  triggerId?: string;
 }
 
 function parseArrayClaim(value: unknown): string[] {

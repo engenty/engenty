@@ -13,6 +13,8 @@ let savedEnv: Record<string, string | undefined>;
 
 interface FakeScenario {
   binding: Record<string, unknown> | null;
+  /** Defaults to true — set false to simulate a replayed platform event. */
+  fresh?: boolean;
   identity: Record<string, unknown> | null;
   pairing_code: string | null;
 }
@@ -29,6 +31,10 @@ function stubFetch(scenario: FakeScenario) {
         return Response.json({
           data: {
             binding: scenario.binding,
+            conversation: scenario.binding
+              ? { ai_thread_id: null, id: "conv-1" }
+              : null,
+            fresh: scenario.fresh ?? true,
             identity: scenario.identity,
             ok: true,
             pairing_code: scenario.pairing_code,
@@ -167,5 +173,23 @@ describe("remote identity gate", () => {
     expect(observed!.approvalPolicy).toBe("suspend");
     const mint = calls.find((c) => c.url.includes("/api/auth/actor-token"));
     expect(mint?.body).toMatchObject({ tenant_id: "t-1", user_id: "user-42" });
+  });
+
+  it("drops replayed events (durable dedup) without posting or running", async () => {
+    // fresh:false = the op already saw this platform event id — a webhook
+    // retry, or a redelivery after a restart that emptied Chat SDK's
+    // in-memory dedup. Nothing may happen: no reply, no pairing, no run.
+    stubFetch({
+      binding: activeBinding,
+      fresh: false,
+      identity: { user_id: "user-42" },
+      pairing_code: null,
+    });
+    const gate = createIdentityGateHandler();
+    const thread = fakeThread();
+    const ran = vi.fn();
+    await gate(thread as never, senderMessage, ran);
+    expect(ran).not.toHaveBeenCalled();
+    expect(thread.posts).toHaveLength(0);
   });
 });

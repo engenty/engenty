@@ -1,3 +1,4 @@
+import { actorUserIdFromAuth } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import { safeArticleExportBasename } from "../../ui/lib/article-markdown-export.js";
 import type { ArticlesQueryParams } from "../schema/types.js";
@@ -252,7 +253,7 @@ export function registerKbArticleRoutes(api: KbServerApi, getRepo: GetKbRepo) {
       const comment = await repos.article_comments.create(
         article.id,
         body.content,
-        ctx.auth?.principalId ?? null
+        actorUserIdFromAuth(ctx.auth)
       );
       return created(comment);
     },

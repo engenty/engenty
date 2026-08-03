@@ -51,6 +51,7 @@ describe("registerTasksApi", () => {
       "goals_list",
       "goals_update",
       "tasks_add_comment",
+      "tasks_approval_grants_effective",
       "tasks_checkout",
       "tasks_clear_once_approvals",
       "tasks_create",
