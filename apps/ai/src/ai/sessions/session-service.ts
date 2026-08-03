@@ -802,6 +802,7 @@ export function createSessionService(opts: SessionServiceOptions) {
             runId,
             tenantId: input.scope.tenantId,
             userAccessToken: scopeAccessToken(input.scope),
+            userFacingThreadId: input.threadId,
             userId: input.scope.userId,
           },
           () => agent.generate(modelMessages as never, invocationOptions)

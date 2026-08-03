@@ -82,6 +82,15 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Narrow to the error envelope. `isObject(payload) && payload.ok === false`
+ * only proves the payload is *an object* — it leaves `error` as `unknown`,
+ * so reading `.details` off it was untyped.
+ */
+function isApiError(value: unknown): value is ApiError {
+  return isObject(value) && value.ok === false && isObject(value.error);
+}
+
 function unwrapApiData<T>(payload: ApiPayload<T>): T {
   if (isObject(payload) && payload.ok === true && "data" in payload) {
     return payload.data as T;
@@ -92,7 +101,7 @@ function unwrapApiData<T>(payload: ApiPayload<T>): T {
 function extractLifecycleResult(
   payload: ApiPayload<PackageLifecycleResult>
 ): PackageLifecycleResult {
-  if (isObject(payload) && payload.ok === false) {
+  if (isApiError(payload)) {
     return isObject(payload.error.details)
       ? (payload.error.details as PackageLifecycleResult)
       : {

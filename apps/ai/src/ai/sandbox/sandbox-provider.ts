@@ -9,7 +9,7 @@ export interface EngentySandboxProvider {
   destroy(): Promise<void>;
   getWorkingDirectory(): string;
   readonly id: string;
-  readonly provider: "docker" | "gondolin";
+  readonly provider: "docker";
   runCommand(request: SandboxCommandRequest): Promise<SandboxCommandResult>;
   syncIn(): Promise<void>;
   syncOut(): Promise<void>;

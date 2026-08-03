@@ -4,11 +4,9 @@ import type { EngentyCoreFileStorageClient } from "../workspace/core-file-storag
 import type { EngentyWorkspaceFsMode } from "../workspace/workspace-fs-mode.js";
 import { shouldUseRemoteWorkspaceSync } from "../workspace/workspace-fs-mode.js";
 import { createDockerEngentySandboxPair } from "./providers/docker-sandbox-provider.js";
-import { createGondolinEngentySandboxPair } from "./providers/gondolin-sandbox-provider.js";
 import {
   resolveSandboxDefaultTimeoutMs,
   resolveSandboxDockerImage,
-  resolveSandboxGondolinBackend,
   resolveSandboxProvider,
 } from "./sandbox-env.js";
 import type {
@@ -21,8 +19,8 @@ import type {
 } from "./sandbox-types.js";
 
 export interface CreateEngentySandboxProviderResult {
-  // The single Mastra executor (DockerSandbox / GondolinSandbox) the Workspace
-  // attaches; the provider delegates `runCommand` to this same instance.
+  // The single Mastra executor (DockerSandbox) the Workspace attaches; the
+  // provider delegates `runCommand` to this same instance.
   mastraSandbox: WorkspaceSandbox;
   provider: EngentySandboxProvider;
 }
@@ -32,8 +30,8 @@ export interface CreateEngentySandboxProviderResult {
 export interface SandboxFactoryConfig {
   lifecycle?: "run" | "session" | "task";
   mountPath?: string;
-  // `docker` (default) or `gondolin` (local-dev micro-VM); any other value
-  // fails loudly. Env (`ENGENTY_SANDBOX_PROVIDER`) overrides this.
+  // `docker` is the only provider; any other value fails loudly. Env
+  // (`ENGENTY_SANDBOX_PROVIDER`) overrides this.
   provider?: AgentWorkspaceSandbox["provider"];
   timeoutMs?: number;
 }
@@ -50,9 +48,7 @@ export async function createEngentySandboxProvider(params: {
   workspaceFsMode: EngentyWorkspaceFsMode;
 }): Promise<CreateEngentySandboxProviderResult> {
   // Resolve provider (env overrides declaration); fails loudly on unsupported.
-  const sandboxProvider = resolveSandboxProvider(
-    params.sandboxConfig?.provider
-  );
+  resolveSandboxProvider(params.sandboxConfig?.provider);
   const timeoutMs = resolveSandboxDefaultTimeoutMs(
     params.sandboxConfig?.timeoutMs
   );
@@ -63,19 +59,6 @@ export async function createEngentySandboxProvider(params: {
   });
   const mountPath = params.sandboxConfig?.mountPath ?? "/sandbox";
   const extraMounts = params.extraMounts ?? [];
-
-  if (sandboxProvider === "gondolin") {
-    const { gondolinSandbox, provider } = createGondolinEngentySandboxPair({
-      backend: resolveSandboxGondolinBackend(),
-      client: params.client,
-      extraMounts,
-      input,
-      mountPath,
-      tenantId: params.tenantId,
-      useRemoteStorageSync,
-    });
-    return { mastraSandbox: gondolinSandbox, provider };
-  }
 
   const image = resolveSandboxDockerImage();
   const { dockerSandbox, provider } = createDockerEngentySandboxPair({

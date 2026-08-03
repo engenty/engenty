@@ -48,6 +48,10 @@ export async function renderPdfFirstPageWebp(
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
   const renderTask = page.render({
+    // pdfjs 5 wants a DOM canvas; ours is @napi-rs/canvas, so we go through
+    // the documented backwards-compatible route — which requires `canvas`
+    // to be explicitly null when the context is what should be rendered into.
+    canvas: null,
     canvasContext: ctx as unknown as CanvasRenderingContext2D,
     viewport,
   });

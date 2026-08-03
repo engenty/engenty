@@ -96,6 +96,18 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
+      "Registers the agent escalation policy: an agent-driven operation whose required capabilities fall outside the agent's role grants ∪ its goal grants escalates to approval instead of running. Ship it on — the 2026-08-03 audit found this policy cited as a governing gate while being registered nowhere, so agent runs were left to the blanket escalation alone. Set to anything but `true` only to debug that policy.",
+    exampleValue: "true",
+    group: "API security",
+    key: "ENGENTY_AGENT_ESCALATION",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
+
+  {
+    description:
       "Static service JWT for apps/ai (scheduler, task dispatcher, remote channels). Local-dev escape hatch: run `pnpm service:jwt` (scripts/mint-service-jwt.mjs). Overrides every other service credential when set. Deployments should use ENGENTY_AI_SERVICE_SECRET — a static token silently dies when its expiry hits.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_JWT",
@@ -339,7 +351,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
   {
     description:
-      "Agent code sandbox provider: docker (default) | gondolin (local dev micro-VM).",
+      "Agent code sandbox provider. docker is the only supported value (sandbox doctrine 2026-08-03); any other value fails loudly at resolve.",
     exampleValue: "docker",
     group: "Core API & AI workspace",
     key: "ENGENTY_SANDBOX_PROVIDER",

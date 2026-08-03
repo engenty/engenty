@@ -45,11 +45,12 @@ export function DatePicker({
           variant="outline"
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-          {date ? (
-            format(date, "PPP", { locale: dateFnsLocale })
-          ) : (
-            <span>{placeholder}</span>
-          )}
+          {/* Wrapped + truncating: a bare text node cannot shrink inside the
+              flex button, so a long formatted date ("August 27th, 2026") in a
+              narrow field overflows past the border instead of clipping. */}
+          <span className="min-w-0 truncate">
+            {date ? format(date, "PPP", { locale: dateFnsLocale }) : placeholder}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent

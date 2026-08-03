@@ -113,6 +113,13 @@ export function registerPluginCreateCommand(plugins: Command): void {
         }
       }
 
+      // `resolveNonInteractivePluginCreate` returns `{ error?, value? }`, so
+      // an errorless result with no value is representable — and used to walk
+      // straight into `answers.slug`. Say nothing rather than crash.
+      if (!answers) {
+        return;
+      }
+
       const moduleRoot = path.join(modulesDir, answers.slug);
       if (fs.existsSync(moduleRoot)) {
         console.error(`Refusing to overwrite existing path: ${moduleRoot}`);

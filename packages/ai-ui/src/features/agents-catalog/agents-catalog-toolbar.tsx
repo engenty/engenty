@@ -6,12 +6,19 @@ import {
   Button,
   cn,
   ListFilterChip,
-  ListIconSegmentToggle,
   ListSearchInput,
-  ListToolbarIconButton,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarFilterRow,
+  ListToolbarFilterToggle,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarSearch,
+  ListToolbarSummary,
+  ListViewModeToggle,
   type ViewMode,
 } from "@engenty/ui-core";
-import { LayoutGrid, List, ListFilter } from "lucide-react";
+import { ListFilter } from "lucide-react";
 import type {
   AgentRoleFilter,
   AgentSourceFilter,
@@ -70,10 +77,9 @@ export function AgentsCatalogToolbar({
   )?.label;
 
   return (
-    <div className="flex shrink-0 flex-col gap-2">
-      {/* Row 1: search + count + view toggle */}
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="relative min-w-0 flex-1 sm:max-w-md md:max-w-lg">
+    <ListToolbar className="shrink-0">
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => onSearchChange(e.target.value)}
@@ -86,59 +92,34 @@ export function AgentsCatalogToolbar({
             value={searchQuery}
             wrapperClassName="w-full"
           />
-          <ListToolbarIconButton
+          <ListToolbarFilterToggle
+            active={filtersExpanded || hasActiveFilters}
             aria-label={t("agentsCatalog.filter.role")}
             aria-pressed={filtersExpanded}
-            className={cn(
-              "absolute top-1/2 right-1 -translate-y-1/2",
-              (filtersExpanded || hasActiveFilters) && "text-foreground"
-            )}
             onClick={onFiltersToggle}
-            type="button"
-          >
-            <span className="relative inline-flex">
-              <ListFilter className="h-4 w-4" />
-              {hasActiveFilters ? (
-                <span
-                  aria-hidden
-                  className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary"
-                />
-              ) : null}
-            </span>
-          </ListToolbarIconButton>
-        </div>
-
-        <p className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+            showDot={hasActiveFilters}
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>
           {agentCount} {agentCount === 1 ? "agent" : "agents"}
-        </p>
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
 
-        <div className="ml-auto shrink-0">
-          <ListIconSegmentToggle<ViewMode>
-            onChange={(next) => {
-              if (next !== "") {
-                onViewModeChange(next as ViewMode);
-              }
+      <ListToolbarActions>
+        <ListToolbarIdleControls>
+          <ListViewModeToggle
+            labels={{
+              cards: t("agentsCatalog.cardsView"),
+              table: t("agentsCatalog.tableView"),
             }}
-            segments={[
-              {
-                value: "table",
-                label: t("agentsCatalog.tableView"),
-                icon: List,
-              },
-              {
-                value: "cards",
-                label: t("agentsCatalog.cardsView"),
-                icon: LayoutGrid,
-              },
-            ]}
+            onChange={onViewModeChange}
             value={viewMode}
           />
-        </div>
-      </div>
+        </ListToolbarIdleControls>
+      </ListToolbarActions>
 
-      {/* Row 2: filter chips (expandable) */}
       {filtersExpanded ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <ListToolbarFilterRow>
           <span
             aria-hidden
             className={cn(
@@ -192,8 +173,8 @@ export function AgentsCatalogToolbar({
               {t("agentsCatalog.filter.clear")}
             </Button>
           ) : null}
-        </div>
+        </ListToolbarFilterRow>
       ) : null}
-    </div>
+    </ListToolbar>
   );
 }

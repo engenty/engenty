@@ -3,6 +3,7 @@ import { SignJWT } from "jose";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createApprovalService } from "../security/approval-service.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { TestDataLlmHttpError } from "../services/test-data-generator.js";
@@ -26,6 +27,7 @@ function createRegistry(
   types: PluginRegistry["testDataTypes"] = []
 ): PluginRegistry {
   return {
+    ...makeEmptyRegistry(),
     plugins: [],
     cliRegistrars: [],
     httpRoutes: [],

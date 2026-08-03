@@ -106,6 +106,104 @@ describe("createEngentyToolExecuteTool", () => {
     );
   });
 
+  /**
+   * A live run showed the copilot ignoring the AGENTS.md rule and driving
+   * app_create → app_file_write by hand, one approval prompt at a time. Only
+   * the app_build workflow publishes the preview artifact, so an App assembled
+   * that way is invisible to the user however well it compiles. Prose did not
+   * hold; this is the enforcement.
+   */
+  describe("app authoring is closed to hand-driving", () => {
+    for (const operationId of [
+      "app_create",
+      "app_file_write",
+      "app_release_propose",
+    ]) {
+      it(`redirects ${operationId} to app_build without calling core`, async () => {
+        vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+        const fetchMock = vi.fn().mockResolvedValue(
+          Response.json({
+            ok: true,
+            data: {
+              auth: {
+                requiredCapabilities: [],
+                requiredPermissions: [],
+                requiredScopes: [],
+                requiresApproval: false,
+                riskLevel: "low",
+              },
+              inputSchema: { type: "zod" },
+              moduleId: "engenty-apps",
+              pluginId: "engenty-apps",
+              summary: "An app authoring step",
+              toolId: operationId,
+            },
+          })
+        );
+        vi.stubGlobal("fetch", fetchMock);
+        const tool = createEngentyToolExecuteTool();
+
+        const result = (await engentyToolsRunAls.run(
+          { userAccessToken: "user-token" },
+          () => executeTool(tool, { id: operationId, input: { name: "X" } })
+        )) as { error?: string; message?: string; ok?: boolean };
+
+        expect(result.ok).toBe(false);
+        expect(result.error).toBe("use_app_build");
+        // The redirect must name the way forward, or the model just retries.
+        expect(result.message).toContain("app_build");
+        // Contract lookup only — the operation itself is never invoked.
+        expect(
+          fetchMock.mock.calls.some(([url]) => String(url).includes("/invoke"))
+        ).toBe(false);
+      });
+    }
+
+    it("leaves the human's own approval act reachable", async () => {
+      vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({
+            ok: true,
+            data: {
+              auth: {
+                requiredCapabilities: ["apps.approve"],
+                requiredPermissions: [],
+                requiredScopes: [],
+                requiresApproval: false,
+                riskLevel: "high",
+              },
+              inputSchema: { type: "zod" },
+              moduleId: "engenty-apps",
+              pluginId: "engenty-apps",
+              summary: "Activate a proposed app version",
+              toolId: "app_release_approve",
+            },
+          })
+        )
+        .mockResolvedValueOnce(
+          Response.json({ ok: true, data: { version: 1 } })
+        );
+      vi.stubGlobal("fetch", fetchMock);
+      const tool = createEngentyToolExecuteTool();
+
+      const result = (await engentyToolsRunAls.run(
+        { userAccessToken: "user-token" },
+        () =>
+          executeTool(tool, {
+            id: "app_release_approve",
+            input: { app_id: "a", version: 1 },
+          })
+      )) as { error?: string; ok?: boolean };
+
+      expect(result.error).not.toBe("use_app_build");
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url).includes("/invoke"))
+      ).toBe(true);
+    });
+  });
+
   it("uses the Mastra request context auth token for Studio runs", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi

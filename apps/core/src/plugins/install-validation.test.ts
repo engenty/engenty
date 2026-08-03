@@ -9,6 +9,7 @@ import {
   validatePluginUninstall,
 } from "./install-validation.js";
 import type { PluginRegistry } from "./registry.js";
+import { makeEmptyRegistry } from "./test-fixtures.js";
 
 function makeTempDir(): string {
   const dir = path.join(os.tmpdir(), `engenty-install-${randomUUID()}`);
@@ -44,6 +45,7 @@ function writeTargetManifest(
 
 function createRegistry(): PluginRegistry {
   return {
+    ...makeEmptyRegistry(),
     cliRegistrars: [],
     diagnostics: [],
     featureFlags: [],

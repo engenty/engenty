@@ -13,6 +13,7 @@ import {
   updateTask,
   updateTaskVisibility,
 } from "../api.js";
+import type { ProjectSettingsValues } from "../components/project-settings-panel.js";
 
 export interface UseProjectDetailHandlersParams {
   addTaskPhaseId: string | null;
@@ -253,15 +254,12 @@ export function useProjectDetailHandlers({
     [id, loadProject]
   );
 
-  const handlePortalSave = useCallback(
-    async (enabled: boolean, password: string | null) => {
+  const handleProjectSettingsSave = useCallback(
+    async (values: ProjectSettingsValues) => {
       if (!id) {
         return;
       }
-      await updateProject(id, {
-        portal_enabled: enabled,
-        portal_password: password,
-      });
+      await updateProject(id, values);
       await loadProject();
     },
     [id, loadProject]
@@ -285,7 +283,7 @@ export function useProjectDetailHandlers({
     handleDragStart,
     handlePhaseSubmit,
     handlePhaseVisibilityToggle,
-    handlePortalSave,
+    handleProjectSettingsSave,
     handleTaskDelete,
     handleTaskStatusChange,
     handleTaskSubmit,

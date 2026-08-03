@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolvePluginTier } from "./manifest";
+import { resolvePluginTier } from "./manifest.js";
 import {
   evaluatePluginTierViolations,
   stripTierRestrictedContributions,
-} from "./plugin-tier-policy";
-import type { PluginRegistry } from "./registry";
+} from "./plugin-tier-policy.js";
+import type { PluginRegistry } from "./registry.js";
 
 function makeRegistry(overrides: Partial<PluginRegistry>): PluginRegistry {
   return {

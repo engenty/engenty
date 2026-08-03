@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
+import {
+  makeEmptyRegistry,
+  makePluginRecord,
+} from "../plugins/test-fixtures.js";
 import { buildApiCatalog } from "./api-catalog.js";
 
 function makeRegistry(): PluginRegistry {
   return {
+    ...makeEmptyRegistry(),
     plugins: [
       {
+        ...makePluginRecord({ id: "fixture" }),
         id: "contacts",
         name: "Contacts",
         dependencies: [],
@@ -26,6 +32,7 @@ function makeRegistry(): PluginRegistry {
         testDataTypes: [],
       },
       {
+        ...makePluginRecord({ id: "fixture" }),
         id: "team",
         name: "Team members",
         dependencies: [],
@@ -455,6 +462,7 @@ describe("buildApiCatalog", () => {
   it("filters module catalog entries when a required dependency is tenant-disabled", async () => {
     const registry = makeRegistry();
     registry.plugins.push({
+      ...makePluginRecord({ id: "leads" }),
       id: "leads",
       name: "Leads",
       dependencies: [],

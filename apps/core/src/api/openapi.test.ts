@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { describe, expect, it } from "vitest";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { createApiApp } from "./server.js";
 
@@ -7,6 +8,7 @@ describe("OpenAPI endpoints", () => {
   it("serves /api/openapi.json", async () => {
     const app = createApiApp({
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [],
         cliRegistrars: [],
         httpRoutes: [],
@@ -45,6 +47,7 @@ describe("OpenAPI endpoints", () => {
   it("serves /api/docs HTML page", async () => {
     const app = createApiApp({
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [],
         cliRegistrars: [],
         httpRoutes: [],
@@ -69,6 +72,7 @@ describe("OpenAPI endpoints", () => {
   it("includes CRUD-style routes in generated OpenAPI paths", async () => {
     const app = createApiApp({
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [],
         cliRegistrars: [],
         services: [],
@@ -149,6 +153,7 @@ describe("OpenAPI endpoints", () => {
   it("generates typed invoke paths for registered tools", async () => {
     const app = createApiApp({
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [],
         cliRegistrars: [],
         services: [],

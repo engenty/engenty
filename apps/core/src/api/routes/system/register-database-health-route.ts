@@ -51,15 +51,19 @@ export function registerSystemDatabaseHealthRoute(params: {
       logger.warn("database_health_config_error", {
         err: error instanceof Error ? error.message : String(error),
       });
+      // `as never`, the convention this codebase uses for zod-openapi
+      // handlers: the shared jsonApi* helpers return a plain Response, while
+      // `.openapi()` wants a response typed against the route's declared
+      // schemas. Both bodies here DO match ErrorSchema / apiSuccessSchema.
       return jsonApiError(c, 500, {
         message:
           error instanceof Error ? error.message : "Configuration error.",
-      });
+      }) as never;
     }
 
     return jsonApiSuccessOrDatabaseDown(c, params.config, async () => {
       await dal.getSetupStatus();
       return { database_reachable: true as const };
-    });
+    }) as never;
   });
 }

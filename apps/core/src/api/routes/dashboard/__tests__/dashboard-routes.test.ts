@@ -1,12 +1,14 @@
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import type { PluginRegistry } from "../../../../plugins/registry.js";
+import { makeEmptyRegistry } from "../../../../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../../../../security/audit-adapter.js";
 import { createApiApp } from "../../../server.js";
 import { CORE_DASHBOARD_AI_REMOVED_MESSAGE } from "../../core-ai-removed-routes.js";
 
 function makeRegistry(): PluginRegistry {
   return {
+    ...makeEmptyRegistry(),
     plugins: [],
     cliRegistrars: [],
     diagnostics: [],

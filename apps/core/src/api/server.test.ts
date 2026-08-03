@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
 import type { PluginRecord, PluginRegistry } from "../plugins/registry.js";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import type { ApiLogger } from "./routes/types.js";
 import {
@@ -53,6 +54,7 @@ function makePluginRecord(id: string): PluginRecord {
 
 function makeRegistry(): PluginRegistry {
   const registry = {
+    ...makeEmptyRegistry(),
     plugins: [
       {
         id: "test-plugin",
@@ -136,7 +138,9 @@ function makeRegistry(): PluginRegistry {
         pluginConfig: {},
       },
     ],
-  } as PluginRegistry;
+    // Built loose, then handlers are assigned below; the spread of the
+    // shared factory makes it a superset, so the conversion needs `unknown`.
+  } as unknown as PluginRegistry;
   for (const operation of registry.moduleOperations) {
     const gatewayMethod = registry.gatewayMethods.find(
       (entry) => entry.method.name === operation.methodName
@@ -307,6 +311,7 @@ describe("createApiApp", () => {
     const app = createApiApp({
       logger: noopApiLogger,
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [
           {
             id: "test-plugin",
@@ -463,6 +468,7 @@ describe("createApiApp", () => {
     const app = createApiApp({
       logger: noopApiLogger,
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [makePluginRecord("invoices")],
         cliRegistrars: [],
         diagnostics: [],
@@ -528,6 +534,7 @@ describe("createApiApp", () => {
     const app = createApiApp({
       logger: noopApiLogger,
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [
           makePluginRecord("invoices"),
           {
@@ -667,6 +674,7 @@ describe("createApiApp", () => {
     const app = createApiApp({
       logger: noopApiLogger,
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [
           {
             id: "test-plugin",
@@ -810,6 +818,7 @@ describe("createApiApp", () => {
     const app = createApiApp({
       logger: noopApiLogger,
       registry: {
+        ...makeEmptyRegistry(),
         plugins: [makePluginRecord("test-plugin")],
         cliRegistrars: [],
         diagnostics: [],

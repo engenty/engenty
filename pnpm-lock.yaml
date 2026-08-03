@@ -91,9 +91,6 @@ importers:
       '@chat-adapter/telegram':
         specifier: 4.34.0
         version: 4.34.0(ai@7.0.0-beta.116(zod@4.4.3))(zod@4.4.3)
-      '@earendil-works/gondolin':
-        specifier: 0.12.0
-        version: 0.12.0
       '@engenty/a2ui-catalog':
         specifier: workspace:*
         version: link:../../packages/a2ui-catalog
@@ -229,7 +226,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.9
-        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   apps/app-host:
     dependencies:
@@ -1132,6 +1129,34 @@ importers:
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  modules/connections/providers/github:
+    dependencies:
+      '@engenty/connections-sdk':
+        specifier: workspace:*
+        version: link:../../../../packages/connections-sdk
+      '@engenty/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../../../packages/plugin-sdk
+      '@engenty/telemetry':
+        specifier: workspace:*
+        version: link:../../../../packages/telemetry
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
@@ -3601,7 +3626,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.9
-        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/audit-logs:
     dependencies:
@@ -5724,10 +5749,6 @@ packages:
     resolution: {integrity: sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw==}
     engines: {node: '>=18'}
 
-  '@cto.af/wtf8@0.0.5':
-    resolution: {integrity: sha512-LfUFi+Vv4eDzj+XAtR89e3wwjXA/NZjUSwU5NhwbBrLecxPaBYFy3exCuc1j+D4UZeOVdqlsl8G7LmOt18V0tg==}
-    engines: {node: '>=20'}
-
   '@date-fns/tz@1.5.0':
     resolution: {integrity: sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg==}
 
@@ -5758,23 +5779,6 @@ packages:
     resolution: {integrity: sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==}
     peerDependencies:
       react: '>=16.8.0'
-
-  '@earendil-works/gondolin-krun-runner-darwin-arm64@0.12.0':
-    resolution: {integrity: sha512-ftDlusht4PcT7Y3TuPrZIKrCXy3isiBTVMvlXYK0pcud2uXY6uwFTGeunYgP+8ND/60ddb+MImqbfmkcK8B84A==}
-    cpu: [arm64]
-    os: [darwin]
-    hasBin: true
-
-  '@earendil-works/gondolin-krun-runner-linux-x64@0.12.0':
-    resolution: {integrity: sha512-RRYsgwe2r5ApKmFNy469QgwnyjAHpAs9XANdWpTd9ol4iUYOY3sX7e0xIooAKxd+ktxGI4N/xRWicwGen3D/Ow==}
-    cpu: [x64]
-    os: [linux]
-    hasBin: true
-
-  '@earendil-works/gondolin@0.12.0':
-    resolution: {integrity: sha512-BXbvzQKb5QmxY5NtthRDONJTu7+IDKbzqWGrJyyNXMP7N681Tx0Q9TK8pK1ba8nUvYQTipNJyGZOsJfYiZll1A==}
-    engines: {node: '>=23.6.0'}
-    hasBin: true
 
   '@effect/platform-node-shared@4.0.0-beta.97':
     resolution: {integrity: sha512-sAlygOlDLLERk7fC24f7Aa4G3wkEbGyyMEileHTHU2fThiPYSGMqNRK1LLnNr17m2+JR7BHbycwXkJkM18BAQw==}
@@ -10113,10 +10117,6 @@ packages:
   cbor-x@1.6.4:
     resolution: {integrity: sha512-UGKHjp6RHC6QuZ2yy5LCKm7MojM4716DwoSaqwQpaH4DvZvbBTGcoDNTiG9Y2lByXZYFEs9WRkS5tLl96IrF1Q==}
 
-  cbor2@2.3.0:
-    resolution: {integrity: sha512-76WB3hq8BoaGkMkBVJ27fW5LJU+qqDLEpgRNCG/SYKhODWXpVPOTD4UcUto3IEzYLA52nsvbhb0wabhHDn3qXg==}
-    engines: {node: '>=20'}
-
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
 
@@ -13037,10 +13037,6 @@ packages:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
-    engines: {node: '>= 6.13.0'}
-
   node-gyp-build-optional-packages@5.1.1:
     resolution: {integrity: sha512-+P72GAjVAbTxjjwUmwjVrqrdZROD4nf8KgpBoDxqXXTiYZZt/ud60dE5yvCSr9lRO8e8yv6kgJIC0K0PfZFVQw==}
     hasBin: true
@@ -14756,10 +14752,6 @@ packages:
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
-  undici@6.27.0:
-    resolution: {integrity: sha512-YmfV3YnEDzXRC5lZ2jWtWWHKGUm1zIt8AhesR1tens+HTNv+YZlN/dp6G727LOvMJ8xjP9Be7Y2Sdr96LDm+pg==}
-    engines: {node: '>=18.17'}
-
   undici@7.29.0:
     resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
     engines: {node: '>=20.18.1'}
@@ -16156,8 +16148,6 @@ snapshots:
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@cto.af/wtf8@0.0.5': {}
-
   '@date-fns/tz@1.5.0': {}
 
   '@dnd-kit/accessibility@3.1.1(react@19.2.7)':
@@ -16191,22 +16181,6 @@ snapshots:
     dependencies:
       react: 19.2.7
       tslib: 2.8.1
-
-  '@earendil-works/gondolin-krun-runner-darwin-arm64@0.12.0':
-    optional: true
-
-  '@earendil-works/gondolin-krun-runner-linux-x64@0.12.0':
-    optional: true
-
-  '@earendil-works/gondolin@0.12.0':
-    dependencies:
-      cbor2: 2.3.0
-      node-forge: 1.4.0
-      ssh2: 1.17.0
-      undici: 6.27.0
-    optionalDependencies:
-      '@earendil-works/gondolin-krun-runner-darwin-arm64': 0.12.0
-      '@earendil-works/gondolin-krun-runner-linux-x64': 0.12.0
 
   '@effect/platform-node-shared@4.0.0-beta.97(effect@4.0.0-beta.59)':
     dependencies:
@@ -20357,7 +20331,7 @@ snapshots:
       obug: 2.1.3
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+      vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(@vitest/coverage-v8@4.1.9)(happy-dom@20.10.6)(jsdom@26.1.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   '@vitest/expect@4.1.9':
     dependencies:
@@ -20914,10 +20888,6 @@ snapshots:
   cbor-x@1.6.4:
     optionalDependencies:
       cbor-extract: 2.2.2
-
-  cbor2@2.3.0:
-    dependencies:
-      '@cto.af/wtf8': 0.0.5
 
   ccount@2.0.1: {}
 
@@ -24185,8 +24155,6 @@ snapshots:
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
 
-  node-forge@1.4.0: {}
-
   node-gyp-build-optional-packages@5.1.1:
     dependencies:
       detect-libc: 2.1.2
@@ -26266,8 +26234,6 @@ snapshots:
   undici-types@7.18.2: {}
 
   undici-types@8.3.0: {}
-
-  undici@6.27.0: {}
 
   undici@7.29.0: {}
 

@@ -1042,12 +1042,15 @@ export async function executePluginPackageLifecycle(params: {
           registry: params.registry,
         });
 
-  const validationPassed = isPackageAcquisition
-    ? true
-    : params.operation === "uninstall"
+  // Keyed off `validation` rather than `isPackageAcquisition` — the two say
+  // the same thing (validation is undefined exactly for an acquisition), but
+  // only this form tells the compiler so.
+  const validationPassed = validation
+    ? params.operation === "uninstall"
       ? (validation.report as PluginUninstallValidationReport)
           .removableAtRuntime
-      : (validation.report as PluginInstallValidationReport).installable;
+      : (validation.report as PluginInstallValidationReport).installable
+    : true;
   const resolvedPackageSpec = resolvePackageSpec({
     operation: params.operation,
     packageSpec: params.packageSpec,
@@ -1065,12 +1068,8 @@ export async function executePluginPackageLifecycle(params: {
 
   const steps: PackageLifecycleExecutionStep[] = [
     {
-      details: isPackageAcquisition
-        ? {
-            packageSpec: resolvedPackageSpec.packageSpec,
-            packageAcquisition: true,
-          }
-        : params.operation === "uninstall"
+      details: validation
+        ? params.operation === "uninstall"
           ? {
               removableAtRuntime: (
                 validation.report as PluginUninstallValidationReport
@@ -1085,7 +1084,11 @@ export async function executePluginPackageLifecycle(params: {
               migrationReviewRequired: (
                 validation.report as PluginInstallValidationReport
               ).migrationReviewRequired,
-            },
+            }
+        : {
+            packageSpec: resolvedPackageSpec.packageSpec,
+            packageAcquisition: true,
+          },
       diagnostics: validation?.diagnostics ?? [],
       key: "validation",
       message: validationPassed

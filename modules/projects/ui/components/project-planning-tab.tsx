@@ -5,9 +5,6 @@ import {
   type useSensors,
 } from "@dnd-kit/core";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn } from "@engenty/ui-core";
-import { ChevronRight, Plus } from "lucide-react";
-import { useState } from "react";
 import type {
   PhaseTask,
   ProjectPhase,
@@ -17,11 +14,10 @@ import type {
 import type { TeamMemberCatalogRow } from "../plugins.js";
 import { GeneralTasksSection } from "./general-tasks-section.js";
 import { PhaseSection } from "./phase-section.js";
-import { PhaseTimeline } from "./phase-timeline.js";
 import { ProjectBriefSection } from "./project-brief-section.js";
 import { ProjectClientInfoSection } from "./project-client-info-section.js";
-import { ProjectDatesRow } from "./project-dates-row.js";
 import { ProjectTeamMembersSection } from "./project-team-members-section.js";
+import { ProjectTimeplanSection } from "./project-timeplan-section.js";
 import { TaskCard } from "./task-card.js";
 
 interface ProjectPlanningTabProps {
@@ -92,7 +88,7 @@ export function ProjectPlanningTab({
   taskStatusDefinitions,
 }: ProjectPlanningTabProps) {
   const { t } = useTranslation("projects");
-  const [timePlanCollapsed, setTimePlanCollapsed] = useState(false);
+  const timeplanEnabled = project.timeplan_enabled !== false;
 
   return (
     <DndContext
@@ -130,77 +126,42 @@ export function ProjectPlanningTab({
               )}
             </div>
             <div className="min-w-0">
-              <ProjectClientInfoSection className="mt-0" project={project} />
+              <ProjectClientInfoSection
+                className="mt-0"
+                editable={viewMode === "internal"}
+                onProjectUpdated={loadProject}
+                project={project}
+                projectId={projectId}
+              />
             </div>
           </div>
         ) : (
           <div className="mt-6">
-            <ProjectClientInfoSection project={project} />
+            <ProjectClientInfoSection
+              editable={viewMode === "internal"}
+              onProjectUpdated={loadProject}
+              project={project}
+              projectId={projectId}
+            />
           </div>
         )}
 
-        <section className="space-y-3">
-          <button
-            aria-expanded={!timePlanCollapsed}
-            className="flex items-center gap-2 font-medium text-lg"
-            onClick={() => setTimePlanCollapsed((v) => !v)}
-            type="button"
-          >
-            <ChevronRight
-              className={cn(
-                "h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-in-out",
-                !timePlanCollapsed && "rotate-90"
-              )}
-            />
-            {t("detail.timePlan")}
-            {timePlanCollapsed && (
-              <ProjectDatesRow
-                endDate={project.end_date}
-                locale={dateLocale}
-                startDate={project.start_date}
-              />
-            )}
-          </button>
-          <div
-            className={cn(
-              "grid transition-[grid-template-rows,opacity] duration-300 ease-in-out",
-              timePlanCollapsed
-                ? "grid-rows-[0fr] opacity-0"
-                : "grid-rows-[1fr] opacity-100"
-            )}
-          >
-            <div className="min-h-0 space-y-3 overflow-hidden">
-              <ProjectDatesRow
-                endDate={project.end_date}
-                locale={dateLocale}
-                startDate={project.start_date}
-              />
-              <PhaseTimeline
-                onPhaseCreate={
-                  viewMode === "internal" ? onPhaseCreate : undefined
-                }
-                onPhaseTitleUpdate={
-                  viewMode === "internal" ? onPhaseTitleUpdate : undefined
-                }
-                onPhaseUpdate={
-                  viewMode === "internal" ? onPhaseUpdate : undefined
-                }
-                phases={filteredPhases}
-                projectDueDate={project.end_date}
-                projectStartDate={project.start_date}
-                readOnly={viewMode === "external"}
-              />
-              {viewMode === "internal" && (
-                <div>
-                  <Button onClick={onPhaseFormOpen} size="sm" variant="outline">
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    {t("detail.addPhase")}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        {/* Lean projects (`timeplan_enabled === false`) are rooms for notes,
+            files and tasks - no dates, phases or Gantt on the main page. */}
+        {timeplanEnabled && (
+          <ProjectTimeplanSection
+            collapsible
+            dateLocale={dateLocale}
+            endDate={project.end_date}
+            onPhaseCreate={onPhaseCreate}
+            onPhaseFormOpen={onPhaseFormOpen}
+            onPhaseTitleUpdate={onPhaseTitleUpdate}
+            onPhaseUpdate={onPhaseUpdate}
+            phases={filteredPhases}
+            startDate={project.start_date}
+            viewMode={viewMode}
+          />
+        )}
 
         <GeneralTasksSection
           onAddTask={onTaskAdd}

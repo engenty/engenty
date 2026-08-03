@@ -4,17 +4,27 @@
 
 import { useTranslation } from "@engenty/i18n/ui";
 import {
+  Button,
   type ColumnConfig,
-  cn,
   DropdownMenu,
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   ListFilterChip,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarFilterRow,
+  ListToolbarFilterToggle,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
   type SortOrder,
   type TableSize,
+  useListToolbar,
   type ViewMode,
 } from "@engenty/ui-core";
 import {
@@ -23,7 +33,6 @@ import {
   CircleDot,
   Clock,
   Link2,
-  ListFilter,
   SlidersHorizontal,
   Text,
   User,
@@ -70,6 +79,88 @@ export interface ActivityToolbarProps {
 }
 
 const ALL_AGENTS_VALUE = "__all__";
+
+function ActivityDisplayMenu(props: {
+  columnOrder: ActivityColumnKey[];
+  columns: ColumnConfig<ActivityColumnKey>[];
+  columnVisibility: ActivityColumnVisibility;
+  displayLabel: string;
+  groupBy: ActivityGroupBy;
+  groupByOptions: { label: string; value: string }[];
+  labels: {
+    ascending: string;
+    cards: string;
+    compactView: string;
+    descending: string;
+    displayedInTable: string;
+    groupBy: string;
+    hiddenInTable: string;
+    hideAll: string;
+    noColumnsDisplayed: string;
+    showAll: string;
+    sortBy: string;
+    table: string;
+  };
+  onGroupByChange: (value: ActivityGroupBy) => void;
+  onSortByChange: (value: ActivitySortBy) => void;
+  onSortOrderChange: (value: SortOrder) => void;
+  setColumnOrder: (order: ActivityColumnKey[]) => void;
+  setColumnVisibility: (value: ActivityColumnVisibility) => void;
+  setTableSize: (size: TableSize) => void;
+  setViewMode: (mode: ViewMode) => void;
+  sortBy: ActivitySortBy;
+  sortOptions: { label: string; value: ActivitySortBy }[];
+  sortOrder: SortOrder;
+  tableSize: TableSize;
+  viewMode: ViewMode;
+}) {
+  const { overflowPlacement } = useListToolbar();
+  const inMenu = overflowPlacement === "menu";
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        {inMenu ? (
+          <Button
+            aria-label={props.displayLabel}
+            className="h-9 w-full justify-start gap-1.5"
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {props.displayLabel}
+          </Button>
+        ) : (
+          <ListToolbarIconButton aria-label={props.displayLabel} type="button">
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        )}
+      </DropdownMenuTrigger>
+      <ListDisplayConfigurator<ActivityColumnKey, ActivitySortBy>
+        columnOrder={props.columnOrder}
+        columns={props.columns}
+        columnVisibility={props.columnVisibility}
+        groupBy={props.groupBy}
+        groupByOptions={props.groupByOptions}
+        labels={props.labels}
+        setColumnOrder={props.setColumnOrder}
+        setColumnVisibility={props.setColumnVisibility}
+        setGroupBy={(value) => props.onGroupByChange(value as ActivityGroupBy)}
+        setSortBy={props.onSortByChange}
+        setSortOrder={props.onSortOrderChange}
+        setTableSize={props.setTableSize}
+        setViewMode={props.setViewMode}
+        sortBy={props.sortBy}
+        sortOptions={props.sortOptions}
+        sortOrder={props.sortOrder}
+        tableSize={props.tableSize}
+        viewMode={props.viewMode}
+        viewModes={["table", "cards"]}
+      />
+    </DropdownMenu>
+  );
+}
 
 export function ActivityToolbar({
   agentFilter,
@@ -141,105 +232,85 @@ export function ActivityToolbar({
   ) => options.find((option) => option.value === value)?.label;
 
   return (
-    <div className="shrink-0 space-y-2">
-      <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="relative w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
-            <ListSearchInput
-              className="w-full pr-10"
-              onChange={(event) => onSearchChange(event.target.value)}
-              onOpenFilters={() => {
-                if (!filtersExpanded) {
-                  onFiltersToggle();
-                }
-              }}
-              placeholder={t("activity.searchPlaceholder")}
-              value={searchQuery}
-              wrapperClassName="w-full"
-            />
-            <ListToolbarIconButton
-              aria-label={t("activity.filterToggle")}
-              aria-pressed={filtersExpanded}
-              className={cn(
-                "absolute top-1/2 right-1 -translate-y-1/2",
-                (filtersExpanded || hasActiveFilters) && "text-foreground"
-              )}
-              onClick={onFiltersToggle}
-              type="button"
-            >
-              <span className="relative inline-flex">
-                <ListFilter className="h-4 w-4" />
-                {hasActiveFilters ? (
-                  <span
-                    aria-hidden
-                    className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary"
-                  />
-                ) : null}
-              </span>
-            </ListToolbarIconButton>
-          </div>
-          <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-            {t("activity.count", { count: filteredCount, total: totalCount })}
-          </p>
-        </div>
+    <ListToolbar className="shrink-0">
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full pr-10"
+            onChange={(event) => onSearchChange(event.target.value)}
+            onOpenFilters={() => {
+              if (!filtersExpanded) {
+                onFiltersToggle();
+              }
+            }}
+            placeholder={t("activity.searchPlaceholder")}
+            value={searchQuery}
+            wrapperClassName="w-full"
+          />
+          <ListToolbarFilterToggle
+            active={filtersExpanded || hasActiveFilters}
+            aria-label={t("activity.filterToggle")}
+            aria-pressed={filtersExpanded}
+            onClick={onFiltersToggle}
+            showDot={hasActiveFilters}
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>
+          {t("activity.count", { count: filteredCount, total: totalCount })}
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
 
-        <ListViewModeToggle
-          labels={{
-            cards: t("activity.feedView"),
-            table: t("activity.tableView"),
-          }}
-          onChange={setViewMode}
-          value={viewMode}
-        />
-
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <ListToolbarIconButton
-              aria-label={t("activity.display")}
-              type="button"
-            >
-              <SlidersHorizontal />
-            </ListToolbarIconButton>
-          </DropdownMenuTrigger>
-          <ListDisplayConfigurator<ActivityColumnKey, ActivitySortBy>
-            columnOrder={columnOrder}
-            columns={columns}
-            columnVisibility={columnVisibility}
-            groupBy={groupBy}
-            groupByOptions={groupByOptions}
+      <ListToolbarActions moreLabel="More">
+        <ListToolbarIdleControls>
+          <ListViewModeToggle
             labels={{
-              ascending: t("activity.sortAscending"),
               cards: t("activity.feedView"),
-              compactView: t("activity.compactView"),
-              descending: t("activity.sortDescending"),
-              displayedInTable: t("activity.displayedColumns"),
-              groupBy: t("activity.groupByLabel"),
-              hiddenInTable: t("activity.hiddenColumns"),
-              hideAll: t("activity.hideAll"),
-              noColumnsDisplayed: t("activity.noColumns"),
-              showAll: t("activity.showAll"),
-              sortBy: t("activity.sortByLabel"),
               table: t("activity.tableView"),
             }}
-            setColumnOrder={setColumnOrder}
-            setColumnVisibility={setColumnVisibility}
-            setGroupBy={(value) => onGroupByChange(value as ActivityGroupBy)}
-            setSortBy={onSortByChange}
-            setSortOrder={onSortOrderChange}
-            setTableSize={setTableSize}
-            setViewMode={setViewMode}
-            sortBy={sortBy}
-            sortOptions={sortOptions}
-            sortOrder={sortOrder}
-            tableSize={tableSize}
-            viewMode={viewMode}
-            viewModes={["table", "cards"]}
+            onChange={setViewMode}
+            value={viewMode}
           />
-        </DropdownMenu>
-      </div>
+          <ListToolbarOverflowItem>
+            <ActivityDisplayMenu
+              columnOrder={columnOrder}
+              columns={columns}
+              columnVisibility={columnVisibility}
+              displayLabel={t("activity.display")}
+              groupBy={groupBy}
+              groupByOptions={groupByOptions}
+              labels={{
+                ascending: t("activity.sortAscending"),
+                cards: t("activity.feedView"),
+                compactView: t("activity.compactView"),
+                descending: t("activity.sortDescending"),
+                displayedInTable: t("activity.displayedColumns"),
+                groupBy: t("activity.groupByLabel"),
+                hiddenInTable: t("activity.hiddenColumns"),
+                hideAll: t("activity.hideAll"),
+                noColumnsDisplayed: t("activity.noColumns"),
+                showAll: t("activity.showAll"),
+                sortBy: t("activity.sortByLabel"),
+                table: t("activity.tableView"),
+              }}
+              onGroupByChange={onGroupByChange}
+              onSortByChange={onSortByChange}
+              onSortOrderChange={onSortOrderChange}
+              setColumnOrder={setColumnOrder}
+              setColumnVisibility={setColumnVisibility}
+              setTableSize={setTableSize}
+              setViewMode={setViewMode}
+              sortBy={sortBy}
+              sortOptions={sortOptions}
+              sortOrder={sortOrder}
+              tableSize={tableSize}
+              viewMode={viewMode}
+            />
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+      </ListToolbarActions>
 
       {filtersExpanded ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <ListToolbarFilterRow>
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground">
             <Boxes className="h-4 w-4" />
           </span>
@@ -287,8 +358,8 @@ export function ActivityToolbar({
             options={statusOptions}
             value={statusFilter}
           />
-        </div>
+        </ListToolbarFilterRow>
       ) : null}
-    </div>
+    </ListToolbar>
   );
 }

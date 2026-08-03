@@ -127,12 +127,14 @@
       "contactPersonLabel": "Ansprechpartner",
       "empty": "Diesem Projekt ist kein Kunde zugeordnet.",
       "heading": "Kunde",
-      "viewInContacts": "In Kontakten anzeigen"
+      "viewInContacts": "In Kontakten anzeigen",
+      "change": "Kunde ändern",
+      "addLink": "Kunde zuordnen"
     },
     "edit": "Bearbeiten",
     "settings": "Einstellungen",
     "tabs": {
-      "planning": "Planung",
+      "planning": "Übersicht",
       "notes": "Notizen",
       "configure": "Tabs konfigurieren",
       "displayed": "Angezeigte Tabs",
@@ -140,7 +142,8 @@
       "showAll": "Alle anzeigen",
       "hideAll": "Alle ausblenden",
       "hideTab": "Tab ausblenden",
-      "showTab": "Tab anzeigen"
+      "showTab": "Tab anzeigen",
+      "timeplan": "Zeitplanung"
     },
     "phases": "Phasen",
     "addPhase": "Phase hinzufügen",
@@ -189,8 +192,18 @@
       "phases": "Phasen",
       "newPhase": "Neue Phase...",
       "fitAll": "Alle anzeigen",
-      "zoom": "Zoom: Tag – Woche – Monat",
-      "dueDate": "Fälligkeitsdatum"
+      "zoom": "Skala: Tag – Woche – Monat",
+      "dueDate": "Fälligkeitsdatum",
+      "density": {
+        "day": "Tag",
+        "week": "Woche",
+        "month": "Monat"
+      },
+      "densityShort": {
+        "day": "T",
+        "week": "W",
+        "month": "M"
+      }
     },
     "members": {
       "none": "Noch keine Teammitglieder",
@@ -236,7 +249,8 @@
       "otherTeamMembers": "Weitere Teammitglieder",
       "selectMembers": "Teammitglieder auswählen...",
       "assignees": "Zugewiesen",
-      "noGlobalMembers": "Es sind noch keine Teammitglieder verfügbar."
+      "noGlobalMembers": "Es sind noch keine Teammitglieder verfügbar.",
+      "emptyCatalogLink": "Teammitglieder anlegen"
     },
     "portal": {
       "settings": "Portal-Einstellungen",
@@ -249,6 +263,17 @@
       "cancel": "Abbrechen",
       "save": "Speichern",
       "saving": "Speichert..."
+    },
+    "projectSettings": {
+      "title": "Projekt-Einstellungen",
+      "timeplanSection": "Zeitplanung",
+      "timeplanSectionDescription": "Phasen, Termine und Gantt-Ansicht. Ohne Zeitplan bleibt das Projekt ein schlanker Raum für Notizen, Dateien und Aufgaben.",
+      "startDate": "Startdatum",
+      "endDate": "Enddatum",
+      "portalSection": "Kundenportal",
+      "portalSectionDescription": "Öffentlicher Zugang für Kundinnen und Kunden: Aufgaben ansehen und Anfragen stellen.",
+      "clientSection": "Kunde",
+      "clientSectionDescription": "Kontakt oder Organisation, für die dieses Projekt läuft."
     }
   },
   "create": {
@@ -265,7 +290,13 @@
     "create": "Erstellen",
     "titleRequired": "Projekttitel ist erforderlich",
     "loadingContacts": "Kontakte werden geladen…",
-    "createFailed": "Projekt konnte nicht erstellt werden"
+    "createFailed": "Projekt konnte nicht erstellt werden",
+    "timeplan": {
+      "enable": "Zeitplan aktivieren",
+      "enableHint": "Phasen, Termine und Gantt-Ansicht für dieses Projekt. Ohne Zeitplan bleibt das Projekt ein schlanker Raum für Notizen, Dateien und Aufgaben.",
+      "startDate": "Startdatum",
+      "endDate": "Enddatum"
+    }
   },
   "settings": {
     "title": "Projekt-Einstellungen",

@@ -28,7 +28,7 @@ import {
 } from "../../../security/auth.js";
 import type { AuthProvider } from "../../../security/auth-provider.js";
 import type { GrantsService } from "../../../security/grants-service.js";
-import { signPrincipalToken } from "./auth-routes.js";
+import { checkRateLimit, signPrincipalToken } from "./auth-routes.js";
 
 const DEFAULT_TTL_SECONDS = 300;
 const MAX_TTL_SECONDS = 900;
@@ -92,11 +92,39 @@ export function registerActorTokenRoutes(params: {
     if (!caller) {
       return c.json({ error: "Unauthorized" }, 401);
     }
-    const allowed = caller.capabilities.some((held) =>
-      capabilityCovers(held, ACTOR_TOKEN_CAPABILITY)
-    );
-    if (!allowed) {
+    // The WHOLE held set goes to the matcher, once. Mapping it per-element
+    // used to pass a single capability string, where the matcher's
+    // `granted.includes("*")` degrades into a substring test — so any held
+    // capability merely CONTAINING an asterisk (every member holds
+    // `module.*`) satisfied `core.users.impersonate` and any member could
+    // mint an actor token for a tenant admin.
+    if (!capabilityCovers(caller.capabilities, ACTOR_TOKEN_CAPABILITY)) {
+      recordCoreAuditEvent(params.auditLog, {
+        detail: {
+          caller: caller.principalId,
+          callerType: caller.principalType,
+          required: ACTOR_TOKEN_CAPABILITY,
+        },
+        type: "auth.actor_token_denied",
+      });
       return c.json({ error: "Forbidden" }, 403);
+    }
+
+    // Minting an impersonation token is at least as sensitive as exchanging a
+    // service secret, which has been rate-limited since it shipped. Key on the
+    // caller AND the source IP so neither a stolen token nor a single host can
+    // grind through the tenant's user list.
+    const sourceIp = c.req.header("x-forwarded-for") ?? "unknown";
+    if (!checkRateLimit(`actor-token:${caller.principalId}:${sourceIp}`)) {
+      recordCoreAuditEvent(params.auditLog, {
+        detail: {
+          caller: caller.principalId,
+          route: "actor-token",
+          sourceIp,
+        },
+        type: "auth.rate_limited",
+      });
+      return c.json({ error: "Too Many Requests" }, 429);
     }
 
     const body = (await c.req.json().catch(() => ({}))) as {

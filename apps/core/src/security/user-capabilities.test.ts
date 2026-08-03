@@ -3,9 +3,12 @@ import { capabilitiesForUser, clampCapabilities } from "./user-capabilities.js";
 
 describe("capabilitiesForUser", () => {
   it("derives each role's bundle from CORE_ROLE_PROFILES", () => {
+    // `core.credentials.manage` is redundant against `*` for the matcher, and
+    // listed on the profile anyway so the power to mint durable credentials is
+    // named rather than implied (AUTH-02).
     expect(
       capabilitiesForUser({ isSuperAdmin: false, tenantRole: "admin" })
-    ).toEqual(["*"]);
+    ).toEqual(["core.credentials.manage", "*"]);
     // Members are capable staff: module.* plus their own + tenant settings.
     // This must match the tenant.member profile the grants path resolves.
     expect(

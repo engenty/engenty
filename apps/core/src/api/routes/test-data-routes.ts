@@ -7,7 +7,11 @@ import {
   generateTestData,
   TestDataLlmHttpError,
 } from "../../services/test-data-generator.js";
-import { jsonApiError, jsonApiSuccess } from "./api-response.js";
+import {
+  jsonApiError,
+  jsonApiPassthrough,
+  jsonApiSuccess,
+} from "./api-response.js";
 import { requireSuperAdmin, toPrincipalContext } from "./authz.js";
 import {
   InvokeOperationError,
@@ -220,7 +224,7 @@ export function registerTestDataRoutes(params: {
         } catch (err) {
           if (err instanceof InvokeOperationError) {
             if (err.body instanceof Object && "ok" in err.body) {
-              return c.json(err.body, err.status);
+              return jsonApiPassthrough(c, err.body, err.status);
             }
             const body = err.body as Record<string, unknown> | undefined;
             if (

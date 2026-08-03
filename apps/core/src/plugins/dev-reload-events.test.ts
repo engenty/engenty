@@ -35,12 +35,18 @@ function reloadResult(
     generationId: 8,
     issues: [],
     pluginId: "contacts",
+    // The report shape moved on (steps/preflightPassed/requiresRestart);
+    // this fixture still described the retired plannedSteps/reloadable/status.
     preflight: {
+      executionAvailable: true,
+      hostHealthRelevant: false,
       issues: [],
-      plannedSteps: [],
+      mandatory: false,
+      ownedRegistrations: {},
       pluginId: "contacts",
-      reloadable: true,
-      status: "ok",
+      preflightPassed: true,
+      requiresRestart: false,
+      steps: [],
     },
     serviceStarts: 0,
     status: "reloaded",

@@ -1,27 +1,17 @@
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
-import type { PluginRegistry } from "../plugins/registry.js";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { createMemoryAuthStores } from "../security/auth-stores/index.js";
 import { createApiApp } from "./server.js";
-
-function makeEmptyRegistry(): PluginRegistry {
-  return {
-    plugins: [],
-    cliRegistrars: [],
-    diagnostics: [],
-    services: [],
-    httpRoutes: [],
-    gatewayMethods: [],
-    moduleOperations: [],
-  };
-}
 
 async function createBootstrapToken(secret: string): Promise<string> {
   return await new SignJWT({
     tenant_id: "tenant-1",
     role: "user",
-    capabilities: ["module.read", "module.write"],
+    // `core.credentials.manage` is what POST /api/auth/api-tokens requires
+    // since AUTH-02 — a bearer alone no longer buys a 30-day token.
+    capabilities: ["module.read", "module.write", "core.credentials.manage"],
     scopes: ["default"],
     module_ids: ["contacts", "invoices"],
     roles: ["admin"],

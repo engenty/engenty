@@ -1,6 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
+  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,6 +13,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Switch,
 } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createProject } from "../api.js";
@@ -46,6 +48,12 @@ export function ProjectCreateModal({
   const [createNewEntity, setCreateNewEntity] = useState(false);
   const [newEntityName, setNewEntityName] = useState("");
 
+  // Time planning is opt-in per project: switching it off creates a lean
+  // project room (notes, files, tasks) with no phases, dates or Gantt.
+  const [timeplanEnabled, setTimeplanEnabled] = useState(true);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   const { data: entityOptions = [], isLoading: entityOptionsLoading } =
     useProjectEntitySearchQuery(
       contactsPlugin,
@@ -53,24 +61,29 @@ export function ProjectCreateModal({
       open && clientOpen
     );
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    setTitle("");
+  const clearErrors = useCallback(() => {
     setTitleError(null);
     setSubmitError(null);
+  }, []);
+
+  const resetForm = useCallback(() => {
+    setTitle("");
     setClientSearch("");
     setClientId(null);
     setClientDisplayName("");
     setCreateNewEntity(false);
     setNewEntityName("");
-  }, [open]);
+    setTimeplanEnabled(true);
+    setStartDate("");
+    setEndDate("");
+    clearErrors();
+  }, [clearErrors]);
 
-  const clearErrors = useCallback(() => {
-    setTitleError(null);
-    setSubmitError(null);
-  }, []);
+  useEffect(() => {
+    if (open) {
+      resetForm();
+    }
+  }, [open, resetForm]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -112,6 +125,11 @@ export function ProjectCreateModal({
           portal_password: null,
           portal_intro_text: null,
           created_by: null,
+          timeplan_enabled: timeplanEnabled,
+          // Dates only mean something for a project that plans time - drop
+          // whatever was typed before the switch was turned off.
+          start_date: timeplanEnabled ? startDate || null : null,
+          end_date: timeplanEnabled ? endDate || null : null,
         });
         onOpenChange(false);
         onSuccess?.();
@@ -130,6 +148,9 @@ export function ProjectCreateModal({
       newEntityName,
       clientId,
       clientDisplayName,
+      timeplanEnabled,
+      startDate,
+      endDate,
       onOpenChange,
       onSuccess,
       t,
@@ -140,24 +161,21 @@ export function ProjectCreateModal({
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (!next) {
-        setTitle("");
-        setClientSearch("");
-        setClientId(null);
-        setClientDisplayName("");
-        setCreateNewEntity(false);
-        setNewEntityName("");
-        clearErrors();
+        resetForm();
       }
       onOpenChange(next);
     },
-    [onOpenChange, clearErrors]
+    [onOpenChange, resetForm]
   );
 
   const dialogDescriptionId = "project-create-dialog-description";
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent aria-describedby={dialogDescriptionId}>
+      <DialogContent
+        aria-describedby={dialogDescriptionId}
+        className="sm:max-w-xl"
+      >
         <DialogHeader>
           <DialogTitle>{t("create.title")}</DialogTitle>
           <DialogDescription className="sr-only" id={dialogDescriptionId}>
@@ -304,6 +322,44 @@ export function ProjectCreateModal({
               )}
             </>
           ) : null}
+
+          {/* Time planning is what separates a full project from a lean
+              project room, so it is decided here rather than after the fact.
+              Plain row - the dialog fields carry no card chrome. */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="timeplan-enabled">
+                {t("create.timeplan.enable")}
+              </Label>
+              <Switch
+                checked={timeplanEnabled}
+                id="timeplan-enabled"
+                onCheckedChange={setTimeplanEnabled}
+              />
+            </div>
+            {timeplanEnabled && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  {/* DatePicker renders a popover trigger button, not an
+                      input - label it by association, not `htmlFor`. */}
+                  <Label>{t("create.timeplan.startDate")}</Label>
+                  <DatePicker
+                    className="mt-1 w-full"
+                    onChange={(next) => setStartDate(next ?? "")}
+                    value={startDate || null}
+                  />
+                </div>
+                <div>
+                  <Label>{t("create.timeplan.endDate")}</Label>
+                  <DatePicker
+                    className="mt-1 w-full"
+                    onChange={(next) => setEndDate(next ?? "")}
+                    value={endDate || null}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           {submitError && (
             <p className="text-red-600 text-sm" role="alert">

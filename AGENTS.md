@@ -105,6 +105,15 @@ Strict lowercase snake_case: `^[a-z0-9_]{1,64}$` (e.g. `shell_set_theme`). Use `
 - Models / env: [ai-gateway.mdc](./docs/agent/rules/ai-gateway.mdc), `packages/ai-core/docs/howto-ai-config.md`
 - Chat primitives: [ai-elements.mdc](./docs/agent/rules/ai-elements.mdc)
 
+## Sandbox doctrine (decided 2026-08-03)
+
+Two runtimes, one job each — do not add a third:
+
+- **Agent execution = Docker sandbox** (`apps/ai/src/ai/sandbox/`, image `deploy/Dockerfile.sandbox`). Everything an agent runs — workspace EXECUTE_COMMAND, Code Mode, future repo checkouts — goes here.
+- **Tenant Apps = agentOS** (`apps/app-host`). Platform-built Apps run here, never in the agent sandbox.
+
+The Gondolin micro-VM tier was **deleted** (recoverable from git history pre-2026-08-03). Adding another provider/isolation tier is a doctrine change requiring an explicit decision, not a config option. The hosted coder (`feat/coder`, parked — see `PLAN-coder-merge.md` on that branch) targets the Docker sandbox.
+
 ## UI and i18n
 
 - **Visual design (primary):** [DESIGN.md](./docs/agent/DESIGN.md) — tokens, shell, tables, elevation. Outranks shadcn defaults.

@@ -1,5 +1,4 @@
 import type { PluginDiagnostic } from "@engenty/plugin-sdk";
-import type { PrincipalContext } from "../security/auth.js";
 import { getMandatoryPluginDeclaration } from "./mandatory-plugins.js";
 import type { PluginRecord, PluginRegistry } from "./registry.js";
 
@@ -12,6 +11,13 @@ export type PluginCapabilityBlockedReason =
   | "dependency_missing"
   | "dependency_disabled"
   | "capability_not_registered"
+  // Declared, never returned: nothing here inspects the calling principal.
+  // Six call sites used to pass `principal: auth` into resolvePluginCapability
+  // — which is re-exported from @engenty/plugin-sdk (see the bottom of this
+  // file) and whose params type has no such field, so the argument was dropped
+  // on the floor and read as a principal check that was never performed. The
+  // argument is gone; this reason stays only so the union still describes the
+  // intended vocabulary. Implement or delete it deliberately.
   | "principal_forbidden"
   | "approval_required";
 
@@ -61,7 +67,6 @@ export interface ResolvePluginCapabilityParams {
    */
   packageAllowedModules?: string[] | null;
   pluginId: string;
-  principal?: PrincipalContext;
   registeredCapabilities?: Iterable<string>;
   registry: PluginRegistry;
   tenantId?: string;

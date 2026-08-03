@@ -250,7 +250,7 @@
     "approvedOnce": "einmalig",
     "removeApprovedTool": "Entfernen",
     "pendingApprovalTitle": "Wartet auf Freigabe",
-    "pendingApprovalBody": "Der Agent benötigt deine Freigabe für {{operation}}.",
+    "pendingApprovalFallback": "Der Agent benötigt deine Freigabe, um fortzufahren.",
     "reviewTitle": "Bereit zur Prüfung",
     "reviewBody": "{{agent}} hat diese Aufgabe abgeschlossen und wartet auf deine Entscheidung.",
     "reviewBodyGeneric": "Diese Aufgabe ist abgeschlossen und wartet auf deine Entscheidung.",
@@ -716,6 +716,12 @@
     "denyApproval": "Ablehnen",
     "actionReview": "Prüfen",
     "actionApprove": "Freigeben",
-    "actionFix": "Beheben"
+    "actionFix": "Beheben",
+    "risk": {
+      "low": "geringes Risiko",
+      "medium": "mittleres Risiko",
+      "high": "hohes Risiko",
+      "critical": "kritisches Risiko"
+    }
   }
 }

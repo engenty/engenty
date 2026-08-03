@@ -487,6 +487,36 @@ export class InvokeOperationError extends Error {
   }
 }
 
+/**
+ * Validate a handler result against the operation's declared output schema.
+ * A mismatch is the MODULE breaking its own contract, never the caller's
+ * fault — so it must surface as a 500 "output_contract_violation", not fall
+ * into the generic ZodError → 400 "validation_error" path, which reads as
+ * "your input was invalid" and sends whoever debugs it to the wrong layer.
+ */
+function parseOperationOutput(
+  outputSchema: { parse: (value: unknown) => unknown },
+  result: unknown,
+  operationId: string
+): unknown {
+  try {
+    return outputSchema.parse(result);
+  } catch (e) {
+    if (!isZodError(e)) {
+      throw e;
+    }
+    const message = `module operation "${operationId}" returned output that does not match its output schema`;
+    throw new InvokeOperationError(message, 500, {
+      code: "output_contract_violation",
+      message,
+      ...(() => {
+        const formatted = formatZodErrorForApiError(e);
+        return formatted.fields ? { fields: formatted.fields } : {};
+      })(),
+    });
+  }
+}
+
 /** Invoke a module operation with policy/approval/audit. Use for test-data apply. */
 export async function invokeOperation(params: {
   auth: PrincipalContext;
@@ -531,7 +561,6 @@ export async function invokeOperation(params: {
     const capability = op.operationId;
     const capabilityResolution = resolvePluginCapability({
       tenantId: auth.tenantId,
-      principal: auth,
       registry,
       pluginId: entry.pluginId,
       capability,
@@ -695,7 +724,7 @@ export async function invokeOperation(params: {
       recordAuditEvent,
     });
     const validated = entry.outputSchema
-      ? entry.outputSchema.parse(result)
+      ? parseOperationOutput(entry.outputSchema, result, operationId)
       : result;
     const resultDecision = evaluateResultPolicy(
       {
@@ -796,12 +825,20 @@ async function requireAuth(
   // capabilities remain the hard ceiling, checked upstream.
   const headerAgentId = c.req.header("x-engenty-agent-id");
   const headerGoalId = c.req.header("x-engenty-goal-id");
+  // CON-01: an engenty App drives core with the VIEWING USER's token, so every
+  // policy that reads `principalType` sees an ordinary interactive user — and
+  // the connections gate then stands aside for the AI pre-gate that, outside
+  // chat, is not there. The App proxy marks its own calls; policies use it to
+  // treat them as autonomous. Only ever ADDS an approval requirement, and only
+  // the value "app" is recognised, so a forged header cannot widen anything.
+  const headerOrigin = c.req.header("x-engenty-call-origin");
   const auth = {
     ...resolved,
     agentId:
       resolved.principalType === "agent"
         ? resolved.principalId
         : (headerAgentId ?? resolved.agentId),
+    ...(headerOrigin === "app" ? { callOrigin: "app" as const } : {}),
     goalId: headerGoalId ?? resolved.goalId,
   };
   return { error: null, auth };
@@ -850,7 +887,6 @@ async function listAvailableOperationContracts(
       (isCoreOwnedOperation(contract.pluginId) ||
         resolvePluginCapability({
           tenantId: authResult.auth.tenantId,
-          principal: authResult.auth,
           registry: params.registry,
           pluginId: contract.pluginId,
           capability: contract.operationId,
@@ -899,7 +935,6 @@ async function getAvailableOperationContract(
   if (!isCoreOwnedOperation(contract.pluginId)) {
     const capabilityResolution = resolvePluginCapability({
       tenantId: authResult.auth.tenantId,
-      principal: authResult.auth,
       registry: params.registry,
       pluginId: contract.pluginId,
       capability: contract.operationId,
@@ -1008,7 +1043,6 @@ export async function executeModuleOperation(params: {
     const capability = op.operationId;
     const capabilityResolution = resolvePluginCapability({
       tenantId: auth.tenantId,
-      principal: auth,
       registry: params.registry,
       pluginId: entry.pluginId,
       capability,
@@ -1063,7 +1097,16 @@ export async function executeModuleOperation(params: {
     });
   } catch (e) {
     if (e instanceof InvokeOperationError) {
-      return jsonApiError(params.c, e.status, e.body ?? { message: e.message });
+      // `body` is `unknown` and the shapes thrown here (e.g. the interceptor
+      // block's `{ error, reason }`) carry no `message` — passing it straight
+      // through produced an error envelope with `message: undefined`. Take
+      // what is there and always answer with a message.
+      const eBody = e.body as Record<string, unknown> | undefined;
+      return jsonApiError(params.c, e.status, {
+        ...(typeof eBody?.code === "string" ? { code: eBody.code } : {}),
+        ...(eBody === undefined ? {} : { details: eBody }),
+        message: typeof eBody?.message === "string" ? eBody.message : e.message,
+      });
     }
     throw e;
   }
@@ -1190,7 +1233,7 @@ export async function executeModuleOperation(params: {
       recordAuditEvent,
     });
     const validated = entry.outputSchema
-      ? entry.outputSchema.parse(result)
+      ? parseOperationOutput(entry.outputSchema, result, params.operationId)
       : result;
     const resultDecision = evaluateResultPolicy(
       {
@@ -1257,6 +1300,16 @@ export async function executeModuleOperation(params: {
       },
       registry: params.registry,
     });
+    if (e instanceof InvokeOperationError) {
+      const body = e.body as
+        | { code?: string; fields?: Record<string, string[]> }
+        | undefined;
+      return jsonApiError(params.c, e.status, {
+        message: e.message,
+        ...(typeof body?.code === "string" ? { code: body.code } : {}),
+        ...(body?.fields ? { fields: body.fields } : {}),
+      });
+    }
     if (isZodError(e)) {
       return jsonApiError(params.c, 400, formatZodErrorForApiError(e));
     }
@@ -1394,7 +1447,6 @@ export function registerModuleOperationRoutes(params: {
         (contract) =>
           resolvePluginCapability({
             tenantId: authResult.auth.tenantId,
-            principal: authResult.auth,
             registry: params.registry,
             pluginId: contract.pluginId,
             capability: contract.operationId,

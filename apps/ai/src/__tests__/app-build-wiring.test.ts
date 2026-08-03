@@ -1,7 +1,38 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createBuiltinRegistryTools } from "../../ai/agents/engenty.copilot/copilot-agent.js";
+import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
+
+// Capture what app_build hands the workflow without booting Mastra. The
+// factory is hoisted above the import graph, so the tool's dynamic
+// `import("../index.js")` resolves to this stub.
+const workflowCapture = vi.hoisted(() => ({
+  inputData: undefined as Record<string, unknown> | undefined,
+}));
+vi.mock("../../ai/index.js", () => ({
+  mastra: {
+    getWorkflow: () => ({
+      createRun: async () => ({
+        start: async ({
+          inputData,
+        }: {
+          inputData: Record<string, unknown>;
+        }) => {
+          workflowCapture.inputData = inputData;
+          return {
+            result: {
+              app_id: "00000000-0000-0000-0000-000000000001",
+              status: "built",
+              version: 1,
+            },
+            status: "success",
+          };
+        },
+      }),
+    }),
+  },
+}));
 
 /**
  * Cross-boundary wiring guard: engenty.app-coder's agent.json (in
@@ -43,5 +74,42 @@ describe("app-coder tool wiring", () => {
         name: "X",
       })
     ).rejects.toThrow(/tenant/);
+  });
+
+  it("publishes the artifact to the USER-FACING thread, not the child", async () => {
+    // The bug the first live E2E found: inside a delegated run the ALS's
+    // orchestratorThreadId is the app-coder's child thread, so the preview
+    // artifact landed where the user never looks. userFacingThreadId (set by
+    // the root run, inherited through delegate-run's spread) must win.
+    const { appBuildTool } = await import("../../ai/tools/app-build-tool.js");
+    const execute = appBuildTool.execute as (
+      input: unknown
+    ) => Promise<unknown>;
+    const input = {
+      files: { "index.html": "<h1>x</h1>" },
+      manifest: { entry: { frontend: "index.html" }, name: "X" },
+      name: "X",
+    };
+
+    await engentyToolsRunAls.run(
+      {
+        orchestratorThreadId: "child-thread",
+        tenantId: "00000000-0000-0000-0000-0000000000aa",
+        userFacingThreadId: "parent-thread",
+      },
+      () => execute(input)
+    );
+    expect(workflowCapture.inputData?.thread_id).toBe("parent-thread");
+
+    // A root (non-delegated) run sets both to the same thread; absent the
+    // user-facing id the tool must still fall back to the orchestrator thread.
+    await engentyToolsRunAls.run(
+      {
+        orchestratorThreadId: "root-thread",
+        tenantId: "00000000-0000-0000-0000-0000000000aa",
+      },
+      () => execute(input)
+    );
+    expect(workflowCapture.inputData?.thread_id).toBe("root-thread");
   });
 });

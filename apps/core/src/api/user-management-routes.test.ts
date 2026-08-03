@@ -7,7 +7,9 @@ import { registerUserManagementRoutes } from "./routes/user-management-routes.js
 const tenantId = "tenant-1";
 
 function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
-  return {
+  // Annotated so the spread of a Partial below overrides rather than widens:
+  // without it every required member picks up `| undefined` from `overrides`.
+  const base: CoreUsersDal = {
     getSetupStatus: async () => ({ initialSetupRequired: true, usersCount: 0 }),
     resolveAuthUser: async () =>
       ({
@@ -26,6 +28,7 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
         email: "admin@example.com",
         display_name: "Admin",
         role: "admin",
+        is_super_admin: false,
         phone: null,
         initials: null,
         created_at: new Date().toISOString(),
@@ -41,6 +44,7 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
         display_name: "Admin",
         initials: null,
         role: "admin",
+        is_super_admin: false,
       },
       isSuperAdmin: false,
       isTenantAdmin: true,
@@ -68,6 +72,7 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
         email: "admin@example.com",
         display_name: "Admin",
         role: "admin",
+        is_super_admin: false,
         phone: null,
         initials: null,
         created_at: new Date().toISOString(),
@@ -86,8 +91,16 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
     },
     deleteUser: async () => undefined,
     updateUserPassword: async () => undefined,
-    ...overrides,
+    // Not exercised here; present so the double stays a whole CoreUsersDal and
+    // the next member added to the interface fails this file loudly.
+    createInitialAdmin: async () => {
+      throw new Error("not implemented");
+    },
+    getServiceWorkspaceContext: async () => {
+      throw new Error("not implemented");
+    },
   };
+  return { ...base, ...overrides };
 }
 
 function createApp(dal: CoreUsersDal) {
@@ -109,6 +122,7 @@ describe("user management routes", () => {
         email: "admin@example.com",
         display_name: "Admin",
         role: "admin" as const,
+        is_super_admin: false,
         phone: null,
         initials: null,
         created_at: new Date().toISOString(),
@@ -242,6 +256,7 @@ describe("user management routes", () => {
             email: "u1@example.com",
             display_name: "User One",
             role: "member",
+            is_super_admin: false,
             phone: null,
             initials: null,
             created_at: new Date().toISOString(),
@@ -266,6 +281,7 @@ describe("user management routes", () => {
       email: "u2@example.com",
       display_name: "User Two",
       role: "admin" as const,
+      is_super_admin: false,
       phone: null,
       initials: null,
       created_at: new Date().toISOString(),
@@ -316,6 +332,7 @@ describe("user management routes", () => {
           email: "self@example.com",
           display_name: "Self User",
           role: "member",
+          is_super_admin: false,
           phone: null,
           initials: null,
           created_at: new Date().toISOString(),
@@ -339,6 +356,7 @@ describe("user management routes", () => {
       email: "u2@example.com",
       display_name: "User Two",
       role: "member" as const,
+      is_super_admin: false,
       phone: null,
       initials: null,
       created_at: new Date().toISOString(),
@@ -405,6 +423,7 @@ describe("user management routes", () => {
       email: "self@example.com",
       display_name: "Updated Name",
       role: "member" as const,
+      is_super_admin: false,
       phone: null,
       initials: null,
       created_at: new Date().toISOString(),
@@ -448,6 +467,7 @@ describe("user management routes", () => {
       email: "new@example.com",
       display_name: "New User",
       role: "member" as const,
+      is_super_admin: false,
       phone: null,
       initials: null,
       created_at: new Date().toISOString(),
@@ -473,6 +493,7 @@ describe("user management routes", () => {
         password: "strong-password",
         display_name: "New User",
         role: "member",
+        is_super_admin: false,
       }),
     });
     expect(created.status).toBe(200);
@@ -492,6 +513,10 @@ describe("user management routes", () => {
       tenant_id: tenantId,
       email: "new@example.com",
       role: "member" as const,
+      is_super_admin: false,
+      display_name: "New User",
+      initials: null,
+      phone: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
@@ -512,6 +537,7 @@ describe("user management routes", () => {
         password: "pass",
         display_name: "New User",
         role: "member",
+        is_super_admin: false,
         phone: null,
       }),
     });

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { IdentityAdminService } from "../../../identity/identity-admin-service.js";
+import type { IdentityAdminService } from "../../identity/identity-admin-service.js";
 import { ensureDefaultTenant } from "../tenants.js";
 import {
   resolveAuthUser,

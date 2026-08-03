@@ -380,6 +380,18 @@ export interface PluginTestDataRegistration {
 
 export type PluginPolicyTransport = "gateway" | "module_ops" | "mcp" | "http";
 
+/**
+ * Where a call physically came from, when that changes who owns the approval
+ * UX. `"app"` means an engenty App's sandboxed frame drove it through the App
+ * proxy: the bearer is the viewing user's token, but there is no interactive
+ * chat turn behind it and therefore no AI pre-gate to present an approval
+ * card. Policies that stay permissive for user principals on the strength of
+ * that pre-gate must treat `"app"` as autonomous instead (CON-01).
+ *
+ * Absent means the ordinary interactive path.
+ */
+export type PluginCallOrigin = "app";
+
 export interface PluginPolicyAuthContext {
   /** Present when a principal is acting on behalf of a user (e.g. chat agent). */
   actingForUserId?: string;
@@ -387,6 +399,8 @@ export interface PluginPolicyAuthContext {
   agentId?: string;
   audience: string[];
   authMethod: "oauth" | "api_token" | "service_credential" | "unknown";
+  /** Transport origin when it changes approval ownership. See {@link PluginCallOrigin}. */
+  callOrigin?: PluginCallOrigin;
   capabilities: string[];
   delegationChain: string[];
   /** Goal/objective the agent run is executing; scope for approval grants. */

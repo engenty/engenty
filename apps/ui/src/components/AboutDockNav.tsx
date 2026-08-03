@@ -49,7 +49,9 @@ function dockItemClass({
   hovered: boolean;
 }): string {
   if (distance >= STROKE_DISTANCE) {
-    return "h-3.5 py-0";
+    // Keep the smallest dock font-size while collapsed to a stroke so the
+    // stroke→label transition does not animate from the inherited base size.
+    return "h-3.5 py-0 text-[9px] leading-none";
   }
   if (active && distance === 0) {
     return ACTIVE_CLASS;

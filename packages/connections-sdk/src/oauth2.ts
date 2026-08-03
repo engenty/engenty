@@ -160,7 +160,14 @@ async function postTokenEndpoint(
       client_secret: env.clientSecret,
       ...body,
     }),
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    // Some providers (GitHub) default the token response to form-encoding and
+    // only return JSON when the request opts in via `Accept: application/json`;
+    // `tokenRequestHeaders` lets a connector add that header (parseTokenResponse
+    // always reads JSON). Connector-supplied headers cannot override content-type.
+    headers: {
+      ...config.tokenRequestHeaders,
+      "content-type": "application/x-www-form-urlencoded",
+    },
     method: "POST",
   });
   const data = (await response.json()) as TokenResponse;

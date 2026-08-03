@@ -1,18 +1,25 @@
 import {
   Button,
   type ColumnConfig,
-  cn,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   ListIconSegmentToggle,
   type ListPageSize,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarBulkActions,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
   type SortOrder,
   type TableSize,
+  useListToolbar,
   type ViewMode,
 } from "@engenty/ui-core";
 import {
@@ -20,12 +27,10 @@ import {
   Clock,
   Mail,
   MapPin,
-  MoreVertical,
   Phone,
   SlidersHorizontal,
   User,
   UserCircle2,
-  X,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ContactType } from "../../src/schema/index.js";
@@ -113,6 +118,90 @@ interface ContactsTableToolbarProps {
   viewMode: ViewMode;
 }
 
+function ContactsDisplayMenu(props: {
+  columnOrder: (keyof ContactsColumnVisibility)[];
+  columnVisibility: ContactsColumnVisibility;
+  columns: ColumnConfig<keyof ContactsColumnVisibility>[];
+  labels: ContactsTableToolbarProps["labels"];
+  onPageSizeChange: (value: ListPageSize) => void;
+  onSortByChange: (value: ContactsSortColumn) => void;
+  onSortOrderChange: (value: SortOrder) => void;
+  pageSize: ListPageSize;
+  setColumnOrder: (order: (keyof ContactsColumnVisibility)[]) => void;
+  setColumnVisibility: (value: ContactsColumnVisibility) => void;
+  setTableSize: (size: TableSize) => void;
+  setViewMode: (mode: ViewMode) => void;
+  sortBy: ContactsSortColumn;
+  sortOptions: { value: ContactsSortColumn; label: string }[];
+  sortOrder: SortOrder;
+  tableSize: TableSize;
+  viewMode: ViewMode;
+}) {
+  const { overflowPlacement } = useListToolbar();
+  const inMenu = overflowPlacement === "menu";
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        {inMenu ? (
+          <Button
+            aria-label={props.labels.display}
+            className="h-9 w-full justify-start gap-1.5"
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {props.labels.display}
+          </Button>
+        ) : (
+          <ListToolbarIconButton
+            aria-label={props.labels.display}
+            type="button"
+          >
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        )}
+      </DropdownMenuTrigger>
+      <ListDisplayConfigurator<
+        keyof ContactsColumnVisibility,
+        ContactsSortColumn
+      >
+        columnOrder={props.columnOrder}
+        columns={props.columns}
+        columnVisibility={props.columnVisibility}
+        labels={{
+          table: props.labels.tableView,
+          cards: props.labels.cardsView,
+          compactView: props.labels.compactView,
+          sortBy: props.labels.sortBy,
+          ascending: props.labels.ascending,
+          descending: props.labels.descending,
+          displayedInTable: props.labels.displayedColumns,
+          hiddenInTable: props.labels.hiddenInTable,
+          showAll: props.labels.showAll,
+          hideAll: props.labels.hideAll,
+          noColumnsDisplayed: props.labels.noColumnsDisplayed,
+          itemsPerPage: props.labels.itemsPerPage,
+        }}
+        pageSize={props.pageSize}
+        setColumnOrder={props.setColumnOrder}
+        setColumnVisibility={props.setColumnVisibility}
+        setPageSize={props.onPageSizeChange}
+        setSortBy={props.onSortByChange}
+        setSortOrder={props.onSortOrderChange}
+        setTableSize={props.setTableSize}
+        setViewMode={props.setViewMode}
+        sortBy={props.sortBy}
+        sortOptions={props.sortOptions}
+        sortOrder={props.sortOrder}
+        tableSize={props.tableSize}
+        viewMode={props.viewMode}
+      />
+    </DropdownMenu>
+  );
+}
+
 export function ContactsTableToolbar(props: ContactsTableToolbarProps) {
   const columns: ColumnConfig<keyof ContactsColumnVisibility>[] = [
     { key: "legalName", label: props.labels.legalName, icon: Building2 },
@@ -147,83 +236,18 @@ export function ContactsTableToolbar(props: ContactsTableToolbarProps) {
     },
   ];
 
-  const hasSelection = (props.selectedCount ?? 0) > 0;
+  const selectedCount = props.selectedCount ?? 0;
+  const hasSelection = selectedCount > 0;
   const allowedTypes = props.allowedContactTypes ?? [];
   const activeTypeFilter: ContactType | "" =
     props.typeFilter && allowedTypes.includes(props.typeFilter as ContactType)
       ? (props.typeFilter as ContactType)
       : "";
 
-  const renderDisplayMenu = (variant: "default" | "overflow-full") => (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        {variant === "default" ? (
-          <ListToolbarIconButton
-            aria-label={props.labels.display}
-            type="button"
-          >
-            <SlidersHorizontal />
-          </ListToolbarIconButton>
-        ) : (
-          <Button
-            aria-label={props.labels.display}
-            className="h-9 w-full justify-start gap-1.5"
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            {props.labels.display}
-          </Button>
-        )}
-      </DropdownMenuTrigger>
-      <ListDisplayConfigurator<
-        keyof ContactsColumnVisibility,
-        ContactsSortColumn
-      >
-        columnOrder={props.columnOrder}
-        columns={columns}
-        columnVisibility={props.columnVisibility}
-        labels={{
-          table: props.labels.tableView,
-          cards: props.labels.cardsView,
-          compactView: props.labels.compactView,
-          sortBy: props.labels.sortBy,
-          ascending: props.labels.ascending,
-          descending: props.labels.descending,
-          displayedInTable: props.labels.displayedColumns,
-          hiddenInTable: props.labels.hiddenInTable,
-          showAll: props.labels.showAll,
-          hideAll: props.labels.hideAll,
-          noColumnsDisplayed: props.labels.noColumnsDisplayed,
-          itemsPerPage: props.labels.itemsPerPage,
-        }}
-        pageSize={props.pageSize}
-        setColumnOrder={props.setColumnOrder}
-        setColumnVisibility={props.setColumnVisibility}
-        setPageSize={props.onPageSizeChange}
-        setSortBy={props.onSortByChange}
-        setSortOrder={props.onSortOrderChange}
-        setTableSize={props.setTableSize}
-        setViewMode={props.setViewMode}
-        sortBy={props.sortBy}
-        sortOptions={sortOptions}
-        sortOrder={props.sortOrder}
-        tableSize={props.tableSize}
-        viewMode={props.viewMode}
-      />
-    </DropdownMenu>
-  );
-
   return (
-    <div
-      className={cn(
-        "flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center",
-        hasSelection ? "md:flex-nowrap md:overflow-x-auto" : "md:flex-wrap"
-      )}
-    >
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+    <ListToolbar selectedCount={selectedCount}>
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
           <ListSearchInput
             className="w-full"
             onChange={(e) => props.onSearchChange(e.target.value)}
@@ -231,102 +255,85 @@ export function ContactsTableToolbar(props: ContactsTableToolbarProps) {
             value={props.searchQuery}
             wrapperClassName="w-full"
           />
-        </div>
-        <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+        </ListToolbarSearch>
+        <ListToolbarSummary>
           {hasSelection
             ? props.labels.selectedSummary
             : props.labels.paginationSummary}
-        </p>
-      </div>
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
 
-      <div
-        className={cn(
-          "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 md:ml-auto md:shrink-0 md:justify-end",
-          hasSelection
-            ? "md:max-w-none md:flex-nowrap md:overflow-x-auto"
-            : "md:max-w-[min(100%,42rem)]"
-        )}
-      >
-        {hasSelection && (
-          <>
-            {props.bulkActions}
-            <Button
-              aria-label={props.clearSelectionLabel}
-              className="shrink-0 gap-1"
-              onClick={props.onClearSelection}
-              size="sm"
-              variant="ghost"
-            >
-              <X className="h-3.5 w-3.5" />
-              {props.clearSelectionLabel}
-            </Button>
-          </>
-        )}
-        {hasSelection ? (
-          <div className="flex shrink-0">
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <ListToolbarIconButton
-                  aria-label={props.labels.toolbarMore}
-                  type="button"
-                >
-                  <MoreVertical />
-                </ListToolbarIconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-[min(22rem,calc(100vw-2rem))] p-2"
-              >
-                {renderDisplayMenu("overflow-full")}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            {props.onTypeChange && allowedTypes.length > 0 && (
-              <ListIconSegmentToggle
-                allowDeselect
-                aria-label={props.labels.filterByType}
-                className="shrink-0"
-                onChange={(next) =>
-                  props.onTypeChange?.(next as ContactType | "")
-                }
-                segments={[
-                  ...(allowedTypes.includes("organisation")
-                    ? [
-                        {
-                          value: "organisation" as const,
-                          label: props.labels.typeOrganisation,
-                          icon: Building2,
-                        },
-                      ]
-                    : []),
-                  ...(allowedTypes.includes("person")
-                    ? [
-                        {
-                          value: "person" as const,
-                          label: props.labels.typePerson,
-                          icon: User,
-                        },
-                      ]
-                    : []),
-                ]}
-                value={activeTypeFilter}
-              />
-            )}
-            <ListViewModeToggle
-              labels={{
-                cards: props.labels.cardsView,
-                group: props.labels.viewModeGroup,
-                table: props.labels.tableView,
-              }}
-              onChange={props.setViewMode}
-              value={props.viewMode}
+      <ListToolbarActions moreLabel={props.labels.toolbarMore}>
+        <ListToolbarIdleControls>
+          {props.onTypeChange && allowedTypes.length > 0 && (
+            <ListIconSegmentToggle
+              allowDeselect
+              aria-label={props.labels.filterByType}
+              className="shrink-0"
+              onChange={(next) =>
+                props.onTypeChange?.(next as ContactType | "")
+              }
+              segments={[
+                ...(allowedTypes.includes("organisation")
+                  ? [
+                      {
+                        value: "organisation" as const,
+                        label: props.labels.typeOrganisation,
+                        icon: Building2,
+                      },
+                    ]
+                  : []),
+                ...(allowedTypes.includes("person")
+                  ? [
+                      {
+                        value: "person" as const,
+                        label: props.labels.typePerson,
+                        icon: User,
+                      },
+                    ]
+                  : []),
+              ]}
+              value={activeTypeFilter}
             />
-            {renderDisplayMenu("default")}
-          </div>
-        )}
-      </div>
-    </div>
+          )}
+          <ListViewModeToggle
+            labels={{
+              cards: props.labels.cardsView,
+              group: props.labels.viewModeGroup,
+              table: props.labels.tableView,
+            }}
+            onChange={props.setViewMode}
+            value={props.viewMode}
+          />
+          <ListToolbarOverflowItem>
+            <ContactsDisplayMenu
+              columnOrder={props.columnOrder}
+              columns={columns}
+              columnVisibility={props.columnVisibility}
+              labels={props.labels}
+              onPageSizeChange={props.onPageSizeChange}
+              onSortByChange={props.onSortByChange}
+              onSortOrderChange={props.onSortOrderChange}
+              pageSize={props.pageSize}
+              setColumnOrder={props.setColumnOrder}
+              setColumnVisibility={props.setColumnVisibility}
+              setTableSize={props.setTableSize}
+              setViewMode={props.setViewMode}
+              sortBy={props.sortBy}
+              sortOptions={sortOptions}
+              sortOrder={props.sortOrder}
+              tableSize={props.tableSize}
+              viewMode={props.viewMode}
+            />
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+        <ListToolbarBulkActions
+          clearSelectionLabel={props.clearSelectionLabel ?? ""}
+          onClearSelection={props.onClearSelection}
+        >
+          {props.bulkActions}
+        </ListToolbarBulkActions>
+      </ListToolbarActions>
+    </ListToolbar>
   );
 }

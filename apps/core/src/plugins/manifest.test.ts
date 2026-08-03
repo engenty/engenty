@@ -8,7 +8,7 @@ import {
   isConventionalPluginRoot,
   loadPluginManifest,
   resolveEngentyPluginManifestPath,
-} from "./manifest";
+} from "./manifest.js";
 
 function makeTempDir(): string {
   const dir = path.join(os.tmpdir(), `engenty-manifest-${randomUUID()}`);

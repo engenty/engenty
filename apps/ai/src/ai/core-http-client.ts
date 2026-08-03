@@ -347,12 +347,27 @@ export class EngentyCoreClient {
     return this.request<EngentyPluginListItem[]>(`/api/plugins${query}`);
   }
 
-  invokeTool<TInput, TResult>(toolId: string, input: TInput) {
+  /**
+   * `options.origin` marks WHERE the call came from when that changes who owns
+   * the approval UX. The App proxy passes "app": its calls carry the viewing
+   * user's token but have no chat turn behind them, so core's connector gate
+   * must not defer to a pre-gate that is not running (CON-01).
+   */
+  invokeTool<TInput, TResult>(
+    toolId: string,
+    input: TInput,
+    options?: { origin?: "app" }
+  ) {
     return this.request<TResult>(
       `/api/tools/${encodeURIComponent(toolId)}/invoke`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(options?.origin
+            ? { "x-engenty-call-origin": options.origin }
+            : {}),
+        },
         body: JSON.stringify({ input }),
       }
     );

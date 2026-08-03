@@ -76,8 +76,8 @@ function ProjectCard({
   return (
     <div
       className={cn(
-        "group relative block cursor-pointer rounded-lg border bg-card text-left transition-colors hover:bg-accent/30",
-        isSelected && "border-primary bg-primary/5",
+        "ui-canvas-raised group relative block cursor-pointer rounded-md bg-card text-left transition-shadow hover:shadow-[var(--e-3)]",
+        isSelected && "ring-2 ring-primary",
         tableSize === "compact" ? "p-3" : "p-5"
       )}
       onClick={() => onCardClick(project)}
@@ -106,16 +106,34 @@ function ProjectCard({
         />
       </div>
 
-      {/* 3-dot menu — top-right */}
+      {/* Progress — top-right; menu overlays this corner */}
+      {total > 0 && (
+        <div className="absolute top-2.5 right-2 flex items-center gap-1.5">
+          <span className="text-muted-foreground text-xxs">
+            {open} {t("detail.open")}
+          </span>
+          <div
+            className="h-1.5 w-12 overflow-hidden rounded-full bg-muted"
+            title={`${progressPct}% ${t("detail.done")}`}
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${String(progressPct)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 3-dot menu — overlays top-right (same corner as progress) */}
       <div
-        className="absolute top-1.5 right-1.5"
+        className="absolute top-1.5 right-1.5 z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground",
+                "flex h-7 w-7 items-center justify-center rounded-md bg-card text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground",
                 "opacity-0 group-hover:opacity-100",
                 isSelected && "opacity-100"
               )}
@@ -138,46 +156,36 @@ function ProjectCard({
         </DropdownMenu>
       </div>
 
-      {/* Progress / task status below top-right menu */}
-      {total > 0 && (
-        <div className="absolute top-10 right-2 flex items-center gap-1.5">
-          <span className="text-muted-foreground text-xxs">
-            {open} {t("detail.open")}
-          </span>
-          <div
-            className="h-1.5 w-12 overflow-hidden rounded-full bg-muted"
-            title={`${progressPct}% ${t("detail.done")}`}
-          >
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${String(progressPct)}%` }}
-            />
-          </div>
-        </div>
+      {/* Client topline — only when a real client is set */}
+      {(project.client_name || project.client_id) && (
+        <p
+          className={cn(
+            "truncate text-muted-foreground text-xs underline-offset-2 group-hover:underline",
+            total > 0 ? "pr-28" : undefined
+          )}
+        >
+          {clientUrl ? (
+            <Link
+              className="hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              to={clientUrl}
+            >
+              {clientLabel}
+            </Link>
+          ) : (
+            clientLabel
+          )}
+        </p>
       )}
 
-      {/* Client topline — pad left for checkbox, right for menu/progress */}
+      {/* Project title */}
       <p
         className={cn(
-          "truncate text-muted-foreground text-xs underline-offset-2 group-hover:underline",
-          "pr-10 pl-6"
+          "truncate font-medium text-base",
+          (project.client_name || project.client_id) && "mt-1",
+          total > 0 && "pr-28"
         )}
       >
-        {clientUrl ? (
-          <Link
-            className="hover:underline"
-            onClick={(e) => e.stopPropagation()}
-            to={clientUrl}
-          >
-            {clientLabel}
-          </Link>
-        ) : (
-          clientLabel
-        )}
-      </p>
-
-      {/* Project title */}
-      <p className="mt-1 truncate pl-6 font-medium text-base">
         {project.title}
       </p>
 

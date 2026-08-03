@@ -125,6 +125,49 @@ describe("AppRuntime.deploy guards", () => {
       expect.objectContaining({ appId })
     );
   });
+
+  /**
+   * The first deploy into a fresh namespace cold-starts an execution replica
+   * and regularly blows agentOS's hardcoded 30 s warm timeout; the identical
+   * retry then lands in about a second. Without the retry every new App's
+   * first build failed, and the agent — handed a "build failure" with no
+   * source problem in it — asked the user to re-paste files instead.
+   */
+  it("retries once when the execution replica cold-start times out", async () => {
+    deployAppMock.mockRejectedValueOnce({
+      code: "agentos_apps_replica_warm_timeout",
+      message:
+        "execution replica did not become ready within warmTimeoutMs 30000",
+    });
+    await expect(
+      runtime.deploy({ appId: "cold-start", files: {} })
+    ).resolves.toMatchObject({ release: "rel-1" });
+    expect(deployAppMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up if the replica times out twice", async () => {
+    deployAppMock.mockRejectedValue({
+      code: "agentos_apps_replica_warm_timeout",
+      message:
+        "execution replica did not become ready within warmTimeoutMs 30000",
+    });
+    await expect(
+      runtime.deploy({ appId: "cold-start", files: {} })
+    ).rejects.toThrow(/did not become ready/);
+    expect(deployAppMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT retry a real build error — the agent must see it at once", async () => {
+    deployAppMock.mockRejectedValue({
+      code: "agentos_apps_build_failed",
+      message: "esbuild: Unexpected token",
+      metadata: { stderr: "src/main.tsx:3:1: ERROR", stdout: "" },
+    });
+    await expect(
+      runtime.deploy({ appId: "broken", files: {} })
+    ).rejects.toThrow(/Unexpected token/);
+    expect(deployAppMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("loadAppHostConfig", () => {

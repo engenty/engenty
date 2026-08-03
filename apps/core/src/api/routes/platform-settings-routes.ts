@@ -94,6 +94,11 @@ export function loopbackRedirectUri(): string | null {
 function expandObtain(
   obtain: ConfigurableSetting["obtain"]
 ): ConfigurableSetting["obtain"] {
+  // Only the `provider` and `manual` arms of ObtainStrategy carry
+  // instructions; the rest have nothing to expand.
+  if (obtain.kind !== "provider" && obtain.kind !== "manual") {
+    return obtain;
+  }
   if (!obtain.instructions) {
     return obtain;
   }
@@ -296,7 +301,12 @@ export function registerPlatformSettingsRoutes(params: {
   }
   const logger = createLogger({ name: "platform-settings" });
   const repo = createPlatformSettingsRepoSupabase(supabase, {
-    logger: (msg, err) => logger.warn(msg, err),
+    // The repo hands back an unknown cause; the telemetry logger wants a
+    // structured field bag, so wrap rather than widen its signature.
+    logger: (msg, err) =>
+      logger.warn(msg, {
+        error: err instanceof Error ? err.message : String(err),
+      }),
   });
   const resolver: SettingsResolver = createSettingsResolver({
     repo,

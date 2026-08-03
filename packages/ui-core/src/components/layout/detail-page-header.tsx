@@ -42,8 +42,8 @@ const CONTAINER_PADDING = {
   // (smaller desktop / secondary nav open).
   blended: "px-2 pt-14 sm:px-4 md:px-5",
   framed: "px-4 py-4 sm:px-6",
-  // Extra bottom padding opens space before the content / toolbar row.
-  canvas: "px-2 pt-14 pb-8 sm:px-4 md:px-5 md:pb-10",
+  // Tight bottom padding — list toolbars sit close under the hub title.
+  canvas: "px-2 pt-14 pb-2 sm:px-4 md:px-5 md:pb-3",
 } as const;
 
 const TITLE_CLASS = {

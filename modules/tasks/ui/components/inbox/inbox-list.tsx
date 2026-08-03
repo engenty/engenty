@@ -106,6 +106,8 @@ function toolApprovalContext(notification: InboxNotificationDto): {
   operationId: string;
   taskId: string;
   triggerId: string | null;
+  title: string | null;
+  riskLevel: string | null;
 } | null {
   if (notification.kind !== "tool_approval") {
     return null;
@@ -116,10 +118,43 @@ function toolApprovalContext(notification: InboxNotificationDto): {
     return null;
   }
   const triggerId = notification.metadata?.trigger_id;
+  const detail = approvalDetail(notification, operationId);
   return {
     operationId,
+    riskLevel: detail?.risk_level ?? null,
     taskId,
+    title: detail?.title ?? null,
     triggerId: typeof triggerId === "string" ? triggerId : null,
+  };
+}
+
+/**
+ * The per-operation label + risk the run reported, from `payload.approvals`.
+ * Older notifications (emitted before the payload carried them) have none — the
+ * card then falls back to the bare operation id.
+ */
+function approvalDetail(
+  notification: InboxNotificationDto,
+  operationId: string
+): { risk_level?: string; title?: string } | null {
+  const approvals = notification.payload?.approvals;
+  if (!Array.isArray(approvals)) {
+    return null;
+  }
+  const match = approvals.find(
+    (entry): entry is { operation_id: string } & Record<string, unknown> =>
+      typeof entry === "object" &&
+      entry !== null &&
+      (entry as { operation_id?: unknown }).operation_id === operationId
+  );
+  if (!match) {
+    return null;
+  }
+  return {
+    ...(typeof match.risk_level === "string"
+      ? { risk_level: match.risk_level }
+      : {}),
+    ...(typeof match.title === "string" ? { title: match.title } : {}),
   };
 }
 
@@ -225,7 +260,9 @@ function InboxItem({
               markMutation.mutate({ action: "dismiss", id: notification.id })
             }
             operationId={approval.operationId}
+            riskLevel={approval.riskLevel}
             taskId={approval.taskId}
+            title={approval.title}
             triggerId={approval.triggerId}
           />
         ) : null}

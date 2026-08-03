@@ -17,6 +17,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { resolveAgentDisplayName } from "../../../ag-ui/resolve-transcript-tool-display.js";
 import {
+  InlineAppArtifact,
+  readDelegatedAppArtifactId,
+} from "../../../artifacts/inline-app-artifact.js";
+import {
   formatSubAgentInputText,
   formatSubAgentOutputText,
   resolveSubAgentCollapsedPreview,
@@ -133,6 +137,10 @@ export function SubAgentTaskToolCallCard({
     errorText?.trim() || formatSubAgentOutputText(output) || null;
   const logLines = progressLines ?? [];
   const toggleExpanded = () => setExpanded((open) => !open);
+  // The child built an App (app_build) — render it inline below the card,
+  // outside the collapse: the deliverable belongs in the conversation, not
+  // behind the drill-in.
+  const appArtifactId = readDelegatedAppArtifactId(output);
 
   return (
     <section
@@ -255,6 +263,12 @@ export function SubAgentTaskToolCallCard({
           ) : null}
         </div>
       </div>
+
+      {appArtifactId ? (
+        <div className="px-3 pb-3">
+          <InlineAppArtifact artifactId={appArtifactId} />
+        </div>
+      ) : null}
     </section>
   );
 }

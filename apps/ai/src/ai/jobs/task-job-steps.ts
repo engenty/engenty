@@ -14,7 +14,10 @@ import {
   routineWorkspaceStoragePrefix,
 } from "./routine-continuity.js";
 import { parseRoutineDisposition } from "./routine-disposition.js";
-import { summarizeTaskResultHeadline } from "./summarize-result-headline.js";
+import {
+  summarizeApprovalRequest,
+  summarizeTaskResultHeadline,
+} from "./summarize-result-headline.js";
 import { buildTaskBrief } from "./task-brief.js";
 import { finishTaskJobRun, registerTaskJobRun } from "./task-job-run-record.js";
 import {
@@ -278,7 +281,11 @@ export const writeResultStep = createStep({
       body = `run failed — ${inputData.note ?? "unknown error"}`;
     } else if (needsApproval) {
       const ops = (inputData.pending_approvals ?? [])
-        .map((p) => `\`${p.operation_id}\``)
+        .map((p) =>
+          p.title
+            ? `${p.title} (\`${p.operation_id}\`)`
+            : `\`${p.operation_id}\``
+        )
         .join(", ");
       body = `⏸ Waiting for approval to run ${ops || "a tool"} — approve from the inbox or on this task.`;
     } else {
@@ -374,6 +381,15 @@ export const finalizeStep = createStep({
       const pendings = inputData.pending_approvals ?? [];
       const primaryOp = pendings[0]?.operation_id ?? "a tool";
       const operationIds = pendings.map((p) => p.operation_id);
+      // An operation id alone ("connections_execute_action") says nothing about
+      // what is about to happen, so the card would ask for a blind yes. Carry
+      // the per-operation labels, and summarize the agent's notes into one line
+      // that states the concrete action awaiting approval.
+      const approvalHeadline = await summarizeApprovalRequest({
+        operations: pendings.map((p) => p.title ?? p.operation_id),
+        resultText: inputData.result_text ?? "",
+        taskRef,
+      });
       await emitInboxNotification({
         dedupeKey: `tool-approval:${inputData.task_id}:${primaryOp}`,
         kind: "tool_approval",
@@ -387,9 +403,17 @@ export const finalizeStep = createStep({
           ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
           ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
         },
+        payload: {
+          approvals: pendings,
+          ...(approvalHeadline ? { approval_summary: approvalHeadline } : {}),
+          ...(inputData.result_text
+            ? { result_text: inputData.result_text.slice(0, 2000) }
+            : {}),
+        },
         priority: "high",
         source: "tasks",
-        summary: subjectTitle ?? `approval to run ${primaryOp}`,
+        summary:
+          approvalHeadline ?? subjectTitle ?? `approval to run ${primaryOp}`,
         tenantId: inputData.tenant_id,
       });
       return { ...inputData, status: "released" as const };

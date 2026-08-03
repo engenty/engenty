@@ -54,6 +54,10 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      # Registers the agent escalation policy (role grants ∪ goal grants;
+      # escalate on the gap). On by default: it was written as the gate that
+      # governs agent runs, but shipped registered nowhere.
+      ENGENTY_AGENT_ESCALATION: ${ENGENTY_AGENT_ESCALATION:-true}
       GOTENBERG_URL: http://gotenberg:3000
       CORS_ORIGIN: ${PUBLIC_APP_URL}
       ENGENTY_UI_BASE_URL: ${PUBLIC_APP_URL}

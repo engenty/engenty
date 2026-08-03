@@ -271,7 +271,12 @@ export function registerSearchIndexRoutes(
       user_id: auth.userId ?? null,
     };
     const response = await provider.search({
-      filters: filters as Record<string, never>,
+      // This route is generic over every registered provider, so the request
+      // type falls back to `SearchRequest`'s default `TFilters =
+      // Record<string, never>` — "no filters at all". The filters are real and
+      // each provider interprets (and re-validates) its own shape, so the
+      // conversion has to go through `unknown`.
+      filters: filters as unknown as Record<string, never>,
       limit: parsed.limit ?? 25,
       ...(parsed.offset == null ? {} : { offset: parsed.offset }),
       ...(parsed.query == null ? {} : { query: parsed.query }),

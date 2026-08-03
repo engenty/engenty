@@ -366,4 +366,34 @@ describe("registerContactsApi server operations", () => {
     ).handler({ relationId: relation.id }, ctx);
     expect(deleted).toMatchObject({ id: relation.id });
   });
+
+  it("falls back to the created contact when the post-create read is invisible", async () => {
+    const { api, serverOperations } = makeMockApi();
+    // The row is written, but the read-back does not see it — a scope/RLS
+    // filter or replica lag. The handler must still return the created
+    // contact: `contacts_create` declares a non-nullable output schema, so
+    // returning null here fails core's output contract even though the
+    // contact and its roles were persisted.
+    const repo = makeRepo();
+    registerContactsApi(api, { ...repo, getById: async () => null });
+
+    const created = await getOperation(
+      serverOperations,
+      "contacts_create"
+    ).handler(
+      { display_name: "Acme GmbH", type: "organisation", roles: ["client"] },
+      {
+        auth: {
+          tenantId: "tenant-1",
+          scopeId: "default",
+          principalId: "user-1",
+        },
+      }
+    );
+
+    expect(created).toMatchObject({
+      id: "contact-1",
+      display_name: "Acme GmbH",
+    });
+  });
 });

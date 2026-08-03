@@ -11,11 +11,19 @@ import {
  * installed module contributes to the `projects.detail` surface. A contributed
  * tab only exists while its owning plugin is enabled, so a parked module (e.g.
  * `files`) simply has no tab — no feature flag or availability check needed.
+ *
+ * `timeplanEnabled` is the project's own switch: a lean project has no time
+ * planning at all, so the tab is dropped from the set rather than hidden.
  */
-export function useProjectDetailTabs(): ProjectTabMeta[] {
+export function useProjectDetailTabs(
+  timeplanEnabled: boolean
+): ProjectTabMeta[] {
   const { contributions } = useUiContributions();
 
   return useMemo(() => {
+    const native = timeplanEnabled
+      ? NATIVE_PROJECT_TABS
+      : NATIVE_PROJECT_TABS.filter((tab) => tab.id !== "timeplan");
     const contributed: ProjectTabMeta[] = contributions.tabs
       .filter((tab) => tab.surface === PROJECTS_DETAIL_SURFACE)
       .map((tab) => ({
@@ -25,6 +33,6 @@ export function useProjectDetailTabs(): ProjectTabMeta[] {
         required: false,
         component: tab.component,
       }));
-    return [...NATIVE_PROJECT_TABS, ...contributed];
-  }, [contributions.tabs]);
+    return [...native, ...contributed];
+  }, [contributions.tabs, timeplanEnabled]);
 }

@@ -42,6 +42,11 @@ export interface Project {
   scope_id: string;
   start_date: string | null;
   tenant_id: string;
+  /**
+   * Whether this project plans time (phases, dates, Gantt). `false` runs the
+   * project lean — a room for notes, files and tasks. Defaults to `true`.
+   */
+  timeplan_enabled?: boolean;
   title: string;
   updated_at: string;
   /** Project visibility: whole-tenant (default) or restricted to its team. */

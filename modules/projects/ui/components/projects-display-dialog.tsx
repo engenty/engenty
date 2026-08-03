@@ -1,27 +1,28 @@
 import {
   Button,
   type ColumnConfig,
-  cn,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   type ListPageSize,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarBulkActions,
+  ListToolbarFilterToggle,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
-} from "@engenty/ui-core";
-import {
-  Calendar,
-  ListFilter,
-  ListTodo,
-  MoreVertical,
-  SlidersHorizontal,
   type SortOrder,
   type TableSize,
-  User,
-  X,
-} from "lucide-react";
+  useListToolbar,
+  type ViewMode,
+} from "@engenty/ui-core";
+import { Calendar, ListTodo, SlidersHorizontal, User } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ProjectListGroupBy } from "./project-list-filters.js";
 
@@ -106,6 +107,99 @@ interface ProjectsTableToolbarProps {
   viewMode: ViewMode;
 }
 
+function ProjectsDisplayMenu(props: {
+  columnOrder: (keyof ProjectsColumnVisibility)[];
+  columnVisibility: ProjectsColumnVisibility;
+  columns: ColumnConfig<keyof ProjectsColumnVisibility>[];
+  groupBy: ProjectListGroupBy;
+  groupByOptions: { value: ProjectListGroupBy; label: string }[];
+  labels: ProjectsTableToolbarProps["labels"];
+  onGroupByChange: (value: ProjectListGroupBy) => void;
+  onPageSizeChange: (value: ListPageSize) => void;
+  onSortByChange: (value: ProjectsSortColumn) => void;
+  onSortOrderChange: (value: SortOrder) => void;
+  pageSize: ListPageSize;
+  setColumnOrder: (order: (keyof ProjectsColumnVisibility)[]) => void;
+  setColumnVisibility: (value: ProjectsColumnVisibility) => void;
+  setTableSize: (size: TableSize) => void;
+  setViewMode: (mode: ViewMode) => void;
+  sortBy: ProjectsSortColumn;
+  sortOptions: { value: ProjectsSortColumn; label: string }[];
+  sortOrder: SortOrder;
+  tableSize: TableSize;
+  viewMode: ViewMode;
+}) {
+  const { overflowPlacement } = useListToolbar();
+  const inMenu = overflowPlacement === "menu";
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        {inMenu ? (
+          <Button
+            aria-label={props.labels.display}
+            className="h-9 w-full justify-start gap-1.5"
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {props.labels.display}
+          </Button>
+        ) : (
+          <ListToolbarIconButton
+            aria-label={props.labels.display}
+            type="button"
+          >
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        )}
+      </DropdownMenuTrigger>
+      <ListDisplayConfigurator<
+        keyof ProjectsColumnVisibility,
+        ProjectsSortColumn
+      >
+        columnOrder={props.columnOrder}
+        columns={props.columns}
+        columnVisibility={props.columnVisibility}
+        groupBy={props.groupBy}
+        groupByOptions={props.groupByOptions}
+        labels={{
+          table: props.labels.tableView,
+          cards: props.labels.cardsView,
+          compactView: props.labels.compactView,
+          sortBy: props.labels.sortBy,
+          groupBy: props.labels.groupBy,
+          ascending: props.labels.ascending,
+          descending: props.labels.descending,
+          displayedInTable: props.labels.displayedColumns,
+          hiddenInTable: props.labels.hiddenInTable,
+          showAll: props.labels.showAll,
+          hideAll: props.labels.hideAll,
+          noColumnsDisplayed: props.labels.noColumnsDisplayed,
+          itemsPerPage: props.labels.itemsPerPage,
+        }}
+        pageSize={props.pageSize}
+        setColumnOrder={props.setColumnOrder}
+        setColumnVisibility={props.setColumnVisibility}
+        setGroupBy={(value) =>
+          props.onGroupByChange(value as ProjectListGroupBy)
+        }
+        setPageSize={props.onPageSizeChange}
+        setSortBy={props.onSortByChange}
+        setSortOrder={props.onSortOrderChange}
+        setTableSize={props.setTableSize}
+        setViewMode={props.setViewMode}
+        sortBy={props.sortBy}
+        sortOptions={props.sortOptions}
+        sortOrder={props.sortOrder}
+        tableSize={props.tableSize}
+        viewMode={props.viewMode}
+      />
+    </DropdownMenu>
+  );
+}
+
 export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
   const columns: ColumnConfig<keyof ProjectsColumnVisibility>[] = [
     { key: "title", label: props.labels.title, icon: User },
@@ -139,84 +233,13 @@ export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
     { value: "lead", label: props.labels.groupByLead },
   ];
 
-  const hasSelection = (props.selectedCount ?? 0) > 0;
-
-  const renderDisplayMenu = (variant: "default" | "overflow-full") => (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        {variant === "default" ? (
-          <ListToolbarIconButton
-            aria-label={props.labels.display}
-            type="button"
-          >
-            <SlidersHorizontal />
-          </ListToolbarIconButton>
-        ) : (
-          <Button
-            aria-label={props.labels.display}
-            className="h-9 w-full justify-start gap-1.5"
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            {props.labels.display}
-          </Button>
-        )}
-      </DropdownMenuTrigger>
-      <ListDisplayConfigurator<
-        keyof ProjectsColumnVisibility,
-        ProjectsSortColumn
-      >
-        columnOrder={props.columnOrder}
-        columns={columns}
-        columnVisibility={props.columnVisibility}
-        groupBy={props.groupBy}
-        groupByOptions={groupByOptions}
-        labels={{
-          table: props.labels.tableView,
-          cards: props.labels.cardsView,
-          compactView: props.labels.compactView,
-          sortBy: props.labels.sortBy,
-          groupBy: props.labels.groupBy,
-          ascending: props.labels.ascending,
-          descending: props.labels.descending,
-          displayedInTable: props.labels.displayedColumns,
-          hiddenInTable: props.labels.hiddenInTable,
-          showAll: props.labels.showAll,
-          hideAll: props.labels.hideAll,
-          noColumnsDisplayed: props.labels.noColumnsDisplayed,
-          itemsPerPage: props.labels.itemsPerPage,
-        }}
-        pageSize={props.pageSize}
-        setColumnOrder={props.setColumnOrder}
-        setColumnVisibility={props.setColumnVisibility}
-        setGroupBy={(value) =>
-          props.onGroupByChange(value as ProjectListGroupBy)
-        }
-        setPageSize={props.onPageSizeChange}
-        setSortBy={props.onSortByChange}
-        setSortOrder={props.onSortOrderChange}
-        setTableSize={props.setTableSize}
-        setViewMode={props.setViewMode}
-        sortBy={props.sortBy}
-        sortOptions={sortOptions}
-        sortOrder={props.sortOrder}
-        tableSize={props.tableSize}
-        viewMode={props.viewMode}
-      />
-    </DropdownMenu>
-  );
+  const selectedCount = props.selectedCount ?? 0;
+  const hasSelection = selectedCount > 0;
 
   return (
-    <div
-      className={cn(
-        "flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center",
-        hasSelection ? "md:flex-nowrap md:overflow-x-auto" : "md:flex-wrap"
-      )}
-    >
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="relative w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+    <ListToolbar selectedCount={selectedCount}>
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
           <ListSearchInput
             className="w-full pr-10"
             onChange={(e) => props.onSearchChange(e.target.value)}
@@ -229,92 +252,64 @@ export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
             value={props.searchQuery}
             wrapperClassName="w-full"
           />
-          <ListToolbarIconButton
+          <ListToolbarFilterToggle
+            active={props.filtersExpanded || props.hasActiveChipFilters}
             aria-label={props.filterToggleLabel}
             aria-pressed={props.filtersExpanded}
-            className={cn(
-              "absolute top-1/2 right-1 -translate-y-1/2",
-              (props.filtersExpanded || props.hasActiveChipFilters) &&
-                "text-foreground"
-            )}
             onClick={props.onFiltersToggle}
-            type="button"
-          >
-            <span className="relative inline-flex">
-              <ListFilter className="h-4 w-4" />
-              {props.hasActiveChipFilters ? (
-                <span
-                  aria-hidden
-                  className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary"
-                />
-              ) : null}
-            </span>
-          </ListToolbarIconButton>
-        </div>
-        <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+            showDot={props.hasActiveChipFilters}
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>
           {hasSelection
             ? props.labels.selectedSummary
             : props.labels.paginationSummary}
-        </p>
-      </div>
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
 
-      <div
-        className={cn(
-          "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 md:ml-auto md:shrink-0 md:justify-end",
-          hasSelection
-            ? "md:max-w-none md:flex-nowrap md:overflow-x-auto"
-            : "md:max-w-[min(100%,42rem)]"
-        )}
-      >
-        {hasSelection && (
-          <>
-            {props.bulkActions}
-            <Button
-              aria-label={props.clearSelectionLabel}
-              className="shrink-0 gap-1"
-              onClick={props.onClearSelection}
-              size="sm"
-              variant="ghost"
-            >
-              <X className="h-3.5 w-3.5" />
-              {props.clearSelectionLabel}
-            </Button>
-          </>
-        )}
-        {hasSelection ? (
-          <div className="flex shrink-0">
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <ListToolbarIconButton
-                  aria-label={props.labels.toolbarMore}
-                  type="button"
-                >
-                  <MoreVertical />
-                </ListToolbarIconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-[min(22rem,calc(100vw-2rem))] p-2"
-              >
-                {renderDisplayMenu("overflow-full")}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <ListViewModeToggle
-              labels={{
-                cards: props.labels.cardsView,
-                group: props.labels.viewModeGroup,
-                table: props.labels.tableView,
-              }}
-              onChange={props.setViewMode}
-              value={props.viewMode}
+      <ListToolbarActions moreLabel={props.labels.toolbarMore}>
+        <ListToolbarIdleControls>
+          <ListViewModeToggle
+            labels={{
+              cards: props.labels.cardsView,
+              group: props.labels.viewModeGroup,
+              table: props.labels.tableView,
+            }}
+            onChange={props.setViewMode}
+            value={props.viewMode}
+          />
+          <ListToolbarOverflowItem>
+            <ProjectsDisplayMenu
+              columnOrder={props.columnOrder}
+              columns={columns}
+              columnVisibility={props.columnVisibility}
+              groupBy={props.groupBy}
+              groupByOptions={groupByOptions}
+              labels={props.labels}
+              onGroupByChange={props.onGroupByChange}
+              onPageSizeChange={props.onPageSizeChange}
+              onSortByChange={props.onSortByChange}
+              onSortOrderChange={props.onSortOrderChange}
+              pageSize={props.pageSize}
+              setColumnOrder={props.setColumnOrder}
+              setColumnVisibility={props.setColumnVisibility}
+              setTableSize={props.setTableSize}
+              setViewMode={props.setViewMode}
+              sortBy={props.sortBy}
+              sortOptions={sortOptions}
+              sortOrder={props.sortOrder}
+              tableSize={props.tableSize}
+              viewMode={props.viewMode}
             />
-            {renderDisplayMenu("default")}
-          </div>
-        )}
-      </div>
-    </div>
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+        <ListToolbarBulkActions
+          clearSelectionLabel={props.clearSelectionLabel ?? ""}
+          onClearSelection={props.onClearSelection}
+        >
+          {props.bulkActions}
+        </ListToolbarBulkActions>
+      </ListToolbarActions>
+    </ListToolbar>
   );
 }

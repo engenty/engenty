@@ -1,0 +1,62 @@
+{
+  "id": "connections-github",
+  "name": "Connections — GitHub",
+  "description": "GitHub connector: repositories and pull requests via the connections framework (powers the hosted coder)",
+  "version": "0.0.1",
+  "kind": "module",
+  "category": "integrations",
+  "provides": ["module.connections-github"],
+  "capabilities": {
+    "operations": true,
+    "ai": false,
+    "frontendTools": false,
+    "ui": false
+  },
+  "env": {
+    "feature": {
+      "id": "connections-github",
+      "label": "GitHub connection (OAuth)",
+      "description": "GitHub connector for the external connections framework"
+    },
+    "vars": [
+      {
+        "description": "GitHub OAuth App client ID for the GitHub connector.",
+        "feature": "connections-github",
+        "group": "Connections — GitHub",
+        "key": "GITHUB_OAUTH_CLIENT_ID",
+        "configurable": "tenant",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "1. Create an OAuth App at https://github.com/settings/developers → New OAuth App.",
+            "2. Set Authorization callback URL to: <ENGENTY_API_BASE_URL>/api/connections/oauth/callback.",
+            "3. Request scope 'repo' at connect time (configured by the connector).",
+            "4. Copy the Client ID from the app's General page."
+          ],
+          "url": "https://github.com/settings/developers"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "GitHub OAuth App client secret for the GitHub connector.",
+        "feature": "connections-github",
+        "group": "Connections — GitHub",
+        "key": "GITHUB_OAUTH_CLIENT_SECRET",
+        "configurable": "tenant",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "Generate a client secret from the same GitHub OAuth App's General page and copy it here."
+          ],
+          "url": "https://github.com/settings/developers"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      }
+    ]
+  },
+  "requires": ["module.connections"]
+}

@@ -22,8 +22,9 @@ import { PhaseFormDialog } from "../components/phase-form-dialog.js";
 import { ProjectDetailHeader } from "../components/project-detail-header.js";
 import { ProjectDetailPageActions } from "../components/project-detail-page-actions.js";
 import { ProjectPlanningTab } from "../components/project-planning-tab.js";
-import { ProjectPortalPanel } from "../components/project-portal-panel.js";
+import { ProjectSettingsPanel } from "../components/project-settings-panel.js";
 import { ProjectTabsConfigDialog } from "../components/project-tabs-config-dialog.js";
+import { ProjectTimeplanSection } from "../components/project-timeplan-section.js";
 import { TaskFormDialog } from "../components/task-form-dialog.js";
 import { useProjectDetail } from "../hooks/use-project-detail.js";
 import { useProjectDetailHandlers } from "../hooks/use-project-detail-handlers.js";
@@ -55,7 +56,7 @@ export function ProjectDetailPage() {
   const [titleValue, setTitleValue] = useState("");
   const [openTabsConfig, setOpenTabsConfig] = useState(false);
   const [viewMode, setViewMode] = useState<"internal" | "external">("internal");
-  const [openPortalSettings, setOpenPortalSettings] = useState(false);
+  const [openProjectSettings, setOpenProjectSettings] = useState(false);
   const [portalDropdownOpen, setPortalDropdownOpen] = useState(false);
 
   const teamMembersCatalogQuery = useTeamMembersCatalogQuery();
@@ -108,7 +109,7 @@ export function ProjectDetailPage() {
     handleDragStart,
     handlePhaseSubmit,
     handlePhaseVisibilityToggle,
-    handlePortalSave,
+    handleProjectSettingsSave,
     handleTaskDelete,
     handleTaskStatusChange,
     handleTaskSubmit,
@@ -133,8 +134,10 @@ export function ProjectDetailPage() {
     })
   );
 
+  const timeplanEnabled = project?.timeplan_enabled !== false;
+
   const { activeTab, setActiveTab } = useProjectTabs();
-  const allTabs = useProjectDetailTabs();
+  const allTabs = useProjectDetailTabs(timeplanEnabled);
 
   const visibleTabs = useMemo(
     () => allTabs.filter((tab) => enabledTabs.includes(tab.id) || tab.required),
@@ -234,8 +237,7 @@ export function ProjectDetailPage() {
       <ProjectDetailPageActions
         onCopyLink={handleCopyLinkToClipboard}
         onCopyLinkClick={handleCopyPortalLink}
-        onOpenPortalSettings={() => setOpenPortalSettings(true)}
-        onOpenProjectSettings={() => setOpenPortalSettings(true)}
+        onOpenProjectSettings={() => setOpenProjectSettings(true)}
         onPortalDropdownOpenChange={setPortalDropdownOpen}
         onViewModeChange={setViewMode}
         portalDropdownOpen={portalDropdownOpen}
@@ -388,8 +390,11 @@ export function ProjectDetailPage() {
           className={`mx-auto space-y-4 p-page ${
             // Contributed tabs (e.g. the files manager) are workspace tools — let
             // them use the full content width instead of the narrow reading
-            // column used by the native tabs.
-            activeContributedTab ? "max-w-[100rem]" : "max-w-6xl"
+            // column used by the native tabs. The Gantt is the same kind of
+            // surface: more width means more visible weeks.
+            activeContributedTab || effectiveActiveTab === "timeplan"
+              ? "max-w-[100rem]"
+              : "max-w-6xl"
           }`}
         >
           {effectiveActiveTab === "planning" && (
@@ -442,6 +447,25 @@ export function ProjectDetailPage() {
               teamMembersLoading={teamMembersLoading}
               viewMode={viewMode}
             />
+          )}
+
+          {effectiveActiveTab === "timeplan" && (
+            <div className="mt-4">
+              <ProjectTimeplanSection
+                dateLocale={dateLocale}
+                endDate={project.end_date}
+                onPhaseCreate={handlePhaseCreate}
+                onPhaseFormOpen={() => {
+                  setEditingPhase(null);
+                  setPhaseFormOpen(true);
+                }}
+                onPhaseTitleUpdate={handlePhaseTitleUpdate}
+                onPhaseUpdate={handlePhaseUpdate}
+                phases={filteredPhases}
+                startDate={project.start_date}
+                viewMode={viewMode}
+              />
+            </div>
           )}
 
           {effectiveActiveTab === "notes" && (
@@ -517,13 +541,18 @@ export function ProjectDetailPage() {
             teamMembersLoading={teamMembersLoading}
           />
 
-          <ProjectPortalPanel
-            enabled={project.portal_enabled}
-            onClose={() => setOpenPortalSettings(false)}
-            onSave={handlePortalSave}
-            open={openPortalSettings}
-            password={project.portal_password ?? null}
+          <ProjectSettingsPanel
+            clientId={project.client_id}
+            clientName={project.client_name}
+            endDate={project.end_date}
+            onClose={() => setOpenProjectSettings(false)}
+            onSave={handleProjectSettingsSave}
+            open={openProjectSettings}
+            portalEnabled={project.portal_enabled}
+            portalPassword={project.portal_password ?? null}
             projectId={id}
+            startDate={project.start_date}
+            timeplanEnabled={timeplanEnabled}
           />
         </div>
       </div>

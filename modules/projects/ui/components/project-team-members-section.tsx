@@ -30,6 +30,7 @@ import {
 } from "@engenty/ui-core";
 import { Check, Pencil, Plus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ProjectMemberRole, ProjectTeamMemberRow } from "../api.js";
 import { updateProject } from "../api.js";
 import {
@@ -532,7 +533,17 @@ export function ProjectTeamMembersSection({
       {memberIds.length === 0 ? (
         <div className="text-muted-foreground text-sm">
           {t("detail.members.emptyDescription")}{" "}
-          {addOptions.length > 0 ? (
+          {/* No candidates left (or none in the tenant yet) - point at the team
+              module instead of silently dropping the only add affordance. */}
+          {addOptions.length === 0 ? (
+            <Link
+              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+              to="/mdl/team"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("detail.members.emptyCatalogLink")}
+            </Link>
+          ) : (
             <MultiSelect
               align="start"
               className="inline-flex h-auto w-auto border-0 bg-transparent p-0 font-medium text-primary shadow-none hover:bg-transparent hover:text-primary/80 hover:underline"
@@ -557,7 +568,7 @@ export function ProjectTeamMembersSection({
               }
               variant="ghost"
             />
-          ) : null}
+          )}
         </div>
       ) : null}
 

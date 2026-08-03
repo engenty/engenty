@@ -14,6 +14,7 @@ import type {
   PluginRecord,
   PluginRegistry,
 } from "../../../plugins/registry.js";
+import { makePluginRecord } from "../../../plugins/test-fixtures.js";
 import { registerPluginAdminRoutes } from "../plugins/plugin-admin-routes.js";
 
 async function signSuperAdminToken() {
@@ -41,6 +42,7 @@ function createTempDir(): string {
 
 function createPluginRecord(id: string): PluginRecord {
   return {
+    ...makePluginRecord({ id: "fixture" }),
     id,
     source: `/plugins/${id}.ts`,
     cliCommands: [],

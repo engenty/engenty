@@ -1,4 +1,5 @@
 import { envString } from "@engenty/environment/env";
+import type { PluginCallOrigin } from "@engenty/plugin-sdk";
 import { jwtVerify } from "jose";
 import { isTokenIdRevoked } from "./token-revocation.js";
 
@@ -20,6 +21,13 @@ export interface PrincipalContext {
   agentId?: string;
   audience: string[];
   authMethod: AuthMethod;
+  /**
+   * Set to "app" when the call arrived through the engenty Apps proxy
+   * (x-engenty-call-origin). The bearer is still the viewing user's token, but
+   * no interactive chat turn sits behind it — so policies that defer approval
+   * UX to the AI pre-gate for user principals must not do so here (CON-01).
+   */
+  callOrigin?: PluginCallOrigin;
   capabilities: string[];
   clientId?: string;
   delegationChain: string[];
@@ -63,6 +71,14 @@ function defaultCapabilities(
   return ["module.read"];
 }
 
+/**
+ * An unrecognised — or absent — `role` claim used to resolve to `"service"`,
+ * the MOST capable default: paired with `defaultCapabilities` a token with no
+ * role at all arrived holding `module.read/write/execute` (AUTH-04). A claim we
+ * cannot read is the one case where guessing high is indefensible, so the
+ * fallback is now the least-privileged principal. A genuine service names
+ * itself; every token core mints sets the claim explicitly.
+ */
 function parsePrincipalType(payload: Record<string, unknown>): PrincipalType {
   if (
     payload.role === "user" ||
@@ -71,7 +87,7 @@ function parsePrincipalType(payload: Record<string, unknown>): PrincipalType {
   ) {
     return payload.role;
   }
-  return "service";
+  return "user";
 }
 
 function parseTokenType(

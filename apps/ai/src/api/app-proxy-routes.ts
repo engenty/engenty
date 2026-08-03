@@ -1,3 +1,4 @@
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Context, Hono } from "hono";
@@ -47,6 +48,21 @@ import {
 
 const logger = createLogger({ name: "apps/ai/app-proxy" });
 
+/**
+ * Marks every engenty-reaching call made on an App's behalf, so core can tell
+ * "a user is typing" from "an App is running" — the two are indistinguishable
+ * from the token alone, since (b) above deliberately uses the caller's own.
+ *
+ * It matters for connector actions with an `ask` policy: core's connections
+ * gate stands aside for user principals because the AI pre-gate owns that
+ * approval card in chat. There is no chat here, so before this marker an App
+ * declaring `gmail_send_message` simply sent the mail — while the
+ * engenty-bridge skill promised its author a `pending_approval` result
+ * (CON-01). Marked, the same call records a durable approval request and
+ * answers 202, which this route already maps to that promised result.
+ */
+const APP_CALL_ORIGIN = "app" as const;
+
 /** Bridge tool names an App may call. Anything else is rejected outright. */
 const BRIDGE_TOOLS = new Set([
   "app_action",
@@ -94,6 +110,12 @@ const dataArgsSchema = z.object({
   key: z.string().min(1).max(200).optional(),
   prefix: z.string().max(200).optional(),
   value: z.unknown().optional(),
+});
+
+const reviewDecisionBodySchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+  reason: z.string().max(1000).optional(),
+  version: z.number().int().positive(),
 });
 
 interface AppDetail {
@@ -275,6 +297,152 @@ export function registerAppProxyRoutes(
     }
   });
 
+  /**
+   * The review surface for a proposed version: what the App asks for, and
+   * whether the viewer may decide. "The manifest is the thing a person reads
+   * before saying yes" — this is where they read it. Browser-only (a
+   * capability handle has no business reviewing releases).
+   */
+  app.get(`${AI_BASE_PATH}/apps/:appId/review`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const token = scopeAccessToken(scope.scope);
+    if (!token) {
+      return c.json({ error: "apps.unauthorized" }, 401);
+    }
+    const appId = c.req.param("appId");
+    const requested = c.req.query("version");
+    const requestedVersion = requested ? Number(requested) : undefined;
+    try {
+      const client = coreClient(token);
+      const [{ versions }, grants] = await Promise.all([
+        client.invokeTool<
+          { id: string },
+          {
+            versions: {
+              manifest: {
+                actions?: {
+                  id: string;
+                  requiresApproval?: boolean;
+                  risk: string;
+                }[];
+                egress?: { connect?: string[] };
+                engenty?: { operations?: string[] };
+                storage?: { config?: boolean; data?: boolean };
+              };
+              status: string;
+              version: number;
+            }[];
+          }
+        >("app_versions_list", { id: appId }),
+        client.request<{ capabilities: string[] }>(
+          `/api/tenants/${encodeURIComponent(scope.scope.tenantId)}/effective-grants/user/${encodeURIComponent(scope.scope.userId)}`
+        ),
+      ]);
+      // The pinned version when the artifact names one, else the newest
+      // proposed — the thing awaiting a decision.
+      const subject =
+        requestedVersion === undefined
+          ? versions.find((v) => v.status === "proposed")
+          : versions.find((v) => v.version === requestedVersion);
+      // The decision right is checked with the SAME matcher core enforces
+      // with (capabilityCovers) — display-only here; core re-checks on POST.
+      const canApprove = capabilityCovers(
+        grants.capabilities ?? [],
+        "apps.approve"
+      );
+      if (!subject) {
+        return c.json({ can_approve: canApprove, review: null });
+      }
+      return c.json({
+        can_approve: canApprove,
+        review: {
+          actions: subject.manifest.actions ?? [],
+          egress: subject.manifest.egress?.connect ?? [],
+          operations: subject.manifest.engenty?.operations ?? [],
+          status: subject.status,
+          storage: subject.manifest.storage ?? {},
+          version: subject.version,
+        },
+      });
+    } catch (err) {
+      if (err instanceof EngentyCoreHttpError) {
+        const status =
+          err.status === 401 || err.status === 403 || err.status === 404
+            ? err.status
+            : 502;
+        return c.json({ error: "apps.reviewUnavailable" }, status);
+      }
+      return handleRouteError(
+        c,
+        "app review fetch failed",
+        "apps.reviewUnavailable",
+        err
+      );
+    }
+  });
+
+  /**
+   * The decision itself. Pure forwarding: core enforces `apps.approve` on
+   * `app_release_approve` / `app_release_reject`, so this route adds no
+   * authority — it exists so the artifact pane keeps its one-origin,
+   * one-auth-header contract.
+   */
+  app.post(`${AI_BASE_PATH}/apps/:appId/review`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const token = scopeAccessToken(scope.scope);
+    if (!token) {
+      return c.json({ error: "apps.unauthorized" }, 401);
+    }
+    const appId = c.req.param("appId");
+    const parsed = reviewDecisionBodySchema.safeParse(await readJsonBody(c));
+    if (!parsed.success) {
+      return c.json({ error: "apps.invalidArguments" }, 400);
+    }
+    try {
+      const client = coreClient(token);
+      const result = await client.invokeTool(
+        parsed.data.decision === "approve"
+          ? "app_release_approve"
+          : "app_release_reject",
+        {
+          app_id: appId,
+          ...(parsed.data.reason ? { reason: parsed.data.reason } : {}),
+          version: parsed.data.version,
+        }
+      );
+      return c.json({ ok: true, result });
+    } catch (err) {
+      if (err instanceof EngentyCoreHttpError) {
+        // Core's verdict passes through — a 403 here IS the answer for a
+        // caller without apps.approve.
+        const status =
+          err.status === 401 ||
+          err.status === 403 ||
+          err.status === 404 ||
+          err.status === 409 ||
+          err.status === 422
+            ? err.status
+            : 502;
+        return c.json(
+          { code: err.code, error: "apps.reviewFailed", message: err.message },
+          status
+        );
+      }
+      return handleRouteError(
+        c,
+        "app review decision failed",
+        "apps.reviewFailed",
+        err
+      );
+    }
+  });
+
   app.post(`${AI_BASE_PATH}/apps/:appId/call`, async (c) => {
     const caller = await resolveCaller(c);
     if (!caller.ok) {
@@ -350,7 +518,9 @@ export function registerAppProxyRoutes(
             );
           }
 
-          const result = await client.invokeTool(operationId, call.data.input);
+          const result = await client.invokeTool(operationId, call.data.input, {
+            origin: APP_CALL_ORIGIN,
+          });
           return c.json({ ok: true, result });
         }
 
@@ -395,7 +565,8 @@ export function registerAppProxyRoutes(
                 capability,
                 input: call.data.input,
                 session_id: sessionId,
-              }
+              },
+              { origin: APP_CALL_ORIGIN }
             );
             return c.json({ ok: true, result });
           } finally {
@@ -472,9 +643,35 @@ export function registerAppProxyRoutes(
       }
     } catch (err) {
       if (err instanceof EngentyCoreHttpError) {
-        // Gateway verdicts pass through unchanged — approval requirements,
-        // authz denials and validation errors are the caller's to see, and
-        // nothing here may widen what the user can do.
+        // An approval-gated operation is the product working, not a failure:
+        // core answers 202 approval_required (a durable approval request now
+        // exists), and the guest-facing contract — documented in the
+        // engenty-bridge skill — is a RESULT with status "pending_approval".
+        // Returned as 2xx so the frame's call() resolves instead of throwing.
+        if (err.code === "approval_required") {
+          const details = err.details as {
+            approvalRequestId?: string;
+            expiresAt?: string;
+          } | null;
+          return c.json(
+            {
+              ok: true,
+              result: {
+                ...(details?.approvalRequestId
+                  ? { approval_request_id: details.approvalRequestId }
+                  : {}),
+                ...(details?.expiresAt
+                  ? { expires_at: details.expiresAt }
+                  : {}),
+                status: "pending_approval",
+              },
+            },
+            202
+          );
+        }
+        // Gateway verdicts pass through unchanged — authz denials and
+        // validation errors are the caller's to see, and nothing here may
+        // widen what the user can do.
         const status =
           err.status === 401 ||
           err.status === 402 ||

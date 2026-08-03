@@ -4,6 +4,7 @@ import { SignJWT } from "jose";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FeatureFlagsDal } from "../dal/feature-flags.js";
 import type { PluginRegistry } from "../plugins/registry.js";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
 
 const mockFeatureFlagsDal = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ function createRegistry(
   overrides: Partial<PluginRegistry> = {}
 ): PluginRegistry {
   return {
+    ...makeEmptyRegistry(),
     plugins: [],
     cliRegistrars: [],
     httpRoutes: [],

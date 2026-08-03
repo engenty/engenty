@@ -64,6 +64,21 @@ export function jsonApiError(
   return c.json(buildJsonErrorBody(status, options), status);
 }
 
+/**
+ * Return an envelope that is ALREADY in api-contracts shape, unchanged, at an
+ * arbitrary status. Same `JsonContext` seam the helpers above use, so callers
+ * holding a fully-typed Hono context (whose `json` narrows `status` to the
+ * literal codes its route declared) can forward an upstream verdict without
+ * having to restate it.
+ */
+export function jsonApiPassthrough(
+  c: JsonContext,
+  body: unknown,
+  status: number
+) {
+  return c.json(body, status);
+}
+
 export function jsonApiSuccess(
   c: JsonContext,
   value: unknown,

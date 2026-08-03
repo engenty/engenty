@@ -4,6 +4,34 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.89] - 2026-08-03
+- ADDED **[tasks]** Say what a tool approval is about, and fix the card layout
+- ADDED **[projects]** Lean projects - optional time planning, editable client
+- ADDED **[manage]** Adopt compound ListToolbar on users and tenants lists
+- ADDED **[ui-core]** Add compound ListToolbar and tighten list hub spacing
+- ADDED **[apps]** Render a built App inline in the chat transcript
+- ADDED **[connections]** GitHub connector (repos + pull requests)
+- ADDED **[apps]** Connections guidance + release review surface
+- CHANGED **[ai]** Delete Gondolin sandbox tier — Docker is the only agent-execution provider
+- DOCS **[plan]** Record what landed in the act-first security sweep
+- DOCS Sweep stale Gondolin mentions from env docs
+- FIXED **[connections]** Scope connector write authority per connector (CON-02)
+- FIXED **[security]** Close four critical authz holes and put core back under typecheck
+- FIXED **[ui]** Keep changelog dock strokes at tiny font size
+- FIXED **[apps]** Survive replica cold start; close app authoring to hand-driving
+- FIXED **[ui-core]** Keep list search compact until focused
+- FIXED **[contacts]** Await the post-create read on the roles path
+- FIXED **[ui-core]** Switch thumb lands flush right, long dates clip
+- FIXED **[projects]** Make the timeline density control a legible scale
+- FIXED **[ui]** Keep contribution kinds the plugin pruner does not own
+- FIXED **[core]** Never auto-confirm supabase db reset in setup --local when non-interactive
+- FIXED **[core,apps]** Classify output-schema mismatches as 500, not 400
+- FIXED **[apps]** Publish the app_build preview artifact to the user-facing thread
+- OTHER Lint
+- OTHER Lint
+- OTHER Better ( larger ) avatars
+- OTHER Align projects cards to style guidlines
+
 ## [0.1.88] - 2026-08-02
 - ADDED **[connections]** In-chat popup connect flow for the agent connect card
 - FIXED **[connections]** Unwrap the chat-run {ok, data} envelope in the connect card matcher

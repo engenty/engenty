@@ -47,7 +47,7 @@ export function registerContactsGatewayMethods(
         for (const role of roles) {
           await repo.addContactRole(created.id, role);
         }
-        return repo.getById(created.id) ?? created;
+        return (await repo.getById(created.id)) ?? created;
       }
       return created;
     },

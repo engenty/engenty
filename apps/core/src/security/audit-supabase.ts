@@ -176,7 +176,12 @@ export function createAuditStoreSupabase(
           if (error) {
             throw new Error(`Audit distincts failed: ${error.message}`);
           }
-          const raw = data?.[0]?.[column];
+          // `.select(column)` with a union-typed column makes postgrest-js
+          // infer a union of single-key row shapes, which cannot be indexed by
+          // the same union. The row does have exactly this key.
+          const raw = (data?.[0] as Record<string, unknown> | undefined)?.[
+            column
+          ];
           if (raw == null || !String(raw)) {
             break;
           }

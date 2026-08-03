@@ -1,4 +1,8 @@
 import { ENGENTY_API_CATALOG_TOOL_ID } from "@engenty/ai-core";
+import type {
+  PluginHttpRouteContext,
+  PluginPolicyInput,
+} from "@engenty/plugin-sdk";
 import { createPluginEventsRuntime } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import { SignJWT } from "jose";
@@ -9,6 +13,7 @@ import {
   type PluginRecord,
   type PluginRegistry,
 } from "../plugins/registry.js";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { createApiApp } from "./server.js";
 
@@ -48,6 +53,7 @@ function makeRegistry(): PluginRegistry {
     date: `${lastYear}-12-20`,
   };
   const registry = {
+    ...makeEmptyRegistry(),
     plugins: [
       {
         id: "invoices",
@@ -98,9 +104,9 @@ function makeRegistry(): PluginRegistry {
         pluginId: "contacts",
         source: "/modules/contacts/index.ts",
         pluginConfig: {},
-        policy: (input) => {
+        policy: (input: PluginPolicyInput) => {
           const isWrite =
-            input.requiredCapabilities.some((capability) =>
+            input.requiredCapabilities.some((capability: string) =>
               capability.includes(".write")
             ) ||
             [".create", ".update", ".delete", ".upsert", ".write"].some(
@@ -139,9 +145,9 @@ function makeRegistry(): PluginRegistry {
         pluginId: "invoices",
         source: "/modules/invoices/index.ts",
         pluginConfig: {},
-        policy: (input) => {
+        policy: (input: PluginPolicyInput) => {
           const isWrite =
-            input.requiredCapabilities.some((capability) =>
+            input.requiredCapabilities.some((capability: string) =>
               capability.includes(".write")
             ) ||
             [".create", ".update", ".delete", ".upsert", ".write"].some(
@@ -243,9 +249,9 @@ function makeRegistry(): PluginRegistry {
         pluginId: "invoices",
         source: "/modules/invoices/index.ts",
         pluginConfig: {},
-        policy: (input, result) => {
+        policy: (input: PluginPolicyInput, result: unknown) => {
           const isWrite =
-            input.requiredCapabilities.some((capability) =>
+            input.requiredCapabilities.some((capability: string) =>
               capability.includes(".write")
             ) ||
             [".create", ".update", ".delete", ".upsert", ".write"].some(
@@ -316,7 +322,7 @@ function makeRegistry(): PluginRegistry {
               ),
             },
           },
-          handler: async (ctx) => {
+          handler: async (ctx: PluginHttpRouteContext) => {
             const query = (ctx.query ?? {}) as { year?: number };
             if (query.year === currentYear) {
               return [currentInvoice];
@@ -351,7 +357,7 @@ function makeRegistry(): PluginRegistry {
               schema: z.object({ id: z.string(), display_name: z.string() }),
             },
           },
-          handler: async (ctx) => {
+          handler: async (ctx: PluginHttpRouteContext) => {
             const body = ctx.body as { display_name: string };
             return new Response(
               JSON.stringify({ id: "c-new", display_name: body.display_name }),
@@ -379,7 +385,7 @@ function makeRegistry(): PluginRegistry {
             idempotent: true,
           },
           inputSchema: z.object({ year: z.number().optional() }),
-          handler: async (input) => {
+          handler: async (input: unknown) => {
             const payload = input as { year?: number };
             if (payload.year === currentYear) {
               return [currentInvoice];
@@ -405,7 +411,7 @@ function makeRegistry(): PluginRegistry {
             idempotent: true,
           },
           inputSchema: z.object({ idOrNumber: z.string() }),
-          handler: async (input) => {
+          handler: async (input: unknown) => {
             const payload = input as { idOrNumber: string };
             if (payload.idOrNumber === "inv-current") {
               return currentInvoice;
@@ -615,7 +621,9 @@ function makeRegistry(): PluginRegistry {
         pluginConfig: {},
       },
     ],
-  } as PluginRegistry;
+    // Built loose, then handlers are assigned below; the spread of the
+    // shared factory makes it a superset, so the conversion needs `unknown`.
+  } as unknown as PluginRegistry;
   for (const operation of registry.moduleOperations) {
     const gatewayMethod = registry.gatewayMethods.find(
       (entry) => entry.method.name === operation.methodName
@@ -726,7 +734,7 @@ describe("module operation routes", () => {
       operationId: "direct_echo",
       inputSchema: z.object({ value: z.string() }),
       outputSchema: z.object({ echoed: z.string() }),
-      handler: async (input) => {
+      handler: async (input: unknown) => {
         const payload = input as { value: string };
         return { echoed: payload.value };
       },
@@ -804,6 +812,98 @@ describe("module operation routes", () => {
     });
   });
 
+  // Regression: engenty-apps app_call_privileged returned domain-cased
+  // { appId } against an output schema requiring { app_id }; the resulting
+  // ZodError fell into the generic 400 "validation_error" formatter and read
+  // as broken INPUT validation on /api/tools/app_call_privileged/invoke,
+  // sending the diagnosis to the wrong layer. An output-contract breach is
+  // the module's defect, so it must surface as a 500 naming the real cause.
+  it("reports an output-schema mismatch as a 500 contract violation, not input validation", async () => {
+    const secret = "test-security-secret";
+    const { registry, createApi } = createPluginRegistry({
+      config: {},
+      dataDir: "/tmp",
+      resolvePath: (p) => p,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+    });
+    const record: PluginRecord = {
+      id: "direct",
+      source: "/modules/direct/src/plugin.ts",
+      cliCommands: [],
+      dependencies: [],
+      enabled: true,
+      featureFlags: [],
+      gatewayMethods: [],
+      httpRoutes: [],
+      loaded: true,
+      manifestPath: "/modules/direct/engenty.plugin.json",
+      moduleOperations: [],
+      provides: ["module.direct"],
+      queues: [],
+      requires: [],
+      rootDir: "/modules/direct",
+      services: [],
+      sourceType: "module",
+      testDataTypes: [],
+    };
+    registry.plugins.push(record);
+    createApi(record, {}).server.registerOperation({
+      operationId: "direct_breaker",
+      inputSchema: z.object({ value: z.string() }),
+      outputSchema: z.object({ app_id: z.string() }),
+      // Domain-cased key where the contract requires snake_case.
+      handler: async () => ({ appId: "not-the-declared-shape" }),
+    });
+
+    const token = await createToken(secret, { capabilities: [] });
+    const app = createApiApp({
+      registry,
+      config: { securityJwtSecret: secret },
+      dataDir: "/tmp",
+      resolvePath: (p) => p,
+      auditLog: createNoopAuditLog(),
+      tenantPluginOverrides: createTenantPluginOverrides({}),
+    });
+
+    const response = await app.request("/api/tools/direct_breaker/invoke", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ input: { value: "valid input" } }),
+    });
+
+    expect(response.status).toBe(500);
+    const body = (await response.json()) as {
+      ok: false;
+      error: { code: string; fields?: Record<string, string[]> };
+    };
+    expect(body.error.code).toBe("output_contract_violation");
+    expect(body.error.fields).toHaveProperty("app_id");
+
+    // Bad INPUT keeps the 400 validation_error shape.
+    const badInput = await app.request("/api/tools/direct_breaker/invoke", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ input: { value: 42 } }),
+    });
+    expect(badInput.status).toBe(400);
+    const badInputBody = (await badInput.json()) as {
+      ok: false;
+      error: { code: string };
+    };
+    expect(badInputBody.error.code).toBe("validation_error");
+  });
+
   it("dispatches core operation events around operation execution", async () => {
     const secret = "test-security-secret";
     const { registry, createApi } = createPluginRegistry({
@@ -861,7 +961,7 @@ describe("module operation routes", () => {
       operationId: "direct_echo",
       inputSchema: z.object({ value: z.string() }),
       outputSchema: z.string(),
-      handler: async (input) => {
+      handler: async (input: unknown) => {
         const payload = input as { value: string };
         return payload.value;
       },

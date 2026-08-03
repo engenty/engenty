@@ -108,6 +108,12 @@ export interface ConnectorOAuth2Config {
   }>;
   /** Scope string separator; Google/MS use " " (default), Slack uses ",". */
   scopeSeparator?: string;
+  /**
+   * Extra headers sent on the token (code-exchange + refresh) request. GitHub
+   * needs `{ Accept: "application/json" }` because it otherwise returns a
+   * form-encoded token body. `content-type` cannot be overridden here.
+   */
+  tokenRequestHeaders?: Record<string, string>;
   tokenUrl: string;
 }
 

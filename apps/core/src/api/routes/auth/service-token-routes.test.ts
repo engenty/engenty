@@ -115,7 +115,9 @@ describe("POST /api/auth/service-credentials — creation", () => {
 
   it("clamps requested capabilities to the creator's", async () => {
     const limitedOwner = await makeOwnerToken({
-      capabilities: ["module.read"],
+      // `core.credentials.manage` gets them past the AUTH-02 gate; it does not
+      // widen what the credential may inherit.
+      capabilities: ["module.read", "core.credentials.manage"],
       principalId: `user-${uuidv7()}`,
       tenantId,
     });
@@ -202,7 +204,7 @@ describe("POST /api/auth/service-token — exchange", () => {
 
   it("carries the credential's capabilities, not the creator's", async () => {
     const limitedOwner = await makeOwnerToken({
-      capabilities: ["module.read", "module.write"],
+      capabilities: ["module.read", "module.write", "core.credentials.manage"],
       principalId: `user-${uuidv7()}`,
       tenantId,
     });

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EngentyCoreHttpError } from "../ai/core-http-client.js";
 import { AppCapabilityRegistry } from "../api/app-capabilities.js";
 import { registerAppProxyRoutes } from "../api/app-proxy-routes.js";
 
@@ -145,7 +146,13 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
       method: "POST",
     });
     expect(res.status).toBe(200);
-    expect(invokeTool).toHaveBeenCalledWith("inbox_threads_list", { limit: 5 });
+    // The origin marker rides along so core can tell an App from a chat turn
+    // (CON-01) — see the connector-write cases below.
+    expect(invokeTool).toHaveBeenCalledWith(
+      "inbox_threads_list",
+      { limit: 5 },
+      { origin: "app" }
+    );
   });
 
   it("refuses an operation the manifest does not declare", async () => {
@@ -196,6 +203,83 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toMatchObject({
       error: "apps.unknownBridgeTool",
+    });
+  });
+
+  // CON-01. An App declaring a write-group connector action used to have
+  // nothing between it and the send: it rides the viewing user's token, so
+  // core's connections gate deferred to a chat pre-gate that is not running
+  // outside chat. The proxy now marks its calls, core escalates, and the 202
+  // becomes the `pending_approval` result the engenty-bridge skill has been
+  // promising app authors all along.
+  describe("connector writes fail closed", () => {
+    const CONNECTOR_APP = {
+      ...APP_DETAIL,
+      active_version: {
+        ...APP_DETAIL.active_version,
+        manifest: {
+          ...APP_DETAIL.active_version.manifest,
+          engenty: { operations: ["gmail_send_message"] },
+        },
+      },
+    };
+
+    function mockCoreEscalating() {
+      invokeTool.mockImplementation(async (toolId: string) => {
+        if (toolId === "app_get") {
+          return CONNECTOR_APP;
+        }
+        if (toolId === "gmail_send_message") {
+          // What core answers once the connections gate escalates.
+          throw new EngentyCoreHttpError(
+            "a human must approve this action",
+            202,
+            "approval_required",
+            { approvalRequestId: "areq-1", expiresAt: "2026-08-04T00:00:00Z" }
+          );
+        }
+        return { ok: true };
+      });
+    }
+
+    it("marks the call as app-origin so core can escalate it", async () => {
+      mockCoreEscalating();
+      const { app } = makeApp();
+      await app.request(`/ai/apps/${APP_ID}/call`, {
+        body: callBody("engenty_call", {
+          input: { to: "someone@example.com" },
+          operation_id: "gmail_send_message",
+        }),
+        headers: authed,
+        method: "POST",
+      });
+      expect(invokeTool).toHaveBeenCalledWith(
+        "gmail_send_message",
+        { to: "someone@example.com" },
+        { origin: "app" }
+      );
+    });
+
+    it("returns pending_approval instead of a success", async () => {
+      mockCoreEscalating();
+      const { app } = makeApp();
+      const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+        body: callBody("engenty_call", {
+          input: { to: "someone@example.com" },
+          operation_id: "gmail_send_message",
+        }),
+        headers: authed,
+        method: "POST",
+      });
+      expect(res.status).toBe(202);
+      await expect(res.json()).resolves.toMatchObject({
+        ok: true,
+        result: {
+          approval_request_id: "areq-1",
+          expires_at: "2026-08-04T00:00:00Z",
+          status: "pending_approval",
+        },
+      });
     });
   });
 
@@ -463,5 +547,199 @@ describe("POST /ai/apps/:appId/call — config", () => {
         true
       );
     }
+  });
+});
+
+describe("POST /ai/apps/:appId/call — approval-gated operations", () => {
+  it("maps core's approval_required to the documented pending_approval result", async () => {
+    invokeTool.mockImplementation(async (toolId: string) => {
+      if (toolId === "app_get") {
+        return APP_DETAIL;
+      }
+      // What EngentyCoreClient throws for core's 202 approval_required
+      // envelope. The guest must receive a RESULT (the skill's contract),
+      // never an error — a parked call is the product working.
+      throw new EngentyCoreHttpError(
+        "Approval required",
+        202,
+        "approval_required",
+        {
+          approvalRequestId: "apr-1",
+          expiresAt: "2026-08-03T00:00:00Z",
+        }
+      );
+    });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("engenty_call", { operation_id: "inbox_threads_list" }),
+      headers: authed,
+      method: "POST",
+    });
+    // 2xx so BridgedFrame's call() resolves instead of throwing.
+    expect(res.status).toBe(202);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      result: {
+        approval_request_id: "apr-1",
+        expires_at: "2026-08-03T00:00:00Z",
+        status: "pending_approval",
+      },
+    });
+  });
+});
+
+const VERSIONS = {
+  versions: [
+    {
+      manifest: {
+        actions: [{ id: "email_summary", risk: "high" }],
+        egress: { connect: [] },
+        engenty: { operations: ["tasks_list", "gmail_send"] },
+        storage: { config: false, data: true },
+      },
+      status: "proposed",
+      version: 2,
+    },
+    {
+      manifest: {
+        actions: [],
+        engenty: { operations: ["tasks_list"] },
+        storage: { data: true },
+      },
+      status: "active",
+      version: 1,
+    },
+  ],
+};
+
+describe("GET /ai/apps/:appId/review", () => {
+  beforeEach(() => {
+    invokeTool.mockImplementation(async (toolId: string) =>
+      toolId === "app_versions_list" ? VERSIONS : { ok: true }
+    );
+  });
+
+  it("surfaces the proposed version's declared surface to an approver", async () => {
+    requestFn.mockResolvedValue({ capabilities: ["apps.approve"] });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      headers: authed,
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      can_approve: true,
+      review: {
+        operations: ["tasks_list", "gmail_send"],
+        status: "proposed",
+        version: 2,
+      },
+    });
+  });
+
+  it("answers can_approve with the same matcher core enforces with", async () => {
+    // tenant.member holds module.*, which does NOT cover apps.approve.
+    requestFn.mockResolvedValue({ capabilities: ["module.*"] });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      headers: authed,
+    });
+    await expect(res.json()).resolves.toMatchObject({ can_approve: false });
+  });
+
+  it("returns a null review when nothing awaits a decision", async () => {
+    invokeTool.mockImplementation(async (toolId: string) =>
+      toolId === "app_versions_list"
+        ? { versions: [VERSIONS.versions[1]] }
+        : { ok: true }
+    );
+    requestFn.mockResolvedValue({ capabilities: ["apps.approve"] });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      headers: authed,
+    });
+    await expect(res.json()).resolves.toMatchObject({
+      can_approve: true,
+      review: null,
+    });
+  });
+
+  it("reviews the pinned version when the artifact names one", async () => {
+    requestFn.mockResolvedValue({ capabilities: [] });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review?version=1`, {
+      headers: authed,
+    });
+    await expect(res.json()).resolves.toMatchObject({
+      review: { status: "active", version: 1 },
+    });
+  });
+
+  it("rejects an unauthenticated caller", async () => {
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`);
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /ai/apps/:appId/review", () => {
+  it("forwards an approval with the caller's own token", async () => {
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      body: JSON.stringify({ decision: "approve", version: 2 }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(200);
+    expect(invokeTool).toHaveBeenCalledWith("app_release_approve", {
+      app_id: APP_ID,
+      version: 2,
+    });
+  });
+
+  it("forwards a rejection with its reason", async () => {
+    const { app } = makeApp();
+    await app.request(`/ai/apps/${APP_ID}/review`, {
+      body: JSON.stringify({
+        decision: "reject",
+        reason: "asks for gmail_send it never uses",
+        version: 2,
+      }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(invokeTool).toHaveBeenCalledWith("app_release_reject", {
+      app_id: APP_ID,
+      reason: "asks for gmail_send it never uses",
+      version: 2,
+    });
+  });
+
+  it("passes core's capability denial through unchanged", async () => {
+    invokeTool.mockImplementation(async () => {
+      throw new EngentyCoreHttpError(
+        "missing capability: apps.approve",
+        403,
+        "forbidden"
+      );
+    });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      body: JSON.stringify({ decision: "approve", version: 2 }),
+      headers: authed,
+      method: "POST",
+    });
+    // The proxy adds no authority — core's verdict IS the answer.
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects a malformed decision body", async () => {
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      body: JSON.stringify({ decision: "activate", version: 2 }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(400);
+    expect(invokeTool).not.toHaveBeenCalled();
   });
 });

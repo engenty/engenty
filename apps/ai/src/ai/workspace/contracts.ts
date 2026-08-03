@@ -56,7 +56,7 @@ export const engentyWorkspaceRuntimeSpecSchema = z.object({
     .object({
       lifecycle: z.enum(["run", "session", "task"]).default("run"),
       mountPath: z.string().min(1).default("/sandbox"),
-      provider: z.enum(["docker", "local", "gondolin"]).optional(),
+      provider: z.enum(["docker", "local"]).optional(),
       timeoutMs: z.number().int().positive().optional(),
     })
     .optional(),

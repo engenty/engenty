@@ -159,6 +159,7 @@ export function registerRealtimeToolRoutes(
           orchestratorThreadId: body.data.thread_id ?? null,
           tenantId: scope.scope.tenantId,
           userAccessToken: scopeAccessToken(scope.scope),
+          userFacingThreadId: body.data.thread_id ?? null,
           userId: scope.scope.userId,
         },
         () =>

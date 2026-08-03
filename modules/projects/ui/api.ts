@@ -36,6 +36,8 @@ export interface ProjectListItem {
   scope_id: string;
   start_date: string | null;
   tenant_id: string;
+  /** `false` = lean project: no phases, dates or Gantt. Absent means enabled. */
+  timeplan_enabled?: boolean;
   title: string;
   updated_at: string;
 }
@@ -104,6 +106,7 @@ export interface ProjectCreateInput {
   portal_password?: string | null;
   start_date?: string | null;
   team_member_ids?: string[];
+  timeplan_enabled?: boolean;
   title: string;
 }
 
@@ -113,9 +116,7 @@ export interface ProjectTeamMemberUpdate {
   user_id: string;
 }
 
-export type ProjectUpdateInput = Partial<
-  Omit<ProjectCreateInput, "client_id">
-> & {
+export type ProjectUpdateInput = Partial<ProjectCreateInput> & {
   project_team?: ProjectTeamMemberUpdate[];
 };
 

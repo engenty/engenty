@@ -576,7 +576,10 @@ export function registerFileStorageRoutes(params: {
         c.header("Content-Length", String(bytes.byteLength));
         return c.body(null, 200);
       }
-      return c.body(bytes, 200, {
+      // hono types `c.body` as string | ArrayBuffer | ReadableStream, but the
+      // underlying Response takes any BodyInit — a Uint8Array included.
+      // Casting beats copying the whole file into a fresh ArrayBuffer.
+      return c.body(bytes as unknown as ArrayBuffer, 200, {
         "Content-Type": contentType,
       });
     } catch (err: unknown) {

@@ -5,11 +5,22 @@
 // `auth.requiresApproval` / `auth.riskLevel`), not the Mastra tool name. Core
 // remains the authoritative policy engine: `describeTool` returns this metadata
 // and `invokeTool` returns HTTP 202 `approval_required` when it truly gates. This
-// module is the AI-side PRE-GATE that mirrors core's rule (see
-// apps/core/src/security/policy.ts `evaluatePolicy`: an agent principal requires
-// approval when `requiresApproval || riskLevel ∈ {high, critical}`) so we surface
-// a HITL card BEFORE the wasted round-trip — and we honor core's 202 as the
-// backstop. A thread-scoped grant (the user said "Approve") bypasses the gate.
+// module is the AI-side PRE-GATE that mirrors core's rule so we surface a HITL
+// card BEFORE the wasted round-trip — and we honor core's 202 as the backstop.
+// A thread-scoped grant (the user said "Approve") bypasses the gate.
+//
+// Core's rule, exactly (apps/core/src/security/policy.ts `evaluatePolicy`):
+// a NON-USER principal requires approval when `requiresApproval ||
+// riskLevel ∈ {high, critical}` — except the platform's own service credential
+// acting with no agent in the chain, which is unattended by definition and
+// would deadlock. An agent riding that service token still escalates: that is
+// the durable-approvals lane. Ahead of all of it, a registered profile policy
+// may decide first — the connections gate, and (since ENGENTY_AGENT_ESCALATION
+// ships on) the agent escalation policy, which escalates any operation whose
+// required capabilities fall outside the agent's role grants ∪ goal grants.
+// The pre-gate here is deliberately NARROWER than core's rule; when they
+// disagree, core's 202 wins. Keep this paragraph true — a 2026-08-03 audit
+// found it describing a rule the code no longer had.
 
 export type ToolRiskLevel = "low" | "medium" | "high" | "critical";
 

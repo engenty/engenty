@@ -5,9 +5,18 @@ import {
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarBulkActions,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   type SortOrder,
   type TableSize,
+  useListToolbar,
   type ViewMode,
 } from "@engenty/ui-core";
 import {
@@ -17,7 +26,6 @@ import {
   type LucideIcon,
   SlidersHorizontal,
   Tag,
-  X,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ArticleSortColumn } from "../../src/schema/shared.js";
@@ -70,6 +78,85 @@ const COLUMN_ICONS: Record<keyof ArticlesColumnVisibility, LucideIcon> = {
   updatedAt: Calendar,
 };
 
+function ArticlesDisplayMenu(props: {
+  columnOrder: (keyof ArticlesColumnVisibility)[];
+  columnVisibility: ArticlesColumnVisibility;
+  columns: ColumnConfig<keyof ArticlesColumnVisibility>[];
+  labels: Labels;
+  onSortByChange: (value: ArticlesSortColumn) => void;
+  onSortOrderChange: (value: SortOrder) => void;
+  setColumnOrder: (order: (keyof ArticlesColumnVisibility)[]) => void;
+  setColumnVisibility: (value: ArticlesColumnVisibility) => void;
+  setTableSize: (size: TableSize) => void;
+  setViewMode: (mode: ViewMode) => void;
+  sortBy: ArticlesSortColumn;
+  sortOptions: { value: ArticlesSortColumn; label: string }[];
+  sortOrder: SortOrder;
+  tableSize: TableSize;
+  viewMode: ViewMode;
+}) {
+  const { overflowPlacement } = useListToolbar();
+  const inMenu = overflowPlacement === "menu";
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        {inMenu ? (
+          <Button
+            aria-label={props.labels.display}
+            className="h-9 w-full justify-start gap-1.5"
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {props.labels.display}
+          </Button>
+        ) : (
+          <ListToolbarIconButton
+            aria-label={props.labels.display}
+            type="button"
+          >
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        )}
+      </DropdownMenuTrigger>
+      <ListDisplayConfigurator<
+        keyof ArticlesColumnVisibility,
+        ArticlesSortColumn
+      >
+        columnOrder={props.columnOrder}
+        columns={props.columns}
+        columnVisibility={props.columnVisibility}
+        labels={{
+          table: props.labels.tableView,
+          cards: props.labels.cardsView,
+          compactView: props.labels.compactView,
+          sortBy: props.labels.sortBy,
+          ascending: props.labels.ascending,
+          descending: props.labels.descending,
+          displayedInTable: props.labels.displayedColumns,
+          hiddenInTable: props.labels.hiddenInTable,
+          showAll: props.labels.showAll,
+          hideAll: props.labels.hideAll,
+          noColumnsDisplayed: props.labels.noColumnsDisplayed,
+        }}
+        setColumnOrder={props.setColumnOrder}
+        setColumnVisibility={props.setColumnVisibility}
+        setSortBy={props.onSortByChange}
+        setSortOrder={props.onSortOrderChange}
+        setTableSize={props.setTableSize}
+        setViewMode={props.setViewMode}
+        sortBy={props.sortBy}
+        sortOptions={props.sortOptions}
+        sortOrder={props.sortOrder}
+        tableSize={props.tableSize}
+        viewMode={props.viewMode}
+      />
+    </DropdownMenu>
+  );
+}
+
 export function ArticlesTableToolbar(props: ArticlesTableToolbarProps) {
   const columns: ColumnConfig<keyof ArticlesColumnVisibility>[] = (
     [
@@ -104,76 +191,54 @@ export function ArticlesTableToolbar(props: ArticlesTableToolbarProps) {
     },
   ];
 
+  const selectedCount = props.selectedCount ?? 0;
+
   return (
-    <div
-      className={`flex min-w-0 flex-1 flex-wrap items-center gap-2 ${props.className ?? ""}`}
-    >
-      <ListSearchInput
-        className="max-w-sm"
-        onChange={(event) => props.onSearchChange(event.target.value)}
-        placeholder={props.labels.searchPlaceholder}
-        value={props.searchQuery}
-      />
-      <p className="text-muted-foreground text-xs">
-        {props.labels.paginationSummary}
-      </p>
-      {props.selectedCount != null && props.selectedCount > 0 && (
-        <>
-          {props.bulkActions}
-          <Button
-            aria-label={props.clearSelectionLabel}
-            className="h-8 gap-1"
-            onClick={props.onClearSelection}
-            size="sm"
-            variant="ghost"
-          >
-            <X className="h-3.5 w-3.5" />
-            {props.clearSelectionLabel}
-          </Button>
-        </>
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <ListToolbarIconButton
-            aria-label={props.labels.display}
-            className="ml-auto"
-          >
-            <SlidersHorizontal />
-          </ListToolbarIconButton>
-        </DropdownMenuTrigger>
-        <ListDisplayConfigurator<
-          keyof ArticlesColumnVisibility,
-          ArticlesSortColumn
+    <ListToolbar className={props.className} selectedCount={selectedCount}>
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full"
+            onChange={(event) => props.onSearchChange(event.target.value)}
+            placeholder={props.labels.searchPlaceholder}
+            value={props.searchQuery}
+            wrapperClassName="w-full"
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>
+          {props.labels.paginationSummary}
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
+
+      <ListToolbarActions moreLabel="More">
+        <ListToolbarIdleControls>
+          <ListToolbarOverflowItem>
+            <ArticlesDisplayMenu
+              columnOrder={props.columnOrder}
+              columns={columns}
+              columnVisibility={props.columnVisibility}
+              labels={props.labels}
+              onSortByChange={props.onSortByChange}
+              onSortOrderChange={props.onSortOrderChange}
+              setColumnOrder={props.setColumnOrder}
+              setColumnVisibility={props.setColumnVisibility}
+              setTableSize={props.setTableSize}
+              setViewMode={props.setViewMode}
+              sortBy={props.sortBy}
+              sortOptions={sortOptions}
+              sortOrder={props.sortOrder}
+              tableSize={props.tableSize}
+              viewMode={props.viewMode}
+            />
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+        <ListToolbarBulkActions
+          clearSelectionLabel={props.clearSelectionLabel ?? ""}
+          onClearSelection={props.onClearSelection}
         >
-          columnOrder={props.columnOrder}
-          columns={columns}
-          columnVisibility={props.columnVisibility}
-          labels={{
-            table: props.labels.tableView,
-            cards: props.labels.cardsView,
-            compactView: props.labels.compactView,
-            sortBy: props.labels.sortBy,
-            ascending: props.labels.ascending,
-            descending: props.labels.descending,
-            displayedInTable: props.labels.displayedColumns,
-            hiddenInTable: props.labels.hiddenInTable,
-            showAll: props.labels.showAll,
-            hideAll: props.labels.hideAll,
-            noColumnsDisplayed: props.labels.noColumnsDisplayed,
-          }}
-          setColumnOrder={props.setColumnOrder}
-          setColumnVisibility={props.setColumnVisibility}
-          setSortBy={props.onSortByChange}
-          setSortOrder={props.onSortOrderChange}
-          setTableSize={props.setTableSize}
-          setViewMode={props.setViewMode}
-          sortBy={props.sortBy}
-          sortOptions={sortOptions}
-          sortOrder={props.sortOrder}
-          tableSize={props.tableSize}
-          viewMode={props.viewMode}
-        />
-      </DropdownMenu>
-    </div>
+          {props.bulkActions}
+        </ListToolbarBulkActions>
+      </ListToolbarActions>
+    </ListToolbar>
   );
 }

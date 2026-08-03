@@ -110,12 +110,14 @@
       "contactPersonLabel": "Contact person",
       "empty": "No client linked to this project.",
       "heading": "Client",
-      "viewInContacts": "View in contacts"
+      "viewInContacts": "View in contacts",
+      "change": "Change client",
+      "addLink": "Link a client"
     },
     "edit": "Edit",
     "settings": "Settings",
     "tabs": {
-      "planning": "Planning",
+      "planning": "Overview",
       "notes": "Notes",
       "configure": "Configure tabs",
       "displayed": "Displayed tabs",
@@ -123,7 +125,8 @@
       "showAll": "Show all",
       "hideAll": "Hide all",
       "hideTab": "Hide tab",
-      "showTab": "Show tab"
+      "showTab": "Show tab",
+      "timeplan": "Time planning"
     },
     "phases": "Phases",
     "addPhase": "Add phase",
@@ -172,8 +175,18 @@
       "phases": "Phases",
       "newPhase": "New phase...",
       "fitAll": "Fit all to view",
-      "zoom": "Zoom: Day – Week – Month",
-      "dueDate": "Due date"
+      "zoom": "Scale: Day – Week – Month",
+      "dueDate": "Due date",
+      "density": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month"
+      },
+      "densityShort": {
+        "day": "D",
+        "week": "W",
+        "month": "M"
+      }
     },
     "members": {
       "none": "No team members yet",
@@ -219,7 +232,8 @@
       "otherTeamMembers": "Other team members",
       "selectMembers": "Select team members...",
       "assignees": "Assignees",
-      "noGlobalMembers": "No team members are available yet."
+      "noGlobalMembers": "No team members are available yet.",
+      "emptyCatalogLink": "Add team members"
     },
     "portal": {
       "settings": "Portal Settings",
@@ -232,6 +246,17 @@
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving..."
+    },
+    "projectSettings": {
+      "title": "Project settings",
+      "timeplanSection": "Time planning",
+      "timeplanSectionDescription": "Phases, dates and the Gantt view. Without a time plan the project stays a lean room for notes, files and tasks.",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "portalSection": "Client portal",
+      "portalSectionDescription": "Public access for this project's clients: view tasks and submit requests.",
+      "clientSection": "Client",
+      "clientSectionDescription": "The contact or organisation this project runs for."
     }
   },
   "create": {
@@ -248,7 +273,13 @@
     "create": "Create",
     "titleRequired": "Project title is required",
     "loadingContacts": "Loading contacts…",
-    "createFailed": "Failed to create project"
+    "createFailed": "Failed to create project",
+    "timeplan": {
+      "enable": "Enable time plan",
+      "enableHint": "Phases, dates and the Gantt view for this project. Without a time plan the project stays a lean room for notes, files and tasks.",
+      "startDate": "Start date",
+      "endDate": "End date"
+    }
   },
   "settings": {
     "title": "Project settings",

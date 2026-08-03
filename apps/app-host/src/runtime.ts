@@ -107,6 +107,20 @@ export function toBuildFailure(error: unknown): AppBuildFailure | null {
   });
 }
 
+/**
+ * agentOS's `warmTimeoutMs` (30 s, hardcoded upstream — not a config knob)
+ * measures how long an execution replica may take to come up. The FIRST deploy
+ * into a fresh namespace has to cold-start one, which regularly exceeds that on
+ * a loaded dev machine; the identical retry then lands in ~1 s against the now-
+ * warm replica. Left alone this makes every new App's first build fail — the
+ * agent sees a build failure with no source problem to fix, so it asks the user
+ * for files instead of simply retrying, and the App is never published.
+ *
+ * The warm timeout is the one `agentos_apps_*` code that is a TIMING fact, not
+ * a statement about the source, so it is the only one we retry.
+ */
+const WARM_TIMEOUT_CODE = "agentos_apps_replica_warm_timeout";
+
 export class AppRuntime {
   private readonly config: AppHostConfig;
 
@@ -149,36 +163,50 @@ export class AppRuntime {
     }
 
     const startedAt = Date.now();
-    try {
-      const deployment = await deployApp({
-        appId: input.appId,
-        createNamespace: this.config.perAppNamespace,
-        files: input.files,
-        scaling: this.config.scaling,
-      });
-      logger.info("app deployed", {
-        appId: input.appId,
-        elapsedMs: Date.now() - startedAt,
-        release: deployment.release,
-      });
-      return {
-        appId: deployment.appId,
-        namespace: deployment.namespace,
-        pool: deployment.pool,
-        regions: deployment.regions,
-        release: deployment.release,
-      };
-    } catch (error) {
-      const buildFailure = toBuildFailure(error);
-      if (buildFailure) {
-        logger.warn("app build failed", {
+    // One retry, and only for the cold-start warm timeout (see above). Every
+    // other failure is reported on the first attempt: a real build error must
+    // reach the agent immediately, not twice as slowly.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const deployment = await deployApp({
           appId: input.appId,
-          code: buildFailure.detail.code,
-          elapsedMs: Date.now() - startedAt,
+          createNamespace: this.config.perAppNamespace,
+          files: input.files,
+          scaling: this.config.scaling,
         });
-        throw buildFailure;
+        logger.info("app deployed", {
+          appId: input.appId,
+          attempt,
+          elapsedMs: Date.now() - startedAt,
+          release: deployment.release,
+        });
+        return {
+          appId: deployment.appId,
+          namespace: deployment.namespace,
+          pool: deployment.pool,
+          regions: deployment.regions,
+          release: deployment.release,
+        };
+      } catch (error) {
+        const buildFailure = toBuildFailure(error);
+        if (buildFailure?.detail.code === WARM_TIMEOUT_CODE && attempt === 0) {
+          logger.warn("replica warm timed out — retrying once", {
+            appId: input.appId,
+            elapsedMs: Date.now() - startedAt,
+          });
+          continue;
+        }
+        if (buildFailure) {
+          logger.warn("app build failed", {
+            appId: input.appId,
+            attempt,
+            code: buildFailure.detail.code,
+            elapsedMs: Date.now() - startedAt,
+          });
+          throw buildFailure;
+        }
+        throw error;
       }
-      throw error;
     }
   }
 

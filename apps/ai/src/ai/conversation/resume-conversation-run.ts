@@ -190,6 +190,7 @@ export async function resumeConversationRun(
       orchestratorThreadId: input.threadId,
       runId: input.newRunId,
       tenantId: input.scope.tenantId,
+      userFacingThreadId: input.threadId,
       userId: input.scope.userId,
       ...(scopeAccessToken(input.scope)
         ? { userAccessToken: scopeAccessToken(input.scope) }

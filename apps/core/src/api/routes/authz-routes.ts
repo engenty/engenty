@@ -93,13 +93,30 @@ export function registerAuthzRoutes(params: {
     }
   }
 
-  // Every concrete capability the catalog knows about (from gateway-method
-  // contracts). Used to reject typo-capabilities in custom roles.
+  // Every concrete capability the catalog knows about. Used to reject
+  // typo-capabilities in custom roles.
+  //
+  // Two sources, because operations alone are not the whole vocabulary: a
+  // capability can narrow WHICH resources an operation may touch rather than
+  // unlock the operation itself, and then no `requiredCapabilities` names it.
+  // `module.connections.write.<connector>` (CON-02) is exactly that shape, as
+  // is `module.team-chat`. Role profiles are where such capabilities are
+  // declared, so they count as catalog entries too — otherwise an admin can
+  // assign one via a shipped role but not name it in a custom role.
   function capabilityCatalog(): Set<string> {
     const set = new Set<string>();
     for (const entry of registry.moduleOperations ?? []) {
       for (const cap of entry.operation.requiredCapabilities ?? []) {
         set.add(cap);
+      }
+    }
+    for (const { profile } of registry.roleProfiles?.listWithSource() ?? []) {
+      for (const cap of profile.capabilities) {
+        // Wildcards stay out: `validateCustomRole` refuses them anyway, and a
+        // catalog entry reading `*` would be a confusing thing to offer.
+        if (!(cap === "*" || cap.endsWith(".*"))) {
+          set.add(cap);
+        }
       }
     }
     return set;
@@ -189,6 +206,23 @@ export function registerAuthzRoutes(params: {
           requiresApproval: op.requiresApproval,
         });
         byCapability.set(capability, list);
+      }
+    }
+    // Capabilities that only appear on role profiles unlock no operation of
+    // their own — they narrow which resources an operation may touch, like
+    // `module.connections.write.<connector>` (CON-02). List them anyway, with
+    // an empty operations set, so an admin can discover a capability that is
+    // assignable but would otherwise be invisible here.
+    for (const { profile } of registry.roleProfiles?.listWithSource() ?? []) {
+      for (const capability of profile.capabilities) {
+        if (
+          capability === "*" ||
+          capability.endsWith(".*") ||
+          byCapability.has(capability)
+        ) {
+          continue;
+        }
+        byCapability.set(capability, []);
       }
     }
     const capabilities = [...byCapability.entries()]

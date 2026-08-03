@@ -15,10 +15,14 @@ export const CORE_ROLE_PROFILES: RoleProfile[] = [
     capabilities: ["core.superadmin", "*"],
   },
   {
+    // `core.credentials.manage` is redundant against `*` for the matcher, and
+    // listed anyway: minting a never-expiring service credential or a 30-day
+    // API token is the one power worth naming rather than leaving implied by
+    // a wildcard. Members must never acquire it — that is the AUTH-02 gate.
     id: "tenant.admin",
     title: "Tenant admin",
     system: true,
-    capabilities: ["*"],
+    capabilities: ["core.credentials.manage", "*"],
   },
   {
     // Members are capable staff: full access to all business modules

@@ -40,6 +40,17 @@ export interface PhaseTimelineProps {
 
 type DensityMode = "day" | "week" | "month";
 
+const DENSITY_MODES: DensityMode[] = ["day", "week", "month"];
+/** `size-1` on a stop tick - inset the row by its radius so the outer ticks
+ *  sit flush inside the track's rounded ends instead of hanging off them. */
+const TICK_SIZE = "0.25rem";
+
+/** Left offset of stop `index` on the density scale, shared by ticks + labels. */
+function densityStopOffset(index: number) {
+  const fraction = index / (DENSITY_MODES.length - 1);
+  return `calc(${TICK_SIZE} / 2 + ${fraction} * (100% - ${TICK_SIZE}))`;
+}
+
 const ROW_HEIGHT = 36;
 const PHASE_COL_WIDTH = 200;
 
@@ -82,13 +93,6 @@ export function PhaseTimeline({
   const [isAddingPhase, setIsAddingPhase] = useState(false);
   const [newPhaseTitle, setNewPhaseTitle] = useState("");
   const newPhaseInputRef = useRef<HTMLInputElement>(null);
-
-  // Reset range offset when density changes
-  useEffect(() => {
-    queueMicrotask(() => {
-      setRangeOffset({ before: 0, after: 0 });
-    });
-  }, []);
 
   // Auto-fit to view on mount for readOnly mode - show all phases
   useEffect(() => {
@@ -674,14 +678,24 @@ export function PhaseTimeline({
     }
   };
 
-  const handleDensityChange = (value: number[]) => {
-    const modes: DensityMode[] = ["day", "week", "month"];
-    setDensity(modes[value[0]!]!);
+  // Lazily loaded extra columns are counted in the *current* density's unit, so
+  // carrying them into another density would blow the window up (e.g. 26 extra
+  // weeks read as 26 extra months). Always start the new density from its base
+  // range and let scrolling grow it again.
+  const applyDensity = (mode: DensityMode) => {
+    if (mode === density) {
+      return;
+    }
+    setDensity(mode);
+    setRangeOffset({ before: 0, after: 0 });
   };
 
-  const getDensityValue = () => {
-    const modes: DensityMode[] = ["day", "week", "month"];
-    return modes.indexOf(density);
+  const handleDensityChange = (value: number | readonly number[]) => {
+    const index = Array.isArray(value) ? value[0] : (value as number);
+    const mode = DENSITY_MODES[index];
+    if (mode) {
+      applyDensity(mode);
+    }
   };
 
   // Inline title editing
@@ -875,22 +889,62 @@ export function PhaseTimeline({
           )}
         </div>
 
-        {/* Density / zoom slider - hide in readOnly mode */}
+        {/* Density / zoom scale - hide in readOnly mode.
+            A scale, not a quantity: the filled range is suppressed (it would
+            read as "50% of something" at Woche). Ticks, labels and the thumb
+            all share `densityStopOffset`, and `thumbAlignment="center"` lets
+            the thumb travel the full track so the outer stops land on its
+            ends instead of half a thumb inside them. */}
         {!readOnly && (
           <div
-            className="flex items-center gap-2"
+            className="flex w-24 flex-col gap-2.5"
             title={t("detail.timeline.zoom")}
           >
-            <span className="font-medium text-muted-foreground text-xs">T</span>
-            <div className="w-24">
+            {/* h-2.5 + explicit 10px/10px type: the thumb overhangs the track
+                by 5px, so the label row has to stay that clear of it. */}
+            <div className="relative h-2.5">
+              {DENSITY_MODES.map((mode, index) => (
+                <button
+                  aria-label={t(`detail.timeline.density.${mode}`)}
+                  aria-pressed={density === mode}
+                  className={cn(
+                    "absolute top-0 -translate-x-1/2 text-[10px] leading-[10px] transition-colors",
+                    density === mode
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  key={mode}
+                  onClick={() => applyDensity(mode)}
+                  style={{ left: densityStopOffset(index) }}
+                  type="button"
+                >
+                  {t(`detail.timeline.densityShort.${mode}`)}
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              {/* z-1: above the (opaque) track, below the thumb. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[1]"
+              >
+                {DENSITY_MODES.map((mode, index) => (
+                  <span
+                    className="absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/50"
+                    key={mode}
+                    style={{ left: densityStopOffset(index) }}
+                  />
+                ))}
+              </div>
               <Slider
-                max={2}
+                className="[&_[data-slot=slider-range]]:bg-transparent [&_[data-slot=slider-thumb]]:z-[2] [&_[data-slot=slider-track]]:bg-muted-foreground/15"
+                max={DENSITY_MODES.length - 1}
                 onValueChange={handleDensityChange}
                 step={1}
-                value={[getDensityValue()]}
+                thumbAlignment="center"
+                value={[DENSITY_MODES.indexOf(density)]}
               />
             </div>
-            <span className="font-medium text-muted-foreground text-xs">M</span>
           </div>
         )}
       </div>

@@ -3,10 +3,8 @@
  * createSupabaseIdentityAdminAdapter returns a compliant implementation.
  */
 import { describe, expect, it, vi } from "vitest";
-import {
-  createSupabaseIdentityAdminAdapter,
-  type IdentityAdminService,
-} from "./supabase-identity-admin-adapter.js";
+import type { IdentityAdminService } from "./identity-admin-service.js";
+import { createSupabaseIdentityAdminAdapter } from "./supabase-identity-admin-adapter.js";
 
 function createMockSupabaseClient() {
   return {

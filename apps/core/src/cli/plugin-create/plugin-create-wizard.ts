@@ -46,7 +46,10 @@ export async function runPluginCreateWizard(params: {
     initialValue: slugHint ? titleCaseFromSlug(slugHint) : undefined,
     message: "Display name",
     validate(value) {
-      return value.trim().length > 0 ? undefined : "Display name is required.";
+      // clack types the callback argument as `string | undefined`.
+      return (value ?? "").trim().length > 0
+        ? undefined
+        : "Display name is required.";
     },
   });
 
@@ -64,7 +67,7 @@ export async function runPluginCreateWizard(params: {
     validate(value) {
       return validateNewPluginSlug({
         existingSlugs: params.existingSlugs,
-        slug: value.trim(),
+        slug: (value ?? "").trim(),
       });
     },
   });
@@ -98,7 +101,8 @@ export async function runPluginCreateWizard(params: {
   let uiLoad: PluginCreateAnswers["uiLoad"] = "workspace";
   if (includeUi) {
     const load = await select({
-      initialValue: "workspace",
+      // `as const` or the literal widens to `string` and infects the result.
+      initialValue: "workspace" as const,
       message:
         "How should the UI bundle load? Workspace: Vite resolves source from the monorepo (fast local dev, run generate:plugins). Runtime: ship built assets from dist/ (closer to production bundles).",
       options: [

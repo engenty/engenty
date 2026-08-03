@@ -101,6 +101,14 @@ export interface RunDelegatedConversationInput {
 }
 
 export interface DelegatedConversationResult {
+  /**
+   * Artifact id of an App the child built (app_build), when it published one.
+   * Distinct from `artifactId` (the proposeUpdates proposal) so neither flow
+   * can shadow the other. The delegate tool surfaces it so the parent
+   * transcript renders the built App inline instead of burying it behind the
+   * child-thread drill-in.
+   */
+  appArtifactId?: string;
   /** Artifact id of the proposeUpdates proposal, when the agent proposed one. */
   artifactId?: string;
   childRunId: string;
@@ -111,6 +119,30 @@ export interface DelegatedConversationResult {
   suggestions?: FieldSuggestion[];
   /** True when the run was suspended for approval (observe.suspendForApproval). */
   suspendedForApproval?: boolean;
+}
+
+/**
+ * Recognize an app_build tool result that published a preview artifact. The
+ * shape is the tool's own contract (appBuildResultSchema): app_id +
+ * artifact_id + a status that means "a version exists to look at".
+ */
+function appBuildArtifactIdOf(result: unknown): string | null {
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+  const record = result as {
+    app_id?: unknown;
+    artifact_id?: unknown;
+    status?: unknown;
+  };
+  if (
+    typeof record.app_id === "string" &&
+    typeof record.artifact_id === "string" &&
+    (record.status === "built" || record.status === "published")
+  ) {
+    return record.artifact_id;
+  }
+  return null;
 }
 
 /** Extract the plain text of a session assistant message.
@@ -220,6 +252,10 @@ export async function runDelegatedConversation(
       ...(input.onApprovalRequired
         ? { onApprovalRequired: input.onApprovalRequired }
         : {}),
+      // The child's own thread for thread-scoped tools; `userFacingThreadId`
+      // (the thread the human watches) rides through the spread above, so
+      // anything the user must see — e.g. app_build's preview artifact —
+      // publishes to the parent conversation, not this drill-in thread.
       orchestratorThreadId: input.childThreadId,
       runId: input.childRunId,
       tenantId: input.scope.tenantId,
@@ -297,6 +333,10 @@ export async function runDelegatedConversation(
             if (created) {
               result.suggestions = created.suggestions;
               result.artifactId = created.artifact_id;
+            }
+            const appArtifactId = appBuildArtifactIdOf(typed.result);
+            if (appArtifactId) {
+              result.appArtifactId = appArtifactId;
             }
           }
           if (

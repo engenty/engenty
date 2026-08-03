@@ -5,7 +5,6 @@
 import {
   createPluginEventsRuntime,
   type PluginRegistrationReceipt,
-  type PluginServerOperation,
 } from "@engenty/plugin-sdk";
 import {
   createSearchIndexRegistry,
@@ -76,7 +75,10 @@ describe("resolveSearchOperationId", () => {
 describe("synthesizeSearchOperation", () => {
   it("builds a low-risk idempotent operation that delegates to provider.search", async () => {
     const { provider, search } = makeProvider();
-    const op: PluginServerOperation = synthesizeSearchOperation(provider, {
+    // Inferred: synthesizeSearchOperation returns the SDK's deliberately
+    // loose MinimalServerOperation (it quotes the shape locally to dodge a
+    // cyclic import), which is weaker than PluginServerOperation.
+    const op = synthesizeSearchOperation(provider, {
       entityName: "thing",
       filtersSchema: z.object({ owner: z.string() }),
       moduleId: "tests",

@@ -4,12 +4,13 @@ import {
 } from "@engenty/ai-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createGatedQueueHandlers } from "./queue-handler-gating";
-import { createPluginRegistry, type PluginRecord } from "./registry";
+import { createGatedQueueHandlers } from "./queue-handler-gating.js";
+import { createPluginRegistry, type PluginRecord } from "./registry.js";
 import {
   startRegisteredServices,
   unloadOwnedRegistrations,
-} from "./service-lifecycle";
+} from "./service-lifecycle.js";
+import { makePluginRecord } from "./test-fixtures.js";
 
 const TARGET_AI_REGISTRATION_TEST_MODULE = "registry-target-ai";
 
@@ -19,6 +20,7 @@ afterEach(() => {
 
 function createRecord(id: string): PluginRecord {
   return {
+    ...makePluginRecord({ id: "fixture" }),
     id,
     source: `/plugins/${id}.ts`,
     cliCommands: [],

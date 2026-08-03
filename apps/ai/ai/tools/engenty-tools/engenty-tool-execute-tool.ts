@@ -84,6 +84,41 @@ export function createEngentyToolExecuteTool() {
   return engentyToolExecuteTool;
 }
 
+/**
+ * Building an App is a SEQUENCE (create → write → propose → publish), not four
+ * independent calls, and the `app_build` workflow is where that sequence lives.
+ * A model driving the steps by hand loses its own app_id across interruptions —
+ * it minted three duplicate apps in the first chat E2E — and, because only the
+ * workflow publishes the preview artifact, an App assembled this way is never
+ * visible to the user at all. The copilot's AGENTS.md has forbidden this since
+ * the workflow landed; a later live run showed it doing it anyway (asking for
+ * `app_create`, then `app_file_write`, one approval at a time), so the rule is
+ * enforced here rather than merely stated.
+ *
+ * Only the AUTHORING trio is closed. Reads stay open, and the human's own acts
+ * (`app_release_approve` / `_reject`) stay reachable from chat — those are the
+ * point of the approval flow, not a shortcut around it.
+ */
+const APP_AUTHORING_OPERATIONS = new Set([
+  "app_create",
+  "app_file_write",
+  "app_release_propose",
+]);
+
+function appAuthoringRedirectResult(operationId: string) {
+  return {
+    ok: false as const,
+    error: "use_app_build",
+    message:
+      `Operation ${operationId} cannot be called directly — building an App is one ` +
+      "sequence, not separate steps. Use the app_build tool (name, manifest and the " +
+      "COMPLETE file set in a single call), or delegate to engenty.app-coder via " +
+      "agent-app_coder if you do not have app_build. app_build creates-or-reuses the " +
+      "app, writes the draft, compiles it, and publishes the live preview the user " +
+      "sees — driving the steps by hand skips that and produces an invisible app.",
+  };
+}
+
 /** The model-facing result when a gated operation does not run. */
 function approvalUnavailableResult(operationId: string) {
   return {
@@ -238,6 +273,9 @@ export async function executeEngentyTool(
         error: "code_mode_read_only",
         message: `Operation ${operationId} is not read-only and cannot run from Code Mode. Call it as a regular chat tool instead (engenty_tool_execute), where approvals apply.`,
       };
+    }
+    if (APP_AUTHORING_OPERATIONS.has(operationId)) {
+      return appAuthoringRedirectResult(operationId);
     }
     if (resumedApproval && !resumedApproval.approved) {
       return approvalDeniedResult(operationId);

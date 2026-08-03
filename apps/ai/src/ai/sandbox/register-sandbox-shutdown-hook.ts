@@ -1,15 +1,13 @@
 import { createLogger } from "@engenty/telemetry";
 
 import { destroyAllEngentyDockerSandboxes } from "./engenty-sandbox-docker.js";
-import { destroyAllEngentyGondolinVms } from "./gondolin-vm-registry.js";
 
 const logger = createLogger({ name: "apps/ai/sandbox-shutdown" });
 
 let registered = false;
 
 // Dev/prod hygiene: when apps/ai exits, tear down engenty-labelled sandboxes so
-// orphaned CLI containers (Docker) and micro-VMs (Gondolin) do not linger after
-// `pnpm dev:ai` stops.
+// orphaned CLI containers do not linger after `pnpm dev:ai` stops.
 export function registerEngentySandboxShutdownHook(): void {
   if (registered) {
     return;
@@ -17,16 +15,11 @@ export function registerEngentySandboxShutdownHook(): void {
   registered = true;
 
   const sweep = (signal: string) => {
-    void Promise.all([
-      destroyAllEngentyDockerSandboxes(),
-      destroyAllEngentyGondolinVms(),
-    ])
-      .then(([dockerDestroyed, gondolinDestroyed]) => {
-        const destroyed = dockerDestroyed + gondolinDestroyed;
+    void destroyAllEngentyDockerSandboxes()
+      .then((destroyed) => {
         if (destroyed > 0) {
           logger.info("destroyed engenty sandboxes on shutdown", {
             destroyed,
-            gondolinDestroyed,
             signal,
           });
         }

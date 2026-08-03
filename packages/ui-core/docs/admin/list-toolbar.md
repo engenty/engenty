@@ -1,37 +1,51 @@
 ---
 title: Admin list toolbar
-description: Pill search, view-mode toggle, icon buttons, segment toggles, and filter chips for admin list pages.
+description: Compound ListToolbar shell plus pill search, view-mode toggle, and filter chips for admin list pages.
 ---
 
 # Admin list toolbar
 
 The row of controls above an [admin list](./list) — search, view switch, display
-menu, filters — is built from a fixed set of pill-styled primitives so every
-module list page (contacts, projects, files, …) looks and behaves the same.
+menu, filters — uses a **compound `ListToolbar` shell** so every module list page
+shares the same responsive layout, spacing, and selection swap.
 
-Do **not** hand-roll a raw `<Input>` with an absolutely-positioned icon, a
-labelled "Display" button, or a custom segmented control. Use these:
+Do **not** hand-roll the outer `flex-col md:flex-row` shell, a raw `<Input>` with
+an absolutely-positioned icon, a labelled "Display" button, or a custom
+segmented control. Do **not** pass ReactNode slot props (`search={…}`,
+`controls={…}`). Compose with children.
 
-## Exports
+## Compound shell
 
 | Export | Role |
 |--------|------|
-| `ListSearchInput` | Pill search field with a built-in magnifier; Mod+F focus; optional `onOpenFilters` for Mod+Shift+F |
-| `useListToolbarHotkeys` | Hook behind `ListSearchInput` shortcuts (rarely needed directly) |
-| `ListViewModeToggle` | Segmented list/cards switch — binds the same `ViewMode` as `ListDisplayConfigurator` |
-| `ListToolbarIconButton` | Borderless icon button for permanent controls (display menu, filter). Always pass `aria-label` |
-| `ListIconSegmentToggle` | Generic icon segmented control (e.g. contacts' organisation/person filter); `allowDeselect` for clearable |
-| `ListFilterSelectTrigger` | Pill-styled `SelectTrigger` for inline filter dropdowns (e.g. a bucket/source picker) |
-| `ListFilterChip` | Clearable dropdown chip with an active-state dot, for optional facet filters |
+| `ListToolbar` | Root — responsive layout; `selectedCount` drives selection mode |
+| `ListToolbarMainArea` | Left cluster (search + summary + optional extras) |
+| `ListToolbarSearch` | Search width clamp; wrap `ListSearchInput` + optional trailing control |
+| `ListToolbarFilterToggle` | In-search filter icon + active dot |
+| `ListToolbarSummary` | `text-xs tabular-nums` result count |
+| `ListToolbarActions` | Right cluster; idle ↔ bulk swap; overflow "more" |
+| `ListToolbarIdleControls` | View toggle + display (shown when nothing selected) |
+| `ListToolbarOverflowItem` | Marks children that move into the selection overflow menu |
+| `ListToolbarBulkActions` | Bulk buttons + clear (shown when `selectedCount > 0`) |
+| `ListToolbarFilterRow` | Optional second row for filter chips |
+| `useListToolbar` | `{ selectedCount, hasSelection, overflowPlacement }` |
 
-All export through `@engenty/ui-core` (source: `src/components/ui/list-toolbar.tsx`,
-`src/components/admin/list-preferences/list-view-mode-toggle.tsx`).
+## Pill primitives
+
+| Export | Role |
+|--------|------|
+| `ListSearchInput` | Pill search field with magnifier; Mod+F; optional `onOpenFilters` |
+| `useListToolbarHotkeys` | Hook behind shortcuts (rarely needed directly) |
+| `ListViewModeToggle` | Table/cards switch — same `ViewMode` as `ListDisplayConfigurator` |
+| `ListToolbarIconButton` | Borderless icon button (display menu). Always pass `aria-label` |
+| `ListIconSegmentToggle` | Icon segment control (e.g. organisation/person); `allowDeselect` |
+| `ListFilterSelectTrigger` | Pill `SelectTrigger` for inline filter dropdowns |
+| `ListFilterChip` | Clearable dropdown chip for facet filters |
+
+All export through `@engenty/ui-core` (source: `list-toolbar-shell.tsx`,
+`list-toolbar.tsx`, `list-view-mode-toggle.tsx`).
 
 ## Canonical layout
-
-Two responsive rows that stack on mobile and sit on one line on `md+`:
-**left** = search + result count; **right** = view toggle + display menu
-(replaced by bulk actions while a selection is active).
 
 ```tsx
 import {
@@ -39,50 +53,110 @@ import {
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarBulkActions,
+  ListToolbarFilterRow,
+  ListToolbarFilterToggle,
+  ListToolbarIdleControls,
   ListToolbarIconButton,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
+  useListToolbar,
 } from "@engenty/ui-core";
 import { SlidersHorizontal } from "lucide-react";
 
-<div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-  {/* Left: search + count */}
-  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-    <div className="w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+function DisplayMenu() {
+  const { overflowPlacement } = useListToolbar();
+  const inMenu = overflowPlacement === "menu";
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        {inMenu ? (
+          <Button
+            aria-label={t("display.display")}
+            className="h-9 w-full justify-start gap-1.5"
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {t("display.display")}
+          </Button>
+        ) : (
+          <ListToolbarIconButton aria-label={t("display.display")} type="button">
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        )}
+      </DropdownMenuTrigger>
+      <ListDisplayConfigurator {/* … */} />
+    </DropdownMenu>
+  );
+}
+
+<ListToolbar selectedCount={selectedCount}>
+  <ListToolbarMainArea>
+    <ListToolbarSearch>
       <ListSearchInput
-        className="w-full"
+        className="w-full pr-10"
         onChange={(e) => setSearch(e.target.value)}
+        onOpenFilters={() => {
+          if (!filtersExpanded) setFiltersExpanded(true);
+        }}
         placeholder={t("toolbar.search")}
         value={search}
         wrapperClassName="w-full"
       />
-    </div>
-    <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-      {t("toolbar.items", { count: total })}
-    </p>
-  </div>
+      <ListToolbarFilterToggle
+        active={filtersExpanded || hasActiveFilters}
+        aria-label={t("toolbar.filters")}
+        aria-pressed={filtersExpanded}
+        onClick={onFiltersToggle}
+        showDot={hasActiveFilters}
+      />
+    </ListToolbarSearch>
+    <ListToolbarSummary>
+      {selectedCount > 0
+        ? t("toolbar.selected", { count: selectedCount })
+        : t("toolbar.items", { count: total })}
+    </ListToolbarSummary>
+  </ListToolbarMainArea>
 
-  {/* Right: view toggle + display menu */}
-  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 md:ml-auto md:shrink-0 md:justify-end">
-    <ListViewModeToggle
-      labels={{ table: t("display.tableView"), cards: t("display.cardsView") }}
-      onChange={display.setViewMode}
-      value={display.viewMode}
-    />
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <ListToolbarIconButton aria-label={t("display.display")} type="button">
-          <SlidersHorizontal />
-        </ListToolbarIconButton>
-      </DropdownMenuTrigger>
-      <ListDisplayConfigurator {/* …columns, sort, page size… */} />
-    </DropdownMenu>
-  </div>
-</div>;
+  <ListToolbarActions moreLabel={t("toolbar.more")}>
+    <ListToolbarIdleControls>
+      <ListViewModeToggle
+        labels={{ table: t("display.tableView"), cards: t("display.cardsView") }}
+        onChange={display.setViewMode}
+        value={display.viewMode}
+      />
+      <ListToolbarOverflowItem>
+        <DisplayMenu />
+      </ListToolbarOverflowItem>
+    </ListToolbarIdleControls>
+    <ListToolbarBulkActions
+      clearSelectionLabel={t("toolbar.clearSelection")}
+      onClearSelection={clearSelection}
+    >
+      {/* bulk buttons */}
+    </ListToolbarBulkActions>
+  </ListToolbarActions>
+
+  {filtersExpanded ? (
+    <ListToolbarFilterRow>{/* ListFilterChip… */}</ListToolbarFilterRow>
+  ) : null}
+</ListToolbar>;
 ```
 
 `ListViewModeToggle` and `ListDisplayConfigurator` must bind the **same**
-`viewMode`/`setViewMode` from [`useListDisplayState`](./list-preferences) — the
-toggle is the quick switch, the configurator the full menu.
+`viewMode`/`setViewMode` from [`useListDisplayState`](./list-preferences).
+
+When rows are selected, idle controls hide; bulk actions show; children inside
+`ListToolbarOverflowItem` move into the overflow "more" menu (with
+`overflowPlacement === "menu"`).
 
 ## Keyboard shortcuts
 
@@ -99,37 +173,20 @@ open, do not toggle closed). Wire `onNewItem` from the list page when a create
 dialog exists. Shortcuts are ignored while focus is inside a dialog/sheet. Set
 `enableHotkeys={false}` on `ListSearchInput` to opt out of Mod+F / Mod+Shift+F.
 
-```tsx
-<ListSearchInput
-  onChange={(e) => setSearch(e.target.value)}
-  onOpenFilters={() => {
-    if (!filtersExpanded) {
-      setFiltersExpanded(true);
-    }
-  }}
-  placeholder={t("toolbar.search")}
-  value={search}
-  wrapperClassName="w-full"
-/>
-```
-
 ## Notes
 
 - The pill shadow uses `--shadow-ember-elevated` via a literal `[box-shadow:…]`;
   don't substitute `shadow-*` utilities (they resolve transparent for that token).
-- Result count is a `text-xs tabular-nums` paragraph, not a heading.
-- Optional filters: a `ListFilterSelectTrigger` inside a `Select` for a single
-  inline picker, `ListIconSegmentToggle` for a small icon facet, or
-  `ListToolbarIconButton` (filter icon) toggling a chip row of `ListFilterChip`s.
+- Result count goes in `ListToolbarSummary`, not a heading.
+- Optional filters: `ListToolbarFilterToggle` + `ListToolbarFilterRow` of
+  `ListFilterChip`s, or `ListIconSegmentToggle` / `ListFilterSelectTrigger` as
+  children of `ListToolbarMainArea`.
 
 ## Reference pages
 
-- `modules/contacts/ui/components/contacts-list-toolbar.tsx` — adds an
-  organisation/person `ListIconSegmentToggle`.
-- `modules/projects/ui/components/projects-display-dialog.tsx` — adds a filter
-  button + group-by in the configurator.
-- `modules/files/ui/pages/files-list.tsx` — adds a `ListFilterSelectTrigger`
-  bucket picker and a breadcrumb row above the toolbar.
+- `modules/contacts/ui/components/contacts-display-dialog.tsx` — type segment + selection.
+- `modules/projects/ui/components/projects-display-dialog.tsx` — filter toggle + group-by.
+- `modules/files/ui/pages/files-list.tsx` — bucket picker above/beside the toolbar.
 
 ## When not to use
 

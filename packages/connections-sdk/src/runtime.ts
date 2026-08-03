@@ -4,6 +4,10 @@ import type {
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ZodType, z } from "zod";
+import {
+  connectorCapability,
+  connectorCapabilityBase,
+} from "./capabilities.js";
 import { createConnectorClientEnv } from "./client-env-resolver.js";
 import { executeConnectorAction } from "./execute.js";
 import { filesCapabilityActions } from "./files-capability.js";
@@ -97,7 +101,13 @@ function buildActionOperation(params: {
         input: actionInput,
         isAutonomous: false,
         log: (msg, data) => ctx.logger.info(msg, data ?? {}),
-        principal: { principalId: auth.principalId, principalType: "user" },
+        principal: {
+          // Carried so the executor can re-check the per-connector scope
+          // (CON-02) rather than trusting that policy already ran.
+          capabilities: auth.capabilities,
+          principalId: auth.principalId,
+          principalType: "user",
+        },
         recordAuditEvent: (event) => ctx.recordAuditEvent?.(event),
         repo,
         resolveEnv: clientEnv(auth.tenantId),
@@ -142,4 +152,50 @@ export function registerConnectorModule(
       buildActionOperation({ action, connector: def, supabase, clientEnv })
     );
   }
+  registerConnectorRoleProfiles(engenty, def);
+}
+
+/**
+ * Assignable bundles that scope a principal to THIS connector (CON-02).
+ *
+ * Each carries the broad `module.connections.<group>` — core's operation gate
+ * checks that, so it is the entry ticket — plus the per-connector capability
+ * that narrows where the ticket may be spent. Registered from here, not from
+ * the connections module, because only the connector module knows its own id,
+ * and plugin load order between them is not guaranteed.
+ *
+ * `connections.editor` (all connectors) stays exactly as it was, so nothing
+ * that already works changes.
+ */
+function registerConnectorRoleProfiles(
+  engenty: EngentyPluginApi,
+  def: ConnectorDefinition
+): void {
+  const hasWrite = def.actions.some((action) => action.group !== "read");
+  engenty.server.registerRoleProfiles?.([
+    {
+      capabilities: [
+        connectorCapabilityBase("read"),
+        connectorCapability("read", def.id),
+      ],
+      description: `Read-only access to ${def.name} and no other connector.`,
+      id: `connections.viewer.${def.id}`,
+      title: `Connections viewer — ${def.name}`,
+    },
+    ...(hasWrite
+      ? [
+          {
+            capabilities: [
+              connectorCapabilityBase("read"),
+              connectorCapability("read", def.id),
+              connectorCapabilityBase("write"),
+              connectorCapability("write", def.id),
+            ],
+            description: `Read and write access to ${def.name} and no other connector.`,
+            id: `connections.editor.${def.id}`,
+            title: `Connections editor — ${def.name}`,
+          },
+        ]
+      : []),
+  ]);
 }

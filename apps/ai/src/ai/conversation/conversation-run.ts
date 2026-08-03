@@ -376,6 +376,7 @@ export async function startConversationRun(
       // Thread-scoped tools (e.g. artifacts) read the active thread from here.
       orchestratorThreadId: input.threadId,
       runId: input.runId,
+      userFacingThreadId: input.threadId,
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
       ...(scopeAccessToken(input.scope)

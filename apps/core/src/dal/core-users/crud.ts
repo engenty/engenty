@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { IdentityAdminService } from "../../../identity/identity-admin-service.js";
+import type { IdentityAdminService } from "../../identity/identity-admin-service.js";
 import { coerceIsSuperAdmin, coerceRole } from "./helpers.js";
 import { upsertTenantMembership } from "./memberships.js";
 import type { CoreUser, InviteUserInput } from "./types.js";

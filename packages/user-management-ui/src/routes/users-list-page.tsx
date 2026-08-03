@@ -191,6 +191,7 @@ export function UsersListPage() {
           hasActiveFilters={hasActiveFilters}
           isAdmin={isAdmin}
           onClearFilters={clearFilters}
+          onClearSelection={selection.clearSelection}
           onDeleteSelected={handleDeleteSelected}
           roleFilter={filters.roleFilter}
           searchQuery={filters.searchQuery}

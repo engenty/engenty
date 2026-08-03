@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@engenty/query-client";
+import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import { Badge, Button } from "@engenty/ui-core";
 import { useCallback, useMemo, useRef } from "react";
 import { appsAiRequestHeaders } from "../ag-ui/apps-ai/apps-ai-api.js";
 import {
@@ -115,6 +116,168 @@ export function appFrontendQueryKey(appId: string, version?: number) {
   return ["app-frontend", appId, version ?? "active"] as const;
 }
 
+interface AppReview {
+  can_approve: boolean;
+  review: {
+    actions: { id: string; requiresApproval?: boolean; risk: string }[];
+    egress: string[];
+    operations: string[];
+    status: string;
+    version: number;
+  } | null;
+}
+
+async function fetchAppReview(
+  appId: string,
+  version?: number
+): Promise<AppReview> {
+  const base = resolveEngentyAiServiceBaseUrlSafe();
+  const headers = await appsAiRequestHeaders();
+  const query = version === undefined ? "" : `?version=${version}`;
+  const res = await fetch(`${base}/ai/apps/${appId}/review${query}`, {
+    headers,
+  });
+  if (!res.ok) {
+    throw new Error(`Could not load app review (HTTP ${res.status})`);
+  }
+  return (await res.json()) as AppReview;
+}
+
+async function postAppReviewDecision(params: {
+  appId: string;
+  decision: "approve" | "reject";
+  version: number;
+}): Promise<void> {
+  const base = resolveEngentyAiServiceBaseUrlSafe();
+  const headers = await appsAiRequestHeaders();
+  const res = await fetch(`${base}/ai/apps/${params.appId}/review`, {
+    body: JSON.stringify({
+      decision: params.decision,
+      version: params.version,
+    }),
+    headers: { ...headers, "content-type": "application/json" },
+    method: "POST",
+  });
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(payload?.message ?? `Decision failed (HTTP ${res.status})`);
+  }
+}
+
+export function appReviewQueryKey(appId: string, version?: number) {
+  return ["app-review", appId, version ?? "proposed"] as const;
+}
+
+/**
+ * The consent surface. A proposed version renders what it ASKS FOR — every
+ * declared operation and action, high-risk ones marked — right above the
+ * running preview, so the human reads the manifest at the moment they decide.
+ * Holders of `apps.approve` get the decision buttons; everyone else sees that
+ * the version is waiting. Core re-checks the capability on the decision call,
+ * so this banner is honesty, not enforcement.
+ */
+function AppReviewBanner({
+  appId,
+  version,
+}: {
+  appId: string;
+  version?: number;
+}) {
+  const queryClient = useQueryClient();
+  const reviewQuery = useQuery({
+    enabled: Boolean(appId),
+    queryFn: () => fetchAppReview(appId, version),
+    queryKey: appReviewQueryKey(appId, version),
+  });
+  const decide = useMutation({
+    mutationFn: (decision: "approve" | "reject") =>
+      postAppReviewDecision({
+        appId,
+        decision,
+        version: reviewQuery.data?.review?.version as number,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: appReviewQueryKey(appId, version),
+      });
+    },
+  });
+
+  const review = reviewQuery.data?.review;
+  if (review?.status !== "proposed") {
+    return null;
+  }
+  const highRiskActions = review.actions.filter(
+    (action) => action.risk === "high" || action.requiresApproval === true
+  );
+
+  return (
+    <div className="border-b bg-muted/50 px-4 py-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <span className="font-medium">
+            Version {review.version} awaits approval.
+          </span>{" "}
+          <span className="text-muted-foreground">This app asks for:</span>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {review.operations.map((operationId) => (
+              <Badge key={operationId} variant="secondary">
+                {operationId}
+              </Badge>
+            ))}
+            {highRiskActions.map((action) => (
+              <Badge
+                className="border-destructive/50 text-destructive"
+                key={action.id}
+                variant="outline"
+              >
+                {action.id} · approval-gated
+              </Badge>
+            ))}
+            {review.operations.length === 0 && highRiskActions.length === 0 && (
+              <span className="text-muted-foreground">
+                nothing beyond its own frame
+              </span>
+            )}
+          </div>
+        </div>
+        {reviewQuery.data?.can_approve ? (
+          <div className="flex shrink-0 gap-2">
+            <Button
+              disabled={decide.isPending}
+              onClick={() => decide.mutate("approve")}
+              size="sm"
+            >
+              Approve
+            </Button>
+            <Button
+              disabled={decide.isPending}
+              onClick={() => decide.mutate("reject")}
+              size="sm"
+              variant="outline"
+            >
+              Reject
+            </Button>
+          </div>
+        ) : (
+          <span className="shrink-0 text-muted-foreground">
+            Waiting for an approver
+          </span>
+        )}
+      </div>
+      {decide.isError ? (
+        <div className="mt-2 text-destructive">
+          {decide.error instanceof Error
+            ? decide.error.message
+            : "The decision could not be recorded."}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AppArtifactView({ artifact, content }: ArtifactViewProps) {
   const handle = useMemo(() => parseAppHandle(content), [content]);
   const frameHandle = useRef<BridgedFrameHandle | null>(null);
@@ -168,22 +331,27 @@ export function AppArtifactView({ artifact, content }: ArtifactViewProps) {
   const declaredHosts = frontendQuery.data.manifest?.egress?.connect ?? [];
 
   return (
-    <BridgedFrame
-      callTool={callTool}
-      // Egress is deny-all unless the manifest declares hosts; the frame's CSP
-      // base is `default-src 'none'`, so an undeclared host cannot be reached
-      // even if the app's code tries.
-      csp={
-        declaredHosts.length > 0 ? { connectDomains: declaredHosts } : undefined
-      }
-      fit="fill"
-      frameKey={`${appId}:${frontendQuery.data.version}`}
-      handleRef={frameHandle}
-      html={frontendQuery.data.html}
-      initialData={{
-        structuredContent: { session_id: handle.session_id },
-      }}
-      title={artifact.title}
-    />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AppReviewBanner appId={appId} version={appVersion} />
+      <BridgedFrame
+        callTool={callTool}
+        // Egress is deny-all unless the manifest declares hosts; the frame's CSP
+        // base is `default-src 'none'`, so an undeclared host cannot be reached
+        // even if the app's code tries.
+        csp={
+          declaredHosts.length > 0
+            ? { connectDomains: declaredHosts }
+            : undefined
+        }
+        fit="fill"
+        frameKey={`${appId}:${frontendQuery.data.version}`}
+        handleRef={frameHandle}
+        html={frontendQuery.data.html}
+        initialData={{
+          structuredContent: { session_id: handle.session_id },
+        }}
+        title={artifact.title}
+      />
+    </div>
   );
 }

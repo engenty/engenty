@@ -219,6 +219,59 @@ describe("ui plugin contribution invalidation", () => {
     );
   });
 
+  it("preserves contribution kinds it does not prune", () => {
+    const brandSource = () => ({ name: "Acme" });
+    const activeData: UiPluginContributionsData = {
+      contributions: {
+        routes: [],
+        adminMenuItems: [
+          {
+            id: "contacts_menu",
+            label: "Contacts",
+            pluginId: "contacts",
+            section: "modules",
+            to: "/mdl/contacts",
+          },
+        ],
+        brandSource,
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [
+          {
+            id: "projects",
+            pluginId: "projects",
+            queryRoot: ["projects"],
+          },
+        ],
+        navigationPrefetch: [],
+        settingsItems: [],
+        tabs: [],
+      },
+      diagnostics: [],
+      pluginGenerations: {
+        contacts: 1,
+        projects: 1,
+      },
+    };
+
+    const pruned = pruneStaleUiPluginContributionsData(activeData, {
+      generationId: 2,
+      pluginId: "contacts",
+    });
+
+    expect(pruned).not.toBe(activeData);
+    expect(pruned?.contributions.adminMenuItems).toHaveLength(0);
+    // Kinds the pruner does not own must survive — App feeds `liveBindings`
+    // straight into `buildAgentToolInvalidationMap`, which throws on undefined.
+    expect(pruned?.contributions.liveBindings).toEqual(
+      activeData.contributions.liveBindings
+    );
+    expect(pruned?.contributions.brandSource).toBe(brandSource);
+  });
+
   it("keeps contribution query data when the plugin generation is already current", () => {
     const Page = () => null;
     const activeData: UiPluginContributionsData = {

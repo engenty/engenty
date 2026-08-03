@@ -29,6 +29,7 @@
     "api:start": "node dist/api-entry.js",
     "start": "node dist/index.js",
     "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {

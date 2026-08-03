@@ -1,19 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PluginRegistry } from "../plugins/registry.js";
+import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { createApiApp } from "./server.js";
-
-function makeEmptyRegistry(): PluginRegistry {
-  return {
-    plugins: [],
-    cliRegistrars: [],
-    diagnostics: [],
-    services: [],
-    httpRoutes: [],
-    gatewayMethods: [],
-    moduleOperations: [],
-  };
-}
 
 describe("dev-login routes", () => {
   it("returns 404 when ENGENTY_DEV_PASS is not set", async () => {

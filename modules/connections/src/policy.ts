@@ -3,6 +3,8 @@ import type {
   ConnectorActionGroup,
 } from "@engenty/connections-sdk";
 import {
+  connectorScopeAllows,
+  connectorScopeDenialReason,
   describeSelectionFailure,
   resolveConnectionActionPolicy,
   resolveConnectorOperation,
@@ -37,11 +39,13 @@ export interface ConnectionsPolicyHooks {
  *
  * - `deny` clamps (personal/not-owner, non-owner group cap, autonomous mode,
  *   user-configured deny) are enforced for every principal.
- * - user principals with an `ask` outcome return `null`: live chat approval
- *   stays with the AI-side native suspend/resume pre-gate.
- * - autonomous principals (agent/service): `ask` → require_approval (202) plus
- *   a durable approval request; explicit `allow` overrides return `allow`,
- *   bypassing core's default approval requirement for non-user principals.
+ * - INTERACTIVE user principals with an `ask` outcome return `null`: live chat
+ *   approval stays with the AI-side native suspend/resume pre-gate.
+ * - autonomous callers — agent/service principals, AND user-token calls whose
+ *   origin is an engenty App (no chat pre-gate behind them) — `ask` →
+ *   require_approval (202) plus a durable approval request; explicit `allow`
+ *   overrides return `allow`, bypassing core's default approval requirement
+ *   for non-user principals.
  */
 export function createConnectionsProfilePolicy(
   repo: ConnectionsRepo,
@@ -53,7 +57,34 @@ export function createConnectionsProfilePolicy(
       return null;
     }
     const { action, connector } = match;
-    const isAutonomous = input.auth.principalType !== "user";
+    // CON-02 — which connectors this grant may be spent on. Core's operation
+    // gate has already checked the broad `module.connections.write`; a role
+    // scoped to named connectors is refused here, before any connection is
+    // resolved or any approval recorded. A principal naming no connector is
+    // unrestricted, so every pre-CON-02 grant behaves exactly as before.
+    if (
+      !connectorScopeAllows({
+        capabilities: input.auth.capabilities,
+        connectorId: connector.id,
+        group: action.group as ConnectorActionGroup,
+      })
+    ) {
+      return {
+        action: "deny",
+        reason: connectorScopeDenialReason({
+          connectorId: connector.id,
+          connectorName: connector.name,
+          group: action.group as ConnectorActionGroup,
+        }),
+      };
+    }
+    // "Autonomous" here means "no human is watching this turn", not "not a
+    // user". An engenty App rides the viewing user's token (CON-01) yet runs
+    // with no chat pre-gate behind it, so an `ask` outcome had nothing at all
+    // standing between an App and gmail_send_message. Treat it like any other
+    // unattended caller: record the approval request and answer 202.
+    const isAutonomous =
+      input.auth.principalType !== "user" || input.auth.callOrigin === "app";
     const candidates = await repo.listCandidateConnections({
       connectorId: connector.id,
       principalId: input.auth.principalId,

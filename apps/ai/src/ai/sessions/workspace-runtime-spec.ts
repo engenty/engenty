@@ -34,7 +34,7 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
   sandboxConfig?: {
     lifecycle?: "run" | "session" | "task";
     mountPath?: string;
-    provider?: "docker" | "local" | "gondolin";
+    provider?: "docker" | "local";
     timeoutMs?: number;
   };
   sandboxIdentity?: {

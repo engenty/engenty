@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { jwtVerify, SignJWT } from "jose";
 import { uuidv7 } from "uuidv7";
@@ -65,6 +66,49 @@ export function checkRateLimit(key: string): boolean {
 
 /** Access-token lifetime handed out by `POST /api/auth/service-token`. */
 export const SERVICE_TOKEN_TTL_SECONDS = 900;
+
+/**
+ * Capability required to mint a DURABLE credential — a never-expiring service
+ * credential or a 30–90 day API token. Held by tenant admins and superadmins;
+ * deliberately not by `tenant.member`, and not in the default agent bundles.
+ */
+export const CREDENTIAL_MINT_CAPABILITY = "core.credentials.manage";
+
+/**
+ * The two mint routes below escalate LIFETIME, so authentication alone can
+ * never be their gate (AUTH-02). Two rules, both required:
+ *
+ *   1. The caller holds `core.credentials.manage`. Clamping the new
+ *      credential's capabilities to the caller's is not enough on its own —
+ *      it preserves authority while extending it from 15 minutes to forever.
+ *   2. The caller's own token is not itself derived. A 900-second service
+ *      token or a 30-day API token may not beget a longer-lived one; that
+ *      round trip is exactly what service identity exists to prevent. Only a
+ *      human session (oauth) with the capability may mint.
+ */
+function denyCredentialMint(principal: PrincipalContext): {
+  error: string;
+  reason: string;
+} | null {
+  if (!capabilityCovers(principal.capabilities, CREDENTIAL_MINT_CAPABILITY)) {
+    return {
+      error: "Forbidden",
+      reason: `missing capability: ${CREDENTIAL_MINT_CAPABILITY}`,
+    };
+  }
+  if (
+    principal.authMethod === "service_credential" ||
+    principal.authMethod === "api_token" ||
+    principal.tokenType === "api_token"
+  ) {
+    return {
+      error: "Forbidden",
+      reason:
+        "a derived credential cannot mint a longer-lived one; sign in as a user with core.credentials.manage",
+    };
+  }
+  return null;
+}
 
 /**
  * Prefix for the raw half of a service credential. Makes a leaked secret
@@ -481,6 +525,16 @@ export function registerAuthRoutes(params: {
       return authResult.error!;
     }
     const principal = authResult.auth;
+    const denied = denyCredentialMint(principal);
+    if (denied) {
+      recordCoreAuditEvent(params.auditLog, {
+        type: "auth.credential_mint_denied",
+        actorId: principal.principalId,
+        tenantId: principal.tenantId,
+        detail: { reason: denied.reason, route: "service-credentials" },
+      });
+      return c.json(denied, 403);
+    }
     const body = (await c.req.json().catch(() => ({}))) as Record<
       string,
       unknown
@@ -570,6 +624,16 @@ export function registerAuthRoutes(params: {
     const authResult = await requireAuth(c, params.config);
     if (authResult.error || !authResult.auth) {
       return authResult.error!;
+    }
+    const mintDenied = denyCredentialMint(authResult.auth);
+    if (mintDenied) {
+      recordCoreAuditEvent(params.auditLog, {
+        type: "auth.credential_mint_denied",
+        actorId: authResult.auth.principalId,
+        tenantId: authResult.auth.tenantId,
+        detail: { reason: mintDenied.reason, route: "api-tokens" },
+      });
+      return c.json(mintDenied, 403);
     }
     const secret = getSecuritySecret(params.config);
     if (!secret) {

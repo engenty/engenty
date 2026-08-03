@@ -131,7 +131,9 @@ function createFakeDal(): SuperadminDal {
 
   return new Proxy(dal as SuperadminDal, {
     get(target, prop: string) {
-      return (target as Record<string, unknown>)[prop] ?? notImplemented;
+      return (
+        (target as unknown as Record<string, unknown>)[prop] ?? notImplemented
+      );
     },
   });
 }

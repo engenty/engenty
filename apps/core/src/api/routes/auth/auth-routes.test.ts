@@ -13,6 +13,12 @@ async function makeToken(params: {
   tenantId: string;
   tokenType?: "access" | "api_token";
   expiresInSeconds?: number;
+  /**
+   * Minting an api-token needs `core.credentials.manage` (AUTH-02), so the
+   * default owner here is a capability-holder. Pass an explicit set to test
+   * the gate or the clamp.
+   */
+  capabilities?: string[];
 }): Promise<string> {
   const tokenType = params.tokenType ?? "access";
   const expiresIn = params.expiresInSeconds ?? 3600;
@@ -23,7 +29,10 @@ async function makeToken(params: {
     auth_method: "oauth",
     scopes: [],
     module_ids: [],
-    capabilities: ["module.read"],
+    capabilities: params.capabilities ?? [
+      "module.read",
+      "core.credentials.manage",
+    ],
     role_profiles: [],
     roles: [],
     permissions: [],
@@ -233,9 +242,12 @@ describe("DELETE /api/auth/api-tokens/:tokenId — ownership enforcement", () =>
   it("clamps api-token capabilities to the creator's grant", async () => {
     const app = createApp();
     const owner = await makeToken({
+      // The mint capability lets them through the gate; module.read is the
+      // whole of their actual authority, and that is what must be clamped to.
+      capabilities: ["module.read", "core.credentials.manage"],
       principalId: "user-1",
       tenantId: "tenant-1",
-    }); // creator holds only module.read
+    });
     const res = await app.request("/api/auth/api-tokens", {
       method: "POST",
       headers: {

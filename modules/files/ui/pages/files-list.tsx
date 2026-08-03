@@ -24,21 +24,33 @@ import {
   ListDisplayConfigurator,
   ListFilterSelectTrigger,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarBulkActions,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
   Select,
   SelectContent,
   SelectItem,
   SelectValue,
   Skeleton,
+  type SortOrder,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  type TableSize,
   useListDisplayState,
+  useListToolbar,
   useTableSelection,
+  type ViewMode,
 } from "@engenty/ui-core";
 import {
   type PageBreadcrumb,
@@ -53,7 +65,6 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -67,6 +78,7 @@ import {
 import {
   FILES_DISPLAY_DEFAULTS,
   type FilesColumnKey,
+  type FilesColumnVisibility,
   type FilesFileWithId,
   type FilesSortColumn,
 } from "../components/file-columns.js";
@@ -81,6 +93,80 @@ import {
 
 /** Uploads build a `tenants/<id>/…` key, so only the shared bucket accepts them. */
 const UPLOADABLE_BUCKET = "files";
+
+function FilesDisplayMenu(props: {
+  columnOrder: FilesColumnKey[];
+  columns: ColumnConfig<FilesColumnKey>[];
+  columnVisibility: FilesColumnVisibility;
+  displayLabel: string;
+  labels: {
+    table: string;
+    cards: string;
+    compactView: string;
+    sortBy: string;
+    ascending: string;
+    descending: string;
+    displayedInTable: string;
+    hiddenInTable: string;
+    showAll: string;
+    hideAll: string;
+    noColumnsDisplayed: string;
+  };
+  setColumnOrder: (order: FilesColumnKey[]) => void;
+  setColumnVisibility: (value: FilesColumnVisibility) => void;
+  setSortBy: (value: FilesSortColumn) => void;
+  setSortOrder: (value: SortOrder) => void;
+  setTableSize: (size: TableSize) => void;
+  setViewMode: (mode: ViewMode) => void;
+  sortBy: FilesSortColumn;
+  sortOptions: { value: FilesSortColumn; label: string }[];
+  sortOrder: SortOrder;
+  tableSize: TableSize;
+  viewMode: ViewMode;
+}) {
+  const { overflowPlacement } = useListToolbar();
+  const inMenu = overflowPlacement === "menu";
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        {inMenu ? (
+          <Button
+            aria-label={props.displayLabel}
+            className="h-9 w-full justify-start gap-1.5"
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {props.displayLabel}
+          </Button>
+        ) : (
+          <ListToolbarIconButton aria-label={props.displayLabel} type="button">
+            <SlidersHorizontal />
+          </ListToolbarIconButton>
+        )}
+      </DropdownMenuTrigger>
+      <ListDisplayConfigurator<FilesColumnKey, FilesSortColumn>
+        columnOrder={props.columnOrder}
+        columns={props.columns}
+        columnVisibility={props.columnVisibility}
+        labels={props.labels}
+        setColumnOrder={props.setColumnOrder}
+        setColumnVisibility={props.setColumnVisibility}
+        setSortBy={props.setSortBy}
+        setSortOrder={props.setSortOrder}
+        setTableSize={props.setTableSize}
+        setViewMode={props.setViewMode}
+        sortBy={props.sortBy}
+        sortOptions={props.sortOptions}
+        sortOrder={props.sortOrder}
+        tableSize={props.tableSize}
+        viewMode={props.viewMode}
+      />
+    </DropdownMenu>
+  );
+}
 
 export function FilesListPage() {
   const { t } = useTranslation("files");
@@ -423,113 +509,50 @@ export function FilesListPage() {
     );
   }
 
-  const displayMenu = (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <ListToolbarIconButton aria-label={t("display.display")} type="button">
-          <SlidersHorizontal />
-        </ListToolbarIconButton>
-      </DropdownMenuTrigger>
-      <ListDisplayConfigurator<FilesColumnKey, FilesSortColumn>
-        columnOrder={display.columnOrder}
-        columns={columns}
-        columnVisibility={display.columnVisibility}
-        labels={{
-          table: t("display.tableView"),
-          cards: t("display.cardsView"),
-          compactView: t("display.compactView"),
-          sortBy: t("display.sortBy"),
-          ascending: t("display.ascending"),
-          descending: t("display.descending"),
-          displayedInTable: t("display.displayedColumns"),
-          hiddenInTable: t("display.hiddenInTable"),
-          showAll: t("display.showAll"),
-          hideAll: t("display.hideAll"),
-          noColumnsDisplayed: t("display.noColumnsDisplayed"),
-        }}
-        setColumnOrder={display.setColumnOrder}
-        setColumnVisibility={display.setColumnVisibility}
-        setSortBy={display.setSortBy}
-        setSortOrder={display.setSortOrder}
-        setTableSize={display.setTableSize}
-        setViewMode={display.setViewMode}
-        sortBy={sortBy}
-        sortOptions={sortOptions}
-        sortOrder={sortOrder}
-        tableSize={display.tableSize}
-        viewMode={display.viewMode}
-      />
-    </DropdownMenu>
-  );
-
   const header = (
-    <div className="flex w-full flex-col gap-2">
-      <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-        {/* ── Left: bucket + search + count ── */}
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-          {buckets && buckets.length > 1 && (
-            <Select onValueChange={handleBucketChange} value={selectedBucket}>
-              <ListFilterSelectTrigger className="w-[180px] shrink-0">
-                <SelectValue placeholder="Bucket">
-                  {(() => {
-                    const b = buckets?.find((bb) => bb.id === selectedBucket);
-                    if (!b) {
-                      return selectedBucket;
-                    }
-                    return b.id + (b.default ? " ★" : "");
-                  })()}
-                </SelectValue>
-              </ListFilterSelectTrigger>
-              <SelectContent alignItemWithTrigger={false} variant="glass">
-                {buckets.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.id}
-                    {b.default ? " ★" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className="w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
-            <ListSearchInput
-              className="w-full"
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("toolbar.search")}
-              value={search}
-              wrapperClassName="w-full"
-            />
-          </div>
-          <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-            {hasSelection
-              ? t("toolbar.selected", { count: selectedIds.size })
-              : t("toolbar.items", { count: sortedFiles.length })}
-          </p>
-        </div>
+    <ListToolbar selectedCount={selectedIds.size}>
+      <ListToolbarMainArea>
+        {buckets && buckets.length > 1 ? (
+          <Select onValueChange={handleBucketChange} value={selectedBucket}>
+            <ListFilterSelectTrigger className="w-[180px] shrink-0">
+              <SelectValue placeholder="Bucket">
+                {(() => {
+                  const b = buckets?.find((bb) => bb.id === selectedBucket);
+                  if (!b) {
+                    return selectedBucket;
+                  }
+                  return b.id + (b.default ? " ★" : "");
+                })()}
+              </SelectValue>
+            </ListFilterSelectTrigger>
+            <SelectContent alignItemWithTrigger={false} variant="glass">
+              {buckets.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.id}
+                  {b.default ? " ★" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full"
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("toolbar.search")}
+            value={search}
+            wrapperClassName="w-full"
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>
+          {hasSelection
+            ? t("toolbar.selected", { count: selectedIds.size })
+            : t("toolbar.items", { count: sortedFiles.length })}
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
 
-        {/* ── Right: bulk actions OR upload + view toggle + display ── */}
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 md:ml-auto md:shrink-0 md:justify-end">
-          {hasSelection && (
-            <>
-              <Button
-                className="gap-1.5"
-                onClick={() => setBulkDeleteOpen(true)}
-                size="sm"
-                variant="destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {t("actions.delete")}
-              </Button>
-              <Button
-                className="gap-1"
-                onClick={clearSelection}
-                size="sm"
-                variant="ghost"
-              >
-                <X className="h-3.5 w-3.5" />
-                {t("actions.cancel")}
-              </Button>
-            </>
-          )}
+      <ListToolbarActions moreLabel="More">
+        <ListToolbarIdleControls>
           <ListViewModeToggle
             labels={{
               cards: t("display.cardsView"),
@@ -539,10 +562,55 @@ export function FilesListPage() {
             onChange={display.setViewMode}
             value={display.viewMode}
           />
-          {displayMenu}
-        </div>
-      </div>
-    </div>
+          <ListToolbarOverflowItem>
+            <FilesDisplayMenu
+              columnOrder={display.columnOrder}
+              columns={columns}
+              columnVisibility={display.columnVisibility}
+              displayLabel={t("display.display")}
+              labels={{
+                table: t("display.tableView"),
+                cards: t("display.cardsView"),
+                compactView: t("display.compactView"),
+                sortBy: t("display.sortBy"),
+                ascending: t("display.ascending"),
+                descending: t("display.descending"),
+                displayedInTable: t("display.displayedColumns"),
+                hiddenInTable: t("display.hiddenInTable"),
+                showAll: t("display.showAll"),
+                hideAll: t("display.hideAll"),
+                noColumnsDisplayed: t("display.noColumnsDisplayed"),
+              }}
+              setColumnOrder={display.setColumnOrder}
+              setColumnVisibility={display.setColumnVisibility}
+              setSortBy={display.setSortBy}
+              setSortOrder={display.setSortOrder}
+              setTableSize={display.setTableSize}
+              setViewMode={display.setViewMode}
+              sortBy={sortBy}
+              sortOptions={sortOptions}
+              sortOrder={sortOrder}
+              tableSize={display.tableSize}
+              viewMode={display.viewMode}
+            />
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+        <ListToolbarBulkActions
+          clearSelectionLabel={t("actions.cancel")}
+          onClearSelection={clearSelection}
+        >
+          <Button
+            className="gap-1.5"
+            onClick={() => setBulkDeleteOpen(true)}
+            size="sm"
+            variant="destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("actions.delete")}
+          </Button>
+        </ListToolbarBulkActions>
+      </ListToolbarActions>
+    </ListToolbar>
   );
 
   const isEmpty = sortedFiles.length === 0 && folders.length === 0;

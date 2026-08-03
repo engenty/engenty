@@ -49,7 +49,16 @@ import { createSupabaseAuthProvider } from "../security/auth-provider.js";
 import { createGrantsService } from "../security/grants-service.js";
 import { registerAuthzRoutes } from "./routes/authz-routes.js";
 
-/** Phase 4 agent escalation policy is opt-in until apps/ai forwards agent/goal ids. */
+/**
+ * Phase 4 agent escalation policy. Was written as opt-in "until apps/ai
+ * forwards agent/goal ids" — apps/ai has forwarded them since
+ * `core-http-client.ts:274-277`, and the flag was never turned on anywhere, so
+ * the policy that `policy.ts` names as the gate governing agent runs was
+ * registered in no deployment at all (audit 2026-08-03, AUTH-03). It now ships
+ * on: `ENGENTY_AGENT_ESCALATION` is in the env manifest and defaults to `true`
+ * in both compose files. Kept as a flag so a deployment can still disable it
+ * deliberately.
+ */
 function isAgentEscalationEnabled(config: Record<string, unknown>): boolean {
   return (
     config.agentEscalationEnabled === true ||

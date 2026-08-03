@@ -23,26 +23,11 @@ describe("resolveSandboxProvider", () => {
     expect(resolveSandboxProvider()).toBe("docker");
   });
 
-  it("env overrides the declaration", () => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("ENGENTY_SANDBOX_PROVIDER", "gondolin");
-    expect(resolveSandboxProvider("docker")).toBe("gondolin");
-  });
-
-  it("resolves gondolin from a declaration in non-prod", () => {
-    vi.stubEnv("NODE_ENV", "development");
-    expect(resolveSandboxProvider("gondolin")).toBe("gondolin");
-  });
-
-  it("gates gondolin out of production unless explicitly allowed", () => {
-    vi.stubEnv("NODE_ENV", "production");
-    expect(() => resolveSandboxProvider("gondolin")).toThrow(/non-production/);
-    vi.stubEnv("ENGENTY_SANDBOX_ALLOW_GONDOLIN", "1");
-    expect(resolveSandboxProvider("gondolin")).toBe("gondolin");
-  });
-
   it("throws loudly on an unsupported provider", () => {
     expect(() => resolveSandboxProvider("local")).toThrow(/not supported/);
+    // Removed tiers stay removed — gondolin must fail, not silently degrade.
+    vi.stubEnv("ENGENTY_SANDBOX_PROVIDER", "gondolin");
+    expect(() => resolveSandboxProvider()).toThrow(/not supported/);
     vi.stubEnv("ENGENTY_SANDBOX_PROVIDER", "firecracker");
     expect(() => resolveSandboxProvider()).toThrow(/not supported/);
   });

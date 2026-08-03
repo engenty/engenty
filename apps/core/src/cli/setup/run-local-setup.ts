@@ -106,6 +106,7 @@ export function localDatabaseNeedsInit(): boolean {
 export async function runLocalSetup(params: {
   refresh?: boolean;
   repoRoot: string;
+  allowDbReset?: boolean;
 }): Promise<void> {
   const setup = runSetupScript({
     cwd: params.repoRoot,
@@ -139,17 +140,37 @@ finishes the database and .env.local steps.`
   }
 
   if (localDatabaseNeedsInit()) {
-    const reset = await confirmStep(
-      "Fresh local database — reset it (apply all migrations; wipes local data)?",
-      true
-    );
-    if (reset) {
-      console.log("Applying migrations with supabase db reset…");
-      runSupabaseOrThrow(["db", "reset"]);
-    } else {
-      console.log(
-        "Skipped — run `pnpm db:reset` (or `pnpm db:migrate`) later."
+    // `db reset` wipes data — it must never run unattended. Non-interactive
+    // shells (Claude Code's Bash tool, CI, etc.) have no TTY, so the confirm
+    // prompt below can't render; silently defaulting to "yes" here is exactly
+    // how the 2026-08-02 shared-DB wipe happened. Refuse unless the caller
+    // explicitly opted in via --yes-reset-db.
+    if (isInteractiveTerminal()) {
+      const reset = await confirmStep(
+        "Fresh local database — reset it (apply all migrations; wipes local data)?",
+        true
       );
+      if (reset) {
+        console.log("Applying migrations with supabase db reset…");
+        runSupabaseOrThrow(["db", "reset"]);
+      } else {
+        console.log(
+          "Skipped — run `pnpm db:reset` (or `pnpm db:migrate`) later."
+        );
+      }
+    } else {
+      if (!params.allowDbReset) {
+        throw new Error(
+          "Local database has no applied migrations, but this isn't an interactive " +
+            "terminal, so the destructive `supabase db reset` won't run unattended. " +
+            "Re-run `pnpm engenty setup --local` in an interactive terminal to confirm " +
+            "the reset, or pass --yes-reset-db if wiping local data is known to be safe."
+        );
+      }
+      console.log(
+        "Applying migrations with supabase db reset (--yes-reset-db)…"
+      );
+      runSupabaseOrThrow(["db", "reset"]);
     }
   } else {
     console.log("Applying pending migrations…");

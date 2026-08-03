@@ -30,6 +30,10 @@ export interface ProjectTabMeta {
  */
 export const NATIVE_PROJECT_TABS: readonly ProjectTabMeta[] = [
   { id: "planning", labelKey: "detail.tabs.planning", required: true },
+  // `required` here means "not configurable in the tabs dialog": this tab is
+  // owned by the project's `timeplan_enabled` setting, which decides whether it
+  // exists at all — see `useProjectDetailTabs`.
+  { id: "timeplan", labelKey: "detail.tabs.timeplan", required: true },
   { id: "notes", labelKey: "detail.tabs.notes", required: false },
 ] as const;
 

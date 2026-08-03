@@ -127,8 +127,8 @@ const agentWorkspaceSandboxSchema = z.object({
   // Gate `EXECUTE_COMMAND` behind human approval (HITL) when true.
   requireApproval: z.boolean().default(true),
   // Compute provider; defaults from `ENGENTY_SANDBOX_PROVIDER` at runtime.
-  // `gondolin` is a local-dev micro-VM provider, gated to non-production.
-  provider: z.enum(["docker", "local", "gondolin"]).optional(),
+  // Docker is the only agent-execution provider (sandbox doctrine 2026-08-03).
+  provider: z.enum(["docker", "local"]).optional(),
   // Workspace mount path for sandbox files (default `/sandbox`).
   mountPath: z.string().min(1).default("/sandbox"),
   // Sandbox storage lifecycle: per run, session thread, or bound task checkout.

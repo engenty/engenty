@@ -10,6 +10,13 @@ import { ACTION_GROUP_DEFAULT_POLICY } from "./types.js";
 const GROUP_ORDER: ConnectorActionGroup[] = ["read", "write", "destructive"];
 
 export interface ConnectionPolicyPrincipal {
+  /**
+   * The principal's capability set, when the caller has it. Used only for the
+   * per-connector scope check (CON-02); omitted means "not supplied", which
+   * that check reads as unrestricted — the authoritative gate is the
+   * connections profile policy, which always has it.
+   */
+  capabilities?: readonly string[];
   /** Set for user principals; agents/services carry the acting user when live. */
   principalId: string;
   principalType: "user" | "agent" | "service";

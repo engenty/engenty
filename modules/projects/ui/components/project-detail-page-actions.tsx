@@ -14,7 +14,6 @@ import { Copy, ExternalLink, Eye, Link2, Settings, Users } from "lucide-react";
 interface ProjectDetailPageActionsProps {
   onCopyLink: () => void;
   onCopyLinkClick: (e: React.MouseEvent) => void;
-  onOpenPortalSettings: () => void;
   onOpenProjectSettings: () => void;
   onPortalDropdownOpenChange: (open: boolean) => void;
   onViewModeChange: (mode: "internal" | "external") => void;
@@ -31,7 +30,6 @@ export function ProjectDetailPageActions({
   onViewModeChange,
   onCopyLinkClick,
   onCopyLink,
-  onOpenPortalSettings,
   onOpenProjectSettings,
   portalDropdownOpen,
   onPortalDropdownOpenChange,
@@ -115,7 +113,7 @@ export function ProjectDetailPageActions({
         className="h-8 w-8 p-0"
         onClick={onOpenProjectSettings}
         size="sm"
-        title={t("detail.portal.settings")}
+        title={t("detail.projectSettings.title")}
         variant="outline"
       >
         <Settings className="h-3.5 w-3.5" />

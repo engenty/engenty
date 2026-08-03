@@ -49,6 +49,7 @@ export const projectSchema = z.object({
   portal_password: z.string().nullable(),
   portal_intro_text: z.string().nullable(),
   visibility: z.enum(["tenant", "members"]).default("tenant"),
+  timeplan_enabled: z.boolean().default(true),
   enabled_tabs: z.array(z.string()).nullable().optional(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -75,6 +76,7 @@ export const projectCreateInputSchema = projectInputSchema.extend({
   portal_enabled: z.boolean().optional(),
   portal_password: z.string().nullable().optional(),
   portal_intro_text: z.string().nullable().optional(),
+  timeplan_enabled: z.boolean().optional(),
   created_by: z.string().uuid().nullable().optional(),
   team_member_ids: z.array(z.string()).optional(),
 });

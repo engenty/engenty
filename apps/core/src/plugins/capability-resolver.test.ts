@@ -4,6 +4,7 @@ import {
   resolvePluginEffectiveState,
 } from "./capability-resolver.js";
 import type { PluginRecord, PluginRegistry } from "./registry.js";
+import { makeEmptyRegistry } from "./test-fixtures.js";
 
 function plugin(
   id: string,
@@ -35,6 +36,7 @@ function plugin(
 
 function registry(plugins: PluginRecord[]): PluginRegistry {
   return {
+    ...makeEmptyRegistry(),
     cliRegistrars: [],
     diagnostics: [],
     eventFilters: [],

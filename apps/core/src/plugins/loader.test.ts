@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearPluginImportCache, loadPlugins } from "./loader";
+import { clearPluginImportCache, loadPlugins } from "./loader.js";
 
 function makeTempDir(): string {
   const dir = path.join(os.tmpdir(), `engenty-loader-${randomUUID()}`);
@@ -135,7 +135,9 @@ describe("loadPlugins", () => {
     );
     // Hard enforcement: the restricted contribution is removed, not just flagged.
     expect(
-      registry.profilePolicies.filter((p) => p.pluginId === "catalog-policy")
+      (registry.profilePolicies ?? []).filter(
+        (p) => p.pluginId === "catalog-policy"
+      )
     ).toHaveLength(0);
   });
 
@@ -413,13 +415,22 @@ describe("loadPlugins", () => {
     fs.mkdirSync(emitterDir, { recursive: true });
     fs.mkdirSync(packagesDir, { recursive: true });
 
-    type EventGateGlobal = typeof globalThis & {
-      __engentyEventCalls?: string[];
+    // Not intersected with `typeof globalThis` — that makes the added members
+    // resolve against the global scope's own declarations instead of these.
+    interface EventGateGlobal {
       __engentyEmitEvent?: (tenantId?: string) => Promise<void>;
-    };
-    const eventGlobal = globalThis as EventGateGlobal;
+      __engentyEventCalls?: string[];
+    }
+    const eventGlobal = globalThis as unknown as EventGateGlobal;
     eventGlobal.__engentyEventCalls = [];
     eventGlobal.__engentyEmitEvent = undefined;
+    // Read the global fresh on every call: the reset above narrows the
+    // property to `undefined` for the rest of this block, and the plugin
+    // loader is what assigns the real emitter afterwards.
+    const emit = (tenantId?: string) =>
+      (globalThis as unknown as EventGateGlobal).__engentyEmitEvent?.(
+        tenantId
+      ) ?? Promise.resolve();
 
     writeFakePlugin({
       dir: pluginDir,
@@ -465,7 +476,9 @@ describe("loadPlugins", () => {
       modulesDir,
       packagesDir,
       tenantPluginOverrides: {
-        getOverrides: async (tenantId) =>
+        getOverrides: async (
+          tenantId: string
+        ): Promise<Record<string, boolean>> =>
           tenantId === "tenant-disabled"
             ? { "event-gated": false }
             : tenantId === "tenant-dependency-disabled"
@@ -481,23 +494,23 @@ describe("loadPlugins", () => {
       },
     });
 
-    await eventGlobal.__engentyEmitEvent?.();
-    await eventGlobal.__engentyEmitEvent?.("tenant-disabled");
-    await eventGlobal.__engentyEmitEvent?.("tenant-dependency-disabled");
-    await eventGlobal.__engentyEmitEvent?.("tenant-allowed");
+    await emit();
+    await emit("tenant-disabled");
+    await emit("tenant-dependency-disabled");
+    await emit("tenant-allowed");
     const eventPlugin = registry.plugins.find(
       (plugin) => plugin.id === "event-gated"
     );
     if (eventPlugin) {
       eventPlugin.enabled = false;
     }
-    await eventGlobal.__engentyEmitEvent?.("tenant-globally-disabled");
+    await emit("tenant-globally-disabled");
     registry.generationId = (registry.generationId ?? 1) + 1;
     const stalePlugin = registry.plugins.find((p) => p.id === "event-gated");
     if (stalePlugin) {
       stalePlugin.generationId = registry.generationId;
     }
-    await eventGlobal.__engentyEmitEvent?.("tenant-stale-generation");
+    await emit("tenant-stale-generation");
 
     expect(eventGlobal.__engentyEventCalls).toEqual(["tenant-allowed"]);
     expect(registry.diagnostics.map((d) => d.code)).toContain(

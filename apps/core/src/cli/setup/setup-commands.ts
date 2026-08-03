@@ -39,12 +39,17 @@ export function registerSetupCommands(program: Command): void {
       "--no-plugins",
       "Skip the interactive plugin install prompt on a fresh workspace"
     )
+    .option(
+      "--yes-reset-db",
+      "Allow a non-interactive run to destructively `supabase db reset` when the local DB needs init (never implied — must be explicit)"
+    )
     .action(
       runCliAction(
         async (options: {
           local?: boolean;
           plugins?: boolean;
           refresh?: boolean;
+          yesResetDb?: boolean;
         }) => {
           const repoRoot = findWorkspaceRootFrom(process.cwd());
           // Fresh workspace + interactive TTY → let the user pick which
@@ -57,6 +62,7 @@ export function registerSetupCommands(program: Command): void {
             await runLocalSetup({
               repoRoot,
               refresh: options.refresh === true,
+              allowDbReset: options.yesResetDb === true,
             });
             return;
           }

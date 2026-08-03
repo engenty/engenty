@@ -25,7 +25,12 @@ export async function convertOfficeToPdf(
     throw new Error("GOTENBERG_URL is not configured");
   }
 
-  const blob = new Blob([bytes], { type: "application/octet-stream" });
+  // `Uint8Array<ArrayBufferLike>` is not assignable to `BlobPart`, whose
+  // ArrayBufferView arm is pinned to a plain `ArrayBuffer`. Copying into a
+  // fresh buffer makes that true rather than asserting it.
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  const blob = new Blob([buffer], { type: "application/octet-stream" });
   const form = new FormData();
   form.append("files", blob, filename);
 

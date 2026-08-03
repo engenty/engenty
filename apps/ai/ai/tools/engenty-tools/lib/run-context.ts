@@ -66,6 +66,11 @@ export interface EngentyToolsRunContext {
   runId?: string | null;
   tenantId?: string | null;
   userAccessToken?: string;
+  // The thread the human is actually watching. Root runs set it to their own
+  // thread; a delegated child run inherits it (delegate-run overrides
+  // orchestratorThreadId with the CHILD thread, so anything the user must see —
+  // e.g. a published artifact — must target this instead).
+  userFacingThreadId?: string | null;
   userId?: string | null;
 }
 

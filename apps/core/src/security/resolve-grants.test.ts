@@ -38,7 +38,7 @@ describe("resolveGrants", () => {
       "t1"
     );
     expect(grants.roleProfiles).toEqual(["tenant.admin"]);
-    expect(grants.capabilities).toEqual(["*"]);
+    expect(grants.capabilities).toEqual(["core.credentials.manage", "*"]);
   });
 
   it("member base grants full module access + settings", async () => {

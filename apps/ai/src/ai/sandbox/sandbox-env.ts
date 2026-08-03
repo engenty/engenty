@@ -5,20 +5,12 @@ import type { AgentWorkspaceSandbox } from "./sandbox-types.js";
 // one image, so image selection no longer branches on declared runtimes.
 export const DEFAULT_SANDBOX_IMAGE = "engenty-sandbox:latest";
 
-// Providers that actually run model-generated code in an isolated sandbox.
-// `docker` is the default everywhere; `gondolin` is a local-dev micro-VM
-// (QEMU/krun) used to exercise the VM path before any production rollout.
-export type ResolvedSandboxProvider = "docker" | "gondolin";
-
-// True unless the process is explicitly running in production. Gondolin needs
-// hardware virtualization (KVM / Hypervisor.framework) that prod hosts may not
-// expose, so it is gated to non-prod and must be opted into deliberately.
-function isGondolinAllowedEnv(): boolean {
-  if (process.env.ENGENTY_SANDBOX_ALLOW_GONDOLIN?.trim() === "1") {
-    return true;
-  }
-  return process.env.NODE_ENV !== "production";
-}
+// Provider that actually runs model-generated code in an isolated sandbox.
+// Docker is the ONLY agent-execution provider — sandbox doctrine 2026-08-03:
+// agent execution = Docker sandbox, tenant Apps = agentOS (apps/app-host).
+// The Gondolin micro-VM tier was removed (git history has it); adding another
+// provider is a doctrine change, not a config option.
+export type ResolvedSandboxProvider = "docker";
 
 // Resolve which sandbox provider to use. Env (`ENGENTY_SANDBOX_PROVIDER`) wins
 // over the agent declaration; the default is `docker`. We fail loudly on any
@@ -33,30 +25,12 @@ export function resolveSandboxProvider(
   if (!requested || requested === "docker") {
     return "docker";
   }
-  if (requested === "gondolin") {
-    if (!isGondolinAllowedEnv()) {
-      throw new Error(
-        'sandbox provider "gondolin" is gated to non-production — it needs ' +
-          "hardware virtualization (KVM / Hypervisor.framework). Set " +
-          "ENGENTY_SANDBOX_ALLOW_GONDOLIN=1 to override."
-      );
-    }
-    return "gondolin";
-  }
   const source = fromEnv
     ? `ENGENTY_SANDBOX_PROVIDER="${requested}"`
     : `workspace.sandbox.provider="${requested}"`;
   throw new Error(
-    `${source} is not supported — the agent sandbox supports "docker" or "gondolin".`
+    `${source} is not supported — the agent sandbox supports "docker" only.`
   );
-}
-
-// Gondolin micro-VM backend. QEMU is the mature default; krun is the
-// experimental faster backend (needs the optional native runner package).
-export function resolveSandboxGondolinBackend(): "qemu" | "krun" {
-  const fromEnv =
-    process.env.ENGENTY_SANDBOX_GONDOLIN_BACKEND?.trim().toLowerCase();
-  return fromEnv === "krun" ? "krun" : "qemu";
 }
 
 export function resolveSandboxDockerImage(): string {

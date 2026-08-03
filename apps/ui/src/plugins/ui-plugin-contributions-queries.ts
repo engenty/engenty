@@ -292,6 +292,13 @@ export function pruneStaleUiPluginContributionsData(
 
   return {
     contributions: {
+      // Spread first: pruning only touches the plugin-owned *lists* below, and
+      // every other contribution kind (`liveBindings`, `brandSource`, …) has to
+      // survive verbatim. Rebuilding this object key-by-key silently dropped
+      // `liveBindings`, so App's `buildLiveBindingMaps` threw
+      // "bindings is not iterable" and took the whole UI down after any plugin
+      // invalidation (dev hot-reload of a module, enabling/disabling one).
+      ...data.contributions,
       routes: routes.items,
       adminMenuItems: adminMenuItems.items,
       copilotApps: copilotApps.items,

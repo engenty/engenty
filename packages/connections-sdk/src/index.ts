@@ -6,6 +6,12 @@ export {
   selectConnectionForAccount,
 } from "./accounts.js";
 export {
+  connectorCapability,
+  connectorCapabilityBase,
+  connectorScopeAllows,
+  connectorScopeDenialReason,
+} from "./capabilities.js";
+export {
   type ConnectionsModuleClient,
   type ConnectionsModuleClientOptions,
   createConnectionsModuleClient,

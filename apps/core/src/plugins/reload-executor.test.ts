@@ -189,8 +189,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,
@@ -275,7 +276,8 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     expect(result.unload?.removal?.removed.aiRegistrations).toBe(1);
     expect(registry.moduleOperations[0].sourceInfo?.generationId).toBe(2);
     expect(
-      (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents
+      (globalThis as unknown as { __engentyReloadEvents: string[] })
+        .__engentyReloadEvents
     ).toEqual([
       "register:v1",
       "start:v1",
@@ -289,7 +291,8 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
       globalThis as { __engentyReloadEmit?: () => Promise<void> }
     ).__engentyReloadEmit?.();
     expect(
-      (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents
+      (globalThis as unknown as { __engentyReloadEvents: string[] })
+        .__engentyReloadEvents
     ).toEqual([
       "register:v1",
       "start:v1",
@@ -310,8 +313,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,
@@ -374,8 +378,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,
@@ -442,8 +447,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,
@@ -500,8 +506,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,
@@ -638,8 +645,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,
@@ -713,7 +721,8 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
       globalThis as { __engentyReloadEmit?: () => Promise<void> }
     ).__engentyReloadEmit?.();
     expect(
-      (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents
+      (globalThis as unknown as { __engentyReloadEvents: string[] })
+        .__engentyReloadEvents
     ).toContain("event:v1");
   });
 
@@ -723,8 +732,9 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     const packagesDir = path.join(tmpRoot, "packages");
     const pluginDir = path.join(modulesDir, "reload-test");
     fs.mkdirSync(packagesDir, { recursive: true });
-    (globalThis as { __engentyReloadEvents: string[] }).__engentyReloadEvents =
-      [];
+    (
+      globalThis as unknown as { __engentyReloadEvents: string[] }
+    ).__engentyReloadEvents = [];
     writePlugin({
       body: pluginBody("v1"),
       dir: pluginDir,

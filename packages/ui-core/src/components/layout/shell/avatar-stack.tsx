@@ -1,3 +1,4 @@
+import { cn } from "../../../lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import {
   Tooltip,
@@ -20,11 +21,19 @@ interface AvatarStackProps {
 }
 
 const sizeClasses = {
-  sm: "h-6 w-6 text-xs",
-  md: "h-8 w-8 text-sm",
-  lg: "h-10 w-10 text-base",
-  xl: "h-12 w-12 text-base",
-};
+  sm: "size-7",
+  md: "size-8",
+  lg: "size-10",
+  xl: "size-12",
+} as const;
+
+/** Applied on fallback — AvatarFallback defaults to text-sm, which clips on small sizes. */
+const fallbackTextClasses = {
+  sm: "text-[10px] leading-none",
+  md: "text-xs leading-none",
+  lg: "text-sm leading-none",
+  xl: "text-sm leading-none",
+} as const;
 
 export const AvatarStack = ({
   profiles,
@@ -33,6 +42,8 @@ export const AvatarStack = ({
 }: AvatarStackProps) => {
   const displayProfiles = profiles.slice(0, max);
   const remainingCount = profiles.length - max;
+  const avatarClassName = cn(sizeClasses[size], "border-2 border-background");
+  const textClassName = fallbackTextClasses[size];
 
   const getInitials = (name: string) =>
     name
@@ -52,9 +63,7 @@ export const AvatarStack = ({
         {displayProfiles.map((profile) => (
           <Tooltip key={profile.id}>
             <TooltipTrigger asChild>
-              <Avatar
-                className={`${sizeClasses[size]} border-2 border-background`}
-              >
+              <Avatar className={avatarClassName}>
                 {profile.avatar_url && (
                   <AvatarImage
                     alt={profile.full_name}
@@ -62,11 +71,12 @@ export const AvatarStack = ({
                   />
                 )}
                 <AvatarFallback
-                  className={
+                  className={cn(
+                    textClassName,
                     profile.is_connected === false
                       ? "bg-muted text-muted-foreground"
                       : "bg-primary text-primary-foreground"
-                  }
+                  )}
                 >
                   {getInitials(profile.full_name)}
                 </AvatarFallback>
@@ -80,10 +90,13 @@ export const AvatarStack = ({
         {remainingCount > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Avatar
-                className={`${sizeClasses[size]} border-2 border-background`}
-              >
-                <AvatarFallback className="bg-muted text-muted-foreground">
+              <Avatar className={avatarClassName}>
+                <AvatarFallback
+                  className={cn(
+                    "bg-muted text-muted-foreground",
+                    textClassName
+                  )}
+                >
                   +{remainingCount}
                 </AvatarFallback>
               </Avatar>

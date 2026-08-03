@@ -66,6 +66,11 @@ export const appBuildTool = createTool({
     if (!ctx.tenantId) {
       throw new Error("app_build: tenant is not set in run context.");
     }
+    // Publish the preview artifact where the human is looking. Inside a
+    // delegated run orchestratorThreadId is the app-coder's CHILD thread — an
+    // artifact there is invisible to the user (the bug the first live E2E
+    // found). userFacingThreadId is inherited from the root run.
+    const publishThreadId = ctx.userFacingThreadId ?? ctx.orchestratorThreadId;
     // Dynamic import breaks the static cycle: the copilot agent module imports
     // the tools, and the mastra barrel imports the copilot agent.
     const { mastra } = await import("../index.js");
@@ -81,9 +86,7 @@ export const appBuildTool = createTool({
         name: input.name,
         ...(input.slug ? { slug: input.slug } : {}),
         tenant_id: ctx.tenantId,
-        ...(ctx.orchestratorThreadId
-          ? { thread_id: ctx.orchestratorThreadId }
-          : {}),
+        ...(publishThreadId ? { thread_id: publishThreadId } : {}),
       },
     });
     if (result.status !== "success") {

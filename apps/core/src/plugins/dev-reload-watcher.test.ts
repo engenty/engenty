@@ -83,11 +83,15 @@ function reloadResult(params: {
     ],
     pluginId: params.pluginId,
     preflight: {
+      executionAvailable: true,
+      hostHealthRelevant: false,
       issues: [],
-      plannedSteps: [],
+      mandatory: false,
+      ownedRegistrations: {},
       pluginId: params.pluginId,
-      reloadable: true,
-      status: "ok",
+      preflightPassed: true,
+      requiresRestart: false,
+      steps: [],
     },
     serviceStarts: 0,
     status: "failed",
@@ -383,7 +387,11 @@ describe("dev plugin reload watcher", () => {
     const close = vi.fn();
     const watchSpy = vi
       .spyOn(fs, "watch")
-      .mockImplementation(() => Object.assign(emitter, { close }));
+      // An EventEmitter stands in for FSWatcher; the test only drives `error`
+      // and `close`, so the ref/unref half of the real interface is unused.
+      .mockImplementation(
+        () => Object.assign(emitter, { close }) as unknown as fs.FSWatcher
+      );
 
     const registry = createRegistry([
       pluginRecord({

@@ -2,6 +2,10 @@ import {
   describeSelectionFailure,
   selectConnectionForAccount,
 } from "./accounts.js";
+import {
+  connectorScopeAllows,
+  connectorScopeDenialReason,
+} from "./capabilities.js";
 import { ConnectionsActionError } from "./errors.js";
 import type { ClientEnvResolver } from "./oauth2.js";
 import { refreshAccessToken } from "./oauth2.js";
@@ -56,6 +60,30 @@ export async function executeConnectorAction(
   params: ExecuteConnectorActionParams
 ): Promise<{ connection: ConnectionSummary; output: unknown }> {
   const { action, connector, principal, repo, tenantId } = params;
+
+  // Defense in depth (CON-02), same doctrine as the policy re-check below: the
+  // connections profile policy is authoritative, but a caller that reached
+  // here without it must not be able to spend a connector-scoped grant on a
+  // connector it does not name.
+  if (
+    principal.capabilities &&
+    !connectorScopeAllows({
+      capabilities: principal.capabilities,
+      connectorId: connector.id,
+      group: action.group,
+    })
+  ) {
+    throw new ConnectionsActionError(
+      "connection_denied",
+      connectorScopeDenialReason({
+        connectorId: connector.id,
+        connectorName: connector.name,
+        group: action.group,
+      }),
+      { action_id: action.id, connector_id: connector.id }
+    );
+  }
+
   const connection = await resolveTargetConnection(params);
 
   const overrides = await repo.listPolicyOverrides([connection.id]);

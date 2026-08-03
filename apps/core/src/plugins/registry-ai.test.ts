@@ -3,10 +3,12 @@ import {
   unregisterAiRegistration,
 } from "@engenty/ai-core";
 import { afterEach, describe, expect, it } from "vitest";
-import { createPluginRegistry, type PluginRecord } from "./registry";
+import { createPluginRegistry, type PluginRecord } from "./registry.js";
+import { makePluginRecord } from "./test-fixtures.js";
 
 function createRecord(id: string): PluginRecord {
   return {
+    ...makePluginRecord({ id: "fixture" }),
     id,
     source: `/plugins/${id}.ts`,
     cliCommands: [],

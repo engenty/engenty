@@ -105,6 +105,12 @@ export function createDelegationTools(
         }
         return {
           agent: alias,
+          // An App the child built renders inline on the parent's sub-agent
+          // card — the user sees the deliverable in the chat, not only in the
+          // artifact pane or behind the child-thread drill-in.
+          ...(result.appArtifactId
+            ? { app_artifact_id: result.appArtifactId }
+            : {}),
           child_thread_id: childThreadId,
           ok: true,
           result: result.finalText,

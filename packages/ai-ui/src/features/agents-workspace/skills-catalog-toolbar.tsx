@@ -10,7 +10,16 @@ import {
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarFilterRow,
+  ListToolbarFilterToggle,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
   type SortOrder,
   type TableSize,
@@ -22,7 +31,6 @@ import {
   Clock,
   FileText,
   Layers3,
-  ListFilter,
   SlidersHorizontal,
   Tag,
   Terminal,
@@ -274,101 +282,95 @@ export function SkillCatalogToolbar({
   )?.label;
 
   return (
-    <div className="shrink-0 space-y-2">
-      <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="relative w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
-            <ListSearchInput
-              className="w-full pr-10"
-              onChange={(event) => onSearchChange(event.target.value)}
-              onOpenFilters={() => {
-                if (!filtersExpanded) {
-                  onFiltersToggle();
-                }
-              }}
-              placeholder={labels.searchPlaceholder}
-              value={searchQuery}
-              wrapperClassName="w-full"
-            />
-            <ListToolbarIconButton
-              aria-label={labels.filterToggle}
-              aria-pressed={filtersExpanded}
-              className={cn(
-                "absolute top-1/2 right-1 -translate-y-1/2",
-                (filtersExpanded || hasActiveFilters) && "text-foreground"
-              )}
-              onClick={onFiltersToggle}
-              type="button"
-            >
-              <span className="relative inline-flex">
-                <ListFilter className="h-4 w-4" />
-                {hasActiveFilters ? (
-                  <span
-                    aria-hidden
-                    className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary"
-                  />
-                ) : null}
-              </span>
-            </ListToolbarIconButton>
-          </div>
-          <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-            {labels.paginationSummary}
-          </p>
-        </div>
-
-        <ListViewModeToggle
-          labels={{ cards: labels.cardsView, table: labels.tableView }}
-          onChange={setViewMode}
-          value={viewMode}
-        />
-
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <ListToolbarIconButton aria-label={labels.display} type="button">
-              <SlidersHorizontal />
-            </ListToolbarIconButton>
-          </DropdownMenuTrigger>
-          <ListDisplayConfigurator<SkillCatalogColumnKey, SkillCatalogSortBy>
-            columnOrder={columnOrder}
-            columns={columns}
-            columnVisibility={columnVisibility}
-            groupBy={groupBy}
-            groupByOptions={groupByOptions}
-            labels={{
-              ascending: labels.ascending,
-              cards: labels.cardsView,
-              compactView: labels.compactView,
-              descending: labels.descending,
-              displayedInTable: labels.displayedColumns,
-              groupBy: labels.groupBy,
-              hiddenInTable: labels.hiddenInTable,
-              hideAll: labels.hideAll,
-              noColumnsDisplayed: labels.noColumnsDisplayed,
-              showAll: labels.showAll,
-              sortBy: labels.sortBy,
-              table: labels.tableView,
+    <ListToolbar className="shrink-0">
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full pr-10"
+            onChange={(event) => onSearchChange(event.target.value)}
+            onOpenFilters={() => {
+              if (!filtersExpanded) {
+                onFiltersToggle();
+              }
             }}
-            setColumnOrder={setColumnOrder}
-            setColumnVisibility={setColumnVisibility}
-            setGroupBy={(value) =>
-              onGroupByChange(value as SkillCatalogGroupBy)
-            }
-            setSortBy={onSortByChange}
-            setSortOrder={onSortOrderChange}
-            setTableSize={setTableSize}
-            setViewMode={setViewMode}
-            sortBy={sortBy}
-            sortOptions={sortOptions}
-            sortOrder={sortOrder}
-            tableSize={tableSize}
-            viewMode={viewMode}
-            viewModes={["table", "cards"]}
+            placeholder={labels.searchPlaceholder}
+            value={searchQuery}
+            wrapperClassName="w-full"
           />
-        </DropdownMenu>
-      </div>
+          <ListToolbarFilterToggle
+            active={filtersExpanded || hasActiveFilters}
+            aria-label={labels.filterToggle}
+            aria-pressed={filtersExpanded}
+            onClick={onFiltersToggle}
+            showDot={hasActiveFilters}
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>{labels.paginationSummary}</ListToolbarSummary>
+      </ListToolbarMainArea>
+
+      <ListToolbarActions>
+        <ListToolbarIdleControls>
+          <ListViewModeToggle
+            labels={{ cards: labels.cardsView, table: labels.tableView }}
+            onChange={setViewMode}
+            value={viewMode}
+          />
+          <ListToolbarOverflowItem>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <ListToolbarIconButton
+                  aria-label={labels.display}
+                  type="button"
+                >
+                  <SlidersHorizontal />
+                </ListToolbarIconButton>
+              </DropdownMenuTrigger>
+              <ListDisplayConfigurator<
+                SkillCatalogColumnKey,
+                SkillCatalogSortBy
+              >
+                columnOrder={columnOrder}
+                columns={columns}
+                columnVisibility={columnVisibility}
+                groupBy={groupBy}
+                groupByOptions={groupByOptions}
+                labels={{
+                  ascending: labels.ascending,
+                  cards: labels.cardsView,
+                  compactView: labels.compactView,
+                  descending: labels.descending,
+                  displayedInTable: labels.displayedColumns,
+                  groupBy: labels.groupBy,
+                  hiddenInTable: labels.hiddenInTable,
+                  hideAll: labels.hideAll,
+                  noColumnsDisplayed: labels.noColumnsDisplayed,
+                  showAll: labels.showAll,
+                  sortBy: labels.sortBy,
+                  table: labels.tableView,
+                }}
+                setColumnOrder={setColumnOrder}
+                setColumnVisibility={setColumnVisibility}
+                setGroupBy={(value) =>
+                  onGroupByChange(value as SkillCatalogGroupBy)
+                }
+                setSortBy={onSortByChange}
+                setSortOrder={onSortOrderChange}
+                setTableSize={setTableSize}
+                setViewMode={setViewMode}
+                sortBy={sortBy}
+                sortOptions={sortOptions}
+                sortOrder={sortOrder}
+                tableSize={tableSize}
+                viewMode={viewMode}
+                viewModes={["table", "cards"]}
+              />
+            </DropdownMenu>
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+      </ListToolbarActions>
 
       {filtersExpanded ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <ListToolbarFilterRow>
           <span className="shrink-0 text-muted-foreground text-sm">
             {labels.groupBy}
           </span>
@@ -429,8 +431,8 @@ export function SkillCatalogToolbar({
             options={moduleOptions}
             value={moduleFilter}
           />
-        </div>
+        </ListToolbarFilterRow>
       ) : null}
-    </div>
+    </ListToolbar>
   );
 }

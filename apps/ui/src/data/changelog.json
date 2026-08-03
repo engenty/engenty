@@ -4,6 +4,168 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "7e451f0",
+        "message": "scope connector write authority per connector (CON-02)",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6f819f5",
+        "message": "record what landed in the act-first security sweep",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "1309917",
+        "message": "sweep stale Gondolin mentions from env docs",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "e557f3a",
+        "message": "close four critical authz holes and put core back under typecheck",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "637d9b9",
+        "message": "delete Gondolin sandbox tier — Docker is the only agent-execution provider",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "6fbc1d5",
+        "message": "keep changelog dock strokes at tiny font size",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fbce63a",
+        "message": "survive replica cold start; close app authoring to hand-driving",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "31c4db5",
+        "message": "say what a tool approval is about, and fix the card layout",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "83ca55b",
+        "message": "keep list search compact until focused",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "05e3f7a",
+        "message": "await the post-create read on the roles path",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "78b7a3e",
+        "message": "lint",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "097696f",
+        "message": "lint",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "9f1b99a",
+        "message": "better ( larger ) avatars",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "3de10b1",
+        "message": "Align projects cards to style guidlines",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "89baef3",
+        "message": "lean projects - optional time planning, editable client",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ec682ee",
+        "message": "switch thumb lands flush right, long dates clip",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "44f4275",
+        "message": "make the timeline density control a legible scale",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "92a4398",
+        "message": "keep contribution kinds the plugin pruner does not own",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "68440fe",
+        "message": "adopt compound ListToolbar on users and tenants lists",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1d181d8",
+        "message": "add compound ListToolbar and tighten list hub spacing",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4e1769d",
+        "message": "never auto-confirm supabase db reset in setup --local when non-interactive",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6f7ab49",
+        "message": "classify output-schema mismatches as 500, not 400",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6bcdeb5",
+        "message": "render a built App inline in the chat transcript",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8f707eb",
+        "message": "publish the app_build preview artifact to the user-facing thread",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5f5ba24",
+        "message": "GitHub connector (repos + pull requests)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f1c77d8",
+        "message": "connections guidance + release review surface",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.88",
+    "timestamp": 1785667146,
+    "commits": [
+      {
         "id": "bb2407b",
         "message": "unwrap the chat-run {ok, data} envelope in the connect card matcher",
         "group": "Fixed",

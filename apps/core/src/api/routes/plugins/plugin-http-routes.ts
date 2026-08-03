@@ -103,7 +103,6 @@ function mountPluginRoute(
         : {};
     const capabilityResolution = resolvePluginCapability({
       tenantId: auth?.tenantId,
-      principal: auth,
       registry: params.registry,
       pluginId: params.pluginId,
       capability: operationId,
@@ -158,9 +157,9 @@ function mountPluginRoute(
         ? route.request.query.parse(c.req.query())
         : c.req.query();
       headersParsed = route.request?.headers
-        ? route.request.headers.parse(
+        ? (route.request.headers.parse(
             Object.fromEntries(c.req.raw.headers.entries())
-          )
+          ) as Record<string, string>)
         : Object.fromEntries(c.req.raw.headers.entries());
     } catch (e) {
       if (isZodError(e)) {
@@ -223,6 +222,15 @@ function mountPluginRoute(
         return result as never;
       }
       return (await serializePluginRouteResult(route, result)) as never;
+    }
+
+    // Past the public branch, so `route.isPublic` is false — which means the
+    // 401 guard above already required a principal. The compiler cannot chain
+    // those two conditions, and restating it as a real guard is worth more
+    // than a cast: if the guard above ever changes shape, this fails closed
+    // rather than dereferencing null.
+    if (!auth) {
+      return jsonApiError(c, 401, { message: "Unauthorized" }) as never;
     }
 
     // ── Authenticated routes: full policy / approval / audit pipeline ──

@@ -3,6 +3,13 @@ import { createBootApiLogger, initEvlog } from "../../observability/evlog.js";
 
 const VALID_LEVELS = ["info", "error", "warn", "debug"] as const;
 
+type EvlogLevel = (typeof VALID_LEVELS)[number];
+
+/** Narrows an arbitrary client-supplied level to one we will actually log. */
+function isValidLevel(value: unknown): value is EvlogLevel {
+  return VALID_LEVELS.includes(value as EvlogLevel);
+}
+
 /**
  * Register the client log ingest endpoint. Accepts structured events from the
  * frontend and logs them server-side. Origin validation is left to CORS config.
@@ -37,7 +44,7 @@ export function registerEvlogIngestRoutes(params: { app: OpenAPIHono }) {
       typeof body !== "object" ||
       !("timestamp" in body) ||
       !("level" in body) ||
-      !VALID_LEVELS.includes((body as { level: string }).level)
+      !isValidLevel((body as { level: unknown }).level)
     ) {
       return c.json(
         {
@@ -50,40 +57,35 @@ export function registerEvlogIngestRoutes(params: { app: OpenAPIHono }) {
 
     initEvlog();
     const { level, timestamp, ...rest } = body as {
-      level: (typeof VALID_LEVELS)[number];
+      level: EvlogLevel;
       timestamp: string;
       [k: string]: unknown;
     };
-    const sanitized = { ...rest, service: "engenty-ui", source: "client" };
+    // Annotated because spreading `rest` drops its index signature, leaving
+    // `{ service, source }` — which is why `sanitized.message` did not
+    // typecheck even though the client always sends one.
+    const sanitized: Record<string, unknown> = {
+      ...rest,
+      service: "engenty-ui",
+      source: "client",
+    };
+    const line =
+      typeof sanitized.message === "string"
+        ? sanitized.message
+        : JSON.stringify(sanitized);
     const logger = createBootApiLogger();
     switch (level) {
       case "error":
-        logger.error(
-          typeof sanitized.message === "string"
-            ? sanitized.message
-            : JSON.stringify(sanitized)
-        );
+        logger.error(line);
         break;
       case "warn":
-        logger.warn(
-          typeof sanitized.message === "string"
-            ? sanitized.message
-            : JSON.stringify(sanitized)
-        );
+        logger.warn(line);
         break;
       case "debug":
-        logger.debug(
-          typeof sanitized.message === "string"
-            ? sanitized.message
-            : JSON.stringify(sanitized)
-        );
+        logger.debug(line);
         break;
       default:
-        logger.info(
-          typeof sanitized.message === "string"
-            ? sanitized.message
-            : JSON.stringify(sanitized)
-        );
+        logger.info(line);
     }
 
     return new Response(null, { status: 204 });

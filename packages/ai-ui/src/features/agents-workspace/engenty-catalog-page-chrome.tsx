@@ -37,7 +37,7 @@ export function EngentyCatalogPageChrome({
         variant="canvas"
       />
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pb-10">
-        <div className="mx-auto mt-6 flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 px-page">
+        <div className="mx-auto mt-2 flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 px-page md:mt-3">
           {children}
         </div>
       </div>
@@ -66,7 +66,7 @@ export function EngentyCanvasPageChrome({
         variant="canvas"
       />
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pb-10">
-        <div className="mx-auto mt-6 flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 px-page">
+        <div className="mx-auto mt-2 flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 px-page md:mt-3">
           {children}
         </div>
       </div>

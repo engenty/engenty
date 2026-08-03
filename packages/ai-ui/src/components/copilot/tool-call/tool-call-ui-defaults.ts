@@ -8,6 +8,10 @@ import {
 } from "../../../objects/object-render-tool-call-card";
 import { A2uiToolCallCard } from "./a2ui-tool-call-card";
 import {
+  AppBuildToolCallCard,
+  matchesAppBuildOutput,
+} from "./app-build-tool-call-card";
+import {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,
 } from "./decision-artifact-tool-call-card";
@@ -97,6 +101,12 @@ export function registerDefaultToolCallUiCards() {
     priority: 60,
     match: (ctx) => readMcpAppMeta(ctx.output) !== null,
     Card: McpAppToolCallCard,
+  });
+  registerToolCallUi({
+    id: "core.app-build",
+    priority: 62,
+    match: (ctx) => matchesAppBuildOutput(ctx.output),
+    Card: AppBuildToolCallCard,
   });
   registerToolCallUi({
     id: "core.sub-agent-task",

@@ -250,7 +250,7 @@
     "approvedOnce": "once",
     "removeApprovedTool": "Remove",
     "pendingApprovalTitle": "Waiting for approval",
-    "pendingApprovalBody": "The agent needs your approval to run {{operation}}.",
+    "pendingApprovalFallback": "The agent needs your approval before it can continue.",
     "reviewTitle": "Ready for your review",
     "reviewBody": "{{agent}} finished this task and is waiting for your decision.",
     "reviewBodyGeneric": "This task is finished and waiting for your decision.",
@@ -716,6 +716,12 @@
     "denyApproval": "Deny",
     "actionReview": "Review",
     "actionApprove": "Approve",
-    "actionFix": "Fix"
+    "actionFix": "Fix",
+    "risk": {
+      "low": "low risk",
+      "medium": "medium risk",
+      "high": "high risk",
+      "critical": "critical risk"
+    }
   }
 }

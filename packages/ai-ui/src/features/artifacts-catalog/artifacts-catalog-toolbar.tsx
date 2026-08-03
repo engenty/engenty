@@ -5,13 +5,21 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   type ColumnConfig,
-  cn,
   DropdownMenu,
   DropdownMenuTrigger,
   ListDisplayConfigurator,
   ListFilterChip,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarFilterRow,
+  ListToolbarFilterToggle,
   ListToolbarIconButton,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarOverflowItem,
+  ListToolbarSearch,
+  ListToolbarSummary,
   ListViewModeToggle,
   type SortOrder,
   type TableSize,
@@ -24,7 +32,6 @@ import {
   FileStack,
   FileType,
   Layers,
-  ListFilter,
   Shapes,
   SlidersHorizontal,
   Tag,
@@ -165,111 +172,100 @@ export function ArtifactsCatalogToolbar(props: ArtifactsCatalogToolbarProps) {
   ) => options.find((option) => option.value === value)?.label;
 
   return (
-    <div className="shrink-0 space-y-2">
-      <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:items-center">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="relative w-full min-w-0 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
-            <ListSearchInput
-              className="w-full pr-10"
-              onChange={(event) => props.onSearchChange(event.target.value)}
-              onOpenFilters={() => {
-                if (!props.filtersExpanded) {
-                  props.onFiltersToggle();
-                }
-              }}
-              placeholder={t("artifactsCatalog.searchPlaceholder")}
-              value={props.searchQuery}
-              wrapperClassName="w-full"
-            />
-            <ListToolbarIconButton
-              aria-label={t("artifactsCatalog.filterToggle")}
-              aria-pressed={props.filtersExpanded}
-              className={cn(
-                "absolute top-1/2 right-1 -translate-y-1/2",
-                (props.filtersExpanded || props.hasActiveFilters) &&
-                  "text-foreground"
-              )}
-              onClick={props.onFiltersToggle}
-              type="button"
-            >
-              <span className="relative inline-flex">
-                <ListFilter className="h-4 w-4" />
-                {props.hasActiveFilters ? (
-                  <span
-                    aria-hidden
-                    className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary"
-                  />
-                ) : null}
-              </span>
-            </ListToolbarIconButton>
-          </div>
-          <p className="min-w-0 shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-            {t("artifactsCatalog.count", {
-              count: props.filteredCount,
-              total: props.totalCount,
-            })}
-          </p>
-        </div>
+    <ListToolbar className="shrink-0">
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full pr-10"
+            onChange={(event) => props.onSearchChange(event.target.value)}
+            onOpenFilters={() => {
+              if (!props.filtersExpanded) {
+                props.onFiltersToggle();
+              }
+            }}
+            placeholder={t("artifactsCatalog.searchPlaceholder")}
+            value={props.searchQuery}
+            wrapperClassName="w-full"
+          />
+          <ListToolbarFilterToggle
+            active={props.filtersExpanded || props.hasActiveFilters}
+            aria-label={t("artifactsCatalog.filterToggle")}
+            aria-pressed={props.filtersExpanded}
+            onClick={props.onFiltersToggle}
+            showDot={props.hasActiveFilters}
+          />
+        </ListToolbarSearch>
+        <ListToolbarSummary>
+          {t("artifactsCatalog.count", {
+            count: props.filteredCount,
+            total: props.totalCount,
+          })}
+        </ListToolbarSummary>
+      </ListToolbarMainArea>
 
-        <ListViewModeToggle
-          labels={{
-            cards: t("artifactsCatalog.cardsView"),
-            table: t("artifactsCatalog.tableView"),
-          }}
-          onChange={props.setViewMode}
-          value={props.viewMode}
-        />
-
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <ListToolbarIconButton
-              aria-label={t("artifactsCatalog.display")}
-              type="button"
-            >
-              <SlidersHorizontal />
-            </ListToolbarIconButton>
-          </DropdownMenuTrigger>
-          <ListDisplayConfigurator<ArtifactColumnKey, ArtifactSortBy>
-            columnOrder={props.columnOrder}
-            columns={columns}
-            columnVisibility={props.columnVisibility}
-            groupBy={props.groupBy}
-            groupByOptions={groupByOptions}
+      <ListToolbarActions>
+        <ListToolbarIdleControls>
+          <ListViewModeToggle
             labels={{
-              ascending: t("artifactsCatalog.sortAscending"),
               cards: t("artifactsCatalog.cardsView"),
-              compactView: t("artifactsCatalog.compactView"),
-              descending: t("artifactsCatalog.sortDescending"),
-              displayedInTable: t("artifactsCatalog.displayedColumns"),
-              groupBy: t("artifactsCatalog.groupByLabel"),
-              hiddenInTable: t("artifactsCatalog.hiddenColumns"),
-              hideAll: t("artifactsCatalog.hideAll"),
-              noColumnsDisplayed: t("artifactsCatalog.noColumns"),
-              showAll: t("artifactsCatalog.showAll"),
-              sortBy: t("artifactsCatalog.sortByLabel"),
               table: t("artifactsCatalog.tableView"),
             }}
-            setColumnOrder={props.setColumnOrder}
-            setColumnVisibility={props.setColumnVisibility}
-            setGroupBy={(value) =>
-              props.onGroupByChange(value as ArtifactGroupBy)
-            }
-            setSortBy={props.onSortByChange}
-            setSortOrder={props.onSortOrderChange}
-            setTableSize={props.setTableSize}
-            setViewMode={props.setViewMode}
-            sortBy={props.sortBy}
-            sortOptions={sortOptions}
-            sortOrder={props.sortOrder}
-            tableSize={props.tableSize}
-            viewMode={props.viewMode}
-            viewModes={["table", "cards"]}
+            onChange={props.setViewMode}
+            value={props.viewMode}
           />
-        </DropdownMenu>
-      </div>
+          <ListToolbarOverflowItem>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <ListToolbarIconButton
+                  aria-label={t("artifactsCatalog.display")}
+                  type="button"
+                >
+                  <SlidersHorizontal />
+                </ListToolbarIconButton>
+              </DropdownMenuTrigger>
+              <ListDisplayConfigurator<ArtifactColumnKey, ArtifactSortBy>
+                columnOrder={props.columnOrder}
+                columns={columns}
+                columnVisibility={props.columnVisibility}
+                groupBy={props.groupBy}
+                groupByOptions={groupByOptions}
+                labels={{
+                  ascending: t("artifactsCatalog.sortAscending"),
+                  cards: t("artifactsCatalog.cardsView"),
+                  compactView: t("artifactsCatalog.compactView"),
+                  descending: t("artifactsCatalog.sortDescending"),
+                  displayedInTable: t("artifactsCatalog.displayedColumns"),
+                  groupBy: t("artifactsCatalog.groupByLabel"),
+                  hiddenInTable: t("artifactsCatalog.hiddenColumns"),
+                  hideAll: t("artifactsCatalog.hideAll"),
+                  noColumnsDisplayed: t("artifactsCatalog.noColumns"),
+                  showAll: t("artifactsCatalog.showAll"),
+                  sortBy: t("artifactsCatalog.sortByLabel"),
+                  table: t("artifactsCatalog.tableView"),
+                }}
+                setColumnOrder={props.setColumnOrder}
+                setColumnVisibility={props.setColumnVisibility}
+                setGroupBy={(value) =>
+                  props.onGroupByChange(value as ArtifactGroupBy)
+                }
+                setSortBy={props.onSortByChange}
+                setSortOrder={props.onSortOrderChange}
+                setTableSize={props.setTableSize}
+                setViewMode={props.setViewMode}
+                sortBy={props.sortBy}
+                sortOptions={sortOptions}
+                sortOrder={props.sortOrder}
+                tableSize={props.tableSize}
+                viewMode={props.viewMode}
+                viewModes={["table", "cards"]}
+              />
+            </DropdownMenu>
+          </ListToolbarOverflowItem>
+        </ListToolbarIdleControls>
+      </ListToolbarActions>
 
       {props.filtersExpanded ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <ListToolbarFilterRow>
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground">
             <Boxes className="h-4 w-4" />
           </span>
@@ -353,8 +349,8 @@ export function ArtifactsCatalogToolbar(props: ArtifactsCatalogToolbarProps) {
             options={creatorOptions}
             value={props.creatorFilter}
           />
-        </div>
+        </ListToolbarFilterRow>
       ) : null}
-    </div>
+    </ListToolbar>
   );
 }

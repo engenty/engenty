@@ -4,6 +4,11 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   ListFilterChip,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarActions,
+  ListToolbarIdleControls,
+  ListToolbarMainArea,
+  ListToolbarSearch,
   ListViewModeToggle,
   type ViewMode,
 } from "@engenty/ui-core";
@@ -36,34 +41,42 @@ export function ToolsCatalogToolbar({
   ];
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2">
-      <ListSearchInput
-        onChange={(event) => onSearchChange(event.target.value)}
-        placeholder={t("toolsCatalog.searchPlaceholder")}
-        value={searchQuery}
-        wrapperClassName="max-w-sm flex-1"
-      />
-      <ListFilterChip
-        ariaLabel={t("toolsCatalog.filter.source")}
-        clearLabel={t("toolsCatalog.filter.clear")}
-        isActive={sourceFilter !== "all"}
-        label={t("toolsCatalog.filter.source")}
-        onClear={() => onSourceFilterChange("all")}
-        onSelect={(next) => onSourceFilterChange(next as ToolSourceFilter)}
-        options={sourceOptions}
-        value={sourceFilter}
-      />
-      <div className="ml-auto">
-        <ListViewModeToggle
-          labels={{
-            cards: t("toolsCatalog.cardsView"),
-            group: t("toolsCatalog.viewMode"),
-            table: t("toolsCatalog.tableView"),
-          }}
-          onChange={onViewModeChange}
-          value={viewMode}
+    <ListToolbar className="shrink-0">
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full"
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={t("toolsCatalog.searchPlaceholder")}
+            value={searchQuery}
+            wrapperClassName="w-full"
+          />
+        </ListToolbarSearch>
+        <ListFilterChip
+          ariaLabel={t("toolsCatalog.filter.source")}
+          clearLabel={t("toolsCatalog.filter.clear")}
+          isActive={sourceFilter !== "all"}
+          label={t("toolsCatalog.filter.source")}
+          onClear={() => onSourceFilterChange("all")}
+          onSelect={(next) => onSourceFilterChange(next as ToolSourceFilter)}
+          options={sourceOptions}
+          value={sourceFilter}
         />
-      </div>
-    </div>
+      </ListToolbarMainArea>
+
+      <ListToolbarActions>
+        <ListToolbarIdleControls>
+          <ListViewModeToggle
+            labels={{
+              cards: t("toolsCatalog.cardsView"),
+              group: t("toolsCatalog.viewMode"),
+              table: t("toolsCatalog.tableView"),
+            }}
+            onChange={onViewModeChange}
+            value={viewMode}
+          />
+        </ListToolbarIdleControls>
+      </ListToolbarActions>
+    </ListToolbar>
   );
 }

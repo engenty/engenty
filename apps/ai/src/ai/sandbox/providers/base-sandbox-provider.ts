@@ -44,7 +44,7 @@ export abstract class BaseEngentySandboxProvider
   implements EngentySandboxProvider
 {
   abstract readonly id: string;
-  abstract readonly provider: "docker" | "gondolin";
+  abstract readonly provider: "docker";
   protected readonly client: EngentyCoreFileStorageClient | null;
   protected readonly extraLayouts: SandboxStorageLayout[];
   protected readonly input: CreateEngentySandboxProviderInput;

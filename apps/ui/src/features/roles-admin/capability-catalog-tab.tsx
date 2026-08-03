@@ -43,7 +43,9 @@ export function CapabilityCatalogTab() {
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">
         Every capability and the operations it unlocks. Risk and approval come
-        from each operation's gateway contract.
+        from each operation's gateway contract. A capability with no operations
+        is a scoping one — it narrows what an operation may reach rather than
+        granting the operation.
       </p>
       <Input
         className="ui-canvas-field h-8 w-64 text-sm"
@@ -67,6 +69,12 @@ export function CapabilityCatalogTab() {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1.5">
+                    {entry.operations.length === 0 && (
+                      <span className="text-muted-foreground text-xs">
+                        Unlocks no operation on its own — narrows which
+                        resources the operations above may touch.
+                      </span>
+                    )}
                     {entry.operations.map((op) => (
                       <div
                         className="flex items-center justify-between gap-3"

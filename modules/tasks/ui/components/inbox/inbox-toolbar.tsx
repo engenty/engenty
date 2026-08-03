@@ -1,6 +1,10 @@
 import {
   ListFilterSelectTrigger,
   ListSearchInput,
+  ListToolbar,
+  ListToolbarMainArea,
+  ListToolbarSearch,
+  ListToolbarSummary,
   Select,
   SelectContent,
   SelectItem,
@@ -46,34 +50,35 @@ export function InboxToolbar({
   searchQuery,
 }: InboxToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <ListSearchInput
-        className="max-w-[220px]"
-        onChange={(e) => onSearchChange(e.target.value)}
-        placeholder={labels.searchPlaceholder}
-        value={searchQuery}
-      />
-
-      <Select
-        onValueChange={(value) =>
-          onKindFilterChange((value ?? "all") as InboxKindFilter)
-        }
-        value={kindFilter}
-      >
-        <ListFilterSelectTrigger className="min-w-[9rem]">
-          <SelectValue>{labels[FILTER_LABEL_KEY[kindFilter]]}</SelectValue>
-        </ListFilterSelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{labels.filterAll}</SelectItem>
-          <SelectItem value="hitl">{labels.filterHitl}</SelectItem>
-          <SelectItem value="errors">{labels.filterErrors}</SelectItem>
-          <SelectItem value="updates">{labels.filterUpdates}</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <p className="text-muted-foreground text-xs tabular-nums">
-        {labels.paginationSummary}
-      </p>
-    </div>
+    <ListToolbar>
+      <ListToolbarMainArea>
+        <ListToolbarSearch>
+          <ListSearchInput
+            className="w-full"
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={labels.searchPlaceholder}
+            value={searchQuery}
+            wrapperClassName="w-full"
+          />
+        </ListToolbarSearch>
+        <Select
+          onValueChange={(value) =>
+            onKindFilterChange((value ?? "all") as InboxKindFilter)
+          }
+          value={kindFilter}
+        >
+          <ListFilterSelectTrigger className="min-w-[9rem]">
+            <SelectValue>{labels[FILTER_LABEL_KEY[kindFilter]]}</SelectValue>
+          </ListFilterSelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{labels.filterAll}</SelectItem>
+            <SelectItem value="hitl">{labels.filterHitl}</SelectItem>
+            <SelectItem value="errors">{labels.filterErrors}</SelectItem>
+            <SelectItem value="updates">{labels.filterUpdates}</SelectItem>
+          </SelectContent>
+        </Select>
+        <ListToolbarSummary>{labels.paginationSummary}</ListToolbarSummary>
+      </ListToolbarMainArea>
+    </ListToolbar>
   );
 }

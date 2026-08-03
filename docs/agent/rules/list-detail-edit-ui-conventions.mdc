@@ -36,7 +36,8 @@ Use for shared module migrations that implement list/detail/edit screens.
 
 - Use `usePageConfig` with memoized `breadcrumbs` and `actions`.
 - List screen is list-first only (no inline create/edit form above table).
-- Display control must use users-style `DropdownMenu` + display dialog, not a single toggle button.
+- List toolbar must use compound `ListToolbar` from `@engenty/ui-core` (children composition — no hand-rolled outer flex shell, no ReactNode slot props).
+- Display control must use `ListToolbarIconButton` + `DropdownMenu` + `ListDisplayConfigurator` (icon-only trigger; labeled variant only inside selection overflow via `useListToolbar().overflowPlacement`).
 - Avoid double padding on edit/settings screens:
  - Do not combine `container` with `p-page` on page roots.
  - When using `Card` default variant, do not wrap all content in another full `p-*` container.
@@ -49,9 +50,9 @@ Use for shared module migrations that implement list/detail/edit screens.
 
 ## Display Dialog Contract
 
-- Trigger: outline button with sliders icon + label `Display/Anzeige`.
-- Shared modules should implement and use an explicit display dialog component (e.g. `ClientsDisplayDialog`) and mirror users behavior from `TeamDisplayDialog`.
-- List page should wire it like: `DropdownMenu` + `DropdownMenuTrigger` + `<ClientsDisplayDialog ... />`.
+- Trigger: icon-only `ListToolbarIconButton` with sliders icon (aria-label `Display/Anzeige`). When selected rows move display into the overflow menu, use a full-width ghost button (`overflowPlacement === "menu"`).
+- Shared modules should wire `ListDisplayConfigurator` inside `ListToolbarOverflowItem` under `ListToolbarIdleControls`.
+- List page should wire it like: `ListToolbar` → `ListToolbarActions` → idle controls → overflow item → `DropdownMenu` + `ListDisplayConfigurator`.
 - Dialog content order:
   1. view mode controls (`table` / `cards`) when supported
   2. compact mode switch (table only)
@@ -90,7 +91,7 @@ Use for list pages with table/cards views. Ensures full-height layout, sticky fi
 
 ## List Filters Contract
 
-- Keep filters in a dedicated list toolbar row (never in topbar actions), similar to `TeamTableToolbar` behavior.
+- Keep filters in `ListToolbarFilterRow` (never in topbar actions), toggled via `ListToolbarFilterToggle` inside `ListToolbarSearch`.
 - Minimum filter model for shared modules:
   - `searchQuery` (text)
   - `sortBy`
@@ -124,11 +125,20 @@ engenty.UI.registerRoute({ path: "/module/contacts/:id/edit", component: EntityE
 ```
 
 ```tsx
-// ✅ good: users-style display manager
-<DropdownMenu><DropdownMenuTrigger asChild><Button>Display</Button></DropdownMenuTrigger><ClientsDisplayDialog ... /></DropdownMenu>
+// ✅ good: compound ListToolbar + icon display in OverflowItem
+<ListToolbar>
+  <ListToolbarActions>
+    <ListToolbarIdleControls>
+      <ListViewModeToggle ... />
+      <ListToolbarOverflowItem>
+        <DropdownMenu><DropdownMenuTrigger asChild><ListToolbarIconButton aria-label="Display"><SlidersHorizontal /></ListToolbarIconButton></DropdownMenuTrigger><ListDisplayConfigurator ... /></DropdownMenu>
+      </ListToolbarOverflowItem>
+    </ListToolbarIdleControls>
+  </ListToolbarActions>
+</ListToolbar>
 
-// ❌ bad: local view toggle only
-<Button onClick={() => setViewMode("cards")}>Display</Button>
+// ❌ bad: hand-rolled shell or labeled Display outside overflow
+<div className="flex md:flex-row"><Button variant="outline">Display</Button></div>
 ```
 
 ```tsx
