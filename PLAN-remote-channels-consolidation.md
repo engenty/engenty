@@ -1,9 +1,27 @@
 # PLAN — Remote channels consolidation: threads, tenancy, credentials
 
-Status: R1–R3 + most of R5 IMPLEMENTED on main (unpushed) · 2026-08-03 —
-unit-tested, NOT live-verified (the R2 spike — one real DM turn proving the
-dynamic memory resolver lands messages in ai.thread_message — is still owed,
-along with the long-standing Slack E2E). R4 not started.
+Status: R1–R3 + most of R5 IMPLEMENTED on main (unpushed) · 2026-08-03 ·
+**R2 SPIKE PASSED LIVE** against the dev stack (signed webhook through the
+core gateway → gate-provisioned thread → real model turn → user+assistant
+messages in `ai.thread_message` under the tenant, attributed to the mapped
+user; `/threads` answered without a model turn). Method: dummy Slack creds +
+a local stub Slack Web API via the new `SLACK_API_URL` override. The spike
+found and fixed a live-only bug: `bindingShape` stripped `tenant_id` from the
+resolve-op response (zod drops unknown keys), so the gate minted actor tokens
+with an empty tenant and core answered 400 — the whole mapped-sender flow was
+broken live while every unit test passed (they stub the raw HTTP response,
+below the schema). Remaining owed: real-workspace Slack E2E (network path,
+Slack-side config); **hardening finding FIXED + verified live:** a failing
+adapter post (invalid token, Slack outage) crashed apps/ai via an unhandled
+rejection in Chat SDK's render driver — root cause is a rethrowing `.catch`
+on `driverPromise` that leaves the rejection unowned until the terminal-chunk
+await; patched via `patches/@mastra__core@1.52.1.patch` (no-op catch branch
+owns it; the terminal await still observes and logs), plus a process-level
+`unhandledRejection` log-don't-crash guard in `apps/ai/src/index.ts` as
+defense-in-depth (`uncaughtException` deliberately untouched). Crash-repro
+rerun: adapter failures logged, process alive. Revisit the patch on any
+Mastra upgrade — check whether upstream fixed the ownership gap. R4 not
+started.
 Owner: —
 Context: follow-up to SYS-09/10/11/12 (see audit report §6/§9). Commit `ddbcf6be0`
 introduced a destination gate (`findTenantConversation`) that reads

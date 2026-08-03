@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.91] - 2026-08-03
+- FIXED **[ai]** Survive adapter-post failures in the channel render driver
+- FIXED **[remote]** Return tenant_id from resolve_sender; SLACK_API_URL test seam
+
 ## [0.1.90] - 2026-08-03
 - ADDED **[remote]** Routing table, dedicated tenant threads, chat controls (R1-R3)
 - ADDED **[core]** EvaluatePolicy spends approval grants itself (D2 phase 3)

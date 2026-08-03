@@ -4,6 +4,24 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "99985ed",
+        "message": "survive adapter-post failures in the channel render driver",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0a345f4",
+        "message": "return tenant_id from resolve_sender; SLACK_API_URL test seam",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.90",
+    "timestamp": 1785789507,
+    "commits": [
+      {
         "id": "52ed238",
         "message": "satisfy required apiKey.verify in repo test fixture",
         "group": "Fixed",

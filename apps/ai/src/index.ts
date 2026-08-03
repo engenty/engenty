@@ -17,6 +17,21 @@ const packageRoot = path.resolve(
 loadWorkspaceDotEnvIntoProcess(packageRoot);
 
 const logger = createLogger({ name: "apps/ai" });
+
+// A floating rejection must not kill this process: it hosts every tenant's
+// agent runtime, and dependency code does let async work escape ownership —
+// observed live 2026-08-03 when a Slack adapter post failed (invalid token;
+// a platform outage behaves the same) inside Chat SDK's render driver and
+// took the whole process down (the specific window is also patched:
+// patches/@mastra__core@1.52.1.patch). Log loudly instead of crashing.
+// Deliberately NOT handling uncaughtException — a synchronous throw means
+// unknown corrupted state, and the default crash-and-supervise is correct.
+process.on("unhandledRejection", (reason) => {
+  logger.error("unhandled promise rejection (process kept alive)", {
+    message: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+});
 // Dedicated env var (not bare PORT) so core and ai never collide on a shared
 // PORT. Mirrors `ports.ai` in the repo-root ports.config.mjs.
 const port = Number(process.env.ENGENTY_AI_PORT ?? 8790);

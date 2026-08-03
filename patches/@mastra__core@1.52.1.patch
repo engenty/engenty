@@ -1,0 +1,36 @@
+diff --git a/dist/chunk-2RNIJZHH.cjs b/dist/chunk-2RNIJZHH.cjs
+index 0077fc7..d600b56 100644
+--- a/dist/chunk-2RNIJZHH.cjs
++++ b/dist/chunk-2RNIJZHH.cjs
+@@ -11045,6 +11045,13 @@ var ChatChannelOutputProcessor = class {
+       render.logger?.error?.(`[${render.platform}] channel render driver failed early`, { error: err });
+       throw err;
+     });
++    // engenty patch: the rethrow above leaves driverPromise unowned until the
++    // terminal-chunk await in processOutputStream. If the driver fails EARLY
++    // (first adapter post: bad token, platform outage) that window makes the
++    // rejection unhandled and crashes the whole process. Attach a no-op catch
++    // branch so the rejection is owned; the later `await session.driverPromise`
++    // still observes it and logs "channel render driver failed".
++    driverPromise.catch(() => {});
+     return { queue, driverPromise };
+   }
+ };
+diff --git a/dist/chunk-YU5XS4H4.js b/dist/chunk-YU5XS4H4.js
+index 15df257..9b6e0b6 100644
+--- a/dist/chunk-YU5XS4H4.js
++++ b/dist/chunk-YU5XS4H4.js
+@@ -11014,6 +11014,13 @@ var ChatChannelOutputProcessor = class {
+       render.logger?.error?.(`[${render.platform}] channel render driver failed early`, { error: err });
+       throw err;
+     });
++    // engenty patch: the rethrow above leaves driverPromise unowned until the
++    // terminal-chunk await in processOutputStream. If the driver fails EARLY
++    // (first adapter post: bad token, platform outage) that window makes the
++    // rejection unhandled and crashes the whole process. Attach a no-op catch
++    // branch so the rejection is owned; the later `await session.driverPromise`
++    // still observes it and logs "channel render driver failed".
++    driverPromise.catch(() => {});
+     return { queue, driverPromise };
+   }
+ };
