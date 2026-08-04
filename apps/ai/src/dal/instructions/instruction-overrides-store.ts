@@ -2,6 +2,7 @@
 // and their change history. Base/agent/module/action documents are NOT stored here —
 // they are derived from the registry (see ai/instructions/base-documents.ts).
 
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AiInstructionChange,
@@ -73,7 +74,7 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
   const table = () => client.schema(AI_SCHEMA).from(OVERRIDES_TABLE);
   const changes = () => client.schema(AI_SCHEMA).from(CHANGES_TABLE);
 
-  return {
+  const store = {
     /** Active tenant overrides plus the caller's own user overrides. */
     async listActiveOverrides(params: {
       tenantId: string | null;
@@ -114,6 +115,48 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
       }
       return [...(tenantResult.data ?? []), ...(userResult.data ?? [])].map(
         (row) => mapDocument(row as Record<string, unknown>)
+      );
+    },
+
+    /**
+     * Append-only instruction docs for an agent (`${agentId}.append.*`),
+     * highest version per key. Tenant overrides first, then user (user wins
+     * when both exist for the same key).
+     */
+    async listAppendDocumentsForAgent(params: {
+      agentId: string;
+      tenantId: string | null;
+      userId: string | null;
+    }): Promise<AiInstructionDocument[]> {
+      const prefix = `${params.agentId}.append.`;
+      const all = await store.listActiveOverrides({
+        tenantId: params.tenantId,
+        userId: params.userId,
+      });
+      const byKey = new Map<string, AiInstructionDocument>();
+      for (const document of all) {
+        if (!document.document_key.startsWith(prefix)) {
+          continue;
+        }
+        const existing = byKey.get(document.document_key);
+        if (!existing) {
+          byKey.set(document.document_key, document);
+          continue;
+        }
+        // Prefer user_override over tenant_override; else higher version.
+        const preferNext =
+          (document.layer === "user_override" &&
+            existing.layer !== "user_override") ||
+          (document.layer === existing.layer &&
+            (document.version > existing.version ||
+              (document.version === existing.version &&
+                document.updated_at > existing.updated_at)));
+        if (preferNext) {
+          byKey.set(document.document_key, document);
+        }
+      }
+      return Array.from(byKey.values()).toSorted((left, right) =>
+        left.document_key.localeCompare(right.document_key)
       );
     },
 
@@ -175,6 +218,50 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
       return mapDocument(data as Record<string, unknown>);
     },
 
+    /**
+     * Soft-clear the active scoped override so resolve falls back to seed/base.
+     * Returns the deactivated document, or null when none was active.
+     */
+    async deactivateScopedOverride(params: {
+      documentKey: string;
+      reason: string | null;
+      scope: InstructionEditScope;
+      tenantId: string | null;
+      userId: string | null;
+    }): Promise<{
+      change: AiInstructionChange;
+      document: AiInstructionDocument;
+    } | null> {
+      const existing = await store.getScopedOverride({
+        documentKey: params.documentKey,
+        scope: params.scope,
+        tenantId: params.tenantId,
+        userId: params.userId,
+      });
+      if (!existing) {
+        return null;
+      }
+      const now = new Date().toISOString();
+      const document = await store.upsertOverride({
+        ...existing,
+        is_active: false,
+        updated_by_user_id: params.userId,
+        version: existing.version + 1,
+      });
+      const change = await store.appendChange({
+        approved_at: now,
+        approved_by_user_id: params.userId,
+        change_reason: params.reason ?? "Reset to base",
+        created_at: now,
+        id: randomUUID(),
+        instruction_doc_id: document.id,
+        next_body: "",
+        previous_body: existing.body,
+        status: "applied",
+      });
+      return { change, document };
+    },
+
     async appendChange(
       record: Partial<AiInstructionChange> &
         Pick<
@@ -214,4 +301,6 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
       );
     },
   };
+
+  return store;
 }

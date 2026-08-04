@@ -4,6 +4,7 @@ import {
   filterAgents,
   getAgentCatalogGroup,
   groupAgents,
+  isAlwaysActiveAgent,
   isEditableAgent,
 } from "./agents-catalog-state";
 
@@ -55,6 +56,18 @@ describe("getAgentCatalogGroup", () => {
     expect(getAgentCatalogGroup(surface)).toBe("chat_surfaces");
     expect(getAgentCatalogGroup(external)).toBe("external");
     expect(getAgentCatalogGroup(custom)).toBe("custom");
+  });
+});
+
+describe("isAlwaysActiveAgent", () => {
+  it("locks Engenty leadership agents", () => {
+    expect(isAlwaysActiveAgent(copilot)).toBe(true);
+    expect(
+      isAlwaysActiveAgent(
+        agent({ id: "engenty.coordinator", role: "coordinator" })
+      )
+    ).toBe(true);
+    expect(isAlwaysActiveAgent(worker)).toBe(false);
   });
 });
 

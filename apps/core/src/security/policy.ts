@@ -25,7 +25,12 @@ export interface PolicyInput {
   requiresApproval: boolean;
   riskLevel: "low" | "medium" | "high" | "critical";
   scopeId?: string;
-  transport?: "gateway" | "module_ops" | "mcp" | "http";
+  /**
+   * `in_process` is the module-to-module edge (a handler calling another
+   * module's operation through the plugin runtime API) — no HTTP request
+   * behind it, so a profile policy that needs to tell the edges apart can.
+   */
+  transport?: "gateway" | "module_ops" | "mcp" | "http" | "in_process";
 }
 
 /**

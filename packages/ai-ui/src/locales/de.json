@@ -296,6 +296,7 @@
       "includeInPickerHint": "Diesen Agenten im Dropdown der Chat-Agenten anzeigen.",
       "active": "Aktiv",
       "activeHint": "Deaktivieren, um diesen Agenten für Ihren Mandanten auszublenden, ohne ihn aus dem Produkt zu entfernen.",
+      "alwaysActiveHint": "Plattform-Engenty-Agenten bleiben aktiv und können nicht deaktiviert werden.",
       "saveFailed": "Trigger-Einstellungen konnten nicht gespeichert werden."
     },
     "inputSchema": "Input-Schema",
@@ -587,6 +588,7 @@
     "requiresBinding": "Benötigt einen Lauf",
     "save": "Speichern",
     "selectFile": "Datei zum Ansehen oder Bearbeiten auswählen.",
+    "resizeTree": "Dateibaum-Breite anpassen",
     "unavailable": "Nicht verfügbar",
     "vector": "Vektorsuche"
   },
@@ -1039,7 +1041,7 @@
     "addVersion": "Version hinzufügen",
     "reasonLabel": "Grund",
     "reasonPlaceholder": "Optionale Notiz zu dieser Änderung",
-    "overlayHint": "Änderungen erzeugen Overrides über der Seed-Datei, statt den Seed-Datensatz direkt zu mutieren.",
+    "overlayHint": "Änderungen erzeugen Overrides über der Seed-Datei. Zurücksetzen entfernt Overrides und stellt die Seed-Datei wieder her.",
     "editorLabel": "Markdown-Inhalt",
     "editorPlaceholder": "Markdown-Instruktionen für diese Datei schreiben…",
     "modeWysiwyg": "WYSIWYG",
@@ -1059,6 +1061,14 @@
     "noHistory": "Für diesen Scope gibt es noch keine Historie.",
     "saveFailed": "Das Speichern der Instruktion ist fehlgeschlagen.",
     "rollbackFailed": "Das Rollback der Instruktion ist fehlgeschlagen.",
+    "resetFailed": "Das Zurücksetzen der Instruktion auf den Seed ist fehlgeschlagen.",
+    "newFileTitle": "Neue Instruktionsdatei",
+    "newFileHint": "Erzeugt eine zusätzliche Instruktionsdatei, die beim Agentenlauf nach AGENTS.md angehängt wird.",
+    "newFileName": "Name",
+    "newFilePlaceholder": "house-rules",
+    "newFileCreate": "Anlegen",
+    "newFileFailed": "Das Anlegen der Instruktionsdatei ist fehlgeschlagen.",
+    "fileExists": "Eine Instruktionsdatei mit diesem Namen existiert bereits.",
     "blockMenu": {
       "searchPlaceholder": "Suchaktionen…",
       "transformInto": "Umwandeln in",
@@ -1141,7 +1151,7 @@
     "jobDescriptionDescription": "Die Anweisungen, nach denen dieser Agent arbeitet.",
     "jobDescriptionEdit": "Agent bearbeiten",
     "jobDescriptionEmpty": "Noch keine Anweisungen vorhanden.",
-    "jobDescriptionTitle": "Stellenbeschreibung",
+    "jobDescriptionTitle": "Job description",
     "routineDeleteConfirm": "Löschen",
     "routineDeleteDescription": "Entfernt die Routine samt Zeitplan. Vergangene Läufe bleiben erhalten. Kann nicht rückgängig gemacht werden.",
     "routineDeleteTitle": "Routine löschen?",
@@ -1150,7 +1160,7 @@
     "routinesTitle": "Trigger & Routinen",
     "tabs": {
       "activity": "Aktivität",
-      "capabilities": "Fähigkeiten",
+      "capabilities": "Capabilities",
       "instructions": "Anweisungen",
       "overview": "Übersicht",
       "workspace": "Arbeitsbereich"
@@ -1174,7 +1184,7 @@
     "cancel": "Abbrechen",
     "cardsView": "Kartenansicht",
     "columnAgent": "Agent",
-    "columnCapabilities": "Fähigkeiten",
+    "columnCapabilities": "Capabilities",
     "columnRole": "Rolle",
     "columnSource": "Quelle",
     "groupCountSingular": "Agent",
@@ -1202,7 +1212,7 @@
       "chatSurfaces": "Chat-Oberflächen",
       "custom": "Benutzerdefiniert",
       "external": "Extern",
-      "leadership": "Copilot",
+      "leadership": "Engenty",
       "specialists": "Spezialisten"
     },
     "newAgent": "Neuer Agent",
@@ -1274,7 +1284,7 @@
     },
     "workforce": {
       "title": "Agenten",
-      "leadership": "Copilot",
+      "leadership": "Engenty",
       "specialists": "Spezialisten",
       "chatSurfaces": "Chat-Oberflächen",
       "external": "Extern",
@@ -1282,7 +1292,7 @@
       "emptyHint": "Noch keine Agents. Modul-Agents erscheinen, sobald Module aktiviert sind; lege einen eigenen Agent an, um zu starten."
     },
     "capabilities": {
-      "title": "Fähigkeiten",
+      "title": "Capabilities",
       "skillsTitle": "Skills",
       "skillsBreakdown": "{{managed}} verwaltet · {{custom}} eigene",
       "skillsEmpty": "Noch keine Skills — unten erstellen oder installieren.",

@@ -8,7 +8,7 @@ import type {
 export type AgentRoleFilter = "all" | AiAgentRole;
 export type AgentSourceFilter = "all" | "builtin" | "module" | "custom";
 
-/** Section order: Copilot / Workers / Chat surfaces / External / Custom. */
+/** Section order: Engenty / Workers / Chat surfaces / External / Custom. */
 export const AGENT_CATALOG_GROUPS = [
   "leadership",
   "specialists",
@@ -23,6 +23,23 @@ export const CHATBOT_ADMIN_PATH = "/mdl/chatbot/manage";
 
 export function getAgentRole(agent: AiRegisteredAgent): AiAgentRole {
   return agent.role ?? "specialist";
+}
+
+/**
+ * Platform Engenty leadership agents (copilot + coordinator) stay always on —
+ * tenants cannot deactivate them.
+ */
+export function isAlwaysActiveAgent(agent: {
+  id?: string;
+  role?: AiAgentRole | null;
+}): boolean {
+  const role = agent.role;
+  if (role === "copilot" || role === "coordinator") {
+    return true;
+  }
+  return (
+    agent.id === "engenty.copilot" || agent.id === "engenty.coordinator"
+  );
 }
 
 export function isCustomAgent(agent: AiRegisteredAgent): boolean {

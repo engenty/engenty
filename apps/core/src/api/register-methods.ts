@@ -76,8 +76,8 @@ function registerCoreMethodIfAbsent(
  * Registers core-owned handlers on `registry.gatewayMethods` (plugin-sdk).
  * Methods that include `operation` metadata are also registered on
  * `registry.moduleOperations` so `hasOperation` / unified dispatch apply.
- * Invoked in-process via `createMethodInvoker` from `method-invoker.ts`;
- * exposed to agents and plugins as `callGatewayMethod` in the runtime.
+ * Exposed to agents and plugins as `callGatewayMethod` in the runtime, which
+ * gates every dispatch through the in-process policy gate.
  */
 export function registerCoreMethods(
   registry: PluginRegistry,

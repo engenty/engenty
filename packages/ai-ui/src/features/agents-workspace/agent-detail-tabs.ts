@@ -43,7 +43,9 @@ export interface AgentDetailAffordances {
   canEditAgent: boolean;
   /** External (chatbot-managed) agents are read-only Overview-only. */
   isExternal: boolean;
-  /** Copilot keeps its chat-active toggle in the detail header. */
+  /** Engenty leadership agents stay always-on (toggle shown locked). */
+  chatActiveLocked: boolean;
+  /** Registry Engenty leadership agents show the chat-active control in the header. */
   showChatActiveToggle: boolean;
   /** External agents collapse to Overview only. */
   visibleTabs: AgentDetailTab[];
@@ -57,11 +59,17 @@ export function getAgentDetailAffordances(
   } | null
 ): AgentDetailAffordances {
   const isExternal = agent?.role === "external";
+  const chatActiveLocked =
+    agent?.role === "copilot" ||
+    agent?.role === "coordinator" ||
+    agent?.id === "engenty.copilot" ||
+    agent?.id === "engenty.coordinator";
   return {
     canEditAgent: !isExternal && agent?.agent_origin === "custom",
+    chatActiveLocked: Boolean(chatActiveLocked),
     isExternal,
     showChatActiveToggle:
-      agent?.agent_origin === "registry" && agent.id === "engenty.copilot",
+      agent?.agent_origin === "registry" && Boolean(chatActiveLocked),
     visibleTabs: isExternal ? ["overview"] : AGENT_DETAIL_TABS,
   };
 }

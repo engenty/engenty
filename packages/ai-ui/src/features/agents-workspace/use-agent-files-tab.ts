@@ -6,6 +6,7 @@ import type {
 import {
   useAiInstructionHistoryQuery,
   useAiInstructionResolutionQuery,
+  useResetAiInstructionMutation,
   useRollbackAiInstructionMutation,
   useUpdateAiInstructionMutation,
 } from "../../lib/admin/instruction-settings-queries";
@@ -30,6 +31,7 @@ export function useAgentFilesTab(params: {
   const [editorBody, setEditorBody] = useState("");
   const saveInstructionMutation = useUpdateAiInstructionMutation();
   const rollbackInstructionMutation = useRollbackAiInstructionMutation();
+  const resetInstructionMutation = useResetAiInstructionMutation();
 
   const selectedDocument = useMemo(
     () => pickSelectedDocument(params.agentDocuments, params.selectedKey),
@@ -56,10 +58,9 @@ export function useAgentFilesTab(params: {
     scope
   );
   const historyQuery = useAiInstructionHistoryQuery(params.selectedKey, scope);
+  const baseBody = resolutionQuery.data?.base_document.body ?? "";
   const resolvedBody =
-    resolutionQuery.data?.effective_document?.body ??
-    resolutionQuery.data?.base_document.body ??
-    "";
+    resolutionQuery.data?.effective_document?.body ?? baseBody;
 
   useEffect(() => {
     setEditorBody(resolvedBody);
@@ -70,9 +71,16 @@ export function useAgentFilesTab(params: {
     selectedDocument !== null &&
     editorBody !== resolvedBody;
 
+  const scopedOverrideActive =
+    scope === "user"
+      ? Boolean(resolutionQuery.data?.user_override)
+      : Boolean(resolutionQuery.data?.tenant_override);
+
   const instructionErrorMessage = (() => {
     const candidate =
-      saveInstructionMutation.error ?? rollbackInstructionMutation.error;
+      saveInstructionMutation.error ??
+      rollbackInstructionMutation.error ??
+      resetInstructionMutation.error;
     if (candidate instanceof Error) {
       return candidate.message;
     }
@@ -82,22 +90,29 @@ export function useAgentFilesTab(params: {
     if (rollbackInstructionMutation.error) {
       return params.t("instructions.rollbackFailed");
     }
+    if (resetInstructionMutation.error) {
+      return params.t("instructions.resetFailed");
+    }
     return null;
   })();
 
   return {
+    baseBody,
     editorBody,
     historyQuery,
     instructionErrorMessage,
     isInstructionBusy:
       saveInstructionMutation.isPending ||
-      rollbackInstructionMutation.isPending,
+      rollbackInstructionMutation.isPending ||
+      resetInstructionMutation.isPending,
     isInstructionDirty,
+    resetInstructionMutation,
     resolutionQuery,
     resolvedBody,
     rollbackInstructionMutation,
     saveInstructionMutation,
     scope,
+    scopedOverrideActive,
     selectedDocument,
     setEditorBody,
     setScope,

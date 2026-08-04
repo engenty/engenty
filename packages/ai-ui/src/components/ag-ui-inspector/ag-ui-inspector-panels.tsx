@@ -18,6 +18,10 @@ import {
   truncateInline,
 } from "./ag-ui-inspector-chrome.js";
 import {
+  coerceJsonValue,
+  InspectorJsonTree,
+} from "./ag-ui-inspector-json-tree.js";
+import {
   eventSummary,
   formatJson,
   type InspectorInitialPrompt,
@@ -152,18 +156,15 @@ export function PromptPanel({
   const runtime =
     initialPrompt?.runtimeContextInstructions ||
     "Waiting for the next copilot run…";
-  const messages = initialPrompt
-    ? formatJson(initialPrompt.modelMessages)
-    : "[]";
 
   return (
-    <ScrollArea className="h-[min(28rem,55vh)]">
+    <ScrollArea className="h-full">
       <div className="space-y-3 p-3">
         <SectionCard title="Runtime context">
           <CopyablePre value={runtime} />
         </SectionCard>
         <SectionCard title="Model messages">
-          <CopyablePre className="max-h-72" value={messages} />
+          <JsonViewer value={initialPrompt?.modelMessages ?? []} />
         </SectionCard>
       </div>
     </ScrollArea>
@@ -180,7 +181,7 @@ export function TimelinePanel({
   const rows = buildTimelineRows({ events, messages });
 
   return (
-    <ScrollArea className="h-[min(28rem,55vh)]">
+    <ScrollArea className="h-full">
       <div className="border-border/60 border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Application stream
@@ -257,7 +258,7 @@ export function ToolsPanel({
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   return (
-    <ScrollArea className="h-[min(28rem,55vh)]">
+    <ScrollArea className="h-full">
       <div className="border-border/60 border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Tool calls
@@ -314,9 +315,9 @@ export function ToolsPanel({
                 </button>
                 {expanded ? (
                   <div className="space-y-2 border-border/50 border-t bg-muted/20 px-3 py-3">
-                    <JsonBlock label="Arguments" value={tool.args || "{}"} />
+                    <JsonViewer label="Arguments" value={tool.args || "{}"} />
                     <Separator />
-                    <JsonBlock label="Result" value={tool.result ?? "null"} />
+                    <JsonViewer label="Result" value={tool.result ?? "null"} />
                   </div>
                 ) : null}
               </div>
@@ -330,26 +331,68 @@ export function ToolsPanel({
 
 export function JsonPanel({ value }: { value: unknown }) {
   return (
-    <ScrollArea className="h-[min(28rem,55vh)]">
-      <div className="border-border/60 border-b px-3 py-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-border/60 border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Shared state (agent.state)
         </p>
       </div>
-      <div className="p-3">
-        <CopyablePre value={formatJson(value)} />
+      <div className="flex min-h-0 flex-1 flex-col p-3">
+        <JsonViewer fill value={value} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }
 
-function JsonBlock({ label, value }: { label: string; value: unknown }) {
+function JsonViewer({
+  fill = false,
+  label,
+  value,
+}: {
+  fill?: boolean;
+  label?: string;
+  value: unknown;
+}) {
+  const parsed = coerceJsonValue(value);
   const text = typeof value === "string" ? value : formatJson(value);
+  const structured =
+    parsed !== null &&
+    typeof parsed === "object" &&
+    (Array.isArray(parsed) || isPlainRecord(parsed));
+
+  if (!structured) {
+    return (
+      <CopyablePre
+        className={fill ? "min-h-[80%] flex-1" : undefined}
+        label={label}
+        value={text}
+      />
+    );
+  }
+
   return (
-    <section>
-      <CopyablePre className="max-h-48" label={label} value={text} />
-    </section>
+    <div
+      className={cn(
+        "flex min-h-0 flex-col gap-1.5",
+        fill && "min-h-[80%] flex-1"
+      )}
+    >
+      {label ? (
+        <span className="shrink-0 font-medium font-mono text-[11px] text-muted-foreground uppercase tracking-wide">
+          {label}
+        </span>
+      ) : null}
+      <InspectorJsonTree
+        className={fill ? "min-h-0 flex-1" : undefined}
+        toolbar={<CopyButton reveal="always" value={formatJson(parsed)} />}
+        value={parsed}
+      />
+    </div>
   );
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function CopyablePre({
@@ -363,8 +406,13 @@ function CopyablePre({
 }) {
   const display = formatDisplayText(value);
   return (
-    <div className="overflow-hidden rounded-md border border-border/50 bg-muted/40">
-      <div className="flex items-center justify-between gap-2 border-border/40 border-b bg-muted/25 px-2 py-1">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden rounded-md border border-border/50 bg-muted/40",
+        className
+      )}
+    >
+      <div className="flex shrink-0 items-center justify-between gap-2 border-border/40 border-b bg-muted/25 px-2 py-1">
         {label ? (
           <span className="font-medium font-mono text-[11px] text-muted-foreground uppercase tracking-wide">
             {label}
@@ -374,12 +422,7 @@ function CopyablePre({
         )}
         <CopyButton reveal="always" value={value} />
       </div>
-      <pre
-        className={cn(
-          "max-h-64 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[11px] leading-relaxed",
-          className
-        )}
-      >
+      <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[11px] leading-relaxed">
         {display}
       </pre>
     </div>

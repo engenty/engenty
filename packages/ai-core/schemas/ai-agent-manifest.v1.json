@@ -28,7 +28,14 @@
       "items": {
         "type": "string"
       },
-      "description": "Override instruction keys"
+      "description": "Legacy/override instruction document keys (e.g. engenty.copilot.agents)"
+    },
+    "instruction_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Sibling markdown files in the agent directory shown in the Instructions sidebar (e.g. AGENTS.md, SOUL.md, SKILLS.md)"
     },
     "skills": {
       "type": "array",

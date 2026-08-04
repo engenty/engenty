@@ -18,10 +18,15 @@ import {
 } from "../../../security/audit-service.js";
 import type { PrincipalContext } from "../../../security/auth.js";
 import type { AuthProvider } from "../../../security/auth-provider.js";
+import { InProcessPolicyError } from "../../../security/in-process-gate.js";
 import {
   evaluatePolicy,
   evaluateResultPolicy,
 } from "../../../security/policy.js";
+import {
+  isApprovedEdge,
+  linkPrincipal,
+} from "../../../security/principal-link.js";
 import { buildOperationContracts } from "../../operation-contracts.js";
 import { jsonApiError, jsonApiSuccess } from "../api-response.js";
 
@@ -698,17 +703,27 @@ export async function invokeOperation(params: {
         error: () => {},
         debug: () => {},
       },
-      auth: {
-        tenantId: auth.tenantId,
-        scopeId: "default",
-        principalId: auth.principalId,
-        principalType: auth.principalType,
-        capabilities: auth.capabilities,
-        // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
-        // can audit the acting agent instead of the impersonated user.
-        ...(auth.agentId ? { agentId: auth.agentId } : {}),
-        ...(auth.goalId ? { goalId: auth.goalId } : {}),
-      },
+      auth: linkPrincipal(
+        {
+          tenantId: auth.tenantId,
+          scopeId: "default",
+          principalId: auth.principalId,
+          principalType: auth.principalType,
+          capabilities: auth.capabilities,
+          // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
+          // can audit the acting agent instead of the impersonated user.
+          ...(auth.agentId ? { agentId: auth.agentId } : {}),
+          ...(auth.goalId ? { goalId: auth.goalId } : {}),
+        },
+        {
+          principal: auth,
+          approvedEdge: isApprovedEdge({
+            action: decision.action,
+            requiresApproval: op.requiresApproval,
+            riskLevel: op.riskLevel,
+          }),
+        }
+      ),
       recordAuditEvent,
     });
     const validated = entry.outputSchema
@@ -779,6 +794,9 @@ export async function invokeOperation(params: {
       },
       registry,
     });
+    if (e instanceof InProcessPolicyError) {
+      throw inProcessPolicyHttpError(e);
+    }
     if (isZodError(e)) {
       throw new InvokeOperationError(
         e.message,
@@ -788,6 +806,22 @@ export async function invokeOperation(params: {
     }
     throw e;
   }
+}
+
+/**
+ * A nested in-process call the gate refused is an authorization answer, not a
+ * crash: 403 with the reason, the same shape the outer edges give. Handlers
+ * that treat the nested call as optional catch it themselves and never reach
+ * here; the ones that don't get a status a client can act on.
+ */
+function inProcessPolicyHttpError(e: InProcessPolicyError) {
+  return new InvokeOperationError(e.message, 403, {
+    code: "in_process_policy_denied",
+    message: e.message,
+    error: "Forbidden",
+    reason: e.reason,
+    operationId: e.operationId,
+  });
 }
 
 async function requireAuth(
@@ -1198,17 +1232,27 @@ export async function executeModuleOperation(params: {
         error: () => {},
         debug: () => {},
       },
-      auth: {
-        tenantId: auth.tenantId,
-        scopeId: "default",
-        principalId: auth.principalId,
-        principalType: auth.principalType,
-        capabilities: auth.capabilities,
-        // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
-        // can audit the acting agent instead of the impersonated user.
-        ...(auth.agentId ? { agentId: auth.agentId } : {}),
-        ...(auth.goalId ? { goalId: auth.goalId } : {}),
-      },
+      auth: linkPrincipal(
+        {
+          tenantId: auth.tenantId,
+          scopeId: "default",
+          principalId: auth.principalId,
+          principalType: auth.principalType,
+          capabilities: auth.capabilities,
+          // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
+          // can audit the acting agent instead of the impersonated user.
+          ...(auth.agentId ? { agentId: auth.agentId } : {}),
+          ...(auth.goalId ? { goalId: auth.goalId } : {}),
+        },
+        {
+          principal: auth,
+          approvedEdge: isApprovedEdge({
+            action: decision.action,
+            requiresApproval: op.requiresApproval,
+            riskLevel: op.riskLevel,
+          }),
+        }
+      ),
       recordAuditEvent,
     });
     const validated = entry.outputSchema
@@ -1279,6 +1323,14 @@ export async function executeModuleOperation(params: {
       },
       registry: params.registry,
     });
+    if (e instanceof InProcessPolicyError) {
+      const denied = inProcessPolicyHttpError(e);
+      return jsonApiError(params.c, 403, {
+        code: "in_process_policy_denied",
+        message: denied.message,
+        details: { reason: e.reason, operationId: e.operationId },
+      });
+    }
     if (e instanceof InvokeOperationError) {
       const body = e.body as
         | { code?: string; fields?: Record<string, string[]> }

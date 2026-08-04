@@ -221,9 +221,18 @@ export async function startConversationRun(
     }
     const useChildRunDelegation = Object.keys(delegationTools).length > 0;
     const extraTools = { ...frontendTools, ...delegationTools };
+    const { resolveAgentInstructionExtras } = await import(
+      "../instructions/resolve-agent-instruction-extras.js"
+    );
+    const instructionExtras = await resolveAgentInstructionExtras({
+      agentId: input.agentId,
+      tenantId: input.scope.tenantId,
+      userId: input.scope.userId,
+    });
     // Assemble WITHOUT memory — the Harness provides memory to its mode agents.
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
+      instructionExtras,
       // Function agents render over this thread's agent_state snapshot
       // (PLAN-agent-hooks D5); data configs ignore the context.
       resolveContext: {

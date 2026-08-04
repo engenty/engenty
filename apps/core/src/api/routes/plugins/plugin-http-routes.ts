@@ -12,10 +12,15 @@ import {
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import { recordModuleAuditEvent } from "../../../security/audit-service.js";
 import type { AuthProvider } from "../../../security/auth-provider.js";
+import { InProcessPolicyError } from "../../../security/in-process-gate.js";
 import {
   evaluatePolicy,
   evaluateResultPolicy,
 } from "../../../security/policy.js";
+import {
+  isApprovedEdge,
+  linkPrincipal,
+} from "../../../security/principal-link.js";
 import {
   getHttpRouteCapability,
   getRegisteredHttpRouteCapabilities,
@@ -198,6 +203,7 @@ function mountPluginRoute(
                 tenantId: auth.tenantId,
                 scopeId,
                 principalId: auth.principalId,
+                principalType: auth.principalType,
                 capabilities: auth.capabilities,
               }
             : undefined,
@@ -374,15 +380,42 @@ function mountPluginRoute(
         query: queryParsed,
         headers: headersParsed,
         body,
-        auth: {
-          tenantId: auth!.tenantId,
-          scopeId,
-          principalId: auth!.principalId,
-          capabilities: auth!.capabilities,
-        },
+        // principalType/agentId travel with it: a handler that calls another
+        // module in-process is re-gated against this same principal, and a
+        // context that dropped them would present an agent as an ordinary
+        // user — the one principal the escalation policy never gates.
+        auth: linkPrincipal(
+          {
+            tenantId: auth.tenantId,
+            scopeId,
+            principalId: auth.principalId,
+            principalType: auth.principalType,
+            capabilities: auth.capabilities,
+            ...(auth.agentId ? { agentId: auth.agentId } : {}),
+            ...(auth.goalId ? { goalId: auth.goalId } : {}),
+          },
+          {
+            principal: auth,
+            approvedEdge: isApprovedEdge({
+              action: policy.action,
+              requiresApproval: operation?.requiresApproval ?? false,
+              riskLevel: operation?.riskLevel ?? "medium",
+            }),
+          }
+        ),
         recordAuditEvent,
       });
     } catch (e) {
+      if (e instanceof InProcessPolicyError) {
+        // A nested in-process call the gate refused is an authorization
+        // answer, not a crash. Handlers that treat the nested call as
+        // optional catch it themselves and never reach here.
+        return jsonApiError(c, 403, {
+          code: "in_process_policy_denied",
+          message: e.message,
+          details: { reason: e.reason, operationId: e.operationId },
+        }) as never;
+      }
       if (e instanceof InvokeOperationError) {
         const body = e.body as Record<string, unknown> | undefined;
         if (

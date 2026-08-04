@@ -227,6 +227,15 @@ supabase_half_dead() {
   supabase status >/dev/null 2>&1 && ! supabase_ready
 }
 
+# After macOS reboot / Docker Desktop kill, containers remain as Exited.
+# `supabase status` fails, so half_dead is false, but `supabase start` then
+# reports "already running" and never recovers without an explicit stop.
+supabase_exited_stack() {
+  local status
+  status="$(docker inspect -f '{{.State.Status}}' supabase_db_engenty-local 2>/dev/null || echo missing)"
+  [[ "$status" == "exited" || "$status" == "dead" ]]
+}
+
 # Cross-worktree lock (mkdir is atomic). Stale locks from dead PIDs are cleared.
 supabase_lock_acquire() {
   local waited=0 pid
@@ -323,11 +332,15 @@ ensure_supabase() {
     return 0
   fi
 
-  if supabase_half_dead; then
+  if supabase_half_dead || supabase_exited_stack; then
     echo "" >&2
-    echo "Local Supabase still unhealthy after grace + soft-heal." >&2
-    echo "  REST:  $(http_code "${SUPABASE_API}/rest/v1/")" >&2
-    echo "  Auth:  $(http_code "${SUPABASE_API}/auth/v1/health")" >&2
+    if supabase_exited_stack; then
+      echo "Local Supabase containers are stopped (common after reboot)." >&2
+    else
+      echo "Local Supabase still unhealthy after grace + soft-heal." >&2
+      echo "  REST:  $(http_code "${SUPABASE_API}/rest/v1/")" >&2
+      echo "  Auth:  $(http_code "${SUPABASE_API}/auth/v1/health")" >&2
+    fi
     echo "Restarting shared stack (other worktrees will wait on the lock)…" >&2
     supabase stop >/dev/null 2>&1 || true
   else
@@ -335,9 +348,16 @@ ensure_supabase() {
     echo "Local Supabase not ready — starting shared stack (containers may take a minute)..." >&2
   fi
 
-  # `supabase start` can fail with "already running" while DB containers are still booting.
+  # `supabase start` can fail with "already running" while DB containers are still
+  # booting — or when exited containers linger after a reboot. Retry once with stop.
   if ! supabase start; then
-    echo "supabase start reported an issue — waiting for containers to become healthy..." >&2
+    if supabase_exited_stack || ! supabase_critical_containers_up; then
+      echo "supabase start stuck with down containers — stop + start retry…" >&2
+      supabase stop >/dev/null 2>&1 || true
+      supabase start || true
+    else
+      echo "supabase start reported an issue — waiting for containers to become healthy..." >&2
+    fi
   fi
 
   if wait_supabase_ready "$SUPABASE_READY_WAIT_SECS" "Waiting for Supabase"; then

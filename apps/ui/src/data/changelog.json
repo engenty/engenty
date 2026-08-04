@@ -4,6 +4,108 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "59b33b1",
+        "message": "improve error handling for engenty.copilot seed file loading",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b5f6d26",
+        "message": "enhance agent instruction handling and append functionality",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b1387ea",
+        "message": "enhance agent detail files tab layout and functionality",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "38245aa",
+        "message": "add reset instruction endpoint and logic",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bba64ac",
+        "message": "use a searchable model picker on role bindings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d169d08",
+        "message": "edit package and tenant AI policy including effort tiers",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "627abca",
+        "message": "allow operators to PATCH live commercial package rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b8078e9",
+        "message": "add a package patch schema for operator edits",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ea27c7e",
+        "message": "recover exited Supabase containers after reboot in predev-check",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3b5e57d",
+        "message": "remove the unused in-process method invoker",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "9af8086",
+        "message": "raise the expensive price-tier threshold to $4/Mtok",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "32a3c69",
+        "message": "run the shared policy on the in-process gateway caller",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bedf092",
+        "message": "make AG-UI inspector resizable with a collapsible JSON tree",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "63531b5",
+        "message": "add tenant overview tab with editable settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b1ef93d",
+        "message": "deploy step reaches its SSH fallback again",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "860cfb3",
+        "message": "show bound models on effort tiers in developer mode",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.96",
+    "timestamp": 1785853543,
+    "commits": [
+      {
         "id": "1023eaa",
         "message": "move in-process gateway gate plan to workspace root",
         "group": "Docs",

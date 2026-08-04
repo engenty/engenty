@@ -64,6 +64,20 @@ export interface PackagesDal {
   syncCatalog: (
     catalog?: readonly EntitlementPackage[]
   ) => Promise<{ upserted: number }>;
+  /**
+   * Apply an operator edit to a live package row and bump `version`. Does not
+   * re-materialize tenant policies — callers must reapply explicitly.
+   */
+  updatePackage: (
+    id: string,
+    patch: {
+      aiUsagePolicy?: EntitlementPackage["aiUsagePolicy"];
+      appLimits?: EntitlementPackage["appLimits"];
+      featureFlags?: Record<string, boolean>;
+      label?: string;
+      modules?: string[] | null;
+    }
+  ) => Promise<EntitlementPackage | null>;
 }
 
 interface PackageRow {
@@ -355,6 +369,42 @@ export function createPackagesDal(
     };
   }
 
+  async function updatePackage(
+    id: string,
+    patch: {
+      aiUsagePolicy?: EntitlementPackage["aiUsagePolicy"];
+      appLimits?: EntitlementPackage["appLimits"];
+      featureFlags?: Record<string, boolean>;
+      label?: string;
+      modules?: string[] | null;
+    }
+  ): Promise<EntitlementPackage | null> {
+    const existing = await getPackage(id);
+    if (!existing) {
+      return null;
+    }
+    const next = normalizeEntitlementPackage({
+      ...existing,
+      ...(patch.label === undefined ? {} : { label: patch.label }),
+      ...(patch.modules === undefined ? {} : { modules: patch.modules }),
+      ...(patch.featureFlags === undefined
+        ? {}
+        : { featureFlags: patch.featureFlags }),
+      ...(patch.aiUsagePolicy === undefined
+        ? {}
+        : { aiUsagePolicy: patch.aiUsagePolicy }),
+      ...(patch.appLimits === undefined ? {} : { appLimits: patch.appLimits }),
+      version: existing.version + 1,
+    });
+    const { error } = await packages().upsert(packageToRow(next), {
+      onConflict: "id",
+    });
+    if (error) {
+      throw new Error(`Failed to update package ${id}: ${error.message}`);
+    }
+    return next;
+  }
+
   return {
     listPackages,
     getPackage,
@@ -369,5 +419,6 @@ export function createPackagesDal(
     applyAiUsagePolicy,
     reapplyPackagePolicies,
     getManageData,
+    updatePackage,
   };
 }

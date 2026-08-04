@@ -245,7 +245,20 @@ export function createPortalDAL(
         input: Record<string, unknown>
       ) =>
         invokeOperation(operationId, input, {
-          auth: { tenantId, scopeId, principalId: "" },
+          // The portal visitor is anonymous — there is no principal and no
+          // human who could answer an approval, so this is the module acting
+          // as a service on the project's behalf. The authority is stated
+          // here, narrowly (task writes only, in the project's own tenant),
+          // instead of arriving as an empty context the in-process gate has
+          // to guess about: the route already established that this project
+          // has the portal enabled, which is the real access check.
+          auth: {
+            tenantId,
+            scopeId,
+            principalId: "",
+            principalType: "service",
+            capabilities: ["module.tasks.write"],
+          },
         });
 
       const created = await createProjectLinkedTask(invokeTasks, projectId, {

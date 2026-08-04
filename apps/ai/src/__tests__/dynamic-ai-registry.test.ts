@@ -786,18 +786,16 @@ describe("dynamic AI registry", () => {
     };
 
     expect(agent.config.description).toContain("Supervisor copilot");
-    expect(agent.config.instructions).toContain("Engenty Supervisor");
+    expect(agent.config.instructions).toContain(
+      "You are engenty — the in-app AI **copilot**"
+    );
     expect(agent.config.instructions).toContain("Runtime context");
     expect(agent.config.instructions).toContain(
       "Tenant and user are request-scoped"
     );
     expect(agent.config.instructions).toContain("dynamic plugin contributions");
-    expect(agent.config.instructions).toContain(
-      "bounded list of options, call **requestDecision**"
-    );
-    expect(agent.config.instructions).toContain(
-      "infer reasonable low-risk options"
-    );
+    expect(agent.config.instructions).toContain("requestDecision");
+    expect(agent.config.instructions).toContain("Prefer backend APIs");
     expect(agent.config.backgroundTasks).toBeUndefined();
     // All specialists declared in engentyCopilotAgentConfig.subAgents:
     // engenty_cli (CLI/sandbox work), file_analyst (tiered attachments), and

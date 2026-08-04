@@ -400,7 +400,18 @@ export interface PluginTestDataRegistration {
   ) => Promise<number>;
 }
 
-export type PluginPolicyTransport = "gateway" | "module_ops" | "mcp" | "http";
+/**
+ * `"in_process"` is the module-to-module edge: one module's handler calling
+ * another module's operation through the plugin runtime API, with no HTTP
+ * request behind it. It runs the same policy as the HTTP transports; a profile
+ * policy that must tell them apart reads this.
+ */
+export type PluginPolicyTransport =
+  | "gateway"
+  | "module_ops"
+  | "mcp"
+  | "http"
+  | "in_process";
 
 /**
  * Where a call physically came from, when that changes who owns the approval

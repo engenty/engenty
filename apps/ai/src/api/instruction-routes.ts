@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import {
+  agentAppendDocumentKey,
+  isAppendDocumentKey,
+  normalizeAppendFilename,
+  parseAppendDocumentKey,
+  slugifyInstructionFilename,
+  syntheticAppendBaseDocument,
+} from "../ai/instructions/append-documents.js";
+import {
   getBaseInstructionDocumentByKey,
   listBaseInstructionDocuments,
 } from "../ai/instructions/base-documents.js";
@@ -53,7 +61,11 @@ function parseEditBody(value: unknown): {
       ? candidate.reason.trim()
       : null;
   const scope = typeof candidate.scope === "string" ? candidate.scope : "";
-  if (!(documentKey && body && isInstructionEditScope(scope))) {
+  // Allow empty body for append stubs; require a non-empty string type.
+  if (
+    !(documentKey && typeof candidate.body === "string") ||
+    !isInstructionEditScope(scope)
+  ) {
     return null;
   }
   return {
@@ -64,6 +76,79 @@ function parseEditBody(value: unknown): {
     scope,
     title,
   };
+}
+
+function parseCreateBody(value: unknown): {
+  agentId: string;
+  body: string;
+  filename: string;
+  scope: InstructionEditScope;
+} | null {
+  if (!(typeof value === "object" && value !== null)) {
+    return null;
+  }
+  const candidate = value as Record<string, unknown>;
+  const agentId =
+    typeof candidate.agentId === "string" ? candidate.agentId.trim() : "";
+  const filename =
+    typeof candidate.filename === "string" ? candidate.filename.trim() : "";
+  const scope = typeof candidate.scope === "string" ? candidate.scope : "";
+  const body =
+    typeof candidate.body === "string" ? candidate.body.trimEnd() : "";
+  if (!(agentId && filename && isInstructionEditScope(scope))) {
+    return null;
+  }
+  return { agentId, body, filename, scope };
+}
+
+async function resolveEditableBaseDocument(params: {
+  documentKey: string;
+  registry: AiRegistry;
+  store: InstructionOverridesStore | null;
+  tenantId: string;
+  userId: string;
+}): Promise<AiInstructionDocument | null> {
+  const seed = await getBaseInstructionDocumentByKey(
+    params.registry,
+    params.documentKey,
+    nowIso()
+  );
+  if (seed) {
+    return seed;
+  }
+  if (!isAppendDocumentKey(params.documentKey)) {
+    return null;
+  }
+  const parsed = parseAppendDocumentKey(params.documentKey);
+  if (!parsed) {
+    return null;
+  }
+  const existing =
+    params.store == null
+      ? null
+      : ((await params.store.getScopedOverride({
+          documentKey: params.documentKey,
+          scope: "user",
+          tenantId: params.tenantId,
+          userId: params.userId,
+        })) ??
+        (await params.store.getScopedOverride({
+          documentKey: params.documentKey,
+          scope: "tenant",
+          tenantId: params.tenantId,
+          userId: params.userId,
+        })));
+  const filename =
+    typeof existing?.metadata.filename === "string"
+      ? existing.metadata.filename
+      : `${parsed.slug}.md`;
+  return syntheticAppendBaseDocument({
+    agentId: parsed.agentId,
+    documentKey: params.documentKey,
+    filename,
+    nowIso: nowIso(),
+    title: existing?.title,
+  });
 }
 
 function parseRollbackBody(value: unknown): {
@@ -91,6 +176,30 @@ function parseRollbackBody(value: unknown): {
     return null;
   }
   return { changeId, documentKey, reason, scope };
+}
+
+function parseResetBody(value: unknown): {
+  documentKey: string;
+  reason: string | null;
+  scope: InstructionEditScope;
+} | null {
+  if (!(typeof value === "object" && value !== null)) {
+    return null;
+  }
+  const candidate = value as Record<string, unknown>;
+  const documentKey =
+    typeof candidate.documentKey === "string"
+      ? candidate.documentKey.trim()
+      : "";
+  const reason =
+    typeof candidate.reason === "string" && candidate.reason.trim()
+      ? candidate.reason.trim()
+      : null;
+  const scope = typeof candidate.scope === "string" ? candidate.scope : "";
+  if (!(documentKey && isInstructionEditScope(scope))) {
+    return null;
+  }
+  return { documentKey, reason, scope };
 }
 
 async function applyEdit(params: {
@@ -124,6 +233,9 @@ async function applyEdit(params: {
       ...(existing?.metadata ?? {}),
       based_on_document_id: params.baseDocument.id,
       edit_scope: params.scope,
+      ...(isAppendDocumentKey(params.baseDocument.document_key)
+        ? { append: true }
+        : {}),
     },
     module_id: params.baseDocument.module_id,
     source_kind: "user",
@@ -201,11 +313,13 @@ export function registerInstructionRoutes(
     try {
       const registry = getRegistry(resolved.scope.tenantId);
       const store = getStore();
-      const baseDocument = await getBaseInstructionDocumentByKey(
-        registry,
+      const baseDocument = await resolveEditableBaseDocument({
         documentKey,
-        nowIso()
-      );
+        registry,
+        store,
+        tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
+      });
       if (!baseDocument) {
         return c.json({ error: "agent_sessions.notFound" }, 404);
       }
@@ -311,11 +425,13 @@ export function registerInstructionRoutes(
     }
     try {
       const registry = getRegistry(resolved.scope.tenantId);
-      const baseDocument = await getBaseInstructionDocumentByKey(
+      const baseDocument = await resolveEditableBaseDocument({
+        documentKey: input.documentKey,
         registry,
-        input.documentKey,
-        nowIso()
-      );
+        store,
+        tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
+      });
       if (!baseDocument) {
         return c.json({ error: "agent_sessions.notFound" }, 404);
       }
@@ -335,6 +451,175 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to edit instruction document",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  // Create an append-only instruction file for an agent (concatenated after AGENTS.md).
+  app.post(`${AI_BASE_PATH}/instructions`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = getStore();
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+    }
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const input = parseCreateBody(body);
+    if (!input) {
+      return c.json(
+        { error: "agentId, filename, and scope are required" },
+        422
+      );
+    }
+    try {
+      const registry = getRegistry(resolved.scope.tenantId);
+      const listable = registry as AiRegistry & {
+        listAgentConfigs?: () => Promise<Array<{ id: string }>>;
+      };
+      const configs =
+        typeof listable.listAgentConfigs === "function"
+          ? await listable.listAgentConfigs()
+          : [];
+      if (!configs.some((config) => config.id === input.agentId)) {
+        return c.json({ error: "agent_sessions.notFound" }, 404);
+      }
+      const filename = normalizeAppendFilename(input.filename);
+      const slug = slugifyInstructionFilename(filename);
+      const documentKey = agentAppendDocumentKey(input.agentId, slug);
+      const existing = await store.getScopedOverride({
+        documentKey,
+        scope: input.scope,
+        tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
+      });
+      if (existing) {
+        return c.json({ error: "instructions.fileExists", documentKey }, 409);
+      }
+      const baseDocument = syntheticAppendBaseDocument({
+        agentId: input.agentId,
+        documentKey,
+        filename,
+        nowIso: nowIso(),
+      });
+      const starter =
+        input.body.trim().length > 0
+          ? input.body
+          : `# ${filename.replace(/\.md$/i, "")}\n`;
+      const result = await applyEdit({
+        baseDocument,
+        body: starter,
+        createVersion: true,
+        reason: "Created append instruction",
+        scope: input.scope,
+        store,
+        tenantId: resolved.scope.tenantId,
+        title: baseDocument.title,
+        userId: resolved.scope.userId,
+      });
+      return c.json(result, 201);
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to create instruction document",
+        "agent_sessions.internalError",
+        err
+      );
+    }
+  });
+
+  // Clear the scoped override so the editor + resolve fall back to seed/base.
+  app.post(`${AI_BASE_PATH}/instructions/reset`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const store = getStore();
+    if (!store) {
+      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+    }
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const input = parseResetBody(body);
+    if (!input) {
+      return c.json({ error: "documentKey and scope are required" }, 422);
+    }
+    try {
+      const registry = getRegistry(resolved.scope.tenantId);
+      const baseDocument = await resolveEditableBaseDocument({
+        documentKey: input.documentKey,
+        registry,
+        store,
+        tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
+      });
+      if (!baseDocument) {
+        return c.json({ error: "agent_sessions.notFound" }, 404);
+      }
+      const cleared = await store.deactivateScopedOverride({
+        documentKey: input.documentKey,
+        reason: input.reason,
+        scope: input.scope,
+        tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
+      });
+      const [tenantOverride, userOverride] = await Promise.all([
+        store.getScopedOverride({
+          documentKey: input.documentKey,
+          scope: "tenant",
+          tenantId: resolved.scope.tenantId,
+          userId: resolved.scope.userId,
+        }),
+        store.getScopedOverride({
+          documentKey: input.documentKey,
+          scope: "user",
+          tenantId: resolved.scope.tenantId,
+          userId: resolved.scope.userId,
+        }),
+      ]);
+      const effectiveDocument =
+        input.scope === "user"
+          ? (userOverride ?? tenantOverride ?? baseDocument)
+          : (tenantOverride ?? baseDocument);
+      if (!cleared) {
+        return c.json(
+          {
+            base_document: baseDocument,
+            cleared: false,
+            effective_document: effectiveDocument,
+            scope: input.scope,
+            tenant_override: tenantOverride,
+            user_override: userOverride,
+          },
+          200
+        );
+      }
+      return c.json({
+        base_document: baseDocument,
+        change: cleared.change,
+        cleared: true,
+        document: cleared.document,
+        effective_document: effectiveDocument,
+        scope: input.scope,
+        tenant_override: tenantOverride,
+        user_override: userOverride,
+      });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to reset instruction document",
         "agent_sessions.internalError",
         err
       );
@@ -385,11 +670,13 @@ export function registerInstructionRoutes(
         return c.json({ error: "Selected change cannot be rolled back" }, 409);
       }
       const registry = getRegistry(resolved.scope.tenantId);
-      const baseDocument = await getBaseInstructionDocumentByKey(
+      const baseDocument = await resolveEditableBaseDocument({
+        documentKey: input.documentKey,
         registry,
-        input.documentKey,
-        nowIso()
-      );
+        store,
+        tenantId: resolved.scope.tenantId,
+        userId: resolved.scope.userId,
+      });
       if (!baseDocument) {
         return c.json({ error: "agent_sessions.notFound" }, 404);
       }

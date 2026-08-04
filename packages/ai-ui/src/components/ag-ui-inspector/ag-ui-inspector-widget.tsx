@@ -38,18 +38,23 @@ import {
   ToolsPanel,
 } from "./ag-ui-inspector-panels.js";
 
-const STORAGE_KEY = "engenty.ag_ui_inspector.v1";
+const STORAGE_KEY = "engenty.ag_ui_inspector.v3";
 const OPEN_INSPECTOR_EVENT = "engenty:ag-ui-inspector:open";
 const LAUNCHER_WIDTH = 108;
 const LAUNCHER_HEIGHT = 36;
-const PANEL_WIDTH = 780;
+const PANEL_DEFAULT_WIDTH = 780;
+const PANEL_DEFAULT_HEIGHT = 560;
+const PANEL_MIN_WIDTH = 420;
+const PANEL_MIN_HEIGHT = 280;
 const PANEL_HEADER_HEIGHT = 40;
 
 interface InspectorLayout {
+  height: number;
   launcherX: number;
   launcherY: number;
   minimized: boolean;
   open: boolean;
+  width: number;
   x: number;
   y: number;
 }
@@ -75,9 +80,26 @@ function defaultLauncherPosition() {
   };
 }
 
+function defaultPanelSize() {
+  if (typeof window === "undefined") {
+    return { height: PANEL_DEFAULT_HEIGHT, width: PANEL_DEFAULT_WIDTH };
+  }
+  return {
+    height: Math.min(
+      PANEL_DEFAULT_HEIGHT,
+      Math.max(PANEL_MIN_HEIGHT, window.innerHeight - 32)
+    ),
+    width: Math.min(
+      PANEL_DEFAULT_WIDTH,
+      Math.max(PANEL_MIN_WIDTH, window.innerWidth - 16)
+    ),
+  };
+}
+
 function defaultLayout(): InspectorLayout {
   return {
     ...defaultLauncherPosition(),
+    ...defaultPanelSize(),
     minimized: false,
     open: false,
     x: 24,
@@ -102,6 +124,25 @@ function clampPosition(
   };
 }
 
+function clampPanelSize(width: number, height: number, x: number, y: number) {
+  if (typeof window === "undefined") {
+    return {
+      height: Math.max(PANEL_MIN_HEIGHT, height),
+      width: Math.max(PANEL_MIN_WIDTH, width),
+    };
+  }
+  return {
+    height: Math.min(
+      Math.max(PANEL_MIN_HEIGHT, height),
+      Math.max(PANEL_MIN_HEIGHT, window.innerHeight - y - 8)
+    ),
+    width: Math.min(
+      Math.max(PANEL_MIN_WIDTH, width),
+      Math.max(PANEL_MIN_WIDTH, window.innerWidth - x - 8)
+    ),
+  };
+}
+
 function readLayout(): InspectorLayout {
   if (typeof localStorage === "undefined") {
     return defaultLayout();
@@ -119,16 +160,28 @@ function readLayout(): InspectorLayout {
         : defaultLauncherPosition().launcherY,
       { height: LAUNCHER_HEIGHT, width: LAUNCHER_WIDTH }
     );
+    const defaults = defaultLayout();
+    const size = clampPanelSize(
+      typeof parsed?.width === "number" ? parsed.width : defaults.width,
+      typeof parsed?.height === "number" ? parsed.height : defaults.height,
+      typeof parsed?.x === "number" ? parsed.x : 24,
+      typeof parsed?.y === "number" ? parsed.y : 88
+    );
     const panel = clampPosition(
       typeof parsed?.x === "number" ? parsed.x : 24,
       typeof parsed?.y === "number" ? parsed.y : 88,
-      { height: PANEL_HEADER_HEIGHT, width: PANEL_WIDTH }
+      {
+        height: parsed?.minimized ? PANEL_HEADER_HEIGHT : size.height,
+        width: size.width,
+      }
     );
     return {
-      ...defaultLayout(),
+      ...defaults,
       ...parsed,
+      height: size.height,
       launcherX: launcher.x,
       launcherY: launcher.y,
+      width: size.width,
       x: panel.x,
       y: panel.y,
     };
@@ -162,13 +215,15 @@ export function AgUiAgentInspectorWidget({
   const debugEvents = useAgUiDebugEvents(serviceBaseUrl, developerModeEnabled);
   const [layout, setLayout] = useState(readLayout);
   const dragRef = useRef<{
+    height: number;
     moved: boolean;
     pointerId: number;
     startX: number;
     startY: number;
-    target: "launcher" | "panel";
+    target: "launcher" | "panel" | "resize";
     targetHeight: number;
     targetWidth: number;
+    width: number;
     x: number;
     y: number;
   } | null>(null);
@@ -200,9 +255,11 @@ export function AgUiAgentInspectorWidget({
 
   const onPointerDown = (
     event: PointerEvent<HTMLElement>,
-    target: "launcher" | "panel"
+    target: "launcher" | "panel" | "resize"
   ) => {
+    const panelHeight = layout.minimized ? PANEL_HEADER_HEIGHT : layout.height;
     dragRef.current = {
+      height: layout.height,
       moved: false,
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -211,11 +268,12 @@ export function AgUiAgentInspectorWidget({
       targetHeight:
         target === "launcher"
           ? event.currentTarget.offsetHeight || LAUNCHER_HEIGHT
-          : PANEL_HEADER_HEIGHT,
+          : panelHeight,
       targetWidth:
         target === "launcher"
           ? event.currentTarget.offsetWidth || LAUNCHER_WIDTH
-          : Math.min(PANEL_WIDTH, window.innerWidth - 16),
+          : layout.width,
+      width: layout.width,
       x: target === "launcher" ? layout.launcherX : layout.x,
       y: target === "launcher" ? layout.launcherY : layout.y,
     };
@@ -231,6 +289,16 @@ export function AgUiAgentInspectorWidget({
     const deltaY = event.clientY - drag.startY;
     if (Math.abs(deltaX) + Math.abs(deltaY) > 3) {
       drag.moved = true;
+    }
+    if (drag.target === "resize") {
+      const next = clampPanelSize(
+        drag.width + deltaX,
+        drag.height + deltaY,
+        drag.x,
+        drag.y
+      );
+      patchLayout({ height: next.height, width: next.width });
+      return;
     }
     const next = clampPosition(drag.x + deltaX, drag.y + deltaY, {
       height: drag.targetHeight,
@@ -280,8 +348,13 @@ export function AgUiAgentInspectorWidget({
 
   return (
     <div
-      className="fixed z-[90] flex max-h-[min(82vh,760px)] w-[min(92vw,780px)] flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-[0_8px_32px_oklch(0.4_0.02_60/0.12)]"
-      style={{ left: layout.x, top: layout.y }}
+      className="fixed z-[90] flex flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-[0_8px_32px_oklch(0.4_0.02_60/0.12)]"
+      style={{
+        height: layout.minimized ? PANEL_HEADER_HEIGHT : layout.height,
+        left: layout.x,
+        top: layout.y,
+        width: layout.width,
+      }}
     >
       <div
         className="flex h-10 shrink-0 cursor-move items-center gap-2 border-border/70 border-b bg-muted/25 px-3"
@@ -356,35 +429,58 @@ export function AgUiAgentInspectorWidget({
             <InspectorTab value="state">State</InspectorTab>
           </TabsList>
           <TabsContent
-            className="m-0 min-h-0 flex-1 overflow-hidden"
+            className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             value="prompt"
           >
             <PromptPanel initialPrompt={initialPrompt} />
           </TabsContent>
           <TabsContent
-            className="m-0 min-h-0 flex-1 overflow-hidden"
+            className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             value="timeline"
           >
             <TimelinePanel events={events} messages={host.messages} />
           </TabsContent>
           <TabsContent
-            className="m-0 min-h-0 flex-1 overflow-hidden"
+            className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             value="tools"
           >
             <ToolsPanel toolCalls={toolCalls} />
           </TabsContent>
           <TabsContent
-            className="m-0 min-h-0 flex-1 overflow-hidden"
+            className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             value="state"
           >
             <JsonPanel value={host.state} />
           </TabsContent>
-          <footer className="shrink-0 border-border/60 border-t px-3 py-1.5">
+          <footer className="relative shrink-0 border-border/60 border-t px-3 py-1.5 pr-6">
             <p className="font-mono text-muted-foreground text-xxs">
               Real-time AG-UI debugging for Engenty copilot runs
             </p>
           </footer>
         </Tabs>
+      )}
+      {layout.minimized ? null : (
+        <button
+          aria-label="Resize inspector"
+          className="absolute right-0 bottom-0 z-10 flex size-5 cursor-se-resize touch-none items-end justify-end p-1 text-muted-foreground/45 hover:text-muted-foreground"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onPointerDown(event, "resize");
+          }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            className="size-2.5"
+            fill="currentColor"
+            viewBox="0 0 8 8"
+          >
+            <path d="M6 8h2v-2zm-3 0h2v-2H3zm3-3h2V3H6z" />
+          </svg>
+        </button>
       )}
     </div>
   );

@@ -4,7 +4,6 @@ import { dashboardJsonUiConfigSchema } from "@engenty/dashboard-core";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 import type { PluginRegistry } from "../../../plugins/registry.js";
-import { createMethodInvoker } from "../../method-invoker.js";
 
 export interface RegisterDashboardParams {
   app: OpenAPIHono;
@@ -53,19 +52,4 @@ export function buildDashboardRequestFn(params: {
     }
     return payload;
   };
-}
-
-export function createCallGatewayMethod(
-  params: RegisterDashboardParams & {
-    auth: { principalId: string; tenantId: string | null; scopeId: string };
-  }
-) {
-  const invokeMethod = createMethodInvoker({
-    registry: params.registry,
-    config: params.config,
-    dataDir: params.dataDir,
-    resolvePath: params.resolvePath,
-  });
-  return (name: string, input: unknown) =>
-    invokeMethod(name, input, { auth: params.auth });
 }

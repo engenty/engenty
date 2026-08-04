@@ -4,7 +4,7 @@
 // model does it. Withheld tiers render disabled rather than hidden so the plan
 // boundary is legible instead of mysterious.
 
-import type { AiEffortChoice } from "@engenty/ai-core/browser";
+import type { AiEffort, AiEffortChoice } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   DropdownMenu,
@@ -35,6 +35,12 @@ export interface EffortSelectorProps {
   disabled?: boolean;
   /** Rendered below a separator inside the menu — the expert/model escape hatch. */
   footer?: ReactNode;
+  /**
+   * Bound model id per graded tier. Developer-mode surfaces pass this so the
+   * menu answers "what does medium run?" without opening settings. `auto` has
+   * no entry — the router picks per request.
+   */
+  modelByEffort?: Partial<Record<AiEffort, string>>;
   onChange: (choice: AiEffortChoice) => void;
   value: AiEffortChoice;
   /** `pill` matches the composer's inline controls; `field` matches settings rows. */
@@ -46,6 +52,7 @@ export function EffortSelector({
   className,
   disabled,
   footer,
+  modelByEffort,
   onChange,
   value,
   variant = "pill",
@@ -77,25 +84,36 @@ export function EffortSelector({
           onValueChange={(next) => onChange(next as AiEffortChoice)}
           value={value}
         >
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              className="items-start py-2"
-              disabled={!option.allowed}
-              key={option.value}
-              value={option.value}
-            >
-              <div className="min-w-0 flex-1">
-                <span className="leading-tight">
-                  {t(`effort.choice.${option.value}.label`)}
-                </span>
-                <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
-                  {option.allowed
-                    ? t(`effort.choice.${option.value}.desc`)
-                    : t("effort.notInPlan")}
-                </p>
-              </div>
-            </DropdownMenuRadioItem>
-          ))}
+          {options.map((option) => {
+            const boundModel =
+              option.value === "auto"
+                ? undefined
+                : modelByEffort?.[option.value];
+            return (
+              <DropdownMenuRadioItem
+                className="items-start py-2"
+                disabled={!option.allowed}
+                key={option.value}
+                value={option.value}
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="leading-tight">
+                    {t(`effort.choice.${option.value}.label`)}
+                  </span>
+                  <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                    {option.allowed
+                      ? t(`effort.choice.${option.value}.desc`)
+                      : t("effort.notInPlan")}
+                  </p>
+                  {boundModel ? (
+                    <code className="mt-1 block truncate font-mono text-[11px] text-muted-foreground">
+                      {boundModel}
+                    </code>
+                  ) : null}
+                </div>
+              </DropdownMenuRadioItem>
+            );
+          })}
         </DropdownMenuRadioGroup>
         {footer ? (
           <>

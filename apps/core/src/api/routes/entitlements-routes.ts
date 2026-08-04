@@ -1,4 +1,7 @@
-import { parseEntitlementOverride } from "@engenty/entitlements";
+import {
+  parseEntitlementOverride,
+  parseEntitlementPackagePatch,
+} from "@engenty/entitlements";
 import { createLogger } from "@engenty/telemetry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
@@ -6,9 +9,9 @@ import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
 
 /**
- * Superadmin routes for commercial-package entitlements. The catalog is
- * read-only (authored in `@engenty/entitlements`, synced to `core.packages`);
- * per-tenant assignment and sparse overrides are editable. All gated by
+ * Superadmin routes for commercial-package entitlements. The authored catalog
+ * seeds `core.packages` when missing; live rows are editable here. Per-tenant
+ * assignment and sparse overrides are also editable. All gated by
  * `requireSuperAdmin`. `createDal` is injectable for tests.
  */
 export function registerEntitlementsRoutes(params: {
@@ -45,7 +48,7 @@ export function registerEntitlementsRoutes(params: {
     }
   };
 
-  // Read-only synced catalog.
+  // Synced catalog (operator-editable in the manage console).
   app.get("/api/superadmin/packages", async (c) => {
     const authResult = await requireSuperAdmin(c, config);
     if ("error" in authResult) {
@@ -68,7 +71,41 @@ export function registerEntitlementsRoutes(params: {
     return jsonApiSuccess(c, pkg);
   });
 
-  // Re-sync the authored catalog (version-based upsert).
+  // Operator edit of a live package row. Does not re-materialize tenants —
+  // use POST …/reapply for that.
+  app.patch("/api/superadmin/packages/:id", async (c) => {
+    const authResult = await requireSuperAdmin(c, config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const id = c.req.param("id");
+    const raw = await c.req.json().catch(() => null);
+    let patch: ReturnType<typeof parseEntitlementPackagePatch>;
+    try {
+      patch = parseEntitlementPackagePatch(raw ?? {});
+    } catch (err) {
+      return jsonApiError(c, 400, {
+        message: err instanceof Error ? err.message : "Invalid package patch",
+      });
+    }
+    if (Object.keys(patch).length === 0) {
+      return jsonApiError(c, 400, { message: "Empty package patch" });
+    }
+    try {
+      const updated = await dal.updatePackage(id, patch);
+      if (!updated) {
+        return jsonApiError(c, 404, { message: `Package not found: ${id}` });
+      }
+      return jsonApiSuccess(c, updated);
+    } catch (err) {
+      return jsonApiError(c, 500, {
+        message:
+          err instanceof Error ? err.message : "Failed to update package",
+      });
+    }
+  });
+
+  // Seed missing authored catalog entries (never overwrites live edits).
   app.post("/api/superadmin/packages/sync-defaults", async (c) => {
     const authResult = await requireSuperAdmin(c, config);
     if ("error" in authResult) {

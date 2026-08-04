@@ -161,6 +161,9 @@ export const modelRoleBindingsOptions = queryOptions({
   staleTime: 60_000,
 });
 
-export function useModelRoleBindingsQuery() {
-  return useQuery(modelRoleBindingsOptions);
+export function useModelRoleBindingsQuery(options?: { enabled?: boolean }) {
+  return useQuery({
+    ...modelRoleBindingsOptions,
+    enabled: options?.enabled ?? true,
+  });
 }

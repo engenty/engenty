@@ -273,14 +273,14 @@ export function compositeModelPrice(model: {
  * Maps a composite score (micros/Mtok) to a price tier using fixed thresholds.
  *
  * Thresholds in $/Mtok  →  tier
- *   > $3.00             →  expensive
+ *   > $4.00             →  expensive
  *   > $2.00             →  high
  *   > $1.00             →  medium
  *   > $0.50             →  low
  *   ≤ $0.50             →  cheap  (includes free / zero-price models)
  */
 function scoreMicrosToTier(scoreMicros: number): GatewayModelPriceTier {
-  if (scoreMicros > 3_000_000) {
+  if (scoreMicros > 4_000_000) {
     return "expensive";
   }
   if (scoreMicros > 2_000_000) {

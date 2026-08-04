@@ -41,7 +41,8 @@ export interface AiInstructionFileDocument extends AiInstructionDocument {
 
 export const DEFAULT_AGENTS_FILENAME = "AGENTS.md";
 const LEGACY_IDENTITY_FILENAME = "IDENTITY.md";
-const OWNER_KEY_SUFFIX_PATTERN = /\.(instructions|agents|soul|heartbeat)$/;
+const OWNER_KEY_SUFFIX_PATTERN =
+  /\.(instructions|agents|soul|skills|heartbeat)$/;
 
 function readMetadataString(
   metadata: Record<string, unknown>,
@@ -103,6 +104,9 @@ function deriveFilename(document: AiInstructionDocument) {
   }
   if (document.document_key.includes(".soul")) {
     return "SOUL.md";
+  }
+  if (document.document_key.includes(".skills")) {
+    return "SKILLS.md";
   }
   if (document.document_key.includes(".heartbeat")) {
     return "HEARTBEAT.md";
@@ -214,6 +218,19 @@ export function updateAiInstruction(input: {
   );
 }
 
+/** Create an append-only instruction file for an agent (after AGENTS.md at runtime). */
+export function createAiInstruction(input: {
+  agentId: string;
+  body?: string;
+  filename: string;
+  scope: InstructionEditScope;
+}) {
+  return requestAiServiceJson<AiInstructionEditResult>("/ai/instructions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function rollbackAiInstruction(input: {
   changeId: string;
   documentKey: string;
@@ -222,6 +239,32 @@ export function rollbackAiInstruction(input: {
 }) {
   return requestAiServiceJson<AiInstructionRollbackResult>(
     "/ai/instructions/rollback",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export interface AiInstructionResetResult {
+  base_document: AiInstructionDocument;
+  change?: AiInstructionChange;
+  cleared: boolean;
+  document?: AiInstructionDocument;
+  effective_document: AiInstructionDocument;
+  scope: InstructionEditScope;
+  tenant_override?: AiInstructionDocument | null;
+  user_override?: AiInstructionDocument | null;
+}
+
+/** Clear the scoped override so resolve falls back to seed/base (or remaining layers). */
+export function resetAiInstruction(input: {
+  documentKey: string;
+  reason?: string | null;
+  scope: InstructionEditScope;
+}) {
+  return requestAiServiceJson<AiInstructionResetResult>(
+    "/ai/instructions/reset",
     {
       method: "POST",
       body: JSON.stringify(input),

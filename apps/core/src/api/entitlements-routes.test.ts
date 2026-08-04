@@ -28,7 +28,7 @@ async function signToken(capabilities: string[], tenantId = "tenant-1") {
 
 /** In-memory PackagesDal over the real authored catalog + resolver. */
 function createStatefulDal(): PackagesDal {
-  const catalog = DEFAULT_ENTITLEMENT_PACKAGES;
+  const catalog = DEFAULT_ENTITLEMENT_PACKAGES.map((pkg) => ({ ...pkg }));
   const assignment = new Map<string, string | null>();
   const overrideByTenant = new Map<string, EntitlementOverride>();
   const findPkg = (id: string | null) =>
@@ -66,6 +66,20 @@ function createStatefulDal(): PackagesDal {
         overrideByTenant.get(tenantId) ?? null
       ),
     }),
+    updatePackage: async (id, patch) => {
+      const idx = catalog.findIndex((p) => p.id === id);
+      if (idx < 0) {
+        return null;
+      }
+      const existing = catalog[idx];
+      const next = {
+        ...existing,
+        ...patch,
+        version: existing.version + 1,
+      };
+      catalog[idx] = next;
+      return next;
+    },
   };
 }
 
@@ -193,6 +207,52 @@ describe("entitlements routes", () => {
         body: JSON.stringify({ appLimits: { enforcement_mode: "bogus" } }),
       }
     );
+    expect(res.status).toBe(400);
+  });
+
+  it("updates a package AI policy and bumps version", async () => {
+    const app = createApp();
+    const token = await signToken(["core.superadmin"]);
+
+    const before = await app.request("/api/superadmin/packages/team", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const beforeBody = (await before.json()) as {
+      data: {
+        version: number;
+        aiUsagePolicy: { allowed_efforts: string[] | null };
+      };
+    };
+
+    const res = await app.request("/api/superadmin/packages/team", {
+      method: "PATCH",
+      headers: jsonHeaders(token),
+      body: JSON.stringify({
+        aiUsagePolicy: {
+          ...beforeBody.data.aiUsagePolicy,
+          allowed_efforts: ["low"],
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: {
+        version: number;
+        aiUsagePolicy: { allowed_efforts: string[] | null };
+      };
+    };
+    expect(body.data.version).toBe(beforeBody.data.version + 1);
+    expect(body.data.aiUsagePolicy.allowed_efforts).toEqual(["low"]);
+  });
+
+  it("rejects an empty package patch with 400", async () => {
+    const app = createApp();
+    const token = await signToken(["core.superadmin"]);
+    const res = await app.request("/api/superadmin/packages/team", {
+      method: "PATCH",
+      headers: jsonHeaders(token),
+      body: JSON.stringify({}),
+    });
     expect(res.status).toBe(400);
   });
 });

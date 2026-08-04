@@ -1,12 +1,19 @@
 "use client";
 
 import { useCopilotShellOrNull } from "@engenty/app-shell";
-import { Button, Switch } from "@engenty/ui-core";
+import {
+  Button,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@engenty/ui-core";
 import { MessageSquare, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { AiAgentEntry } from "../../lib/admin/ai-runtime-api";
 import { usePatchAiAgentChatPrefsMutation } from "../../lib/admin/ai-runtime-queries";
+import { isAlwaysActiveAgent } from "../agents-catalog/agents-catalog-state";
 
 function triggerRowClass() {
   return "flex items-center gap-3 py-3";
@@ -55,12 +62,16 @@ export function AgentChatTriggersCard({
 
   const triggers = agent.chat_triggers;
   const isCustom = agent.agent_origin === "custom";
+  const alwaysActive = isAlwaysActiveAgent(agent);
 
   const persist = useCallback(
     async (patch: {
       include_in_chat_picker?: boolean;
       is_active?: boolean;
     }) => {
+      if (alwaysActive && patch.is_active === false) {
+        return;
+      }
       setErrorMessage(null);
       try {
         await patchMutation.mutateAsync({ agentId: agent.id, patch });
@@ -68,7 +79,7 @@ export function AgentChatTriggersCard({
         setErrorMessage(t("agents.chatTriggers.saveFailed"));
       }
     },
-    [agent.id, patchMutation, t]
+    [agent.id, alwaysActive, patchMutation, t]
   );
 
   const onRunAgent = useCallback(() => {
@@ -129,15 +140,32 @@ export function AgentChatTriggersCard({
             <p className="font-medium text-foreground text-sm">
               {t("agents.chatTriggers.active")}
             </p>
-            <p className="text-muted-foreground text-xs">
-              {t("agents.chatTriggers.activeHint")}
-            </p>
+            {alwaysActive ? null : (
+              <p className="text-muted-foreground text-xs">
+                {t("agents.chatTriggers.activeHint")}
+              </p>
+            )}
           </div>
-          <Switch
-            checked={triggers.is_active}
-            disabled={patchMutation.isPending}
-            onCheckedChange={(checked) => void persist({ is_active: checked })}
-          />
+          {alwaysActive ? (
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-default">
+                  <Switch checked disabled />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-balance">
+                {t("agents.chatTriggers.alwaysActiveHint")}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Switch
+              checked={triggers.is_active}
+              disabled={patchMutation.isPending}
+              onCheckedChange={(checked) =>
+                void persist({ is_active: checked })
+              }
+            />
+          )}
         </div>
       )}
 

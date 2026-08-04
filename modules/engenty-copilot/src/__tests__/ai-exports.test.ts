@@ -8,6 +8,7 @@ import {
 import {
   ENGENTY_CATALOG_TOOL_IDS,
   ENGENTY_COPILOT_AGENT_ID,
+  ENGENTY_COPILOT_MANAGED_SKILLS,
   ENGENTY_COPILOT_TOOL_IDS,
   ENGENTY_INSTRUCTIONS,
   ENGENTY_VAULT_TOOL_IDS,
@@ -59,13 +60,28 @@ describe("@engenty/engenty-copilot AI exports", () => {
   it("advertises the real Files module route (mounted under the admin shell)", () => {
     // The Files module registers its routes/menu at /admin/files (see
     // modules/files/ui/plugin.ts), not the generic /mdl/<name> pattern.
-    expect(ENGENTY_INSTRUCTIONS).toContain("/admin/files");
-    expect(ENGENTY_INSTRUCTIONS).not.toContain("/mdl/files");
+    // Lives in the artifacts-and-downloads skill (loaded on demand).
+    const skill = ENGENTY_COPILOT_MANAGED_SKILLS["artifacts-and-downloads"];
+    expect(skill).toContain("/admin/files");
+    expect(skill).not.toContain("/mdl/files");
   });
 
   it("instructs the copilot to persist durable user facts via updateWorkingMemory", () => {
     expect(ENGENTY_INSTRUCTIONS).toContain("updateWorkingMemory");
     expect(ENGENTY_INSTRUCTIONS).toContain("preferred_language");
+  });
+
+  it("registers builtin playbook skills for records and artifacts", () => {
+    expect(Object.keys(ENGENTY_COPILOT_MANAGED_SKILLS).sort()).toEqual([
+      "artifacts-and-downloads",
+      "inspect-ui-dom",
+      "sandbox-code-execution",
+      "show-records",
+    ]);
+  });
+
+  it("keeps AGENTS.md free of personal-data examples", () => {
+    expect(ENGENTY_INSTRUCTIONS).not.toMatch(/@[\w.-]+\.\w+/);
   });
 });
 

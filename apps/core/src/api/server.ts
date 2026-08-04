@@ -312,6 +312,14 @@ export function createApiApp(params: CreateApiAppParams) {
       config: params.config ?? {},
       dataDir: params.dataDir,
     });
+  // The in-process gate (module → module operation calls through the plugin
+  // runtime API) evaluates the same policy as the HTTP transports; it needs
+  // the same two services, which only exist here. Before this call it runs
+  // without them: grants cannot open the gate, decisions are not audited.
+  params.registry.setPolicyDeps?.({
+    approvalService,
+    auditLog: securityAuditLog,
+  });
   app.onError((err, c) => {
     const reqLog = c.get("evlog");
     if (reqLog) {

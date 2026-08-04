@@ -172,10 +172,10 @@ export function AgentDetailPage() {
                 {detail.selectedAgent.is_synthetic ? (
                   <Badge variant="outline">{t("agents.syntheticAgent")}</Badge>
                 ) : null}
-                {/* Active toggle only for the copilot (workforce plan R1) */}
                 {affordances.showChatActiveToggle ? (
                   <AgentRegistryChatActiveToggle
                     agent={detail.selectedAgent}
+                    locked={affordances.chatActiveLocked}
                     t={t}
                   />
                 ) : null}

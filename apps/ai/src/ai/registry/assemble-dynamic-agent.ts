@@ -4,6 +4,10 @@ import {
   type ModelAllowList,
   renderedToolsOf,
 } from "@engenty/ai-core";
+import {
+  buildEngentyCopilotInstructions,
+  ENGENTY_COPILOT_AGENT_ID,
+} from "@engenty/engenty-copilot/ai";
 import { Agent, type SubAgent } from "@mastra/core/agent";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Mastra } from "@mastra/core/mastra";
@@ -43,6 +47,17 @@ export interface AssembleDynamicAgentOptions {
    * name and which suspend the run). They override config tools on name clash.
    */
   extraTools?: Record<string, MastraToolDefinition>;
+  /**
+   * Persisted instruction overrides: replace AGENTS.md / SOUL.md / SKILLS.md
+   * bodies and/or append tenant/user-authored instruction files after the base
+   * prompt.
+   */
+  instructionExtras?: {
+    agentsOverrideBody?: string | null;
+    appendBodies?: string[];
+    skillsOverrideBody?: string | null;
+    soulOverrideBody?: string | null;
+  };
   mastra?: Mastra;
   memory?: MastraMemory;
   modelConfig?: RuntimeModelConfig;
@@ -174,9 +189,14 @@ async function assembleDynamicAgentWithAncestors(
   // skill names*: the agent loads their SKILL.md on demand via the Mastra
   // Workspace `skill`/`skill_search` tools (file-storage discovery). We only
   // surface a short hint so the model knows which skills to reach for.
-  const instructions = attachCodeMode
-    ? `${buildAgentInstructions(config)}\n\n${engentyCodeModeInstructions}`
-    : buildAgentInstructions(config);
+  const extras = options.instructionExtras;
+  let instructions = buildAgentInstructions(config, extras);
+  if (extras?.appendBodies?.length) {
+    instructions = [instructions, ...extras.appendBodies].join("\n\n");
+  }
+  if (attachCodeMode) {
+    instructions = `${instructions}\n\n${engentyCodeModeInstructions}`;
+  }
 
   // Mastra guardrail processors (prompt-injection / moderation / PII /
   // system-prompt scrubber / batch parts) — opt-in per agent via
@@ -293,8 +313,31 @@ function isGatewayModelId(modelId: string): boolean {
   return modelId.includes("/") && !modelId.startsWith("vercel/");
 }
 
-export function buildAgentInstructions(config: AgentConfig): string {
-  const parts = [config.instructions];
+export function buildAgentInstructions(
+  config: AgentConfig,
+  extras?: {
+    agentsOverrideBody?: string | null;
+    skillsOverrideBody?: string | null;
+    soulOverrideBody?: string | null;
+  } | null
+): string {
+  // engenty.copilot: per-file overrides replace only that layer; SOUL / SKILLS /
+  // runtime context stay from the layered builder. Other agents still treat an
+  // AGENTS override as a full instructions replacement.
+  let baseInstructions = config.instructions;
+  if (config.id === ENGENTY_COPILOT_AGENT_ID) {
+    baseInstructions = buildEngentyCopilotInstructions({
+      agents: extras?.agentsOverrideBody,
+      skills: extras?.skillsOverrideBody,
+      soul: extras?.soulOverrideBody,
+    });
+  } else if (
+    extras?.agentsOverrideBody &&
+    extras.agentsOverrideBody.trim().length > 0
+  ) {
+    baseInstructions = extras.agentsOverrideBody;
+  }
+  const parts = [baseInstructions];
   const preferred = config.skillIds.filter((name) => name.trim().length > 0);
   if (preferred.length > 0) {
     parts.push(

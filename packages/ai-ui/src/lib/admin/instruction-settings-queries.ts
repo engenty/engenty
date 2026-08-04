@@ -5,10 +5,12 @@ import {
   useQueryClient,
 } from "@engenty/query-client";
 import {
+  createAiInstruction,
   getAiInstructionHistory,
   getAiInstructionResolution,
   getAiInstructionsCatalog,
   type InstructionEditScope,
+  resetAiInstruction,
   rollbackAiInstruction,
   updateAiInstruction,
 } from "./instruction-settings-api";
@@ -95,10 +97,48 @@ export function useUpdateAiInstructionMutation() {
   });
 }
 
+export function useCreateAiInstructionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createAiInstruction,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: aiInstructionKeys.catalog(),
+      });
+    },
+  });
+}
+
 export function useRollbackAiInstructionMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: rollbackAiInstruction,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: aiInstructionKeys.catalog(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: aiInstructionKeys.resolution(
+            variables.documentKey,
+            variables.scope
+          ),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: aiInstructionKeys.history(
+            variables.documentKey,
+            variables.scope
+          ),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useResetAiInstructionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resetAiInstruction,
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({

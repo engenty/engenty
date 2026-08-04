@@ -1,5 +1,7 @@
 // biome-ignore lint/performance/noBarrelFile: Public package entrypoint.
 export {
+  buildEngentyCopilotInstructions,
+  buildEngentyCopilotRuntimeContextSection,
   createEngentyCopilotAgent,
   createEngentyCopilotAgentTools,
   ENGENTY_CATALOG_TOOL_IDS,

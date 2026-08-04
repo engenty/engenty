@@ -40,6 +40,10 @@ import { assertStrictToolId, RoleProfileRegistry } from "@engenty/plugin-sdk";
 import { createQueueService } from "@engenty/queue";
 import type { RetrievalServiceWithProviders } from "@engenty/retrieval";
 import type { SearchIndexRegistry } from "@engenty/search-index";
+import {
+  enforceInProcessPolicy,
+  type InProcessPolicyDeps,
+} from "../security/in-process-gate.js";
 import type { PluginManifestCapabilityFlags, PluginTier } from "./manifest.js";
 
 /**
@@ -249,8 +253,8 @@ export interface PluginRegistry {
   featureFlags: FeatureFlagDefinition[];
   /**
    * Core host gateway methods (pluginId "core"), registered directly by
-   * `register-methods.ts` and dispatched by `method-invoker.ts` /
-   * `gateway-routes.ts`. Not part of the plugin-authoring surface.
+   * `register-methods.ts` and dispatched by `gateway-routes.ts` (HTTP) or the
+   * gated in-process caller. Not part of the plugin-authoring surface.
    */
   gatewayMethods: Array<{
     pluginId: string;
@@ -369,6 +373,12 @@ export interface PluginRegistry {
     sourceInfo?: PluginSourceInfo;
     pluginConfig: Record<string, unknown>;
   }>;
+  /**
+   * Bind the approval service + audit log the in-process gate consults
+   * (see security/in-process-gate.ts). Called once by createApiApp, after
+   * those services exist. The gate runs with or without them.
+   */
+  setPolicyDeps?: (deps: InProcessPolicyDeps) => void;
   testDataTypes: Array<{
     pluginId: string;
     registration: PluginTestDataRegistration;
@@ -424,6 +434,8 @@ export interface CreateRegistryParams {
     error: (msg: string) => void;
     debug: (msg: string) => void;
   };
+  /** Initial in-process gate deps; normally bound later via setPolicyDeps. */
+  policyDeps?: InProcessPolicyDeps;
   resolvePath: (p: string) => string;
 }
 
@@ -715,6 +727,15 @@ export function createPluginRegistry(params: CreateRegistryParams): {
   };
   registry.removeOwnedRegistrations = (pluginId) =>
     removeOwnedRegistrations(registry, pluginId, { logger: params.logger });
+
+  // The approval service and the audit log do not exist yet when the registry
+  // is built (createApiApp constructs them and calls setPolicyDeps). Until
+  // then the in-process gate runs with neither: grants cannot open it and
+  // decisions are not audited — strictly tighter, never looser.
+  let policyDeps: InProcessPolicyDeps | undefined = params.policyDeps;
+  registry.setPolicyDeps = (deps) => {
+    policyDeps = deps;
+  };
 
   const pushDiagnostic = (diag: PluginDiagnostic) => {
     registry.diagnostics.push(diag);
@@ -1173,6 +1194,19 @@ export function createPluginRegistry(params: CreateRegistryParams): {
           });
           return null;
         }
+        await enforceInProcessPolicy(
+          {
+            auth: options?.auth,
+            input,
+            moduleId: moduleOp.operation.moduleId,
+            operationId: moduleOp.operationId,
+            requiredCapabilities: moduleOp.operation.requiredCapabilities,
+            requiresApproval: moduleOp.operation.requiresApproval,
+            riskLevel: moduleOp.operation.riskLevel,
+          },
+          registry,
+          policyDeps
+        );
         const result = await moduleOp.handler(input, {
           config: params.config,
           pluginConfig: moduleOp.pluginConfig,
@@ -1199,6 +1233,23 @@ export function createPluginRegistry(params: CreateRegistryParams): {
         });
         return null;
       }
+      // Core host methods that carry no operation metadata. They get the same
+      // gate — the capability is inferred from the method name exactly as
+      // evaluatePolicyRules already does for an operation that declares none.
+      const meta = found.method.operation;
+      await enforceInProcessPolicy(
+        {
+          auth: options?.auth,
+          input,
+          moduleId: meta?.moduleId ?? "core",
+          operationId: meta?.operationId ?? found.method.name,
+          requiredCapabilities: meta?.requiredCapabilities ?? [],
+          requiresApproval: meta?.requiresApproval ?? false,
+          riskLevel: meta?.riskLevel ?? "medium",
+        },
+        registry,
+        policyDeps
+      );
       const result = await found.method.handler(input, {
         config: params.config,
         pluginConfig: found.pluginConfig,

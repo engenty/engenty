@@ -4,6 +4,7 @@ import {
 } from "@engenty/ai-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { InProcessPolicyError } from "../security/in-process-gate.js";
 import { createGatedQueueHandlers } from "./queue-handler-gating.js";
 import { createPluginRegistry, type PluginRecord } from "./registry.js";
 import {
@@ -804,18 +805,72 @@ describe("createPluginRegistry", () => {
     expect(invoicesApi.server.hasOperation("contacts_get")).toBe(true);
     expect(invoicesApi.server.hasOperation("contacts_nonexistent")).toBe(false);
 
-    const found = await invoicesApi.server.callGatewayMethod("contacts_get", {
-      id: "c1",
-    });
+    const auth = {
+      tenantId: "t1",
+      scopeId: "default",
+      principalId: "u1",
+      capabilities: ["module.write"],
+    };
+    const found = await invoicesApi.server.callGatewayMethod(
+      "contacts_get",
+      { id: "c1" },
+      { auth }
+    );
     expect(found).toEqual({ id: "c1", display_name: "Acme" });
 
     const missing = await invoicesApi.server.callGatewayMethod(
       "contacts_nonexistent",
       {
         id: "c1",
-      }
+      },
+      { auth }
     );
     expect(missing).toBeNull();
+  });
+
+  it("denies an in-process module operation call with no auth context", async () => {
+    const { registry, createApi } = createPluginRegistry({
+      config: {},
+      dataDir: "/tmp",
+      resolvePath: (p) => p,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+    });
+
+    const contactsRecord = createRecord("contacts");
+    registry.plugins.push(contactsRecord);
+    let called = 0;
+    createApi(contactsRecord, {}).server.registerOperation({
+      operationId: "contacts_get",
+      moduleId: "contacts",
+      requiredCapabilities: ["module.contacts.read"],
+      handler: async () => {
+        called += 1;
+        return { id: "c1" };
+      },
+    });
+
+    const invoicesRecord = createRecord("invoices");
+    registry.plugins.push(invoicesRecord);
+    const invoicesApi = createApi(invoicesRecord, {});
+
+    await expect(
+      invoicesApi.server.callGatewayMethod("contacts_get", { id: "c1" })
+    ).rejects.toThrow(InProcessPolicyError);
+    expect(called).toBe(0);
+
+    await expect(
+      invoicesApi.server.callGatewayMethod(
+        "contacts_get",
+        { id: "c1" },
+        { auth: { tenantId: "t1", scopeId: "default", principalId: "u1" } }
+      )
+    ).rejects.toThrow(/missing capability: module.contacts.read/);
+    expect(called).toBe(0);
   });
 
   it("skips stale-generation module operations and records diagnostics", async () => {

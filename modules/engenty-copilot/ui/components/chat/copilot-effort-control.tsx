@@ -4,6 +4,7 @@ import {
   useAgentHost,
   useAgentHostConfig,
   useDeveloperModeEnabled,
+  useEffortModelBindings,
   useEngentyAIContext,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -21,13 +22,16 @@ import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
  * model" to everyone reintroduces exactly the decision this control exists to
  * take away: three hundred ids in front of someone who wanted to ask a
  * question. Developer mode is already the line the product draws around
- * plumbing that is useful to see and unhelpful to be shown.
+ * plumbing that is useful to see and unhelpful to be shown. In that same mode
+ * the bound model for each tier is shown under the label — still not a picker,
+ * just the answer to "what does medium run?"
  */
 export function CopilotEffortControl(props: { disabled?: boolean }) {
   const { t } = useTranslation("engenty-copilot");
   const ai = useEngentyAIContext();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
   const developerMode = useDeveloperModeEnabled();
+  const modelByEffort = useEffortModelBindings(developerMode);
   const {
     allowedEfforts,
     effort,
@@ -71,6 +75,7 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
             </DropdownMenuCheckboxItem>
           ) : null
         }
+        {...(developerMode ? { modelByEffort } : {})}
         onChange={setEffort}
         value={effort}
       />

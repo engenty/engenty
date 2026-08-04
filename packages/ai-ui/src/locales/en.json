@@ -296,6 +296,7 @@
       "includeInPickerHint": "Show this agent in the chat agent dropdown.",
       "active": "Active",
       "activeHint": "Disable to hide this agent for your tenant without removing it from the product.",
+      "alwaysActiveHint": "Platform Engenty agents stay active and cannot be deactivated.",
       "saveFailed": "Could not save trigger settings."
     },
     "inputSchema": "Input schema",
@@ -575,6 +576,7 @@
     "requiresBinding": "Needs a run",
     "save": "Save",
     "selectFile": "Select a file to view or edit.",
+    "resizeTree": "Resize file tree",
     "unavailable": "Unavailable",
     "vector": "Vector search"
   },
@@ -1026,7 +1028,7 @@
     "addVersion": "Add version",
     "reasonLabel": "Reason",
     "reasonPlaceholder": "Optional note for this change",
-    "overlayHint": "Edits create overrides on top of the seeded base file instead of mutating the seed record.",
+    "overlayHint": "Edits create overrides on top of the seeded base file. Reset clears overrides and restores the seed file.",
     "editorLabel": "Markdown body",
     "editorPlaceholder": "Write markdown instructions for this file…",
     "modeWysiwyg": "WYSIWYG",
@@ -1046,6 +1048,14 @@
     "noHistory": "No history available for this scope yet.",
     "saveFailed": "Saving the instruction failed.",
     "rollbackFailed": "Rolling back the instruction failed.",
+    "resetFailed": "Resetting the instruction to base failed.",
+    "newFileTitle": "New instruction file",
+    "newFileHint": "Creates an extra instruction file appended after AGENTS.md when the agent runs.",
+    "newFileName": "Name",
+    "newFilePlaceholder": "house-rules",
+    "newFileCreate": "Create",
+    "newFileFailed": "Creating the instruction file failed.",
+    "fileExists": "An instruction file with that name already exists.",
     "blockMenu": {
       "searchPlaceholder": "Search actions…",
       "transformInto": "Turn into",
@@ -1189,7 +1199,7 @@
       "chatSurfaces": "Chat surfaces",
       "custom": "Custom",
       "external": "External",
-      "leadership": "Copilot",
+      "leadership": "Engenty",
       "specialists": "Specialists"
     },
     "newAgent": "New agent",
@@ -1261,7 +1271,7 @@
     },
     "workforce": {
       "title": "Agents",
-      "leadership": "Copilot",
+      "leadership": "Engenty",
       "specialists": "Specialists",
       "chatSurfaces": "Chat surfaces",
       "external": "External",

@@ -13,10 +13,8 @@ export function AgentDetailWorkspaceTab({
   workspace,
 }: AgentDetailWorkspaceTabProps) {
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto">
-      <div className="mx-auto w-full max-w-none space-y-6 p-page">
-        <AgentWorkspaceTab t={t} workspace={workspace} />
-      </div>
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-page pt-2 pb-2">
+      <AgentWorkspaceTab t={t} workspace={workspace} />
     </div>
   );
 }

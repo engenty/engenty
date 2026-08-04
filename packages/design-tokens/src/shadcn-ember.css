@@ -94,7 +94,8 @@
 .dark {
   --background: var(--canvas);
   --foreground: var(--ink);
-  --card: var(--card);
+  /* Raised surface above canvas — never `var(--card)` (self-cycle → transparent). */
+  --card: var(--paper-2);
   --card-foreground: var(--ink);
   --popover: color-mix(in oklch, var(--card) 90%, transparent);
   --popover-foreground: var(--ink);

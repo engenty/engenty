@@ -13,6 +13,13 @@ export const aiAgentManifestSchema = z.object({
   $schema: z.literal("engenty/ai-agent-manifest/v1"),
   description: z.string(),
   id: z.string(),
+  /**
+   * Sibling markdown files in the agent directory that appear in the
+   * Instructions sidebar (e.g. `AGENTS.md`, `SOUL.md`, `SKILLS.md`).
+   * Document keys are derived as `${id}.${basename}` → `engenty.copilot.soul`.
+   * Default: `["AGENTS.md"]` when omitted.
+   */
+  instruction_files: z.array(z.string().min(1)).optional().default([]),
   instruction_keys: z.array(z.string()).optional().default([]),
   module_id: z.string(),
   name: z.string(),

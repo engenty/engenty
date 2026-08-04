@@ -47,11 +47,28 @@ export function pickCatalogDocuments(documents: AiInstructionDocument[]) {
       byKey.set(document.document_key, document);
     }
   }
-  return Array.from(byKey.values()).toSorted((left, right) =>
-    `${left.owner_id}:${left.filename}`.localeCompare(
+  return Array.from(byKey.values()).toSorted((left, right) => {
+    const rank = (filename: string) => {
+      const upper = filename.toUpperCase();
+      if (upper === "AGENTS.MD") {
+        return 0;
+      }
+      if (upper === "SOUL.MD") {
+        return 1;
+      }
+      if (upper === "SKILLS.MD") {
+        return 2;
+      }
+      return 3;
+    };
+    const byRank = rank(left.filename) - rank(right.filename);
+    if (byRank !== 0) {
+      return byRank;
+    }
+    return `${left.owner_id}:${left.filename}`.localeCompare(
       `${right.owner_id}:${right.filename}`
-    )
-  );
+    );
+  });
 }
 
 export function groupInstructionDocuments(documents: AiInstructionDocument[]) {

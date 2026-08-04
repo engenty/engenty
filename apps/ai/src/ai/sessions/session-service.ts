@@ -306,6 +306,14 @@ export function createSessionService(opts: SessionServiceOptions) {
       ...(taskWorkspace ? { workspace: taskWorkspace } : {}),
       ...(subAgentWorkspaces ? { subAgentWorkspaces } : {}),
     };
+    const { resolveAgentInstructionExtras } = await import(
+      "../instructions/resolve-agent-instruction-extras.js"
+    );
+    const instructionExtras = await resolveAgentInstructionExtras({
+      agentId: session.agent_id,
+      tenantId: input.scope.tenantId,
+      userId: input.scope.userId,
+    });
     const memoryRuntime = createEngentySessionMemoryRuntime({
       agentId: session.agent_id,
       scope: input.scope,
@@ -315,7 +323,11 @@ export function createSessionService(opts: SessionServiceOptions) {
     const agent = await (opts.assembleDynamicAgent ?? assembleDynamicAgent)(
       registry,
       session.agent_id,
-      { ...assembleOptions, memory: memoryRuntime.memory }
+      {
+        ...assembleOptions,
+        instructionExtras,
+        memory: memoryRuntime.memory,
+      }
     );
     await assertEngentyNativeMastraMemoryConfigured(agent, {
       agent_id: session.agent_id,

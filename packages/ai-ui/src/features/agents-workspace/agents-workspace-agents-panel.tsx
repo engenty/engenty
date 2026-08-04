@@ -226,8 +226,12 @@ export function AgentsWorkspaceAgentsPanel({
                 </SidebarNavSectionLabel>
                 <SidebarNavList>
                   {pinnedVisible.map((agent) => (
-                    <SidebarMenuItem key={agent.id}>
+                    <SidebarMenuItem
+                      className="group/menu-item flex items-center gap-0.5"
+                      key={agent.id}
+                    >
                       <SidebarMenuButton
+                        className="min-w-0 flex-1"
                         isActive={
                           !isLandingPage && agent.id === selectedAgentId
                         }
@@ -237,18 +241,21 @@ export function AgentsWorkspaceAgentsPanel({
                         <span className="min-w-0 flex-1 truncate">
                           {agent.name}
                         </span>
-                        <button
-                          aria-label={t("workspace.sidebarUnpinAgentAria")}
-                          className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/menu-item:opacity-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            unpinAgent(agent.id);
-                          }}
-                          type="button"
-                        >
-                          <PinOff aria-hidden className="size-3.5" />
-                        </button>
                       </SidebarMenuButton>
+                      <Button
+                        aria-label={t("workspace.sidebarUnpinAgentAria")}
+                        className="size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          unpinAgent(agent.id);
+                        }}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <PinOff aria-hidden className="size-3.5" />
+                      </Button>
                     </SidebarMenuItem>
                   ))}
                 </SidebarNavList>
@@ -260,8 +267,12 @@ export function AgentsWorkspaceAgentsPanel({
             </SidebarNavSectionLabel>
             <SidebarNavList>
               {unpinnedFiltered.map((agent) => (
-                <SidebarMenuItem key={agent.id}>
+                <SidebarMenuItem
+                  className="group/menu-item flex items-center gap-0.5"
+                  key={agent.id}
+                >
                   <SidebarMenuButton
+                    className="min-w-0 flex-1"
                     isActive={!isLandingPage && agent.id === selectedAgentId}
                     onClick={() => runNav(() => onSelectAgent(agent.id))}
                   >
@@ -269,18 +280,21 @@ export function AgentsWorkspaceAgentsPanel({
                     <span className="min-w-0 flex-1 truncate">
                       {agent.name}
                     </span>
-                    <button
-                      aria-label={t("workspace.sidebarPinAgentAria")}
-                      className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/menu-item:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        pinAgent(agent.id);
-                      }}
-                      type="button"
-                    >
-                      <Pin aria-hidden className="size-3.5" />
-                    </button>
                   </SidebarMenuButton>
+                  <Button
+                    aria-label={t("workspace.sidebarPinAgentAria")}
+                    className="size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      pinAgent(agent.id);
+                    }}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Pin aria-hidden className="size-3.5" />
+                  </Button>
                 </SidebarMenuItem>
               ))}
               {agents.length === 0 ? (
