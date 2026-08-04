@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.99] - 2026-08-04
+- ADDED **[frontend-tools]** Implement frontend tool suspend lock management
+
 ## [0.1.98] - 2026-08-04
 - ADDED **[dependencies]** Add '@engenty/app-shell' to multiple package configurations
 - ADDED **[agents-catalog]** Implement agent reset functionality and enhance filtering

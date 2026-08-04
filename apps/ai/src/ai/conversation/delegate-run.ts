@@ -18,6 +18,7 @@ import {
   type FieldSuggestion,
   fieldSuggestionsToolOutputToCreatedValue,
 } from "@engenty/ai-core";
+import type { Mastra } from "@mastra/core/mastra";
 import {
   MASTRA_AUTH_TOKEN_KEY,
   RequestContext,
@@ -70,6 +71,8 @@ export interface RunDelegatedConversationInput {
   childThreadId: string;
   // Per-run tools merged into the leaf agent (task-job workspace file tools).
   extraTools?: Record<string, MastraToolDefinition>;
+  /** Singleton Mastra — same wiring as the root conversation executor. */
+  mastra?: Mastra;
   modelConfig?: RuntimeModelConfig | null;
   // When set, publish + persist this run's AG-UI events keyed by `childRunId` so
   // the run streams live AND replays on reattach (GET /v1/runs/:id/stream). Used
@@ -307,6 +310,7 @@ export async function runDelegatedConversation(
               ? { allowedToolIds: input.allowedToolIds }
               : {}),
             ...(input.extraTools ? { extraTools: input.extraTools } : {}),
+            ...(input.mastra ? { mastra: input.mastra } : {}),
             ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
             ...(input.workspace ? { workspace: input.workspace } : {}),
           }

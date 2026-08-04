@@ -120,12 +120,14 @@ export interface AiServiceOptions {
 }
 
 export interface AiService {
+  mastra: Mastra;
   sessions: SessionService;
   streamPing: () => ReturnType<typeof streamText>;
 }
 
 export function createAiService(opts: AiServiceOptions): AiService {
   return {
+    mastra: opts.mastra,
     sessions: createSessionService({
       ...opts,
       getRunStore: opts.getRunStore ?? (() => null),

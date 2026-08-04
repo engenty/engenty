@@ -757,6 +757,7 @@ export function registerAgentSessionRunRoutes(
           hsApprovalGrants,
           hsConnectionGrants
         ),
+        mastra: opts.aiService.mastra,
         modelConfig: hsModelConfig?.modelConfig ?? null,
         modelId: hsModelConfig?.modelId ?? modelIdOverride,
         prompt: hsPrompt,

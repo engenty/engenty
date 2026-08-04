@@ -3,6 +3,11 @@ import type { PublicSchema } from "@mastra/core/schema";
 import { createTool } from "@mastra/core/tools";
 import { jsonSchema } from "ai";
 import { z } from "zod";
+import { getEngentyToolsRunContext } from "../tools/engenty-tools/lib/run-context.js";
+import {
+  acquireFrontendToolSuspendSlot,
+  releaseFrontendToolSuspendSlot,
+} from "./frontend-tool-suspend-lock.js";
 
 // AG-UI-native frontend tools: the LLM calls these by name with their real JSON
 // schema (no invoke_frontend_tool meta-tool). The server does NOT execute them —
@@ -25,6 +30,16 @@ const frontendToolResumeSchema = z.object({
 
 export type FrontendToolResumeData = z.infer<typeof frontendToolResumeSchema>;
 
+function frontendToolSuspendLockKey(): string {
+  const ctx = getEngentyToolsRunContext();
+  return (
+    ctx.orchestratorThreadId?.trim() ||
+    ctx.userFacingThreadId?.trim() ||
+    ctx.runId?.trim() ||
+    "__untagged__"
+  );
+}
+
 /**
  * Builds a native Mastra tool from an AG-UI frontend-tool definition. The tool
  * suspends on first call (browser executes), and returns the browser-provided
@@ -45,7 +60,12 @@ export function createNativeFrontendTool(definition: FrontendToolDefinition) {
     resumeSchema: frontendToolResumeSchema,
     execute: async (inputData, ctx) => {
       const resume = ctx.agent?.resumeData;
+      const lockKey = frontendToolSuspendLockKey();
       if (resume) {
+        // Resume re-enters execute with resumeData; the original await suspend()
+        // never continues. Force-release the suspending call's slot so the next
+        // parallel frontend tool (if any) can suspend.
+        releaseFrontendToolSuspendSlot(lockKey);
         if (resume.rejected) {
           throw new Error(
             `User rejected the frontend tool: ${definition.name}`
@@ -56,12 +76,21 @@ export function createNativeFrontendTool(definition: FrontendToolDefinition) {
         }
         return (resume.output ?? { ok: true }) as never;
       }
-      await ctx.agent?.suspend({
-        input: inputData,
-        tool_name: definition.name,
-      });
-      // Unreachable once resumed (execute re-runs with resumeData set), but Mastra
-      // requires a value/void return on the suspend path.
+      const ticket = await acquireFrontendToolSuspendSlot(lockKey);
+      try {
+        await ctx.agent?.suspend({
+          input: inputData,
+          tool_name: definition.name,
+        });
+        // Unreachable once resumed (execute re-runs with resumeData set), but
+        // Mastra requires a value/void return on the suspend path. If suspend
+        // returns without re-entry, free only OUR ticket so a later resume's
+        // transfer to the next waiter is not stolen.
+        releaseFrontendToolSuspendSlot(lockKey, ticket);
+      } catch (error) {
+        releaseFrontendToolSuspendSlot(lockKey, ticket);
+        throw error;
+      }
       return undefined as never;
     },
   });

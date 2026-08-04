@@ -4,6 +4,18 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "c43f210",
+        "message": "implement frontend tool suspend lock management",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.98",
+    "timestamp": 1785879280,
+    "commits": [
+      {
         "id": "fce1832",
         "message": "add '@engenty/app-shell' to multiple package configurations",
         "group": "Added",

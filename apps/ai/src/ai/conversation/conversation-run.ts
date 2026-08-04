@@ -11,6 +11,7 @@
 // EngentySessionMemoryStorage.
 import type { AGUIEvent, RunAgentInput } from "@engenty/ag-ui-bridge";
 import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
+import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
@@ -119,6 +120,13 @@ export interface StartConversationRunInput {
     filename?: string;
     mediaType: string;
   }>;
+  /**
+   * Singleton Mastra instance (Postgres workflow storage when configured).
+   * Must be attached to the assembled agent so frontend-tool suspend snapshots
+   * persist where `resumeStream()` can reload them — without it the agent falls
+   * back to an ephemeral in-memory Mastra and HITL resume can miss the snapshot.
+   */
+  mastra?: Mastra;
   modelConfig?: RuntimeModelConfig | null;
   modelId?: string | null;
   prompt: string;
@@ -233,6 +241,9 @@ export async function startConversationRun(
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
       instructionExtras,
+      // Same mastra singleton as session-service: suspend snapshots land in the
+      // shared workflows store so parked frontend-tool resumes can reload them.
+      ...(input.mastra ? { mastra: input.mastra } : {}),
       // Function agents render over this thread's agent_state snapshot
       // (PLAN-agent-hooks D5); data configs ignore the context.
       resolveContext: {
