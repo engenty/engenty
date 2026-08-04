@@ -1,4 +1,5 @@
 import {
+  capabilityCovers,
   createPluginServerGatewayCaller,
   type PluginAuthContext,
   type PluginServerApi,
@@ -224,6 +225,21 @@ export function registerTeamMembersApi(
       const { full_name: displayName } = resolveProfileNameForWrite(rest);
       let user_id: string | null = null;
       if (invite_email && invite_password?.trim()) {
+        // The nested core_users_create_in_tenant call runs through the
+        // in-process gateway caller, which skips the policy gate — so the
+        // capability that operation demands must be checked here, or
+        // module.team.write alone would mint user accounts.
+        if (
+          !capabilityCovers(ctx.auth?.capabilities ?? [], "core.users.manage")
+        ) {
+          return new Response(
+            JSON.stringify({
+              error:
+                "Creating a user account requires the core.users.manage capability.",
+            }),
+            { status: 403, headers: { "content-type": "application/json" } }
+          );
+        }
         if (!canCreateInvitedUserAccount(server)) {
           return new Response(
             JSON.stringify({

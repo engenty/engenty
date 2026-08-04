@@ -635,6 +635,15 @@ export function registerKbSourceApi(
   api.registerHttpRoute({
     method: "post",
     path: "/api/kb/sources/:id/ingest",
+    // Agentic ingest spawns a tasks_create (itself approval-gated) through the
+    // in-process gateway caller, so this edge must carry the gate the nested
+    // call would otherwise demand.
+    operation: {
+      moduleId: "knowledge-base",
+      requiredCapabilities: ["module.knowledge-base.write"],
+      riskLevel: "high",
+      requiresApproval: true,
+    },
     handler: async (ctx) => {
       const repos = getRepo(ctx.auth);
       const params = ctx.params as { id: string };

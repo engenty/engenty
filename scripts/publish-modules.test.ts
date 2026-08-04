@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — plain .mjs sibling, no type declarations.
 import {
+  isAlreadyPublished,
+  isSecondaryRateLimit,
   moduleTier,
   REGISTRY,
   transformModuleManifestForPublish,
@@ -98,5 +100,34 @@ describe("moduleTier", () => {
     expect(moduleTier("modules/tasks", closed)).toBe("open");
     // team-chat itself is open even though a nested provider is pro
     expect(moduleTier("modules/team-chat", closed)).toBe("open");
+  });
+});
+
+describe("publish failure classification", () => {
+  it("treats a GitHub Packages secondary rate limit as retryable", () => {
+    // The v0.1.95 failure: a 403 (not a 429) at package 26 of 33.
+    const output = `npm error code E403
+npm error 403 Forbidden - PUT https://npm.pkg.github.com/@engenty%2fprojects - Permission permission_denied: Error from intermediary with HTTP status code 403 "Forbidden" - with-body: {
+npm error 403   "message": "You have exceeded a secondary rate limit. Please wait a few minutes before you try again."`;
+    expect(isSecondaryRateLimit(output)).toBe(true);
+    expect(isAlreadyPublished(output)).toBe(false);
+  });
+
+  it("treats an already-published version as a skip, not a failure", () => {
+    const output =
+      "npm error code EPUBLISHCONFLICT\nnpm error You cannot publish over the previously published versions: 0.1.95.";
+    expect(isAlreadyPublished(output)).toBe(true);
+    expect(isSecondaryRateLimit(output)).toBe(false);
+  });
+
+  it("classifies an ordinary 401 as neither — it must stay fatal", () => {
+    const output = "npm error code E401\nnpm error 401 Unauthorized";
+    expect(isAlreadyPublished(output)).toBe(false);
+    expect(isSecondaryRateLimit(output)).toBe(false);
+  });
+
+  it("tolerates missing output", () => {
+    expect(isAlreadyPublished(undefined)).toBe(false);
+    expect(isSecondaryRateLimit(undefined)).toBe(false);
   });
 });

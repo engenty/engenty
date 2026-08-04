@@ -4,6 +4,36 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "1023eaa",
+        "message": "move in-process gateway gate plan to workspace root",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "a627f45",
+        "message": "module publish survives the GitHub Packages secondary rate limit",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "73ff167",
+        "message": "plan for gating the in-process gateway caller (audit uneven-enforcement row)",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "3957646",
+        "message": "close two in-process gateway-caller policy bypasses",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.95",
+    "timestamp": 1785852013,
+    "commits": [
+      {
         "id": "adcee5c",
         "message": "readers read the canonical line-item shape only",
         "group": "Changed",

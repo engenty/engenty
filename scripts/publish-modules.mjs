@@ -125,6 +125,63 @@ function parseArgs(argv) {
   return args;
 }
 
+/** GitHub Packages 403 "You have exceeded a secondary rate limit". */
+export function isSecondaryRateLimit(output) {
+  return /secondary rate limit/i.test(output ?? "");
+}
+
+/** npm's "this exact name@version is already on the registry" refusal. */
+export function isAlreadyPublished(output) {
+  const text = output ?? "";
+  return (
+    /EPUBLISHCONFLICT/.test(text) ||
+    /cannot publish over(?: the)? previously published version/i.test(text)
+  );
+}
+
+const RATE_LIMIT_RETRIES = 5;
+const RATE_LIMIT_BACKOFF_MS = [30_000, 60_000, 120_000, 240_000, 300_000];
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * One `npm publish`, made safe to re-run.
+ *
+ * Publishing ~33 packages back-to-back trips GitHub Packages' SECONDARY rate
+ * limit (a 403, not a 429) — that killed v0.1.95 at package 26 of 33, leaving
+ * the registry half-published with no way to finish: the script had no retry,
+ * and a plain re-run died on the first already-published package. So:
+ *   - a secondary-rate-limit 403 backs off and retries instead of failing;
+ *   - an already-published version is a SKIP, not an error, so re-running the
+ *     same version completes the tail rather than starting over.
+ * Anything else still throws — a real publish failure must stay loud.
+ */
+function npmPublish(cwd, args) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      execFileSync("npm", args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+      return "published";
+    } catch (error) {
+      const output = `${error.stdout ?? ""}${error.stderr ?? ""}`;
+      if (isAlreadyPublished(output)) {
+        return "skipped";
+      }
+      if (isSecondaryRateLimit(output) && attempt < RATE_LIMIT_RETRIES) {
+        const wait = RATE_LIMIT_BACKOFF_MS[attempt];
+        console.log(
+          `  secondary rate limit — waiting ${wait / 1000}s, retry ${attempt + 1}/${RATE_LIMIT_RETRIES}`
+        );
+        sleepSync(wait);
+        continue;
+      }
+      process.stderr.write(output);
+      throw error;
+    }
+  }
+}
+
 function publishModule(mod, { version, dryRun, tier }) {
   const pkgPath = path.join(mod.dir, "package.json");
   const original = fs.readFileSync(pkgPath, "utf-8");
@@ -142,20 +199,17 @@ function publishModule(mod, { version, dryRun, tier }) {
   // Stage the transformed manifest in place, then restore no matter what.
   try {
     fs.writeFileSync(pkgPath, `${JSON.stringify(transformed, null, 2)}\n`);
-    if (dryRun) {
-      execFileSync("npm", ["publish", "--dry-run", "--registry", REGISTRY], {
-        cwd: mod.dir,
-        stdio: "ignore",
-      });
-    } else {
-      execFileSync("npm", ["publish", "--registry", REGISTRY], {
-        cwd: mod.dir,
-        stdio: "inherit",
-      });
-    }
+    const args = dryRun
+      ? ["publish", "--dry-run", "--registry", REGISTRY]
+      : ["publish", "--registry", REGISTRY];
+    summary.outcome = npmPublish(mod.dir, args);
   } finally {
     fs.writeFileSync(pkgPath, original);
   }
+  // Print as we go: a run that dies partway must still say what landed.
+  console.log(
+    `${summary.outcome} [${tier}] ${transformed.name}@${transformed.version}`
+  );
   return summary;
 }
 
@@ -185,15 +239,14 @@ function main() {
     results.push(publishModule(mod, { version, dryRun, tier: mod.tier }));
   }
   const label = dryRun ? "staged (dry-run)" : "published";
-  for (const r of results) {
-    console.log(
-      `${label} [${r.tier}] @engenty/${r.slug}@${r.version}  deps=${r.deps} peers=${r.peers}`
-    );
-  }
+  const alreadyThere = results.filter((r) => r.outcome === "skipped").length;
   const proCount = results.filter((r) => r.tier === "pro").length;
   console.log(
     `\npublish-modules: ${label} ${results.length} module(s) ` +
       `(${results.length - proCount} open, ${proCount} pro)` +
+      (alreadyThere > 0
+        ? ` — ${alreadyThere} already on the registry at this version`
+        : "") +
       (skipped > 0 ? ` — skipped ${skipped} pro (pass --pro to include)` : "")
   );
 }

@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.96] - 2026-08-04
+- DOCS Move in-process gateway gate plan to workspace root
+- DOCS Plan for gating the in-process gateway caller (audit uneven-enforcement row)
+- FIXED **[release]** Module publish survives the GitHub Packages secondary rate limit
+- FIXED **[security]** Close two in-process gateway-caller policy bypasses
+
 ## [0.1.95] - 2026-08-04
 - ADDED **[ai]** One containment resolver — the visibility chain reaches every run
 - CHANGED **[commercial]** Readers read the canonical line-item shape only

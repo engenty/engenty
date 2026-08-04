@@ -283,7 +283,7 @@ describe("registerTeamMembersApi", () => {
       params: {},
       query: {},
       headers: {},
-      auth: defaultAuth,
+      auth: { ...defaultAuth, capabilities: ["core.users.manage"] },
     };
 
     const res = await createRoute.handler({
@@ -307,6 +307,53 @@ describe("registerTeamMembersApi", () => {
     const json = await (res as Response).json();
     expect(json).toHaveProperty("error");
     expect(String(json.error)).toContain("not available");
+  });
+
+  it("returns 403 when invite requested without core.users.manage capability", async () => {
+    const repo = makeMockTeamMemberRepo();
+    const { api, httpRoutes, defaultAuth } = makeMockApi({
+      hasOperation: (operationId) =>
+        operationId === "core_users_create_in_tenant",
+      invokeGateway: async () => ({ id: "should-not-be-reached" }),
+    });
+    registerTeamMembersApi(api, repo);
+
+    const createRoute = getRoute(httpRoutes, "post", "/api/team");
+    const res = await createRoute.handler({
+      request: new Request("http://localhost/api/team"),
+      hono: {},
+      config: {},
+      pluginConfig: {},
+      dataDir: "",
+      resolvePath: (p: string) => p,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+      params: {},
+      query: {},
+      headers: {},
+      auth: { ...defaultAuth, capabilities: ["module.team.write"] },
+      body: {
+        full_name: "Invited User",
+        member_type: "internal",
+        user_id: null,
+        initials: null,
+        phone: null,
+        email: null,
+        position: null,
+        department: null,
+        location: null,
+        invite_email: "invited@example.com",
+        invite_password: "password123",
+      },
+    });
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(403);
+    const json = await (res as Response).json();
+    expect(String(json.error)).toContain("core.users.manage");
   });
 
   it("creates team member with user_id when invite uses invokeOperation to core gateway", async () => {
@@ -341,7 +388,7 @@ describe("registerTeamMembersApi", () => {
       params: {},
       query: {},
       headers: {},
-      auth: defaultAuth,
+      auth: { ...defaultAuth, capabilities: ["core.users.manage"] },
     };
 
     const res = await createRoute.handler({
