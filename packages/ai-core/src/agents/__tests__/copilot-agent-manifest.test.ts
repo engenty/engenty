@@ -15,11 +15,7 @@ describe("getEngentyCopilotAgentManifest", () => {
     const m = getEngentyCopilotAgentManifest();
     expect(m.id).toBe(GENERAL_CHAT_AGENT_ID);
     expect(m.module_id).toBe("engenty");
-    expect(m.instruction_files).toEqual([
-      "AGENTS.md",
-      "SOUL.md",
-      "SKILLS.md",
-    ]);
+    expect(m.instruction_files).toEqual(["AGENTS.md", "SOUL.md", "SKILLS.md"]);
     expect(m.instruction_keys).toEqual([
       "engenty.copilot.agents",
       "engenty.copilot.soul",

@@ -55,6 +55,7 @@ import "../kb-print.css";
 import { KbBreadcrumbSiblingPicker } from "../components/kb-breadcrumb-sibling-picker.js";
 import { getFileStorageSignedUrl } from "../file-storage-url.js";
 import { useArticleReadingStyle } from "../hooks/use-article-reading-style.js";
+import { useKbArticleDetailAgentUiSlice } from "../hooks/use-kb-agent-ui-slice.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { kbCoverIsLight } from "../kb-cover-theme-presets.js";
 import { kbDisplayName } from "../kb-display-name.js";
@@ -134,6 +135,7 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
     isLoading,
     error,
   } = useQuery(articleDetailQueryOptions(id ?? ""));
+  useKbArticleDetailAgentUiSlice(article ?? null);
 
   const { data: kbsRaw } = useQuery(kbsQueryOptions);
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];

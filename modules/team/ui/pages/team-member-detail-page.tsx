@@ -20,6 +20,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { deleteTeamMember, type TeamMemberListItem } from "../api.js";
 import { TeamMemberDetailHeader } from "../components/team-member-detail-header.js";
 import { useTeamMemberNameDetails } from "../components/team-member-view-base-info-section.js";
+import { useTeamMemberDetailAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import {
   useTeamMemberDetailTabNav,
   useVisibleTeamMemberDetailTabs,
@@ -77,6 +78,7 @@ export function TeamMemberDetailPage() {
   const shellNav = useTeamModuleSecondaryShellNav();
   const detailQuery = useTeamMemberDetailPageQuery(id ?? null);
   const member = detailQuery.data?.member ?? null;
+  useTeamMemberDetailAgentUiSlice(member);
   const loading = detailQuery.isLoading;
   const loadError =
     detailQuery.error == null

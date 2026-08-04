@@ -26,6 +26,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RoutineDetailContent } from "../components/routine-detail-content.js";
 import { RoutineDetailTopbarActions } from "../components/routine-detail-topbar-actions.js";
+import { useTasksRoutineDetailAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 
@@ -43,6 +44,7 @@ export function RoutineDetailPage() {
     null;
 
   const title = routine?.name ?? t("routines.page.title");
+  useTasksRoutineDetailAgentUiSlice(routine);
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTasksModuleSecondaryShellNav();
   const breadcrumbs = useMemo(

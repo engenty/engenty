@@ -19,21 +19,22 @@ import {
   type ViewMode,
 } from "@engenty/ui-core";
 import { ListFilter } from "lucide-react";
-import type {
-  AgentRoleFilter,
-  AgentSourceFilter,
+import {
+  AGENT_GROUP_LABEL_KEYS,
+  type AgentGroupFilter,
+  type AgentSourceFilter,
 } from "./agents-catalog-state";
 
 interface AgentsCatalogToolbarProps {
   agentCount: number;
   filtersExpanded: boolean;
+  groupFilter: AgentGroupFilter;
   hasActiveFilters: boolean;
   onFiltersToggle: () => void;
-  onRoleFilterChange: (value: AgentRoleFilter) => void;
+  onGroupFilterChange: (value: AgentGroupFilter) => void;
   onSearchChange: (value: string) => void;
   onSourceFilterChange: (value: AgentSourceFilter) => void;
   onViewModeChange: (mode: ViewMode) => void;
-  roleFilter: AgentRoleFilter;
   searchQuery: string;
   sourceFilter: AgentSourceFilter;
   viewMode: ViewMode;
@@ -42,25 +43,41 @@ interface AgentsCatalogToolbarProps {
 export function AgentsCatalogToolbar({
   agentCount,
   filtersExpanded,
+  groupFilter,
   hasActiveFilters,
   onFiltersToggle,
-  onRoleFilterChange,
+  onGroupFilterChange,
   onSearchChange,
   onSourceFilterChange,
   onViewModeChange,
-  roleFilter,
   searchQuery,
   sourceFilter,
   viewMode,
 }: AgentsCatalogToolbarProps) {
   const { t } = useTranslation("ai-ui");
 
-  const roleOptions = [
-    { label: t("agentsCatalog.filter.allRoles"), value: "all" },
-    { label: t("agentsCatalog.role.copilot"), value: "copilot" },
-    { label: t("agentsCatalog.role.specialist"), value: "specialist" },
-    { label: t("agentsCatalog.role.chatSurface"), value: "chat_surface" },
-    { label: t("agentsCatalog.role.external"), value: "external" },
+  const groupOptions = [
+    { label: t("agentsCatalog.filter.allGroups"), value: "all" },
+    {
+      label: t(AGENT_GROUP_LABEL_KEYS.leadership),
+      value: "leadership",
+    },
+    {
+      label: t(AGENT_GROUP_LABEL_KEYS.specialists),
+      value: "specialists",
+    },
+    {
+      label: t(AGENT_GROUP_LABEL_KEYS.chat_surfaces),
+      value: "chat_surfaces",
+    },
+    {
+      label: t(AGENT_GROUP_LABEL_KEYS.external),
+      value: "external",
+    },
+    {
+      label: t(AGENT_GROUP_LABEL_KEYS.custom),
+      value: "custom",
+    },
   ];
   const sourceOptions = [
     { label: t("agentsCatalog.filter.allSources"), value: "all" },
@@ -69,8 +86,8 @@ export function AgentsCatalogToolbar({
     { label: t("agentsCatalog.source.custom"), value: "custom" },
   ];
 
-  const activeRoleLabel = roleOptions.find(
-    (o) => o.value === roleFilter
+  const activeGroupLabel = groupOptions.find(
+    (o) => o.value === groupFilter
   )?.label;
   const activeSourceLabel = sourceOptions.find(
     (o) => o.value === sourceFilter
@@ -94,7 +111,7 @@ export function AgentsCatalogToolbar({
           />
           <ListToolbarFilterToggle
             active={filtersExpanded || hasActiveFilters}
-            aria-label={t("agentsCatalog.filter.role")}
+            aria-label={t("agentsCatalog.filter.group")}
             aria-pressed={filtersExpanded}
             onClick={onFiltersToggle}
             showDot={hasActiveFilters}
@@ -136,15 +153,15 @@ export function AgentsCatalogToolbar({
           </span>
 
           <ListFilterChip
-            activeLabel={activeRoleLabel}
-            ariaLabel={t("agentsCatalog.filter.role")}
+            activeLabel={activeGroupLabel}
+            ariaLabel={t("agentsCatalog.filter.group")}
             clearLabel={t("agentsCatalog.filter.clear")}
-            isActive={roleFilter !== "all"}
-            label={t("agentsCatalog.filter.role")}
-            onClear={() => onRoleFilterChange("all")}
-            onSelect={(next) => onRoleFilterChange(next as AgentRoleFilter)}
-            options={roleOptions}
-            value={roleFilter}
+            isActive={groupFilter !== "all"}
+            label={t("agentsCatalog.filter.group")}
+            onClear={() => onGroupFilterChange("all")}
+            onSelect={(next) => onGroupFilterChange(next as AgentGroupFilter)}
+            options={groupOptions}
+            value={groupFilter}
           />
 
           <ListFilterChip
@@ -163,7 +180,7 @@ export function AgentsCatalogToolbar({
             <Button
               className="h-8 px-2 text-sm"
               onClick={() => {
-                onRoleFilterChange("all");
+                onGroupFilterChange("all");
                 onSourceFilterChange("all");
               }}
               size="sm"

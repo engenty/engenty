@@ -91,6 +91,12 @@ export class SessionAgUiConverter {
   // messageId → text START emitted (and not yet ended).
   readonly #openText = new Set<string>();
   readonly #startedToolCalls = new Set<string>();
+  // Tool calls that already received at least one TOOL_CALL_ARGS delta. A later
+  // `tool_start` often carries the complete args object for the same call; if we
+  // append that after streamed deltas, the transcript shows the JSON twice
+  // (invalid concatenated objects in the inspector). Only emit full args from
+  // `tool_start` when nothing has been streamed yet.
+  readonly #emittedArgsToolCalls = new Set<string>();
   // The current assistant message id (from message_*). Tool calls must attach to
   // it — Mastra persists tool-invocations as PARTS of the assistant message, so a
   // tool emitted under its own messageId (toolCallId) is an orphan that the client
@@ -208,9 +214,16 @@ export class SessionAgUiConverter {
           break;
         }
         if (this.#startedToolCalls.has(toolCallId)) {
-          // `tool_start` may follow `tool_input_start` for the same call; the
-          // START is already open — only emit args for the full-args `tool_start`.
-          if (event.type === "tool_start" && event.args !== undefined) {
+          // `tool_start` may follow `tool_input_start` for the same call. Emit
+          // full args only when nothing was streamed yet (e.g. nameless start
+          // held the START until the named `tool_start`). Re-appending after
+          // deltas duplicates the JSON in the transcript.
+          if (
+            event.type === "tool_start" &&
+            event.args !== undefined &&
+            !this.#emittedArgsToolCalls.has(toolCallId)
+          ) {
+            this.#emittedArgsToolCalls.add(toolCallId);
             out.push({
               delta: str(event.args),
               messageId: this.#currentMessageId || toolCallId,
@@ -240,6 +253,7 @@ export class SessionAgUiConverter {
           type: "TOOL_CALL_START",
         });
         if (event.type === "tool_start" && event.args !== undefined) {
+          this.#emittedArgsToolCalls.add(toolCallId);
           out.push({
             delta: str(event.args),
             messageId: this.#currentMessageId || toolCallId,
@@ -255,6 +269,7 @@ export class SessionAgUiConverter {
           break;
         }
         const delta = (event as { argsTextDelta?: unknown }).argsTextDelta;
+        this.#emittedArgsToolCalls.add(toolCallId);
         out.push({
           delta: typeof delta === "string" ? delta : "",
           messageId: this.#currentMessageId || toolCallId,

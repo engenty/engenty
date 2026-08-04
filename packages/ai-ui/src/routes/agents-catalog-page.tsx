@@ -17,14 +17,16 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AgentDeleteDialog } from "../features/agents-catalog/agent-delete-dialog";
+import { AgentResetDialog } from "../features/agents-catalog/agent-reset-dialog";
 import { AgentsCardGrid } from "../features/agents-catalog/agents-card-grid";
 import {
   AGENT_GROUP_LABEL_KEYS,
-  type AgentRoleFilter,
+  type AgentGroupFilter,
   type AgentSourceFilter,
+  catalogGroupFromLegacyRoleParam,
   filterAgents,
   groupAgentsCatalog,
-  parseAgentRoleFilter,
+  parseAgentGroupFilter,
   parseAgentSourceFilter,
 } from "../features/agents-catalog/agents-catalog-state";
 import { AgentsCatalogTable } from "../features/agents-catalog/agents-catalog-table";
@@ -51,20 +53,30 @@ export function AgentsCatalogPage() {
   const agentsQuery = useAiAgentsQuery();
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<AgentRoleFilter>(() =>
-    parseAgentRoleFilter(searchParams.get("role"))
-  );
+  const [groupFilter, setGroupFilter] = useState<AgentGroupFilter>(() => {
+    const fromGroup = parseAgentGroupFilter(searchParams.get("group"));
+    if (fromGroup !== "all") {
+      return fromGroup;
+    }
+    // Legacy overview links used role=copilot for the Engenty bucket.
+    return catalogGroupFromLegacyRoleParam(searchParams.get("role"));
+  });
   const [sourceFilter, setSourceFilter] = useState<AgentSourceFilter>(() =>
     parseAgentSourceFilter(searchParams.get("source"))
   );
   const [pendingDelete, setPendingDelete] = useState<AiRegisteredAgent | null>(
     null
   );
-  const [filtersExpanded, setFiltersExpanded] = useState(
-    () =>
-      parseAgentRoleFilter(searchParams.get("role")) !== "all" ||
-      parseAgentSourceFilter(searchParams.get("source")) !== "all"
+  const [pendingReset, setPendingReset] = useState<AiRegisteredAgent | null>(
+    null
   );
+  const [filtersExpanded, setFiltersExpanded] = useState(() => {
+    const group =
+      parseAgentGroupFilter(searchParams.get("group")) !== "all" ||
+      catalogGroupFromLegacyRoleParam(searchParams.get("role")) !== "all";
+    const source = parseAgentSourceFilter(searchParams.get("source")) !== "all";
+    return group || source;
+  });
 
   const { setViewMode, viewMode } = useListDisplayState({
     defaults: AGENTS_DISPLAY_DEFAULTS,
@@ -88,8 +100,9 @@ export function AgentsCatalogPage() {
 
   const agents = agentsQuery.data?.agents;
   const filteredAgents = useMemo(
-    () => filterAgents(agents ?? [], { roleFilter, searchQuery, sourceFilter }),
-    [agents, roleFilter, searchQuery, sourceFilter]
+    () =>
+      filterAgents(agents ?? [], { groupFilter, searchQuery, sourceFilter }),
+    [agents, groupFilter, searchQuery, sourceFilter]
   );
   const agentGroups = useMemo(
     () =>
@@ -134,17 +147,21 @@ export function AgentsCatalogPage() {
         agent={pendingDelete}
         onClose={() => setPendingDelete(null)}
       />
+      <AgentResetDialog
+        agent={pendingReset}
+        onClose={() => setPendingReset(null)}
+      />
 
       <AgentsCatalogToolbar
         agentCount={filteredAgents.length}
         filtersExpanded={filtersExpanded}
-        hasActiveFilters={roleFilter !== "all" || sourceFilter !== "all"}
+        groupFilter={groupFilter}
+        hasActiveFilters={groupFilter !== "all" || sourceFilter !== "all"}
         onFiltersToggle={() => setFiltersExpanded((v) => !v)}
-        onRoleFilterChange={setRoleFilter}
+        onGroupFilterChange={setGroupFilter}
         onSearchChange={setSearchQuery}
         onSourceFilterChange={setSourceFilter}
         onViewModeChange={setViewMode}
-        roleFilter={roleFilter}
         searchQuery={searchQuery}
         sourceFilter={sourceFilter}
         viewMode={viewMode}
@@ -180,6 +197,7 @@ export function AgentsCatalogPage() {
               groups={agentGroups}
               isGroupOpen={isGroupOpen}
               onDelete={setPendingDelete}
+              onReset={setPendingReset}
               onToggleGroup={toggleGroup}
             />
           </AdminListCardsView>
@@ -197,6 +215,7 @@ export function AgentsCatalogPage() {
               groups={agentGroups}
               isGroupOpen={isGroupOpen}
               onDelete={setPendingDelete}
+              onReset={setPendingReset}
               onToggleGroup={toggleGroup}
             />
           </AdminListTableView>

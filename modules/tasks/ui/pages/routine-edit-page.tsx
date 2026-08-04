@@ -15,6 +15,7 @@ import { Button, Card } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { useTasksRoutineEditAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { tasksPaths } from "../lib/tasks-routes.js";
 
@@ -37,6 +38,8 @@ export function RoutineEditPage() {
       setValue(routineToFormValue(routine));
     }
   }, [routine, value]);
+
+  useTasksRoutineEditAgentUiSlice(routine);
 
   const detailPath = tasksPaths.routineDetail(id ?? "");
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =

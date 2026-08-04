@@ -9,11 +9,13 @@ import {
   setProjectSettings,
 } from "../api.js";
 import { TaskStatusesSettingsSection } from "../components/task-statuses-settings-section.js";
+import { useProjectsSettingsAgentUiSlice } from "../hooks/use-projects-agent-ui-slice.js";
 import { useProjectsModuleSecondaryShellNav } from "../hooks/use-projects-module-secondary-shell-nav.js";
 import { projectKeys } from "../queries.js";
 
 export function ProjectsSettingsPage() {
   const { t } = useTranslation("projects");
+  useProjectsSettingsAgentUiSlice();
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<ProjectSettingsType | null>(null);
   const [loading, setLoading] = useState(true);

@@ -23,6 +23,7 @@ import {
   linkInstallation,
   updateAllowlist,
 } from "../api.js";
+import { useBrowserBridgeSettingsAgentUiSlice } from "../hooks/use-browser-bridge-agent-ui-slice.js";
 
 const STATUS_POLL_MS = 10_000;
 const EXTENSION_ID_STORAGE_KEY = "engenty.browser-bridge.extension-id";
@@ -136,6 +137,10 @@ export function BrowserBridgeSettingsPage() {
 
   const installation = status?.installation ?? null;
   const linked = installation !== null && status?.session?.status === "active";
+  useBrowserBridgeSettingsAgentUiSlice({
+    linked,
+    online: status?.online === true,
+  });
 
   const handleLink = async () => {
     const targetExtensionId = extensionId.trim();

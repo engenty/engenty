@@ -63,8 +63,11 @@ function parseEditBody(value: unknown): {
   const scope = typeof candidate.scope === "string" ? candidate.scope : "";
   // Allow empty body for append stubs; require a non-empty string type.
   if (
-    !(documentKey && typeof candidate.body === "string") ||
-    !isInstructionEditScope(scope)
+    !(
+      documentKey &&
+      typeof candidate.body === "string" &&
+      isInstructionEditScope(scope)
+    )
   ) {
     return null;
   }

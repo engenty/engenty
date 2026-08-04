@@ -11,6 +11,10 @@ vi.mock("@engenty/ui-icons", () => ({
   AnimatedLoaderIcon: () => null,
 }));
 
+vi.mock("../hooks/use-files-agent-ui-slice.js", () => ({
+  useFilesPreviewAgentUiSlice: () => {},
+}));
+
 vi.mock("../api.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api.js")>();
   return {

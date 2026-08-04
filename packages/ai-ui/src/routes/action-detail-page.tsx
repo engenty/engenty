@@ -111,7 +111,7 @@ export function ActionDetailPage() {
       >
         <header className="w-full shrink-0 bg-card">
           <div className="mx-auto max-w-6xl px-4 pt-4 pb-0 md:px-5">
-            <div className="space-y-4 pb-4">
+            <div className="space-y-4 pb-2">
               <ActionDetailHeader
                 actionKey={draft.action_key}
                 description={draft.description}
@@ -168,7 +168,7 @@ export function ActionDetailPage() {
               className={cn(
                 "flex items-end justify-between gap-4 pb-px",
                 pinned
-                  ? "border-border border-b bg-background px-4 py-1 shadow-sm md:px-5"
+                  ? "border-border border-b bg-card px-4 py-1 shadow-sm md:px-5"
                   : "mx-auto max-w-6xl px-4 md:px-5"
               )}
               ref={toolbarRef}

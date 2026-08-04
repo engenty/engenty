@@ -54,6 +54,7 @@ import {
 import { TeamMembersExportMenu } from "../components/team-members-export-menu.js";
 import { TeamMembersOverflowMenu } from "../components/team-members-overflow-menu.js";
 import { TeamMembersTable } from "../components/team-members-table.js";
+import { useTeamMembersListAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
 import { TEAM_MEMBERS_LIST_DISPLAY_DEFAULTS } from "../lib/team-members-list-display.js";
 import { buildTeamMembersListGroups } from "../lib/team-members-list-grouping.js";
@@ -167,6 +168,7 @@ export function TeamMembersListPage() {
   const deleteMutation = useDeleteTeamMemberMutation(listParams);
   const members = listQuery.data?.data ?? [];
   const total = listQuery.data?.total ?? 0;
+  useTeamMembersListAgentUiSlice({ members, search, total });
   const isLoading = listQuery.isLoading;
   const error =
     listQuery.error == null

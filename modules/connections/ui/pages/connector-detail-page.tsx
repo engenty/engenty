@@ -26,6 +26,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import type { CatalogConnection } from "../api.js";
 import { ConnectButton } from "../components/connect-button.js";
 import { ConnectionPanel } from "../components/connection-panel.js";
+import { useConnectionsConnectorDetailAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 import {
   CONNECTIONS_SETTINGS_PATH,
@@ -166,6 +167,8 @@ export function ConnectorDetailPage() {
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(t("breadcrumb.settings"));
 
+  useConnectionsConnectorDetailAgentUiSlice({ connector, connectorId });
+
   const breadcrumbs = useMemo<PageBreadcrumb[]>(
     () => [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
@@ -194,6 +197,8 @@ export function ConnectorWorkspaceDetailPage() {
   const shellNav = useAgentsWorkspaceShellNav({ ...nav, selectedAgentId: "" });
   const { data } = useConnectionsCatalogQuery();
   const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
+
+  useConnectionsConnectorDetailAgentUiSlice({ connector, connectorId });
 
   const breadcrumbs = useMemo<PageBreadcrumb[]>(
     () => [

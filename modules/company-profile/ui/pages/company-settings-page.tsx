@@ -5,6 +5,7 @@ import { Save } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CompanyProfileSettingsForm } from "../components/company-profile/company-profile-settings-form.js";
 import { setCompanyProfileDraftApplyHandler } from "../copilot-draft-bridge.js";
+import { useCompanySettingsAgentUiSlice } from "../hooks/use-company-profile-agent-ui-slice.js";
 import { useCompanyProfileForm } from "../hooks/use-company-profile-form.js";
 import {
   useCompanyProfileSettingsQuery,
@@ -14,6 +15,7 @@ import {
 
 export function CompanySettingsPage() {
   const { t } = useTranslation("company-profile");
+  useCompanySettingsAgentUiSlice();
   const query = useCompanyProfileSettingsQuery();
   const saveMutation = useSetCompanyProfileSettingsMutation();
   const uploadLogoMutation = useUploadCompanyLogoMutation();

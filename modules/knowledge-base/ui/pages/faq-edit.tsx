@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { createFaq, updateFaq } from "../api.js";
 import { KbEntityVersionsDialog } from "../components/kb-entity-versions-dialog.js";
 import { KbTagPicker } from "../components/kb-tag-picker.js";
+import { useKbFaqEditAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import {
   KB_MODULE_BASE,
@@ -241,6 +242,13 @@ export function FaqEditPage() {
       hydratedFaqIdRef.current = null;
     }
   }, [isNew]);
+
+  useKbFaqEditAgentUiSlice({
+    entityId: isNew ? undefined : (faq?.id ?? id),
+    isNew,
+    question,
+    status,
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {

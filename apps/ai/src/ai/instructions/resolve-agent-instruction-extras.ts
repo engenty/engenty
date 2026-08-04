@@ -5,8 +5,8 @@ import {
   ENGENTY_COPILOT_SKILLS_KEY,
   ENGENTY_COPILOT_SOUL_KEY,
 } from "@engenty/ai-core";
-import { createAiDatabaseAdapter } from "../../infra/database.js";
 import { createInstructionOverridesStore } from "../../dal/instructions/instruction-overrides-store.js";
+import { createAiDatabaseAdapter } from "../../infra/database.js";
 import { agentInstructionDocumentKey } from "./base-documents.js";
 
 export interface AgentInstructionExtras {

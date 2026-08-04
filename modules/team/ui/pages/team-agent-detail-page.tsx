@@ -11,6 +11,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Bot, Wrench, Zap } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { TeamModulePageScroll } from "../components/team-module-page-scroll.js";
+import { useTeamAgentDetailAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { useTeamAgentsCatalogQuery } from "../hooks/use-team-agents-catalog-query.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
 import { TEAM_AGENTS_PATH } from "../team-paths.js";
@@ -21,6 +22,7 @@ export function TeamAgentDetailPage() {
   const shellNav = useTeamModuleSecondaryShellNav();
   const { agents, isLoading } = useTeamAgentsCatalogQuery();
   const agent = agents.find((row) => row.id === agentId);
+  useTeamAgentDetailAgentUiSlice(agent);
 
   usePageConfig({
     breadcrumbs: [

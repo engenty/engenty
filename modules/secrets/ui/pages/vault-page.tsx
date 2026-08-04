@@ -42,6 +42,7 @@ import {
   type SecretsListFilterState,
 } from "../components/secrets-list-filter-bar.js";
 import { SecretsListToolbar } from "../components/secrets-list-toolbar.js";
+import { useSecretsVaultAgentUiSlice } from "../hooks/use-secrets-agent-ui-slice.js";
 import { useSecretsModuleSecondaryShellNav } from "../hooks/use-secrets-module-secondary-shell-nav.js";
 import {
   parseSecretsKindFilter,
@@ -279,6 +280,10 @@ export function VaultPage() {
     (sum, group) => sum + group.rows.length,
     0
   );
+  // Agent UI: count only — never secret names, keys, or values.
+  useSecretsVaultAgentUiSlice({
+    secretCount: secretsQuery.isLoading ? undefined : visibleCount,
+  });
 
   const openCreate = useCallback(() => {
     setEditing(null);

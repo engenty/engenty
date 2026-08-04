@@ -20,6 +20,7 @@ import {
   suggestSecretsImportMappings,
 } from "../api/import.js";
 import { createSecret } from "../api.js";
+import { useSecretsImportAgentUiSlice } from "../hooks/use-secrets-agent-ui-slice.js";
 import { useSecretsModuleSecondaryShellNav } from "../hooks/use-secrets-module-secondary-shell-nav.js";
 import {
   mapImportRowToSecretCreateInput,
@@ -37,6 +38,7 @@ export function SecretsImportPage() {
   const { currentTenant, currentUserId } = useWorkspaceContext();
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useSecretsModuleSecondaryShellNav();
+  useSecretsImportAgentUiSlice();
   const progressToastId = useRef<string | number | undefined>(undefined);
   const clientsQuery = useClientsQuery();
   const projectsQuery = useProjectsQuery();

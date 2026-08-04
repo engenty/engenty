@@ -36,6 +36,7 @@ import {
   type TaxonomyTermDraftFlat,
   TeamTaxonomyManagerSection,
 } from "../components/team-taxonomy-manager-section.js";
+import { useTeamSettingsAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { draftsToTaxonomyTermsForSave } from "../lib/taxonomy-term-save.js";
 import {
   saveTaxonomyTerms,
@@ -82,6 +83,7 @@ function termsToDrafts(
 export function TeamGlobalSettingsTaxonomiesPage() {
   const { t } = useTranslation("team");
   const queryClient = useQueryClient();
+  useTeamSettingsAgentUiSlice();
   const settingsQuery = useQuery(teamSettingsQueryOptions());
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 

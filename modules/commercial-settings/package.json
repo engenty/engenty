@@ -32,6 +32,7 @@
   "dependencies": {
     "@engenty/api-client": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
+    "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",

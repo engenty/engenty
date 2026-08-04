@@ -40,6 +40,7 @@ import { KbCommentsModeFields } from "../components/kb-comments-mode-fields.js";
 import { KbFilesystemSyncSection } from "../components/kb-filesystem-sync-section.js";
 import { KbSidebarArticleTreeDefaultsFields } from "../components/kb-sidebar/article-tree/kb-sidebar-article-tree-defaults-fields.js";
 import { KbTemplateSettingsSection } from "../components/kb-template-settings-section.js";
+import { useKbScopedSettingsAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import {
   KB_MODULE_BASE,
@@ -202,6 +203,13 @@ export function KbScopedSettingsPage() {
     sidebarTreePrefs,
     articlePropertyDefinitionsDirty,
   ]);
+
+  useKbScopedSettingsAgentUiSlice({
+    isDirty,
+    kbId,
+    kbName: name,
+    kbSlug,
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {

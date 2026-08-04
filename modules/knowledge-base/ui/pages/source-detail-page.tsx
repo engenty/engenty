@@ -27,6 +27,7 @@ import { SourceDetailSummarySection } from "../components/source-detail-summary-
 import { SourceDetailWebhookSection } from "../components/source-detail-webhook-section.js";
 import { SourceIngestStrategyPanel } from "../components/source-ingest-strategy-panel.js";
 import { SourceRunProgressBanner } from "../components/source-run-progress-banner.js";
+import { useKbSourceDetailAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import {
   KB_MODULE_BASE,
@@ -96,6 +97,7 @@ export function SourceDetailPage() {
   const source = detail?.data;
   const runs = detail?.runs ?? [];
   const runningRun = runs.find((r) => r.status === "running") ?? null;
+  useKbSourceDetailAgentUiSlice(source ?? null);
 
   const canonicalSlug = useMemo(
     () => (source ? slugFromKbId(kbs, source.kb_id) : undefined),

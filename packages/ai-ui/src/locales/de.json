@@ -1179,6 +1179,7 @@
       "delete": "Löschen",
       "edit": "Bearbeiten",
       "manageInChatbots": "In Chatbots verwalten",
+      "reset": "Zurücksetzen",
       "view": "Anzeigen"
     },
     "cancel": "Abbrechen",
@@ -1200,11 +1201,17 @@
     "deleteDescription": "„{{name}}“ wird dauerhaft entfernt. Sitzungen und Runs bleiben für die Nachvollziehbarkeit erhalten.",
     "deleting": "Wird gelöscht…",
     "description": "Alle Agenten der Belegschaft: integriert, aus Modulen und benutzerdefiniert.",
+    "resetConfirm": "Instruction-Overrides zurücksetzen?",
+    "resetDescription": "Tenant- und User-Overrides für „{{name}}“ entfernen und die Seed-Dateien wiederherstellen (AGENTS.md und zugehörige Dateien).",
+    "resetFailed": "Zurücksetzen der Instruction-Overrides ist fehlgeschlagen.",
+    "resetting": "Wird zurückgesetzt…",
     "empty": "Es sind noch keine Agenten registriert.",
     "filter": {
+      "allGroups": "Alle Gruppen",
       "allRoles": "Alle Rollen",
       "allSources": "Alle Quellen",
       "clear": "Filter zurücksetzen",
+      "group": "Gruppe",
       "role": "Rolle",
       "source": "Quelle"
     },

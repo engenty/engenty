@@ -13,6 +13,7 @@ import type {
   RoutinesSortColumn,
 } from "../components/routines-display-dialog.js";
 import { RoutinesToolbar } from "../components/routines-toolbar.js";
+import { useTasksRoutinesListAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
 import { getRoutinesToolbarLabels } from "../lib/routines-toolbar-labels.js";
@@ -97,6 +98,12 @@ export function RoutinesPage() {
         compareRoutines(a, b, sortBy, sortOrder)
       );
   }, [enabledFilter, routinesQuery.data?.routines, search, sortBy, sortOrder]);
+
+  useTasksRoutinesListAgentUiSlice({
+    enabledFilter,
+    routines: filteredRoutines,
+    search,
+  });
 
   const labels = useMemo(
     () => getRoutinesToolbarLabels(t, filteredRoutines.length),

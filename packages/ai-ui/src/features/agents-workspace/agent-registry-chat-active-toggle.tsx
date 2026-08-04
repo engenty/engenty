@@ -74,7 +74,9 @@ export function AgentRegistryChatActiveToggle({
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
               {/* Disabled switches ignore pointer events — wrap for hover. */}
-              <span className="inline-flex cursor-default">{switchControl}</span>
+              <span className="inline-flex cursor-default">
+                {switchControl}
+              </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs text-balance" side="bottom">
               {hint}

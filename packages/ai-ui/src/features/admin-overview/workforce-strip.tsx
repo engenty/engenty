@@ -1,5 +1,5 @@
-// Overview workforce strip (ui-6 §1): count cards per role group, each
-// linking into the agents catalog with the matching filter pre-applied.
+// Overview workforce strip (ui-6 §1): count cards per catalog group, each
+// linking into the agents catalog with the matching group filter pre-applied.
 
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn, Skeleton } from "@engenty/ui-core";
@@ -13,27 +13,27 @@ const WORKFORCE_CARDS = [
   {
     group: "leadership",
     labelKey: "overview.workforce.leadership",
-    search: "role=copilot",
+    search: "group=leadership",
   },
   {
     group: "specialists",
     labelKey: "overview.workforce.specialists",
-    search: "role=specialist",
+    search: "group=specialists",
   },
   {
     group: "chat_surfaces",
     labelKey: "overview.workforce.chatSurfaces",
-    search: "role=chat_surface",
+    search: "group=chat_surfaces",
   },
   {
     group: "external",
     labelKey: "overview.workforce.external",
-    search: "role=external",
+    search: "group=external",
   },
   {
     group: "custom",
     labelKey: "overview.workforce.custom",
-    search: "source=custom",
+    search: "group=custom",
   },
 ] as const;
 

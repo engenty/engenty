@@ -19,7 +19,17 @@ const COPILOT_AGENT_ROOT_SEGMENTS = [
   ["..", "..", "..", "..", "..", "modules", "engenty-copilot", "ai", "agents"],
   // Prefer the built module package when workspace layout differs
   ["..", "..", "..", "modules", "engenty-copilot", "dist", "ai", "agents"],
-  ["..", "..", "..", "..", "modules", "engenty-copilot", "dist", "ai", "agents"],
+  [
+    "..",
+    "..",
+    "..",
+    "..",
+    "modules",
+    "engenty-copilot",
+    "dist",
+    "ai",
+    "agents",
+  ],
 ] as const;
 
 export const copilotAgentAssetLocator: AgentAssetLocator = {

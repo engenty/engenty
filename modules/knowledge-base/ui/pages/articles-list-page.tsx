@@ -57,6 +57,7 @@ import {
   ArticlesTableToolbar,
 } from "../components/articles-table-toolbar.js";
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
+import { useKbArticlesListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { kbDisplayName } from "../kb-display-name.js";
 import {
@@ -257,6 +258,8 @@ export function ArticlesListPage() {
       ? listError.message
       : "Failed to load articles"
     : null;
+
+  useKbArticlesListAgentUiSlice({ articles, search, total });
 
   const deleteMutation = useDeleteArticleMutation(listQuery);
   const updateMutation = useUpdateArticleMutation(listQuery);

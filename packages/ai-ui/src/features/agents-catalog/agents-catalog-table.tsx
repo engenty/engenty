@@ -47,6 +47,7 @@ interface AgentsCatalogTableProps {
   groups: AgentCatalogGroupView[];
   isGroupOpen: (id: string) => boolean;
   onDelete: (agent: AiRegisteredAgent) => void;
+  onReset: (agent: AiRegisteredAgent) => void;
   onToggleGroup: (id: string) => void;
 }
 
@@ -55,6 +56,7 @@ export function AgentsCatalogTable({
   groups,
   isGroupOpen,
   onDelete,
+  onReset,
   onToggleGroup,
 }: AgentsCatalogTableProps) {
   const { t } = useTranslation("ai-ui");
@@ -142,6 +144,7 @@ export function AgentsCatalogTable({
                       <AgentActionsMenuItems
                         agent={agent}
                         onDelete={onDelete}
+                        onReset={onReset}
                       />
                     </TableRowActions>
                   </TableRow>

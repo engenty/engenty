@@ -15,6 +15,7 @@ import { DisciplinesSection } from "../components/settings/disciplines-section.j
 import { ExpenseCategoriesSection } from "../components/settings/expense-categories-section.js";
 import { TaxRatesSection } from "../components/settings/tax-rates-section.js";
 import { UnitsSection } from "../components/settings/units-section.js";
+import { useCommercialSettingsAgentUiSlice } from "../hooks/use-commercial-settings-agent-ui-slice.js";
 import { BUILT_IN_NO_TAX } from "../lib/locale-config.js";
 import { parseTaxRatesFromApi } from "../lib/parse-tax-rates.js";
 import {
@@ -24,6 +25,7 @@ import {
 
 export function CommercialSettingsPage() {
   const { t } = useTranslation("commercial-settings");
+  useCommercialSettingsAgentUiSlice();
   const query = useCommercialSettingsQuery();
   const saveMutation = useSetCommercialSettingsMutation();
   const loading = query.isLoading;

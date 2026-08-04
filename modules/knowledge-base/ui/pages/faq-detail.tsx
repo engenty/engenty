@@ -20,6 +20,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { FaqHeaderChrome } from "../components/faq-header-chrome.js";
 import { FavoriteStarButton } from "../components/favorite-star-button.js";
 import { KbEntityVersionsDialog } from "../components/kb-entity-versions-dialog.js";
+import { useKbFaqDetailAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import {
   KB_MODULE_BASE,
@@ -58,6 +59,7 @@ export function FaqDetailPage() {
     isLoading,
     error,
   } = useQuery(faqDetailQueryOptions(id ?? ""));
+  useKbFaqDetailAgentUiSlice(faq ?? null);
 
   const canonicalSlug = useMemo(
     () => (faq ? slugFromKbId(kbs, faq.kb_id) : undefined),

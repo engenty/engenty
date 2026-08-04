@@ -25,6 +25,7 @@ import { ConnectButton } from "../components/connect-button.js";
 import { ConnectCredentialsDialog } from "../components/connect-credentials-dialog.js";
 import { StatusBadge } from "../components/connection-panel.js";
 import { getConnectorConnectButton } from "../extensions.js";
+import { useConnectionsSettingsAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 
 export const CONNECTIONS_SETTINGS_PATH = "/settings/connections";
@@ -82,6 +83,8 @@ export function ConnectionsSettingsPage() {
   });
 
   const connectors = data?.connectors ?? [];
+
+  useConnectionsSettingsAgentUiSlice({ connectors });
 
   return (
     <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">

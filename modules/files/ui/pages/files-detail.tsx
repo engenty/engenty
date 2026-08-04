@@ -33,6 +33,7 @@ import { ArrowLeft, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { deleteFile, getFilesUrl, postFilesExtract } from "../api.js";
+import { useFilesDetailAgentUiSlice } from "../hooks/use-files-agent-ui-slice.js";
 import { filesExtractQueryOptions } from "../queries.js";
 import { FilePreviewBlock } from "./files-file-preview.js";
 
@@ -125,6 +126,8 @@ export function FilesDetailPage() {
   usePageConfig({
     breadcrumbs,
   });
+
+  useFilesDetailAgentUiSlice({ fileKey, filename });
 
   useEffect(() => {
     setExtractDisplay("rendered");

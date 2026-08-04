@@ -36,6 +36,7 @@ import {
   InvoiceDataSourceProvider,
   useInvoiceDataSource,
 } from "../data-source-context.js";
+import { useInvoicesListAgentUiSlice } from "../hooks/use-invoices-agent-ui-slice.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
 import {
   applyInvoicesListFilter,
@@ -359,6 +360,7 @@ function InvoicesListPageContent() {
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });
+  useInvoicesListAgentUiSlice({ search, invoices: filteredInvoices });
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-page">

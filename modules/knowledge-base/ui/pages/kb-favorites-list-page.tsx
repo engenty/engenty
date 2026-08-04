@@ -26,6 +26,7 @@ import {
   favoritesNavQueryOptions,
   useKbRemoveFavoriteNavMutation,
 } from "../favorites-nav-queries.js";
+import { useKbFavoritesListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { kbFavoritesListPath } from "../kb-paths.js";
 import {
@@ -104,6 +105,7 @@ export function KbFavoritesListPage() {
   );
   const removeMut = useKbRemoveFavoriteNavMutation();
   const items = doc?.items ?? [];
+  useKbFavoritesListAgentUiSlice({ items });
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,

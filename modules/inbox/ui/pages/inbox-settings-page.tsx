@@ -17,6 +17,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import type { InboxAccount } from "../api.js";
+import { useInboxSettingsAgentUiSlice } from "../hooks/use-inbox-agent-ui-slice.js";
 import { useInboxSecondaryNav } from "../hooks/use-inbox-secondary-nav.js";
 import {
   useInboxAccountsQuery,
@@ -28,6 +29,7 @@ export function InboxSettingsPage() {
   const { t } = useTranslation("inbox");
   const accountsQuery = useInboxAccountsQuery();
   const accounts = accountsQuery.data?.accounts ?? [];
+  useInboxSettingsAgentUiSlice(accounts.length);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useInboxSecondaryNav();

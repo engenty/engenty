@@ -17,6 +17,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { OfferSettings } from "../api.js";
+import { useOffersSettingsAgentUiSlice } from "../hooks/use-offers-agent-ui-slice.js";
 import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import {
   useOfferSettingsPageQuery,
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: OfferSettings = {
 
 export function OffersSettingsPage() {
   const { t } = useTranslation("offers");
+  useOffersSettingsAgentUiSlice();
   const query = useOfferSettingsPageQuery();
   const saveSettingsMutation = useSetOfferSettingsMutation();
   const setDefaultTemplateMutation = useSetDefaultOfferTemplateMutation();

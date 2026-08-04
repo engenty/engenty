@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TaskSettings } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { TaskStatusesSettingsSection } from "../components/task-statuses-settings-section.js";
+import { useTasksSettingsAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import {
   useTaskSettingsQuery,
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS: TaskSettings = {
 
 export function TasksSettingsPage() {
   const { t } = useTranslation("tasks");
+  useTasksSettingsAgentUiSlice();
   const query = useTaskSettingsQuery();
   const saveMutation = useUpdateTaskSettingsMutation();
   const initialSyncedRef = useRef(false);

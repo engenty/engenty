@@ -18,6 +18,7 @@ import {
 import { putMemberFieldDefinitions } from "../api.js";
 import { TeamGlobalSettingsLayout } from "../components/team-global-settings-layout.js";
 import { TeamMemberFieldDefinitionsSectionEditor } from "../components/team-member-field-definitions-section-editor.js";
+import { useTeamGlobalSettingsAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { normalizeTeamMemberFieldDefinitionsForSave } from "../lib/team-member-field-definitions-lib.js";
 import {
   memberFieldDefinitionsQueryOptions,
@@ -27,6 +28,7 @@ import {
 export function TeamGlobalSettingsFieldsPage() {
   const { t } = useTranslation("team");
   const queryClient = useQueryClient();
+  useTeamGlobalSettingsAgentUiSlice();
   const definitionsQuery = useQuery(memberFieldDefinitionsQueryOptions());
   const [definitions, setDefinitions] = useState<
     TeamMemberFieldDefinitionInput[]

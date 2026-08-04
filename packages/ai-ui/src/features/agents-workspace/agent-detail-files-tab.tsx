@@ -108,9 +108,7 @@ export function AgentDetailFilesTab({
                 scope: "tenant",
               });
             }
-            files.setEditorBody(
-              lastResult?.base_document?.body ?? seedBody
-            );
+            files.setEditorBody(lastResult?.base_document?.body ?? seedBody);
           })();
         }}
         onRollback={(changeId) =>

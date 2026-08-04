@@ -23,12 +23,16 @@ export function useProjectsDetailAgentUiSlice(input: {
       return null;
     }
     const title = input.project.title?.trim() ?? "";
+    const client = input.project.client_name?.trim();
+    const phaseCount = input.project.phases?.length ?? 0;
     return {
       page: {
         ...buildAgentUiPageBrief({
           page_type: "detail",
           page_title: title || "Project",
-          page_description: "Project detail page.",
+          page_description: title
+            ? `Viewing project "${title}"${client ? ` for ${client}` : ""} (${phaseCount} phase(s)).`
+            : "Viewing a project.",
         }),
         project_snapshot: buildProjectSnapshot(input.project),
         ...(title ? { project_title: title } : {}),
@@ -53,6 +57,7 @@ export function useProjectsListAgentUiSlice(input: {
       client_name: p.client_name,
       end_date: p.end_date,
       id: p.id,
+      label: p.title,
       start_date: p.start_date,
       title: p.title,
     }));
@@ -61,9 +66,12 @@ export function useProjectsListAgentUiSlice(input: {
         ...buildAgentUiPageBrief({
           page_type: "list",
           page_title: "Projects",
-          page_description: "Projects list.",
+          page_description: q
+            ? `Projects list filtered by search (${input.projects.length} visible).`
+            : `Projects list (${input.projects.length} visible).`,
           list_search: q,
           list_total: input.projects.length,
+          list_preview: preview,
         }),
         ...(preview.length > 0 ? { projects_preview: preview } : {}),
       },
@@ -73,26 +81,19 @@ export function useProjectsListAgentUiSlice(input: {
   useRegisterAgentUiSlice("projects_list", slice);
 }
 
-export function useProjectsBriefingAgentUiSlice(input: {
-  briefingSnapshot: unknown;
-  mode: string;
-}) {
-  const slice = useMemo(() => {
-    if (input.briefingSnapshot == null) {
-      return null;
-    }
-    return {
+export function useProjectsSettingsAgentUiSlice() {
+  const slice = useMemo(
+    () => ({
       page: {
         ...buildAgentUiPageBrief({
-          page_type: "briefing",
-          page_title: "Projects briefing",
-          page_description: `Projects briefing (${input.mode}).`,
+          page_type: "settings",
+          page_title: "Projects settings",
+          page_description: "Projects module settings (statuses and defaults).",
         }),
-        briefing_view: input.mode,
-        projects_briefing_snapshot: input.briefingSnapshot,
       },
-    };
-  }, [input.briefingSnapshot, input.mode]);
+    }),
+    []
+  );
 
-  useRegisterAgentUiSlice("projects.briefing", slice);
+  useRegisterAgentUiSlice("projects.settings", slice);
 }

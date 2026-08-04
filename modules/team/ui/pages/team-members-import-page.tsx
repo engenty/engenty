@@ -24,6 +24,7 @@ import {
   suggestTeamImportMappings,
 } from "../api/import.js";
 import { createTeamMember, updateTeamMember } from "../api.js";
+import { useTeamImportAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { useTeamMemberTaxonomyTerms } from "../hooks/use-team-member-taxonomy-terms.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
 import { formatImportRowError } from "../lib/format-import-error.js";
@@ -176,6 +177,7 @@ export function TeamMembersImportPage() {
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTeamModuleSecondaryShellNav();
+  useTeamImportAgentUiSlice();
 
   usePageConfig({
     breadcrumbs: [

@@ -14,6 +14,7 @@ import type { ContactSettings } from "../api/settings.js";
 import { ContactLanguagesSection } from "../components/settings/contact-languages-section.js";
 import { IdFormatSection } from "../components/settings/id-format-section.js";
 import { RoleCategoriesSection } from "../components/settings/role-categories-section.js";
+import { useContactsSettingsAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
 import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import {
   useContactSettingsPageQuery,
@@ -38,6 +39,7 @@ const DEFAULT_CONTACT_SETTINGS: ContactSettings = {
 
 export function ContactsSettingsPage() {
   const { t } = useTranslation("contacts");
+  useContactsSettingsAgentUiSlice();
   const query = useContactSettingsPageQuery();
   const saveMutation = useSaveContactSettingsPageMutation();
   const loading = query.isLoading;

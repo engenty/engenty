@@ -23,6 +23,7 @@ import {
   suggestContactsImportMappings,
   updateContact,
 } from "../api.js";
+import { useContactsImportAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
 import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import {
   CONTACTS_IMPORT_FIELDS,
@@ -35,6 +36,7 @@ const DEFAULT_MATCH_BY: MatchByConfig = { type: "none" };
 
 export function ContactsImportPage() {
   const { t } = useTranslation("contacts");
+  useContactsImportAgentUiSlice();
   const navigate = useNavigate();
   const progressToastId = useRef<string | number | undefined>(undefined);
   const [matchByConfig, setMatchByConfig] =

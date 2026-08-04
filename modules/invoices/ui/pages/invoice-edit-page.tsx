@@ -57,6 +57,7 @@ import { downloadInvoicePdf, fetchInvoicePdf } from "../api.js";
 import { InvoiceDocumentHeader } from "../components/invoice-document-header.js";
 import { InvoiceSettingsPanel } from "../components/invoice-settings-panel.js";
 import { InvoiceStatusBadge } from "../components/invoice-status-badge.js";
+import { useInvoicesEditAgentUiSlice } from "../hooks/use-invoices-agent-ui-slice.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
 import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import { getContactsPluginApi } from "../plugins.js";
@@ -387,6 +388,7 @@ export function InvoiceEditPage() {
     // Float the transparent topbar over the white DocumentHeader so they blend.
     topbarOverlap: true,
   });
+  useInvoicesEditAgentUiSlice(invoice);
 
   if (isLoading) {
     return (

@@ -30,6 +30,7 @@ import { ContactsListFilterBar } from "../components/contacts-list-filter-bar.js
 import { ContactsListMain } from "../components/contacts-list-main.js";
 import { ContactsListToolbar } from "../components/contacts-list-toolbar.js";
 import { ContactsOverflowMenu } from "../components/contacts-overflow-menu.js";
+import { useContactsListAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
 import {
   parseContactsListRoleFromSearchParam,
   useContactsListData,
@@ -150,6 +151,14 @@ export function ContactsListPage() {
     },
     t
   );
+
+  useContactsListAgentUiSlice({
+    entities,
+    roleFilter,
+    search,
+    total,
+    typeFilter,
+  });
 
   useEffect(() => {
     if (contactKind === "organisation" && !organisationEnabled) {

@@ -61,6 +61,7 @@ import type {
 } from "../components/sources-table.js";
 import { SourcesTable } from "../components/sources-table.js";
 import { SourcesTableToolbar } from "../components/sources-table-toolbar.js";
+import { useKbSourcesListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { parseKbOpenSourceAddFromLocation } from "../kb-open-source-add-state.js";
 import { KB_MODULE_BASE, kbSourcePath, kbSourcesPath } from "../kb-paths.js";
@@ -406,6 +407,13 @@ export function SourcesListPage() {
   const total = pageData?.total ?? 0;
   const pageSize = pageData?.page_size ?? 25;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useKbSourcesListAgentUiSlice({
+    search,
+    sources: rows,
+    statusFilter,
+    total,
+  });
 
   const selection = useTableSelection<KbSource>({ items: rows });
   const {

@@ -15,6 +15,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { TeamGroup, TeamOrgGraphFlatNode } from "../api.js";
 import { TeamGroupNode } from "../components/graph/team-group-node.js";
 import { TeamMemberNode } from "../components/graph/team-member-node.js";
+import { useTeamGraphAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
 import { getLayoutedElements } from "../lib/dagre-layout.js";
 import { teamModulePageFillShellSectionClassName } from "../lib/team-page-shell.js";
@@ -243,6 +244,7 @@ function TeamGraphCanvas() {
 export function TeamGraphPage() {
   const { t } = useTranslation("team");
   const shellNav = useTeamModuleSecondaryShellNav();
+  useTeamGraphAgentUiSlice();
 
   usePageConfig({
     breadcrumbs: [

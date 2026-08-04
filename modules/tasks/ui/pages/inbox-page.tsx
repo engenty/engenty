@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { InboxList } from "../components/inbox/inbox-list.js";
 import { InboxToolbar } from "../components/inbox/inbox-toolbar.js";
 import { PlanListSubNav } from "../components/plan-list-sub-nav.js";
+import { useTasksInboxAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
 import {
@@ -93,6 +94,12 @@ export function InboxPage() {
       return haystack.includes(q);
     });
   }, [kindFilter, notifications, search]);
+
+  useTasksInboxAgentUiSlice({
+    kindFilter,
+    notifications: filteredNotifications,
+    search,
+  });
 
   const toolbarLabels = useMemo(
     () => ({

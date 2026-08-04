@@ -11,6 +11,7 @@ import {
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Bot, ExternalLink } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTeamAgentsListAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { useTeamAgentsCatalogQuery } from "../hooks/use-team-agents-catalog-query.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
 import { teamModulePageScrollPaddedShellClassName } from "../lib/team-page-shell.js";
@@ -22,6 +23,7 @@ export function TeamAgentsListPage() {
   const shellNav = useTeamModuleSecondaryShellNav();
   const { agents, catalogAvailable, isLoading, isError } =
     useTeamAgentsCatalogQuery();
+  useTeamAgentsListAgentUiSlice({ agents });
 
   usePageConfig({
     breadcrumbs: [

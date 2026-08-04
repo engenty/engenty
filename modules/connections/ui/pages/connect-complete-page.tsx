@@ -8,6 +8,7 @@ import {
   type ConnectCompleteMessage,
   parseConnectCompleteSearch,
 } from "../connect-popup.js";
+import { useConnectionsConnectCompleteAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 
 /**
  * Landing page for the popup connect flow (`/connections/oauth/complete`).
@@ -19,6 +20,8 @@ import {
 export function ConnectCompletePage() {
   const { t } = useTranslation("connections");
   const [reported, setReported] = useState(false);
+
+  useConnectionsConnectCompleteAgentUiSlice();
 
   useEffect(() => {
     const opener = window.opener as Window | null;

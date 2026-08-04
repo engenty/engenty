@@ -31,9 +31,11 @@ export function AgentCapabilityCounts({ agent }: { agent: AiRegisteredAgent }) {
 export function AgentCard({
   agent,
   onDelete,
+  onReset,
 }: {
   agent: AiRegisteredAgent;
   onDelete: (agent: AiRegisteredAgent) => void;
+  onReset: (agent: AiRegisteredAgent) => void;
 }) {
   const navigate = useNavigate();
   return (
@@ -81,7 +83,11 @@ export function AgentCard({
             align="end"
             onClick={(event) => event.stopPropagation()}
           >
-            <AgentActionsMenuItems agent={agent} onDelete={onDelete} />
+            <AgentActionsMenuItems
+              agent={agent}
+              onDelete={onDelete}
+              onReset={onReset}
+            />
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

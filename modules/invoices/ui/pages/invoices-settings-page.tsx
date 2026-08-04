@@ -13,6 +13,7 @@ import {
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
 import type { InvoiceSettings } from "../api.js";
+import { useInvoicesSettingsAgentUiSlice } from "../hooks/use-invoices-agent-ui-slice.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
 import {
   useInvoiceSettingsQuery,
@@ -23,6 +24,7 @@ const FIELD_CLASS = "space-y-1.5";
 
 export function InvoicesSettingsPage() {
   const { t } = useTranslation("invoices");
+  useInvoicesSettingsAgentUiSlice();
   const { data, isLoading } = useInvoiceSettingsQuery();
   const saveMutation = useSetInvoiceSettingsMutation();
   const [form, setForm] = useState<InvoiceSettings | null>(null);

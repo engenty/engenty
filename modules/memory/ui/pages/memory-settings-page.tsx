@@ -40,6 +40,7 @@ import type { MemoryRecord } from "../api.js";
 import { MemoryConflictError, type MemoryScopeQuery } from "../api.js";
 import { MemoryRecordNode } from "../doc/memory-record-node.js";
 import { blocksToDocJson, docJsonToBlocks } from "../doc/tiptap-doc.js";
+import { useMemorySettingsAgentUiSlice } from "../hooks/use-memory-agent-ui-slice.js";
 import {
   useApproveMemoryMutation,
   useRejectMemoryMutation,
@@ -396,6 +397,7 @@ export function MemorySettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") ?? "mine";
   const selectedRef = searchParams.get("ref");
+  useMemorySettingsAgentUiSlice({ selectedRef, tab });
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(tCommon("navigation.settings"));
 

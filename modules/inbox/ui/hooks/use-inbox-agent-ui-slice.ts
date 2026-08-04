@@ -70,3 +70,23 @@ export function useInboxThreadAgentUiSlice(input: {
 
   useRegisterAgentUiSlice("inbox_thread", slice);
 }
+
+export function useInboxSettingsAgentUiSlice(accountCount?: number) {
+  const slice = useMemo(
+    () => ({
+      page: {
+        ...buildAgentUiPageBrief({
+          page_type: "settings",
+          page_title: "Inbox settings",
+          page_description:
+            typeof accountCount === "number"
+              ? `Inbox sync settings (${accountCount} connected account(s)).`
+              : "Inbox sync settings for connected email accounts.",
+        }),
+      },
+    }),
+    [accountCount]
+  );
+
+  useRegisterAgentUiSlice("inbox.settings", slice);
+}

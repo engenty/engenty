@@ -1,4 +1,3 @@
-import { useRegisterAgentUiSlice } from "@engenty/app-shell";
 import {
   BlockEditor,
   type CommercialBlock,
@@ -67,6 +66,7 @@ import { OfferSenderBlock } from "../components/offer-sender-block.js";
 import { OfferSettingsPanel } from "../components/offer-settings-panel.js";
 import { OfferStatusBadge } from "../components/offer-status-badge.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
+import { useOffersEditAgentUiSlice } from "../hooks/use-offers-agent-ui-slice.js";
 import { useOffersModuleSecondaryShellNav } from "../hooks/use-offers-module-secondary-shell-nav.js";
 import {
   normalizeCommercialTaxRates,
@@ -574,24 +574,7 @@ export function OfferEditPage() {
     topbarOverlap: true,
   });
 
-  useRegisterAgentUiSlice(
-    "offers.edit",
-    useMemo(
-      () =>
-        offer
-          ? {
-              selection: { entity_id: offer.id, entity_type: "offer" },
-              page: {
-                offer_id: offer.id,
-                offer_status: offer.status,
-                offer_number: offer.offer_number,
-                offer_title: offer.title,
-              },
-            }
-          : null,
-      [offer]
-    )
-  );
+  useOffersEditAgentUiSlice(offer);
 
   const totals = useMemo(
     () =>

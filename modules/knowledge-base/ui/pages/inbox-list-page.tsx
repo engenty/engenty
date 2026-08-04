@@ -4,11 +4,13 @@
 
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useKbInboxListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { KB_MODULE_BASE, kbSourcesPath } from "../kb-paths.js";
 
 export function InboxListPage() {
   const navigate = useNavigate();
   const { kbSlug } = useParams<{ kbSlug: string }>();
+  useKbInboxListAgentUiSlice();
 
   useEffect(() => {
     if (kbSlug?.trim()) {

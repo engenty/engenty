@@ -17,7 +17,7 @@ export function SkillMarkdownFrontmatterCard({
   model: SkillFrontmatterPreviewModel;
 }) {
   return (
-    <Card className="mb-6 bg-muted/30 shadow-none" variant="settings">
+    <Card className="bg-muted/30 shadow-none" variant="settings">
       <CardContent className="space-y-3 p-4 text-sm">
         {model.primaryLines.length > 0 ? (
           <ul className="space-y-1 font-mono text-xs leading-relaxed">

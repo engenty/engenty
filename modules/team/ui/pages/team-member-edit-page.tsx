@@ -29,6 +29,7 @@ import {
 import { TeamMemberProfileImageField } from "../components/team-member-profile-image-field.js";
 import { ROLE_NONE } from "../components/team-member-role-field.js";
 import { TeamModulePageScroll } from "../components/team-module-page-scroll.js";
+import { useTeamMemberEditAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import { useTeamModuleSecondaryShellNav } from "../hooks/use-team-module-secondary-shell-nav.js";
 import {
   pickerValueFromReportsToId,
@@ -200,6 +201,7 @@ export function TeamMemberEditPage() {
   );
 
   const isDirty = form.formState.isDirty;
+  useTeamMemberEditAgentUiSlice({ dirty: isDirty, member });
 
   const breadcrumbs = useMemo(
     () => [

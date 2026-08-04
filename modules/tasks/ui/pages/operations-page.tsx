@@ -6,6 +6,7 @@ import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { DispatchStatusStrip } from "../components/operations/dispatch-status-strip.js";
 import { OperationsTree } from "../components/operations/operations-tree.js";
 import { UnplannedTasksSection } from "../components/operations/unplanned-tasks-section.js";
+import { useTasksOperationsAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { cancelTaskAgentRun } from "../lib/task-run-observer-api.js";
 import {
@@ -16,6 +17,7 @@ import { useTaskSettingsQuery } from "../tasks-queries.js";
 
 export function OperationsPage() {
   const { t } = useTranslation("tasks");
+  useTasksOperationsAgentUiSlice();
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useTasksModuleSecondaryShellNav();

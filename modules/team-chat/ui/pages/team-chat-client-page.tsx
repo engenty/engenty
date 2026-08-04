@@ -30,7 +30,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { toast } from "sonner";
 import { ChannelDetailsPopover } from "../components/channel-details-popover.js";
 import { ConversationView } from "../components/conversation-view.js";
@@ -40,6 +45,7 @@ import { NewDmDialog } from "../components/new-dm-dialog.js";
 import { PinsPopover } from "../components/pins-popover.js";
 import { TeamChatOverview } from "../components/team-chat-overview.js";
 import { useRecentConversationTabs } from "../hooks/use-recent-conversation-tabs.js";
+import { useTeamChatClientAgentUiSlice } from "../hooks/use-team-chat-agent-ui-slice.js";
 import { useTeamChatSecondaryNav } from "../hooks/use-team-chat-secondary-nav.js";
 import { conversationDisplayName, usersById } from "../lib/format.js";
 import {
@@ -55,10 +61,12 @@ export function TeamChatClientPage() {
   const queryClient = useQueryClient();
   const { conversationId } = useParams<{ conversationId?: string }>();
   const { hash } = useLocation();
+  const [searchParams] = useSearchParams();
   // Dashboard tab shown inline (no route change) — see TeamChatOverview.
   const inlineConversationId =
     !conversationId && hash.length > 1 ? hash.slice(1) : null;
   const activeConversationId = conversationId ?? inlineConversationId;
+  const threadTs = searchParams.get("thread");
   const { session } = useCoreAuthSession();
   const currentUserId = session?.user?.id ?? null;
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
@@ -89,6 +97,13 @@ export function TeamChatClientPage() {
     const label = conversationDisplayName(conversation, users, currentUserId);
     return conversation.name ? `#${label}` : label;
   }, [activeConversationId, conversation, users, currentUserId]);
+
+  useTeamChatClientAgentUiSlice({
+    conversationId: activeConversationId,
+    conversationLabel,
+    conversationType: conversation?.type ?? null,
+    threadTs,
+  });
 
   const breadcrumbs = useMemo(
     () => [

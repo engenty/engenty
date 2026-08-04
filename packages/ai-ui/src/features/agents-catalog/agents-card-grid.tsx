@@ -16,11 +16,13 @@ export function AgentsCardGrid({
   groups,
   isGroupOpen,
   onDelete,
+  onReset,
   onToggleGroup,
 }: {
   groups: AgentCatalogGroupView[];
   isGroupOpen: (id: string) => boolean;
   onDelete: (agent: AiRegisteredAgent) => void;
+  onReset: (agent: AiRegisteredAgent) => void;
   onToggleGroup: (id: string) => void;
 }) {
   const { t } = useTranslation("ai-ui");
@@ -45,7 +47,12 @@ export function AgentsCardGrid({
             {open ? (
               <div className={`${adminListCardsGridClassName("normal")} mb-2`}>
                 {group.agents.map((agent) => (
-                  <AgentCard agent={agent} key={agent.id} onDelete={onDelete} />
+                  <AgentCard
+                    agent={agent}
+                    key={agent.id}
+                    onDelete={onDelete}
+                    onReset={onReset}
+                  />
                 ))}
               </div>
             ) : null}

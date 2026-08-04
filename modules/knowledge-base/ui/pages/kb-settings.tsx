@@ -21,6 +21,7 @@ import { useMemo, useState } from "react";
 import { KbSettingsGeneralSection } from "../components/settings/kb-settings-general-section.js";
 import { KbSettingsKnowledgeBasesSection } from "../components/settings/kb-settings-knowledge-bases-section.js";
 import type { KbSettingsToolbarSaveSlot } from "../components/settings/kb-settings-types.js";
+import { useKbSettingsAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { kbModulePageFillShellSectionClassName } from "../lib/kb-page-shell.js";
 import { kbsQueryOptions } from "../queries.js";
 
@@ -33,6 +34,7 @@ export function KbSettingsPage() {
     useState<KbSettingsToolbarSaveSlot | null>(null);
 
   const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  useKbSettingsAgentUiSlice({ kbs });
 
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(t("breadcrumb.settings"));

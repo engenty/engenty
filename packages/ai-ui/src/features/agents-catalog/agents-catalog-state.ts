@@ -4,6 +4,10 @@ import type {
   AiAgentRole,
   AiRegisteredAgent,
 } from "../../lib/admin/ai-runtime-types";
+import {
+  type AiInstructionDocument,
+  toAiInstructionFileDocument,
+} from "../../lib/admin/instruction-settings-api";
 
 export type AgentRoleFilter = "all" | AiAgentRole;
 export type AgentSourceFilter = "all" | "builtin" | "module" | "custom";
@@ -17,6 +21,8 @@ export const AGENT_CATALOG_GROUPS = [
   "custom",
 ] as const;
 export type AgentCatalogGroup = (typeof AGENT_CATALOG_GROUPS)[number];
+/** Catalog section filter — matches overview workforce cards + table groups. */
+export type AgentGroupFilter = "all" | AgentCatalogGroup;
 
 /** Admin path of the chatbot module managing external agents. */
 export const CHATBOT_ADMIN_PATH = "/mdl/chatbot/manage";
@@ -37,9 +43,7 @@ export function isAlwaysActiveAgent(agent: {
   if (role === "copilot" || role === "coordinator") {
     return true;
   }
-  return (
-    agent.id === "engenty.copilot" || agent.id === "engenty.coordinator"
-  );
+  return agent.id === "engenty.copilot" || agent.id === "engenty.coordinator";
 }
 
 export function isCustomAgent(agent: AiRegisteredAgent): boolean {
@@ -49,6 +53,40 @@ export function isCustomAgent(agent: AiRegisteredAgent): boolean {
 /** Edit/Delete affordances: tenant-created rows only, never module-synced ones. */
 export function isEditableAgent(agent: AiRegisteredAgent): boolean {
   return isCustomAgent(agent) && !agent.managed_by_module;
+}
+
+/**
+ * Instruction overrides can be cleared for any non-external agent that owns
+ * seeded instruction documents (AGENTS.md / listed instruction_files).
+ */
+export function canResetAgentInstructions(agent: AiRegisteredAgent): boolean {
+  return getAgentRole(agent) !== "external";
+}
+
+/** Document keys to clear when resetting an agent from the catalog menu. */
+export function resolveAgentInstructionDocumentKeys(
+  agent: AiRegisteredAgent,
+  documents: AiInstructionDocument[] = []
+): string[] {
+  const keys = new Set<string>();
+  for (const key of agent.instruction_keys) {
+    const trimmed = key.trim();
+    if (trimmed) {
+      keys.add(trimmed);
+    }
+  }
+  // Always include the AGENTS.md key — every agent has at least that seed.
+  keys.add(`${agent.id}.agents`);
+  for (const document of documents) {
+    const file = toAiInstructionFileDocument(document);
+    if (
+      file.owner_id === agent.id ||
+      file.document_key.startsWith(`${agent.id}.`)
+    ) {
+      keys.add(file.document_key);
+    }
+  }
+  return Array.from(keys);
 }
 
 export function getAgentCatalogGroup(
@@ -70,6 +108,7 @@ export function getAgentCatalogGroup(
 const ROLE_FILTER_VALUES: readonly AgentRoleFilter[] = [
   "all",
   "copilot",
+  "coordinator",
   "specialist",
   "chat_surface",
   "external",
@@ -80,8 +119,41 @@ const SOURCE_FILTER_VALUES: readonly AgentSourceFilter[] = [
   "module",
   "custom",
 ];
+const GROUP_FILTER_VALUES: readonly AgentGroupFilter[] = [
+  "all",
+  ...AGENT_CATALOG_GROUPS,
+];
 
-/** Parse the `role` search param (overview workforce-card links) into a filter. */
+/** Parse the `group` search param (overview workforce-card links) into a filter. */
+export function parseAgentGroupFilter(value: string | null): AgentGroupFilter {
+  return GROUP_FILTER_VALUES.includes(value as AgentGroupFilter)
+    ? (value as AgentGroupFilter)
+    : "all";
+}
+
+/**
+ * Legacy `role` param → catalog group. Workforce cards used to pass role=copilot
+ * for the Engenty bucket (which also includes the coordinator).
+ */
+export function catalogGroupFromLegacyRoleParam(
+  value: string | null
+): AgentGroupFilter {
+  switch (value) {
+    case "copilot":
+    case "coordinator":
+      return "leadership";
+    case "specialist":
+      return "specialists";
+    case "chat_surface":
+      return "chat_surfaces";
+    case "external":
+      return "external";
+    default:
+      return "all";
+  }
+}
+
+/** Parse the `role` search param into a filter. */
 export function parseAgentRoleFilter(value: string | null): AgentRoleFilter {
   return ROLE_FILTER_VALUES.includes(value as AgentRoleFilter)
     ? (value as AgentRoleFilter)
@@ -98,7 +170,7 @@ export function parseAgentSourceFilter(
 }
 
 export interface AgentCatalogFilterState {
-  roleFilter: AgentRoleFilter;
+  groupFilter: AgentGroupFilter;
   searchQuery: string;
   sourceFilter: AgentSourceFilter;
 }
@@ -123,8 +195,8 @@ export function filterAgents(
   const query = state.searchQuery.trim().toLowerCase();
   return agents.filter((agent) => {
     if (
-      state.roleFilter !== "all" &&
-      getAgentRole(agent) !== state.roleFilter
+      state.groupFilter !== "all" &&
+      getAgentCatalogGroup(agent) !== state.groupFilter
     ) {
       return false;
     }

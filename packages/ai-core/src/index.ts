@@ -216,12 +216,12 @@ export {
   buildAgentLayeredPrompt,
 } from "./instructions/compose-agent-prompt.js";
 export {
+  copilotAgentAssetLocator,
   readCopilotAgentsMarkdown,
   readCopilotInstructionFile,
   readCopilotSkillsMarkdown,
   readCopilotSoulMarkdown,
   resolveCopilotAgentDir,
-  copilotAgentAssetLocator,
 } from "./instructions/copilot-seed-files.js";
 export {
   createEngentyCopilotInstructionDocuments,

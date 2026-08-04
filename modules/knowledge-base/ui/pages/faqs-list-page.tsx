@@ -54,6 +54,7 @@ import {
   FaqsTableToolbar,
 } from "../components/faqs-table-toolbar.js";
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
+import { useKbFaqsListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { kbDisplayName } from "../kb-display-name.js";
 import {
@@ -239,6 +240,8 @@ export function FaqListPage() {
       ? listError.message
       : "Failed to load FAQs"
     : null;
+
+  useKbFaqsListAgentUiSlice({ faqs, search, total });
 
   const deleteMutation = useDeleteFaqMutation(listQuery);
   const updateMutation = useUpdateFaqMutation(listQuery);

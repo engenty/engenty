@@ -16,6 +16,7 @@ import { useQuery } from "@engenty/query-client";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { File, FileImage, FileText } from "lucide-react";
 import { getFilesPreviewPdfUrl } from "../api.js";
+import { useFilesPreviewAgentUiSlice } from "../hooks/use-files-agent-ui-slice.js";
 
 /** Cap rendered text so very large files do not freeze the detail page. */
 const TEXT_PREVIEW_MAX_BYTES = 512 * 1024;
@@ -213,6 +214,9 @@ export function FilePreviewBlock(props: {
     truncatedLabel,
     url,
   } = props;
+
+  // Path + name only — never file contents.
+  useFilesPreviewAgentUiSlice({ fileKey, filename });
 
   const officePreview = useQuery({
     queryFn: ({ signal }) =>

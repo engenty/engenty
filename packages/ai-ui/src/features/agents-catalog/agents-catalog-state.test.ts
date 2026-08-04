@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { AiRegisteredAgent } from "../../lib/admin/ai-runtime-types";
 import {
+  canResetAgentInstructions,
+  catalogGroupFromLegacyRoleParam,
   filterAgents,
   getAgentCatalogGroup,
   groupAgents,
   isAlwaysActiveAgent,
   isEditableAgent,
+  resolveAgentInstructionDocumentKeys,
 } from "./agents-catalog-state";
 
 function agent(partial: Partial<AiRegisteredAgent>): AiRegisteredAgent {
@@ -80,23 +83,79 @@ describe("isEditableAgent", () => {
   });
 });
 
+describe("canResetAgentInstructions", () => {
+  it("allows every non-external agent", () => {
+    expect(canResetAgentInstructions(copilot)).toBe(true);
+    expect(canResetAgentInstructions(worker)).toBe(true);
+    expect(canResetAgentInstructions(custom)).toBe(true);
+    expect(canResetAgentInstructions(external)).toBe(false);
+  });
+});
+
+describe("resolveAgentInstructionDocumentKeys", () => {
+  it("includes instruction_keys, AGENTS.md key, and owned catalog docs", () => {
+    expect(
+      resolveAgentInstructionDocumentKeys(
+        agent({
+          id: "engenty.copilot",
+          instruction_keys: [
+            "engenty.copilot.agents",
+            "engenty.copilot.soul",
+            "engenty.copilot.skills",
+          ],
+        }),
+        [
+          {
+            body: "",
+            created_at: "",
+            created_by_user_id: null,
+            document_key: "engenty.copilot.append.notes",
+            id: "1",
+            is_active: true,
+            layer: "tenant_override",
+            metadata: { owner_id: "engenty.copilot", filename: "notes.md" },
+            module_id: "engenty",
+            source_kind: "user",
+            tenant_id: "t1",
+            title: "notes",
+            updated_at: "",
+            updated_by_user_id: null,
+            version: 1,
+          },
+        ]
+      ).toSorted()
+    ).toEqual([
+      "engenty.copilot.agents",
+      "engenty.copilot.append.notes",
+      "engenty.copilot.skills",
+      "engenty.copilot.soul",
+    ]);
+  });
+});
+
 describe("filterAgents", () => {
   const all = [copilot, worker, surface, external, custom];
+  const coordinator = agent({
+    id: "engenty.coordinator",
+    name: "Coordinator",
+    role: "coordinator",
+    source: "builtin",
+  });
 
-  it("filters by role", () => {
+  it("filters by catalog group", () => {
     expect(
-      filterAgents(all, {
-        roleFilter: "specialist",
+      filterAgents([copilot, coordinator, worker], {
+        groupFilter: "leadership",
         searchQuery: "",
         sourceFilter: "all",
       })
-    ).toEqual([worker, custom]);
+    ).toEqual([copilot, coordinator]);
   });
 
   it("filters by custom source", () => {
     expect(
       filterAgents(all, {
-        roleFilter: "all",
+        groupFilter: "all",
         searchQuery: "",
         sourceFilter: "custom",
       })
@@ -106,18 +165,31 @@ describe("filterAgents", () => {
   it("searches by name or id", () => {
     expect(
       filterAgents(all, {
-        roleFilter: "all",
+        groupFilter: "all",
         searchQuery: "helper",
         sourceFilter: "all",
       })
     ).toEqual([custom]);
     expect(
       filterAgents(all, {
-        roleFilter: "all",
+        groupFilter: "all",
         searchQuery: "chatbot.",
         sourceFilter: "all",
       })
     ).toEqual([external]);
+  });
+});
+
+describe("catalogGroupFromLegacyRoleParam", () => {
+  it("maps old role= links onto catalog groups", () => {
+    expect(catalogGroupFromLegacyRoleParam("copilot")).toBe("leadership");
+    expect(catalogGroupFromLegacyRoleParam("coordinator")).toBe("leadership");
+    expect(catalogGroupFromLegacyRoleParam("specialist")).toBe("specialists");
+    expect(catalogGroupFromLegacyRoleParam("chat_surface")).toBe(
+      "chat_surfaces"
+    );
+    expect(catalogGroupFromLegacyRoleParam("external")).toBe("external");
+    expect(catalogGroupFromLegacyRoleParam(null)).toBe("all");
   });
 });
 

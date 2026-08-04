@@ -41,10 +41,10 @@ export function resolveAgentDetailTab(
 export interface AgentDetailAffordances {
   /** Custom agents only: link to /agents/:id/edit. */
   canEditAgent: boolean;
-  /** External (chatbot-managed) agents are read-only Overview-only. */
-  isExternal: boolean;
   /** Engenty leadership agents stay always-on (toggle shown locked). */
   chatActiveLocked: boolean;
+  /** External (chatbot-managed) agents are read-only Overview-only. */
+  isExternal: boolean;
   /** Registry Engenty leadership agents show the chat-active control in the header. */
   showChatActiveToggle: boolean;
   /** External agents collapse to Overview only. */

@@ -434,9 +434,9 @@ export function SkillDetailPage() {
           onValueChange={handleSkillDetailTabChange}
           value={skillDetailTabValue}
         >
-          <header className="w-full shrink-0 border-b bg-muted/30">
+          <header className="w-full shrink-0 bg-card">
             <div className="mx-auto max-w-6xl px-4 pt-4 pb-0 md:px-5">
-              <div className="space-y-4 pb-4">
+              <div className="space-y-4 pb-2">
                 {skillDetailQuery.isLoading ? (
                   <p className="text-muted-foreground text-sm">
                     {t("skillsCatalog.loading")}
@@ -528,7 +528,7 @@ export function SkillDetailPage() {
                 className={cn(
                   "flex items-end justify-between gap-4 pb-px",
                   pinned
-                    ? "border-border border-b bg-background px-4 py-1 shadow-sm md:px-5"
+                    ? "border-border border-b bg-card px-4 py-1 shadow-sm md:px-5"
                     : "mx-auto max-w-6xl px-4 md:px-5"
                 )}
                 ref={toolbarRef}
@@ -561,178 +561,187 @@ export function SkillDetailPage() {
             </div>
           </header>
 
-          <div className="mx-auto w-full max-w-6xl space-y-6 p-page">
-            <TabsContent className="m-0 block flex-none" value="view">
-              {isEditing && currentDraft ? (
-                <SkillSpecificationCard
-                  draft={currentDraft}
-                  labels={{
-                    allowedTools: t("skillsDetail.previewAllowedToolsHeading"),
-                    compatibility: t("skillsDetail.compatibilityLabel"),
-                    description: t("skillsDetail.descriptionLabel"),
-                    license: licenseMetaLabel,
-                    metadata: t("skillsDetail.previewMetadataHeading"),
-                    name: t("skillsDetail.nameLabel"),
-                    title: t("skillsDetail.titleLabel"),
-                  }}
-                  nameHint={t("skillsDetail.nameKebabHint")}
-                  onAllowedToolsChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      allowed_tools: value
-                        .split(/\s+/u)
-                        .map((entry) => entry.trim())
-                        .filter(Boolean),
-                    }))
-                  }
-                  onCompatibilityChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      compatibility: value,
-                    }))
-                  }
-                  onDescriptionChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      description: value,
-                    }))
-                  }
-                  onLicenseChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      license: value,
-                    }))
-                  }
-                  onMetadataChange={(index, value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      metadata_rows: current.metadata_rows.map(
-                        (entry, entryIndex) =>
-                          entryIndex === index ? { ...entry, value } : entry
+          <div className="mx-auto w-full max-w-6xl p-page">
+            <div className="rounded-xl bg-card shadow-sm">
+              <TabsContent
+                className="m-0 block flex-none space-y-6 p-6"
+                value="view"
+              >
+                {isEditing && currentDraft ? (
+                  <SkillSpecificationCard
+                    draft={currentDraft}
+                    labels={{
+                      allowedTools: t(
+                        "skillsDetail.previewAllowedToolsHeading"
                       ),
-                    }))
-                  }
-                  onNameChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      name: value,
-                    }))
-                  }
-                  onTitleChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      title: value,
-                    }))
-                  }
-                />
-              ) : frontmatterPreviewModel ? (
-                <SkillMarkdownFrontmatterCard
-                  labels={{
-                    allowedTools: t("skillsDetail.previewAllowedToolsHeading"),
-                    metadata: t("skillsDetail.previewMetadataHeading"),
-                  }}
-                  model={frontmatterPreviewModel}
-                />
-              ) : null}
-              {isEditing && currentDraft ? (
-                <InstructionMarkdownEditor
-                  mode="wysiwyg"
-                  onChange={(markdown) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      body_markdown: markdown,
-                    }))
-                  }
-                  placeholder={t("skillsDetail.editorPlaceholder")}
-                  toolbarVariant="floating"
-                  value={currentDraft.body_markdown}
-                />
-              ) : (
-                <MessageResponse className={COMPACT_MARKDOWN_PROSE_CLASSNAME}>
-                  {renderedMarkdownPreview}
-                </MessageResponse>
-              )}
-              {isEditing && canEdit ? (
-                <section className="mt-6 rounded-md border border-destructive/30 bg-destructive/5 p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <h2 className="font-medium text-destructive text-sm">
-                        {t("skillsDetail.dangerZoneTitle")}
-                      </h2>
-                      <p className="text-muted-foreground text-sm">
-                        {t("skillsDetail.dangerZoneDescription")}
-                      </p>
-                    </div>
-                    <Button
-                      disabled={deleteMutation.isPending}
-                      onClick={() =>
-                        deleteMutation.mutate(resolvedSkillId, {
-                          onSuccess: () => navigate(buildSkillsCatalogPath()),
-                        })
-                      }
-                      type="button"
-                      variant="destructive"
-                    >
-                      {t("skillsCatalog.delete")}
-                    </Button>
-                  </div>
-                </section>
-              ) : null}
-            </TabsContent>
-
-            <TabsContent className="m-0 block flex-none" value="code">
-              {skillRepoDisplayPath ? (
-                <p className="mb-2 break-all font-mono text-muted-foreground text-xs italic">
-                  {skillRepoDisplayPath}
-                </p>
-              ) : null}
-              {isEditing && currentDraft ? (
-                <div className="grid gap-3">
-                  {sourceError ? (
-                    <div
-                      className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
-                      role="alert"
-                    >
-                      {t("skillsDetail.sourceParseFailed")}: {sourceError}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-sm">
-                      {t("skillsDetail.sourceEditorHint")}
-                    </p>
-                  )}
-                  <SkillSourceEditor
-                    formatLabel={t("skillsDetail.formatSource")}
-                    onChange={(nextValue) => {
-                      setSourceText(nextValue);
-                      if (!currentDraft) {
-                        return;
-                      }
-                      try {
-                        const parsed = parseSkillSourceToDraft(
-                          nextValue,
-                          currentDraft
-                        );
-                        setDraft(parsed.draft);
-                        setSourceError(null);
-                      } catch (error) {
-                        setSourceError(
-                          error instanceof Error
-                            ? error.message
-                            : t("skillsDetail.sourceParseFailed")
-                        );
-                      }
+                      compatibility: t("skillsDetail.compatibilityLabel"),
+                      description: t("skillsDetail.descriptionLabel"),
+                      license: licenseMetaLabel,
+                      metadata: t("skillsDetail.previewMetadataHeading"),
+                      name: t("skillsDetail.nameLabel"),
+                      title: t("skillsDetail.titleLabel"),
                     }}
-                    searchLabel={t("skillsDetail.searchSource")}
-                    value={sourceText}
+                    nameHint={t("skillsDetail.nameKebabHint")}
+                    onAllowedToolsChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        allowed_tools: value
+                          .split(/\s+/u)
+                          .map((entry) => entry.trim())
+                          .filter(Boolean),
+                      }))
+                    }
+                    onCompatibilityChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        compatibility: value,
+                      }))
+                    }
+                    onDescriptionChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        description: value,
+                      }))
+                    }
+                    onLicenseChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        license: value,
+                      }))
+                    }
+                    onMetadataChange={(index, value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        metadata_rows: current.metadata_rows.map(
+                          (entry, entryIndex) =>
+                            entryIndex === index ? { ...entry, value } : entry
+                        ),
+                      }))
+                    }
+                    onNameChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        name: value,
+                      }))
+                    }
+                    onTitleChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        title: value,
+                      }))
+                    }
                   />
-                </div>
-              ) : (
-                <SkillFileCodeView
-                  content={codePreview}
-                  filePath={selectedFile}
-                />
-              )}
-            </TabsContent>
+                ) : frontmatterPreviewModel ? (
+                  <SkillMarkdownFrontmatterCard
+                    labels={{
+                      allowedTools: t(
+                        "skillsDetail.previewAllowedToolsHeading"
+                      ),
+                      metadata: t("skillsDetail.previewMetadataHeading"),
+                    }}
+                    model={frontmatterPreviewModel}
+                  />
+                ) : null}
+                {isEditing && currentDraft ? (
+                  <InstructionMarkdownEditor
+                    mode="wysiwyg"
+                    onChange={(markdown) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        body_markdown: markdown,
+                      }))
+                    }
+                    placeholder={t("skillsDetail.editorPlaceholder")}
+                    toolbarVariant="floating"
+                    value={currentDraft.body_markdown}
+                  />
+                ) : (
+                  <MessageResponse className={COMPACT_MARKDOWN_PROSE_CLASSNAME}>
+                    {renderedMarkdownPreview}
+                  </MessageResponse>
+                )}
+                {isEditing && canEdit ? (
+                  <section className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="space-y-1">
+                        <h2 className="font-medium text-destructive text-sm">
+                          {t("skillsDetail.dangerZoneTitle")}
+                        </h2>
+                        <p className="text-muted-foreground text-sm">
+                          {t("skillsDetail.dangerZoneDescription")}
+                        </p>
+                      </div>
+                      <Button
+                        disabled={deleteMutation.isPending}
+                        onClick={() =>
+                          deleteMutation.mutate(resolvedSkillId, {
+                            onSuccess: () => navigate(buildSkillsCatalogPath()),
+                          })
+                        }
+                        type="button"
+                        variant="destructive"
+                      >
+                        {t("skillsCatalog.delete")}
+                      </Button>
+                    </div>
+                  </section>
+                ) : null}
+              </TabsContent>
+
+              <TabsContent className="m-0 block flex-none p-6" value="code">
+                {skillRepoDisplayPath ? (
+                  <p className="mb-2 break-all font-mono text-muted-foreground text-xs italic">
+                    {skillRepoDisplayPath}
+                  </p>
+                ) : null}
+                {isEditing && currentDraft ? (
+                  <div className="grid gap-3">
+                    {sourceError ? (
+                      <div
+                        className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm"
+                        role="alert"
+                      >
+                        {t("skillsDetail.sourceParseFailed")}: {sourceError}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        {t("skillsDetail.sourceEditorHint")}
+                      </p>
+                    )}
+                    <SkillSourceEditor
+                      formatLabel={t("skillsDetail.formatSource")}
+                      onChange={(nextValue) => {
+                        setSourceText(nextValue);
+                        if (!currentDraft) {
+                          return;
+                        }
+                        try {
+                          const parsed = parseSkillSourceToDraft(
+                            nextValue,
+                            currentDraft
+                          );
+                          setDraft(parsed.draft);
+                          setSourceError(null);
+                        } catch (error) {
+                          setSourceError(
+                            error instanceof Error
+                              ? error.message
+                              : t("skillsDetail.sourceParseFailed")
+                          );
+                        }
+                      }}
+                      searchLabel={t("skillsDetail.searchSource")}
+                      value={sourceText}
+                    />
+                  </div>
+                ) : (
+                  <SkillFileCodeView
+                    content={codePreview}
+                    filePath={selectedFile}
+                  />
+                )}
+              </TabsContent>
+            </div>
           </div>
         </Tabs>
       ) : (

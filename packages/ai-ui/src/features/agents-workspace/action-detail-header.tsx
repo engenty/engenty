@@ -59,8 +59,8 @@ export function ActionDetailHeader({
       <EditableText
         as="div"
         className={[
-          "mt-2 min-h-20 max-w-4xl px-0 pb-4 text-muted-foreground text-sm",
-          isEditing ? "rounded-md" : "",
+          "mt-2 max-w-4xl px-0 text-muted-foreground text-sm",
+          isEditing ? "min-h-20 rounded-md" : "",
         ].join(" ")}
         isPreview={!isEditing}
         onEnter={() => {}}

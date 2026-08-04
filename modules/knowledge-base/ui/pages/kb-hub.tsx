@@ -39,6 +39,7 @@ import { KbHubKbHeaderInline } from "../components/kb-hub-kb-header-inline.js";
 import { KbHubSearchCombobox } from "../components/kb-hub-search-combobox.js";
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { KbPageBlocksEditor } from "../components/page-blocks/kb-page-blocks-editor.js";
+import { useKbHubAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { kbCoverIsLight } from "../kb-cover-theme-presets.js";
 import { kbDisplayName } from "../kb-display-name.js";
@@ -293,6 +294,11 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   });
 
   const kbName = activeKb ? kbDisplayName(activeKb, t) : t("hub.title");
+  useKbHubAgentUiSlice({
+    isEditMode,
+    kbId: kbId ?? "",
+    kbName,
+  });
 
   const pageLayoutMutation = useUpdateKbPageLayoutMutation(kbId ?? "");
 

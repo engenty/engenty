@@ -858,6 +858,9 @@ importers:
       '@engenty/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@engenty/auth-ui':
         specifier: workspace:*
         version: link:../../packages/auth-ui
@@ -925,6 +928,9 @@ importers:
       '@engenty/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@engenty/auth-ui':
         specifier: workspace:*
         version: link:../../packages/auth-ui
@@ -1692,6 +1698,9 @@ importers:
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@engenty/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -1747,6 +1756,9 @@ importers:
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@engenty/connections-sdk':
         specifier: workspace:*
         version: link:../../packages/connections-sdk

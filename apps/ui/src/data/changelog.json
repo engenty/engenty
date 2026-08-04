@@ -4,6 +4,24 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "fce1832",
+        "message": "add '@engenty/app-shell' to multiple package configurations",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dcaf65d",
+        "message": "implement agent reset functionality and enhance filtering",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.97",
+    "timestamp": 1785874679,
+    "commits": [
+      {
         "id": "59b33b1",
         "message": "improve error handling for engenty.copilot seed file loading",
         "group": "Added",

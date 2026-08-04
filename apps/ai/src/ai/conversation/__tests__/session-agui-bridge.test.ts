@@ -112,6 +112,42 @@ describe("SessionAgUiConverter", () => {
     expect(types.filter((t) => t === "TOOL_CALL_START")).toHaveLength(1);
   });
 
+  it("does not re-append full args when tool_start follows streamed deltas", () => {
+    // Mastra emits tool_input_* deltas, then a tool_start with the complete
+    // args object. Re-appending that object produced concatenated JSON in the
+    // inspector (two identical objects with no separator).
+    const out = run([
+      {
+        toolCallId: "t-dup",
+        toolName: "engenty_tool_execute",
+        type: "tool_input_start",
+      },
+      {
+        argsTextDelta:
+          '{"id":"contacts_create","input":{"display_name":"WAFF"}}',
+        toolCallId: "t-dup",
+        type: "tool_input_delta",
+      } as SessionEventLike,
+      { toolCallId: "t-dup", type: "tool_input_end" },
+      {
+        args: {
+          id: "contacts_create",
+          input: { display_name: "WAFF" },
+        },
+        toolCallId: "t-dup",
+        toolName: "engenty_tool_execute",
+        type: "tool_start",
+      },
+      { result: "ok", toolCallId: "t-dup", type: "tool_end" },
+    ]);
+    const argDeltas = out
+      .filter((e) => e.type === "TOOL_CALL_ARGS")
+      .map((e) => e.delta);
+    expect(argDeltas).toEqual([
+      '{"id":"contacts_create","input":{"display_name":"WAFF"}}',
+    ]);
+  });
+
   it("holds a nameless tool_input_start so the named tool_start opens the call", () => {
     // Azure surfaces dynamic tools' input-streaming-start before the tool
     // name; Mastra passes that through as toolName "". Opening the call on the

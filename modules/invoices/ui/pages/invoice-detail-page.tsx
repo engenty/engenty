@@ -20,6 +20,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { downloadInvoicePdf } from "../api.js";
 import { InvoiceDocumentHeader } from "../components/invoice-document-header.js";
 import { InvoiceStatusBadge } from "../components/invoice-status-badge.js";
+import { useInvoicesDetailAgentUiSlice } from "../hooks/use-invoices-agent-ui-slice.js";
 import { useInvoicesModuleSecondaryShellNav } from "../hooks/use-invoices-module-secondary-shell-nav.js";
 import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import {
@@ -183,6 +184,7 @@ export function InvoiceDetailPage() {
     // Float the transparent topbar over the white DocumentHeader so they blend.
     topbarOverlap: true,
   });
+  useInvoicesDetailAgentUiSlice(invoice);
 
   if (isLoading) {
     return (

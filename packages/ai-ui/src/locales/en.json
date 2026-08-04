@@ -1166,6 +1166,7 @@
       "delete": "Delete",
       "edit": "Edit",
       "manageInChatbots": "Manage in Chatbots",
+      "reset": "Reset",
       "view": "View"
     },
     "cancel": "Cancel",
@@ -1187,11 +1188,17 @@
     "deleteDescription": "“{{name}}” will be removed permanently. Sessions and runs are kept for auditing.",
     "deleting": "Deleting…",
     "description": "Every agent in the workforce: built-in, module-provided, and custom.",
+    "resetConfirm": "Reset instruction overrides?",
+    "resetDescription": "Clear tenant and user overrides for “{{name}}” and restore the seeded instruction files (AGENTS.md and related).",
+    "resetFailed": "Resetting instruction overrides failed.",
+    "resetting": "Resetting…",
     "empty": "No agents are registered yet.",
     "filter": {
+      "allGroups": "All groups",
       "allRoles": "All roles",
       "allSources": "All sources",
       "clear": "Clear filter",
+      "group": "Group",
       "role": "Role",
       "source": "Source"
     },

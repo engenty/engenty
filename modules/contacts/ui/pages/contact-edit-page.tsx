@@ -3,7 +3,6 @@ import { useEngentyFrontendTool } from "@engenty/ai-ui";
 import {
   createFrontendToolDefinition,
   useRegisterAgentUiField,
-  useRegisterAgentUiSlice,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, Form } from "@engenty/ui-core";
@@ -13,9 +12,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { ContactFormFields } from "../components/contact-form-fields.jsx";
-import { buildContactSnapshotForAgentUi } from "../copilot-context.js";
 import { applyContactsSuggestions } from "../copilot-contribution.js";
 import { setContactsDraftApplyHandler } from "../copilot-draft-bridge.js";
+import { useContactsEditAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
 import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import { previewDisplayNameFromForm } from "../lib/contact-profile-name-form.js";
 import {
@@ -242,31 +241,18 @@ export function ContactEditPage() {
   );
   const focusVatId = useCallback(() => form.setFocus("vat_id"), [form]);
   const focusTaxId = useCallback(() => form.setFocus("tax_id"), [form]);
-  const agentUiSlice = useMemo(() => {
-    const contact = detailQuery.data;
-    return {
-      draft: {
-        dirty: isDirty,
-        fields: Object.fromEntries(
-          CONTACT_AGENT_UI_FIELDS.map((field) => [field, watchedValues[field]])
-        ) as Record<string, JsonValue>,
-      },
-      page: {
-        title,
-        visible_fields: [...CONTACT_AGENT_UI_FIELDS],
-        ...(contact
-          ? { contact_snapshot: buildContactSnapshotForAgentUi(contact) }
-          : {}),
-      },
-      selection: id
-        ? {
-            entity_id: id,
-            entity_type: "contact",
-          }
-        : undefined,
-    };
-  }, [detailQuery.data, id, isDirty, title, watchedValues]);
-  useRegisterAgentUiSlice("contacts.edit", agentUiSlice);
+  useContactsEditAgentUiSlice({
+    draft: {
+      dirty: isDirty,
+      fields: Object.fromEntries(
+        CONTACT_AGENT_UI_FIELDS.map((field) => [field, watchedValues[field]])
+      ) as Record<string, JsonValue>,
+    },
+    entity: detailQuery.data ?? null,
+    entityId: id,
+    title,
+    visibleFields: [...CONTACT_AGENT_UI_FIELDS],
+  });
   useEngentyFrontendTool(
     CONTACTS_APPLY_DRAFT_PATCH_TOOL,
     useCallback(

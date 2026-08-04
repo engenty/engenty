@@ -85,6 +85,7 @@ import {
 import { FilePreviewPanel } from "../components/file-preview-panel.js";
 import { FilesCards } from "../components/files-cards.js";
 import { FilesTable } from "../components/files-table.js";
+import { useFilesListAgentUiSlice } from "../hooks/use-files-agent-ui-slice.js";
 import {
   filesBucketsQueryOptions,
   filesChildrenQueryOptions,
@@ -460,6 +461,13 @@ export function FilesListPage() {
         {t("actions.upload")}
       </Button>
     ) : null,
+  });
+
+  useFilesListAgentUiSlice({
+    bucket: selectedBucket,
+    files: sortedFiles,
+    prefix,
+    search,
   });
 
   // ── Loading ──

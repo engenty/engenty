@@ -37,6 +37,7 @@ import type {
 } from "../api.js";
 import { StatusBadge } from "../components/connection-panel.js";
 import { NewConnectionButton } from "../components/new-connection-button.js";
+import { useConnectionsWorkspaceAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 import {
   ConnectorIcon,
@@ -90,6 +91,8 @@ export function ConnectionsWorkspacePage() {
     () => collectConnections(catalogQuery.data),
     [catalogQuery.data]
   );
+
+  useConnectionsWorkspaceAgentUiSlice({ rows });
 
   return (
     <EngentyCanvasPageChrome
