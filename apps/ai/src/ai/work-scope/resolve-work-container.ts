@@ -1,8 +1,11 @@
-// The container resolver — the ONE place containment logic lives. Walks the
-// containment edges DOWN from a container (thread < task < goal|routine <
-// project < global) to the artifact scopes, workspace prefixes, tasks, and
-// threads it holds. Both the artifact/file routes and (Phase 3) agent context
-// call this so "what's inside X" has a single answer.
+// The container resolver — the DOWN direction of the containment hierarchy.
+// Walks the containment edges DOWN from a container (thread < task <
+// goal|routine < project < global) to the artifact scopes, workspace
+// prefixes, tasks, and threads it holds; the artifact/file routes call this
+// so "what's inside X" has a single answer. The UP direction — "what can this
+// run see" — is resolve-work-visibility.ts (consumed by the task-job
+// specialist step and the Mastra workspace mount table). Both directions live
+// in this module so containment logic has exactly one home.
 import {
   type WorkContainerTier,
   workWorkspacePrefix,

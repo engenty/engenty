@@ -17,7 +17,6 @@ describe("resolveEngentyWorkspaceFsMode", () => {
         name: "Demo",
         tenantId: "tenant-1",
       },
-      basePath: "/tmp/engenty-workspace-test",
       mounts: [
         {
           fileStorageRelativePath: "ai/workspace/tasks/ENG-1/",
@@ -40,10 +39,8 @@ describe("resolveEngentyWorkspaceFsMode", () => {
         name: "Copilot",
         tenantId: "tenant-1",
       },
-      basePath: "/tmp/engenty-copilot-home",
       bm25: true,
       enableSkillSearch: true,
-      omitRootMount: true,
       skillDiscoveryPaths: ["/tenant-skills"],
       mounts: [
         {

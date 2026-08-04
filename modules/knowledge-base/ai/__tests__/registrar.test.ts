@@ -62,7 +62,10 @@ describe("knowledgeBaseAiRegistration", () => {
     expect(trigger?.routeKey).toBe("enhance");
   });
 
-  it("knowledge-base.answers agent config has read_only_kb profile and scoped tools", () => {
+  // The answers agent is read-only by construction: its declared toolIds ARE
+  // the ceiling. There is no profile layer clamping them — this assertion is
+  // the guard, so widening the list here has to be a deliberate edit.
+  it("knowledge-base.answers agent config declares only scoped read tools", () => {
     const reg = knowledgeBaseAiRegistration({
       invokeKbOperation: noopInvoke,
     });
@@ -70,7 +73,6 @@ describe("knowledgeBaseAiRegistration", () => {
       (c) => c.id === "knowledge-base.answers"
     );
     expect(answersConfig).toBeTruthy();
-    expect(answersConfig?.tool_profile).toBe("read_only_kb");
     expect(answersConfig?.toolIds).toEqual(
       expect.arrayContaining(["knowledge_base_article_search", "kb_faqs_list"])
     );

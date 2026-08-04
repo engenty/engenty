@@ -5,8 +5,8 @@
 // comes back as `error` and becomes the `failed` outcome the finalize step acts on.
 //
 // Workspace file tools (workspace_read_file / workspace_write_file) are injected
-// as extraTools for this run only, scoped to the task (+ routine) prefixes.
-import { workWorkspacePrefix } from "@engenty/file-storage";
+// as extraTools for this run only, scoped to the containment visibility chain
+// (routine? → task → goal? → project? → global) from work-scope/.
 import { createStep } from "@mastra/core/workflows";
 import { createArtifactTools } from "../../../ai/tools/artifact-tools.js";
 import { createWorkspaceFileTools } from "../../../ai/tools/workspace-files/index.js";
@@ -17,6 +17,8 @@ import {
   createRegistryStoreFromEnv,
 } from "../index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
+import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
+import { resolveWorkVisibility } from "../work-scope/resolve-work-visibility.js";
 import { isSkippedEnvelope, taskJobEnvelopeSchema } from "./task-job-schema.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
 
@@ -47,31 +49,23 @@ export const runSpecialistStep = createStep({
       { operation_id: string; risk_level?: string; title?: string }
     >();
 
-    // Mount the containment hierarchy most-specific-first: relative paths land
-    // in the FIRST prefix (routine when this is a routine cycle, else the task),
-    // while the goal (when linked) and shared commons stay reachable by full key.
-    const allowedPrefixes: string[] = [];
-    if (inputData.trigger_id) {
-      allowedPrefixes.push(
-        workWorkspacePrefix(
-          inputData.tenant_id,
-          "routine",
-          inputData.trigger_id
-        )
-      );
-    }
-    if (inputData.identifier) {
-      allowedPrefixes.push(
-        workWorkspacePrefix(inputData.tenant_id, "task", inputData.identifier)
-      );
-    }
-    if (inputData.goal_id) {
-      allowedPrefixes.push(
-        workWorkspacePrefix(inputData.tenant_id, "goal", inputData.goal_id)
-      );
-    }
-    // Shared commons (Global tier) is always reachable.
-    allowedPrefixes.push(workWorkspacePrefix(inputData.tenant_id, "global"));
+    // Visibility chain from the ONE containment resolver (work-scope/):
+    // routine? → task → goal? → project? → global, most-specific-first —
+    // relative paths land in the FIRST prefix; the rest stay reachable by
+    // full key. The resolver fills the project link (task.project_id, else
+    // goal.project_id) the envelope doesn't carry.
+    const { prefixes: allowedPrefixes } = await resolveWorkVisibility(
+      {
+        invoke: createScopeModuleOperationInvoker(scope),
+        tenantId: inputData.tenant_id,
+      },
+      {
+        goalId: inputData.goal_id,
+        taskId: inputData.task_id,
+        taskIdentifier: inputData.identifier,
+        triggerId: inputData.trigger_id,
+      }
+    );
 
     // Artifact tools (durable deliverables) ride the run's own thread scope;
     // containment makes them task/goal/project-visible with no promotion step.

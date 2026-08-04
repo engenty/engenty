@@ -1,8 +1,8 @@
 // Resolve an agent's declarative `workspace` config into a display-oriented view
 // the admin UI can render WITHOUT starting a run. Run-bound mounts (`/task`,
-// `/sandbox`) have no binding in an admin scope, so they resolve to
-// `available: false` rather than being dropped — the UI still shows the full
-// mount topology, just marked unavailable.
+// `/goal`, `/project`, `/sandbox`) have no binding in an admin scope, so they
+// resolve to `available: false` rather than being dropped — the UI still shows
+// the full mount topology, just marked unavailable.
 
 import type { AgentConfig, AgentWorkspaceMount } from "@engenty/ai-core";
 

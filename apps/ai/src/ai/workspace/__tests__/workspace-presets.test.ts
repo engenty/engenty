@@ -30,6 +30,8 @@ describe("expandWorkspaceMounts", () => {
       "/shared",
       "/skills",
       "/task",
+      "/goal",
+      "/project",
     ]);
     // The `/` read-only tenant asset mount was removed; AGENTS.md/SOUL.md reach
     // the agent via prompt injection, not a filesystem mount.
@@ -117,6 +119,32 @@ describe("resolveScopeRelativePath", () => {
         { ...ctx, taskIdentifier: "ENG-142" }
       )
     ).toBe("ai/workspace/tasks/ENG-142/");
+  });
+
+  it("resolves goal/project mounts from the containment chain, null unbound", () => {
+    const goalMount = {
+      access: "rw",
+      path: "/goal",
+      requireBinding: true,
+      scope: "goal",
+      source: "goal",
+    } as const;
+    const projectMount = {
+      access: "rw",
+      path: "/project",
+      requireBinding: true,
+      scope: "project",
+      source: "project",
+    } as const;
+    expect(resolveScopeRelativePath(goalMount, { ...ctx, goalId: "g-1" })).toBe(
+      "ai/workspace/goals/g-1/"
+    );
+    expect(
+      resolveScopeRelativePath(projectMount, { ...ctx, projectId: "p-1" })
+    ).toBe("ai/workspace/projects/p-1/");
+    // Unbound chat run: the containment mounts drop rather than mount empty.
+    expect(resolveScopeRelativePath(goalMount, ctx)).toBeNull();
+    expect(resolveScopeRelativePath(projectMount, ctx)).toBeNull();
   });
 });
 

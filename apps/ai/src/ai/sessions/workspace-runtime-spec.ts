@@ -2,17 +2,13 @@
 // flags (no agent-type branching). Callers expand an `AgentConfig.workspace`
 // declaration into a mount table + flags and pass them here.
 //
-// Agents use named mounts only (`/home`, `/shared`, `/skills`, `/task`) — there
-// is no `/` root mount, so we omit Mastra's implicit tenant-root mount
-// (`omitRootMount: true`). The staging base path anchors to the `/sandbox` or
-// `/home` mount for sandbox executor cwd resolution.
+// Agents use named mounts only (`/home`, `/shared`, `/skills`, `/task`). There
+// is no `/` root mount and no unscoped-filesystem shape: an agent sees exactly
+// what its mount table grants. Sandbox staging paths are derived per mount by
+// the loader, not anchored to a spec-level base path.
 
 import { getEngentyCoreBaseUrlFromEnv } from "../core-http-client.js";
 import type { EngentyWorkspaceMountSpec } from "../workspace/contracts.js";
-import {
-  resolveLocalMountBasePath,
-  resolveTenantLocalWorkspaceBasePath,
-} from "../workspace/local-workspace-paths.js";
 import { resolveEngentyWorkspaceFsMode } from "../workspace/workspace-fs-mode.js";
 import { type AiSessionScope, scopeAccessToken } from "./types.js";
 
@@ -49,11 +45,6 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
 }) {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   const accessToken = scopeAccessToken(input.scope)?.trim();
-  const homeMount = input.mounts.find((mount) => mount.mountPath === "/home");
-  const sandboxMount = input.mounts.find(
-    (mount) =>
-      mount.mountPath === (input.sandboxConfig?.mountPath ?? "/sandbox")
-  );
 
   return {
     agentConfig: {
@@ -63,24 +54,11 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
       name: input.agentId,
       tenantId: input.scope.tenantId,
     },
-    basePath: sandboxMount
-      ? resolveLocalMountBasePath(
-          input.scope.tenantId,
-          sandboxMount.fileStorageRelativePath
-        )
-      : homeMount
-        ? resolveLocalMountBasePath(
-            input.scope.tenantId,
-            homeMount.fileStorageRelativePath
-          )
-        : resolveTenantLocalWorkspaceBasePath(input.scope.tenantId),
     bm25: input.bm25,
     enableSandbox: input.enableSandbox ?? false,
     enableSkillSearch: input.enableSkillSearch ?? false,
     enableVector: input.enableVector ?? false,
     searchIndexName: tenantSearchIndexName(input.scope.tenantId),
-    // Agents use named mounts only; never add Mastra's implicit `/` root.
-    omitRootMount: true,
     sandboxConfig: input.sandboxConfig,
     sandboxIdentity: input.sandboxIdentity,
     sandboxRequireApproval: input.sandboxRequireApproval ?? true,

@@ -134,6 +134,16 @@ export async function createEngentyAgentWorkspace(
   specInput: EngentyWorkspaceRuntimeSpecInput
 ): Promise<CreateEngentyAgentWorkspaceResult> {
   const spec = parseEngentyWorkspaceRuntimeSpec(specInput);
+  // A workspace IS its mount table. Zero mounts used to fall back to a single
+  // unscoped filesystem rooted at basePath — an agent silently getting a
+  // broader view than its declaration granted. Callers resolve the table first
+  // (buildEngentyMountSpecs) and skip the workspace entirely when it comes back
+  // empty, so reaching here with none is a wiring bug, not a runtime state.
+  if (spec.mounts.length === 0) {
+    throw new Error(
+      `createEngentyAgentWorkspace: agent "${spec.agentConfig.id}" resolved zero mounts — a workspace needs at least one`
+    );
+  }
   const workspaceFsMode = shouldUseRemoteWorkspaceSync({
     fileStorageAccess: spec.fileStorageAccess,
     mode: spec.workspaceFsMode ?? resolveEngentyWorkspaceFsMode(),
@@ -214,10 +224,6 @@ export async function createEngentyAgentWorkspace(
     );
   }
 
-  const agentHomeFilesystem = new LocalFilesystem({
-    basePath: sandboxStagingPath ?? spec.basePath,
-  });
-
   // Sandbox is gated by HITL by default: `EXECUTE_COMMAND` requires approval,
   // which Mastra surfaces as a tool suspension the harness bridges to an AG-UI
   // interrupt. Set `sandbox.requireApproval: false` in the declaration to allow
@@ -231,19 +237,10 @@ export async function createEngentyAgentWorkspace(
     : undefined;
 
   const workspace = new Workspace({
-    // With named mounts: copilot omits the implicit `/` root so the agent only
-    // sees `/home`, `/tenant-skills`, optional `/task`. Task agents keep the
-    // legacy single-filesystem shape when no mounts are configured.
-    ...(Object.keys(mountFilesystems).length > 0
-      ? {
-          mounts: {
-            ...(spec.omitRootMount ? {} : { "/": agentHomeFilesystem }),
-            ...mountFilesystems,
-          },
-        }
-      : {
-          filesystem: agentHomeFilesystem,
-        }),
+    // One shape for every agent: named mounts, no implicit `/` root. An agent
+    // sees exactly what its mount table grants it — `/home`, `/skills`,
+    // optionally `/shared`, `/task`, `/sandbox` — and nothing else.
+    mounts: mountFilesystems,
     ...(spec.enableSandbox && mastraSandbox ? { sandbox: mastraSandbox } : {}),
     ...(sandboxTools ? { tools: sandboxTools } : {}),
     ...(spec.bm25 ? { bm25: spec.bm25 } : {}),

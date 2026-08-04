@@ -1,3 +1,4 @@
+import { normalizeCommercialBlock } from "@engenty/commercial-editor/blocks";
 import {
   createPluginServerGatewayCaller,
   type PluginAuthContext,
@@ -25,6 +26,30 @@ import {
   invoiceUpdateSchema,
 } from "../schema/zod.js";
 import { resolveRecipientFromClientId } from "./recipient.js";
+
+/**
+ * Funnels agent-written blocks through the shared canonical normalizer before
+ * they hit the DB, exactly as `offers_replace_blocks` does. Without this, a
+ * line item written as `quantity`/`unit_price` stores fine but renders as 0 in
+ * the commercial editor and in phase subtotals (both read
+ * `amount`/`cost_per_item`), and a `type: "phase"` block is dropped entirely by
+ * `groupBlocksForEditor` — which only knows headline + `is_phase: true`.
+ */
+export function normalizeInvoiceBlocks(
+  blocks: InvoiceBlockInput[]
+): InvoiceBlockInput[] {
+  return blocks.map((block) => {
+    const normalized = normalizeCommercialBlock({
+      content: block.content_json ?? {},
+      type: block.type,
+    });
+    return {
+      ...block,
+      type: normalized.type as InvoiceBlockInput["type"],
+      content_json: normalized.content,
+    };
+  });
+}
 
 async function ensureClientRoleOnEntity(
   ops: ReturnType<typeof createPluginServerGatewayCaller>,
@@ -238,7 +263,11 @@ export function registerInvoicesGatewayMethods(
     requiresApproval: true,
     inputSchema: z.object({
       id: z.string().min(1),
-      blocks: z.array(invoiceBlockInputSchema),
+      blocks: z
+        .array(invoiceBlockInputSchema)
+        .describe(
+          'Full ordered block list. content_json by type — line_item: {"title": string, "amount": number (quantity), "unit": string ("h", "Tage", "fixed", …), "cost_per_item": number (net unit price), "tax": number (percent), "content"?: string (description line)}; phase: {"title": string} (stored as a headline block with is_phase: true; groups all following blocks until the next phase); headline/subheading: {"title": string}; text: {"content": string}. The aliases quantity/unit_price/tax_rate and text are accepted and normalized to the canonical keys.'
+        ),
     }),
     outputSchema: z.array(invoiceBlockSchema),
     handler: async (input, ctx) => {
@@ -247,7 +276,10 @@ export function registerInvoicesGatewayMethods(
         id: string;
         blocks: InvoiceBlockInput[];
       };
-      return repo.replaceBlocks(parsed.id, parsed.blocks);
+      return repo.replaceBlocks(
+        parsed.id,
+        normalizeInvoiceBlocks(parsed.blocks)
+      );
     },
   });
 

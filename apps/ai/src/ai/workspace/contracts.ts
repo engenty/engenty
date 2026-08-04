@@ -1,4 +1,3 @@
-import { agentToolProfileSchema } from "@engenty/ai-core";
 import { z } from "zod";
 
 /** Tenant-scoped mount for Mastra workspace filesystem providers. */
@@ -32,11 +31,6 @@ export const engentyWorkspaceAgentConfigSchema = z.object({
     )
     .default([]),
   tenantId: z.string().min(1),
-  /**
-   * Optional named tool profile. Propagated from AgentConfig so the assembler
-   * can enforce the profile allowlist without re-fetching the full config.
-   */
-  tool_profile: agentToolProfileSchema.optional(),
   toolIds: z.array(z.string().min(1)).default([]),
 });
 
@@ -47,8 +41,6 @@ export type EngentyWorkspaceAgentConfig = z.infer<
 /** Runtime workspace factory inputs for apps/ai harness. */
 export const engentyWorkspaceRuntimeSpecSchema = z.object({
   agentConfig: engentyWorkspaceAgentConfigSchema,
-  /** Local dev base path or file storage root resolver input. */
-  basePath: z.string().min(1),
   enableSandbox: z.boolean().default(false),
   /** Gate sandbox EXECUTE_COMMAND behind human approval (HITL) when true. */
   sandboxRequireApproval: z.boolean().default(true),
@@ -74,8 +66,6 @@ export const engentyWorkspaceRuntimeSpecSchema = z.object({
   enableVector: z.boolean().default(false),
   /** Stable per-tenant vector index name (valid SQL identifier). */
   searchIndexName: z.string().min(1).optional(),
-  /** When true, omit the legacy `/` tenant root mount — copilot uses explicit `/home` only. */
-  omitRootMount: z.boolean().default(false),
   /** Override computed skill discovery paths (e.g. copilot `/tenant-skills`). */
   skillDiscoveryPaths: z.array(z.string().min(1)).optional(),
   /** Core bearer access for tenant file storage mounts (Phase 2). */
@@ -135,7 +125,6 @@ export function mapRegistryRowToWorkspaceAgentConfig(input: {
   sub_agents: { alias?: string; id: string }[];
   tenant_id: string;
   tool_ids: string[];
-  tool_profile?: string | null;
 }): EngentyWorkspaceAgentConfig {
   return engentyWorkspaceAgentConfigSchema.parse({
     description: input.description ?? undefined,
@@ -146,7 +135,6 @@ export function mapRegistryRowToWorkspaceAgentConfig(input: {
     skillPaths: input.skill_ids.map((skillId) => `skills/${skillId}`),
     subAgents: input.sub_agents,
     tenantId: input.tenant_id,
-    ...(input.tool_profile ? { tool_profile: input.tool_profile } : {}),
     toolIds: input.tool_ids,
   });
 }

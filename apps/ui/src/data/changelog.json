@@ -4,6 +4,66 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "adcee5c",
+        "message": "readers read the canonical line-item shape only",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "5f3da07",
+        "message": "delete the unmounted flat-content edit modal",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "c9087e5",
+        "message": "delete the dead legacy invoice renderer",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "b9b286a",
+        "message": "normalize agent-written blocks through the shared canonical normalizer",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5e01064",
+        "message": "one containment resolver — the visibility chain reaches every run",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8f0eb70",
+        "message": "regenerate .env.example for the email-notifier keys",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "aaa796e",
+        "message": "name the \"workspace declared but no mounts resolved\" outcome",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "976f15b",
+        "message": "one workspace shape — named mounts, no unscoped fallback",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "cfd2ae3",
+        "message": "delete the unwired workspace-agent track and tool_profile",
+        "group": "Changed",
+        "breaking": true
+      }
+    ]
+  },
+  {
+    "version": "v0.1.94",
+    "timestamp": 1785846924,
+    "commits": [
+      {
         "id": "b1f8805",
         "message": "delete deprecated route aliases — one leaked audit logs cross-tenant",
         "group": "Fixed",

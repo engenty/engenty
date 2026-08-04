@@ -3,14 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  createInvoicePdf,
-  type Invoice,
   type PdfStyleObject,
   preparePdfTemplatePreview,
   renderPdfTemplate,
 } from "./index";
 
-const sampleInvoice: Invoice = {
+const sampleInvoice = {
   number: "INV-2025-001",
   date: "2025-02-18",
   dueDate: "2025-03-18",
@@ -41,7 +39,7 @@ const plainStyles: PdfStyleObject = {
 const tinyTransparentPngBase64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAwMBAS8p0b8AAAAASUVORK5CYII=";
 
-describe("createInvoicePdf", () => {
+describe("renderPdfTemplate", () => {
   it("renders XML + data with styling template string", async () => {
     const result = await renderPdfTemplate({
       documentTemplateXml: documentTemplate,
@@ -138,34 +136,5 @@ describe("createInvoicePdf", () => {
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
-  });
-
-  it("returns a Buffer when no outputPath", async () => {
-    const result = await createInvoicePdf(sampleInvoice);
-    expect(result).toBeInstanceOf(Buffer);
-    expect((result as Buffer).length).toBeGreaterThan(100);
-  });
-
-  it("writes file and returns path when outputPath set", async () => {
-    const tmp = path.join(os.tmpdir(), `engenty-pdf-test-${Date.now()}`);
-    const outPath = path.join(tmp, "invoice.pdf");
-    const result = await createInvoicePdf(sampleInvoice, {
-      outputPath: outPath,
-    });
-    expect(result).toBe(outPath);
-    expect(fs.existsSync(outPath)).toBe(true);
-    expect(fs.statSync(outPath).size).toBeGreaterThan(100);
-    fs.rmSync(tmp, { recursive: true, force: true });
-  });
-
-  it("renders full invoice without throwing", async () => {
-    const invoice: Invoice = {
-      ...sampleInvoice,
-      content:
-        "Line 1\nLine 2\nLong line that might wrap when it exceeds the page width",
-    };
-    const result = await createInvoicePdf(invoice);
-    expect(result).toBeInstanceOf(Buffer);
-    expect((result as Buffer).length).toBeGreaterThan(100);
   });
 });

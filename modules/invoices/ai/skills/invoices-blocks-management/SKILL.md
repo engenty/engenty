@@ -13,11 +13,16 @@ Use this skill when the user wants to add, edit, reorder, or remove content bloc
 
 | type | Purpose | Key `content_json` fields |
 |------|---------|--------------------------|
-| `line_item` | Billable position | `title`, `quantity`, `unit`, `unit_price`, `tax_rate` |
-| `phase` | Phase/milestone header | `title` |
-| `headline` | Large heading | `text` |
-| `subheading` | Secondary heading | `text` |
-| `text` | Free-form paragraph | `text` |
+| `line_item` | Billable position | `title`, `amount` (quantity), `unit`, `cost_per_item` (net unit price), `tax` (percent), `content` (optional description line) |
+| `phase` | Phase/milestone header | `title` — stored as a `headline` block with `is_phase: true` |
+| `headline` | Large heading | `title` |
+| `subheading` | Secondary heading | `title` |
+| `text` | Free-form paragraph | `content` |
+
+These are the canonical keys the editor, the PDF, and the phase subtotals read.
+The aliases `quantity`/`unit_price`/`tax_rate` and `text` are accepted on write
+and normalized to the canonical keys, so a value written under an alias will not
+silently render as 0 — but write the canonical names.
 
 All numeric fields in `content_json` are numbers, not strings. `tax_rate` is a percentage (e.g. `20`).
 

@@ -35,7 +35,6 @@ const moduleAi = defineModuleAi({
       description: kbAnswersAgentConfig.description,
       id: kbAnswersAgentConfig.id,
       instructions: kbAnswersAgentConfig.instructions,
-      tool_profile: kbAnswersAgentConfig.tool_profile,
     },
   ],
   dir: import.meta.url,

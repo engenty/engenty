@@ -34,6 +34,7 @@ import {
 import { destroySessionLifecycleSandbox } from "../sandbox/destroy-session-sandbox.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
+import { resolveWorkVisibility } from "../work-scope/resolve-work-visibility.js";
 import { mergeDeclaredWorkspaceMounts } from "../workspace/sandbox-mounts.js";
 import {
   buildEngentyMountSpecs,
@@ -90,6 +91,7 @@ const guardrailLogger = createLogger({ name: "apps/ai/guardrails/harness" });
 // sets `isError`), so they never hit a thrown-error path. Log them here so tool
 // failures (e.g. a 414 from chat-thread-search) are visible in server logs.
 const toolLogger = createLogger({ name: "apps/ai/tools/harness" });
+const workspaceLogger = createLogger({ name: "apps/ai/workspace/harness" });
 
 // Normalize an errored tool-result payload (string | Error | object) into a
 // short message for structured logs without dumping the whole result blob.
@@ -369,12 +371,14 @@ export function createSessionService(opts: SessionServiceOptions) {
     // Resolve the task binding (and run checkout) only when a task mount is
     // declared and the session is task-bound — this drives the `/task` prefix.
     let taskIdentifier: string | undefined;
+    let boundTaskId: string | undefined;
     if (wantsTask) {
       const { taskId } = extractTaskRouteFields(input.session.route_context);
       const binding = resolveTaskBinding({
         routeContext: input.session.route_context,
         workspaceKey: input.session.workspace_key,
       });
+      boundTaskId = binding?.taskId ?? taskId;
       if (binding || taskId) {
         if (input.skipCheckout) {
           taskIdentifier = binding?.identifier;
@@ -398,8 +402,30 @@ export function createSessionService(opts: SessionServiceOptions) {
             workspaceKey: input.session.workspace_key,
           });
           taskIdentifier = prep.binding?.identifier;
+          boundTaskId = prep.binding?.taskId ?? boundTaskId;
         }
       }
+    }
+
+    // Containment chain (goal → project) above the bound task, from the ONE
+    // containment resolver (work-scope/). Resolved only when the mount table
+    // declares a containment mount AND a task actually bound — an unlinked
+    // chat run simply has no `/goal` / `/project` (requireBinding drop).
+    let goalId: string | undefined;
+    let projectId: string | undefined;
+    const wantsContainment = declaredMounts.some(
+      (mount) => mount.source === "goal" || mount.source === "project"
+    );
+    if (wantsContainment && (boundTaskId || taskIdentifier)) {
+      const visibility = await resolveWorkVisibility(
+        {
+          invoke: createScopeModuleOperationInvoker(input.scope),
+          tenantId: input.scope.tenantId,
+        },
+        { taskId: boundTaskId, taskIdentifier }
+      );
+      goalId = visibility.chain.find((node) => node.tier === "goal")?.id;
+      projectId = visibility.chain.find((node) => node.tier === "project")?.id;
     }
 
     const mountSpecs = buildEngentyMountSpecs(declaredMounts, {
@@ -410,8 +436,22 @@ export function createSessionService(opts: SessionServiceOptions) {
       threadId: input.threadId,
       userId: input.scope.userId,
       ...(taskIdentifier ? { taskIdentifier } : {}),
+      ...(goalId ? { goalId } : {}),
+      ...(projectId ? { projectId } : {}),
     });
+    // An agent declared a workspace but nothing in its mount table resolved —
+    // every mount needed a binding that isn't there (a `/task` mount on a
+    // session with no task, an unsupported scope). The run proceeds without a
+    // workspace, which is correct but silently removes the file/skill tools the
+    // agent's instructions may assume, so say it once rather than leaving the
+    // caller to infer it from missing tools.
     if (mountSpecs.length === 0) {
+      workspaceLogger.info("workspace_skipped_no_resolved_mounts", {
+        agent_id: input.agentId,
+        declared_mount_paths: declaredMounts.map((mount) => mount.path),
+        run_id: input.runId,
+        tenant_id: input.scope.tenantId,
+      });
       return;
     }
 

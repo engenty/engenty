@@ -85,9 +85,8 @@ function toLineItem(
   fallbackTaxRate: number
 ): DocumentLineItem {
   const content = block.content as Record<string, unknown>;
-  const quantity = contentNumber(content, ["amount", "quantity"]) ?? 1;
-  const unitPrice =
-    contentNumber(content, ["cost_per_item", "unit_price"]) ?? 0;
+  const quantity = contentNumber(content, ["amount"]) ?? 1;
+  const unitPrice = contentNumber(content, ["cost_per_item"]) ?? 0;
   // item_total is only authoritative when set (the editor persists 0 as a
   // placeholder), so fall back to amount × unit price.
   const storedTotal = contentNumber(content, ["item_total"]) ?? 0;
@@ -102,7 +101,7 @@ function toLineItem(
     description: stripHtmlTags(contentString(content, "content")).trim(),
     quantity,
     subtype,
-    taxRate: contentNumber(content, ["tax", "tax_rate"]) ?? fallbackTaxRate,
+    taxRate: contentNumber(content, ["tax"]) ?? fallbackTaxRate,
     title: contentString(content, "title"),
     total: storedTotal || quantity * unitPrice,
     unit: contentString(content, "unit") || "h",

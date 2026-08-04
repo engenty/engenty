@@ -5,12 +5,13 @@ export type CommercialBlockType =
   | "text"
   | "line_item";
 
+/** Canonical line-item content — the shape the editor, PDF and totals read. */
 export interface CommercialLineItemContent {
-  quantity: number;
-  tax_rate: number;
+  amount: number;
+  cost_per_item: number;
+  tax: number;
   title: string;
   unit: string;
-  unit_price: number;
 }
 
 export type CommercialBlockContent =

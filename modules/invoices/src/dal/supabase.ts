@@ -710,9 +710,7 @@ function negateLineItem(
     return content;
   }
   const next = { ...content };
-  if (typeof next.quantity === "number") {
-    next.quantity = -next.quantity;
-  } else if (typeof next.amount === "number") {
+  if (typeof next.amount === "number") {
     next.amount = -next.amount;
   }
   return next;

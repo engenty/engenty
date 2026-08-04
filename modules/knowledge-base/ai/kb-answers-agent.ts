@@ -32,7 +32,6 @@ export const kbAnswersAgentConfig: AgentConfig = {
   name: "KB Answers",
   skillIds: [...KB_ANSWERS_SKILL_IDS],
   source: "module",
-  tool_profile: "read_only_kb" as const,
   toolIds: [...KB_ANSWERS_TOOL_IDS],
   workspace: {
     enabled: false,

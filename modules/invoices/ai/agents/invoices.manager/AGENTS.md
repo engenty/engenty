@@ -19,7 +19,7 @@ Specialist agent for assembling, editing, and managing invoices in Engenty.
 - Invoice operation inputs use camelCase field names (`dueDate`, `sumNetto`,
   `sumBrutto`, `clientId`, `idOrNumber`) — this module predates the snake_case
   convention. Inside block `content_json`, line-item fields are snake_case
-  (`quantity`, `unit_price`, `tax_rate`). Follow the field names shown in the
+  (`amount`, `cost_per_item`, `tax`). Follow the field names shown in the
   skill tables exactly; do not convert between cases.
 - Never invent invoice data.
 

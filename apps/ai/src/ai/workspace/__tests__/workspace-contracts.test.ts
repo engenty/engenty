@@ -6,10 +6,6 @@ import {
   parseEngentyWorkspaceRuntimeSpec,
 } from "../contracts.js";
 import { createEngentyAgentWorkspace } from "../loader.js";
-import {
-  createWorkspaceAgentRecordSource,
-  WorkspaceBackedAgentRegistry,
-} from "../workspace-agent-registry.js";
 
 describe("engenty workspace contracts", () => {
   it("maps registry rows to skill path config", () => {
@@ -48,7 +44,12 @@ describe("createEngentyAgentWorkspace", () => {
         skillPaths: ["skills/demo"],
         tenantId: "tenant-1",
       },
-      basePath: "/tmp/engenty-workspace-test",
+      mounts: [
+        {
+          fileStorageRelativePath: "ai/workspace/users/user-1/",
+          mountPath: "/home",
+        },
+      ],
     });
 
     const { skillDiscoveryPaths, workspace } =
@@ -57,29 +58,23 @@ describe("createEngentyAgentWorkspace", () => {
     expect(skillDiscoveryPaths).toContain("skills");
     expect(skillDiscoveryPaths).toContain("skills/demo");
   });
-});
 
-describe("WorkspaceBackedAgentRegistry", () => {
-  it("lists workspace agent configs without inline skills", async () => {
-    const source = createWorkspaceAgentRecordSource(
-      async () => null,
-      async () => [
-        {
-          agent_id: "a1",
-          instructions: "Do work",
-          model: "openai/gpt-4.1-mini",
-          name: "A1",
-          skill_ids: ["s1"],
-          sub_agents: [],
-          tenant_id: "tenant-1",
-          tool_ids: [],
-        },
-      ]
+  // The mount table IS the workspace. Zero mounts used to silently fall back to
+  // one unscoped filesystem — a broader view than the declaration granted.
+  it("refuses to build a workspace with no mounts", async () => {
+    const spec = parseEngentyWorkspaceRuntimeSpec({
+      agentConfig: {
+        id: "demo",
+        instructions: "",
+        model: "openai/gpt-4.1-mini",
+        name: "Demo",
+        tenantId: "tenant-1",
+      },
+      mounts: [],
+    });
+
+    await expect(createEngentyAgentWorkspace(spec)).rejects.toThrow(
+      /resolved zero mounts/
     );
-    const registry = new WorkspaceBackedAgentRegistry(source, "tenant-1");
-    const configs = await registry.listAgentConfigs();
-
-    expect(configs).toHaveLength(1);
-    expect(configs[0]?.skillIds).toEqual(["skills/s1"]);
   });
 });

@@ -1,8 +1,4 @@
 export {
-  type AssembleWorkspaceAgentOptions,
-  assembleWorkspaceAgent,
-} from "./assemble-workspace-agent.js";
-export {
   defaultTenantSkillPaths,
   type EngentyWorkspaceAgentConfig,
   type EngentyWorkspaceMountSpec,
@@ -19,8 +15,3 @@ export {
   createEngentyAgentWorkspace,
   initEngentyAgentWorkspace,
 } from "./loader.js";
-export {
-  createWorkspaceAgentRecordSource,
-  type WorkspaceAgentRecordSource,
-  WorkspaceBackedAgentRegistry,
-} from "./workspace-agent-registry.js";

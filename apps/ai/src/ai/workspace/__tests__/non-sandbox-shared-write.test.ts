@@ -63,9 +63,7 @@ async function buildNonSandboxCopilotWorkspace(): Promise<{
       name: "Copilot",
       tenantId: TENANT_ID,
     },
-    basePath: join(localRoot, "agent-home"),
     enableSandbox: false,
-    omitRootMount: true,
     mounts,
   });
 

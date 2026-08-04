@@ -14,17 +14,20 @@ function lineItemAmounts(content: Record<string, unknown>): {
   unitPrice: number;
   total: number;
 } {
-  const isNew = "quantity" in content && "unit_price" in content;
-  const quantity = Number((isNew ? content.quantity : content.amount) ?? 0);
-  const unitPrice = Number(
-    (isNew ? content.unit_price : content.cost_per_item) ?? 0
-  );
+  const quantity = Number(content.amount ?? 0);
+  const unitPrice = Number(content.cost_per_item ?? 0);
   return { quantity, unitPrice, total: quantity * unitPrice };
 }
 
 /**
- * Renders block content to a plain-text positions body for the interim PDF
- * template. Superseded by the xml_liquid pdf-templates provider (plan 008).
+ * Renders block content to a plain-text positions body.
+ *
+ * The invoice PDF already renders through the xml_liquid pdf-templates provider
+ * (see generate.ts) — what is still interim is this *body*: offers builds a
+ * structured `items[]` array that the template lays out as a real table
+ * (offerToTemplateData + template-parts.ts), while invoices flattens every
+ * position into one text blob. Porting that is a template change that alters
+ * every rendered invoice, so it is tracked separately, not folded in here.
  */
 export function renderBlocksToText(blocks: InvoiceBlock[]): string {
   const lines: string[] = [];

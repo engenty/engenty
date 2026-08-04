@@ -41,6 +41,9 @@ export const HOME_MOUNT_PATH = "/home";
 
 export interface WorkspaceScopeContext {
   agentId: string;
+  /** Containment chain above the bound task (resolveWorkVisibility). */
+  goalId?: string;
+  projectId?: string;
   runId?: string;
   sandboxLifecycle?: "run" | "session" | "task";
   taskIdentifier?: string;
@@ -48,6 +51,27 @@ export interface WorkspaceScopeContext {
   threadId?: string;
   userId: string;
 }
+
+// Containment tiers above a bound task — the cascade (goal, then project)
+// from the run's visibility chain (work-scope/resolve-work-visibility).
+// rw for the whole chain (decision 2026-08-04): a task run writes its goal
+// and project workspaces, not just its own. Unresolved binding → dropped.
+const CONTAINMENT_MOUNTS: AgentWorkspaceMount[] = [
+  {
+    access: "rw",
+    path: "/goal",
+    requireBinding: true,
+    scope: "goal",
+    source: "goal",
+  },
+  {
+    access: "rw",
+    path: "/project",
+    requireBinding: true,
+    scope: "project",
+    source: "project",
+  },
+];
 
 // Preset mount tables. Order matters for skill discovery readability only.
 const ASSISTANT_MOUNTS: AgentWorkspaceMount[] = [
@@ -61,6 +85,7 @@ const ASSISTANT_MOUNTS: AgentWorkspaceMount[] = [
     scope: "task",
     source: "checkout",
   },
+  ...CONTAINMENT_MOUNTS,
 ];
 
 const STAFF_MOUNTS: AgentWorkspaceMount[] = [
@@ -75,6 +100,7 @@ const STAFF_MOUNTS: AgentWorkspaceMount[] = [
     scope: "task",
     source: "checkout",
   },
+  ...CONTAINMENT_MOUNTS,
 ];
 
 const CODE_EXECUTION_MOUNTS: AgentWorkspaceMount[] = [
@@ -88,6 +114,7 @@ const CODE_EXECUTION_MOUNTS: AgentWorkspaceMount[] = [
     scope: "task",
     source: "checkout",
   },
+  ...CONTAINMENT_MOUNTS,
 ];
 
 // Explicit `mounts` win; otherwise expand the named preset. `custom` with no
@@ -173,6 +200,16 @@ export function resolveScopeRelativePath(
         return null;
       }
       return workWorkspaceRelativePrefix("task", identifier);
+    }
+    case "goal": {
+      const goalId = ctx.goalId?.trim();
+      return goalId ? workWorkspaceRelativePrefix("goal", goalId) : null;
+    }
+    case "project": {
+      const projectId = ctx.projectId?.trim();
+      return projectId
+        ? workWorkspaceRelativePrefix("project", projectId)
+        : null;
     }
     default:
       return null;

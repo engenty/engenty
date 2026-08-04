@@ -8,17 +8,12 @@ import { renderLiquidTemplate, resolveStyling } from "./engine/liquid";
 import { renderAst } from "./engine/render";
 import { normalizeStyles } from "./engine/styles";
 import type {
-  CreateInvoicePdfOptions,
-  LegacyInvoiceInput,
-  PdfStyleObject,
   PreparedPdfTemplatePreview,
   PreparePdfTemplatePreviewOptions,
   RenderPdfTemplateOptions,
 } from "./types";
 
 export type {
-  CreateInvoicePdfOptions,
-  LegacyInvoiceInput as Invoice,
   PdfStyleObject,
   PdfStylingInput,
   PreparedPdfTemplatePreview,
@@ -26,42 +21,6 @@ export type {
   RenderPdfTemplateOptions,
   TemplateData,
 } from "./types";
-
-const LEGACY_DOCUMENT_TEMPLATE = `<Document>
-  <Page size="A4" style="page">
-    <View style="header">
-      <Text style="title">Invoice {{ invoice.number }}</Text>
-      <Text style="muted">Date: {{ invoice.date }}</Text>
-      <Text style="muted">Due Date: {{ invoice.dueDate }}</Text>
-    </View>
-    <View style="section">
-      <Text style="sectionTitle">Content</Text>
-      <Text style="text">{{ invoice.content }}</Text>
-    </View>
-    <View style="totals">
-      <Text style="text">Sum Netto: {{ invoice.sumNettoFormatted }}</Text>
-      <Text style="text">Tax: {{ invoice.taxFormatted }}</Text>
-      <Text style="total">Sum Brutto: {{ invoice.sumBruttoFormatted }}</Text>
-    </View>
-  </Page>
-</Document>`;
-
-const LEGACY_STYLES: PdfStyleObject = {
-  page: {
-    padding: 50,
-    fontSize: 10,
-    color: "#000000",
-    fontFamily: "Helvetica",
-  },
-  header: { marginBottom: 18 },
-  title: { fontSize: 18, fontWeight: 700, marginBottom: 8 },
-  muted: { marginBottom: 4 },
-  section: { marginBottom: 16 },
-  sectionTitle: { fontSize: 12, fontWeight: 700, marginBottom: 8 },
-  text: { marginBottom: 6, lineHeight: 1.4 },
-  totals: { marginTop: 10 },
-  total: { marginTop: 8, fontSize: 12, fontWeight: 700 },
-};
 
 async function toBuffer(maybeBuffer: unknown): Promise<Buffer> {
   if (Buffer.isBuffer(maybeBuffer)) {
@@ -139,30 +98,4 @@ export async function renderPdfTemplate(
   }
 
   return buffer;
-}
-
-/**
- * Backward-compatible invoice helper.
- * Prefer renderPdfTemplate() with templates owned by caller modules.
- */
-export async function createInvoicePdf(
-  invoice: LegacyInvoiceInput,
-  options?: CreateInvoicePdfOptions
-): Promise<Buffer | string> {
-  const formatNumber = (n: number) =>
-    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(n);
-
-  return renderPdfTemplate({
-    documentTemplateXml: LEGACY_DOCUMENT_TEMPLATE,
-    data: {
-      invoice: {
-        ...invoice,
-        sumNettoFormatted: formatNumber(invoice.sumNetto),
-        taxFormatted: formatNumber(invoice.tax),
-        sumBruttoFormatted: formatNumber(invoice.sumBrutto),
-      },
-    },
-    styling: LEGACY_STYLES,
-    outputPath: options?.outputPath,
-  });
 }

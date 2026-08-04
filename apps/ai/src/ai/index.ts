@@ -103,13 +103,10 @@ export {
   type TenantModelConfigResolver,
 } from "./tenant-model-config.js";
 export {
-  assembleWorkspaceAgent,
   createEngentyAgentWorkspace,
-  createWorkspaceAgentRecordSource,
   type EngentyWorkspaceAgentConfig,
   type EngentyWorkspaceRuntimeSpec,
   initEngentyAgentWorkspace,
-  WorkspaceBackedAgentRegistry,
 } from "./workspace/index.js";
 
 export interface AiServiceOptions {

@@ -19,7 +19,7 @@ const MAX_LIST_FILES = 100;
 // The workspace folders, most specific first — a relative path resolves into
 // the FIRST prefix; the others stay reachable by full `tenants/…` key.
 const PREFIX_ORDER_NOTE =
-  "Prefixes, most specific first: routine (if this is a routine run), task, goal (if linked), then shared commons. A relative path resolves into the FIRST prefix; reach the others with a full tenants/… key.";
+  "Prefixes, most specific first: routine (if this is a routine run), task, goal (if linked), project (if linked), then shared commons. A relative path resolves into the FIRST prefix; reach the others with a full tenants/… key.";
 
 export interface WorkspaceFileToolScope {
   /** Absolute storage prefixes that are allowed (must end with `/`). */

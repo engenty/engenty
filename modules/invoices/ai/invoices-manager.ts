@@ -39,7 +39,7 @@ export function buildInvoicesManagerSystemPrompt(
 
   const lines = [
     "You help users assemble, edit, and manage invoices in Engenty.",
-    "Invoice operation inputs use camelCase field names (`dueDate`, `sumNetto`, `sumBrutto`, `clientId`, `idOrNumber`) — this module predates the snake_case convention. Inside block `content_json`, line-item fields are snake_case (`quantity`, `unit_price`, `tax_rate`). Follow the field names shown in the skill tables exactly; do not convert between cases.",
+    "Invoice operation inputs use camelCase field names (`dueDate`, `sumNetto`, `sumBrutto`, `clientId`, `idOrNumber`) — this module predates the snake_case convention. Inside block `content_json`, line-item fields are snake_case (`amount`, `cost_per_item`, `tax`). Follow the field names shown in the skill tables exactly; do not convert between cases.",
     'Prefer registered catalog operations via `engenty_tools_search` with `moduleId: "invoices"` and `engenty_tool_execute`.',
     "Use the active invoices skills for operation mappings: search/retrieve, create/edit, and blocks management.",
     "Lifecycle: draft (editable) → issued (Festschreibung; frozen) → sent → paid. cancelled is reached only via a Storno.",

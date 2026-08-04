@@ -28,20 +28,6 @@ export interface PreparedPdfTemplatePreview {
   renderedXml: string;
 }
 
-export interface LegacyInvoiceInput {
-  content: string;
-  date: string;
-  dueDate: string;
-  number: string;
-  sumBrutto: number;
-  sumNetto: number;
-  tax: number;
-}
-
-export interface CreateInvoicePdfOptions {
-  outputPath?: string;
-}
-
 export type NodeAST =
   | { type: "Document"; children: NodeAST[] }
   | {

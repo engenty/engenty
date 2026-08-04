@@ -3,6 +3,8 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createInvoiceRepo } from "../dal/index.js";
 import { createLocalPdfStorage } from "../dal/pdf-storage-local.js";
+import type { InvoiceBlockInput } from "../schema/types.js";
+import { normalizeInvoiceBlocks } from "./gateway-methods.js";
 import { registerInvoicesApi } from "./index.js";
 import { getOperation, makeMockApi, makeTempDir } from "./test-helpers.js";
 
@@ -252,5 +254,73 @@ describe("registerInvoicesApi server operations", () => {
       (created as { recipientSnapshot?: { displayName?: string } })
         .recipientSnapshot?.displayName
     ).toBe("Acme GmbH");
+  });
+});
+
+describe("normalizeInvoiceBlocks", () => {
+  const block = (type: string, content_json: Record<string, unknown>) => ({
+    id: "b1",
+    invoice_id: "inv-1",
+    type: type as InvoiceBlockInput["type"],
+    content_json,
+    order_index: 0,
+  });
+
+  it("maps line-item aliases to the canonical editor keys", () => {
+    // quantity/unit_price/tax_rate store fine but render as 0: the editor,
+    // the PDF, and the phase subtotals all read amount/cost_per_item/tax.
+    expect(
+      normalizeInvoiceBlocks([
+        block("line_item", {
+          title: "Beratung",
+          quantity: 3,
+          unit: "Tage",
+          unit_price: 1100,
+          tax_rate: 20,
+        }),
+      ])[0]?.content_json
+    ).toEqual({
+      title: "Beratung",
+      amount: 3,
+      unit: "Tage",
+      cost_per_item: 1100,
+      tax: 20,
+    });
+  });
+
+  it("converts a phase block to headline + is_phase", () => {
+    // groupBlocksForEditor knows no "phase" type — such a block vanishes.
+    expect(
+      normalizeInvoiceBlocks([block("phase", { title: "Konzept" })])[0]
+    ).toMatchObject({
+      type: "headline",
+      content_json: { title: "Konzept", is_phase: true },
+    });
+  });
+
+  it("leaves canonical content untouched", () => {
+    const canonical = {
+      title: "Frontend",
+      amount: 8,
+      cost_per_item: 1300,
+      tax: 20,
+    };
+    expect(
+      normalizeInvoiceBlocks([block("line_item", canonical)])[0]?.content_json
+    ).toEqual(canonical);
+  });
+
+  it("preserves id, invoice_id and order_index", () => {
+    expect(
+      normalizeInvoiceBlocks([
+        { ...block("text", { text: "Netto." }), order_index: 4 },
+      ])[0]
+    ).toEqual({
+      id: "b1",
+      invoice_id: "inv-1",
+      type: "text",
+      content_json: { content: "Netto." },
+      order_index: 4,
+    });
   });
 });

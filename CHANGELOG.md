@@ -4,6 +4,17 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.95] - 2026-08-04
+- ADDED **[ai]** One containment resolver — the visibility chain reaches every run
+- CHANGED **[commercial]** Readers read the canonical line-item shape only
+- CHANGED **[invoices]** Delete the unmounted flat-content edit modal
+- CHANGED **[pdf-service]** Delete the dead legacy invoice renderer
+- CHANGED **[ai]** One workspace shape — named mounts, no unscoped fallback **[breaking]**
+- CHANGED **[ai]** Delete the unwired workspace-agent track and tool_profile **[breaking]**
+- FIXED **[invoices]** Normalize agent-written blocks through the shared canonical normalizer
+- FIXED **[env]** Regenerate .env.example for the email-notifier keys
+- FIXED **[ai]** Name the "workspace declared but no mounts resolved" outcome
+
 ## [0.1.94] - 2026-08-04
 - FIXED **[core]** Delete deprecated route aliases — one leaked audit logs cross-tenant **[breaking]**
 - FIXED **[ai]** Never open a live tool call with an empty name ("Ran tool")

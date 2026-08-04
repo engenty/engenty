@@ -1,31 +1,4 @@
-import type { CommercialBlock, CommercialBlockType } from "./types.js";
-
-export function createEmptyBlock(
-  type: CommercialBlockType
-): Omit<CommercialBlock, "id" | "order_index"> {
-  if (type === "line_item") {
-    return {
-      type,
-      content: {
-        title: "",
-        quantity: 1,
-        unit: "h",
-        unit_price: 0,
-        tax_rate: 20,
-      },
-    };
-  }
-  if (type === "phase") {
-    return {
-      type,
-      content: { text: "Neue Phase" },
-    };
-  }
-  return {
-    type,
-    content: { text: "" },
-  };
-}
+import type { CommercialBlock } from "./types.js";
 
 export function normalizeBlockOrder(
   blocks: CommercialBlock[]

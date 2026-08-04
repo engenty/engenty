@@ -107,12 +107,31 @@ const agentWorkspaceMountSchema = z.object({
   // Mount point inside the agent's filesystem, e.g. "/", "/home", "/skills", "/task".
   path: z.string().min(1),
   // Storage scope; resolved to a file-storage prefix by the harness.
+  // `goal`/`project` are the containment tiers above a bound task (resolved
+  // via work-scope's visibility chain — see apps/ai resolve-work-visibility).
   // `group` is reserved for a future tenant-group concept (unused now).
-  scope: z.enum(["tenant", "user", "agent", "task", "group", "sandbox"]),
+  scope: z.enum([
+    "tenant",
+    "user",
+    "agent",
+    "task",
+    "goal",
+    "project",
+    "group",
+    "sandbox",
+  ]),
   // `commons` is a writable tenant-shared scratch space (durable, cross-user/
   // cross-session). Tenant AGENTS.md/SOUL.md reach the agent via prompt
   // injection (instruction registry), not a filesystem mount.
-  source: z.enum(["commons", "home", "skills", "checkout", "sandbox"]),
+  source: z.enum([
+    "commons",
+    "home",
+    "skills",
+    "checkout",
+    "goal",
+    "project",
+    "sandbox",
+  ]),
   access: z.enum(["ro", "rw"]),
   // Only mount when the session is bound to that scope's entity (e.g. a task).
   requireBinding: z.boolean().optional(),
@@ -160,17 +179,6 @@ export const agentWorkspaceConfigSchema = z.object({
 });
 
 export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
-
-/**
- * Named tool profiles applied at assembly time. A profile is a deny-by-default
- * allowlist enforced in the workspace agent assembler — no tools outside the
- * profile's allowlist may attach, regardless of the config row's toolIds.
- *
- * "read_only_kb" — only knowledge_base_article_search and kb_faqs_list; no
- * workspace skill-search, no catalog meta-tools.
- */
-export const agentToolProfileSchema = z.enum(["read_only_kb"]);
-export type AgentToolProfile = z.infer<typeof agentToolProfileSchema>;
 
 /** Purpose an agent binds to for tenant model resolution (Phase 4). */
 export const agentModelPurposeSchema = z.enum([
@@ -220,12 +228,6 @@ export const agentConfigSchema = z.object({
   skillIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),
   subAgents: z.array(agentSubAgentConfigSchema).optional(),
-  /**
-   * Optional named tool profile. When set, the workspace assembler filters
-   * attached tools to the profile's allowlist and suppresses catalog/skill-search
-   * meta-tools. Takes precedence over toolIds in the config row.
-   */
-  tool_profile: agentToolProfileSchema.optional(),
   toolIds: z.array(z.string().min(1)).default([]),
   // Optional per-agent workspace request (filesystem + skills + sandbox).
   workspace: agentWorkspaceConfigSchema.optional(),

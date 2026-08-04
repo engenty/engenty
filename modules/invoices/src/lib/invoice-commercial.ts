@@ -21,8 +21,8 @@ export interface InvoiceTotals {
  * Recomputes cached invoice totals from line-item blocks. Mirrors the commercial
  * editor's `calculateTotals`, but operates on `content_json` (DB shape) and stays
  * pure so the server DAL never imports the React commercial-editor package.
- * Supports both the new (`quantity`/`unit_price`/`tax_rate`) and legacy
- * (`amount`/`cost_per_item`/`tax`) line-item shapes.
+ * Reads the canonical `amount`/`cost_per_item`/`tax` keys — agent-written
+ * aliases are converted at the write boundary by `normalizeInvoiceBlocks`.
  */
 export function computeInvoiceTotals(
   blocks: Pick<InvoiceBlockInput, "type" | "content_json">[],
@@ -34,14 +34,12 @@ export function computeInvoiceTotals(
         return acc;
       }
       const c = block.content_json;
-      const isNew = "quantity" in c && "unit_price" in c && "tax_rate" in c;
-      const isLegacy = "amount" in c && "cost_per_item" in c;
-      if (!(isNew || isLegacy)) {
+      if (!("amount" in c && "cost_per_item" in c)) {
         return acc;
       }
-      const quantity = Number((isNew ? c.quantity : c.amount) ?? 0);
-      const unitPrice = Number((isNew ? c.unit_price : c.cost_per_item) ?? 0);
-      const rate = Number((isNew ? c.tax_rate : c.tax) ?? fallbackTaxRate);
+      const quantity = Number(c.amount ?? 0);
+      const unitPrice = Number(c.cost_per_item ?? 0);
+      const rate = Number(c.tax ?? fallbackTaxRate);
       const net = quantity * unitPrice;
       const tax = net * (rate / 100);
       return {
