@@ -73,7 +73,6 @@ export async function resolveSchedulerServiceScope(
     scope: {
       ...resolved.scope,
       credential: { kind: "service", token: serviceJwt },
-      userAccessToken: serviceJwt,
     },
   };
 }
@@ -88,10 +87,9 @@ const verifiedTokenTenants = new Map<string, string>();
  * per invocation — a fire days after boot must not ride a token minted at
  * boot. `tenantId` pins every mint to that tenant (a schedule's fires act for
  * the tenant stamped in its metadata, never the credential's default) and is
- * ASSERTED against the token's actual tenant: a static ENGENTY_AI_SERVICE_JWT
- * or password-grant credential is single-tenant and would otherwise execute
- * tenant B's operation inside tenant A without any error — the same belt the
- * task-job path wears (task-job-scope.ts). */
+ * ASSERTED against the token's actual tenant: a tenant-bound credential would
+ * otherwise execute tenant B's operation inside tenant A without any error —
+ * the same belt the task-job path wears (task-job-scope.ts). */
 export function createSchedulerOperationInvoker(
   tenantId?: string
 ): SchedulerOperationInvoker {
@@ -118,19 +116,19 @@ export function createSchedulerOperationInvoker(
       }
       if (actual !== tenantId) {
         throw new Error(
-          `scheduler: operation ${operationId} for tenant ${tenantId} would run on a service token scoped to tenant ${actual} — the configured credential cannot serve this tenant (a static ENGENTY_AI_SERVICE_JWT or password grant is single-tenant; configure ENGENTY_AI_SERVICE_SECRET with a platform-scoped credential)`
+          `scheduler: operation ${operationId} for tenant ${tenantId} would run on a service token scoped to tenant ${actual} — the configured credential cannot serve this tenant (configure ENGENTY_AI_SERVICE_SECRET with a platform-scoped credential)`
         );
       }
     }
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
     if (!(serviceJwt && coreBaseUrl)) {
       throw new Error(
-        "scheduler: a service credential (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev) and a core base URL are required for scheduled trigger fires"
+        "scheduler: a service credential (ENGENTY_AI_SERVICE_SECRET) and a core base URL are required for scheduled trigger fires"
       );
     }
     const client = new EngentyCoreClient({
       coreBaseUrl,
-      userAccessToken: serviceJwt,
+      accessToken: serviceJwt,
     });
     return client.invokeTool(operationId, input ?? {});
   };

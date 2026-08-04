@@ -1217,7 +1217,9 @@ function stepDone() {
   note(
     "• If prebuilt: docker login ghcr.io on the VPS (read:packages) so it can pull."
   );
-  note("• Scheduled triggers need ENGENTY_AI_SERVICE_JWT (separate step).");
+  note(
+    "• Scheduled triggers need ENGENTY_AI_SERVICE_SECRET (`engenty service-token create --name ai-service`)."
+  );
   out();
   out(paint("  Happy shipping.", c.brightCyan));
   out();

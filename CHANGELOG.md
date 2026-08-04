@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.93] - 2026-08-04
+- ADDED **[ai]** ENGENTY_AI_SERVICE_SECRET is the only service credential **[breaking]**
+- CHANGED **[ai]** Delete the userAccessToken scope shim, rename bags to accessToken **[breaking]**
+- FIXED **[ai]** Say it loudly when the scheduler serves only part of the platform
+- FIXED **[remote]** Channel approval policy "request" — defer executed gated ops
+
 ## [0.1.92] - 2026-08-04
 - ADDED **[remote]** Honest channel approvals (defer), conversations UI, housekeeping
 - ADDED **[core,ai]** Platform-scoped service credential — multi-tenant headless plane

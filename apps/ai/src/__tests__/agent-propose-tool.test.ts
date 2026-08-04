@@ -44,7 +44,7 @@ describe("agentProposeTool", () => {
         agentTypeKey: "engenty.coordinator",
         coreBaseUrl: "https://api.example.com",
         tenantId: "tenant-1",
-        userAccessToken: "tok-123",
+        accessToken: "tok-123",
       },
       () =>
         agentProposeTool.execute?.(input as never, {} as never) as Promise<{
@@ -88,7 +88,7 @@ describe("agentProposeTool", () => {
     );
 
     const result = (await runWithContext(
-      { coreBaseUrl: "https://api.example.com", userAccessToken: "tok-123" },
+      { coreBaseUrl: "https://api.example.com", accessToken: "tok-123" },
       () =>
         agentProposeTool.execute?.(input as never, {} as never) as Promise<{
           pending_revision: boolean;
@@ -115,7 +115,7 @@ describe("agentProposeTool", () => {
       }))
     );
     const httpError = (await runWithContext(
-      { coreBaseUrl: "https://api.example.com", userAccessToken: "tok-123" },
+      { coreBaseUrl: "https://api.example.com", accessToken: "tok-123" },
       () => agentProposeTool.execute?.(input as never, {} as never)
     )) as { ok: boolean; message: string };
     expect(httpError.ok).toBe(false);

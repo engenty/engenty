@@ -78,8 +78,8 @@ export function createCoreAiScopeResolver(
   options: { coreBaseUrl?: string; fetchImpl?: typeof fetch } = {}
 ): AiScopeResolver {
   return async ({ authorization }) => {
-    const userAccessToken = parseBearerToken(authorization);
-    if (!userAccessToken) {
+    const accessToken = parseBearerToken(authorization);
+    if (!accessToken) {
       return {
         ok: false,
         error: "agent_threads.unauthorized",
@@ -100,7 +100,7 @@ export function createCoreAiScopeResolver(
       const context = await new EngentyCoreClient({
         coreBaseUrl,
         fetchImpl: options.fetchImpl,
-        userAccessToken,
+        accessToken,
       }).getWorkspaceContext();
       const parsed = workspaceContextScopeSchema.safeParse(context);
       if (!parsed.success) {
@@ -128,7 +128,7 @@ export function createCoreAiScopeResolver(
           // credential union.
           credential: {
             kind: parsed.data.tenantRole === "service" ? "service" : "user",
-            token: userAccessToken,
+            token: accessToken,
           },
           isSuperAdmin: parsed.data.isSuperAdmin,
           isTenantAdmin:
@@ -137,7 +137,6 @@ export function createCoreAiScopeResolver(
             parsed.data.tenantRole === "admin",
           tenantRole: parsed.data.tenantRole,
           tenantId: parsed.data.currentTenant.id,
-          userAccessToken,
           userId: parsed.data.userId,
         },
       };
@@ -164,18 +163,18 @@ export function createStaticAiScopeResolver(
 ): AiScopeResolver {
   return async ({ authorization }) => {
     const configured = scopeAccessToken(scope);
-    const userAccessToken = configured ?? parseBearerToken(authorization);
-    if (!userAccessToken) {
+    const accessToken = configured ?? parseBearerToken(authorization);
+    if (!accessToken) {
       return { ok: true, scope };
     }
     // A token arriving on the request is a caller's session; only a token
     // baked into the static scope keeps whatever kind it was given.
     const credential: AiScopeCredential = configured
       ? (scope.credential ?? { kind: "user", token: configured })
-      : { kind: "user", token: userAccessToken };
+      : { kind: "user", token: accessToken };
     return {
       ok: true,
-      scope: { ...scope, credential, userAccessToken },
+      scope: { ...scope, credential },
     };
   };
 }

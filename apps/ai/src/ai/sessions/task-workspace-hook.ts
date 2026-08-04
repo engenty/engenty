@@ -89,16 +89,16 @@ export function createScopeModuleOperationInvoker(
   scope: AiSessionScope
 ): ModuleOperationInvoker {
   return async (operationId, input) => {
-    const userAccessToken = scopeAccessToken(scope)?.trim();
+    const accessToken = scopeAccessToken(scope)?.trim();
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-    if (!(userAccessToken && coreBaseUrl)) {
+    if (!(accessToken && coreBaseUrl)) {
       throw new Error(
         "Task workspace preparation requires core-backed tools with an end-user bearer token."
       );
     }
     const client = new EngentyCoreClient({
       coreBaseUrl,
-      userAccessToken,
+      accessToken,
     });
     return client.invokeTool(operationId, input ?? {});
   };

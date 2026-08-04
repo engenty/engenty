@@ -17,7 +17,7 @@ export async function getTaskDispatchServiceJwt(
   const jwt = await getServiceAccessToken(tenantId ? { tenantId } : undefined);
   if (!jwt) {
     throw new Error(
-      "task-job: a service credential (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev) is required to run dispatched task jobs"
+      "task-job: a service credential (ENGENTY_AI_SERVICE_SECRET) is required to run dispatched task jobs"
     );
   }
   return jwt;
@@ -50,6 +50,5 @@ export async function resolveTaskJobServiceScope(
   return {
     ...resolved.scope,
     credential: { kind: "service", token: serviceJwt },
-    userAccessToken: serviceJwt,
   };
 }

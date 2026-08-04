@@ -278,7 +278,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     const gatedAgentUi = await filterAgentUiFrontendToolsForScope({
       agentUi: input.agentUi,
       tenantId: input.scope.tenantId,
-      userAccessToken:
+      accessToken:
         scopeAccessToken(input.scope) ??
         input.authorization?.replace(/^Bearer\s+/i, "").trim(),
     });
@@ -801,7 +801,7 @@ export function createSessionService(opts: SessionServiceOptions) {
             orchestratorThreadId: input.threadId,
             runId,
             tenantId: input.scope.tenantId,
-            userAccessToken: scopeAccessToken(input.scope),
+            accessToken: scopeAccessToken(input.scope),
             userFacingThreadId: input.threadId,
             userId: input.scope.userId,
           },

@@ -59,7 +59,7 @@ function makeApp(capabilities = new AppCapabilityRegistry()) {
         ok: true as const,
         scope: {
           tenantId: TENANT,
-          userAccessToken: "user-jwt",
+          credential: { kind: "user" as const, token: "user-jwt" },
           userId: USER,
         },
       };
@@ -118,7 +118,7 @@ describe("POST /ai/apps/:appId/call — authentication", () => {
       appId: "some-other-app",
       sessionId: "sess-1",
       tenantId: TENANT,
-      userAccessToken: "user-jwt",
+      accessToken: "user-jwt",
       userId: USER,
     });
     const { app } = makeApp(capabilities);
@@ -178,7 +178,7 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
       appId: APP_ID,
       sessionId: "sess-1",
       tenantId: TENANT,
-      userAccessToken: "user-jwt",
+      accessToken: "user-jwt",
       userId: USER,
     });
     const { app } = makeApp(capabilities);

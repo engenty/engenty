@@ -181,7 +181,7 @@ export async function resumeConversationRun(
       approvalGrants: mergeApprovalGrants(
         readToolApprovalGrants(input.sessionMetadata ?? {}),
         await loadConnectionApprovalGrants({
-          userAccessToken: scopeAccessToken(input.scope),
+          accessToken: scopeAccessToken(input.scope),
         })
       ),
       approvalPolicy: "suspend" as const,
@@ -193,7 +193,7 @@ export async function resumeConversationRun(
       userFacingThreadId: input.threadId,
       userId: input.scope.userId,
       ...(scopeAccessToken(input.scope)
-        ? { userAccessToken: scopeAccessToken(input.scope) }
+        ? { accessToken: scopeAccessToken(input.scope) }
         : {}),
     };
     const resumeDone = engentyToolsRunAls

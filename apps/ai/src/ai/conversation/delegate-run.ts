@@ -272,7 +272,7 @@ export async function runDelegatedConversation(
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
       ...(scopeAccessToken(input.scope)
-        ? { userAccessToken: scopeAccessToken(input.scope) }
+        ? { accessToken: scopeAccessToken(input.scope) }
         : {}),
     };
     // Belt-and-suspenders: also carry the token on the Mastra requestContext (the

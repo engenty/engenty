@@ -6,9 +6,10 @@
 // engenty-tools ALS scope carrying the delegated actor token.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
+import { resetServiceCredentialCache } from "../../ai/service-credential.js";
 import { createIdentityGateHandler } from "../remote-channels.js";
 
-const ENV_KEYS = ["ENGENTY_AI_SERVICE_JWT", "PUBLIC_APP_URL"] as const;
+const ENV_KEYS = ["ENGENTY_AI_SERVICE_SECRET", "PUBLIC_APP_URL"] as const;
 let savedEnv: Record<string, string | undefined>;
 
 interface FakeScenario {
@@ -27,6 +28,9 @@ function stubFetch(scenario: FakeScenario) {
       const url = String(input);
       const body = init?.body ? JSON.parse(String(init.body)) : null;
       calls.push({ body, url });
+      if (url.includes("/api/auth/service-token")) {
+        return Response.json({ expiresIn: 900, token: "service-tok" });
+      }
       if (url.includes("/api/tools/remote_runtime_resolve_sender/invoke")) {
         return Response.json({
           data: {
@@ -93,8 +97,9 @@ const activeBinding = {
 describe("remote identity gate", () => {
   beforeEach(() => {
     savedEnv = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
-    process.env.ENGENTY_AI_SERVICE_JWT = "service-jwt";
+    process.env.ENGENTY_AI_SERVICE_SECRET = "cred-test.svc-secret";
     process.env.PUBLIC_APP_URL = "https://app.example.com";
+    resetServiceCredentialCache();
   });
 
   afterEach(() => {
@@ -173,11 +178,20 @@ describe("remote identity gate", () => {
     expect(observed).not.toBeNull();
     expect(observed!.userId).toBe("user-42");
     expect(observed!.tenantId).toBe("t-1");
-    expect(observed!.userAccessToken).toBe("actor-tok-123");
-    // "defer", not "suspend": suspension renders no card in channel threads
-    // (no tool-call-approval chunk) and parks in-process — verified live.
-    // Core records a durable approval request and the turn ends with a reply.
-    expect(observed!.approvalPolicy).toBe("defer");
+    expect(observed!.accessToken).toBe("actor-tok-123");
+    // "request", after both alternatives failed live: "suspend" renders no
+    // card and parks in-process; "defer" skips the pre-gate and — because the
+    // delegated actor token makes the principal the USER, whom core never
+    // gates — executed a high-risk requiresApproval op from a Slack DM with
+    // no approval. "request" runs the pre-gate and returns approval_pending
+    // without executing.
+    expect(observed!.approvalPolicy).toBe("request");
+    // Agent attribution is load-bearing for defer: without it core treats the
+    // delegated actor token as the user acting first-person and EXECUTES
+    // requiresApproval ops (verified live — a Slack DM created a high-risk
+    // contact with no approval). agentTypeKey must always be set; agentId is
+    // best-effort (null without a service DB, as in this test).
+    expect(observed!.agentTypeKey).toBe("engenty.remote");
     const mint = calls.find((c) => c.url.includes("/api/auth/actor-token"));
     expect(mint?.body).toMatchObject({ tenant_id: "t-1", user_id: "user-42" });
 

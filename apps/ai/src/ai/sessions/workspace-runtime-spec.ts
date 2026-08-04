@@ -48,7 +48,7 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
   skillDiscoveryPaths?: string[];
 }) {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scopeAccessToken(input.scope)?.trim();
+  const accessToken = scopeAccessToken(input.scope)?.trim();
   const homeMount = input.mounts.find((mount) => mount.mountPath === "/home");
   const sandboxMount = input.mounts.find(
     (mount) =>
@@ -89,11 +89,11 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
       : {}),
     // Bearer-backed file storage adapter — when missing the loader falls back
     // to LocalFilesystem so dev/tests still work without a core token.
-    ...(coreBaseUrl && userAccessToken
+    ...(coreBaseUrl && accessToken
       ? {
           fileStorageAccess: {
             coreBaseUrl,
-            userAccessToken,
+            accessToken,
           },
         }
       : {}),

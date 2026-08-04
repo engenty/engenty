@@ -29,7 +29,7 @@ describe("workspace-fs-mode", () => {
       shouldUseRemoteWorkspaceSync({
         fileStorageAccess: {
           coreBaseUrl: "http://127.0.0.1:8787",
-          userAccessToken: "token",
+          accessToken: "token",
         },
         mode: "remote",
       })
@@ -41,7 +41,7 @@ describe("workspace-fs-mode", () => {
       shouldUseRemoteWorkspaceSync({
         fileStorageAccess: {
           coreBaseUrl: "http://127.0.0.1:8787",
-          userAccessToken: "token",
+          accessToken: "token",
         },
         mode: "local",
       })

@@ -291,15 +291,15 @@ export function latestUserAttachments(
 export async function resolveTieredAttachments(params: {
   coreBaseUrl?: string;
   input: RunAgentInput;
-  userAccessToken?: string;
+  accessToken?: string;
 }): Promise<TieredAttachmentResolution> {
-  const { userAccessToken } = params;
+  const { accessToken } = params;
   const coreBaseUrl = params.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
   const refs = latestUserAttachments(params.input);
   if (refs.length === 0) {
     return { contextEntries: [], modelAttachments: [] };
   }
-  if (!(coreBaseUrl && userAccessToken)) {
+  if (!(coreBaseUrl && accessToken)) {
     // Cannot download — still tell the model the files exist.
     const value = [
       "The user attached these files, but bytes could not be loaded in this run (missing core URL or auth). Storage keys:",
@@ -318,7 +318,7 @@ export async function resolveTieredAttachments(params: {
   const fileClient = createEngentyCoreFileStorageClient({
     bucket: "files",
     coreBaseUrl,
-    userAccessToken,
+    accessToken,
   });
 
   const modelAttachments: ModelAttachmentFile[] = [];

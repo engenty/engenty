@@ -10,8 +10,8 @@ export function getCurrentEngentyToolsClient(
   executionContext?: ToolExecutionContext
 ): EngentyToolsClientResult {
   const ctx = resolveEngentyToolsRunContext(executionContext);
-  const userAccessToken = ctx.userAccessToken?.trim();
-  if (!userAccessToken) {
+  const accessToken = ctx.accessToken?.trim();
+  if (!accessToken) {
     return {
       ok: false,
       code: "unauthorized",
@@ -33,7 +33,7 @@ export function getCurrentEngentyToolsClient(
     client: new EngentyCoreClient({
       coreBaseUrl,
       fetchImpl: ctx.fetchImpl,
-      userAccessToken,
+      accessToken,
       ...(ctx.agentId ? { agentId: ctx.agentId } : {}),
       ...(ctx.goalId ? { goalId: ctx.goalId } : {}),
       ...(ctx.taskId ? { taskId: ctx.taskId } : {}),

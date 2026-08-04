@@ -45,14 +45,14 @@ export interface RegisterSkillsRoutesOptions {
 
 function buildSkillStorage(scope: AiSessionScope): SkillStorage | null {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scopeAccessToken(scope)?.trim();
-  if (!(coreBaseUrl && userAccessToken)) {
+  const accessToken = scopeAccessToken(scope)?.trim();
+  if (!(coreBaseUrl && accessToken)) {
     return null;
   }
   return createSkillStorage({
     storage: createEngentyCoreFileStorageClient({
       coreBaseUrl,
-      userAccessToken,
+      accessToken,
     }),
     tenantId: scope.tenantId,
   });
@@ -62,14 +62,14 @@ function buildSkillProposalStore(
   scope: AiSessionScope
 ): SkillProposalStore | null {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scopeAccessToken(scope)?.trim();
-  if (!(coreBaseUrl && userAccessToken)) {
+  const accessToken = scopeAccessToken(scope)?.trim();
+  if (!(coreBaseUrl && accessToken)) {
     return null;
   }
   return createSkillProposalStore({
     storage: createEngentyCoreFileStorageClient({
       coreBaseUrl,
-      userAccessToken,
+      accessToken,
     }),
     tenantId: scope.tenantId,
   });

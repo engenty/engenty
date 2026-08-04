@@ -139,12 +139,12 @@ async function readJsonBody(c: Context): Promise<unknown> {
   }
 }
 
-function coreClient(userAccessToken: string): EngentyCoreClient {
+function coreClient(accessToken: string): EngentyCoreClient {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!coreBaseUrl) {
     throw new Error("ENGENTY_CORE_BASE_URL is not configured");
   }
-  return new EngentyCoreClient({ coreBaseUrl, userAccessToken });
+  return new EngentyCoreClient({ coreBaseUrl, accessToken });
 }
 
 /** Everything the proxy needs about the app it is brokering for. */
@@ -199,7 +199,7 @@ export function registerAppProxyRoutes(
         fromCapability: boolean;
         ok: true;
         tenantId: string;
-        userAccessToken: string;
+        accessToken: string;
         userId: string;
       }
     | { ok: false; response: Response }
@@ -226,7 +226,7 @@ export function registerAppProxyRoutes(
         fromCapability: true,
         ok: true,
         tenantId: grant.tenantId,
-        userAccessToken: grant.userAccessToken,
+        accessToken: grant.accessToken,
         userId: grant.userId,
       };
     }
@@ -247,7 +247,7 @@ export function registerAppProxyRoutes(
       fromCapability: false,
       ok: true,
       tenantId: scope.scope.tenantId,
-      userAccessToken: callerToken,
+      accessToken: callerToken,
       userId: scope.scope.userId,
     };
   }
@@ -458,7 +458,7 @@ export function registerAppProxyRoutes(
     }
 
     const appId = c.req.param("appId");
-    const client = coreClient(caller.userAccessToken);
+    const client = coreClient(caller.accessToken);
 
     let resolved: ResolvedApp | null;
     try {
@@ -547,7 +547,7 @@ export function registerAppProxyRoutes(
             appId,
             sessionId,
             tenantId: caller.tenantId,
-            userAccessToken: caller.userAccessToken,
+            accessToken: caller.accessToken,
             userId: caller.userId,
           });
 

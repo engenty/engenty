@@ -149,6 +149,7 @@ export class EngentyCoreHttpError extends Error {
 const DEFAULT_CORE_HTTP_TIMEOUT_MS = 60_000;
 
 export interface EngentyCoreClientOptions {
+  accessToken: string;
   /**
    * Phase 4: the agent driving these calls and the goal it is pursuing. When
    * set, forwarded to core as x-engenty-agent-id / x-engenty-goal-id so the
@@ -170,7 +171,6 @@ export interface EngentyCoreClientOptions {
   /** Trigger/routine behind the task, forwarded as x-engenty-trigger-id —
    * the subject routine-scoped grants are spent against. */
   triggerId?: string;
-  userAccessToken: string;
 }
 
 // Workspace context cache: key is token, value is [context, expiresAt]
@@ -278,7 +278,7 @@ export class EngentyCoreClient {
         signal: controller.signal,
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${normalizeBearerToken(this.options.userAccessToken)}`,
+          Authorization: `Bearer ${normalizeBearerToken(this.options.accessToken)}`,
           ...(this.options.agentId
             ? { "x-engenty-agent-id": this.options.agentId }
             : {}),
@@ -338,7 +338,7 @@ export class EngentyCoreClient {
   }
 
   async getWorkspaceContext(): Promise<EngentyWorkspaceContext> {
-    const token = this.options.userAccessToken;
+    const token = this.options.accessToken;
     const cached = workspaceContextCache.get(token);
     if (cached) {
       const [context, expiresAt] = cached;

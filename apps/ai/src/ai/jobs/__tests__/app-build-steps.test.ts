@@ -14,7 +14,7 @@ vi.mock("../../sessions/task-workspace-hook.js", () => ({
 vi.mock("../task-job-scope.js", () => ({
   resolveTaskJobServiceScope: async () => ({
     tenantId: "22222222-2222-4222-8222-222222222222",
-    userAccessToken: "service-jwt",
+    accessToken: "service-jwt",
   }),
 }));
 vi.mock("../../../dal/artifacts/artifact-store.js", () => ({

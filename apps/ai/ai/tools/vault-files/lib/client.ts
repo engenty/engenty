@@ -25,8 +25,8 @@ export async function getVaultFileStorageClient(
 
   const runContext = resolveEngentyToolsRunContext(executionContext);
   const coreBaseUrl = runContext.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = runContext.userAccessToken?.trim();
-  if (!(coreBaseUrl && userAccessToken)) {
+  const accessToken = runContext.accessToken?.trim();
+  if (!(coreBaseUrl && accessToken)) {
     return {
       ok: false as const,
       code: "service_unavailable",
@@ -40,7 +40,7 @@ export async function getVaultFileStorageClient(
       bucket: "files",
       coreBaseUrl,
       fetchImpl: runContext.fetchImpl,
-      userAccessToken,
+      accessToken,
     }),
     resolveKey(key: string) {
       return resolveScopedVaultKey(tenantId, key);

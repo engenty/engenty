@@ -70,7 +70,7 @@ describe("task-workspace-hook", () => {
       runId,
       scope: {
         tenantId,
-        userAccessToken: "token",
+        credential: { kind: "user", token: "token" },
         userId: "44444444-4444-4444-8444-444444444444",
       },
       threadId,
@@ -127,7 +127,7 @@ describe("task-workspace-hook", () => {
         runId,
         scope: {
           tenantId,
-          userAccessToken: "token",
+          credential: { kind: "user", token: "token" },
           userId: "44444444-4444-4444-8444-444444444444",
         },
         threadId,

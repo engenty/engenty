@@ -58,7 +58,7 @@ describe("createChatThreadSearchTool", () => {
       const result = await engentyToolsRunAls.run(
         {
           tenantId,
-          userAccessToken: "user-token",
+          accessToken: "user-token",
           userId,
         },
         () => tool.execute({ query: "previous chat" })
@@ -113,7 +113,7 @@ describe("createChatThreadSearchTool", () => {
         {
           orchestratorThreadId: "00000000-0000-4000-8000-0000000000ee",
           tenantId,
-          userAccessToken: "user-token",
+          accessToken: "user-token",
           userId,
         },
         () => tool.execute({ query: "previous chat" })
@@ -132,7 +132,7 @@ describe("createChatThreadSearchTool", () => {
     const result = (await engentyToolsRunAls.run(
       {
         tenantId,
-        userAccessToken: "user-token",
+        accessToken: "user-token",
         userId,
       },
       () => tool.execute({ query: "previous chat" })

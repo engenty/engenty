@@ -152,12 +152,12 @@ export async function callInternalMcpAppTool(params: {
   coreBaseUrl?: string;
   fetchImpl?: typeof fetch;
   toolName: string;
-  userAccessToken: string | undefined;
+  accessToken: string | undefined;
 }): Promise<{
   content: Array<{ text: string; type: "text" }>;
   structuredContent: unknown;
 }> {
-  if (!params.userAccessToken) {
+  if (!params.accessToken) {
     throw new InternalMcpAppCallError(
       401,
       "mcpApps.internalUnauthorized",
@@ -184,7 +184,7 @@ export async function callInternalMcpAppTool(params: {
   }
   const client = new EngentyCoreClient({
     coreBaseUrl,
-    userAccessToken: params.userAccessToken,
+    accessToken: params.accessToken,
     ...(params.fetchImpl ? { fetchImpl: params.fetchImpl } : {}),
   });
   const data = await client.invokeTool(params.toolName, params.arguments);

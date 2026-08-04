@@ -321,10 +321,13 @@ the binary until CP6.
 
 ### CP6 — Remove the Supabase service user
 
-**Do not start before CP5 step 4 has soaked.** Every item below deletes a path
-production currently depends on; as of today production has no service
-credential configured at all, so shipping CP6 now would leave the scheduler
-with nothing to authenticate as.
+**EXECUTED 2026-08-04** (soak waived — prod ran on `ENGENTY_AI_SERVICE_SECRET`
+since 2026-08-01 with JWT/EMAIL/PASSWORD unset, so nothing depended on the
+fallbacks). The static `ENGENTY_AI_SERVICE_JWT` was removed in the same pass —
+single-tenant by construction and silently expiring, it had no remaining user.
+The `userAccessToken` → `accessToken` rename landed the same day (shim
+deleted from AiSessionScope; option bags renamed). Still open: deleting
+`service@engenty.local` from prod + dev Supabase (ops step after deploy).
 
 - Delete the password-grant branch from `service-credential.ts`; drop
   `ENGENTY_AI_SERVICE_EMAIL/PASSWORD` from manifest + compose + `.env.example`.

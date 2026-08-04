@@ -28,11 +28,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  */
 
 export interface AppCapabilityGrant {
+  accessToken: string;
   allowedOperations: readonly string[];
   appId: string;
   sessionId: string;
   tenantId: string;
-  userAccessToken: string;
   userId: string;
 }
 
@@ -89,7 +89,7 @@ export class AppCapabilityRegistry {
   mint(grant: AppCapabilityGrant, nowMs = Date.now()): string {
     this.sweep(nowMs);
     const handle = randomBytes(32).toString("base64url");
-    const remaining = tokenRemainingMs(grant.userAccessToken, nowMs);
+    const remaining = tokenRemainingMs(grant.accessToken, nowMs);
     const lifeMs =
       remaining === null ? this.ttlMs : Math.min(this.ttlMs, remaining);
     this.grants.set(hashHandle(handle), {
@@ -129,7 +129,7 @@ export class AppCapabilityRegistry {
       appId: stored.appId,
       sessionId: stored.sessionId,
       tenantId: stored.tenantId,
-      userAccessToken: stored.userAccessToken,
+      accessToken: stored.accessToken,
       userId: stored.userId,
     };
   }

@@ -41,7 +41,7 @@ export function createEngentyCoreFileStorageClient(
 ): EngentyCoreFileStorageClient {
   const core = new EngentyCoreClient(options);
   const bucket = options.bucket?.trim() || undefined;
-  const bearerToken = options.userAccessToken.trim();
+  const bearerToken = options.accessToken.trim();
   const coreBaseUrl = normalizeCoreBaseUrl(options.coreBaseUrl);
 
   function buildUrl(path: string, params: Record<string, string>): URL {

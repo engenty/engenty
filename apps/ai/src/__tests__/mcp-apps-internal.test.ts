@@ -73,7 +73,7 @@ describe("callInternalMcpAppTool", () => {
       callInternalMcpAppTool({
         arguments: {},
         toolName: "offers_get",
-        userAccessToken: undefined,
+        accessToken: undefined,
       })
     ).rejects.toMatchObject({
       status: 401,
@@ -88,7 +88,7 @@ describe("callInternalMcpAppTool", () => {
       coreBaseUrl: "http://core.test",
       fetchImpl: fetchMock as unknown as typeof fetch,
       toolName: "offers_get",
-      userAccessToken: "user-token",
+      accessToken: "user-token",
     });
     expect(result.structuredContent).toEqual({ id: "o1", title: "Offer" });
     expect(JSON.parse(result.content[0].text)).toEqual({
@@ -106,7 +106,7 @@ describe("callInternalMcpAppTool", () => {
       callInternalMcpAppTool({
         arguments: { blob: "x".repeat(70_000) },
         toolName: "offers_get",
-        userAccessToken: "user-token",
+        accessToken: "user-token",
       })
     ).rejects.toBeInstanceOf(InternalMcpAppCallError);
   });

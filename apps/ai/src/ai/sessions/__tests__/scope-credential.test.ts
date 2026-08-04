@@ -3,6 +3,7 @@ import {
   type AiSessionScope,
   resolveScopeCredential,
   scopeAccessToken,
+  scopeAttributionUserId,
 } from "../types.js";
 
 const base: AiSessionScope = { tenantId: "tenant-1", userId: "user-1" };
@@ -25,41 +26,26 @@ describe("resolveScopeCredential", () => {
     expect(scopeAccessToken(scope)).toBe("svc-token");
   });
 
-  it("treats a bare legacy userAccessToken as a user credential", () => {
-    // That is what the field always meant; headless callers set `credential`
-    // explicitly, so nothing silently becomes a service principal.
-    const scope: AiSessionScope = { ...base, userAccessToken: "session-token" };
-    expect(resolveScopeCredential(scope)).toEqual({
-      kind: "user",
-      token: "session-token",
-    });
-  });
-
-  it("prefers the credential field over the legacy shim", () => {
-    const scope: AiSessionScope = {
-      ...base,
-      credential: { kind: "service", token: "svc-token" },
-      userAccessToken: "stale-token",
-    };
-    expect(scopeAccessToken(scope)).toBe("svc-token");
-    expect(resolveScopeCredential(scope)?.kind).toBe("service");
-  });
-
-  it("ignores blank tokens on either field", () => {
-    expect(
-      scopeAccessToken({ ...base, userAccessToken: "   " })
-    ).toBeUndefined();
+  it("ignores a blank token", () => {
     expect(
       scopeAccessToken({ ...base, credential: { kind: "user", token: "  " } })
     ).toBeUndefined();
   });
+});
 
-  it("falls back to the shim when the credential field holds a blank token", () => {
-    const scope: AiSessionScope = {
-      ...base,
-      credential: { kind: "service", token: "" },
-      userAccessToken: "session-token",
-    };
-    expect(scopeAccessToken(scope)).toBe("session-token");
+describe("scopeAttributionUserId", () => {
+  it("returns the user id for a user credential and null for a service one", () => {
+    expect(
+      scopeAttributionUserId({
+        ...base,
+        credential: { kind: "user", token: "session-token" },
+      })
+    ).toBe("user-1");
+    expect(
+      scopeAttributionUserId({
+        ...base,
+        credential: { kind: "service", token: "svc-token" },
+      })
+    ).toBeNull();
   });
 });

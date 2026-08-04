@@ -9,7 +9,7 @@ const grant = {
   appId: "app-1",
   sessionId: "sess-1",
   tenantId: "tenant-1",
-  userAccessToken: "user-jwt",
+  accessToken: "user-jwt",
   userId: "user-1",
 };
 
@@ -112,7 +112,7 @@ describe("AppCapabilityRegistry — handle life is clamped to the token's", () =
     const registry = new AppCapabilityRegistry();
     // 90s of token left, against a 300s handle TTL.
     const token = jwtExpiringAt(Math.floor(NOW / 1000) + 90);
-    const handle = registry.mint({ ...grant, userAccessToken: token }, NOW);
+    const handle = registry.mint({ ...grant, accessToken: token }, NOW);
 
     expect(registry.resolve(handle, NOW + 89_000)).not.toBeNull();
     expect(registry.resolve(handle, NOW + 91_000)).toBeNull();
@@ -121,7 +121,7 @@ describe("AppCapabilityRegistry — handle life is clamped to the token's", () =
   it("keeps the full TTL when the token outlives it", () => {
     const registry = new AppCapabilityRegistry();
     const token = jwtExpiringAt(Math.floor(NOW / 1000) + 3600);
-    const handle = registry.mint({ ...grant, userAccessToken: token }, NOW);
+    const handle = registry.mint({ ...grant, accessToken: token }, NOW);
 
     expect(
       registry.resolve(handle, NOW + CAPABILITY_TTL_MS - 1)
@@ -132,7 +132,7 @@ describe("AppCapabilityRegistry — handle life is clamped to the token's", () =
   it("keeps the full TTL for a token with no readable expiry", () => {
     const registry = new AppCapabilityRegistry();
     // Opaque tokens (and anything that isn't a JWT) behave exactly as before.
-    const handle = registry.mint({ ...grant, userAccessToken: "opaque" }, NOW);
+    const handle = registry.mint({ ...grant, accessToken: "opaque" }, NOW);
     expect(
       registry.resolve(handle, NOW + CAPABILITY_TTL_MS - 1)
     ).not.toBeNull();
@@ -141,7 +141,7 @@ describe("AppCapabilityRegistry — handle life is clamped to the token's", () =
   it("refuses a handle minted from an already-expired token", () => {
     const registry = new AppCapabilityRegistry();
     const token = jwtExpiringAt(Math.floor(NOW / 1000) - 10);
-    const handle = registry.mint({ ...grant, userAccessToken: token }, NOW);
+    const handle = registry.mint({ ...grant, accessToken: token }, NOW);
     expect(registry.resolve(handle, NOW)).toBeNull();
   });
 });

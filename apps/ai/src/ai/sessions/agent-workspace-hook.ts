@@ -41,8 +41,8 @@ async function maybeSeedTenantManagedSkills(
     return;
   }
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scopeAccessToken(scope)?.trim();
-  if (!(coreBaseUrl && userAccessToken)) {
+  const accessToken = scopeAccessToken(scope)?.trim();
+  if (!(coreBaseUrl && accessToken)) {
     return;
   }
   seededSkillTenants.add(tenantId);
@@ -54,7 +54,7 @@ async function maybeSeedTenantManagedSkills(
     const storage = createSkillStorage({
       storage: createEngentyCoreFileStorageClient({
         coreBaseUrl,
-        userAccessToken,
+        accessToken,
       }),
       tenantId,
     });

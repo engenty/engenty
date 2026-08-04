@@ -49,10 +49,7 @@ export type EnvConfigurable = false | "platform" | "tenant";
  */
 export const NON_CONFIGURABLE_ENV_KEYS: readonly string[] = [
   "ENGENTY_SECURITY_JWT_SECRET",
-  "ENGENTY_AI_SERVICE_JWT",
   "ENGENTY_AI_SERVICE_SECRET",
-  "ENGENTY_AI_SERVICE_EMAIL",
-  "ENGENTY_AI_SERVICE_PASSWORD",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_ANON_KEY",

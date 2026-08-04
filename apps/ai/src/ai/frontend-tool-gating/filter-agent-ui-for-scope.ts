@@ -18,12 +18,12 @@ const logger = createLogger({ name: "ai.frontend-tool-gating" });
 export async function filterAgentUiFrontendToolsForScope(params: {
   agentUi: AgentUiProducerContext | null | undefined;
   tenantId: string;
-  userAccessToken: string | undefined;
+  accessToken: string | undefined;
 }): Promise<AgentUiProducerContext | null> {
   if (!params.agentUi) {
     return null;
   }
-  const token = params.userAccessToken?.trim();
+  const token = params.accessToken?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!(token && coreBaseUrl)) {
     logger.warn("frontend_tool_gating_unavailable_strip_module_tools", {
@@ -37,7 +37,7 @@ export async function filterAgentUiFrontendToolsForScope(params: {
   try {
     const client = new EngentyCoreClient({
       coreBaseUrl,
-      userAccessToken: token,
+      accessToken: token,
     });
     const plugins = await client.listPlugins(params.tenantId);
     const registry = buildPluginCapabilityRegistryFromCoreList(plugins);

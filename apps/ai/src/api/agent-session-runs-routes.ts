@@ -340,7 +340,7 @@ export function registerAgentSessionRunRoutes(
       ? await filterAgentUiFrontendToolsForScope({
           agentUi: runContext,
           tenantId: scope.scope.tenantId,
-          userAccessToken: scopeAccessToken(scope.scope),
+          accessToken: scopeAccessToken(scope.scope),
         })
       : null;
     const modelIdOverride = resolveModelIdOverride(body.data);
@@ -491,7 +491,7 @@ export function registerAgentSessionRunRoutes(
               coreBaseUrl: opts.coreBaseUrl,
               goalId: threadId,
               secretId: grantContext.secret_id,
-              userAccessToken: scopeAccessToken(scope.scope),
+              accessToken: scopeAccessToken(scope.scope),
             });
           }
         }
@@ -569,7 +569,7 @@ export function registerAgentSessionRunRoutes(
               coreBaseUrl: opts.coreBaseUrl,
               goalId: threadId,
               secretId: grantContext.secret_id,
-              userAccessToken: scopeAccessToken(scope.scope),
+              accessToken: scopeAccessToken(scope.scope),
             });
           }
         }
@@ -704,7 +704,7 @@ export function registerAgentSessionRunRoutes(
       // Durable connection-level "always allow" grants (Settings → Connections)
       // merge with this chat's session grants; both feed the same pre-gate.
       const hsConnectionGrants = await loadConnectionApprovalGrants({
-        userAccessToken: scopeAccessToken(scope.scope),
+        accessToken: scopeAccessToken(scope.scope),
       });
       // Tiered attachments: images/PDFs → multimodal files; small text/CSV →
       // run context (≤32KiB); larger/binary → manifest + agent-file_analyst.
@@ -714,7 +714,7 @@ export function registerAgentSessionRunRoutes(
         : await resolveTieredAttachments({
             coreBaseUrl: opts.coreBaseUrl,
             input: body.data,
-            userAccessToken: scopeAccessToken(scope.scope),
+            accessToken: scopeAccessToken(scope.scope),
           });
       // Durable transcript parts for this turn (persisted so attachments render
       // on reload); empty on an artifact resume (no new user message).
@@ -730,7 +730,7 @@ export function registerAgentSessionRunRoutes(
           ? createSkillStorage({
               storage: createEngentyCoreFileStorageClient({
                 coreBaseUrl: hsCoreBaseUrl,
-                userAccessToken: hsUserAccessToken,
+                accessToken: hsUserAccessToken,
               }),
               tenantId: scope.scope.tenantId,
             })

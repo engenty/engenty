@@ -18,14 +18,14 @@ export function resolveEngentyWorkspaceFsMode(
 
 /** True when sandbox staging dirs should sync to tenant storage via the core file-storage API. */
 export function shouldUseRemoteWorkspaceSync(input: {
-  fileStorageAccess?: { coreBaseUrl: string; userAccessToken: string } | null;
+  fileStorageAccess?: { coreBaseUrl: string; accessToken: string } | null;
   mode?: EngentyWorkspaceFsMode;
 }): boolean {
   return (
     (input.mode ?? resolveEngentyWorkspaceFsMode()) === "remote" &&
     Boolean(
       input.fileStorageAccess?.coreBaseUrl?.trim() &&
-        input.fileStorageAccess.userAccessToken?.trim()
+        input.fileStorageAccess.accessToken?.trim()
     )
   );
 }

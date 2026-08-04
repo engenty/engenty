@@ -56,7 +56,7 @@ function createScopeResolver() {
       isTenantAdmin: false,
       tenantId: "tenant-1",
       tenantRole: "member",
-      userAccessToken: "token",
+      accessToken: "token",
       userId: "user-1",
     },
   });

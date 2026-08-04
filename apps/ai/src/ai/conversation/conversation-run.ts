@@ -380,7 +380,7 @@ export async function startConversationRun(
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
       ...(scopeAccessToken(input.scope)
-        ? { userAccessToken: scopeAccessToken(input.scope) }
+        ? { accessToken: scopeAccessToken(input.scope) }
         : {}),
     };
     const sendDone = engentyToolsRunAls

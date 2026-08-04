@@ -71,8 +71,8 @@ export const agentProposeTool = createTool({
   execute: async (input) => {
     const ctx = getEngentyToolsRunContext();
     const baseUrl = ctx.coreBaseUrl?.replace(/\/$/, "");
-    const userAccessToken = ctx.userAccessToken?.trim();
-    if (!(baseUrl && userAccessToken)) {
+    const accessToken = ctx.accessToken?.trim();
+    if (!(baseUrl && accessToken)) {
       return {
         ok: false as const,
         code: "unauthorized",
@@ -99,7 +99,7 @@ export const agentProposeTool = createTool({
           body: JSON.stringify(body),
           headers: {
             accept: "application/json",
-            authorization: `Bearer ${userAccessToken}`,
+            authorization: `Bearer ${accessToken}`,
             "content-type": "application/json",
           },
           method: "POST",

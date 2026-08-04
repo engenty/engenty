@@ -41,7 +41,7 @@ export async function createEngentySandboxProvider(params: {
   // Extra writable layouts (e.g. tenant `/shared`) the loader stages locally.
   // Docker binds them into the container; all providers sync them.
   extraMounts?: SandboxExtraMount[];
-  fileStorageAccess?: { coreBaseUrl: string; userAccessToken: string } | null;
+  fileStorageAccess?: { coreBaseUrl: string; accessToken: string } | null;
   input: CreateEngentySandboxProviderInput;
   sandboxConfig?: SandboxFactoryConfig;
   tenantId: string;

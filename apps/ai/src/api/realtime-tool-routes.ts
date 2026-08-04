@@ -131,7 +131,7 @@ export function registerRealtimeToolRoutes(
           coreBaseUrl: opts.coreBaseUrl,
           goalId: body.data.thread_id,
           secretId: args.input.secret_id,
-          userAccessToken: scopeAccessToken(scope.scope),
+          accessToken: scopeAccessToken(scope.scope),
         });
       }
     }
@@ -158,7 +158,7 @@ export function registerRealtimeToolRoutes(
           goalId: body.data.thread_id ?? null,
           orchestratorThreadId: body.data.thread_id ?? null,
           tenantId: scope.scope.tenantId,
-          userAccessToken: scopeAccessToken(scope.scope),
+          accessToken: scopeAccessToken(scope.scope),
           userFacingThreadId: body.data.thread_id ?? null,
           userId: scope.scope.userId,
         },

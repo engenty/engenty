@@ -1,7 +1,7 @@
 // CON-01 regression: an engenty App sending mail with nobody's approval.
 //
 // The chain the audit traced: an App calls core with the VIEWING USER's token
-// (app-proxy-routes mints its capability handle from `caller.userAccessToken`),
+// (app-proxy-routes mints its capability handle from `caller.accessToken`),
 // so this policy saw `principalType === "user"` and returned `null` on an `ask`
 // outcome — deferring the approval card to the AI-side pre-gate. Outside chat
 // that pre-gate is not running. `executeConnectorAction` then proceeds on

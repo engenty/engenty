@@ -39,39 +39,22 @@ export type AiScopeCredential =
 
 export interface AiSessionScope {
   /**
-   * Preferred over {@link AiSessionScope.userAccessToken}. Optional for the
-   * same reason the old field was: about half the consumers treat a missing
-   * credential as "degrade this feature", not "fail the request".
+   * Optional because about half the consumers treat a missing credential as
+   * "degrade this feature", not "fail the request".
    */
   credential?: AiScopeCredential;
   isSuperAdmin?: boolean;
   isTenantAdmin?: boolean;
   tenantId: string;
   tenantRole?: "admin" | "member" | "service" | null;
-  /**
-   * @deprecated Shim kept so scope literals (notably in tests) keep compiling
-   * through the CP4→CP6 window. Read through {@link resolveScopeCredential} /
-   * {@link scopeAccessToken}, never directly. Removed at CP6.
-   */
-  userAccessToken?: string;
   userId: string;
 }
 
-/**
- * The scope's credential, whichever field carries it.
- *
- * A bare `userAccessToken` is reported as `kind: "user"` — that is what it
- * always meant before the split, and headless callers set `credential`
- * explicitly.
- */
+/** The scope's credential, or null when it carries none. */
 export function resolveScopeCredential(
-  scope: Pick<AiSessionScope, "credential" | "userAccessToken">
+  scope: Pick<AiSessionScope, "credential">
 ): AiScopeCredential | null {
-  if (scope.credential?.token.trim()) {
-    return scope.credential;
-  }
-  const legacy = scope.userAccessToken?.trim();
-  return legacy ? { kind: "user", token: legacy } : null;
+  return scope.credential?.token.trim() ? scope.credential : null;
 }
 
 /**
@@ -80,7 +63,7 @@ export function resolveScopeCredential(
  * is the credential id, which core.users does not contain.
  */
 export function scopeAttributionUserId(
-  scope: Pick<AiSessionScope, "credential" | "userAccessToken" | "userId">
+  scope: Pick<AiSessionScope, "credential" | "userId">
 ): string | null {
   return resolveScopeCredential(scope)?.kind === "service"
     ? null
@@ -89,7 +72,7 @@ export function scopeAttributionUserId(
 
 /** The bearer to send toward core, or undefined when the scope has none. */
 export function scopeAccessToken(
-  scope: Pick<AiSessionScope, "credential" | "userAccessToken">
+  scope: Pick<AiSessionScope, "credential">
 ): string | undefined {
   return resolveScopeCredential(scope)?.token;
 }

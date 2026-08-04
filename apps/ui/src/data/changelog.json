@@ -4,6 +4,36 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "f329f27",
+        "message": "delete the userAccessToken scope shim, rename bags to accessToken",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "d367476",
+        "message": "say it loudly when the scheduler serves only part of the platform",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "630297a",
+        "message": "ENGENTY_AI_SERVICE_SECRET is the only service credential",
+        "group": "Added",
+        "breaking": true
+      },
+      {
+        "id": "25405e1",
+        "message": "channel approval policy \"request\" — defer executed gated ops",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.92",
+    "timestamp": 1785821877,
+    "commits": [
+      {
         "id": "7457eba",
         "message": "close the tenant-readiness gaps behind the per-tenant scheduler",
         "group": "Fixed",

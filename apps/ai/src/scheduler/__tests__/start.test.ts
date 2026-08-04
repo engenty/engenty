@@ -8,6 +8,18 @@ const reconcileScheduler = vi.hoisted(() => vi.fn(async () => {}));
 const getServiceAccessToken = vi.hoisted(() => vi.fn());
 const listTenantIds = vi.hoisted(() => vi.fn());
 
+const logSpies = vi.hoisted(() => ({
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}));
+
+vi.mock("@engenty/telemetry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@engenty/telemetry")>()),
+  createLogger: () => logSpies,
+}));
+
 vi.mock("../service-invoker.js", () => ({
   createSchedulerOperationInvoker: () => vi.fn(),
   resolveSchedulerServiceScope,
@@ -21,7 +33,7 @@ const scope = {
   isTenantAdmin: true,
   tenantId: "tenant-1",
   tenantRole: "admin" as const,
-  userAccessToken: "jwt",
+  accessToken: "jwt",
   userId: "user-1",
 };
 
@@ -40,6 +52,8 @@ function fakeMastra() {
   };
 }
 
+const errorSpy = logSpies.error;
+
 describe("startScheduler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -49,6 +63,7 @@ describe("startScheduler", () => {
     getServiceAccessToken.mockResolvedValue("service-token");
     listTenantIds.mockReset();
     listTenantIds.mockResolvedValue(["tenant-1"]);
+    errorSpy.mockReset();
   });
 
   afterEach(() => {
@@ -138,7 +153,7 @@ describe("startScheduler", () => {
     expect(reconcileScheduler).toHaveBeenCalledTimes(1);
     expect(seen).toEqual({
       tenantId: "tenant-1",
-      userAccessToken: "service-token",
+      accessToken: "service-token",
       userId: "user-1",
     });
   });
@@ -215,5 +230,48 @@ describe("startScheduler", () => {
     expect(
       (reconcileScheduler.mock.calls[0]?.[0] as { tenantId: string }).tenantId
     ).toBe("tenant-1");
+  });
+
+  it("reports serving a partial platform at error level, naming the skipped tenants", async () => {
+    // The per-tenant warns scroll away; a platform silently serving a SUBSET
+    // of its tenants must be loud, since the skipped tenants' triggers and
+    // system jobs never fire.
+    listTenantIds.mockResolvedValue(["tenant-1", "tenant-2", "tenant-3"]);
+    resolveSchedulerServiceScope.mockImplementation(
+      async (tenantId?: string) =>
+        tenantId === "tenant-1"
+          ? { ok: true, scope }
+          : { ...resolutionFailed, status: 403 }
+    );
+    const { mastra } = fakeMastra();
+
+    await startScheduler({ mastra });
+    await vi.runAllTimersAsync();
+
+    const lastError = errorSpy.mock.calls.at(-1) as
+      | [string, Record<string, unknown>]
+      | undefined;
+    expect(lastError?.[0]).toContain("NOT serving every tenant");
+    expect(lastError?.[1]).toMatchObject({
+      servedTenants: 1,
+      skippedTenants: ["tenant-2", "tenant-3"],
+      totalTenants: 3,
+    });
+  });
+
+  it("stays quiet when every tenant is served", async () => {
+    listTenantIds.mockResolvedValue(["tenant-1", "tenant-2"]);
+    resolveSchedulerServiceScope.mockImplementation(
+      async (tenantId?: string) => ({
+        ok: true,
+        scope: { ...scope, tenantId: tenantId ?? "tenant-1" },
+      })
+    );
+    const { mastra } = fakeMastra();
+
+    await startScheduler({ mastra });
+    await vi.runAllTimersAsync();
+
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 });

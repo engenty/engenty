@@ -26,8 +26,8 @@ const SCOPE_RETRY_MAX_DELAY_MS = 60_000;
  * Start schedule/scheduler workers and schedule the trigger reconcile.
  *
  * Service-scope resolution distinguishes three failure modes: no service
- * credential configured (neither ENGENTY_AI_SERVICE_JWT nor the
- * ENGENTY_AI_SERVICE_SECRET) disables the scheduler outright
+ * credential configured (ENGENTY_AI_SERVICE_SECRET unset) disables the
+ * scheduler outright
  * (same failure mode as the old tick without its Vault secret), a 401 from
  * core disables it too (a rejected token never heals on its own), while any
  * other failed resolution (core unreachable — e.g. the AI app won the
@@ -67,7 +67,7 @@ export async function startScheduler(options: {
       await engentyToolsRunAls.run(
         {
           tenantId: scope.tenantId,
-          userAccessToken: serviceToken,
+          accessToken: serviceToken,
           userId: scope.userId,
         },
         () =>
@@ -117,6 +117,7 @@ export async function startScheduler(options: {
     }
     setTimeout(() => {
       void (async () => {
+        const skipped: string[] = [];
         for (const tenantId of tenantIds) {
           if (tenantId === firstScope.tenantId) {
             await runReconcile(firstScope, 0);
@@ -124,6 +125,7 @@ export async function startScheduler(options: {
           }
           const resolved = await resolveSchedulerServiceScope(tenantId);
           if (!resolved.ok) {
+            skipped.push(tenantId);
             logger.warn(
               "scheduler: skipping tenant — service scope unavailable (tenant-bound credential?)",
               {
@@ -137,6 +139,22 @@ export async function startScheduler(options: {
             continue;
           }
           await runReconcile(resolved.scope, 0);
+        }
+        // Serving a SUBSET of the platform is not a warning-level condition:
+        // those tenants' triggers and system jobs simply never fire, and the
+        // per-tenant warns above scroll away. A tenant-bound credential is a
+        // valid least-privilege configuration only while the install has one
+        // tenant — the moment it has more, it is a misconfiguration, and it
+        // must say so in terms an operator can act on.
+        if (skipped.length > 0) {
+          logger.error(
+            "scheduler: NOT serving every tenant — triggers and system jobs will not fire for the skipped tenants. Re-mint the service credential as platform-scoped (core.service_credential.tenant_id = NULL) so it can mint for every tenant.",
+            {
+              servedTenants: tenantIds.length - skipped.length,
+              skippedTenants: skipped,
+              totalTenants: tenantIds.length,
+            }
+          );
         }
       })();
     }, RECONCILE_DELAY_MS).unref?.();

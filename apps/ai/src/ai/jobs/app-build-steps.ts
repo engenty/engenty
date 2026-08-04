@@ -29,10 +29,10 @@ type Invoker = (
 
 async function invokerFor(tenantId: string): Promise<Invoker> {
   const als = getEngentyToolsRunContext();
-  if (als.userAccessToken && als.tenantId === tenantId) {
+  if (als.accessToken && als.tenantId === tenantId) {
     const scope = {
       tenantId,
-      userAccessToken: als.userAccessToken,
+      credential: { kind: "user", token: als.accessToken },
       userId: als.userId ?? null,
     } as AiSessionScope;
     return createScopeModuleOperationInvoker(scope) as Invoker;

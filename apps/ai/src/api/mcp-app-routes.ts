@@ -74,7 +74,7 @@ export function registerMcpAppRoutes(
         const result = await callInternalMcpAppTool({
           arguments: parsed.data.arguments,
           toolName: parsed.data.tool_name,
-          userAccessToken: scopeAccessToken(scope.scope),
+          accessToken: scopeAccessToken(scope.scope),
         });
         return c.json({ ok: true, result });
       } catch (err) {

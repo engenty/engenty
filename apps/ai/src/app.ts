@@ -258,11 +258,11 @@ export async function createApp(options: CreateAppOptions = {}) {
     })
   );
   app.use(`${AI_BASE_PATH}/*`, async (c, next) => {
-    const userAccessToken = parseBearerToken(c.req.header("authorization"));
-    if (!userAccessToken) {
+    const accessToken = parseBearerToken(c.req.header("authorization"));
+    if (!accessToken) {
       return next();
     }
-    return engentyToolsRunAls.run({ userAccessToken }, next);
+    return engentyToolsRunAls.run({ accessToken }, next);
   });
 
   app.get(`${AI_BASE_PATH}/health`, (c) =>
@@ -532,7 +532,7 @@ export async function createApp(options: CreateAppOptions = {}) {
         }
         const coreClient = new EngentyCoreClient({
           coreBaseUrl,
-          userAccessToken: authorization,
+          accessToken: authorization,
         });
         await mirrorArtifactToBoundStorage({
           artifact,

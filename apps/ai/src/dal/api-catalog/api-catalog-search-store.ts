@@ -97,8 +97,7 @@ export function createCoreCatalogContractSource(): CatalogContractSource {
     id: "core",
     // Contracts are gated per caller on the core side, so partition the
     // cache by the end-user bearer.
-    cacheKey: () =>
-      resolveEngentyToolsRunContext().userAccessToken?.trim() || null,
+    cacheKey: () => resolveEngentyToolsRunContext().accessToken?.trim() || null,
     loadContracts: () => loadContractsFromCore(),
   };
 }
@@ -224,8 +223,8 @@ export function createApiCatalogSearchStore(
 
 async function loadContractsFromCore(): Promise<EngentyToolContract[]> {
   const ctx = resolveEngentyToolsRunContext();
-  const userAccessToken = ctx.userAccessToken?.trim();
-  if (!userAccessToken) {
+  const accessToken = ctx.accessToken?.trim();
+  if (!accessToken) {
     // Preserve legacy `engenty_tools_search` error envelope so callers
     // see `code: "unauthorized"` not a generic execution failure.
     throw new EngentyCoreHttpError(
@@ -245,7 +244,7 @@ async function loadContractsFromCore(): Promise<EngentyToolContract[]> {
   const client = new EngentyCoreClient({
     coreBaseUrl,
     fetchImpl: ctx.fetchImpl,
-    userAccessToken,
+    accessToken,
   });
   return await client.listToolContracts();
 }

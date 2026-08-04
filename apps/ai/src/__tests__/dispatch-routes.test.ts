@@ -11,8 +11,11 @@ function createScopeResolver(overrides: { isTenantAdmin?: boolean } = {}) {
       userId: "user-1",
       isSuperAdmin: false,
       isTenantAdmin: overrides.isTenantAdmin ?? true,
-      tenantRole: (overrides.isTenantAdmin ?? true) ? "admin" : "member",
-      userAccessToken: "token",
+      tenantRole:
+        (overrides.isTenantAdmin ?? true)
+          ? ("admin" as const)
+          : ("member" as const),
+      credential: { kind: "user" as const, token: "token" },
     },
   });
 }

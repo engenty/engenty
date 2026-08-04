@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.92",
+  "version": "0.1.93",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -149,7 +149,6 @@
     "portless:setup": "node scripts/portless-setup.mjs",
     "portless": "bash scripts/portless-proxy-start.sh",
     "portless:proxy:check": "bash scripts/portless-proxy-check.sh",
-    "service:jwt": "node scripts/mint-service-jwt.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",

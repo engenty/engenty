@@ -35,6 +35,7 @@ import {
   getEngentyToolsRunContext,
 } from "../../ai/tools/engenty-tools/lib/run-context.js";
 import { registryAgentsListTool } from "../../ai/tools/registry-agents-list-tool.js";
+import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import {
   createEngentySessionMastraMemory,
@@ -196,7 +197,7 @@ async function mintActorToken(input: {
   );
   if (!serviceJwt) {
     throw new Error(
-      "remote-channels: a service credential (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev) is required"
+      "remote-channels: a service credential (ENGENTY_AI_SERVICE_SECRET) is required"
     );
   }
   const response = await fetch(
@@ -664,6 +665,7 @@ export function createIdentityGateHandler(
     // R2: make sure the dedicated engenty thread backing this conversation
     // exists BEFORE the SDK resolves its mapping thread, so agent.stream runs
     // against our tenant-scoped thread id rather than an SDK-minted one.
+    let aiThreadId = resolved.conversation?.ai_thread_id ?? null;
     if (
       deps &&
       resolved.conversation &&
@@ -672,7 +674,7 @@ export function createIdentityGateHandler(
       externalThreadId
     ) {
       try {
-        await ensureChannelThread({
+        aiThreadId = await ensureChannelThread({
           channelId,
           conversationId: resolved.conversation.id,
           deps,
@@ -709,25 +711,46 @@ export function createIdentityGateHandler(
       return;
     }
 
+    // Agent attribution — REQUIRED for the approval story, not cosmetic.
+    // Verified live 2026-08-04: without it, core sees the delegated actor
+    // token as the user acting first-person and EXECUTED a high-risk
+    // requiresApproval op (contacts_create) from a Slack DM with no approval
+    // — model output, one unchecked hop from the platform. With the agent
+    // forwarded (same shape as session-service.ts chat runs), core's
+    // escalation policy treats the call as agent-authored and the "defer"
+    // contract holds: durable approval request + approval_pending result.
+    const coreAgentId = await resolveCoreAgentId(
+      tenantId ?? "",
+      ENGENTY_REMOTE_AGENT_ID
+    );
+
     await engentyToolsRunAls.run(
       {
         ...getEngentyToolsRunContext(),
+        ...(coreAgentId ? { agentId: coreAgentId } : {}),
+        agentTypeKey: ENGENTY_REMOTE_AGENT_ID,
         approvalGrants: [],
-        // "defer": core (the authoritative policy engine) records a durable
-        // approval request and the tool returns a structured approval_pending,
-        // so the model tells the user and the turn ENDS with a real reply.
-        // NOT "suspend": that parks the run in the in-process 15-min map
-        // (RUN-01) and — verified live 2026-08-03 — renders NO card in the
-        // platform thread, because our approval suspension never emits
-        // Mastra's `tool-call-approval` chunk (the only thing Chat SDK's
-        // driver renders buttons for). The Slack user would stare at a
-        // spinning tool card forever. In-place Approve/Deny + resume needs
-        // the engenty approval to ride Mastra's native tool-approval flow —
-        // do that on top of the unified approvals store (D2), not before.
-        approvalPolicy: "defer",
+        // "request": run the AI-side pre-gate; a gated op returns a structured
+        // approval_pending WITHOUT executing, so the model tells the user and
+        // the turn ends with a real reply. Both alternatives failed live:
+        // - "suspend" (2026-08-03): parks in the in-process 15-min map and
+        //   renders NO card — our approval suspension never emits Mastra's
+        //   `tool-call-approval` chunk (the only thing Chat SDK renders
+        //   buttons for). The Slack user stares at a spinning card forever.
+        // - "defer" (2026-08-04): SKIPS the pre-gate, and with the delegated
+        //   actor token the principal IS the user — core has never gated user
+        //   principals (the web-chat Approve card is this pre-gate's UX, not
+        //   core's), so a high-risk requiresApproval op EXECUTED from a Slack
+        //   DM with no approval. Agent attribution alone did not change that.
+        // In-place Approve/Deny + resume = ride Mastra's native tool-approval
+        // flow, built on top of the unified approvals store (D2), not before.
+        approvalPolicy: "request",
+        // Approval grants persist against the goal; for channel turns that is
+        // the backing engenty thread (mirrors chat runs using the thread id).
+        ...(aiThreadId ? { goalId: aiThreadId } : {}),
         tenantId: tenantId ?? null,
         userId,
-        userAccessToken: actorToken,
+        accessToken: actorToken,
       },
       () => defaultHandler(thread, message)
     );
@@ -838,7 +861,7 @@ export async function registerRemoteChannels(
   }
   if (!isServiceCredentialConfigured()) {
     logger.warn(
-      "remote channels: a platform is configured but no service credential is (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev); skipping"
+      "remote channels: a platform is configured but no service credential is (ENGENTY_AI_SERVICE_SECRET); skipping"
     );
     return;
   }

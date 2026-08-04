@@ -30,7 +30,7 @@ describe("buildAgentUiContextInstructions", () => {
       agentUi: { frontend_tools: [] },
       scope: {
         tenantId: "t1",
-        userAccessToken: "token",
+        credential: { kind: "user", token: "token" },
         userId: "u1",
       },
     });
@@ -59,7 +59,7 @@ describe("buildAgentUiContextInstructions", () => {
       },
       scope: {
         tenantId: "t1",
-        userAccessToken: "token",
+        credential: { kind: "user", token: "token" },
         userId: "u1",
       },
     });
@@ -96,7 +96,7 @@ describe("buildAgentUiContextInstructions", () => {
       },
       scope: {
         tenantId: "t1",
-        userAccessToken: "token",
+        credential: { kind: "user", token: "token" },
         userId: "u1",
       },
     });
@@ -128,7 +128,7 @@ describe("buildAgentUiContextInstructions", () => {
       agentUi: { frontend_tools: [], state_snapshot: snapshot },
       scope: {
         tenantId: "t1",
-        userAccessToken: "token",
+        credential: { kind: "user", token: "token" },
         userId: "u1",
       },
     });
@@ -158,7 +158,7 @@ describe("buildAgentUiContextInstructions", () => {
       agentUi: { frontend_tools: [], state_snapshot: snapshot },
       scope: {
         tenantId: "t1",
-        userAccessToken: "token",
+        credential: { kind: "user", token: "token" },
         userId: "u1",
       },
     });
@@ -193,7 +193,11 @@ describe("buildAgentUiContextInstructions", () => {
     const result = await buildAgentUiContextInstructions({
       agentId: "engenty.copilot",
       agentUi: { frontend_tools: [], state_snapshot: snapshot },
-      scope: { tenantId: "t1", userAccessToken: "token", userId: "u1" },
+      scope: {
+        tenantId: "t1",
+        credential: { kind: "user", token: "token" },
+        userId: "u1",
+      },
     });
     expect(result).toContain("## Skills for the current module (contacts)");
     expect(resolveModuleSkillCatalogHint).toHaveBeenCalledWith(
@@ -220,7 +224,11 @@ describe("buildAgentUiContextInstructions", () => {
     await buildAgentUiContextInstructions({
       agentId: "tasks.assist",
       agentUi: { frontend_tools: [], state_snapshot: snapshot },
-      scope: { tenantId: "t1", userAccessToken: "token", userId: "u1" },
+      scope: {
+        tenantId: "t1",
+        credential: { kind: "user", token: "token" },
+        userId: "u1",
+      },
     });
     await buildAgentUiContextInstructions({
       agentId: "engenty.copilot",
@@ -228,7 +236,11 @@ describe("buildAgentUiContextInstructions", () => {
         frontend_tools: [],
         state_snapshot: { ...snapshot, route: undefined },
       },
-      scope: { tenantId: "t1", userAccessToken: "token", userId: "u1" },
+      scope: {
+        tenantId: "t1",
+        credential: { kind: "user", token: "token" },
+        userId: "u1",
+      },
     });
     expect(resolveModuleSkillCatalogHint).not.toHaveBeenCalled();
   });

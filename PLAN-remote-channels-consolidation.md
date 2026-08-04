@@ -292,15 +292,20 @@ Ordered by leverage; ① blocks ⑤⑥, everything else is independent.
    in-process 15-min map (RUN-01) with no resume path from Slack. Changed the
    channel policy to `"defer"`: core records a durable approval request, the
    tool returns `approval_pending`, the turn ends with an honest reply, the
-   inbox pings a human — aligned with the D2 unified-approvals direction
-   (approve mints the grant a retry spends). In-place cards + resume = map the
-   engenty approval onto Mastra's native tool-approval flow for channel turns;
-   build on top of D2, not before it. NOTE: the defer path is unit-tested but
-   its live run was blocked overnight — channel turns started hanging at
-   stream init AFTER the concurrent working-tree changes of 2026-08-03 ~22:20
-   (turns at 21:07 and 21:34 progressed fine; both suspend and defer variants
-   hang identically since). Re-run the stub-Slack approval test once the tree
-   settles.
+   inbox pings a human. SUPERSEDED SAME NIGHT by "request" — the defer live
+   test EXECUTED the gated op: "defer" skips the AI-side pre-gate and trusts
+   core, but the delegated actor token makes the principal the USER, and core
+   has never gated user principals (the web-chat Approve card is the AI-side
+   pre-gate's UX, not core's). A Slack DM created a high-risk
+   requiresApproval contact with no approval; agent attribution
+   (agentTypeKey/agentId now set on the ALS scope — kept, correct for audit
+   and agent-aware core gates) did not change that. Final policy "request":
+   the pre-gate runs and gated ops return approval_pending WITHOUT executing
+   — verified live 2026-08-04 morning (213ms, zero rows created, turn ends
+   with an honest reply). Three-policy saga in one line: suspend = no card +
+   in-process park; defer = unattended execution; request = safe. In-place
+   Approve/Deny + resume = ride Mastra's native tool-approval flow, built on
+   top of D2, not before it.
 4. **UI treatment of channel threads** — DONE, differently than assumed: the
    copilot drawer filters by agent id, so `engenty.remote` threads never
    appeared anywhere (the "badge" framing was wrong). Added a

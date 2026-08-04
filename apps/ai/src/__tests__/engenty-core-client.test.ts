@@ -15,7 +15,7 @@ describe("EngentyCoreClient", () => {
     const client = new EngentyCoreClient({
       coreBaseUrl: "http://core.local",
       fetchImpl,
-      userAccessToken: "user-token",
+      accessToken: "user-token",
     });
 
     await expect(client.listToolContracts()).resolves.toEqual([
@@ -42,7 +42,7 @@ describe("EngentyCoreClient", () => {
     const client = new EngentyCoreClient({
       coreBaseUrl: "http://core.local",
       fetchImpl,
-      userAccessToken: "Bearer Bearer user-token",
+      accessToken: "Bearer Bearer user-token",
     });
 
     await client.listToolContracts();
@@ -75,7 +75,7 @@ describe("EngentyCoreClient", () => {
     const client = new EngentyCoreClient({
       coreBaseUrl: "http://core.local",
       fetchImpl,
-      userAccessToken: "user-token",
+      accessToken: "user-token",
     });
 
     await expect(client.getWorkspaceContext()).resolves.toMatchObject({
@@ -109,7 +109,7 @@ describe("EngentyCoreClient", () => {
     const client = new EngentyCoreClient({
       coreBaseUrl: "http://core.local",
       fetchImpl,
-      userAccessToken: "user-token",
+      accessToken: "user-token",
     });
 
     await expect(
@@ -137,7 +137,7 @@ describe("EngentyCoreClient", () => {
       coreBaseUrl: "http://core.local",
       fetchImpl,
       requestTimeoutMs: 50,
-      userAccessToken: "user-token",
+      accessToken: "user-token",
     });
 
     const pending = client.listToolContracts();
@@ -154,7 +154,7 @@ describe("EngentyCoreClient", () => {
     const client = new EngentyCoreClient({
       coreBaseUrl: "http://core.local",
       fetchImpl: vi.fn(),
-      userAccessToken: "user-token",
+      accessToken: "user-token",
     });
 
     await expect(

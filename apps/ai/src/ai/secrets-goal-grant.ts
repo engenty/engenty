@@ -13,10 +13,10 @@ export async function persistSecretsGoalGrant(params: {
   coreBaseUrl?: string;
   goalId: string;
   secretId: string;
-  userAccessToken?: string;
+  accessToken?: string;
 }): Promise<void> {
   const coreBaseUrl = params.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
-  if (!(coreBaseUrl && params.userAccessToken)) {
+  if (!(coreBaseUrl && params.accessToken)) {
     return;
   }
   try {
@@ -27,7 +27,7 @@ export async function persistSecretsGoalGrant(params: {
     const res = await fetch(url, {
       body: JSON.stringify({ goal_id: params.goalId }),
       headers: {
-        Authorization: `Bearer ${params.userAccessToken}`,
+        Authorization: `Bearer ${params.accessToken}`,
         "Content-Type": "application/json",
       },
       method: "POST",

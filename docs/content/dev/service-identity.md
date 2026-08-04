@@ -85,16 +85,11 @@ concurrent callers sharing one in-flight exchange
 scheduled trigger firing days after boot rides a token minted seconds earlier,
 never the one from boot.
 
-Resolution order, highest first:
+`ENGENTY_AI_SERVICE_SECRET` is the only credential — a static JWT and the
+Supabase password grant were removed: both are single-tenant by construction
+and the static token dies silently at expiry.
 
-1. `ENGENTY_AI_SERVICE_JWT` — a static token. Local-dev escape hatch
-   (`pnpm service:jwt`); it dies when its expiry hits, silently.
-2. `ENGENTY_AI_SERVICE_SECRET` — the above. **Use this in deployments.**
-3. `ENGENTY_AI_SERVICE_EMAIL` / `ENGENTY_AI_SERVICE_PASSWORD` — a Supabase
-   password grant against `service@engenty.local`. The legacy path, kept until
-   the Supabase service user is retired.
-
-With none of them set, the scheduler logs `scheduler disabled — no service
+With it unset, the scheduler logs `scheduler disabled — no service
 credential configured` at boot and **no scheduled trigger ever fires**. That
 message is the thing to grep for when triggers go quiet.
 

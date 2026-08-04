@@ -36,6 +36,7 @@ export type EngentyToolApprovalPolicy =
   | "request";
 
 export interface EngentyToolsRunContext {
+  accessToken?: string;
   // core.agents principal uuid of the acting agent. Forwarded to core as
   // x-engenty-agent-id so operation policies (e.g. the secrets reveal gate)
   // see an agent principal instead of impersonating the user.
@@ -73,7 +74,6 @@ export interface EngentyToolsRunContext {
   // Trigger/routine that materialized the task. Forwarded as
   // x-engenty-trigger-id so routine-scoped grants open the gate too.
   triggerId?: string | null;
-  userAccessToken?: string;
   // The thread the human is actually watching. Root runs set it to their own
   // thread; a delegated child run inherits it (delegate-run overrides
   // orchestratorThreadId with the CHILD thread, so anything the user must see —
@@ -93,10 +93,10 @@ export function resolveEngentyToolsRunContext(
   executionContext?: ToolExecutionContext
 ): EngentyToolsRunContext {
   const context = { ...getEngentyToolsRunContext() };
-  if (!context.userAccessToken) {
+  if (!context.accessToken) {
     const token = getRequestContextToken(executionContext);
     if (token) {
-      context.userAccessToken = token;
+      context.accessToken = token;
     }
   }
   return context;

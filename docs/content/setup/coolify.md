@@ -148,8 +148,7 @@ Set it before your first connection, not after.
 For `ENGENTY_AI_SERVICE_SECRET`, log in against the deployment first
 (`engenty auth login --api-url https://your-domain`), then create the
 credential — it prints `<credentialId>.<secret>` once. It is revocable
-(`engenty service-token revoke`) and preferable to a static
-`ENGENTY_AI_SERVICE_JWT`, which dies silently at expiry. See
+(`engenty service-token revoke`). See
 [service identity](../dev/service-identity.md).
 
 ## Step 4 — Add the app in Coolify

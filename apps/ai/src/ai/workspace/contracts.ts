@@ -82,7 +82,7 @@ export const engentyWorkspaceRuntimeSpecSchema = z.object({
   fileStorageAccess: z
     .object({
       coreBaseUrl: z.string().min(1),
-      userAccessToken: z.string().min(1),
+      accessToken: z.string().min(1),
     })
     .optional(),
   mounts: z.array(engentyWorkspaceMountSpecSchema).default([]),

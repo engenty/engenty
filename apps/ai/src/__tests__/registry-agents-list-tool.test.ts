@@ -3,7 +3,7 @@ import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context
 import { registryAgentsListTool } from "../../ai/tools/registry-agents-list-tool.js";
 
 function runWithContext(
-  ctx: { coreBaseUrl?: string; userAccessToken?: string },
+  ctx: { coreBaseUrl?: string; accessToken?: string },
   fn: () => Promise<unknown>
 ) {
   return engentyToolsRunAls.run(ctx, fn);
@@ -28,7 +28,7 @@ describe("registryAgentsListTool", () => {
     vi.stubGlobal("fetch", mockFetch);
     try {
       const result = await runWithContext(
-        { coreBaseUrl: "https://api.example.com", userAccessToken: "tok-123" },
+        { coreBaseUrl: "https://api.example.com", accessToken: "tok-123" },
         () =>
           registryAgentsListTool.execute?.(
             {} as never,

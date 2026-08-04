@@ -41,9 +41,9 @@ export const skillProposeTool = createTool({
   execute: async (input) => {
     const ctx = getEngentyToolsRunContext();
     const coreBaseUrl = ctx.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
-    const userAccessToken = ctx.userAccessToken?.trim();
+    const accessToken = ctx.accessToken?.trim();
     const tenantId = ctx.tenantId ?? undefined;
-    if (!(coreBaseUrl && userAccessToken && tenantId)) {
+    if (!(coreBaseUrl && accessToken && tenantId)) {
       return {
         ok: false as const,
         code: "unauthorized",
@@ -55,7 +55,7 @@ export const skillProposeTool = createTool({
       const store = createSkillProposalStore({
         storage: createEngentyCoreFileStorageClient({
           coreBaseUrl,
-          userAccessToken,
+          accessToken,
         }),
         tenantId,
       });

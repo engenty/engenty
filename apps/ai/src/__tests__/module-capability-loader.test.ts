@@ -149,7 +149,7 @@ describe("module capability loader", () => {
       {
         coreBaseUrl: "https://core.example.test",
         fetchImpl: fetchImpl as typeof fetch,
-        userAccessToken: "user-token",
+        accessToken: "user-token",
       },
       () => createDefaultModuleCapabilityLoader().listModuleCapabilities()
     );
@@ -188,7 +188,7 @@ describe("module capability loader", () => {
       {
         coreBaseUrl: "https://core.example.test",
         fetchImpl: fetchImpl as typeof fetch,
-        userAccessToken: "user-token",
+        accessToken: "user-token",
       },
       () => leadTool?.execute({ id: "lead-1" })
     );

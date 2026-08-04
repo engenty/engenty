@@ -39,8 +39,8 @@ export const registryAgentsListTool = createTool({
     const headers: Record<string, string> = {
       accept: "application/json",
     };
-    if (ctx.userAccessToken) {
-      headers.authorization = `Bearer ${ctx.userAccessToken}`;
+    if (ctx.accessToken) {
+      headers.authorization = `Bearer ${ctx.accessToken}`;
     }
     const response = await fetch(`${baseUrl}/ai/registry/agents`, { headers });
     if (!response.ok) {

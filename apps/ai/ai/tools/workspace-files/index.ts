@@ -72,15 +72,15 @@ export function resolveWorkspaceObjectKey(
 function storageClientFromRun() {
   const runContext = resolveEngentyToolsRunContext();
   const coreBaseUrl = runContext.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = runContext.userAccessToken?.trim();
-  if (!(coreBaseUrl && userAccessToken)) {
+  const accessToken = runContext.accessToken?.trim();
+  if (!(coreBaseUrl && accessToken)) {
     return null;
   }
   return createEngentyCoreFileStorageClient({
     bucket: "files",
     coreBaseUrl,
     fetchImpl: runContext.fetchImpl,
-    userAccessToken,
+    accessToken,
   });
 }
 

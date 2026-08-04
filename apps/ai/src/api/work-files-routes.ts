@@ -76,8 +76,8 @@ export function registerWorkFilesRoutes(
       return c.json({ error: "work_files.invalidContainer" }, 400);
     }
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-    const userAccessToken = scopeAccessToken(scope.scope)?.trim();
-    if (!(coreBaseUrl && userAccessToken)) {
+    const accessToken = scopeAccessToken(scope.scope)?.trim();
+    if (!(coreBaseUrl && accessToken)) {
       return c.json({ error: "work_files.unconfigured" }, 503);
     }
     try {
@@ -89,7 +89,7 @@ export function registerWorkFilesRoutes(
       const client = createEngentyCoreFileStorageClient({
         bucket: "files",
         coreBaseUrl,
-        userAccessToken,
+        accessToken,
       });
       const entries: WorkFileEntry[] = [];
       for (const prefix of resolved.workspacePrefixes) {

@@ -129,17 +129,10 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      # AI service identity — lets apps/ai mint and renew its own access
-      # tokens (scheduler, task dispatcher, remote channels). Set exactly one:
-      # SECRET is the target (durable credential exchanged at core for a
-      # 15-min token, `engenty service-token create`); EMAIL/PASSWORD is the
-      # Supabase-user fallback; JWT is a static token that dies with the
-      # Supabase JWT expiry. Resolution order is SECRET, then EMAIL/PASSWORD,
-      # with JWT overriding both when set.
+      # AI service identity — the durable credential apps/ai exchanges at core
+      # for 15-min tokens (scheduler, task dispatcher, remote channels).
+      # `engenty service-token create --name ai-service`.
       ENGENTY_AI_SERVICE_SECRET: ${ENGENTY_AI_SERVICE_SECRET:-}
-      ENGENTY_AI_SERVICE_EMAIL: ${ENGENTY_AI_SERVICE_EMAIL:-}
-      ENGENTY_AI_SERVICE_PASSWORD: ${ENGENTY_AI_SERVICE_PASSWORD:-}
-      ENGENTY_AI_SERVICE_JWT: ${ENGENTY_AI_SERVICE_JWT:-}
       # engenty Apps. Reached over internal Docker DNS only; app-host publishes
       # no port and is not a gateway target.
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795

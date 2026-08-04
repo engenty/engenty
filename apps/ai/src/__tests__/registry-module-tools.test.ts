@@ -11,8 +11,8 @@ function createScopeResolver() {
       userId: "user-1",
       isSuperAdmin: true,
       isTenantAdmin: true,
-      tenantRole: "admin",
-      userAccessToken: "token",
+      tenantRole: "admin" as const,
+      credential: { kind: "user" as const, token: "token" },
     },
   });
 }

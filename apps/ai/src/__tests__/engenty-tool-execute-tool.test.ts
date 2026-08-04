@@ -64,7 +64,7 @@ describe("createEngentyToolExecuteTool", () => {
 
     const result = await engentyToolsRunAls.run(
       {
-        userAccessToken: "user-token",
+        accessToken: "user-token",
       },
       () =>
         executeTool(tool, {
@@ -144,7 +144,7 @@ describe("createEngentyToolExecuteTool", () => {
         const tool = createEngentyToolExecuteTool();
 
         const result = (await engentyToolsRunAls.run(
-          { userAccessToken: "user-token" },
+          { accessToken: "user-token" },
           () => executeTool(tool, { id: operationId, input: { name: "X" } })
         )) as { error?: string; message?: string; ok?: boolean };
 
@@ -189,7 +189,7 @@ describe("createEngentyToolExecuteTool", () => {
       const tool = createEngentyToolExecuteTool();
 
       const result = (await engentyToolsRunAls.run(
-        { userAccessToken: "user-token" },
+        { accessToken: "user-token" },
         () =>
           executeTool(tool, {
             id: "app_release_approve",
@@ -293,7 +293,7 @@ describe("createEngentyToolExecuteTool", () => {
 
     const result = await engentyToolsRunAls.run(
       {
-        userAccessToken: "user-token",
+        accessToken: "user-token",
       },
       () =>
         executeTool(tool, {
@@ -360,7 +360,7 @@ describe("createEngentyToolExecuteTool", () => {
     const hallucinated = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
     await engentyToolsRunAls.run(
-      { userAccessToken: "user-token", runId: harnessRunId },
+      { accessToken: "user-token", runId: harnessRunId },
       () =>
         executeTool(tool, {
           id: "tasks_checkout",
@@ -414,7 +414,7 @@ describe("createEngentyToolExecuteTool", () => {
     const harnessRunId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
     await engentyToolsRunAls.run(
-      { userAccessToken: "user-token", runId: harnessRunId },
+      { accessToken: "user-token", runId: harnessRunId },
       () =>
         executeTool(tool, {
           id: "tasks_checkout",
@@ -464,7 +464,7 @@ describe("createEngentyToolExecuteTool", () => {
 
     await engentyToolsRunAls.run(
       {
-        userAccessToken: "user-token",
+        accessToken: "user-token",
         runId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
       },
       () =>
@@ -510,7 +510,7 @@ describe("createEngentyToolExecuteTool", () => {
     const gatedFetch = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
     vi.stubGlobal("fetch", gatedFetch);
     const denied = (await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      { approvalPolicy: "suspend", accessToken: "user-token" },
       () =>
         executeEngentyTool(
           { id: "contacts_contact_delete", input: { id: "c1" } },
@@ -547,7 +547,7 @@ describe("createEngentyToolExecuteTool", () => {
       .mockResolvedValueOnce(Response.json({ ok: true, data: { items: [] } }));
     vi.stubGlobal("fetch", readFetch);
     const result = await engentyToolsRunAls.run(
-      { userAccessToken: "user-token" },
+      { accessToken: "user-token" },
       () =>
         executeEngentyTool(
           { id: "contacts_contact_search", input: { query: "x" } },
@@ -594,7 +594,7 @@ describe("createEngentyToolExecuteTool", () => {
     // BEFORE the approval gate (no Approve/Deny card for a doomed call) and
     // instruct the model to retry once, then surface the model limitation.
     const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      { approvalPolicy: "suspend", accessToken: "user-token" },
       () =>
         executeTool(tool, { id: "contacts_create", input: {} }, {
           agent: { suspend },
@@ -617,7 +617,7 @@ describe("createEngentyToolExecuteTool", () => {
     const suspend = vi.fn(async () => {});
 
     await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      { approvalPolicy: "suspend", accessToken: "user-token" },
       () =>
         executeTool(
           tool,
@@ -649,7 +649,7 @@ describe("createEngentyToolExecuteTool", () => {
     const tool = createEngentyToolExecuteTool();
 
     const result = await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      { approvalPolicy: "suspend", accessToken: "user-token" },
       () =>
         executeTool(
           tool,
@@ -674,7 +674,7 @@ describe("createEngentyToolExecuteTool", () => {
     const tool = createEngentyToolExecuteTool();
 
     const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", userAccessToken: "user-token" },
+      { approvalPolicy: "suspend", accessToken: "user-token" },
       () =>
         executeTool(
           tool,
@@ -701,7 +701,7 @@ describe("createEngentyToolExecuteTool", () => {
 
     const result = (await engentyToolsRunAls.run(
       // No approvalPolicy — headless contexts default to deny.
-      { userAccessToken: "user-token" },
+      { accessToken: "user-token" },
       () =>
         executeTool(tool, {
           id: "contacts_contact_delete",
@@ -721,7 +721,7 @@ describe("createEngentyToolExecuteTool", () => {
     const tool = createEngentyToolExecuteTool();
 
     const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "artifact", userAccessToken: "user-token" },
+      { approvalPolicy: "artifact", accessToken: "user-token" },
       () =>
         executeTool(tool, {
           id: "contacts_contact_delete",
@@ -765,7 +765,7 @@ describe("createEngentyToolExecuteTool", () => {
 
     const result = await engentyToolsRunAls.run(
       {
-        userAccessToken: "user-token",
+        accessToken: "user-token",
         approvalGrants: ["contacts_contact_delete"],
       },
       () =>
@@ -815,7 +815,7 @@ describe("createEngentyToolExecuteTool", () => {
     const tool = createEngentyToolExecuteTool();
 
     const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "artifact", userAccessToken: "user-token" },
+      { approvalPolicy: "artifact", accessToken: "user-token" },
       () => executeTool(tool, { id: "billing_charge", input: {} })
     )) as { artifact_id?: string; artifact_type?: string };
 

@@ -43,7 +43,7 @@ describe("buildRuntimeContextInstructions", () => {
       scope: {
         tenantId: "tenant-1",
         userId: "user-1",
-        userAccessToken: "token-1",
+        credential: { kind: "user", token: "token-1" },
         isSuperAdmin: false,
         isTenantAdmin: true,
         tenantRole: "admin",

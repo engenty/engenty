@@ -16,7 +16,7 @@ import {
 
 const ENV_KEYS = [
   "ENGENTY_REMOTE_CHANNELS_ENABLED",
-  "ENGENTY_AI_SERVICE_JWT",
+  "ENGENTY_AI_SERVICE_SECRET",
   "SLACK_BOT_TOKEN",
   "SLACK_SIGNING_SECRET",
   "TELEGRAM_BOT_TOKEN",
@@ -41,7 +41,7 @@ afterEach(() => {
 
 function enableWithDummyCreds() {
   process.env.ENGENTY_REMOTE_CHANNELS_ENABLED = "true";
-  process.env.ENGENTY_AI_SERVICE_JWT = "dummy-service-jwt";
+  process.env.ENGENTY_AI_SERVICE_SECRET = "cred-test.dummy-secret";
   process.env.SLACK_BOT_TOKEN = "xoxb-dummy";
   process.env.SLACK_SIGNING_SECRET = "dummy-signing-secret";
 }
@@ -172,7 +172,9 @@ describe("extractExternalWorkspaceId", () => {
     expect(extractExternalWorkspaceId("slack", { team_id: "  " })).toBeNull();
     expect(extractExternalWorkspaceId("slack", { team_id: 42 })).toBeNull();
     // Telegram has no workspace concept — the bot token is the anchor.
-    expect(extractExternalWorkspaceId("telegram", { team_id: "T-1" })).toBeNull();
+    expect(
+      extractExternalWorkspaceId("telegram", { team_id: "T-1" })
+    ).toBeNull();
   });
 });
 

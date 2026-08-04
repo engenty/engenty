@@ -11,9 +11,9 @@ import {
  * installed, and a missing grant only means one extra Approve card.
  */
 export async function loadConnectionApprovalGrants(params: {
-  userAccessToken?: string | null;
+  accessToken?: string | null;
 }): Promise<string[]> {
-  const token = params.userAccessToken?.trim();
+  const token = params.accessToken?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!(token && coreBaseUrl)) {
     return [];
@@ -21,7 +21,7 @@ export async function loadConnectionApprovalGrants(params: {
   try {
     const client = new EngentyCoreClient({
       coreBaseUrl,
-      userAccessToken: token,
+      accessToken: token,
     });
     const result = await client.invokeTool<
       Record<string, never>,

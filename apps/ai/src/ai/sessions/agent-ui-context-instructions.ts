@@ -93,15 +93,15 @@ async function resolveModuleSkillHintSection(input: {
   }
   const moduleId = resolveCurrentPageModule(input.snapshot);
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  const userAccessToken = scopeAccessToken(input.scope)?.trim();
-  if (!(moduleId && coreBaseUrl && userAccessToken)) {
+  const accessToken = scopeAccessToken(input.scope)?.trim();
+  if (!(moduleId && coreBaseUrl && accessToken)) {
     return "";
   }
   try {
     const skillStorage = createSkillStorage({
       storage: createEngentyCoreFileStorageClient({
         coreBaseUrl,
-        userAccessToken,
+        accessToken,
       }),
       tenantId: input.scope.tenantId,
     });
@@ -127,13 +127,13 @@ async function resolveCorePagePrompt(input: {
   scope: AiSessionScope;
   snapshot: AgentUiStateSnapshotV1;
 }): Promise<string> {
-  const userAccessToken = scopeAccessToken(input.scope)?.trim();
+  const accessToken = scopeAccessToken(input.scope)?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  if (!(userAccessToken && coreBaseUrl)) {
+  if (!(accessToken && coreBaseUrl)) {
     return "";
   }
   try {
-    const client = new EngentyCoreClient({ coreBaseUrl, userAccessToken });
+    const client = new EngentyCoreClient({ coreBaseUrl, accessToken });
     const result = await client.resolveAgentSystemPromptFromUiState(
       input.agentId,
       input.snapshot

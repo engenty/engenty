@@ -84,8 +84,8 @@ export function registerActorTokenRoutes(params: {
     if (!secret) {
       return c.json({ error: "Auth secret not configured" }, 500);
     }
-    // Full provider path: accepts both engenty principal tokens and the
-    // Supabase-minted AI service JWT (admin fallback).
+    // Full provider path: accepts engenty principal tokens (the AI service)
+    // and Supabase JWTs (human tenant admins).
     const caller = await params.authProvider.resolvePrincipal(
       c.req.header("authorization")
     );

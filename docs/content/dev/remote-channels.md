@@ -100,9 +100,8 @@ opt-in. `ENGENTY_REMOTE_CHANNELS_ENABLED=false` is the kill switch over the top,
 for shutting ingress off without rotating or deleting a bot token.
 
 ```bash
-ENGENTY_AI_SERVICE_JWT=…        # pnpm service:jwt — dev only; in a deployment
-                                # use ENGENTY_AI_SERVICE_SECRET instead. The
-                                # credential needs `core.users.impersonate`,
+ENGENTY_AI_SERVICE_SECRET=…     # engenty service-token create --name ai-service
+                                # The credential needs `core.users.impersonate`,
                                 # which is what actor-token minting checks.
                                 # See ./service-identity.md
 # Slack (can be the same Slack app as the team-chat bridge — add a bot token):

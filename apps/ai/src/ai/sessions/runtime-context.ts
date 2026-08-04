@@ -25,9 +25,9 @@ export async function buildRuntimeContextInstructions(input: {
     `- superadmin: ${input.scope.isSuperAdmin === true}`
   );
 
-  const userAccessToken = scopeAccessToken(input.scope)?.trim();
+  const accessToken = scopeAccessToken(input.scope)?.trim();
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  if (!(userAccessToken && coreBaseUrl)) {
+  if (!(accessToken && coreBaseUrl)) {
     lines.push(
       "- workspace_context: not loaded before this run; use engenty_tools_context if current tenant or user workspace details are needed.",
       "- active_modules: not loaded before this run; use engenty_tools_modules before choosing a module-specific tool."
@@ -36,7 +36,7 @@ export async function buildRuntimeContextInstructions(input: {
   }
 
   try {
-    const client = new EngentyCoreClient({ coreBaseUrl, userAccessToken });
+    const client = new EngentyCoreClient({ coreBaseUrl, accessToken });
     const workspace = await client.getWorkspaceContext();
     const [plugins, contracts] = await Promise.all([
       client.listPlugins(workspace.currentTenant?.id),
