@@ -4,6 +4,48 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "7457eba",
+        "message": "close the tenant-readiness gaps behind the per-tenant scheduler",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5f772ae",
+        "message": "R4 per-tenant credentials implementation spec; live-defer caveat",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "6eeada6",
+        "message": "honest channel approvals (defer), conversations UI, housekeeping",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fa6ba5c",
+        "message": "platform-scoped service credential — multi-tenant headless plane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5f8bf9a",
+        "message": "forward the workspace anchor so bindings route by workspace",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ae3990d",
+        "message": "audit open items in remote-channels plan post-v0.1.91",
+        "group": "Docs",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.91",
+    "timestamp": 1785791533,
+    "commits": [
+      {
         "id": "99985ed",
         "message": "survive adapter-post failures in the channel render driver",
         "group": "Fixed",

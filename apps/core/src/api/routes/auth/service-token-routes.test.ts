@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createNoopAuditLog } from "../../../security/audit-adapter.js";
 import { verifyAccessToken } from "../../../security/auth.js";
 import { createMemoryAuthStores } from "../../../security/auth-stores/index.js";
-import { registerAuthRoutes } from "./auth-routes.js";
+import { registerAuthRoutes, toHash } from "./auth-routes.js";
 
 const TEST_SECRET = "test-jwt-secret-for-service-token-routes";
 
@@ -37,13 +37,17 @@ async function makeOwnerToken(params: {
     .sign(new TextEncoder().encode(TEST_SECRET));
 }
 
-function createApp() {
+function createApp(options?: {
+  stores?: ReturnType<typeof createMemoryAuthStores>;
+  tenantExists?: (tenantId: string) => Promise<boolean>;
+}) {
   const app = new OpenAPIHono();
   registerAuthRoutes({
     app,
     auditLog: createNoopAuditLog(),
     config: { securityJwtSecret: TEST_SECRET },
-    stores: createMemoryAuthStores(),
+    stores: options?.stores ?? createMemoryAuthStores(),
+    ...(options?.tenantExists ? { tenantExists: options.tenantExists } : {}),
   });
   return app;
 }
@@ -304,6 +308,109 @@ describe("POST /api/auth/service-token — exchange", () => {
       lastStatus = res.status;
     }
     expect(lastStatus).toBe(429);
+  });
+});
+
+describe("POST /api/auth/service-token — tenant scoping", () => {
+  const RAW_SECRET = "engsvc_platform_raw";
+
+  function insertCredential(
+    stores: ReturnType<typeof createMemoryAuthStores>,
+    tenantId: string | null
+  ) {
+    const id = uuidv7();
+    void stores.serviceCredentials.insert({
+      capabilities: ["*"],
+      createdAt: Math.floor(Date.now() / 1000),
+      id,
+      name: "ai-service",
+      secretHash: toHash(RAW_SECRET),
+      tenantId,
+    });
+    return id;
+  }
+
+  async function mintedTenant(res: Response): Promise<string | undefined> {
+    const body = (await res.json()) as { token: string };
+    const principal = await verifyAccessToken(
+      `Bearer ${body.token}`,
+      TEST_SECRET,
+      { transport: "rest" }
+    );
+    return principal?.tenantId;
+  }
+
+  it("a tenant-bound credential may name its own tenant, nothing else", async () => {
+    const stores = createMemoryAuthStores();
+    const app = createApp({ stores });
+    const tenantId = `tenant-${uuidv7()}`;
+    const credentialId = insertCredential(stores, tenantId);
+
+    const own = await exchange(app, {
+      credentialId,
+      secret: RAW_SECRET,
+      tenantId,
+    });
+    expect(own.status).toBe(200);
+    expect(await mintedTenant(own)).toBe(tenantId);
+
+    const foreign = await exchange(app, {
+      credentialId,
+      secret: RAW_SECRET,
+      tenantId: `tenant-${uuidv7()}`,
+    });
+    expect(foreign.status).toBe(403);
+  });
+
+  it("a platform credential mints per named tenant and refuses to mint without one", async () => {
+    const stores = createMemoryAuthStores();
+    const app = createApp({ stores, tenantExists: async () => true });
+    const credentialId = insertCredential(stores, null);
+
+    const tenantA = `tenant-${uuidv7()}`;
+    const tenantB = `tenant-${uuidv7()}`;
+    const a = await exchange(app, {
+      credentialId,
+      secret: RAW_SECRET,
+      tenantId: tenantA,
+    });
+    const b = await exchange(app, {
+      credentialId,
+      secret: RAW_SECRET,
+      tenantId: tenantB,
+    });
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(await mintedTenant(a)).toBe(tenantA);
+    expect(await mintedTenant(b)).toBe(tenantB);
+
+    // A token must always be tenant-scoped — no tenant, no mint.
+    const bare = await exchange(app, { credentialId, secret: RAW_SECRET });
+    expect(bare.status).toBe(400);
+  });
+
+  it("a platform credential cannot mint for a tenant that does not exist", async () => {
+    const stores = createMemoryAuthStores();
+    const known = `tenant-${uuidv7()}`;
+    const app = createApp({
+      stores,
+      tenantExists: async (id) => id === known,
+    });
+    const credentialId = insertCredential(stores, null);
+
+    const unknown = await exchange(app, {
+      credentialId,
+      secret: RAW_SECRET,
+      tenantId: `tenant-${uuidv7()}`,
+    });
+    expect(unknown.status).toBe(400);
+
+    const ok = await exchange(app, {
+      credentialId,
+      secret: RAW_SECRET,
+      tenantId: known,
+    });
+    expect(ok.status).toBe(200);
   });
 });
 

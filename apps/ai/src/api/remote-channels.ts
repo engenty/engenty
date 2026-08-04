@@ -47,6 +47,7 @@ import {
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AgentSessionStore } from "../dal/agent-sessions/index.js";
 import { createSchedulerOperationInvoker } from "../scheduler/service-invoker.js";
+import { listTenantIds } from "../scheduler/tenants.js";
 import { configuredRemoteChannelProviders } from "./remote-channels/providers/index.js";
 
 const logger = createLogger({ name: "remote-channels" });
@@ -102,6 +103,44 @@ type OperationInvoker = (
   input: Record<string, unknown>
 ) => Promise<unknown>;
 
+/**
+ * Workspace anchor from the platform's raw payload (`message.raw` is the Chat
+ * SDK escape hatch). Binding resolution is workspace-first: without this value
+ * a workspace-anchored binding can never match and multi-workspace routing is
+ * impossible — the platform-only fallback covers exactly ONE anchor-less
+ * binding and refuses when several tenants are bound (never guess a tenant).
+ *
+ * Slack events carry the id in several shapes: `team_id` / `team` as a string
+ * on message events, `team.id` (object, `user.team_id` fallback) on
+ * block_actions payloads. Telegram has no workspace concept — the bot token IS
+ * the anchor, one bot per deployment until R4 makes credentials per-tenant.
+ * Exported for tests.
+ */
+export function extractExternalWorkspaceId(
+  platform: string,
+  raw: unknown
+): string | null {
+  if (platform !== "slack") {
+    return null;
+  }
+  const r = raw as Record<string, unknown> | null | undefined;
+  if (!r || typeof r !== "object") {
+    return null;
+  }
+  const candidates = [
+    r.team_id,
+    typeof r.team === "string" ? r.team : undefined,
+    (r.team as Record<string, unknown> | undefined)?.id,
+    (r.user as Record<string, unknown> | undefined)?.team_id,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
 async function resolveSender(
   invoke: OperationInvoker,
   input: {
@@ -109,6 +148,7 @@ async function resolveSender(
     externalEventId?: string;
     externalThreadId?: string;
     externalUserId: string;
+    externalWorkspaceId?: string | null;
     isDm?: boolean;
     platform: string;
   }
@@ -118,6 +158,7 @@ async function resolveSender(
     external_event_id: input.externalEventId,
     external_thread_id: input.externalThreadId,
     external_user_id: input.externalUserId,
+    external_workspace_id: input.externalWorkspaceId ?? null,
     is_dm: input.isDm,
     platform: input.platform,
   });
@@ -147,10 +188,15 @@ async function mintActorToken(input: {
   ) {
     return cached.token;
   }
-  const serviceJwt = await getServiceAccessToken();
+  // Minted for the binding's tenant: the actor-token route refuses
+  // cross-tenant minting, so the service token presented must itself be
+  // scoped to the tenant whose user is being impersonated.
+  const serviceJwt = await getServiceAccessToken(
+    input.tenantId ? { tenantId: input.tenantId } : undefined
+  );
   if (!serviceJwt) {
     throw new Error(
-      "remote-channels: a service credential (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT) is required"
+      "remote-channels: a service credential (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev) is required"
     );
   }
   const response = await fetch(
@@ -487,7 +533,24 @@ function pairingUrl(code: string): string {
 export function createIdentityGateHandler(
   deps?: RemoteChannelDeps
 ): ChannelHandler {
-  const invoke: OperationInvoker = createSchedulerOperationInvoker();
+  // INTERIM (multi-tenant service identity): sender resolution is inherently
+  // cross-tenant — the BINDING names the tenant, but a token is needed to
+  // ask, and a platform-scoped credential refuses a tenant-less mint. Until
+  // remote_runtime_resolve_sender gets a platform-level lane, it runs under
+  // the installation's first tenant — exactly the pre-multi-tenant behavior,
+  // where it rode the credential's own (default) tenant.
+  let homeTenantId: string | null | undefined;
+  const invoke: OperationInvoker = async (operationId, input) => {
+    if (homeTenantId === undefined) {
+      homeTenantId = await listTenantIds()
+        .then((ids) => ids[0] ?? null)
+        .catch(() => null);
+    }
+    return createSchedulerOperationInvoker(homeTenantId ?? undefined)(
+      operationId,
+      input
+    );
+  };
   return async (thread, message, defaultHandler) => {
     // Never react to our own or other bots' messages beyond Mastra's own
     // guards — cheap belt-and-suspenders for the gate's side effects.
@@ -506,6 +569,10 @@ export function createIdentityGateHandler(
         externalEventId: (message as { id?: string }).id,
         externalThreadId,
         externalUserId: message.author.userId,
+        externalWorkspaceId: extractExternalWorkspaceId(
+          platform,
+          (message as { raw?: unknown }).raw
+        ),
         isDm,
         platform,
       });
@@ -557,6 +624,15 @@ export function createIdentityGateHandler(
     const tenantId = (resolved.binding as { tenant_id?: string }).tenant_id;
     const userId = resolved.identity.user_id;
 
+    // Past this point the binding names the tenant — every further module
+    // operation must ride a token minted for THAT tenant. The `invoke`
+    // closure above is the resolveSender interim (first tenant) and would be
+    // denied by RLS for every other tenant, killing thread provisioning and
+    // chat controls outside tenant #1.
+    const tenantInvoke: OperationInvoker = tenantId
+      ? createSchedulerOperationInvoker(tenantId)
+      : invoke;
+
     // R3 chat controls — mapped users only, handled before the agent (and
     // before any token mint: commands run on the session store directly).
     if (deps && resolved.conversation && tenantId && externalThreadId) {
@@ -569,7 +645,7 @@ export function createIdentityGateHandler(
             conversationId: resolved.conversation.id,
             deps,
             externalThreadId,
-            invoke,
+            invoke: tenantInvoke,
             platform,
             post: (text) => thread.post(text),
             tenantId,
@@ -601,7 +677,7 @@ export function createIdentityGateHandler(
           conversationId: resolved.conversation.id,
           deps,
           externalThreadId,
-          invoke,
+          invoke: tenantInvoke,
           platform,
           tenantId,
           userId,
@@ -637,10 +713,18 @@ export function createIdentityGateHandler(
       {
         ...getEngentyToolsRunContext(),
         approvalGrants: [],
-        // Native HITL: a gated operation suspends the run and Mastra channels
-        // renders the Approve/Deny card in the platform thread, resuming on
-        // click (Phase 3).
-        approvalPolicy: "suspend",
+        // "defer": core (the authoritative policy engine) records a durable
+        // approval request and the tool returns a structured approval_pending,
+        // so the model tells the user and the turn ENDS with a real reply.
+        // NOT "suspend": that parks the run in the in-process 15-min map
+        // (RUN-01) and — verified live 2026-08-03 — renders NO card in the
+        // platform thread, because our approval suspension never emits
+        // Mastra's `tool-call-approval` chunk (the only thing Chat SDK's
+        // driver renders buttons for). The Slack user would stare at a
+        // spinning tool card forever. In-place Approve/Deny + resume needs
+        // the engenty approval to ride Mastra's native tool-approval flow —
+        // do that on top of the unified approvals store (D2), not before.
+        approvalPolicy: "defer",
         tenantId: tenantId ?? null,
         userId,
         userAccessToken: actorToken,
@@ -754,7 +838,7 @@ export async function registerRemoteChannels(
   }
   if (!isServiceCredentialConfigured()) {
     logger.warn(
-      "remote channels: a platform is configured but no service credential is (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT); skipping"
+      "remote channels: a platform is configured but no service credential is (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev); skipping"
     );
     return;
   }

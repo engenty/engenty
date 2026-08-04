@@ -70,11 +70,11 @@ async function cleanupExpiredInterrupts(ctx: {
  * (core process — that's where the connector registry is populated); this job
  * is only the cron edge, invoking the module operation over the service JWT.
  */
-async function runInboxSync(): Promise<string> {
+async function runInboxSync(ctx: { tenantId: string }): Promise<string> {
   const { createSchedulerOperationInvoker } = await import(
     "./service-invoker.js"
   );
-  const invoke = createSchedulerOperationInvoker();
+  const invoke = createSchedulerOperationInvoker(ctx.tenantId);
   const result = (await invoke("inbox_sync_run", {})) as {
     connections?: { error: string | null; new_messages: number }[];
   } | null;
@@ -94,11 +94,11 @@ async function runInboxSync(): Promise<string> {
  * delete orphaned events). Cron edge only — the work runs in the time-tracking
  * module operation over the service JWT, where the connector registry lives.
  */
-async function runCalendarSync(): Promise<string> {
+async function runCalendarSync(ctx: { tenantId: string }): Promise<string> {
   const { createSchedulerOperationInvoker } = await import(
     "./service-invoker.js"
   );
-  const invoke = createSchedulerOperationInvoker();
+  const invoke = createSchedulerOperationInvoker(ctx.tenantId);
   const result = (await invoke("time_tracking_calendar_sync_run", {})) as {
     connections?: number;
     pushed?: number;

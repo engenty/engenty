@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createRemoteChannelsAgent,
+  extractExternalWorkspaceId,
   isRemoteChannelsEnabled,
   outboundPayloadSchema,
   parseChannelCommand,
@@ -140,6 +141,38 @@ describe("parseChannelCommand", () => {
     expect(parseChannelCommand("/newish thing")).toBeNull();
     expect(parseChannelCommand("/usr/local/bin")).toBeNull();
     expect(parseChannelCommand("")).toBeNull();
+  });
+});
+
+describe("extractExternalWorkspaceId", () => {
+  it("reads every Slack payload shape", () => {
+    // Message events: team_id, or team as a string.
+    expect(extractExternalWorkspaceId("slack", { team_id: "T-1" })).toBe("T-1");
+    expect(extractExternalWorkspaceId("slack", { team: "T-2" })).toBe("T-2");
+    // block_actions: team.id (object), user.team_id fallback.
+    expect(extractExternalWorkspaceId("slack", { team: { id: "T-3" } })).toBe(
+      "T-3"
+    );
+    expect(
+      extractExternalWorkspaceId("slack", { user: { team_id: "T-4" } })
+    ).toBe("T-4");
+    // team_id wins over the fallbacks when several are present.
+    expect(
+      extractExternalWorkspaceId("slack", {
+        team_id: "T-1",
+        user: { team_id: "T-4" },
+      })
+    ).toBe("T-1");
+  });
+
+  it("returns null for junk, absence, and workspace-less platforms", () => {
+    expect(extractExternalWorkspaceId("slack", null)).toBeNull();
+    expect(extractExternalWorkspaceId("slack", undefined)).toBeNull();
+    expect(extractExternalWorkspaceId("slack", "not-an-object")).toBeNull();
+    expect(extractExternalWorkspaceId("slack", { team_id: "  " })).toBeNull();
+    expect(extractExternalWorkspaceId("slack", { team_id: 42 })).toBeNull();
+    // Telegram has no workspace concept — the bot token is the anchor.
+    expect(extractExternalWorkspaceId("telegram", { team_id: "T-1" })).toBeNull();
   });
 });
 

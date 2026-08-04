@@ -21,9 +21,11 @@
 //
 // The scan runs on the Mastra notifications table directly (pg): records are
 // partitioned into per-user threads (`inbox:{tenant}:{user}`), and the store
-// API has no cross-thread query. The service JWT is tenant-bound, so records
-// of other tenants are skipped (same platform boundary as inbox-sync and the
-// mention consumer; satellites run their own service JWT).
+// API has no cross-thread query. The scan is CROSS-TENANT; sending is not —
+// records are grouped by the tenant in their thread id and each tenant's
+// batch rides a service token minted for that tenant (and that tenant's own
+// Gmail connection). A tenant the credential cannot serve is left pending,
+// not failed.
 
 import { createLogger } from "@engenty/telemetry";
 import { Pool } from "pg";
@@ -131,14 +133,14 @@ export function composeNotificationEmail(
 
 /** Injectable seams so the loop is testable without pg/core. */
 export interface EmailNotifierDeps {
-  invoke: SchedulerOperationInvoker;
+  /** Tenant-scoped module-operation invoker — one per tenant in the batch. */
+  invokerFor(tenantId: string): SchedulerOperationInvoker;
   listDue(
     delayMin: number,
     sources: string[] | "*"
   ): Promise<DueNotification[]>;
   lookupUserEmail(userId: string): Promise<string | null>;
   markEmailed(id: string, threadId: string, sent: boolean): Promise<void>;
-  serviceTenantId(): Promise<string | null>;
 }
 
 export async function runEmailNotifierOnce(
@@ -149,57 +151,71 @@ export async function runEmailNotifierOnce(
   if (due.length === 0) {
     return summary;
   }
-  const tenantId = await deps.serviceTenantId();
-  if (!tenantId) {
-    return summary; // no service scope — nothing we can send as
-  }
-  // One accounts probe per run: without a Gmail connection the whole run is
-  // a quiet no-op instead of a per-record error drumbeat.
-  const accounts = (await deps
-    .invoke("connections_list_accounts", { connector_id: "google-gmail" })
-    .catch(() => ({ accounts: [] }))) as {
-    accounts?: { connection_id: string }[];
-  };
-  if (!accounts.accounts?.length) {
-    logger.debug("email notifier idle: no google-gmail connection");
-    return summary;
-  }
+  // Group by the tenant named in the thread id: the pg scan is cross-tenant,
+  // and each tenant's batch must ride a token minted for THAT tenant.
+  const byTenant = new Map<
+    string,
+    { record: DueNotification; userId: string }[]
+  >();
   for (const record of due) {
     const target = parseInboxThreadId(record.threadId);
-    if (!target || target.tenantId !== tenantId) {
+    if (!target) {
       summary.skipped += 1;
-      continue; // team-thread record or foreign tenant (other service JWT)
+      continue; // team-thread record / foreign shape
     }
-    try {
-      const email = await deps.lookupUserEmail(target.userId);
-      if (!email) {
-        await deps.markEmailed(record.id, record.threadId, false);
-        summary.skipped += 1;
-        continue;
+    const bucket = byTenant.get(target.tenantId) ?? [];
+    bucket.push({ record, userId: target.userId });
+    byTenant.set(target.tenantId, bucket);
+  }
+  for (const [tenantId, records] of byTenant) {
+    const invoke = deps.invokerFor(tenantId);
+    // One accounts probe per tenant per run: without a Gmail connection —
+    // or without a mintable scope for this tenant — the bucket stays pending
+    // (quiet no-op) instead of a per-record error drumbeat.
+    const accounts = (await invoke("connections_list_accounts", {
+      connector_id: "google-gmail",
+    }).catch(() => ({ accounts: [] }))) as {
+      accounts?: { connection_id: string }[];
+    };
+    if (!accounts.accounts?.length) {
+      logger.debug("email notifier idle: no google-gmail connection", {
+        tenantId,
+      });
+      continue;
+    }
+    for (const { record, userId } of records) {
+      try {
+        const email = await deps.lookupUserEmail(userId);
+        if (!email) {
+          await deps.markEmailed(record.id, record.threadId, false);
+          summary.skipped += 1;
+          continue;
+        }
+        const message = composeNotificationEmail(
+          record,
+          process.env.ENGENTY_UI_BASE_URL
+        );
+        await invoke("gmail_send_message", {
+          body_text: message.body_text,
+          subject: message.subject,
+          to: [email],
+        });
+        await deps.markEmailed(record.id, record.threadId, true);
+        summary.sent += 1;
+      } catch (error) {
+        // Terminal for this record: policy denials and approval parking would
+        // otherwise retry every minute forever. New notifications get a fresh
+        // chance once the connection is configured.
+        await deps
+          .markEmailed(record.id, record.threadId, false)
+          .catch(() => undefined);
+        summary.failed += 1;
+        logger.warn("notification email failed", {
+          id: record.id,
+          message: error instanceof Error ? error.message : String(error),
+          tenantId,
+        });
       }
-      const message = composeNotificationEmail(
-        record,
-        process.env.ENGENTY_UI_BASE_URL
-      );
-      await deps.invoke("gmail_send_message", {
-        body_text: message.body_text,
-        subject: message.subject,
-        to: [email],
-      });
-      await deps.markEmailed(record.id, record.threadId, true);
-      summary.sent += 1;
-    } catch (error) {
-      // Terminal for this record: policy denials and approval parking would
-      // otherwise retry every minute forever. New notifications get a fresh
-      // chance once the connection is configured.
-      await deps
-        .markEmailed(record.id, record.threadId, false)
-        .catch(() => undefined);
-      summary.failed += 1;
-      logger.warn("notification email failed", {
-        id: record.id,
-        message: error instanceof Error ? error.message : String(error),
-      });
     }
   }
   if (summary.sent > 0 || summary.failed > 0) {
@@ -210,8 +226,7 @@ export async function runEmailNotifierOnce(
 
 /** Production deps: pg scan on ai.mastra_notifications + core.users lookup. */
 function createPgDeps(
-  invoke: SchedulerOperationInvoker,
-  resolveTenantId: () => Promise<string | null>
+  invokerFor: (tenantId: string) => SchedulerOperationInvoker
 ): EmailNotifierDeps | null {
   const connectionString = resolveRunSnapshotConnectionString();
   if (!connectionString) {
@@ -219,7 +234,7 @@ function createPgDeps(
   }
   const pool = new Pool({ connectionString, max: 2 });
   return {
-    invoke,
+    invokerFor,
     async listDue(delayMin, sources) {
       // Wildcard → no source filter; otherwise restrict to the allowlist.
       const wildcard = sources === "*";
@@ -260,13 +275,11 @@ function createPgDeps(
         [id, threadId, sent]
       );
     },
-    serviceTenantId: resolveTenantId,
   };
 }
 
 export function startEmailNotifier(options: {
-  invoke: SchedulerOperationInvoker;
-  resolveTenantId: () => Promise<string | null>;
+  invokerFor: (tenantId: string) => SchedulerOperationInvoker;
 }): () => void {
   if (!isEmailNotifierEnabled()) {
     logger.info(
@@ -276,7 +289,7 @@ export function startEmailNotifier(options: {
       // nothing to stop
     };
   }
-  const deps = createPgDeps(options.invoke, options.resolveTenantId);
+  const deps = createPgDeps(options.invokerFor);
   if (!deps) {
     logger.warn("email notifier not started (no SUPABASE_DB_URL)");
     return () => {

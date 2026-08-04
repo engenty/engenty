@@ -119,10 +119,7 @@ import {
 import { seedModelBindingsIfMissing } from "./model-binding-seed.js";
 import { startEmailNotifier } from "./notifications/email-notifier.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
-import {
-  createSchedulerOperationInvoker,
-  resolveSchedulerServiceScope,
-} from "./scheduler/service-invoker.js";
+import { createSchedulerOperationInvoker } from "./scheduler/service-invoker.js";
 
 const logger = createLogger({ name: "apps/ai" });
 
@@ -877,21 +874,11 @@ export async function createApp(options: CreateAppOptions = {}) {
       process.once("SIGTERM", stopRemoteOutbound);
       process.once("SIGINT", stopRemoteOutbound);
       // Still-unread notifications → email via the tenant's connector (N4).
-      // The service scope is tenant-bound; resolve lazily + cache so a boot
-      // race against core doesn't wedge the notifier permanently.
-      let cachedServiceTenantId: string | null = null;
+      // The scan is cross-tenant; each tenant's batch rides a service token
+      // minted for that tenant (platform credential serves all tenants; a
+      // tenant-bound one quietly leaves foreign tenants' records pending).
       const stopEmailNotifier = startEmailNotifier({
-        invoke: createSchedulerOperationInvoker(),
-        resolveTenantId: async () => {
-          if (cachedServiceTenantId) {
-            return cachedServiceTenantId;
-          }
-          const resolution = await resolveSchedulerServiceScope();
-          cachedServiceTenantId = resolution.ok
-            ? resolution.scope.tenantId
-            : null;
-          return cachedServiceTenantId;
-        },
+        invokerFor: (tenantId) => createSchedulerOperationInvoker(tenantId),
       });
       process.once("SIGTERM", stopEmailNotifier);
       process.once("SIGINT", stopEmailNotifier);

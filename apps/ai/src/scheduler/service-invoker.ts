@@ -31,14 +31,21 @@ export type SchedulerServiceScopeResolution =
  * race, worth retrying) so the caller can react accordingly. A configured
  * credential that fails to mint lands in `resolution_failed` too: a transient
  * Supabase hiccup at boot must not permanently disable the scheduler.
+ *
+ * `tenantId` scopes the mint to one tenant (platform credential); omitted it
+ * resolves the credential's own tenant.
  */
-export async function resolveSchedulerServiceScope(): Promise<SchedulerServiceScopeResolution> {
+export async function resolveSchedulerServiceScope(
+  tenantId?: string
+): Promise<SchedulerServiceScopeResolution> {
   if (!isServiceCredentialConfigured()) {
     return { ok: false, reason: "jwt_missing" };
   }
   let serviceJwt: string | null;
   try {
-    serviceJwt = await getServiceAccessToken();
+    serviceJwt = await getServiceAccessToken(
+      tenantId ? { tenantId } : undefined
+    );
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : String(err),
@@ -71,16 +78,54 @@ export async function resolveSchedulerServiceScope(): Promise<SchedulerServiceSc
   };
 }
 
+/** Tokens whose tenant has been verified against core, so the per-invocation
+ * assertion costs one scope resolution per minted token, not per call.
+ * Bounded: tokens rotate every ~15 min, and the map is cleared when it grows
+ * past a size no healthy deployment reaches. */
+const verifiedTokenTenants = new Map<string, string>();
+
 /** Module-operation invoker riding the service identity. The token is fetched
  * per invocation — a fire days after boot must not ride a token minted at
- * boot. */
-export function createSchedulerOperationInvoker(): SchedulerOperationInvoker {
+ * boot. `tenantId` pins every mint to that tenant (a schedule's fires act for
+ * the tenant stamped in its metadata, never the credential's default) and is
+ * ASSERTED against the token's actual tenant: a static ENGENTY_AI_SERVICE_JWT
+ * or password-grant credential is single-tenant and would otherwise execute
+ * tenant B's operation inside tenant A without any error — the same belt the
+ * task-job path wears (task-job-scope.ts). */
+export function createSchedulerOperationInvoker(
+  tenantId?: string
+): SchedulerOperationInvoker {
   return async (operationId, input) => {
-    const serviceJwt = await getServiceAccessToken();
+    const serviceJwt = await getServiceAccessToken(
+      tenantId ? { tenantId } : undefined
+    );
+    if (serviceJwt && tenantId) {
+      let actual = verifiedTokenTenants.get(serviceJwt);
+      if (actual === undefined) {
+        const resolved = await createCoreAiScopeResolver()({
+          authorization: `Bearer ${serviceJwt}`,
+        });
+        if (!resolved.ok) {
+          throw new Error(
+            `scheduler: failed to verify the service token's tenant before invoking ${operationId} — ${resolved.error}`
+          );
+        }
+        if (verifiedTokenTenants.size > 64) {
+          verifiedTokenTenants.clear();
+        }
+        actual = resolved.scope.tenantId;
+        verifiedTokenTenants.set(serviceJwt, actual);
+      }
+      if (actual !== tenantId) {
+        throw new Error(
+          `scheduler: operation ${operationId} for tenant ${tenantId} would run on a service token scoped to tenant ${actual} — the configured credential cannot serve this tenant (a static ENGENTY_AI_SERVICE_JWT or password grant is single-tenant; configure ENGENTY_AI_SERVICE_SECRET with a platform-scoped credential)`
+        );
+      }
+    }
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
     if (!(serviceJwt && coreBaseUrl)) {
       throw new Error(
-        "scheduler: a service credential (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT) and a core base URL are required for scheduled trigger fires"
+        "scheduler: a service credential (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev) and a core base URL are required for scheduled trigger fires"
       );
     }
     const client = new EngentyCoreClient({

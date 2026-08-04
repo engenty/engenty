@@ -13,12 +13,16 @@
 // every future mint fails. No project-wide jwt_expiry change, no long-lived
 // bearer token in an env var.
 //
-// ENGENTY_AI_SERVICE_JWT still wins when set. It is the local-dev path
-// (pnpm service:jwt) and the escape hatch; a deployment sets one credential
-// form, not several.
+// ENGENTY_AI_SERVICE_JWT still wins for tenant-less requests. It is the
+// local-dev path (pnpm service:jwt) and the escape hatch; a deployment sets
+// one credential form, not several. But a static JWT is single-tenant by
+// construction, so an explicit per-tenant request prefers the SECRET
+// exchange when both are configured.
 //
 // Resolution order (PLAN-service-identity.md, CP4):
-//   1. ENGENTY_AI_SERVICE_JWT     — static override, no I/O
+//   1. ENGENTY_AI_SERVICE_JWT     — static override, no I/O (skipped when a
+//                                   specific tenant is requested and (2) is
+//                                   configured)
 //   2. ENGENTY_AI_SERVICE_SECRET  — exchange at core for a 15-min engenty
 //                                   service token. The target: no Supabase
 //                                   user, revocable, capability-clamped.
@@ -40,8 +44,15 @@ interface CachedSession {
   expiresAtMs: number;
 }
 
-let cachedSession: CachedSession | null = null;
-let inflightLogin: Promise<CachedSession> | null = null;
+/**
+ * Sessions are cached PER TENANT: a platform-scoped credential mints a
+ * separate tenant-scoped token for each tenant it acts for (dispatch, per-
+ * tenant reconcile, actor mints). The key is the requested tenant id, or
+ * `""` for "the credential's own tenant" (a tenant-bound credential asked
+ * with no explicit tenant — the pre-multi-tenant behavior).
+ */
+const cachedSessions = new Map<string, CachedSession>();
+const inflightLogins = new Map<string, Promise<CachedSession>>();
 
 function staticJwt(): string | null {
   return process.env.ENGENTY_AI_SERVICE_JWT?.trim() || null;
@@ -93,10 +104,13 @@ export function isServiceCredentialConfigured(): boolean {
  * the secret against `core.service_credential` and signs a principal token.
  * An auth outage no longer stops scheduled triggers.
  */
-async function exchangeForServiceToken(credential: {
-  credentialId: string;
-  secret: string;
-}): Promise<CachedSession> {
+async function exchangeForServiceToken(
+  credential: {
+    credentialId: string;
+    secret: string;
+  },
+  tenantId?: string
+): Promise<CachedSession> {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!coreBaseUrl) {
     throw new Error(
@@ -109,6 +123,7 @@ async function exchangeForServiceToken(credential: {
       body: JSON.stringify({
         credentialId: credential.credentialId,
         secret: credential.secret,
+        ...(tenantId ? { tenantId } : {}),
       }),
       headers: { "content-type": "application/json" },
       method: "POST",
@@ -188,13 +203,18 @@ async function loginWithPassword(credential: {
  * first, Supabase password grant as the CP6-doomed fallback. Null when neither
  * is configured.
  */
-function resolveMinter(): (() => Promise<CachedSession>) | null {
+function resolveMinter(
+  tenantId?: string
+): (() => Promise<CachedSession>) | null {
   const exchange = exchangeCredential();
   if (exchange) {
-    return () => exchangeForServiceToken(exchange);
+    return () => exchangeForServiceToken(exchange, tenantId);
   }
   const password = passwordCredential();
   if (password) {
+    // Legacy single-tenant path (removed at CP6): the Supabase user belongs
+    // to one tenant, so a requested tenant can't influence the mint — the
+    // downstream tenant assertion catches any mismatch loudly.
     return () => loginWithPassword(password);
   }
   return null;
@@ -206,42 +226,62 @@ function resolveMinter(): (() => Promise<CachedSession>) | null {
  * a configured-but-failing credential throws, because "no token" and
  * "credential rejected" must not look alike to callers.
  *
- * Concurrent callers during a (re-)login share one in-flight sign-in.
+ * `tenantId` names the tenant the token must be scoped to. With a
+ * platform-scoped credential (ENGENTY_AI_SERVICE_SECRET whose row has
+ * tenant_id NULL) each tenant gets its own cached session; a tenant-bound
+ * credential simply refuses foreign tenants at the exchange (403 → throw).
+ * Omitting it keeps the pre-multi-tenant behavior: the credential's own
+ * tenant.
+ *
+ * Concurrent callers during a (re-)login share one in-flight sign-in per
+ * tenant.
  */
-export async function getServiceAccessToken(): Promise<string | null> {
+export async function getServiceAccessToken(options?: {
+  tenantId?: string;
+}): Promise<string | null> {
+  const tenantId = options?.tenantId;
   const jwt = staticJwt();
-  if (jwt) {
+  // A static token has one fixed tenant baked in at signing time, so it can
+  // never satisfy an explicit per-tenant request. When the caller names a
+  // tenant AND the durable secret is configured, the exchange wins — leaving
+  // the static JWT first here silently reduces the whole headless plane to
+  // single-tenant (every dispatch for a foreign tenant dies on the tenant
+  // assertion). The static JWT still wins for tenant-less callers and for
+  // setups where it is the only credential.
+  if (jwt && !(tenantId && exchangeCredential())) {
     return jwt;
   }
-  const mint = resolveMinter();
+  const mint = resolveMinter(tenantId);
   if (!mint) {
     return null;
   }
-  if (
-    cachedSession &&
-    cachedSession.expiresAtMs - Date.now() > REFRESH_MARGIN_MS
-  ) {
-    return cachedSession.accessToken;
+  const cacheKey = tenantId ?? "";
+  const cached = cachedSessions.get(cacheKey);
+  if (cached && cached.expiresAtMs - Date.now() > REFRESH_MARGIN_MS) {
+    return cached.accessToken;
   }
-  if (!inflightLogin) {
-    inflightLogin = mint()
+  let inflight = inflightLogins.get(cacheKey);
+  if (!inflight) {
+    inflight = mint()
       .then((session) => {
-        cachedSession = session;
+        cachedSessions.set(cacheKey, session);
         logger.info("service access token minted", {
           expiresAt: new Date(session.expiresAtMs).toISOString(),
+          ...(tenantId ? { tenantId } : {}),
         });
         return session;
       })
       .finally(() => {
-        inflightLogin = null;
+        inflightLogins.delete(cacheKey);
       });
+    inflightLogins.set(cacheKey, inflight);
   }
-  const session = await inflightLogin;
+  const session = await inflight;
   return session.accessToken;
 }
 
-/** Test seam: drop the cached session so the next call re-mints. */
+/** Test seam: drop the cached sessions so the next call re-mints. */
 export function resetServiceCredentialCache(): void {
-  cachedSession = null;
-  inflightLogin = null;
+  cachedSessions.clear();
+  inflightLogins.clear();
 }

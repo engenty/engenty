@@ -4,6 +4,14 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.92] - 2026-08-04
+- ADDED **[remote]** Honest channel approvals (defer), conversations UI, housekeeping
+- ADDED **[core,ai]** Platform-scoped service credential — multi-tenant headless plane
+- DOCS **[remote]** R4 per-tenant credentials implementation spec; live-defer caveat
+- DOCS Audit open items in remote-channels plan post-v0.1.91
+- FIXED **[ai]** Close the tenant-readiness gaps behind the per-tenant scheduler
+- FIXED **[remote]** Forward the workspace anchor so bindings route by workspace
+
 ## [0.1.91] - 2026-08-03
 - FIXED **[ai]** Survive adapter-post failures in the channel render driver
 - FIXED **[remote]** Return tenant_id from resolve_sender; SLACK_API_URL test seam

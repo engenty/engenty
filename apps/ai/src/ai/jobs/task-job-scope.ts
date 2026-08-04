@@ -2,18 +2,22 @@
 // task run has no incoming HTTP request, so it acts as the AI service
 // principal: a fresh service access token (see ../service-credential.ts) is
 // resolved to its workspace context (tenant + user) per dispatch and reused as
-// the run's `AiSessionScope`. The service identity is single-tenant — a
-// message for a different tenant is a misconfiguration and fails loudly
-// rather than acting cross-tenant.
+// the run's `AiSessionScope`. The token is minted FOR THE MESSAGE'S TENANT —
+// a platform-scoped credential serves every tenant with per-tenant tokens; a
+// tenant-bound one refuses foreign tenants at the exchange. The tenant
+// assertion below stays as the belt: whatever token came back, a mismatch is
+// a misconfiguration and fails loudly rather than acting cross-tenant.
 import { createCoreAiScopeResolver } from "../../api/http.js";
 import { getServiceAccessToken } from "../service-credential.js";
 import type { AiSessionScope } from "../sessions/types.js";
 
-export async function getTaskDispatchServiceJwt(): Promise<string> {
-  const jwt = await getServiceAccessToken();
+export async function getTaskDispatchServiceJwt(
+  tenantId?: string
+): Promise<string> {
+  const jwt = await getServiceAccessToken(tenantId ? { tenantId } : undefined);
   if (!jwt) {
     throw new Error(
-      "task-job: a service credential (ENGENTY_AI_SERVICE_SECRET, ENGENTY_AI_SERVICE_EMAIL/PASSWORD, or ENGENTY_AI_SERVICE_JWT) is required to run dispatched task jobs"
+      "task-job: a service credential (ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_JWT for local dev) is required to run dispatched task jobs"
     );
   }
   return jwt;
@@ -29,7 +33,7 @@ export async function getTaskDispatchServiceJwt(): Promise<string> {
 export async function resolveTaskJobServiceScope(
   tenantId: string
 ): Promise<AiSessionScope> {
-  const serviceJwt = await getTaskDispatchServiceJwt();
+  const serviceJwt = await getTaskDispatchServiceJwt(tenantId);
   const resolved = await createCoreAiScopeResolver()({
     authorization: `Bearer ${serviceJwt}`,
   });

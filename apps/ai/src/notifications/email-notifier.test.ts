@@ -21,19 +21,26 @@ const RECORD: DueNotification = {
   threadId: "inbox:tenant-1:user-1",
 };
 
-function deps(overrides: Partial<EmailNotifierDeps> = {}): EmailNotifierDeps {
+function workingInvoke() {
+  return vi.fn(async (operationId: string) =>
+    operationId === "connections_list_accounts"
+      ? { accounts: [{ connection_id: "c1" }] }
+      : { sent: true }
+  );
+}
+
+function deps(
+  overrides: Partial<EmailNotifierDeps> = {},
+  invoke = workingInvoke()
+): EmailNotifierDeps & { invoke: ReturnType<typeof workingInvoke> } {
   return {
-    invoke: vi.fn(async (operationId: string) =>
-      operationId === "connections_list_accounts"
-        ? { accounts: [{ connection_id: "c1" }] }
-        : { sent: true }
-    ),
+    invoke,
+    invokerFor: vi.fn(() => invoke),
     listDue: vi.fn(async () => [RECORD]),
     lookupUserEmail: vi.fn(async () => "user@example.com"),
     markEmailed: vi.fn(async () => {
       // recorded via mock calls
     }),
-    serviceTenantId: vi.fn(async () => "tenant-1"),
     ...overrides,
   };
 }
@@ -118,27 +125,49 @@ describe("runEmailNotifierOnce", () => {
 
   it("is a quiet no-op without a gmail connection", async () => {
     const invoke = vi.fn(async () => ({ accounts: [] }));
-    const d = deps({ invoke });
+    const d = deps({}, invoke as ReturnType<typeof workingInvoke>);
     const summary = await runEmailNotifierOnce(d);
     expect(summary).toEqual({ failed: 0, sent: 0, skipped: 0 });
     expect(invoke).toHaveBeenCalledTimes(1); // only the accounts probe
   });
 
-  it("skips foreign tenants and marks send failures terminal", async () => {
+  it("mints a separate invoker per tenant in the batch", async () => {
     const d = deps({
+      listDue: vi.fn(async () => [
+        { ...RECORD, id: "n-2", threadId: "inbox:tenant-2:u9" },
+        RECORD,
+      ]),
+    });
+    const summary = await runEmailNotifierOnce(d);
+    expect(summary).toEqual({ failed: 0, sent: 2, skipped: 0 });
+    expect(d.invokerFor).toHaveBeenCalledWith("tenant-2");
+    expect(d.invokerFor).toHaveBeenCalledWith("tenant-1");
+  });
+
+  it("leaves a tenant pending when its scope cannot be minted, and marks send failures terminal", async () => {
+    const failingInvoke = vi.fn(async () => {
+      throw new Error("403 tenant not served by this credential");
+    });
+    const sendFailInvoke = vi.fn(async (operationId: string) => {
+      if (operationId === "connections_list_accounts") {
+        return { accounts: [{ connection_id: "c1" }] };
+      }
+      throw new Error("connection_approval_pending");
+    });
+    const d = deps({
+      invokerFor: vi.fn((tenantId: string) =>
+        tenantId === "tenant-1" ? sendFailInvoke : failingInvoke
+      ),
       listDue: vi.fn(async () => [
         { ...RECORD, id: "n-2", threadId: "inbox:other-tenant:u9" },
         RECORD,
       ]),
-      invoke: vi.fn(async (operationId: string) => {
-        if (operationId === "connections_list_accounts") {
-          return { accounts: [{ connection_id: "c1" }] };
-        }
-        throw new Error("connection_approval_pending");
-      }),
     });
     const summary = await runEmailNotifierOnce(d);
-    expect(summary).toEqual({ failed: 1, sent: 0, skipped: 1 });
+    // other-tenant bucket: probe throws → caught → treated as "no accounts",
+    // records stay pending (not marked). tenant-1: send fails → terminal.
+    expect(summary).toEqual({ failed: 1, sent: 0, skipped: 0 });
+    expect(d.markEmailed).toHaveBeenCalledTimes(1);
     expect(d.markEmailed).toHaveBeenCalledWith("n-1", RECORD.threadId, false);
   });
 });

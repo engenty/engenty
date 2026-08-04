@@ -199,6 +199,12 @@ export function registerAuthRoutes(params: {
     sessionId: string
   ) => Promise<void>;
   stores: AuthStores;
+  /**
+   * Existence check for the tenant a PLATFORM service credential asks to mint
+   * for. Wired from the tenants table on the real server; omitted only by
+   * unit tests, where absence means "assume it exists".
+   */
+  tenantExists?: (tenantId: string) => Promise<boolean>;
 }) {
   params.app.get("/api/auth/.well-known/openid-configuration", (c) => {
     const baseUrl = c.req.header("x-forwarded-host")
@@ -442,9 +448,11 @@ export function registerAuthRoutes(params: {
     const body = (await c.req.json().catch(() => ({}))) as {
       credentialId?: string;
       secret?: string;
+      tenantId?: string;
     };
     const credentialId = String(body.credentialId ?? "").trim();
     const secret = String(body.secret ?? "");
+    const requestedTenantId = String(body.tenantId ?? "").trim() || null;
     if (!(credentialId && secret)) {
       return c.json({ error: "credentialId and secret are required" }, 400);
     }
@@ -470,7 +478,7 @@ export function registerAuthRoutes(params: {
     if (rejected) {
       recordCoreAuditEvent(params.auditLog, {
         type: "auth.service_token_rejected",
-        tenantId: credential?.tenantId,
+        tenantId: credential?.tenantId ?? undefined,
         detail: {
           credentialId,
           reason: credential
@@ -482,6 +490,56 @@ export function registerAuthRoutes(params: {
         },
       });
       return c.json({ error: "invalid_client" }, 401);
+    }
+
+    // Resolve the tenant the minted token is scoped to. Tokens are ALWAYS
+    // tenant-scoped — a platform credential (tenantId null) widens where a
+    // token can be minted for, never what any one token can do — so a
+    // platform credential must name a tenant, and a tenant-bound credential
+    // may only name its own. The caller is authenticated past this point, so
+    // these are clear errors, not "invalid_client".
+    let mintTenantId: string;
+    if (credential.tenantId === null) {
+      if (!requestedTenantId) {
+        return c.json(
+          { error: "tenantId is required for a platform service credential" },
+          400
+        );
+      }
+      if (
+        params.tenantExists &&
+        !(await params.tenantExists(requestedTenantId))
+      ) {
+        recordCoreAuditEvent(params.auditLog, {
+          type: "auth.service_token_rejected",
+          detail: {
+            credentialId,
+            reason: "unknown_tenant",
+            sourceIp,
+            tenantId: requestedTenantId,
+          },
+        });
+        return c.json({ error: "unknown tenant" }, 400);
+      }
+      mintTenantId = requestedTenantId;
+    } else {
+      if (requestedTenantId && requestedTenantId !== credential.tenantId) {
+        recordCoreAuditEvent(params.auditLog, {
+          type: "auth.service_token_rejected",
+          tenantId: credential.tenantId,
+          detail: {
+            credentialId,
+            reason: "tenant_mismatch",
+            requestedTenantId,
+            sourceIp,
+          },
+        });
+        return c.json(
+          { error: "credential is not scoped to the requested tenant" },
+          403
+        );
+      }
+      mintTenantId = credential.tenantId;
     }
 
     const tokenId = uuidv7();
@@ -497,7 +555,7 @@ export function registerAuthRoutes(params: {
       roleProfiles: [],
       roles: [],
       scopes: [],
-      tenantId: credential.tenantId,
+      tenantId: mintTenantId,
       tokenType: "access",
     };
     const token = await signPrincipalToken({
@@ -514,10 +572,11 @@ export function registerAuthRoutes(params: {
     recordCoreAuditEvent(params.auditLog, {
       type: "auth.service_token_minted",
       actorId: credential.id,
-      tenantId: credential.tenantId,
+      tenantId: mintTenantId,
       detail: {
         capabilities: credential.capabilities,
         credentialName: credential.name,
+        platformScoped: credential.tenantId === null,
         tokenId,
         ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
       },

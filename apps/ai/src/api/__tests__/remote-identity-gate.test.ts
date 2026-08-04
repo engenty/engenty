@@ -75,6 +75,10 @@ const senderMessage = {
     userId: "U-EXT-1",
     userName: "erin",
   },
+  // Platform raw payload (Chat SDK escape hatch) — carries the Slack
+  // workspace id the gate must forward for workspace-anchored binding
+  // resolution.
+  raw: { team_id: "T-WORKSPACE-1", type: "message" },
 } as never;
 
 const activeBinding = {
@@ -170,9 +174,22 @@ describe("remote identity gate", () => {
     expect(observed!.userId).toBe("user-42");
     expect(observed!.tenantId).toBe("t-1");
     expect(observed!.userAccessToken).toBe("actor-tok-123");
-    expect(observed!.approvalPolicy).toBe("suspend");
+    // "defer", not "suspend": suspension renders no card in channel threads
+    // (no tool-call-approval chunk) and parks in-process — verified live.
+    // Core records a durable approval request and the turn ends with a reply.
+    expect(observed!.approvalPolicy).toBe("defer");
     const mint = calls.find((c) => c.url.includes("/api/auth/actor-token"));
     expect(mint?.body).toMatchObject({ tenant_id: "t-1", user_id: "user-42" });
+
+    // Workspace routing: the raw payload's team id must reach the resolve op —
+    // without it a workspace-anchored binding can never match, and two tenants
+    // bound to the same platform are unroutable (the server refuses to guess).
+    const resolve = calls.find((c) =>
+      c.url.includes("/api/tools/remote_runtime_resolve_sender/invoke")
+    );
+    expect(resolve?.body).toMatchObject({
+      input: { external_workspace_id: "T-WORKSPACE-1" },
+    });
   });
 
   it("drops replayed events (durable dedup) without posting or running", async () => {

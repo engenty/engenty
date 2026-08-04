@@ -143,6 +143,27 @@ describe("ENGENTY_AI_SERVICE_SECRET exchange", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("beats the static JWT when a specific tenant is requested", async () => {
+    // A static JWT is single-tenant by construction — an explicit per-tenant
+    // request must go through the exchange or the multi-tenant headless plane
+    // silently degrades to whatever tenant the JWT was signed for.
+    process.env.ENGENTY_AI_SERVICE_JWT = "static";
+    process.env.ENGENTY_AI_SERVICE_SECRET = "cred-1.engsvc_abc";
+    process.env.ENGENTY_CORE_BASE_URL = "http://core.test";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(exchangeResponse("tenant-scoped-token"));
+
+    await expect(getServiceAccessToken({ tenantId: "tenant-2" })).resolves.toBe(
+      "tenant-scoped-token"
+    );
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(init.body)).tenantId).toBe("tenant-2");
+    // Tenant-less callers keep the static override.
+    await expect(getServiceAccessToken()).resolves.toBe("static");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("throws when core rejects the credential", async () => {
     process.env.ENGENTY_AI_SERVICE_SECRET = "cred-1.wrong";
     process.env.ENGENTY_CORE_BASE_URL = "http://core.test";

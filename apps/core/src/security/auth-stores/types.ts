@@ -110,7 +110,12 @@ export interface ServiceCredentialRecord {
   name: string;
   /** sha256 of the raw secret — the raw value is shown once at creation. */
   secretHash: string;
-  tenantId: string;
+  /**
+   * `null` = platform credential (the AI runtime's identity): the exchange
+   * requires a target tenant per mint and scopes the token to it. A non-null
+   * value pins every mint to that one tenant.
+   */
+  tenantId: string | null;
 }
 
 export interface ServiceCredentialStore {

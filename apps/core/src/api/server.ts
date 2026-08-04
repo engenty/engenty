@@ -392,6 +392,19 @@ export function createApiApp(params: CreateApiAppParams) {
         }
       : {}),
     stores: authStores,
+    ...(authStoresClient
+      ? {
+          tenantExists: async (tenantId: string) => {
+            const { data } = await authStoresClient
+              .schema("core")
+              .from("tenants")
+              .select("id")
+              .eq("id", tenantId)
+              .maybeSingle();
+            return Boolean(data);
+          },
+        }
+      : {}),
   });
   // Delegated actor tokens (engenty-remote): the AI service mints short-lived
   // user-scoped tokens so remote-channel turns act as the mapped user.

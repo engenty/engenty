@@ -59,7 +59,7 @@ async function handleMentionDispatch(
 ): Promise<void> {
   const dispatch = mentionDispatchSchema.parse(payload);
   const scope = await resolveTaskJobServiceScope(dispatch.tenant_id);
-  const invoke = createSchedulerOperationInvoker();
+  const invoke = createSchedulerOperationInvoker(dispatch.tenant_id);
 
   const [replies, info] = await Promise.all([
     invoke("team_chat_conversations_replies", {

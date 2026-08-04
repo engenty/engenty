@@ -35,7 +35,11 @@ export function createSchedulerHeartbeatHooks(options?: {
   invokeOperation?: SchedulerOperationInvoker;
   now?: () => Date;
 }): SchedulerScheduleHooks {
-  const invoke = options?.invokeOperation ?? createSchedulerOperationInvoker();
+  // Every fire acts for the tenant stamped in its schedule's metadata — the
+  // invoker is built per fire so a platform-scoped credential mints the
+  // right tenant's token (an injected invoker, used by tests, wins).
+  const invokerFor = (tenantId: string): SchedulerOperationInvoker =>
+    options?.invokeOperation ?? createSchedulerOperationInvoker(tenantId);
   const now = options?.now ?? (() => new Date());
 
   return {
@@ -47,6 +51,7 @@ export function createSchedulerHeartbeatHooks(options?: {
         // Not an Engenty-owned schedule — let it fire normally.
         return;
       }
+      const invoke = invokerFor(meta.tenantId);
 
       if (meta.kind === "system-job") {
         const result = await runSystemJob(meta.jobId, meta.tenantId);
@@ -94,6 +99,7 @@ export function createSchedulerHeartbeatHooks(options?: {
       if (meta?.kind !== "trigger") {
         return;
       }
+      const invoke = invokerFor(meta.tenantId);
       await invoke("triggers_record_result", {
         id: meta.triggerId,
         result: `error: ${error.message}`,

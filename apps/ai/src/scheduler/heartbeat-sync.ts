@@ -269,11 +269,16 @@ export async function reconcileScheduler(options: {
     }
   }
 
-  // 3. System jobs → schedules.
+  // 3. System jobs → schedules. The id is tenant-qualified: system jobs run
+  // once PER TENANT (each tenant's inbox sync pulls that tenant's mail). A
+  // bare `hb_system-${job.id}` would be claimed by whichever tenant
+  // reconciled first and every other tenant would silently get no sync.
+  // Legacy unqualified rows are cleaned up by the orphan sweep below (their
+  // metadata names the tenant that stamped them).
   for (const job of listSystemJobs()) {
     // Stable stem; create() may store `agent_hb-system-…`. get() resolves both
     // the stem and the canonical form.
-    const id = `hb_system-${job.id}`;
+    const id = `hb_system-${tenantId}-${job.id}`;
     const existing = await mastra.schedules.get(id);
     if (existing) {
       liveScheduleIds.add(existing.id);
@@ -296,10 +301,18 @@ export async function reconcileScheduler(options: {
 
   // 4. Orphaned Engenty schedules → delete (matched by metadata.engenty, not
   // id prefix — covers both legacy `hb_*` and `agent_hb-*` rows).
+  // ONLY this tenant's rows: the Mastra store is global and the reconcile
+  // runs once per tenant — an unscoped sweep would let each tenant's pass
+  // delete every other tenant's schedules (last reconciled tenant wins,
+  // every other tenant's triggers silently stop firing).
   const all = await mastra.schedules.list();
   for (const schedule of all) {
     const meta = readHeartbeatMetadata(schedule.metadata);
-    if (!meta || liveScheduleIds.has(schedule.id)) {
+    if (
+      !meta ||
+      meta.tenantId !== tenantId ||
+      liveScheduleIds.has(schedule.id)
+    ) {
       continue;
     }
     logger.info("removing orphaned scheduler schedule", {

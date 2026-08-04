@@ -438,7 +438,12 @@ export function registerTriggerRoutes(
     }
     try {
       await reconcileScheduler({
-        invokeOperation: createSchedulerOperationInvoker(),
+        // Minted for the caller's tenant: a tenant-less invoker rides the
+        // credential's own tenant and would create/list trigger rows in the
+        // WRONG tenant (and 400 outright on a platform-scoped credential).
+        invokeOperation: createSchedulerOperationInvoker(
+          resolved.scope.tenantId
+        ),
         mastra,
         moduleLoader,
         tenantId: resolved.scope.tenantId,

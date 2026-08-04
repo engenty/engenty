@@ -12,6 +12,7 @@ import {
   createSchedulerOperationInvoker,
   resolveSchedulerServiceScope,
 } from "./service-invoker.js";
+import { listTenantIds } from "./tenants.js";
 
 const logger = createLogger({ name: "scheduler" });
 
@@ -41,55 +42,126 @@ export async function startScheduler(options: {
   mastra: Mastra;
   moduleLoader?: DynamicAiModuleCapabilityLoader;
 }): Promise<void> {
-  const bringOnline = async (scope: AiSessionScope): Promise<void> => {
+  // Reconcile ONE tenant, with its own retry budget. Failures here are
+  // per-tenant: a tenant-bound credential in a multi-tenant install can only
+  // serve its own tenant, and the others must not take the scheduler down.
+  const runReconcile = async (
+    scope: AiSessionScope,
+    attempt: number
+  ): Promise<void> => {
+    try {
+      // The module capability loader reads its bearer from the Engenty-tools
+      // ALS, which is normally entered by the HTTP middleware. A reconcile
+      // has no request behind it, so enter it here with a freshly vended
+      // service token. Without this the loader throws "…this run does not
+      // include an end-user bearer token" on step 1 and NOTHING downstream
+      // runs — no trigger and no system job ever gets its schedule.
+      const serviceToken = await getServiceAccessToken({
+        tenantId: scope.tenantId,
+      });
+      if (!serviceToken) {
+        throw new Error(
+          "scheduler: no service credential available to reconcile triggers"
+        );
+      }
+      await engentyToolsRunAls.run(
+        {
+          tenantId: scope.tenantId,
+          userAccessToken: serviceToken,
+          userId: scope.userId,
+        },
+        () =>
+          reconcileScheduler({
+            invokeOperation: createSchedulerOperationInvoker(scope.tenantId),
+            mastra: options.mastra,
+            moduleLoader: options.moduleLoader,
+            tenantId: scope.tenantId,
+          })
+      );
+    } catch (err) {
+      if (attempt < RECONCILE_RETRIES) {
+        setTimeout(
+          () => void runReconcile(scope, attempt + 1),
+          RECONCILE_DELAY_MS * (attempt + 1)
+        ).unref?.();
+        return;
+      }
+      logger.error("scheduler reconcile failed", {
+        message: err instanceof Error ? err.message : String(err),
+        tenantId: scope.tenantId,
+      });
+    }
+  };
+
+  const bringOnline = async (firstScope: AiSessionScope): Promise<void> => {
     await options.mastra.startWorkers();
 
-    const runReconcile = async (attempt: number): Promise<void> => {
-      try {
-        // The module capability loader reads its bearer from the Engenty-tools
-        // ALS, which is normally entered by the HTTP middleware. A reconcile
-        // has no request behind it, so enter it here with a freshly vended
-        // service token. Without this the loader throws "…this run does not
-        // include an end-user bearer token" on step 1 and NOTHING downstream
-        // runs — no trigger and no system job ever gets its schedule.
-        const serviceToken = await getServiceAccessToken();
-        if (!serviceToken) {
-          throw new Error(
-            "scheduler: no service credential available to reconcile triggers"
-          );
+    // The scheduler serves EVERY tenant: mint a per-tenant scope and
+    // reconcile each. The first tenant's scope is already resolved (it
+    // proved the credential); the rest resolve here and a failure skips
+    // that tenant only — with a tenant-bound credential the foreign mints
+    // are refused at the exchange, which is exactly the single-tenant
+    // behavior this generalizes.
+    let tenantIds: string[];
+    try {
+      tenantIds = await listTenantIds();
+    } catch (err) {
+      logger.warn(
+        "scheduler: tenant enumeration failed — reconciling the credential tenant only",
+        { message: err instanceof Error ? err.message : String(err) }
+      );
+      tenantIds = [firstScope.tenantId];
+    }
+    if (!tenantIds.includes(firstScope.tenantId)) {
+      tenantIds.unshift(firstScope.tenantId);
+    }
+    setTimeout(() => {
+      void (async () => {
+        for (const tenantId of tenantIds) {
+          if (tenantId === firstScope.tenantId) {
+            await runReconcile(firstScope, 0);
+            continue;
+          }
+          const resolved = await resolveSchedulerServiceScope(tenantId);
+          if (!resolved.ok) {
+            logger.warn(
+              "scheduler: skipping tenant — service scope unavailable (tenant-bound credential?)",
+              {
+                reason: resolved.reason,
+                tenantId,
+                ...(resolved.reason === "resolution_failed"
+                  ? { error: resolved.error, status: resolved.status }
+                  : {}),
+              }
+            );
+            continue;
+          }
+          await runReconcile(resolved.scope, 0);
         }
-        await engentyToolsRunAls.run(
-          {
-            tenantId: scope.tenantId,
-            userAccessToken: serviceToken,
-            userId: scope.userId,
-          },
-          () =>
-            reconcileScheduler({
-              invokeOperation: createSchedulerOperationInvoker(),
-              mastra: options.mastra,
-              moduleLoader: options.moduleLoader,
-              tenantId: scope.tenantId,
-            })
-        );
-      } catch (err) {
-        if (attempt < RECONCILE_RETRIES) {
-          setTimeout(
-            () => void runReconcile(attempt + 1),
-            RECONCILE_DELAY_MS * (attempt + 1)
-          ).unref?.();
-          return;
-        }
-        logger.error("scheduler reconcile failed", {
-          message: err instanceof Error ? err.message : String(err),
-        });
-      }
-    };
-    setTimeout(() => void runReconcile(0), RECONCILE_DELAY_MS).unref?.();
+      })();
+    }, RECONCILE_DELAY_MS).unref?.();
   };
 
   const resolveAndStart = async (attempt: number): Promise<void> => {
-    const resolved = await resolveSchedulerServiceScope();
+    // Boot probe: a platform credential refuses a tenant-less mint, so probe
+    // against a concrete tenant id first. When that fails and a tenant was
+    // named, fall back to the tenant-less resolve — a tenant-bound
+    // credential whose own tenant is not the first row must still come
+    // online. The last result drives the disable/retry decision.
+    const probeTenantId = await listTenantIds()
+      .then((ids) => ids[0])
+      .catch(() => undefined);
+    let resolved = await resolveSchedulerServiceScope(probeTenantId);
+    if (
+      !resolved.ok &&
+      resolved.reason === "resolution_failed" &&
+      probeTenantId
+    ) {
+      const fallback = await resolveSchedulerServiceScope();
+      if (fallback.ok) {
+        resolved = fallback;
+      }
+    }
     if (resolved.ok) {
       if (attempt > 0) {
         logger.info("scheduler service scope resolved after retry", {
@@ -101,7 +173,7 @@ export async function startScheduler(options: {
     }
     if (resolved.reason === "jwt_missing") {
       logger.warn(
-        "scheduler disabled — no service credential configured (set ENGENTY_AI_SERVICE_SECRET, or ENGENTY_AI_SERVICE_EMAIL/PASSWORD); scheduled triggers will not fire"
+        "scheduler disabled — no service credential configured (set ENGENTY_AI_SERVICE_SECRET); scheduled triggers will not fire"
       );
       return;
     }

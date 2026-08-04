@@ -6,6 +6,7 @@ import { startScheduler } from "../start.js";
 const resolveSchedulerServiceScope = vi.hoisted(() => vi.fn());
 const reconcileScheduler = vi.hoisted(() => vi.fn(async () => {}));
 const getServiceAccessToken = vi.hoisted(() => vi.fn());
+const listTenantIds = vi.hoisted(() => vi.fn());
 
 vi.mock("../service-invoker.js", () => ({
   createSchedulerOperationInvoker: () => vi.fn(),
@@ -13,6 +14,7 @@ vi.mock("../service-invoker.js", () => ({
 }));
 vi.mock("../heartbeat-sync.js", () => ({ reconcileScheduler }));
 vi.mock("../../ai/service-credential.js", () => ({ getServiceAccessToken }));
+vi.mock("../tenants.js", () => ({ listTenantIds }));
 
 const scope = {
   isSuperAdmin: false,
@@ -45,6 +47,8 @@ describe("startScheduler", () => {
     reconcileScheduler.mockReset();
     getServiceAccessToken.mockReset();
     getServiceAccessToken.mockResolvedValue("service-token");
+    listTenantIds.mockReset();
+    listTenantIds.mockResolvedValue(["tenant-1"]);
   });
 
   afterEach(() => {
@@ -72,7 +76,11 @@ describe("startScheduler", () => {
   });
 
   it("retries a failed resolution and comes online once core is reachable", async () => {
+    // Each failing attempt resolves twice: the tenant probe, then the
+    // tenant-less fallback for a tenant-bound credential.
     resolveSchedulerServiceScope
+      .mockResolvedValueOnce(resolutionFailed)
+      .mockResolvedValueOnce(resolutionFailed)
       .mockResolvedValueOnce(resolutionFailed)
       .mockResolvedValueOnce(resolutionFailed)
       .mockResolvedValue({ ok: true, scope });
@@ -84,28 +92,32 @@ describe("startScheduler", () => {
     expect(startWorkers).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(10_000); // retry 2 — core is up
     expect(startWorkers).toHaveBeenCalledTimes(1);
-    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(3);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(5);
   });
 
   it("keeps retrying indefinitely with a capped backoff while core stays unreachable", async () => {
+    // A failing attempt makes two resolve calls (tenant probe + tenant-less
+    // fallback); a succeeding one makes just the probe.
     resolveSchedulerServiceScope.mockResolvedValue(resolutionFailed);
     const { mastra, startWorkers } = fakeMastra();
     await startScheduler({ mastra });
-    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(1);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(2);
 
     // Backoff grows 5s × attempt until it hits the 60s cap (attempt 12).
     for (let retry = 1; retry <= 12; retry++) {
       await vi.advanceTimersByTimeAsync(Math.min(5000 * retry, 60_000));
-      expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(retry + 1);
+      expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(
+        2 * (retry + 1)
+      );
     }
 
     // Well past the old 4-attempt bound: the next retry fires exactly 60s
     // later (capped — 65s uncapped), not never.
     await vi.advanceTimersByTimeAsync(59_999);
-    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(13);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(26);
     resolveSchedulerServiceScope.mockResolvedValue({ ok: true, scope });
     await vi.advanceTimersByTimeAsync(1);
-    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(14);
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(27);
     expect(startWorkers).toHaveBeenCalledTimes(1);
   });
 
@@ -154,7 +166,54 @@ describe("startScheduler", () => {
     const { mastra, startWorkers } = fakeMastra();
     await startScheduler({ mastra });
     await vi.runAllTimersAsync();
-    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(1);
+    // Probe + tenant-less fallback, then disabled — no retry loop.
+    expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(2);
     expect(startWorkers).not.toHaveBeenCalled();
+  });
+
+  it("reconciles every tenant, minting a per-tenant scope for each", async () => {
+    // Platform-scoped credential: the scheduler serves all tenants, not the
+    // credential's own — each reconcile enters the ALS with that tenant's
+    // scope and passes that tenant's id down.
+    listTenantIds.mockResolvedValue(["tenant-1", "tenant-2"]);
+    const scope2 = { ...scope, tenantId: "tenant-2" };
+    resolveSchedulerServiceScope.mockImplementation(
+      async (tenantId?: string) => ({
+        ok: true,
+        scope: tenantId === "tenant-2" ? scope2 : scope,
+      })
+    );
+    const { mastra } = fakeMastra();
+
+    await startScheduler({ mastra });
+    await vi.runAllTimersAsync();
+
+    expect(reconcileScheduler).toHaveBeenCalledTimes(2);
+    const tenants = reconcileScheduler.mock.calls.map(
+      (call) => (call[0] as { tenantId: string }).tenantId
+    );
+    expect(tenants.sort()).toEqual(["tenant-1", "tenant-2"]);
+  });
+
+  it("skips a tenant whose scope cannot be resolved instead of dying", async () => {
+    // A tenant-bound credential in a multi-tenant install: foreign tenants
+    // are refused at the exchange; their reconcile is skipped, the
+    // credential's own tenant still comes online.
+    listTenantIds.mockResolvedValue(["tenant-1", "tenant-2"]);
+    resolveSchedulerServiceScope.mockImplementation(
+      async (tenantId?: string) =>
+        tenantId === "tenant-2"
+          ? { ...resolutionFailed, status: 403 }
+          : { ok: true, scope }
+    );
+    const { mastra } = fakeMastra();
+
+    await startScheduler({ mastra });
+    await vi.runAllTimersAsync();
+
+    expect(reconcileScheduler).toHaveBeenCalledTimes(1);
+    expect(
+      (reconcileScheduler.mock.calls[0]?.[0] as { tenantId: string }).tenantId
+    ).toBe("tenant-1");
   });
 });

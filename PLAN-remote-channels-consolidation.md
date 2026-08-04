@@ -1,6 +1,8 @@
 # PLAN — Remote channels consolidation: threads, tenancy, credentials
 
-Status: R1–R3 + most of R5 IMPLEMENTED on main (unpushed) · 2026-08-03 ·
+Status: R1–R3 + most of R5 SHIPPED in v0.1.90/v0.1.91 (pushed, deploy
+pipeline green) · spike + hardening below · remaining work tracked in
+§ "Open items" at the end · 2026-08-03 ·
 **R2 SPIKE PASSED LIVE** against the dev stack (signed webhook through the
 core gateway → gate-provisioned thread → real model turn → user+assistant
 messages in `ai.thread_message` under the tenant, attributed to the mapped
@@ -170,22 +172,59 @@ thread, forever. Then:
   not force remote commands through the module catalog in v2 — the remote set
   is tiny and gate-local.
 
-## R4 · Per-tenant credentials (`ChannelProvider`) — the real multi-tenant fix
+## R4 · Per-tenant credentials — implementation spec (2026-08-04)
 
-Unchanged from the earlier design discussion; recorded here so this plan is the
-single reference:
+Written as an executable spec instead of implemented overnight: the credential
+surface (`service-credential.ts`, scheduler invoker, connections) was under
+active concurrent refactor (tenant-scoped service tokens), and the
+E2E-precondition (decision #4) stands. Grounded against the real APIs.
 
-- Implement `EngentyChannelProvider` against Mastra's `ChannelProvider`
-  interface (`configure`, `connect` → `oauth | deep_link | immediate`,
-  `listInstallations`, `disconnect` — `channels/types.d.ts`).
-- Credentials live in the connections framework;
-  `bindings.connection_id` (nullable today, comment says "spike/env-credential
-  bindings have no stored connection") becomes the pointer.
-- Kills: bot token in apps/ai env (moves custody to core), one-bot-per-
-  installation (⇒ N Slack workspaces / N tenants), and the property that made
-  SYS-10 cross-tenant.
-- Precondition: live Slack E2E exists (owed since v0.1.48) so this has a
-  regression baseline. Do not start R4 before that.
+**Target:** bot credentials live per-tenant in the connections framework;
+apps/ai holds no platform tokens; a binding's `connection_id` (column exists,
+nullable) points at the installation. Kills the last SYS-10 property (one
+platform-level bot for all tenants).
+
+**Step 1 — `slack-bot` connector** (`modules/connections/providers/slack/`):
+the existing Slack connector is a USER-token flow (scopes via
+`extraAuthParams.user_scope`, `baseScopes: []` — see `connector.ts` header
+comment). Add a second connector id `slack-bot` in the same provider: OAuth v2
+with BOT scopes in the normal `scope` param (`app_mentions:read`, `im:history`,
+`chat:write`, `users:read`), token = `access_token` from the workspace install
+response (`team.id` captured as the account anchor → becomes
+`bindings.external_workspace_id`). The signing secret stays app-level (one
+Slack app per installation signs all workspaces) — platform setting, not
+per-connection. Telegram: `telegram-bot` connector, `immediate` kind (token
+paste), bot id as account anchor.
+
+**Step 2 — binding ↔ connection:** `remote_bindings_upsert` accepts
+`connection_id` (already in the schema/op); Settings UI gains a connection
+picker (connections framework list, filter `slack-bot`). Binding creation from
+a fresh OAuth install can auto-fill `external_workspace_id` from the
+connection's account anchor.
+
+**Step 3 — runtime credential resolution:** the provider layout stays
+(`providers/slack.ts` keeps `id`/`isConfigured`/`createAdapter`), but
+`createAdapter` becomes per-binding: on boot, the runtime asks core for the
+active bindings + their connection-backed bot tokens (new MANAGE op
+`remote_runtime_list_installations` returning decrypted tokens over the
+service channel — same trust boundary as `remote_runtime_resolve_sender`),
+constructs ONE adapter per workspace (Chat SDK `SlackAdapter` supports
+`SlackInstallation` storage — `setInstallation(teamId, …)`; prefer that over
+N adapter instances if one adapter can host N installations — VERIFY in
+`@chat-adapter/slack` before choosing). Env vars remain the fallback when no
+connection-backed binding exists (Tier-B single-tenant), so nothing breaks.
+
+**Step 4 — refresh/revoke:** connections framework owns token refresh; the
+runtime re-fetches installations on `connections.connected` bus events (the
+event exists; subscriber count today: zero) and on a 401 from the platform.
+
+**Step 5 — retire:** once all bindings carry `connection_id`, drop
+`SLACK_BOT_TOKEN`/`TELEGRAM_BOT_TOKEN` from the manifest and flip
+`isConfigured()` to "has ≥1 connection-backed binding OR env fallback".
+
+**Preconditions unchanged:** real-workspace Slack E2E first (regression
+baseline), and land after the concurrent service-credential refactor settles —
+both touch the same files.
 
 ## R5 · Cleanup
 
@@ -223,3 +262,67 @@ single reference:
 
 R1 (small, unblocks `ddbcf6be0`) → R2 spike → R2 → R5 → R3 → [Slack E2E] → R4.
 R1+R5 are releasable alone; R2 is the substance; R3/R4 are independent tails.
+
+---
+
+## Open items (audited 2026-08-03, post-v0.1.91)
+
+Ordered by leverage; ① blocks ⑤⑥, everything else is independent.
+
+1. **Real-workspace Slack E2E** — the only remaining unverified layer is
+   Slack's side (event subscription config, real signatures, real thread ids,
+   attachment URLs). Everything below the network edge is spike-proven.
+   Needs: a Slack app + tunnel to the dev gateway (docs describe it). Hard
+   precondition for R4.
+2. **Workspace routing** — DONE + verified live 2026-08-03: the gate now
+   extracts the workspace anchor from `message.raw` (Slack `team_id`/`team`
+   string/`team.id` object/`user.team_id` — all four shapes tested; Telegram
+   deliberately null, the bot token is the anchor) and forwards it, so
+   workspace-anchored bindings match. Live: event with matching `team` routed
+   and provisioned a thread; a foreign workspace was refused ("no active
+   binding", no row) — the server's single-null-anchor fallback already
+   refused to guess between multiple tenants, so the failure mode was
+   unroutability, not misroute.
+3. **In-thread approval cards** — TESTED LIVE 2026-08-03, and the "(Phase 3)"
+   comment was aspiration: `approvalPolicy: "suspend"` renders NO card. Chat
+   SDK's driver renders Approve/Deny only on Mastra's native
+   `tool-call-approval` chunk; the engenty approval suspends the run from
+   *inside* the tool (workflow suspension), which never emits that chunk — the
+   Slack user stared at a spinning tool card while the run parked in the
+   in-process 15-min map (RUN-01) with no resume path from Slack. Changed the
+   channel policy to `"defer"`: core records a durable approval request, the
+   tool returns `approval_pending`, the turn ends with an honest reply, the
+   inbox pings a human — aligned with the D2 unified-approvals direction
+   (approve mints the grant a retry spends). In-place cards + resume = map the
+   engenty approval onto Mastra's native tool-approval flow for channel turns;
+   build on top of D2, not before it. NOTE: the defer path is unit-tested but
+   its live run was blocked overnight — channel turns started hanging at
+   stream init AFTER the concurrent working-tree changes of 2026-08-03 ~22:20
+   (turns at 21:07 and 21:34 progressed fine; both suspend and defer variants
+   hang identically since). Re-run the stub-Slack approval test once the tree
+   settles.
+4. **UI treatment of channel threads** — DONE, differently than assumed: the
+   copilot drawer filters by agent id, so `engenty.remote` threads never
+   appeared anywhere (the "badge" framing was wrong). Added a
+   **Conversations** section to the module settings page
+   (`/mdl/engenty-remote/settings`) via a new `remote_conversations_list` op:
+   platform thread, DM/channel, backing engenty thread, last activity.
+5. **R4 — per-tenant credentials** (`EngentyChannelProvider` + connections
+   framework, `bindings.connection_id`). The real multi-tenant fix; moves the
+   bot token out of apps/ai env. Blocked on ① by decision #4.
+6. **Prod enablement steps** (when first turned on in prod): manual PostgREST
+   exposed-schemas PATCH for `module_remote` (like every module schema);
+   set platform credentials; confirm `core.users.impersonate` on the service
+   principal.
+7. **Housekeeping** — DONE 2026-08-03 except one: `inbound_events` retention
+   now prunes opportunistically on the ingest path (7d, non-fatal, no
+   scheduler dependency); `REMOTE_PLATFORMS` aligned to the provider registry
+   (slack, telegram); docs updated (routing table, chat controls,
+   `SLACK_API_URL`, real-workspace E2E runbook, prod enablement checklist).
+   Still open: `/new` leaves detached mapping threads in the global store
+   (harmless rows, sweep eventually).
+8. **Mastra upgrade watch** — drop `patches/@mastra__core@1.52.1.patch` when
+   upstream owns the driverPromise rejection; re-verify the pre-created
+   mapping-thread trick (metadata filter shape) on every Mastra bump — R2
+   rides an internal behavior, and the regression surface is exactly one
+   integration test away (see ①).

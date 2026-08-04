@@ -168,7 +168,7 @@ function serviceCredentialFromRow(row: Row): ServiceCredentialRecord {
     lastUsedAt: row.last_used_at ? toEpoch(row.last_used_at) : undefined,
     name: String(row.name ?? ""),
     secretHash: String(row.secret_hash),
-    tenantId: String(row.tenant_id),
+    tenantId: row.tenant_id === null ? null : String(row.tenant_id),
   };
 }
 
