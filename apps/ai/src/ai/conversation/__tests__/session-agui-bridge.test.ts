@@ -112,6 +112,42 @@ describe("SessionAgUiConverter", () => {
     expect(types.filter((t) => t === "TOOL_CALL_START")).toHaveLength(1);
   });
 
+  it("holds a nameless tool_input_start so the named tool_start opens the call", () => {
+    // Azure surfaces dynamic tools' input-streaming-start before the tool
+    // name; Mastra passes that through as toolName "". Opening the call on the
+    // nameless event froze "" into the transcript — the named tool_start that
+    // followed was deduped, and every workspace_action row rendered as the
+    // UI's "Ran tool" placeholder.
+    const out = run([
+      { toolCallId: "t9", toolName: "", type: "tool_input_start" },
+      {
+        argsTextDelta: '{"op":"write"}',
+        toolCallId: "t9",
+        type: "tool_input_delta",
+      } as SessionEventLike,
+      {
+        args: { op: "write" },
+        toolCallId: "t9",
+        toolName: "workspace_action",
+        type: "tool_start",
+      },
+      { result: "ok", toolCallId: "t9", type: "tool_end" },
+    ]);
+    const starts = out.filter((e) => e.type === "TOOL_CALL_START");
+    expect(starts).toHaveLength(1);
+    expect(starts[0]?.toolCallName).toBe("workspace_action");
+  });
+
+  it("still opens a genuinely nameless tool_start so END/RESULT pair up", () => {
+    const out = run([
+      { args: {}, toolCallId: "t10", toolName: "", type: "tool_start" },
+      { result: "ok", toolCallId: "t10", type: "tool_end" },
+    ]);
+    const start = out.find((e) => e.type === "TOOL_CALL_START");
+    expect(start?.toolCallName).toBe("tool");
+    expect(out.map((e) => e.type)).toContain("TOOL_CALL_RESULT");
+  });
+
   it("attaches tool calls to the current assistant message id (not the toolCallId)", () => {
     // Mastra persists tool-invocations as PARTS of the assistant message; a tool
     // emitted under its own messageId is an orphan the client drops on finish (the

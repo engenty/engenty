@@ -248,3 +248,88 @@ describe("approval grant store ops (D2 2d)", () => {
     expect(core.calls.revoked).toBe(task.id);
   });
 });
+
+/**
+ * Capability elevation granted "for this goal" must not outlive the goal. The
+ * reap existed as a DAL function with zero callers until 2026-08-04, so grants
+ * lingered until their TTL — these pin that it actually fires now (TRK-03).
+ */
+describe("registerTasksGatewayMethods — goal grant reaping", () => {
+  function setup() {
+    const reaped: string[] = [];
+    const repo = makeMockTasksRepo();
+    const mock = makeMockApi();
+    registerTasksGatewayMethods(mock.api, repo, {
+      reapGoalGrants: (_auth, goalId) => {
+        reaped.push(goalId);
+        return Promise.resolve();
+      },
+    });
+    const run = (operationId: string, input: unknown) => {
+      const op = mock.serverOperations.find(
+        (o) => o.operationId === operationId
+      );
+      if (!op) {
+        throw new Error(`operation ${operationId} not found`);
+      }
+      return (op.handler as (i: unknown, c: unknown) => Promise<unknown>)(
+        input,
+        { auth: defaultAuth }
+      );
+    };
+    return { reaped, repo, run };
+  }
+
+  it.each([
+    "achieved",
+    "cancelled",
+  ] as const)("reaps when a goal becomes %s", async (status) => {
+    const { reaped, repo, run } = setup();
+    const goal = await repo.createGoal({ title: "G" });
+
+    await run("goals_update", { id: goal.id, status });
+
+    expect(reaped).toEqual([goal.id]);
+  });
+
+  it.each([
+    "planned",
+    "active",
+  ] as const)("does not reap while a goal is still %s", async (status) => {
+    const { reaped, repo, run } = setup();
+    const goal = await repo.createGoal({ title: "G" });
+
+    await run("goals_update", { id: goal.id, status });
+
+    expect(reaped).toEqual([]);
+  });
+
+  it("reaps when a goal is deleted", async () => {
+    const { reaped, repo, run } = setup();
+    const goal = await repo.createGoal({ title: "G" });
+
+    await run("goals_delete", { id: goal.id });
+
+    expect(reaped).toEqual([goal.id]);
+  });
+
+  it("keeps the goal update when the reap fails", async () => {
+    const repo = makeMockTasksRepo();
+    const mock = makeMockApi();
+    registerTasksGatewayMethods(mock.api, repo, {
+      reapGoalGrants: () => Promise.reject(new Error("core unreachable")),
+    });
+    const goal = await repo.createGoal({ title: "G" });
+    const op = mock.serverOperations.find(
+      (o) => o.operationId === "goals_update"
+    );
+
+    const updated = (await (
+      op!.handler as (i: unknown, c: unknown) => Promise<unknown>
+    )({ id: goal.id, status: "achieved" }, { auth: defaultAuth })) as {
+      status: string;
+    };
+
+    expect(updated.status).toBe("achieved");
+  });
+});

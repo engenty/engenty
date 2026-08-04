@@ -4,10 +4,7 @@ import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { AiService } from "../ai/index.js";
-import {
-  abortActiveRun,
-  registerActiveRunAbortController,
-} from "../ai/sessions/run-abort-registry.js";
+import { abortActiveRun } from "../ai/sessions/run-abort-registry.js";
 import {
   isRunLiveInProcess,
   subscribeRunEvents,
@@ -444,23 +441,6 @@ export function registerAgentRunRoutes(
       );
     }
   });
-}
-
-/**
- * @deprecated Use startDetachedSessionRun (detached-run.ts) for new run paths.
- * This remains for any legacy callers that have not yet migrated.
- * D1: client disconnect no longer aborts runs — only POST /runs/:id/cancel does.
- */
-export function createSessionRunAbortContext(
-  _clientSignal: AbortSignal,
-  runId = crypto.randomUUID()
-) {
-  const active = registerActiveRunAbortController(runId);
-  return {
-    abortSignal: active.abortSignal,
-    cleanup: active.cleanup,
-    runId,
-  };
 }
 
 export function createRouteRunTracker(params: {

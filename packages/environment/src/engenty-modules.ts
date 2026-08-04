@@ -11,9 +11,6 @@ export interface EngentyPluginSpec {
   source: string;
 }
 
-/** @deprecated Use EngentyPluginsManifest */
-export type EngentyModulesManifest = EngentyPluginsManifest;
-
 export interface EngentyPluginsManifest {
   plugins: Record<string, EngentyPluginSpec>;
   repoRoot: string;
@@ -84,24 +81,6 @@ function parsePluginEntry(slug: string, value: unknown): EngentyPluginSpec {
   );
 }
 
-function readLegacyModulesArray(
-  engenty: Record<string, unknown>
-): Record<string, EngentyPluginSpec> | null {
-  const raw = engenty.modules;
-  if (!Array.isArray(raw)) {
-    return null;
-  }
-  const plugins: Record<string, EngentyPluginSpec> = {};
-  for (const entry of raw) {
-    if (typeof entry !== "string") {
-      throw new Error("Legacy engenty.modules entries must be slug strings");
-    }
-    const slug = parsePluginSlug(entry);
-    plugins[slug] = parsePluginEntry(slug, {});
-  }
-  return plugins;
-}
-
 export function readEngentyPluginsManifest(
   repoRoot: string
 ): EngentyPluginsManifest {
@@ -124,8 +103,15 @@ export function readEngentyPluginsManifest(
     throw new Error(
       'engenty.plugins must be an object map — use { "my-plugin": { "source": "workspace" } }'
     );
+  } else if (Array.isArray(engenty.modules)) {
+    // The pre-plugins manifest shape. Accepted silently until 2026-08-04; no
+    // manifest in the repo used it, so it fails loudly now rather than quietly
+    // reading a format nothing writes.
+    throw new Error(
+      'engenty.modules (array) is no longer supported — use engenty.plugins: { "my-plugin": { "source": "workspace" } }'
+    );
   } else {
-    rawPlugins = readLegacyModulesArray(engenty) ?? {};
+    rawPlugins = {};
   }
 
   const plugins: Record<string, EngentyPluginSpec> = {};
@@ -142,25 +128,11 @@ export function readEngentyPluginsManifest(
   return { plugins, slugs, repoRoot };
 }
 
-/** @deprecated Use readEngentyPluginsManifest */
-export function readEngentyModulesManifest(
-  repoRoot: string
-): EngentyPluginsManifest {
-  return readEngentyPluginsManifest(repoRoot);
-}
-
 export function readEngentyPluginsManifestFromCwd(
   startDir = process.cwd()
 ): EngentyPluginsManifest {
   const repoRoot = findEngentyRepoRootFrom(startDir);
   return readEngentyPluginsManifest(repoRoot);
-}
-
-/** @deprecated Use readEngentyPluginsManifestFromCwd */
-export function readEngentyModulesManifestFromCwd(
-  startDir = process.cwd()
-): EngentyPluginsManifest {
-  return readEngentyPluginsManifestFromCwd(startDir);
 }
 
 export function findEngentyRepoRootFrom(startDir: string): string {
@@ -477,14 +449,6 @@ export function writeEngentyPluginsManifest(
     plugins[slug] = { source: "workspace" };
   }
   writeEngentyPluginsObject(repoRoot, plugins);
-}
-
-/** @deprecated Use writeEngentyPluginsManifest */
-export function writeEngentyModulesManifest(
-  repoRoot: string,
-  slugs: string[]
-): void {
-  writeEngentyPluginsManifest(repoRoot, slugs);
 }
 
 export function writeEngentyPluginsObject(

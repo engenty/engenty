@@ -24,7 +24,6 @@ export {
 export {
   disablePluginsInManifest,
   ENGENTY_PLUGIN_MANIFEST,
-  type EngentyModulesManifest,
   type EngentyPluginSpec,
   type EngentyPluginsManifest,
   enabledModuleSlugSet,
@@ -38,14 +37,11 @@ export {
   moduleHasUi,
   modulePackageName,
   type ResolvedEngentyModule,
-  readEngentyModulesManifest,
-  readEngentyModulesManifestFromCwd,
   readEngentyPluginsManifest,
   readEngentyPluginsManifestFromCwd,
   readPluginManifest,
   resolveEnabledModules,
   resolveModuleDir,
-  writeEngentyModulesManifest,
   writeEngentyPluginsManifest,
   writeEngentyPluginsObject,
 } from "./engenty-modules.js";

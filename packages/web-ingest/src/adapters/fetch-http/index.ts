@@ -23,7 +23,7 @@ import {
   pickBetterPageTitle,
   resolveSuggestedPageTitle,
 } from "../../lib/resolve-page-title.js";
-import { assertPublicHttpHost } from "../../lib/ssrf.js";
+import { safeFetchFollowingRedirects } from "../../lib/safe-fetch.js";
 import { suggestHtmlExtractPatternsFromHtml } from "../../lib/suggest-html-extract-patterns.js";
 import type { WebIngestResult } from "../../types.js";
 
@@ -71,63 +71,17 @@ export class FetchHttpAdapter implements WebIngestAdapter {
     let finalUrl: string;
 
     try {
-      // Manual redirect loop so every hop is SSRF-validated
-      let currentUrl = url;
-      let hops = 0;
-
-      // Validate initial URL before the first fetch
-      await assertPublicHttpHost(currentUrl);
-
-      while (true) {
-        const resp = await fetchFn(currentUrl, {
-          headers: {
-            Accept:
-              "text/html,application/xhtml+xml,text/plain,text/markdown;q=0.9,*/*;q=0.1",
-            "User-Agent": userAgent,
-          },
-          redirect: "manual",
-          signal: controller.signal,
-        });
-
-        // Not a redirect — we're done
-        if (
-          resp.status !== 301 &&
-          resp.status !== 302 &&
-          resp.status !== 303 &&
-          resp.status !== 307 &&
-          resp.status !== 308
-        ) {
-          response = resp;
-          finalUrl = currentUrl;
-          break;
-        }
-
-        hops += 1;
-        if (hops > MAX_REDIRECTS) {
-          throw new Error(
-            `Too many redirects (max ${MAX_REDIRECTS}) following ${url}`
-          );
-        }
-
-        const location = resp.headers.get("location");
-        if (!location?.trim()) {
-          throw new Error(
-            `Redirect response (HTTP ${resp.status}) missing Location header`
-          );
-        }
-
-        let nextUrl: string;
-        try {
-          nextUrl = new URL(location, currentUrl).toString();
-        } catch {
-          throw new Error(`Malformed Location header in redirect: ${location}`);
-        }
-
-        // Validate the redirect target before following it
-        await assertPublicHttpHost(nextUrl);
-
-        currentUrl = nextUrl;
-      }
+      // Every hop is SSRF-validated inside the shared helper.
+      ({ finalUrl, response } = await safeFetchFollowingRedirects(url, {
+        fetchImpl: fetchFn,
+        headers: {
+          Accept:
+            "text/html,application/xhtml+xml,text/plain,text/markdown;q=0.9,*/*;q=0.1",
+          "User-Agent": userAgent,
+        },
+        maxRedirects: MAX_REDIRECTS,
+        signal: controller.signal,
+      }));
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
         throw new Error("Fetch timed out");

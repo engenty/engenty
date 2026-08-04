@@ -171,13 +171,19 @@ export function seedBindings(
   }));
 }
 
+/**
+ * One env var per role — the value that seeds a role's binding when the table
+ * is empty. Each role had a second, older key here as a fallback; those were
+ * aliases of aliases (a legacy name feeding a renamed role feeding a binding)
+ * and are gone, so a role's seed has exactly one source.
+ */
 const ROLE_ENV_KEYS: Readonly<Record<string, readonly string[]>> = {
   "model.low": ["AI_CLASSIFIER_MODEL"],
   "model.medium": ["AI_CHAT_MODEL"],
   "model.high": ["AI_CHAT_MODEL"],
-  router: ["AI_ROUTING_MODEL", "AI_CLASSIFIER_MODEL"],
+  router: ["AI_ROUTING_MODEL"],
   safeguard: ["AI_SAFEGUARD_MODEL"],
-  planning_coding: ["AI_PLANNING_CODING_MODEL", "AI_CODE_EXECUTION_MODEL"],
+  planning_coding: ["AI_PLANNING_CODING_MODEL"],
   research: ["AI_RESEARCH_MODEL"],
 };
 

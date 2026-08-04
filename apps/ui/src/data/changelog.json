@@ -4,6 +4,42 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "b1f8805",
+        "message": "delete deprecated route aliases — one leaked audit logs cross-tenant",
+        "group": "Fixed",
+        "breaking": true
+      },
+      {
+        "id": "f66841d",
+        "message": "never open a live tool call with an empty name (\"Ran tool\")",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "10cf427",
+        "message": "one goal-grant implementation, and actually reap it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "901bb2c",
+        "message": "drop the orphaned pg_cron coordinator heartbeat",
+        "group": "Fixed",
+        "breaking": true
+      },
+      {
+        "id": "19a8e78",
+        "message": "one SSRF guard, and validate every redirect hop",
+        "group": "Fixed",
+        "breaking": true
+      }
+    ]
+  },
+  {
+    "version": "v0.1.93",
+    "timestamp": 1785826450,
+    "commits": [
+      {
         "id": "f329f27",
         "message": "delete the userAccessToken scope shim, rename bags to accessToken",
         "group": "Changed",

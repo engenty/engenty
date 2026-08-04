@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.94] - 2026-08-04
+- FIXED **[core]** Delete deprecated route aliases — one leaked audit logs cross-tenant **[breaking]**
+- FIXED **[ai]** Never open a live tool call with an empty name ("Ran tool")
+- FIXED **[approvals]** One goal-grant implementation, and actually reap it
+- FIXED **[engenty-coordinator]** Drop the orphaned pg_cron coordinator heartbeat **[breaking]**
+- FIXED **[web-ingest]** One SSRF guard, and validate every redirect hop **[breaking]**
+
 ## [0.1.93] - 2026-08-04
 - ADDED **[ai]** ENGENTY_AI_SERVICE_SECRET is the only service credential **[breaking]**
 - CHANGED **[ai]** Delete the userAccessToken scope shim, rename bags to accessToken **[breaking]**

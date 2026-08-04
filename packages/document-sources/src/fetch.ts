@@ -1,11 +1,12 @@
 import {
+  assertPublicHttpHost,
   buildWebIngestSections,
   extractWebIngestStructureFromHtml,
   type IngestUrlToMarkdownOptions,
   ingestUrlToMarkdown,
-  isBlockedHostname,
   isTitleUrlLike,
   pickBetterPageTitle,
+  safeFetchFollowingRedirects,
   type WebIngestHtmlExtractOptions,
 } from "@engenty/web-ingest";
 import { z } from "zod";
@@ -240,13 +241,24 @@ export function readHtmlExtractFromSourceSettings(
 
 const FETCH_UA = "EngentyDocumentSources/1.0";
 
-export function assertPublicHttpUrl(rawUrl: string): URL {
+/**
+ * Resolves the host and rejects any URL that lands on a private/link-local
+ * address — not just one that spells a private address literally.
+ */
+export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
+  if (!URL.canParse(rawUrl)) {
+    throw new Error("Only HTTP(S) source URLs are supported");
+  }
   const parsed = new URL(rawUrl);
   if (!(parsed.protocol === "http:" || parsed.protocol === "https:")) {
     throw new Error("Only HTTP(S) source URLs are supported");
   }
-  if (isBlockedHostname(parsed.hostname)) {
-    throw new Error("Source URL points to a blocked host");
+  try {
+    await assertPublicHttpHost(rawUrl);
+  } catch (error) {
+    throw new Error(
+      `Source URL points to a blocked host: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
   return parsed;
 }
@@ -255,11 +267,10 @@ export async function fetchText(
   url: string,
   limitBytes = 2_000_000
 ): Promise<string> {
-  assertPublicHttpUrl(url);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
-    const response = await fetch(url, {
+    const { response } = await safeFetchFollowingRedirects(url, {
       headers: { "user-agent": FETCH_UA },
       signal: controller.signal,
     });
@@ -280,11 +291,10 @@ async function fetchRawHtml(
   url: string,
   limitBytes = 2_000_000
 ): Promise<string | null> {
-  assertPublicHttpUrl(url);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
-    const response = await fetch(url, {
+    const { response } = await safeFetchFollowingRedirects(url, {
       headers: {
         accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
         "user-agent": FETCH_UA,
@@ -316,13 +326,12 @@ async function fetchRawHtml(
 export async function probeHttpMetadata(
   entry: DocumentSourceIndexEntry
 ): Promise<DocumentSourceProbeMetadata | null> {
-  assertPublicHttpUrl(entry.source_url);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
-    const response = await fetch(entry.source_url, {
-      method: "HEAD",
+    const { response } = await safeFetchFollowingRedirects(entry.source_url, {
       headers: { "user-agent": FETCH_UA },
+      method: "HEAD",
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -384,7 +393,7 @@ export async function retrieveUrlItem(
   source: DocumentSource,
   entry: DocumentSourceIndexEntry
 ): Promise<DocumentSourceRetrievedItem> {
-  assertPublicHttpUrl(entry.source_url);
+  await assertPublicHttpUrl(entry.source_url);
   const strategy = parseHttpIngestStrategyFromSettings(source.settings);
   const htmlExtract = readHtmlExtractFromSourceSettings(source.settings) ?? {};
 

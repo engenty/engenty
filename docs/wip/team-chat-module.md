@@ -623,7 +623,8 @@ that calls `emitInboxNotification({ source, tenantId, userId, summary, payload:
 { route, text_preview } })` (agents, tasks, heartbeats, …) can be opted in
 without code — e.g. `ENGENTY_EMAIL_NOTIFICATION_SOURCES=team-chat,agent`.
 Payload `route`/`text_preview` are optional; the body falls back to `summary`.
-The old `ENGENTY_TEAM_CHAT_EMAIL_*` env names remain honored as a fallback.
+The old `ENGENTY_TEAM_CHAT_EMAIL_*` env names were honored as a fallback until
+2026-08-04; they are gone — use the generic `ENGENTY_EMAIL_*` names.
 Open: per-user email opt-out pref, non-Gmail send connectors (Outlook), digest
 mode, per-source delay overrides.
 
@@ -823,9 +824,11 @@ badge + run link. Kill-switch `ENGENTY_TEAM_CHAT_MENTIONS_ENABLED=false`.
 Deferred from original scope: token-level streaming of the run into the thread panel
 (embedded CopilotTranscript) — the durable-reply path ships first; agent DMs stay
 deferred (§11); invite-agent UI is op-only until the details panel lands.
-Dev gotcha fixed en route: stale `ENGENTY_AI_SERVICE_JWT` re-minted
-(`scripts/mint-service-jwt.mjs --tenant <id>`); the orphaned old service core.users
-row was renamed aside to `service-old@engenty.local` (FK-heavy id rebind not worth it).
+Dev gotcha fixed en route: stale service credential re-minted; the orphaned old
+service core.users row was renamed aside to `service-old@engenty.local` (FK-heavy
+id rebind not worth it). (Historical: this used `ENGENTY_AI_SERVICE_JWT` and
+`scripts/mint-service-jwt.mjs`, both deleted in v0.1.93 — `ENGENTY_AI_SERVICE_SECRET`
+is now the only service credential.)
 
 Original scope:
 Agent membership (invite agent), AI tools (§9), agent-mention → linked `ai.thread`

@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import {
   createApprovalService,
+  listGoalGrantCapabilities,
   revokeApprovalGrantsForSubject,
 } from "@engenty/approvals-sdk";
 import {
@@ -15,7 +16,6 @@ import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
 import { createClient } from "@supabase/supabase-js";
 import { cors } from "hono/cors";
 import { z as zod } from "zod";
-import { listGoalGrantCapabilities } from "../dal/agent-goal-grants.js";
 import { resolveSupabaseConfig } from "../dal/supabase-config.js";
 import {
   createTenantPluginOverridesDal,

@@ -1,11 +1,12 @@
 /**
- * SSRF protection utilities for server-side URL fetching.
+ * SSRF protection for server-side URL fetching.
  *
- * Two layers:
- *  1. `isBlockedHostname` — fast synchronous check on the literal hostname string
- *     (kept for backward compat; callers that cannot await should keep using it).
- *  2. `assertPublicHttpHost` — async, resolves the hostname via DNS and validates
- *     every returned address with `isBlockedIp`.
+ * `assertPublicHttpHost` is the ONE guard — it resolves the hostname via DNS and
+ * validates every returned address with `isBlockedIp`. The literal-hostname
+ * check is its internal fast path, deliberately NOT exported: a string-only
+ * check passes any name that resolves to a private address, so exporting it
+ * invites call sites that look guarded and aren't (it was the sole guard on two
+ * fetch paths until 2026-08-04 — see TRK-01).
  *
  * Residual risk: DNS rebinding / TOCTOU window between resolution here and the
  * actual TCP connect.  The proper mitigation is to hook into the HTTP client's
@@ -56,11 +57,11 @@ function isIP(ip: string): 0 | 4 | 6 {
 }
 
 // ---------------------------------------------------------------------------
-// Synchronous hostname pattern check (kept for backward compat)
+// Literal-hostname fast path — internal to assertPublicHttpHost, never exported
 // ---------------------------------------------------------------------------
 
-/** Block obvious SSRF targets for server-side URL fetch. */
-export function isBlockedHostname(hostname: string): boolean {
+/** Block obvious SSRF targets by name, before any DNS work. */
+function isBlockedHostname(hostname: string): boolean {
   const h = hostname.toLowerCase();
   if (h === "localhost" || h.endsWith(".localhost")) {
     return true;

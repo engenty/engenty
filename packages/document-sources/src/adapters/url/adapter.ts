@@ -26,7 +26,7 @@ export const urlAdapter: DocumentSourceAdapter = {
       .map((u) => u.trim())
       .filter(Boolean);
     for (const u of urls) {
-      assertPublicHttpUrl(u);
+      await assertPublicHttpUrl(u);
     }
     const entries = urls.map((u) => ({
       item_key: u,

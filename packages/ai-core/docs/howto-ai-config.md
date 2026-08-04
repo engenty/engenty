@@ -12,11 +12,25 @@ Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/a
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AI_GATEWAY_API_KEY` | API key for AI Gateway (required for copilot) | — |
-| `AI_CHAT_MODEL` | Model ID for chat/specialist | Package default from `DEFAULT_AI_CHAT_MODEL_ID` |
-| `AI_ROUTING_MODEL` | Model ID for routing / supervisor decisions | Falls back to `AI_COORDINATOR_MODEL`, then `AI_CHAT_MODEL`, then package default |
-| `AI_COORDINATOR_MODEL` | Legacy alias for `AI_ROUTING_MODEL` | Same chain as `AI_ROUTING_MODEL` |
+| `AI_CHAT_MODEL` | Seeds the `model.medium` and `model.high` role bindings | `DEFAULT_AI_CHAT_MODEL_ID` |
+| `AI_CLASSIFIER_MODEL` | Seeds `model.low` | Role default |
+| `AI_ROUTING_MODEL` | Seeds `router` | Role default |
+| `AI_SAFEGUARD_MODEL` | Seeds `safeguard` | Role default |
+| `AI_PLANNING_CODING_MODEL` | Seeds `planning_coding` | Role default |
+| `AI_RESEARCH_MODEL` | Seeds `research` | Role default |
 
-Runtime resolution is centralized in `resolveChatModelId` (`@engenty/ai-core`): override → optional `tenantDefault` → env chain above → `DEFAULT_AI_CHAT_MODEL_ID`.
+These variables are **seed values, not runtime configuration**. They are read by
+`seedBindings` (`config/model-roles.ts`) to populate `ai.model_binding` when that
+table is empty; afterwards the binding rows are the source of truth and changing
+an env var has no effect. Manage models in the bindings console instead.
+
+Each role has exactly one env key. `AI_COORDINATOR_MODEL` and the other
+legacy aliases were removed on 2026-08-04 along with the dead
+`apps/core/src/lib/ai-config.ts` fallback chain this section used to describe
+(nothing had imported it in a long time).
+
+Runtime resolution for a chat model id is `resolveChatModelId`
+(`@engenty/ai-core`): explicit override → tenant default → `DEFAULT_AI_CHAT_MODEL_ID`.
 
 ## Tenant `ai.config` JSON (tenant-settings)
 

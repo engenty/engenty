@@ -1,3 +1,7 @@
+import {
+  grantCapabilityForGoal,
+  listGoalGrantCapabilities,
+} from "@engenty/approvals-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import {
   canReadSecret,
@@ -188,25 +192,22 @@ export function registerSecretsRevealRoutes(
         return hono.json({ error: "Forbidden" }, 403);
       }
 
-      const { error: grantError } = await supabase
-        .schema("core")
-        .from("agent_goal_grants")
-        .upsert(
-          buildGoalGrantRow({
-            capability: `secrets.read:${secret.id}`,
-            goalId,
-            grantedBy: ctx.auth.principalId,
-            tenantId: ctx.auth.tenantId,
-          }),
-          {
-            // Not ignoreDuplicates: now that grants lapse, a second approval
-            // has to renew the existing row. Skipping the write would leave an
-            // expired grant in place and re-ask the human forever.
-            ignoreDuplicates: false,
-            onConflict: "tenant_id, goal_id, agent_id, capability",
-          }
-        );
-      if (grantError) {
+      const row = buildGoalGrantRow({
+        capability: `secrets.read:${secret.id}`,
+        goalId,
+        grantedBy: ctx.auth.principalId,
+        tenantId: ctx.auth.tenantId,
+      });
+      try {
+        await grantCapabilityForGoal(supabase, {
+          agentId: row.agent_id,
+          capability: row.capability,
+          expiresAt: row.expires_at,
+          goalId: row.goal_id,
+          grantedBy: row.granted_by,
+          tenantId: row.tenant_id,
+        });
+      } catch {
         return hono.json({ error: "Grant failed" }, 500);
       }
       return hono.json({ ok: true });
@@ -234,25 +235,8 @@ export function buildResolveDeps(supabase: SupabaseClient, tenantId: string) {
         (r) => !r.expires_at || Date.parse(r.expires_at) > now
       );
     },
-    async listGoalGrantCapabilities(
-      _t: string,
-      goalId: string,
-      agentId: string
-    ) {
-      const { data } = await supabase
-        .schema("core")
-        .from("agent_goal_grants")
-        .select("capability, agent_id, expires_at")
-        .eq("tenant_id", tenantId)
-        .eq("goal_id", goalId);
-      const now = Date.now();
-      return (data ?? [])
-        .filter(
-          (r) =>
-            (r.agent_id === null || r.agent_id === agentId) &&
-            (!r.expires_at || Date.parse(r.expires_at) > now)
-        )
-        .map((r) => r.capability as string);
+    listGoalGrantCapabilities(_t: string, goalId: string, agentId: string) {
+      return listGoalGrantCapabilities(supabase, { agentId, goalId, tenantId });
     },
     // R4 (resolved) — access to a client-owned secret flows through PROJECT
     // membership: a user is "assigned to a client" iff they are on the team of

@@ -1321,12 +1321,6 @@ export function registerModuleOperationRoutes(params: {
     resolveTenantPluginOverrides,
   };
 
-  params.app.get("/api/modules/operations", async (c) => {
-    c.header("Deprecation", "true");
-    c.header("Link", '</api/operations/contracts>; rel="successor-version"');
-    return listAvailableOperationContracts(c, context);
-  });
-
   params.app.openapi(
     listOperationContractsRoute,
     async (c) => listAvailableOperationContracts(c, context) as never
@@ -1389,30 +1383,6 @@ export function registerModuleOperationRoutes(params: {
     );
   }
 
-  params.app.post("/api/modules/ops/:operationId", async (c) => {
-    c.header("Deprecation", "true");
-    c.header(
-      "Link",
-      '</api/operations/{operationId}/invoke>; rel="successor-version"'
-    );
-    const operationId = c.req.param("operationId");
-    const body = (await c.req.json().catch(() => ({}))) as { input?: unknown };
-    return executeModuleOperation({
-      c,
-      registry: params.registry,
-      config: params.config,
-      dataDir: params.dataDir,
-      resolvePath: params.resolvePath,
-      operationId,
-      input: body.input ?? {},
-      transport: "module_ops",
-      authProvider: params.authProvider,
-      approvalService: params.approvalService,
-      auditLog: params.auditLog,
-      resolveTenantPluginOverrides,
-    });
-  });
-
   params.app.get("/api/mcp/tools", async (c) => {
     const authResult = await requireAuth(c, params.authProvider);
     if (authResult.error || !authResult.auth) {
@@ -1446,32 +1416,6 @@ export function registerModuleOperationRoutes(params: {
         requiresApproval: contract.auth.requiresApproval,
       }));
     return jsonApiSuccess(c, tools);
-  });
-
-  params.app.post("/api/mcp/call/:operationId", async (c) => {
-    c.header("Deprecation", "true");
-    c.header(
-      "Link",
-      '</api/mcp/tools/{operationId}/call>; rel="successor-version"'
-    );
-    const operationId = c.req.param("operationId");
-    const body = (await c.req.json().catch(() => ({}))) as {
-      arguments?: unknown;
-    };
-    return executeModuleOperation({
-      c,
-      registry: params.registry,
-      config: params.config,
-      dataDir: params.dataDir,
-      resolvePath: params.resolvePath,
-      operationId,
-      input: body.arguments ?? {},
-      transport: "mcp",
-      authProvider: params.authProvider,
-      approvalService: params.approvalService,
-      auditLog: params.auditLog,
-      resolveTenantPluginOverrides,
-    });
   });
 
   params.app.post("/api/mcp/tools/:operationId/call", async (c) => {
@@ -1607,65 +1551,6 @@ export function registerApprovalRoutes(params: {
       },
     });
     return jsonApiSuccess(c, decided);
-  });
-
-  params.app.get("/api/security/audit", async (c) => {
-    c.header("Deprecation", "true");
-    c.header("Link", '</api/security/audit/events>; rel="successor-version"');
-    const authResult = await requireAuth(c, params.authProvider);
-    if (authResult.error || !authResult.auth) {
-      return authResult.error!;
-    }
-    const limit = Math.min(Number(c.req.query("limit") ?? 200) || 200, 500);
-    const page = Math.max(0, Number(c.req.query("page") ?? 0) || 0);
-    const search = c.req.query("search")?.trim() || undefined;
-    const typesRaw = c.req.query("types");
-    const types = typesRaw
-      ? typesRaw
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : undefined;
-    const actor_id = c.req.query("actor_id")?.trim() || undefined;
-    const module_id = c.req.query("module_id")?.trim() || undefined;
-    const tenant_id = c.req.query("tenant_id")?.trim() || undefined;
-    const from = c.req.query("from")?.trim() || undefined;
-    const to = c.req.query("to")?.trim() || undefined;
-
-    const listOpts = {
-      limit,
-      offset: page * limit,
-      search,
-      types,
-      actor_id,
-      module_id,
-      tenant_id,
-      from: from ? new Date(from).toISOString() : undefined,
-      to: to ? new Date(to).toISOString() : undefined,
-    };
-    const countOpts = {
-      search,
-      types,
-      actor_id,
-      module_id,
-      tenant_id,
-      from: from ? new Date(from).toISOString() : undefined,
-      to: to ? new Date(to).toISOString() : undefined,
-    };
-
-    const [events, total] = await Promise.all([
-      params.auditLog.list(limit, listOpts),
-      params.auditLog.count(countOpts),
-    ]);
-    const mapped = events.map((r) => ({
-      ...r,
-      detail: r.detail ? (JSON.parse(r.detail) as Record<string, unknown>) : {},
-    }));
-    return jsonApiSuccess(c, {
-      events: mapped,
-      has_more: page * limit + events.length < total,
-      total,
-    });
   });
 
   params.app.get("/api/security/audit/events", async (c) => {

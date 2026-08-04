@@ -87,21 +87,6 @@ function parsePluginEntry(slug, value) {
   );
 }
 
-function readLegacyModulesArray(engenty) {
-  if (!Array.isArray(engenty.modules)) {
-    return null;
-  }
-  const plugins = {};
-  for (const entry of engenty.modules) {
-    if (typeof entry !== "string") {
-      throw new Error("Legacy engenty.modules entries must be slug strings");
-    }
-    const slug = parsePluginSlug(entry);
-    plugins[slug] = parsePluginEntry(slug, {});
-  }
-  return plugins;
-}
-
 export function readEngentyPluginsManifest(repoRoot) {
   const pkg = readRootPackageJson(repoRoot);
   const engenty =
@@ -122,8 +107,15 @@ export function readEngentyPluginsManifest(repoRoot) {
     throw new Error(
       'engenty.plugins must be an object map — use { "my-plugin": { "source": "workspace" } }'
     );
+  } else if (Array.isArray(engenty.modules)) {
+    // The pre-plugins manifest shape. Accepted silently until 2026-08-04; no
+    // manifest in the repo used it, so it fails loudly now rather than quietly
+    // reading a format nothing writes. Mirrors packages/environment.
+    throw new Error(
+      'engenty.modules (array) is no longer supported — use engenty.plugins: { "my-plugin": { "source": "workspace" } }'
+    );
   } else {
-    rawPlugins = readLegacyModulesArray(engenty) ?? {};
+    rawPlugins = {};
   }
 
   const plugins = {};

@@ -39,8 +39,14 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // Tenant/platform-aware OAuth client-credential overrides (Setup UI).
   const settings = createConnectionsSettingsResolver(supabaseRaw);
 
-  // Chat connect cards, task re-dispatch, and notification fan-out subscribe
-  // to this event; the connect routes themselves stay transport-only.
+  // NOTE: nothing subscribes to `connections.connected` today. This comment
+  // used to claim chat connect cards, task re-dispatch, and notification
+  // fan-out did — none of them do: the in-chat connect card resumes by
+  // injecting a synthetic user message, and task re-dispatch rides
+  // `connections.approval.decided` (which DOES have a subscriber, in the tasks
+  // module). Kept as a published event because a tenant trigger can bind to it
+  // by name, but treat it as unconsumed until a subscriber exists (audit
+  // CON-03). The connect routes themselves stay transport-only.
   const onConnected = async (event: {
     connectorId: string;
     sharing: "personal" | "org";

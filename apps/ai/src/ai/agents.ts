@@ -2,7 +2,6 @@ import type { AgentFnDescriptor } from "@engenty/ai-core";
 import { builtinFunctionAgents } from "./agents/function-agents.js";
 import {
   type AiRegistry,
-  assembleDynamicAgent,
   CompositeAiRegistry,
   createBuiltinProvider,
   DatabaseProvider,
@@ -66,11 +65,4 @@ function memoizeCapabilityLoader(
       return cached;
     },
   };
-}
-
-export async function assembleDynamicHarnessAgent(
-  agentId: string,
-  registry: AiRegistry = createDefaultAiRegistry()
-) {
-  return assembleDynamicAgent(registry, agentId);
 }

@@ -109,6 +109,10 @@ export interface TasksGatewayOptions {
   coreGrantsFactory?: (auth: PluginAuthContext) => CoreGrantsWriter;
   /** Queue service for dispatching agent tasks. When absent, auto-dispatch is skipped. */
   queue?: QueueServiceLike | null;
+  /** Reaps goal-scoped capability elevation when a goal reaches a terminal
+   * state. Elevation is scoped to the pursuit of the goal, so it must not
+   * outlive it (core.agent_goal_grants — see approvals-sdk TRK-03 note). */
+  reapGoalGrants?: (auth: PluginAuthContext, goalId: string) => Promise<void>;
   /** Scoped triggers repo, for routine-scoped approval grants. */
   triggersRepoFactory?: (auth: PluginAuthContext) => TriggersRepo;
 }
@@ -666,6 +670,18 @@ export function registerTasksGatewayMethods(
       if (!updated) {
         throw new Error("goal_not_found");
       }
+      // A finished goal must not keep handing out the capabilities a human
+      // elevated for it. Best-effort: the grants also carry a TTL, so a failed
+      // reap shortens to that rather than leaving them live forever.
+      if (
+        (updated.status === "achieved" || updated.status === "cancelled") &&
+        options?.reapGoalGrants &&
+        ctx.auth
+      ) {
+        await options.reapGoalGrants(ctx.auth, id).catch(() => {
+          // swallowed: the goal update itself succeeded and must stand
+        });
+      }
       return updated;
     },
   });
@@ -703,6 +719,13 @@ export function registerTasksGatewayMethods(
       const ok = await repo.deleteGoal(params.id);
       if (!ok) {
         throw new Error("goal_not_found");
+      }
+      // The goal row is gone; its capability elevation would otherwise be
+      // unreachable rows that still answer a grant lookup by goal id.
+      if (options?.reapGoalGrants && ctx.auth) {
+        await options.reapGoalGrants(ctx.auth, params.id).catch(() => {
+          // swallowed: the delete succeeded and must stand
+        });
       }
       return { ok: true };
     },

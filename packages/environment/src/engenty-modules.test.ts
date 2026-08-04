@@ -53,7 +53,7 @@ describe("engenty-plugins manifest", () => {
     ]);
   });
 
-  it("reads legacy engenty.modules array during migration", () => {
+  it("rejects the legacy engenty.modules array instead of reading it", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-legacy-"));
     tempDirs.push(root);
     fs.mkdirSync(path.join(root, "modules"), { recursive: true });
@@ -69,7 +69,11 @@ describe("engenty-plugins manifest", () => {
       )}\n`,
       "utf-8"
     );
-    expect(readEngentyPluginsManifest(root).slugs).toEqual(["alpha", "beta"]);
+    // The migration this shape supported is long done — no manifest in the repo
+    // used it, so it fails loudly rather than silently reading a dead format.
+    expect(() => readEngentyPluginsManifest(root)).toThrow(
+      /engenty\.modules \(array\) is no longer supported/
+    );
   });
 
   it("resolves enabled modules on disk", () => {

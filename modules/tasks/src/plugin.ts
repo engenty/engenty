@@ -1,3 +1,4 @@
+import { revokeGoalGrants } from "@engenty/approvals-sdk";
 import {
   createPluginServerGatewayCaller,
   type EngentyPluginFactory,
@@ -111,13 +112,20 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
   const triggersRepoFactory = createTriggersRepoFactory(
     supabase as SupabaseClient
   );
-  // Tool approvals dual-write: the task-row grant columns stay the run
-  // transport, while core.approval_grants is what core-side gates spend.
+  // Tool approvals live in core.approval_grants — the ONE grant store. The
+  // task-row grant columns this used to dual-write were dropped in
+  // 20260803210000; the task DTO's approval_grants fields are hydrated from
+  // core on read.
   const coreGrantsFactory = (auth: { tenantId: string }) =>
     createCoreGrantsWriter(supabase as SupabaseClient, auth.tenantId);
   registerTasksApi(server, repoOrFactory, {
     coreGrantsFactory,
     queue,
+    reapGoalGrants: (auth, goalId) =>
+      revokeGoalGrants(supabase as SupabaseClient, {
+        goalId,
+        tenantId: auth.tenantId,
+      }),
     triggersRepoFactory,
   });
 

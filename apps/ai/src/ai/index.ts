@@ -34,10 +34,7 @@ import {
   type SessionServiceOptions,
 } from "./sessions.js";
 
-export {
-  assembleDynamicHarnessAgent,
-  createDefaultAiRegistry,
-} from "./agents.js";
+export { createDefaultAiRegistry } from "./agents.js";
 export { ENGENTY_STREAM_UNTIL_IDLE_MAX_IDLE_MS } from "./background-tasks.js";
 export type { EngentyWorkspaceContext } from "./core-http-client.js";
 export {

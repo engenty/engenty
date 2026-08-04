@@ -107,12 +107,13 @@ export function ActionButton({
   const running = isPending || phase === "running";
   const currentStep = running ? state?.steps.at(-1)?.label : undefined;
   const suggestions = dismissed ? [] : (state?.suggestions ?? []);
-  // The run suspended for approval (requires_action). Fall back to the legacy
-  // "completed + suggestions" shape for runs created before suspend/resume.
-  const needsApproval =
-    !applied &&
-    (phase === "requires_action" ||
-      (phase === "completed" && suggestions.length > 0));
+  // The run suspended for approval. A second branch used to also treat
+  // "completed + suggestions" as needing approval, for runs created before
+  // suspend/resume existed — but it had no run-age guard, so it fired for any
+  // new completed run carrying suggestions too. The action job only attaches
+  // suggestions to the requires_action suspend (its completed return has none),
+  // so that shape cannot come from current code.
+  const needsApproval = !applied && phase === "requires_action";
   const message =
     phase === "completed"
       ? (state?.text ?? "")

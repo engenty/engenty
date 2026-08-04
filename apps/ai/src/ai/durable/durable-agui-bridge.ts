@@ -94,8 +94,14 @@ export class DurableAgUiConverter {
         // A tool call interrupts any open text message.
         this.#endText(out);
         const toolCallId = payload.toolCallId;
-        const toolName = payload.toolName;
-        if (typeof toolCallId !== "string" || typeof toolName !== "string") {
+        // Mastra defaults a missing name to "" rather than omitting it; an
+        // empty name would freeze into the replayed transcript as the UI's
+        // "Ran tool" placeholder, so fall back to the placeholder explicitly.
+        const toolName =
+          (typeof payload.toolName === "string"
+            ? payload.toolName.trim()
+            : "") || "tool";
+        if (typeof toolCallId !== "string") {
           break;
         }
         if (this.#startedToolCalls.has(toolCallId)) {

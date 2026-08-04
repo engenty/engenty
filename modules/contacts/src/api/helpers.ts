@@ -1,5 +1,8 @@
 import type { PluginAuthContext } from "@engenty/plugin-sdk";
+import { createLogger } from "@engenty/telemetry";
 import type { createContactRepoSupabase } from "../dal/supabase.js";
+
+const logger = createLogger({ name: "contacts-helpers" });
 
 export type ContactRepo = ReturnType<typeof createContactRepoSupabase>;
 export type ContactRepoOrFactory =
@@ -86,8 +89,18 @@ export async function attachLinkedInvoiceCounts<T extends { id: string }>(
           linked_invoices_count: map[contact.id] ?? 0,
         }));
       }
-    } catch {
-      /* fall through to legacy N+1 path */
+    } catch (error) {
+      // The batch op exists but failed. Falling through to the per-contact path
+      // still renders the list, but it costs one query per contact — so say so
+      // rather than degrading silently, which is how a batch-op regression
+      // survives unnoticed as a slow page.
+      logger.warn(
+        "invoices_count_by_client_ids failed — falling back to per-contact counts",
+        {
+          contactCount: contacts.length,
+          detail: error instanceof Error ? error.message : String(error),
+        }
+      );
     }
   }
   return Promise.all(

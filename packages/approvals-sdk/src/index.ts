@@ -8,6 +8,12 @@
  * into this one instead of multiplying.
  */
 export {
+  type AgentGoalGrantRow,
+  grantCapabilityForGoal,
+  listGoalGrantCapabilities,
+  revokeGoalGrants,
+} from "./goal-capability-grants.js";
+export {
   type ApprovalDecision,
   type ApprovalRequest,
   createApprovalService,

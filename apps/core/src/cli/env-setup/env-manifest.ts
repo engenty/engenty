@@ -328,6 +328,39 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     secret: false,
   },
   {
+    description:
+      "Set to false to stop sending email notifications for unread in-app notifications. Any other value (or unset) leaves them on.",
+    exampleValue: "true",
+    group: "Core API & AI workspace",
+    key: "ENGENTY_EMAIL_NOTIFICATIONS_ENABLED",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
+  {
+    description:
+      "How long a notification stays unread before it is emailed, in minutes. Defaults to 5.",
+    exampleValue: "5",
+    group: "Core API & AI workspace",
+    key: "ENGENTY_EMAIL_NOTIFICATION_DELAY_MINUTES",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
+  {
+    description:
+      "Which notification sources may be emailed: comma-separated list, or * for all. Defaults to team-chat.",
+    exampleValue: "team-chat",
+    group: "Core API & AI workspace",
+    key: "ENGENTY_EMAIL_NOTIFICATION_SOURCES",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
+  {
     description: "Supabase Storage bucket for agent workspace files.",
     exampleValue: "files",
     group: "Core API & AI workspace",

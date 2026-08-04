@@ -200,7 +200,7 @@ So an App that declares e.g. `gmail_send_message` (a `write`-group connector act
 
 ### Companions
 - [x] AUTH-04: `parsePrincipalType` unknown/absent `role` now falls back to `user`, not `service`; `auth.test.ts` asserts a role-less token gets `["module.read"]` and never `module.write`/`module.execute`.
-- [ ] Delete dead `packages/test-kit` — confirmed dead (no `package.json`, no reference anywhere in the repo, only a stale `node_modules`). **Not deleted: awaiting explicit go-ahead**, per the standing "never run a data-deleting command without asking" rule.
+- [x] Delete dead `packages/test-kit` — done; the directory is gone. The standing-rules doc that still told agents to depend on it was corrected 2026-08-04 (`docs/agent/rules/testing-policy.mdc`).
 - [ ] Move on-disk credentials out of the `legacy` symlink target — not a code change, still owed to Matthias.
 
 ## Landed

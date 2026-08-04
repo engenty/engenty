@@ -57,12 +57,10 @@ export {
   resolveSuggestedPageTitle,
   titleFromUrlPath,
 } from "./lib/resolve-page-title.js";
+export type { SafeFetchImpl, SafeFetchOptions } from "./lib/safe-fetch.js";
+export { safeFetchFollowingRedirects } from "./lib/safe-fetch.js";
 export type { LookupFn } from "./lib/ssrf.js";
-export {
-  assertPublicHttpHost,
-  isBlockedHostname,
-  isBlockedIp,
-} from "./lib/ssrf.js";
+export { assertPublicHttpHost, isBlockedIp } from "./lib/ssrf.js";
 export {
   type HtmlExtractPatternSuggestion,
   htmlExtractPatternSuggestionSchema,

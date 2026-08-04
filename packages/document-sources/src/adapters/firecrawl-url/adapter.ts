@@ -51,7 +51,7 @@ async function mapUrlsWithFirecrawl(settings: {
   sitemap: "include" | "skip" | "only";
   url: string;
 }): Promise<DocumentSourceIndexEntry[]> {
-  assertPublicHttpUrl(settings.url);
+  await assertPublicHttpUrl(settings.url);
   const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
@@ -94,7 +94,7 @@ async function mapUrlsWithFirecrawl(settings: {
     if (!url || seen.has(url)) {
       continue;
     }
-    assertPublicHttpUrl(url);
+    await assertPublicHttpUrl(url);
     seen.add(url);
     entries.push({
       item_key: url,
@@ -161,7 +161,7 @@ export const firecrawlUrlAdapter: DocumentSourceAdapter = {
     source,
     entry: DocumentSourceIndexEntry
   ): Promise<DocumentSourceRetrievedItem> => {
-    assertPublicHttpUrl(entry.source_url);
+    await assertPublicHttpUrl(entry.source_url);
     const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
     if (!apiKey) {
       throw new Error(

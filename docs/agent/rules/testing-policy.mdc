@@ -38,15 +38,17 @@ Everything else should be observable from returned values or resulting state. Do
 ## Integration lane (real database)
 
 Behavior that lives in SQL — constraints, FK cascades, conditional updates,
-RLS, migrations — belongs in `*.integration.test.ts`, run by
-`pnpm test:integration` against the local Supabase stack (excluded from the
-unit run; CI: `.github/workflows/integration.yml`, main + nightly).
-Conventions: create the service-role client with `createIntegrationDb()` from
-`@engenty/test-kit/integration`, seed isolated tenants via `seedTenants()` and
-clean up with its returned dispose (tenant deletion cascades), never assume
-pre-existing rows — the shared dev database also serves local development.
-Reference suites: `modules/tasks/src/dal/tasks-repo.integration.test.ts`,
-`packages/retrieval/e2e/retrieval.e2e.test.ts`.
+RLS, migrations — belongs in `*.integration.test.ts`, named so it is obvious
+which tests need a real backing store. Never assume pre-existing rows: the
+local Supabase stack also serves local development, so a test that depends on
+today's dev data fails on someone else's machine. Create the data you assert on
+and clean it up (a temp dir, or a tenant whose deletion cascades).
+
+Reference suite: `apps/core/src/plugins/enable-activation.integration.test.ts`.
+
+There is currently no separate integration runner — these run in the normal
+`pnpm test` pass, so anything requiring a live database must skip cleanly when
+it is absent rather than fail the unit run.
 
 ## Smoke lane (browser E2E)
 
@@ -63,4 +65,14 @@ may be Slack-bridged). The LLM copilot spec is gated on
 
 ## Fixtures
 
-Use `@engenty/test-kit` (add as `workspace:*` devDependency): `makeAuth()` + `TEST_TENANT_ID`/`TEST_USER_ID` instead of hand-typed `"tenant-1"` literals, `createFakeSupabase()` (filters actually apply) instead of one-off thenable fakes, and `makeMockApi()` for `PluginServerApi`. Domain fixtures (repo fakes, entity builders) stay module-local — follow the override-style `make*()` builder pattern from `packages/retrieval/src/test-utils.ts`.
+Fixtures live next to the code they fake, exported from a `test-fixtures.ts` or
+`test-helpers.ts` beside it — there is no shared test-kit package (one existed
+and was deleted; this section used to tell you to depend on it).
+
+Reuse the existing ones rather than hand-rolling a thenable fake:
+`createFakeApprovalDb()` (`packages/approvals-sdk`), `makeEmptyRegistry()`
+(`apps/core/src/plugins/test-fixtures.ts`), and `makeMockApi()` /
+`makeMockTasksRepo()` / `defaultAuth` (`modules/tasks/src/api/test-helpers.ts`)
+for `PluginServerApi` and repo doubles. Domain fixtures stay module-local —
+follow the override-style `make*()` builder pattern so a test states only the
+fields it cares about.

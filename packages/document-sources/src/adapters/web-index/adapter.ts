@@ -78,7 +78,7 @@ async function crawlUrls(
     }
 
     try {
-      assertPublicHttpUrl(url);
+      await assertPublicHttpUrl(url);
     } catch {
       continue;
     }

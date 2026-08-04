@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listGoalGrantCapabilities } from "./agent-goal-grants.js";
+import { listGoalGrantCapabilities } from "./goal-capability-grants.js";
 
 type Row = Record<string, unknown>;
 

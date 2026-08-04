@@ -200,8 +200,11 @@ export class SessionAgUiConverter {
       case "tool_input_start":
       case "tool_start": {
         const toolCallId = event.toolCallId;
-        const toolName = event.toolName;
-        if (typeof toolCallId !== "string" || typeof toolName !== "string") {
+        // Mastra defaults a missing name to "" rather than omitting it, so an
+        // empty string here means "the provider chunk had no name yet".
+        const toolName =
+          typeof event.toolName === "string" ? event.toolName.trim() : "";
+        if (typeof toolCallId !== "string") {
           break;
         }
         if (this.#startedToolCalls.has(toolCallId)) {
@@ -217,11 +220,23 @@ export class SessionAgUiConverter {
           }
           break;
         }
+        // A streamed input-start can arrive BEFORE the provider has surfaced
+        // the tool name (Azure does this for dynamic tools). Opening the call
+        // now would freeze the empty name into the transcript — the named
+        // `tool_start` that follows is deduped as already-started, and the UI
+        // renders its "tool" placeholder ("Ran tool") forever. Hold the START
+        // until the named event; nothing is lost, because `tool_start` always
+        // carries the complete args.
+        if (!toolName && event.type === "tool_input_start") {
+          break;
+        }
         this.#startedToolCalls.add(toolCallId);
         out.push({
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
-          toolCallName: toolName,
+          // Genuinely nameless calls still open (their END/RESULT must pair
+          // up); the UI's placeholder is the honest label for those.
+          toolCallName: toolName || "tool",
           type: "TOOL_CALL_START",
         });
         if (event.type === "tool_start" && event.args !== undefined) {

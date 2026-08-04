@@ -37,28 +37,15 @@ const logger = createLogger({ name: "email-notifier" });
 const SCAN_INTERVAL_MS = 60_000;
 const BATCH_LIMIT = 20;
 
-/** Env with a legacy fallback: new generic name preferred, old team-chat name honored. */
-function envWithLegacy(name: string, legacy: string): string | undefined {
-  const value = process.env[name];
-  return value === undefined ? process.env[legacy] : value;
-}
-
+// The notifier was generalized out of team-chat and its env names went with it.
+// The old `ENGENTY_TEAM_CHAT_EMAIL_*` names were honored as a fallback until
+// 2026-08-04; no deployment set them, so there is one name per setting now.
 export function isEmailNotifierEnabled(): boolean {
-  return (
-    envWithLegacy(
-      "ENGENTY_EMAIL_NOTIFICATIONS_ENABLED",
-      "ENGENTY_TEAM_CHAT_EMAIL_NOTIFICATIONS_ENABLED"
-    ) !== "false"
-  );
+  return process.env.ENGENTY_EMAIL_NOTIFICATIONS_ENABLED !== "false";
 }
 
 function delayMinutes(): number {
-  const parsed = Number(
-    envWithLegacy(
-      "ENGENTY_EMAIL_NOTIFICATION_DELAY_MINUTES",
-      "ENGENTY_TEAM_CHAT_EMAIL_DELAY_MINUTES"
-    )
-  );
+  const parsed = Number(process.env.ENGENTY_EMAIL_NOTIFICATION_DELAY_MINUTES);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 5;
 }
 

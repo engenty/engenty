@@ -5,7 +5,7 @@ import type {
 } from "@engenty/document-sources";
 import { fileStorageTenantObjectKey } from "@engenty/file-storage";
 import type { StorageService } from "@engenty/plugin-sdk";
-import { isBlockedHostname } from "@engenty/web-ingest";
+import { safeFetchFollowingRedirects } from "@engenty/web-ingest";
 import { MDocument } from "@mastra/rag";
 import type { KbRepoFactory } from "../dal/contracts.js";
 import type {
@@ -115,11 +115,12 @@ async function downloadMediaToFileStorage(args: {
     };
   }
   try {
-    const parsed = new URL(media.source_url);
-    if (
-      !["http:", "https:"].includes(parsed.protocol) ||
-      isBlockedHostname(parsed.hostname)
-    ) {
+    // Resolves DNS and re-validates every redirect hop, so a public-looking URL
+    // cannot bounce the download into link-local/private space.
+    const fetched = await safeFetchFollowingRedirects(media.source_url).catch(
+      () => null
+    );
+    if (!fetched) {
       return {
         content_hash: null,
         content_type: media.content_type ?? null,
@@ -128,7 +129,7 @@ async function downloadMediaToFileStorage(args: {
         storage_object_key: null,
       };
     }
-    const response = await fetch(media.source_url, { redirect: "follow" });
+    const { response } = fetched;
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }

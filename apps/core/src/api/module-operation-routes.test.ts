@@ -1008,11 +1008,16 @@ describe("module operation routes", () => {
       tenantPluginOverrides: createTenantPluginOverrides({}),
     });
 
-    const listRes = await app.request("/api/modules/operations", {
+    // The deprecated /api/modules/operations alias was removed 2026-08-04.
+    const removedList = await app.request("/api/modules/operations", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(removedList.status).toBe(404);
+
+    const listRes = await app.request("/api/operations/contracts", {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(listRes.status).toBe(200);
-    expect(listRes.headers.get("deprecation")).toBe("true");
     const listBody = (await listRes.json()) as {
       ok: true;
       data: Array<{ operationId: string }>;
@@ -1079,11 +1084,15 @@ describe("module operation routes", () => {
       "contacts_delete"
     );
 
+    // Removed 2026-08-04: it read `tenant_id` straight from the query with no
+    // check against the caller's tenant, so any authenticated principal could
+    // read another tenant's audit log — or, with the parameter omitted, every
+    // tenant's. /events (below) defaults to the caller's tenant and 403s on a
+    // mismatch, which is why only the successor survives.
     const auditLegacy = await app.request("/api/security/audit", {
       headers: { authorization: `Bearer ${token}` },
     });
-    expect(auditLegacy.status).toBe(200);
-    expect(auditLegacy.headers.get("deprecation")).toBe("true");
+    expect(auditLegacy.status).toBe(404);
 
     const auditEvents = await app.request("/api/security/audit/events", {
       headers: { authorization: `Bearer ${token}` },
@@ -1318,7 +1327,7 @@ describe("module operation routes", () => {
       tenantPluginOverrides: createTenantPluginOverrides({}),
     });
 
-    const denied = await app.request("/api/modules/ops/contacts_delete", {
+    const denied = await app.request("/api/operations/contacts_delete/invoke", {
       method: "POST",
       headers: {
         authorization: `Bearer ${readToken}`,
@@ -1329,7 +1338,7 @@ describe("module operation routes", () => {
     expect(denied.status).toBe(403);
 
     const approvalRequired = await app.request(
-      "/api/modules/ops/contacts_delete",
+      "/api/operations/contacts_delete/invoke",
       {
         method: "POST",
         headers: {
@@ -1363,14 +1372,17 @@ describe("module operation routes", () => {
     );
     expect(decide.status).toBe(200);
 
-    const allowed = await app.request("/api/modules/ops/contacts_delete", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${writeToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input: { id: "c1" } }),
-    });
+    const allowed = await app.request(
+      "/api/operations/contacts_delete/invoke",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${writeToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: { id: "c1" } }),
+      }
+    );
     expect(allowed.status).toBe(200);
 
     const semanticInvoke = await app.request(
@@ -1413,26 +1425,32 @@ describe("module operation routes", () => {
       tenantPluginOverrides: createTenantPluginOverrides({}),
     });
 
-    const allowedCurrent = await app.request("/api/modules/ops/invoices_list", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${currentYearToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input: { year: new Date().getUTCFullYear() } }),
-    });
+    const allowedCurrent = await app.request(
+      "/api/operations/invoices_list/invoke",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${currentYearToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: { year: new Date().getUTCFullYear() } }),
+      }
+    );
     expect(allowedCurrent.status).toBe(200);
 
-    const deniedExplicit = await app.request("/api/modules/ops/invoices_list", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${currentYearToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        input: { year: new Date().getUTCFullYear() - 1 },
-      }),
-    });
+    const deniedExplicit = await app.request(
+      "/api/operations/invoices_list/invoke",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${currentYearToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          input: { year: new Date().getUTCFullYear() - 1 },
+        }),
+      }
+    );
     expect(deniedExplicit.status).toBe(403);
 
     const deniedByResult = await app.request("/gateway/invoices_list", {
@@ -1477,7 +1495,7 @@ describe("module operation routes", () => {
     });
 
     const invoiceCreate = await app.request(
-      "/api/modules/ops/invoices_create",
+      "/api/operations/invoices_create/invoke",
       {
         method: "POST",
         headers: {
@@ -1489,18 +1507,21 @@ describe("module operation routes", () => {
     );
     expect(invoiceCreate.status).toBe(202);
 
-    const contactsRead = await app.request("/api/modules/ops/contacts_get", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input: { id: "c1" } }),
-    });
+    const contactsRead = await app.request(
+      "/api/operations/contacts_get/invoke",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: { id: "c1" } }),
+      }
+    );
     expect(contactsRead.status).toBe(200);
 
     const contactsWriteDenied = await app.request(
-      "/api/modules/ops/contacts_create",
+      "/api/operations/contacts_create/invoke",
       {
         method: "POST",
         headers: {
@@ -1544,28 +1565,34 @@ describe("module operation routes", () => {
       tenantPluginOverrides: createTenantPluginOverrides({}),
     });
 
-    const contactsRead = await app.request("/api/modules/ops/contacts_list", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input: {} }),
-    });
+    const contactsRead = await app.request(
+      "/api/operations/contacts_list/invoke",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: {} }),
+      }
+    );
     expect(contactsRead.status).toBe(200);
 
-    const invoicesRead = await app.request("/api/modules/ops/invoices_list", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input: { year: new Date().getUTCFullYear() } }),
-    });
+    const invoicesRead = await app.request(
+      "/api/operations/invoices_list/invoke",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: { year: new Date().getUTCFullYear() } }),
+      }
+    );
     expect(invoicesRead.status).toBe(200);
 
     const contactsWriteDenied = await app.request(
-      "/api/modules/ops/contacts_delete",
+      "/api/operations/contacts_delete/invoke",
       {
         method: "POST",
         headers: {
@@ -1578,7 +1605,7 @@ describe("module operation routes", () => {
     expect(contactsWriteDenied.status).toBe(403);
 
     const invoicesWriteDenied = await app.request(
-      "/api/modules/ops/invoices_create",
+      "/api/operations/invoices_create/invoke",
       {
         method: "POST",
         headers: {

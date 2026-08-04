@@ -136,7 +136,9 @@ additional_redirect_urls = [
   "https://engenty.localhost",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
-# LOCAL DEV ONLY — bumped to 1 week (604800) by mint-service-jwt.mjs so service tokens survive dev sessions
+# LOCAL DEV ONLY — 1 week (604800) so a dev session's user login survives the day.
+# (This is unrelated to service identity: ENGENTY_AI_SERVICE_SECRET is exchanged
+# for 15-minute tokens at runtime and does not depend on this setting.)
 jwt_expiry = 604800
 # Path to JWT signing key. DO NOT commit your signing keys file to git.
 # signing_keys_path = "./signing_keys.json"
