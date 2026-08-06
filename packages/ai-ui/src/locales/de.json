@@ -175,7 +175,9 @@
       "toggle": "Expertenmodus: Modelle per ID festpinnen",
       "hint": "Self-Hosted- und Experten-Installationen können weiterhin ein Modell je Zweck festpinnen. Ein gepinntes Modell schlägt die Aufwandsstufe.",
       "pickModel": "Modell wählen…"
-    }
+    },
+    "autoResolved": "{{effort}}-Aufwand aktiv",
+    "autoResolvedWithModel": "{{effort}} · {{model}}"
   },
   "picker": {
     "title": "Modell für {{purpose}} wählen",
@@ -1326,6 +1328,13 @@
       "aiSettings": "KI-Einstellungen",
       "operations": "Operations-Cockpit"
     }
+  },
+  "threadContext": {
+    "label": "Kontext",
+    "open": "Thread-Kontext öffnen",
+    "artefacts": "Artefakte",
+    "objects": "Objekte",
+    "sources": "Quellen"
   },
   "artifacts": {
     "paneLabel": "Artefakte",

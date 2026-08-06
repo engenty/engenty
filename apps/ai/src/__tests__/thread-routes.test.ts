@@ -138,6 +138,12 @@ function makeRunRouteHarness({
       threads: {
         assertNativeMemoryAvailable,
         getThread,
+        resolveRunModelConfig: vi.fn(async () => ({
+          agentBudgetCostMicros: null,
+          modelConfig: {},
+          modelId: "test-model",
+        })),
+        resolveRunWorkspaces: vi.fn(async () => ({})),
         streamGenerate,
       },
     } as never,

@@ -400,9 +400,6 @@ export function DecisionArtifactCard(props: {
             : highlightedIdx === index;
           return (
             <button
-              aria-checked={
-                multiSelect ? selectedIds.has(choice.id) : undefined
-              }
               aria-label={displayChoiceLabel(choice)}
               className={cn(
                 "flex w-full items-center rounded-[4px] border px-3 py-2 text-left text-sm transition-colors",
@@ -417,8 +414,13 @@ export function DecisionArtifactCard(props: {
                   ? toggleChoice(choice.id)
                   : choose(props.artifact.artifactId, choice.id, choice.label)
               }
-              role={multiSelect ? "checkbox" : undefined}
               type="button"
+              {...(multiSelect
+                ? {
+                    "aria-checked": selectedIds.has(choice.id),
+                    role: "checkbox" as const,
+                  }
+                : {})}
             >
               <span
                 className={cn(

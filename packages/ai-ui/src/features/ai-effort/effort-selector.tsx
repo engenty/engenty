@@ -42,6 +42,14 @@ export interface EffortSelectorProps {
    */
   modelByEffort?: Partial<Record<AiEffort, string>>;
   onChange: (choice: AiEffortChoice) => void;
+  /**
+   * When Auto just resolved a turn, briefly show that tier (and optional model)
+   * on the trigger with a highlight ring — without changing the stored value.
+   */
+  resolvedFlash?: {
+    effort: AiEffort;
+    modelId?: string | null;
+  } | null;
   value: AiEffortChoice;
   /** `pill` matches the composer's inline controls; `field` matches settings rows. */
   variant?: "field" | "pill";
@@ -54,17 +62,33 @@ export function EffortSelector({
   footer,
   modelByEffort,
   onChange,
+  resolvedFlash,
   value,
   variant = "pill",
 }: EffortSelectorProps) {
   const { t } = useTranslation("ai-ui");
   const options = buildEffortChoiceOptions(allowedEfforts);
-  const ActiveIcon = CHOICE_ICON[value];
+  const displayValue: AiEffortChoice = resolvedFlash?.effort ?? value;
+  const ActiveIcon = CHOICE_ICON[displayValue];
+  const flashing = Boolean(resolvedFlash);
 
   const triggerClassName =
     variant === "pill"
-      ? "flex h-6 items-center gap-1 rounded-full border-0 bg-transparent px-2 text-muted-foreground text-xs shadow-none outline-none hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-      : "flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50";
+      ? [
+          "flex h-6 items-center gap-1 rounded-full border-0 bg-transparent px-2 text-xs shadow-none outline-none transition-[box-shadow,background-color,color] duration-300 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50",
+          flashing
+            ? "bg-primary/10 text-foreground ring-2 ring-primary/40"
+            : "text-muted-foreground",
+        ].join(" ")
+      : [
+          "flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-background px-2 text-sm transition-[box-shadow,border-color] duration-300 disabled:cursor-not-allowed disabled:opacity-50",
+          flashing ? "border-primary ring-2 ring-primary/30" : "",
+        ].join(" ");
+
+  const label = flashing
+    ? t(`effort.choice.${displayValue}.label`)
+    : t(`effort.choice.${value}.label`);
+  const flashModel = resolvedFlash?.modelId?.trim();
 
   return (
     <DropdownMenu>
@@ -75,7 +99,12 @@ export function EffortSelector({
       >
         <span className="flex min-w-0 items-center gap-1.5">
           <ActiveIcon aria-hidden className="size-3.5 shrink-0 opacity-70" />
-          <span className="truncate">{t(`effort.choice.${value}.label`)}</span>
+          <span className="truncate">{label}</span>
+          {flashing && flashModel ? (
+            <code className="max-w-[7rem] truncate font-mono text-[10px] opacity-70">
+              {flashModel}
+            </code>
+          ) : null}
         </span>
         <ChevronDown aria-hidden className="size-3 shrink-0 opacity-70" />
       </DropdownMenuTrigger>
@@ -89,9 +118,16 @@ export function EffortSelector({
               option.value === "auto"
                 ? undefined
                 : modelByEffort?.[option.value];
+            const isResolvedOption =
+              flashing && option.value === resolvedFlash?.effort;
             return (
               <DropdownMenuRadioItem
-                className="items-start py-2"
+                className={[
+                  "items-start py-2",
+                  isResolvedOption ? "bg-primary/5" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 disabled={!option.allowed}
                 key={option.value}
                 value={option.value}

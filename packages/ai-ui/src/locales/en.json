@@ -175,7 +175,9 @@
       "toggle": "Expert: pin models by id",
       "hint": "Self-hosted and expert installs can still pin a model per purpose. A pinned model wins over the effort tier.",
       "pickModel": "Pick a model…"
-    }
+    },
+    "autoResolved": "Using {{effort}} effort",
+    "autoResolvedWithModel": "Using {{effort}} · {{model}}"
   },
   "picker": {
     "title": "Choose a model for {{purpose}}",
@@ -1313,6 +1315,13 @@
       "aiSettings": "AI settings",
       "operations": "Operations cockpit"
     }
+  },
+  "threadContext": {
+    "label": "Context",
+    "open": "Open thread context",
+    "artefacts": "Artefacts",
+    "objects": "Objects",
+    "sources": "Sources"
   },
   "artifacts": {
     "paneLabel": "Artifacts",

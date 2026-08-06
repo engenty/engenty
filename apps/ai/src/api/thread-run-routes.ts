@@ -10,10 +10,13 @@ import {
 import {
   AI_EFFORT_LEVELS,
   type AiEffort,
+  type AiEffortChoice,
   type AiUsageStore,
+  bindingsFromList,
   checkUsageLimits,
   type DynamicAiModuleCapabilityLoader,
   formatUsageLimitError,
+  type ModelBindings,
 } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
@@ -46,6 +49,7 @@ import {
   resumePayloadToModelContent,
   runInputHasNewUserMessages,
 } from "../ai/sessions/interrupts.js";
+import { resolveEffortForRun } from "../ai/sessions/resolve-auto-effort.js";
 import { resolveToolCallResultInHistory } from "../ai/sessions/resolve-tool-call-history.js";
 import {
   getLiveRunEventsSnapshot,
@@ -238,11 +242,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * `model_id` rather than replacing it: an expert / self-hosted install may still
  * pin a model, and that pin keeps precedence.
  *
- * `auto` is accepted on the wire but not yet acted on — router-sized effort is
- * still to come, and treating it as "no pick" degrades to the tenant default
- * rather than guessing.
+ * `auto` is a first-class choice: sized per turn via heuristics + (only when
+ * ambiguous) a cheap router call — see `resolveEffortForRun`.
  */
-function resolveEffortChoice(input: RunAgentInput): AiEffort | null {
+function resolveEffortChoice(input: RunAgentInput): AiEffortChoice | null {
   const forwardedProps = isRecord(input.forwardedProps)
     ? input.forwardedProps
     : {};
@@ -254,9 +257,54 @@ function resolveEffortChoice(input: RunAgentInput): AiEffort | null {
     return null;
   }
   const value = effort.trim().toLowerCase();
+  if (value === "auto") {
+    return "auto";
+  }
   return (AI_EFFORT_LEVELS as readonly string[]).includes(value)
     ? (value as AiEffort)
     : null;
+}
+
+async function loadEffortResolutionContext(params: {
+  getUsageStore?: () => AiUsageStore | null;
+  tenantId: string;
+}): Promise<{
+  allowedEfforts: readonly string[] | null;
+  bindings: ModelBindings | undefined;
+}> {
+  const store = params.getUsageStore?.() ?? null;
+  if (!store) {
+    return { allowedEfforts: null, bindings: undefined };
+  }
+  let allowedEfforts: readonly string[] | null = null;
+  let bindings: ModelBindings | undefined;
+  try {
+    const policy = await store.getTenantPolicy(params.tenantId);
+    allowedEfforts = policy?.allowed_efforts ?? null;
+  } catch {
+    allowedEfforts = null;
+  }
+  try {
+    const rows = await (
+      store as AiUsageStore & {
+        listModelBindings?: () => Promise<
+          Array<{ gateway: string; model_id: string; role: string }>
+        >;
+      }
+    ).listModelBindings?.();
+    if (rows && rows.length > 0) {
+      bindings = bindingsFromList(
+        rows.map((r) => ({
+          gateway: r.gateway,
+          modelId: r.model_id,
+          role: r.role,
+        }))
+      );
+    }
+  } catch {
+    bindings = undefined;
+  }
+  return { allowedEfforts, bindings };
 }
 
 function resolveModelIdOverride(input: RunAgentInput): string | null {
@@ -380,7 +428,7 @@ export function registerThreadRunRoutes(
         })
       : null;
     const modelIdOverride = resolveModelIdOverride(body.data);
-    const effort = resolveEffortChoice(body.data);
+    const effortChoice = resolveEffortChoice(body.data);
 
     try {
       await opts.aiService.threads.assertNativeMemoryAvailable({
@@ -721,18 +769,81 @@ export function registerThreadRunRoutes(
           }
         }
       }
+      // Workspace prep and Auto effort sizing overlap: heuristics are instant,
+      // and the rare cheap-router call shares wall-clock with workspace IO.
       let hsWorkspaces: Awaited<
         ReturnType<typeof opts.aiService.threads.resolveRunWorkspaces>
       > = {};
-      try {
-        hsWorkspaces = await opts.aiService.threads.resolveRunWorkspaces({
+      let effort: AiEffort | null = null;
+      let autoEffortResolved: {
+        effort: AiEffort;
+        reason?: string;
+        source?: string;
+      } | null = null;
+      const workspacesPromise = opts.aiService.threads
+        .resolveRunWorkspaces({
           runId,
           scope: scope.scope,
           session,
           threadId,
+        })
+        .catch((err) => {
+          console.error("conversation workspace resolution failed", err);
+          return {} as Awaited<
+            ReturnType<typeof opts.aiService.threads.resolveRunWorkspaces>
+          >;
         });
-      } catch (err) {
-        console.error("conversation workspace resolution failed", err);
+      const effortPromise = (async (): Promise<{
+        autoResolved: {
+          effort: AiEffort;
+          reason?: string;
+          source?: string;
+        } | null;
+        effort: AiEffort | null;
+      }> => {
+        try {
+          const effortCtx = await loadEffortResolutionContext({
+            getUsageStore: opts.getUsageStore,
+            tenantId: scope.scope.tenantId,
+          });
+          const resolved = await resolveEffortForRun({
+            agentId: session.agent_id,
+            allowedEfforts: effortCtx.allowedEfforts,
+            bindings: effortCtx.bindings,
+            choice: effortChoice,
+            hasAttachments: latestUserAttachmentParts(body.data).length > 0,
+            modelIdOverride,
+            text: latestUserText(body.data),
+          });
+          const autoResolved =
+            resolved.autoResolved && resolved.effort
+              ? {
+                  effort: resolved.effort,
+                  ...(resolved.reason ? { reason: resolved.reason } : {}),
+                  ...(resolved.source ? { source: resolved.source } : {}),
+                }
+              : null;
+          return { autoResolved, effort: resolved.effort };
+        } catch (err) {
+          console.error("conversation auto-effort resolution failed", err);
+          if (
+            effortChoice === "low" ||
+            effortChoice === "medium" ||
+            effortChoice === "high"
+          ) {
+            return { autoResolved: null, effort: effortChoice };
+          }
+          return { autoResolved: null, effort: null };
+        }
+      })();
+      {
+        const [workspaces, effortResult] = await Promise.all([
+          workspacesPromise,
+          effortPromise,
+        ]);
+        hsWorkspaces = workspaces;
+        effort = effortResult.effort;
+        autoEffortResolved = effortResult.autoResolved;
       }
       let hsModelConfig: Awaited<
         ReturnType<typeof opts.aiService.threads.resolveRunModelConfig>
@@ -823,6 +934,12 @@ export function registerThreadRunRoutes(
               })),
               ...hsTieredAttachments.contextEntries,
             ];
+      const autoEffortForRun = autoEffortResolved
+        ? {
+            ...autoEffortResolved,
+            modelId: hsModelConfig?.modelId ?? modelIdOverride ?? null,
+          }
+        : null;
       void startConversationRun({
         agentId: session.agent_id,
         agentUi: agentUi ?? null,
@@ -832,6 +949,7 @@ export function registerThreadRunRoutes(
           hsApprovalGrants,
           hsConnectionGrants
         ),
+        ...(autoEffortForRun ? { autoEffortResolved: autoEffortForRun } : {}),
         mastra: opts.aiService.mastra,
         modelConfig: hsModelConfig?.modelConfig ?? null,
         modelId: hsModelConfig?.modelId ?? modelIdOverride,

@@ -1,6 +1,8 @@
 import {
   ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
+  ThreadContextMenuItem,
+  ThreadContextToggle,
   useCopilotThreadActions,
   useCopilotThreadBinding,
   useEngentyAIContext,
@@ -53,6 +55,7 @@ export function ChatTopbarActions() {
         <MessageSquarePlus className="mr-1.5 size-4" />
         {tc("copilot.newChat")}
       </Button>
+      <ThreadContextToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       <AlertDialog
         onOpenChange={(open) => {
@@ -77,6 +80,7 @@ export function ChatTopbarActions() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
+            <ThreadContextMenuItem />
             <CopilotSandboxesMenuSection deletePending={isDeletingSession} />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"

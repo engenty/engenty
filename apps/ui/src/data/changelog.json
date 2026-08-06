@@ -4,6 +4,66 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "446162e",
+        "message": "drop stale time-tracking dnd-kit entries from lockfile",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.104",
+    "timestamp": 1786048710,
+    "commits": [
+      {
+        "id": "4e52265",
+        "message": "stub resolveRunWorkspaces in thread-routes test harness",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f0401e5",
+        "message": "return auto-effort from promise instead of closure mutation",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e606724",
+        "message": "move Engenty admin icon above Settings in the rail",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3fccb48",
+        "message": "only set aria-checked with checkbox role on decision choices",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0a8aa16",
+        "message": "toast and flash when Auto resolves effort",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d4ce089",
+        "message": "size Auto effort with heuristics before cheap router",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1361a27",
+        "message": "add floating thread context box on full-page chat",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.103",
+    "timestamp": 1786033070,
+    "commits": [
+      {
         "id": "a89d90b",
         "message": "richer ChainOfThought tool steps with type icons and briefs",
         "group": "Fixed",

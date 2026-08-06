@@ -12,10 +12,12 @@ import type {
   RunFinishedEvent,
 } from "@engenty/ag-ui-bridge";
 import {
+  ENGENTY_EFFORT_RESOLVED_EVENT,
   ENGENTY_OPEN_INTERRUPT_EVENT,
   EventType,
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterruptEventValue,
+  readEngentyEffortResolvedEventValue,
 } from "@engenty/ag-ui-bridge";
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
@@ -31,6 +33,7 @@ import {
 import type { SubmitMessageOptions } from "../../agent-provider/types.js";
 import { pendingInterruptFromTranscript } from "../../components/copilot/interrupts/pending-interrupt-from-transcript.js";
 import { useAutoResolveFrontendTool } from "../../copilot/use-auto-resolve-frontend-tool.js";
+import { notifyEffortResolved } from "../../features/ai-effort/notify-effort-resolved.js";
 import type { ChatAttachmentPart } from "../../lib/chat-attachment-part.js";
 import {
   buildChatReferencePart,
@@ -753,6 +756,22 @@ export function useEngentyAgUiAppsAiSession(
                 );
                 if (open) {
                   setOpenInterruptFromStream(open);
+                }
+              } else if (
+                name === ENGENTY_EFFORT_RESOLVED_EVENT &&
+                options.hostKey
+              ) {
+                const resolved = readEngentyEffortResolvedEventValue(
+                  (event as { value?: unknown }).value
+                );
+                if (resolved) {
+                  notifyEffortResolved({
+                    effort: resolved.effort,
+                    hostKey: options.hostKey,
+                    modelId: resolved.model_id,
+                    reason: resolved.reason,
+                    source: resolved.source,
+                  });
                 }
               }
             }

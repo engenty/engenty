@@ -420,6 +420,12 @@ export {
   webSearchInputSchema,
   webSearchTool,
 } from "./tools/web-search.js";
+export {
+  type AutoEffortConfidence,
+  type AutoEffortGuess,
+  type GuessEffortFromPromptInput,
+  guessEffortFromPrompt,
+} from "./usage/auto-effort-guess.js";
 export type {
   ModelPricingRecord,
   TenantUsagePolicyRecord,

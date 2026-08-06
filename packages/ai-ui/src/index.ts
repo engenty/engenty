@@ -104,6 +104,27 @@ export {
 } from "./components/copilot/sub-agent-run/sub-agent-run-full-page.js";
 export { SubAgentRunMonitor } from "./components/copilot/sub-agent-run/sub-agent-run-monitor.js";
 export {
+  buildThreadContextSummary,
+  extractThreadObjects,
+  extractThreadSources,
+  THREAD_CONTEXT_FLOAT_GAP_PX,
+  THREAD_CONTEXT_FLOAT_WIDTH_PX,
+  THREAD_CONTEXT_INLINE_MIN_WIDTH_PX,
+  THREAD_CONTEXT_PANE_WIDTH_PX,
+  type ThreadContextArtifactItem,
+  ThreadContextBox,
+  ThreadContextMenuItem,
+  type ThreadContextMessageLike,
+  type ThreadContextMode,
+  type ThreadContextObjectItem,
+  ThreadContextPane,
+  type ThreadContextSourceItem,
+  type ThreadContextSummary,
+  ThreadContextToggle,
+  useThreadContextSummary,
+  useThreadContextUi,
+} from "./components/copilot/thread-context/index.js";
+export {
   CopilotVoiceFab,
   type CopilotVoiceFabProps,
 } from "./components/copilot/voice-fab/index.js";
@@ -225,6 +246,7 @@ export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-n
 // client, which the embed entry deliberately does not pull in.
 export { useEffortGrant } from "./features/ai-effort/use-effort-grant.js";
 export { useEffortModelBindings } from "./features/ai-effort/use-effort-model-bindings.js";
+export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
 export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
 export { EffortTiersCard } from "./features/ai-settings/effort-tiers-card.js";
 export { useMentionAgentCandidates } from "./hooks/use-mention-agent-candidates.js";

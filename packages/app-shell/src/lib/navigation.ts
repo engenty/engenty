@@ -59,6 +59,8 @@ const ADMIN_NAV_ORDER_SETUP = 150;
  * Ensures sidebar order even if `order` on contributions is stale (e.g. dev session cache).
  */
 const ADMIN_MENU_SORT_RANK_BY_ID: Record<string, number> = {
+  // Engenty workspace — first in the bottom admin rail (above Vault / Settings).
+  ai_ui_admin_menu: 100,
   files_admin_menu: 110,
   audit_logs_menu: 120,
   user_management_menu: 130,
@@ -180,11 +182,6 @@ export function buildNavigationSections(
   const projectsMenuItem = contributions.adminMenuItems.find(
     (entry) => entry.id === "projects_module_menu"
   );
-  // Engenty (agents workspace) is an admin console but lives in the primary
-  // top rail with copilot / tasks / projects — not the bottom admin stack.
-  const engentyMenuItem = contributions.adminMenuItems.find(
-    (entry) => entry.id === "ai_ui_admin_menu"
-  );
   // Modules rail mirrors Settings: PLUGIN_CATEGORIES, then `order` within
   // category. Children keep parent linkage via the full filtered entry list.
   const moduleMenuEntries = contributions.adminMenuItems.filter(
@@ -208,13 +205,11 @@ export function buildNavigationSections(
     mapTopLevelEntryToNavItem(entry, moduleMenuEntries, t)
   );
   const copilotNavItems = buildCopilotNavItems(contributions.copilotApps, t);
-  // Admin-section entries (/admin/* consoles: users, audit logs, files,
+  // Admin-section entries (/admin/* consoles: Engenty, users, audit logs, files,
   // context graph) are tenant-admin surfaces — hidden for members. Engenty is
-  // promoted into the top rail below and excluded here.
+  // ordered first via ADMIN_MENU_SORT_RANK_BY_ID (not the primary top rail).
   const adminMenuEntries = isAdmin
-    ? contributions.adminMenuItems.filter(
-        (entry) => entry.section === "admin" && entry.id !== "ai_ui_admin_menu"
-      )
+    ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
     : [];
   // Connections is a personal surface (`requiresAdmin: false`) but lives in the
   // core settings block (after AI usage, before developer-mode / module rows),
@@ -337,15 +332,6 @@ export function buildNavigationSections(
           ? [
               mapTopLevelEntryToNavItem(
                 projectsMenuItem,
-                contributions.adminMenuItems,
-                t
-              ),
-            ]
-          : []),
-        ...(isAdmin && engentyMenuItem
-          ? [
-              mapTopLevelEntryToNavItem(
-                engentyMenuItem,
                 contributions.adminMenuItems,
                 t
               ),

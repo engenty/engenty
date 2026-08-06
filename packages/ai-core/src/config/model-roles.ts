@@ -34,9 +34,10 @@ export const AI_EFFORT_LEVELS = ["low", "medium", "high"] as const;
 export type AiEffort = (typeof AI_EFFORT_LEVELS)[number];
 
 /**
- * `auto` is not an effort level — it is the absence of a choice, resolved by the
- * router role. Kept separate so "the user picked high" and "the router chose
- * high" stay distinguishable in provenance.
+ * `auto` is not an effort level — it is the absence of a choice, resolved per
+ * turn (heuristics first; cheap `router` role only when ambiguous). Kept
+ * separate so "the user picked high" and "Auto chose high" stay distinguishable
+ * in provenance.
  */
 export type AiEffortChoice = AiEffort | "auto";
 

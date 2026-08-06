@@ -251,7 +251,8 @@ describe("navigation", () => {
       ]);
     });
 
-    it("promotes Engenty into the primary sidebar top section for admins", () => {
+    it("places Engenty first in the bottom admin rail for admins", () => {
+      const EngentyIcon = () => null;
       const contributions = {
         routes: [],
         adminMenuItems: [
@@ -261,6 +262,7 @@ describe("navigation", () => {
             pluginId: "ai-ui",
             section: "admin" as const,
             to: "/admin/engenty",
+            icon: EngentyIcon,
           },
           {
             id: "user_management_menu",
@@ -268,6 +270,13 @@ describe("navigation", () => {
             pluginId: "user-management",
             section: "admin" as const,
             to: "/admin/users",
+          },
+          {
+            id: "files_admin_menu",
+            label: "Vault",
+            pluginId: "files",
+            section: "admin" as const,
+            to: "/admin/files",
           },
           {
             id: "tasks_module_menu",
@@ -301,20 +310,33 @@ describe("navigation", () => {
       expect(adminSections[0]?.items.map((item) => item.to)).toEqual([
         "/mdl/engenty-copilot/chat",
         "/mdl/tasks",
-        "/admin/engenty",
       ]);
+      expect(adminSections[0]?.items.map((item) => item.to)).not.toContain(
+        "/admin/engenty"
+      );
+
       const adminRail =
         adminSections
           .find((section) => section.label === "navigation.admin")
           ?.items.map((item) => item.to) ?? [];
-      expect(adminRail).not.toContain("/admin/engenty");
-      expect(adminRail).toContain("/admin/users");
+      expect(adminRail[0]).toBe("/admin/engenty");
+      expect(adminRail).toEqual([
+        "/admin/engenty",
+        "/admin/files",
+        "/admin/users",
+        "/settings",
+      ]);
 
       const memberTop =
         buildNavigationSections(contributions, {})[0]?.items.map(
           (item) => item.to
         ) ?? [];
       expect(memberTop).not.toContain("/admin/engenty");
+      const memberAdmin =
+        buildNavigationSections(contributions, {})
+          .find((section) => section.label === "navigation.admin")
+          ?.items.map((item) => item.to) ?? [];
+      expect(memberAdmin).not.toContain("/admin/engenty");
     });
 
     it("shows Setup admin nav for superadmins only", () => {

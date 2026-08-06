@@ -32,9 +32,9 @@ Returns `NavigationSection[]` consumed by `AppLayout` / `AppSidebar`:
 
 | Section | Contents |
 |---------|----------|
-| Top | Copilot apps + promoted Tasks / Projects / Engenty (Engenty admins only) |
+| Top | Copilot apps + promoted Tasks / Projects |
 | Modules | Remaining `section: "modules"` items, sorted like Settings (`PLUGIN_CATEGORIES` then within-category `order`); tenant admins can drag-reorder (persisted as `shell.dock_module_order`) |
-| Admin | Remaining admin contributions + fixed Settings and Setup rows |
+| Admin | Admin contributions (Engenty first via `ADMIN_MENU_SORT_RANK_BY_ID`) + fixed Settings and Setup rows. In the compact rail, Engenty is pinned always-visible above Settings; other admin icons expand on hover. |
 
 `applyDockModuleOrder(sections, order)` overlays a tenant-persisted id list on the modules section. Unknown ids are skipped; new modules append in default category order.
 

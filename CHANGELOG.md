@@ -4,6 +4,18 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.105] - 2026-08-06
+- FIXED **[deps]** Drop stale time-tracking dnd-kit entries from lockfile
+
+## [0.1.104] - 2026-08-06
+- ADDED **[ai-ui]** Toast and flash when Auto resolves effort
+- ADDED **[ai]** Size Auto effort with heuristics before cheap router
+- ADDED **[copilot]** Add floating thread context box on full-page chat
+- FIXED **[ai]** Stub resolveRunWorkspaces in thread-routes test harness
+- FIXED **[ai]** Return auto-effort from promise instead of closure mutation
+- FIXED **[shell]** Move Engenty admin icon above Settings in the rail
+- FIXED **[ai-ui]** Only set aria-checked with checkbox role on decision choices
+
 ## [0.1.103] - 2026-08-06
 - ADDED **[ui]** Add ui-card-* surface classes with selected state
 - ADDED **[ai-ui]** Add Full Screen position that opens full-page chat

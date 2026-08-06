@@ -223,6 +223,7 @@ export {
   EffortSelector,
   type EffortSelectorProps,
 } from "./features/ai-effort/effort-selector.js";
+export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
 // --- Inbox (Mastra notifications; rendered by the tasks module) ---
 export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
 export { listInbox } from "./features/inbox/inbox-api.js";

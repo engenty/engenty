@@ -51,6 +51,14 @@ export {
   isAgentUiStateSnapshotV1,
 } from "./agent-ui-state.js";
 export type {
+  EngentyEffortResolvedPayload,
+  EngentyResolvedEffort,
+} from "./engenty-effort-resolved.js";
+export {
+  ENGENTY_EFFORT_RESOLVED_EVENT,
+  readEngentyEffortResolvedEventValue,
+} from "./engenty-effort-resolved.js";
+export type {
   AgUiOpenInterruptKind,
   AgUiOpenInterruptMetadata,
 } from "./engenty-open-interrupt.js";

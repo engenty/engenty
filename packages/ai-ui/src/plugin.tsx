@@ -321,7 +321,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 299.1,
   });
 
-  // ── Admin menu ────────────────────────────────────────────────────────────
+  // ── Admin menu (bottom rail; first via app-shell ADMIN_MENU_SORT_RANK_BY_ID)
 
   engenty.UI.registerAdminMenuItem({
     id: "ai_ui_admin_menu",

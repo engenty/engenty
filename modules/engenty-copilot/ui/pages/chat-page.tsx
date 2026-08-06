@@ -11,6 +11,7 @@ import {
   SubAgentRunFullPage,
   selectSubAgentDelegationFromMessages,
   setCopilotComposerDraft,
+  ThreadContextPane,
   useCopilotSelectedThread,
   useCopilotThreadActions,
   WorkspaceArtifactPane,
@@ -204,7 +205,7 @@ export function CopilotChatPage() {
     tc,
     thread.session,
   ]);
-  // Order: New Chat → artifacts trigger → ⋯ menu (menu stays far right).
+  // Order: New Chat → context → artifacts → ⋯ menu (menu stays far right).
   const topbarActions = useMemo(() => <ChatTopbarActions />, []);
   const secondaryNavAfterItems = useMemo(() => <ThreadList />, []);
   const secondaryNavHeaderSlot = useMemo(
@@ -278,19 +279,22 @@ export function CopilotChatPage() {
     >
       <ObjectDisplayIntentProvider value={objectDisplayIntent}>
         <div
-          className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-transparent"
+          className="relative flex h-full min-h-0 w-full flex-1 flex-row overflow-hidden bg-transparent"
           key={host.threadResetKey}
         >
-          {subRunToolCallId ? (
-            <SubAgentRunFullPage
-              labels={subRunLabels}
-              messages={host.copilotMessages}
-              onBack={handleSubRunBack}
-              toolCallId={subRunToolCallId}
-            />
-          ) : (
-            <ChatPanel />
-          )}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {subRunToolCallId ? (
+              <SubAgentRunFullPage
+                labels={subRunLabels}
+                messages={host.copilotMessages}
+                onBack={handleSubRunBack}
+                toolCallId={subRunToolCallId}
+              />
+            ) : (
+              <ChatPanel />
+            )}
+          </div>
+          <ThreadContextPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
         </div>
         <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
       </ObjectDisplayIntentProvider>

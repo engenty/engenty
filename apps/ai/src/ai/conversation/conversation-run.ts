@@ -11,11 +11,16 @@
 // EngentySessionMemoryStorage.
 import {
   type AGUIEvent,
+  ENGENTY_EFFORT_RESOLVED_EVENT,
   EventType,
   type RunAgentInput,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
-import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
+import {
+  type AiEffort,
+  type AiUsageStore,
+  recordAiUsage,
+} from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
@@ -128,6 +133,16 @@ export interface StartConversationRunInput {
     mediaType: string;
   }>;
   /**
+   * Auto sized this turn — emit `engenty.effort.resolved` so the composer can
+   * toast and briefly flash the resolved tier. Omitted for explicit picks.
+   */
+  autoEffortResolved?: {
+    effort: AiEffort;
+    modelId?: string | null;
+    reason?: string;
+    source?: string;
+  } | null;
+  /**
    * Singleton Mastra instance (Postgres workflow storage when configured).
    * Must be attached to the assembled agent so frontend-tool suspend snapshots
    * persist where `resumeStream()` can reload them — without it the agent falls
@@ -206,6 +221,24 @@ export async function startConversationRun(
     threadId: input.threadId,
     type: EventType.RUN_STARTED,
   });
+  // Auto-sized turns: tell the composer which tier (and model) won so it can
+  // toast + briefly flash the effort control. Explicit picks stay silent.
+  if (input.autoEffortResolved?.effort) {
+    emit({
+      name: ENGENTY_EFFORT_RESOLVED_EVENT,
+      type: EventType.CUSTOM,
+      value: {
+        effort: input.autoEffortResolved.effort,
+        model_id: input.autoEffortResolved.modelId ?? input.modelId ?? null,
+        ...(input.autoEffortResolved.reason
+          ? { reason: input.autoEffortResolved.reason }
+          : {}),
+        ...(input.autoEffortResolved.source
+          ? { source: input.autoEffortResolved.source }
+          : {}),
+      },
+    } as AGUIEvent);
+  }
   // The user turn, for OTHER attached clients (reload, second window), as the
   // protocol-native role:"user" text message (AG-UI TEXT_MESSAGE_START carries
   // a role union). The sending client already renders it optimistically and

@@ -5,6 +5,7 @@ import {
   useAgentHostConfig,
   useDeveloperModeEnabled,
   useEffortModelBindings,
+  useEffortResolvedFeedback,
   useEngentyAIContext,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -25,6 +26,9 @@ import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
  * plumbing that is useful to see and unhelpful to be shown. In that same mode
  * the bound model for each tier is shown under the label — still not a picker,
  * just the answer to "what does medium run?"
+ *
+ * When Auto sizes a turn, the control briefly flashes the resolved tier (and
+ * model id when known) and toasts — without changing the stored "Auto" pick.
  */
 export function CopilotEffortControl(props: { disabled?: boolean }) {
   const { t } = useTranslation("engenty-copilot");
@@ -32,6 +36,7 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
   const developerMode = useDeveloperModeEnabled();
   const modelByEffort = useEffortModelBindings(developerMode);
+  const resolvedFlash = useEffortResolvedFeedback(ENGENTY_COPILOT_HOST_KEY);
   const {
     allowedEfforts,
     effort,
@@ -77,6 +82,14 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
         }
         {...(developerMode ? { modelByEffort } : {})}
         onChange={setEffort}
+        resolvedFlash={
+          resolvedFlash
+            ? {
+                effort: resolvedFlash.effort,
+                modelId: resolvedFlash.modelId,
+              }
+            : null
+        }
         value={effort}
       />
       {expertActive ? (

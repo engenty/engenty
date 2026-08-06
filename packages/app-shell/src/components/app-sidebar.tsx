@@ -113,8 +113,18 @@ export function AppSidebar({
       : sections;
 
   const settingsItem = adminSection?.items.find((i) => i.to === "/settings");
+  // Always show Engenty above Settings in the compact rail — not only when the
+  // hover-expand admin stack is open (that made it look "missing").
+  const engentyAdminItem = adminSection?.items.find(
+    (i) => i.id === "ai_ui_admin_menu" || i.to === "/admin/engenty"
+  );
   const otherAdminItems =
-    adminSection?.items.filter((i) => i.to !== "/settings") ?? [];
+    adminSection?.items.filter(
+      (i) =>
+        i.to !== "/settings" &&
+        i.id !== "ai_ui_admin_menu" &&
+        i.to !== "/admin/engenty"
+    ) ?? [];
 
   const renderItem = (
     item: NavigationItem,
@@ -433,6 +443,7 @@ export function AppSidebar({
                 role="group"
               >
                 {settingsItem && renderItem(settingsItem, false)}
+                {engentyAdminItem && renderItem(engentyAdminItem, false)}
                 {otherAdminItems.length > 0 ? (
                   <div
                     aria-hidden={!adminRailExpanded}

@@ -21,8 +21,10 @@ You'll find the effort control in the composer, next to where you type.
 Your choice sticks for the conversation, so you can set it once and keep
 working. Change it at any point — the next message uses the new level.
 
-There's also **Auto**, which leaves the decision to Engenty and uses your
-workspace's standard setting.
+There's also **Auto**, which sizes each request for you: quick asks stay
+cheap, tool work lands on medium, and coding / CLI / multi-edit work steps up
+to high. Most turns are decided instantly; only ambiguous ones briefly consult
+a small router model.
 
 ## Which level should I use?
 
