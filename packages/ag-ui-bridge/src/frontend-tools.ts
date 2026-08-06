@@ -80,6 +80,22 @@ export interface AgentUiRunContext {
   state_snapshot: AgentUiStateSnapshotV1;
 }
 
+/**
+ * {@link AgentUiRunContext} with the snapshot optional — the shape the server
+ * produces, where a snapshot may legitimately be absent (agents that suppress
+ * it, e.g. the chatbot path in thread-run-routes).
+ *
+ * `AgentUiRunContext` is assignable to this, so gating helpers that only touch
+ * `frontend_tools` should take this and stay usable from both sides. The
+ * required-snapshot form stays the wire contract that `isAgentUiRunContext`
+ * validates — do not relax that one.
+ */
+export interface AgentUiContextLike {
+  frontend_tools: FrontendToolDefinition[];
+  state_delta?: AgentUiStateDeltaV1;
+  state_snapshot?: AgentUiStateSnapshotV1;
+}
+
 function isEngentyFrontendToolMetadata(
   value: unknown
 ): value is EngentyFrontendToolMetadata {

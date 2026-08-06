@@ -4,7 +4,19 @@
     "timestamp": null,
     "commits": [
       {
-        "id": "5521410",
+        "id": "ea4a823",
+        "message": "commit missing AgentUiContextLike interface",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.100",
+    "timestamp": 1786014643,
+    "commits": [
+      {
+        "id": "ba9f9f6",
         "message": "attached windows stop duplicating the current turn; artifact card + pane survive reload/sync",
         "group": "Fixed",
         "breaking": false
