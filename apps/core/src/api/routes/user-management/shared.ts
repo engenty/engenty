@@ -60,6 +60,15 @@ export const WorkspaceContextSchema = z.object({
   }),
   isSuperAdmin: z.boolean(),
   isTenantAdmin: z.boolean(),
+  /**
+   * The principal's capability bundle — the same ids `capabilityCovers`
+   * matches everywhere else. This endpoint is apps/ai's policy feed (AUTH-06):
+   * it already returns the admin booleans that apps/ai gates on, so it carries
+   * the finer-grained truth too rather than leaving apps/ai to guess from the
+   * booleans. Users get the base role bundle (no DB role assignments); service
+   * principals get their token's own claims.
+   */
+  capabilities: z.array(z.string()),
   currentTenant: z
     .object({
       id: z.string(),

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolveRuntimeModelConfig } from "../runtime-model-config.js";
-import type { AiSessionScope, SessionServiceOptions } from "../types.js";
+import type { AiSessionScope, ThreadServiceOptions } from "../types.js";
 
 const scope: AiSessionScope = {
   tenantId: "00000000-0000-4000-8000-000000000001",
@@ -33,13 +33,13 @@ const BINDINGS = [
 
 function makeOpts(
   policy: Record<string, unknown> | null
-): SessionServiceOptions {
+): ThreadServiceOptions {
   return {
     getUsageStore: () => ({
       getTenantPolicy: vi.fn(async () => policy),
       listModelBindings: vi.fn(async () => BINDINGS),
     }),
-  } as unknown as SessionServiceOptions;
+  } as unknown as ThreadServiceOptions;
 }
 
 const unrestricted = {

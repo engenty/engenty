@@ -32,7 +32,6 @@ import {
 import {
   createActionRequestStoreFromEnv,
   createAgentRunStoreFromEnv,
-  createAgentSessionStoreFromEnv,
   createAiService,
   createAiUsageStoreFromEnv,
   createArtifactStoreFromEnv,
@@ -41,12 +40,11 @@ import {
   createDefaultModuleCapabilityLoader,
   createSessionAgentStateChannel,
   createTenantModelConfigResolverFromEnv,
+  createThreadStoreFromEnv,
 } from "./ai/index.js";
 import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
 import { registerActionRoutes } from "./api/action-routes.js";
 import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
-import { registerAgentSessionRunRoutes } from "./api/agent-session-runs-routes.js";
-import { registerAgentSessionRoutes } from "./api/agent-sessions-routes.js";
 import { registerAppProxyRoutes } from "./api/app-proxy-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
@@ -98,19 +96,18 @@ import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
 import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
 import { startTeamChatNotificationConsumer } from "./api/team-chat-notification-consumer.js";
+import { registerThreadRoutes } from "./api/thread-routes.js";
+import { registerThreadRunRoutes } from "./api/thread-run-routes.js";
 import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
 import { registerWorkFilesRoutes } from "./api/work-files-routes.js";
 import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
-import type {
-  AgentRunStore,
-  AgentSessionStore,
-} from "./dal/agent-sessions/index.js";
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
 import type { ArtifactStore } from "./dal/artifacts/index.js";
 import type { ChatSearchRetrieval } from "./dal/chat-search/index.js";
+import type { AgentRunStore, ThreadStore } from "./dal/threads/index.js";
 import { seedAiUsageModelPricing } from "./dal/usage/index.js";
 import {
   bootstrapGatewayModelsIfEmpty,
@@ -132,7 +129,6 @@ let dispatchQueueService: QueueService | null = null;
  */
 export interface CreateAppOptions {
   agentRunStore?: AgentRunStore | null;
-  agentSessionStore?: AgentSessionStore | null;
   artifactStore?: ArtifactStore | null;
   chatSearchRetrieval?: ChatSearchRetrieval | null;
   coreBaseUrl?: string;
@@ -154,6 +150,7 @@ export interface CreateAppOptions {
   registryStore?: any | null;
   scopeResolver?: AiScopeResolver;
   searchIndexRegistry?: SearchIndexRegistry;
+  threadStore?: ThreadStore | null;
   usageStore?: AiUsageStore | null;
 }
 
@@ -272,10 +269,8 @@ export async function createApp(options: CreateAppOptions = {}) {
     })
   );
 
-  const agentSessionStore =
-    "agentSessionStore" in options
-      ? options.agentSessionStore
-      : createAgentSessionStoreFromEnv();
+  const threadStore =
+    "threadStore" in options ? options.threadStore : createThreadStoreFromEnv();
   const agentRunStore =
     "agentRunStore" in options
       ? options.agentRunStore
@@ -285,9 +280,9 @@ export async function createApp(options: CreateAppOptions = {}) {
     "artifactStore" in options
       ? options.artifactStore
       : createArtifactStoreFromEnv();
-  if (agentSessionStore) {
+  if (threadStore) {
     logger.info("agent session store ready", { schema: "ai" });
-  } else if (!("agentSessionStore" in options)) {
+  } else if (!("threadStore" in options)) {
     logger.warn(
       "agent session store unavailable — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
     );
@@ -332,12 +327,12 @@ export async function createApp(options: CreateAppOptions = {}) {
   // Only run-serving registries carry it; catalog/instruction registries
   // render function agents bare (their base face), which is correct there.
   const agentStateChannel = createSessionAgentStateChannel(
-    () => agentSessionStore ?? null
+    () => threadStore ?? null
   );
   const aiService = createAiService({
     mastra,
     getRunStore: () => agentRunStore,
-    getStore: () => agentSessionStore,
+    getStore: () => threadStore,
     getUsageStore: () => aiUsageStore,
     resolveTenantModelConfig:
       createTenantModelConfigResolverFromEnv() ?? undefined,
@@ -357,20 +352,20 @@ export async function createApp(options: CreateAppOptions = {}) {
       return resolved;
     }
 
-    if (input.threadId && agentSessionStore) {
+    if (input.threadId && threadStore) {
       try {
-        const session = await agentSessionStore.getSessionGlobally({
+        const thread = await threadStore.getThreadGlobally({
           threadId: input.threadId,
         });
-        if (session?.agent_id.startsWith("chatbot.")) {
+        if (thread?.agent_id.startsWith("chatbot.")) {
           return {
             ok: true,
             scope: {
               isSuperAdmin: false,
               isTenantAdmin: false,
               tenantRole: "member",
-              tenantId: session.tenant_id,
-              userId: session.created_by_user_id,
+              tenantId: thread.tenant_id,
+              userId: thread.created_by_user_id,
             },
           };
         }
@@ -513,11 +508,11 @@ export async function createApp(options: CreateAppOptions = {}) {
       { tenantId: params.tenantId }
     );
   };
-  registerAgentSessionRoutes(app, {
+  registerThreadRoutes(app, {
     getUsageStore: () => aiUsageStore,
     aiService,
-    onSessionDeleted: emitChatSessionDeleted,
-    onSessionPersisted: emitChatSessionUpdated,
+    onThreadDeleted: emitChatSessionDeleted,
+    onThreadPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
   if (artifactStore) {
@@ -579,7 +574,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   // every call a tenant-authored App makes, and a missing route would fail
   // open in the UI rather than closed.
   registerAppProxyRoutes(app, { scopeResolver });
-  registerAgentSessionRunRoutes(app, {
+  registerThreadRunRoutes(app, {
     // Registry + store for the streaming chat runtimes (harness_session default,
     // conversation executor).
     createRegistry: (scope) =>
@@ -592,11 +587,11 @@ export async function createApp(options: CreateAppOptions = {}) {
     coreBaseUrl: options.coreBaseUrl,
     debugEvents: agUiDebugEvents,
     getRunStore: () => agentRunStore,
-    getStore: () => agentSessionStore ?? null,
+    getStore: () => threadStore ?? null,
     getUsageStore: () => aiUsageStore ?? null,
     aiService,
     moduleLoader: moduleCapabilityLoader,
-    onSessionPersisted: emitChatSessionUpdated,
+    onThreadPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
   registerAgentRunRoutes(app, {
@@ -607,7 +602,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
   registerSandboxRoutes(app, {
     getRunStore: () => agentRunStore,
-    getSessionStore: () => agentSessionStore,
+    getSessionStore: () => threadStore,
     scopeResolver,
   });
   registerAudioTranscriptionRoutes(app, { scopeResolver });
@@ -651,7 +646,7 @@ export async function createApp(options: CreateAppOptions = {}) {
         createSessionAgentTurn({
           instructions: ticket.instructions,
           scope: { tenantId: ticket.tenant_id, userId: ticket.user_id },
-          sessions: aiService.sessions,
+          sessions: aiService.threads,
         }),
       createSttLeg: (ticket, handlers) =>
         createVoxtralSttLeg({
@@ -674,7 +669,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   registerRealtimeToolRoutes(app, {
     coreBaseUrl: options.coreBaseUrl,
     coreFetch: options.coreFetch,
-    getSessionStore: () => agentSessionStore ?? null,
+    getSessionStore: () => threadStore ?? null,
     scopeResolver,
   });
   // Per-user `/ai/v1/search-index/*` surface — backed by the local
@@ -788,7 +783,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   // is configured and is killed by ENGENTY_REMOTE_CHANNELS_ENABLED=false.
   await registerRemoteChannels(app, {
     mastra,
-    sessionStore: agentSessionStore,
+    sessionStore: threadStore,
   });
 
   if (

@@ -36,9 +36,9 @@ import type {
   AiAgentEntry,
   AiRegisteredAction,
   AiSkillRecord,
-} from "../../lib/admin/ai-runtime-api";
-import { useAdminAiSessionsQuery } from "../../lib/admin/ai-runtime-queries";
-import { useAdminAgentsSidebarNavPersistence } from "./admin-agents-sidebar-nav-queries";
+} from "../../lib/admin/ai-runtime-api.js";
+import { useAdminAiThreadsQuery } from "../../lib/admin/ai-runtime-queries.js";
+import { useAdminAgentsSidebarNavPersistence } from "./admin-agents-sidebar-nav-queries.js";
 import {
   buildActionsCatalogPath,
   buildActivityPath,
@@ -49,14 +49,14 @@ import {
   buildSkillsCatalogPath,
   buildToolsPath,
   parseAgentSessionDetailFromPathname,
-} from "./agent-workspace-url-state";
-import { AgentsWorkspaceActionsPanel } from "./agents-workspace-actions-panel";
-import { AgentsWorkspaceAgentsPanel } from "./agents-workspace-agents-panel";
-import { AgentsWorkspaceConnectionsPanel } from "./agents-workspace-connections-panel";
-import { AgentsWorkspaceSessionsPanel } from "./agents-workspace-sessions-panel";
-import { SkillCatalogSidebarPanel } from "./skills-catalog-view";
-import { useAgentsWorkspaceSidebarState } from "./use-agents-workspace-sidebar-state";
-import type { WorkspaceNavPrimaryTab } from "./workspace-nav-utils";
+} from "./agent-workspace-url-state.js";
+import { AgentsWorkspaceActionsPanel } from "./agents-workspace-actions-panel.js";
+import { AgentsWorkspaceAgentsPanel } from "./agents-workspace-agents-panel.js";
+import { AgentsWorkspaceConnectionsPanel } from "./agents-workspace-connections-panel.js";
+import { AgentsWorkspaceThreadsPanel } from "./agents-workspace-threads-panel.js";
+import { SkillCatalogSidebarPanel } from "./skills-catalog-view.js";
+import { useAgentsWorkspaceSidebarState } from "./use-agents-workspace-sidebar-state.js";
+import type { WorkspaceNavPrimaryTab } from "./workspace-nav-utils.js";
 
 export interface AgentsWorkspaceSidebarProps {
   actions: AiRegisteredAction[];
@@ -125,17 +125,14 @@ export function AgentsWorkspaceSidebar({
   const { pinnedAgents, pinAgent, unpinAgent } =
     useAdminAgentsSidebarNavPersistence();
 
-  const sessionsQuery = useAdminAiSessionsQuery(
-    null,
-    primaryTab === "sessions"
-  );
-  const sessionsRaw = sessionsQuery.data?.sessions ?? [];
+  const threadsQuery = useAdminAiThreadsQuery(null, primaryTab === "sessions");
+  const threadsRaw = threadsQuery.data?.sessions ?? [];
 
   const agentNameById = useMemo(
     () => new Map(agents.map((a) => [a.id, a.name])),
     [agents]
   );
-  const routeActiveSessionId = parseAgentSessionDetailFromPathname(
+  const routeActiveThreadId = parseAgentSessionDetailFromPathname(
     location.pathname
   )?.threadId;
 
@@ -270,14 +267,14 @@ export function AgentsWorkspaceSidebar({
           <SidebarContent className="px-0 py-0">
             <SidebarGroup className="p-0 pb-2">
               <SidebarGroupContent>
-                <AgentsWorkspaceSessionsPanel
+                <AgentsWorkspaceThreadsPanel
                   agentNameById={agentNameById}
-                  isError={sessionsQuery.isError}
-                  isLoading={sessionsQuery.isLoading}
-                  routeActiveSessionId={routeActiveSessionId}
+                  isError={threadsQuery.isError}
+                  isLoading={threadsQuery.isLoading}
+                  routeActiveThreadId={routeActiveThreadId}
                   runNav={runNav}
                   searchActive={false}
-                  sessions={sessionsRaw}
+                  threads={threadsRaw}
                 />
               </SidebarGroupContent>
             </SidebarGroup>

@@ -10,23 +10,23 @@ import {
   listSkillRegistryProviders,
   searchSkillRegistry,
 } from "../runtime/skills-api.js";
-import type { AiAgentOverridesPatch } from "./ai-runtime-api";
+import type { AiAgentOverridesPatch } from "./ai-runtime-api.js";
 import {
   type CustomAgentConfig,
   type CustomToolConfig,
   createAiSkill,
   createCustomAgent,
   createCustomTool,
-  deleteAdminAiSession,
-  deleteAdminAiSessionsForAgent,
+  deleteAdminAiThread,
+  deleteAdminAiThreadsForAgent,
   deleteAiSkill,
-  deleteAllAdminAiSessions,
+  deleteAllAdminAiThreads,
   deleteCustomAgent,
   deleteCustomTool,
-  getAdminAiSession,
-  getAdminAiSessionMessages,
-  getAdminAiSessionStats,
-  getAdminAiSessions,
+  getAdminAiThread,
+  getAdminAiThreadMessages,
+  getAdminAiThreadStats,
+  getAdminAiThreads,
   getAiActionDetail,
   getAiActions,
   getAiAgents,
@@ -42,7 +42,7 @@ import {
   updateAiSkill,
   updateCustomAgent,
   updateCustomTool,
-} from "./ai-runtime-api";
+} from "./ai-runtime-api.js";
 
 export const aiRuntimeKeys = {
   actionDetail: (actionId: string | null) =>
@@ -58,24 +58,21 @@ export const aiRuntimeKeys = {
   skillRegistrySearch: (provider: string | null, query: string) =>
     [...aiRuntimeKeys.all, "skill-registry-search", provider, query] as const,
   skills: () => [...aiRuntimeKeys.all, "skills"] as const,
-  adminSessions: (
-    agentId: string | null = null,
-    userId: string | null = null
-  ) => [...aiRuntimeKeys.all, "admin-sessions", agentId, userId] as const,
-  adminSessionDetail: (threadId: string | null) =>
-    [...aiRuntimeKeys.all, "admin-session-detail", threadId] as const,
-  adminSessionMessages: (threadId: string | null) =>
-    [...aiRuntimeKeys.all, "admin-session-messages", threadId] as const,
-  adminSessionStats: () =>
-    [...aiRuntimeKeys.all, "admin-session-stats"] as const,
-  sessionRuns: (threadId: string | null, agentId: string | null) =>
-    [...aiRuntimeKeys.all, "session-runs", threadId, agentId] as const,
+  adminThreads: (agentId: string | null = null, userId: string | null = null) =>
+    [...aiRuntimeKeys.all, "admin-threads", agentId, userId] as const,
+  adminThreadDetail: (threadId: string | null) =>
+    [...aiRuntimeKeys.all, "admin-thread-detail", threadId] as const,
+  adminThreadMessages: (threadId: string | null) =>
+    [...aiRuntimeKeys.all, "admin-thread-messages", threadId] as const,
+  adminThreadStats: () => [...aiRuntimeKeys.all, "admin-thread-stats"] as const,
+  threadRuns: (threadId: string | null, agentId: string | null) =>
+    [...aiRuntimeKeys.all, "thread-runs", threadId, agentId] as const,
   triggers: () => [...aiRuntimeKeys.all, "triggers"] as const,
-  userSessions: () => [...aiRuntimeKeys.all, "user-sessions"] as const,
-  userSessionMessages: (threadId: string | null) =>
-    [...aiRuntimeKeys.all, "user-session-messages", threadId] as const,
-  agentSessions: (agentId: string | null) =>
-    [...aiRuntimeKeys.all, "agent-sessions", agentId] as const,
+  userThreads: () => [...aiRuntimeKeys.all, "user-threads"] as const,
+  userThreadMessages: (threadId: string | null) =>
+    [...aiRuntimeKeys.all, "user-thread-messages", threadId] as const,
+  agentThreads: (agentId: string | null) =>
+    [...aiRuntimeKeys.all, "agent-threads", agentId] as const,
 };
 
 export const aiAgentsOptions = queryOptions({
@@ -123,15 +120,15 @@ export const aiTriggersOptions = queryOptions({
   queryFn: ({ signal }) => getAiTriggers(signal),
 });
 
-export function adminAiSessionsOptions(
+export function adminAiThreadsOptions(
   input?: { agentId?: string | null; userId?: string | null } | null
 ) {
   const agentId = input?.agentId ?? null;
   const userId = input?.userId ?? null;
   return queryOptions({
-    queryKey: aiRuntimeKeys.adminSessions(agentId, userId),
+    queryKey: aiRuntimeKeys.adminThreads(agentId, userId),
     queryFn: ({ signal }) =>
-      getAdminAiSessions({
+      getAdminAiThreads({
         agentId: agentId ?? undefined,
         signal,
         userId: userId ?? undefined,
@@ -139,19 +136,19 @@ export function adminAiSessionsOptions(
   });
 }
 
-export function adminAiSessionDetailOptions(threadId: string | null) {
+export function adminAiThreadDetailOptions(threadId: string | null) {
   return queryOptions({
     enabled: Boolean(threadId),
-    queryFn: ({ signal }) => getAdminAiSession(threadId ?? "", signal),
-    queryKey: aiRuntimeKeys.adminSessionDetail(threadId),
+    queryFn: ({ signal }) => getAdminAiThread(threadId ?? "", signal),
+    queryKey: aiRuntimeKeys.adminThreadDetail(threadId),
   });
 }
 
-export function adminAiSessionMessagesOptions(threadId: string | null) {
+export function adminAiThreadMessagesOptions(threadId: string | null) {
   return queryOptions({
     enabled: Boolean(threadId),
-    queryFn: ({ signal }) => getAdminAiSessionMessages(threadId ?? "", signal),
-    queryKey: aiRuntimeKeys.adminSessionMessages(threadId),
+    queryFn: ({ signal }) => getAdminAiThreadMessages(threadId ?? "", signal),
+    queryKey: aiRuntimeKeys.adminThreadMessages(threadId),
   });
 }
 
@@ -181,7 +178,7 @@ export function aiSkillDetailOptions(skillId: string | null) {
   });
 }
 
-/** Poll the admin sessions list while the activity UI is visible (new sessions appear without reload). */
+/** Poll the admin threads list while the activity UI is visible (new threads appear without reload). */
 const RUNS_LIST_POLL_MS = 4000;
 
 export function useAiAgentsQuery(enabled = true) {
@@ -203,57 +200,57 @@ export function useAiTriggersQuery() {
 }
 
 /**
- * @param livePoll Polls the admin sessions list while the corresponding tab is visible
- *   so newly-created sessions surface without a manual refresh.
+ * @param livePoll Polls the admin threads list while the corresponding tab is visible
+ *   so newly-created threads surface without a manual refresh.
  */
-export function useAdminAiSessionsQuery(
+export function useAdminAiThreadsQuery(
   input?: { agentId?: string | null; userId?: string | null } | null,
   livePoll = false
 ) {
   return useQuery({
-    ...adminAiSessionsOptions(input),
+    ...adminAiThreadsOptions(input),
     refetchInterval: () => (livePoll ? RUNS_LIST_POLL_MS : false),
     refetchIntervalInBackground: false,
   });
 }
 
-export function useAdminAiSessionDetailQuery(threadId: string | null) {
-  return useQuery(adminAiSessionDetailOptions(threadId));
+export function useAdminAiThreadDetailQuery(threadId: string | null) {
+  return useQuery(adminAiThreadDetailOptions(threadId));
 }
 
-export function useAdminAiSessionMessagesQuery(threadId: string | null) {
-  return useQuery(adminAiSessionMessagesOptions(threadId));
+export function useAdminAiThreadMessagesQuery(threadId: string | null) {
+  return useQuery(adminAiThreadMessagesOptions(threadId));
 }
 
-function invalidateAfterAdminSessionMutation(
+function invalidateAfterAdminThreadMutation(
   queryClient: ReturnType<typeof useQueryClient>,
   params: { agentId: string | null; threadId?: string | null }
 ) {
   void queryClient.invalidateQueries({
-    queryKey: [...aiRuntimeKeys.all, "admin-sessions"],
+    queryKey: [...aiRuntimeKeys.all, "admin-threads"],
   });
   void queryClient.invalidateQueries({
-    queryKey: [...aiRuntimeKeys.all, "agent-sessions"],
+    queryKey: [...aiRuntimeKeys.all, "agent-threads"],
   });
   if (params.threadId) {
     void queryClient.invalidateQueries({
-      queryKey: aiRuntimeKeys.adminSessionDetail(params.threadId),
+      queryKey: aiRuntimeKeys.adminThreadDetail(params.threadId),
     });
     void queryClient.invalidateQueries({
-      queryKey: aiRuntimeKeys.adminSessionMessages(params.threadId),
+      queryKey: aiRuntimeKeys.adminThreadMessages(params.threadId),
     });
     void queryClient.invalidateQueries({
-      queryKey: aiRuntimeKeys.sessionRuns(params.threadId, params.agentId),
+      queryKey: aiRuntimeKeys.threadRuns(params.threadId, params.agentId),
     });
   }
 }
 
-export function useDeleteAdminAiSessionMutation(agentId: string | null) {
+export function useDeleteAdminAiThreadMutation(agentId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (threadId: string) => deleteAdminAiSession(threadId),
+    mutationFn: (threadId: string) => deleteAdminAiThread(threadId),
     onSuccess: (_data, threadId) => {
-      invalidateAfterAdminSessionMutation(queryClient, {
+      invalidateAfterAdminThreadMutation(queryClient, {
         agentId,
         threadId,
       });
@@ -261,7 +258,7 @@ export function useDeleteAdminAiSessionMutation(agentId: string | null) {
   });
 }
 
-export function useDeleteAllAdminAiSessionsForAgentMutation(
+export function useDeleteAllAdminAiThreadsForAgentMutation(
   agentId: string | null
 ) {
   const queryClient = useQueryClient();
@@ -270,48 +267,48 @@ export function useDeleteAllAdminAiSessionsForAgentMutation(
       if (!agentId) {
         throw new Error("agentId is required");
       }
-      return deleteAdminAiSessionsForAgent(agentId);
+      return deleteAdminAiThreadsForAgent(agentId);
     },
     onSuccess: () => {
-      invalidateAfterAdminSessionMutation(queryClient, { agentId });
+      invalidateAfterAdminThreadMutation(queryClient, { agentId });
     },
   });
 }
 
-export const adminAiSessionStatsOptions = queryOptions({
-  queryKey: aiRuntimeKeys.adminSessionStats(),
-  queryFn: ({ signal }) => getAdminAiSessionStats(signal),
+export const adminAiThreadStatsOptions = queryOptions({
+  queryKey: aiRuntimeKeys.adminThreadStats(),
+  queryFn: ({ signal }) => getAdminAiThreadStats(signal),
 });
 
-export function useAdminAiSessionStatsQuery() {
-  return useQuery(adminAiSessionStatsOptions);
+export function useAdminAiThreadStatsQuery() {
+  return useQuery(adminAiThreadStatsOptions);
 }
 
-export function useDeleteAllAdminAiSessionsMutation() {
+export function useDeleteAllAdminAiThreadsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => deleteAllAdminAiSessions(),
+    mutationFn: () => deleteAllAdminAiThreads(),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: [...aiRuntimeKeys.all, "admin-sessions"],
+        queryKey: [...aiRuntimeKeys.all, "admin-threads"],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...aiRuntimeKeys.all, "admin-session-detail"],
+        queryKey: [...aiRuntimeKeys.all, "admin-thread-detail"],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...aiRuntimeKeys.all, "admin-session-messages"],
+        queryKey: [...aiRuntimeKeys.all, "admin-thread-messages"],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...aiRuntimeKeys.all, "agent-sessions"],
+        queryKey: [...aiRuntimeKeys.all, "agent-threads"],
       });
       void queryClient.invalidateQueries({
-        queryKey: [...aiRuntimeKeys.all, "session-runs"],
+        queryKey: [...aiRuntimeKeys.all, "thread-runs"],
       });
       void queryClient.invalidateQueries({
-        queryKey: aiRuntimeKeys.userSessions(),
+        queryKey: aiRuntimeKeys.userThreads(),
       });
       void queryClient.invalidateQueries({
-        queryKey: aiRuntimeKeys.adminSessionStats(),
+        queryKey: aiRuntimeKeys.adminThreadStats(),
       });
     },
   });

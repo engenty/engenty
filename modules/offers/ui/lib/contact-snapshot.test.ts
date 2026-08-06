@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatContactSnapshot } from "./contact-snapshot.js";
+import {
+  formatContactSnapshot,
+  formatEntityRecipientSnapshot,
+} from "./contact-snapshot.js";
 
 describe("formatContactSnapshot", () => {
   it("formats full contact data into recipient snapshot", () => {
@@ -60,5 +63,22 @@ describe("formatContactSnapshot", () => {
     } as any;
     const snapshot = formatContactSnapshot(contact);
     expect(snapshot.recipient_address).toBe("5020, Salzburg, Austria");
+  });
+
+  it("includes address_info on entity snapshots", () => {
+    const snapshot = formatEntityRecipientSnapshot({
+      display_name: "WAFF",
+      address_street: "Lassallestraße 1",
+      address_info: "Floor 2",
+      address_zip: "1020",
+      address_city: "Wien",
+      address_country: "Austria",
+      email: "waff@waff.at",
+    });
+    expect(snapshot.recipient_name).toBe("WAFF");
+    expect(snapshot.recipient_address).toBe(
+      "Lassallestraße 1\nFloor 2\n1020, Wien, Austria"
+    );
+    expect(snapshot.recipient_email).toBe("waff@waff.at");
   });
 });

@@ -7,10 +7,10 @@ import {
   sessionToThread,
 } from "../ai/memory/index.js";
 import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-  AgentSessionStore,
-} from "../dal/agent-sessions/index.js";
+  ThreadMessageRow,
+  ThreadRow,
+  ThreadStore,
+} from "../dal/threads/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -18,9 +18,7 @@ const threadId = "00000000-0000-4000-8000-000000000003";
 const messageId = "00000000-0000-4000-8000-000000000004";
 const internalWorkflowThreadId = `${threadId}-00000000-0000-4000-8000-000000000005`;
 
-function makeSession(
-  overrides: Partial<AgentSessionRow> = {}
-): AgentSessionRow {
+function makeSession(overrides: Partial<ThreadRow> = {}): ThreadRow {
   return {
     agent_id: "engenty.copilot",
     archived_at: null,
@@ -40,8 +38,8 @@ function makeSession(
 }
 
 function makeMessage(
-  overrides: Partial<AgentSessionMessageRow> = {}
-): AgentSessionMessageRow {
+  overrides: Partial<ThreadMessageRow> = {}
+): ThreadMessageRow {
   return {
     author_user_id: userId,
     created_at: "2026-05-17T00:00:01.000Z",
@@ -54,19 +52,18 @@ function makeMessage(
   };
 }
 
-function makeStore(
-  overrides: Partial<AgentSessionStore> = {}
-): AgentSessionStore {
-  const session = makeSession();
+function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
+  const thread = makeSession();
   const message = makeMessage();
   return {
     appendMessage: vi.fn(async () => ({ message })),
-    createSession: vi.fn(async () => ({ session })),
-    deleteSessionForUser: vi.fn(async () => ({ deleted: true })),
-    deleteSessionsForUser: vi.fn(async () => ({ deleted: 1 })),
-    getSession: vi.fn(async () => session),
+    createThread: vi.fn(async () => ({ thread })),
+    deleteThreadForUser: vi.fn(async () => ({ deleted: true })),
+    deleteThreadsForUser: vi.fn(async () => ({ deleted: 1 })),
+    getThread: vi.fn(async () => thread),
+    getThreadGlobally: vi.fn(async () => thread),
     listMessagesOrdered: vi.fn(async () => [message]),
-    listSessionsForUser: vi.fn(async () => [session]),
+    listThreadsForUser: vi.fn(async () => [thread]),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -75,8 +72,8 @@ function makeStore(
         role: "assistant",
       }),
     })),
-    updateSessionForUser: vi.fn(async () => ({ session })),
-    upsertSession: vi.fn(async () => ({ session })),
+    updateThreadForUser: vi.fn(async () => ({ thread })),
+    upsertThread: vi.fn(async () => ({ thread })),
     ...overrides,
   };
 }
@@ -98,7 +95,7 @@ describe("EngentySessionMemoryStorage", () => {
 
     const thread = await storage.getThreadById({ threadId });
 
-    expect(store.getSession).toHaveBeenCalledWith({
+    expect(store.getThread).toHaveBeenCalledWith({
       tenantId,
       threadId,
     });
@@ -127,7 +124,7 @@ describe("EngentySessionMemoryStorage", () => {
       storage.getThreadById({ threadId: internalWorkflowThreadId })
     ).resolves.toBeNull();
 
-    expect(store.getSession).not.toHaveBeenCalled();
+    expect(store.getThread).not.toHaveBeenCalled();
   });
 
   it("saves Mastra threads through the existing session store", async () => {
@@ -153,7 +150,7 @@ describe("EngentySessionMemoryStorage", () => {
       },
     });
 
-    expect(store.upsertSession).toHaveBeenCalledWith(
+    expect(store.upsertThread).toHaveBeenCalledWith(
       expect.objectContaining({
         id: threadId,
         tenantId,
@@ -162,6 +159,53 @@ describe("EngentySessionMemoryStorage", () => {
         metadata: { custom: "kept" },
         routeContext: { thread_id: threadId, session_key: "chat" },
         title: "Ada chat",
+      })
+    );
+  });
+
+  it("re-injects active_artifact from the current DB row — Mastra's save must not clobber it", async () => {
+    // Regression, caught live: a PATCH sets active_artifact (see the thread
+    // PATCH route), the passive window applies it via realtime — then the
+    // NEXT Mastra saveThread (its own in-memory metadata snapshot predates
+    // the PATCH) full-replaces the metadata column and wipes it back to {}.
+    const store = makeStore({
+      getThread: vi.fn(async () =>
+        makeSession({
+          metadata: {
+            active_artifact: {
+              artifact_id: "artifact-1",
+              shown_at: "2026-08-06T00:00:00.000Z",
+            },
+          },
+        })
+      ),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "dynamic-agent",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await storage.saveThread({
+      thread: {
+        id: threadId,
+        resourceId: userId,
+        createdAt: new Date("2026-05-17T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-17T00:00:00.000Z"),
+        // Mastra's own snapshot predates the PATCH — no active_artifact here.
+        metadata: { agent_id: "engenty.copilot" },
+        title: "Ada chat",
+      },
+    });
+
+    expect(store.upsertThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          active_artifact: {
+            artifact_id: "artifact-1",
+            shown_at: "2026-08-06T00:00:00.000Z",
+          },
+        }),
       })
     );
   });
@@ -184,7 +228,7 @@ describe("EngentySessionMemoryStorage", () => {
 
     await expect(storage.saveThread({ thread })).resolves.toBe(thread);
 
-    expect(store.upsertSession).not.toHaveBeenCalled();
+    expect(store.upsertThread).not.toHaveBeenCalled();
   });
 
   it("maps persisted messages to Mastra messages with user resource metadata", async () => {
@@ -201,7 +245,123 @@ describe("EngentySessionMemoryStorage", () => {
         metadata: { author_user_id: userId },
       },
     });
-    expect(message.createdAt).toEqual(new Date("2026-05-17T00:00:01.000Z"));
+    expect(message?.createdAt).toEqual(new Date("2026-05-17T00:00:01.000Z"));
+  });
+
+  // A HITL turn suspends mid-message: the suspend-time flush persists the
+  // partial assistant row, and the resume-finish flush RE-SAVES the same id
+  // with the trailing text appended. appendMessage's upsert ignores duplicate
+  // ids, so a re-save must route through updateMessageParts — before this,
+  // the fuller version was silently dropped and a reload lost the final answer.
+  it("re-saving an existing assistant message updates its parts", async () => {
+    const suspendedParts = [
+      { type: "text", text: "" },
+      { type: "tool-invocation", toolInvocation: { toolCallId: "call-1" } },
+    ];
+    const finalParts = [
+      { type: "text", text: "" },
+      { type: "tool-invocation", toolInvocation: { toolCallId: "call-1" } },
+      { type: "step-start" },
+      { type: "text", text: "Switched to dark mode." },
+    ];
+    const existingRow = makeMessage({
+      author_user_id: null,
+      parts: suspendedParts,
+      role: "assistant",
+    });
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [existingRow]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          id: messageId,
+          role: "assistant",
+          createdAt: new Date("2026-05-17T00:00:02.000Z"),
+          threadId,
+          resourceId: userId,
+          content: { format: 2, parts: finalParts } as never,
+        },
+      ],
+    });
+
+    expect(store.appendMessage).not.toHaveBeenCalled();
+    expect(store.updateMessageParts).toHaveBeenCalledWith({
+      tenantId,
+      threadId,
+      messageId,
+      parts: finalParts,
+    });
+  });
+
+  it("re-saving an existing assistant message with identical parts writes nothing", async () => {
+    const parts = [{ type: "text", text: "done" }];
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [
+        makeMessage({ author_user_id: null, parts, role: "assistant" }),
+      ]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          id: messageId,
+          role: "assistant",
+          createdAt: new Date("2026-05-17T00:00:02.000Z"),
+          threadId,
+          resourceId: userId,
+          content: { format: 2, parts } as never,
+        },
+      ],
+    });
+
+    expect(store.appendMessage).not.toHaveBeenCalled();
+    expect(store.updateMessageParts).not.toHaveBeenCalled();
+  });
+
+  it("re-saving an existing user message stays insert-once", async () => {
+    // The first user insert may carry folded attachment parts; a later
+    // text-only re-save must not wipe them.
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [
+        makeMessage({ parts: [{ type: "text", text: "Hello" }] }),
+      ]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          id: messageId,
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:02.000Z"),
+          threadId,
+          resourceId: userId,
+          content: {
+            format: 2,
+            parts: [{ type: "text", text: "Hello" }],
+          } as never,
+        },
+      ],
+    });
+
+    expect(store.appendMessage).not.toHaveBeenCalled();
+    expect(store.updateMessageParts).not.toHaveBeenCalled();
   });
 
   it("appends Mastra user messages with the current user as author", async () => {
@@ -235,6 +395,84 @@ describe("EngentySessionMemoryStorage", () => {
       parts: [{ type: "text", text: "Hello" }],
       authorUserId: userId,
     });
+  });
+
+  it("new user inserts adopt the client-assigned userMessageId", async () => {
+    // The run stream echoes the user turn under the client id; the durable row
+    // must carry the SAME id or attached windows can neither dedupe nor heal it
+    // (seen live: DB row d36b… vs streamed trio ffc06… on the same message).
+    const clientMessageId = "00000000-0000-4000-8000-0000000000aa";
+    const store = makeStore({ listMessagesOrdered: vi.fn(async () => []) });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+      userMessageId: clientMessageId,
+    });
+
+    const mastraGeneratedId = "00000000-0000-4000-8000-0000000000bb";
+    await storage.saveMessages({
+      messages: [
+        {
+          id: mastraGeneratedId,
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:01.000Z"),
+          threadId,
+          resourceId: userId,
+          content: { format: 2, parts: [{ type: "text", text: "Hello" }] },
+        },
+      ],
+    });
+
+    expect(store.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: clientMessageId, role: "user" })
+    );
+  });
+
+  it("userMessageId re-saves stay insert-once and history user rows keep their ids", async () => {
+    const clientMessageId = "00000000-0000-4000-8000-0000000000aa";
+    const historyRow = makeMessage(); // existing user row under `messageId`
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [
+        historyRow,
+        makeMessage({ id: clientMessageId, parts: [{ type: "text", text: "Hello" }] }),
+      ]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+      userMessageId: clientMessageId,
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          // History message re-save: keeps its own id (found as existing).
+          id: messageId,
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:01.000Z"),
+          threadId,
+          resourceId: userId,
+          content: {
+            format: 2,
+            parts: [{ type: "text", text: "Find Ada Lovelace" }],
+          },
+        },
+        {
+          // Current turn re-save (mapped mastra id): row already exists under
+          // the client id → insert-once, no duplicate row.
+          id: "00000000-0000-4000-8000-0000000000bb",
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:02.000Z"),
+          threadId,
+          resourceId: userId,
+          content: { format: 2, parts: [{ type: "text", text: "Hello" }] },
+        },
+      ],
+    });
+
+    expect(store.appendMessage).not.toHaveBeenCalled();
   });
 
   it("persists a control-plane user-message SIGNAL as a real user turn", async () => {
@@ -309,14 +547,14 @@ describe("EngentySessionMemoryStorage", () => {
     // the model system rows, not a user turn → it never saw history → re-greeted
     // every turn. Guard the full save→list round trip: the persisted turn must
     // come back as role "user" so Mastra MessageList recalls it as the user's turn.
-    const rows: AgentSessionMessageRow[] = [];
+    const rows: ThreadMessageRow[] = [];
     const store = makeStore({
       appendMessage: vi.fn(async (input) => {
-        const row: AgentSessionMessageRow = {
+        const row: ThreadMessageRow = {
           author_user_id: input.authorUserId ?? null,
           created_at: "2026-05-17T00:00:01.000Z",
           id: input.id ?? messageId,
-          parts: input.parts as AgentSessionMessageRow["parts"],
+          parts: input.parts as ThreadMessageRow["parts"],
           role: input.role,
           tenant_id: tenantId,
           thread_id: input.threadId,
@@ -374,7 +612,7 @@ describe("EngentySessionMemoryStorage", () => {
       resourceId: userId,
       content: {
         format: 2 as const,
-        parts: [{ type: "text", text: "Prepare memory" }],
+        parts: [{ type: "text" as const, text: "Prepare memory" }],
       },
     };
 
@@ -441,7 +679,8 @@ describe("EngentySessionMemoryStorage", () => {
           role: "assistant",
           threadId,
           content: {
-            parts: [{ type: "text", text: "Hello!" }],
+            format: 2 as const,
+            parts: [{ type: "text" as const, text: "Hello!" }],
           },
         },
       ],
@@ -477,7 +716,7 @@ describe("EngentySessionMemoryStorage", () => {
     // recalled the user's questions with NONE of its own answers and re-answered
     // every prior request each run. The thread is already scoped by threadId +
     // tenant, so only authored (user) turns assert the resource.
-    const rows: AgentSessionMessageRow[] = [
+    const rows: ThreadMessageRow[] = [
       makeMessage({
         id: "00000000-0000-4000-8000-0000000000a1",
         parts: [{ type: "text", text: "who is on my team?" }],
@@ -528,12 +767,12 @@ describe("EngentySessionMemoryStorage", () => {
   it("round-trips tool history through MessageList for model and UI prompts", async () => {
     const toolCallId = "tool-call-weather-1";
     const assistantParts = [
-      { type: "text", text: "Checking the weather." },
+      { type: "text" as const, text: "Checking the weather." },
       {
-        type: "tool-invocation",
+        type: "tool-invocation" as const,
         toolInvocation: {
           args: { city: "London" },
-          state: "result",
+          state: "result" as const,
           step: 0,
           toolCallId,
           toolName: "weather_lookup",
@@ -548,7 +787,7 @@ describe("EngentySessionMemoryStorage", () => {
         toolName: "weather_lookup",
       },
     ];
-    const persistedRows: AgentSessionMessageRow[] = [
+    const persistedRows: ThreadMessageRow[] = [
       makeMessage({
         id: "00000000-0000-4000-8000-000000000010",
         parts: [{ type: "text", text: "Weather in London?" }],
@@ -607,9 +846,10 @@ describe("EngentySessionMemoryStorage", () => {
           id: "00000000-0000-4000-8000-000000000011",
           threadId,
           content: {
+            format: 2 as const,
             parts: [
               ...assistantParts,
-              { type: "text", text: " It is 18C in London." },
+              { type: "text" as const, text: " It is 18C in London." },
             ],
           },
         },

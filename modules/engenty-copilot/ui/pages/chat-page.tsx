@@ -28,7 +28,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
 import { CopilotModuleErrorBoundary } from "../components/copilot-module-error-boundary.js";
-import { SessionList } from "../components/session-list/session-list.js";
+import { ThreadList } from "../components/thread-list/thread-list.js";
 import { logCopilotChatPanel } from "../dev/chat-panel-debug.js";
 import {
   COPILOT_CHAT_ROOT,
@@ -206,7 +206,7 @@ export function CopilotChatPage() {
   ]);
   // Order: New Chat → artifacts trigger → ⋯ menu (menu stays far right).
   const topbarActions = useMemo(() => <ChatTopbarActions />, []);
-  const secondaryNavAfterItems = useMemo(() => <SessionList />, []);
+  const secondaryNavAfterItems = useMemo(() => <ThreadList />, []);
   const secondaryNavHeaderSlot = useMemo(
     () => (
       <ModuleSidebarHeaderLabel

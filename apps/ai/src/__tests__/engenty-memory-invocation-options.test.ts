@@ -11,22 +11,22 @@ import {
   createEngentySessionMemoryRuntime,
 } from "../ai/memory/index.js";
 import { createOfflineCopilotHarnessRegistry } from "../ai/sessions/__tests__/harness-test-registry.js";
-import { createSessionService } from "../ai/sessions.js";
+import { createThreadService } from "../ai/sessions.js";
 import {
   createEngentySupervisorDelegationConfig,
   summarizeDelegationMessages,
 } from "../ai/supervisor/delegation.js";
 import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-  AgentSessionStore,
-} from "../dal/agent-sessions/index.js";
+  ThreadMessageRow,
+  ThreadRow,
+  ThreadStore,
+} from "../dal/threads/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
 const threadId = "00000000-0000-4000-8000-000000000003";
 
-function makeSession(): AgentSessionRow {
+function makeSession(): ThreadRow {
   return {
     agent_id: "engenty.copilot",
     archived_at: null,
@@ -45,8 +45,8 @@ function makeSession(): AgentSessionRow {
 }
 
 function makeMessage(
-  overrides: Partial<AgentSessionMessageRow> = {}
-): AgentSessionMessageRow {
+  overrides: Partial<ThreadMessageRow> = {}
+): ThreadMessageRow {
   return {
     author_user_id: userId,
     created_at: "2026-05-17T00:00:00.500Z",
@@ -75,10 +75,8 @@ function makeMastraMessage(input: {
   };
 }
 
-function makeStore(
-  overrides: Partial<AgentSessionStore> = {}
-): AgentSessionStore {
-  const session = makeSession();
+function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
+  const thread = makeSession();
   return {
     appendMessage: vi.fn(async () => ({
       message: makeMessage({
@@ -87,12 +85,13 @@ function makeStore(
         role: "assistant",
       }),
     })),
-    createSession: vi.fn(async () => ({ session })),
-    deleteSessionForUser: vi.fn(async () => ({ deleted: true })),
-    deleteSessionsForUser: vi.fn(async () => ({ deleted: 1 })),
-    getSession: vi.fn(async () => session),
+    createThread: vi.fn(async () => ({ thread })),
+    deleteThreadForUser: vi.fn(async () => ({ deleted: true })),
+    deleteThreadsForUser: vi.fn(async () => ({ deleted: 1 })),
+    getThread: vi.fn(async () => thread),
+    getThreadGlobally: vi.fn(async () => thread),
     listMessagesOrdered: vi.fn(async () => [makeMessage()]),
-    listSessionsForUser: vi.fn(async () => [session]),
+    listThreadsForUser: vi.fn(async () => [thread]),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -101,8 +100,8 @@ function makeStore(
         role: "assistant",
       }),
     })),
-    updateSessionForUser: vi.fn(async () => ({ session })),
-    upsertSession: vi.fn(async () => ({ session })),
+    updateThreadForUser: vi.fn(async () => ({ thread })),
+    upsertThread: vi.fn(async () => ({ thread })),
     ...overrides,
   };
 }
@@ -117,14 +116,14 @@ function makeEmptyFullStream() {
 
 function makeDynamicAssembler(agent: unknown) {
   return vi.fn(async () => agent) as Parameters<
-    typeof createSessionService
+    typeof createThreadService
   >[0]["assembleDynamicAgent"];
 }
 
 function createMemoryHarness(
-  options: Parameters<typeof createSessionService>[0]
+  options: Parameters<typeof createThreadService>[0]
 ) {
-  return createSessionService({
+  return createThreadService({
     registry: createOfflineCopilotHarnessRegistry(),
     ...options,
   });
@@ -214,7 +213,7 @@ describe("Engenty Mastra memory invocation options", () => {
       id: threadId,
       resourceId: userId,
     });
-    expect(store.getSession).toHaveBeenCalledWith({
+    expect(store.getThread).toHaveBeenCalledWith({
       tenantId,
       threadId,
     });

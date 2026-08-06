@@ -5,20 +5,20 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, DetailPageHeader, Tabs } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useEffect, useRef, useState } from "react";
-import { AgentDetailTabBar } from "../features/agents-workspace/agent-detail-tab-bar";
-import { AgentDetailTabContent } from "../features/agents-workspace/agent-detail-tab-content";
+import { AgentDetailTabBar } from "../features/agents-workspace/agent-detail-tab-bar.js";
+import { AgentDetailTabContent } from "../features/agents-workspace/agent-detail-tab-content.js";
 import {
   type AgentDetailTab,
   getAgentDetailAffordances,
   resolveAgentDetailTab,
-} from "../features/agents-workspace/agent-detail-tabs";
-import { AgentRegistryChatActiveToggle } from "../features/agents-workspace/agent-registry-chat-active-toggle";
-import { useAgentDetail } from "../features/agents-workspace/use-agent-detail";
-import { useAgentDetailPageChrome } from "../features/agents-workspace/use-agent-detail-page-chrome";
-import { useAgentFilesTab } from "../features/agents-workspace/use-agent-files-tab";
-import { useAgentSessionsTab } from "../features/agents-workspace/use-agent-sessions-tab";
-import { useAgentWorkspaceTab } from "../features/agents-workspace/use-agent-workspace-tab";
-import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
+} from "../features/agents-workspace/agent-detail-tabs.js";
+import { AgentRegistryChatActiveToggle } from "../features/agents-workspace/agent-registry-chat-active-toggle.js";
+import { useAgentDetail } from "../features/agents-workspace/use-agent-detail.js";
+import { useAgentDetailPageChrome } from "../features/agents-workspace/use-agent-detail-page-chrome.js";
+import { useAgentFilesTab } from "../features/agents-workspace/use-agent-files-tab.js";
+import { useAgentThreadsTab } from "../features/agents-workspace/use-agent-threads-tab.js";
+import { useAgentWorkspaceTab } from "../features/agents-workspace/use-agent-workspace-tab.js";
+import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav.js";
 
 export function AgentDetailPage() {
   const { t } = useTranslation("ai-ui");
@@ -30,9 +30,9 @@ export function AgentDetailPage() {
     setFileParam: detail.setFileParam,
     t,
   });
-  const sessions = useAgentSessionsTab({
+  const sessions = useAgentThreadsTab({
     selectedAgentId: detail.selectedAgent?.id ?? null,
-    sessionsFilter: detail.sessionsFilter,
+    threadsFilter: detail.sessionsFilter,
   });
 
   const requestedTab = resolveAgentDetailTab(detail.activeSection);

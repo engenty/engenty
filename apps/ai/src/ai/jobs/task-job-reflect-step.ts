@@ -7,8 +7,8 @@ import { createStep } from "@mastra/core/workflows";
 import { createDefaultAiRegistry } from "../agents.js";
 import { runDelegatedConversation } from "../conversation/delegate-run.js";
 import {
-  createAgentSessionStoreFromEnv,
   createRegistryStoreFromEnv,
+  createThreadStoreFromEnv,
 } from "../index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import {
@@ -73,7 +73,7 @@ export interface ReflectionDeps {
   createRegistry: (
     tenantId: string
   ) => ReturnType<typeof createDefaultAiRegistry>;
-  createStore: typeof createAgentSessionStoreFromEnv;
+  createStore: typeof createThreadStoreFromEnv;
   isEnabled: () => boolean;
   resolveScope: typeof resolveTaskJobServiceScope;
   runConversation: typeof runDelegatedConversation;
@@ -82,7 +82,7 @@ export interface ReflectionDeps {
 function defaultReflectionDeps(): ReflectionDeps {
   return {
     isEnabled: isMemoryReflectionEnabled,
-    createStore: createAgentSessionStoreFromEnv,
+    createStore: createThreadStoreFromEnv,
     resolveScope: resolveTaskJobServiceScope,
     createRegistry: (tenantId) =>
       createDefaultAiRegistry({

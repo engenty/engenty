@@ -5,7 +5,7 @@
 // the run) the sub-agent card's Log panel + breadcrumb drill-in are empty. The
 // legacy supervisor avoided this by persisting its own transcript parts with the
 // lines folded in; the conversation executor patches the saved part after the run instead.
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import { isSubAgentDelegationToolName } from "../sessions/transcript.js";
 import type { AiSessionScope } from "../sessions/types.js";
 
@@ -25,7 +25,7 @@ interface ToolInvocationPart {
 export async function persistSubAgentProgress(input: {
   progressByToolCallId: ReadonlyMap<string, string[]>;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
 }): Promise<void> {
   if (input.progressByToolCallId.size === 0) {

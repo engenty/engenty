@@ -2,7 +2,7 @@ import {
   appsAiThreadDetailQueryKey,
   appsAiThreadMessagesQueryKey,
   appsAiThreadsListQueryKey,
-} from "./apps-ai-session-api.js";
+} from "./apps-ai-thread-api.js";
 
 const moduleCopilotQueryRoot = ["engenty-copilot", "agent-sessions"] as const;
 

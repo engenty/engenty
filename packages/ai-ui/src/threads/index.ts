@@ -1,6 +1,6 @@
 // Tier 1 threads barrel — provider, hooks, hostKey profile, and persisted active-thread storage.
 
-export type { AppsAiThreadRecord as EngentyThreadRecord } from "../ag-ui/apps-ai/apps-ai-session-api.js";
+export type { AppsAiThreadRecord as EngentyThreadRecord } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 export {
   EngentyThreadsProvider,
   type EngentyThreadsProviderProps,

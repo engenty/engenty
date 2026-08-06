@@ -1,15 +1,12 @@
----
-title: Generative UI output contract
-description: Expected output shape for tools that emit a generative-ui widget, and how phase drives UI collapse after submit.
----
-
 # Generative UI output contract
 
-Tools that render an interactive widget in the transcript (e.g. a team-member picker,
-a date selector, a form) return a `generative-ui` output envelope. The client reads
-`output.phase` to decide whether the widget collapses after the user acts.
+Tools that render an interactive widget in the transcript (picker, form, etc.)
+return a `generative-ui` output envelope. The client reads `output.phase` to
+decide whether the widget collapses after the user acts.
 
----
+Related copilot tools `show_widget` / `show_ui` are separate catalog tools; this
+doc is only the **`__type: "generative-ui"`** envelope consumed by
+`ToolCallGenerativeUiCard`.
 
 ## Output envelope
 
@@ -36,8 +33,6 @@ a date selector, a form) return a `generative-ui` output envelope. The client re
 **Legacy:** `submitted: true` (boolean) is also accepted as a `phase: "submitted"` alias.
 Prefer `phase` for new tools.
 
----
-
 ## Phase lifecycle
 
 `resolveGenerativeUiToolPhase` (in `tool-call-generative-ui-card.tsx`) maps lane
@@ -50,46 +45,36 @@ state + output to a UI phase:
 | `completed` | `"submitted"` | `submitted` | Collapsed `ToolCallCardBase` + summary |
 | `completed` | `"readonly"` | `readonly` | Collapsed `ToolCallCardBase` + summary |
 
-The distinction between `submitted` and `readonly` is presentational only — both
-collapse the widget. Use `submitted` for a user-initiated action, `readonly` for
-a widget that was never interactive (e.g. a display-only card).
-
----
+`submitted` vs `readonly` is presentational only — both collapse. Use `submitted`
+for a user-initiated action, `readonly` for a display-only card.
 
 ## Agent implementation pattern
 
-When the user acts on the widget (e.g. clicks a button that triggers `sendMessage`),
-the agent receives the follow-up message, completes its work, then updates the tool
-result to include `phase` and optionally `summary`:
+When the user acts on the widget (e.g. `sendMessage` from the renderer), the
+agent receives the follow-up, finishes work, then updates the tool result with
+`phase` and optional `summary`:
 
 ```typescript
-// In your agent tool execute() or output builder:
 return {
   __type: "generative-ui",
-  spec: originalSpec,           // keep the spec for expand/history
+  spec: originalSpec, // keep for expand/history
   phase: "submitted",
   summary: "Team member assigned: Maria Musterfrau",
 };
 ```
 
-The client re-renders the card as collapsed once the run completes and `lane.state`
-becomes `completed`.
-
----
+The card collapses once the lane tool part is `completed` and `phase` is set.
 
 ## Summary display
 
-`readGenerativeUiSummary` in `tool-call-generative-ui-card.tsx` reads `output.summary`
-(string, trimmed). If absent or empty the card shows the fallback text `"Submitted"`.
-Keep summaries ≤ 80 characters — they render as a single `<p>` inside the collapsed card.
-
----
+`readGenerativeUiSummary` reads `output.summary` (trimmed string). Empty →
+fallback `"Submitted"`. Keep summaries ≤ 80 characters.
 
 ## Key files
 
 | File | Role |
 |------|------|
-| `modules/engenty-copilot/ui/components/chat/tool-call-generative-ui-card.tsx` | Card component + `resolveGenerativeUiToolPhase` |
+| `modules/engenty-copilot/ui/components/chat/tool-call-generative-ui-card.tsx` | Card + `resolveGenerativeUiToolPhase` |
 | `modules/engenty-copilot/ui/components/chat/tool-call-generative-ui-phase.test.ts` | Phase resolution tests |
 | `modules/engenty-copilot/ui/register-tool-call-ui.tsx` | Registers `matchesGenerativeUiOutput` matcher |
-| `packages/@engenty/generative-ui` | Element registry + `Renderer` |
+| `packages/generative-ui` (`@engenty/generative-ui`) | Element registry + `Renderer` |

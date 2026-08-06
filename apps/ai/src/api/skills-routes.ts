@@ -133,7 +133,7 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       await ensureManagedSkillsForCatalog(storage);
@@ -143,7 +143,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to list skills",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -160,7 +160,7 @@ export function registerSkillsRoutes(
     }
     const store = buildSkillProposalStore(resolved.scope);
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       return c.json({ proposals: await store.list() });
@@ -168,7 +168,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to list skill proposals",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -182,7 +182,7 @@ export function registerSkillsRoutes(
     const store = buildSkillProposalStore(resolved.scope);
     const storage = buildSkillStorage(resolved.scope);
     if (!(store && storage)) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const name = c.req.param("name");
@@ -205,7 +205,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to approve skill proposal",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -218,7 +218,7 @@ export function registerSkillsRoutes(
     }
     const store = buildSkillProposalStore(resolved.scope);
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const name = c.req.param("name");
@@ -232,7 +232,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to reject skill proposal",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -266,7 +266,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to search skill registry",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -279,7 +279,7 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const body = (await c.req.json()) as {
@@ -313,7 +313,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to install skill",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -326,7 +326,7 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const body = (await c.req.json().catch(() => ({}))) as {
@@ -344,7 +344,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to reseed managed skills",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -357,20 +357,20 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       await ensureManagedSkillsForCatalog(storage);
       const skill = await storage.getSkill(c.req.param("name"));
       if (!skill) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_skills.notFound" }, 404);
       }
       return c.json({ skill });
     } catch (err) {
       return handleRouteError(
         c,
         "failed to get skill",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -383,7 +383,7 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const bytes = await storage.readSkillFile(
@@ -391,7 +391,7 @@ export function registerSkillsRoutes(
         c.req.param("path")
       );
       if (!bytes) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_skills.notFound" }, 404);
       }
       return new Response(bytes as BodyInit, {
         headers: { "content-type": "application/octet-stream" },
@@ -400,7 +400,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to read skill file",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -413,7 +413,7 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const name = c.req.param("name");
@@ -443,7 +443,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to upsert skill",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }
@@ -456,7 +456,7 @@ export function registerSkillsRoutes(
     }
     const storage = buildSkillStorage(resolved.scope);
     if (!storage) {
-      return c.json({ error: "agent_sessions.unconfiguredCore" }, 503);
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
       const name = c.req.param("name");
@@ -472,7 +472,7 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to delete skill",
-        "agent_sessions.internalError",
+        "agent_skills.internalError",
         err
       );
     }

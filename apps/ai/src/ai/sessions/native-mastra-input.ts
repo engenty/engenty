@@ -1,14 +1,14 @@
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import type { ModelMessage, SystemModelMessage, UserModelMessage } from "ai";
-import type { AgentSessionMessageRow } from "../../dal/agent-sessions/index.js";
+import type { ThreadMessageRow } from "../../dal/threads/index.js";
 import { AiSessionError } from "../errors.js";
 import { resumePayloadToModelContent } from "./interrupts.js";
 
 // Stage 3 slim prompt: runtime instructions + current turn (or resume nudge) only.
 // Mastra Memory and MessageList own history recall and model-prompt assembly.
 export function findCurrentUserTurn(
-  rows: AgentSessionMessageRow[]
-): AgentSessionMessageRow | null {
+  rows: ThreadMessageRow[]
+): ThreadMessageRow | null {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const row = rows[index];
     if (row?.role === "user") {
@@ -19,7 +19,7 @@ export function findCurrentUserTurn(
 }
 
 export function buildNativeMastraModelInput(params: {
-  currentUserTurn?: AgentSessionMessageRow | null;
+  currentUserTurn?: ThreadMessageRow | null;
   resume?: NonNullable<RunAgentInput["resume"]>;
   runtimeContextInstructions?: string;
   // AG-UI submits the current turn in the request; Mastra Memory persists it.

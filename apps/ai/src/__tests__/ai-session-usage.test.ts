@@ -2,31 +2,29 @@ import type { AiUsageStore, UsageEventRecord } from "@engenty/ai-core";
 import { describe, expect, it, vi } from "vitest";
 import { createOfflineCopilotHarnessRegistry } from "../ai/sessions/__tests__/harness-test-registry.js";
 import {
-  createSessionService,
-  type SessionServiceOptions,
+  createThreadService,
+  type ThreadServiceOptions,
 } from "../ai/sessions.js";
 import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-  AgentSessionStore,
-} from "../dal/agent-sessions/index.js";
+  ThreadMessageRow,
+  ThreadRow,
+  ThreadStore,
+} from "../dal/threads/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
 const threadId = "00000000-0000-4000-8000-000000000003";
 
-function createAiService(options: SessionServiceOptions) {
+function createAiService(options: ThreadServiceOptions) {
   return {
-    sessions: createSessionService({
+    sessions: createThreadService({
       registry: createOfflineCopilotHarnessRegistry(),
       ...options,
     }),
   };
 }
 
-function makeSession(
-  overrides: Partial<AgentSessionRow> = {}
-): AgentSessionRow {
+function makeSession(overrides: Partial<ThreadRow> = {}): ThreadRow {
   return {
     id: threadId,
     tenant_id: tenantId,
@@ -46,8 +44,8 @@ function makeSession(
 }
 
 function makeMessage(
-  overrides: Partial<AgentSessionMessageRow> = {}
-): AgentSessionMessageRow {
+  overrides: Partial<ThreadMessageRow> = {}
+): ThreadMessageRow {
   return {
     id: "00000000-0000-4000-8000-000000000004",
     tenant_id: tenantId,
@@ -60,10 +58,8 @@ function makeMessage(
   };
 }
 
-function makeSessionStore(
-  overrides: Partial<AgentSessionStore> = {}
-): AgentSessionStore {
-  const session = makeSession();
+function makeSessionStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
+  const thread = makeSession();
   return {
     appendMessage: vi.fn(async () => ({
       message: {
@@ -76,12 +72,13 @@ function makeSessionStore(
         created_at: "2026-01-01T00:00:01Z",
       },
     })),
-    createSession: vi.fn(async () => ({ session })),
-    deleteSessionForUser: vi.fn(),
-    deleteSessionsForUser: vi.fn(),
-    getSession: vi.fn(async () => session),
+    createThread: vi.fn(async () => ({ thread })),
+    deleteThreadForUser: vi.fn(),
+    deleteThreadsForUser: vi.fn(),
+    getThread: vi.fn(async () => thread),
+    getThreadGlobally: vi.fn(async () => thread),
     listMessagesOrdered: vi.fn(async () => [makeMessage()]),
-    listSessionsForUser: vi.fn(async () => [session]),
+    listThreadsForUser: vi.fn(async () => [thread]),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -90,8 +87,8 @@ function makeSessionStore(
         role: "assistant",
       }),
     })),
-    updateSessionForUser: vi.fn(async () => ({ session })),
-    upsertSession: vi.fn(async () => ({ session })),
+    updateThreadForUser: vi.fn(async () => ({ thread })),
+    upsertThread: vi.fn(async () => ({ thread })),
     ...overrides,
   };
 }
@@ -135,7 +132,7 @@ function makeDynamicAssembler(
         }
       : {}),
     streamUntilIdle: vi.fn(async () => output),
-  })) as SessionServiceOptions["assembleDynamicAgent"];
+  })) as ThreadServiceOptions["assembleDynamicAgent"];
 }
 
 describe("AI session usage metering", () => {

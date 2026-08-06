@@ -28,8 +28,8 @@ import {
 } from "../ai/sessions/tool-approval-grants.js";
 import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import type { AgentSessionStore } from "../dal/agent-sessions/index.js";
 import { createApiCatalogSearchStore } from "../dal/api-catalog/api-catalog-search-store.js";
+import type { ThreadStore } from "../dal/threads/index.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -78,7 +78,7 @@ const realtimeToolApproveBodySchema = z.object({
 export interface RegisterRealtimeToolRoutesOptions {
   coreBaseUrl?: string;
   coreFetch?: typeof fetch;
-  getSessionStore?: () => AgentSessionStore | null;
+  getSessionStore?: () => ThreadStore | null;
   scopeResolver: AiScopeResolver;
 }
 
@@ -213,7 +213,7 @@ export function registerRealtimeToolRoutes(
     }
 
     try {
-      const session = await store.getSession({
+      const session = await store.getThread({
         tenantId: scope.scope.tenantId,
         threadId: body.data.thread_id,
       });
@@ -221,7 +221,7 @@ export function registerRealtimeToolRoutes(
         decision === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS
           ? withToolApprovalGrant(session?.metadata, operationId)
           : withToolApprovalGrantOnce(session?.metadata, operationId);
-      await store.updateSessionForUser({
+      await store.updateThreadForUser({
         metadata: nextMetadata,
         tenantId: scope.scope.tenantId,
         threadId: body.data.thread_id,
@@ -276,7 +276,7 @@ export function registerRealtimeToolRoutes(
 }
 
 async function loadThreadApprovalGrants(params: {
-  getSessionStore?: () => AgentSessionStore | null;
+  getSessionStore?: () => ThreadStore | null;
   tenantId: string;
   threadId?: string;
 }): Promise<readonly string[]> {
@@ -288,7 +288,7 @@ async function loadThreadApprovalGrants(params: {
     return [];
   }
   try {
-    const session = await store.getSession({
+    const session = await store.getThread({
       tenantId: params.tenantId,
       threadId: params.threadId,
     });

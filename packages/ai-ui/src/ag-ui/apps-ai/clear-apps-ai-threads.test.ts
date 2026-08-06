@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearAppsAiThreadsForHost } from "./apps-ai-session-api.js";
+import { clearAppsAiThreadsForHost } from "./apps-ai-thread-api.js";
 
 vi.mock("./apps-ai-api.js", () => ({
   appsAiRequestHeaders: vi.fn(async () => ({

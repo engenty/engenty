@@ -72,18 +72,44 @@ export function BlockEditor({
   currencySymbol = "€",
   locale = "de-DE",
   taxRates = [{ name: "vat", label: "20%", value: 20, is_default: true }],
-  units = [
-    { value: "text", label: "Text", singular: "Text", is_default: false },
-    { value: "fixed", label: "Fixed", singular: "Fixed", is_default: false },
-    { value: "h", label: "Hours", singular: "Hour", is_default: true },
-    { value: "d", label: "Days", singular: "Day", is_default: false },
-  ],
+  units: unitsProp,
   offerSettings,
   isReadOnly = false,
   phasesEnabled = true,
 }: BlockEditorProps) {
-  const { t } = useTranslation("offers");
+  const { t, i18n } = useTranslation("offers");
   const pfx = `${documentType}s`;
+  const units = useMemo(() => {
+    if (unitsProp && unitsProp.length > 0) {
+      return unitsProp;
+    }
+    return [
+      {
+        value: "text",
+        label: t(`${pfx}.builtInUnitText`),
+        singular: t(`${pfx}.builtInUnitTextSingular`),
+        is_default: false,
+      },
+      {
+        value: "fixed",
+        label: t(`${pfx}.builtInUnitFixed`),
+        singular: t(`${pfx}.builtInUnitFixedSingular`),
+        is_default: false,
+      },
+      {
+        value: "h",
+        label: t(`${pfx}.builtInUnitHours`),
+        singular: t(`${pfx}.builtInUnitHoursSingular`),
+        is_default: true,
+      },
+      {
+        value: "d",
+        label: t(`${pfx}.builtInUnitDays`),
+        singular: t(`${pfx}.builtInUnitDaysSingular`),
+        is_default: false,
+      },
+    ];
+  }, [i18n.language, pfx, t, unitsProp]);
   const defaultTax =
     offerSettings?.default_tax_rate ??
     taxRates.find((t) => t.is_default)?.value ??

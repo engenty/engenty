@@ -6,12 +6,12 @@ import { z } from "zod";
 import type { AiService } from "../ai/index.js";
 import { abortActiveRun } from "../ai/sessions/run-abort-registry.js";
 import {
-  isRunLiveInProcess,
+  getLiveRunEventsSnapshot,
   subscribeRunEvents,
 } from "../ai/sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../ai/sessions/run-tracking.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import type { AgentRunStore } from "../dal/agent-sessions/index.js";
+import type { AgentRunStore } from "../dal/threads/index.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -20,8 +20,8 @@ import {
 } from "./http.js";
 import {
   mapAgentRunEventRow,
-  mapAgentSessionRunToRecord,
-  mapAgentSessionRunToSummary,
+  mapAgentRunToRecord,
+  mapAgentRunToSummary,
 } from "./run-api-mapper.js";
 
 const runsBase = `${AI_BASE_PATH}/v1/runs`;
@@ -71,7 +71,7 @@ export function registerAgentRunRoutes(
             limit: parsed.data.limit,
           });
       return c.json({
-        runs: runs.map(mapAgentSessionRunToSummary),
+        runs: runs.map(mapAgentRunToSummary),
       });
     } catch (err) {
       return handleRouteError(
@@ -101,17 +101,17 @@ export function registerAgentRunRoutes(
       ? Math.min(Math.max(limitRaw, 1), 100)
       : 50;
     try {
-      await opts.aiService.sessions.getSession({
+      await opts.aiService.threads.getThread({
         scope: scope.scope,
         threadId,
       });
-      const runs = await runStore.listRunsForSession({
+      const runs = await runStore.listRunsForThread({
         tenantId: scope.scope.tenantId,
         threadId,
         limit,
       });
       return c.json({
-        runs: runs.map(mapAgentSessionRunToSummary),
+        runs: runs.map(mapAgentRunToSummary),
       });
     } catch (err) {
       return handleRouteError(
@@ -145,8 +145,8 @@ export function registerAgentRunRoutes(
         return c.json({ error: "agent_runs.notFound" }, 404);
       }
       return c.json({
-        run: mapAgentSessionRunToRecord(run),
-        summary: mapAgentSessionRunToSummary(run),
+        run: mapAgentRunToRecord(run),
+        summary: mapAgentRunToSummary(run),
       });
     } catch (err) {
       return handleRouteError(c, "get run failed", "agent_runs.getFailed", err);
@@ -247,34 +247,67 @@ export function registerAgentRunRoutes(
         clientSignal.addEventListener("abort", close, { once: true });
 
         void (async () => {
-          // 1. Subscribe first so no live events are missed during replay.
+          // 1. Subscribe AND snapshot the live buffer in the same tick.
+          // Persistence lags publish (unawaited inserts, delta coalescing), so
+          // "subscribe then replay the DB" has a seam: events published before
+          // the subscribe but committed after the read arrive through neither
+          // source. The in-memory buffer is written at publish time, so buffer
+          // snapshot + subscription together cover every event exactly once.
           const buffered: Array<{ event: AGUIEvent; seq: number }> = [];
           const unsub = subscribeRunEvents(runId, (e) => {
             buffered.push(e);
           });
+          const liveSnapshot = getLiveRunEventsSnapshot(runId);
+          const finishEvents = new Set(["RUN_FINISHED", "RUN_ERROR"]);
           try {
-            // 2. Replay persisted events.
-            const persisted = await runStore.listRunEvents({
-              tenantId: scope.scope.tenantId,
-              runId,
-              sinceSeq: since,
-            });
             let lastSeq = since;
-            for (const row of persisted) {
-              write(row.payload as AGUIEvent);
-              lastSeq = row.seq;
-            }
+            let sawFinish = false;
+            const writeSeq = (event: AGUIEvent, seq: number) => {
+              if (seq <= lastSeq) {
+                return;
+              }
+              write(event);
+              lastSeq = seq;
+              if (finishEvents.has((event as { type: string }).type)) {
+                sawFinish = true;
+              }
+            };
 
-            // 3. Check if the run is still live.
-            const fresh = await runStore
-              .getRun({ tenantId: scope.scope.tenantId, runId })
-              .catch(() => null);
-            const stillLive =
-              (fresh?.status === "running" || !fresh?.finished_at) &&
-              isRunLiveInProcess(runId);
-
-            if (!stillLive) {
-              // Finished run: replay only.
+            if (liveSnapshot) {
+              // 2a. Live in this process: memory is the complete record —
+              // except below truncatedBeforeSeq (cap eviction), where the rows
+              // are long since persisted; fill that prefix from the DB.
+              if (liveSnapshot.truncatedBeforeSeq > since) {
+                const bufferStartSeq =
+                  liveSnapshot.events[0]?.seq ?? Number.POSITIVE_INFINITY;
+                const persisted = await runStore.listRunEvents({
+                  tenantId: scope.scope.tenantId,
+                  runId,
+                  sinceSeq: since,
+                });
+                for (const row of persisted) {
+                  if (row.seq >= bufferStartSeq) {
+                    break;
+                  }
+                  writeSeq(row.payload as AGUIEvent, row.seq);
+                }
+              }
+              for (const e of liveSnapshot.events) {
+                writeSeq(e.event, e.seq);
+              }
+            } else {
+              // 2b. Not live here: replay persisted events only.
+              const persisted = await runStore.listRunEvents({
+                tenantId: scope.scope.tenantId,
+                runId,
+                sinceSeq: since,
+              });
+              for (const row of persisted) {
+                writeSeq(row.payload as AGUIEvent, row.seq);
+              }
+              const fresh = await runStore
+                .getRun({ tenantId: scope.scope.tenantId, runId })
+                .catch(() => null);
               if (!fresh || fresh.status === "running" || !fresh.finished_at) {
                 // Executor lost: emit synthetic error.
                 write({
@@ -283,38 +316,29 @@ export function registerAgentRunRoutes(
                   runId,
                 });
               }
+              unsub();
               close();
               return;
             }
 
-            // 4. Drain buffered live events with seq > lastSeq, then follow live.
+            // 3. Drain events that arrived during the async prefix replay,
+            // then follow live. Close when a finish event has been delivered
+            // (it may already have been in the snapshot).
             unsub(); // stop buffering; switch to direct write
             const directUnsub = subscribeRunEvents(runId, (e) => {
-              if (e.seq > lastSeq) {
-                write(e.event);
-                lastSeq = e.seq;
-              }
-            });
-
-            // Drain buffer (events that arrived while replaying persisted).
-            for (const e of buffered) {
-              if (e.seq > lastSeq) {
-                write(e.event);
-                lastSeq = e.seq;
-              }
-            }
-
-            // Wait for run to finish (bus close signals end via markRunDone).
-            // The directUnsub + close happen on client disconnect or on RUN_FINISHED/RUN_ERROR.
-            const finishEvents = new Set(["RUN_FINISHED", "RUN_ERROR"]);
-            const originalDirectUnsub = directUnsub;
-            const finalUnsub = subscribeRunEvents(runId, (e) => {
-              if (finishEvents.has(e.event.type)) {
-                originalDirectUnsub();
-                finalUnsub();
+              writeSeq(e.event, e.seq);
+              if (sawFinish) {
+                directUnsub();
                 close();
               }
             });
+            for (const e of buffered) {
+              writeSeq(e.event, e.seq);
+            }
+            if (sawFinish) {
+              directUnsub();
+              close();
+            }
           } catch {
             unsub();
             close();
@@ -367,8 +391,8 @@ export function registerAgentRunRoutes(
         return c.json({ error: "agent_runs.notFound" }, 404);
       }
       return c.json({
-        run: mapAgentSessionRunToRecord(run),
-        summary: mapAgentSessionRunToSummary(run),
+        run: mapAgentRunToRecord(run),
+        summary: mapAgentRunToSummary(run),
       });
     } catch (err) {
       return handleRouteError(

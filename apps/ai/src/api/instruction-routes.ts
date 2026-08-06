@@ -294,7 +294,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to list instruction documents",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }
@@ -324,7 +324,7 @@ export function registerInstructionRoutes(
         userId: resolved.scope.userId,
       });
       if (!baseDocument) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_instructions.notFound" }, 404);
       }
       const [tenantOverride, userOverride] = store
         ? await Promise.all([
@@ -357,7 +357,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to resolve instruction document",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }
@@ -398,7 +398,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to list instruction history",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }
@@ -411,7 +411,7 @@ export function registerInstructionRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_instructions.unconfiguredDatabase" }, 503);
     }
     let body: unknown;
     try {
@@ -436,7 +436,7 @@ export function registerInstructionRoutes(
         userId: resolved.scope.userId,
       });
       if (!baseDocument) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_instructions.notFound" }, 404);
       }
       const result = await applyEdit({
         baseDocument,
@@ -454,7 +454,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to edit instruction document",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }
@@ -468,7 +468,7 @@ export function registerInstructionRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_instructions.unconfiguredDatabase" }, 503);
     }
     let body: unknown;
     try {
@@ -493,7 +493,7 @@ export function registerInstructionRoutes(
           ? await listable.listAgentConfigs()
           : [];
       if (!configs.some((config) => config.id === input.agentId)) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_instructions.notFound" }, 404);
       }
       const filename = normalizeAppendFilename(input.filename);
       const slug = slugifyInstructionFilename(filename);
@@ -533,7 +533,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to create instruction document",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }
@@ -547,7 +547,7 @@ export function registerInstructionRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_instructions.unconfiguredDatabase" }, 503);
     }
     let body: unknown;
     try {
@@ -569,7 +569,7 @@ export function registerInstructionRoutes(
         userId: resolved.scope.userId,
       });
       if (!baseDocument) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_instructions.notFound" }, 404);
       }
       const cleared = await store.deactivateScopedOverride({
         documentKey: input.documentKey,
@@ -623,7 +623,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to reset instruction document",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }
@@ -636,7 +636,7 @@ export function registerInstructionRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_instructions.unconfiguredDatabase" }, 503);
     }
     let body: unknown;
     try {
@@ -667,7 +667,7 @@ export function registerInstructionRoutes(
       });
       const change = changes.find((entry) => entry.id === input.changeId);
       if (!change) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_instructions.notFound" }, 404);
       }
       if (!change.previous_body) {
         return c.json({ error: "Selected change cannot be rolled back" }, 409);
@@ -681,7 +681,7 @@ export function registerInstructionRoutes(
         userId: resolved.scope.userId,
       });
       if (!baseDocument) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_instructions.notFound" }, 404);
       }
       const result = await applyEdit({
         baseDocument,
@@ -699,7 +699,7 @@ export function registerInstructionRoutes(
       return handleRouteError(
         c,
         "failed to roll back instruction document",
-        "agent_sessions.internalError",
+        "agent_instructions.internalError",
         err
       );
     }

@@ -54,7 +54,7 @@ export {
   useAppsAiThreadMessagesQuery,
   useAppsAiThreadQuery,
   useAppsAiThreadsQuery,
-} from "./apps-ai-session-api.js";
+} from "./apps-ai-thread-api.js";
 export {
   type AppsAiThreadDto,
   createAppsAiThread,

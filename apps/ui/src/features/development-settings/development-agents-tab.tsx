@@ -1,6 +1,6 @@
 import {
-  useAdminAiSessionStatsQuery,
-  useDeleteAllAdminAiSessionsMutation,
+  useAdminAiThreadStatsQuery,
+  useDeleteAllAdminAiThreadsMutation,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -54,8 +54,8 @@ function StatTile({ label, value, hint, emphasis = "default" }: StatTileProps) {
 
 export function DevelopmentAgentsTab() {
   const { t } = useTranslation("common");
-  const statsQuery = useAdminAiSessionStatsQuery();
-  const clearAllMutation = useDeleteAllAdminAiSessionsMutation();
+  const statsQuery = useAdminAiThreadStatsQuery();
+  const clearAllMutation = useDeleteAllAdminAiThreadsMutation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastClearResult, setLastClearResult] = useState<{
     deleted_count: number;

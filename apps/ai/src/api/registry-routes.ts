@@ -9,9 +9,11 @@ import {
   agentConfigSchema,
   toolConfigSchema,
 } from "../ai/registry/types.js";
+import { type AiSessionScope, scopeCoversCapability } from "../ai/sessions.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { RegistryStore } from "../dal/registry/index.js";
 import { decorateAgentWithRole } from "./agent-role.js";
+import { AI_CAPABILITIES } from "./capabilities.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
 import { listModuleTools } from "./registry-module-tools.js";
@@ -19,24 +21,21 @@ import { listModuleTools } from "./registry-module-tools.js";
 /**
  * Mutating the shared agent registry (model overrides, per-agent budgets,
  * instructions) is a tenant-admin action, not something any authenticated
- * member may do. superadmin | tenant-admin | tenantRole==="admin" pass.
+ * member may do.
+ *
+ * Gated on the capability rather than the admin booleans (AUTH-06): admins pass
+ * via their `*`, members and service credentials are excluded because
+ * `module.*` does not cover `core.*` — same outcome as the booleans, but now
+ * grantable to a narrower role without widening anyone into full admin.
  */
 function requireAgentAdmin(
   c: { json: (object: unknown, status?: number) => Response },
-  scope: {
-    isSuperAdmin?: boolean;
-    isTenantAdmin?: boolean;
-    tenantRole?: "admin" | "member" | "service" | null;
-  }
+  scope: Pick<AiSessionScope, "capabilities">
 ): Response | null {
-  if (
-    scope.isSuperAdmin === true ||
-    scope.isTenantAdmin === true ||
-    scope.tenantRole === "admin"
-  ) {
+  if (scopeCoversCapability(scope, AI_CAPABILITIES.registryManage)) {
     return null;
   }
-  return c.json({ error: "agent_sessions.forbidden" }, 403);
+  return c.json({ error: "agent_registry.forbidden" }, 403);
 }
 
 export interface RegisterRegistryRoutesOptions {
@@ -47,8 +46,11 @@ export interface RegisterRegistryRoutesOptions {
   scopeResolver: AiScopeResolver;
 }
 
+// Required, not optional: this is what `hasListableRegistry` has already
+// proven. Leaving it optional made the narrowing pointless — callers still had
+// to re-check the method they had just guarded on.
 type ListableAiRegistry = AiRegistry & {
-  listAgentConfigs?: () => Promise<AgentConfig[]>;
+  listAgentConfigs: () => Promise<AgentConfig[]>;
 };
 
 function hasListableRegistry(
@@ -80,7 +82,7 @@ export function registerRegistryRoutes(
 
       const store = getStore();
       if (!store) {
-        return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+        return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
       }
       const agents = await store.listAgents(resolved.scope.tenantId);
       return c.json({ agents: agents.map(decorateAgentWithRole) });
@@ -88,7 +90,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to list agents",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -104,20 +106,20 @@ export function registerRegistryRoutes(
       const registry = getRegistry?.(resolved.scope.tenantId);
       const store = registry ? null : getStore();
       if (!(registry || store)) {
-        return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+        return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
       }
       const agent = registry
         ? await registry.getAgentConfig(agentId)
         : await store?.getAgentConfig(resolved.scope.tenantId, agentId);
       if (!agent) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_registry.notFound" }, 404);
       }
       return c.json({ agent: decorateAgentWithRole(agent) });
     } catch (err) {
       return handleRouteError(
         c,
         "failed to get agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -139,7 +141,7 @@ export function registerRegistryRoutes(
         ? await registry.getAgentConfig(agentId)
         : await store?.getAgentConfig(resolved.scope.tenantId, agentId);
       if (!agent) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_registry.notFound" }, 404);
       }
       return c.json({
         instructions: buildAgentInstructions(agent),
@@ -149,7 +151,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to resolve agent instructions",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -162,7 +164,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const body = await c.req.json();
@@ -170,7 +172,7 @@ export function registerRegistryRoutes(
       if (!parsed.success) {
         return c.json(
           {
-            error: "agent_sessions.invalidInput",
+            error: "agent_registry.invalidInput",
             details: parsed.error.issues,
           },
           400
@@ -189,7 +191,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to create agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -205,7 +207,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const records = await store.listAgentRecords(resolved.scope.tenantId);
@@ -214,7 +216,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to list agent records",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -231,7 +233,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const agentId = c.req.param("id");
@@ -246,7 +248,7 @@ export function registerRegistryRoutes(
       if (!parsed.success) {
         return c.json(
           {
-            error: "agent_sessions.invalidInput",
+            error: "agent_registry.invalidInput",
             details: parsed.error.issues,
           },
           400
@@ -262,7 +264,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to propose agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -275,7 +277,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const agentId = c.req.param("id");
@@ -287,7 +289,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to approve agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -300,7 +302,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const agentId = c.req.param("id");
@@ -313,7 +315,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to reject agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -330,7 +332,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const agentId = c.req.param("id");
@@ -339,14 +341,14 @@ export function registerRegistryRoutes(
         agentId
       );
       if (!existing) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_registry.notFound" }, 404);
       }
       const body = await c.req.json();
       const parsed = agentConfigSchema.partial().safeParse(body);
       if (!parsed.success) {
         return c.json(
           {
-            error: "agent_sessions.invalidInput",
+            error: "agent_registry.invalidInput",
             details: parsed.error.issues,
           },
           400
@@ -360,7 +362,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to update agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -373,7 +375,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const agentId = c.req.param("id");
@@ -383,7 +385,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to delete agent",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -396,7 +398,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const [tools, moduleTools] = await Promise.all([
@@ -410,7 +412,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to list tools",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -423,20 +425,20 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const toolId = c.req.param("id");
       const tool = await store.getToolConfig(resolved.scope.tenantId, toolId);
       if (!tool) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_registry.notFound" }, 404);
       }
       return c.json({ tool });
     } catch (err) {
       return handleRouteError(
         c,
         "failed to get tool",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -449,7 +451,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const body = await c.req.json();
@@ -457,7 +459,7 @@ export function registerRegistryRoutes(
       if (!parsed.success) {
         return c.json(
           {
-            error: "agent_sessions.invalidInput",
+            error: "agent_registry.invalidInput",
             details: parsed.error.issues,
           },
           400
@@ -469,7 +471,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to create tool",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -482,7 +484,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const toolId = c.req.param("id");
@@ -491,14 +493,14 @@ export function registerRegistryRoutes(
         toolId
       );
       if (!existing) {
-        return c.json({ error: "agent_sessions.notFound" }, 404);
+        return c.json({ error: "agent_registry.notFound" }, 404);
       }
       const body = await c.req.json();
       const parsed = toolConfigSchema.partial().safeParse(body);
       if (!parsed.success) {
         return c.json(
           {
-            error: "agent_sessions.invalidInput",
+            error: "agent_registry.invalidInput",
             details: parsed.error.issues,
           },
           400
@@ -514,7 +516,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to update tool",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -546,7 +548,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to list actions",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }
@@ -559,7 +561,7 @@ export function registerRegistryRoutes(
     }
     const store = getStore();
     if (!store) {
-      return c.json({ error: "agent_sessions.unconfiguredDatabase" }, 503);
+      return c.json({ error: "agent_registry.unconfiguredDatabase" }, 503);
     }
     try {
       const toolId = c.req.param("id");
@@ -569,7 +571,7 @@ export function registerRegistryRoutes(
       return handleRouteError(
         c,
         "failed to delete tool",
-        "agent_sessions.internalError",
+        "agent_registry.internalError",
         err
       );
     }

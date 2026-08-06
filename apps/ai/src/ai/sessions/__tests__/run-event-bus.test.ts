@@ -1,6 +1,7 @@
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
+  getLiveRunEventsSnapshot,
   isRunLiveInProcess,
   markRunDone,
   markRunLive,
@@ -10,8 +11,10 @@ import {
 
 const runId = () => crypto.randomUUID();
 
-function makeEvent(type = "RUN_STARTED"): AGUIEvent {
-  return { type, runId: "r1", threadId: "t1" } as AGUIEvent;
+// Matches BusEvent["event"] — see the dual-zod note on that type for why the
+// intersection is needed to get a usable `type` discriminant.
+function makeEvent(type = "RUN_STARTED"): AGUIEvent & { type: string } {
+  return { type, runId: "r1", threadId: "t1" } as AGUIEvent & { type: string };
 }
 
 describe("run-event-bus", () => {
@@ -78,6 +81,40 @@ describe("run-event-bus", () => {
     publishRunEvent(id, { event: makeEvent(), seq: 1 });
 
     expect(received).toHaveLength(1);
+  });
+
+  it("buffers events published before any subscriber for a live run", () => {
+    // Regression: an attached window subscribed and then replayed the DB — an
+    // event published before the subscribe but committed after the read was
+    // lost (seen live as the user-turn trio arriving without its text delta).
+    // The snapshot must return everything published since markRunLive.
+    const id = runId();
+    markRunLive(id);
+    publishRunEvent(id, { event: makeEvent("TEXT_MESSAGE_START"), seq: 0 });
+    publishRunEvent(id, { event: makeEvent("TEXT_MESSAGE_CONTENT"), seq: 1 });
+
+    const snapshot = getLiveRunEventsSnapshot(id);
+    expect(snapshot).not.toBeNull();
+    expect(snapshot?.events.map((e) => e.seq)).toEqual([0, 1]);
+    expect(snapshot?.truncatedBeforeSeq).toBe(-1);
+    markRunDone(id);
+  });
+
+  it("returns null snapshot for runs not live in this process", () => {
+    const id = runId();
+    expect(getLiveRunEventsSnapshot(id)).toBeNull();
+    markRunLive(id);
+    markRunDone(id);
+    expect(getLiveRunEventsSnapshot(id)).toBeNull();
+  });
+
+  it("a second markRunLive does not reset the buffer", () => {
+    const id = runId();
+    markRunLive(id);
+    publishRunEvent(id, { event: makeEvent(), seq: 0 });
+    markRunLive(id); // route + executor both mark — must be idempotent
+    expect(getLiveRunEventsSnapshot(id)?.events).toHaveLength(1);
+    markRunDone(id);
   });
 
   it("does not deliver events to a different run's subscribers", () => {

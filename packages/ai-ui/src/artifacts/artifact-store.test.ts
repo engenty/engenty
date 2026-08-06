@@ -6,6 +6,8 @@ import {
   clearArtifactsForTests,
   closeObjectPaneTab,
   closeWorkFilePaneTab,
+  getArtifactPaneOpen,
+  markUnseenArtifacts,
   objectPaneTabKey,
   openArtifactPane,
   openObjectPaneTab,
@@ -49,6 +51,47 @@ describe("artifact pane state", () => {
     act(() => setArtifactPaneOpen(HOST, false));
     expect(result.current.paneOpen).toBe(false);
     expect(result.current.paneExpanded).toBe(false);
+  });
+});
+
+// Mirrors the reconciliation an active-artifact realtime signal applies
+// (see WorkspaceArtifactPane): auto-focus when the pane is already open,
+// badge (no pop) when it is closed. Exercised at the store level since that
+// is the policy surface the realtime handler defers to.
+function applyActiveArtifactSignal(hostKey: string, artifactId: string) {
+  if (getArtifactPaneOpen(hostKey)) {
+    activateArtifact(hostKey, artifactId);
+  } else {
+    setActiveArtifact(hostKey, artifactId);
+    markUnseenArtifacts(hostKey, [artifactId]);
+  }
+}
+
+describe("active-artifact sync policy (multi-window show_artifact)", () => {
+  beforeEach(() => {
+    clearArtifactsForTests(HOST);
+  });
+
+  it("auto-focuses the presented artifact when the pane is already open", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() => setArtifactPaneOpen(HOST, true));
+
+    act(() => applyActiveArtifactSignal(HOST, "a1"));
+
+    expect(result.current.activeId).toBe("a1");
+    expect(result.current.paneOpen).toBe(true);
+    expect(result.current.unseenCount).toBe(0);
+  });
+
+  it("badges (does not pop open) the presented artifact when the pane is closed", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    expect(result.current.paneOpen).toBe(false);
+
+    act(() => applyActiveArtifactSignal(HOST, "a1"));
+
+    expect(result.current.paneOpen).toBe(false);
+    expect(result.current.activeId).toBe("a1");
+    expect(result.current.unseenIds).toEqual(["a1"]);
   });
 });
 

@@ -38,6 +38,7 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
     getWorkspaceContext: async () => ({
       onboarded: true,
       userId: "u-admin",
+      capabilities: ["core.credentials.manage", "*"],
       currentUser: {
         id: "u-admin",
         email: "admin@example.com",

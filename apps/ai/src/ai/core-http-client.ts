@@ -47,6 +47,15 @@ export interface EngentyToolContract {
 
 export interface EngentyWorkspaceContext {
   canSwitchTenant?: boolean;
+  /**
+   * Capability ids for this principal (AUTH-06). Optional here because this
+   * type describes what core *may* send; the scope resolver's zod schema is
+   * what turns it into the enforced contract.
+   *
+   * Note the 1-minute cache below: a role change takes up to that long to
+   * reach a running apps/ai, exactly as the admin booleans already did.
+   */
+  capabilities?: string[];
   currentTenant: { id: string; name?: string; slug?: string } | null;
   currentUser?: {
     display_name?: string | null;

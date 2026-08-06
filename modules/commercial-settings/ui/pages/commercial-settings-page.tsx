@@ -16,7 +16,7 @@ import { ExpenseCategoriesSection } from "../components/settings/expense-categor
 import { TaxRatesSection } from "../components/settings/tax-rates-section.js";
 import { UnitsSection } from "../components/settings/units-section.js";
 import { useCommercialSettingsAgentUiSlice } from "../hooks/use-commercial-settings-agent-ui-slice.js";
-import { BUILT_IN_NO_TAX } from "../lib/locale-config.js";
+import { BUILT_IN_NO_TAX, BUILT_IN_UNIT_KEYS } from "../lib/locale-config.js";
 import { parseTaxRatesFromApi } from "../lib/parse-tax-rates.js";
 import {
   useCommercialSettingsQuery,
@@ -58,7 +58,14 @@ export function CommercialSettingsPage() {
     setDefaultLocale(data.default_locale ?? "");
     setTaxRates(filteredTaxRates);
     setNoTaxReason(data.no_tax_reason ?? "");
-    setUnits((data.units as Unit[]) ?? []);
+    setUnits(
+      ((data.units as Unit[]) ?? []).filter(
+        (u) =>
+          !BUILT_IN_UNIT_KEYS.includes(
+            u.name as (typeof BUILT_IN_UNIT_KEYS)[number]
+          )
+      )
+    );
     setDisciplines((data.disciplines as Discipline[]) ?? []);
     setExpenseCategories((data.expense_categories as ExpenseCategory[]) ?? []);
   }, [query.data]);
@@ -73,7 +80,12 @@ export function CommercialSettingsPage() {
           (r) => r.value !== 0 || r.name !== BUILT_IN_NO_TAX.name
         ),
         noTaxReason: query.data.no_tax_reason ?? "",
-        units: (query.data.units as Unit[]) ?? [],
+        units: ((query.data.units as Unit[]) ?? []).filter(
+          (u) =>
+            !BUILT_IN_UNIT_KEYS.includes(
+              u.name as (typeof BUILT_IN_UNIT_KEYS)[number]
+            )
+        ),
         disciplines: (query.data.disciplines as Discipline[]) ?? [],
         expenseCategories:
           (query.data.expense_categories as ExpenseCategory[]) ?? [],
@@ -120,7 +132,12 @@ export function CommercialSettingsPage() {
       tax_rates: taxRates,
       no_tax_reason: noTaxReason.trim() || null,
       units: units.filter(
-        (u) => u?.name != null && String(u.name).trim() !== ""
+        (u) =>
+          u?.name != null &&
+          String(u.name).trim() !== "" &&
+          !BUILT_IN_UNIT_KEYS.includes(
+            u.name as (typeof BUILT_IN_UNIT_KEYS)[number]
+          )
       ),
       disciplines,
       expense_categories: expenseCategories.filter(

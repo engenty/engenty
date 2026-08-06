@@ -33,6 +33,7 @@ export {
   clearArtifactsForTests,
   closeObjectPaneTab,
   closeWorkFilePaneTab,
+  getArtifactPaneOpen,
   isObjectPaneTabKey,
   isTransientPaneTabKey,
   isWorkFilePaneTabKey,
@@ -102,11 +103,11 @@ export {
   type CopilotVoiceFabProps,
 } from "./components/copilot/voice-fab/index.js";
 export {
-  SessionStatusIcon,
-  type SessionStatusIconProps,
-  type SessionStatusIconSize,
-  sessionStatusBadgeClassName,
-} from "./components/session-status/session-status.js";
+  ThreadStatusIcon,
+  type ThreadStatusIconProps,
+  type ThreadStatusIconSize,
+  threadStatusBadgeClassName,
+} from "./components/thread-status/thread-status.js";
 export {
   ACTIVE_COPILOT_NEW_CHAT_GENERATION_STORAGE_KEY,
   type ActiveCopilotHostThreadIdInput,
@@ -222,17 +223,17 @@ export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-l
 export { EffortTiersCard } from "./features/ai-settings/effort-tiers-card.js";
 export { useMentionAgentCandidates } from "./hooks/use-mention-agent-candidates.js";
 export type {
-  AiAdminSessionStats,
+  AiAdminThreadStats,
   AiRegisteredAgent,
-  AiSessionMessage,
-  AiSessionRecord,
+  AiThreadMessage,
+  AiThreadRecord,
 } from "./lib/admin/ai-runtime-api.js";
 export {
   aiRuntimeKeys,
-  useAdminAiSessionStatsQuery,
+  useAdminAiThreadStatsQuery,
   useAiAgentsQuery,
   useCustomAgentDetailQuery,
-  useDeleteAllAdminAiSessionsMutation,
+  useDeleteAllAdminAiThreadsMutation,
 } from "./lib/admin/ai-runtime-queries.js";
 export { useAiSettingsQuery } from "./lib/admin/ai-settings-queries.js";
 export {

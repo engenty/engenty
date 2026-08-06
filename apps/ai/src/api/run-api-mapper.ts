@@ -1,7 +1,4 @@
-import type {
-  AgentRunEventRow,
-  AgentSessionRunRow,
-} from "../dal/agent-sessions/types.js";
+import type { AgentRunEventRow, AgentRunRow } from "../dal/threads/types.js";
 
 export type AppsAiRunSummaryStatus =
   | "queued"
@@ -50,7 +47,7 @@ export interface AppsAiRunEventRecord {
 }
 
 export function mapAiRunStatusToSummaryStatus(
-  status: AgentSessionRunRow["status"]
+  status: AgentRunRow["status"]
 ): AppsAiRunSummaryStatus {
   switch (status) {
     case "running":
@@ -79,9 +76,7 @@ function readRunSummaryFromMetadata(
   return typeof summary === "string" && summary.trim() ? summary.trim() : null;
 }
 
-export function mapAgentSessionRunToSummary(
-  run: AgentSessionRunRow
-): AppsAiRunSummary {
+export function mapAgentRunToSummary(run: AgentRunRow): AppsAiRunSummary {
   return {
     action_id: null,
     agent_id: run.agent_id,
@@ -99,10 +94,8 @@ export function mapAgentSessionRunToSummary(
   };
 }
 
-export function mapAgentSessionRunToRecord(
-  run: AgentSessionRunRow
-): AppsAiRunRecord {
-  const summary = mapAgentSessionRunToSummary(run);
+export function mapAgentRunToRecord(run: AgentRunRow): AppsAiRunRecord {
+  const summary = mapAgentRunToSummary(run);
   const usage_json =
     run.prompt_tokens != null || run.completion_tokens != null
       ? {

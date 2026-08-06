@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentSessionMessageRow } from "../../../dal/agent-sessions/index.js";
+import type { ThreadMessageRow } from "../../../dal/threads/index.js";
 import {
   buildSessionMessagesSnapshotFromRows,
   mergeAssistantTranscriptPartsForSnapshot,
@@ -10,9 +10,8 @@ const tenantId = "00000000-0000-4000-8000-000000000001";
 const threadId = "00000000-0000-4000-8000-000000000003";
 
 function makeRow(
-  input: Partial<AgentSessionMessageRow> &
-    Pick<AgentSessionMessageRow, "id" | "role">
-): AgentSessionMessageRow {
+  input: Partial<ThreadMessageRow> & Pick<ThreadMessageRow, "id" | "role">
+): ThreadMessageRow {
   return {
     author_user_id: null,
     created_at: "2026-05-21T12:00:00.000Z",

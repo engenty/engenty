@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clampFloatingPositionToViewport,
   reanchorFloatingPositionToViewport,
-} from "./copilot-floating-bounds";
+} from "./copilot-floating-bounds.js";
 
 describe("clampFloatingPositionToViewport", () => {
   it("keeps an already visible position unchanged", () => {

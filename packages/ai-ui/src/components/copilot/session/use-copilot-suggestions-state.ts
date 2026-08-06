@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
+import type { FieldSuggestion } from "../interrupts/hitl-approval-card.js";
 
 export function useCopilotSuggestionsState(
   latestSuggestions: FieldSuggestion[]

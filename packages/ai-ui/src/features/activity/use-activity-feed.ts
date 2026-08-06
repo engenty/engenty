@@ -2,18 +2,18 @@
 // filters, groups by day, and live-polls only while a running entry exists.
 
 import { useEffect, useMemo, useState } from "react";
-import { useAdminAiSessionsQuery } from "../../lib/admin/ai-runtime-queries";
+import { useAdminAiThreadsQuery } from "../../lib/admin/ai-runtime-queries.js";
 import {
   type ActivityDayGroup,
   groupActivityEntriesByDay,
-} from "./activity-day-groups";
+} from "./activity-day-groups.js";
 import {
   type ActivityEntry,
   type ActivityFilterState,
   filterActivityEntries,
   hasRunningActivityEntry,
   toActivityEntries,
-} from "./activity-entries";
+} from "./activity-entries.js";
 
 export interface UseActivityFeedResult {
   entries: ActivityEntry[];
@@ -31,7 +31,7 @@ export function useActivityFeed(params: {
   const agentId = params.fixedAgentId ?? params.filters.agentId;
   const [livePoll, setLivePoll] = useState(false);
 
-  const sessionsQuery = useAdminAiSessionsQuery(
+  const sessionsQuery = useAdminAiThreadsQuery(
     agentId ? { agentId } : null,
     livePoll
   );

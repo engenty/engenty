@@ -5,18 +5,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EngentyAgUiMessage } from "../conversation.js";
 import { postAppsAiThreadRun } from "./apps-ai-transport.js";
 import {
-  shouldPreserveTranscriptOnBoundSessionIdChange,
-  shouldSkipBoundSessionReset,
+  shouldPreserveTranscriptOnBoundThreadIdChange,
+  shouldSkipBoundThreadReset,
   shouldSkipStaleMessagesSnapshotDuringRun,
   useEngentyAgUiAppsAiSession,
 } from "./use-engenty-ag-ui-apps-ai-session.js";
 
-const CREATED_SESSION_ID = "1eeb6096-06e8-4f80-9869-27f581d9fcb9";
+const CREATED_THREAD_ID = "1eeb6096-06e8-4f80-9869-27f581d9fcb9";
 
 vi.mock("./apps-ai-transport.js", () => ({
   attachAppsAiRunStream: vi.fn(() => new Promise(() => {})),
   createAppsAiThread: vi.fn(async () => ({
-    id: CREATED_SESSION_ID,
+    id: CREATED_THREAD_ID,
     agent_id: "engenty.copilot",
     title: "hi",
   })),
@@ -110,86 +110,86 @@ function SessionProbe(props: {
   return null;
 }
 
-const OTHER_SESSION_ID = "660e8400-e29b-41d4-a716-446655440001";
+const OTHER_THREAD_ID = "660e8400-e29b-41d4-a716-446655440001";
 
-describe("shouldSkipBoundSessionReset", () => {
+describe("shouldSkipBoundThreadReset", () => {
   it("skips reset when the URL still names the thread during transient unbind", () => {
     expect(
-      shouldSkipBoundSessionReset({
-        authoritativeUrlThreadId: CREATED_SESSION_ID,
-        nextBoundSessionId: null,
-        previousBoundSessionId: CREATED_SESSION_ID,
-        runtimeSessionId: null,
+      shouldSkipBoundThreadReset({
+        authoritativeUrlThreadId: CREATED_THREAD_ID,
+        nextBoundThreadId: null,
+        previousBoundThreadId: CREATED_THREAD_ID,
+        runtimeThreadId: null,
       })
     ).toBe(true);
 
     expect(
-      shouldSkipBoundSessionReset({
-        authoritativeUrlThreadId: CREATED_SESSION_ID,
-        nextBoundSessionId: null,
-        previousBoundSessionId: null,
-        runtimeSessionId: null,
+      shouldSkipBoundThreadReset({
+        authoritativeUrlThreadId: CREATED_THREAD_ID,
+        nextBoundThreadId: null,
+        previousBoundThreadId: null,
+        runtimeThreadId: null,
       })
     ).toBe(false);
   });
 
   it("skips reset when an unbound lane binds to the URL session", () => {
     expect(
-      shouldSkipBoundSessionReset({
-        authoritativeUrlThreadId: CREATED_SESSION_ID,
-        nextBoundSessionId: CREATED_SESSION_ID,
-        previousBoundSessionId: null,
-        runtimeSessionId: null,
+      shouldSkipBoundThreadReset({
+        authoritativeUrlThreadId: CREATED_THREAD_ID,
+        nextBoundThreadId: CREATED_THREAD_ID,
+        previousBoundThreadId: null,
+        runtimeThreadId: null,
       })
     ).toBe(true);
   });
 
   it("resets when the URL names a different session than the previously bound id", () => {
     expect(
-      shouldSkipBoundSessionReset({
-        authoritativeUrlThreadId: CREATED_SESSION_ID,
-        nextBoundSessionId: CREATED_SESSION_ID,
-        previousBoundSessionId: OTHER_SESSION_ID,
-        runtimeSessionId: null,
+      shouldSkipBoundThreadReset({
+        authoritativeUrlThreadId: CREATED_THREAD_ID,
+        nextBoundThreadId: CREATED_THREAD_ID,
+        previousBoundThreadId: OTHER_THREAD_ID,
+        runtimeThreadId: null,
       })
     ).toBe(false);
   });
 
   it("resets when the bound id changes away from the URL session", () => {
     expect(
-      shouldSkipBoundSessionReset({
-        authoritativeUrlThreadId: CREATED_SESSION_ID,
-        nextBoundSessionId: OTHER_SESSION_ID,
-        previousBoundSessionId: CREATED_SESSION_ID,
-        runtimeSessionId: null,
+      shouldSkipBoundThreadReset({
+        authoritativeUrlThreadId: CREATED_THREAD_ID,
+        nextBoundThreadId: OTHER_THREAD_ID,
+        previousBoundThreadId: CREATED_THREAD_ID,
+        runtimeThreadId: null,
       })
     ).toBe(false);
   });
 });
 
-describe("shouldPreserveTranscriptOnBoundSessionIdChange", () => {
+describe("shouldPreserveTranscriptOnBoundThreadIdChange", () => {
   it("is true only when URL binds to the runtime id from /new first-send", () => {
     expect(
-      shouldPreserveTranscriptOnBoundSessionIdChange({
-        previousBoundSessionId: null,
-        nextBoundSessionId: CREATED_SESSION_ID,
-        runtimeSessionId: CREATED_SESSION_ID,
+      shouldPreserveTranscriptOnBoundThreadIdChange({
+        previousBoundThreadId: null,
+        nextBoundThreadId: CREATED_THREAD_ID,
+        runtimeThreadId: CREATED_THREAD_ID,
       })
     ).toBe(true);
 
     expect(
-      shouldPreserveTranscriptOnBoundSessionIdChange({
-        previousBoundSessionId: null,
-        nextBoundSessionId: CREATED_SESSION_ID,
-        runtimeSessionId: "660e8400-e29b-41d4-a716-446655440001",
+      shouldPreserveTranscriptOnBoundThreadIdChange({
+        previousBoundThreadId: null,
+        nextBoundThreadId: CREATED_THREAD_ID,
+        runtimeThreadId: "660e8400-e29b-41d4-a716-446655440001",
       })
     ).toBe(false);
 
     expect(
-      shouldPreserveTranscriptOnBoundSessionIdChange({
-        previousBoundSessionId: "660e8400-e29b-41d4-a716-446655440001",
-        nextBoundSessionId: CREATED_SESSION_ID,
-        runtimeSessionId: CREATED_SESSION_ID,
+      shouldPreserveTranscriptOnBoundThreadIdChange({
+        previousBoundThreadId: "660e8400-e29b-41d4-a716-446655440001",
+        nextBoundThreadId: CREATED_THREAD_ID,
+        runtimeThreadId: CREATED_THREAD_ID,
       })
     ).toBe(false);
   });
@@ -259,7 +259,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
       params.onEvent({
         type: EventType.RUN_FINISHED,
         runId: "run-1",
-        threadId: CREATED_SESSION_ID,
+        threadId: CREATED_THREAD_ID,
       } as never);
     });
     const snapshots: EngentyAgUiMessage[][] = [];
@@ -317,7 +317,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
       params.onEvent({
         type: EventType.RUN_FINISHED,
         runId: "run-1",
-        threadId: CREATED_SESSION_ID,
+        threadId: CREATED_THREAD_ID,
       } as never);
     });
 
@@ -374,7 +374,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
       params.onEvent({
         type: EventType.RUN_FINISHED,
         runId: "run-9",
-        threadId: CREATED_SESSION_ID,
+        threadId: CREATED_THREAD_ID,
       } as never);
     });
 
@@ -435,7 +435,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
         initialMessages: [message("seed-user", "hello from server")],
         isTransportReady: true,
         modelId: "openai/gpt-5-mini",
-        pathname: `/mdl/engenty-copilot/chat/${CREATED_SESSION_ID}`,
+        pathname: `/mdl/engenty-copilot/chat/${CREATED_THREAD_ID}`,
         routeContext,
         serviceBaseUrl: "http://127.0.0.1:43110",
         threadId,
@@ -447,8 +447,8 @@ describe("useEngentyAgUiAppsAiSession", () => {
 
     const view = render(
       <Harness
-        authoritativeUrlThreadId={CREATED_SESSION_ID}
-        threadId={CREATED_SESSION_ID}
+        authoritativeUrlThreadId={CREATED_THREAD_ID}
+        threadId={CREATED_THREAD_ID}
       />
     );
 
@@ -457,7 +457,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
     );
 
     view.rerender(
-      <Harness authoritativeUrlThreadId={CREATED_SESSION_ID} threadId={null} />
+      <Harness authoritativeUrlThreadId={CREATED_THREAD_ID} threadId={null} />
     );
 
     await waitFor(() => expect(snapshots.length).toBeGreaterThan(1));
@@ -465,8 +465,8 @@ describe("useEngentyAgUiAppsAiSession", () => {
 
     view.rerender(
       <Harness
-        authoritativeUrlThreadId={CREATED_SESSION_ID}
-        threadId={CREATED_SESSION_ID}
+        authoritativeUrlThreadId={CREATED_THREAD_ID}
+        threadId={CREATED_THREAD_ID}
       />
     );
 
@@ -510,7 +510,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
       expect(snapshots.at(-1)?.map((item) => item.id)).toEqual(["server-user"])
     );
 
-    view.rerender(<Harness threadId={CREATED_SESSION_ID} />);
+    view.rerender(<Harness threadId={CREATED_THREAD_ID} />);
 
     await waitFor(() =>
       expect(snapshots.at(-1)?.map((item) => item.id)).toEqual(["server-user"])
@@ -521,7 +521,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
     vi.mocked(postAppsAiThreadRun).mockImplementationOnce(async (params) => {
       params.onEvent({
         type: EventType.RUN_ERROR,
-        message: "agent_sessions.runFailed",
+        message: "agent_threads.runFailed",
         runId: "run-1",
       } as never);
     });
@@ -540,7 +540,7 @@ describe("useEngentyAgUiAppsAiSession", () => {
         pathname: "/mdl/engenty-copilot/chat/new",
         routeContext,
         serviceBaseUrl: "http://127.0.0.1:43110",
-        threadId: CREATED_SESSION_ID,
+        threadId: CREATED_THREAD_ID,
         transportBlocker: null,
       });
       states.push({
@@ -600,9 +600,9 @@ describe("useEngentyAgUiAppsAiSession", () => {
 
     const view = render(
       <Harness
-        authoritativeUrlThreadId={OTHER_SESSION_ID}
+        authoritativeUrlThreadId={OTHER_THREAD_ID}
         initialMessages={[message("other-user", "other thread")]}
-        threadId={OTHER_SESSION_ID}
+        threadId={OTHER_THREAD_ID}
       />
     );
 
@@ -612,9 +612,9 @@ describe("useEngentyAgUiAppsAiSession", () => {
 
     view.rerender(
       <Harness
-        authoritativeUrlThreadId={CREATED_SESSION_ID}
+        authoritativeUrlThreadId={CREATED_THREAD_ID}
         initialMessages={[message("url-user", "url thread")]}
-        threadId={CREATED_SESSION_ID}
+        threadId={CREATED_THREAD_ID}
       />
     );
 

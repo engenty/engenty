@@ -4,7 +4,7 @@
 
 import type { AGUIEvent, RunAgentInput } from "@engenty/ag-ui-bridge";
 import { buildAgUiMessagesFromSessionMessages } from "@engenty/ai-core";
-import type { AgentSessionMessageRow } from "../../dal/agent-sessions/index.js";
+import type { ThreadMessageRow } from "../../dal/threads/index.js";
 
 type Message = RunAgentInput["messages"][number];
 
@@ -26,9 +26,7 @@ function extractTextFromSessionParts(parts: unknown): string {
     .trim();
 }
 
-function findLastAssistantRowIndex(
-  rows: readonly AgentSessionMessageRow[]
-): number {
+function findLastAssistantRowIndex(rows: readonly ThreadMessageRow[]): number {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     if (rows[index]?.role === "assistant") {
       return index;
@@ -38,7 +36,7 @@ function findLastAssistantRowIndex(
 }
 
 function findSubmittedUserRowIndex(
-  rows: readonly AgentSessionMessageRow[],
+  rows: readonly ThreadMessageRow[],
   submittedUserText: string | null | undefined
 ): number {
   const trimmed = submittedUserText?.trim();
@@ -53,12 +51,12 @@ function findSubmittedUserRowIndex(
 
 /** Place the current user turn before the assistant row when DB timestamps invert order. */
 export function orderRowsForTranscriptSnapshot(params: {
-  rows: readonly AgentSessionMessageRow[];
+  rows: readonly ThreadMessageRow[];
   submittedUserParts?: readonly unknown[] | null;
   submittedUserText?: string | null;
   tenantId: string;
   threadId: string;
-}): AgentSessionMessageRow[] {
+}): ThreadMessageRow[] {
   const ordered = [...params.rows];
   const submittedText = params.submittedUserText?.trim() ?? null;
   let userIndex = findSubmittedUserRowIndex(ordered, submittedText);
@@ -89,7 +87,7 @@ export function orderRowsForTranscriptSnapshot(params: {
 
 export function buildSessionMessagesSnapshotFromRows(params: {
   resourceId: string;
-  rows: readonly AgentSessionMessageRow[];
+  rows: readonly ThreadMessageRow[];
   submittedUserParts?: readonly unknown[] | null;
   submittedUserText?: string | null;
   threadId: string;
@@ -116,7 +114,7 @@ export function buildSessionMessagesSnapshotFromRows(params: {
 export function emitSessionMessagesSnapshot(params: {
   emit?: (event: AGUIEvent) => void;
   resourceId: string;
-  rows: readonly AgentSessionMessageRow[];
+  rows: readonly ThreadMessageRow[];
   submittedUserParts?: readonly unknown[] | null;
   submittedUserText?: string | null;
   threadId: string;
@@ -136,11 +134,11 @@ export function emitSessionMessagesSnapshot(params: {
 /** Merge in-flight assistant transcript parts into snapshot rows (DB or synthetic). */
 export function mergeAssistantTranscriptPartsForSnapshot(params: {
   messageId: string;
-  rows: readonly AgentSessionMessageRow[];
+  rows: readonly ThreadMessageRow[];
   tenantId: string;
   threadId: string;
   transcriptParts: readonly unknown[];
-}): AgentSessionMessageRow[] {
+}): ThreadMessageRow[] {
   if (params.transcriptParts.length === 0) {
     return [...params.rows];
   }
@@ -179,30 +177,30 @@ export function mergeAssistantTranscriptPartsForSnapshot(params: {
 
 export async function syncAssistantTranscriptPartsBeforeSnapshot(params: {
   messageId: string;
-  rows: readonly AgentSessionMessageRow[];
+  rows: readonly ThreadMessageRow[];
   scope: { tenantId: string };
   store: {
     appendMessage?: (input: {
       authorUserId?: string | null;
       parts: unknown;
-      role: AgentSessionMessageRow["role"];
+      role: ThreadMessageRow["role"];
       tenantId: string;
       threadId: string;
-    }) => Promise<{ message: AgentSessionMessageRow }>;
+    }) => Promise<{ message: ThreadMessageRow }>;
     listMessagesOrdered: (input: {
       tenantId: string;
       threadId: string;
-    }) => Promise<AgentSessionMessageRow[]>;
+    }) => Promise<ThreadMessageRow[]>;
     updateMessageParts: (input: {
       messageId: string;
       parts: unknown;
       tenantId: string;
       threadId: string;
-    }) => Promise<{ message: AgentSessionMessageRow }>;
+    }) => Promise<{ message: ThreadMessageRow }>;
   };
   threadId: string;
   transcriptParts: readonly unknown[];
-}): Promise<AgentSessionMessageRow[]> {
+}): Promise<ThreadMessageRow[]> {
   if (params.transcriptParts.length === 0) {
     return [...params.rows];
   }

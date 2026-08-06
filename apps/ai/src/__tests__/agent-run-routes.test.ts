@@ -2,10 +2,7 @@ import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { registerAgentRunRoutes } from "../api/agent-run-routes.js";
 import { createStaticAiScopeResolver } from "../api/http.js";
-import type {
-  AgentRunEventRow,
-  AgentSessionRunRow,
-} from "../dal/agent-sessions/index.js";
+import type { AgentRunEventRow, AgentRunRow } from "../dal/threads/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -14,9 +11,7 @@ const runId = "00000000-0000-4000-8000-000000000010";
 
 const scopeResolver = createStaticAiScopeResolver({ tenantId, userId });
 
-function makeRun(
-  overrides: Partial<AgentSessionRunRow> = {}
-): AgentSessionRunRow {
+function makeRun(overrides: Partial<AgentRunRow> = {}): AgentRunRow {
   return {
     agent_id: "engenty.copilot",
     cancelled_at: null,
@@ -60,15 +55,15 @@ describe("agent run routes", () => {
       getRun: vi.fn(async () => run),
       listRunEvents: vi.fn(async () => [makeEvent(0), makeEvent(1)]),
       listRunsForAgent: vi.fn(async () => [run]),
-      listRunsForSession: vi.fn(async () => [run]),
+      listRunsForThread: vi.fn(async () => [run]),
       listRunsForTenant: vi.fn(async () => [run]),
     };
     const app = new Hono();
     registerAgentRunRoutes(app as never, {
       getRunStore: () => runStore as never,
       aiService: {
-        sessions: {
-          getSession: vi.fn(async () => ({ session: { id: threadId } })),
+        threads: {
+          getThread: vi.fn(async () => ({ thread: { id: threadId } })),
         },
       } as never,
       scopeResolver,
@@ -122,7 +117,7 @@ describe("agent run routes", () => {
     const app = new Hono();
     registerAgentRunRoutes(app as never, {
       getRunStore: () => runStore as never,
-      aiService: { sessions: {} } as never,
+      aiService: { threads: {} } as never,
       scopeResolver,
     });
 

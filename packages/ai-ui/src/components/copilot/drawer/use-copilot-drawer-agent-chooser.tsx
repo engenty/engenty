@@ -2,12 +2,12 @@
 
 import { isAgentThreadId } from "@engenty/ai-core/browser";
 import { useCallback } from "react";
-import { CopilotAgentPicker } from "../composer/copilot-agent-picker";
+import { CopilotAgentPicker } from "../composer/copilot-agent-picker.js";
 import {
-  CopilotAgentSessionChooser,
-  type CopilotAgentSessionChooserSession,
-} from "../composer/copilot-agent-session-chooser";
-import { CopilotRecentSessionsChooser } from "../composer/copilot-recent-sessions-chooser";
+  CopilotAgentThreadChooser,
+  type CopilotAgentThreadChooserThread,
+} from "../composer/copilot-agent-thread-chooser.js";
+import { CopilotRecentThreadsChooser } from "../composer/copilot-recent-threads-chooser.js";
 
 const GENERAL_CHAT_AGENT_ID = "engenty.copilot";
 
@@ -23,7 +23,7 @@ export function useCopilotDrawerAgentChooser(input: {
   agentSessionChooserEnabled: boolean;
   appsAiSessionsApi: string;
   chooserMenuAgentId: string | null;
-  chooserMenuSessions: CopilotAgentSessionChooserSession[];
+  chooserMenuSessions: CopilotAgentThreadChooserThread[];
   chooserMenuSessionsLoading: boolean;
   clearDrawerComposerState: () => void;
   floatingChatCanonicalMessagesLoading: boolean;
@@ -112,7 +112,7 @@ export function useCopilotDrawerAgentChooser(input: {
   );
 
   const handleAgentChooserResume = useCallback(
-    (row: CopilotAgentSessionChooserSession) => {
+    (row: CopilotAgentThreadChooserThread) => {
       const aid = row.current_agent_id?.trim();
       if (aid && aid !== GENERAL_CHAT_AGENT_ID) {
         input.setSelectedAgentId(aid);
@@ -151,15 +151,15 @@ export function useCopilotDrawerAgentChooser(input: {
           );
         }
         return (
-          <CopilotRecentSessionsChooser
+          <CopilotRecentThreadsChooser
             activeThreadId={input.activeThreadId}
             composeNewLabel={input.agentChooserLabels.newSession}
-            emptySessionsLabel={input.agentChooserLabels.emptySessions}
-            newSessionLabel={input.agentChooserLabels.newSession}
-            onNewSession={handleFlatRecentNewSession}
-            onResumeSession={handleAgentChooserResume}
-            sessions={input.chooserMenuSessions}
-            sessionsLoading={
+            emptyThreadsLabel={input.agentChooserLabels.emptySessions}
+            newThreadLabel={input.agentChooserLabels.newSession}
+            onNewThread={handleFlatRecentNewSession}
+            onResumeThread={handleAgentChooserResume}
+            threads={input.chooserMenuSessions}
+            threadsLoading={
               input.chooserMenuSessionsLoading ||
               Boolean(
                 input.floatingChatCanonicalMessagesLoading &&
@@ -167,29 +167,27 @@ export function useCopilotDrawerAgentChooser(input: {
                   isAgentThreadId(input.activeThreadId.trim())
               )
             }
-            sessionsSectionLabel={input.agentChooserLabels.sessionsHeading}
+            threadsSectionLabel={input.agentChooserLabels.sessionsHeading}
             variant="panel"
           />
         );
       }
       return (
-        <CopilotAgentSessionChooser
+        <CopilotAgentThreadChooser
           agents={input.registeredAgents}
           agentsLoading={input.registeredAgentsLoading}
-          emptySessionsLabel={input.agentChooserLabels.emptySessions}
+          emptyThreadsLabel={input.agentChooserLabels.emptySessions}
           menuAgentId={input.chooserMenuAgentId}
-          menuSessions={input.chooserMenuSessions}
-          menuSessionsLoading={input.chooserMenuSessionsLoading}
-          newSessionLabel={input.agentChooserLabels.newSession}
-          onNewSessionForAgent={handleAgentChooserNewSession}
-          onRequestAgentSessions={(id) =>
-            input.onChooserMenuAgentIdChange?.(id)
-          }
-          onResumeSession={handleAgentChooserResume}
+          menuThreads={input.chooserMenuSessions}
+          menuThreadsLoading={input.chooserMenuSessionsLoading}
+          newThreadLabel={input.agentChooserLabels.newSession}
+          onNewThreadForAgent={handleAgentChooserNewSession}
+          onRequestAgentThreads={(id) => input.onChooserMenuAgentIdChange?.(id)}
+          onResumeThread={handleAgentChooserResume}
           onSelectAgent={input.setSelectedAgentId}
           selectAgentLabel={input.agentChooserLabels.selectAgent}
           selectedAgentId={input.selectedAgentId}
-          sessionsSectionLabel={input.agentChooserLabels.sessionsHeading}
+          threadsSectionLabel={input.agentChooserLabels.sessionsHeading}
           variant={variant}
         />
       );

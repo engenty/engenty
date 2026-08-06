@@ -6,8 +6,8 @@ import {
   listEngentySandboxesForScope,
 } from "../ai/sandbox/engenty-sandbox-catalog.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import type { AgentRunStore } from "../dal/agent-sessions/agent-run-store.js";
-import type { AgentSessionStore } from "../dal/agent-sessions/index.js";
+import type { AgentRunStore } from "../dal/threads/agent-run-store.js";
+import type { ThreadStore } from "../dal/threads/index.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -22,7 +22,7 @@ export function registerSandboxRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     getRunStore?: () => AgentRunStore | null;
-    getSessionStore: () => AgentSessionStore | null;
+    getSessionStore: () => ThreadStore | null;
     scopeResolver: AiScopeResolver;
   }
 ): void {

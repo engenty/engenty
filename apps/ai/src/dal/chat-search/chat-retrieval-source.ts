@@ -31,10 +31,7 @@ import type {
   SearchResult,
 } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-} from "../agent-sessions/index.js";
+import type { ThreadMessageRow, ThreadRow } from "../threads/index.js";
 import { buildChatSessionSearchText } from "./documents.js";
 import { AI_CHAT_SEARCH_PROVIDER_ID, type AiChatSearchHit } from "./types.js";
 
@@ -88,7 +85,7 @@ export function createChatSessionRetrievalSource(options: {
   async function loadSessionsByIds(
     ids: string[],
     tenantId: string
-  ): Promise<Map<string, AgentSessionRow>> {
+  ): Promise<Map<string, ThreadRow>> {
     if (ids.length === 0) {
       return new Map();
     }
@@ -100,9 +97,7 @@ export function createChatSessionRetrievalSource(options: {
     if (error) {
       throw new Error(`chat session load failed: ${error.message}`);
     }
-    return new Map(
-      ((data ?? []) as AgentSessionRow[]).map((row) => [row.id, row])
-    );
+    return new Map(((data ?? []) as ThreadRow[]).map((row) => [row.id, row]));
   }
 
   return {
@@ -127,7 +122,7 @@ export function createChatSessionRetrievalSource(options: {
       }
       const text = buildChatSessionSearchText(
         session,
-        (data ?? []) as AgentSessionMessageRow[]
+        (data ?? []) as ThreadMessageRow[]
       );
       if (!text) {
         // No searchable content — ingest treats null as delete-from-index.

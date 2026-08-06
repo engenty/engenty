@@ -3,7 +3,7 @@
 // Reattach hook: on mount with a bound thread, discovers any in-flight or recently-terminal
 // run and either attaches via SSE (live run) or replays partial event text (cancelled/failed run).
 
-import { EventType } from "@engenty/ag-ui-bridge";
+import { EventType, readAgUiOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { buildAgUiMessagesFromSessionMessages } from "@engenty/ai-core/browser";
 import {
   type PostgresChangeRealtimeClient,
@@ -19,20 +19,22 @@ import type { EngentyAgUiMessage } from "../conversation.js";
 import {
   buildRecoveryMessagesSnapshotEvent,
   coalesceRunEventText,
+  createRecoveryRunEventReplayFilter,
   isCopilotRunRecoveryEnabled,
   isTerminalRunWithPotentialUnflushedText,
+  partitionSnapshotForRunAttach,
   pickLatestInFlightAppsAiRun,
   pickLatestTerminalAppsAiRun,
   shouldApplyRecoveryMessagesSnapshot,
+  shouldApplyTerminalRunMessagesSnapshot,
   shouldAttemptAppsAiRunRecovery,
   shouldContinueAppsAiRunRecovery,
-  shouldReplayRecoveryRunEvent,
   transcriptMissingAssistantMessage,
 } from "./apps-ai-run-recovery-gating.js";
 import {
   getAppsAiThread,
   listAppsAiThreadMessages,
-} from "./apps-ai-session-api.js";
+} from "./apps-ai-thread-api.js";
 import { attachAppsAiRunStream } from "./apps-ai-transport.js";
 import { clearThreadLaneSnapshot } from "./thread-lane-snapshot-cache.js";
 
@@ -48,48 +50,37 @@ async function maybeReplayTerminalRunEvents(params: {
   applyEvent: (event: never) => void;
   messagesRef: MutableRefObject<readonly EngentyAgUiMessage[]>;
   runs: readonly import("../../lib/admin/ai-runtime-types.js").AiAgentRunSummary[];
-  serviceBaseUrl: string;
   signal: AbortSignal;
+  /** The already-fetched persisted transcript (avoids a second fetch). */
+  snapshotMessages: readonly EngentyAgUiMessage[];
   threadId: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const terminalRun = pickLatestTerminalAppsAiRun(params.runs);
   if (!isTerminalRunWithPotentialUnflushedText(terminalRun)) {
-    return;
+    return false;
   }
 
-  // Fetch current thread messages to check if assistant text is already present.
-  const messageRecords = await listAppsAiThreadMessages({
-    serviceBaseUrl: params.serviceBaseUrl,
-    threadId: params.threadId,
-    limit: 500,
-    signal: params.signal,
-  });
-  if (params.signal.aborted) {
-    return;
-  }
-  const snapshotMessages = buildAgUiMessagesFromSessionMessages(
-    messageRecords as Parameters<typeof buildAgUiMessagesFromSessionMessages>[0]
-  );
+  const snapshotMessages = params.snapshotMessages;
 
   // If the transcript already has an assistant message, the coalescer flushed — nothing to do.
   if (!transcriptMissingAssistantMessage(snapshotMessages)) {
-    return;
+    return false;
   }
 
   // Fetch the run events to extract partial text. terminalRun is non-null here
   // because isTerminalRunWithPotentialUnflushedText returned true above.
   const runId = terminalRun?.id ?? "";
   if (!runId) {
-    return;
+    return false;
   }
   const eventsResult = await getAiRunEvents(runId, params.signal);
   if (params.signal.aborted) {
-    return;
+    return false;
   }
 
   const textByMessageId = coalesceRunEventText(eventsResult.events);
   if (textByMessageId.size === 0) {
-    return;
+    return false;
   }
 
   // Build the synthetic interrupted assistant message(s).
@@ -107,7 +98,7 @@ async function maybeReplayTerminalRunEvents(params: {
   }
 
   if (interruptedMessages.length === 0) {
-    return;
+    return false;
   }
 
   // Merge snapshot messages with the coalesced interrupted assistant messages.
@@ -130,10 +121,17 @@ async function maybeReplayTerminalRunEvents(params: {
       buildRecoveryMessagesSnapshotEvent(mergedMessages) as never
     );
     params.messagesRef.current = mergedMessages;
+    return true;
   }
+  return false;
 }
 
 export interface UseAppsAiActiveRunRecoveryOptions {
+  /** Run id this window is itself streaming via its own POST (send OR resume
+   * dispatch — the resume path reuses the client-supplied runId). Recovery
+   * must never attach to it: two writers into the same lane message double
+   * every delta. */
+  activeRunIdRef?: MutableRefObject<string | null>;
   applyEvent: (event: never) => void;
   hydrateEnabled?: boolean;
   invalidateQueries: (threadId: string) => void;
@@ -157,6 +155,11 @@ export function useAppsAiActiveRunRecovery(
   const recoveryAbortRef = useRef<AbortController | null>(null);
   /** One automatic recovery attempt per bound thread id until explicit `resumeActiveRun`. */
   const recoveryAttemptedRef = useRef<string | null>(null);
+  /** Synchronous dispatch latch. `recoveryRunningRef` only flips true AFTER the
+   * loop's discovery fetches, so realtime signals arriving in that window each
+   * launched their own loop — three racing attaches at run end quadrupled the
+   * final message. Set before the first await, cleared when the loop settles. */
+  const recoveryDispatchedRef = useRef(false);
   const recoveryRunningRef = useRef(false);
   const submitStatusRef = useRef(options.submitStatus);
   submitStatusRef.current = options.submitStatus;
@@ -174,6 +177,16 @@ export function useAppsAiActiveRunRecovery(
         signal,
       });
       const activeRun = pickLatestInFlightAppsAiRun(runsResult.runs);
+      if (activeRun && activeRun.id === options.activeRunIdRef?.current) {
+        // This window's own POST stream is delivering these events already
+        // (seen live: an artifact auto-resume attached to itself and every
+        // text delta rendered twice).
+        logCopilotChatNew("run recovery skipped: locally streamed run", {
+          runId: activeRun.id,
+          threadId,
+        });
+        return false;
+      }
       const thread = await getAppsAiThread({
         serviceBaseUrl: options.serviceBaseUrl,
         threadId,
@@ -186,17 +199,60 @@ export function useAppsAiActiveRunRecovery(
           threadStatus: thread.status,
         })
       ) {
-        // No live run to attach. Check whether a terminal run has partial
-        // assistant text that was never flushed to the thread messages table
-        // (cancelled/failed runs cut off before the coalescer drained).
-        await maybeReplayTerminalRunEvents({
+        // No live run to attach — but the thread may have moved on without
+        // this window watching: a run completed in another window/tab, or this
+        // window's own run finished server-side across a reload (runs are
+        // durable; they outlive the browser connection).
+        const terminalRecords = await listAppsAiThreadMessages({
+          serviceBaseUrl: options.serviceBaseUrl,
+          threadId,
+          limit: 500,
+          signal,
+        });
+        if (signal.aborted) {
+          return false;
+        }
+        const terminalSnapshot = buildAgUiMessagesFromSessionMessages(
+          terminalRecords as Parameters<
+            typeof buildAgUiMessagesFromSessionMessages
+          >[0]
+        );
+        // Cancelled/failed runs cut off before the coalescer drained may hold
+        // partial assistant text only in the event log — that replay applies a
+        // MERGED snapshot itself. Otherwise prefer the persisted transcript
+        // whenever it is ahead of the in-memory lane.
+        const replayedUnflushed = await maybeReplayTerminalRunEvents({
           applyEvent: options.applyEvent,
           messagesRef: options.messagesRef,
           runs: runsResult.runs,
-          serviceBaseUrl: options.serviceBaseUrl,
           signal,
+          snapshotMessages: terminalSnapshot,
           threadId,
         });
+        if (
+          !(replayedUnflushed || signal.aborted) &&
+          shouldApplyTerminalRunMessagesSnapshot({
+            liveMessages: options.messagesRef.current,
+            snapshotMessages: terminalSnapshot,
+          })
+        ) {
+          logCopilotChatNew("terminal transcript re-sync", {
+            snapshotCount: terminalSnapshot.length,
+            threadId,
+          });
+          options.applyEvent(
+            buildRecoveryMessagesSnapshotEvent(terminalSnapshot) as never
+          );
+          options.messagesRef.current = terminalSnapshot;
+        }
+        // Sync the interrupt chip with persisted metadata: an interrupt
+        // answered in another window is cleared server-side — this window's
+        // "Decision needed" state must follow.
+        if (!signal.aborted) {
+          options.onOpenInterrupt?.(
+            readAgUiOpenInterrupt(thread.metadata ?? {}) != null
+          );
+        }
         return false;
       }
 
@@ -213,11 +269,18 @@ export function useAppsAiActiveRunRecovery(
         limit: 500,
         signal,
       });
-      const snapshotMessages = buildAgUiMessagesFromSessionMessages(
-        messageRecords as Parameters<
-          typeof buildAgUiMessagesFromSessionMessages
-        >[0]
-      );
+      // Rows persisted BY the attached run stay out of the lane — the replay
+      // re-delivers their content under the run stream's own message ids, and
+      // keeping both doubles the current turn (see partitionSnapshotForRunAttach).
+      const { kept: snapshotMessages, replayOwned } =
+        partitionSnapshotForRunAttach({
+          messages: buildAgUiMessagesFromSessionMessages(
+            messageRecords as Parameters<
+              typeof buildAgUiMessagesFromSessionMessages
+            >[0]
+          ),
+          runStartedAt: activeRun?.created_at ?? null,
+        });
       if (
         shouldApplyRecoveryMessagesSnapshot({
           liveMessages: options.messagesRef.current,
@@ -229,10 +292,43 @@ export function useAppsAiActiveRunRecovery(
         );
         options.messagesRef.current = snapshotMessages;
       }
+      // Replay-owned rows can enter the lane through OTHER paths too — a
+      // reload mid-run hydrates the full DB transcript (partial assistant row
+      // included) before this loop runs. Purge them; the attach re-streams
+      // that content live.
+      const replayOwnedIds = new Set(replayOwned.map((message) => message.id));
+      if (replayOwnedIds.size > 0) {
+        const purged = options.messagesRef.current.filter(
+          (message) => !replayOwnedIds.has(message.id)
+        );
+        if (purged.length !== options.messagesRef.current.length) {
+          logCopilotChatNew("attach purged replay-owned rows", {
+            purgedCount: options.messagesRef.current.length - purged.length,
+            runId: activeRun?.id ?? null,
+            threadId,
+          });
+          options.applyEvent(
+            buildRecoveryMessagesSnapshotEvent(purged) as never
+          );
+          options.messagesRef.current = purged;
+        }
+      }
 
       options.setSubmitStatus("streaming");
       options.submitInFlightRef.current = true;
       recoveryRunningRef.current = true;
+
+      // Messages the DB already carries must not double up from delta replay;
+      // everything else (the in-flight turn) streams live into this window.
+      const replayEvent = createRecoveryRunEventReplayFilter({
+        laneHasMessage: (messageId) =>
+          options.messagesRef.current.some(
+            (message) => message.id === messageId
+          ),
+        snapshotMessageIds: new Set(
+          snapshotMessages.map((message) => message.id)
+        ),
+      });
 
       try {
         if (activeRun) {
@@ -244,7 +340,7 @@ export function useAppsAiActiveRunRecovery(
               if (signal.aborted) {
                 return;
               }
-              if (!shouldReplayRecoveryRunEvent(event)) {
+              if (!replayEvent(event)) {
                 return;
               }
               options.applyEvent(event as never);
@@ -262,6 +358,41 @@ export function useAppsAiActiveRunRecovery(
             signal,
             since: -1,
           });
+          // The attach streamed the turn under Mastra's SESSION message ids;
+          // the DB persisted it under different MessageList ids. Re-sync to the
+          // persisted transcript so the lane ends every attached run on DB
+          // identity (gate is text-based — the count heuristic rejected this
+          // heal whenever a residual duplicate made the lane longer).
+          if (!signal.aborted) {
+            const finalRecords = await listAppsAiThreadMessages({
+              serviceBaseUrl: options.serviceBaseUrl,
+              threadId,
+              limit: 500,
+              signal,
+            });
+            const finalSnapshot = buildAgUiMessagesFromSessionMessages(
+              finalRecords as Parameters<
+                typeof buildAgUiMessagesFromSessionMessages
+              >[0]
+            );
+            if (
+              !signal.aborted &&
+              shouldApplyTerminalRunMessagesSnapshot({
+                liveMessages: options.messagesRef.current,
+                snapshotMessages: finalSnapshot,
+              })
+            ) {
+              logCopilotChatNew("post-attach transcript re-sync", {
+                runId: activeRun.id,
+                snapshotCount: finalSnapshot.length,
+                threadId,
+              });
+              options.applyEvent(
+                buildRecoveryMessagesSnapshotEvent(finalSnapshot) as never
+              );
+              options.messagesRef.current = finalSnapshot;
+            }
+          }
         }
       } finally {
         options.submitInFlightRef.current = false;
@@ -282,14 +413,36 @@ export function useAppsAiActiveRunRecovery(
     if (!(threadId && options.isTransportReady)) {
       return;
     }
-    if (recoveryRunningRef.current || options.submitInFlightRef.current) {
+    if (
+      recoveryDispatchedRef.current ||
+      recoveryRunningRef.current ||
+      options.submitInFlightRef.current
+    ) {
       return;
     }
     stopRecovery();
-    recoveryAttemptedRef.current = null;
+    // Mark this thread as attempted BEFORE launching: the loop's own
+    // setSubmitStatus("streaming") re-runs the mount effect, and a null/other
+    // marker made that effect stopRecovery() — aborting the attach it was
+    // reacting to. (Seen live: "run recovery start" → "run recovery end"
+    // back-to-back, second window never streamed.)
+    recoveryAttemptedRef.current = threadId;
+    recoveryDispatchedRef.current = true;
     const abortController = new AbortController();
     recoveryAbortRef.current = abortController;
-    void runRecoveryLoop(threadId, abortController.signal);
+    void runRecoveryLoop(threadId, abortController.signal)
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        logCopilotChatNew("run recovery failed", {
+          threadId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      })
+      .finally(() => {
+        recoveryDispatchedRef.current = false;
+      });
   }, [options, runRecoveryLoop, stopRecovery]);
 
   useEffect(() => {
@@ -326,11 +479,12 @@ export function useAppsAiActiveRunRecovery(
       return;
     }
 
-    if (recoveryRunningRef.current) {
+    if (recoveryDispatchedRef.current || recoveryRunningRef.current) {
       return;
     }
 
     recoveryAttemptedRef.current = threadId;
+    recoveryDispatchedRef.current = true;
     const abortController = new AbortController();
     recoveryAbortRef.current = abortController;
 
@@ -345,12 +499,15 @@ export function useAppsAiActiveRunRecovery(
           threadId,
           message: error instanceof Error ? error.message : String(error),
         });
+      } finally {
+        recoveryDispatchedRef.current = false;
       }
     })();
 
-    return () => {
-      abortController.abort();
-    };
+    // NO abort-on-cleanup: this effect's deps change WHILE the loop streams
+    // (its own setSubmitStatus flips `options.submitStatus`), and an abort here
+    // killed the attach mid-stream. Aborts happen via stopRecovery — on thread
+    // change (above), on unmount (below), and inside resumeActiveRun.
   }, [
     options.hydrateEnabled,
     options.isTransportReady,
@@ -370,6 +527,17 @@ export function useAppsAiActiveRunRecovery(
   //   unflushed partial text.
   // - every UPDATE: title/summary/metadata/archive changes from other tabs —
   //   invalidate detail/messages/list queries so headers and transcript follow.
+  // Latest-callback refs so the subscription effect depends ONLY on
+  // (client, threadId). With the callbacks in the dep list the channel was
+  // torn down and re-created on EVERY render — and signals that landed in the
+  // resubscribe gap were lost, so a second window never learned a run started
+  // (the same churn that silently broke live-cache realtime before).
+  const resumeActiveRunRef = useRef(resumeActiveRun);
+  resumeActiveRunRef.current = resumeActiveRun;
+  const invalidateQueriesRef = useRef(options.invalidateQueries);
+  invalidateQueriesRef.current = options.invalidateQueries;
+  const submitInFlightForSignalRef = options.submitInFlightRef;
+
   useEffect(() => {
     const threadId = options.threadId?.trim() ?? "";
     if (!(options.realtimeClient && threadId)) {
@@ -395,28 +563,22 @@ export function useAppsAiActiveRunRecovery(
         },
       ],
       onSignal: (signal) => {
-        options.invalidateQueries(threadId);
+        invalidateQueriesRef.current(threadId);
         const status = signal.record?.status;
         if (status === "running") {
-          resumeActiveRun();
+          resumeActiveRunRef.current();
           return;
         }
         const isTerminal = status === "completed" || status === "failed";
         const isLocallyStreaming =
-          recoveryRunningRef.current || options.submitInFlightRef.current;
+          recoveryRunningRef.current || submitInFlightForSignalRef.current;
         if (isTerminal && !isLocallyStreaming) {
-          resumeActiveRun();
+          resumeActiveRunRef.current();
         }
       },
     });
     return unsubscribe;
-  }, [
-    options.invalidateQueries,
-    options.realtimeClient,
-    options.submitInFlightRef,
-    options.threadId,
-    resumeActiveRun,
-  ]);
+  }, [options.realtimeClient, options.threadId, submitInFlightForSignalRef]);
 
   return { resumeActiveRun };
 }

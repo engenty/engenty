@@ -20,29 +20,29 @@ import { Link, useSearchParams } from "react-router-dom";
 import type {
   ActivityFilterState,
   ActivityStatusFilter,
-} from "../features/activity/activity-entries";
+} from "../features/activity/activity-entries.js";
 import {
   hasRunningActivityEntry,
   toActivityEntries,
-} from "../features/activity/activity-entries";
-import { ActivityListFeed } from "../features/activity/activity-list-feed";
+} from "../features/activity/activity-entries.js";
+import { ActivityListFeed } from "../features/activity/activity-list-feed.js";
 import {
   type ActivityGroupBy,
   type ActivitySortBy,
   filterAndSortActivityEntries,
   groupActivityList,
-} from "../features/activity/activity-list-state";
-import { ActivityTable } from "../features/activity/activity-table";
+} from "../features/activity/activity-list-state.js";
+import { ActivityTable } from "../features/activity/activity-table.js";
 import {
   type ActivityColumnKey,
   type ActivityColumnVisibility,
   ActivityToolbar,
-} from "../features/activity/activity-toolbar";
-import { AGENTS_WORKSPACE_ROOT_PATH } from "../features/agents-workspace/agent-workspace-paths";
-import { EngentyCanvasPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome";
-import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav";
-import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data";
-import { useAdminAiSessionsQuery } from "../lib/admin/ai-runtime-queries";
+} from "../features/activity/activity-toolbar.js";
+import { AGENTS_WORKSPACE_ROOT_PATH } from "../features/agents-workspace/agent-workspace-paths.js";
+import { EngentyCanvasPageChrome } from "../features/agents-workspace/engenty-catalog-page-chrome.js";
+import { useAgentsWorkspaceShellNav } from "../features/agents-workspace/use-agents-workspace-shell-nav.js";
+import { useWorkspaceNavData } from "../features/agents-workspace/use-workspace-nav-data.js";
+import { useAdminAiThreadsQuery } from "../lib/admin/ai-runtime-queries.js";
 
 const OPERATIONS_COCKPIT_PATH = "/mdl/tasks/operations";
 const STATUS_VALUES = new Set(["all", "running", "failed", "finished"]);
@@ -128,7 +128,7 @@ export function ActivityPage() {
 
   // Live-poll only while a running entry is visible (same rule as the feed hook).
   const [livePoll, setLivePoll] = useState(false);
-  const sessionsQuery = useAdminAiSessionsQuery(
+  const sessionsQuery = useAdminAiThreadsQuery(
     filters.agentId ? { agentId: filters.agentId } : null,
     livePoll
   );

@@ -45,7 +45,7 @@
       "skills": "Verwaltete und eigene Agent-Skills",
       "tools": "Modul-, MCP- und eigene Tools",
       "connections": "Verknüpfte Konten und Integrationen",
-      "activity": "Aktuelle Agent-Runs und Sessions"
+      "activity": "Aktuelle Agent-Runs und Threads"
     },
     "hints": {
       "agents": "{{count}} im Katalog",
@@ -58,8 +58,8 @@
       "toolsEmpty": "Noch keine Tools",
       "connections": "{{count}} verbunden",
       "connectionsEmpty": "Keine Verbindungen",
-      "activity": "{{count}} Sessions protokolliert",
-      "activityEmpty": "Noch keine Runs oder Sessions",
+      "activity": "{{count}} Threads protokolliert",
+      "activityEmpty": "Noch keine Runs oder Threads",
       "loading": "Lädt…",
       "error": "Konnte nicht geladen werden"
     }
@@ -422,7 +422,7 @@
       "goal": "Ziel"
     },
     "audience": {
-      "thread": "Teilnehmer dieser Chat-Session",
+      "thread": "Teilnehmer dieses Chat-Threads",
       "task": "Mitglieder dieser Aufgabe",
       "project": "Projektmitglieder",
       "goal": "Beteiligte dieses Ziels"
@@ -495,10 +495,10 @@
     "sidebarAgents": "Agenten",
     "sidebarPinned": "Angepinnt",
     "sidebarOverviewAgentsEmpty": "Pinne Agenten im Tab „Agenten“, um sie hier schnell zu erreichen.",
-    "sidebarOverviewRecentSessions": "Letzte Sitzungen",
-    "sidebarPinSessionAria": "Sitzung oben in dieser Liste anpinnen",
-    "sidebarUnpinSessionAria": "Sitzung lösen",
-    "sidebarViewAllSessions": "Alle Sitzungen",
+    "sidebarOverviewRecentSessions": "Letzte Threads",
+    "sidebarPinSessionAria": "Thread oben in dieser Liste anpinnen",
+    "sidebarUnpinSessionAria": "Thread lösen",
+    "sidebarViewAllSessions": "Alle Threads",
     "sidebarPinAgentAria": "Agent oben anpinnen",
     "sidebarUnpinAgentAria": "Anheftung aufheben",
     "sidebarActions": "Aktionen",
@@ -510,7 +510,7 @@
     "connectionsPanelError": "Verbindungen konnten nicht geladen werden.",
     "connectionsPanelEmpty": "Noch keine Verbindungen.",
     "sidebarActivity": "Aktivität",
-    "sidebarSessions": "Sessions",
+    "sidebarSessions": "Threads",
     "sidebarNewAgent": "Neuer Agent",
     "sidebarNewAction": "Neue Aktion",
     "sidebarNewSkill": "Neuer Skill",
@@ -534,8 +534,8 @@
     "sidebarGroupBySource": "Quelle",
     "sidebarGroupOther": "Sonstige",
     "sidebarCatalogSearchEmpty": "Keine Treffer.",
-    "sidebarSessionsSearchPlaceholder": "Sessions filtern…",
-    "sidebarSessionsSearchAria": "Session-Verknüpfungen filtern",
+    "sidebarSessionsSearchPlaceholder": "Threads filtern…",
+    "sidebarSessionsSearchAria": "Thread-Verknüpfungen filtern",
     "navToggleShow": "Agenten-Workspace-Seitenleiste anzeigen",
     "navToggleHide": "Agenten-Workspace-Seitenleiste ausblenden",
     "navResizeHandle": "Breite der Agenten-Workspace-Seitenleiste anpassen",
@@ -550,14 +550,14 @@
     "instructionFileOpenBadge": "Aktiv",
     "instructionsRailDescription": "Markdown-Instruktionsdateien für den ausgewählten Agenten.",
     "fileChooserAriaLabel": "Instruktionsdatei wählen",
-    "sessionsTab": "Sitzungen",
+    "sessionsTab": "Threads",
     "sessionsTabCancel": "Abbrechen",
-    "sessionsTabClearAll": "Alle Sitzungen leeren",
-    "sessionsTabClearAllConfirm": "Alle Sitzungen löschen?",
-    "sessionsTabClearAllDescription": "Damit werden alle apps/ai-Sitzungen dieses Agenten entfernt, die dem angemeldeten Benutzer gehören.",
-    "sessionsTabDelete": "Sitzung löschen",
-    "sessionsTabDeleteConfirm": "Diese Sitzung löschen?",
-    "sessionsTabDeleteDescription": "Die apps/ai-Sitzung und ihre gespeicherten Nachrichten werden für den angemeldeten Benutzer entfernt.",
+    "sessionsTabClearAll": "Alle Threads leeren",
+    "sessionsTabClearAllConfirm": "Alle Threads löschen?",
+    "sessionsTabClearAllDescription": "Damit werden alle apps/ai-Threads dieses Agenten entfernt, die dem angemeldeten Benutzer gehören.",
+    "sessionsTabDelete": "Thread löschen",
+    "sessionsTabDeleteConfirm": "Diesen Thread löschen?",
+    "sessionsTabDeleteDescription": "Der apps/ai-Thread und seine gespeicherten Nachrichten werden für den angemeldeten Benutzer entfernt.",
     "skillsTab": "Action Capabilities",
     "skillsTabDescription": "Direkte und action-abgeleitete Capability-Bindings für den ausgewählten Agenten durchsuchen.",
     "settingsTab": "Einstellungen",
@@ -594,12 +594,12 @@
   },
   "activity": {
     "title": "Aktivität",
-    "description": "Chronologischer Feed der Agenten-Sessions und -Läufe.",
+    "description": "Chronologischer Feed der Agenten-Threads und -Läufe.",
     "loading": "Aktivität wird geladen…",
     "empty": "Noch keine Aktivität erfasst.",
     "error": "Aktivität konnte nicht geladen werden.",
     "filterAllAgents": "Alle Agenten",
-    "searchPlaceholder": "Sessions durchsuchen…",
+    "searchPlaceholder": "Threads durchsuchen…",
     "today": "Heute",
     "yesterday": "Gestern",
     "status_all": "Alle Status",
@@ -608,14 +608,14 @@
     "status_finished": "Abgeschlossen",
     "status_other": "Sonstige",
     "count": "{{count}} von {{total}}",
-    "noResults": "Keine Sessions entsprechen den Filtern.",
+    "noResults": "Keine Threads entsprechen den Filtern.",
     "feedView": "Feed",
     "tableView": "Tabelle",
     "display": "Anzeige",
     "filterToggle": "Filteroptionen",
     "toggleGroup": "Gruppe umschalten",
-    "groupCountSingular": "Session",
-    "groupCountPlural": "Sessions",
+    "groupCountSingular": "Thread",
+    "groupCountPlural": "Threads",
     "groupByLabel": "Gruppieren nach",
     "groupBy": {
       "day": "Tag",
@@ -649,18 +649,18 @@
     "showAll": "Alle anzeigen",
     "hideAll": "Alle ausblenden",
     "noColumns": "Keine Spalten angezeigt",
-    "untitledSession": "Session ohne Titel",
+    "untitledSession": "Thread ohne Titel",
     "noAgent": "Kein Agent",
     "cockpitBanner": "Sie suchen Ziele, Aufgaben und Dispatch? Dieser Feed dient der Prüfung und Fehlersuche.",
     "cockpitBannerLink": "Operations-Cockpit öffnen"
   },
   "sessionsCatalog": {
-    "title": "KI-Sessions",
-    "navLabel": "Alle Sessions",
+    "title": "KI-Threads",
+    "navLabel": "Alle Threads",
     "description": "apps/ai-Chat-Sitzungen des angemeldeten Benutzers.",
-    "loading": "Sessions werden geladen…",
-    "empty": "Für diesen Mandanten sind noch keine Sessions erfasst.",
-    "error": "Sessions konnten nicht geladen werden.",
+    "loading": "Threads werden geladen…",
+    "empty": "Für diesen Mandanten sind noch keine Threads erfasst.",
+    "error": "Threads konnten nicht geladen werden.",
     "filterAllAgents": "Alle Agenten"
   },
   "sessions": {
@@ -674,7 +674,7 @@
     "metaAgent": "Aktueller Agent",
     "metaId": "Sitzungs-ID",
     "metaLastMessage": "Letzte Nachricht",
-    "metaSessionKey": "Session-Key",
+    "metaSessionKey": "Thread-Key",
     "metaStatus": "Status",
     "metaTenant": "Mandant",
     "metaTitle": "Titel",
@@ -687,7 +687,7 @@
     "transcriptLoading": "Unterhaltung wird geladen…",
     "transcriptEmpty": "Für diese Sitzung wurden noch keine Nachrichten gefunden.",
     "transcriptTitle": "Transkript",
-    "untitledSession": "(Sitzung ohne Titel)"
+    "untitledSession": "(Thread ohne Titel)"
   },
   "actionsCatalog": {
     "actionKeyLabel": "Action-Key",
@@ -1313,7 +1313,7 @@
     "activity": {
       "title": "Letzte Aktivität",
       "viewAll": "Alle anzeigen",
-      "empty": "Noch keine Runs oder Sessions. Aktivität erscheint hier, sobald Agents arbeiten."
+      "empty": "Noch keine Runs oder Threads. Aktivität erscheint hier, sobald Agents arbeiten."
     },
     "quickActions": {
       "title": "Schnellaktionen",

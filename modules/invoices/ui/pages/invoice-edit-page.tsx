@@ -466,6 +466,7 @@ export function InvoiceEditPage() {
           <DocSidebarLayout
             className={cn("p-page", contentMaxWidthClass)}
             inlineMinWidth={1200}
+            resizable
             sidebar={
               <InvoiceSettingsPanel
                 entities={entities}

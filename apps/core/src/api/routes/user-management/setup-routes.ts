@@ -319,6 +319,7 @@ export function registerUserManagementSetupRoutes(
     if (principal?.principalType === "service") {
       return jsonApiSuccessOrDatabaseDown(c, params.config, () =>
         dal.getServiceWorkspaceContext({
+          capabilities: principal.capabilities,
           principalId: principal.principalId,
           tenantId: principal.tenantId,
         })

@@ -6,12 +6,12 @@
 // it at the end gives the run card a real running → completed lifecycle and makes
 // the run thread drillable.
 import { createLogger } from "@engenty/telemetry";
-import type { AgentRunStatus } from "../../dal/agent-sessions/types.js";
+import type { AgentRunStatus } from "../../dal/threads/types.js";
 import {
   createAgentRunStoreFromEnv,
-  createAgentSessionStoreFromEnv,
+  createThreadStoreFromEnv,
 } from "../index.js";
-import { ensureAgentSessionRunStarted } from "../sessions/run-tracking.js";
+import { ensureAgentRunStarted } from "../sessions/run-tracking.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
 
@@ -35,7 +35,7 @@ export interface RegisterTaskJobRunInput {
 export async function registerTaskJobRun(
   input: RegisterTaskJobRunInput
 ): Promise<void> {
-  const store = createAgentSessionStoreFromEnv();
+  const store = createThreadStoreFromEnv();
   const runStore = createAgentRunStoreFromEnv();
   if (!(store && runStore)) {
     return;
@@ -43,7 +43,7 @@ export async function registerTaskJobRun(
   // Best-effort: the run record is for UI display only — a failure here must not
   // fail the task (which is already checked out). Degrades to "no run history".
   try {
-    await store.upsertSession({
+    await store.upsertThread({
       agentId: input.agentTypeKey,
       createdByUserId: scopeAttributionUserId(input.scope),
       id: input.threadId,
@@ -57,7 +57,7 @@ export async function registerTaskJobRun(
       tenantId: input.scope.tenantId,
       ...(input.identifier ? { title: `Task ${input.identifier}` } : {}),
     });
-    await ensureAgentSessionRunStarted(runStore, {
+    await ensureAgentRunStarted(runStore, {
       agentId: input.agentTypeKey,
       createdByUserId: scopeAttributionUserId(input.scope),
       id: input.runId,

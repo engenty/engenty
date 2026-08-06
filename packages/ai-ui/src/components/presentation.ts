@@ -76,9 +76,9 @@ export {
   type CopilotAgentPickerAgent,
 } from "./copilot/composer/copilot-agent-picker.js";
 export {
-  CopilotAgentSessionChooser,
-  type CopilotAgentSessionChooserSession,
-} from "./copilot/composer/copilot-agent-session-chooser.js";
+  CopilotAgentThreadChooser,
+  type CopilotAgentThreadChooserThread,
+} from "./copilot/composer/copilot-agent-thread-chooser.js";
 export {
   CopilotCompactComposerShell,
   type CopilotCompactComposerShellProps,
@@ -88,7 +88,7 @@ export {
   type StarterPromptItem,
 } from "./copilot/composer/copilot-composer.js";
 export { CopilotComposerSection } from "./copilot/composer/copilot-composer-section.js";
-export { CopilotRecentSessionsChooser } from "./copilot/composer/copilot-recent-sessions-chooser.js";
+export { CopilotRecentThreadsChooser } from "./copilot/composer/copilot-recent-threads-chooser.js";
 export {
   type ChatSlashCommand,
   type ChatSlashCommandKind,

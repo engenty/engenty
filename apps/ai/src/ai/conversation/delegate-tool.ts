@@ -11,7 +11,7 @@
 import { createTool } from "@mastra/core/tools";
 import type { Workspace } from "@mastra/core/workspace";
 import { z } from "zod";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import type {
   AgentConfig,
   AiRegistry,
@@ -42,7 +42,7 @@ export interface DelegationToolDeps {
     | undefined
   >;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
 }
 
 const delegateInputSchema = z.object({

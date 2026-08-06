@@ -15,7 +15,7 @@ export interface CascadeSessionScope {
   userId: string;
 }
 
-/** Structural slice of aiService.sessions the voice turn needs. */
+/** Structural slice of aiService.threads the voice turn needs. */
 export interface CascadeSessionsService {
   appendMessage(input: {
     parts: unknown;
@@ -23,11 +23,11 @@ export interface CascadeSessionsService {
     scope: CascadeSessionScope;
     threadId: string;
   }): Promise<unknown>;
-  createSession(input: {
+  createThread(input: {
     agentId: string;
     scope: CascadeSessionScope;
     title?: string | null;
-  }): Promise<{ session: { id?: string; thread_id?: string } }>;
+  }): Promise<{ thread: { id?: string; thread_id?: string } }>;
   generate(input: {
     scope: CascadeSessionScope;
     threadId: string;
@@ -51,9 +51,9 @@ export function createSessionAgentTurn({
 
   const ensureThread = (): Promise<string> => {
     threadIdPromise ??= sessions
-      .createSession({ agentId, scope, title: "Voice call" })
-      .then(({ session }) => {
-        const threadId = session.thread_id ?? session.id;
+      .createThread({ agentId, scope, title: "Voice call" })
+      .then(({ thread }) => {
+        const threadId = thread.thread_id ?? thread.id;
         if (!threadId) {
           throw new Error("Voice session thread could not be created");
         }

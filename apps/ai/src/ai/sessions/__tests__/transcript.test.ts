@@ -10,6 +10,7 @@ import {
   normalizeSandboxCommandToolOutput,
   patchDecisionResumeOntoMessageParts,
   readDecisionResumeChoice,
+  resolveDecisionResumeChoice,
   toolResultPayloadToAssistantDynamicToolPart,
 } from "../transcript.js";
 
@@ -323,5 +324,72 @@ describe("transcript tool parts", () => {
         status: "resolved",
       })
     ).toEqual({ choiceId: "64", choiceLabel: "64" });
+  });
+});
+
+// A decision resume used to need BOTH choice_id and choice_label, and the
+// approval callers read a missing choice as "not approved" — so an id-only
+// payload silently DENIED, indistinguishable from the user pressing Deny.
+describe("resolveDecisionResumeChoice", () => {
+  const CHOICES = [
+    { id: "approve_once", label: "Approve once" },
+    { id: "deny", label: "Deny" },
+  ];
+
+  function entry(
+    payload: unknown,
+    status: "resolved" | "cancelled" = "resolved"
+  ) {
+    return { interruptId: "artifact-1", payload, status } as never;
+  }
+
+  it("takes an id+label payload as-is", () => {
+    expect(
+      resolveDecisionResumeChoice(
+        entry({ choice_id: "approve_once", choice_label: "Approve once" }),
+        CHOICES
+      )
+    ).toEqual({
+      choiceId: "approve_once",
+      choiceLabel: "Approve once",
+      kind: "choice",
+    });
+  });
+
+  // The reported bug: this used to resolve to null and deny.
+  it("recovers the label from the interrupt's own choices when only the id is sent", () => {
+    expect(
+      resolveDecisionResumeChoice(entry({ choice_id: "approve_once" }), CHOICES)
+    ).toEqual({
+      choiceId: "approve_once",
+      choiceLabel: "Approve once",
+      kind: "choice",
+    });
+  });
+
+  it("reports an id it cannot resolve instead of guessing a direction", () => {
+    expect(
+      resolveDecisionResumeChoice(entry({ choice_id: "approve_all" }), CHOICES)
+    ).toEqual({ choiceId: "approve_all", kind: "unresolved" });
+    // Same when the caller has no choices to match against (e.g. a stale card).
+    expect(
+      resolveDecisionResumeChoice(entry({ choice_id: "approve_once" }))
+    ).toEqual({ choiceId: "approve_once", kind: "unresolved" });
+  });
+
+  it("treats a cancelled entry as an explicit deny, not an error", () => {
+    expect(
+      resolveDecisionResumeChoice(entry({}, "cancelled"), CHOICES)
+    ).toEqual({ kind: "cancelled" });
+  });
+
+  // Other resume shapes must keep their existing behaviour — only a payload
+  // that NAMES a choice can be unresolvable.
+  it("reports absent for payloads that name no choice at all", () => {
+    for (const payload of [{}, { approved: false }, { rejected: true }, null]) {
+      expect(resolveDecisionResumeChoice(entry(payload), CHOICES)).toEqual({
+        kind: "absent",
+      });
+    }
   });
 });

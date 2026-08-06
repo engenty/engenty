@@ -15,7 +15,7 @@ const scopeResolver = createStaticAiScopeResolver({
 function createIsolatedApp(options: CreateAppOptions = {}) {
   return createApp({
     agentRunStore: null,
-    agentSessionStore: null,
+    threadStore: null,
     disableGatewayModelScheduler: true,
     registryStore: null,
     realtimeVoiceConfigResolver: null,

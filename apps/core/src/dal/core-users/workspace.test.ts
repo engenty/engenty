@@ -1,6 +1,9 @@
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { capabilitiesForUser } from "../../security/user-capabilities.js";
 import type { SupabaseAuthVerificationConfig } from "./auth.js";
 import {
+  getServiceWorkspaceContext,
   getWorkspaceContext,
   LOCAL_PLAN_LABEL,
   resolveTenantPlanLabel,
@@ -304,11 +307,80 @@ describe("getWorkspaceContext", () => {
     expect(ctx.isSuperAdmin).toBe(true);
     expect(ctx.isTenantAdmin).toBe(true);
     expect(ctx.tenantRole).toBe("admin");
+    expect(ctx.capabilities).toContain("core.superadmin");
     expect(ctx.tenants).toHaveLength(2);
     expect(ctx.canSwitchTenant).toBe(true);
     expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
     expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
     expect(ctx.tenantSupportedLocales).toEqual(["en", "de"]);
+  });
+});
+
+describe("workspace context capabilities (AUTH-06)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => authApiUser,
+        text: async () => "",
+      })
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("gives a member the tenant.member bundle — module tier, no core.*", async () => {
+    const ctx = await getWorkspaceContext(
+      makeClient() as never,
+      "valid-token",
+      testAuthConfig
+    );
+    expect(ctx.tenantRole).toBe("member");
+    expect(ctx.capabilities).toEqual(
+      capabilitiesForUser({ isSuperAdmin: false, tenantRole: "member" })
+    );
+    // The line that makes the AUTH-06 gates safe: a member's bundle covers no
+    // core.* capability, so a `core.ai.*` gate excludes them.
+    expect(capabilityCovers(ctx.capabilities, "core.ai.dispatch")).toBe(false);
+  });
+
+  it("gives an unonboarded user no capabilities at all", async () => {
+    const client = makeClient({
+      schema: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ error: null, data: null }),
+            }),
+          }),
+        }),
+      }),
+    });
+    const ctx = await getWorkspaceContext(
+      client as never,
+      "valid-token",
+      testAuthConfig
+    );
+    expect(ctx.onboarded).toBe(false);
+    expect(ctx.capabilities).toEqual([]);
+  });
+
+  it("passes a service principal's own claims through unwidened", async () => {
+    const ctx = await getServiceWorkspaceContext(makeClient() as never, {
+      capabilities: ["module.read", "module.write", "module.execute"],
+      principalId: "cred-1",
+      tenantId: "tenant-1",
+    });
+    expect(ctx.tenantRole).toBe("service");
+    expect(ctx.isTenantAdmin).toBe(false);
+    expect(ctx.capabilities).toEqual([
+      "module.read",
+      "module.write",
+      "module.execute",
+    ]);
+    expect(capabilityCovers(ctx.capabilities, "core.ai.dispatch")).toBe(false);
   });
 });
 

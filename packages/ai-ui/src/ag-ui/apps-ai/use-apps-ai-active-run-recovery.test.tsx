@@ -10,7 +10,7 @@ import type { EngentyAgUiMessage } from "../conversation.js";
 import {
   getAppsAiThread,
   listAppsAiThreadMessages,
-} from "./apps-ai-session-api.js";
+} from "./apps-ai-thread-api.js";
 import {
   attachAppsAiRunStream,
   postAppsAiThreadRun,
@@ -29,8 +29,11 @@ vi.mock("../../lib/runtime/runs-api.js", () => ({
         agent_id: "engenty.copilot",
         thread_id: "thread-a",
         tenant_id: "tenant-1",
-        created_at: "2026-01-01T00:00:00.000Z",
-        started_at: "2026-01-01T00:00:00.000Z",
+        // AFTER the fixture messages: rows persisted BEFORE the attached run
+        // hydrate from the snapshot; rows the run itself persisted are
+        // replay-owned and stream in via the attach instead.
+        created_at: "2026-01-01T00:10:00.000Z",
+        started_at: "2026-01-01T00:10:00.000Z",
         finished_at: null,
         action_id: null,
         error: null,
@@ -42,7 +45,7 @@ vi.mock("../../lib/runtime/runs-api.js", () => ({
   })),
 }));
 
-vi.mock("./apps-ai-session-api.js", () => ({
+vi.mock("./apps-ai-thread-api.js", () => ({
   getAppsAiThread: vi.fn(async () => ({ status: "running" })),
   listAppsAiThreadMessages: vi.fn(async () => [
     {
@@ -171,6 +174,62 @@ describe("useAppsAiActiveRunRecovery", () => {
     expect(statuses).toContain("streaming");
   });
 
+  it("purges replay-owned rows a reload hydrated into the lane", async () => {
+    // Reload mid-run: hydration already placed the run's OWN partial flush in
+    // the lane (DB id). The attach re-streams that content under the session
+    // stream's different id — keeping both doubles the turn, so the recovery
+    // loop must purge the DB copy before the replay starts.
+    vi.mocked(listAppsAiThreadMessages).mockResolvedValue([
+      {
+        id: "user-1",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+        created_at: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "assistant-current-turn",
+        role: "assistant",
+        parts: [{ type: "text", text: "partial flush" }],
+        created_at: "2026-01-01T00:10:05.000Z",
+      },
+    ] as never);
+
+    const snapshots: EngentyAgUiMessage[][] = [];
+    render(
+      <SessionProbe
+        initialMessages={[
+          {
+            id: "user-1",
+            role: "user",
+            content: [{ type: "text", text: "hello" }],
+            metadata: { created_at: "2026-01-01T00:00:00.000Z" },
+          },
+          {
+            id: "assistant-current-turn",
+            role: "assistant",
+            content: [{ type: "text", text: "partial flush" }],
+            metadata: { created_at: "2026-01-01T00:10:05.000Z" },
+          },
+        ]}
+        onMessages={(messages) => {
+          snapshots.push([...messages]);
+        }}
+        onStatus={() => {
+          // not asserted here
+        }}
+        threadId="thread-a"
+      />
+    );
+
+    await waitFor(
+      () => {
+        const latest = snapshots.at(-1) ?? [];
+        expect(latest.map((message) => message.id)).toEqual(["user-1"]);
+      },
+      { timeout: 5000 }
+    );
+  });
+
   it("restores in-flight lane after sidebar thread switch during stream", async () => {
     let allowServerRecovery = false;
 
@@ -196,8 +255,9 @@ describe("useAppsAiActiveRunRecovery", () => {
                 agent_id: "engenty.copilot",
                 thread_id: "thread-a",
                 tenant_id: "tenant-1",
-                created_at: "2026-01-01T00:00:00.000Z",
-                started_at: "2026-01-01T00:00:00.000Z",
+                // AFTER the fixture messages (see the top-level mock note).
+                created_at: "2026-01-01T00:10:00.000Z",
+                started_at: "2026-01-01T00:10:00.000Z",
                 finished_at: null,
                 action_id: null,
                 error: null,

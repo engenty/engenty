@@ -1,15 +1,15 @@
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 import type {
   AgentRunStore,
-  CreateAgentSessionRunInput,
-} from "../../dal/agent-sessions/agent-run-store.js";
-import type { AgentRunStatus } from "../../dal/agent-sessions/types.js";
+  CreateAgentRunInput,
+} from "../../dal/threads/agent-run-store.js";
+import type { AgentRunStatus } from "../../dal/threads/types.js";
 import { markRunDone, publishRunEvent } from "./run-event-bus.js";
 
 /** Persist `ai.agent_run` before task checkout or other FK consumers. */
-export async function ensureAgentSessionRunStarted(
+export async function ensureAgentRunStarted(
   runStore: AgentRunStore | null,
-  input: CreateAgentSessionRunInput
+  input: CreateAgentRunInput
 ): Promise<void> {
   if (!runStore) {
     return;
@@ -81,7 +81,7 @@ export function createSessionRunTracker(params: {
   let argsBuf: { toolCallId: string; delta: string; firstSeq: number } | null =
     null;
 
-  const ensureStarted = ensureAgentSessionRunStarted(params.runStore, {
+  const ensureStarted = ensureAgentRunStarted(params.runStore, {
     id: params.runId,
     tenantId: params.tenantId,
     threadId: params.threadId,

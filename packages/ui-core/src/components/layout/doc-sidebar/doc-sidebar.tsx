@@ -8,12 +8,19 @@ import {
   setDocSidebarOverlayOpen,
   useDocSidebar,
 } from "./doc-sidebar-store";
+import { useDocSidebarWidth } from "./use-doc-sidebar-width";
 
 /** Minimum inline sidebar content width. */
 export const DOC_SIDEBAR_WIDTH_PX = 280;
 
 /** Sidebar may grow a little past the minimum inside a capped document row. */
 export const DOC_SIDEBAR_MAX_WIDTH_PX = 340;
+
+/**
+ * Upper bound when `resizable` is enabled — room for longer labels/values
+ * without dominating the document column.
+ */
+export const DOC_SIDEBAR_RESIZE_MAX_WIDTH_PX = 520;
 
 /**
  * Space between the document and the inline sidebar. Owned by the layout (not
@@ -40,6 +47,11 @@ export interface DocSidebarLayoutProps {
   className?: string;
   /** Container-width threshold (px) for the inline column. */
   inlineMinWidth?: number;
+  /**
+   * When true, the sidebar (inline column and overlay sheet) can be drag-
+   * resized on its leading edge. Width persists under `${storageKey}:width`.
+   */
+  resizable?: boolean;
   sidebar: ReactNode;
   /** Labels the sidebar region and titles the overlay sheet. */
   sidebarLabel: string;
@@ -65,12 +77,24 @@ export function DocSidebarLayout({
   children,
   className,
   inlineMinWidth = DOC_SIDEBAR_INLINE_MIN_WIDTH_PX,
+  resizable = false,
   sidebar,
   sidebarLabel,
   storageKey,
 }: DocSidebarLayoutProps) {
   const measureRef = useRef<HTMLDivElement>(null);
   const { mode, open, setOverlayOpen } = useDocSidebar(storageKey);
+  const {
+    displayedWidthPx,
+    handleResizeKeyDown,
+    handleResizePointerDown,
+    isResizing,
+  } = useDocSidebarWidth({
+    storageKey,
+    defaultPx: DOC_SIDEBAR_WIDTH_PX,
+    minPx: DOC_SIDEBAR_WIDTH_PX,
+    maxPx: DOC_SIDEBAR_RESIZE_MAX_WIDTH_PX,
+  });
 
   useLayoutEffect(() => {
     const element = measureRef.current;
@@ -102,8 +126,23 @@ export function DocSidebarLayout({
   );
 
   const inlineOpen = mode === "inline" && open;
-  const sidebarMin = DOC_SIDEBAR_WIDTH_PX + DOC_SIDEBAR_GAP_PX;
-  const sidebarMax = DOC_SIDEBAR_MAX_WIDTH_PX + DOC_SIDEBAR_GAP_PX;
+  const fixedSidebarWidth = resizable ? displayedWidthPx : DOC_SIDEBAR_WIDTH_PX;
+  const sidebarMin = fixedSidebarWidth + DOC_SIDEBAR_GAP_PX;
+  const sidebarMax = resizable
+    ? displayedWidthPx + DOC_SIDEBAR_GAP_PX
+    : DOC_SIDEBAR_MAX_WIDTH_PX + DOC_SIDEBAR_GAP_PX;
+
+  const resizeHandle = resizable ? (
+    <button
+      aria-label="Resize sidebar"
+      className="absolute top-0 left-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize rounded-full bg-transparent transition-colors hover:bg-border/80"
+      onKeyDown={handleResizeKeyDown}
+      onPointerDown={handleResizePointerDown}
+      type="button"
+    >
+      <span className="sr-only">Resize sidebar</span>
+    </button>
+  ) : null;
 
   return (
     <div className="w-full" ref={measureRef}>
@@ -117,17 +156,26 @@ export function DocSidebarLayout({
           <div
             aria-hidden={!inlineOpen}
             className={cn(
-              "overflow-hidden transition-[min-width,max-width,flex-basis,width] duration-300 ease-in-out motion-reduce:transition-none",
+              "overflow-hidden motion-reduce:transition-none",
+              !isResizing &&
+                "transition-[min-width,max-width,flex-basis,width] duration-300 ease-in-out",
               !inlineOpen && "pointer-events-none"
             )}
             inert={!inlineOpen}
             style={
               inlineOpen
-                ? {
-                    flex: `1 1 ${sidebarMin}px`,
-                    maxWidth: sidebarMax,
-                    minWidth: sidebarMin,
-                  }
+                ? resizable
+                  ? {
+                      flex: `0 0 ${sidebarMin}px`,
+                      maxWidth: sidebarMax,
+                      minWidth: sidebarMin,
+                      width: sidebarMin,
+                    }
+                  : {
+                      flex: `1 1 ${sidebarMin}px`,
+                      maxWidth: sidebarMax,
+                      minWidth: sidebarMin,
+                    }
                 : {
                     flex: "0 0 0px",
                     maxWidth: 0,
@@ -138,12 +186,16 @@ export function DocSidebarLayout({
           >
             <aside
               aria-label={sidebarLabel}
-              className="flex h-full w-full min-w-0 flex-col gap-4"
+              className="relative flex h-full w-full min-w-0 flex-col gap-4"
               style={{
-                minWidth: DOC_SIDEBAR_WIDTH_PX,
+                minWidth: fixedSidebarWidth,
                 paddingLeft: DOC_SIDEBAR_GAP_PX,
+                ...(resizable
+                  ? { width: fixedSidebarWidth + DOC_SIDEBAR_GAP_PX }
+                  : null),
               }}
             >
+              {resizeHandle}
               {sidebar}
             </aside>
           </div>
@@ -151,9 +203,18 @@ export function DocSidebarLayout({
         {mode === "overlay" ? (
           <Sheet onOpenChange={setOverlayOpen} open={open}>
             <SheetContent
-              className="w-full gap-0 overflow-y-auto sm:max-w-sm"
+              className={cn(
+                "relative gap-0 overflow-y-auto",
+                resizable ? "w-full sm:max-w-none" : "w-full sm:max-w-sm"
+              )}
               side="right"
+              style={
+                resizable
+                  ? { maxWidth: "95vw", width: displayedWidthPx }
+                  : undefined
+              }
             >
+              {resizeHandle}
               <SheetHeader>
                 <SheetTitle>{sidebarLabel}</SheetTitle>
               </SheetHeader>

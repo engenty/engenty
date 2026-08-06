@@ -14,6 +14,7 @@ function baseContext(
   overrides: Partial<WorkspaceContextResult> = {}
 ): WorkspaceContextResult {
   return {
+    capabilities: [],
     canSwitchTenant: false,
     currentTenant: { id: uuidv7(), name: "Acme", slug: "acme" },
     currentUser: {
@@ -109,6 +110,9 @@ describe("GET /api/users/setup/context — service principals", () => {
     expect(res.status).toBe(200);
     expect(getWorkspaceContext).not.toHaveBeenCalled();
     expect(getServiceWorkspaceContext).toHaveBeenCalledWith({
+      // The credential's own claims reach the context — a service principal has
+      // no membership to derive a role bundle from (AUTH-06).
+      capabilities: ["module.read"],
       principalId: credentialId,
       tenantId,
     });

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AgentRunStore } from "../../dal/agent-sessions/agent-run-store.js";
+import type { AgentRunStore } from "../../dal/threads/agent-run-store.js";
 import {
   createSessionRunTracker,
-  ensureAgentSessionRunStarted,
+  ensureAgentRunStarted,
 } from "./run-tracking.js";
 
 const runInput = {
@@ -15,7 +15,7 @@ const runInput = {
   createdByUserId: "44444444-4444-4444-8444-444444444444",
 };
 
-describe("ensureAgentSessionRunStarted", () => {
+describe("ensureAgentRunStarted", () => {
   it("creates a run row when none exists", async () => {
     const createRun = vi.fn(async () => ({ run: {} }));
     const runStore = {
@@ -23,7 +23,7 @@ describe("ensureAgentSessionRunStarted", () => {
       createRun,
     } as unknown as AgentRunStore;
 
-    await ensureAgentSessionRunStarted(runStore, runInput);
+    await ensureAgentRunStarted(runStore, runInput);
 
     expect(createRun).toHaveBeenCalledWith(runInput);
   });
@@ -35,14 +35,14 @@ describe("ensureAgentSessionRunStarted", () => {
       createRun,
     } as unknown as AgentRunStore;
 
-    await ensureAgentSessionRunStarted(runStore, runInput);
+    await ensureAgentRunStarted(runStore, runInput);
 
     expect(createRun).not.toHaveBeenCalled();
   });
 
   it("no-ops when run store is unavailable", async () => {
     await expect(
-      ensureAgentSessionRunStarted(null, runInput)
+      ensureAgentRunStarted(null, runInput)
     ).resolves.toBeUndefined();
   });
 });

@@ -23,6 +23,7 @@ import { parseDecisionResolution } from "../interrupts/decision-artifact.js";
 import { parseFeedbackResolution } from "../interrupts/feedback-artifact.js";
 import { ToolCallCard } from "../tool-call/tool-call-card";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
+import { hasStandaloneToolCallUi } from "../tool-call/tool-call-ui-registry";
 import { GenericToolStep, WebSearchStep } from "./chain-of-thought-steps";
 import {
   getToolDisplayLabel,
@@ -307,7 +308,19 @@ export function CopilotMessageContent({
         isObjectRenderToolPart(c.part, c.toolName) ||
         isA2uiToolPart(c.part, c.toolName) ||
         isMcpAppWidgetToolPart(c.part, c.toolName) ||
-        isConnectRequestToolPart(c.part, c.toolName))
+        isConnectRequestToolPart(c.part, c.toolName) ||
+        // Module-registered standalone cards (artifact, generative UI, …)
+        // escape the collapsed timeline too — the persisted row coalesces the
+        // turn into one message, so without this the card renders live but
+        // folds into "Used N tools" after a reload.
+        hasStandaloneToolCallUi({
+          displayLabel: c.part.displayLabel,
+          input: c.part.input,
+          output: c.part.output,
+          resolvedToolName: getToolResolvedName(c.part, c.toolName),
+          state: getToolState(c.part),
+          toolName: c.toolName,
+        }))
     ) {
       if (i <= lastTextIndex || lastTextIndex === -1) {
         preTextCardParts.push({

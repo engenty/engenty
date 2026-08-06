@@ -13,6 +13,10 @@ import {
   resolvePlaceholders,
 } from "@engenty/commercial-editor/placeholders";
 import type { CommercialSettings } from "@engenty/commercial-settings/ui";
+import {
+  normalizeCommercialUnits,
+  resolveBuiltInUnits,
+} from "@engenty/commercial-settings/ui";
 import type { CompanyProfileSettings } from "@engenty/company-profile/ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { PdfPreviewSheet } from "@engenty/pdf-templates";
@@ -43,15 +47,7 @@ import {
   useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import {
-  Check,
-  Download,
-  FileText,
-  MoreVertical,
-  Save,
-  Settings,
-  Trash2,
-} from "lucide-react";
+import { MoreVertical, Save, Settings, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -60,10 +56,15 @@ import { downloadOfferPdf } from "../api.js";
 import { ClientTopline } from "../components/client-topline.js";
 import { DocumentHeader } from "../components/document-header.js";
 import { DocumentTitle } from "../components/document-title.js";
+import { OfferDraftToolbar } from "../components/offer-draft-toolbar.js";
 import { OfferMetadataInline } from "../components/offer-metadata-inline.js";
 import { OfferRecipientBlock } from "../components/offer-recipient-block.js";
 import { OfferSenderBlock } from "../components/offer-sender-block.js";
 import { OfferSettingsPanel } from "../components/offer-settings-panel.js";
+import {
+  ChangeClientDialog,
+  type OfferEntityListItem,
+} from "../components/offer-settings-sections.js";
 import { OfferStatusBadge } from "../components/offer-status-badge.js";
 import { OfferStatusStepper } from "../components/offer-status-stepper.js";
 import { useOffersEditAgentUiSlice } from "../hooks/use-offers-agent-ui-slice.js";
@@ -72,7 +73,10 @@ import {
   normalizeCommercialTaxRates,
   resolveDefaultTaxRateFromCommercial,
 } from "../lib/commercial-tax-rates.js";
-import { formatContactSnapshot } from "../lib/contact-snapshot.js";
+import {
+  formatContactSnapshot,
+  formatEntityRecipientSnapshot,
+} from "../lib/contact-snapshot.js";
 import { saveOfferPdf } from "../lib/offer-pdf.js";
 import { useScrollCollapse } from "../lib/use-scroll-collapse.js";
 import { getContactsPluginApi } from "../plugins.js";
@@ -115,63 +119,6 @@ interface OfferContactListItem {
   vat_id: string | null;
 }
 
-interface EditorUnitOption {
-  is_default: boolean;
-  label: string;
-  singular?: string;
-  value: string;
-}
-
-function normalizeCommercialUnits(rawUnits: unknown): EditorUnitOption[] {
-  const source = Array.isArray(rawUnits) ? rawUnits : [];
-  const normalized: EditorUnitOption[] = [];
-  for (const entry of source) {
-    const unit = (entry ?? {}) as Record<string, unknown>;
-    const rawValue =
-      (typeof unit.name === "string" && unit.name) ||
-      (typeof unit.value === "string" && unit.value) ||
-      (typeof unit.abbreviation === "string" && unit.abbreviation) ||
-      "";
-    const value = rawValue.trim();
-    if (!value) {
-      continue;
-    }
-    const rawPlural =
-      (typeof unit.label === "string" && unit.label) ||
-      (typeof unit.plural === "string" && unit.plural) ||
-      value;
-    const rawSingular =
-      (typeof unit.singular === "string" && unit.singular) || undefined;
-    normalized.push({
-      value,
-      label: rawPlural.trim() || value,
-      singular: rawSingular?.trim() || undefined,
-      is_default: false,
-    });
-  }
-
-  const merged = new Map(normalized.map((unit) => [unit.value, unit]));
-  const builtIns: EditorUnitOption[] = [
-    { value: "text", label: "Text", singular: "Text", is_default: false },
-    { value: "fixed", label: "Fixed", singular: "Fixed", is_default: false },
-    { value: "h", label: "Hours", singular: "Hour", is_default: false },
-    { value: "d", label: "Days", singular: "Day", is_default: false },
-  ];
-  for (const unit of builtIns) {
-    if (!merged.has(unit.value)) {
-      merged.set(unit.value, unit);
-    }
-  }
-
-  const units = Array.from(merged.values());
-  const defaultUnitValue =
-    units.find((unit) => unit.value === "h")?.value ?? units[0]?.value ?? "h";
-  return units.map((unit) => ({
-    ...unit,
-    is_default: unit.value === defaultUnitValue,
-  }));
-}
-
 function formatDate(value: string | null | undefined): string {
   if (!value) {
     return "";
@@ -206,6 +153,7 @@ function buildTaxBreakdown(blocks: CommercialBlock[]): Array<{
 
 export function OfferEditPage() {
   const { t } = useTranslation("offers");
+  const { t: tCommercial, i18n } = useTranslation("commercial-settings");
   const { currentTenant } = useWorkspaceContext();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -248,6 +196,8 @@ export function OfferEditPage() {
   } = useScrollCollapse();
   const [editingIntro, setEditingIntro] = useState(false);
   const [editingFinalNotes, setEditingFinalNotes] = useState(false);
+  const [changeClientOpen, setChangeClientOpen] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string>("__none__");
   const initialSyncedRef = useRef(false);
 
   const normalizedEditorTaxRates = useMemo(
@@ -494,16 +444,6 @@ export function OfferEditPage() {
             {saving ? t("saving") : t("save")}
           </TopbarActionLabel>
         </Button>
-        <Button
-          className={topbarIconButtonClassName}
-          disabled={saving}
-          onClick={handleMarkAsReady}
-          size="sm"
-          variant="outline"
-        >
-          <Check className="mr-1.5 h-4 w-4" />
-          <TopbarActionLabel>{t("markAsReady")}</TopbarActionLabel>
-        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -516,24 +456,6 @@ export function OfferEditPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={saving} onClick={handleMarkAsReady}>
-              <Check className="mr-2 h-4 w-4" />
-              {t("markAsReady")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={saving || previewLoading}
-              onClick={handlePreviewPdf}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              {t("previewPdf")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={downloadingPdf}
-              onClick={handleDownloadPdf}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {t("downloadPdf")}
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={openSettings}>
               <Settings className="mr-2 h-4 w-4" />
               {t("settings")}
@@ -550,17 +472,7 @@ export function OfferEditPage() {
         </DropdownMenu>
       </div>
     ),
-    [
-      downloadingPdf,
-      handleDownloadPdf,
-      handleMarkAsReady,
-      handlePreviewPdf,
-      handleSave,
-      openSettings,
-      previewLoading,
-      saving,
-      t,
-    ]
+    [handleSave, openSettings, saving, t]
   );
 
   usePageConfig({
@@ -670,10 +582,113 @@ export function OfferEditPage() {
     [contactsPlugin]
   );
 
-  const editorUnits = useMemo(
-    () => normalizeCommercialUnits(commercialSettings?.units),
-    [commercialSettings?.units]
+  const openChangeClientDialog = useCallback(() => {
+    setSelectedClientId(offer?.client_id ?? "__none__");
+    setChangeClientOpen(true);
+  }, [offer?.client_id]);
+
+  const handleClientChange = useCallback(
+    async (value: string) => {
+      const clientId = value === "__none__" ? null : value;
+      if (clientId) {
+        const snapshot = await handleClientSelect(clientId);
+        if (snapshot) {
+          patchOfferFields({
+            client_id: clientId,
+            recipient_name: snapshot.recipient_name,
+            recipient_address: snapshot.recipient_address,
+            recipient_email: snapshot.recipient_email,
+          });
+          return;
+        }
+      }
+      patchOfferFields({ client_id: clientId });
+    },
+    [handleClientSelect, patchOfferFields]
   );
+
+  const handleRefreshClientSnapshot = useCallback(async () => {
+    if (!offer?.client_id) {
+      return;
+    }
+    const snapshot = await handleClientSelect(offer.client_id);
+    if (!snapshot) {
+      return;
+    }
+    patchOfferFields({
+      recipient_name: snapshot.recipient_name,
+      recipient_address: snapshot.recipient_address,
+      recipient_email: snapshot.recipient_email,
+    });
+  }, [handleClientSelect, offer?.client_id, patchOfferFields]);
+
+  useEffect(() => {
+    if (!changeClientOpen) {
+      return;
+    }
+    setSelectedClientId(offer?.client_id ?? "__none__");
+  }, [changeClientOpen, offer?.client_id]);
+
+  // Backfill an empty recipient snapshot from the linked contact so the
+  // editor (and PDF) match what the settings panel already shows live.
+  const recipientHydrateRef = useRef<string | null>(null);
+  useEffect(() => {
+    recipientHydrateRef.current = null;
+  }, [id]);
+  useEffect(() => {
+    if (!(offer?.client_id && offer.id)) {
+      return;
+    }
+    if (offer.recipient_name?.trim()) {
+      return;
+    }
+    if (recipientHydrateRef.current === offer.id) {
+      return;
+    }
+    const entity = entities.find((e) => e.id === offer.client_id);
+    if (!entity?.display_name?.trim()) {
+      return;
+    }
+    const snapshot = formatEntityRecipientSnapshot(entity);
+    if (!snapshot.recipient_name) {
+      return;
+    }
+    recipientHydrateRef.current = offer.id;
+    patchOfferFields({
+      recipient_name: snapshot.recipient_name,
+      recipient_address: offer.recipient_address?.trim()
+        ? offer.recipient_address
+        : snapshot.recipient_address || null,
+      recipient_email: offer.recipient_email?.trim()
+        ? offer.recipient_email
+        : snapshot.recipient_email || null,
+    });
+  }, [entities, offer, patchOfferFields]);
+
+  const editorUnits = useMemo(
+    () =>
+      normalizeCommercialUnits(
+        commercialSettings?.units,
+        resolveBuiltInUnits(tCommercial)
+      ),
+    [commercialSettings?.units, i18n.language, tCommercial]
+  );
+
+  const linkedContact = useMemo(() => {
+    if (!offer?.client_id) {
+      return null;
+    }
+    const entity = entities.find((e) => e.id === offer.client_id);
+    if (!entity) {
+      return null;
+    }
+    const snapshot = formatEntityRecipientSnapshot(entity);
+    return {
+      name: snapshot.recipient_name || null,
+      address: snapshot.recipient_address || null,
+      email: snapshot.recipient_email || null,
+    };
+  }, [entities, offer?.client_id]);
 
   if (loading) {
     return (
@@ -740,7 +755,7 @@ export function OfferEditPage() {
               : undefined)
           }
           isReadOnly={isReadOnly}
-          onChangeClient={openSettings}
+          onChangeClient={openChangeClientDialog}
           showChangeClient={!isReadOnly && offer.status === "draft"}
           showLinkToClient={Boolean(contactsPlugin)}
         />
@@ -791,21 +806,24 @@ export function OfferEditPage() {
         </div>
       ) : null}
 
+      <OfferDraftToolbar
+        contentClassName={contentMaxWidthClass}
+        downloadingPdf={downloadingPdf}
+        end={
+          <DocSidebarToggle
+            label={t("toggleOfferSettings")}
+            storageKey={OFFER_DRAFT_DOC_SIDEBAR_KEY}
+            text={t("settings")}
+          />
+        }
+        onDownloadPdf={handleDownloadPdf}
+        onMarkAsReady={handleMarkAsReady}
+        onPreviewPdf={handlePreviewPdf}
+        previewLoading={previewLoading}
+        saving={saving}
+      />
+
       <div className="flex min-h-0 flex-1 flex-col bg-card/30">
-        <div className="flex h-11 shrink-0 items-center">
-          <div
-            className={cn(
-              "mx-auto flex w-full items-center justify-end px-page",
-              contentMaxWidthClass
-            )}
-          >
-            <DocSidebarToggle
-              label={t("toggleOfferSettings")}
-              storageKey={OFFER_DRAFT_DOC_SIDEBAR_KEY}
-              text={t("settings")}
-            />
-          </div>
-        </div>
         <div
           className="min-h-0 flex-1 overflow-y-auto"
           onScroll={onScroll}
@@ -814,14 +832,16 @@ export function OfferEditPage() {
           <DocSidebarLayout
             className={cn("p-page", contentMaxWidthClass)}
             inlineMinWidth={1200}
+            resizable
             sidebar={
               <OfferSettingsPanel
-                entities={entities}
+                entities={entities as OfferEntityListItem[]}
                 entitiesAvailable={Boolean(contactsPlugin)}
                 offer={offer}
                 onChange={patchOfferFields}
-                onClientSelect={contactsPlugin ? handleClientSelect : undefined}
                 onDelete={() => setDeleteConfirmOpen(true)}
+                onOpenClientDialog={openChangeClientDialog}
+                onRefreshClientSnapshot={handleRefreshClientSnapshot}
                 settingsTaxRates={normalizedEditorTaxRates}
               />
             }
@@ -837,8 +857,14 @@ export function OfferEditPage() {
                         clientContactName={clientContactName}
                         clientId={contactsPlugin ? offer.client_id : null}
                         isReadOnly={isReadOnly}
+                        linkedContact={linkedContact}
                         offer={offer}
-                        onChangeClient={openSettings}
+                        onChangeClient={openChangeClientDialog}
+                        onRefreshClient={
+                          contactsPlugin && offer.client_id
+                            ? handleRefreshClientSnapshot
+                            : undefined
+                        }
                         showChangeClient={
                           !isReadOnly && offer.status === "draft"
                         }
@@ -964,6 +990,22 @@ export function OfferEditPage() {
         open={previewOpen}
         title={offer.title ?? t("previewPdf")}
       />
+
+      {contactsPlugin ? (
+        <ChangeClientDialog
+          ContactChooser={contactsPlugin.ContactChooser ?? null}
+          entities={entities as OfferEntityListItem[]}
+          onOpenChange={setChangeClientOpen}
+          onSave={() => {
+            void handleClientChange(selectedClientId);
+            setChangeClientOpen(false);
+          }}
+          onSelectedClientIdChange={setSelectedClientId}
+          open={changeClientOpen}
+          selectedClientId={selectedClientId}
+          t={t}
+        />
+      ) : null}
 
       <AlertDialog onOpenChange={setDeleteConfirmOpen} open={deleteConfirmOpen}>
         <AlertDialogContent>

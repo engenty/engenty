@@ -17,6 +17,9 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   clean: true,
+  // Planning notes under `dev/` — not part of the build graph; editing them
+  // must not rebuild dist (and cascade into apps/ai / Vite).
+  ignoreWatch: ["dev"],
   esbuildOptions(options) {
     options.loader = {
       ...options.loader,

@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AppsAiThreadRecord } from "../ag-ui/apps-ai/apps-ai-session-api.js";
+import type { AppsAiThreadRecord } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 import {
   useAppsAiThreadMessagesQuery,
   useAppsAiThreadQuery,
-} from "../ag-ui/apps-ai/apps-ai-session-api.js";
+} from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 import { useEngentyThreadsContext } from "./engenty-threads-provider.js";
 
 export interface UseEngentyThreadOptions {

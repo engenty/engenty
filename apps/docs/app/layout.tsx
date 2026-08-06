@@ -1,6 +1,6 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
 import "./global.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 
@@ -32,6 +32,9 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#e0531b" },
     { media: "(prefers-color-scheme: dark)", color: "#1a1a1a" },

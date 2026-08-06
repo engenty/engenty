@@ -33,7 +33,7 @@ vi.mock("./engenty-threads-provider.js", () => ({
   useEngentyThreadsContext: () => ctx,
 }));
 
-vi.mock("../ag-ui/apps-ai/apps-ai-session-api.js", () => ({
+vi.mock("../ag-ui/apps-ai/apps-ai-thread-api.js", () => ({
   useAppsAiThreadsQuery: () => ({
     data: [],
     error: null,

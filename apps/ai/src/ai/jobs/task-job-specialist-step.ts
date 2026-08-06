@@ -13,8 +13,8 @@ import { createWorkspaceFileTools } from "../../../ai/tools/workspace-files/inde
 import { createDefaultAiRegistry } from "../agents.js";
 import { runDelegatedConversation } from "../conversation/delegate-run.js";
 import {
-  createAgentSessionStoreFromEnv,
   createRegistryStoreFromEnv,
+  createThreadStoreFromEnv,
 } from "../index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
@@ -30,7 +30,7 @@ export const runSpecialistStep = createStep({
     if (isSkippedEnvelope(inputData)) {
       return inputData;
     }
-    const store = createAgentSessionStoreFromEnv();
+    const store = createThreadStoreFromEnv();
     if (!store) {
       throw new Error("task-job: agent session store is not configured");
     }

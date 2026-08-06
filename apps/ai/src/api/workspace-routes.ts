@@ -73,14 +73,14 @@ async function loadWorkspaceContext(
   if (!agentId) {
     return {
       ok: false,
-      response: c.json({ error: "agent_sessions.notFound" }, 404),
+      response: c.json({ error: "agent_workspace.notFound" }, 404),
     };
   }
   const config = await loadConfig(options, tenantId, agentId);
   if (!config) {
     return {
       ok: false,
-      response: c.json({ error: "agent_sessions.notFound" }, 404),
+      response: c.json({ error: "agent_workspace.notFound" }, 404),
     };
   }
   const view = resolveAgentWorkspaceView(config, { agentId, tenantId, userId });
@@ -232,7 +232,7 @@ export function registerWorkspaceRoutes(
       return handleRouteError(
         c,
         "failed to list workspace tree",
-        "agent_sessions.internalError",
+        "agent_workspace.internalError",
         err
       );
     }
@@ -268,7 +268,7 @@ export function registerWorkspaceRoutes(
       return handleRouteError(
         c,
         "failed to read workspace file",
-        "agent_sessions.internalError",
+        "agent_workspace.internalError",
         err
       );
     }
@@ -301,7 +301,7 @@ export function registerWorkspaceRoutes(
       return handleRouteError(
         c,
         "failed to write workspace file",
-        "agent_sessions.internalError",
+        "agent_workspace.internalError",
         err
       );
     }
@@ -333,7 +333,7 @@ export function registerWorkspaceRoutes(
       return handleRouteError(
         c,
         "failed to delete workspace file",
-        "agent_sessions.internalError",
+        "agent_workspace.internalError",
         err
       );
     }

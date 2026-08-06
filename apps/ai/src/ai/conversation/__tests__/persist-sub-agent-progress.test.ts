@@ -1,25 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AgentSessionStore } from "../../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../../dal/threads/index.js";
 import { persistSubAgentProgress } from "../persist-sub-agent-progress.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
 const threadId = "00000000-0000-4000-8000-000000000003";
 
-function makeStore(rows: unknown[]): AgentSessionStore {
+function makeStore(rows: unknown[]): ThreadStore {
   return {
     listMessagesOrdered: vi.fn(async () => rows),
     updateMessageParts: vi.fn(async (input: { parts: unknown }) => ({
       message: { parts: input.parts },
     })),
-  } as unknown as AgentSessionStore;
+  } as unknown as ThreadStore;
 }
 
 describe("persistSubAgentProgress", () => {
-  const baseInput = (
-    store: AgentSessionStore,
-    progress: [string, string[]][]
-  ) => ({
+  const baseInput = (store: ThreadStore, progress: [string, string[]][]) => ({
     progressByToolCallId: new Map(progress),
     scope: { tenantId, userId },
     store,

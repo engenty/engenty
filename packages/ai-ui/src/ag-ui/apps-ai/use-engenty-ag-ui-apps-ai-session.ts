@@ -52,7 +52,7 @@ import {
   formatCopilotRunError,
   resolveAgUiRunErrorEventMessage,
 } from "../run-error-message.js";
-import { appsAiThreadUsageQueryKey } from "../session-usage/use-copilot-thread-usage.js";
+import { appsAiThreadUsageQueryKey } from "../thread-usage/use-copilot-thread-usage.js";
 import { useSyncAgentUiRunState } from "../use-sync-agent-ui-run-state.js";
 import {
   createAppsAiThread,
@@ -132,7 +132,7 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
   agentId: string;
   /** Tool id → query roots to invalidate when that tool call resolves. */
   agentToolInvalidation?: ReadonlyMap<string, readonly (readonly unknown[])[]>;
-  /** URL session uuid when `/chat/:id` — trumps bound id for reset decisions. */
+  /** URL thread uuid when `/chat/:id` — trumps bound id for reset decisions. */
   authoritativeUrlThreadId?: string | null;
   /** User's per-conversation effort pick; absent = no explicit choice. */
   effort?: AiEffortChoice | null;
@@ -232,36 +232,36 @@ function getMessagesSnapshotMessages(
   return raw.filter(isEngentyAgUiMessage);
 }
 
-/** Skip lane reset when full-page `/new` navigate binds the URL to the session we just created. */
-export function shouldPreserveTranscriptOnBoundSessionIdChange(input: {
-  nextBoundSessionId: string | null;
-  previousBoundSessionId: string | null;
-  runtimeSessionId: string | null;
+/** Skip lane reset when full-page `/new` navigate binds the URL to the thread we just created. */
+export function shouldPreserveTranscriptOnBoundThreadIdChange(input: {
+  nextBoundThreadId: string | null;
+  previousBoundThreadId: string | null;
+  runtimeThreadId: string | null;
 }): boolean {
   return (
-    input.previousBoundSessionId === null &&
-    input.nextBoundSessionId !== null &&
-    input.runtimeSessionId !== null &&
-    input.nextBoundSessionId === input.runtimeSessionId
+    input.previousBoundThreadId === null &&
+    input.nextBoundThreadId !== null &&
+    input.runtimeThreadId !== null &&
+    input.nextBoundThreadId === input.runtimeThreadId
   );
 }
 
-/** True when URL-owned session rules say we must not call `resetConversation`. */
-export function shouldSkipBoundSessionReset(input: {
+/** True when URL-owned thread rules say we must not call `resetConversation`. */
+export function shouldSkipBoundThreadReset(input: {
   authoritativeUrlThreadId: string | null;
-  nextBoundSessionId: string | null;
-  previousBoundSessionId: string | null;
-  runtimeSessionId: string | null;
+  nextBoundThreadId: string | null;
+  previousBoundThreadId: string | null;
+  runtimeThreadId: string | null;
 }): boolean {
   const url = input.authoritativeUrlThreadId?.trim() ?? "";
-  const prev = input.previousBoundSessionId;
-  const next = input.nextBoundSessionId;
+  const prev = input.previousBoundThreadId;
+  const next = input.nextBoundThreadId;
 
   if (
-    shouldPreserveTranscriptOnBoundSessionIdChange({
-      nextBoundSessionId: next,
-      previousBoundSessionId: prev,
-      runtimeSessionId: input.runtimeSessionId,
+    shouldPreserveTranscriptOnBoundThreadIdChange({
+      nextBoundThreadId: next,
+      previousBoundThreadId: prev,
+      runtimeThreadId: input.runtimeThreadId,
     })
   ) {
     return true;
@@ -333,7 +333,7 @@ export { wouldSnapshotDropLiveDecisionTools } from "./decision-snapshot-guard.js
 
 /**
  * Unified AG-UI session lifecycle for `apps/ai` transport.
- * Owns submit/stream/hydration — consumers pass URL session id and server messages.
+ * Owns submit/stream/hydration — consumers pass URL thread id and server messages.
  */
 export function useEngentyAgUiAppsAiSession(
   options: UseEngentyAgUiAppsAiSessionOptions
@@ -379,7 +379,7 @@ export function useEngentyAgUiAppsAiSession(
   useEffect(() => {
     logCopilotChatNew("session hook state", {
       authoritativeUrlThreadId: options.authoritativeUrlThreadId ?? null,
-      boundSessionId: options.threadId,
+      boundThreadId: options.threadId,
       hydrateEnabled,
       laneMessageCount: conversation.messages.length,
       suppressHydration,
@@ -412,9 +412,9 @@ export function useEngentyAgUiAppsAiSession(
   pendingSendRef.current = pendingSend;
   const submitStatusRef = useRef(submitStatus);
   submitStatusRef.current = submitStatus;
-  const prevBoundSessionIdRef = useRef(options.threadId);
+  const prevBoundThreadIdRef = useRef(options.threadId);
   /** Server id for `/new` runs until the URL catches up (prop stays null). */
-  const runtimeSessionIdRef = useRef<string | null>(null);
+  const runtimeThreadIdRef = useRef<string | null>(null);
   const applyEventRef = useRef(conversation.applyEvent);
   applyEventRef.current = conversation.applyEvent;
   const resetConversationRef = useRef(conversation.reset);
@@ -429,13 +429,13 @@ export function useEngentyAgUiAppsAiSession(
     stateSnapshot: options.stateSnapshot,
   });
 
-  const resolveActiveSessionId = useCallback(
-    () => options.threadId ?? runtimeSessionIdRef.current,
+  const resolveActiveThreadId = useCallback(
+    () => options.threadId ?? runtimeThreadIdRef.current,
     [options.threadId]
   );
 
   const [requestError, setRequestError] = useState<string | null>(null);
-  const [threadResetKey, setSessionResetKey] = useState(0);
+  const [threadResetKey, setThreadResetKey] = useState(0);
   const [awaitingInterrupt, setAwaitingInterrupt] = useState(() =>
     resolveAwaitingInterruptFromOpenMetadata(options.openInterruptFromSession)
   );
@@ -525,7 +525,7 @@ export function useEngentyAgUiAppsAiSession(
 
   // Tool-call id → tool name, captured from TOOL_CALL_START so a later
   // TOOL_CALL_RESULT (which carries only the id) can resolve which module's
-  // query roots to invalidate. Cleared per run in runSessionStream.
+  // query roots to invalidate. Cleared per run in runThreadStream.
   const toolCallNamesRef = useRef(new Map<string, string>());
 
   // When a copilot tool call that mutated server data resolves, refetch the
@@ -548,57 +548,57 @@ export function useEngentyAgUiAppsAiSession(
   );
 
   useLayoutEffect(() => {
-    const previousBoundSessionId = prevBoundSessionIdRef.current;
-    const nextBoundSessionId = options.threadId;
-    if (previousBoundSessionId === nextBoundSessionId) {
+    const previousBoundThreadId = prevBoundThreadIdRef.current;
+    const nextBoundThreadId = options.threadId;
+    if (previousBoundThreadId === nextBoundThreadId) {
       return;
     }
 
-    const runtimeId = runtimeSessionIdRef.current;
+    const runtimeId = runtimeThreadIdRef.current;
     const authoritativeUrlThreadId =
       options.authoritativeUrlThreadId?.trim() ?? null;
     if (
-      shouldSkipBoundSessionReset({
+      shouldSkipBoundThreadReset({
         authoritativeUrlThreadId,
-        nextBoundSessionId,
-        previousBoundSessionId,
-        runtimeSessionId: runtimeId,
+        nextBoundThreadId,
+        previousBoundThreadId,
+        runtimeThreadId: runtimeId,
       })
     ) {
       const url = authoritativeUrlThreadId ?? "";
       logCopilotChatNew("bound threadId change skipped (url trumps)", {
         authoritativeUrlThreadId: url || null,
-        from: previousBoundSessionId,
+        from: previousBoundThreadId,
         skipReason:
-          previousBoundSessionId === url && nextBoundSessionId !== url
+          previousBoundThreadId === url && nextBoundThreadId !== url
             ? "transient_unbind"
-            : shouldPreserveTranscriptOnBoundSessionIdChange({
-                  nextBoundSessionId,
-                  previousBoundSessionId,
-                  runtimeSessionId: runtimeId,
+            : shouldPreserveTranscriptOnBoundThreadIdChange({
+                  nextBoundThreadId,
+                  previousBoundThreadId,
+                  runtimeThreadId: runtimeId,
                 })
               ? "bind_after_create"
               : "null_to_url",
-        to: nextBoundSessionId,
+        to: nextBoundThreadId,
       });
       if (
-        shouldPreserveTranscriptOnBoundSessionIdChange({
-          nextBoundSessionId,
-          previousBoundSessionId,
-          runtimeSessionId: runtimeId,
+        shouldPreserveTranscriptOnBoundThreadIdChange({
+          nextBoundThreadId,
+          previousBoundThreadId,
+          runtimeThreadId: runtimeId,
         })
       ) {
-        runtimeSessionIdRef.current = null;
+        runtimeThreadIdRef.current = null;
       }
-      if (nextBoundSessionId) {
-        prevBoundSessionIdRef.current = nextBoundSessionId;
-        invalidateQueries(nextBoundSessionId);
+      if (nextBoundThreadId) {
+        prevBoundThreadIdRef.current = nextBoundThreadId;
+        invalidateQueries(nextBoundThreadId);
       }
       return;
     }
 
-    if (previousBoundSessionId) {
-      saveThreadLaneSnapshot(previousBoundSessionId, {
+    if (previousBoundThreadId) {
+      saveThreadLaneSnapshot(previousBoundThreadId, {
         messages: messagesRef.current,
         pendingSend: pendingSendRef.current,
         submitStatus: submitStatusRef.current,
@@ -611,31 +611,31 @@ export function useEngentyAgUiAppsAiSession(
     // they were composed against and must not leak into the next one.
     resumeInFlightRef.current = false;
     pendingResumesRef.current = [];
-    prevBoundSessionIdRef.current = nextBoundSessionId;
-    runtimeSessionIdRef.current = null;
+    prevBoundThreadIdRef.current = nextBoundThreadId;
+    runtimeThreadIdRef.current = null;
     logCopilotChatNew("bound threadId change", {
       authoritativeUrlThreadId: authoritativeUrlThreadId ?? null,
-      from: previousBoundSessionId,
+      from: previousBoundThreadId,
       reason:
         authoritativeUrlThreadId &&
-        nextBoundSessionId === authoritativeUrlThreadId &&
-        previousBoundSessionId &&
-        previousBoundSessionId !== authoritativeUrlThreadId
-          ? "url_session_switch"
+        nextBoundThreadId === authoritativeUrlThreadId &&
+        previousBoundThreadId &&
+        previousBoundThreadId !== authoritativeUrlThreadId
+          ? "url_thread_switch"
           : "binding_change",
-      to: nextBoundSessionId,
+      to: nextBoundThreadId,
     });
     logCopilotChatNew("resetConversation");
     abortRef.current?.abort();
     abortRef.current = null;
     resetConversationRef.current();
 
-    const restoredLane = readThreadLaneSnapshot(nextBoundSessionId);
+    const restoredLane = readThreadLaneSnapshot(nextBoundThreadId);
     if (restoredLane) {
       logCopilotChatNew("restore thread lane snapshot", {
         messageCount: restoredLane.messages.length,
         submitStatus: restoredLane.submitStatus,
-        threadId: nextBoundSessionId,
+        threadId: nextBoundThreadId,
       });
       if (restoredLane.messages.length > 0) {
         applyEventRef.current({
@@ -672,6 +672,7 @@ export function useEngentyAgUiAppsAiSession(
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const { resumeActiveRun } = useAppsAiActiveRunRecovery({
+    activeRunIdRef,
     applyEvent: conversation.applyEvent,
     hydrateEnabled,
     invalidateQueries,
@@ -686,7 +687,7 @@ export function useEngentyAgUiAppsAiSession(
     threadId: options.threadId,
   });
 
-  const runSessionStream = useCallback(
+  const runThreadStream = useCallback(
     async (params: {
       abortController: AbortController;
       runInput: ReturnType<typeof buildAppsAiRunInput>;
@@ -695,7 +696,7 @@ export function useEngentyAgUiAppsAiSession(
       const streamGeneration = streamGenerationRef.current;
       const isStaleStream = () =>
         streamGenerationRef.current !== streamGeneration ||
-        (options.threadId ?? runtimeSessionIdRef.current) !== params.threadId;
+        (options.threadId ?? runtimeThreadIdRef.current) !== params.threadId;
       toolCallNamesRef.current.clear();
       try {
         setSubmitStatus("streaming");
@@ -880,7 +881,7 @@ export function useEngentyAgUiAppsAiSession(
       const abortController = new AbortController();
       abortRef.current = abortController;
 
-      let threadId = resolveActiveSessionId();
+      let threadId = resolveActiveThreadId();
       const userMessage = createUserMessage(
         trimmed,
         attachments,
@@ -910,7 +911,7 @@ export function useEngentyAgUiAppsAiSession(
             // `generateTitle` synthesizes the title from the first exchange
             // (compiled gate is `!thread.title` — a client-set title would
             // block it). Lists fall back to summary/id until it lands.
-            const session = await createAppsAiThread({
+            const thread = await createAppsAiThread({
               agentId: options.agentId,
               hostKey: options.hostKey,
               routeContext: options.routeContext,
@@ -918,10 +919,10 @@ export function useEngentyAgUiAppsAiSession(
               signal: abortController.signal,
               stableSessionKey: options.stableSessionKey,
             });
-            threadId = session.id;
-            runtimeSessionIdRef.current = session.id;
-            logCopilotChatNew("onThreadCreated", { threadId: session.id });
-            options.onThreadCreated?.(session.id);
+            threadId = thread.id;
+            runtimeThreadIdRef.current = thread.id;
+            logCopilotChatNew("onThreadCreated", { threadId: thread.id });
+            options.onThreadCreated?.(thread.id);
             if (options.queryClient && options.threadsListQueryKey) {
               options.queryClient.setQueryData(
                 options.threadsListQueryKey,
@@ -932,10 +933,10 @@ export function useEngentyAgUiAppsAiSession(
                       row &&
                       typeof row === "object" &&
                       "id" in row &&
-                      row.id === session.id
+                      row.id === thread.id
                   )
                     ? rows
-                    : [session, ...rows];
+                    : [thread, ...rows];
                 }
               );
             }
@@ -959,7 +960,7 @@ export function useEngentyAgUiAppsAiSession(
         conversation.appendUserMessage(userMessage);
         messagesRef.current = [...messagesRef.current, userMessage];
 
-        await runSessionStream({
+        await runThreadStream({
           abortController,
           runInput: buildAppsAiRunInput({
             effort: options.effort,
@@ -978,7 +979,7 @@ export function useEngentyAgUiAppsAiSession(
         logCopilotChatNew("submitMessage end", { threadId });
       }
     },
-    [clearPendingSend, options, resolveActiveSessionId, runSessionStream]
+    [clearPendingSend, options, resolveActiveThreadId, runThreadStream]
   );
 
   // Held in a ref so `drainNextResume` (stable) can call the latest dispatcher
@@ -1003,7 +1004,7 @@ export function useEngentyAgUiAppsAiSession(
   const runResumeNow = useCallback(
     (feedback: ResumeInterruptFeedback) => {
       const interruptId = interruptIdOfFeedback(feedback);
-      const threadId = resolveActiveSessionId();
+      const threadId = resolveActiveThreadId();
       if (!(options.isTransportReady && threadId && interruptId)) {
         // Cannot dispatch — release the lane so a later approval isn't stranded.
         drainNextResume();
@@ -1060,20 +1061,20 @@ export function useEngentyAgUiAppsAiSession(
       // Drain the next queued approval only after this resume fully settles —
       // the backend serializes resumes for the same parked run, so overlapping
       // them races the 409 `resumeInProgress` path.
-      void runSessionStream({
+      void runThreadStream({
         abortController,
         runInput,
         threadId,
       }).finally(drainNextResume);
     },
-    [drainNextResume, options, resolveActiveSessionId, runSessionStream]
+    [drainNextResume, options, resolveActiveThreadId, runThreadStream]
   );
   runResumeNowRef.current = runResumeNow;
 
   const resumeInterrupt = useCallback(
     (feedback: ResumeInterruptFeedback) => {
       const interruptId = interruptIdOfFeedback(feedback);
-      const threadId = resolveActiveSessionId();
+      const threadId = resolveActiveThreadId();
       if (!(options.isTransportReady && threadId && interruptId)) {
         return;
       }
@@ -1095,7 +1096,7 @@ export function useEngentyAgUiAppsAiSession(
       }
       runResumeNowRef.current(feedback);
     },
-    [options, resolveActiveSessionId]
+    [options, resolveActiveThreadId]
   );
 
   /**
@@ -1165,7 +1166,7 @@ export function useEngentyAgUiAppsAiSession(
     abortRef.current = null;
     streamGenerationRef.current += 1;
     submitInFlightRef.current = false;
-    runtimeSessionIdRef.current = null;
+    runtimeThreadIdRef.current = null;
     clearThreadLaneSnapshot(options.threadId);
     resetConversationRef.current();
     clearPendingSend();
@@ -1175,7 +1176,7 @@ export function useEngentyAgUiAppsAiSession(
     setPendingInterruptToolCallIds(new Set());
     setOptimisticInterruptResults({});
     setOpenInterruptFromStream(null);
-    setSessionResetKey((current) => current + 1);
+    setThreadResetKey((current) => current + 1);
   }, [clearPendingSend, options.threadId]);
 
   const submitMessageSync = useCallback(
@@ -1190,7 +1191,7 @@ export function useEngentyAgUiAppsAiSession(
     [conversation.messages]
   );
 
-  const activeThreadId = resolveActiveSessionId();
+  const activeThreadId = resolveActiveThreadId();
 
   // Effective open interrupt: prefer the LIVE stream value (fresh, emitted with
   // the interrupt outcome), then the persisted session metadata, then the

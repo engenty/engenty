@@ -3,7 +3,7 @@ import {
   createEmptyCopilotLayoutSnapshot,
   mergeCopilotLayoutSnapshot,
   parseCopilotLayoutSnapshot,
-} from "./copilot-layout-snapshot";
+} from "./copilot-layout-snapshot.js";
 
 describe("copilot-layout-snapshot", () => {
   it("merges partial updates without dropping other fields", () => {

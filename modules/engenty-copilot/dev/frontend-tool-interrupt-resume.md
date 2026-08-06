@@ -1,28 +1,33 @@
 # Frontend tool interrupt/resume (AG-UI native)
 
-**Status:** native suspend/resume (2026-06-15) — replaced the earlier hybrid dispatch path
+**Status:** shipped. Native Mastra suspend/resume; no per-tool confirmation UI.
+Canonical catalog notes: [`packages/ag-ui-bridge/docs/frontend-tools.md`](../../../packages/ag-ui-bridge/docs/frontend-tools.md).
 
 ## Summary
 
-All browser frontend tools now use the **same native AG-UI suspend/resume path**. The model
-calls a native Mastra tool by name; the tool's `execute()` calls `context.suspend()`; the harness
-persists `ag_ui_open_interrupt` and ends the run with a `RUN_FINISHED` interrupt outcome; the
-browser executes the handler and resumes the run with a new `RunAgentInput` carrying `resume[]`.
-There is **no** `invoke_frontend_tool` meta-tool, **no** in-memory waiter, and **no**
-`POST .../frontend-tools/:callId/result` side-channel.
+Browser frontend tools share one AG-UI suspend/resume path. The model calls a
+native Mastra tool by name; `execute()` calls `context.suspend()`; the harness
+persists `ag_ui_open_interrupt` and ends the run with a `RUN_FINISHED` interrupt
+outcome; the browser runs the handler and resumes with a new `RunAgentInput`
+carrying `resume[]`.
 
-| Safety | Path | Reload-safe |
-|--------|------|-------------|
-| `safe` | Native suspend → handler **auto-executes** in the browser (no UI) → resume | Yes — interrupt hydrates from session detail |
-| `requires_confirmation` | Native suspend → **chooser/confirm card** → handler executes → resume | Yes — confirm card hydrates from session detail |
+There is **no** `invoke_frontend_tool` meta-tool, **no** in-memory waiter, and
+**no** `POST …/frontend-tools/:callId/result` side-channel.
 
-Both paths are identical on the wire. The only difference is whether the browser shows confirmation
-UI before running the handler.
+There is also **no approval branch** for frontend tools.
+`useAutoResolveFrontendTool` resolves every `frontend_tool` interrupt
+unconditionally — suspend is transport (park the run so the browser can work),
+not a gate. Guard destructive work via connector approval policies, backend tool
+approval, or the agent prompt.
 
-## Safe frontend tool sequence (`navigate`, theme, locale)
+**Sandbox command confirmation** is a separate interrupt kind
+(`SandboxCommandConfirmCard`) and is unaffected.
 
-The same `toolCallId` is the UI row identity for the whole run. The interrupt payload carries the
-`run_id` of the suspended Mastra run, which ties the browser result back to the correct run on resume.
+## Sequence
+
+The same `toolCallId` is the UI row identity for the whole run. The interrupt
+payload carries the suspended Mastra `run_id` for resume. Interrupts hydrate from
+thread detail (reload-safe).
 
 ```mermaid
 sequenceDiagram
@@ -38,39 +43,30 @@ sequenceDiagram
   AI->>AI: persist ag_ui_open_interrupt (kind: frontend_tool, run_id)
   AI->>SSE: RUN_FINISHED { outcome.type: "interrupt" }
   SSE->>UI: read outcome.interrupt.value (FrontendToolInterruptPayload[])
-  UI->>Shell: useEngentyFrontendTool handler runs (no UI for safe)
+  UI->>UI: useAutoResolveFrontendTool resolves unconditionally
+  UI->>Shell: useEngentyFrontendTool handler runs
   Shell-->>UI: output
   UI->>AI: POST new run with resume:[{ interruptId, status: "resolved", payload: output }]
   AI->>AI: agent.resumeStreamUntilIdle(output)
   AI->>SSE: TOOL_CALL_RESULT + RUN_FINISHED
 ```
 
-## Flow (confirmation tools)
-
-1. Agent calls a native frontend tool whose `safety` is `requires_confirmation`.
-2. Tool `execute()` calls `context.suspend()`; harness emits `TOOL_CALL_*`.
-3. Harness persists `ag_ui_open_interrupt` with `kind: "frontend_tool"` (including `run_id`) and ends
-   the run with a `RUN_FINISHED` interrupt outcome.
-4. Client reads `outcome.interrupt.value` and shows `FrontendToolConfirmCard` (or
-   `CopilotOpenInterruptBanner`) instead of auto-executing.
-5. User approves → host runs the `useEngentyFrontendTool` handler locally →
-   `resumeInterrupt({ interruptId, status: "resolved", payload: <handler output> })`.
-6. Resume run calls `agent.resumeStreamUntilIdle(output)`, emits `TOOL_CALL_RESULT` for the original
-   `tool_call_id`, and the agent continues.
-
 ## Key files
 
-- Contract: `packages/ag-ui-bridge/src/engenty-open-interrupt.ts` (`buildFrontendToolOpenInterrupt`, `readAgUiOpenInterrupt`)
-- Tool definition: `packages/ag-ui-bridge/src/frontend-tools.ts` (`createFrontendToolDefinition`)
-- Harness suspend/resume: `apps/ai/src/ai/sessions/harness.ts` (`tool-call-suspended` routing, `resumeStreamUntilIdle`)
-- Resume formatting: `apps/ai/src/ai/threads/interrupts.ts`, `apps/ai/src/api/agent-session-runs-routes.ts`
-- Client handler: `packages/ai-ui/src/ag-ui/use-engenty-frontend-tool.ts`
-- UI: `packages/ai-ui/src/components/copilot/interrupts/frontend-tool-confirm-card.tsx`, `copilot-open-interrupt-banner.tsx`
+| Layer | Path |
+|-------|------|
+| Contract | `packages/ag-ui-bridge/src/engenty-open-interrupt.ts` |
+| Tool definition | `packages/ag-ui-bridge/src/frontend-tools.ts` |
+| Harness suspend | `apps/ai/src/ai/sessions/interrupts.ts`, `apps/ai/src/ai/conversation/emit-interrupt.ts` |
+| Resume | `apps/ai/src/ai/conversation/resume-conversation-run.ts` |
+| Run routes | `apps/ai/src/api/thread-run-routes.ts`, `apps/ai/src/api/agent-run-routes.ts` |
+| Client handler | `packages/ai-ui/src/ag-ui/use-engenty-frontend-tool.ts` |
+| Auto-resolve | `packages/ai-ui/src/copilot/use-auto-resolve-frontend-tool.ts` |
 
-## Pilot tool
-
-`contacts_apply_draft_patch` on the contact edit page (`safety: "requires_confirmation"`).
+HITL UI (`CopilotOpenInterruptBanner`) is for **decision / feedback / sandbox
+command** interrupts — not frontend-tool dispatch.
 
 ## Manual QA
 
-See manual E2E matrix row 14 — confirm UI, approve/reject, reload while confirm visible, resume after reload.
+Smoke: trigger `navigate` (or another frontend tool) → one tool row → reload
+mid-interrupt → auto-resolve + resume completes without a stuck running row.

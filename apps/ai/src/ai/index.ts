@@ -9,10 +9,10 @@ import {
 } from "../dal/action-requests/action-request-store.js";
 import {
   type AgentRunStore,
-  type AgentSessionStore,
   createAgentRunStore,
-  createAgentSessionStore,
-} from "../dal/agent-sessions/index.js";
+  createThreadStore,
+  type ThreadStore,
+} from "../dal/threads/index.js";
 
 export { createArtifactStoreFromEnv } from "../dal/artifacts/index.js";
 
@@ -29,9 +29,9 @@ import { createAiDatabaseAdapter } from "../infra/database.js";
 import type { AiRegistry } from "./registry/index.js";
 import {
   type AiSessionScope,
-  createSessionService,
-  type SessionService,
-  type SessionServiceOptions,
+  createThreadService,
+  type ThreadService,
+  type ThreadServiceOptions,
 } from "./sessions.js";
 
 export { createDefaultAiRegistry } from "./agents.js";
@@ -96,7 +96,7 @@ export {
 export type {
   AiSessionScope,
   RuntimeModelConfigInput,
-  SessionService,
+  ThreadService,
 } from "./sessions.js";
 export {
   createTenantModelConfigResolverFromEnv,
@@ -112,23 +112,23 @@ export {
 export interface AiServiceOptions {
   createRegistry?: (scope: AiSessionScope) => AiRegistry;
   getRunStore?: () => AgentRunStore | null;
-  getStore: () => AgentSessionStore | null;
+  getStore: () => ThreadStore | null;
   getUsageStore?: () => AiUsageStore | null;
   mastra: Mastra;
   registry?: AiRegistry;
-  resolveTenantModelConfig?: SessionServiceOptions["resolveTenantModelConfig"];
+  resolveTenantModelConfig?: ThreadServiceOptions["resolveTenantModelConfig"];
 }
 
 export interface AiService {
   mastra: Mastra;
-  sessions: SessionService;
   streamPing: () => ReturnType<typeof streamText>;
+  threads: ThreadService;
 }
 
 export function createAiService(opts: AiServiceOptions): AiService {
   return {
     mastra: opts.mastra,
-    sessions: createSessionService({
+    threads: createThreadService({
       ...opts,
       getRunStore: opts.getRunStore ?? (() => null),
       getUsageStore: opts.getUsageStore ?? (() => null),
@@ -142,14 +142,14 @@ export function createAiService(opts: AiServiceOptions): AiService {
   };
 }
 
-export function createAgentSessionStoreFromEnv(): AgentSessionStore | null {
+export function createThreadStoreFromEnv(): ThreadStore | null {
   const client = createAiDatabaseAdapter(
     process.env as unknown as Record<string, unknown>
   );
   if (!client) {
     return null;
   }
-  return createAgentSessionStore(client);
+  return createThreadStore(client);
 }
 
 export function createAgentRunStoreFromEnv(): AgentRunStore | null {

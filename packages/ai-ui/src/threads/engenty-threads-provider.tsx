@@ -19,7 +19,7 @@ import {
   clearAppsAiThreadsForHost,
   deleteAppsAiThread,
   updateAppsAiThread,
-} from "../ag-ui/apps-ai/apps-ai-session-api.js";
+} from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
 import { artifactsQueryRoot } from "../artifacts/artifacts-api.js";
 import { createArtifactsRealtimeSubscription } from "../artifacts/artifacts-realtime.js";

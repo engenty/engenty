@@ -1,13 +1,55 @@
-/** Built-in "No Tax" rate (non-deletable; not stored in `tax_rates` JSON). */
-export const BUILT_IN_NO_TAX = { label: "None", name: "none", value: 0 };
+/** Built-in unit keys (non-deletable). Labels come from i18n. */
+export const BUILT_IN_UNIT_KEYS = ["text", "fixed", "h", "d"] as const;
 
-/** Built-in units (non-deletable). */
-export const BUILT_IN_UNITS = [
-  { name: "text", label: "Text" },
-  { name: "fixed", label: "Pauschal" },
+export type BuiltInUnitKey = (typeof BUILT_IN_UNIT_KEYS)[number];
+
+export interface BuiltInUnitDefinition {
+  label: string;
+  name: BuiltInUnitKey;
+  singular: string;
+}
+
+type TranslateFn = (key: string) => string;
+
+/** Resolve built-in unit display labels for the active UI language. */
+export function resolveBuiltInUnits(t: TranslateFn): BuiltInUnitDefinition[] {
+  return [
+    {
+      name: "text",
+      label: t("sections.builtInUnitText"),
+      singular: t("sections.builtInUnitTextSingular"),
+    },
+    {
+      name: "fixed",
+      label: t("sections.builtInUnitFixed"),
+      singular: t("sections.builtInUnitFixedSingular"),
+    },
+    {
+      name: "h",
+      label: t("sections.builtInUnitHours"),
+      singular: t("sections.builtInUnitHoursSingular"),
+    },
+    {
+      name: "d",
+      label: t("sections.builtInUnitDays"),
+      singular: t("sections.builtInUnitDaysSingular"),
+    },
+  ];
+}
+
+/**
+ * @deprecated Prefer `resolveBuiltInUnits(t)` so labels follow the UI language.
+ * Kept for callers that need a static German-first default list.
+ */
+export const BUILT_IN_UNITS: BuiltInUnitDefinition[] = [
+  { name: "text", label: "Text", singular: "Text" },
+  { name: "fixed", label: "Pauschal", singular: "Pauschal" },
   { name: "h", label: "Stunden", singular: "Stunde" },
   { name: "d", label: "Tage", singular: "Tag" },
 ];
+
+/** Built-in "No Tax" rate (non-deletable; not stored in `tax_rates` JSON). */
+export const BUILT_IN_NO_TAX = { label: "None", name: "none", value: 0 };
 
 export interface LocaleOption {
   currency: string;

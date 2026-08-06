@@ -46,7 +46,7 @@ import {
   isServiceCredentialConfigured,
 } from "../ai/service-credential.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import type { AgentSessionStore } from "../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../dal/threads/index.js";
 import { createSchedulerOperationInvoker } from "../scheduler/service-invoker.js";
 import { listTenantIds } from "../scheduler/tenants.js";
 import { configuredRemoteChannelProviders } from "./remote-channels/providers/index.js";
@@ -242,7 +242,7 @@ async function mintActorToken(input: {
 
 export interface RemoteChannelDeps {
   mastra: Mastra;
-  sessionStore: AgentSessionStore;
+  threadStore: ThreadStore;
 }
 
 const CHANNEL_MAPPING_KEYS = {
@@ -342,7 +342,7 @@ async function ensureChannelThread(input: {
   userId: string;
 }): Promise<string> {
   const threadId = randomUUID();
-  await input.deps.sessionStore.upsertSession({
+  await input.deps.threadStore.upsertThread({
     agentId: ENGENTY_REMOTE_AGENT_ID,
     createdByUserId: input.userId,
     id: threadId,
@@ -455,7 +455,7 @@ async function handleChannelCommand(input: {
       return;
     }
     case "threads": {
-      const sessions = await deps.sessionStore.listSessionsForUser({
+      const sessions = await deps.threadStore.listThreadsForUser({
         agentId: ENGENTY_REMOTE_AGENT_ID,
         limit: 5,
         tenantId: input.tenantId,
@@ -481,7 +481,7 @@ async function handleChannelCommand(input: {
       // Ownership: the thread must exist in this tenant and belong to the
       // mapped user. This is the ONLY sanctioned way a remote conversation
       // attaches to a non-remote thread — explicit, user-typed.
-      const session = await deps.sessionStore.getSession({
+      const session = await deps.threadStore.getThread({
         tenantId: input.tenantId,
         threadId: command.threadRef,
       });
@@ -777,7 +777,7 @@ export function createRemoteChannelsAgent(deps?: RemoteChannelDeps): Agent {
   for (const provider of configuredRemoteChannelProviders()) {
     adapters[provider.id] = provider.createAdapter();
   }
-  const sessionStore = deps?.sessionStore;
+  const threadStore = deps?.threadStore;
   return new Agent({
     channels: {
       adapters: adapters as never,
@@ -795,7 +795,7 @@ export function createRemoteChannelsAgent(deps?: RemoteChannelDeps): Agent {
     },
     id: ENGENTY_REMOTE_AGENT_ID,
     instructions: remoteAgentConfig.instructions,
-    ...(sessionStore
+    ...(threadStore
       ? {
           memory: () => {
             const ctx = getEngentyToolsRunContext();
@@ -812,7 +812,7 @@ export function createRemoteChannelsAgent(deps?: RemoteChannelDeps): Agent {
             const storage = createEngentySessionMemoryStorage({
               agentId: ENGENTY_REMOTE_AGENT_ID,
               scope: { tenantId, userId },
-              store: sessionStore,
+              store: threadStore,
             });
             return createEngentySessionMastraMemory({ storage });
           },
@@ -847,7 +847,7 @@ export function getRemoteChannelsAgent(): Agent | null {
  */
 export async function registerRemoteChannels(
   app: Hono<never>,
-  input: { mastra: Mastra; sessionStore?: AgentSessionStore | null }
+  input: { mastra: Mastra; threadStore?: ThreadStore | null }
 ): Promise<void> {
   if (!isRemoteChannelsEnabled()) {
     return;
@@ -866,14 +866,14 @@ export async function registerRemoteChannels(
     return;
   }
 
-  if (!input.sessionStore) {
+  if (!input.threadStore) {
     logger.warn(
       "remote channels: no agent session store — channel threads will persist in the global Mastra store instead of tenant-scoped ai.thread"
     );
   }
   const agent = createRemoteChannelsAgent(
-    input.sessionStore
-      ? { mastra: input.mastra, sessionStore: input.sessionStore }
+    input.threadStore
+      ? { mastra: input.mastra, threadStore: input.threadStore }
       : undefined
   );
   input.mastra.addAgent(agent);

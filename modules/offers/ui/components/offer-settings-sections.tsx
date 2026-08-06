@@ -57,6 +57,7 @@ export function OfferSettingsDetailsSection({
   const detailsItems = [
     {
       label: t("offerTitle"),
+      layout: "stack" as const,
       value: offer.title?.trim() ?? "-",
       action: (
         <OfferTextField

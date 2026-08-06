@@ -5,8 +5,8 @@
 
 import { useMutation } from "@engenty/query-client";
 import { useCallback, useMemo } from "react";
-import type { AppsAiThreadRecord } from "../ag-ui/apps-ai/apps-ai-session-api.js";
-import { useAppsAiThreadsQuery } from "../ag-ui/apps-ai/apps-ai-session-api.js";
+import type { AppsAiThreadRecord } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
+import { useAppsAiThreadsQuery } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 import { useEngentyThreadsContext } from "./engenty-threads-provider.js";
 import { mergeRouteContextWithHostKey } from "./thread-host-key.js";
 import { resolveEngentyThreadHostProfile } from "./thread-host-profile.js";

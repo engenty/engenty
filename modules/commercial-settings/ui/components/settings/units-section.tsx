@@ -12,7 +12,10 @@ import {
 } from "@engenty/ui-core";
 import { Lock, Plus, Trash2 } from "lucide-react";
 import type { Unit } from "../../api.js";
-import { BUILT_IN_UNITS } from "../../lib/locale-config.js";
+import {
+  BUILT_IN_UNIT_KEYS,
+  resolveBuiltInUnits,
+} from "../../lib/locale-config.js";
 
 interface UnitsSectionProps {
   onUnitsChange: (units: Unit[]) => void;
@@ -21,17 +24,25 @@ interface UnitsSectionProps {
 
 export function UnitsSection({ units, onUnitsChange }: UnitsSectionProps) {
   const { t } = useTranslation("commercial-settings");
+  const builtInUnits = resolveBuiltInUnits(t);
+  // Custom rows only — built-in keys are rendered from i18n above.
+  const customUnits = units.filter(
+    (unit) =>
+      !BUILT_IN_UNIT_KEYS.includes(
+        unit.name as (typeof BUILT_IN_UNIT_KEYS)[number]
+      )
+  );
 
   const addUnit = () => {
-    onUnitsChange([...units, { name: "", label: "", singular: "" }]);
+    onUnitsChange([...customUnits, { name: "", label: "", singular: "" }]);
   };
 
   const removeUnit = (index: number) => {
-    onUnitsChange(units.filter((_, i) => i !== index));
+    onUnitsChange(customUnits.filter((_, i) => i !== index));
   };
 
   const updateUnit = (index: number, field: keyof Unit, value: string) => {
-    const updated = [...units];
+    const updated = [...customUnits];
     updated[index] = { ...updated[index], [field]: value };
     onUnitsChange(updated);
   };
@@ -51,8 +62,8 @@ export function UnitsSection({ units, onUnitsChange }: UnitsSectionProps) {
           <span className="min-w-0 flex-1">{t("sections.singular")}</span>
           <div className="w-7" />
         </SettingsFieldsHeaderRow>
-        {BUILT_IN_UNITS.map((unit, index) => (
-          <SettingsFieldsDataRow key={`builtin-${index}`}>
+        {builtInUnits.map((unit) => (
+          <SettingsFieldsDataRow key={`builtin-${unit.name}`}>
             <Input
               className={cn(settingsFieldsLockedInputClass, "w-20")}
               disabled
@@ -66,15 +77,15 @@ export function UnitsSection({ units, onUnitsChange }: UnitsSectionProps) {
             <Input
               className={cn(settingsFieldsLockedInputClass, "min-w-0 flex-1")}
               disabled
-              value={unit.singular ?? ""}
+              value={unit.singular}
             />
             <SettingsFieldsRowEndSlot>
               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
             </SettingsFieldsRowEndSlot>
           </SettingsFieldsDataRow>
         ))}
-        {units.map((unit, index) => (
-          <SettingsFieldsDataRow key={index}>
+        {customUnits.map((unit, index) => (
+          <SettingsFieldsDataRow key={`custom-${index}-${unit.name}`}>
             <Input
               className={cn(settingsFieldsEditableInputClass, "w-20")}
               onChange={(e) => updateUnit(index, "name", e.target.value)}

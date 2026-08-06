@@ -22,12 +22,16 @@ import {
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import {
   isParkedResumeInFlight,
   isSessionRunParked,
 } from "../conversation/session-park.js";
 import { mergeAgUiOpenInterruptMetadata } from "./interrupts.js";
+import {
+  hasResumableSnapshot,
+  type ResumableSnapshotProbe,
+} from "./resumable-snapshot.js";
 import { isRunLiveInProcess } from "./run-event-bus.js";
 import type { AiSessionScope } from "./types.js";
 
@@ -41,17 +45,36 @@ interface ToolInvocationPart {
 }
 
 /**
+ * What the predicate needs to ask storage whether a run is still resumable.
+ * A FACTORY, not a value: assembling it costs a registry, so it is built only
+ * on the rare path that actually reaches storage — never on a plain thread load.
+ */
+export type OrphanSnapshotProbe = () => Omit<ResumableSnapshotProbe, "runId">;
+
+/**
  * An open interrupt is ORPHANED — unresumable — when either:
  *  - it has expired (resume validation already rejects it), or
- *  - it needs an in-process parked session (has a `run_id`) but that session is
- *    gone: not live, not mid-resume, and not parked here.
+ *  - it needs an in-process parked session (has a `run_id`) and that session is
+ *    gone — not live, not mid-resume, not parked here — AND Mastra holds no
+ *    suspended snapshot for the run either.
  * Interrupts without a `run_id` resume by re-run (decision/feedback artifacts),
  * so they are only orphaned once expired.
+ *
+ * The snapshot probe is deliberately LAST: the three in-process checks are free
+ * and settle the common case, so storage is only read on the rare path where
+ * they all miss — which is precisely the post-restart case it exists for.
+ * Expiry stays FIRST and eager: an expired interrupt is unusable regardless of
+ * what storage still holds, and this reconciler is the only thing standing
+ * between a stale interrupt and a permanently wedged chat.
+ *
+ * Omitting `probe` keeps the old in-process-only behaviour (used by callers
+ * that have no registry to assemble an agent with).
  */
-export function isOpenInterruptOrphaned(
+export async function isOpenInterruptOrphaned(
   open: AgUiOpenInterruptMetadata,
+  probe?: OrphanSnapshotProbe,
   nowMs?: number
-): boolean {
+): Promise<boolean> {
   if (isAgUiOpenInterruptExpired(open, nowMs)) {
     return true;
   }
@@ -59,11 +82,20 @@ export function isOpenInterruptOrphaned(
   if (!runId) {
     return false;
   }
-  return !(
+  if (
     isRunLiveInProcess(runId) ||
     isParkedResumeInFlight(runId) ||
     isSessionRunParked(runId)
-  );
+  ) {
+    return false;
+  }
+  // Last resort, and the whole point of this change: the park is gone, but
+  // Mastra may still hold a suspended snapshot for the run — in which case the
+  // resume POST can continue it and clearing the interrupt would destroy it.
+  if (!probe) {
+    return true;
+  }
+  return !(await hasResumableSnapshot({ ...probe(), runId }));
 }
 
 /**
@@ -74,7 +106,7 @@ export function isOpenInterruptOrphaned(
  */
 async function resolveDanglingToolStepsInWedgedTurn(input: {
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
   toolCallId: string | undefined;
 }): Promise<void> {
@@ -146,13 +178,16 @@ async function resolveDanglingToolStepsInWedgedTurn(input: {
  */
 export async function reconcileOrphanedInterrupt(input: {
   metadata: Record<string, unknown>;
+  // Omitted by callers with no registry: the predicate then stays
+  // in-process-only, i.e. pre-snapshot behaviour.
+  probe?: OrphanSnapshotProbe;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
   userId: string;
 }): Promise<Record<string, unknown> | null> {
   const open = readAgUiOpenInterrupt(input.metadata);
-  if (!(open && isOpenInterruptOrphaned(open))) {
+  if (!(open && (await isOpenInterruptOrphaned(open, input.probe)))) {
     return null;
   }
   await resolveDanglingToolStepsInWedgedTurn({
@@ -163,13 +198,13 @@ export async function reconcileOrphanedInterrupt(input: {
   });
   const nextMetadata = mergeAgUiOpenInterruptMetadata(input.metadata, null);
   try {
-    const updated = await input.store.updateSessionForUser({
+    const updated = await input.store.updateThreadForUser({
       metadata: nextMetadata,
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
       userId: input.userId,
     });
-    return updated.session?.metadata ?? nextMetadata;
+    return updated.thread?.metadata ?? nextMetadata;
   } catch (error) {
     console.error(
       "[reconcile-interrupt] failed to clear orphaned interrupt:",

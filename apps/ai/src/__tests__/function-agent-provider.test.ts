@@ -202,13 +202,13 @@ describe("createSessionAgentStateChannel", () => {
       ["th1", { other_key: "kept" }],
     ]);
     const store = {
-      getSession: vi.fn(async (p: { threadId: string }) => ({
+      getThread: vi.fn(async (p: { threadId: string }) => ({
         metadata: rows.get(p.threadId) ?? {},
       })),
-      updateSessionForUser: vi.fn(
+      updateThreadForUser: vi.fn(
         async (p: { metadata?: Record<string, unknown>; threadId: string }) => {
           rows.set(p.threadId, p.metadata ?? {});
-          return { session: {} };
+          return { thread: {} };
         }
       ),
     };
@@ -224,8 +224,8 @@ describe("createSessionAgentStateChannel", () => {
 
   it("throws loudly when the ownership-checked update rejects", async () => {
     const store = {
-      getSession: async () => ({ metadata: {} }),
-      updateSessionForUser: async () => ({ session: null }),
+      getThread: async () => ({ metadata: {} }),
+      updateThreadForUser: async () => ({ thread: null }),
     };
     const channel = createSessionAgentStateChannel(() => store);
     await expect(channel.persist(CONTEXT, { k: 1 })).rejects.toThrow(

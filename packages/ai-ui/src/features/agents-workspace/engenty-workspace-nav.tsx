@@ -5,25 +5,25 @@ import type {
   AiAgentEntry,
   AiRegisteredAction,
   AiSkillRecord,
-} from "../../lib/admin/ai-runtime-api";
-import { useAdminAiSessionsQuery } from "../../lib/admin/ai-runtime-queries";
-import { useAdminAgentsSidebarNavPersistence } from "./admin-agents-sidebar-nav-queries";
-import { parseAgentSessionDetailFromPathname } from "./agent-workspace-url-state";
-import { getSkillModuleId } from "./skill-record-utils";
-import { SkillCatalogSidebarPanel } from "./skills-catalog-view";
-import { useWorkspaceNavKeyboard } from "./use-workspace-nav-keyboard";
-import type { CatalogModuleFolder } from "./workspace-catalog-partition";
-import { partitionCatalogByCoreModule } from "./workspace-catalog-partition";
-import { WorkspaceNavAgentsPanel } from "./workspace-nav-agents-panel";
-import { WorkspaceNavSessionsPanel } from "./workspace-nav-sessions-panel";
-import { WorkspaceNavTabHeader } from "./workspace-nav-tab-header";
+} from "../../lib/admin/ai-runtime-api.js";
+import { useAdminAiThreadsQuery } from "../../lib/admin/ai-runtime-queries.js";
+import { useAdminAgentsSidebarNavPersistence } from "./admin-agents-sidebar-nav-queries.js";
+import { parseAgentSessionDetailFromPathname } from "./agent-workspace-url-state.js";
+import { getSkillModuleId } from "./skill-record-utils.js";
+import { SkillCatalogSidebarPanel } from "./skills-catalog-view.js";
+import { useWorkspaceNavKeyboard } from "./use-workspace-nav-keyboard.js";
+import type { CatalogModuleFolder } from "./workspace-catalog-partition.js";
+import { partitionCatalogByCoreModule } from "./workspace-catalog-partition.js";
+import { WorkspaceNavAgentsPanel } from "./workspace-nav-agents-panel.js";
+import { WorkspaceNavTabHeader } from "./workspace-nav-tab-header.js";
+import { WorkspaceNavThreadsPanel } from "./workspace-nav-threads-panel.js";
 import {
   catalogQueryMatches,
   TENANT_ACTIONS_FOLDER_ID,
   TENANT_SKILLS_FOLDER_ID,
   type WorkspaceNavPrimaryTab,
   workspaceNavPrimaryTabFromPathname,
-} from "./workspace-nav-utils";
+} from "./workspace-nav-utils.js";
 
 interface EngentyWorkspaceNavProps {
   actions: AiRegisteredAction[];
@@ -169,7 +169,7 @@ export function EngentyWorkspaceNav({
   const sessionsQueryRaw =
     primaryTab === "sessions" ? sessionsCatalogSearch.trim() : "";
   const sessionsSearchLower = sessionsQueryRaw.toLowerCase();
-  const sessionsSearchActive = sessionsSearchLower.length > 0;
+  const threadsSearchActive = sessionsSearchLower.length > 0;
 
   const resolveSkillFolderLabel = useCallback(
     (folder: CatalogModuleFolder<AiSkillRecord>) =>
@@ -314,9 +314,9 @@ export function EngentyWorkspaceNav({
   const navRootRef = useRef<HTMLDivElement>(null);
   const onNavKeyDown = useWorkspaceNavKeyboard(navRootRef, null);
 
-  const sessionsNavLabel = t("sessionsCatalog.navLabel");
+  const threadsNavLabel = t("sessionsCatalog.navLabel");
 
-  const adminSessionsQuery = useAdminAiSessionsQuery(
+  const adminThreadsQuery = useAdminAiThreadsQuery(
     null,
     primaryTab === "sessions"
   );
@@ -329,19 +329,19 @@ export function EngentyWorkspaceNav({
     return map;
   }, [agents]);
 
-  const routeActiveSessionId = useMemo(
+  const routeActiveThreadId = useMemo(
     () => parseAgentSessionDetailFromPathname(location.pathname)?.threadId,
     [location.pathname]
   );
 
-  const tenantSessionsRaw = adminSessionsQuery.data?.sessions ?? [];
+  const tenantThreadsRaw = adminThreadsQuery.data?.sessions ?? [];
 
-  const sidebarSessions = useMemo(() => {
-    if (!sessionsSearchActive) {
-      return tenantSessionsRaw;
+  const sidebarThreads = useMemo(() => {
+    if (!threadsSearchActive) {
+      return tenantThreadsRaw;
     }
     const q = sessionsSearchLower;
-    return tenantSessionsRaw.filter((row) => {
+    return tenantThreadsRaw.filter((row) => {
       const label = (
         row.title?.trim() ||
         row.summary?.trim() ||
@@ -370,28 +370,28 @@ export function EngentyWorkspaceNav({
     });
   }, [
     agentNameById,
-    sessionsSearchActive,
+    threadsSearchActive,
     sessionsSearchLower,
-    tenantSessionsRaw,
+    tenantThreadsRaw,
   ]);
 
-  const sessionsCatalogHasRows = tenantSessionsRaw.length > 0;
-  const sidebarSessionsSearchEmpty =
-    sessionsSearchActive &&
+  const sessionsCatalogHasRows = tenantThreadsRaw.length > 0;
+  const sidebarThreadsSearchEmpty =
+    threadsSearchActive &&
     sessionsCatalogHasRows &&
-    !adminSessionsQuery.isLoading &&
-    sidebarSessions.length === 0
+    !adminThreadsQuery.isLoading &&
+    sidebarThreads.length === 0
       ? t("workspace.sidebarCatalogSearchEmpty")
       : null;
 
-  const sessionsNavRowMatchesSearch =
-    !sessionsSearchActive ||
-    catalogQueryMatches(sessionsNavLabel, sessionsSearchLower);
+  const threadsNavRowMatchesSearch =
+    !threadsSearchActive ||
+    catalogQueryMatches(threadsNavLabel, sessionsSearchLower);
   /** Keep the sessions tab usable when the query matches session rows but not the "All sessions" label. */
-  const sessionsPanelVisible =
-    sessionsNavRowMatchesSearch ||
-    adminSessionsQuery.isLoading ||
-    tenantSessionsRaw.length > 0;
+  const threadsPanelVisible =
+    threadsNavRowMatchesSearch ||
+    adminThreadsQuery.isLoading ||
+    tenantThreadsRaw.length > 0;
 
   const sidebarTabHeader = (
     <WorkspaceNavTabHeader
@@ -441,19 +441,19 @@ export function EngentyWorkspaceNav({
   );
 
   const sessionsPanel = (
-    <WorkspaceNavSessionsPanel
-      adminSessionsQuery={adminSessionsQuery}
+    <WorkspaceNavThreadsPanel
+      adminThreadsQuery={adminThreadsQuery}
       agentNameById={agentNameById}
-      routeActiveSessionId={routeActiveSessionId}
+      routeActiveThreadId={routeActiveThreadId}
       runNav={runNav}
-      sessionsNavLabel={sessionsNavLabel}
-      sessionsNavRowMatchesSearch={sessionsNavRowMatchesSearch}
-      sessionsPanelVisible={sessionsPanelVisible}
-      sessionsSearchActive={sessionsSearchActive}
-      sidebarSessions={sidebarSessions}
-      sidebarSessionsSearchEmpty={sidebarSessionsSearchEmpty}
+      sidebarThreads={sidebarThreads}
+      sidebarThreadsSearchEmpty={sidebarThreadsSearchEmpty}
       t={t}
-      tenantSessionsRaw={tenantSessionsRaw}
+      tenantThreadsRaw={tenantThreadsRaw}
+      threadsNavLabel={threadsNavLabel}
+      threadsNavRowMatchesSearch={threadsNavRowMatchesSearch}
+      threadsPanelVisible={threadsPanelVisible}
+      threadsSearchActive={threadsSearchActive}
     />
   );
 

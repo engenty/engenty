@@ -1,4 +1,4 @@
-import { appsAiThreadsListQueryKey } from "../ag-ui/apps-ai/apps-ai-session-api.js";
+import { appsAiThreadsListQueryKey } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 import { resolveEngentyThreadHostProfile } from "./thread-host-profile.js";
 
 export function engentyThreadsListQueryKey(params: {

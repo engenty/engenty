@@ -55,8 +55,8 @@ export function OfferTextField({
         <button
           className={
             editIconPosition === "before"
-              ? "group/text -mx-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1 text-left hover:outline-dashed hover:outline-1 hover:outline-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
-              : "group/text relative -mx-1 cursor-pointer rounded px-1 text-left hover:outline-dashed hover:outline-1 hover:outline-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
+              ? "group/text -mx-1 inline-flex max-w-full cursor-pointer items-start gap-1.5 rounded px-1 text-left hover:outline-dashed hover:outline-1 hover:outline-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
+              : "group/text relative -mx-1 max-w-full cursor-pointer rounded px-1 text-left hover:outline-dashed hover:outline-1 hover:outline-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
           }
           disabled={disabled}
           type="button"
@@ -64,10 +64,10 @@ export function OfferTextField({
           {!disabled && editIconPosition === "before" ? (
             <Pencil
               aria-hidden
-              className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/text:opacity-100"
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/text:opacity-100"
             />
           ) : null}
-          <span className="font-medium text-foreground">
+          <span className="min-w-0 break-words font-medium text-foreground">
             {value?.trim() || "-"}
           </span>
           {!disabled && editIconPosition === "after" ? (

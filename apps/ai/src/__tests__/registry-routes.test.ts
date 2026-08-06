@@ -8,6 +8,7 @@ function createScopeResolver() {
     scope: {
       tenantId: "tenant-1",
       userId: "user-1",
+      capabilities: ["core.superadmin", "*"],
       isSuperAdmin: true,
       isTenantAdmin: true,
       tenantRole: "admin" as const,

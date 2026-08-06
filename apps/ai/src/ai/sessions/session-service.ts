@@ -1,4 +1,5 @@
-import type { Message } from "@engenty/ag-ui-bridge";
+import type { Message, RunAgentInput } from "@engenty/ag-ui-bridge";
+import { mergeActiveArtifactMetadata } from "@engenty/ag-ui-bridge";
 import type { AiEffort } from "@engenty/ai-core";
 import {
   type AgentWorkspaceConfig,
@@ -13,10 +14,7 @@ import type { Workspace } from "@mastra/core/workspace";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
 import { engentyToolsRunAls } from "../../../ai/tools/engenty-tools/lib/run-context.js";
-import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-} from "../../dal/agent-sessions/index.js";
+import type { ThreadMessageRow, ThreadRow } from "../../dal/threads/index.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { AiSessionError } from "../errors.js";
@@ -49,7 +47,7 @@ import {
 import { reconcileOrphanedInterrupt } from "./reconcile-orphaned-interrupt.js";
 import {
   createSessionRunTracker,
-  ensureAgentSessionRunStarted,
+  ensureAgentRunStarted,
   readUsageTokenCounts,
 } from "./run-tracking.js";
 import { buildSessionRuntimeInstructions } from "./runtime-instructions.js";
@@ -67,13 +65,13 @@ import {
 import type {
   AgentUiProducerContext,
   AiSessionScope,
-  AppendAiSessionMessageInput,
-  CreateAiSessionInput,
-  DeleteAiSessionsInput,
-  ListAiSessionMessagesInput,
-  ListAiSessionsInput,
-  SessionServiceOptions,
-  UpdateAiSessionInput,
+  AppendAiThreadMessageInput,
+  CreateAiThreadInput,
+  DeleteAiThreadsInput,
+  ListAiThreadMessagesInput,
+  ListAiThreadsInput,
+  ThreadServiceOptions,
+  UpdateAiThreadInput,
 } from "./types.js";
 import { scopeAccessToken } from "./types.js";
 import { usageFromOutput } from "./usage.js";
@@ -147,8 +145,8 @@ export function resolveSubmittedUserMessage(messages: Message[] | undefined): {
 }
 
 function findLastAssistantMessageRow(
-  rows: readonly AgentSessionMessageRow[]
-): AgentSessionMessageRow | null {
+  rows: readonly ThreadMessageRow[]
+): ThreadMessageRow | null {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const row = rows[index];
     if (row?.role === "assistant") {
@@ -158,7 +156,7 @@ function findLastAssistantMessageRow(
   return null;
 }
 
-export function createSessionService(opts: SessionServiceOptions) {
+export function createThreadService(opts: ThreadServiceOptions) {
   function getRequiredStore() {
     const store = opts.getStore();
     if (!store) {
@@ -172,7 +170,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     threadId: string;
   }) {
     const store = getRequiredStore();
-    const session = await store.getSession({
+    const session = await store.getThread({
       tenantId: params.scope.tenantId,
       threadId: params.threadId,
     });
@@ -204,7 +202,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     const subAgentSandboxProviders: EngentySandboxProvider[] = [];
     const subAgentWorkspacesMap = new Map<string, Workspace>();
     if (input.runId) {
-      await ensureAgentSessionRunStarted(opts.getRunStore?.() ?? null, {
+      await ensureAgentRunStarted(opts.getRunStore?.() ?? null, {
         id: input.runId,
         tenantId: input.scope.tenantId,
         threadId: input.threadId,
@@ -403,7 +401,7 @@ export function createSessionService(opts: SessionServiceOptions) {
             scope: input.scope,
             threadId: input.threadId,
             updateSession: async (patch) => {
-              await getRequiredStore().updateSessionForUser({
+              await getRequiredStore().updateThreadForUser({
                 routeContext: patch.routeContext,
                 threadId: input.threadId,
                 tenantId: input.scope.tenantId,
@@ -487,7 +485,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       agentId: string;
       runId: string;
       scope: AiSessionScope;
-      session: AgentSessionRow;
+      session: ThreadRow;
       threadId: string;
     }): Promise<
       | { sandboxProvider?: EngentySandboxProvider; workspace: Workspace }
@@ -519,7 +517,7 @@ export function createSessionService(opts: SessionServiceOptions) {
     async resolveRunWorkspaces(input: {
       runId: string;
       scope: AiSessionScope;
-      session: AgentSessionRow;
+      session: ThreadRow;
       threadId: string;
     }): Promise<{
       // The run's root sandbox provider — the caller MUST `destroyRunSandboxes` it
@@ -589,7 +587,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       };
     },
 
-    async appendMessage(input: AppendAiSessionMessageInput) {
+    async appendMessage(input: AppendAiThreadMessageInput) {
       const { store } = await getRequiredSession(input);
       const authorUserId =
         input.role === "user"
@@ -604,20 +602,20 @@ export function createSessionService(opts: SessionServiceOptions) {
       });
     },
 
-    async createSession(input: CreateAiSessionInput) {
+    async createThread(input: CreateAiThreadInput) {
       const store = getRequiredStore();
       const id = resolveRequestedSessionId(input);
       if (input.threadId && !id) {
         throw new AiSessionError("agent_threads.notFound");
       }
       const existing = id
-        ? await store.getSession({
+        ? await store.getThread({
             tenantId: input.scope.tenantId,
             threadId: id,
           })
         : null;
       const threadId = id ?? crypto.randomUUID();
-      return store.upsertSession({
+      const { thread } = await store.upsertThread({
         id: threadId,
         tenantId: input.scope.tenantId,
         agentId: input.agentId,
@@ -635,9 +633,10 @@ export function createSessionService(opts: SessionServiceOptions) {
         title: input.title ?? existing?.title ?? null,
         workspaceKey: input.workspaceKey ?? existing?.workspace_key ?? null,
       });
+      return { thread };
     },
 
-    async getSession(input: { scope: AiSessionScope; threadId: string }) {
+    async getThread(input: { scope: AiSessionScope; threadId: string }) {
       const store = getRequiredStore();
       let { session } = await getRequiredSession(input);
       if (session.created_by_user_id !== input.scope.userId) {
@@ -648,7 +647,7 @@ export function createSessionService(opts: SessionServiceOptions) {
       if (session.status === "running") {
         const runStore = opts.getRunStore?.() ?? null;
         if (runStore) {
-          const runs = await runStore.listRunsForSession({
+          const runs = await runStore.listRunsForThread({
             tenantId: input.scope.tenantId,
             threadId: input.threadId,
             limit: 10,
@@ -658,14 +657,14 @@ export function createSessionService(opts: SessionServiceOptions) {
             await destroySessionLifecycleSandbox(input.threadId).catch(
               () => undefined
             );
-            const updated = await store.updateSessionForUser({
+            const updated = await store.updateThreadForUser({
               status: "completed",
               tenantId: input.scope.tenantId,
               threadId: input.threadId,
               userId: input.scope.userId,
             });
-            if (updated.session) {
-              session = updated.session;
+            if (updated.thread) {
+              session = updated.thread;
             }
           }
         }
@@ -674,8 +673,25 @@ export function createSessionService(opts: SessionServiceOptions) {
       // session is gone (restart, TTL, or a resume error) can never be resumed
       // and would keep the card + tool spinner stuck. Clearing it returns the
       // thread to a usable state.
+      //
+      // The probe is what keeps this from eating RECOVERABLE interrupts: after a
+      // restart the park is necessarily gone, but Mastra may still hold the
+      // suspended snapshot, and the resume POST can continue from it. Without
+      // the probe this healed away exactly the state the snapshot lane needs.
       const healedMetadata = await reconcileOrphanedInterrupt({
         metadata: session.metadata ?? {},
+        probe: () => ({
+          agentId: session.agent_id,
+          assembleAgent: opts.assembleDynamicAgent ?? assembleDynamicAgent,
+          mastra: opts.mastra,
+          registry:
+            opts.createRegistry?.(input.scope) ??
+            opts.registry ??
+            createDefaultAiRegistry(),
+          tenantId: input.scope.tenantId,
+          threadId: input.threadId,
+          userId: input.scope.userId,
+        }),
         scope: input.scope,
         store,
         threadId: input.threadId,
@@ -684,10 +700,10 @@ export function createSessionService(opts: SessionServiceOptions) {
       if (healedMetadata) {
         session = { ...session, metadata: healedMetadata };
       }
-      return { session };
+      return { thread: session };
     },
 
-    async updateSession(input: UpdateAiSessionInput) {
+    async updateThread(input: UpdateAiThreadInput) {
       const { session } = await getRequiredSession(input);
       if (session.created_by_user_id !== input.scope.userId) {
         throw new AiSessionError("agent_threads.notFound");
@@ -702,12 +718,25 @@ export function createSessionService(opts: SessionServiceOptions) {
               },
               threadId: input.threadId,
             });
-      const updated = await getRequiredStore().updateSessionForUser({
+      // `metadata` (full replace) and `activeArtifactId` (single-key merge)
+      // are composable: start from an explicit metadata override if given,
+      // else the current row, then fold the artifact key on top so this call
+      // never clobbers unrelated keys (HITL interrupt/grants included).
+      const metadataWithActiveArtifact =
+        input.activeArtifactId === undefined
+          ? input.metadata
+          : mergeActiveArtifactMetadata(input.metadata ?? session.metadata, {
+              artifactId: input.activeArtifactId,
+              shownAt: new Date().toISOString(),
+            });
+      const updated = await getRequiredStore().updateThreadForUser({
         tenantId: input.scope.tenantId,
         userId: input.scope.userId,
         threadId: input.threadId,
         ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
-        ...(input.metadata === undefined ? {} : { metadata: input.metadata }),
+        ...(metadataWithActiveArtifact === undefined
+          ? {}
+          : { metadata: metadataWithActiveArtifact }),
         ...(routeContext === undefined ? {} : { routeContext }),
         ...(input.status === undefined ? {} : { status: input.status }),
         ...(input.summary === undefined ? {} : { summary: input.summary }),
@@ -717,37 +746,37 @@ export function createSessionService(opts: SessionServiceOptions) {
           : { workspaceKey: input.workspaceKey }),
         ...(input.archived === undefined ? {} : { archived: input.archived }),
       });
-      if (!updated.session) {
+      if (!updated.thread) {
         throw new AiSessionError("agent_threads.notFound");
       }
-      return updated;
+      return { thread: updated.thread };
     },
 
-    async deleteSession(input: { scope: AiSessionScope; threadId: string }) {
+    async deleteThread(input: { scope: AiSessionScope; threadId: string }) {
       const store = getRequiredStore();
       await destroySessionLifecycleSandbox(input.threadId).catch(
         () => undefined
       );
-      return store.deleteSessionForUser({
+      return store.deleteThreadForUser({
         tenantId: input.scope.tenantId,
         threadId: input.threadId,
         userId: input.scope.userId,
       });
     },
 
-    async deleteSessions(input: DeleteAiSessionsInput) {
+    async deleteThreads(input: DeleteAiThreadsInput) {
       const store = getRequiredStore();
-      const { sessions } = await this.listSessions({
+      const { threads } = await this.listThreads({
         scope: input.scope,
         ...(input.agentId ? { agentId: input.agentId } : {}),
         ...(input.hostKey ? { hostKey: input.hostKey } : {}),
       });
       await Promise.all(
-        sessions.map((session) =>
-          destroySessionLifecycleSandbox(session.id).catch(() => undefined)
+        threads.map((thread) =>
+          destroySessionLifecycleSandbox(thread.id).catch(() => undefined)
         )
       );
-      return store.deleteSessionsForUser({
+      return store.deleteThreadsForUser({
         tenantId: input.scope.tenantId,
         userId: input.scope.userId,
         ...(input.agentId ? { agentId: input.agentId } : {}),
@@ -763,8 +792,13 @@ export function createSessionService(opts: SessionServiceOptions) {
     },
 
     async generate(input: {
+      // Both are read below and passed through to
+      // buildSessionRuntimeInstructions; they were missing from this signature
+      // while callers (thread-run-routes) were already sending them.
+      agentUi?: AgentUiProducerContext | null;
       authorization?: string | null;
       modelIdOverride?: string | null;
+      runContext?: RunAgentInput["context"];
       runId?: string | null;
       scope: AiSessionScope;
       threadId: string;
@@ -901,7 +935,7 @@ export function createSessionService(opts: SessionServiceOptions) {
             role: "assistant",
             tenant_id: input.scope.tenantId,
             thread_id: input.threadId,
-          } satisfies AgentSessionMessageRow);
+          } satisfies ThreadMessageRow);
         await runTracker?.complete({
           status: "completed",
           ...readUsageTokenCounts(
@@ -940,11 +974,11 @@ export function createSessionService(opts: SessionServiceOptions) {
       }
     },
 
-    async listMessages(input: ListAiSessionMessagesInput) {
+    async listMessages(input: ListAiThreadMessagesInput) {
       // Ownership check, not just tenancy. `getRequiredSession` filters on
       // tenant + thread, which leaves any authenticated member of the tenant
       // able to read a colleague's transcript from the thread id alone. Every
-      // sibling here (getSession, updateSession, deleteSession, listSessions)
+      // sibling here (getThread, updateThread, deleteThread, listThreads)
       // already scopes to the owner; this one did not. RLS would have caught it,
       // but the AI service connects with the service-role key and bypasses it,
       // so these filters are the whole boundary.
@@ -960,9 +994,9 @@ export function createSessionService(opts: SessionServiceOptions) {
       return { messages };
     },
 
-    async listSessions(input: ListAiSessionsInput) {
+    async listThreads(input: ListAiThreadsInput) {
       const store = getRequiredStore();
-      const sessions = await store.listSessionsForUser({
+      const threads = await store.listThreadsForUser({
         tenantId: input.scope.tenantId,
         userId: input.scope.userId,
         ...(input.agentId ? { agentId: input.agentId } : {}),
@@ -970,9 +1004,9 @@ export function createSessionService(opts: SessionServiceOptions) {
         ...(input.includeArchived ? { includeArchived: true } : {}),
         limit: input.limit,
       });
-      return { sessions };
+      return { threads };
     },
   };
 }
 
-export type SessionService = ReturnType<typeof createSessionService>;
+export type ThreadService = ReturnType<typeof createThreadService>;

@@ -6,7 +6,7 @@
 // resolveResumedFrontendTool, but it matches by toolCallId regardless of the current
 // state — a decision artifact is already at `state:"result"` with the question, which
 // we overwrite with the answer. Best-effort: logs and returns on failure.
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import type { AiSessionScope } from "./types.js";
 
 interface ToolInvocationPart {
@@ -21,7 +21,7 @@ interface ToolInvocationPart {
 export async function resolveToolCallResultInHistory(input: {
   result: unknown;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
   toolCallId: string;
 }): Promise<void> {

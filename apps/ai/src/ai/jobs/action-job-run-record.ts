@@ -3,12 +3,12 @@
 // Task Job. Mirrors task-job-run-record.ts with action subject context. Both calls
 // are best-effort: a run-record failure must not break the action run.
 import { createLogger } from "@engenty/telemetry";
-import type { AgentRunStatus } from "../../dal/agent-sessions/types.js";
+import type { AgentRunStatus } from "../../dal/threads/types.js";
 import {
   createAgentRunStoreFromEnv,
-  createAgentSessionStoreFromEnv,
+  createThreadStoreFromEnv,
 } from "../index.js";
-import { ensureAgentSessionRunStarted } from "../sessions/run-tracking.js";
+import { ensureAgentRunStarted } from "../sessions/run-tracking.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
 
@@ -28,12 +28,12 @@ export interface RegisterActionRunInput {
 export async function registerActionRun(
   input: RegisterActionRunInput
 ): Promise<void> {
-  const store = createAgentSessionStoreFromEnv();
+  const store = createThreadStoreFromEnv();
   const runStore = createAgentRunStoreFromEnv();
   if (!(store && runStore)) {
     return;
   }
-  await store.upsertSession({
+  await store.upsertThread({
     agentId: input.agentId,
     createdByUserId: scopeAttributionUserId(input.scope),
     id: input.threadId,
@@ -46,7 +46,7 @@ export async function registerActionRun(
     tenantId: input.scope.tenantId,
     title: `Action ${input.actionId}`,
   });
-  await ensureAgentSessionRunStarted(runStore, {
+  await ensureAgentRunStarted(runStore, {
     agentId: input.agentId,
     createdByUserId: scopeAttributionUserId(input.scope),
     id: input.runId,

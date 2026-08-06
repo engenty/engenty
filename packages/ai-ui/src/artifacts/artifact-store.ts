@@ -131,6 +131,12 @@ function setState(hostKey: string, next: ArtifactPaneState) {
   }
 }
 
+/** Current pane-open flag, read fresh (not from a render-time snapshot) —
+ * for callbacks (e.g. a realtime handler) deciding auto-open vs. badge. */
+export function getArtifactPaneOpen(hostKey: string): boolean {
+  return getStore(hostKey).state.paneOpen;
+}
+
 /** Make an artifact the active tab and reveal the pane. */
 export function activateArtifact(hostKey: string, id: string) {
   const { state } = getStore(hostKey);

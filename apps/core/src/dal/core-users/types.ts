@@ -31,6 +31,8 @@ import type { User } from "@supabase/supabase-js";
  */
 export interface WorkspaceContextResult {
   canSwitchTenant: boolean;
+  /** See {@link WorkspaceContext.capabilities} in workspace.ts. */
+  capabilities: string[];
   currentTenant: { id: string; slug: string; name: string } | null;
   currentUser: {
     display_name: string | null;
@@ -68,6 +70,7 @@ export interface CoreUsersDal {
     accessToken: string
   ) => Promise<{ user: CoreUser; created: boolean }>;
   getServiceWorkspaceContext: (params: {
+    capabilities: string[];
     principalId: string;
     tenantId: string;
   }) => Promise<WorkspaceContextResult>;

@@ -17,17 +17,17 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  useAdminAiSessionsQuery,
+  useAdminAiThreadsQuery,
   useAiActionsQuery,
   useAiAgentsQuery,
   useAiSkillsQuery,
   useAiToolsQuery,
-} from "../../lib/admin/ai-runtime-queries";
+} from "../../lib/admin/ai-runtime-queries.js";
 import {
   countActions,
   countSkills,
   countTools,
-} from "../admin-overview/overview-counts";
+} from "../admin-overview/overview-counts.js";
 import {
   buildActionsCatalogPath,
   buildActivityPath,
@@ -36,7 +36,7 @@ import {
   buildConnectionsPath,
   buildSkillsCatalogPath,
   buildToolsPath,
-} from "../agents-workspace/agent-workspace-url-state";
+} from "../agents-workspace/agent-workspace-url-state.js";
 
 interface AdminLinkRowProps {
   description: string;
@@ -117,7 +117,7 @@ export function CopilotAdminLinksSection() {
   const actionsQuery = useAiActionsQuery();
   const skillsQuery = useAiSkillsQuery();
   const toolsQuery = useAiToolsQuery();
-  const sessionsQuery = useAdminAiSessionsQuery(null, false);
+  const sessionsQuery = useAdminAiThreadsQuery(null, false);
   const connectionsQuery = useWorkspaceConnectionsCount();
 
   const agents = agentsQuery.data?.agents ?? [];

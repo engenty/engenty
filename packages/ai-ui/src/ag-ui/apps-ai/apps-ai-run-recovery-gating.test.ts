@@ -4,14 +4,16 @@ import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
 import {
   buildRecoveryMessagesSnapshotEvent,
   coalesceRunEventText,
+  createRecoveryRunEventReplayFilter,
   isAppsAiRunInFlightStatus,
   isTerminalRunWithPotentialUnflushedText,
+  partitionSnapshotForRunAttach,
   pickLatestInFlightAppsAiRun,
   pickLatestTerminalAppsAiRun,
   shouldApplyRecoveryMessagesSnapshot,
+  shouldApplyTerminalRunMessagesSnapshot,
   shouldAttemptAppsAiRunRecovery,
   shouldContinueAppsAiRunRecovery,
-  shouldReplayRecoveryRunEvent,
   transcriptMissingAssistantMessage,
 } from "./apps-ai-run-recovery-gating.js";
 
@@ -197,20 +199,129 @@ describe("apps-ai-run-recovery-gating", () => {
     ).toBe(false);
   });
 
-  it("skips transcript replay events during recovery", () => {
+  // Attached-stream replay: text streams live for messages the DB snapshot
+  // has never seen; snapshot-known messages stay snapshot-owned (no doubling).
+  it("streams text live for messages absent from the snapshot", () => {
+    const replay = createRecoveryRunEventReplayFilter({
+      snapshotMessageIds: new Set(["flushed-1"]),
+    });
     expect(
-      shouldReplayRecoveryRunEvent({
+      replay({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "live-1",
+        role: "assistant",
+      } as never)
+    ).toBe(true);
+    expect(
+      replay({
         type: EventType.TEXT_MESSAGE_CONTENT,
         delta: "hello",
-        messageId: "m1",
+        messageId: "live-1",
+      } as never)
+    ).toBe(true);
+    expect(
+      replay({ type: EventType.TEXT_MESSAGE_END, messageId: "live-1" } as never)
+    ).toBe(true);
+    expect(
+      replay({ type: EventType.RUN_FINISHED, runId: "run-1" } as never)
+    ).toBe(true);
+  });
+
+  it("never replays text for a message the lane already renders", () => {
+    // The lane having the message means it was already streamed into this
+    // window (own POST stream or an earlier attach) — replaying again doubles
+    // the text. Regression: three racing terminal attaches quadrupled the
+    // final message.
+    const replay = createRecoveryRunEventReplayFilter({
+      laneHasMessage: (id) => id === "already-in-lane",
+      snapshotMessageIds: new Set<string>(),
+    });
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "already-in-lane",
+        role: "assistant",
       } as never)
     ).toBe(false);
     expect(
-      shouldReplayRecoveryRunEvent({
-        type: EventType.RUN_FINISHED,
-        runId: "run-1",
+      replay({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        delta: "dup",
+        messageId: "already-in-lane",
+      } as never)
+    ).toBe(false);
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "fresh",
+        role: "assistant",
       } as never)
     ).toBe(true);
+  });
+
+  it("keeps snapshot-known messages snapshot-owned during replay", () => {
+    const replay = createRecoveryRunEventReplayFilter({
+      snapshotMessageIds: new Set(["flushed-1"]),
+    });
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "flushed-1",
+        role: "assistant",
+      } as never)
+    ).toBe(false);
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        delta: "dup",
+        messageId: "flushed-1",
+      } as never)
+    ).toBe(false);
+    // A delta whose START was never admitted (or missing ids) stays dropped.
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        delta: "orphan",
+        messageId: "never-started",
+      } as never)
+    ).toBe(false);
+    expect(replay({ type: EventType.MESSAGES_SNAPSHOT } as never)).toBe(false);
+  });
+
+  it("replays the role:user turn echo for windows that lack it", () => {
+    // The user turn arrives as a protocol-native role:"user" text trio (AG-UI
+    // TEXT_MESSAGE_START role union) — same per-message gating as assistant
+    // text: admitted when neither the snapshot nor the lane has the id.
+    const replay = createRecoveryRunEventReplayFilter({
+      laneHasMessage: () => false,
+      snapshotMessageIds: new Set<string>(),
+    });
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "user-1",
+        role: "user",
+      } as never)
+    ).toBe(true);
+    expect(
+      replay({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        delta: "hallo",
+        messageId: "user-1",
+      } as never)
+    ).toBe(true);
+    // The sending window holds the optimistic user message — no replay.
+    const senderReplay = createRecoveryRunEventReplayFilter({
+      laneHasMessage: (id) => id === "user-1",
+      snapshotMessageIds: new Set<string>(),
+    });
+    expect(
+      senderReplay({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "user-1",
+        role: "user",
+      } as never)
+    ).toBe(false);
   });
 
   it("continues recovery only while a run is actively executing", () => {
@@ -346,5 +457,139 @@ describe("apps-ai-run-recovery-gating", () => {
     ];
     const result = coalesceRunEventText(events);
     expect(result.get("m2")).toBe("partial");
+  });
+
+  describe("partitionSnapshotForRunAttach", () => {
+    const withCreatedAt = (
+      id: string,
+      role: "assistant" | "user",
+      createdAt: string | null,
+      text = "text"
+    ) => ({
+      id,
+      role,
+      content: [{ type: "text" as const, text }],
+      ...(createdAt ? { metadata: { created_at: createdAt } } : {}),
+    });
+
+    it("drops rows persisted by the attached run, keeps older rows", () => {
+      const { kept, replayOwned } = partitionSnapshotForRunAttach({
+        messages: [
+          withCreatedAt("prev-user", "user", "2026-01-01T00:00:00.000Z"),
+          withCreatedAt("prev-assistant", "assistant", "2026-01-01T00:00:05Z"),
+          withCreatedAt("turn-user", "user", "2026-01-01T00:01:00.100Z"),
+          withCreatedAt(
+            "turn-partial-assistant",
+            "assistant",
+            "2026-01-01T00:01:02Z",
+            "Step one"
+          ),
+        ],
+        runStartedAt: "2026-01-01T00:01:00.000Z",
+      });
+      expect(kept.map((message) => message.id)).toEqual([
+        "prev-user",
+        "prev-assistant",
+      ]);
+      expect(replayOwned.map((message) => message.id)).toEqual([
+        "turn-user",
+        "turn-partial-assistant",
+      ]);
+    });
+
+    it("keeps a resumed run's pre-suspend flush (older than the resume run)", () => {
+      const { kept, replayOwned } = partitionSnapshotForRunAttach({
+        messages: [
+          withCreatedAt("turn-user", "user", "2026-01-01T00:01:00Z"),
+          withCreatedAt(
+            "pre-suspend-assistant",
+            "assistant",
+            "2026-01-01T00:01:05Z",
+            "before the frontend tool"
+          ),
+        ],
+        // Resume run started after the suspend flush.
+        runStartedAt: "2026-01-01T00:02:00Z",
+      });
+      expect(kept.map((message) => message.id)).toEqual([
+        "turn-user",
+        "pre-suspend-assistant",
+      ]);
+      expect(replayOwned).toEqual([]);
+    });
+
+    it("keeps everything when the run start or row timestamp is unusable", () => {
+      const messages = [
+        withCreatedAt("no-timestamp", "assistant", null),
+        withCreatedAt("dated", "assistant", "2026-01-01T00:05:00Z"),
+      ];
+      expect(
+        partitionSnapshotForRunAttach({ messages, runStartedAt: null })
+          .replayOwned
+      ).toEqual([]);
+      expect(
+        partitionSnapshotForRunAttach({
+          messages,
+          runStartedAt: "not-a-date",
+        }).replayOwned
+      ).toEqual([]);
+      // Row without created_at survives even with a valid run start.
+      const { kept } = partitionSnapshotForRunAttach({
+        messages,
+        runStartedAt: "2026-01-01T00:00:00Z",
+      });
+      expect(kept.map((message) => message.id)).toEqual(["no-timestamp"]);
+    });
+  });
+
+  describe("shouldApplyTerminalRunMessagesSnapshot", () => {
+    const user = {
+      id: "u1",
+      role: "user" as const,
+      content: [{ type: "text" as const, text: "hi" }],
+    };
+    const assistant = (id: string, text: string) => ({
+      id,
+      role: "assistant" as const,
+      content: [{ type: "text" as const, text }],
+    });
+
+    it("heals a lane holding BOTH copies of the turn (id split duplicate)", () => {
+      // Count gate rejected this forever: lane (3) > snapshot (2).
+      expect(
+        shouldApplyTerminalRunMessagesSnapshot({
+          liveMessages: [
+            user,
+            assistant("db-partial", "Step one"),
+            assistant("stream-full", "Step one Step two"),
+          ],
+          snapshotMessages: [user, assistant("db-full", "Step one Step two")],
+        })
+      ).toBe(true);
+    });
+
+    it("skips while the coalescer's final flush lags the stream", () => {
+      expect(
+        shouldApplyTerminalRunMessagesSnapshot({
+          liveMessages: [user, assistant("stream-full", "the whole answer")],
+          snapshotMessages: [user, assistant("db-partial", "the whole")],
+        })
+      ).toBe(false);
+    });
+
+    it("rejects empty snapshots and applies over assistant-free lanes", () => {
+      expect(
+        shouldApplyTerminalRunMessagesSnapshot({
+          liveMessages: [user],
+          snapshotMessages: [],
+        })
+      ).toBe(false);
+      expect(
+        shouldApplyTerminalRunMessagesSnapshot({
+          liveMessages: [user],
+          snapshotMessages: [user, assistant("db", "reply")],
+        })
+      ).toBe(true);
+    });
   });
 });

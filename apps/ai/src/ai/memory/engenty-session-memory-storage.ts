@@ -2,7 +2,10 @@
 // stored verbatim on read/write; UI-specific shaping stays at the AG-UI boundary
 // (Stage 4). Mastra MessageList owns model-prompt assembly from recalled history.
 
-import { AG_UI_OPEN_INTERRUPT_METADATA_KEY } from "@engenty/ag-ui-bridge";
+import {
+  ACTIVE_ARTIFACT_METADATA_KEY,
+  AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+} from "@engenty/ag-ui-bridge";
 import type { MastraDBMessage, StorageThreadType } from "@mastra/core/memory";
 import type {
   StorageListMessagesInput,
@@ -13,11 +16,11 @@ import type {
 } from "@mastra/core/storage";
 import { MemoryStorage } from "@mastra/core/storage";
 import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-  AgentSessionStore,
-  SessionMessageRole,
-} from "../../dal/agent-sessions/index.js";
+  ThreadMessageRole,
+  ThreadMessageRow,
+  ThreadRow,
+  ThreadStore,
+} from "../../dal/threads/index.js";
 import {
   TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
@@ -35,10 +38,17 @@ const MASTRA_THREAD_METADATA_KEYS = new Set([
   "summary",
   "workspace_key",
 ]);
-/** Session-metadata keys owned by the HITL routes (written via
- *  `updateSessionForUser`) — on save these are always resolved from the
- *  current DB row, never from Mastra's load-time snapshot. */
-const HITL_SESSION_METADATA_KEYS = [
+/** Session-metadata keys owned by routes OUTSIDE Mastra's own save path
+ *  (HITL state via `updateSessionForUser`; the active-artifact echo via the
+ *  thread PATCH route) — on save these are always resolved from the current
+ *  DB row, never from Mastra's load-time snapshot. Omitting a key here does
+ *  not just risk staleness: Mastra's `saveThread` full-replaces the metadata
+ *  column, so any write that lands between two Mastra saves is silently
+ *  wiped by the next one unless it's re-injected here (caught live: the
+ *  active-artifact PATCH landed, the passive window applied it, then the
+ *  next Mastra saveThread reset metadata to `{}`). */
+const EXTERNALLY_OWNED_METADATA_KEYS = [
+  ACTIVE_ARTIFACT_METADATA_KEY,
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
@@ -56,11 +66,17 @@ export interface EngentySessionMemoryScope {
 export interface EngentySessionMemoryStorageOptions {
   agentId: string;
   scope: EngentySessionMemoryScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   // Durable AG-UI `image`/`document` parts for the current user turn. Mastra
   // saves the user turn text-only, so these are appended (once) to the durable
   // user message so attachments survive a thread reload.
   userAttachmentParts?: readonly unknown[];
+  // Client-assigned id of the current user turn. The run stream echoes the user
+  // turn under this id (role:"user" trio) and every window's lane keys on it —
+  // persisting the row under a Mastra-generated id instead left the DB snapshot
+  // and the live stream disagreeing about the same message, so attached windows
+  // could neither dedupe nor heal it. NEW user inserts this run adopt this id.
+  userMessageId?: string | null;
 }
 
 export function createEngentySessionMemoryStorage(
@@ -72,12 +88,17 @@ export function createEngentySessionMemoryStorage(
 export class EngentySessionMemoryStorage extends MemoryStorage {
   readonly #agentId: string;
   readonly #scope: EngentySessionMemoryScope;
-  readonly #store: AgentSessionStore;
+  readonly #store: ThreadStore;
   // Attachment parts for the current turn + a one-shot guard so they are folded
   // onto the first persisted user message only (the insert wins; later re-saves
   // are ignored via `ignoreDuplicates`).
   readonly #userAttachmentParts: readonly unknown[];
   #userAttachmentsSaved = false;
+  readonly #userMessageId: string | null;
+  /** Mastra id of the message that consumed the override — re-saves of the
+   * same Mastra message keep mapping to the client id (idempotent), while any
+   * other user message in this run keeps its own id. */
+  #userMessageIdConsumedBy: string | null = null;
 
   constructor(options: EngentySessionMemoryStorageOptions) {
     super();
@@ -85,6 +106,11 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     this.#scope = options.scope;
     this.#store = options.store;
     this.#userAttachmentParts = options.userAttachmentParts ?? [];
+    this.#userMessageId =
+      typeof options.userMessageId === "string" &&
+      UUID_PATTERN.test(options.userMessageId)
+        ? options.userMessageId
+        : null;
   }
 
   async dangerouslyClearAll(): Promise<void> {
@@ -101,7 +127,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     if (!isEngentySessionThreadId(threadId)) {
       return null;
     }
-    const session = await this.#store.getSession({
+    const session = await this.#store.getThread({
       tenantId: this.#scope.tenantId,
       threadId,
     });
@@ -122,21 +148,21 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     if (!isEngentySessionThreadId(thread.id)) {
       return thread;
     }
-    // HITL state (open interrupt + tool-approval grants) is owned by the
-    // routes/resume paths and written via `updateSessionForUser`, which
-    // bypasses this adapter — the DB row is authoritative for those keys.
-    // Mastra's in-memory thread metadata is a LOAD-TIME SNAPSHOT: on a parked
-    // tool-approval resume it still carries the interrupt that the resume just
-    // cleared, and a final save writing the snapshot back resurrected the
-    // approval card on every reload. So on every save, resolve these keys from
-    // the current DB row — never from the snapshot (neither adding nor
-    // removing based on in-memory state).
+    // HITL state (open interrupt + tool-approval grants) and the
+    // active-artifact echo are owned by routes OUTSIDE this Mastra save path
+    // (`updateSessionForUser`, the thread PATCH route) — the DB row is
+    // authoritative for those keys. Mastra's in-memory thread metadata is a
+    // LOAD-TIME SNAPSHOT: on a parked tool-approval resume it still carries
+    // the interrupt that the resume just cleared, and a final save writing
+    // the snapshot back resurrected the approval card on every reload. So on
+    // every save, resolve these keys from the current DB row — never from
+    // the snapshot (neither adding nor removing based on in-memory state).
     const strippedMetadata = stripMastraThreadMetadata(thread.metadata);
-    const current = await this.#store.getSession({
+    const current = await this.#store.getThread({
       tenantId: this.#scope.tenantId,
       threadId: thread.id,
     });
-    for (const key of HITL_SESSION_METADATA_KEYS) {
+    for (const key of EXTERNALLY_OWNED_METADATA_KEYS) {
       const value = current?.metadata?.[key];
       if (value === undefined) {
         delete strippedMetadata[key];
@@ -144,7 +170,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
         strippedMetadata[key] = value;
       }
     }
-    const { session } = await this.#store.upsertSession({
+    const { thread: session } = await this.#store.upsertThread({
       id: thread.id,
       tenantId: this.#scope.tenantId,
       // Owner is the run's authenticated user — null for a service scope,
@@ -206,7 +232,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     if (!isEngentySessionThreadId(threadId)) {
       return;
     }
-    await this.#store.deleteSessionForUser({
+    await this.#store.deleteThreadForUser({
       tenantId: this.#scope.tenantId,
       userId: this.#scope.userId,
       threadId,
@@ -219,7 +245,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     const page = args.page ?? 0;
     const perPage = args.perPage ?? 100;
     const limit = perPage === false ? DEFAULT_MESSAGE_LIMIT : perPage;
-    const sessions = await this.#store.listSessionsForUser({
+    const sessions = await this.#store.listThreadsForUser({
       tenantId: this.#scope.tenantId,
       userId: args.filter?.resourceId ?? this.#scope.userId,
       agentId:
@@ -302,7 +328,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     messages: MastraDBMessage[];
   }): Promise<{ messages: MastraDBMessage[] }> {
     const messages: MastraDBMessage[] = [];
-    const rowsByThreadId = new Map<string, AgentSessionMessageRow[]>();
+    const rowsByThreadId = new Map<string, ThreadMessageRow[]>();
     for (const message of args.messages) {
       if (!message.threadId) {
         throw new Error("Engenty memory message requires threadId");
@@ -343,19 +369,66 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
         ];
         this.#userAttachmentsSaved = true;
       }
-      const { message: row } = await this.#store.appendMessage({
-        tenantId: this.#scope.tenantId,
-        threadId: message.threadId,
-        role,
-        parts,
-        authorUserId,
-        // Preserve the Mastra message id (a uuid) so re-saves are idempotent
-        // and updateMessages can match by id — fixes durable-run duplicate rows.
-        ...(typeof message.id === "string" && UUID_PATTERN.test(message.id)
-          ? { id: message.id }
-          : {}),
-      });
-      rows.push(row);
+      const stableId =
+        typeof message.id === "string" && UUID_PATTERN.test(message.id)
+          ? message.id
+          : null;
+      let existing = stableId
+        ? rows.find((row) => row.id === stableId)
+        : undefined;
+      // The current turn's NEW user message adopts the client-assigned id so
+      // the durable row matches what the run stream and every lane render.
+      // History user messages loaded from our own rows hit `existing` above
+      // and are untouched.
+      let insertId = stableId;
+      if (
+        !existing &&
+        role === "user" &&
+        this.#userMessageId &&
+        (this.#userMessageIdConsumedBy === null ||
+          this.#userMessageIdConsumedBy === (stableId ?? ""))
+      ) {
+        this.#userMessageIdConsumedBy = stableId ?? "";
+        insertId = this.#userMessageId;
+        existing = rows.find((row) => row.id === this.#userMessageId);
+      }
+      let row: ThreadMessageRow;
+      if (existing && role !== "user") {
+        // A re-save of an assistant/tool message carries the CURRENT full part
+        // list. This is how a turn that suspended mid-message (HITL frontend
+        // tool) persists its post-resume parts — the suspend-time flush wrote
+        // the partial message, the resume-finish flush re-saves the same id
+        // with the trailing text. The appendMessage upsert ignores duplicate
+        // ids, so route re-saves through updateMessageParts or the fuller
+        // version is silently dropped (the reload-loses-final-answer bug).
+        if (JSON.stringify(existing.parts) === JSON.stringify(parts)) {
+          row = existing;
+        } else {
+          ({ message: row } = await this.#store.updateMessageParts({
+            tenantId: this.#scope.tenantId,
+            threadId: message.threadId,
+            messageId: existing.id,
+            parts,
+          }));
+          rows[rows.indexOf(existing)] = row;
+        }
+      } else if (existing) {
+        // User re-saves stay insert-once: the first insert may carry folded
+        // attachment parts that a later text-only re-save must not wipe.
+        row = existing;
+      } else {
+        ({ message: row } = await this.#store.appendMessage({
+          tenantId: this.#scope.tenantId,
+          threadId: message.threadId,
+          role,
+          parts,
+          authorUserId,
+          // Preserve the message id (a uuid) so re-saves are idempotent
+          // and updateMessages can match by id — fixes durable-run duplicate rows.
+          ...(insertId ? { id: insertId } : {}),
+        }));
+        rows.push(row);
+      }
       const mapped = rowToMastraMessage(row);
       if (mapped) {
         messages.push(mapped);
@@ -517,7 +590,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   }
 }
 
-export function sessionToThread(session: AgentSessionRow): StorageThreadType {
+export function sessionToThread(session: ThreadRow): StorageThreadType {
   return {
     id: session.id,
     resourceId: session.created_by_user_id,
@@ -540,7 +613,7 @@ export function isEngentySessionThreadId(threadId: string): boolean {
 }
 
 export function rowToMastraMessage(
-  row: AgentSessionMessageRow
+  row: ThreadMessageRow
 ): MastraDBMessage | null {
   const parts = sessionPartsToMastraParts(row);
   if (parts.length === 0) {
@@ -563,7 +636,7 @@ export function rowToMastraMessage(
 }
 
 function sessionRoleToMastraRole(
-  role: SessionMessageRole
+  role: ThreadMessageRole
 ): MastraDBMessage["role"] {
   if (role === "tool") {
     return "assistant";
@@ -588,7 +661,7 @@ function isEngentyAttachmentPart(part: unknown): boolean {
 }
 
 function sessionPartsToMastraParts(
-  row: AgentSessionMessageRow
+  row: ThreadMessageRow
 ): MastraDBMessage["content"]["parts"] {
   if (!Array.isArray(row.parts)) {
     return [{ type: "text", text: partsToText(row.parts) }];
@@ -635,7 +708,7 @@ function resolveUpdatedParts(
 
 function mastraRoleToSessionRole(
   role: MastraDBMessage["role"]
-): SessionMessageRole {
+): ThreadMessageRole {
   if (role === "signal") {
     return "system";
   }

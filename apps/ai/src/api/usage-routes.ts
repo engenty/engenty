@@ -8,12 +8,14 @@ import {
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
+import { type AiSessionScope, scopeCoversCapability } from "../ai/sessions.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import {
   restoreAiUsageModelPricingDefaults,
   seedAiUsageModelPricing,
 } from "../dal/usage/index.js";
 import type { AiGatewayModelStore } from "../gateway-models.js";
+import { AI_CAPABILITIES } from "./capabilities.js";
 import { type AiScopeResolver, resolveScope } from "./http.js";
 
 const periodModeSchema = z.enum(["calendar", "rolling"]);
@@ -91,24 +93,27 @@ function requireUsageStore(
   return { ok: true, store };
 }
 
+/**
+ * Tenant-wide usage and cost aggregates — an admin view (AUTH-06). Capability
+ * gated: admins pass via `*`, members and service credentials are excluded
+ * because `module.*` does not cover `core.*`.
+ */
 function requireUsageAdmin(
   c: { json: (object: unknown, status?: number) => Response },
-  scope: {
-    isSuperAdmin?: boolean;
-    isTenantAdmin?: boolean;
-    tenantRole?: "admin" | "member" | "service" | null;
-  }
+  scope: Pick<AiSessionScope, "capabilities">
 ): Response | null {
-  if (
-    scope.isSuperAdmin === true ||
-    scope.isTenantAdmin === true ||
-    scope.tenantRole === "admin"
-  ) {
+  if (scopeCoversCapability(scope, AI_CAPABILITIES.usageRead)) {
     return null;
   }
   return c.json({ error: "usage.forbidden" }, 403);
 }
 
+/**
+ * Deliberately NOT a capability check: `tenant.admin` holds `*`, which the
+ * matcher treats as covering `core.superadmin`, so any capability-expressed
+ * "superadmin" gate would admit every tenant admin. Platform-operator surfaces
+ * stay on the boolean.
+ */
 function requireSuperAdmin(
   c: { json: (object: unknown, status?: number) => Response },
   scope: { isSuperAdmin?: boolean }

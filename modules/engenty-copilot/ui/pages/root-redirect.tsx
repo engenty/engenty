@@ -6,7 +6,7 @@ import { useQuery } from "@engenty/query-client";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { Navigate } from "react-router-dom";
-import { listAgentSessions } from "../../src/lib/agent-sessions-client.js";
+import { listAgentThreads } from "../../src/lib/agent-threads-client.js";
 import { resolveAiServiceBaseUrl } from "../../src/lib/ai-url.js";
 import { resolveAgentChatTransportBlocker } from "../lib/chat/agent-chat-transport.js";
 import { resolveCopilotChatEntryPath } from "../paths.js";
@@ -39,7 +39,7 @@ export function CopilotChatRootRedirect() {
       ENGENTY_COPILOT_HOST_KEY,
     ],
     queryFn: ({ signal }) =>
-      listAgentSessions({
+      listAgentThreads({
         hostKey: ENGENTY_COPILOT_HOST_KEY,
         serviceBaseUrl,
         tenantId,

@@ -111,7 +111,7 @@ describe("agentProposeTool", () => {
       vi.fn(async () => ({
         ok: false,
         status: 400,
-        json: async () => ({ error: "agent_sessions.invalidInput" }),
+        json: async () => ({ error: "agent_registry.invalidInput" }),
       }))
     );
     const httpError = (await runWithContext(

@@ -4,11 +4,11 @@ import type {
   Message,
 } from "@engenty/ag-ui-bridge";
 import type { MutableRefObject, ReactNode } from "react";
-import type { CopilotAgentSessionChooserSession } from "../composer/copilot-agent-session-chooser";
-import type { StarterPromptItem } from "../composer/copilot-composer";
-import type { CopilotHeaderChrome } from "../panel/copilot-panel-content";
+import type { CopilotAgentThreadChooserThread } from "../composer/copilot-agent-thread-chooser.js";
+import type { StarterPromptItem } from "../composer/copilot-composer.js";
+import type { CopilotHeaderChrome } from "../panel/copilot-panel-content.js";
 import type { CopilotChatOnFinish } from "../session/copilot-chat-types.js";
-import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot";
+import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot.js";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
 import type { CopilotDrawerInjectedSession } from "./copilot-drawer-injected-session.js";
 
@@ -47,7 +47,7 @@ export interface CopilotDrawerProps {
    */
   chatRouteCopilotContext?: CopilotRouteContext;
   chooserMenuAgentId?: string | null;
-  chooserMenuSessions?: CopilotAgentSessionChooserSession[];
+  chooserMenuSessions?: CopilotAgentThreadChooserThread[];
   chooserMenuSessionsLoading?: boolean;
   clearLabel?: string;
   closeLabel?: string;

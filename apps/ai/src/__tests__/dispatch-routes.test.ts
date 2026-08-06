@@ -4,17 +4,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { registerDispatchRoutes } = await import("../api/dispatch-routes.js");
 
 function createScopeResolver(overrides: { isTenantAdmin?: boolean } = {}) {
+  const admin = overrides.isTenantAdmin ?? true;
   return async () => ({
     ok: true as const,
     scope: {
       tenantId: "tenant-1",
       userId: "user-1",
+      // The bundles core returns for these roles — the dispatch gate is on
+      // core.ai.dispatch, which `module.*` does not cover (AUTH-06).
+      capabilities: admin
+        ? ["core.credentials.manage", "*"]
+        : ["module.*", "tenant-settings.read"],
       isSuperAdmin: false,
-      isTenantAdmin: overrides.isTenantAdmin ?? true,
-      tenantRole:
-        (overrides.isTenantAdmin ?? true)
-          ? ("admin" as const)
-          : ("member" as const),
+      isTenantAdmin: admin,
+      tenantRole: admin ? ("admin" as const) : ("member" as const),
       credential: { kind: "user" as const, token: "token" },
     },
   });

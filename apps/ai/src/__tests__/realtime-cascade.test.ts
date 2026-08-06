@@ -222,9 +222,9 @@ describe("session agent turn", () => {
         calls.push(`append:${input.threadId}`);
         return {};
       }),
-      createSession: vi.fn(async () => {
+      createThread: vi.fn(async () => {
         calls.push("create");
-        return { session: { id: "thread-1" } };
+        return { thread: { id: "thread-1" } };
       }),
       generate: vi.fn(async () => {
         calls.push("generate");
@@ -250,7 +250,7 @@ describe("session agent turn", () => {
 
     expect(await collect("Hallo")).toEqual(["Grüß Gott"]);
     expect(await collect("Noch was")).toEqual(["Grüß Gott"]);
-    expect(sessions.createSession).toHaveBeenCalledTimes(1);
+    expect(sessions.createThread).toHaveBeenCalledTimes(1);
     // instructions + 2 utterances
     expect(sessions.appendMessage).toHaveBeenCalledTimes(3);
   });

@@ -82,16 +82,34 @@ function appendContent(message: Message, delta: string): Message {
   } as Message;
 }
 
-function upsertAssistantMessage(
+// AG-UI TEXT_MESSAGE_START carries a role union (assistant default) — a run
+// stream can echo the USER turn as a role:"user" text message, which is how
+// other windows attached to a run learn it (the durable row only lands at
+// end-of-turn flush).
+const STREAMED_MESSAGE_ROLES = new Set([
+  "assistant",
+  "developer",
+  "system",
+  "user",
+]);
+
+function streamedMessageRole(value: unknown): Message["role"] {
+  return typeof value === "string" && STREAMED_MESSAGE_ROLES.has(value)
+    ? (value as Message["role"])
+    : "assistant";
+}
+
+function upsertStreamedMessage(
   messages: Message[],
   messageId: string,
-  updater: (message: Message) => Message
+  updater: (message: Message) => Message,
+  role: Message["role"] = "assistant"
 ): Message[] {
   const index = messages.findIndex((message) => message.id === messageId);
   if (index < 0) {
     return [
       ...messages,
-      updater({ id: messageId, role: "assistant", content: "" } as Message),
+      updater({ id: messageId, role, content: "" } as Message),
     ];
   }
   return messages.map((message, i) =>
@@ -350,10 +368,11 @@ export function reduceEngentyAgUiConversationEvent(
         ...current,
         activeTextMessageId: messageId,
         events: [...current.events, event],
-        messages: upsertAssistantMessage(
+        messages: upsertStreamedMessage(
           current.messages,
           messageId,
-          (message) => message
+          (message) => message,
+          streamedMessageRole(record.role)
         ),
       };
     }
@@ -364,11 +383,27 @@ export function reduceEngentyAgUiConversationEvent(
       if (!(messageId && delta)) {
         return current;
       }
+      // User messages are write-once in the lane: the run stream echoes the
+      // user turn (role:"user" trio) for attached windows, but the SENDING
+      // window already holds the optimistic user message under the same id —
+      // appending the echo's delta would double its text.
+      const existing = current.messages.find(
+        (message) => message.id === messageId
+      );
+      if (
+        existing?.role === "user" &&
+        typeof existing.content === "string" &&
+        existing.content.length > 0
+      ) {
+        return { ...current, events: [...current.events, event] };
+      }
       return {
         ...current,
         activeTextMessageId: messageId,
         events: [...current.events, event],
-        messages: upsertAssistantMessage(
+        // Role lives on TEXT_MESSAGE_START only; a CONTENT that has to create
+        // the message (missed START) defaults to assistant.
+        messages: upsertStreamedMessage(
           current.messages,
           messageId,
           (message) => appendContent(message, delta)
@@ -390,7 +425,7 @@ export function reduceEngentyAgUiConversationEvent(
         ...current,
         activeTextMessageId: messageId,
         events: [...current.events, event],
-        messages: upsertAssistantMessage(
+        messages: upsertStreamedMessage(
           current.messages,
           messageId,
           (message) => appendToolCall(message, record)
@@ -405,7 +440,7 @@ export function reduceEngentyAgUiConversationEvent(
       return {
         ...current,
         events: [...current.events, event],
-        messages: upsertAssistantMessage(
+        messages: upsertStreamedMessage(
           current.messages,
           messageId,
           (message) => appendToolArgs(message, record)

@@ -19,7 +19,7 @@ import {
   buildToolApprovalArtifact,
   type ToolApprovalSuspendPayload,
 } from "../../../ai/tools/engenty-tools/index.js";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import {
   buildFrontendToolOpenInterruptFromPayload,
   buildSessionInterruptOutcome,
@@ -71,7 +71,7 @@ export async function emitFrontendToolInterrupt(input: {
   resumeRunId: string;
   scope: AiSessionScope;
   sessionMetadata: Record<string, unknown>;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
 }): Promise<boolean> {
   const toolName =
@@ -98,7 +98,7 @@ export async function emitFrontendToolInterrupt(input: {
   };
   const open = buildFrontendToolOpenInterruptFromPayload(interrupt);
   try {
-    await input.store.updateSessionForUser({
+    await input.store.updateThreadForUser({
       metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, open),
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
@@ -135,7 +135,7 @@ export async function emitToolApprovalInterrupt(input: {
   resumeRunId: string;
   scope: AiSessionScope;
   sessionMetadata: Record<string, unknown>;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
   toolCallId: string;
 }): Promise<void> {
@@ -164,7 +164,7 @@ export async function emitToolApprovalInterrupt(input: {
   // by — if this write fails, the interrupt is NOT resumable, so fail the run
   // loudly (the caller emits RUN_ERROR) instead of emitting an approval card
   // whose answer can never be applied.
-  await input.store.updateSessionForUser({
+  await input.store.updateThreadForUser({
     metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, open),
     tenantId: input.scope.tenantId,
     threadId: input.threadId,
@@ -236,7 +236,7 @@ export async function emitArtifactInterrupt(input: {
   result: unknown;
   scope: AiSessionScope;
   sessionMetadata: Record<string, unknown>;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
   toolCallId: string;
 }): Promise<boolean> {
@@ -260,7 +260,7 @@ export async function emitArtifactInterrupt(input: {
     return false;
   }
   try {
-    await input.store.updateSessionForUser({
+    await input.store.updateThreadForUser({
       metadata: mergeAgUiOpenInterruptMetadata(
         input.sessionMetadata,
         artifactOpenInterrupt(interrupt)

@@ -104,20 +104,20 @@ export class FunctionAgentProvider implements AiRegistryProvider {
 
 /**
  * Minimal session-store surface the state channel needs — matches
- * `AgentSessionStore` structurally so the DAL type never crosses into this
+ * `ThreadStore` structurally so the DAL type never crosses into this
  * module's tests.
  */
 export interface AgentStateSessionStore {
-  getSession(params: {
+  getThread(params: {
     tenantId: string;
     threadId: string;
   }): Promise<{ metadata?: Record<string, unknown> | null } | null>;
-  updateSessionForUser(params: {
+  updateThreadForUser(params: {
     metadata?: Record<string, unknown>;
     tenantId: string;
     threadId: string;
     userId: string;
-  }): Promise<{ session: unknown | null }>;
+  }): Promise<{ thread: unknown | null }>;
 }
 
 const AGENT_STATE_KEY = "agent_state";
@@ -134,26 +134,24 @@ export function createSessionAgentStateChannel(
 ): FunctionAgentStateChannel {
   return {
     async load(context) {
-      const session = await getStore()?.getSession({
+      const thread = await getStore()?.getThread({
         tenantId: context.tenantId,
         threadId: context.threadId,
       });
-      const state = session?.metadata?.[AGENT_STATE_KEY];
+      const state = thread?.metadata?.[AGENT_STATE_KEY];
       return isRecord(state) ? state : {};
     },
     async persist(context, state) {
       const store = getStore();
       if (!store) {
-        throw new Error(
-          "agent_state persist: no session store behind this run"
-        );
+        throw new Error("agent_state persist: no thread store behind this run");
       }
-      const session = await store.getSession({
+      const thread = await store.getThread({
         tenantId: context.tenantId,
         threadId: context.threadId,
       });
-      const { session: updated } = await store.updateSessionForUser({
-        metadata: { ...(session?.metadata ?? {}), [AGENT_STATE_KEY]: state },
+      const { thread: updated } = await store.updateThreadForUser({
+        metadata: { ...(thread?.metadata ?? {}), [AGENT_STATE_KEY]: state },
         tenantId: context.tenantId,
         threadId: context.threadId,
         userId: context.userId,

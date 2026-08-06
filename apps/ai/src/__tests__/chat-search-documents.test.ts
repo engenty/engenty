@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-} from "../dal/agent-sessions/index.js";
 import { buildChatSessionSearchText } from "../dal/chat-search/index.js";
+import type { ThreadMessageRow, ThreadRow } from "../dal/threads/index.js";
 
-const session: AgentSessionRow = {
+const session: ThreadRow = {
   agent_id: "engenty.copilot",
   archived_at: null,
   created_at: "2026-05-17T00:00:00.000Z",
@@ -23,9 +20,9 @@ const session: AgentSessionRow = {
 
 function message(
   id: string,
-  role: AgentSessionMessageRow["role"],
+  role: ThreadMessageRow["role"],
   parts: unknown
-): AgentSessionMessageRow {
+): ThreadMessageRow {
   return {
     author_user_id: role === "user" ? session.created_by_user_id : null,
     created_at: `2026-05-17T00:00:${id}.000Z`,
@@ -53,7 +50,7 @@ describe("buildChatSessionSearchText", () => {
   });
 
   it("returns an empty string for a session with no searchable content", () => {
-    const empty: AgentSessionRow = { ...session, summary: null, title: null };
+    const empty: ThreadRow = { ...session, summary: null, title: null };
     expect(buildChatSessionSearchText(empty, [])).toBe("");
     expect(
       buildChatSessionSearchText(empty, [

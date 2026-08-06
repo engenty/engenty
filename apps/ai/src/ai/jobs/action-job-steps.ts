@@ -10,8 +10,8 @@ import { runDelegatedConversation } from "../conversation/delegate-run.js";
 import {
   createActionRequestStoreFromEnv,
   createAgentRunStoreFromEnv,
-  createAgentSessionStoreFromEnv,
   createRegistryStoreFromEnv,
+  createThreadStoreFromEnv,
 } from "../index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import { finishActionRun } from "./action-job-run-record.js";
@@ -49,7 +49,7 @@ export const runActionSpecialistStep = createStep({
       };
     }
 
-    const store = createAgentSessionStoreFromEnv();
+    const store = createThreadStoreFromEnv();
     if (!store) {
       throw new Error("action-job: agent session store is not configured");
     }

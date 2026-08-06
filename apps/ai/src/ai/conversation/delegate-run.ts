@@ -29,8 +29,8 @@ import {
   engentyToolsRunAls,
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
-import type { AgentRunStore } from "../../dal/agent-sessions/agent-run-store.js";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { AgentRunStore } from "../../dal/threads/agent-run-store.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
 import {
@@ -99,7 +99,7 @@ export interface RunDelegatedConversationInput {
   // child's writes reach durable storage before the parent continues.
   sandboxProvider?: EngentySandboxProvider;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   /**
    * Task this delegated run executes (headless task jobs). Threaded into the
    * tools context and forwarded to core as x-engenty-task-id so the approval

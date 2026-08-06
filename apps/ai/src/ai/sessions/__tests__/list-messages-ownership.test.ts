@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createSessionService } from "../session-service.js";
-import type { SessionServiceOptions } from "../types.js";
+import { createThreadService } from "../session-service.js";
+import type { ThreadServiceOptions } from "../types.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const owner = "00000000-0000-4000-8000-000000000002";
@@ -11,16 +11,16 @@ function makeService(listMessagesOrdered = vi.fn(async () => [])) {
   const store = {
     // Deliberately tenant-scoped only, mirroring the real store: it is the
     // service's job to enforce ownership on top.
-    getSession: vi.fn(async () => ({
+    getThread: vi.fn(async () => ({
       created_by_user_id: owner,
       id: threadId,
       tenant_id: tenantId,
     })),
     listMessagesOrdered,
   };
-  const service = createSessionService({
+  const service = createThreadService({
     getStore: () => store,
-  } as unknown as SessionServiceOptions);
+  } as unknown as ThreadServiceOptions);
   return { listMessagesOrdered, service, store };
 }
 

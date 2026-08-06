@@ -4,12 +4,20 @@
 // exercised without a running core: unmapped+invite → pairing link posted,
 // unmapped+deny → refusal posted, mapped → default handler runs inside the
 // engenty-tools ALS scope carrying the delegated actor token.
+import { RequestContext } from "@mastra/core/request-context";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import { resetServiceCredentialCache } from "../../ai/service-credential.js";
 import { createIdentityGateHandler } from "../remote-channels.js";
 
 const ENV_KEYS = ["ENGENTY_AI_SERVICE_SECRET", "PUBLIC_APP_URL"] as const;
+
+/**
+ * Mastra 1.55 passes a 4th `ChannelHandlerContext` to every `ChannelHandler`.
+ * The gate ignores it (it reads nothing off `mastra`/`requestContext`), but the
+ * call sites still have to satisfy the signature.
+ */
+const handlerCtx = { requestContext: new RequestContext() };
 let savedEnv: Record<string, string | undefined>;
 
 interface FakeScenario {
@@ -123,7 +131,7 @@ describe("remote identity gate", () => {
     const gate = createIdentityGateHandler();
     const thread = fakeThread();
     const ran = vi.fn();
-    await gate(thread as never, senderMessage, ran);
+    await gate(thread as never, senderMessage, ran, handlerCtx);
     expect(ran).not.toHaveBeenCalled();
     expect(thread.posts).toHaveLength(1);
     expect(thread.posts[0]).toContain(
@@ -140,7 +148,7 @@ describe("remote identity gate", () => {
     const gate = createIdentityGateHandler();
     const thread = fakeThread();
     const ran = vi.fn();
-    await gate(thread as never, senderMessage, ran);
+    await gate(thread as never, senderMessage, ran, handlerCtx);
     expect(ran).not.toHaveBeenCalled();
     expect(thread.posts).toHaveLength(1);
     expect(thread.posts[0]).toMatch(/linked engenty users/);
@@ -154,12 +162,12 @@ describe("remote identity gate", () => {
     });
     const gate = createIdentityGateHandler();
     const thread = fakeThread();
-    await gate(thread as never, senderMessage, vi.fn());
+    await gate(thread as never, senderMessage, vi.fn(), handlerCtx);
     expect(thread.posts).toHaveLength(0);
 
     stubFetch({ binding: null, identity: null, pairing_code: null });
     const thread2 = fakeThread();
-    await gate(thread2 as never, senderMessage, vi.fn());
+    await gate(thread2 as never, senderMessage, vi.fn(), handlerCtx);
     expect(thread2.posts).toHaveLength(0);
   });
 
@@ -172,9 +180,14 @@ describe("remote identity gate", () => {
     const gate = createIdentityGateHandler();
     const thread = fakeThread();
     let observed: ReturnType<typeof getEngentyToolsRunContext> | null = null;
-    await gate(thread as never, senderMessage, async () => {
-      observed = getEngentyToolsRunContext();
-    });
+    await gate(
+      thread as never,
+      senderMessage,
+      async () => {
+        observed = getEngentyToolsRunContext();
+      },
+      handlerCtx
+    );
     expect(observed).not.toBeNull();
     expect(observed!.userId).toBe("user-42");
     expect(observed!.tenantId).toBe("t-1");
@@ -219,7 +232,7 @@ describe("remote identity gate", () => {
     const gate = createIdentityGateHandler();
     const thread = fakeThread();
     const ran = vi.fn();
-    await gate(thread as never, senderMessage, ran);
+    await gate(thread as never, senderMessage, ran, handlerCtx);
     expect(ran).not.toHaveBeenCalled();
     expect(thread.posts).toHaveLength(0);
   });

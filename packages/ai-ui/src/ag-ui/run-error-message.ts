@@ -1,8 +1,6 @@
 // Maps apps/ai run failure codes and provider errors to copilot-facing copy.
 
 const RUN_ERROR_CODE_LABELS: Record<string, string> = {
-  "agent_sessions.runFailed":
-    "The assistant run failed. Try again or start a new chat.",
   "agent_threads.contextLengthExceeded":
     "This conversation is too long for the selected model. Start a new chat or ask for a smaller export (for example a filtered list).",
   "agent_threads.runFailed":
@@ -112,5 +110,5 @@ export function resolveAgUiRunErrorEventMessage(
   if (typeof error === "string" && error.trim()) {
     return formatCopilotRunError(error.trim());
   }
-  return formatCopilotRunError("agent_sessions.runFailed");
+  return formatCopilotRunError("agent_threads.runFailed");
 }

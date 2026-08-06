@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.99",
+  "version": "0.1.100",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -121,7 +121,7 @@
     "dev:portless": "bash scripts/dev-portless.sh",
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
-    "typecheck": "turbo run typecheck --concurrency=4",
+    "typecheck": "turbo run typecheck --concurrency=4 --continue",
     "test": "NODE_OPTIONS=\"--localstorage-file=${TMPDIR:-/tmp}/engenty-vitest-localstorage\" VITEST_MAX_WORKERS=2 turbo run test test:scripts --concurrency=4",
     "test:all": "vitest run",
     "test:scripts": "vitest run scripts/",
@@ -229,9 +229,24 @@
       "mermaid": ">=11.15.0"
     },
     "patchedDependencies": {
-      "@mastra/core@1.52.1": "patches/@mastra__core@1.52.1.patch",
+      "@mastra/core@1.55.0": "patches/@mastra__core@1.55.0.patch",
       "@rivet-dev/agentos-apps@0.2.14": "patches/@rivet-dev__agentos-apps@0.2.14.patch"
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "cbor-extract",
+      "cpu-features",
+      "isolated-vm",
+      "koffi",
+      "msgpackr-extract",
+      "protobufjs",
+      "sharp"
+    ],
+    "onlyBuiltDependencies": [
+      "@google/genai",
+      "better-sqlite3",
+      "esbuild",
+      "ssh2"
+    ]
   },
   "workspaces": [
     "apps/*",

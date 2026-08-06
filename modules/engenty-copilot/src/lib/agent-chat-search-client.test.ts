@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type AgentChatSearchHit,
-  chatSearchHitsToSessions,
-  searchAgentChatSessions,
+  chatSearchHitsToThreads,
+  searchAgentChatThreads,
 } from "./agent-chat-search-client.js";
-import type { AgentSessionDto } from "./agent-session-types.js";
+import type { AgentThreadDto } from "./agent-thread-types.js";
 
 vi.mock("@engenty/api-client", () => ({
   getCurrentAccessToken: vi.fn(async () => "test-token"),
@@ -18,13 +18,13 @@ function makeHit(
       agent_id: "engenty.copilot",
       chunk_id: "chunk-1",
       chunk_text: "Discussed Ada Lovelace",
-      doc_id: "ai-chat-message:session-1:message-1",
+      doc_id: "ai-chat-message:thread-1:message-1",
       document_type: "message",
       metadata: {},
       role: "user",
       route_context: {},
       run_id: null,
-      thread_id: "session-1",
+      thread_id: "thread-1",
       session_status: "completed",
       source_created_at: "2026-05-17T00:00:00.000Z",
       source_id: "message-1",
@@ -41,7 +41,7 @@ function makeHit(
   };
 }
 
-describe("searchAgentChatSessions", () => {
+describe("searchAgentChatThreads", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -56,7 +56,7 @@ describe("searchAgentChatSessions", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await searchAgentChatSessions({
+    const result = await searchAgentChatThreads({
       agentId: null,
       limit: 10,
       query: "Ada Lovelace",
@@ -90,7 +90,7 @@ describe("searchAgentChatSessions", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await searchAgentChatSessions({
+    await searchAgentChatThreads({
       agentId: "engenty.copilot",
       limit: 10,
       query: "Ada Lovelace",
@@ -108,14 +108,14 @@ describe("searchAgentChatSessions", () => {
   });
 });
 
-describe("chatSearchHitsToSessions", () => {
-  it("dedupes hits by session and prefers loaded session rows", () => {
-    const knownSession: AgentSessionDto = {
+describe("chatSearchHitsToThreads", () => {
+  it("dedupes hits by thread and prefers loaded thread rows", () => {
+    const knownThread: AgentThreadDto = {
       agent_id: "engenty.copilot",
       archived_at: null,
       created_at: "2026-05-16T00:00:00.000Z",
       created_by_user_id: "user-1",
-      id: "session-1",
+      id: "thread-1",
       metadata: {},
       route_context: {},
       status: "completed",
@@ -126,7 +126,7 @@ describe("chatSearchHitsToSessions", () => {
       workspace_key: null,
     };
 
-    const sessions = chatSearchHitsToSessions({
+    const threads = chatSearchHitsToThreads({
       hits: [
         makeHit({ score: 0.5 }),
         makeHit({
@@ -138,22 +138,22 @@ describe("chatSearchHitsToSessions", () => {
           score: 2,
         }),
       ],
-      knownSessions: [knownSession],
+      knownThreads: [knownThread],
     });
 
-    expect(sessions).toEqual([knownSession]);
+    expect(threads).toEqual([knownThread]);
   });
 
-  it("creates compact synthetic rows for sessions outside the loaded list", () => {
-    const sessions = chatSearchHitsToSessions({
+  it("creates compact synthetic rows for threads outside the loaded list", () => {
+    const threads = chatSearchHitsToThreads({
       hits: [makeHit()],
-      knownSessions: [],
+      knownThreads: [],
     });
 
-    expect(sessions).toMatchObject([
+    expect(threads).toMatchObject([
       {
         agent_id: "engenty.copilot",
-        id: "session-1",
+        id: "thread-1",
         tenant_id: "tenant-1",
         title: "Discussed Ada Lovelace",
       },

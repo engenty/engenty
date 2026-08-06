@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { AiAdminSessionRow } from "../../lib/admin/ai-runtime-types";
-import { groupActivityEntriesByDay } from "./activity-day-groups";
+import type { AiAdminThreadRow } from "../../lib/admin/ai-runtime-types.js";
+import { groupActivityEntriesByDay } from "./activity-day-groups.js";
 import {
   filterActivityEntries,
   hasRunningActivityEntry,
   toActivityEntries,
-} from "./activity-entries";
+} from "./activity-entries.js";
 
-function session(partial: Partial<AiAdminSessionRow>): AiAdminSessionRow {
+function thread(partial: Partial<AiAdminThreadRow>): AiAdminThreadRow {
   return {
     created_at: "2026-06-12T09:00:00Z",
     current_agent_id: "engenty.copilot",
@@ -26,39 +26,39 @@ function session(partial: Partial<AiAdminSessionRow>): AiAdminSessionRow {
 }
 
 describe("toActivityEntries", () => {
-  it("orders sessions newest first", () => {
+  it("orders threads newest first", () => {
     const entries = toActivityEntries({
       sessions: [
-        session({ id: "old", last_message_at: "2026-06-12T08:00:00Z" }),
-        session({ id: "new", last_message_at: "2026-06-12T11:00:00Z" }),
+        thread({ id: "old", last_message_at: "2026-06-12T08:00:00Z" }),
+        thread({ id: "new", last_message_at: "2026-06-12T11:00:00Z" }),
       ],
     });
     expect(entries.map((entry) => entry.key)).toEqual([
-      "session:new",
-      "session:old",
+      "thread:new",
+      "thread:old",
     ]);
   });
 
-  it("maps session statuses to filter kinds", () => {
+  it("maps thread statuses to filter kinds", () => {
     const entries = toActivityEntries({
       sessions: [
-        session({ id: "waiting", status: "waiting" }),
-        session({ id: "idle", status: "idle" }),
-        session({ id: "failed", status: "failed" }),
+        thread({ id: "waiting", status: "waiting" }),
+        thread({ id: "idle", status: "idle" }),
+        thread({ id: "failed", status: "failed" }),
       ],
     });
     const kinds = new Map(entries.map((e) => [e.key, e.statusKind]));
-    expect(kinds.get("session:waiting")).toBe("running");
-    expect(kinds.get("session:idle")).toBe("other");
-    expect(kinds.get("session:failed")).toBe("failed");
+    expect(kinds.get("thread:waiting")).toBe("running");
+    expect(kinds.get("thread:idle")).toBe("other");
+    expect(kinds.get("thread:failed")).toBe("failed");
   });
 });
 
 describe("filterActivityEntries", () => {
   const entries = toActivityEntries({
     sessions: [
-      session({ current_agent_id: "a1", id: "s1", status: "running" }),
-      session({ current_agent_id: "a2", id: "s2", title: "Find leads" }),
+      thread({ current_agent_id: "a1", id: "s1", status: "running" }),
+      thread({ current_agent_id: "a2", id: "s2", title: "Find leads" }),
     ],
   });
 
@@ -66,10 +66,10 @@ describe("filterActivityEntries", () => {
     const base = { agentId: null, search: "", status: "all" } as const;
     expect(
       filterActivityEntries(entries, { ...base, status: "running" })[0]?.key
-    ).toBe("session:s1");
+    ).toBe("thread:s1");
     expect(
       filterActivityEntries(entries, { ...base, agentId: "a2" })[0]?.key
-    ).toBe("session:s2");
+    ).toBe("thread:s2");
   });
 
   it("searches titles case-insensitively", () => {
@@ -78,7 +78,7 @@ describe("filterActivityEntries", () => {
       search: "LEADS",
       status: "all",
     });
-    expect(hits.map((entry) => entry.key)).toEqual(["session:s2"]);
+    expect(hits.map((entry) => entry.key)).toEqual(["thread:s2"]);
   });
 });
 
@@ -87,9 +87,9 @@ describe("groupActivityEntriesByDay", () => {
     const now = new Date("2026-06-12T12:00:00");
     const entries = toActivityEntries({
       sessions: [
-        session({ id: "today", last_message_at: "2026-06-12T10:00:00" }),
-        session({ id: "yesterday", last_message_at: "2026-06-11T10:00:00" }),
-        session({ id: "older", last_message_at: "2026-06-01T10:00:00" }),
+        thread({ id: "today", last_message_at: "2026-06-12T10:00:00" }),
+        thread({ id: "yesterday", last_message_at: "2026-06-11T10:00:00" }),
+        thread({ id: "older", last_message_at: "2026-06-01T10:00:00" }),
       ],
     });
     const groups = groupActivityEntriesByDay(entries, now);
@@ -98,16 +98,16 @@ describe("groupActivityEntriesByDay", () => {
       "yesterday",
       "date",
     ]);
-    expect(groups[0]?.entries[0]?.key).toBe("session:today");
+    expect(groups[0]?.entries[0]?.key).toBe("thread:today");
   });
 });
 
 describe("hasRunningActivityEntry", () => {
   it("is true only while a running entry is present", () => {
-    const idle = toActivityEntries({ sessions: [session({})] });
+    const idle = toActivityEntries({ sessions: [thread({})] });
     expect(hasRunningActivityEntry(idle)).toBe(false);
     const live = toActivityEntries({
-      sessions: [session({ status: "running" })],
+      sessions: [thread({ status: "running" })],
     });
     expect(hasRunningActivityEntry(live)).toBe(true);
   });

@@ -1,6 +1,6 @@
 import {
   ENGENTY_COPILOT_HOST_KEY,
-  SessionStatusIcon,
+  ThreadStatusIcon,
   useCopilotThreadBinding,
   useEngentyThread,
 } from "@engenty/ai-ui";
@@ -28,7 +28,7 @@ export function ChatShellHeader() {
 
   return (
     <div className="flex h-10 min-w-0 flex-1 items-center gap-2">
-      <SessionStatusIcon label={statusLabel(status, t)} status={status} />
+      <ThreadStatusIcon label={statusLabel(status, t)} status={status} />
       <span className="min-w-0 truncate text-[13px] text-foreground leading-snug">
         {sessionLabel}
       </span>

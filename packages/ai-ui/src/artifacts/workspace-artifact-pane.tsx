@@ -1,3 +1,4 @@
+import { readActiveArtifactMetadata } from "@engenty/ag-ui-bridge";
 import {
   PaneResizeHandle,
   setWorkspaceEndPaneExpanded,
@@ -6,20 +7,26 @@ import {
   useWorkspaceEndPaneTarget,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { subscribePostgresChanges } from "@engenty/live-cache";
 import { useMutation, useQueryClient } from "@engenty/query-client";
 import { Button, cn, topbarIconButtonClassName } from "@engenty/ui-core";
 import { Layers } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
 import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
 import { ArtifactPane } from "./artifact-pane.js";
 import type { ArtifactStoreTarget } from "./artifact-pin-menu.js";
 import {
+  activateArtifact,
   closeObjectPaneTab,
   closeWorkFilePaneTab,
+  getArtifactPaneOpen,
   isObjectPaneTabKey,
   isTransientPaneTabKey,
   isWorkFilePaneTabKey,
+  markUnseenArtifacts,
+  setActiveArtifact,
   useArtifactListSync,
   useArtifacts,
 } from "./artifact-store.js";
@@ -132,6 +139,62 @@ export function WorkspaceArtifactPane({
       (container ? containerQuery.isSuccess : true) &&
       (!extraScope?.id || extraQuery.isSuccess),
   });
+
+  // Sync which artifact the agent is presenting across every window attached
+  // to this thread (server-persisted by the show_artifact frontend tool —
+  // see ACTIVE_ARTIFACT_METADATA_KEY). Same policy as a freshly-created
+  // artifact above: auto-focus when the pane is already open, otherwise
+  // badge it so a passive window's pane never pops open on its own.
+  const { threadsRealtimeClient } = useEngentyAIContext();
+  const appliedActiveArtifactRef = useRef<string | null>(null);
+  useEffect(() => {
+    appliedActiveArtifactRef.current = null;
+  }, [primaryScope.type, primaryScope.id]);
+  useEffect(() => {
+    if (
+      !(
+        primaryScope.type === "thread" &&
+        primaryScope.id &&
+        threadsRealtimeClient
+      )
+    ) {
+      return;
+    }
+    const boundThreadId = primaryScope.id;
+    const unsubscribe = subscribePostgresChanges({
+      channelName: `engenty-thread-active-artifact:${boundThreadId}`,
+      client: threadsRealtimeClient,
+      changes: [
+        {
+          event: "UPDATE",
+          filter: `id=eq.${boundThreadId}`,
+          schema: "ai",
+          table: "thread",
+        },
+      ],
+      onSignal: (signal) => {
+        const active = readActiveArtifactMetadata(
+          (signal.record?.metadata as Record<string, unknown>) ?? null
+        );
+        if (!active || appliedActiveArtifactRef.current === active.shown_at) {
+          return;
+        }
+        appliedActiveArtifactRef.current = active.shown_at;
+        // The activation signal can outrun the tenant-wide ai.artifact
+        // invalidation: activating an id the stale list doesn't carry renders
+        // an empty pane (observed live in the second window). Refetch the
+        // lists on the same signal so the tab always exists by activation.
+        void queryClient.invalidateQueries({ queryKey: artifactsQueryRoot });
+        if (getArtifactPaneOpen(hostKey)) {
+          activateArtifact(hostKey, active.artifact_id);
+        } else {
+          setActiveArtifact(hostKey, active.artifact_id);
+          markUnseenArtifacts(hostKey, [active.artifact_id]);
+        }
+      },
+    });
+    return unsubscribe;
+  }, [hostKey, primaryScope.type, primaryScope.id, threadsRealtimeClient]);
 
   const activeArtifactId = isTransientPaneTabKey(activeId) ? null : activeId;
   const activeVersion = artifacts.find(

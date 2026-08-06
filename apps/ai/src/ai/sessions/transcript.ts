@@ -717,6 +717,61 @@ export function readDecisionResumeChoice(resume: AgUiResumeEntry): {
   return { choiceId, choiceLabel };
 }
 
+/**
+ * What a decision resume actually said, once the server's own `choices[]` are
+ * taken into account.
+ *
+ * `readDecisionResumeChoice` needs BOTH `choice_id` and `choice_label`, and its
+ * approval callers read a null as "not approved" — so a payload naming a valid
+ * `choice_id` with no label used to take the DENY path silently, looking exactly
+ * like the user pressing Deny. That is the wrong direction to fail in, and it is
+ * invisible: no error, no log. (The model-facing nudge in
+ * `resumePayloadToModelContent` already falls back from label to id, so the two
+ * halves of the same resume disagreed about what the user chose.)
+ *
+ * Resolution order:
+ *  - cancelled           → an explicit deny; not an error.
+ *  - id + label          → taken as-is (unchanged).
+ *  - id only, id known   → label recovered from the interrupt's own choices.
+ *  - id only, id unknown → `unresolved`; the caller must reject rather than
+ *                          guess a direction.
+ *  - no id at all        → `absent`; the payload is some other resume shape
+ *                          (`{approved:false}`, `{rejected:true}`), so callers
+ *                          keep their existing behaviour.
+ */
+export type DecisionResumeChoiceResolution =
+  | { choiceId: string; choiceLabel: string; kind: "choice" }
+  | { kind: "cancelled" }
+  | { choiceId: string; kind: "unresolved" }
+  | { kind: "absent" };
+
+export function resolveDecisionResumeChoice(
+  resume: AgUiResumeEntry,
+  choices?: readonly { id: string; label: string }[]
+): DecisionResumeChoiceResolution {
+  if (resume.status === "cancelled") {
+    return { kind: "cancelled" };
+  }
+  const direct = readDecisionResumeChoice(resume);
+  if (direct) {
+    return { ...direct, kind: "choice" };
+  }
+  const payload = resume.payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { kind: "absent" };
+  }
+  const raw = (payload as Record<string, unknown>).choice_id;
+  const choiceId = typeof raw === "string" ? raw.trim() : "";
+  if (!choiceId) {
+    return { kind: "absent" };
+  }
+  const known = choices?.find((choice) => choice.id === choiceId);
+  if (known?.label) {
+    return { choiceId, choiceLabel: known.label, kind: "choice" };
+  }
+  return { choiceId, kind: "unresolved" };
+}
+
 export function matchesRequestDecisionOpenInterrupt(
   part: AssistantDynamicToolPart,
   open: Pick<

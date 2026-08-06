@@ -4,6 +4,23 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.100] - 2026-08-06
+- ADDED **[ai]** Make show_artifact state-backed so the presented artifact syncs across windows
+- ADDED **[ai]** Parallel live streaming into attached chat windows
+- ADDED **[ai]** Durable chat run tracking, fail-loud choice resolution, cross-window sync
+- ADDED **[offers]** Add draft document toolbar under the header
+- CHANGED **[ai]** User-turn echo as protocol-native role:user text messages
+- CHANGED **[ai]** Complete thread/session rename in frontend, files, and copy
+- CHANGED **[ai]** Rename thread/session DAL, routes, and service layer **[breaking]**
+- FIXED **[ai-ui]** Attached windows stop duplicating the current turn; artifact card + pane survive reload/sync
+- FIXED **[dev]** Ignore module planning notes in watch rebuilds
+- FIXED **[docs]** Move themeColor from metadata to viewport export
+- FIXED **[ai]** Attached windows lose the user turn — close the attach seam, unify user message id
+- FIXED **[ai]** Persist post-resume text, stop attach self-duplication in chat sync
+- FIXED **[offers]** Polish draft settings, recipient display, and unit labels
+- FIXED **[ai]** Correct mislabeled agent_sessions.* error-code prefixes per domain
+- OTHER Cleaned up dev docs for copilot ( ai )
+
 ## [0.1.99] - 2026-08-04
 - ADDED **[frontend-tools]** Implement frontend tool suspend lock management
 

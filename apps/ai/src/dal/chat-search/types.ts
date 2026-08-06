@@ -4,7 +4,7 @@
 // file pins the provider id and the response shape HTTP consumers parse
 // (engenty-copilot session sidebar, apps/ui dev-settings panel).
 
-import type { AgentSessionStatus } from "../agent-sessions/index.js";
+import type { AgentSessionStatus } from "../threads/index.js";
 
 /**
  * Stable provider id on the apps/ai `SearchIndexRegistry` and in the

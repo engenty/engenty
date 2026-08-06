@@ -18,6 +18,12 @@ const logger = createLogger({ name: "apps/ai/http" });
 export const uuidString = z.string().uuid();
 
 const workspaceContextScopeSchema = z.object({
+  // Core's answer for what this principal may do (AUTH-06). Defaulted rather
+  // than required so a core that predates the field degrades to "no
+  // capabilities" — denying the gates — instead of failing scope resolution
+  // outright. Both apps ship in the same release; this is not a fallback path
+  // to build on.
+  capabilities: z.array(z.string()).default([]),
   currentTenant: z.object({ id: uuidString }).nullable(),
   isSuperAdmin: z.boolean().default(false),
   isTenantAdmin: z.boolean().default(false),
@@ -130,6 +136,7 @@ export function createCoreAiScopeResolver(
             kind: parsed.data.tenantRole === "service" ? "service" : "user",
             token: accessToken,
           },
+          capabilities: parsed.data.capabilities,
           isSuperAdmin: parsed.data.isSuperAdmin,
           isTenantAdmin:
             parsed.data.isTenantAdmin ||

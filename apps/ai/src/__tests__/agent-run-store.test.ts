@@ -310,7 +310,7 @@ describe("createAgentRunStore", () => {
     };
 
     const { createAgentRunStore } = await import(
-      "../dal/agent-sessions/agent-run-store.js"
+      "../dal/threads/agent-run-store.js"
     );
     const store = createAgentRunStore(client as never);
     await store.createRun({
@@ -393,7 +393,7 @@ describe("createAgentRunStore", () => {
     };
 
     const { createAgentRunStore } = await import(
-      "../dal/agent-sessions/agent-run-store.js"
+      "../dal/threads/agent-run-store.js"
     );
     const store = createAgentRunStore(client as never);
     const { run } = await store.finishRun({
@@ -438,7 +438,7 @@ describe("listRunEvents pagination", () => {
     };
 
     const { createAgentRunStore } = await import(
-      "../dal/agent-sessions/agent-run-store.js"
+      "../dal/threads/agent-run-store.js"
     );
     const store = createAgentRunStore(client as never);
     const events = await store.listRunEvents({
@@ -484,7 +484,7 @@ describe("sweepStalledRuns (D6 startup sweep)", () => {
     };
 
     const { createAgentRunStore } = await import(
-      "../dal/agent-sessions/agent-run-store.js"
+      "../dal/threads/agent-run-store.js"
     );
     const store = createAgentRunStore(client as never);
     const result = await store.sweepStalledRuns();

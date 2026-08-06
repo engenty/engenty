@@ -17,14 +17,14 @@ export {
   updateCustomTool,
 } from "../runtime/registry-api.js";
 export {
-  deleteAdminAiSession,
-  deleteAdminAiSessionsForAgent,
-  deleteAllAdminAiSessions,
-  getAdminAiSession,
-  getAdminAiSessionMessages,
-  getAdminAiSessionStats,
-  getAdminAiSessions,
-} from "../runtime/sessions-api.js";
+  deleteAdminAiThread,
+  deleteAdminAiThreadsForAgent,
+  deleteAllAdminAiThreads,
+  getAdminAiThread,
+  getAdminAiThreadMessages,
+  getAdminAiThreadStats,
+  getAdminAiThreads,
+} from "../runtime/threads-api.js";
 export {
   fetchAdminAgentToolSchemas,
   patchAiAgentChatPrefs,

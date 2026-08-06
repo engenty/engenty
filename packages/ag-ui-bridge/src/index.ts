@@ -44,6 +44,12 @@ export {
   getAgentUiStateSnapshotByteLength,
   isAgentUiStateSnapshotV1,
 } from "./agent-ui-state.js";
+export type { ActiveArtifactMetadata } from "./active-artifact-metadata.js";
+export {
+  ACTIVE_ARTIFACT_METADATA_KEY,
+  mergeActiveArtifactMetadata,
+  readActiveArtifactMetadata,
+} from "./active-artifact-metadata.js";
 export type {
   AgUiOpenInterruptKind,
   AgUiOpenInterruptMetadata,
@@ -67,6 +73,7 @@ export {
   readAgUiOpenInterruptEventValue,
 } from "./engenty-open-interrupt.js";
 export type {
+  AgentUiContextLike,
   AgentUiRunContext,
   CreateFrontendToolDefinitionInput,
   EngentyFrontendToolMetadata,

@@ -1,5 +1,6 @@
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { capabilitiesForUser } from "../../security/user-capabilities.js";
 import {
   getResolvedAppearance,
   getResolvedAppearanceWithoutTenant,
@@ -18,6 +19,22 @@ export const LOCAL_PLAN_LABEL = "local";
 
 export interface WorkspaceContext {
   canSwitchTenant: boolean;
+  /**
+   * The principal's capability bundle, in the ids `capabilityCovers` matches.
+   *
+   * This endpoint is apps/ai's only authorization feed (AUTH-06) — it already
+   * hands out {@link isSuperAdmin}/{@link isTenantAdmin} for gating, so it
+   * carries the finer truth rather than making apps/ai re-derive policy from
+   * two booleans. For users this is the BASE role bundle from
+   * `capabilitiesForUser` — DB role assignments are NOT layered on (a consumer
+   * needing assignment granularity must go through the grants service). For a
+   * service principal it is the token's own clamped claims.
+   *
+   * Note it cannot distinguish superadmin from tenant admin: `tenant.admin`
+   * holds `*`, which covers `core.superadmin` for the matcher. Superadmin-only
+   * surfaces must keep gating on {@link isSuperAdmin}.
+   */
+  capabilities: string[];
   currentTenant: { id: string; slug: string; name: string } | null;
   currentUser: {
     display_name: string | null;
@@ -146,6 +163,13 @@ export async function getWorkspaceContext(
     return {
       onboarded: false,
       userId: authUser.id,
+      // No tenant yet — no role, therefore no capabilities. Stated through the
+      // canonical mapping rather than a literal `[]` so it stays true if the
+      // no-membership bundle ever stops being empty.
+      capabilities: capabilitiesForUser({
+        isSuperAdmin: false,
+        tenantRole: null,
+      }),
       currentUser: {
         id: authUser.id,
         email: authUser.email ?? null,
@@ -187,6 +211,10 @@ export async function getWorkspaceContext(
   return {
     onboarded: true,
     userId: authUser.id,
+    capabilities: capabilitiesForUser({
+      isSuperAdmin,
+      tenantRole: row?.role ?? null,
+    }),
     currentUser: {
       id: authUser.id,
       email: row?.email ?? authUser.email ?? null,
@@ -223,7 +251,7 @@ export async function getWorkspaceContext(
  */
 export async function getServiceWorkspaceContext(
   client: SupabaseClient,
-  params: { principalId: string; tenantId: string }
+  params: { capabilities: string[]; principalId: string; tenantId: string }
 ): Promise<WorkspaceContext> {
   const [tenant, resolvedAppearance, tenantSupportedLocales, planLabel] =
     await Promise.all([
@@ -233,6 +261,9 @@ export async function getServiceWorkspaceContext(
       resolveTenantPlanLabel(client, params.tenantId),
     ]);
   return {
+    // The credential's own claims — a service principal has no membership and
+    // therefore no role bundle to derive from. Never widen these into a role.
+    capabilities: params.capabilities,
     canSwitchTenant: false,
     currentTenant: tenant,
     currentUser: {

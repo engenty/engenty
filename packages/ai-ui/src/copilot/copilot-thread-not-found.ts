@@ -1,4 +1,4 @@
-import { isAppsAiThreadHttpNotFound } from "../ag-ui/apps-ai/apps-ai-session-api.js";
+import { isAppsAiThreadHttpNotFound } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 
 export function isCopilotThreadNotFoundError(error: unknown): boolean {
   if (isAppsAiThreadHttpNotFound(error)) {

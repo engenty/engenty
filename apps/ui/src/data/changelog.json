@@ -4,6 +4,102 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "5521410",
+        "message": "attached windows stop duplicating the current turn; artifact card + pane survive reload/sync",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "82dc7c8",
+        "message": "ignore module planning notes in watch rebuilds",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5ca39c7",
+        "message": "cleaned up dev docs for copilot ( ai )",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "9c538e5",
+        "message": "make show_artifact state-backed so the presented artifact syncs across windows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1ab3460",
+        "message": "move themeColor from metadata to viewport export",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "369a3ac",
+        "message": "attached windows lose the user turn — close the attach seam, unify user message id",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d4e25b4",
+        "message": "user-turn echo as protocol-native role:user text messages",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "8bd3970",
+        "message": "persist post-resume text, stop attach self-duplication in chat sync",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8d37c8a",
+        "message": "parallel live streaming into attached chat windows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "59f3c6e",
+        "message": "durable chat run tracking, fail-loud choice resolution, cross-window sync",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "70995d9",
+        "message": "add draft document toolbar under the header",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "776a335",
+        "message": "complete thread/session rename in frontend, files, and copy",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "0786a98",
+        "message": "polish draft settings, recipient display, and unit labels",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "eb136d5",
+        "message": "rename thread/session DAL, routes, and service layer",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "2775652",
+        "message": "correct mislabeled agent_sessions.* error-code prefixes per domain",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.99",
+    "timestamp": 1785880806,
+    "commits": [
+      {
         "id": "c43f210",
         "message": "implement frontend tool suspend lock management",
         "group": "Added",

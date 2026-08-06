@@ -366,6 +366,9 @@ export default defineConfig(({ command }) => {
         ignored: [
           /node_modules\/(?!@engenty\/(ai-ui|app-shell|auth-ui|contacts|secrets|import|generative-ui|knowledge-base|copilot|projects|user-management-ui|ui-core|ui-icons|pdf-templates)(\/|$))/,
           "**/.git/**",
+          // Module planning notes (`modules/<id>/dev/**`) — not imported UI.
+          // Keep `ui/dev/**` watchable (debug helpers under the ui tree).
+          "**/modules/*/dev/**",
         ],
         awaitWriteFinish: isDev
           ? { stabilityThreshold: 500, pollInterval: 100 }

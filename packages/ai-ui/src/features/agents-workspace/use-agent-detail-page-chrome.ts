@@ -1,19 +1,19 @@
 // Breadcrumbs + tab badges for the agent detail page (ui-6 §3 chrome).
 
 import { useMemo } from "react";
-import type { AgentDetailTabBadge } from "./agent-detail-tab-bar";
-import type { AgentDetailTab } from "./agent-detail-tabs";
+import type { AgentDetailTabBadge } from "./agent-detail-tab-bar.js";
+import type { AgentDetailTab } from "./agent-detail-tabs.js";
 import {
   AGENTS_CATALOG_ROOT_PATH,
   buildAgentDetailPath,
-} from "./agent-workspace-url-state";
-import type { useAgentDetail } from "./use-agent-detail";
-import type { useAgentSessionsTab } from "./use-agent-sessions-tab";
+} from "./agent-workspace-url-state.js";
+import type { useAgentDetail } from "./use-agent-detail.js";
+import type { useAgentThreadsTab } from "./use-agent-threads-tab.js";
 
 export function useAgentDetailPageChrome(params: {
   activeTab: AgentDetailTab;
   detail: ReturnType<typeof useAgentDetail>;
-  sessions: ReturnType<typeof useAgentSessionsTab>;
+  sessions: ReturnType<typeof useAgentThreadsTab>;
   t: (key: string) => string;
 }) {
   const { activeTab, detail, sessions, t } = params;
@@ -39,7 +39,7 @@ export function useAgentDetailPageChrome(params: {
     ];
   }, [activeTab, detail.selectedAgent, t]);
 
-  const activityInFlight = (sessions.sessionsQuery.data?.sessions ?? []).some(
+  const activityInFlight = (sessions.threadsQuery.data?.sessions ?? []).some(
     (row) => row.status === "running" || row.status === "waiting"
   );
 
@@ -47,7 +47,7 @@ export function useAgentDetailPageChrome(params: {
     detail.selectedAgent
       ? {
           activity: {
-            count: sessions.sessionsQuery.data?.sessions.length ?? 0,
+            count: sessions.threadsQuery.data?.sessions.length ?? 0,
             showSpinner: activityInFlight,
           },
           instructions: { count: detail.agentDocuments.length },

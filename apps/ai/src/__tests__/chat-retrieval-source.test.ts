@@ -6,19 +6,19 @@
 import type { RetrievalMatch } from "@engenty/retrieval";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import type { AgentSessionRow } from "../dal/agent-sessions/index.js";
 import {
   AI_CHAT_SEARCH_PROVIDER_ID,
   AI_CHAT_SESSION_SOURCE_TYPE,
   createChatSearchRetrieval,
   createChatSessionRetrievalSource,
 } from "../dal/chat-search/index.js";
+import type { ThreadRow } from "../dal/threads/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
 const threadId = "00000000-0000-4000-8000-000000000010";
 
-const session: AgentSessionRow = {
+const session: ThreadRow = {
   agent_id: "engenty.copilot",
   archived_at: null,
   created_at: "2026-05-17T00:00:00.000Z",

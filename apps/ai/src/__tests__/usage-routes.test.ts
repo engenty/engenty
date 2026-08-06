@@ -94,8 +94,24 @@ function makeUsageStore(overrides: Partial<AiUsageStore> = {}): AiUsageStore {
   };
 }
 
+// The bundles core actually hands back for these roles (CORE_ROLE_PROFILES in
+// apps/core/src/security/role-profiles.ts). Members are module-tier only, which
+// is precisely why a `core.ai.*` gate excludes them.
+const TENANT_ADMIN_CAPABILITIES = ["core.credentials.manage", "*"];
+const TENANT_MEMBER_CAPABILITIES = [
+  "module.*",
+  "tenant-settings.read",
+  "tenant-settings.write",
+  "user-settings.read",
+  "user-settings.write",
+];
+const SERVICE_CAPABILITIES = ["module.read", "module.write", "module.execute"];
+
 function scopeResolver(isAdmin: boolean) {
   return createStaticAiScopeResolver({
+    capabilities: isAdmin
+      ? TENANT_ADMIN_CAPABILITIES
+      : TENANT_MEMBER_CAPABILITIES,
     isTenantAdmin: isAdmin,
     tenantId,
     tenantRole: isAdmin ? "admin" : "member",
@@ -103,8 +119,18 @@ function scopeResolver(isAdmin: boolean) {
   });
 }
 
+function serviceScopeResolver() {
+  return createStaticAiScopeResolver({
+    capabilities: SERVICE_CAPABILITIES,
+    tenantId,
+    tenantRole: "service",
+    userId,
+  });
+}
+
 function superadminScopeResolver() {
   return createStaticAiScopeResolver({
+    capabilities: ["core.superadmin", "*"],
     isSuperAdmin: true,
     isTenantAdmin: true,
     tenantId,
@@ -371,5 +397,56 @@ describe("apps/ai usage routes", () => {
     expect(res.status).toBe(200);
     expect(body.policy.tenant_id).toBe(tenantId);
     expect(store.listUserPolicies).toHaveBeenCalledWith(tenantId);
+  });
+
+  // AUTH-06 parity matrix. The gate moved from `isTenantAdmin` to the
+  // `core.ai.usage.read` capability; these four shapes assert the swap changed
+  // no outcome — in particular that a service credential is NOT widened.
+  describe("core.ai.usage.read parity", () => {
+    const cases: Array<{
+      expected: number;
+      resolver: () => ReturnType<typeof createStaticAiScopeResolver>;
+      who: string;
+    }> = [
+      { expected: 200, resolver: superadminScopeResolver, who: "superadmin" },
+      {
+        expected: 200,
+        resolver: () => scopeResolver(true),
+        who: "tenant admin",
+      },
+      { expected: 403, resolver: () => scopeResolver(false), who: "member" },
+      { expected: 403, resolver: serviceScopeResolver, who: "service" },
+    ];
+
+    for (const { expected, resolver, who } of cases) {
+      it(`answers ${expected} for a ${who}`, async () => {
+        const app = await createApp({
+          scopeResolver: resolver(),
+          usageStore: makeUsageStore(),
+        });
+        const res = await app.request("http://localhost/ai/v1/usage/tenant", {
+          headers: { Authorization: "Bearer token" },
+        });
+        expect(res.status).toBe(expected);
+      });
+    }
+
+    it("denies a scope core never gave capabilities to", async () => {
+      // The skew direction that matters: an older core omits the field, zod
+      // defaults it to [], and the gate closes rather than opening.
+      const app = await createApp({
+        scopeResolver: createStaticAiScopeResolver({
+          isTenantAdmin: true,
+          tenantId,
+          tenantRole: "admin",
+          userId,
+        }),
+        usageStore: makeUsageStore(),
+      });
+      const res = await app.request("http://localhost/ai/v1/usage/tenant", {
+        headers: { Authorization: "Bearer token" },
+      });
+      expect(res.status).toBe(403);
+    });
   });
 });

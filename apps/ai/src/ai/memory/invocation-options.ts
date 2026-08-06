@@ -1,6 +1,6 @@
 import type { AgentExecutionOptionsBase } from "@mastra/core/agent";
 import type { MastraMemory } from "@mastra/core/memory";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import { AiSessionError } from "../errors.js";
 import { createEngentySupervisorDelegationConfig } from "../supervisor/delegation.js";
 import { createEngentySessionMastraMemory } from "./concrete-memory.js";
@@ -24,10 +24,13 @@ export interface EngentyMemoryInvocationInput
 export interface EngentySessionMemoryRuntimeInput
   extends EngentyMemoryInvocationInput {
   agentId: string;
-  store: AgentSessionStore;
+  store: ThreadStore;
   // Durable attachment parts for the current user turn, appended to the user
   // message on persist (Mastra saves the turn text-only). See the storage.
   userAttachmentParts?: readonly unknown[];
+  // Client-assigned id of the current user turn — the persisted row adopts it
+  // so DB snapshots and the run stream agree on the message id. See the storage.
+  userMessageId?: string | null;
 }
 
 export interface EngentyNativeMemoryAgent {
@@ -74,6 +77,7 @@ export function createEngentySessionMemoryRuntime(
     ...(input.userAttachmentParts && input.userAttachmentParts.length > 0
       ? { userAttachmentParts: input.userAttachmentParts }
       : {}),
+    ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
   });
   return {
     memory: createEngentySessionMastraMemory({ storage }),

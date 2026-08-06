@@ -2,7 +2,7 @@
 // The feed lists sessions (threads) — the operator-browsable unit. Runs are an
 // internal execution substrate and are not surfaced here.
 
-import type { AiAdminSessionRow } from "../../lib/admin/ai-runtime-types";
+import type { AiAdminThreadRow } from "../../lib/admin/ai-runtime-types.js";
 
 export type ActivityStatusFilter = "all" | "running" | "failed" | "finished";
 export type ActivityStatusKind = "running" | "failed" | "finished" | "other";
@@ -29,8 +29,8 @@ export interface ActivityFilterState {
   status: ActivityStatusFilter;
 }
 
-function sessionStatusKind(
-  status: AiAdminSessionRow["status"]
+function threadStatusKind(
+  status: AiAdminThreadRow["status"]
 ): ActivityStatusKind {
   switch (status) {
     case "running":
@@ -46,7 +46,7 @@ function sessionStatusKind(
 }
 
 /** Best-available binding signal from route_context (host, module, or key). */
-function sessionHostKey(
+function threadHostKey(
   routeContext: Record<string, unknown> | null | undefined
 ): string | null {
   for (const field of ["host_key", "moduleId", "session_key"]) {
@@ -59,19 +59,19 @@ function sessionHostKey(
 }
 
 export function toActivityEntries(input: {
-  sessions: AiAdminSessionRow[];
+  sessions: AiAdminThreadRow[];
 }): ActivityEntry[] {
   return input.sessions
-    .map((session) => ({
-      agentId: session.current_agent_id,
-      entityId: session.id,
-      hostKey: sessionHostKey(session.route_context),
-      key: `session:${session.id}`,
-      status: session.status,
-      statusKind: sessionStatusKind(session.status),
-      timestamp: session.last_message_at ?? session.updated_at,
-      title: session.title?.trim() || session.summary?.trim() || null,
-      userId: session.user_id,
+    .map((thread) => ({
+      agentId: thread.current_agent_id,
+      entityId: thread.id,
+      hostKey: threadHostKey(thread.route_context),
+      key: `thread:${thread.id}`,
+      status: thread.status,
+      statusKind: threadStatusKind(thread.status),
+      timestamp: thread.last_message_at ?? thread.updated_at,
+      title: thread.title?.trim() || thread.summary?.trim() || null,
+      userId: thread.user_id,
     }))
     .toSorted(
       (left, right) =>

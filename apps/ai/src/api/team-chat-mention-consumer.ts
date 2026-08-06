@@ -15,8 +15,8 @@ import { z } from "zod";
 import { createDefaultAiRegistry } from "../ai/agents.js";
 import { runDelegatedConversation } from "../ai/conversation/delegate-run.js";
 import {
-  createAgentSessionStoreFromEnv,
   createRegistryStoreFromEnv,
+  createThreadStoreFromEnv,
 } from "../ai/index.js";
 import { resolveTaskJobServiceScope } from "../ai/jobs/task-job-scope.js";
 import { createDefaultModuleCapabilityLoader } from "../ai/module-capability-loader.js";
@@ -86,7 +86,7 @@ async function handleMentionDispatch(
     "Write the reply that should be posted into this thread. Reply with the message text only — no preamble, no quoting of this brief. You may mention users with `<@u:UUID>` tokens and use markdown.",
   ].join("\n\n");
 
-  const store = createAgentSessionStoreFromEnv();
+  const store = createThreadStoreFromEnv();
   if (!store) {
     throw new Error("team-chat mention: agent session store not configured");
   }

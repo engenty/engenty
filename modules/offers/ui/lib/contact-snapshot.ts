@@ -6,12 +6,25 @@ export interface ContactSnapshot {
   recipient_name: string;
 }
 
-export function formatContactSnapshot(
-  contact: ContactListItem
-): ContactSnapshot {
+/** Minimal contact shape shared by list queries and settings entity options. */
+export interface ContactAddressFields {
+  address_city?: string | null;
+  address_country?: string | null;
+  address_info?: string | null;
+  address_street?: string | null;
+  address_zip?: string | null;
+  display_name?: string | null;
+  email?: string | null;
+}
+
+function buildRecipientAddress(contact: ContactAddressFields): string {
   const addressParts: string[] = [];
-  if (contact.address_street?.trim()) {
-    addressParts.push(contact.address_street.trim());
+  const street = [contact.address_street, contact.address_info]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join("\n");
+  if (street) {
+    addressParts.push(street);
   }
   const location = [
     contact.address_zip,
@@ -23,9 +36,26 @@ export function formatContactSnapshot(
   if (location) {
     addressParts.push(location);
   }
+  return addressParts.join("\n");
+}
+
+export function formatContactSnapshot(
+  contact: ContactListItem
+): ContactSnapshot {
   return {
     recipient_name: contact.display_name ?? "",
-    recipient_address: addressParts.join("\n"),
+    recipient_address: buildRecipientAddress(contact),
     recipient_email: contact.email ?? "",
+  };
+}
+
+/** Snapshot fields from a list/entity row (same address rules as settings). */
+export function formatEntityRecipientSnapshot(
+  contact: ContactAddressFields
+): ContactSnapshot {
+  return {
+    recipient_name: contact.display_name?.trim() ?? "",
+    recipient_address: buildRecipientAddress(contact),
+    recipient_email: contact.email?.trim() ?? "",
   };
 }

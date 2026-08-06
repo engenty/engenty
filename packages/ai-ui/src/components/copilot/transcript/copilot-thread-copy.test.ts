@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractCopilotMessageCopyText,
   formatCopilotThreadCopyText,
-} from "./copilot-thread-copy";
+} from "./copilot-thread-copy.js";
 
 describe("copilot thread copy", () => {
   it("joins text and reasoning parts", () => {

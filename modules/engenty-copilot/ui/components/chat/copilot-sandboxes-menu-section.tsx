@@ -17,7 +17,7 @@ import {
   destroyAgentSandboxes,
   listAgentSandboxes,
 } from "../../../src/lib/agent-sandboxes-client.js";
-import { formatCopilotSessionShortId } from "../../../src/lib/session-label.js";
+import { formatCopilotThreadShortId } from "../../../src/lib/thread-label.js";
 import { copilotChatThreadPath } from "../../paths.js";
 
 export function agentSandboxesQueryKey(input: {
@@ -42,7 +42,7 @@ function sandboxMenuLabel(
   }
   const threadId = sandbox.thread_id?.trim();
   if (threadId) {
-    return untitledLabel(formatCopilotSessionShortId(threadId));
+    return untitledLabel(formatCopilotThreadShortId(threadId));
   }
   return sandbox.container_name || sandbox.sandbox_id;
 }

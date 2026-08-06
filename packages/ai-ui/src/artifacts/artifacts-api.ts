@@ -1,5 +1,5 @@
 // Artifact CRUD + TanStack query hooks against apps/ai `/ai/artifacts`.
-// Mirrors packages/ai-ui/src/ag-ui/apps-ai/apps-ai-session-api.ts.
+// Mirrors packages/ai-ui/src/ag-ui/apps-ai/apps-ai-thread-api.ts.
 
 import { useQuery } from "@engenty/query-client";
 import {

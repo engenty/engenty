@@ -88,12 +88,12 @@ import type {
   AiRegistryProvider,
   MastraToolDefinition,
 } from "../ai/registry/types.js";
-import { createSessionService } from "../ai/sessions.js";
+import { createThreadService } from "../ai/sessions.js";
 import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-  AgentSessionStore,
-} from "../dal/agent-sessions/index.js";
+  ThreadMessageRow,
+  ThreadRow,
+  ThreadStore,
+} from "../dal/threads/index.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -140,7 +140,7 @@ function builtinProviderWithAppCoderStub(): CompositeAiRegistry {
   ]);
 }
 
-function makeSession(agentId = "engenty.copilot"): AgentSessionRow {
+function makeSession(agentId = "engenty.copilot"): ThreadRow {
   return {
     agent_id: agentId,
     archived_at: null,
@@ -159,8 +159,8 @@ function makeSession(agentId = "engenty.copilot"): AgentSessionRow {
 }
 
 function makeMessage(
-  overrides: Partial<AgentSessionMessageRow> = {}
-): AgentSessionMessageRow {
+  overrides: Partial<ThreadMessageRow> = {}
+): ThreadMessageRow {
   return {
     author_user_id: userId,
     created_at: "2026-05-17T00:00:00.500Z",
@@ -173,10 +173,8 @@ function makeMessage(
   };
 }
 
-function makeStore(
-  overrides: Partial<AgentSessionStore> = {}
-): AgentSessionStore {
-  const session = makeSession("supervisor");
+function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
+  const thread = makeSession("supervisor");
   return {
     appendMessage: vi.fn(async () => ({
       message: makeMessage({
@@ -185,12 +183,13 @@ function makeStore(
         role: "assistant",
       }),
     })),
-    createSession: vi.fn(async () => ({ session })),
-    deleteSessionForUser: vi.fn(async () => ({ deleted: true })),
-    deleteSessionsForUser: vi.fn(async () => ({ deleted: 1 })),
-    getSession: vi.fn(async () => session),
+    createThread: vi.fn(async () => ({ thread })),
+    deleteThreadForUser: vi.fn(async () => ({ deleted: true })),
+    deleteThreadsForUser: vi.fn(async () => ({ deleted: 1 })),
+    getThread: vi.fn(async () => thread),
+    getThreadGlobally: vi.fn(async () => thread),
     listMessagesOrdered: vi.fn(async () => [makeMessage()]),
-    listSessionsForUser: vi.fn(async () => [session]),
+    listThreadsForUser: vi.fn(async () => [thread]),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -199,8 +198,8 @@ function makeStore(
         role: "assistant",
       }),
     })),
-    updateSessionForUser: vi.fn(async () => ({ session })),
-    upsertSession: vi.fn(async () => ({ session })),
+    updateThreadForUser: vi.fn(async () => ({ thread })),
+    upsertThread: vi.fn(async () => ({ thread })),
     ...overrides,
   };
 }
@@ -326,11 +325,11 @@ describe("dynamic AI registry", () => {
   });
 
   it("creates and resolves sessions with module capability agent ids", async () => {
-    const moduleSession = makeSession("contacts.manager");
+    const moduleThread = makeSession("contacts.manager");
     const store = makeStore({
-      getSession: vi.fn(async () => moduleSession),
-      upsertSession: vi.fn(async (input) => ({
-        session: makeSession(input.agentId),
+      getThread: vi.fn(async () => moduleThread),
+      upsertThread: vi.fn(async (input) => ({
+        thread: makeSession(input.agentId),
       })),
     });
     const loader = {
@@ -350,7 +349,7 @@ describe("dynamic AI registry", () => {
         },
       ]),
     };
-    const harness = createSessionService({
+    const harness = createThreadService({
       createRegistry: () => new ModuleProvider(loader),
       getStore: () => store,
       getUsageStore: () => null,
@@ -358,12 +357,12 @@ describe("dynamic AI registry", () => {
     });
 
     await expect(
-      harness.createSession({
+      harness.createThread({
         agentId: "contacts.manager",
         scope: { tenantId, userId },
       })
     ).resolves.toMatchObject({
-      session: { agent_id: "contacts.manager" },
+      thread: { agent_id: "contacts.manager" },
     });
     await expect(
       harness.assertNativeMemoryAvailable({

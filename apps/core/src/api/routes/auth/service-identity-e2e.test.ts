@@ -59,6 +59,7 @@ describe("service identity — credential to workspace context", () => {
             language: "en",
             themeMode: "light",
           },
+          capabilities: ["module.read", "module.write", "module.execute"],
           tenantRole: "service",
           tenantSupportedLocales: [],
           tenants: [{ id: tenantId, name: "Acme", slug: "acme" }],
@@ -127,6 +128,10 @@ describe("service identity — credential to workspace context", () => {
     expect(body.data.currentTenant.id).toBe(tenantId);
     // Resolved by credential id, in the credential's tenant — no user involved.
     expect(getServiceWorkspaceContext).toHaveBeenCalledWith({
+      // A minted service credential carries the service default bundle, and it
+      // reaches the workspace context verbatim (AUTH-06) — never widened into a
+      // role. Notably module-tier only: it covers no `core.*` capability.
+      capabilities: ["module.read", "module.write", "module.execute"],
       principalId: created.credentialId,
       tenantId,
     });

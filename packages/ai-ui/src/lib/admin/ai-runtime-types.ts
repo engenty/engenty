@@ -1,4 +1,4 @@
-// Shared admin/runtime DTO shapes for AI catalog, sessions, runs, and the custom registry.
+// Shared admin/runtime DTO shapes for AI catalog, threads, runs, and the custom registry.
 // Consumed by admin pages, TanStack query hooks, and apps/ai HTTP client modules.
 
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
@@ -297,7 +297,7 @@ export interface AiRunEventsResult {
   run_id: string;
 }
 
-export interface AiSessionRecord {
+export interface AiThreadRecord {
   created_at: string;
   current_agent_id: string | null;
   id: string;
@@ -311,12 +311,12 @@ export interface AiSessionRecord {
   user_id: string;
 }
 
-export type AiSessionMessage = UIMessage & {
+export type AiThreadMessage = UIMessage & {
   createdAt?: string;
   metadata?: Record<string, unknown>;
 };
 
-export interface AiServiceSessionRecord {
+export interface AiServiceThreadRecord {
   agent_id: string;
   archived_at: string | null;
   created_at: string;
@@ -324,7 +324,7 @@ export interface AiServiceSessionRecord {
   id: string;
   metadata: Record<string, unknown>;
   route_context: Record<string, unknown>;
-  status: AiSessionRecord["status"];
+  status: AiThreadRecord["status"];
   summary: string | null;
   tenant_id: string;
   title: string | null;
@@ -332,7 +332,7 @@ export interface AiServiceSessionRecord {
   workspace_key: string | null;
 }
 
-export interface AiServiceSessionMessage {
+export interface AiServiceThreadMessage {
   author_user_id: string | null;
   created_at: string;
   id: string;
@@ -342,7 +342,7 @@ export interface AiServiceSessionMessage {
   thread_id: string;
 }
 
-export interface CreateAiSessionInput {
+export interface CreateAiThreadInput {
   context?: {
     moduleId?: string;
     pathname?: string;
@@ -354,22 +354,22 @@ export interface CreateAiSessionInput {
   title?: string;
 }
 
-export interface UpdateAiSessionInput {
+export interface UpdateAiThreadInput {
   agent_id?: string | null;
   current_agent_id?: string | null;
   threadId: string;
   title?: string | null;
 }
 
-/** Tenant-wide orchestrator sessions (admin observability). */
-export interface AiAdminSessionRow {
+/** Tenant-wide orchestrator threads (admin observability). */
+export interface AiAdminThreadRow {
   created_at: string;
   current_agent_id: string | null;
   id: string;
   last_action_id: string | null;
   last_message_at: string | null;
   route_context: Record<string, unknown>;
-  status: AiSessionRecord["status"];
+  status: AiThreadRecord["status"];
   summary: string | null;
   tenant_id: string;
   title: string | null;
@@ -377,11 +377,11 @@ export interface AiAdminSessionRow {
   user_id: string;
 }
 
-export interface AiAdminSessionStats {
+export interface AiAdminThreadStats {
   last_message_at: string | null;
   runs_total: number;
-  sessions_by_status: Record<AiSessionRecord["status"], number>;
-  sessions_total: number;
+  threads_by_status: Record<AiThreadRecord["status"], number>;
+  threads_total: number;
 }
 
 export interface CustomAgentConfig {

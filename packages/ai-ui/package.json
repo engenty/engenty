@@ -23,6 +23,7 @@
     "build": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --dts --clean",
     "dev": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --dts --watch",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "lint": "biome check ."
   },
   "dependencies": {

@@ -2,7 +2,7 @@
 
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
-import { useCopilotThreadUsage } from "../../../ag-ui/session-usage/use-copilot-thread-usage.js";
+import { useCopilotThreadUsage } from "../../../ag-ui/thread-usage/use-copilot-thread-usage.js";
 
 export interface CopilotComposerUsageMeterProps {
   chatStatus: "ready" | "streaming" | "submitted" | "error";

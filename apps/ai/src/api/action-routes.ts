@@ -149,7 +149,7 @@ export function registerActionRoutes(
       return handleRouteError(
         c,
         "failed to run action",
-        "agent_sessions.internalError",
+        "agent_actions.internalError",
         err
       );
     }
@@ -179,7 +179,7 @@ export function registerActionRoutes(
       return handleRouteError(
         c,
         "failed to list action requests",
-        "agent_sessions.internalError",
+        "agent_actions.internalError",
         err
       );
     }
@@ -242,7 +242,7 @@ export function registerActionRoutes(
       return handleRouteError(
         c,
         "failed to resume action approval",
-        "agent_sessions.internalError",
+        "agent_actions.internalError",
         err
       );
     }

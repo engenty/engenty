@@ -1,5 +1,5 @@
-import type { AgentRunStore } from "../../dal/agent-sessions/agent-run-store.js";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
+import type { AgentRunStore } from "../../dal/threads/agent-run-store.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { destroyEngentySandboxById } from "./destroy-engenty-sandbox.js";
 import {
@@ -45,7 +45,7 @@ async function enrichSandboxRow(input: {
   getRunStore?: () => AgentRunStore | null;
   row: EngentyDockerSandboxRow;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadTitleById: Map<string, string | null>;
 }): Promise<EngentySandboxCatalogEntry | null> {
   const parsed = parseEngentySandboxId(input.row.sandbox_id);
@@ -62,7 +62,7 @@ async function enrichSandboxRow(input: {
   }
   let title = input.threadTitleById.get(threadId) ?? null;
   if (title === undefined) {
-    const session = await input.store.getSession({
+    const session = await input.store.getThread({
       tenantId: input.scope.tenantId,
       threadId,
     });
@@ -87,7 +87,7 @@ async function enrichSandboxRow(input: {
 export async function listEngentySandboxesForScope(input: {
   getRunStore?: () => AgentRunStore | null;
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
 }): Promise<EngentySandboxCatalogEntry[]> {
   const rows = await listEngentyDockerSandboxes({ runningOnly: true });
   const threadTitleById = new Map<string, string | null>();
@@ -118,7 +118,7 @@ export async function destroyEngentySandboxesForScope(input: {
   getRunStore?: () => AgentRunStore | null;
   sandboxIds?: readonly string[];
   scope: AiSessionScope;
-  store: AgentSessionStore;
+  store: ThreadStore;
 }): Promise<{ destroyed: number }> {
   const targets =
     input.sandboxIds && input.sandboxIds.length > 0
@@ -144,7 +144,7 @@ export async function destroyEngentySandboxesForScope(input: {
     if (!threadId) {
       continue;
     }
-    const session = await input.store.getSession({
+    const session = await input.store.getThread({
       tenantId: input.scope.tenantId,
       threadId,
     });

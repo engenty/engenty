@@ -1,27 +1,27 @@
 // Tab-content switch for the agent detail "personnel file" (ui-6 §3).
 
 import { Card, CardContent } from "@engenty/ui-core";
-import { AgentActivityTab } from "./agent-activity-tab";
-import { AgentCapabilitiesTab } from "./agent-capabilities-tab";
-import { AgentDetailActivityDetail } from "./agent-detail-activity-detail";
-import { AgentDetailFilesTab } from "./agent-detail-files-tab";
+import { AgentActivityTab } from "./agent-activity-tab.js";
+import { AgentCapabilitiesTab } from "./agent-capabilities-tab.js";
+import { AgentDetailActivityDetail } from "./agent-detail-activity-detail.js";
+import { AgentDetailFilesTab } from "./agent-detail-files-tab.js";
 import type {
   AgentDetailAffordances,
   AgentDetailTab,
-} from "./agent-detail-tabs";
-import { AgentDetailWorkspaceTab } from "./agent-detail-workspace-tab";
-import { AgentOverviewTab } from "./agent-overview-tab";
-import type { useAgentDetail } from "./use-agent-detail";
-import type { useAgentFilesTab } from "./use-agent-files-tab";
-import type { useAgentSessionsTab } from "./use-agent-sessions-tab";
-import type { useAgentWorkspaceTab } from "./use-agent-workspace-tab";
+} from "./agent-detail-tabs.js";
+import { AgentDetailWorkspaceTab } from "./agent-detail-workspace-tab.js";
+import { AgentOverviewTab } from "./agent-overview-tab.js";
+import type { useAgentDetail } from "./use-agent-detail.js";
+import type { useAgentFilesTab } from "./use-agent-files-tab.js";
+import type { useAgentThreadsTab } from "./use-agent-threads-tab.js";
+import type { useAgentWorkspaceTab } from "./use-agent-workspace-tab.js";
 
 interface AgentDetailTabContentProps {
   activeTab: AgentDetailTab;
   affordances: AgentDetailAffordances;
   detail: ReturnType<typeof useAgentDetail>;
   files: ReturnType<typeof useAgentFilesTab>;
-  sessions: ReturnType<typeof useAgentSessionsTab>;
+  sessions: ReturnType<typeof useAgentThreadsTab>;
   t: (key: string) => string;
   workspace: ReturnType<typeof useAgentWorkspaceTab>;
 }

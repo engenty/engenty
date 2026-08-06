@@ -9,10 +9,10 @@ import {
   resolveSafeguardModelId,
 } from "@engenty/ai-core";
 import type { RuntimeModelConfig } from "../registry/index.js";
-import type { AiSessionScope, SessionServiceOptions } from "./types.js";
+import type { AiSessionScope, ThreadServiceOptions } from "./types.js";
 
 export async function resolveRuntimeModelConfig(
-  opts: SessionServiceOptions,
+  opts: ThreadServiceOptions,
   scope: AiSessionScope,
   modelIdOverride?: string | null,
   effort?: AiEffort | null

@@ -1,23 +1,24 @@
 export {
-  createSessionService,
-  type SessionService,
+  createThreadService,
+  type ThreadService,
 } from "./sessions/session-service.js";
 export type {
   AgentUiProducerContext,
   AiScopeCredential,
   AiSessionScope,
-  AppendAiSessionMessageInput,
-  CreateAiSessionInput,
-  DeleteAiSessionsInput,
+  AppendAiThreadMessageInput,
+  CreateAiThreadInput,
+  DeleteAiThreadsInput,
   DynamicAgentAssembler,
-  ListAiSessionMessagesInput,
-  ListAiSessionsInput,
+  ListAiThreadMessagesInput,
+  ListAiThreadsInput,
   RuntimeModelConfigInput,
-  SessionServiceOptions,
-  StreamAiSessionInput,
-  UpdateAiSessionInput,
+  StreamAiThreadInput,
+  ThreadServiceOptions,
+  UpdateAiThreadInput,
 } from "./sessions/types.js";
 export {
   resolveScopeCredential,
   scopeAccessToken,
+  scopeCoversCapability,
 } from "./sessions/types.js";

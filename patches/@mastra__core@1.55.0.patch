@@ -1,0 +1,56 @@
+diff --git a/dist/agent-0y2cApTZ.js b/dist/agent-0y2cApTZ.js
+index 286c5cc..d3ae6de 100644
+--- a/dist/agent-0y2cApTZ.js
++++ b/dist/agent-0y2cApTZ.js
+@@ -21638,7 +21638,7 @@ var ChatChannelOutputProcessor = class {
+ 				startedAt: existing?.startedAt ?? Date.now()
+ 			});
+ 		}
+-		return {
++		const rendered = {
+ 			queue,
+ 			driverPromise: (render.streaming.enabled ? runStreamingDriver({
+ 				stream: wrapped,
+@@ -21671,6 +21671,14 @@ var ChatChannelOutputProcessor = class {
+ 				throw err;
+ 			})
+ 		};
++		// engenty patch: the `throw err` above re-rejects driverPromise, which stays
++		// unowned until the terminal-chunk await in processOutputStream. If the driver
++		// fails EARLY (first adapter post: bad token, platform outage) that window makes
++		// the rejection unhandled and crashes the whole process. Attach a no-op catch so
++		// the rejection is owned; the later `await session.driverPromise` still observes
++		// it and logs "channel render driver failed".
++		rendered.driverPromise.catch(() => {});
++		return rendered;
+ 	}
+ };
+ //#endregion
+diff --git a/dist/agent-um2LJs-0.cjs b/dist/agent-um2LJs-0.cjs
+index 1a76ecf..9b16661 100644
+--- a/dist/agent-um2LJs-0.cjs
++++ b/dist/agent-um2LJs-0.cjs
+@@ -21642,7 +21642,7 @@ var ChatChannelOutputProcessor = class {
+ 				startedAt: existing?.startedAt ?? Date.now()
+ 			});
+ 		}
+-		return {
++		const rendered = {
+ 			queue,
+ 			driverPromise: (render.streaming.enabled ? runStreamingDriver({
+ 				stream: wrapped,
+@@ -21675,6 +21675,14 @@ var ChatChannelOutputProcessor = class {
+ 				throw err;
+ 			})
+ 		};
++		// engenty patch: the `throw err` above re-rejects driverPromise, which stays
++		// unowned until the terminal-chunk await in processOutputStream. If the driver
++		// fails EARLY (first adapter post: bad token, platform outage) that window makes
++		// the rejection unhandled and crashes the whole process. Attach a no-op catch so
++		// the rejection is owned; the later `await session.driverPromise` still observes
++		// it and logs "channel render driver failed".
++		rendered.driverPromise.catch(() => {});
++		return rendered;
+ 	}
+ };
+ //#endregion

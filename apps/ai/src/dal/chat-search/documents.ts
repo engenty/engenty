@@ -8,13 +8,13 @@
 
 import { compactSearchText } from "@engenty/search-index";
 import type {
-  AgentSessionMessageRow,
-  AgentSessionRow,
-  SessionMessageRole,
-} from "../agent-sessions/index.js";
+  ThreadMessageRole,
+  ThreadMessageRow,
+  ThreadRow,
+} from "../threads/index.js";
 
-type SearchableAgentSessionMessageRow = AgentSessionMessageRow & {
-  role: Exclude<SessionMessageRole, "tool">;
+type SearchableThreadMessageRow = ThreadMessageRow & {
+  role: Exclude<ThreadMessageRole, "tool">;
 };
 
 function messagePartsToText(parts: unknown): string {
@@ -45,8 +45,8 @@ function messagePartsToText(parts: unknown): string {
 }
 
 function isSearchableMessage(
-  message: AgentSessionMessageRow
-): message is SearchableAgentSessionMessageRow {
+  message: ThreadMessageRow
+): message is SearchableThreadMessageRow {
   return (
     message.role === "assistant" ||
     message.role === "system" ||
@@ -60,8 +60,8 @@ function isSearchableMessage(
  * treats that as "remove from index").
  */
 export function buildChatSessionSearchText(
-  session: AgentSessionRow,
-  messages: AgentSessionMessageRow[]
+  session: ThreadRow,
+  messages: ThreadMessageRow[]
 ): string {
   const transcript = messages
     .filter(isSearchableMessage)

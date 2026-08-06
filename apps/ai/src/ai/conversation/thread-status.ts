@@ -1,16 +1,16 @@
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
-import type { AgentSessionStatus } from "../../dal/agent-sessions/types.js";
+import type { ThreadStore } from "../../dal/threads/index.js";
+import type { AgentSessionStatus } from "../../dal/threads/types.js";
 import type { AiSessionScope } from "../sessions/types.js";
 
 /** Persist thread status for session-list indicators (best-effort). */
 export async function patchThreadStatus(input: {
   scope: AiSessionScope;
   status: AgentSessionStatus;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
 }): Promise<void> {
   try {
-    await input.store.updateSessionForUser({
+    await input.store.updateThreadForUser({
       status: input.status,
       tenantId: input.scope.tenantId,
       threadId: input.threadId,

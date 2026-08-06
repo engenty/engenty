@@ -1,11 +1,15 @@
 // UI-4 Part A — Dispatch status endpoint.
 // GET /ai/v1/dispatch/status — returns queue metrics + kill-switch state.
-// Admin-gated: only tenant admins see the platform-wide queue state.
+// Capability-gated on core.ai.dispatch: the platform-wide queue state is a
+// tenant-admin view (members and service credentials hold module-tier
+// capabilities, which do not cover core.*).
 
 import type { QueueService } from "@engenty/queue";
 import { createLogger } from "@engenty/telemetry";
 import type { Hono } from "hono";
+import { scopeCoversCapability } from "../ai/sessions.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import { AI_CAPABILITIES } from "./capabilities.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
 
@@ -30,7 +34,7 @@ export function registerDispatchRoutes(
       if (!resolved.ok) {
         return resolved.response;
       }
-      if (!resolved.scope.isTenantAdmin) {
+      if (!scopeCoversCapability(resolved.scope, AI_CAPABILITIES.dispatch)) {
         return c.json({ error: "dispatch.forbidden" }, 403);
       }
 
@@ -60,7 +64,12 @@ export function registerDispatchRoutes(
         return c.json({ enabled, queue: null });
       }
     } catch (err) {
-      return handleRouteError(c, err, "dispatch.status");
+      return handleRouteError(
+        c,
+        "failed to read dispatch status",
+        "dispatch.internalError",
+        err
+      );
     }
   });
 }

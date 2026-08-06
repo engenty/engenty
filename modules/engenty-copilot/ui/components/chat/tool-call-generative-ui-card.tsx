@@ -14,7 +14,7 @@ import {
 } from "@engenty/generative-ui";
 import { useQuery } from "@engenty/query-client";
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { listAgentSessionMessages } from "../../../src/lib/agent-session-messages-client.js";
+import { listAgentThreadMessages } from "../../../src/lib/agent-thread-messages-client.js";
 import { agentSessionMessagesQueryKey } from "../../lib/chat/chat-model.js";
 
 interface GenerativeUiSpec {
@@ -184,7 +184,7 @@ export function SubAgentSessionToolCallCard(props: ToolCallCardProps) {
   const messagesQuery = useQuery({
     enabled: Boolean(subSessionId && ai.isTransportReady),
     queryFn: ({ signal }) =>
-      listAgentSessionMessages({
+      listAgentThreadMessages({
         limit: 50,
         serviceBaseUrl: ai.serviceBaseUrl,
         threadId: subSessionId ?? "",

@@ -112,6 +112,72 @@ describe("AG-UI conversation reducer", () => {
     ]);
   });
 
+  it("streams a role:user text trio as a user message", () => {
+    // The run stream echoes the user turn (AG-UI TEXT_MESSAGE_START role
+    // union) so windows attached to the run render the user bubble live.
+    let state = emptyState();
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_START",
+      messageId: "user-1",
+      role: "user",
+    });
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_CONTENT",
+      messageId: "user-1",
+      delta: "hallo welt",
+    });
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_END",
+      messageId: "user-1",
+    });
+
+    expect(state.messages).toEqual([
+      { id: "user-1", role: "user", content: "hallo welt" },
+    ]);
+  });
+
+  it("defaults a missing or unknown role to assistant", () => {
+    let state = emptyState();
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_START",
+      messageId: "m-1",
+    });
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_START",
+      messageId: "m-2",
+      role: "robot",
+    });
+    expect(state.messages).toEqual([
+      { id: "m-1", role: "assistant", content: "" },
+      { id: "m-2", role: "assistant", content: "" },
+    ]);
+  });
+
+  it("keeps user messages write-once against the stream echo", () => {
+    // The SENDING window already holds the optimistic user message under the
+    // same id — the echo's delta must not double its text.
+    let state = {
+      ...emptyState(),
+      messages: [
+        { id: "user-1", role: "user" as const, content: "hallo welt" },
+      ],
+    };
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_START",
+      messageId: "user-1",
+      role: "user",
+    });
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_CONTENT",
+      messageId: "user-1",
+      delta: "hallo welt",
+    });
+
+    expect(state.messages).toEqual([
+      { id: "user-1", role: "user", content: "hallo welt" },
+    ]);
+  });
+
   it("replaces optimistic messages with authoritative snapshots", () => {
     const state = reduceEngentyAgUiConversationEvent(
       {

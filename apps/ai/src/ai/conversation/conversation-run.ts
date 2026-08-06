@@ -20,8 +20,8 @@ import {
   engentyToolsRunAls,
   getEngentyToolsRunContext,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
-import type { AgentSessionStore } from "../../dal/agent-sessions/index.js";
-import type { AgentSessionStatus } from "../../dal/agent-sessions/types.js";
+import type { AgentRunStore, ThreadStore } from "../../dal/threads/index.js";
+import type { AgentSessionStatus } from "../../dal/threads/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
 import {
@@ -37,6 +37,7 @@ import {
   markRunLive,
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
+import { createSessionRunTracker } from "../sessions/run-tracking.js";
 import { buildSessionRuntimeInstructions } from "../sessions/runtime-instructions.js";
 import {
   isDecisionArtifactPayload,
@@ -145,15 +146,23 @@ export interface StartConversationRunInput {
   routeContext?: Record<string, unknown> | null;
   runContext?: RunAgentInput["context"];
   runId: string;
+  // Durable run tracking (ai.agent_run + ai.agent_run_event). Without it the
+  // run executes fine but is INVISIBLE to reload-recovery and other windows:
+  // no run row to discover, no event log to replay.
+  runStore?: AgentRunStore | null;
   // The run's sandbox providers — torn down when the run ends so the sandbox
   // syncOut persists the staged /shared + /home dirs to file storage. Without
   // this the CLI sub-agent's writes never reach durable storage.
   sandboxProvider?: EngentySandboxProvider;
   scope: AiSessionScope;
   sessionMetadata?: Record<string, unknown>;
-  store: AgentSessionStore;
+  store: ThreadStore;
   threadId: string;
   usageStore?: AiUsageStore | null;
+  // Client-assigned id of this turn's user message. Emitted into the run event
+  // stream so other attached windows can render the user bubble live — the
+  // durable message row only lands at the end-of-turn coalescer flush.
+  userMessageId?: string | null;
   workspace?: Workspace;
 }
 
@@ -166,12 +175,52 @@ export async function startConversationRun(
 ): Promise<{ runId: string }> {
   markRunLive(input.runId);
   const abort = registerActiveRunAbortController(input.runId);
+  // With a run store, the tracker owns publishing: `append` forwards to the
+  // in-process bus with the SAME seq it persists to ai.agent_run_event, so a
+  // reload (or another window) can list the run and replay `?since=`.
+  const tracker = input.runStore
+    ? createSessionRunTracker({
+        agentId: input.agentId,
+        createdByUserId: input.scope.userId,
+        modelId: input.modelId ?? null,
+        runId: input.runId,
+        runStore: input.runStore,
+        threadId: input.threadId,
+        tenantId: input.scope.tenantId,
+      })
+    : null;
   let seq = 0;
-  const emit = (event: AGUIEvent) =>
-    publishRunEvent(input.runId, { event, seq: seq++ });
+  const emit = tracker
+    ? (event: AGUIEvent) => {
+        void tracker.append(event);
+      }
+    : (event: AGUIEvent) => publishRunEvent(input.runId, { event, seq: seq++ });
   emit({ runId: input.runId, threadId: input.threadId, type: "RUN_STARTED" });
+  // The user turn, for OTHER attached clients (reload, second window), as the
+  // protocol-native role:"user" text message (AG-UI TEXT_MESSAGE_START carries
+  // a role union). The sending client already renders it optimistically and
+  // never attaches to its own run; attachers dedupe by message id.
+  if (input.userMessageId && input.prompt) {
+    emit({
+      messageId: input.userMessageId,
+      role: "user",
+      type: "TEXT_MESSAGE_START",
+    } as AGUIEvent);
+    emit({
+      delta: input.prompt,
+      messageId: input.userMessageId,
+      type: "TEXT_MESSAGE_CONTENT",
+    } as AGUIEvent);
+    emit({
+      messageId: input.userMessageId,
+      type: "TEXT_MESSAGE_END",
+    } as AGUIEvent);
+  }
 
   let controller: ConversationController | null = null;
+  // The converter is built inside the try; the finally reads its usage for the
+  // durable run row.
+  let converterRef: SessionAgUiConverter | null = null;
   // Set when a frontend tool suspends and we park the session for resume — guards
   // the finally from destroying the parked controller.
   let parkedForResume = false;
@@ -187,6 +236,7 @@ export async function startConversationRun(
       ...(input.attachmentParts && input.attachmentParts.length > 0
         ? { userAttachmentParts: input.attachmentParts }
         : {}),
+      ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
     });
     const mergedDefinitions = mergeFrontendToolDefinitions(
       input.agentUi?.frontend_tools,
@@ -196,6 +246,7 @@ export async function startConversationRun(
     // Built early so the delegation tools' onProgress can fold lines onto the
     // sub-agent card (recordSubAgentProgress) and tag live progress events.
     const converter = new SessionAgUiConverter();
+    converterRef = converter;
     // Phase 3 — child-run delegation: expose one `agent-<alias>` tool per declared
     // sub-agent that spawns it as its own child run, and skip the in-process Mastra
     // subagent mechanism so there is a single delegation path.
@@ -540,6 +591,33 @@ export async function startConversationRun(
     threadStatus = "failed";
   } finally {
     await patchThreadStatus({ ...input, status: threadStatus });
+    if (tracker) {
+      // Close the durable run row so recovery/other windows see a settled run.
+      // "waiting" (parked suspend or decision/feedback artifact) maps to
+      // requires_action: the turn ended awaiting human input — recovery must
+      // NOT treat it as in-flight (the interrupt card re-renders from thread
+      // metadata, not from an attached stream).
+      const usage = usageFromSession(converterRef?.lastUsage);
+      await tracker
+        .complete({
+          status:
+            threadStatus === "waiting"
+              ? "requires_action"
+              : threadStatus === "failed"
+                ? "failed"
+                : abort.abortSignal.aborted
+                  ? "cancelled"
+                  : "completed",
+          completionTokens: usage?.output ?? null,
+          promptTokens: usage?.input ?? null,
+        })
+        .catch((error) => {
+          console.error(
+            `[conversation ${input.runId}] run tracking finish failed:`,
+            error
+          );
+        });
+    }
     abort.cleanup();
     markRunDone(input.runId);
     // Tear down the run's root sandbox — destroy() runs syncOut, persisting staged

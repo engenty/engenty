@@ -1,8 +1,8 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { Dispatch, SetStateAction } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
-import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
-import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
+import type { FieldSuggestion } from "../interrupts/hitl-approval-card.js";
+import type { CopilotPanelContentProps } from "../panel/copilot-panel-content.js";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
 
 /** Session API supplied by host (`useAgentHost` + `useCopilotThreadActions`); drawer does not own thread persistence. */

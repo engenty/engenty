@@ -38,6 +38,7 @@ export function registerEngentyCopilotToolCallUi() {
     priority: 40,
     match: (ctx) => matchesGenerativeUiOutput(ctx.output),
     Card: ToolCallGenerativeUiCard,
+    standalone: true,
   });
 
   registerToolCallUi({
@@ -52,5 +53,6 @@ export function registerEngentyCopilotToolCallUi() {
     priority: 45,
     match: (ctx) => matchesArtifactToolCall(ctx),
     Card: ArtifactToolCallCard,
+    standalone: true,
   });
 }
