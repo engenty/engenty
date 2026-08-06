@@ -9,7 +9,9 @@ import { resolveEngentyWorkspaceFsMode } from "./workspace-fs-mode.js";
 export type EngentyWorkspaceFsProvider = "supabase";
 
 export function resolveEngentyWorkspaceFsProvider(
-  env: Pick<NodeJS.ProcessEnv, "ENGENTY_WORKSPACE_FS_PROVIDER"> = process.env
+  env: Partial<
+    Pick<NodeJS.ProcessEnv, "ENGENTY_WORKSPACE_FS_PROVIDER">
+  > = process.env
 ): EngentyWorkspaceFsProvider {
   const raw = env.ENGENTY_WORKSPACE_FS_PROVIDER?.trim().toLowerCase();
   if (!raw || raw === "supabase") {

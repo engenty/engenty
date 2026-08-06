@@ -138,6 +138,7 @@ describe("interrupt helpers", () => {
       buildFrontendToolInterruptOutcome({
         kind: "frontend_tool",
         interruptId: "call-1",
+        runId: "run-1",
         title: "Apply patch",
         toolCallId: "call-1",
         toolName: "contacts_apply_draft_patch",

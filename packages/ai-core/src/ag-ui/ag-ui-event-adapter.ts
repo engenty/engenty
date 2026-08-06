@@ -5,7 +5,10 @@ import type {
   FrontendToolCallRequest,
   FrontendToolCallResult,
 } from "@engenty/ag-ui-bridge";
-import { encodeAgUiSseEvent as encodeOfficialAgUiSseEvent } from "@engenty/ag-ui-bridge";
+import {
+  EventType,
+  encodeAgUiSseEvent as encodeOfficialAgUiSseEvent,
+} from "@engenty/ag-ui-bridge";
 import type { RuntimeProgressEvent } from "./events.js";
 
 export interface AgUiEventAdapterContext {
@@ -37,12 +40,12 @@ export function runtimeProgressToAgUiEvent(
   switch (event.type) {
     case "run.started":
       return withThreadId(
-        { runId: event.run_id, type: "RUN_STARTED" },
+        { runId: event.run_id, type: EventType.RUN_STARTED } as AGUIEvent,
         context
       );
     case "run.completed":
       return withThreadId(
-        { runId: event.run_id, type: "RUN_FINISHED" },
+        { runId: event.run_id, type: EventType.RUN_FINISHED } as AGUIEvent,
         context
       );
     case "run.failed":
@@ -50,32 +53,32 @@ export function runtimeProgressToAgUiEvent(
         {
           message: event.error,
           runId: event.run_id,
-          type: "RUN_ERROR",
+          type: EventType.RUN_ERROR,
         },
         context
       );
     case "context.loaded":
       return {
         name: "engenty.context.loaded",
-        type: "CUSTOM",
+        type: EventType.CUSTOM,
         value: event,
       };
     case "coordinator.decision":
       return {
         name: "engenty.coordinator.decision",
-        type: "CUSTOM",
+        type: EventType.CUSTOM,
         value: event,
       };
     case "tool.started":
       return {
         name: "engenty.tool.started",
-        type: "CUSTOM",
+        type: EventType.CUSTOM,
         value: event,
       };
     case "tool.finished":
       return {
         name: "engenty.tool.finished",
-        type: "CUSTOM",
+        type: EventType.CUSTOM,
         value: event,
       };
   }
@@ -84,11 +87,11 @@ export function runtimeProgressToAgUiEvent(
 export function stateSnapshotToAgUiEvent(
   state: AgentUiStateSnapshotV1
 ): AGUIEvent {
-  return { snapshot: state, type: "STATE_SNAPSHOT" };
+  return { snapshot: state, type: EventType.STATE_SNAPSHOT };
 }
 
 export function stateDeltaToAgUiEvent(delta: AgentUiStateDeltaV1): AGUIEvent {
-  return { delta: delta.operations, type: "STATE_DELTA" };
+  return { delta: delta.operations, type: EventType.STATE_DELTA };
 }
 
 export function frontendToolCallToAgUiEvents(
@@ -96,17 +99,17 @@ export function frontendToolCallToAgUiEvents(
 ): AGUIEvent[] {
   return [
     {
-      type: "TOOL_CALL_START",
+      type: EventType.TOOL_CALL_START,
       toolCallId: request.call_id,
       toolCallName: request.tool_name,
     },
     {
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: request.call_id,
       delta: stringifyToolContent(request.input ?? {}),
     },
     {
-      type: "TOOL_CALL_END",
+      type: EventType.TOOL_CALL_END,
       toolCallId: request.call_id,
     },
   ];
@@ -116,10 +119,10 @@ export function frontendToolResultToAgUiEvent(
   result: FrontendToolCallResult
 ): AGUIEvent {
   return {
-    type: "TOOL_CALL_RESULT",
+    type: EventType.TOOL_CALL_RESULT,
     toolCallId: result.call_id,
     content: stringifyToolContent(result),
-  };
+  } as AGUIEvent;
 }
 
 export function encodeAgUiSseEvent(event: AGUIEvent): string {

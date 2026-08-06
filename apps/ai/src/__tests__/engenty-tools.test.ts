@@ -3,6 +3,7 @@ import {
   describeEngentyTool,
   discoverEngentyTools,
   type EngentyToolsClient,
+  type EngentyToolsClientResult,
   executeEngentyTool,
   getEngentyToolsContext,
   listEngentyToolModules,
@@ -97,14 +98,17 @@ const defaultWorkspaceContext = {
   userId: "user-1",
 };
 
-function createTestClient(overrides: Partial<EngentyToolsClient> = {}) {
+function createTestClient(
+  overrides: Partial<EngentyToolsClient> = {}
+): EngentyToolsClientResult {
   return {
-    ok: true as const,
+    ok: true,
     client: {
       describeTool: async () => contactsListContract,
       getWorkspaceContext: async () => defaultWorkspaceContext,
       invokeTool: async <_TInput, TResult>() => ({}) as TResult,
       listAiAgents: async () => ({ agents: [] }),
+      listModuleCapabilitySeeds: async () => ({ capabilities: [] }),
       listPlugins: async () => [],
       listToolContracts: async () => [],
       ...overrides,
@@ -171,6 +175,12 @@ describe("Engenty Mastra tools helpers", () => {
           },
         ],
       });
+      // searchEngentyTools returns a union whose error members carry no
+      // `matches`; narrow rather than cast so a regression to the error
+      // envelope fails here instead of silently reading undefined.
+      if (!("matches" in result)) {
+        throw new Error(`expected a match envelope, got ${result.code}`);
+      }
       expect(result.matches).toHaveLength(1);
     } finally {
       if (originalGatewayKey === undefined) {
@@ -384,7 +394,8 @@ describe("Engenty Mastra tools helpers", () => {
       { id: "kb_search", input: { query: "Förderungen", limit: 10 } },
       createTestClient({
         describeTool: async () => kbSearchContract,
-        invokeTool: async () => ({ error: "No knowledge base found" }),
+        invokeTool: async <_TInput, TResult>() =>
+          ({ error: "No knowledge base found" }) as TResult,
       })
     );
 

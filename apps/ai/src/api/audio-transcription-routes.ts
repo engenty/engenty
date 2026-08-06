@@ -43,7 +43,12 @@ export function registerAudioTranscriptionRoutes(
       });
       return c.json({ text: result.text });
     } catch (error) {
-      return handleRouteError(c, error);
+      return handleRouteError(
+        c,
+        "audio transcription failed",
+        "audio.transcriptionFailed",
+        error
+      );
     }
   });
 }

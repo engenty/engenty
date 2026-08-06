@@ -4,7 +4,13 @@ import {
   withTranscriptMetadata,
 } from "./ag-ui-messages.js";
 
-type Message = RunAgentInput["messages"][number];
+type AgUiMessageBase = RunAgentInput["messages"][number];
+
+type Message = AgUiMessageBase & {
+  metadata?: Record<string, unknown>;
+};
+
+type AssistantMessage = Extract<Message, { role: "assistant" }>;
 
 export interface MastraUiMessagePart {
   error?: string;
@@ -114,8 +120,8 @@ function resolveToolCallId(
 
 function toolPartsToAgUiToolCalls(
   parts: MastraUiMessagePart[]
-): Message["toolCalls"] {
-  const calls: NonNullable<Message["toolCalls"]> = [];
+): AssistantMessage["toolCalls"] {
+  const calls: NonNullable<AssistantMessage["toolCalls"]> = [];
   let toolIndex = 0;
   for (const part of parts) {
     if (!isToolProjectionPart(part)) {
@@ -221,7 +227,9 @@ export function buildAgUiMessagesFromMastraUiMessages(
         ...toolMessage,
         metadata: withTranscriptMetadata(
           {
-            ...(isRecord(toolMessage.metadata) ? toolMessage.metadata : {}),
+            ...(isRecord((toolMessage as { metadata?: unknown }).metadata)
+              ? (toolMessage as { metadata?: Record<string, unknown> }).metadata
+              : {}),
             ...(createdAt ? { created_at: createdAt } : {}),
           },
           nextTranscriptIndex()

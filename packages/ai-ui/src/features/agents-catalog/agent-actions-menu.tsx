@@ -5,7 +5,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@engenty/ui-core";
 import { ExternalLink, Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { AiRegisteredAgent } from "../../lib/admin/ai-runtime-types";
 import {
   buildAgentDetailPath,
@@ -60,11 +60,13 @@ export function AgentActionsMenuItems({
         </DropdownMenuItem>
       ) : null}
       {external ? (
-        <DropdownMenuItem asChild>
-          <Link to={CHATBOT_ADMIN_PATH}>
-            <ExternalLink aria-hidden className="mr-2 size-4" />
-            {t("agentsCatalog.actions.manageInChatbots")}
-          </Link>
+        <DropdownMenuItem
+          onSelect={() => {
+            navigate(CHATBOT_ADMIN_PATH);
+          }}
+        >
+          <ExternalLink aria-hidden className="mr-2 size-4" />
+          {t("agentsCatalog.actions.manageInChatbots")}
         </DropdownMenuItem>
       ) : null}
       {canReset ? (

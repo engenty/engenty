@@ -95,7 +95,10 @@ export function CapabilityCards() {
       </h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <CapabilityCard
-          breakdown={t("overview.capabilities.skillsBreakdown", skillCounts)}
+          breakdown={t("overview.capabilities.skillsBreakdown", {
+            ...skillCounts,
+            defaultValue: "{{managed}} managed · {{custom}} custom",
+          })}
           count={skillCounts.total}
           emptyHint={t("overview.capabilities.skillsEmpty")}
           isLoading={skillsQuery.isLoading}
@@ -113,7 +116,10 @@ export function CapabilityCards() {
           to={TOOLS_ROOT_PATH}
         />
         <CapabilityCard
-          breakdown={t("overview.capabilities.actionsBreakdown", actionCounts)}
+          breakdown={t("overview.capabilities.actionsBreakdown", {
+            ...actionCounts,
+            defaultValue: "{{shipped}} shipped · {{custom}} custom",
+          })}
           count={actionCounts.total}
           emptyHint={t("overview.capabilities.actionsEmpty")}
           isLoading={actionsQuery.isLoading}

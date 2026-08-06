@@ -25,10 +25,11 @@ export async function saveAdminAgentsSidebarNavUserSetting(
   return request<UserSettingHttpResponse>(
     `/api/user-settings/${encodeURIComponent(ADMIN_AGENTS_SIDEBAR_NAV_USER_SETTING_NAME)}`,
     {
-      body: {
+      body: JSON.stringify({
         type: "json",
         value_jsonb: state,
-      },
+      }),
+      headers: { "Content-Type": "application/json" },
       method: "PATCH",
     }
   );

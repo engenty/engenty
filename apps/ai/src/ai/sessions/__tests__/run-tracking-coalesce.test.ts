@@ -1,3 +1,4 @@
+import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it, vi } from "vitest";
 import { createSessionRunTracker } from "../run-tracking.js";
 
@@ -45,17 +46,17 @@ describe("run-tracking coalescing boundaries", () => {
     const tracker = makeTracker(runStore);
 
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "a",
       messageId: "m1",
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "b",
       messageId: "m1",
     });
     // TEXT_MESSAGE_END is non-text → flush
-    await tracker.append({ type: "TEXT_MESSAGE_END", messageId: "m1" });
+    await tracker.append({ type: EventType.TEXT_MESSAGE_END, messageId: "m1" });
     await tracker.complete({ status: "completed" });
 
     const textRows = persisted.filter(
@@ -70,22 +71,22 @@ describe("run-tracking coalescing boundaries", () => {
     const tracker = makeTracker(runStore);
 
     await tracker.append({
-      type: "RUN_STARTED",
+      type: EventType.RUN_STARTED,
       runId: RUN_ID,
       threadId: THREAD_ID,
     });
     // seq=1 is the first text delta
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "x",
       messageId: "m1",
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "y",
       messageId: "m1",
     });
-    await tracker.append({ type: "TEXT_MESSAGE_END", messageId: "m1" });
+    await tracker.append({ type: EventType.TEXT_MESSAGE_END, messageId: "m1" });
     await tracker.complete({ status: "completed" });
 
     const textRow = persisted.find(
@@ -99,13 +100,13 @@ describe("run-tracking coalescing boundaries", () => {
     const tracker = makeTracker(runStore);
 
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "m1",
       messageId: "msg-1",
     });
     // Different messageId → flush msg-1 burst, start msg-2
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "m2",
       messageId: "msg-2",
     });
@@ -127,18 +128,18 @@ describe("run-tracking coalescing boundaries", () => {
     const chunk1 = "a".repeat(2047);
     const chunk2 = "b"; // 2047+1 = 2048 → auto-flush
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: chunk1,
       messageId: "m1",
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: chunk2,
       messageId: "m1",
     });
     // One more delta after the flush
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "c",
       messageId: "m1",
     });
@@ -158,7 +159,7 @@ describe("run-tracking coalescing boundaries", () => {
     const tracker = makeTracker(runStore);
 
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "partial",
       messageId: "m1",
     });
@@ -176,21 +177,21 @@ describe("run-tracking coalescing boundaries", () => {
     const tracker = makeTracker(runStore);
 
     await tracker.append({
-      type: "RUN_STARTED",
+      type: EventType.RUN_STARTED,
       runId: RUN_ID,
       threadId: THREAD_ID,
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "hello",
       messageId: "m1",
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: " world",
       messageId: "m1",
     });
-    await tracker.append({ type: "TEXT_MESSAGE_END", messageId: "m1" });
+    await tracker.append({ type: EventType.TEXT_MESSAGE_END, messageId: "m1" });
     await tracker.complete({ status: "completed" });
 
     const seqs = persisted.map((r) => r.seq);

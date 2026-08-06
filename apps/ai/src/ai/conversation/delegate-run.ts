@@ -13,7 +13,7 @@
 // The session construction shares the parent executor's hard-won recipe (top-level
 // `config.agent`, `yolo` to disable the redundant native gate, memory adapter) — see
 // createConversationSession for the rationale behind each.
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
 import {
   type FieldSuggestion,
   fieldSuggestionsToolOutputToCreatedValue,
@@ -234,7 +234,7 @@ export async function runDelegatedConversation(
     void tracker.append({
       runId: input.childRunId,
       threadId: input.childThreadId,
-      type: "RUN_STARTED",
+      type: EventType.RUN_STARTED,
     } as AGUIEvent);
   }
   try {
@@ -402,7 +402,7 @@ export async function runDelegatedConversation(
       if (result.error) {
         await tracker.append({
           message: result.error,
-          type: "RUN_ERROR",
+          type: EventType.RUN_ERROR,
         } as AGUIEvent);
         await tracker.complete({
           errorMessage: result.error,
@@ -433,13 +433,13 @@ export async function runDelegatedConversation(
         }
         await tracker.append({
           message: "run_suspended",
-          type: "RUN_ERROR",
+          type: EventType.RUN_ERROR,
         } as AGUIEvent);
       } else {
         await tracker.append({
           runId: input.childRunId,
           threadId: input.childThreadId,
-          type: "RUN_FINISHED",
+          type: EventType.RUN_FINISHED,
         } as AGUIEvent);
         await tracker.complete({ status: "completed" });
       }
@@ -453,7 +453,7 @@ export async function runDelegatedConversation(
     if (tracker) {
       await tracker.append({
         message: result.error,
-        type: "RUN_ERROR",
+        type: EventType.RUN_ERROR,
       } as AGUIEvent);
       await tracker.complete({
         errorMessage: result.error,

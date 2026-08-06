@@ -8,6 +8,7 @@ import {
   resolvePurposeModelId,
   resolveSafeguardModelId,
 } from "@engenty/ai-core";
+import type { AiGatewayModelStore } from "../../gateway-models.js";
 import type { RuntimeModelConfig } from "../registry/index.js";
 import type { AiSessionScope, ThreadServiceOptions } from "./types.js";
 
@@ -31,10 +32,16 @@ export async function resolveRuntimeModelConfig(
   );
   let bindings: ModelBindings | undefined;
   try {
-    const rows = await opts.getUsageStore()?.listModelBindings?.();
+    // The concrete usage store also implements AiGatewayModelStore; the
+    // AiUsageStore port it is typed as does not declare that half.
+    const store = opts.getUsageStore() as
+      | (ReturnType<ThreadServiceOptions["getUsageStore"]> &
+          Partial<AiGatewayModelStore>)
+      | null;
+    const rows = await store?.listModelBindings?.();
     if (rows && rows.length > 0) {
       bindings = bindingsFromList(
-        rows.map((r) => ({
+        rows.map((r: { gateway: string; model_id: string; role: string }) => ({
           gateway: r.gateway,
           modelId: r.model_id,
           role: r.role,

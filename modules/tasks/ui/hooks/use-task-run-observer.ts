@@ -303,9 +303,7 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
               if (outcome?.type === "interrupt") {
                 setRunRecordStatus("waiting_for_input");
               } else {
-                setRunRecordStatus(
-                  outcome?.type === "failed" ? "failed" : "succeeded"
-                );
+                setRunRecordStatus("succeeded");
                 options.onRunComplete?.();
               }
             }

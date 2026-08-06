@@ -1,6 +1,7 @@
 import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
+import type { EngentyAgUiMessage } from "../conversation.js";
 import {
   buildRecoveryMessagesSnapshotEvent,
   coalesceRunEventText,
@@ -111,12 +112,12 @@ describe("apps-ai-run-recovery-gating", () => {
     const user = {
       id: "u1",
       role: "user" as const,
-      content: [{ type: "text" as const, text: "hi" }],
+      content: "hi",
     };
     const partialAssistant = {
       id: "a1",
       role: "assistant" as const,
-      content: [{ type: "text" as const, text: "partial reply" }],
+      content: "partial reply",
     };
     expect(
       shouldApplyRecoveryMessagesSnapshot({
@@ -143,7 +144,7 @@ describe("apps-ai-run-recovery-gating", () => {
           {
             id: "a-live",
             role: "assistant",
-            content: [{ type: "text", text: "short" }],
+            content: "short",
           },
         ],
         snapshotMessages: [
@@ -151,7 +152,7 @@ describe("apps-ai-run-recovery-gating", () => {
           {
             id: "a-db",
             role: "assistant",
-            content: [{ type: "text", text: "longer partial reply" }],
+            content: "longer partial reply",
           },
         ],
       })
@@ -165,7 +166,7 @@ describe("apps-ai-run-recovery-gating", () => {
           {
             id: "user-1",
             role: "user",
-            content: [{ type: "text", text: "pick a color" }],
+            content: "pick a color",
           },
           {
             id: "tool-decision",
@@ -187,7 +188,7 @@ describe("apps-ai-run-recovery-gating", () => {
           {
             id: "user-1",
             role: "user",
-            content: [{ type: "text", text: "pick a color" }],
+            content: "pick a color",
           },
           {
             id: "assistant-1",
@@ -374,7 +375,7 @@ describe("apps-ai-run-recovery-gating", () => {
 
   it("builds a MESSAGES_SNAPSHOT event for recovery apply", () => {
     const snapshot = buildRecoveryMessagesSnapshotEvent([
-      { id: "u1", role: "user", content: [{ type: "text", text: "hi" }] },
+      { id: "u1", role: "user", content: "hi" },
     ]);
     expect(snapshot.type).toBe(EventType.MESSAGES_SNAPSHOT);
     expect(
@@ -410,8 +411,12 @@ describe("apps-ai-run-recovery-gating", () => {
   });
 
   it("detects when transcript ends with a user message (no assistant yet)", () => {
-    const user = { id: "u1", role: "user" as const, content: [] };
-    const assistant = { id: "a1", role: "assistant" as const, content: [] };
+    const user = {
+      id: "u1",
+      role: "user" as const,
+      content: [{ type: "text" as const, text: "hi" }],
+    };
+    const assistant = { id: "a1", role: "assistant" as const, content: "" };
     expect(transcriptMissingAssistantMessage([user])).toBe(true);
     expect(transcriptMissingAssistantMessage([user, assistant])).toBe(false);
     expect(transcriptMissingAssistantMessage([])).toBe(false);
@@ -462,13 +467,24 @@ describe("apps-ai-run-recovery-gating", () => {
   describe("partitionSnapshotForRunAttach", () => {
     const withCreatedAt = (
       id: string,
-      role: "assistant" | "user",
+      role: "user",
       createdAt: string | null,
       text = "text"
-    ) => ({
+    ): EngentyAgUiMessage => ({
       id,
       role,
       content: [{ type: "text" as const, text }],
+      ...(createdAt ? { metadata: { created_at: createdAt } } : {}),
+    });
+
+    const withAssistantCreatedAt = (
+      id: string,
+      createdAt: string | null,
+      text = "text"
+    ): EngentyAgUiMessage => ({
+      id,
+      role: "assistant",
+      content: text,
       ...(createdAt ? { metadata: { created_at: createdAt } } : {}),
     });
 
@@ -476,11 +492,10 @@ describe("apps-ai-run-recovery-gating", () => {
       const { kept, replayOwned } = partitionSnapshotForRunAttach({
         messages: [
           withCreatedAt("prev-user", "user", "2026-01-01T00:00:00.000Z"),
-          withCreatedAt("prev-assistant", "assistant", "2026-01-01T00:00:05Z"),
+          withAssistantCreatedAt("prev-assistant", "2026-01-01T00:00:05Z"),
           withCreatedAt("turn-user", "user", "2026-01-01T00:01:00.100Z"),
-          withCreatedAt(
+          withAssistantCreatedAt(
             "turn-partial-assistant",
-            "assistant",
             "2026-01-01T00:01:02Z",
             "Step one"
           ),
@@ -501,9 +516,8 @@ describe("apps-ai-run-recovery-gating", () => {
       const { kept, replayOwned } = partitionSnapshotForRunAttach({
         messages: [
           withCreatedAt("turn-user", "user", "2026-01-01T00:01:00Z"),
-          withCreatedAt(
+          withAssistantCreatedAt(
             "pre-suspend-assistant",
-            "assistant",
             "2026-01-01T00:01:05Z",
             "before the frontend tool"
           ),
@@ -520,8 +534,8 @@ describe("apps-ai-run-recovery-gating", () => {
 
     it("keeps everything when the run start or row timestamp is unusable", () => {
       const messages = [
-        withCreatedAt("no-timestamp", "assistant", null),
-        withCreatedAt("dated", "assistant", "2026-01-01T00:05:00Z"),
+        withAssistantCreatedAt("no-timestamp", null),
+        withAssistantCreatedAt("dated", "2026-01-01T00:05:00Z"),
       ];
       expect(
         partitionSnapshotForRunAttach({ messages, runStartedAt: null })
@@ -546,12 +560,12 @@ describe("apps-ai-run-recovery-gating", () => {
     const user = {
       id: "u1",
       role: "user" as const,
-      content: [{ type: "text" as const, text: "hi" }],
+      content: "hi",
     };
     const assistant = (id: string, text: string) => ({
       id,
       role: "assistant" as const,
-      content: [{ type: "text" as const, text }],
+      content: text,
     });
 
     it("heals a lane holding BOTH copies of the turn (id split duplicate)", () => {

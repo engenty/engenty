@@ -100,6 +100,7 @@ export function AgentsWorkspaceActionsPanel({
   const [groupBy, setGroupBy] = useState<ActionGroupBy>("none");
   const [sourceFilter, setSourceFilter] = useState<ActionSourceFilter>("all");
   const [sortOrder, setSortOrder] = useState<ActionSortOrder>("asc");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const searchLower = search.trim().toLowerCase();
   const searchActive = searchLower.length > 0;
@@ -145,7 +146,21 @@ export function AgentsWorkspaceActionsPanel({
   }, [filtered, groupBy, t]);
 
   const filterPopover = (
-    <Popover>
+    <Popover
+      onOpenChange={(open, eventDetails) => {
+        if (
+          !open &&
+          eventDetails.reason === "outside-press" &&
+          eventDetails.event.target instanceof Element &&
+          eventDetails.event.target.closest('[data-slot="select-content"]')
+        ) {
+          eventDetails.cancel();
+          return;
+        }
+        setFilterOpen(open);
+      }}
+      open={filterOpen}
+    >
       <PopoverTrigger asChild>
         <Button
           aria-label={t("workspace.sidebarFilterToggle")}
@@ -160,14 +175,6 @@ export function AgentsWorkspaceActionsPanel({
       <PopoverContent
         align="start"
         className="z-[100] w-[280px] overflow-hidden rounded-lg p-0"
-        onPointerDownOutside={(e) => {
-          if (
-            e.target instanceof Element &&
-            e.target.closest('[data-slot="select-content"]')
-          ) {
-            e.preventDefault();
-          }
-        }}
       >
         <div className="space-y-1.5 p-3">
           <div className="font-medium text-muted-foreground text-xs">

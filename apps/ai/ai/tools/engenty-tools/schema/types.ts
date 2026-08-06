@@ -1,5 +1,6 @@
 import type {
   EngentyCoreAiAgentListItem,
+  EngentyCoreModuleCapabilitySeed,
   EngentyPluginListItem,
   EngentyToolContract,
   EngentyWorkspaceContext,
@@ -48,6 +49,9 @@ export interface EngentyToolsClient {
   listAiAgents(
     moduleId?: string | null
   ): Promise<{ agents: EngentyCoreAiAgentListItem[] }>;
+  listModuleCapabilitySeeds(): Promise<{
+    capabilities: EngentyCoreModuleCapabilitySeed[];
+  }>;
   listPlugins(tenantId?: string | null): Promise<EngentyPluginListItem[]>;
   listToolContracts(): Promise<EngentyToolContract[]>;
 }

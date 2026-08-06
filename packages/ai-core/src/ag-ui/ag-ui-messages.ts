@@ -2,7 +2,13 @@
 // Row-based builders remain for HTTP list endpoints; harness snapshots prefer MessageList.
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 
-type Message = RunAgentInput["messages"][number];
+type AgUiMessageBase = RunAgentInput["messages"][number];
+
+type Message = AgUiMessageBase & {
+  metadata?: Record<string, unknown>;
+};
+
+type AssistantMessage = Extract<Message, { role: "assistant" }>;
 
 export interface PersistedAgUiSessionMessageRecord {
   author_user_id?: string | null;
@@ -245,16 +251,18 @@ function dynamicToolPartsToToolResultMessages(
       content: safeStringify(normalized.output),
       ...(createdAt ? { metadata: { created_at: createdAt } } : {}),
       ...(state === "output-error" ? { error: true } : {}),
-    } as Message);
+    } as unknown as Message);
   }
   return messages;
 }
 
-function dynamicToolPartsToToolCalls(parts: unknown): Message["toolCalls"] {
+function dynamicToolPartsToToolCalls(
+  parts: unknown
+): AssistantMessage["toolCalls"] {
   if (!Array.isArray(parts)) {
     return;
   }
-  const calls: NonNullable<Message["toolCalls"]> = [];
+  const calls: NonNullable<AssistantMessage["toolCalls"]> = [];
   let toolIndex = 0;
   for (const part of parts) {
     if (!isRecord(part)) {

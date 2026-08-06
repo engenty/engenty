@@ -4,6 +4,18 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "16b4567",
+        "message": "export missing composer types, drop stale test suppressions",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.101",
+    "timestamp": 1786015227,
+    "commits": [
+      {
         "id": "ea4a823",
         "message": "commit missing AgentUiContextLike interface",
         "group": "Fixed",

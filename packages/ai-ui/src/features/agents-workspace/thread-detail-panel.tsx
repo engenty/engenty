@@ -27,7 +27,7 @@ import { ThreadTranscriptMessages } from "./thread-transcript-messages.js";
 interface ThreadDetailPanelProps {
   agentId: string;
   onThreadDeleted?: (threadId: string) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: { defaultValue?: string }) => string;
   thread: AiAdminThreadRow | null;
 }
 

@@ -160,7 +160,9 @@ export function createEngentyCoreFileStorageClient(
         params.module = uploadOptions.module;
       }
       const response = await fetchBytes("/api/file-storage/files/bytes", {
-        body: data,
+        // Uint8Array is a valid BodyInit at runtime; lib.dom types it as
+        // ArrayBufferView over ArrayBuffer, not ArrayBufferLike.
+        body: data as BodyInit,
         headers: {
           "Content-Type":
             uploadOptions?.contentType ?? "application/octet-stream",

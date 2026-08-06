@@ -124,7 +124,7 @@ describe("EngentyCoreClient", () => {
   it("aborts hung core requests after the configured timeout", async () => {
     vi.useFakeTimers();
     const fetchImpl = vi.fn(
-      (_url: URL, init?: RequestInit) =>
+      (_url: URL | RequestInfo, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
           init?.signal?.addEventListener("abort", () => {
             reject(

@@ -1,13 +1,12 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { ReactNode } from "react";
-import type { CopilotCompactContextOption } from "../copilot-compact-launcher";
-import type { StarterPromptItem } from "../copilot-composer";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { StarterPromptItem } from "../composer/copilot-composer";
+import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
 import type {
   CopilotHeaderChrome,
   CopilotPanelContentProps,
-} from "../copilot-panel-content";
-import { resolveCopilotThreadScopeKey } from "../copilot-thread-scope";
-import type { FieldSuggestion } from "../hitl-approval-card";
+} from "../panel/copilot-panel-content";
 import type { CopilotDrawerInjectedLane } from "./copilot-drawer-injected-lane.js";
 import { formatCopilotRouteStatusLabel } from "./copilot-drawer-utils";
 
@@ -77,10 +76,6 @@ export function buildCopilotDrawerPanelContentProps(
             input.activeCopilotContext?.routeKey ?? input.routeKey
           ),
     title: input.title,
-    threadScopeKey: resolveCopilotThreadScopeKey(
-      input.injected.activeThreadId,
-      input.injected.threadResetKey
-    ),
     error: input.injected.error ?? null,
     messages: input.injected.messages,
     pendingUserInsertIndex: input.injected.pendingUserInsertIndex,
@@ -113,6 +108,8 @@ export function buildCopilotDrawerPanelContentProps(
     isApplying: input.injected.isApplying,
     applyError: input.injected.applyError,
     appliedSuggestions: input.appliedSuggestions,
+    artifactError: null,
+    artifactLoadFailedLabel: "Failed to load suggestions artifact",
     applySelectedLabel: input.applySelectedLabel,
     cancelLabel: input.cancelLabel,
     selectedCountLabel: input.selectedCountLabel,

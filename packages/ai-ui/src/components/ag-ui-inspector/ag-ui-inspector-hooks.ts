@@ -1,10 +1,11 @@
-import { type AGUIEvent, createAgUiSseParser } from "@engenty/ag-ui-bridge";
+import { createAgUiSseParser, EventType } from "@engenty/ag-ui-bridge";
 import {
   getDeveloperModePreference,
   isEngentyDevelopmentEnvironment,
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
 import { useEffect, useState } from "react";
+import type { EngentyAgUiEvent } from "../../ag-ui/conversation.js";
 
 const DEBUG_EVENT_LIMIT = 600;
 
@@ -24,8 +25,11 @@ export function useDeveloperModeEnabled() {
   return enabled;
 }
 
-export function useAgUiDebugEvents(serviceBaseUrl: string, enabled: boolean) {
-  const [events, setEvents] = useState<AGUIEvent[]>([]);
+export function useAgUiDebugEvents(
+  serviceBaseUrl: string,
+  enabled: boolean
+): EngentyAgUiEvent[] {
+  const [events, setEvents] = useState<EngentyAgUiEvent[]>([]);
 
   useEffect(() => {
     if (!(enabled && serviceBaseUrl)) {
@@ -59,7 +63,9 @@ export function useAgUiDebugEvents(serviceBaseUrl: string, enabled: boolean) {
             continue;
           }
           setEvents((current) =>
-            [...current, ...chunkEvents].slice(-DEBUG_EVENT_LIMIT)
+            [...current, ...(chunkEvents as EngentyAgUiEvent[])].slice(
+              -DEBUG_EVENT_LIMIT
+            )
           );
         }
       } catch (error) {
@@ -67,12 +73,12 @@ export function useAgUiDebugEvents(serviceBaseUrl: string, enabled: boolean) {
           setEvents((current) => [
             ...current,
             {
-              type: "RUN_ERROR",
+              type: EventType.RUN_ERROR,
               message:
                 error instanceof Error
                   ? error.message
                   : "AG-UI inspector stream failed",
-            } as AGUIEvent,
+            } as EngentyAgUiEvent,
           ]);
         }
       }

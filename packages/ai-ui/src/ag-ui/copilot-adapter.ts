@@ -1,4 +1,3 @@
-import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import type {
   DynamicToolUIPart,
@@ -12,7 +11,9 @@ import { mergeDynamicToolPartsInOrder } from "./tool-call-merge.js";
 
 type CopilotMessagePart = UIMessagePart<UIDataTypes, UITools>;
 
-type Message = RunAgentInput["messages"][number];
+import type { EngentyAgUiMessage } from "./conversation.js";
+
+type Message = EngentyAgUiMessage;
 
 interface AgUiToolCall {
   function: {
@@ -194,7 +195,7 @@ function parseToolResultMessage(
         : "tool";
     const hasOutput = parsed.output !== undefined;
     const hasError =
-      message.error === true ||
+      (message as { error?: string | boolean }).error === true ||
       parsed.state === "output-error" ||
       typeof parsed.error === "string";
     return {
@@ -567,7 +568,7 @@ function partsFromAgUiMessage(
   }
   if (message.role === "user") {
     if (Array.isArray(message.content)) {
-      return message.content.filter(isUIMessagePart);
+      return message.content.filter(isUIMessagePart) as CopilotMessagePart[];
     }
     return [{ type: "text", text: message.content }];
   }

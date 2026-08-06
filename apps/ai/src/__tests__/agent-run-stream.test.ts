@@ -1,4 +1,4 @@
-import { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
+import { EventType, parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -92,8 +92,8 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
 
   it("replays persisted events and closes for a finished run", async () => {
     const events: StreamEvent[] = [
-      { type: "RUN_STARTED", runId: validRunId, threadId: "t1" },
-      { type: "RUN_FINISHED", runId: validRunId, threadId: "t1" },
+      { type: EventType.RUN_STARTED, runId: validRunId, threadId: "t1" },
+      { type: EventType.RUN_FINISHED, runId: validRunId, threadId: "t1" },
     ];
     const runStore = makeRunStore({
       getRun: vi.fn(async () =>
@@ -124,9 +124,13 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
 
   it("filters with ?since=N — only replays events with seq > N", async () => {
     const allEvents: StreamEvent[] = [
-      { type: "RUN_STARTED", runId: validRunId, threadId: "t1" },
-      { type: "TEXT_MESSAGE_START", messageId: "m1", role: "assistant" },
-      { type: "RUN_FINISHED", runId: validRunId, threadId: "t1" },
+      { type: EventType.RUN_STARTED, runId: validRunId, threadId: "t1" },
+      {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "m1",
+        role: "assistant",
+      },
+      { type: EventType.RUN_FINISHED, runId: validRunId, threadId: "t1" },
     ];
     const runStore = makeRunStore({
       getRun: vi.fn(async () => makeRunRow()),
@@ -179,7 +183,7 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
     const received = await readSseText(res);
     const error = received.find((e) => e.type === "RUN_ERROR");
     expect(error).toMatchObject({
-      type: "RUN_ERROR",
+      type: EventType.RUN_ERROR,
       message: "executor_lost",
     });
   });
@@ -193,19 +197,27 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
     const runId = crypto.randomUUID();
     markRunLive(runId);
     publishRunEvent(runId, {
-      event: { type: "RUN_STARTED", runId, threadId: "t1" },
+      event: { type: EventType.RUN_STARTED, runId, threadId: "t1" },
       seq: 0,
     });
     publishRunEvent(runId, {
-      event: { type: "TEXT_MESSAGE_START", messageId: "m1", role: "user" },
+      event: {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "m1",
+        role: "user",
+      },
       seq: 1,
     });
     publishRunEvent(runId, {
-      event: { type: "TEXT_MESSAGE_CONTENT", messageId: "m1", delta: "hello" },
+      event: {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "m1",
+        delta: "hello",
+      },
       seq: 2,
     });
     publishRunEvent(runId, {
-      event: { type: "TEXT_MESSAGE_END", messageId: "m1" },
+      event: { type: EventType.TEXT_MESSAGE_END, messageId: "m1" },
       seq: 3,
     });
 
@@ -219,7 +231,7 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
 
     setTimeout(() => {
       publishRunEvent(runId, {
-        event: { type: "RUN_FINISHED", runId, threadId: "t1" },
+        event: { type: EventType.RUN_FINISHED, runId, threadId: "t1" },
         seq: 4,
       });
       markRunDone(runId);
@@ -245,11 +257,11 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
     const runId = crypto.randomUUID();
     markRunLive(runId);
     publishRunEvent(runId, {
-      event: { type: "RUN_STARTED", runId, threadId: "t1" },
+      event: { type: EventType.RUN_STARTED, runId, threadId: "t1" },
       seq: 0,
     });
     publishRunEvent(runId, {
-      event: { type: "RUN_FINISHED", runId, threadId: "t1" },
+      event: { type: EventType.RUN_FINISHED, runId, threadId: "t1" },
       seq: 1,
     });
     // markRunDone NOT yet called (tracker.complete still flushing) — the
@@ -294,11 +306,11 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
     // Publish live events slightly after the SSE handler subscribes
     setTimeout(() => {
       publishRunEvent(runId, {
-        event: { type: "RUN_STARTED", runId, threadId: "t1" },
+        event: { type: EventType.RUN_STARTED, runId, threadId: "t1" },
         seq: 0,
       });
       publishRunEvent(runId, {
-        event: { type: "RUN_FINISHED", runId, threadId: "t1" },
+        event: { type: EventType.RUN_FINISHED, runId, threadId: "t1" },
         seq: 1,
       });
       markRunDone(runId);

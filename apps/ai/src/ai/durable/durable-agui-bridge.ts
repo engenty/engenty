@@ -8,7 +8,7 @@
 // covers the core chunk types a durable run emits: text + tool-call + tool-result.
 // Sub-agent/interrupt/frontend-tool handling is layered on later, once the
 // vertical slice is wired.
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
 import {
   formatSubAgentProgressLine,
   isSubAgentDelegationToolName,
@@ -51,7 +51,7 @@ export class DurableAgUiConverter {
     }
     this.#textOpen = true;
     out.push({
-      type: "TEXT_MESSAGE_START",
+      type: EventType.TEXT_MESSAGE_START,
       messageId: this.#messageId,
       role: "assistant",
     });
@@ -59,7 +59,10 @@ export class DurableAgUiConverter {
 
   #endText(out: AGUIEvent[]): void {
     if (this.#textOpen && this.#messageId) {
-      out.push({ type: "TEXT_MESSAGE_END", messageId: this.#messageId });
+      out.push({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: this.#messageId,
+      });
     }
     this.#textOpen = false;
   }
@@ -80,7 +83,7 @@ export class DurableAgUiConverter {
       case "text-delta": {
         this.#ensureTextStarted(out);
         out.push({
-          type: "TEXT_MESSAGE_CONTENT",
+          type: EventType.TEXT_MESSAGE_CONTENT,
           delta: typeof payload.text === "string" ? payload.text : "",
           messageId: this.#messageId,
         });
@@ -114,7 +117,7 @@ export class DurableAgUiConverter {
           this.#activeSubAgentDelegationToolCallId = toolCallId;
         }
         out.push({
-          type: "TOOL_CALL_START",
+          type: EventType.TOOL_CALL_START,
           messageId: this.#messageId || toolCallId,
           toolCallId,
           toolCallName: toolName,
@@ -122,14 +125,14 @@ export class DurableAgUiConverter {
         const input = payload.args ?? payload.input;
         if (input !== undefined) {
           out.push({
-            type: "TOOL_CALL_ARGS",
+            type: EventType.TOOL_CALL_ARGS,
             delta: str(input),
             messageId: this.#messageId || toolCallId,
             toolCallId,
           });
         }
         out.push({
-          type: "TOOL_CALL_END",
+          type: EventType.TOOL_CALL_END,
           messageId: this.#messageId || toolCallId,
           toolCallId,
         });
@@ -142,7 +145,7 @@ export class DurableAgUiConverter {
           break;
         }
         out.push({
-          type: "TOOL_CALL_RESULT",
+          type: EventType.TOOL_CALL_RESULT,
           content: str(payload.result ?? payload.output ?? payload),
           messageId: this.#messageId || toolCallId,
           toolCallId,
@@ -169,7 +172,7 @@ export class DurableAgUiConverter {
           }
           out.push({
             name: "engenty.sub_agent.progress",
-            type: "CUSTOM",
+            type: EventType.CUSTOM,
             value: {
               line,
               messageId: this.#messageId || toolCallId,
@@ -222,7 +225,7 @@ export async function streamDurableRunToAgUi(input: {
 }): Promise<void> {
   const { emit, runId, threadId } = input;
   const converter = new DurableAgUiConverter();
-  emit({ type: "RUN_STARTED", runId, threadId });
+  emit({ type: EventType.RUN_STARTED, runId, threadId });
   try {
     for await (const chunk of input.fullStream as AsyncIterable<DurableChunk>) {
       for (const event of converter.convert(chunk)) {
@@ -232,10 +235,10 @@ export async function streamDurableRunToAgUi(input: {
     for (const event of converter.finish()) {
       emit(event);
     }
-    emit({ type: "RUN_FINISHED", runId, threadId });
+    emit({ type: EventType.RUN_FINISHED, runId, threadId });
   } catch (error) {
     emit({
-      type: "RUN_ERROR",
+      type: EventType.RUN_ERROR,
       message: error instanceof Error ? error.message : String(error),
     });
     throw error;

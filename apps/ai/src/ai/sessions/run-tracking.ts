@@ -1,4 +1,4 @@
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
 import type {
   AgentRunStore,
   CreateAgentRunInput,
@@ -118,7 +118,7 @@ export function createSessionRunTracker(params: {
     // Persist merged delta using the first seq of this burst (preserves ordering).
     await persistEvent(
       "TEXT_MESSAGE_CONTENT",
-      { type: "TEXT_MESSAGE_CONTENT", messageId, delta },
+      { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta },
       firstSeq
     );
   };
@@ -132,7 +132,7 @@ export function createSessionRunTracker(params: {
     // Persist merged delta using the first seq of this burst (preserves ordering).
     await persistEvent(
       "TOOL_CALL_ARGS",
-      { type: "TOOL_CALL_ARGS", toolCallId, delta },
+      { type: EventType.TOOL_CALL_ARGS, toolCallId, delta },
       firstSeq
     );
   };

@@ -9,6 +9,9 @@ import type { RoutineDto } from "./routines-api.js";
 import { cronToPreset, presetToCron } from "./schedule-cron.js";
 
 const routine: RoutineDto = {
+  approval_grants: [],
+  standing_task_id: null,
+  standing_task_identifier: null,
   agent_id: "tasks.assist",
   cron: "0 9 * * 1-5",
   description: "Sort the inbox",

@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import type { MastraMemory } from "@mastra/core/memory";
+import type { MastraMemory, MemoryConfig } from "@mastra/core/memory";
 import { MastraCompositeStore, type MemoryStorage } from "@mastra/core/storage";
 import { Memory } from "@mastra/memory";
 import { z } from "zod";
@@ -83,7 +83,11 @@ export function createEngentySessionMastraMemory(
       // Title synthesis on the thread's FIRST exchange only (compiled gate:
       // `!thread.title`); `model` omitted → the agent's own model. A failure
       // logs and returns undefined — it never breaks the run.
-      generateTitle: { instructions: GENERATE_TITLE_INSTRUCTIONS },
+      // Mastra 1.55 types require `model` on the object form; runtime still
+      // falls back to the agent model when it is omitted.
+      generateTitle: {
+        instructions: GENERATE_TITLE_INSTRUCTIONS,
+      } as NonNullable<MemoryConfig["generateTitle"]>,
       workingMemory: {
         enabled: true,
         // Per-user across all their chats (Mastra resourceId = engenty userId).

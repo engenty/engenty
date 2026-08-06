@@ -29,8 +29,6 @@ describe("CopilotOpenInterruptBanner feedback", () => {
       <CopilotOpenInterruptBanner
         onDecisionChoose={noop}
         onFeedbackSubmit={onFeedbackSubmit}
-        onFrontendToolApprove={noop}
-        onFrontendToolReject={noop}
         open={feedbackOpen}
       />
     );

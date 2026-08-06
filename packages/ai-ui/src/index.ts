@@ -92,6 +92,11 @@ export {
   type CopilotMessageQueueSurfaceLabels,
   type CopilotMessageQueueSurfaceProps,
 } from "./components/copilot/composer/copilot-message-queue-surface.js";
+export type { ChatSlashCommand } from "./components/copilot/composer/copilot-slash-command.js";
+export type {
+  MentionRefCandidate,
+  MentionRefSearch,
+} from "./components/copilot/composer/use-copilot-composer-mention.js";
 export {
   SubAgentRunFullPage,
   type SubAgentRunFullPageLabels,

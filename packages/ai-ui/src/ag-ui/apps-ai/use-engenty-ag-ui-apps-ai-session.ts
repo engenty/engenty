@@ -183,8 +183,10 @@ function createUserMessage(
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `user-${Date.now()}`,
     role: "user",
-    content: content as EngentyAgUiMessage["content"],
-  };
+    content: (content.length > 0
+      ? content
+      : "") as EngentyAgUiMessage["content"],
+  } as EngentyAgUiMessage;
 }
 
 function isAbortError(error: unknown): boolean {
@@ -1208,11 +1210,11 @@ export function useEngentyAgUiAppsAiSession(
     if (fromSession && !isAgUiOpenInterruptExpired(fromSession)) {
       return fromSession;
     }
-    return pendingInterruptFromTranscript(conversation.messages);
+    return pendingInterruptFromTranscript(copilotMessages);
   }, [
     openInterruptFromStream,
     options.openInterruptFromSession,
-    conversation.messages,
+    copilotMessages,
   ]);
 
   // Frontend tools run with no UI: execute in the browser + resume the run.

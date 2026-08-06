@@ -76,11 +76,17 @@ export async function syncTriggerHeartbeat(
     return created.id;
   }
 
+  // `mastra.schedules.get` answers the AnySchedule union and only
+  // AgentSchedule carries `name`. Narrow on the property actually read — NOT
+  // on `agentId`, which a stored schedule may omit even though it has a name;
+  // doing that treats every such schedule as drifted and re-updates it.
+  const existingName = "name" in existing ? existing.name : undefined;
+
   if (
     existing.cron !== trigger.cron ||
     (existing.timezone ?? null) !== (trigger.timezone ?? null) ||
     existing.status !== desiredStatus ||
-    existing.name !== trigger.name
+    existingName !== trigger.name
   ) {
     await mastra.schedules.update(existing.id, {
       cron: trigger.cron,

@@ -1,4 +1,3 @@
-import type { ToolExecutionContext } from "@mastra/core/tools";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { EngentyCoreHttpError } from "../../../src/ai/core-http-client.js";
@@ -6,6 +5,7 @@ import { emitInboxNotification } from "../../../src/notifications/inbox.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
 import { coreErrorToToolResult } from "./lib/errors.js";
 import { isRecord, normalizeToolContract } from "./lib/format.js";
+import type { ToolRequestContextCarrier } from "./lib/run-context.js";
 import { getEngentyToolsRunContext } from "./lib/run-context.js";
 import {
   buildToolApprovalArtifact,
@@ -183,7 +183,7 @@ function emptyToolInputResult(operationId: string, required: string[]) {
  * headless jobs have no interactive channel).
  */
 async function gateRequiresApproval(input: {
-  context: ToolExecutionContext | undefined;
+  context: ToolRequestContextCarrier<ToolApprovalSuspendPayload> | undefined;
   operationId: string;
   requiresApproval: boolean;
   riskLevel: ToolRiskLevel;
@@ -234,7 +234,7 @@ async function gateRequiresApproval(input: {
 export async function executeEngentyTool(
   input: RunEngentyToolInput,
   contextOrClient:
-    | ToolExecutionContext
+    | ToolRequestContextCarrier<ToolApprovalSuspendPayload>
     | ReturnType<typeof getCurrentEngentyToolsClient>
     | undefined,
   options?: {

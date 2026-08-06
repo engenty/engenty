@@ -11,7 +11,10 @@ export function logCopilotChatPanel(
   event: string,
   fields?: Record<string, unknown>
 ): void {
-  if (!import.meta.env.DEV) {
+  if (
+    !(import.meta as ImportMeta & { env?: Record<string, string | undefined> })
+      .env?.DEV
+  ) {
     return;
   }
   const message = `panel:${event}`;

@@ -463,7 +463,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
             {
               id: update.id,
               role: update.role,
-              createdAt: update.createdAt ?? new Date(),
+              createdAt: new Date(),
               threadId,
               resourceId: update.resourceId,
               content: mergeMastraMessageContent(undefined, update.content),

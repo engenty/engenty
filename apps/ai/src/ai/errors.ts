@@ -4,6 +4,7 @@ export type AiSessionErrorCode =
   | "agent_threads.unknownTool"
   | "agent_threads.unconfiguredDatabase"
   | "agent_threads.missingUserInput"
+  | "agent_threads.invalidSubmittedMessages"
   | "agent_threads.nativeMemoryUnavailable"
   | "agent_threads.usageLimitExceeded"
   | "agent_threads.invalidResume"

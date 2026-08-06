@@ -416,7 +416,7 @@ export function useCopilotDrawerFloatingDrag(input: {
       suppressTextSelection();
       clearSnapTarget();
 
-      const onMove = (ev: PointerEvent) => {
+      const onMove = (ev: globalThis.PointerEvent) => {
         const vh = window.innerHeight;
         const vw = window.innerWidth;
         const dx = ev.clientX - startX;

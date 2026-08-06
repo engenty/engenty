@@ -259,10 +259,6 @@ export function InstructionMarkdownEditor({
               const { from, to } = currentEditor.state.selection;
               return from !== to && currentEditor.isEditable;
             }}
-            tippyOptions={{
-              animation: "shift-away",
-              duration: 150,
-            }}
           >
             <div className="flex items-center gap-1 rounded-md border bg-background/95 p-1 shadow-md backdrop-blur">
               {toolbarButtons}

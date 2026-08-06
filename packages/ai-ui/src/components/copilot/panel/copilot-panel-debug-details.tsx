@@ -16,7 +16,7 @@ export function CopilotDebugDetails({
   const jsonText = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
 
   const handleCopy = useCallback(
-    async (event: React.MouseEvent<HTMLButtonElement>) => {
+    async (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
       event.stopPropagation();
       await navigator.clipboard.writeText(jsonText);

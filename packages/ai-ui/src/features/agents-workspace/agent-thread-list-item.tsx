@@ -13,7 +13,7 @@ interface AgentThreadListItemProps {
   isSelected: boolean;
   onRequestDelete: (threadId: string) => void;
   onSelect: (threadId: string) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: { defaultValue?: string }) => string;
   thread: AiAdminThreadRow;
 }
 

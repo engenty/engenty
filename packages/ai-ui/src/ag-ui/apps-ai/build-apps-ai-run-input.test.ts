@@ -17,7 +17,6 @@ const navigateTool = createFrontendToolDefinition({
     required: ["to"],
     type: "object",
   },
-  safety: "safe",
   title: "Navigate",
 });
 

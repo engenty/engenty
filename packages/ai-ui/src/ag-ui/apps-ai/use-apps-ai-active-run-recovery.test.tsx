@@ -8,6 +8,7 @@ import {
 } from "../../lib/runtime/runs-api.js";
 import type { EngentyAgUiMessage } from "../conversation.js";
 import {
+  type AppsAiThreadRecord,
   getAppsAiThread,
   listAppsAiThreadMessages,
 } from "./apps-ai-thread-api.js";
@@ -207,7 +208,7 @@ describe("useAppsAiActiveRunRecovery", () => {
           {
             id: "assistant-current-turn",
             role: "assistant",
-            content: [{ type: "text", text: "partial flush" }],
+            content: "partial flush",
             metadata: { created_at: "2026-01-01T00:10:05.000Z" },
           },
         ]}
@@ -236,7 +237,7 @@ describe("useAppsAiActiveRunRecovery", () => {
     vi.mocked(postAppsAiThreadRun).mockImplementation(
       ({ signal }) =>
         new Promise((_resolve, reject) => {
-          signal.addEventListener(
+          signal?.addEventListener(
             "abort",
             () => {
               reject(new DOMException("Aborted", "AbortError"));
@@ -270,13 +271,13 @@ describe("useAppsAiActiveRunRecovery", () => {
     }));
     vi.mocked(getAppsAiThread).mockImplementation(async ({ threadId }) => {
       if (!(allowServerRecovery && threadId === "thread-a")) {
-        return { status: "idle" };
+        return { status: "idle" } as AppsAiThreadRecord;
       }
-      return { status: "running" };
+      return { status: "running" } as AppsAiThreadRecord;
     });
     vi.mocked(listAppsAiThreadMessages).mockImplementation(
       async ({ threadId }) =>
-        allowServerRecovery && threadId === "thread-a"
+        (allowServerRecovery && threadId === "thread-a"
           ? [
               {
                 id: "user-1",
@@ -291,7 +292,7 @@ describe("useAppsAiActiveRunRecovery", () => {
                 created_at: "2026-01-01T00:00:01.000Z",
               },
             ]
-          : []
+          : []) as Awaited<ReturnType<typeof listAppsAiThreadMessages>>
     );
 
     const snapshots: EngentyAgUiMessage[][] = [];
@@ -448,7 +449,9 @@ describe("useAppsAiActiveRunRecovery", () => {
         },
       ],
     });
-    vi.mocked(getAppsAiThread).mockResolvedValue({ status: "idle" });
+    vi.mocked(getAppsAiThread).mockResolvedValue({
+      status: "idle",
+    } as AppsAiThreadRecord);
     // DB transcript only has user message (assistant never flushed)
     vi.mocked(listAppsAiThreadMessages).mockResolvedValue([
       {
@@ -534,7 +537,7 @@ describe("useAppsAiActiveRunRecovery", () => {
     vi.mocked(postAppsAiThreadRun).mockImplementation(
       ({ signal }) =>
         new Promise((_resolve, reject) => {
-          signal.addEventListener("abort", () =>
+          signal?.addEventListener("abort", () =>
             reject(new DOMException("Aborted", "AbortError"))
           );
         })
@@ -560,6 +563,7 @@ describe("useAppsAiActiveRunRecovery", () => {
         },
         serviceBaseUrl: "http://127.0.0.1:43110",
         threadId: props.threadId,
+        transportBlocker: null,
       });
       cancelFn = session.cancel;
       statuses.push(session.status);

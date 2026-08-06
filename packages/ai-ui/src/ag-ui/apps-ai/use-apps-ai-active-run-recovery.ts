@@ -92,8 +92,7 @@ async function maybeReplayTerminalRunEvents(params: {
     interruptedMessages.push({
       id: messageId,
       role: "assistant",
-      // Mark as interrupted so the UI can distinguish if needed; plain text otherwise.
-      content: [{ type: "text", text }],
+      content: text,
     });
   }
 

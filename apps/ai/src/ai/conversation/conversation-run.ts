@@ -9,7 +9,11 @@
 // the execute-boundary tool-approval gate. Events arrive as
 // agent_start → message_* → usage_update → agent_end; recall flows through
 // EngentySessionMemoryStorage.
-import type { AGUIEvent, RunAgentInput } from "@engenty/ag-ui-bridge";
+import {
+  type AGUIEvent,
+  EventType,
+  type RunAgentInput,
+} from "@engenty/ag-ui-bridge";
 import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
@@ -195,7 +199,11 @@ export async function startConversationRun(
         void tracker.append(event);
       }
     : (event: AGUIEvent) => publishRunEvent(input.runId, { event, seq: seq++ });
-  emit({ runId: input.runId, threadId: input.threadId, type: "RUN_STARTED" });
+  emit({
+    runId: input.runId,
+    threadId: input.threadId,
+    type: EventType.RUN_STARTED,
+  });
   // The user turn, for OTHER attached clients (reload, second window), as the
   // protocol-native role:"user" text message (AG-UI TEXT_MESSAGE_START carries
   // a role union). The sending client already renders it optimistically and
@@ -204,16 +212,16 @@ export async function startConversationRun(
     emit({
       messageId: input.userMessageId,
       role: "user",
-      type: "TEXT_MESSAGE_START",
+      type: EventType.TEXT_MESSAGE_START,
     } as AGUIEvent);
     emit({
       delta: input.prompt,
       messageId: input.userMessageId,
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
     } as AGUIEvent);
     emit({
       messageId: input.userMessageId,
-      type: "TEXT_MESSAGE_END",
+      type: EventType.TEXT_MESSAGE_END,
     } as AGUIEvent);
   }
 
@@ -260,7 +268,7 @@ export async function startConversationRun(
             converter.recordSubAgentProgress(toolCallId, line);
             emit({
               name: "engenty.sub_agent.progress",
-              type: "CUSTOM",
+              type: EventType.CUSTOM,
               value: {
                 line,
                 messageId: converter.currentMessageId || toolCallId,
@@ -562,7 +570,7 @@ export async function startConversationRun(
     });
 
     if (runError && !abort.abortSignal.aborted) {
-      emit({ message: runError, type: "RUN_ERROR" });
+      emit({ message: runError, type: EventType.RUN_ERROR });
       threadStatus = "failed";
       return { runId: input.runId };
     }
@@ -581,13 +589,13 @@ export async function startConversationRun(
     emit({
       runId: input.runId,
       threadId: input.threadId,
-      type: "RUN_FINISHED",
+      type: EventType.RUN_FINISHED,
     });
     threadStatus = "completed";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[conversation ${input.runId}] failed:`, error);
-    emit({ message, type: "RUN_ERROR" });
+    emit({ message, type: EventType.RUN_ERROR });
     threadStatus = "failed";
   } finally {
     await patchThreadStatus({ ...input, status: threadStatus });

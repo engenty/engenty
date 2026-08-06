@@ -29,6 +29,7 @@ describe("shouldShowCopilotThinkingShimmer", () => {
           interrupt_id: "a1",
           kind: "decision",
           title: "Pick one",
+          tool_call_id: "tc-1",
         },
         status: "submitted",
         lastAssistantParts: [{ type: "text", text: "" }],

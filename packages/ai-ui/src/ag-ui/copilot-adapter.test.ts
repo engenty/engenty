@@ -45,7 +45,9 @@ describe("agUiMessagesToCopilotMessages orphan tools", () => {
       "assistant",
     ]);
     expect(
-      messages[1]?.parts.some((part) => part.type === "dynamic-tool")
+      (messages[1]?.parts ?? []).some(
+        (part) => (part as { type?: string }).type === "dynamic-tool"
+      )
     ).toBe(true);
   });
 
@@ -85,11 +87,12 @@ describe("agUiMessagesToCopilotMessages orphan tools", () => {
       },
     ]);
 
-    expect(messages[1]?.parts.map((part) => part.type)).toEqual([
-      "text",
-      "dynamic-tool",
-    ]);
-    expect(messages[1]?.parts[1]).toEqual(
+    const assistant = messages[1];
+    expect(assistant).toBeDefined();
+    expect(
+      assistant!.parts?.map((part) => (part as { type?: string }).type)
+    ).toEqual(["text", "dynamic-tool"]);
+    expect(assistant!.parts?.[1]).toEqual(
       expect.objectContaining({
         toolName: "requestDecision",
         state: "output-available",

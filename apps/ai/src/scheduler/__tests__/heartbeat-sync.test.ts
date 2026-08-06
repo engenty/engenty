@@ -135,7 +135,7 @@ describe("reconcileScheduler orphan sweep", () => {
     ];
     const schedules = {
       create: vi.fn(async (input: { id: string }) => ({ id: input.id })),
-      delete: vi.fn(async () => {
+      delete: vi.fn(async (_id: string) => {
         // recorded via mock calls
       }),
       get: vi.fn(async () => null),
@@ -157,7 +157,7 @@ describe("reconcileScheduler orphan sweep", () => {
   it("tenant-qualifies system-job schedule ids so every tenant gets its own", async () => {
     const schedules = {
       create: vi.fn(async (input: { id: string }) => ({ id: input.id })),
-      delete: vi.fn(async () => {
+      delete: vi.fn(async (_id: string) => {
         // recorded via mock calls
       }),
       get: vi.fn(async () => null),

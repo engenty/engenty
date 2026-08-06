@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CopilotCompactContextOption } from "../copilot-compact-launcher";
-import type { CopilotRouteContext } from "../copilot-route-context.js";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { CopilotRouteContext } from "../session/copilot-route-context.js";
 import { buildCompactContextOptions } from "./copilot-drawer-utils";
 
 export interface UseCopilotDrawerCompactContextInput {

@@ -124,12 +124,12 @@ export interface CreateAiThreadInput {
 }
 
 export interface UpdateAiThreadInput {
-  agentId?: string;
-  archived?: boolean;
   /** Set (or clear with null) the artifact the agent is presenting, so every
    * window attached to this thread shows the same one. Merges into metadata
    * under ACTIVE_ARTIFACT_METADATA_KEY — does not touch other metadata keys. */
   activeArtifactId?: string | null;
+  agentId?: string;
+  archived?: boolean;
   metadata?: Record<string, unknown>;
   routeContext?: Record<string, unknown>;
   scope: AiSessionScope;

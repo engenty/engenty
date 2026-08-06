@@ -1,3 +1,4 @@
+import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it, vi } from "vitest";
 
 describe("createSessionRunTracker text coalescing", () => {
@@ -35,22 +36,22 @@ describe("createSessionRunTracker text coalescing", () => {
 
     // Three text deltas — each published to bus, coalesced in DB.
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "hello",
       messageId: "m1",
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: " world",
       messageId: "m1",
     });
     await tracker.append({
-      type: "TEXT_MESSAGE_CONTENT",
+      type: EventType.TEXT_MESSAGE_CONTENT,
       delta: "!",
       messageId: "m1",
     });
     // Non-text event triggers a flush of the coalesced burst.
-    await tracker.append({ type: "TEXT_MESSAGE_END", messageId: "m1" });
+    await tracker.append({ type: EventType.TEXT_MESSAGE_END, messageId: "m1" });
     await tracker.complete({ status: "completed" });
 
     unsub();
@@ -107,24 +108,28 @@ describe("createSessionRunTracker tool-call args coalescing", () => {
 
     // A tool call streaming its args as several deltas — each published to the
     // bus, coalesced to a single DB row.
-    await tracker.append({ type: "TOOL_CALL_START", toolCallId: "t1" });
     await tracker.append({
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_START,
+      toolCallId: "t1",
+      toolCallName: "requestDecision",
+    });
+    await tracker.append({
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: "t1",
       delta: '{"sug',
     });
     await tracker.append({
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: "t1",
       delta: "gesti",
     });
     await tracker.append({
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: "t1",
       delta: 'ons":[]}',
     });
     // A different event type triggers a flush of the coalesced burst.
-    await tracker.append({ type: "TOOL_CALL_END", toolCallId: "t1" });
+    await tracker.append({ type: EventType.TOOL_CALL_END, toolCallId: "t1" });
     await tracker.complete({ status: "completed" });
 
     unsub();
@@ -178,18 +183,18 @@ describe("createSessionRunTracker tool-call args coalescing", () => {
     });
 
     await tracker.append({
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: "a",
       delta: "1",
     });
     await tracker.append({
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: "a",
       delta: "2",
     });
     // Switching toolCallId flushes the previous burst.
     await tracker.append({
-      type: "TOOL_CALL_ARGS",
+      type: EventType.TOOL_CALL_ARGS,
       toolCallId: "b",
       delta: "3",
     });
@@ -326,7 +331,7 @@ describe("createAgentRunStore", () => {
       threadId: "00000000-0000-4000-8000-000000000003",
       seq: 0,
       eventType: "RUN_STARTED",
-      payload: { type: "RUN_STARTED" },
+      payload: { type: EventType.RUN_STARTED },
     });
     await store.appendRunEvent({
       runId: "00000000-0000-4000-8000-000000000010",
@@ -334,7 +339,7 @@ describe("createAgentRunStore", () => {
       threadId: "00000000-0000-4000-8000-000000000003",
       seq: 1,
       eventType: "RUN_FINISHED",
-      payload: { type: "RUN_FINISHED" },
+      payload: { type: EventType.RUN_FINISHED },
     });
     await store.finishRun({
       runId: "00000000-0000-4000-8000-000000000010",
@@ -525,7 +530,7 @@ describe("createSessionRunTracker", () => {
     });
 
     await tracker.append({
-      type: "RUN_STARTED",
+      type: EventType.RUN_STARTED,
       runId: "00000000-0000-4000-8000-000000000010",
       threadId: "00000000-0000-4000-8000-000000000003",
     });

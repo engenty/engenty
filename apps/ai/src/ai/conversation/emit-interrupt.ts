@@ -14,7 +14,7 @@ import type {
   AgUiOpenInterruptMetadata,
   FrontendToolDefinition,
 } from "@engenty/ag-ui-bridge";
-import { ENGENTY_OPEN_INTERRUPT_EVENT } from "@engenty/ag-ui-bridge";
+import { ENGENTY_OPEN_INTERRUPT_EVENT, EventType } from "@engenty/ag-ui-bridge";
 import {
   buildToolApprovalArtifact,
   type ToolApprovalSuspendPayload,
@@ -44,7 +44,7 @@ function emitOpenInterruptEvent(
 ): void {
   emit({
     name: ENGENTY_OPEN_INTERRUPT_EVENT,
-    type: "CUSTOM",
+    type: EventType.CUSTOM,
     value: open,
   } as never);
 }
@@ -115,7 +115,7 @@ export async function emitFrontendToolInterrupt(input: {
     outcome: buildSessionInterruptOutcome(interrupt),
     runId: input.busRunId,
     threadId: input.threadId,
-    type: "RUN_FINISHED",
+    type: EventType.RUN_FINISHED,
   } as never);
   return true;
 }
@@ -175,7 +175,7 @@ export async function emitToolApprovalInterrupt(input: {
     outcome: buildSessionInterruptOutcome(interrupt),
     runId: input.busRunId,
     threadId: input.threadId,
-    type: "RUN_FINISHED",
+    type: EventType.RUN_FINISHED,
   } as never);
 }
 
@@ -279,7 +279,7 @@ export async function emitArtifactInterrupt(input: {
     outcome: buildSessionInterruptOutcome(interrupt),
     runId: input.busRunId,
     threadId: input.threadId,
-    type: "RUN_FINISHED",
+    type: EventType.RUN_FINISHED,
   } as never);
   return true;
 }

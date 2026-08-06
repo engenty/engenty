@@ -10,8 +10,16 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { logCopilotChatNew } from "./chat-new-debug.js";
 import { appendSubAgentProgressToAgUiMessages } from "./sub-agent-progress-message.js";
 
-type Message = RunAgentInput["messages"][number];
+type AgUiMessageBase = RunAgentInput["messages"][number];
 
+/** AG-UI wire message plus Engenty transcript metadata used at runtime. */
+export type EngentyAgUiMessage = AgUiMessageBase & {
+  metadata?: Record<string, unknown>;
+};
+
+type Message = EngentyAgUiMessage;
+
+/** Loose event bag for the reducer; inspector/widgets cast to AGUIEvent when needed. */
 export interface EngentyAgUiEvent {
   type: string;
   [key: string]: unknown;
@@ -26,7 +34,6 @@ interface AgUiToolCall {
   type: "function";
 }
 
-export type EngentyAgUiMessage = Message;
 export type EngentyAgUiState = RunAgentInput["state"];
 export type EngentyAgUiConversationStatus =
   | "idle"
@@ -206,7 +213,7 @@ function finalizeUnresolvedToolCalls(
           error: errorMessage,
         }),
         error: true,
-      } as Message);
+      } as unknown as Message);
     }
   }
   if (syntheticResults.length === 0) {
@@ -452,7 +459,8 @@ export function reduceEngentyAgUiConversationEvent(
       if (!result) {
         return { ...current, events: [...current.events, event] };
       }
-      const toolCallId = result.toolCallId?.trim();
+      const toolCallId =
+        result.role === "tool" ? result.toolCallId?.trim() : undefined;
       return {
         ...current,
         events: [...current.events, event],

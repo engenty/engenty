@@ -156,6 +156,17 @@ function makeFakeStore(): ArtifactStore {
       artifact.status = status;
       return artifact;
     },
+    // Not exercised by any route test here. Throwing rather than returning a
+    // plausible null keeps an accidental dependency loud instead of silent.
+    mergeMetadata() {
+      throw new Error("mergeMetadata is not part of these route tests");
+    },
+    getStorageBinding() {
+      throw new Error("getStorageBinding is not part of these route tests");
+    },
+    setStorageBinding() {
+      throw new Error("setStorageBinding is not part of these route tests");
+    },
   };
 }
 

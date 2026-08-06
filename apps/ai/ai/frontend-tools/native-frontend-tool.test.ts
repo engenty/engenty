@@ -18,7 +18,6 @@ const themeTool = createFrontendToolDefinition({
     required: ["theme"],
     additionalProperties: false,
   },
-  safety: "safe",
 });
 
 // Call a Mastra tool's execute directly with a faked agent execution context.
@@ -99,7 +98,6 @@ describe("createNativeFrontendTools", () => {
       description: "Disabled",
       name: "disabled_tool",
       parameters: { type: "object" },
-      safety: "safe",
     });
     const tools = createNativeFrontendTools([themeTool, disabled]);
     expect(Object.keys(tools)).toEqual(["shell_set_theme"]);

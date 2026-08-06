@@ -3,9 +3,9 @@
 // on the in-flight assistant message so the inline card and full-page monitor
 // can read `progressLines` without waiting for a snapshot reload.
 
-import type { RunAgentInput } from "@engenty/ag-ui-bridge";
+import type { EngentyAgUiMessage } from "./conversation.js";
 
-type Message = RunAgentInput["messages"][number];
+type Message = EngentyAgUiMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));

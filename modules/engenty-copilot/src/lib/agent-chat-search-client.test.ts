@@ -67,7 +67,10 @@ describe("searchAgentChatThreads", () => {
 
     expect(result.total).toBe(1);
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe(
       "https://ai.engenty.localhost/ai/v1/search-index/providers/ai_chat_search/search"
     );
@@ -99,7 +102,10 @@ describe("searchAgentChatThreads", () => {
       userId: "user-1",
     });
 
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(JSON.parse(String(init.body))).toEqual({
       filters: { agent_id: "engenty.copilot" },
       limit: 10,

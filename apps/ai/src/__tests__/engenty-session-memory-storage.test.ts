@@ -435,7 +435,10 @@ describe("EngentySessionMemoryStorage", () => {
     const store = makeStore({
       listMessagesOrdered: vi.fn(async () => [
         historyRow,
-        makeMessage({ id: clientMessageId, parts: [{ type: "text", text: "Hello" }] }),
+        makeMessage({
+          id: clientMessageId,
+          parts: [{ type: "text", text: "Hello" }],
+        }),
       ]),
     });
     const storage = createEngentySessionMemoryStorage({

@@ -7,20 +7,28 @@ import type { AiRegistry } from "../../registry/index.js";
 const offlineSubAgentConfigs: AgentConfig[] = [
   {
     ...engentyCLIAgentConfig,
-    workspace: { enabled: false },
+    // `preset` is `.default("custom")` in the schema, so the inferred output
+    // type requires it even though callers may omit it on input.
+    workspace: { enabled: false, preset: "custom" },
   },
 ];
 
-/** Keeps harness unit tests offline — no Docker sandboxes from builtin sub-agents. */
+/**
+ * Keeps harness unit tests offline — no Docker sandboxes from builtin sub-agents.
+ *
+ * `listAgentConfigs` is not on `AiRegistry`; `base-documents.ts` duck-types for
+ * it, so the return type declares it explicitly rather than smuggling it past
+ * the excess-property check.
+ */
 export function createOfflineCopilotHarnessRegistry(
   overrides: Partial<AgentConfig> = {}
-): AiRegistry {
+): AiRegistry & { listAgentConfigs: () => Promise<AgentConfig[]> } {
   const config: AgentConfig = {
     ...engentyCopilotAgentConfig,
     ...overrides,
     id: overrides.id ?? engentyCopilotAgentConfig.id,
     subAgents: overrides.subAgents ?? [],
-    workspace: overrides.workspace ?? { enabled: false },
+    workspace: overrides.workspace ?? { enabled: false, preset: "custom" },
   };
   const configs = new Map<string, AgentConfig>([[config.id, config]]);
   for (const subAgent of config.subAgents ?? []) {

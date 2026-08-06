@@ -1,12 +1,12 @@
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
-import { encodeAgUiSseEvent } from "@engenty/ag-ui-bridge";
+import { EventType, encodeAgUiSseEvent } from "@engenty/ag-ui-bridge";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { AiService } from "../ai/index.js";
-import { abortActiveRun } from "../ai/sessions/run-abort-registry.js";
 import {
   getLiveRunEventsSnapshot,
+  requestRunCancellation,
   subscribeRunEvents,
 } from "../ai/sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../ai/sessions/run-tracking.js";
@@ -311,10 +311,10 @@ export function registerAgentRunRoutes(
               if (!fresh || fresh.status === "running" || !fresh.finished_at) {
                 // Executor lost: emit synthetic error.
                 write({
-                  type: "RUN_ERROR",
+                  type: EventType.RUN_ERROR,
                   message: "executor_lost",
                   runId,
-                });
+                } as AGUIEvent);
               }
               unsub();
               close();
@@ -381,7 +381,9 @@ export function registerAgentRunRoutes(
       if (!existing) {
         return c.json({ error: "agent_runs.notFound" }, 404);
       }
-      abortActiveRun(runId);
+      // Aborts locally and pokes every other replica over the control topic —
+      // the cancel POST may land on a replica that doesn't hold the run.
+      requestRunCancellation(runId);
       const { run } = await runStore.cancelRun({
         runId,
         tenantId: scope.scope.tenantId,

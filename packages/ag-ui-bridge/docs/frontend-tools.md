@@ -1,6 +1,6 @@
 ---
 title: Frontend tools
-description: Official AG-UI Tool shape with Engenty metadata, safety, and run-scoped browser execution.
+description: Official AG-UI Tool shape with Engenty metadata and run-scoped browser execution.
 ---
 
 # Frontend tools
@@ -15,10 +15,9 @@ Definitions are official AG-UI `Tool` objects. Input JSON Schema lives on `param
 |-------|--------|---------|
 | `availability` | `enabled` \| `disabled` \| `remote` | Registration and tenant gating |
 | `owner_module_id` | module slug | Tenant/effective-state gating for module-owned tools |
-| `safety` | `safe` \| `requires_confirmation` | Whether the harness pauses for user approval |
-| `title` | string (optional) | Human label in confirm UI |
+| `title` | string (optional) | Human label in tool-call rows |
 
-Default mutating tools to `requires_confirmation`. Use `safe` only when scoped, reversible, and not persisting data without a separate user action.
+There is **no per-tool approval flag**. Frontend tools always auto-execute — dispatching a browser-side tool call is not itself the risky step, and the old `safety: "safe" | "requires_confirmation"` gate was removed in `6b81ff814` because it fired on every call regardless of what the tool did, and did not hold reliably. Guard genuinely destructive actions where the risk actually lives: connector approval policies, backend tool approval, and the agent's own prompt.
 
 ## Define a tool
 
@@ -29,7 +28,6 @@ const navigate = createFrontendToolDefinition({
   name: "navigate",
   description: "Navigate to an internal app path.",
   availability: "enabled",
-  safety: "safe",
   owner_module_id: "engenty-copilot",
   parameters: {
     type: "object",
@@ -55,13 +53,14 @@ Legacy `engenty.frontend_tool.*` custom events are rejected in `@engenty/ai-ui` 
 
 ## Native suspend/resume
 
-All frontend tools — `safe` and `requires_confirmation` alike — execute through the **native AG-UI
-suspend/resume path**. There is no side-channel POST endpoint and no in-memory waiter:
+Every frontend tool executes through the **native AG-UI suspend/resume path**. There is no
+side-channel POST endpoint and no in-memory waiter:
 
 1. The model calls the native Mastra tool by name; its `execute()` calls `context.suspend()`.
 2. The harness persists an `ag_ui_open_interrupt` (`kind: "frontend_tool"`, includes `run_id`) and ends
    the run with a `RUN_FINISHED` interrupt outcome carrying `FrontendToolInterruptPayload[]`.
-3. The browser runs the handler — immediately for `safe`, after confirmation for `requires_confirmation`.
+3. `useAutoResolveFrontendTool` in `@engenty/ai-ui` resolves every `frontend_tool` interrupt
+   unconditionally and the browser runs the handler. The suspend here is transport, not a gate.
 4. The client resumes by posting a new run with `resume: [{ interruptId, status: "resolved", payload }]`;
    the harness calls `agent.resumeStreamUntilIdle(output)` and the agent receives the tool result.
 

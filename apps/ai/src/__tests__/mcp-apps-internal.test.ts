@@ -10,6 +10,7 @@ import {
   InternalMcpAppCallError,
   registerInternalMcpAppTemplate,
 } from "../ai/mcp-apps/internal.js";
+import { testToolContext } from "./helpers/tool-context.js";
 
 function coreEnvelope(data: unknown) {
   return {
@@ -115,11 +116,14 @@ describe("callInternalMcpAppTool", () => {
 describe("show_widget tool", () => {
   it("returns the internal mcp_app meta for the chat card", async () => {
     const tool = createShowWidgetTool();
-    const output = (await tool.execute?.({
-      html: "<html><body><h1>Chart</h1></body></html>",
-      data: { series: [1, 2, 3] },
-      title: "Chart",
-    })) as Record<string, unknown>;
+    const output = (await tool.execute?.(
+      {
+        html: "<html><body><h1>Chart</h1></body></html>",
+        data: { series: [1, 2, 3] },
+        title: "Chart",
+      },
+      testToolContext()
+    )) as Record<string, unknown>;
     expect(output.ok).toBe(true);
     const meta = (
       output._meta as {
@@ -135,9 +139,10 @@ describe("show_widget tool", () => {
 
   it("rejects oversize widget HTML instead of truncating", async () => {
     const tool = createShowWidgetTool();
-    const output = (await tool.execute?.({
-      html: "x".repeat(INTERNAL_WIDGET_MAX_BYTES + 1),
-    })) as Record<string, unknown>;
+    const output = (await tool.execute?.(
+      { html: "x".repeat(INTERNAL_WIDGET_MAX_BYTES + 1) },
+      testToolContext()
+    )) as Record<string, unknown>;
     expect(output.ok).toBe(false);
     expect(output._meta).toBeUndefined();
   });

@@ -47,12 +47,12 @@ describe("callMcpAppTool", () => {
     expect(result.content[0]?.text).toBe(
       "The interactive MCP App widget has been rendered in the chat."
     );
-    expect(result._meta.engenty.mcp_app).toMatchObject({
+    expect(result._meta?.engenty.mcp_app).toMatchObject({
       resource_uri: "ui://events/demo.html",
       server_id: "demo",
       tool_name: "hello_world_events",
     });
-    expect(result._meta.engenty.mcp_app.html).toContain("events");
+    expect(result._meta?.engenty.mcp_app.html).toContain("events");
   });
 
   it("lists advertised MCP tools from the server", async () => {

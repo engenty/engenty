@@ -1,16 +1,27 @@
 import { RequestContext } from "@mastra/core/request-context";
-import type { ToolExecutionContext } from "@mastra/core/tools";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEngentyToolExecuteTool } from "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
-import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
+import {
+  createEngentyToolExecuteTool,
+  type ToolApprovalSuspendPayload,
+} from "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js";
+import {
+  engentyToolsRunAls,
+  type ToolRequestContextCarrier,
+} from "../../ai/tools/engenty-tools/lib/run-context.js";
 
+// Mirrors what the tool actually reads off its execution context — the
+// request-context carrier — so tests can hand it a two-field object instead of
+// standing up a full Mastra ToolExecutionContext.
 function executeTool(
   tool: ReturnType<typeof createEngentyToolExecuteTool>,
   input: unknown,
-  context?: ToolExecutionContext
+  context?: ToolRequestContextCarrier<ToolApprovalSuspendPayload>
 ) {
   return (
-    tool.execute as (input: unknown, context?: ToolExecutionContext) => unknown
+    tool.execute as (
+      input: unknown,
+      context?: ToolRequestContextCarrier<ToolApprovalSuspendPayload>
+    ) => unknown
   )(input, context);
 }
 
@@ -230,7 +241,9 @@ describe("createEngentyToolExecuteTool", () => {
       .mockResolvedValueOnce(Response.json({ ok: true, data: { items: [] } }));
     vi.stubGlobal("fetch", fetchMock);
     const tool = createEngentyToolExecuteTool();
-    const requestContext = new RequestContext([
+    // Annotated: the array form infers a keyed generic, but the executor takes
+    // the unparameterised `RequestContext<unknown>`.
+    const requestContext: RequestContext<unknown> = new RequestContext([
       ["mastra__authToken", "Bearer studio-token"],
     ]);
 
@@ -588,7 +601,7 @@ describe("createEngentyToolExecuteTool", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const tool = createEngentyToolExecuteTool();
-    const suspend = vi.fn(async () => {});
+    const suspend = vi.fn(async (_payload?: Record<string, unknown>) => {});
 
     // Weaker models drop function-call arguments entirely; the guard must fire
     // BEFORE the approval gate (no Approve/Deny card for a doomed call) and
@@ -614,7 +627,7 @@ describe("createEngentyToolExecuteTool", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
     vi.stubGlobal("fetch", fetchMock);
     const tool = createEngentyToolExecuteTool();
-    const suspend = vi.fn(async () => {});
+    const suspend = vi.fn(async (_payload?: Record<string, unknown>) => {});
 
     await engentyToolsRunAls.run(
       { approvalPolicy: "suspend", accessToken: "user-token" },

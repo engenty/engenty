@@ -11,7 +11,6 @@ const customTool = createFrontendToolDefinition({
     properties: {},
     type: "object",
   },
-  safety: "safe",
   title: "Custom shell tool",
 });
 
@@ -36,7 +35,6 @@ describe("resolveAppsAiFrontendTools", () => {
         properties: {},
         type: "object",
       },
-      safety: "safe",
       title: "Original custom tool",
     });
     const replacementTool = createFrontendToolDefinition({
@@ -48,7 +46,6 @@ describe("resolveAppsAiFrontendTools", () => {
         properties: {},
         type: "object",
       },
-      safety: "safe",
       title: "Replacement custom tool",
     });
 

@@ -2,7 +2,7 @@
 
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import { Button, cn, useBlobCharacterCycle } from "@engenty/ui-core";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useState } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
@@ -67,7 +67,7 @@ export function CopilotPanelComposerBlock({
   messages: readonly (AgentTurnMessageLike & { id: string })[];
   onComposerMentionAgent?: (agentId: string) => void;
   onStop?: () => void;
-  setDraft: (value: string) => void;
+  setDraft: Dispatch<SetStateAction<string>>;
   slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";

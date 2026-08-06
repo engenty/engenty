@@ -56,8 +56,12 @@ export async function getAgentModelConfig(
     if ("error" in res) {
       return { chat_model_id: null, coordinator_model_id: null };
     }
-    const payload = "data" in res && res.data != null ? res.data : res;
-    const raw = payload.value;
+    const raw =
+      "data" in res && res.data != null
+        ? res.data.value
+        : "value" in res
+          ? res.value
+          : undefined;
     if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
       const parsed = parseTenantAiSettings(raw);
       return {

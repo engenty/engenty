@@ -9,7 +9,7 @@
 //   - usage via `usage_update`; failures via `error`.
 // Sub-agents (`subagent_*`) and approvals (`tool_approval_required`/`tool_suspended`)
 // are layered on in 3.1 / 3.2.
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
 
 /** The session event shapes we map (a subset of the full union). */
 export interface SessionEventLike {
@@ -152,7 +152,7 @@ export class SessionAgUiConverter {
     }
     out.push({
       name: "engenty.sub_agent.progress",
-      type: "CUSTOM",
+      type: EventType.CUSTOM,
       value: {
         line,
         messageId: this.#currentMessageId || toolCallId,
@@ -187,19 +187,19 @@ export class SessionAgUiConverter {
             out.push({
               messageId,
               role: "assistant",
-              type: "TEXT_MESSAGE_START",
+              type: EventType.TEXT_MESSAGE_START,
             });
           }
           out.push({
             delta: fullText.slice(already),
             messageId,
-            type: "TEXT_MESSAGE_CONTENT",
+            type: EventType.TEXT_MESSAGE_CONTENT,
           });
           this.#emittedTextLen.set(messageId, fullText.length);
         }
         if (event.type === "message_end" && this.#openText.has(messageId)) {
           this.#openText.delete(messageId);
-          out.push({ messageId, type: "TEXT_MESSAGE_END" });
+          out.push({ messageId, type: EventType.TEXT_MESSAGE_END });
         }
         break;
       }
@@ -228,7 +228,7 @@ export class SessionAgUiConverter {
               delta: str(event.args),
               messageId: this.#currentMessageId || toolCallId,
               toolCallId,
-              type: "TOOL_CALL_ARGS",
+              type: EventType.TOOL_CALL_ARGS,
             });
           }
           break;
@@ -250,7 +250,7 @@ export class SessionAgUiConverter {
           // Genuinely nameless calls still open (their END/RESULT must pair
           // up); the UI's placeholder is the honest label for those.
           toolCallName: toolName || "tool",
-          type: "TOOL_CALL_START",
+          type: EventType.TOOL_CALL_START,
         });
         if (event.type === "tool_start" && event.args !== undefined) {
           this.#emittedArgsToolCalls.add(toolCallId);
@@ -258,7 +258,7 @@ export class SessionAgUiConverter {
             delta: str(event.args),
             messageId: this.#currentMessageId || toolCallId,
             toolCallId,
-            type: "TOOL_CALL_ARGS",
+            type: EventType.TOOL_CALL_ARGS,
           });
         }
         break;
@@ -274,7 +274,7 @@ export class SessionAgUiConverter {
           delta: typeof delta === "string" ? delta : "",
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
-          type: "TOOL_CALL_ARGS",
+          type: EventType.TOOL_CALL_ARGS,
         });
         break;
       }
@@ -284,7 +284,7 @@ export class SessionAgUiConverter {
           out.push({
             messageId: this.#currentMessageId || toolCallId,
             toolCallId,
-            type: "TOOL_CALL_END",
+            type: EventType.TOOL_CALL_END,
           });
         }
         break;
@@ -300,13 +300,13 @@ export class SessionAgUiConverter {
         out.push({
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
-          type: "TOOL_CALL_END",
+          type: EventType.TOOL_CALL_END,
         });
         out.push({
           content: str(event.result),
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
-          type: "TOOL_CALL_RESULT",
+          type: EventType.TOOL_CALL_RESULT,
         });
         break;
       }
@@ -329,14 +329,14 @@ export class SessionAgUiConverter {
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
           toolCallName: `agent-${event.agentType ?? "subagent"}`,
-          type: "TOOL_CALL_START",
+          type: EventType.TOOL_CALL_START,
         });
         if (typeof event.task === "string" && event.task) {
           out.push({
             delta: str({ task: event.task }),
             messageId: this.#currentMessageId || toolCallId,
             toolCallId,
-            type: "TOOL_CALL_ARGS",
+            type: EventType.TOOL_CALL_ARGS,
           });
         }
         break;
@@ -371,13 +371,13 @@ export class SessionAgUiConverter {
         out.push({
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
-          type: "TOOL_CALL_END",
+          type: EventType.TOOL_CALL_END,
         });
         out.push({
           content: str(event.result),
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
-          type: "TOOL_CALL_RESULT",
+          type: EventType.TOOL_CALL_RESULT,
         });
         break;
       }
@@ -394,7 +394,7 @@ export class SessionAgUiConverter {
   finish(): AGUIEvent[] {
     const out: AGUIEvent[] = [];
     for (const messageId of this.#openText) {
-      out.push({ messageId, type: "TEXT_MESSAGE_END" });
+      out.push({ messageId, type: EventType.TEXT_MESSAGE_END });
     }
     this.#openText.clear();
     return out;

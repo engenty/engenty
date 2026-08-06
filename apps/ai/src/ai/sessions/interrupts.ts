@@ -384,5 +384,9 @@ export function assertResumeMatchesOpenInterrupt(params: {
 }
 
 export function runInputHasNewUserMessages(input: RunAgentInput): boolean {
-  return input.messages.some((message) => message.role === "user");
+  // `RunAgentInput` is zod-inferred in @ag-ui/core (zod 3) and lands untyped
+  // here (zod 4) — annotate what we read rather than leaning on implicit any.
+  return input.messages.some(
+    (message: { role?: string }) => message.role === "user"
+  );
 }

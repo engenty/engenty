@@ -4,7 +4,7 @@ const REMOTE_ALIASES = new Set(["remote", "file-storage"]);
 
 /** Workspace storage mode. Defaults to `remote`; set `ENGENTY_WORKSPACE_FS=local` only for offline tests. */
 export function resolveEngentyWorkspaceFsMode(
-  env: Pick<NodeJS.ProcessEnv, "ENGENTY_WORKSPACE_FS"> = process.env
+  env: Partial<Pick<NodeJS.ProcessEnv, "ENGENTY_WORKSPACE_FS">> = process.env
 ): EngentyWorkspaceFsMode {
   const raw = env.ENGENTY_WORKSPACE_FS?.trim().toLowerCase();
   if (!raw || REMOTE_ALIASES.has(raw)) {

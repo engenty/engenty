@@ -9,6 +9,7 @@ import {
   getAiSearchIndexRegistry,
   setAiSearchIndexRegistry,
 } from "../runtime/ai-search-runtime.js";
+import { testToolContext } from "./helpers/tool-context.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -61,7 +62,7 @@ describe("createChatThreadSearchTool", () => {
           accessToken: "user-token",
           userId,
         },
-        () => tool.execute({ query: "previous chat" })
+        () => tool.execute!({ query: "previous chat" }, testToolContext())
       );
 
       expect(result).toMatchObject({
@@ -116,7 +117,7 @@ describe("createChatThreadSearchTool", () => {
           accessToken: "user-token",
           userId,
         },
-        () => tool.execute({ query: "previous chat" })
+        () => tool.execute!({ query: "previous chat" }, testToolContext())
       )) as { index_health: string; index_notice?: string };
 
       expect(result.index_health).toBe("missing");
@@ -135,7 +136,7 @@ describe("createChatThreadSearchTool", () => {
         accessToken: "user-token",
         userId,
       },
-      () => tool.execute({ query: "previous chat" })
+      () => tool.execute!({ query: "previous chat" }, testToolContext())
     )) as { error?: string };
     expect(result.error).toContain(
       "Chat thread search registry is unavailable"

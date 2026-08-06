@@ -136,7 +136,8 @@ async function resolveCorePagePrompt(input: {
     const client = new EngentyCoreClient({ coreBaseUrl, accessToken });
     const result = await client.resolveAgentSystemPromptFromUiState(
       input.agentId,
-      input.snapshot
+      // Snapshot is JSON-serializable; cast bridges the index-signature gap.
+      input.snapshot as unknown as Record<string, unknown>
     );
     return result.system_prompt?.trim() ?? "";
   } catch (error) {

@@ -156,7 +156,7 @@ describe("AG-UI conversation reducer", () => {
   it("keeps user messages write-once against the stream echo", () => {
     // The SENDING window already holds the optimistic user message under the
     // same id — the echo's delta must not double its text.
-    let state = {
+    let state: EngentyAgUiConversationState = {
       ...emptyState(),
       messages: [
         { id: "user-1", role: "user" as const, content: "hallo welt" },

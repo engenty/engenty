@@ -1,12 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AppBuildEnvelope } from "../app-build-schema.js";
 
-const invoke = vi.fn(async (_op: string, _input: Record<string, unknown>) => ({
-  ok: true,
-}));
-const artifactCreate = vi.fn(async () => ({
+// Mirrors the `Invoker` type in app-build-steps.ts: the operation invoker
+// returns `unknown` and each step casts to the shape it needs, so the mock
+// must be free to resolve any envelope rather than the first one written.
+const invoke = vi.fn<(op: string, input?: Record<string, unknown>) => unknown>(
+  () => ({ ok: true })
+);
+const artifactCreate = vi.fn<
+  (input: { content: string; type: string }) => {
+    artifact: { id: string };
+    version: { version: number };
+  }
+>(() => ({
   artifact: { id: "artifact-1" },
   version: { version: 1 },
 }));
+
+/**
+ * Mastra widens a step's `execute` return to `InnerOutput | <declared>` for its
+ * internal bail path. Every step here declares `Promise<AppBuildEnvelope>` and
+ * none of them bail, so narrow once at the seam instead of at each assertion.
+ */
+async function runStep(
+  step: { execute: (params: never) => Promise<unknown> },
+  inputData: Record<string, unknown>
+): Promise<AppBuildEnvelope> {
+  return (await step.execute({ inputData } as never)) as AppBuildEnvelope;
+}
 
 vi.mock("../../sessions/task-workspace-hook.js", () => ({
   createScopeModuleOperationInvoker: () => invoke,
@@ -55,7 +76,7 @@ describe("ensureAppStep", () => {
         : { ok: true }
     );
 
-    const envelope = await ensureAppStep.execute({ inputData: input } as never);
+    const envelope = await runStep(ensureAppStep, input);
 
     expect(envelope.app_id).toBe(APP_ID);
     expect(invoke).not.toHaveBeenCalledWith("app_create", expect.anything());
@@ -66,7 +87,7 @@ describe("ensureAppStep", () => {
       op === "app_list" ? { apps: [] } : { id: APP_ID }
     );
 
-    const envelope = await ensureAppStep.execute({ inputData: input } as never);
+    const envelope = await runStep(ensureAppStep, input);
 
     expect(envelope.app_id).toBe(APP_ID);
     expect(envelope.slug).toBe("todo");
@@ -84,9 +105,10 @@ describe("ensureAppStep", () => {
       op === "app_list" ? { apps: [] } : { id: APP_ID }
     );
 
-    const envelope = await ensureAppStep.execute({
-      inputData: { ...input, name: "Über-Spesen (2026)!" },
-    } as never);
+    const envelope = await runStep(ensureAppStep, {
+      ...input,
+      name: "Über-Spesen (2026)!",
+    });
 
     expect(envelope.slug).toMatch(/^[a-z0-9][a-z0-9-]{1,62}$/);
   });
@@ -94,9 +116,12 @@ describe("ensureAppStep", () => {
 
 describe("writeFilesStep", () => {
   it("merges files and manifest into the draft", async () => {
-    const envelope = await writeFilesStep.execute({
-      inputData: { ...input, app_id: APP_ID, slug: "todo", status: "created" },
-    } as never);
+    const envelope = await runStep(writeFilesStep, {
+      ...input,
+      app_id: APP_ID,
+      slug: "todo",
+      status: "created",
+    });
 
     expect(invoke).toHaveBeenCalledWith("app_file_write", {
       app_id: APP_ID,
@@ -118,7 +143,7 @@ describe("proposeStep", () => {
   it("records version and release on a green build", async () => {
     invoke.mockResolvedValue({ release: "rel-abc", version: 3 });
 
-    const envelope = await proposeStep.execute({ inputData: written } as never);
+    const envelope = await runStep(proposeStep, written);
 
     expect(envelope.status).toBe("built");
     expect(envelope.version).toBe(3);
@@ -138,7 +163,7 @@ describe("proposeStep", () => {
       };
     });
 
-    const envelope = await proposeStep.execute({ inputData: written } as never);
+    const envelope = await runStep(proposeStep, written);
 
     expect(envelope.status).toBe("build_failed");
     expect(envelope.build_log).toContain("src/App.tsx:3:1");
@@ -147,9 +172,9 @@ describe("proposeStep", () => {
   it("rethrows anything that is not a build failure", async () => {
     invoke.mockRejectedValue(new Error("app_host_unavailable"));
 
-    await expect(
-      proposeStep.execute({ inputData: written } as never)
-    ).rejects.toThrow("app_host_unavailable");
+    await expect(runStep(proposeStep, written)).rejects.toThrow(
+      "app_host_unavailable"
+    );
   });
 });
 
@@ -164,16 +189,11 @@ describe("publishArtifactStep", () => {
   };
 
   it("publishes the app HANDLE pinned to the built version — never a source copy", async () => {
-    const envelope = await publishArtifactStep.execute({
-      inputData: built,
-    } as never);
+    const envelope = await runStep(publishArtifactStep, built);
 
     expect(envelope.status).toBe("published");
     expect(envelope.artifact_id).toBe("artifact-1");
-    const created = artifactCreate.mock.calls[0][0] as {
-      content: string;
-      type: string;
-    };
+    const created = artifactCreate.mock.calls[0][0];
     expect(created.type).toBe("app");
     expect(JSON.parse(created.content)).toEqual({
       app_id: APP_ID,
@@ -183,9 +203,11 @@ describe("publishArtifactStep", () => {
   });
 
   it("passes a failed build through untouched", async () => {
-    const envelope = await publishArtifactStep.execute({
-      inputData: { ...built, build_log: "boom", status: "build_failed" },
-    } as never);
+    const envelope = await runStep(publishArtifactStep, {
+      ...built,
+      build_log: "boom",
+      status: "build_failed",
+    });
 
     expect(envelope.status).toBe("build_failed");
     expect(artifactCreate).not.toHaveBeenCalled();
@@ -194,9 +216,7 @@ describe("publishArtifactStep", () => {
   it("skips publishing outside a chat thread", async () => {
     const { thread_id: _dropped, ...headless } = built;
 
-    const envelope = await publishArtifactStep.execute({
-      inputData: headless,
-    } as never);
+    const envelope = await runStep(publishArtifactStep, headless);
 
     expect(envelope.status).toBe("built");
     expect(artifactCreate).not.toHaveBeenCalled();

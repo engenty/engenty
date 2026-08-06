@@ -1,9 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { TaskJobEnvelope } from "../task-job-schema.js";
 
 const invoke = vi.fn(async () => ({}));
-const emitInboxNotification = vi.fn(async () => {});
-const finishTaskJobRun = vi.fn(async () => {});
-const summarizeTaskResultHeadline = vi.fn(async () => null);
+// Rest params, not `()`: these are re-invoked through a `(...args)` forwarder
+// in the vi.mock factories below, and a zero-arity mock rejects the spread.
+const emitInboxNotification = vi.fn(async (..._args: unknown[]) => {});
+const finishTaskJobRun = vi.fn(async (..._args: unknown[]) => {});
+const summarizeTaskResultHeadline = vi.fn(async (..._args: unknown[]) => null);
+
+/**
+ * Mastra widens a step's `execute` return to `InnerOutput | <declared>` for its
+ * internal bail path. Both steps here declare `Promise<TaskJobEnvelope>` and
+ * neither bails, so narrow once at the seam instead of at each assertion.
+ */
+async function runStep(
+  step: { execute: (params: never) => Promise<unknown> },
+  inputData: Record<string, unknown>,
+  runId: string
+): Promise<TaskJobEnvelope> {
+  return (await step.execute({ inputData, runId } as never)) as TaskJobEnvelope;
+}
 
 vi.mock("../../sessions/task-workspace-hook.js", () => ({
   createScopeModuleOperationInvoker: () => invoke,
@@ -45,20 +61,14 @@ beforeEach(() => {
 
 describe("routine finalize disposition", () => {
   it("quiet: no comment, completed_quiet outcome, backlog, no notification", async () => {
-    const afterWrite = await writeResultStep.execute({
-      inputData: base,
-      runId: "run-1",
-    } as never);
+    const afterWrite = await runStep(writeResultStep, base, "run-1");
     expect(invoke).not.toHaveBeenCalledWith(
       "tasks_add_comment",
       expect.anything()
     );
     expect(afterWrite.run_disposition).toBe("quiet");
 
-    await finalizeStep.execute({
-      inputData: afterWrite,
-      runId: "run-1",
-    } as never);
+    await runStep(finalizeStep, afterWrite, "run-1");
 
     expect(invoke).toHaveBeenCalledWith(
       "tasks_release",
@@ -75,13 +85,11 @@ describe("routine finalize disposition", () => {
   });
 
   it("review: comment + in_review + notification", async () => {
-    const afterWrite = await writeResultStep.execute({
-      inputData: {
-        ...base,
-        result_text: "Something odd.\nROUTINE_REVIEW: check ENG-9",
-      },
-      runId: "run-2",
-    } as never);
+    const afterWrite = await runStep(
+      writeResultStep,
+      { ...base, result_text: "Something odd.\nROUTINE_REVIEW: check ENG-9" },
+      "run-2"
+    );
     expect(invoke).toHaveBeenCalledWith(
       "tasks_add_comment",
       expect.objectContaining({
@@ -90,10 +98,7 @@ describe("routine finalize disposition", () => {
     );
     expect(afterWrite.run_disposition).toBe("review");
 
-    await finalizeStep.execute({
-      inputData: afterWrite,
-      runId: "run-2",
-    } as never);
+    await runStep(finalizeStep, afterWrite, "run-2");
 
     expect(invoke).toHaveBeenCalledWith(
       "tasks_update",

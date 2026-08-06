@@ -4,6 +4,7 @@ import {
   CopilotDrawerPositionMenu,
   CopilotMessageQueueSurface,
   CopilotOpenInterruptBanner,
+  type CopilotOpenInterruptResumeInterrupt,
   CopilotPanelContent,
   type CopilotPanelContentProps,
   ENGENTY_COPILOT_HOST_KEY,
@@ -138,29 +139,40 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     return openInterruptFromSession;
   }, [openInterruptFromSession]);
 
+  const resumeOpenInterrupt = useCallback<CopilotOpenInterruptResumeInterrupt>(
+    (feedback) => {
+      host.resumeInterrupt?.(
+        feedback as unknown as Parameters<
+          NonNullable<typeof host.resumeInterrupt>
+        >[0]
+      );
+    },
+    [host.resumeInterrupt]
+  );
+
   const handleSandboxCommandApprove = useCallback(
     async (open: NonNullable<typeof openInterrupt>) => {
       await approveCopilotOpenInterrupt({
         activeThreadId: binding.activeThreadId,
         executeFrontendTool,
         open,
-        resumeInterrupt: host.resumeInterrupt,
+        resumeInterrupt: resumeOpenInterrupt,
       });
     },
-    [binding.activeThreadId, executeFrontendTool, host.resumeInterrupt]
+    [binding.activeThreadId, executeFrontendTool, resumeOpenInterrupt]
   );
 
   const handleSandboxCommandReject = useCallback(
     (open: NonNullable<typeof openInterrupt>) => {
       if (open.tool_name) {
-        host.resumeInterrupt?.({
+        resumeOpenInterrupt({
           approved: false,
           interruptId: open.interrupt_id,
           toolName: open.tool_name,
         });
       }
     },
-    [host.resumeInterrupt]
+    [resumeOpenInterrupt]
   );
   const controlsDisabled =
     status !== "ready" || host.awaitingInterrupt || !isTransportReady;

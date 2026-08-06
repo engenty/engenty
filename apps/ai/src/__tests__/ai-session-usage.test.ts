@@ -1,4 +1,8 @@
-import type { AiUsageStore, UsageEventRecord } from "@engenty/ai-core";
+import type {
+  AiUsageStore,
+  TenantUsagePolicyRecord,
+  UsageEventRecord,
+} from "@engenty/ai-core";
 import { describe, expect, it, vi } from "vitest";
 import { createOfflineCopilotHarnessRegistry } from "../ai/sessions/__tests__/harness-test-registry.js";
 import {
@@ -61,17 +65,19 @@ function makeMessage(
 function makeSessionStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
   const thread = makeSession();
   return {
-    appendMessage: vi.fn(async () => ({
-      message: {
-        id: "00000000-0000-4000-8000-000000000004",
-        tenant_id: tenantId,
-        thread_id: threadId,
-        role: "assistant",
-        parts: [{ type: "text", text: "ok" }],
-        author_user_id: null,
-        created_at: "2026-01-01T00:00:01Z",
-      },
-    })),
+    appendMessage: vi.fn(
+      async (): Promise<{ message: ThreadMessageRow }> => ({
+        message: {
+          id: "00000000-0000-4000-8000-000000000004",
+          tenant_id: tenantId,
+          thread_id: threadId,
+          role: "assistant",
+          parts: [{ type: "text", text: "ok" }],
+          author_user_id: null,
+          created_at: "2026-01-01T00:00:01Z",
+        },
+      })
+    ),
     createThread: vi.fn(async () => ({ thread })),
     deleteThreadForUser: vi.fn(),
     deleteThreadsForUser: vi.fn(),
@@ -132,7 +138,7 @@ function makeDynamicAssembler(
         }
       : {}),
     streamUntilIdle: vi.fn(async () => output),
-  })) as ThreadServiceOptions["assembleDynamicAgent"];
+  })) as unknown as ThreadServiceOptions["assembleDynamicAgent"];
 }
 
 describe("AI session usage metering", () => {
@@ -141,24 +147,28 @@ describe("AI session usage metering", () => {
     // rather than on the platform default: returning the default unchecked made
     // the preflight reject every turn, bricking the tenant with no way out.
     const usageStore = makeUsageStore({
-      getTenantPolicy: vi.fn(async () => ({
-        tenant_id: tenantId,
-        tier: "test",
-        period_mode: "calendar",
-        period_unit: "month",
-        period_anchor: null,
-        included_input_tokens: null,
-        included_output_tokens: null,
-        included_cost_micros: null,
-        hard_limit_cost_micros: null,
-        soft_limit_cost_micros: null,
-        allowed_models: ["openai/other-model"],
-        allowed_providers: null,
-        enforcement_mode: "enforce",
-        currency: "usd",
-        created_at: "2026-01-01T00:00:00Z",
-        updated_at: "2026-01-01T00:00:00Z",
-      })),
+      getTenantPolicy: vi.fn(
+        async (_tenantId: string): Promise<TenantUsagePolicyRecord> => ({
+          tenant_id: tenantId,
+          tier: "test",
+          period_mode: "calendar",
+          period_unit: "month",
+          period_anchor: null,
+          included_input_tokens: null,
+          included_output_tokens: null,
+          included_cost_micros: null,
+          hard_limit_cost_micros: null,
+          soft_limit_cost_micros: null,
+          allowed_models: ["openai/other-model"],
+          allowed_providers: null,
+          allowed_efforts: null,
+          enforcement_mode: "enforce",
+          currency: "usd",
+          managed_by: "tenant",
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        })
+      ),
     });
     const harness = createAiService({
       assembleDynamicAgent: makeDynamicAssembler({ text: "ok" }),
@@ -180,24 +190,28 @@ describe("AI session usage metering", () => {
     // no id to name — the preflight is the last line of defence and must still
     // reject rather than run an unlicensed model.
     const usageStore = makeUsageStore({
-      getTenantPolicy: vi.fn(async () => ({
-        tenant_id: tenantId,
-        tier: "test",
-        period_mode: "calendar",
-        period_unit: "month",
-        period_anchor: null,
-        included_input_tokens: null,
-        included_output_tokens: null,
-        included_cost_micros: null,
-        hard_limit_cost_micros: null,
-        soft_limit_cost_micros: null,
-        allowed_models: null,
-        allowed_providers: ["some-other-vendor"],
-        enforcement_mode: "enforce",
-        currency: "usd",
-        created_at: "2026-01-01T00:00:00Z",
-        updated_at: "2026-01-01T00:00:00Z",
-      })),
+      getTenantPolicy: vi.fn(
+        async (_tenantId: string): Promise<TenantUsagePolicyRecord> => ({
+          tenant_id: tenantId,
+          tier: "test",
+          period_mode: "calendar",
+          period_unit: "month",
+          period_anchor: null,
+          included_input_tokens: null,
+          included_output_tokens: null,
+          included_cost_micros: null,
+          hard_limit_cost_micros: null,
+          soft_limit_cost_micros: null,
+          allowed_models: null,
+          allowed_providers: ["some-other-vendor"],
+          allowed_efforts: null,
+          enforcement_mode: "enforce",
+          currency: "usd",
+          managed_by: "tenant",
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        })
+      ),
     });
     const harness = createAiService({
       assembleDynamicAgent: makeDynamicAssembler({ text: "blocked" }),
@@ -263,25 +277,30 @@ describe("AI session usage metering", () => {
 
   it("uses tenant model settings for supervisor usage checks and metering", async () => {
     const usageStore = makeUsageStore({
-      getTenantPolicy: vi.fn(async () => ({
-        tenant_id: tenantId,
-        tier: "test",
-        period_mode: "calendar",
-        period_unit: "month",
-        period_anchor: null,
-        included_input_tokens: null,
-        included_output_tokens: null,
-        included_cost_micros: null,
-        hard_limit_cost_micros: null,
-        soft_limit_cost_micros: null,
-        // Both tenant-pinned models must be on the allow-list — with enforce
-        // mode, a pin outside the list is demoted to the platform/default.
-        allowed_models: ["openai/tenant-chat", "openai/tenant-routing"],
-        enforcement_mode: "enforce",
-        currency: "usd",
-        created_at: "2026-01-01T00:00:00Z",
-        updated_at: "2026-01-01T00:00:00Z",
-      })),
+      getTenantPolicy: vi.fn(
+        async (_tenantId: string): Promise<TenantUsagePolicyRecord> => ({
+          tenant_id: tenantId,
+          tier: "test",
+          period_mode: "calendar",
+          period_unit: "month",
+          period_anchor: null,
+          included_input_tokens: null,
+          included_output_tokens: null,
+          included_cost_micros: null,
+          hard_limit_cost_micros: null,
+          soft_limit_cost_micros: null,
+          // Both tenant-pinned models must be on the allow-list — with enforce
+          // mode, a pin outside the list is demoted to the platform/default.
+          allowed_models: ["openai/tenant-chat", "openai/tenant-routing"],
+          allowed_providers: null,
+          allowed_efforts: null,
+          enforcement_mode: "enforce",
+          currency: "usd",
+          managed_by: "tenant",
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        })
+      ),
     });
     const assembleDynamicAgent = makeDynamicAssembler({
       text: "ok",

@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { createShowUiTool } from "../../ai/tools/show-ui-tool.js";
+import { testToolContext } from "./helpers/tool-context.js";
 
 describe("show_ui tool", () => {
   it("validates and emits the a2ui meta for the chat card", async () => {
     const tool = createShowUiTool();
-    const output = (await tool.execute?.({
-      components: [
-        { id: "root", component: "List", children: ["t"] },
-        { id: "t", component: "Text", text: { path: "/msg" } },
-      ],
-      data: { msg: "hi" },
-      title: "Demo",
-    })) as Record<string, unknown>;
+    const output = (await tool.execute?.(
+      {
+        components: [
+          { id: "root", component: "List", children: ["t"] },
+          { id: "t", component: "Text", text: { path: "/msg" } },
+        ],
+        data: { msg: "hi" },
+        title: "Demo",
+      },
+      testToolContext()
+    )) as Record<string, unknown>;
     expect(output.ok).toBe(true);
     const a2ui = (
       output._meta as { engenty: { a2ui: Record<string, unknown> } }
@@ -24,9 +28,10 @@ describe("show_ui tool", () => {
 
   it("rejects invalid payloads agent-side so the model can retry", async () => {
     const tool = createShowUiTool();
-    const output = (await tool.execute?.({
-      components: [{ id: "root", component: "Marquee" }],
-    })) as Record<string, unknown>;
+    const output = (await tool.execute?.(
+      { components: [{ id: "root", component: "Marquee" }] },
+      testToolContext()
+    )) as Record<string, unknown>;
     expect(output.ok).toBe(false);
     expect(output._meta).toBeUndefined();
     expect(Array.isArray(output.issues)).toBe(true);

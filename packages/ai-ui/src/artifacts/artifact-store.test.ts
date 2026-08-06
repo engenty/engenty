@@ -201,7 +201,7 @@ describe("artifact list sync", () => {
         });
         return useArtifacts(HOST);
       },
-      { initialProps: { ids: [] } }
+      { initialProps: { ids: [] as string[] } }
     );
     act(() => rerender({ ids: ["a1"] }));
     expect(result.current.unseenCount).toBe(1);

@@ -1,6 +1,7 @@
 import { Button } from "@engenty/ui-core";
 import Editor from "@monaco-editor/react";
 import { RotateCcw, Search } from "lucide-react";
+import type { ComponentProps } from "react";
 import { useRef } from "react";
 
 interface SkillSourceEditorProps {
@@ -18,12 +19,9 @@ export function SkillSourceEditor({
   searchLabel,
   value,
 }: SkillSourceEditorProps) {
-  const editorRef = useRef<{
-    focus: () => void;
-    getAction: (id: string) => { run: () => void } | undefined;
-    getValue: () => string;
-    setValue: (nextValue: string) => void;
-  } | null>(null);
+  const editorRef = useRef<
+    Parameters<NonNullable<ComponentProps<typeof Editor>["onMount"]>>[0] | null
+  >(null);
 
   return (
     <div className="flex min-h-[32rem] flex-col overflow-hidden rounded-md border bg-background">

@@ -38,14 +38,11 @@ class MockSpeechRecognition {
 function installSpeechRecognitionMock() {
   // @ts-expect-error test mock
   window.SpeechRecognition = MockSpeechRecognition;
-  // @ts-expect-error test override
   window.webkitSpeechRecognition = undefined;
 }
 
 function clearSpeechRecognitionMock() {
-  // @ts-expect-error test override
   window.SpeechRecognition = undefined;
-  // @ts-expect-error test override
   window.webkitSpeechRecognition = undefined;
 }
 

@@ -71,7 +71,7 @@ Prefer this package over importing `@ag-ui/core` directly in Engenty code so ext
 - [Architecture](./architecture) — neighborhood diagram and folder map
 - [Compatibility](./compatibility) — protocol rules, upstream links, open gaps
 - [Agent UI state](./agent-ui-state) — snapshot shape and size limits
-- [Frontend tools](./frontend-tools) — metadata, safety, native suspend/resume
+- [Frontend tools](./frontend-tools) — metadata, native suspend/resume
 - [AG-UI apps/ai session](../../ai-agents/ag-ui-apps-ai-session) — end-to-end product path
 - [Agent UI runtime](../../agent-ui-runtime) — UI state and frontend-tool wiring
 - [@engenty/ai-ui](../ai-ui/README) — browser AG-UI client

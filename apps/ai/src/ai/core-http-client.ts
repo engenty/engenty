@@ -407,7 +407,7 @@ function normalizeBearerToken(value: string) {
 }
 
 export function getEngentyCoreBaseUrlFromEnv(
-  env: Pick<NodeJS.ProcessEnv, "ENGENTY_CORE_BASE_URL"> = process.env
+  env: Partial<Pick<NodeJS.ProcessEnv, "ENGENTY_CORE_BASE_URL">> = process.env
 ) {
   const value = env.ENGENTY_CORE_BASE_URL?.trim();
   if (value && value.length > 0) {
@@ -423,7 +423,9 @@ export function getEngentyCoreBaseUrlFromEnv(
 }
 
 export function getEngentyCoreHttpTimeoutMsFromEnv(
-  env: Pick<NodeJS.ProcessEnv, "ENGENTY_CORE_HTTP_TIMEOUT_MS"> = process.env
+  env: Partial<
+    Pick<NodeJS.ProcessEnv, "ENGENTY_CORE_HTTP_TIMEOUT_MS">
+  > = process.env
 ) {
   const raw = env.ENGENTY_CORE_HTTP_TIMEOUT_MS?.trim();
   if (!raw) {

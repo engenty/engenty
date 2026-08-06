@@ -13,7 +13,12 @@ import {
   VisibilityProvider,
 } from "@engenty/generative-ui";
 import { useQuery } from "@engenty/query-client";
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  type ComponentProps,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import { listAgentThreadMessages } from "../../../src/lib/agent-thread-messages-client.js";
 import { agentSessionMessagesQueryKey } from "../../lib/chat/chat-model.js";
 
@@ -98,7 +103,7 @@ export function ToolCallGenerativeUiCard(props: ToolCallGenerativeUiCardProps) {
   if (phase === "submitted" || phase === "readonly") {
     const summary =
       typeof output === "object" && output !== null
-        ? readGenerativeUiSummary(output)
+        ? readGenerativeUiSummary(output as Record<string, unknown>)
         : null;
     return (
       <ToolCallCardBase
@@ -132,7 +137,7 @@ export function ToolCallGenerativeUiCard(props: ToolCallGenerativeUiCardProps) {
                   const text =
                     typeof params?.text === "string" ? params.text.trim() : "";
                   if (text) {
-                    submitMessage(text);
+                    submitMessage?.(text);
                   }
                 },
               }}
@@ -140,7 +145,11 @@ export function ToolCallGenerativeUiCard(props: ToolCallGenerativeUiCardProps) {
               <ToolWidgetErrorBoundary>
                 <Renderer
                   registry={registry}
-                  spec={withDefaultChatActions(spec)}
+                  spec={
+                    withDefaultChatActions(spec) as unknown as ComponentProps<
+                      typeof Renderer
+                    >["spec"]
+                  }
                 />
               </ToolWidgetErrorBoundary>
             </ActionProvider>

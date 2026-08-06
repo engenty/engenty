@@ -13,6 +13,8 @@ import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Mastra } from "@mastra/core/mastra";
 import type { MastraMemory } from "@mastra/core/memory";
 import {
+  type InputProcessorOrWorkflow,
+  type OutputProcessorOrWorkflow,
   PrefillErrorHandler,
   type Processor,
   TokenLimiterProcessor,
@@ -225,7 +227,15 @@ async function assembleDynamicAgentWithAncestors(
       ? { backgroundTasks: config.backgroundTasks }
       : {}),
     description: config.description,
-    ...(subAgents.length > 0 ? { agents: Object.fromEntries(subAgents) } : {}),
+    ...(subAgents.length > 0
+      ? {
+          // Mastra 1.55: SubAgent id generic variance; structurally compatible at runtime.
+          agents: Object.fromEntries(subAgents) as Record<
+            string,
+            SubAgent<string, unknown>
+          >,
+        }
+      : {}),
     // Gateway-routed models (e.g. anthropic/*, google/*) reject a request when
     // the supervisor↔sub-agent loop leaves the conversation ending on an
     // assistant message ("does not support assistant message prefill"). Mastra's
@@ -235,12 +245,17 @@ async function assembleDynamicAgentWithAncestors(
     errorProcessors: [new PrefillErrorHandler()],
     id: config.id,
     instructions,
-    ...(inputProcessors.length > 0 ? { inputProcessors } : {}),
+    // Mastra 1.55: Processor[] is structurally compatible; variance requires a boundary cast.
+    ...(inputProcessors.length > 0
+      ? { inputProcessors: inputProcessors as InputProcessorOrWorkflow[] }
+      : {}),
     ...(options.mastra ? { mastra: options.mastra } : {}),
     ...(attachMemory && options.memory ? { memory: options.memory } : {}),
     model: resolveAgentModel(config, options.modelConfig),
     name: config.name,
-    ...(outputProcessors.length > 0 ? { outputProcessors } : {}),
+    ...(outputProcessors.length > 0
+      ? { outputProcessors: outputProcessors as OutputProcessorOrWorkflow[] }
+      : {}),
     tools: agentTools,
     ...(options.workspace ? { workspace: options.workspace } : {}),
   });

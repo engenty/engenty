@@ -39,6 +39,7 @@ import {
   Tag,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import type {
   NormalizedSkillRecord,
   SkillCatalogGroup,
@@ -156,9 +157,24 @@ export function SkillCatalogSidebar({
   tierFilter: SkillCatalogTierFilter;
 }) {
   const selectContentClassName = "z-[110]";
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const filterPopover = (
-    <Popover>
+    <Popover
+      onOpenChange={(open, eventDetails) => {
+        if (
+          !open &&
+          eventDetails.reason === "outside-press" &&
+          eventDetails.event.target instanceof Element &&
+          eventDetails.event.target.closest('[data-slot="select-content"]')
+        ) {
+          eventDetails.cancel();
+          return;
+        }
+        setFilterOpen(open);
+      }}
+      open={filterOpen}
+    >
       <PopoverTrigger asChild>
         <Button
           aria-label={labels.filterToggle}
@@ -174,15 +190,6 @@ export function SkillCatalogSidebar({
       <PopoverContent
         align="start"
         className="z-[100] w-[320px] overflow-hidden rounded-lg p-0"
-        onPointerDownOutside={(event) => {
-          const target = event.target;
-          if (
-            target instanceof Element &&
-            target.closest('[data-slot="select-content"]')
-          ) {
-            event.preventDefault();
-          }
-        }}
       >
         <div className="space-y-1.5 p-2">
           <div className="font-medium text-muted-foreground text-xs">

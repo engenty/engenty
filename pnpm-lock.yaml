@@ -19,6 +19,8 @@ overrides:
   '@a2ui/react>zod': 3.25.76
   '@a2ui/markdown-it>zod': 3.25.76
   '@engenty/a2ui-catalog>zod': 3.25.76
+  '@ag-ui/core>zod': 3.25.76
+  '@ag-ui/client>zod': 3.25.76
   '@executor-js/plugin-openapi': 1.5.29
   effect: 4.0.0-beta.59
   protobufjs: '>=7.5.8'
@@ -15396,11 +15398,11 @@ snapshots:
       rxjs: 7.8.1
       untruncate-json: 0.0.1
       uuid: 11.1.1
-      zod: 4.4.3
+      zod: 3.25.76
 
   '@ag-ui/core@0.0.57':
     dependencies:
-      zod: 4.4.3
+      zod: 3.25.76
 
   '@ag-ui/encoder@0.0.57':
     dependencies:

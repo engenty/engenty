@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CopilotPanelContentProps } from "./copilot-panel-content-types";
 import {
   buildCopilotAutoScrollSignature,
   getCopilotTranscriptScrollTop,
@@ -24,7 +25,7 @@ export function useCopilotPanelTranscriptScroll(input: {
     input.autoScrollKey
   );
   const autoScrollSignature = buildCopilotAutoScrollSignature(
-    input.messages,
+    input.messages as CopilotPanelContentProps["messages"],
     input.pendingUserText
   );
 

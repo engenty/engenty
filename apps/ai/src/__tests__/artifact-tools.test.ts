@@ -5,6 +5,7 @@ import {
   type ArtifactStore,
   ArtifactVersionConflictError,
 } from "../dal/artifacts/index.js";
+import { testToolContext } from "./helpers/tool-context.js";
 
 const tenantId = "tenant-1";
 const threadId = "thread-1";
@@ -42,11 +43,10 @@ describe("artifact tools", () => {
     const result = await runWithContext(
       { tenantId, orchestratorThreadId: threadId, userId: "u1" },
       () =>
-        tools.artifact_create.execute({
-          type: "markdown",
-          title: "T",
-          content: "# hi",
-        } as never)
+        tools.artifact_create.execute!(
+          { type: "markdown", title: "T", content: "# hi" } as never,
+          testToolContext()
+        )
     );
 
     expect(result).toEqual({ artifact_id: "a1", version: 1 });
@@ -67,11 +67,10 @@ describe("artifact tools", () => {
 
     await expect(
       runWithContext({ tenantId }, () =>
-        tools.artifact_create.execute({
-          type: "markdown",
-          title: "T",
-          content: "# hi",
-        } as never)
+        tools.artifact_create.execute!(
+          { type: "markdown", title: "T", content: "# hi" } as never,
+          testToolContext()
+        )
       )
     ).rejects.toThrow(/no active thread/i);
     expect(store.create).not.toHaveBeenCalled();
@@ -88,12 +87,15 @@ describe("artifact tools", () => {
     const result = await runWithContext(
       { tenantId, orchestratorThreadId: threadId, userId: "u1" },
       () =>
-        tools.artifact_update.execute({
-          artifact_id: "a1",
-          content: "x",
-          expected_version: 1,
-          summary: "s",
-        } as never)
+        tools.artifact_update.execute!(
+          {
+            artifact_id: "a1",
+            content: "x",
+            expected_version: 1,
+            summary: "s",
+          } as never,
+          testToolContext()
+        )
     );
 
     expect(result).toEqual({ error: "version_conflict", current_version: 5 });

@@ -72,15 +72,19 @@ describe("createVoxtralSttLeg", () => {
   });
 
   it("auths with Bearer header, waits for session.created, then streams audio", () => {
-    let socket: FakeWebSocket | null = null;
+    // Collect into an array rather than a `let`: TS cannot see the assignment
+    // inside the createWebSocket callback, so a `let socket = null` narrows to
+    // `null` for the whole test body and every property read becomes `never`.
+    const sockets: FakeWebSocket[] = [];
     const transcripts: Array<{ final: boolean; text: string }> = [];
     const errors: string[] = [];
 
     const leg = createVoxtralSttLeg({
       apiKey: "test-key",
       createWebSocket: (url, init) => {
-        socket = new FakeWebSocket(url, init);
-        return socket as unknown as WebSocket;
+        const created = new FakeWebSocket(url, init);
+        sockets.push(created);
+        return created as unknown as WebSocket;
       },
       model: "voxtral-mini-transcribe-realtime-2602",
       onError: (message) => errors.push(message),
@@ -89,7 +93,8 @@ describe("createVoxtralSttLeg", () => {
       wssUrl: "wss://example.test/realtime",
     });
 
-    expect(socket).not.toBeNull();
+    const socket = sockets.at(-1);
+    expect(socket).toBeDefined();
     expect(socket?.url).toContain(
       "model=voxtral-mini-transcribe-realtime-2602"
     );
@@ -127,14 +132,15 @@ describe("createVoxtralSttLeg", () => {
 
   it("finalizes after utterance silence", async () => {
     vi.useFakeTimers();
-    let socket: FakeWebSocket | null = null;
+    const sockets: FakeWebSocket[] = [];
     const transcripts: Array<{ final: boolean; text: string }> = [];
 
     createVoxtralSttLeg({
       apiKey: "test-key",
       createWebSocket: (url, init) => {
-        socket = new FakeWebSocket(url, init);
-        return socket as unknown as WebSocket;
+        const created = new FakeWebSocket(url, init);
+        sockets.push(created);
+        return created as unknown as WebSocket;
       },
       model: "voxtral-mini-transcribe-realtime-2602",
       onError: () => undefined,
@@ -143,6 +149,7 @@ describe("createVoxtralSttLeg", () => {
       wssUrl: "wss://example.test/realtime",
     });
 
+    const socket = sockets.at(-1);
     socket?.open();
     socket?.emit("message", {
       data: JSON.stringify({ type: "session.created", session: {} }),

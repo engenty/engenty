@@ -4,7 +4,9 @@ import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/r
 import { startScheduler } from "../start.js";
 
 const resolveSchedulerServiceScope = vi.hoisted(() => vi.fn());
-const reconcileScheduler = vi.hoisted(() => vi.fn(async () => {}));
+const reconcileScheduler = vi.hoisted(() =>
+  vi.fn(async (_params?: { tenantId: string }) => {})
+);
 const getServiceAccessToken = vi.hoisted(() => vi.fn());
 const listTenantIds = vi.hoisted(() => vi.fn());
 

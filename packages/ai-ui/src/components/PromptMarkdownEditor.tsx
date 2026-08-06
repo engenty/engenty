@@ -60,13 +60,16 @@ export function PromptMarkdownEditor({
       }
       return ext?.storage?.getMarkdown?.() ?? "";
     };
-    const off = editor.on("update", () => {
+    const handler = () => {
       const md = getMd();
       if (md) {
         onChangeRef.current(md);
       }
-    });
-    return () => off();
+    };
+    editor.on("update", handler);
+    return () => {
+      editor.off("update", handler);
+    };
   }, [editor]);
 
   useEffect(() => {
@@ -78,9 +81,9 @@ export function PromptMarkdownEditor({
       editor as { markdown?: { serialize: (d: unknown) => string } }
     ).markdown?.serialize(editor.state.doc.toJSON());
     if (currentMd !== target) {
-      editor.commands.setContent(target || "", false, {
+      editor.commands.setContent(target || "", {
         contentType: "markdown",
-      } as { contentType: string });
+      } as Parameters<typeof editor.commands.setContent>[1]);
     }
   }, [editor, value]);
 

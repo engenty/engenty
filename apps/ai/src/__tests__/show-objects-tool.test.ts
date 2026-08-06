@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EngentyCoreHttpError } from "../ai/core-http-client.js";
+import { testToolContext } from "./helpers/tool-context.js";
 
 const invokeTool = vi.fn();
 
@@ -64,16 +65,19 @@ describe("show_objects execute", () => {
       return Promise.resolve({ name: `Record ${input.id}`, status: "open" });
     });
     const tool = createShowObjectsTool();
-    const output = await tool.execute!({
-      refs: [
-        "contacts:contact:a",
-        "contacts:contact:denied",
-        "offers:offer:missing",
-        "not-a-ref",
-      ],
-      query: "acme",
-      total: 4,
-    } as never);
+    const output = await tool.execute!(
+      {
+        refs: [
+          "contacts:contact:a",
+          "contacts:contact:denied",
+          "offers:offer:missing",
+          "not-a-ref",
+        ],
+        query: "acme",
+        total: 4,
+      } as never,
+      testToolContext()
+    );
 
     expect(output).toMatchObject({
       ok: true,
@@ -100,9 +104,10 @@ describe("show_objects execute", () => {
       new EngentyCoreHttpError("operation not found", 404, "not_found")
     );
     const tool = createShowObjectsTool();
-    const output = await tool.execute!({
-      refs: ["custom:thing:x"],
-    } as never);
+    const output = await tool.execute!(
+      { refs: ["custom:thing:x"] } as never,
+      testToolContext()
+    );
     expect(output).toMatchObject({ ok: true, shown: 1, dropped: 0 });
     expect(readMeta(output)?.items).toEqual([]);
   });
@@ -110,9 +115,10 @@ describe("show_objects execute", () => {
   it("fails cleanly when nothing survives", async () => {
     invokeTool.mockResolvedValue(null);
     const tool = createShowObjectsTool();
-    const output = await tool.execute!({
-      refs: ["contacts:contact:gone"],
-    } as never);
+    const output = await tool.execute!(
+      { refs: ["contacts:contact:gone"] } as never,
+      testToolContext()
+    );
     expect(output).toMatchObject({ ok: false, shown: 0, dropped: 1 });
     expect(readMeta(output)).toBeUndefined();
   });
@@ -120,7 +126,10 @@ describe("show_objects execute", () => {
   it("uses the team override for team members", async () => {
     invokeTool.mockResolvedValue({ name: "Jo" });
     const tool = createShowObjectsTool();
-    await tool.execute!({ refs: ["team:member:m1"] } as never);
+    await tool.execute!(
+      { refs: ["team:member:m1"] } as never,
+      testToolContext()
+    );
     expect(invokeTool).toHaveBeenCalledWith("team_get", { id: "m1" });
   });
 });

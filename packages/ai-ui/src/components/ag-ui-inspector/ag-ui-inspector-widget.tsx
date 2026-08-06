@@ -1,5 +1,6 @@
 "use client";
 
+import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 import {
   Badge,
   Button,
@@ -234,8 +235,14 @@ export function AgUiAgentInspectorWidget({
   }, [layout]);
 
   const events = debugEvents.length > 0 ? debugEvents : host.events;
-  const toolCalls = useMemo(() => buildToolCallTree(events), [events]);
-  const initialPrompt = useMemo(() => extractInitialPrompt(events), [events]);
+  const toolCalls = useMemo(
+    () => buildToolCallTree(events as AGUIEvent[]),
+    [events]
+  );
+  const initialPrompt = useMemo(
+    () => extractInitialPrompt(events as AGUIEvent[]),
+    [events]
+  );
 
   const patchLayout = useCallback((patch: Partial<InspectorLayout>) => {
     setLayout((current) => ({ ...current, ...patch }));
@@ -438,7 +445,10 @@ export function AgUiAgentInspectorWidget({
             className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             value="timeline"
           >
-            <TimelinePanel events={events} messages={host.messages} />
+            <TimelinePanel
+              events={events as AGUIEvent[]}
+              messages={host.messages}
+            />
           </TabsContent>
           <TabsContent
             className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"

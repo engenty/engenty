@@ -18,6 +18,7 @@ export interface CitationItem {
   endLine?: number;
   kbName?: string;
   originalUrl?: string;
+  slug?: string;
   startLine?: number;
   title: string;
   url: string;

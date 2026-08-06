@@ -23,9 +23,13 @@ describe("mergeDynamicToolPart", () => {
       input: {},
       errorText: "HTTP 400",
     };
-    expect(mergeDynamicToolPart(existing, incoming).state).toBe(
-      "output-available"
-    );
+    expect(
+      (
+        mergeDynamicToolPart(existing as never, incoming as never) as {
+          state: string;
+        }
+      ).state
+    ).toBe("output-available");
   });
 
   it("allows server replace when error is superseded by completed", () => {
@@ -43,9 +47,13 @@ describe("mergeDynamicToolPart", () => {
       state: "output-available",
       output: { ok: true },
     };
-    expect(mergeDynamicToolPart(existing, incoming).state).toBe(
-      "output-available"
-    );
+    expect(
+      (
+        mergeDynamicToolPart(existing as never, incoming as never) as {
+          state: string;
+        }
+      ).state
+    ).toBe("output-available");
   });
 
   it("collapses frontend dispatch id and Mastra wrapper id for the same navigate input", () => {

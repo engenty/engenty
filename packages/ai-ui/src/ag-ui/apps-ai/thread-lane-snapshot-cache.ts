@@ -38,7 +38,7 @@ export function saveThreadLaneSnapshot(
   threadId: string,
   snapshot: ThreadLaneSnapshot
 ): void {
-  if (!isThreadLaneInFlight(snapshot)) {
+  if (!isThreadLaneInFlight({ ...snapshot, submitInFlight: false })) {
     return;
   }
   threadLaneSnapshots.set(threadId, {

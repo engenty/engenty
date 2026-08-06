@@ -1,13 +1,15 @@
-import type { ToolExecutionContext } from "@mastra/core/tools";
 import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "../../../../src/ai/core-http-client.js";
 import type { EngentyToolsClientResult } from "../schema/types.js";
-import { resolveEngentyToolsRunContext } from "./run-context.js";
+import {
+  resolveEngentyToolsRunContext,
+  type ToolRequestContextCarrier,
+} from "./run-context.js";
 
 export function getCurrentEngentyToolsClient(
-  executionContext?: ToolExecutionContext
+  executionContext?: ToolRequestContextCarrier
 ): EngentyToolsClientResult {
   const ctx = resolveEngentyToolsRunContext(executionContext);
   const accessToken = ctx.accessToken?.trim();

@@ -213,6 +213,7 @@ function harnessErrorResponse(
     case "agent_threads.unconfiguredDatabase":
       return c.json({ error: err.code }, 503);
     case "agent_threads.missingUserInput":
+    case "agent_threads.invalidSubmittedMessages":
       return c.json({ error: err.code, ...err.details }, 400);
     case "agent_threads.invalidResume":
     case "agent_threads.interruptNotFound":

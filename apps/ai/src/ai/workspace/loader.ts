@@ -251,7 +251,8 @@ export async function createEngentyAgentWorkspace(
     mastraSandbox,
     sandboxProvider,
     skillDiscoveryPaths,
-    workspace,
+    // Mastra 1.55: mounts widen TMounts; result type uses the default Workspace.
+    workspace: workspace as unknown as Workspace,
     workspaceFsMode,
   };
 }

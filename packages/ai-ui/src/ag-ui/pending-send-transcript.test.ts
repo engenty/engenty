@@ -46,9 +46,9 @@ describe("resolvePendingUserTextForTranscript", () => {
           {
             id: "client-user-1",
             role: "user",
-            content: [{ type: "text", text: "hi" }],
+            parts: [{ type: "text", text: "hi" }],
           },
-        ],
+        ] as PendingSendTranscriptMessage[],
         {
           startedAt: 2,
           text: "hi",

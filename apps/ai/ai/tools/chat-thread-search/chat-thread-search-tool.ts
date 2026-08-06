@@ -2,7 +2,21 @@ import {
   buildMastraChatThreadSearchTool,
   type ToolExecutionContext,
 } from "@engenty/ai-core";
-import type { SearchIndexProvider } from "@engenty/search-index";
+import type {
+  SearchDocument,
+  SearchIndexProvider,
+} from "@engenty/search-index";
+
+/**
+ * The bare `SearchIndexProvider` defaults TFilters to `Record<string, never>`
+ * — "this provider declares no filters". Chat-thread search always scopes by
+ * tenant_id/user_id, so it needs the filter-carrying form.
+ */
+type ScopedSearchIndexProvider = SearchIndexProvider<
+  SearchDocument,
+  Record<string, unknown>
+>;
+
 import { createTool } from "@mastra/core/tools";
 import { getAiSearchIndexRegistry } from "../../../src/runtime/ai-search-runtime.js";
 import { getEngentyToolsRunContext } from "../engenty-tools/lib/run-context.js";
@@ -47,7 +61,7 @@ function evaluateIndexHealth(status: {
   return { index_health: "ok", ok: true };
 }
 
-function resolveProvider(): SearchIndexProvider {
+function resolveProvider(): ScopedSearchIndexProvider {
   const registry = getAiSearchIndexRegistry();
   const provider = registry?.get(CHAT_SEARCH_PROVIDER_ID);
   if (!provider) {
@@ -59,7 +73,7 @@ function resolveProvider(): SearchIndexProvider {
 }
 
 async function loadIndexHealth(
-  provider: SearchIndexProvider,
+  provider: ScopedSearchIndexProvider,
   scope: { tenantId: string; userId: string }
 ): Promise<ChatSessionIndexHealthPayload> {
   if (!provider.getStatus) {
@@ -89,7 +103,7 @@ async function loadIndexHealth(
 }
 
 async function searchProvider(
-  provider: SearchIndexProvider,
+  provider: ScopedSearchIndexProvider,
   scope: { tenantId: string; userId: string },
   input: ChatSessionSearchInvokeInput
 ): Promise<ChatSessionSearchPayload> {
@@ -107,6 +121,11 @@ async function searchProvider(
 
 export function createChatThreadSearchTool() {
   return buildMastraChatThreadSearchTool(createTool, {
+    // `action`/`moduleId` are required by ToolExecutionContext but unread on
+    // this path — the tool resolves everything it needs from the ALS run
+    // context below. Naming them keeps the context self-describing in logs.
+    action: "chat_thread_search",
+    moduleId: "ai",
     callGatewayMethod: async (name, input) => {
       const ctx = getEngentyToolsRunContext();
       const tenantId = ctx.tenantId?.trim();

@@ -1,4 +1,3 @@
-import type { ToolExecutionContext } from "@mastra/core/tools";
 import { createTool } from "@mastra/core/tools";
 import type { EngentyToolContract } from "../../../src/ai/core-http-client.js";
 import {
@@ -9,6 +8,7 @@ import {
 import { getAiSearchIndexRegistry } from "../../../src/runtime/ai-search-runtime.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
 import { coreErrorToToolResult } from "./lib/errors.js";
+import type { ToolRequestContextCarrier } from "./lib/run-context.js";
 import {
   type SearchEngentyToolInput,
   searchInputSchema,
@@ -50,16 +50,25 @@ export interface SearchEngentyToolsOverrides {
   apiCatalog?: ApiCatalogSearchStore;
 }
 
+// `apiCatalog` is optional, so a bare `"apiCatalog" in x` check does not narrow
+// the union — TypeScript keeps the overrides branch alive on both sides. A
+// predicate makes the discriminant explicit.
+function isSearchOverrides(
+  value: ToolRequestContextCarrier | SearchEngentyToolsOverrides
+): value is SearchEngentyToolsOverrides {
+  return "apiCatalog" in value;
+}
+
 export async function searchEngentyTools(
   input: SearchEngentyToolInput,
-  contextOrOverrides?: ToolExecutionContext | SearchEngentyToolsOverrides
+  contextOrOverrides?: ToolRequestContextCarrier | SearchEngentyToolsOverrides
 ) {
   const overrides =
-    contextOrOverrides && "apiCatalog" in contextOrOverrides
+    contextOrOverrides && isSearchOverrides(contextOrOverrides)
       ? contextOrOverrides
       : undefined;
   const executionContext =
-    contextOrOverrides && !("apiCatalog" in contextOrOverrides)
+    contextOrOverrides && !isSearchOverrides(contextOrOverrides)
       ? contextOrOverrides
       : undefined;
   // Preserve the legacy `{ ok: false, code: "unauthorized" | "service_unavailable" }`

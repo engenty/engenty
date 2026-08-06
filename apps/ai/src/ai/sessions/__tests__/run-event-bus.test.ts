@@ -1,11 +1,15 @@
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
-import { describe, expect, it } from "vitest";
+import { EventEmitterPubSub } from "@mastra/core/events";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { registerActiveRunAbortController } from "../run-abort-registry.js";
 import {
   getLiveRunEventsSnapshot,
   isRunLiveInProcess,
   markRunDone,
   markRunLive,
   publishRunEvent,
+  requestRunCancellation,
+  setRunEventPubSub,
   subscribeRunEvents,
 } from "../run-event-bus.js";
 
@@ -127,5 +131,129 @@ describe("run-event-bus", () => {
     unsub();
 
     expect(received).toHaveLength(0);
+  });
+});
+
+// The production lane: app boot injects `mastra.pubsub` (EventEmitterPubSub by
+// default). Every observable behavior above must hold identically — publish
+// delivers synchronously, unsubscribe and markRunDone sever in the same tick.
+describe("run-event-bus over an injected EventEmitterPubSub", () => {
+  beforeEach(() => {
+    setRunEventPubSub(new EventEmitterPubSub());
+  });
+  afterEach(() => {
+    setRunEventPubSub(null);
+  });
+
+  it("delivers published events synchronously to subscribers", () => {
+    const id = runId();
+    const received: number[] = [];
+    const unsub = subscribeRunEvents(id, (e) => received.push(e.seq));
+
+    publishRunEvent(id, { event: makeEvent(), seq: 0 });
+    // No await — delivery must land in the same tick, like the Map lane.
+    expect(received).toEqual([0]);
+    publishRunEvent(id, { event: makeEvent("RUN_FINISHED"), seq: 1 });
+    unsub();
+
+    expect(received).toEqual([0, 1]);
+  });
+
+  it("unsubscribe severs delivery in the same tick despite the async transport", () => {
+    // pubsub.unsubscribe is a Promise; a publish squeezed between unsub() and
+    // that promise settling must NOT reach the subscriber.
+    const id = runId();
+    const received: number[] = [];
+    const unsub = subscribeRunEvents(id, (e) => received.push(e.seq));
+
+    publishRunEvent(id, { event: makeEvent(), seq: 0 });
+    unsub();
+    publishRunEvent(id, { event: makeEvent(), seq: 1 });
+
+    expect(received).toEqual([0]);
+  });
+
+  it("markRunDone severs all subscribers in the same tick", () => {
+    const id = runId();
+    const received: number[] = [];
+    subscribeRunEvents(id, (e) => received.push(e.seq));
+    subscribeRunEvents(id, (e) => received.push(e.seq));
+
+    publishRunEvent(id, { event: makeEvent(), seq: 0 });
+    markRunDone(id);
+    publishRunEvent(id, { event: makeEvent(), seq: 1 });
+
+    expect(received).toEqual([0, 0]);
+  });
+
+  it("does not deliver events to a different run's subscribers", () => {
+    const idA = runId();
+    const idB = runId();
+    const received: unknown[] = [];
+    const unsub = subscribeRunEvents(idA, (e) => received.push(e));
+
+    publishRunEvent(idB, { event: makeEvent(), seq: 0 });
+    unsub();
+
+    expect(received).toHaveLength(0);
+  });
+
+  it("live-buffer snapshot works unchanged alongside the pubsub lane", () => {
+    const id = runId();
+    markRunLive(id);
+    expect(isRunLiveInProcess(id)).toBe(true);
+    publishRunEvent(id, { event: makeEvent("TEXT_MESSAGE_START"), seq: 0 });
+    publishRunEvent(id, { event: makeEvent("TEXT_MESSAGE_CONTENT"), seq: 1 });
+
+    const snapshot = getLiveRunEventsSnapshot(id);
+    expect(snapshot?.events.map((e) => e.seq)).toEqual([0, 1]);
+    markRunDone(id);
+    expect(getLiveRunEventsSnapshot(id)).toBeNull();
+  });
+
+  it("requestRunCancellation aborts the locally registered run", () => {
+    const id = runId();
+    const { abortSignal, cleanup } = registerActiveRunAbortController(id);
+
+    expect(requestRunCancellation(id)).toBe(true);
+    expect(abortSignal.aborted).toBe(true);
+    // Idempotent: the poke coming back through the control topic re-aborts a
+    // no-op, and a second explicit request reports "nothing live here".
+    expect(requestRunCancellation(id)).toBe(false);
+    cleanup();
+  });
+
+  it("a cancel poke arriving over the control topic aborts a local run", async () => {
+    // Simulates the cross-replica path: the poke is published straight to the
+    // pubsub (as a remote replica would), not via requestRunCancellation.
+    const pubsub = new EventEmitterPubSub();
+    setRunEventPubSub(pubsub);
+    const id = runId();
+    const { abortSignal, cleanup } = registerActiveRunAbortController(id);
+
+    await pubsub.publish("engenty.run-control", {
+      data: { runId: id },
+      runId: id,
+      type: "engenty.cancel",
+    });
+
+    expect(abortSignal.aborted).toBe(true);
+    cleanup();
+  });
+
+  it("unsubscribing one subscriber leaves the other attached", () => {
+    const id = runId();
+    const a: number[] = [];
+    const b: number[] = [];
+    const unsubA = subscribeRunEvents(id, (e) => a.push(e.seq));
+    const unsubB = subscribeRunEvents(id, (e) => b.push(e.seq));
+
+    publishRunEvent(id, { event: makeEvent(), seq: 10 });
+    unsubA();
+    publishRunEvent(id, { event: makeEvent(), seq: 11 });
+    unsubB();
+
+    expect(a).toEqual([10]);
+    expect(b).toEqual([10, 11]);
   });
 });

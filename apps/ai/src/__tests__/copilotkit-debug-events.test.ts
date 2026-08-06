@@ -1,4 +1,4 @@
-import { parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
+import { EventType, parseAgUiSseChunk } from "@engenty/ag-ui-bridge";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -36,7 +36,7 @@ describe("CopilotKit AG-UI debug events", () => {
     vi.stubEnv("NODE_ENV", "development");
     const bus = createAgUiDebugEventBus();
     bus.publish({
-      type: "RUN_STARTED",
+      type: EventType.RUN_STARTED,
       runId: "run-1",
       threadId: "thread-1",
     });
@@ -51,7 +51,7 @@ describe("CopilotKit AG-UI debug events", () => {
       expect.objectContaining({
         runId: "run-1",
         threadId: "thread-1",
-        type: "RUN_STARTED",
+        type: EventType.RUN_STARTED,
       }),
     ]);
   });

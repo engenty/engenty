@@ -1,4 +1,5 @@
 import {
+  type AiRegisteredAgent,
   ENGENTY_COPILOT_HOST_KEY,
   useAiAgentsQuery,
   useCopilotThreadActions,
@@ -32,6 +33,7 @@ import {
   type ThreadListOrganizationLabels,
   type ThreadListOrganizationPrefs,
 } from "./thread-list-organization.js";
+import type { ThreadListState } from "./types.js";
 
 function useDebouncedValue(value: string, delayMs: number) {
   const [debounced, setDebounced] = useState(value);
@@ -56,6 +58,10 @@ export function ThreadList() {
     useCopilotThreadActions();
   const [searchQuery, setSearchQuery] = useState("");
   const agentsQuery = useAiAgentsQuery(true);
+  const registryAgents = useMemo(
+    (): AiRegisteredAgent[] => agentsQuery.data?.agents ?? [],
+    [agentsQuery.data?.agents]
+  );
   const labels = useMemo(
     () => ({
       deleteSession: t("chat.deleteSession"),
@@ -129,12 +135,12 @@ export function ThreadList() {
   const agentLabelById = useMemo(
     () =>
       new Map(
-        (agentsQuery.data?.agents ?? []).map((agent) => [
+        registryAgents.map((agent) => [
           agent.id,
           agent.name?.trim() || agent.id,
         ])
       ),
-    [agentsQuery.data?.agents]
+    [registryAgents]
   );
   const threadAgentLabel = useCallback(
     (row: AgentThreadDto) => agentLabelById.get(row.agent_id) || row.agent_id,
@@ -142,11 +148,11 @@ export function ThreadList() {
   );
   const agentOptions = useMemo(
     () =>
-      (agentsQuery.data?.agents ?? []).map((agent) => ({
+      registryAgents.map((agent) => ({
         id: agent.id,
         name: agent.name?.trim() || agent.id,
       })),
-    [agentsQuery.data?.agents]
+    [registryAgents]
   );
 
   const normalizedSearchQuery = searchQuery.trim();
@@ -270,7 +276,7 @@ export function ThreadList() {
   const handleDelete = deleteSession;
 
   const state = useMemo(
-    () => ({
+    (): ThreadListState => ({
       agentOptions,
       deletePending: isDeletingSession,
       groups,

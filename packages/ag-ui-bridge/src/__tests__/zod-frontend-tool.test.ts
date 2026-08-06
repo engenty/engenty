@@ -5,7 +5,6 @@ import { buildFrontendToolDefinitionFromZod } from "../zod-frontend-tool.js";
 const themeSpec = {
   description: "Switch the app color theme.",
   name: "shell_set_theme",
-  safety: "safe" as const,
   schema: z.object({ theme: z.enum(["light", "dark", "system"]) }),
   title: "Set theme",
 };

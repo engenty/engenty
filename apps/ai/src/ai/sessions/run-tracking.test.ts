@@ -1,3 +1,4 @@
+import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AgentRunStore } from "../../dal/threads/agent-run-store.js";
@@ -68,7 +69,7 @@ describe("createSessionRunTracker", () => {
     });
 
     await tracker.append({
-      type: "RUN_STARTED",
+      type: EventType.RUN_STARTED,
       runId: runInput.id,
       threadId: runInput.threadId,
     });

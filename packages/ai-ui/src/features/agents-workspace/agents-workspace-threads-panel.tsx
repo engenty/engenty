@@ -101,9 +101,15 @@ export function AgentsWorkspaceThreadsPanel({
                 key={thread.id}
                 onSelect={() =>
                   runNav(() =>
-                    navigate(buildAgentSessionDetailPath(thread.id), {
-                      replace: true,
-                    })
+                    navigate(
+                      buildAgentSessionDetailPath(
+                        thread.current_agent_id ?? "",
+                        thread.id
+                      ),
+                      {
+                        replace: true,
+                      }
+                    )
                   )
                 }
                 t={t}

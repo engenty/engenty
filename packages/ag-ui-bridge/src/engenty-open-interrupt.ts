@@ -34,7 +34,9 @@ export const AG_UI_FRONTEND_TOOL_EXECUTION_TIMEOUT_MS = 3 * 60 * 1000;
 
 /** TTL for the interrupt kind: short for browser frontend tools, long otherwise. */
 export function agUiOpenInterruptTtlMsForKind(
-  kind: AgUiOpenInterruptKind
+  // Optional to match AgUiOpenInterruptMetadata.kind — an absent kind already
+  // resolves to the default TTL below.
+  kind?: AgUiOpenInterruptKind
 ): number {
   return kind === "frontend_tool"
     ? AG_UI_FRONTEND_TOOL_INTERRUPT_TTL_MS

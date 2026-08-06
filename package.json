@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.101",
+  "version": "0.1.102",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -215,6 +215,8 @@
       "@a2ui/react>zod": "3.25.76",
       "@a2ui/markdown-it>zod": "3.25.76",
       "@engenty/a2ui-catalog>zod": "3.25.76",
+      "@ag-ui/core>zod": "3.25.76",
+      "@ag-ui/client>zod": "3.25.76",
       "@executor-js/plugin-openapi": "1.5.29",
       "effect": "4.0.0-beta.59",
       "protobufjs": ">=7.5.8",

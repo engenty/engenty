@@ -52,7 +52,8 @@ async function loadJsonDefaults(): Promise<ModelPricingSeed[] | null> {
  * about the same resolved set instead of assuming the fallback.
  */
 export async function resolveModelPricingSeeds(): Promise<ModelPricingSeed[]> {
-  return (await loadJsonDefaults()) ?? DEFAULT_MODEL_PRICING_SEEDS;
+  // Copy the fallback: it is `readonly`, and callers get a mutable array.
+  return (await loadJsonDefaults()) ?? [...DEFAULT_MODEL_PRICING_SEEDS];
 }
 
 /**

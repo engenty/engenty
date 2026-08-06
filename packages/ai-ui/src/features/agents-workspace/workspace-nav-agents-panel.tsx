@@ -34,7 +34,7 @@ export interface WorkspaceNavAgentsPanelProps {
   emptyAgentsLabel: string;
   filteredActionsPartition: CatalogPartition<AiRegisteredAction>;
   filteredAgents: AiAgentEntry[];
-  isFolderOpen: (section: string, moduleId: string) => boolean;
+  isFolderOpen: (section: "actions" | "skills", moduleId: string) => boolean;
   isLandingPage: boolean;
   navRootRef: RefObject<HTMLDivElement | null>;
   onAddAgent?: () => void;
@@ -51,7 +51,7 @@ export interface WorkspaceNavAgentsPanelProps {
   setActionsOpen: (open: boolean) => void;
   setAgentsOpen: (open: boolean) => void;
   t: (key: string) => string;
-  toggleFolder: (section: string, moduleId: string) => void;
+  toggleFolder: (section: "actions" | "skills", moduleId: string) => void;
   unpinAgent: (agentId: string) => void;
   unpinnedFilteredAgents: AiAgentEntry[];
 }

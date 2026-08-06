@@ -11,7 +11,7 @@ function runWithContext(
 
 describe("registryAgentsListTool", () => {
   it("returns agents from the registry endpoint", async () => {
-    const mockFetch = vi.fn(async () => ({
+    const mockFetch = vi.fn(async (_url?: string, _init?: RequestInit) => ({
       ok: true,
       json: async () => ({
         agents: [
@@ -71,7 +71,10 @@ describe("registryAgentsListTool", () => {
   });
 
   it("throws on non-ok HTTP response", async () => {
-    const mockFetch = vi.fn(async () => ({ ok: false, status: 503 }));
+    const mockFetch = vi.fn(async (_url?: string, _init?: RequestInit) => ({
+      ok: false,
+      status: 503,
+    }));
     vi.stubGlobal("fetch", mockFetch);
     try {
       await expect(
@@ -90,7 +93,7 @@ describe("registryAgentsListTool", () => {
   });
 
   it("omits Authorization header when no access token is set", async () => {
-    const mockFetch = vi.fn(async () => ({
+    const mockFetch = vi.fn(async (_url?: string, _init?: RequestInit) => ({
       ok: true,
       json: async () => ({ agents: [] }),
     }));

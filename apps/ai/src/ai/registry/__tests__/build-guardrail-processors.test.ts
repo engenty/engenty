@@ -182,8 +182,11 @@ describe("buildGuardrailProcessors", () => {
 
     const { inputProcessors } = buildGuardrailProcessors(cfg, options());
     expect(inputProcessors).toHaveLength(1);
-    const opts = (inputProcessors[0] as { options: Record<string, unknown> })
-      .options;
+    // `Processor` does not declare `options`; the guardrail processors carry it
+    // as construction state, so reach for it through `unknown`.
+    const opts = (
+      inputProcessors[0] as unknown as { options: Record<string, unknown> }
+    ).options;
     expect(opts.model).toEqual({
       __gateway: true,
       modelId: SAFEGUARD_MODEL,

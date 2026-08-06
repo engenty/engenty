@@ -47,7 +47,10 @@ describe("agent thread clients", () => {
 
     expect(thread.id).toBe("thread-1");
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://ai.engenty.localhost/ai/threads");
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({
@@ -87,7 +90,10 @@ describe("agent thread clients", () => {
     expect(agents).toHaveLength(1);
     expect(agents[0]?.id).toBe("engenty.copilot");
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://ai.engenty.localhost/ai/registry/agents");
     expect(init.method).toBe("GET");
     expect(init.headers).toMatchObject({
@@ -127,7 +133,10 @@ describe("agent thread clients", () => {
 
     expect(thread.agent_id).toBe("knowledge-base.manager");
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://ai.engenty.localhost/ai/threads/thread-1");
     expect(init.method).toBe("PATCH");
     expect(init.headers).toMatchObject({

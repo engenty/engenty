@@ -43,6 +43,7 @@ import {
   createThreadStoreFromEnv,
 } from "./ai/index.js";
 import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
+import { setRunEventPubSub } from "./ai/sessions/run-event-bus.js";
 import { registerActionRoutes } from "./api/action-routes.js";
 import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
 import { registerAppProxyRoutes } from "./api/app-proxy-routes.js";
@@ -156,11 +157,16 @@ export interface CreateAppOptions {
 
 // Canonical entity event payload for chat-session lifecycle. Subscribers
 // (chat-search re-index, telemetry) read this without per-route knowledge.
-export interface AiChatSessionEventPayload {
+// A `type`, not an `interface`, on purpose: the event bus constrains payloads
+// to `Readonly<Record<string, unknown>>`, and only a type alias gets the
+// implicit index signature that satisfies it. Declaring this as an interface
+// makes every `emit`/`on` call site fail to compile.
+// biome-ignore lint/style/useConsistentTypeDefinitions: an interface has no implicit index signature, so it cannot satisfy the bus's Readonly<Record<string, unknown>> constraint — see above.
+export type AiChatSessionEventPayload = {
   tenant_id: string;
   thread_id: string;
   user_id: string;
-}
+};
 
 // Conventional `<module>.<entity>.{created,updated,deleted}` event names.
 // Routes/harness emit `ai.chat_session.updated` after every persistence write
@@ -175,6 +181,11 @@ export async function createApp(options: CreateAppOptions = {}) {
   // are also skipped when a store is injected via options (see below).
   const skipBackgroundTasks = process.env.VITEST === "true";
   const app = new Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>();
+
+  // Fan live run events out through Mastra's own pubsub (EventEmitter today;
+  // a Redis backend makes multi-replica fan-out a config flip). Same-tick
+  // delivery semantics are preserved — see run-event-bus.ts.
+  setRunEventPubSub(mastra.pubsub);
 
   // Hydrate PLATFORM-scoped settings (AI provider keys, channel bot tokens) from
   // core.platform_settings into process.env so the synchronous env readers and
@@ -204,7 +215,7 @@ export async function createApp(options: CreateAppOptions = {}) {
             "SLACK_SIGNING_SECRET",
             "TELEGRAM_BOT_TOKEN",
           ],
-          logger: (msg, err) => logger.warn(msg, err),
+          logger: (msg, err) => logger.warn(msg, { error: String(err) }),
         });
         if (hydrated.length > 0) {
           logger.info("hydrated platform settings from DB", {
@@ -213,7 +224,9 @@ export async function createApp(options: CreateAppOptions = {}) {
         }
       }
     } catch (err) {
-      logger.warn("platform settings hydration failed (non-fatal)", err);
+      logger.warn("platform settings hydration failed (non-fatal)", {
+        error: String(err),
+      });
     }
   }
 
@@ -269,12 +282,18 @@ export async function createApp(options: CreateAppOptions = {}) {
     })
   );
 
+  // `?? null` on each: the option is optional (`| undefined`) while the env
+  // factory answers `| null`. Collapsing the two absent-cases here keeps every
+  // downstream `getStore: () => x` matching the `() => X | null` the route
+  // registrars declare, instead of repeating the coalesce at ~8 call sites.
   const threadStore =
-    "threadStore" in options ? options.threadStore : createThreadStoreFromEnv();
+    ("threadStore" in options
+      ? options.threadStore
+      : createThreadStoreFromEnv()) ?? null;
   const agentRunStore =
-    "agentRunStore" in options
+    ("agentRunStore" in options
       ? options.agentRunStore
-      : createAgentRunStoreFromEnv();
+      : createAgentRunStoreFromEnv()) ?? null;
   const actionRequestStore = createActionRequestStoreFromEnv();
   const artifactStore =
     "artifactStore" in options
@@ -302,7 +321,9 @@ export async function createApp(options: CreateAppOptions = {}) {
       ? options.chatSearchRetrieval
       : createChatSearchRetrievalFromEnv();
   const aiUsageStore =
-    "usageStore" in options ? options.usageStore : createAiUsageStoreFromEnv();
+    ("usageStore" in options
+      ? options.usageStore
+      : createAiUsageStoreFromEnv()) ?? null;
   const registryStore =
     "registryStore" in options
       ? options.registryStore
@@ -783,7 +804,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   // is configured and is killed by ENGENTY_REMOTE_CHANNELS_ENABLED=false.
   await registerRemoteChannels(app, {
     mastra,
-    sessionStore: threadStore,
+    threadStore,
   });
 
   if (

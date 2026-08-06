@@ -53,7 +53,6 @@ describe("buildAgentUiContextInstructions", () => {
               properties: { mode: { enum: ["a", "b"], type: "string" } },
               required: ["mode"],
             },
-            safety: "safe",
           }),
         ],
       },
@@ -83,14 +82,12 @@ describe("buildAgentUiContextInstructions", () => {
               type: "object",
               properties: { root_selector: { type: "string" } },
             },
-            safety: "safe",
           }),
           createFrontendToolDefinition({
             availability: "enabled",
             description: "Screenshot",
             name: "browser_screenshot",
             parameters: { type: "object", properties: {} },
-            safety: "safe",
           }),
         ],
       },
@@ -234,7 +231,12 @@ describe("buildAgentUiContextInstructions", () => {
       agentId: "engenty.copilot",
       agentUi: {
         frontend_tools: [],
-        state_snapshot: { ...snapshot, route: undefined },
+        // The wire type marks `route` required, but a client can legitimately
+        // send a snapshot without one — that is exactly the case under test.
+        state_snapshot: {
+          ...snapshot,
+          route: undefined,
+        } as unknown as typeof snapshot,
       },
       scope: {
         tenantId: "t1",

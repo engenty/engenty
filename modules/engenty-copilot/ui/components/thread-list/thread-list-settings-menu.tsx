@@ -29,6 +29,7 @@ import {
   Tags,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { useThreadList } from "./thread-list-context.js";
 import type {
   ThreadListAgeFilter,
@@ -38,9 +39,24 @@ import type {
 
 export function ThreadListSettingsMenu() {
   const list = useThreadList();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const selectContentClassName = "z-[110]";
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open, eventDetails) => {
+        if (
+          !open &&
+          eventDetails.reason === "outside-press" &&
+          eventDetails.event.target instanceof Element &&
+          eventDetails.event.target.closest('[data-slot="select-content"]')
+        ) {
+          eventDetails.cancel();
+          return;
+        }
+        setSettingsOpen(open);
+      }}
+      open={settingsOpen}
+    >
       <PopoverTrigger asChild>
         <Button
           aria-label={list.labels.listSettings}
@@ -57,15 +73,6 @@ export function ThreadListSettingsMenu() {
       <PopoverContent
         align="start"
         className="z-[100] w-[320px] overflow-hidden rounded-lg p-0"
-        onPointerDownOutside={(event) => {
-          const target = event.target;
-          if (
-            target instanceof Element &&
-            target.closest('[data-slot="select-content"]')
-          ) {
-            event.preventDefault();
-          }
-        }}
       >
         <div className="space-y-1.5 p-2">
           <div className="font-medium text-muted-foreground text-xs">

@@ -1,6 +1,12 @@
 // Public barrel: official AG-UI re-exports plus Engenty bridge contracts.
 export * from "@ag-ui/core";
 export { AGUI_MEDIA_TYPE, EventEncoder } from "@ag-ui/encoder";
+export type { ActiveArtifactMetadata } from "./active-artifact-metadata.js";
+export {
+  ACTIVE_ARTIFACT_METADATA_KEY,
+  mergeActiveArtifactMetadata,
+  readActiveArtifactMetadata,
+} from "./active-artifact-metadata.js";
 export {
   createAgUiSseParser,
   encodeAgUiSseEvent,
@@ -44,12 +50,6 @@ export {
   getAgentUiStateSnapshotByteLength,
   isAgentUiStateSnapshotV1,
 } from "./agent-ui-state.js";
-export type { ActiveArtifactMetadata } from "./active-artifact-metadata.js";
-export {
-  ACTIVE_ARTIFACT_METADATA_KEY,
-  mergeActiveArtifactMetadata,
-  readActiveArtifactMetadata,
-} from "./active-artifact-metadata.js";
 export type {
   AgUiOpenInterruptKind,
   AgUiOpenInterruptMetadata,

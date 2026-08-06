@@ -47,7 +47,7 @@ describe("agentProposeTool", () => {
         accessToken: "tok-123",
       },
       () =>
-        agentProposeTool.execute?.(input as never, {} as never) as Promise<{
+        agentProposeTool.execute!(input as never, {} as never) as Promise<{
           ok: boolean;
           status?: string;
           pending_revision?: boolean;
@@ -90,7 +90,7 @@ describe("agentProposeTool", () => {
     const result = (await runWithContext(
       { coreBaseUrl: "https://api.example.com", accessToken: "tok-123" },
       () =>
-        agentProposeTool.execute?.(input as never, {} as never) as Promise<{
+        agentProposeTool.execute!(input as never, {} as never) as Promise<{
           pending_revision: boolean;
           note: string;
         }>
@@ -101,7 +101,7 @@ describe("agentProposeTool", () => {
 
   it("soft-fails without a token and on HTTP errors (never throws)", async () => {
     const noAuth = (await runWithContext({}, () =>
-      agentProposeTool.execute?.(input as never, {} as never)
+      agentProposeTool.execute!(input as never, {} as never)
     )) as { ok: boolean; code: string };
     expect(noAuth.ok).toBe(false);
     expect(noAuth.code).toBe("unauthorized");
@@ -116,7 +116,7 @@ describe("agentProposeTool", () => {
     );
     const httpError = (await runWithContext(
       { coreBaseUrl: "https://api.example.com", accessToken: "tok-123" },
-      () => agentProposeTool.execute?.(input as never, {} as never)
+      () => agentProposeTool.execute!(input as never, {} as never)
     )) as { ok: boolean; message: string };
     expect(httpError.ok).toBe(false);
     expect(httpError.message).toContain("400");

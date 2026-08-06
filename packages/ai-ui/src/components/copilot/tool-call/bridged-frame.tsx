@@ -207,17 +207,14 @@ export function BridgedFrame({
           return;
         }
         case "tools/call": {
-          const name =
-            typeof msg.params?.name === "string" ? msg.params.name : null;
+          const params = msg.params as Record<string, unknown> | undefined;
+          const name = typeof params?.name === "string" ? params.name : null;
           if (!name) {
             respondError(-32_602, "tools/call requires a tool name");
             return;
           }
           callToolRef
-            .current(
-              name,
-              isRecord(msg.params?.arguments) ? msg.params.arguments : {}
-            )
+            .current(name, isRecord(params?.arguments) ? params.arguments : {})
             .then((result) => respond(result))
             .catch((err) =>
               respondError(
@@ -230,8 +227,11 @@ export function BridgedFrame({
         case "ui/notifications/message": {
           // Frame → conversation. Text only: the guest is untrusted, so it
           // gets to say something, not to render something.
+          const messageParams = msg.params as
+            | Record<string, unknown>
+            | undefined;
           const text =
-            typeof msg.params?.text === "string" ? msg.params.text : "";
+            typeof messageParams?.text === "string" ? messageParams.text : "";
           if (text) {
             notifyRef.current?.(text.slice(0, 2000));
           }
@@ -241,7 +241,8 @@ export function BridgedFrame({
           return;
         }
         case "ui/open-link": {
-          const url = typeof msg.params?.url === "string" ? msg.params.url : "";
+          const linkParams = msg.params as Record<string, unknown> | undefined;
+          const url = typeof linkParams?.url === "string" ? linkParams.url : "";
           if (/^https?:\/\//i.test(url)) {
             window.open(url, "_blank", "noopener,noreferrer");
             respond({});
@@ -259,7 +260,8 @@ export function BridgedFrame({
             // The pane owns its own height; a guest cannot resize it.
             return;
           }
-          const raw = msg.params?.height;
+          const sizeParams = msg.params as Record<string, unknown> | undefined;
+          const raw = sizeParams?.height;
           const height = typeof raw === "number" ? raw : Number(raw);
           if (Number.isFinite(height)) {
             setHeightPx(

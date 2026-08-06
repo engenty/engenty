@@ -16,7 +16,11 @@
 // These are complementary, not duplicated: the park keeps the live objects (and
 // their richer event stream) for the common same-process case; the snapshot lane
 // exists precisely for the case the park cannot cover.
-import type { AGUIEvent, FrontendToolDefinition } from "@engenty/ag-ui-bridge";
+import {
+  type AGUIEvent,
+  EventType,
+  type FrontendToolDefinition,
+} from "@engenty/ag-ui-bridge";
 import type { Mastra } from "@mastra/core/mastra";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
 import {
@@ -267,7 +271,7 @@ export async function resumeConversationRun(
   emit({
     runId: input.newRunId,
     threadId: input.threadId,
-    type: "RUN_STARTED",
+    type: EventType.RUN_STARTED,
   });
 
   const parked = input.suspendedRunId
@@ -310,7 +314,7 @@ export async function resumeConversationRun(
         emit({
           runId: input.newRunId,
           threadId: input.threadId,
-          type: "RUN_FINISHED",
+          type: EventType.RUN_FINISHED,
         });
         threadStatus = "completed";
         return { runId: input.newRunId };
@@ -447,7 +451,7 @@ export async function resumeConversationRun(
       emit(agui);
     }
     if (runError) {
-      emit({ message: runError, type: "RUN_ERROR" });
+      emit({ message: runError, type: EventType.RUN_ERROR });
       threadStatus = "failed";
       return { runId: input.newRunId };
     }
@@ -456,14 +460,14 @@ export async function resumeConversationRun(
     emit({
       runId: input.newRunId,
       threadId: input.threadId,
-      type: "RUN_FINISHED",
+      type: EventType.RUN_FINISHED,
     });
     threadStatus = "completed";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     threadStatus = reParked ? "waiting" : "failed";
     console.error(`[conversation-resume ${input.newRunId}] failed:`, error);
-    emit({ message, type: "RUN_ERROR" });
+    emit({ message, type: EventType.RUN_ERROR });
   } finally {
     // Only the resume that actually TOOK the parked run owns the in-flight
     // marker — a duplicate that found nothing parked must not clear the

@@ -1,7 +1,19 @@
-// In-process pub/sub for live AG-UI run events. Persistence is the durable
-// log; this bus only serves currently-attached SSE clients. Multi-instance
-// fan-out (pg LISTEN/NOTIFY) is deliberately out of scope — see phase-1 doc D7.
+// Live AG-UI run-event fan-out. Persistence (ai.agent_run_event) is the
+// durable log and the ONLY replay source; this bus only serves currently-
+// attached SSE clients with the live window.
+//
+// Fan-out rides `mastra.pubsub` (topic `engenty.run.<runId>`) when a PubSub is
+// injected via `setRunEventPubSub` at boot — on the default in-process
+// `EventEmitterPubSub` this is behavior-identical to the previous hand-rolled
+// Map (publish emits synchronously, subscribe registers synchronously), and it
+// makes multi-replica fan-out a backend flip (e.g. Redis Streams) instead of a
+// custom transport. Without an injected PubSub (unit tests) the original
+// in-process Map lane is used. The per-run live buffer stays per-process
+// either way — it exists to close the subscribe-then-replay-DB seam for
+// attaches to a run executing HERE; cross-replica attaches replay the DB.
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import type { Event, PubSub } from "@mastra/core/events";
+import { abortActiveRun } from "./run-abort-registry.js";
 
 export interface BusEvent {
   /**
@@ -19,6 +31,107 @@ export interface BusEvent {
 
 type Subscriber = (e: BusEvent) => void;
 
+const RUN_EVENT_TOPIC_PREFIX = "engenty.run.";
+const RUN_EVENT_TYPE = "engenty.agui";
+
+function runTopic(runId: string): string {
+  return RUN_EVENT_TOPIC_PREFIX + runId;
+}
+
+const RUN_CONTROL_TOPIC = "engenty.run-control";
+const CANCEL_EVENT_TYPE = "engenty.cancel";
+
+let runEventPubSub: PubSub | null = null;
+
+// Cross-replica poke lane: a cancel POST can land on a replica that doesn't
+// hold the run's AbortController. Every process subscribes to the control
+// topic and applies pokes to its LOCAL registry — idempotent (aborting an
+// absent/aborted controller is a no-op), at-most-once is fine because run
+// state of record lives in Postgres, not in the poke.
+const onRunControlEvent = (event: Event) => {
+  if (event.type !== CANCEL_EVENT_TYPE) {
+    return;
+  }
+  const runId = (event.data as { runId?: unknown } | null)?.runId;
+  if (typeof runId === "string" && runId) {
+    abortActiveRun(runId);
+  }
+};
+
+/**
+ * Install the process-wide PubSub the bus fans out through. Called once at
+ * boot with `mastra.pubsub`; `null` restores the in-process fallback lane
+ * (tests). Subscribers pick their lane at subscribe time, publishers deliver
+ * to both lanes, so flipping mid-flight never double-delivers. Also owns the
+ * control-topic subscription (cancel pokes).
+ */
+export function setRunEventPubSub(pubsub: PubSub | null): void {
+  const previous = runEventPubSub;
+  runEventPubSub = pubsub;
+  if (previous) {
+    void previous
+      .unsubscribe(RUN_CONTROL_TOPIC, onRunControlEvent)
+      .catch(() => {});
+  }
+  if (pubsub) {
+    void pubsub.subscribe(RUN_CONTROL_TOPIC, onRunControlEvent).catch((err) => {
+      console.error("run-event-bus: control-topic subscribe failed", err);
+    });
+  }
+}
+
+/**
+ * Abort the run wherever it executes: locally right away, and by broadcast
+ * poke to every other replica. Returns the LOCAL result only (true when this
+ * process held the live controller) — a remote abort surfaces through the run
+ * store, not this return value.
+ */
+export function requestRunCancellation(runId: string): boolean {
+  const abortedHere = abortActiveRun(runId);
+  if (runEventPubSub) {
+    void runEventPubSub
+      .publish(RUN_CONTROL_TOPIC, {
+        data: { runId },
+        runId,
+        type: CANCEL_EVENT_TYPE,
+      })
+      .catch((err) => {
+        console.error("run-event-bus: cancel poke publish failed", runId, err);
+      });
+  }
+  return abortedHere;
+}
+
+interface PubSubSubscription {
+  /**
+   * Severed synchronously by unsubscribe/markRunDone. The transport-level
+   * unsubscribe is a Promise (real work on async backends), but observable
+   * delivery must stop in the SAME tick as today's Map lane — the wrapper
+   * checks this flag before invoking the subscriber.
+   */
+  active: boolean;
+  pubsub: PubSub;
+  /** Resolves when the transport subscribe completed — unsubscribe chains on it. */
+  ready: Promise<void>;
+  wrapper: (event: Event) => void;
+}
+
+const pubsubSubscriptions = new Map<string, Set<PubSubSubscription>>();
+
+function severPubSubSubscription(runId: string, sub: PubSubSubscription): void {
+  if (!sub.active) {
+    return;
+  }
+  sub.active = false;
+  const topic = runTopic(runId);
+  void sub.ready
+    .then(() => sub.pubsub.unsubscribe(topic, sub.wrapper))
+    .catch((err) => {
+      console.error("run-event-bus: pubsub unsubscribe failed", runId, err);
+    });
+}
+
+/** Fallback lane when no PubSub is injected (unit tests). */
 const channels = new Map<string, Set<Subscriber>>();
 const liveRuns = new Set<string>();
 
@@ -49,6 +162,18 @@ export function markRunDone(runId: string): void {
   liveRuns.delete(runId);
   channels.delete(runId);
   buffers.delete(runId);
+  const subs = pubsubSubscriptions.get(runId);
+  if (subs) {
+    pubsubSubscriptions.delete(runId);
+    for (const sub of subs) {
+      severPubSubSubscription(runId, sub);
+    }
+  }
+  if (runEventPubSub) {
+    // No-op on EventEmitter; drops retained per-run stream state on backends
+    // that keep it (e.g. Redis Streams). Best-effort by contract.
+    void runEventPubSub.clearTopic(runTopic(runId)).catch(() => {});
+  }
 }
 
 /**
@@ -99,16 +224,64 @@ export function publishRunEvent(
   for (const sub of channels.get(runId) ?? []) {
     sub(e as BusEvent);
   }
+  if (runEventPubSub) {
+    // EventEmitterPubSub emits synchronously inside this call; the Promise is
+    // bookkeeping only. Callers stay fire-and-forget sync either way.
+    void runEventPubSub
+      .publish(runTopic(runId), {
+        data: e,
+        runId,
+        type: RUN_EVENT_TYPE,
+      })
+      .catch((err) => {
+        console.error("run-event-bus: pubsub publish failed", runId, err);
+      });
+  }
 }
 
 export function subscribeRunEvents(runId: string, sub: Subscriber): () => void {
-  let set = channels.get(runId);
+  const pubsub = runEventPubSub;
+  if (!pubsub) {
+    let set = channels.get(runId);
+    if (!set) {
+      set = new Set();
+      channels.set(runId, set);
+    }
+    set.add(sub);
+    return () => {
+      set?.delete(sub);
+    };
+  }
+  const record: PubSubSubscription = {
+    active: true,
+    pubsub,
+    ready: Promise.resolve(),
+    wrapper: (event) => {
+      if (!record.active || event.type !== RUN_EVENT_TYPE) {
+        return;
+      }
+      sub(event.data as BusEvent);
+    },
+  };
+  record.ready = pubsub
+    .subscribe(runTopic(runId), record.wrapper)
+    .catch((err) => {
+      console.error("run-event-bus: pubsub subscribe failed", runId, err);
+    }) as Promise<void>;
+  let set = pubsubSubscriptions.get(runId);
   if (!set) {
     set = new Set();
-    channels.set(runId, set);
+    pubsubSubscriptions.set(runId, set);
   }
-  set.add(sub);
+  set.add(record);
   return () => {
-    set?.delete(sub);
+    const current = pubsubSubscriptions.get(runId);
+    if (current) {
+      current.delete(record);
+      if (current.size === 0) {
+        pubsubSubscriptions.delete(runId);
+      }
+    }
+    severPubSubSubscription(runId, record);
   };
 }

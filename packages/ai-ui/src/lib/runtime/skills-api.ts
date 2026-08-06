@@ -52,10 +52,16 @@ export interface SkillRegistryProviderInfo {
   label: string;
 }
 
+export interface SkillRegistryRef {
+  // Provider-specific opaque identifier, e.g. "owner/repo/skill-id".
+  id: string;
+}
+
 export interface SkillRegistrySearchResult {
   description?: string;
-  id: string;
   name: string;
+  ref: SkillRegistryRef;
+  tags?: string[];
   title?: string;
   version?: string;
 }

@@ -182,7 +182,11 @@ export function useCopilotDrawerAgentChooser(input: {
           menuThreadsLoading={input.chooserMenuSessionsLoading}
           newThreadLabel={input.agentChooserLabels.newSession}
           onNewThreadForAgent={handleAgentChooserNewSession}
-          onRequestAgentThreads={(id) => input.onChooserMenuAgentIdChange?.(id)}
+          onRequestAgentThreads={(id) => {
+            if (id) {
+              input.onChooserMenuAgentIdChange?.(id);
+            }
+          }}
           onResumeThread={handleAgentChooserResume}
           onSelectAgent={input.setSelectedAgentId}
           selectAgentLabel={input.agentChooserLabels.selectAgent}

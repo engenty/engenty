@@ -60,9 +60,9 @@ export function useCopilotDrawerSuggestionsApply({
               s.value ??
               null)
             : (s.value ?? null);
-          return [s.field, value];
+          return [s.field, value == null ? null : String(value)];
         })
-    );
+    ) as Record<string, string | null>;
     if (Object.keys(patch).length === 0) {
       return;
     }
@@ -87,7 +87,7 @@ export function useCopilotDrawerSuggestionsApply({
 
             return {
               field: suggestion.field,
-              value: resolvedValue,
+              value: resolvedValue == null ? null : String(resolvedValue),
               source_url:
                 chosenCandidate?.source_url ??
                 suggestion.source_url ??

@@ -29,7 +29,7 @@ interface AgentThreadsPaneProps {
   onOpenThread: (threadId: string) => void;
   routeSelectedThreadId: string;
   setThreadsFilter: (filter: string | null) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: { defaultValue?: string }) => string;
   threads: AiAdminThreadRow[];
   threadsFilter: string;
 }

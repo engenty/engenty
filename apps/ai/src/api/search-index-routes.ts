@@ -10,6 +10,7 @@
 // row-level scope through the merged `tenant_id`/`user_id` filters).
 
 import type {
+  SearchDocument,
   SearchIndexProvider,
   SearchIndexRegistration,
   SearchIndexRegistry,
@@ -207,7 +208,7 @@ export function registerAppsAiSearchIndexRoutes(
     };
     try {
       const response = await provider.search({
-        filters: filters as Record<string, never>,
+        filters,
         limit: parsed.limit ?? 25,
         ...(parsed.offset == null ? {} : { offset: parsed.offset }),
         ...(parsed.query == null ? {} : { query: parsed.query }),
@@ -242,7 +243,10 @@ async function resolveProvider(
 ): Promise<
   | {
       id: string;
-      provider: SearchIndexProvider;
+      // Parameterised on the filter shape: the bare `SearchIndexProvider`
+      // defaults TFilters to `Record<string, never>` ("declares no filters"),
+      // but this route always injects tenant_id/user_id scope filters.
+      provider: SearchIndexProvider<SearchDocument, Record<string, unknown>>;
       registration: SearchIndexRegistration;
       scope: { isSuperAdmin?: boolean; tenantId: string; userId: string };
     }

@@ -108,7 +108,7 @@ function createFakeSupabase(rows: RegistryAgentRow[]): SupabaseClient {
           tool_ids: [],
           status: "active",
           ...values,
-        } as RegistryAgentRow;
+        } as unknown as RegistryAgentRow;
         rows.push(saved);
       }
       return {

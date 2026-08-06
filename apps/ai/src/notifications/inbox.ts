@@ -238,9 +238,13 @@ export async function countUnseenInboxNotifications(
       })
     )
   );
+  // `listNotifications` is declared `Promise<unknown[]>` on the local store
+  // port; name the one field this count reads instead of widening the port.
   return perThread
     .flat()
-    .filter((record) => NEEDS_INPUT_KINDS.has(String(record.kind))).length;
+    .filter((record) =>
+      NEEDS_INPUT_KINDS.has(String((record as { kind?: unknown }).kind))
+    ).length;
 }
 
 export async function setInboxNotificationStatus(input: {

@@ -89,8 +89,30 @@ export function getEngentyToolsRunContext() {
   return engentyToolsRunAls.getStore() ?? {};
 }
 
+/**
+ * The only fields these helpers read off a tool-execution context are
+ * `requestContext` and the `agent` HITL seam. Typing the parameter that way accepts every shape Mastra
+ * hands us — the bare `ToolExecutionContext`, the 1.55 `ToolExecuteContext`
+ * wrapper with its extra generics, and hand-built test contexts — without
+ * pinning a generic instantiation that changes between Mastra releases.
+ */
+export interface ToolRequestContextCarrier<TSuspendPayload = never> {
+  /**
+   * Native HITL seam: `agent.suspend` parks the run, `agent.resumeData`
+   * carries the decision back. Generic in the payload because function
+   * parameters are contravariant — a tool that declares a `suspendSchema`
+   * gets a `suspend` narrowed to that payload, and a wider `Record` here
+   * would refuse it. Callers that never suspend keep the `never` default.
+   */
+  agent?: {
+    resumeData?: unknown;
+    suspend?: (payload: TSuspendPayload) => Promise<unknown>;
+  };
+  requestContext?: ToolExecutionContext["requestContext"];
+}
+
 export function resolveEngentyToolsRunContext(
-  executionContext?: ToolExecutionContext
+  executionContext?: ToolRequestContextCarrier
 ): EngentyToolsRunContext {
   const context = { ...getEngentyToolsRunContext() };
   if (!context.accessToken) {
@@ -102,7 +124,7 @@ export function resolveEngentyToolsRunContext(
   return context;
 }
 
-function getRequestContextToken(executionContext?: ToolExecutionContext) {
+function getRequestContextToken(executionContext?: ToolRequestContextCarrier) {
   const requestContext = executionContext?.requestContext;
   if (!requestContext) {
     return;

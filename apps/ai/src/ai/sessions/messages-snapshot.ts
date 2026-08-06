@@ -2,11 +2,17 @@
 // Row order from listMessagesOrdered is canonical; we reorder only when an early
 // HITL interrupt left the user turn after the assistant row in created_at order.
 
-import type { AGUIEvent, RunAgentInput } from "@engenty/ag-ui-bridge";
+import {
+  type AGUIEvent,
+  EventType,
+  type RunAgentInput,
+} from "@engenty/ag-ui-bridge";
 import { buildAgUiMessagesFromSessionMessages } from "@engenty/ai-core";
 import type { ThreadMessageRow } from "../../dal/threads/index.js";
 
-type Message = RunAgentInput["messages"][number];
+type Message = RunAgentInput["messages"][number] & {
+  metadata?: Record<string, unknown>;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -120,7 +126,7 @@ export function emitSessionMessagesSnapshot(params: {
   threadId: string;
 }): void {
   params.emit?.({
-    type: "MESSAGES_SNAPSHOT",
+    type: EventType.MESSAGES_SNAPSHOT,
     messages: buildSessionMessagesSnapshotFromRows({
       resourceId: params.resourceId,
       rows: params.rows,

@@ -130,7 +130,10 @@ export function OverviewHubCards({ onCreateSkill }: OverviewHubCardsProps) {
       <HubCard
         ctaKind="create"
         ctaLabel={t("overview.quickActions.newSkill")}
-        description={t("overview.capabilities.skillsBreakdown", skillCounts)}
+        description={t("overview.capabilities.skillsBreakdown", {
+          ...skillCounts,
+          defaultValue: "{{managed}} managed · {{custom}} custom",
+        })}
         icon={FileTerminal}
         onCta={onCreateSkill}
         title={t("workspace.sidebarSkills")}
@@ -139,7 +142,10 @@ export function OverviewHubCards({ onCreateSkill }: OverviewHubCardsProps) {
       <HubCard
         ctaKind="open"
         ctaLabel={t("overview.hubs.open")}
-        description={t("overview.capabilities.actionsBreakdown", actionCounts)}
+        description={t("overview.capabilities.actionsBreakdown", {
+          ...actionCounts,
+          defaultValue: "{{shipped}} shipped · {{custom}} custom",
+        })}
         icon={ListChecks}
         title={t("workspace.sidebarActions")}
         to={ACTIONS_CATALOG_ROOT_PATH}

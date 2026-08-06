@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
-import { CopilotOpenInterruptBanner } from "../copilot-open-interrupt-banner";
+import { CopilotOpenInterruptBanner } from "../interrupts/copilot-open-interrupt-banner";
 import type { CopilotDrawerInjectedLane } from "./copilot-drawer-injected-lane.js";
 
 export interface CopilotDrawerInterruptBannerProps {

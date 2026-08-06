@@ -27,6 +27,7 @@ import { createLogger } from "@engenty/telemetry";
 import { Agent } from "@mastra/core/agent";
 import type { ChannelHandler } from "@mastra/core/channels";
 import type { Mastra } from "@mastra/core/mastra";
+import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { createEngentyCatalogTools } from "../../ai/tools/engenty-tools/create-engenty-tools.js";
@@ -846,7 +847,7 @@ export function getRemoteChannelsAgent(): Agent | null {
  * exposed directly (no published port in deployments).
  */
 export async function registerRemoteChannels(
-  app: Hono<never>,
+  app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   input: { mastra: Mastra; threadStore?: ThreadStore | null }
 ): Promise<void> {
   if (!isRemoteChannelsEnabled()) {

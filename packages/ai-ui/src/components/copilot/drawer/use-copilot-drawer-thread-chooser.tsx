@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import {
   CopilotThreadChooser,
   type CopilotThreadRow,
-} from "../copilot-thread-chooser.js";
+} from "../tool-call/copilot-thread-chooser.js";
 
 export interface CopilotDrawerThreadChooserLabels {
   emptyThreads: string;

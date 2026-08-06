@@ -317,9 +317,12 @@ async function executeRealtimeEngentyTool(input: {
         apiCatalog: createApiCatalogSearchStore(),
       });
     case "engenty_tool_describe":
-      return describeEngentyTool(args, undefined);
+      return describeEngentyTool(args as { id: string }, undefined);
     case "engenty_tool_execute":
-      return executeEngentyTool(args, undefined);
+      return executeEngentyTool(
+        args as { id: string; input?: Record<string, unknown> },
+        undefined
+      );
     default:
       return {
         ok: false,
