@@ -18,15 +18,19 @@ export function useCopilotDrawerLayoutPersistence(input: {
   collapseToCircle: boolean;
   compactStatusFlapHeight: number;
   copilotLayout: CopilotLayoutPersistenceApi | null;
+  floatingDockedToCorner: boolean;
   floatingPosition: { x: number; y: number };
   floatingSize: { height: number; width: number };
   internalPanelMode: CopilotPanelMode;
   isPanelModeControlled: boolean;
   setCollapseToCircle: Dispatch<SetStateAction<boolean>>;
   setCompactStatusFlapHeight: Dispatch<SetStateAction<number>>;
+  setFloatingDockedToCorner: Dispatch<SetStateAction<boolean>>;
   setFloatingPosition: Dispatch<SetStateAction<{ x: number; y: number }>>;
   setFloatingSize: Dispatch<SetStateAction<{ height: number; width: number }>>;
   setInternalPanelMode: Dispatch<SetStateAction<CopilotPanelMode>>;
+  /** Flip true after the first hydrate so corner re-pin cannot race restored coords. */
+  setLayoutSnapshotApplied: Dispatch<SetStateAction<boolean>>;
 }) {
   const drawerSnapshotAppliedRef = useRef(false);
   const drawerPersistEnabledRef = useRef(false);
@@ -54,6 +58,19 @@ export function useCopilotDrawerLayoutPersistence(input: {
           x: s.floatingPosition.x,
           y: s.floatingPosition.y,
         });
+        // Restored coords are authoritative. Without clearing this latch, the
+        // corner re-pin effect (same layout pass / next tick) overwrites them
+        // because floatingDockedToCorner always boots as `true`.
+        if (typeof s.floatingDockedToCorner === "boolean") {
+          input.setFloatingDockedToCorner(s.floatingDockedToCorner);
+        } else {
+          // Legacy snapshots always wrote floatingPosition (including the
+          // default corner). Treat stored coords as free placement so reload
+          // cannot wipe a custom drop.
+          input.setFloatingDockedToCorner(false);
+        }
+      } else if (typeof s.floatingDockedToCorner === "boolean") {
+        input.setFloatingDockedToCorner(s.floatingDockedToCorner);
       }
       if (
         s.floatingSize &&
@@ -81,6 +98,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
       // intentionally not restored (see handleDockPositionSelect).
     }
     drawerPersistEnabledRef.current = true;
+    input.setLayoutSnapshotApplied(true);
   }, [
     input.copilotLayout,
     input.copilotLayout?.layoutHydrated,
@@ -88,9 +106,11 @@ export function useCopilotDrawerLayoutPersistence(input: {
     input.isPanelModeControlled,
     input.setCollapseToCircle,
     input.setCompactStatusFlapHeight,
+    input.setFloatingDockedToCorner,
     input.setFloatingPosition,
     input.setFloatingSize,
     input.setInternalPanelMode,
+    input.setLayoutSnapshotApplied,
   ]);
 
   useEffect(() => {
@@ -102,6 +122,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
       mergeLayout({
         collapseToCircle: input.collapseToCircle,
         compactStatusFlapHeight: input.compactStatusFlapHeight,
+        floatingDockedToCorner: input.floatingDockedToCorner,
         floatingPosition: input.floatingPosition,
         floatingSize: input.floatingSize,
         ...(input.isPanelModeControlled
@@ -114,6 +135,7 @@ export function useCopilotDrawerLayoutPersistence(input: {
     input.collapseToCircle,
     input.compactStatusFlapHeight,
     input.copilotLayout,
+    input.floatingDockedToCorner,
     input.floatingPosition.x,
     input.floatingPosition.y,
     input.floatingSize.width,

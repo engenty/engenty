@@ -80,30 +80,32 @@ Logical surfaces share variables so lists, toolbars, and tables stay aligned:
 | `.ui-canvas-outline-control` | Outline / secondary buttons (toolbar, pagination) — soft shadow until `ui-chrome-sharp` |
 | `.ui-canvas-table-row` | Per-cell bottom border for row dividers (full bleed with sticky columns) |
 | `.ui-canvas-sticky-table-header` | Sticky `<thead>` row (used with `STICKY_HEADER_CLASS`) |
-| `.ui-canvas-panel` | Detail / section cards on canvas |
-| `.ui-canvas-elevated` | Primary list + table shell |
-| `.ui-canvas-raised` | Low-elevation card — stacked group cards inside a list (softer than the shell) |
+| `.ui-canvas-panel` / `.ui-card-panel` | Detail / section cards on canvas |
+| `.ui-canvas-elevated` / `.ui-card-elevated` | Primary list + table shell |
+| `.ui-canvas-raised` / `.ui-card-raised` | Low-elevation card — stacked group cards inside a list (softer than the shell) |
+| `.ui-card-selected` | Selected / active card — 1px primary outline + primary-tinted shadow |
 | `.ui-canvas-stack-top` | Separator above docked footer (e.g. pagination) |
 | `.ui-canvas-floating` | Menus / popovers |
 
 Row dividers can be removed per table by zeroing `--ui-canvas-row-divider-w` on `TableBody` (see Data Tables).
 
-### Card surfaces — always use a `ui-canvas-*` class (never hand-rolled)
+### Card surfaces — always use a `ui-card-*` class (never hand-rolled)
 
-Cards are **borderless** with a **soft shadow**. Do **not** hand-roll `border …`, `shadow-md`, or `bg-card + border` for a card — pick the right canvas class so light/dark/`ui-chrome-sharp` themes stay consistent and there are no double borders or stacked shadows.
+Prefer **`ui-card-*`** for card surfaces (`ui-canvas-*` names remain as aliases). Cards are **borderless** with a **soft shadow**. Do **not** hand-roll `border …`, `shadow-md`, `ring-*`, or `bg-card + border` for a card — pick the right class so light/dark/`ui-chrome-sharp` themes stay consistent and there are no double borders or stacked shadows.
 
 | Use | When | Shadow token |
 |---|---|---|
-| `.ui-canvas-elevated` | The **primary** list/table shell on the page canvas for **flat-row tables** (`AdminListTableView` without `transparent`), or a standalone teaser card — **not** as a wrapper around responsive card grids | `--shadow-ember-elevated` (`--e-2`) |
-| `.ui-canvas-raised` | **Individual cards in a responsive grid** (`AdminListCardsView` + `adminListCardsGridClassName`), or stacked group cards inside a list. Lighter, tighter shadow | `--shadow-ember-soft` |
-| `.ui-canvas-panel` | Detail / section cards (settings blocks, read-only panels) | `--shadow-ember-elevated` |
+| `.ui-card-elevated` | The **primary** list/table shell on the page canvas for **flat-row tables** (`AdminListTableView` without `transparent`), or a standalone teaser card — **not** as a wrapper around responsive card grids | `--shadow-ember-elevated` (`--e-2`) |
+| `.ui-card-raised` | **Individual cards in a responsive grid** (`AdminListCardsView` + `adminListCardsGridClassName`), or stacked group cards inside a list. Lighter, tighter shadow | `--shadow-ember-soft` |
+| `.ui-card-panel` | Detail / section cards (settings blocks, read-only panels) | `--shadow-ember-elevated` |
+| `.ui-card-selected` | Multi-select / active state on a card — pair with raised/elevated/panel | `--ui-card-selected-shadow` |
 
 Rules:
-- **Radius:** shell/teaser cards `rounded-lg`; `ui-canvas-raised` group cards `rounded-md` (one step tighter so nested cards read as subordinate).
-- **No borders** — every `ui-canvas-*` card class drops its border in the default/floating themes (a hairline returns only under `ui-chrome-sharp`). Never add your own `border`.
-- **Hover** = paint-only, shadow-in-place: `hover:shadow-[var(--e-3)]` to deepen; keep `bg-card` (never `hover:bg-accent`, which muddies the surface). See Hover & Motion.
+- **Radius:** shell/teaser cards `rounded-lg`; `ui-card-raised` group cards `rounded-md` (one step tighter so nested cards read as subordinate).
+- **No borders** — every `ui-card-*` / `ui-canvas-*` card class drops its border in the default/floating themes (a hairline returns only under `ui-chrome-sharp`). Never add your own `border` — selection uses `.ui-card-selected` instead.
+- **Hover** = paint-only, shadow-in-place: `hover:shadow-[var(--e-3)]` to deepen when **not** selected; keep `bg-card` (never `hover:bg-accent`, which muddies the surface). See Hover & Motion. When selected, omit Tailwind `shadow-*` / `ring-*` — `.ui-card-selected` owns the elevation (including `:hover`).
 - **Group dividers stay transparent** — the collapsible group header (`AdminListGroupHeader`) is not a card; only the rows/cards it groups get the surface.
-- **Card grids** — `AdminListCardsView` has no outer shell; each grid item is its own elevated surface on `--paper`. Never wrap a card grid in `.ui-canvas-elevated` (no double borders or stacked shadows).
+- **Card grids** — `AdminListCardsView` has no outer shell; each grid item is its own elevated surface on `--paper`. Never wrap a card grid in `.ui-card-elevated` (no double borders or stacked shadows).
 
 ---
 
@@ -231,7 +233,7 @@ Do **not** apply `formFieldSingleLineMetricsClassName` or toolbar `h-8` field st
 | `--e-3` | Floating panels, dialogs, and **hover-deepen** on elevated cards |
 | `--shadow-shell-secondary-edge` | Module secondary nav right-edge shadow (`6px 0 22px -8px oklch(0.35 0.02 60 / 0.085)` light) |
 
-**Elevation hierarchy:** `ui-canvas-elevated` (primary shell, `--e-2`) → `ui-canvas-raised` (group cards, `--shadow-ember-soft`) → flat rows. A `raised` card must never sit on a darker/stronger shadow than the shell that contains it. Define new elevations as tokens in `ember-primitives.css` (light + dark) and surface them through a `--ui-canvas-*-shadow` theme var in `ui-canvas-chrome.css` — never inline a raw `box-shadow` on a card.
+**Elevation hierarchy:** `ui-card-elevated` (primary shell, `--e-2`) → `ui-card-raised` (group cards, `--shadow-ember-soft`) → flat rows. A `raised` card must never sit on a darker/stronger shadow than the shell that contains it. Define new elevations as tokens in `ember-primitives.css` (light + dark) and surface them through a `--ui-canvas-*-shadow` / `--ui-card-*-shadow` theme var in `ui-canvas-chrome.css` — never inline a raw `box-shadow` on a card.
 
 **Shell secondary column** (`.shell-divider` in `apps/ui` `index.css`): `box-shadow: var(--shadow-shell-secondary-edge)` across shell themes (`theme-lines`, `theme-floating`, `theme-paper`).
 
@@ -257,7 +259,7 @@ The **doc sidebar** is the settings/properties panel that belongs to a document 
 - **Inline vs overlay** is measured on the **full available width** (an outer full-width wrapper), *independent* of the content max-width cap — so a page may narrow its content when the sidebar is closed without that cap forcing overlay mode. Default threshold `DOC_SIDEBAR_INLINE_MIN_WIDTH_PX` = **800px**; inline column `DOC_SIDEBAR_WIDTH_PX` = **280px**; overlay is a right-side Sheet at **`sm:max-w-sm`** (384px). Wide documents raise the threshold via `inlineMinWidth` — offers/invoices use **1200** so the document keeps ~920px beside the 280px column, else it drops to the drawer.
 - **Content width follows sidebar state**: cap the document at **`max-w-6xl`** when the sidebar is closed/overlay and **`max-w-7xl`** only when it is inline-open (`mode === "inline" && open`). Apply the same conditional cap to the document toolbar row so its edge aligns with the sidebar. Gap between document and inline column: `gap-8`.
 - **The toggle belongs to the document, not the shell topbar.** Place `DocSidebarToggle` at the right edge of the document toolbar (the shell topbar's right edge is for workspace/pane controls). Pass `text` for a visible desktop label (`hidden sm:inline`); the icon alone remains on narrow screens.
-- **Sidebar contents**: `SettingsSection` (heading block `space-y-2`, `text-sm` heading, `text-xs` description) stacked at `gap-5`; cards use **`.ui-canvas-raised`** (soft shadow, **no border**) — see Card surfaces. Never give a settings card its own `border`.
+- **Sidebar contents**: `SettingsSection` (heading block `space-y-2`, `text-sm` heading, `text-xs` description) stacked at `gap-5`; cards use **`.ui-card-raised`** (soft shadow, **no border**) — see Card surfaces. Never give a settings card its own `border`.
 
 ### Blended document header
 
@@ -305,7 +307,8 @@ Implementation lives in `@engenty/app-shell` (`AppLayout`, `AppTopbar`, `AppSide
 
 ### Primary sidebar rail (`AppSidebar`)
 
-- Uses `--sidebar*` tokens from `shadcn-ember.css`: **saturated Ember** rail (not neutral gray).
+- Uses `--sidebar*` tokens from `shadcn-ember.css`, seeded by `--raw-sidebar`.
+- Light default is white; dark mode uses a canvas-family seed (CSS `.dark`) or each color-set’s `dark.sidebar` — never the light white hex.
 - **Active** item: `bg-sidebar-accent font-medium text-sidebar-accent-foreground`; parent routes stay active when a child path matches.
 
 ### Topbar actions (`contentBlend` pages)

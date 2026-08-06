@@ -17,6 +17,7 @@ const TOOL_APPROVAL_CHOICE_LABEL_KEYS: Record<string, string> = {
 };
 
 export interface DecisionArtifactChoice {
+  description?: string;
   id: string;
   label: string;
 }
@@ -26,6 +27,8 @@ export interface DecisionArtifact {
   body?: string;
   choices: DecisionArtifactChoice[];
   interruptId?: string;
+  /** Checkbox mode: several choices (plus an optional custom answer) at once. */
+  multiSelect?: boolean;
   title: string;
 }
 
@@ -43,6 +46,7 @@ export function decisionArtifactFromOpenInterrupt(
     body: open.body,
     choices: open.choices,
     interruptId: open.interrupt_id,
+    ...(open.multi_select ? { multiSelect: true } : {}),
     title: open.title,
   };
 }
@@ -108,6 +112,7 @@ export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
     body?: unknown;
     choices?: unknown;
     interrupt_id?: unknown;
+    multi_select?: unknown;
     title?: unknown;
   };
   if (
@@ -121,10 +126,23 @@ export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
     if (!choice || typeof choice !== "object") {
       return [];
     }
-    const c = choice as { id?: unknown; label?: unknown };
-    return typeof c.id === "string" && typeof c.label === "string"
-      ? [{ id: c.id, label: c.label }]
-      : [];
+    const c = choice as {
+      description?: unknown;
+      id?: unknown;
+      label?: unknown;
+    };
+    if (typeof c.id !== "string" || typeof c.label !== "string") {
+      return [];
+    }
+    return [
+      {
+        id: c.id,
+        label: c.label,
+        ...(typeof c.description === "string" && c.description.trim()
+          ? { description: c.description.trim() }
+          : {}),
+      },
+    ];
   });
   if (choices.length === 0) {
     return null;
@@ -135,6 +153,7 @@ export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
     choices,
     interruptId:
       typeof raw.interrupt_id === "string" ? raw.interrupt_id : undefined,
+    ...(raw.multi_select === true ? { multiSelect: true } : {}),
     title: typeof raw.title === "string" ? raw.title : "Decision needed",
   };
 }
@@ -189,11 +208,15 @@ export function DecisionArtifactCard(props: {
 }) {
   const { t } = useTranslation("common");
   const [inputValue, setInputValue] = useState("");
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const choices = props.artifact.choices;
   const numChoices = choices.length;
+  const multiSelect = props.artifact.multiSelect === true;
 
   // Localized DISPLAY strings for the server-built tool-approval artifact
   // (title/body/choices arrive as English). Anything sent back on choose()
@@ -234,15 +257,56 @@ export function DecisionArtifactCard(props: {
     props.onChoose(artifactId, choiceId, label);
   };
 
-  // Highlight index: if input matches 1..numChoices, highlight it
+  const toggleChoice = (choiceId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(choiceId)) {
+        next.delete(choiceId);
+      } else {
+        next.add(choiceId);
+      }
+      return next;
+    });
+  };
+
+  // Multi-select answers travel through the SAME single choice_id/choice_label
+  // resume payload the server already renders into the model nudge — joined
+  // ids and human-readable joined labels (plus the optional custom text).
+  const submitMultiSelection = () => {
+    const picked = choices.filter((choice) => selectedIds.has(choice.id));
+    const custom = inputValue.trim();
+    if (picked.length === 0 && !custom) {
+      return;
+    }
+    const ids = [
+      ...picked.map((choice) => choice.id),
+      ...(custom ? ["_custom"] : []),
+    ];
+    const labels = [
+      ...picked.map((choice) => choice.label),
+      ...(custom ? [custom] : []),
+    ];
+    choose(props.artifact.artifactId, ids.join(","), labels.join(", "));
+  };
+
+  // Highlight index (single-select only): if input matches 1..numChoices,
+  // highlight it. In multi-select the input is purely the custom answer.
   let highlightedIdx = -1;
   const parsedNum = Number.parseInt(inputValue.trim(), 10);
-  if (!Number.isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= numChoices) {
+  if (
+    !(multiSelect || Number.isNaN(parsedNum)) &&
+    parsedNum >= 1 &&
+    parsedNum <= numChoices
+  ) {
     highlightedIdx = parsedNum - 1;
   }
 
   const handleSubmit = () => {
     if (submitting) {
+      return;
+    }
+    if (multiSelect) {
+      submitMultiSelection();
       return;
     }
     const trimmedVal = inputValue.trim();
@@ -287,7 +351,12 @@ export function DecisionArtifactCard(props: {
       if (!Number.isNaN(keyNum) && keyNum >= 1 && keyNum <= numChoices) {
         e.preventDefault();
         const selected = choices[keyNum - 1];
-        if (selected) {
+        if (!selected) {
+          return;
+        }
+        if (multiSelect) {
+          toggleChoice(selected.id);
+        } else {
           choose(props.artifact.artifactId, selected.id, selected.label);
         }
       }
@@ -298,7 +367,7 @@ export function DecisionArtifactCard(props: {
       window.removeEventListener("keydown", handleGlobalKeyDown);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [choices, numChoices, submitting, props.artifact.artifactId]);
+  }, [choices, numChoices, multiSelect, submitting, props.artifact.artifactId]);
 
   const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -325,35 +394,60 @@ export function DecisionArtifactCard(props: {
       </div>
 
       <div className="space-y-1.5">
-        {choices.map((choice, index) => (
-          <button
-            aria-label={displayChoiceLabel(choice)}
-            className={cn(
-              "flex w-full items-center rounded-[4px] border px-3 py-2 text-left text-sm transition-colors",
-              highlightedIdx === index
-                ? "border-primary bg-primary/5 text-primary"
-                : "border-border/60 text-foreground hover:bg-muted/40"
-            )}
-            disabled={submitting}
-            key={choice.id}
-            onClick={() =>
-              choose(props.artifact.artifactId, choice.id, choice.label)
-            }
-            type="button"
-          >
-            <span
+        {choices.map((choice, index) => {
+          const active = multiSelect
+            ? selectedIds.has(choice.id)
+            : highlightedIdx === index;
+          return (
+            <button
+              aria-checked={
+                multiSelect ? selectedIds.has(choice.id) : undefined
+              }
+              aria-label={displayChoiceLabel(choice)}
               className={cn(
-                "mr-2.5 flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-xs",
-                highlightedIdx === index
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                "flex w-full items-center rounded-[4px] border px-3 py-2 text-left text-sm transition-colors",
+                active
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border/60 text-foreground hover:bg-muted/40"
               )}
+              disabled={submitting}
+              key={choice.id}
+              onClick={() =>
+                multiSelect
+                  ? toggleChoice(choice.id)
+                  : choose(props.artifact.artifactId, choice.id, choice.label)
+              }
+              role={multiSelect ? "checkbox" : undefined}
+              type="button"
             >
-              {index + 1}
-            </span>
-            <span className="font-medium">{displayChoiceLabel(choice)}</span>
-          </button>
-        ))}
+              <span
+                className={cn(
+                  "mr-2.5 flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-xs",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {multiSelect && selectedIds.has(choice.id) ? "✓" : index + 1}
+              </span>
+              <span className="min-w-0">
+                <span className="block font-medium">
+                  {displayChoiceLabel(choice)}
+                </span>
+                {choice.description ? (
+                  <span
+                    className={cn(
+                      "block text-xs",
+                      active ? "text-primary/80" : "text-muted-foreground"
+                    )}
+                  >
+                    {choice.description}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          );
+        })}
 
         {isCustomInput ? (
           <div className="flex w-full items-center rounded-[4px] border border-primary bg-primary/5 px-3 py-2 text-left text-primary text-sm">
@@ -376,24 +470,38 @@ export function DecisionArtifactCard(props: {
           disabled={submitting}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          placeholder={t("copilot.decisionCard.inputPlaceholder", {
-            defaultValue: "Type option number or custom response…",
-          })}
+          placeholder={
+            multiSelect
+              ? t("copilot.decisionCard.customAnswerPlaceholder", {
+                  defaultValue: "Add a custom answer (optional)…",
+                })
+              : t("copilot.decisionCard.inputPlaceholder", {
+                  defaultValue: "Type option number or custom response…",
+                })
+          }
           ref={inputRef}
           type="text"
           value={inputValue}
         />
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground text-xxs">
-            {t("copilot.decisionCard.pressHintPrefix", {
-              defaultValue: "Press",
-            })}{" "}
-            <kbd className="rounded border bg-muted px-1 py-0.5 text-foreground">
-              1-{numChoices}
-            </kbd>{" "}
-            {t("copilot.decisionCard.pressHintSuffix", {
-              defaultValue: "or type and press",
-            })}{" "}
+            {multiSelect
+              ? t("copilot.decisionCard.multiSelectHint", {
+                  defaultValue: "Select all that apply, then press",
+                })
+              : t("copilot.decisionCard.pressHintPrefix", {
+                  defaultValue: "Press",
+                })}{" "}
+            {multiSelect ? null : (
+              <>
+                <kbd className="rounded border bg-muted px-1 py-0.5 text-foreground">
+                  1-{numChoices}
+                </kbd>{" "}
+                {t("copilot.decisionCard.pressHintSuffix", {
+                  defaultValue: "or type and press",
+                })}{" "}
+              </>
+            )}
             <kbd className="rounded border bg-muted px-1 py-0.5 text-foreground">
               Enter
             </kbd>
@@ -401,7 +509,10 @@ export function DecisionArtifactCard(props: {
           <Button
             className="h-7 min-w-[70px] rounded-[4px] text-xs"
             disabled={
-              submitting || (highlightedIdx === -1 && !inputValue.trim())
+              submitting ||
+              (multiSelect
+                ? selectedIds.size === 0 && !inputValue.trim()
+                : highlightedIdx === -1 && !inputValue.trim())
             }
             onClick={handleSubmit}
             size="sm"

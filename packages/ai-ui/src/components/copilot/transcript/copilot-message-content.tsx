@@ -24,7 +24,12 @@ import { parseFeedbackResolution } from "../interrupts/feedback-artifact.js";
 import { ToolCallCard } from "../tool-call/tool-call-card";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
 import { hasStandaloneToolCallUi } from "../tool-call/tool-call-ui-registry";
-import { GenericToolStep, WebSearchStep } from "./chain-of-thought-steps";
+import {
+  GenericToolStep,
+  isSkillToolName,
+  SkillStep,
+  WebSearchStep,
+} from "./chain-of-thought-steps";
 import {
   getToolDisplayLabel,
   getToolName,
@@ -71,10 +76,11 @@ function toolTimelineLabel(
   };
 }
 
-// Classify a part as "reasoning", "web_search", or a generic tool
+// Classify a part as "reasoning", "web_search", "skill", or a generic tool
 type PartKind =
   | { kind: "reasoning"; part: ReasoningPartLike }
   | { kind: "web_search"; part: ToolPartLike; toolName: string }
+  | { kind: "skill"; part: ToolPartLike; toolName: string }
   | { kind: "tool"; part: ToolPartLike; toolName: string }
   | { kind: "text"; text: string }
   | { kind: "skip" };
@@ -119,9 +125,13 @@ function classifyPart(part: unknown): PartKind {
       resolved.includes("web_search") ||
       resolved.includes("websearch") ||
       toolName.toLowerCase().includes("web_search");
-    return isWebSearch
-      ? { kind: "web_search", part, toolName }
-      : { kind: "tool", part, toolName };
+    if (isWebSearch) {
+      return { kind: "web_search", part, toolName };
+    }
+    if (isSkillToolName(resolved) || isSkillToolName(toolName)) {
+      return { kind: "skill", part, toolName };
+    }
+    return { kind: "tool", part, toolName };
   }
 
   if (p.type === "text") {
@@ -242,12 +252,14 @@ export function CopilotMessageContent({
   // Classify all parts
   const classified = parts.map(classifyPart);
 
-  // Determine which parts belong in the ChainOfThought block:
-  // All reasoning + tool parts that appear before the last text region.
-  // Text parts and subsequent tool parts are rendered inline below.
+  // ChainOfThought collects every regular tool in the turn as a step list
+  // (AI Elements-style). Standalone / HITL cards escape the timeline; text
+  // never splits the tool list — otherwise tools after an intermediate text
+  // part (or a "Working…" placeholder) would render as a single current card
+  // instead of an expandable list.
   const thoughtParts: Array<{ index: number; kind: PartKind }> = [];
   const textParts: Array<{ index: number; text: string }> = [];
-  // Trailing tool parts after the last text are kept inline (e.g. approval cards)
+  // HITL choosers (and late standalone cards) that stay outside the timeline.
   const trailingToolParts: Array<{
     index: number;
     part: ToolPartLike;
@@ -262,7 +274,7 @@ export function CopilotMessageContent({
     toolName: string;
   }> = [];
 
-  // Collect text part indices to determine "last text" boundary
+  // Boundary for whether a standalone card sits above vs below the answer text.
   const textIndices = classified
     .map((c, i) => (c.kind === "text" ? i : -1))
     .filter((i) => i >= 0);
@@ -284,7 +296,7 @@ export function CopilotMessageContent({
     }
 
     if (
-      (c.kind === "tool" || c.kind === "web_search") &&
+      (c.kind === "tool" || c.kind === "web_search" || c.kind === "skill") &&
       isInteractiveDecisionToolPart(c.part)
     ) {
       // When this chooser is shown in the docked surface above the composer,
@@ -303,7 +315,7 @@ export function CopilotMessageContent({
     }
 
     if (
-      (c.kind === "tool" || c.kind === "web_search") &&
+      (c.kind === "tool" || c.kind === "web_search" || c.kind === "skill") &&
       (isSubAgentDelegationTool(c.part, c.toolName) ||
         isObjectRenderToolPart(c.part, c.toolName) ||
         isA2uiToolPart(c.part, c.toolName) ||
@@ -338,18 +350,8 @@ export function CopilotMessageContent({
       continue;
     }
 
-    // Reasoning and tool parts: goes into thought block if before last text,
-    // or if there's no text at all yet (still streaming)
-    if (i <= lastTextIndex || lastTextIndex === -1) {
-      thoughtParts.push({ index: i, kind: c });
-    } else if (c.kind === "tool" || c.kind === "web_search") {
-      // After last text — keep inline (approval cards etc.)
-      trailingToolParts.push({
-        index: i,
-        part: c.part,
-        toolName: c.toolName,
-      });
-    }
+    // Regular tools + (parked) reasoning → one expandable step list.
+    thoughtParts.push({ index: i, kind: c });
   }
 
   const citations = useCitations(textParts, parts);
@@ -388,7 +390,11 @@ export function CopilotMessageContent({
   const isThoughtStreaming =
     isCurrentlyStreaming &&
     toolThoughtParts.some(({ kind }) => {
-      if (kind.kind === "tool" || kind.kind === "web_search") {
+      if (
+        kind.kind === "tool" ||
+        kind.kind === "web_search" ||
+        kind.kind === "skill"
+      ) {
         const state = getToolState(kind.part);
         return state === "running" || state === "pending";
       }
@@ -419,6 +425,20 @@ export function CopilotMessageContent({
                     isStreaming={partIsStreaming}
                     key={`${msg.id}-${index}`}
                     part={kind.part}
+                  />
+                );
+              }
+              if (kind.kind === "skill") {
+                const toolState = getToolState(kind.part);
+                const partIsStreaming =
+                  isCurrentlyStreaming &&
+                  (toolState === "running" || toolState === "pending");
+                return (
+                  <SkillStep
+                    isStreaming={partIsStreaming}
+                    key={`${msg.id}-${index}`}
+                    part={kind.part}
+                    toolName={kind.toolName}
                   />
                 );
               }

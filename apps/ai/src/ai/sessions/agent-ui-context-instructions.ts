@@ -53,7 +53,10 @@ function buildFrontendToolInstructions(
   const lines = [
     "Some of your tools run in the user's browser (navigation, theme, locale, etc.). Call them directly by name like any other tool; the UI runs them and returns the result.",
     `Browser tools available now: ${toolNames}.`,
-    '- For page-opening/navigation requests, use the "navigate" tool with {"to":"/mdl/<moduleId>"} (an internal path). Do not use requestDecision just to ask which page to open when a likely page or module route is known.',
+    // Scoped to navigation on purpose. Read as a general discouragement, this
+    // line helped push a model into inventing an "ask the user" tool of its own
+    // — asking with requestDecision is correct everywhere else.
+    '- For page-opening/navigation requests, use the "navigate" tool with {"to":"/mdl/<moduleId>"} (an internal path). When a likely page or module route is known, navigate instead of asking which page to open.',
   ];
   if (hasDomTools) {
     lines.push(

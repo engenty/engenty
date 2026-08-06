@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   applyCustomColors,
   applySidebarColor,
+  COLOR_SETS_PRESETS,
+  DEFAULT_DARK_SIDEBAR,
+  DEFAULT_LIGHT_SIDEBAR,
   resolveFontSizeScale,
 } from "./appearance-constants";
 
@@ -20,6 +23,15 @@ describe("resolveFontSizeScale", () => {
   });
 });
 
+describe("COLOR_SETS_PRESETS", () => {
+  it("defines a non-empty dark.sidebar for every preset", () => {
+    for (const preset of COLOR_SETS_PRESETS) {
+      expect(preset.dark.sidebar).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(preset.dark.sidebar.toLowerCase()).not.toBe(DEFAULT_LIGHT_SIDEBAR);
+    }
+  });
+});
+
 describe("applyCustomColors", () => {
   beforeEach(() => {
     document.documentElement.classList.remove("dark");
@@ -27,6 +39,7 @@ describe("applyCustomColors", () => {
     document.documentElement.style.removeProperty("--secondary");
     document.documentElement.style.removeProperty("--background");
     document.documentElement.style.removeProperty("--paper");
+    document.documentElement.style.removeProperty("--raw-sidebar");
     delete document.documentElement.dataset.rawPrimary;
     delete document.documentElement.dataset.rawSecondary;
     delete document.documentElement.dataset.rawBackground;
@@ -39,6 +52,7 @@ describe("applyCustomColors", () => {
     document.documentElement.style.removeProperty("--secondary");
     document.documentElement.style.removeProperty("--background");
     document.documentElement.style.removeProperty("--paper");
+    document.documentElement.style.removeProperty("--raw-sidebar");
     delete document.documentElement.dataset.rawPrimary;
     delete document.documentElement.dataset.rawSecondary;
     delete document.documentElement.dataset.rawBackground;
@@ -98,6 +112,26 @@ describe("applyCustomColors", () => {
       document.documentElement.style.getPropertyValue("--raw-background")
     ).toBe("#121212");
   });
+
+  it("maps Ember dark sidebar without falling back to white", () => {
+    document.documentElement.classList.add("dark");
+    applyCustomColors("#e0531b", "#f1f3f5", "#faf8f5");
+    applySidebarColor(DEFAULT_LIGHT_SIDEBAR);
+
+    expect(
+      document.documentElement.style.getPropertyValue("--raw-sidebar")
+    ).toBe(DEFAULT_DARK_SIDEBAR);
+  });
+
+  it("maps Cobalt dark sidebar", () => {
+    document.documentElement.classList.add("dark");
+    applyCustomColors("#1e40af", "#dbeafe", "#f8faff");
+    applySidebarColor("#1e40af");
+
+    expect(
+      document.documentElement.style.getPropertyValue("--raw-sidebar")
+    ).toBe("#111827");
+  });
 });
 
 describe("applySidebarColor", () => {
@@ -126,11 +160,11 @@ describe("applySidebarColor", () => {
     ).toBe("#1e40af");
   });
 
-  it("applies custom HEX sidebar colors directly in light mode", () => {
-    applySidebarColor("#ffffff");
+  it("clears the light default white so CSS :root owns --raw-sidebar", () => {
+    applySidebarColor(DEFAULT_LIGHT_SIDEBAR);
     expect(
       document.documentElement.style.getPropertyValue("--raw-sidebar")
-    ).toBe("#ffffff");
+    ).toBe("");
   });
 
   it("maps preset sidebar colors to dark mode equivalents when dark class is present", () => {
@@ -152,6 +186,25 @@ describe("applySidebarColor", () => {
     expect(
       document.documentElement.style.getPropertyValue("--raw-sidebar")
     ).toBe("#121212");
+  });
+
+  it("clears white / default sidebar in dark mode for CSS canvas-family rail", () => {
+    document.documentElement.classList.add("dark");
+    applySidebarColor(DEFAULT_LIGHT_SIDEBAR);
+
+    expect(
+      document.documentElement.style.getPropertyValue("--raw-sidebar")
+    ).toBe("");
+  });
+
+  it("preserves a custom branded rail on a preset in dark mode", () => {
+    document.documentElement.classList.add("dark");
+    applyCustomColors("#e0531b", "#f1f3f5", "#faf8f5");
+    applySidebarColor("#6d28d9");
+
+    expect(
+      document.documentElement.style.getPropertyValue("--raw-sidebar")
+    ).toBe("#6d28d9");
   });
 
   it("removes properties if values are defaults or empty", () => {

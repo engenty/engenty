@@ -4,6 +4,27 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.103] - 2026-08-06
+- ADDED **[ui]** Add ui-card-* surface classes with selected state
+- ADDED **[ai-ui]** Add Full Screen position that opens full-page chat
+- FIXED **[ai-ui]** Richer ChainOfThought tool steps with type icons and briefs
+- FIXED **[copilot]** Keep floating launcher position across reload
+- FIXED **[ai-ui]** Keep tools in one ChainOfThought list with Show details
+- FIXED **[ui]** Keep app-bar rail on canvas-family colors in dark mode
+- OTHER Enhance tool call handling in conversation runs
+
+- Introduced logic to repair dangling tool calls in conversation runs, ensuring that unresolved tool calls are addressed before the session reads history.
+- Added functionality to emit error results for unresolved tool calls at the end of a run, preventing indefinite loading states in the UI.
+- Updated the SessionAgUiConverter to track unresolved tool calls and close them appropriately, improving user experience during interactions.
+- Enhanced decision artifact handling to support multi-select options and descriptions for choices, providing clearer user prompts.
+
+This update improves the robustness of tool call management and enhances user interaction with decision-making artifacts.
+- OTHER Fix foreign dock hover mixing module sidebar into Settings.
+
+When previewing Settings (or any dock item with children), omit the current page's secondary header/after-items and use opaque chrome so module content cannot bleed into the overlay.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
 ## [0.1.102] - 2026-08-06
 - FIXED **[ai-ui]** Export missing composer types, drop stale test suppressions
 

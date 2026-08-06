@@ -90,7 +90,7 @@ describe("CopilotMessageContent tool timeline", () => {
     );
 
     // The running web search renders in the (open) tool timeline.
-    expect(screen.getByText("Search: engenty docs")).toBeTruthy();
+    expect(screen.getByText('Searching for "engenty docs"')).toBeTruthy();
     // The header reads as tool use, not the generic "Thinking…".
     expect(screen.getByText("Working…")).toBeTruthy();
     // Reasoning is not rendered anywhere (no accordion, no chain step).
@@ -169,7 +169,8 @@ describe("CopilotMessageContent rich tool step content", () => {
       </MemoryRouter>
     );
 
-    // Completed runs collapse the timeline; expand it to reveal the step bodies.
+    // Completed runs collapse the timeline; expand it to reveal the step list
+    // (details are always visible — no per-step Show details toggle).
     fireEvent.click(screen.getByText("Used 1 tool"));
 
     const images = screen.getAllByRole("img", {
@@ -183,6 +184,120 @@ describe("CopilotMessageContent rich tool step content", () => {
     expect(
       screen.getByText("Hayden Bleasel is an Australian product designer.")
     ).toBeTruthy();
+  });
+});
+
+describe("CopilotMessageContent tool list across text", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("keeps every regular tool in one expandable ChainOfThought list", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          messages={[{ id: "assistant-1" }]}
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "t1",
+                toolName: "engenty_tools_search",
+                state: "output-available",
+                displayLabel: 'Searched "iban"',
+                input: { query: "iban" },
+                output: { matches: [] },
+              },
+              { type: "text", text: "Working…" },
+              {
+                type: "dynamic-tool",
+                toolCallId: "t2",
+                toolName: "engenty_tool_execute",
+                state: "output-available",
+                displayLabel: 'Searched "engrd"',
+                input: { id: "contacts_search", input: { q: "engrd" } },
+                // Stringified AG-UI result — must not dump as a timeline snippet.
+                output: JSON.stringify({
+                  ok: true,
+                  data: {
+                    results: [
+                      {
+                        item: {
+                          match_reason: "semantic",
+                          message: { body_html: "<html>…" },
+                        },
+                      },
+                    ],
+                  },
+                }),
+              },
+            ],
+          }}
+          status="ready"
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("Used 2 tools"));
+    expect(screen.getByText('Searched "iban"')).toBeTruthy();
+    expect(screen.getByText('Searched "engrd"')).toBeTruthy();
+    expect(screen.getByText("0 results")).toBeTruthy();
+    expect(screen.getByText("1 result")).toBeTruthy();
+    expect(screen.queryByText(/"ok":true/)).toBeNull();
+    expect(screen.queryByText(/body_html/)).toBeNull();
+  });
+
+  it("shows brief list counts and update fields under tool steps", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          messages={[{ id: "assistant-1" }]}
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "list-1",
+                toolName: "inbox_list_accounts",
+                state: "output-available",
+                displayLabel: "Listed",
+                metadata: "accounts",
+                input: {},
+                output: {
+                  ok: true,
+                  data: { total: 2, results: [{ id: "a" }, { id: "b" }] },
+                },
+              },
+              {
+                type: "dynamic-tool",
+                toolCallId: "upd-1",
+                toolName: "inbox_update_settings",
+                state: "output-available",
+                displayLabel: "Updated",
+                metadata: "settings",
+                input: {
+                  account_id: "6d83c905-d554-4952-8fdf-22f46709aaaa",
+                  backfill_days: 60,
+                },
+                output: { ok: true, data: { backfill_days: 60 } },
+              },
+              { type: "text", text: "Done." },
+            ],
+          }}
+          status="ready"
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("Used 2 tools"));
+    expect(screen.getByText("2 accounts")).toBeTruthy();
+    expect(screen.getByText("backfill_days: 60")).toBeTruthy();
+    expect(
+      screen.queryByText(/6d83c905-d554-4952-8fdf-22f46709aaaa/)
+    ).toBeNull();
   });
 });
 

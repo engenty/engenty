@@ -3,7 +3,8 @@
  * and table rules stay aligned without scattering one-off border utilities.
  * Default: 1px `var(--border)` hairlines on fields and row underlines (matches list/search spec).
  * Outline controls may still use soft shadow until `ui-chrome-sharp`.
- * Do not pair `.ui-canvas-*` shadow tokens with Tailwind `shadow-none` on the same node.
+ * Do not pair `.ui-canvas-*` / `.ui-card-*` shadow tokens with Tailwind `shadow-none`
+ * (or `ring-*` / `shadow-*` on `.ui-card-selected`) on the same node.
  *
  * Sharp hairline variant: add class `ui-chrome-sharp` on <html> (or wrap a subtree).
  */
@@ -38,6 +39,16 @@
   --ui-canvas-raised-border-c: transparent;
   --ui-canvas-raised-shadow: var(--shadow-ember-soft);
 
+  /* —— Selected card (1px primary outline + primary-tinted lift) —— */
+  --ui-card-selected-border-w: 1px;
+  --ui-card-selected-border-c: var(--primary);
+  --ui-card-selected-shadow:
+    0 2px 6px -1px oklch(from var(--primary) l c h / 0.28),
+    0 8px 20px -6px oklch(from var(--primary) l c h / 0.18);
+  --ui-card-selected-hover-shadow:
+    0 2px 6px -1px oklch(from var(--primary) l c h / 0.32),
+    0 10px 24px -6px oklch(from var(--primary) l c h / 0.22);
+
   /* —— Horizontal rule above footer stacks (pagination bar) —— */
   --ui-canvas-stack-top-border-w: 0px;
   --ui-canvas-stack-top-border-c: transparent;
@@ -62,6 +73,13 @@
   --ui-canvas-floating-shadow: var(--shadow-ember-overlay);
   --ui-canvas-row-divider-w: 1px;
   --ui-canvas-row-divider-c: var(--border);
+  --ui-card-selected-border-c: var(--primary);
+  --ui-card-selected-shadow:
+    0 2px 6px -1px oklch(from var(--primary) l c h / 0.32),
+    0 8px 20px -6px oklch(from var(--primary) l c h / 0.22);
+  --ui-card-selected-hover-shadow:
+    0 2px 6px -1px oklch(from var(--primary) l c h / 0.38),
+    0 10px 24px -6px oklch(from var(--primary) l c h / 0.26);
 }
 
 :is(html.ui-chrome-sharp, .ui-chrome-sharp) {
@@ -184,8 +202,10 @@ html.dark .ui-chrome-sharp {
   }
 
   /**
-   * Logical: section / detail card on the page canvas (Grunddaten blocks, read-only panels).
+   * Card surfaces (`ui-card-*` preferred; `ui-canvas-*` kept as aliases).
+   * Section / detail card on the page canvas (settings blocks, read-only panels).
    */
+  .ui-card-panel,
   .ui-canvas-panel {
     border-color: var(--ui-canvas-panel-border-c);
     border-style: solid;
@@ -194,8 +214,9 @@ html.dark .ui-chrome-sharp {
   }
 
   /**
-   * Logical: primary list/card surface on the page canvas.
+   * Primary list/card surface on the page canvas (table shell, teaser cards).
    */
+  .ui-card-elevated,
   .ui-canvas-elevated {
     border-color: var(--ui-canvas-shell-border-c);
     border-style: solid;
@@ -204,14 +225,31 @@ html.dark .ui-chrome-sharp {
   }
 
   /**
-   * Logical: low-elevation card (list group cards) — softer/tighter than the
+   * Low-elevation card (grid / list group cards) — softer/tighter than the
    * primary shell, for stacked groups that should not compete with it.
    */
+  .ui-card-raised,
   .ui-canvas-raised {
     border-color: var(--ui-canvas-raised-border-c);
     border-style: solid;
     border-width: var(--ui-canvas-raised-border-w);
     box-shadow: var(--ui-canvas-raised-shadow);
+  }
+
+  /**
+   * Selected / active card — 1px primary outline + primary-tinted elevation.
+   * Pair with `.ui-card-raised` (or elevated/panel). Do not also apply Tailwind
+   * `ring-*` / `shadow-*` on the same node (they fight this box-shadow).
+   */
+  .ui-card-selected {
+    border-color: var(--ui-card-selected-border-c);
+    border-style: solid;
+    border-width: var(--ui-card-selected-border-w);
+    box-shadow: var(--ui-card-selected-shadow);
+  }
+
+  .ui-card-selected:hover {
+    box-shadow: var(--ui-card-selected-hover-shadow);
   }
 
   /**

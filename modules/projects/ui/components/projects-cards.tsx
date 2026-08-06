@@ -76,8 +76,8 @@ function ProjectCard({
   return (
     <div
       className={cn(
-        "ui-canvas-raised group relative block cursor-pointer rounded-md bg-card text-left transition-shadow hover:shadow-[var(--e-3)]",
-        isSelected && "ring-2 ring-primary",
+        "ui-card-raised group relative block cursor-pointer rounded-md bg-card text-left transition-shadow",
+        isSelected ? "ui-card-selected" : "hover:shadow-[var(--e-3)]",
         tableSize === "compact" ? "p-3" : "p-5"
       )}
       onClick={() => onCardClick(project)}

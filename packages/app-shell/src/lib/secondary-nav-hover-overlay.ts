@@ -1,3 +1,21 @@
+/**
+ * True when the hover overlay is previewing another dock item's children
+ * (e.g. Settings while on Copilot), not the current page's secondary chrome.
+ *
+ * In that mode the overlay must not render the page's `secondaryNavHeaderSlot`
+ * / `secondaryNavAfterItems` — otherwise module sidebar content bleeds into the
+ * foreign preview.
+ */
+export function isForeignDockSecondaryNavPreview(
+  hoveredNavItem: { children?: readonly unknown[] } | null
+): boolean {
+  return (
+    hoveredNavItem != null &&
+    Array.isArray(hoveredNavItem.children) &&
+    hoveredNavItem.children.length > 0
+  );
+}
+
 /** Whether the sliding hover column should be mounted (sidebar closed). */
 export function shouldMountSecondaryNavHoverOverlay(input: {
   hasSecondaryNav: boolean;

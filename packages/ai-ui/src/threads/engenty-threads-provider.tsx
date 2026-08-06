@@ -16,6 +16,7 @@ import {
 } from "react";
 import {
   type AppsAiThreadRecord,
+  appsAiThreadQueryRoot,
   clearAppsAiThreadsForHost,
   deleteAppsAiThread,
   updateAppsAiThread,
@@ -282,22 +283,24 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
     ]
   );
 
-  const onRealtimeChangeRef = useRef(() => {
+  // Prefix-invalidate every thread list for this service: a realtime row change
+  // carries no hostKey/agentId, and the full key is
+  // [...root, "list", serviceBaseUrl, hostKey, agentId, archived] — stopping at
+  // serviceBaseUrl matches all of them. Must be built from the shared key
+  // helpers: a hand-written literal silently matches NOTHING (it did — the
+  // thread/session rename left `"sessions"` here while lists moved to
+  // `"threads"`, so another window never refetched on a new chat).
+  const invalidateAllThreadLists = useCallback(() => {
     if (!ai.queryClient) {
       return;
     }
     void ai.queryClient.invalidateQueries({
-      queryKey: ["apps-ai", "sessions", "list", ai.serviceBaseUrl],
+      queryKey: [...appsAiThreadQueryRoot, "list", ai.serviceBaseUrl],
     });
-  });
-  onRealtimeChangeRef.current = () => {
-    if (!ai.queryClient) {
-      return;
-    }
-    void ai.queryClient.invalidateQueries({
-      queryKey: ["apps-ai", "sessions", "list", ai.serviceBaseUrl],
-    });
-  };
+  }, [ai.queryClient, ai.serviceBaseUrl]);
+
+  const onRealtimeChangeRef = useRef(invalidateAllThreadLists);
+  onRealtimeChangeRef.current = invalidateAllThreadLists;
 
   useEffect(() => {
     const subscription = createEngentyThreadsRealtimeSubscription({

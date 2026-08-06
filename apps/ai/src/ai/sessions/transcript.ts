@@ -447,8 +447,9 @@ export function isDecisionArtifactPayload(value: unknown): value is {
   artifact_id: string;
   artifact_type: "decision";
   body?: string;
-  choices: { id: string; label: string }[];
+  choices: { description?: string; id: string; label: string }[];
   interrupt_id?: string;
+  multi_select?: boolean;
   title: string;
 } {
   if (
@@ -504,8 +505,9 @@ function decisionArtifactToAssistantDynamicToolPart(payload: {
   artifact_id: string;
   artifact_type: "decision";
   body?: string;
-  choices: { id: string; label: string }[];
+  choices: { description?: string; id: string; label: string }[];
   interrupt_id?: string;
+  multi_select?: boolean;
   title: string;
 }): AssistantDynamicToolPart {
   const out: Record<string, unknown> = {
@@ -516,6 +518,9 @@ function decisionArtifactToAssistantDynamicToolPart(payload: {
   };
   if (payload.body !== undefined) {
     out.body = payload.body;
+  }
+  if (payload.multi_select === true) {
+    out.multi_select = true;
   }
   if (payload.interrupt_id !== undefined) {
     out.interrupt_id = payload.interrupt_id;

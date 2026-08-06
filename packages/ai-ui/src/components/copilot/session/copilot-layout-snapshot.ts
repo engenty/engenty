@@ -67,6 +67,11 @@ export function parseCopilotLayoutSnapshot(
     };
   }
 
+  const floatingDockedToCorner =
+    typeof o.floatingDockedToCorner === "boolean"
+      ? o.floatingDockedToCorner
+      : undefined;
+
   let fabPosition: { x: number; y: number } | undefined;
   const fab = o.fabPosition;
   if (
@@ -131,6 +136,7 @@ export function parseCopilotLayoutSnapshot(
     preferredDockMode,
     fabAnchor,
     fabPosition,
+    floatingDockedToCorner,
     floatingPosition,
     floatingSize,
     compactStatusFlapHeight,
@@ -161,6 +167,10 @@ export function mergeCopilotLayoutSnapshot(
     fabAnchor: patch.fabAnchor === undefined ? base.fabAnchor : patch.fabAnchor,
     fabPosition:
       patch.fabPosition === undefined ? base.fabPosition : patch.fabPosition,
+    floatingDockedToCorner:
+      patch.floatingDockedToCorner === undefined
+        ? base.floatingDockedToCorner
+        : patch.floatingDockedToCorner,
     floatingPosition:
       patch.floatingPosition === undefined
         ? base.floatingPosition

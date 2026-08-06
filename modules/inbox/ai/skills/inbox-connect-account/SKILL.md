@@ -18,7 +18,9 @@ usable account.
    (`personal`/`org`), and a `sync_state` (`sync_enabled`, `backfill_days`,
    `last_synced_at`, `last_error`).
    - Usable account present → skip to step 4 (sync health).
-2. **Offer the connect card:** no account → ask which provider if unclear, then
+2. **Offer the connect card:** no account → ask which provider if unclear (with
+   `requestDecision` when your tools include it — one choice per provider — and
+   in plain prose otherwise; never invent a tool for this), then
    run the catalog operation `connections_request_connect` with
    `connector_id: "google-gmail"` or `connector_id: "microsoft-outlook"`.
    Interpret the result:

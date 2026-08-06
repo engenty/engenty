@@ -12,7 +12,7 @@ import {
   cn,
 } from "@engenty/ui-core";
 import type { LucideIcon } from "lucide-react";
-import { Brain, Check, ChevronDown, DotIcon, Loader2, X } from "lucide-react";
+import { Brain, ChevronDown, DotIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
@@ -25,6 +25,52 @@ import {
   useState,
 } from "react";
 import { Shimmer } from "./shimmer";
+
+/** Set on the transcript scroll viewport while CoT open/close is pinning scroll. */
+export const COT_SUPPRESS_AUTOSCROLL_ATTR = "data-engenty-suppress-autoscroll";
+
+const COT_PIN_MS = 420;
+
+function findScrollViewport(from: HTMLElement | null): HTMLElement | null {
+  return (
+    from?.closest<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null
+  );
+}
+
+/**
+ * Keep `anchor` fixed in the viewport while CoT height animates, and suppress
+ * transcript auto-scroll so open/close does not jump to the message end.
+ */
+function pinAnchorDuringHeightChange(
+  anchor: HTMLElement,
+  viewport: HTMLElement
+): () => void {
+  const desiredTop = anchor.getBoundingClientRect().top;
+  viewport.setAttribute(COT_SUPPRESS_AUTOSCROLL_ATTR, "1");
+
+  const adjust = () => {
+    const delta = anchor.getBoundingClientRect().top - desiredTop;
+    if (delta !== 0) {
+      viewport.scrollTop += delta;
+    }
+  };
+
+  const ro = new ResizeObserver(adjust);
+  const cotRoot = anchor.closest<HTMLElement>(".group\\/cot") ?? anchor;
+  ro.observe(cotRoot);
+  adjust();
+
+  const timer = window.setTimeout(() => {
+    ro.disconnect();
+    viewport.removeAttribute(COT_SUPPRESS_AUTOSCROLL_ATTR);
+  }, COT_PIN_MS);
+
+  return () => {
+    window.clearTimeout(timer);
+    ro.disconnect();
+    viewport.removeAttribute(COT_SUPPRESS_AUTOSCROLL_ATTR);
+  };
+}
 
 // --- Context ---
 
@@ -112,6 +158,32 @@ export const ChainOfThought = memo(
     const hasEverStreamedRef = useRef(isStreaming);
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
     const startTimeRef = useRef<number | null>(null);
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const unpinRef = useRef<(() => void) | null>(null);
+
+    const setIsOpenPinned = useCallback(
+      (next: boolean) => {
+        unpinRef.current?.();
+        unpinRef.current = null;
+        const root = rootRef.current;
+        const header =
+          root?.querySelector<HTMLElement>("[data-slot=cot-header]") ?? root;
+        const viewport = findScrollViewport(root);
+        if (header && viewport) {
+          unpinRef.current = pinAnchorDuringHeightChange(header, viewport);
+        }
+        setIsOpen(next);
+      },
+      [setIsOpen]
+    );
+
+    useEffect(
+      () => () => {
+        unpinRef.current?.();
+        unpinRef.current = null;
+      },
+      []
+    );
 
     useEffect(() => {
       if (isStreaming) {
@@ -129,9 +201,9 @@ export const ChainOfThought = memo(
 
     useEffect(() => {
       if (isStreaming && !isOpen && !isExplicitlyClosed) {
-        setIsOpen(true);
+        setIsOpenPinned(true);
       }
-    }, [isExplicitlyClosed, isOpen, isStreaming, setIsOpen]);
+    }, [isExplicitlyClosed, isOpen, isStreaming, setIsOpenPinned]);
 
     useEffect(() => {
       if (
@@ -141,32 +213,32 @@ export const ChainOfThought = memo(
         !hasAutoClosed
       ) {
         const timer = window.setTimeout(() => {
-          setIsOpen(false);
+          setIsOpenPinned(false);
           setHasAutoClosed(true);
         }, AUTO_CLOSE_DELAY_MS);
         return () => window.clearTimeout(timer);
       }
-    }, [hasAutoClosed, isOpen, isStreaming, setIsOpen]);
+    }, [hasAutoClosed, isOpen, isStreaming, setIsOpenPinned]);
 
     const ctx = useMemo(
       () => ({
         duration,
         isOpen: isOpen ?? false,
         isStreaming,
-        setIsOpen,
+        setIsOpen: setIsOpenPinned,
       }),
-      [duration, isOpen, isStreaming, setIsOpen]
+      [duration, isOpen, isStreaming, setIsOpenPinned]
     );
 
     return (
       <ChainOfThoughtContext.Provider value={ctx}>
         <Collapsible
           className={cn("group/cot w-full", className)}
-          onOpenChange={setIsOpen}
+          onOpenChange={setIsOpenPinned}
           open={isOpen}
           {...props}
         >
-          {children}
+          <div ref={rootRef}>{children}</div>
         </Collapsible>
       </ChainOfThoughtContext.Provider>
     );
@@ -209,6 +281,7 @@ export const ChainOfThoughtHeader = memo(
           "transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
           className
         )}
+        data-slot="cot-header"
         type="button"
         {...props}
       >
@@ -250,9 +323,7 @@ export const ChainOfThoughtContent = memo(
       className={cn("pt-1 pb-0.5 data-[state=closed]:animate-out", className)}
       {...props}
     >
-      <div className="ml-[1px] space-y-0.5 border-border/40 border-l-2 pl-3">
-        {children}
-      </div>
+      <div className="space-y-0">{children}</div>
     </CollapsibleContent>
   )
 );
@@ -266,26 +337,12 @@ export type ChainOfThoughtStepStatus =
   | "error"
   | "pending";
 
-function StepStatusIcon({
-  Icon = DotIcon,
-  status,
-}: {
-  Icon?: LucideIcon;
-  status?: ChainOfThoughtStepStatus;
-}) {
-  if (status === "active") {
-    return (
-      <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-    );
-  }
-  if (status === "complete") {
-    return <Check className="size-3.5 shrink-0 text-muted-foreground/60" />;
-  }
-  if (status === "error") {
-    return <X className="size-3.5 shrink-0 text-destructive/80" />;
-  }
-  return <Icon className="size-3.5 shrink-0 text-muted-foreground/50" />;
-}
+const stepStatusStyles: Record<ChainOfThoughtStepStatus, string> = {
+  active: "text-foreground",
+  complete: "text-muted-foreground",
+  error: "text-destructive/85",
+  pending: "text-muted-foreground/50",
+};
 
 export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
   description?: string;
@@ -299,42 +356,54 @@ export const ChainOfThoughtStep = memo(
     children,
     className,
     description,
-    icon,
+    icon: Icon = DotIcon,
     label,
-    status,
+    status = "complete",
     ...props
   }: ChainOfThoughtStepProps) => {
     const isActive = status === "active";
 
     return (
-      <div className={cn("py-0.5", className)} {...props}>
-        <div className="flex min-w-0 items-center gap-2 text-sm">
-          <StepStatusIcon Icon={icon} status={status} />
-          <span
+      <div
+        className={cn(
+          "flex gap-2 py-1 text-sm",
+          stepStatusStyles[status],
+          className
+        )}
+        {...props}
+      >
+        {/* Icon column stretches with the step so the connector meets the next icon. */}
+        <div className="relative mt-0.5 flex w-4 shrink-0 justify-center self-stretch">
+          <Icon
             className={cn(
-              "min-w-0 flex-1 truncate",
-              status === "complete" && "text-muted-foreground",
-              status === "error" && "text-destructive/85",
-              status !== "complete" &&
-                status !== "error" &&
-                "text-foreground/85"
+              "relative z-[1] size-4 shrink-0",
+              isActive && "opacity-80",
+              status === "error"
+                ? "text-destructive/80"
+                : "text-muted-foreground"
             )}
-          >
-            {isActive ? (
-              <Shimmer as="span" duration={2} spread={2}>
-                {label}
-              </Shimmer>
-            ) : (
-              label
-            )}
-          </span>
-          {description ? (
-            <span className="ml-1 shrink-0 text-muted-foreground/55 text-xs">
-              {description}
-            </span>
-          ) : null}
+          />
+          <div className="absolute top-5 bottom-0 left-1/2 w-px -translate-x-1/2 bg-border" />
         </div>
-        {children ? <div className="mt-1 ml-5">{children}</div> : null}
+        <div className="min-w-0 flex-1 space-y-1.5 overflow-hidden pt-px">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="min-w-0 flex-1 truncate">
+              {isActive ? (
+                <Shimmer as="span" duration={2} spread={2}>
+                  {label}
+                </Shimmer>
+              ) : (
+                label
+              )}
+            </span>
+            {description ? (
+              <span className="shrink-0 text-muted-foreground/55 text-xs">
+                {description}
+              </span>
+            ) : null}
+          </div>
+          {children}
+        </div>
       </div>
     );
   }

@@ -200,6 +200,11 @@ export function useCopilotDrawerLayout({
   // True while the floating launcher rests at its bottom-right home corner.
   // Cleared once the user drags it away; re-armed when a mode switch re-docks.
   const [floatingDockedToCorner, setFloatingDockedToCorner] = useState(true);
+  // Stay false until layout hydrate finishes so the corner re-pin effect cannot
+  // race restored floatingPosition in the same layout pass.
+  const [layoutSnapshotApplied, setLayoutSnapshotApplied] = useState(
+    () => copilotLayout == null
+  );
 
   const isMiniFloating = open && launcherMode === "mini-floating";
   const floatingWidth = isMiniFloating
@@ -222,15 +227,18 @@ export function useCopilotDrawerLayout({
     collapseToCircle,
     compactStatusFlapHeight,
     copilotLayout,
+    floatingDockedToCorner,
     floatingPosition,
     floatingSize,
     internalPanelMode,
     isPanelModeControlled,
     setCollapseToCircle,
     setCompactStatusFlapHeight,
+    setFloatingDockedToCorner,
     setFloatingPosition,
     setFloatingSize,
     setInternalPanelMode,
+    setLayoutSnapshotApplied,
   });
 
   // Keep the resting floating launcher glued to its bottom-right corner as its
@@ -238,7 +246,7 @@ export function useCopilotDrawerLayout({
   // single-line launcher, so the initial dock would otherwise float too high).
   useLayoutEffect(() => {
     if (
-      !floatingDockedToCorner ||
+      !(layoutSnapshotApplied && floatingDockedToCorner) ||
       typeof window === "undefined" ||
       open ||
       collapseToCircle ||
@@ -257,6 +265,7 @@ export function useCopilotDrawerLayout({
     collapseToCircle,
     compactShellMeasured.height,
     floatingDockedToCorner,
+    layoutSnapshotApplied,
     open,
     showCompactLauncher,
   ]);

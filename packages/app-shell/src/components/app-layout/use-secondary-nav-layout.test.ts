@@ -59,6 +59,8 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
   afterEach(() => {
     vi.useRealTimers();
     pageHeaderState.secondaryNavAllowPinned = true;
+    pageHeaderState.secondaryNavAfterItems = null;
+    pageHeaderState.secondaryNavHeaderSlot = null;
   });
 
   it("suppresses hover preview after closing pinned nav, until mouse leaves", () => {
@@ -143,5 +145,48 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
     });
     expect(result.current.secondaryNavOpen).toBe(false);
     expect(persistence.mergePinned).not.toHaveBeenCalled();
+  });
+
+  it("omits page slots when hovering a foreign dock item with children", () => {
+    vi.useFakeTimers();
+    pageHeaderState.secondaryNavAfterItems = "thread-list";
+    pageHeaderState.secondaryNavHeaderSlot = "module-header";
+
+    const persistence = {
+      snapshot: { pinnedOpen: false },
+      pinnedHydrated: true,
+      mergePinned: vi.fn(),
+    };
+
+    const { result } = renderHook(() =>
+      useSecondaryNavLayout(sectionsWithSecondary, {
+        secondaryNavPersistence: persistence,
+      })
+    );
+
+    expect(result.current.overlayIncludePageSlots).toBe(true);
+    expect(result.current.hoveredNavItem).toBe(null);
+
+    const settingsItem = {
+      id: "settings",
+      label: "Settings",
+      to: "/settings",
+      icon: (() => null) as never,
+      children: [
+        { to: "/settings/appearance", label: "Appearance" },
+        { to: "/settings/ai", label: "AI" },
+      ],
+    };
+
+    act(() => {
+      result.current.openNavItemHover(settingsItem);
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(result.current.overlayIncludePageSlots).toBe(false);
+    expect(result.current.hoveredNavItem?.label).toBe("Settings");
+    expect(result.current.overlayLinkList).toEqual(settingsItem.children);
   });
 });

@@ -1,9 +1,31 @@
 import { describe, expect, it } from "vitest";
 import {
+  isForeignDockSecondaryNavPreview,
   isSecondaryNavHoverOverlayOpen,
   shouldMountSecondaryNavHoverOverlay,
   shouldSkipSecondaryNavPinOpenTransition,
 } from "./secondary-nav-hover-overlay";
+
+describe("isForeignDockSecondaryNavPreview", () => {
+  it("is false when nothing is hovered", () => {
+    expect(isForeignDockSecondaryNavPreview(null)).toBe(false);
+  });
+
+  it("is false when hovering the active module without children", () => {
+    expect(isForeignDockSecondaryNavPreview({ children: undefined })).toBe(
+      false
+    );
+    expect(isForeignDockSecondaryNavPreview({ children: [] })).toBe(false);
+  });
+
+  it("is true when hovering a dock item that owns a child link list", () => {
+    expect(
+      isForeignDockSecondaryNavPreview({
+        children: [{ to: "/settings/appearance", label: "Appearance" }],
+      })
+    ).toBe(true);
+  });
+});
 
 describe("shouldMountSecondaryNavHoverOverlay", () => {
   it("mounts for KB-style pages with header slot and no shell links", () => {

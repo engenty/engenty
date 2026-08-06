@@ -16,6 +16,7 @@ import {
   AppWindow,
   Copy,
   GripVertical,
+  Maximize2,
   MoreVertical,
   PanelBottom,
   PanelRight,
@@ -43,10 +44,13 @@ export interface CopilotDrawerPositionMenuProps {
   gripPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onCopyThread?: () => void | Promise<void>;
   onSelectDockPosition?: (value: CopilotDockMode) => void;
+  /** Navigate to full-page chat (`/mdl/engenty-copilot/chat`). */
+  onSelectFullscreen?: () => void;
   positionBottomLabel?: string;
   positionButtonLabel?: string;
   positionDrawerLabel?: string;
   positionFloatingLabel?: string;
+  positionFullscreenLabel?: string;
   positionHeadingLabel?: string;
   positionMenuAriaLabel: string;
   positionSidebarLabel?: string;
@@ -61,10 +65,12 @@ export function CopilotDrawerPositionMenu({
   canCopyThread = true,
   onCopyThread,
   onSelectDockPosition,
+  onSelectFullscreen,
   positionBottomLabel = "Bottom dock",
   positionButtonLabel = "Avatar",
   positionDrawerLabel = "Drawer",
   positionFloatingLabel = "Modal",
+  positionFullscreenLabel = "Full Screen",
   positionHeadingLabel = "Position",
   positionMenuAriaLabel,
   positionSidebarLabel = "Sidebar",
@@ -85,7 +91,9 @@ export function CopilotDrawerPositionMenu({
   const [copied, setCopied] = useState(false);
   const gripStartRef = useRef<{ x: number; y: number } | null>(null);
   const showPositions =
-    showPositionOptions && typeof onSelectDockPosition === "function";
+    showPositionOptions &&
+    (typeof onSelectDockPosition === "function" ||
+      typeof onSelectFullscreen === "function");
   const showCopy = typeof onCopyThread === "function";
 
   const handleCopyThread = useCallback(async () => {
@@ -170,9 +178,13 @@ export function CopilotDrawerPositionMenu({
           <>
             <DropdownMenuLabel>{positionHeadingLabel}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
-              onValueChange={(next) =>
-                onSelectDockPosition(next as CopilotDockMode)
-              }
+              onValueChange={(next) => {
+                if (next === "fullscreen") {
+                  onSelectFullscreen?.();
+                  return;
+                }
+                onSelectDockPosition?.(next as CopilotDockMode);
+              }}
               value={value}
             >
               <DropdownMenuRadioItem
@@ -227,6 +239,18 @@ export function CopilotDrawerPositionMenu({
                 />
                 <span>{positionSidebarLabel}</span>
               </DropdownMenuRadioItem>
+              {typeof onSelectFullscreen === "function" ? (
+                <DropdownMenuRadioItem
+                  className="flex items-center gap-2"
+                  value="fullscreen"
+                >
+                  <Maximize2
+                    aria-hidden
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                  <span>{positionFullscreenLabel}</span>
+                </DropdownMenuRadioItem>
+              ) : null}
             </DropdownMenuRadioGroup>
           </>
         ) : null}

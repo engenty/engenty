@@ -50,6 +50,7 @@ export type AgUiOpenInterruptKind =
   | "sandbox_command";
 
 export interface AgUiOpenInterruptChoice {
+  description?: string;
   id: string;
   label: string;
 }
@@ -62,6 +63,8 @@ export interface AgUiOpenInterruptMetadata {
   expires_at?: string;
   interrupt_id: string;
   kind?: AgUiOpenInterruptKind;
+  /** Decision interrupts only: render checkboxes and accept several choices. */
+  multi_select?: boolean;
   /** Suspended Mastra run id — reused on resume so the snapshot reloads (native suspend/resume). */
   run_id?: string;
   title: string;
@@ -80,10 +83,23 @@ function readOpenInterruptChoices(
     if (!choice || typeof choice !== "object" || Array.isArray(choice)) {
       return [];
     }
-    const record = choice as { id?: unknown; label?: unknown };
-    return typeof record.id === "string" && typeof record.label === "string"
-      ? [{ id: record.id, label: record.label }]
-      : [];
+    const record = choice as {
+      description?: unknown;
+      id?: unknown;
+      label?: unknown;
+    };
+    if (typeof record.id !== "string" || typeof record.label !== "string") {
+      return [];
+    }
+    return [
+      {
+        id: record.id,
+        label: record.label,
+        ...(typeof record.description === "string" && record.description.trim()
+          ? { description: record.description.trim() }
+          : {}),
+      },
+    ];
   });
   return choices.length > 0 ? choices : undefined;
 }
@@ -150,6 +166,7 @@ export function readAgUiOpenInterrupt(
     artifact_id: artifactId,
     ...(typeof body === "string" && body.trim() ? { body: body.trim() } : {}),
     ...(choices ? { choices } : {}),
+    ...(record.multi_select === true ? { multi_select: true } : {}),
     ...(typeof expiresAt === "string" && expiresAt.trim()
       ? { expires_at: expiresAt.trim() }
       : {}),

@@ -45,13 +45,66 @@ export function messagePreview(message: EngentyAgUiMessage): string {
   return "";
 }
 
-export function eventSummary(event: AGUIEvent): string {
+function previewText(value: string | null, max = 80): string | null {
+  if (!value) {
+    return null;
+  }
+  const oneLine = value.replace(/\s+/g, " ").trim();
+  if (!oneLine) {
+    return null;
+  }
+  return oneLine.length <= max ? oneLine : `${oneLine.slice(0, max - 1)}…`;
+}
+
+function shortCallId(id: string): string {
+  return `#${id.slice(-6)}`;
+}
+
+/**
+ * Only TOOL_CALL_START carries the tool name on the wire; ARGS/END/RESULT
+ * reference the call by id alone. Index the names once so every row of a call
+ * can display it.
+ */
+export function buildToolCallNameIndex(
+  events: readonly AGUIEvent[]
+): ReadonlyMap<string, string> {
+  const names = new Map<string, string>();
+  for (const event of events) {
+    const record = event as Record<string, unknown>;
+    const id = readString(record.toolCallId);
+    const name = readString(record.toolCallName);
+    if (id && name) {
+      names.set(id, name);
+    }
+  }
+  return names;
+}
+
+export function eventSummary(
+  event: AGUIEvent,
+  toolCallNames?: ReadonlyMap<string, string>
+): string {
   const record = event as Record<string, unknown>;
+  const toolCallId = readString(record.toolCallId);
+  if (toolCallId) {
+    // Tool rows: lead with the tool name (resolved via the index for
+    // ARGS/END/RESULT, which only carry the call id) and a payload preview
+    // instead of a wall of UUIDs.
+    const name =
+      readString(record.toolCallName) ?? toolCallNames?.get(toolCallId);
+    const payload =
+      event.type === "TOOL_CALL_ARGS"
+        ? previewText(readString(record.delta))
+        : event.type === "TOOL_CALL_RESULT"
+          ? previewText(readString(record.content))
+          : null;
+    return [name ?? "tool", shortCallId(toolCallId), payload]
+      .filter(Boolean)
+      .join(" · ");
+  }
   const parts = [
     readString(record.name),
     readString(record.messageId),
-    readString(record.toolCallName),
-    readString(record.toolCallId),
     readString(record.runId),
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : event.type;

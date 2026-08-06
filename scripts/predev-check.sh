@@ -315,6 +315,30 @@ ensure_supabase() {
     return 0
   fi
 
+  # After reboot / Docker Desktop kill, containers stay Exited. Grace waiting
+  # cannot help — skip straight to stop+start so we don't look like we only
+  # brought Docker up and forgot the database.
+  if supabase_exited_stack; then
+    echo "" >&2
+    echo "Local Supabase containers are stopped (common after reboot)." >&2
+    echo "Starting shared database stack (engenty-local)…" >&2
+    supabase stop >/dev/null 2>&1 || true
+    if ! supabase start; then
+      echo "supabase start stuck with down containers — stop + start retry…" >&2
+      supabase stop >/dev/null 2>&1 || true
+      supabase start || true
+    fi
+    if wait_supabase_ready "$SUPABASE_READY_WAIT_SECS" "Waiting for Supabase"; then
+      echo "✓ Supabase is ready (REST + Auth)." >&2
+      return 0
+    fi
+    echo "" >&2
+    echo "Supabase did not become ready within ${SUPABASE_READY_WAIT_SECS}s." >&2
+    echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
+    echo "Or: supabase stop && supabase start --debug" >&2
+    exit 1
+  fi
+
   # Grace period: concurrent worktree start or PostgREST schema reload often
   # looks "half-dead" (REST 500) for a short window. Wait before healing.
   echo "" >&2
@@ -332,15 +356,11 @@ ensure_supabase() {
     return 0
   fi
 
-  if supabase_half_dead || supabase_exited_stack; then
+  if supabase_half_dead; then
     echo "" >&2
-    if supabase_exited_stack; then
-      echo "Local Supabase containers are stopped (common after reboot)." >&2
-    else
-      echo "Local Supabase still unhealthy after grace + soft-heal." >&2
-      echo "  REST:  $(http_code "${SUPABASE_API}/rest/v1/")" >&2
-      echo "  Auth:  $(http_code "${SUPABASE_API}/auth/v1/health")" >&2
-    fi
+    echo "Local Supabase still unhealthy after grace + soft-heal." >&2
+    echo "  REST:  $(http_code "${SUPABASE_API}/rest/v1/")" >&2
+    echo "  Auth:  $(http_code "${SUPABASE_API}/auth/v1/health")" >&2
     echo "Restarting shared stack (other worktrees will wait on the lock)…" >&2
     supabase stop >/dev/null 2>&1 || true
   else

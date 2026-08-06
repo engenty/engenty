@@ -421,6 +421,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         positionButtonLabel={t("copilot.position.button")}
         positionDrawerLabel={t("copilot.position.drawer")}
         positionFloatingLabel={t("copilot.position.modal")}
+        positionFullscreenLabel={t("copilot.position.fullscreen")}
         positionHeadingLabel={t("copilot.position.heading")}
         positionMenuAriaLabel={t("copilot.position.menu")}
         positionSidebarLabel={t("copilot.position.sidebar")}

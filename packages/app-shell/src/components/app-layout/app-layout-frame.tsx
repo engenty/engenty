@@ -15,6 +15,7 @@ import { AppTopbar } from "../app-topbar";
 import { COMPACT_SIDEBAR_WIDTH_PX } from "./constants";
 import { MobileNavSheet } from "./mobile-nav-sheet";
 import { ModuleSecondaryNavColumnShell } from "./module-secondary-nav-column-shell";
+import { ModuleSidebarHeaderLabel } from "./module-sidebar-header-label";
 import { SecondaryNavColumn } from "./secondary-nav-column";
 import type { AppLayoutFrameProps } from "./types";
 import { useCopilotInlineSidebarWidth } from "./use-copilot-inline-sidebar-width";
@@ -187,10 +188,12 @@ export function AppLayoutFrame({
     closeNavItemHover,
     closeSecondaryNavPinned,
     hasSecondaryNav,
+    hoveredNavItem,
     mobileOpen,
     moduleRootNavItem,
     openHoverPanel,
     openNavItemHover,
+    overlayIncludePageSlots,
     overlayLinkList,
     overlayOpen,
     pathname,
@@ -377,7 +380,9 @@ export function AppLayoutFrame({
                 <div
                   className={cn(
                     "ui-canvas-floating absolute inset-y-0 left-0 z-30 hidden flex-col overflow-hidden md:flex",
-                    "!bg-card/80 [&_.bg-card]:!bg-transparent [&_.bg-background]:!bg-transparent border-border border-r",
+                    overlayIncludePageSlots
+                      ? "!bg-card/80 [&_.bg-card]:!bg-transparent [&_.bg-background]:!bg-transparent border-border border-r"
+                      : "border-border border-r bg-card",
                     "ease-in-out will-change-transform",
                     "transition-transform duration-300",
                     overlayOpen
@@ -401,6 +406,16 @@ export function AppLayoutFrame({
                   <ModuleSecondaryNavColumnShell
                     bodyMinWidthPx={secondaryNavWidthPx}
                     forceHover={forceHoverToggle}
+                    headerSlot={
+                      hoveredNavItem ? (
+                        <ModuleSidebarHeaderLabel
+                          icon={hoveredNavItem.icon}
+                          label={hoveredNavItem.label}
+                          to={hoveredNavItem.to}
+                        />
+                      ) : undefined
+                    }
+                    includePageSlots={overlayIncludePageSlots}
                     onToggle={
                       secondaryNavAllowPinned
                         ? pinSecondaryNavFromHover

@@ -6,6 +6,7 @@ import {
   copilotChatSubRunPath,
   defaultCopilotSessionPath,
   readCopilotSubRunToolCallId,
+  resolveFullscreenCopilotChatPath,
 } from "./copilot-chat-paths.js";
 
 const THREAD_ID = "11111111-1111-4111-8111-111111111111";
@@ -23,6 +24,20 @@ describe("copilot-chat-paths", () => {
     expect(defaultCopilotSessionPath("a/b")).toBe(
       `${COPILOT_CHAT_ROOT}/${encodeURIComponent("a/b")}`
     );
+  });
+
+  it("resolves full-screen chat paths from the active thread", () => {
+    expect(resolveFullscreenCopilotChatPath(THREAD_ID)).toBe(
+      `${COPILOT_CHAT_ROOT}/${THREAD_ID}`
+    );
+    expect(resolveFullscreenCopilotChatPath(` ${THREAD_ID} `)).toBe(
+      `${COPILOT_CHAT_ROOT}/${THREAD_ID}`
+    );
+    expect(resolveFullscreenCopilotChatPath("tmp:draft")).toBe(
+      COPILOT_CHAT_ROOT
+    );
+    expect(resolveFullscreenCopilotChatPath(null)).toBe(COPILOT_CHAT_ROOT);
+    expect(resolveFullscreenCopilotChatPath(undefined)).toBe(COPILOT_CHAT_ROOT);
   });
 
   it("builds sub-run monitor URLs with encoded toolCallId", () => {

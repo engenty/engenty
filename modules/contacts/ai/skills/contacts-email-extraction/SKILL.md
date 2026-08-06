@@ -22,7 +22,7 @@ Use this skill when the user provides an email body and asks to extract a person
 - Search by email first when a sender address exists.
 - Search by person name and company name separately.
 - Search by website domain when the email domain looks like a company domain.
-- If matches are ambiguous, present the candidates and ask which existing record to use.
+- If matches are ambiguous, ask which existing record to use — one choice per candidate via `requestDecision` when your tools include it, plain prose otherwise. Never invent a tool for this.
 
 ## Creation And Linking
 

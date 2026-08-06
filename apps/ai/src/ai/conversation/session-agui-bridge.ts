@@ -10,6 +10,7 @@
 // Sub-agents (`subagent_*`) and approvals (`tool_approval_required`/`tool_suspended`)
 // are layered on in 3.1 / 3.2.
 import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
+import { buildUnresolvedToolCallResult } from "./unresolved-tool-call.js";
 
 /** The session event shapes we map (a subset of the full union). */
 export interface SessionEventLike {
@@ -91,6 +92,14 @@ export class SessionAgUiConverter {
   // messageId → text START emitted (and not yet ended).
   readonly #openText = new Set<string>();
   readonly #startedToolCalls = new Set<string>();
+  // toolCallId → name, for every call opened. Paired with the two sets below to
+  // find calls that ended the run still unanswered (see getUnresolvedToolCalls).
+  readonly #toolCallNames = new Map<string, string>();
+  readonly #resolvedToolCalls = new Set<string>();
+  // Suspended calls (frontend tool / approval gate) are LEGITIMATELY resultless:
+  // the run parks and the resume completes them. They must never be reported as
+  // unresolved.
+  readonly #suspendedToolCalls = new Set<string>();
   // Tool calls that already received at least one TOOL_CALL_ARGS delta. A later
   // `tool_start` often carries the complete args object for the same call; if we
   // append that after streamed deltas, the transcript shows the JSON twice
@@ -244,6 +253,7 @@ export class SessionAgUiConverter {
           break;
         }
         this.#startedToolCalls.add(toolCallId);
+        this.#toolCallNames.set(toolCallId, toolName || "tool");
         out.push({
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
@@ -289,11 +299,18 @@ export class SessionAgUiConverter {
         }
         break;
       }
+      case "tool_suspended": {
+        if (typeof event.toolCallId === "string") {
+          this.#suspendedToolCalls.add(event.toolCallId);
+        }
+        break;
+      }
       case "tool_end": {
         const toolCallId = event.toolCallId;
         if (typeof toolCallId !== "string") {
           break;
         }
+        this.#resolvedToolCalls.add(toolCallId);
         // A tool that streamed args via tool_input_* already emitted END; a
         // tool_start-only call has not. Close it defensively (idempotent on the
         // client — END before RESULT).
@@ -368,6 +385,7 @@ export class SessionAgUiConverter {
         if (typeof toolCallId !== "string") {
           break;
         }
+        this.#resolvedToolCalls.add(toolCallId);
         out.push({
           messageId: this.#currentMessageId || toolCallId,
           toolCallId,
@@ -386,6 +404,69 @@ export class SessionAgUiConverter {
         break;
       default:
         break;
+    }
+    return out;
+  }
+
+  /**
+   * Tool calls that were opened but never answered and are not parked on a
+   * suspend — the run ended with them dangling. A hallucinated tool name lands
+   * here: Mastra has nothing to dispatch, so it never emits `tool_end`.
+   */
+  getUnresolvedToolCalls(): { toolCallId: string; toolName: string }[] {
+    const out: { toolCallId: string; toolName: string }[] = [];
+    for (const toolCallId of this.#startedToolCalls) {
+      if (
+        this.#resolvedToolCalls.has(toolCallId) ||
+        this.#suspendedToolCalls.has(toolCallId)
+      ) {
+        continue;
+      }
+      out.push({
+        toolCallId,
+        toolName: this.#toolCallNames.get(toolCallId) ?? "tool",
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Answer every unresolved tool call with an error result, so a card that
+   * would otherwise spin forever settles. Emit alongside `finish()` on the
+   * paths where the run truly ended (a parked suspend returns earlier and its
+   * call is excluded anyway).
+   *
+   * Pass `knownToolNames` only when the FULL set is available: a partial list
+   * would report real tools as nonexistent (see buildUnresolvedToolCallResult).
+   */
+  closeUnresolvedToolCalls(params?: {
+    knownToolNames?: readonly string[];
+  }): AGUIEvent[] {
+    const out: AGUIEvent[] = [];
+    for (const call of this.getUnresolvedToolCalls()) {
+      const messageId = this.#currentMessageId || call.toolCallId;
+      // END may already have been emitted (streamed args close the call); the
+      // client treats a repeat as a no-op, and a call that never streamed args
+      // has none — so send it, same as the `tool_end` branch does.
+      out.push({
+        messageId,
+        toolCallId: call.toolCallId,
+        type: EventType.TOOL_CALL_END,
+      });
+      out.push({
+        content: JSON.stringify(
+          buildUnresolvedToolCallResult({
+            ...(params?.knownToolNames
+              ? { knownToolNames: params.knownToolNames }
+              : {}),
+            toolName: call.toolName,
+          })
+        ),
+        messageId,
+        toolCallId: call.toolCallId,
+        type: EventType.TOOL_CALL_RESULT,
+      });
+      this.#resolvedToolCalls.add(call.toolCallId);
     }
     return out;
   }

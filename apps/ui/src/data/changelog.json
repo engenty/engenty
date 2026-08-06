@@ -4,6 +4,60 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "a89d90b",
+        "message": "richer ChainOfThought tool steps with type icons and briefs",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b9a6948",
+        "message": "add ui-card-* surface classes with selected state",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8f127cc",
+        "message": "keep floating launcher position across reload",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ed02d3b",
+        "message": "keep tools in one ChainOfThought list with Show details",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bc5374c",
+        "message": "add Full Screen position that opens full-page chat",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cd04da1",
+        "message": "Enhance tool call handling in conversation runs\n\n- Introduced logic to repair dangling tool calls in conversation runs, ensuring that unresolved tool calls are addressed before the session reads history.\n- Added functionality to emit error results for unresolved tool calls at the end of a run, preventing indefinite loading states in the UI.\n- Updated the SessionAgUiConverter to track unresolved tool calls and close them appropriately, improving user experience during interactions.\n- Enhanced decision artifact handling to support multi-select options and descriptions for choices, providing clearer user prompts.\n\nThis update improves the robustness of tool call management and enhances user interaction with decision-making artifacts.",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "41a919a",
+        "message": "Fix foreign dock hover mixing module sidebar into Settings.\n\nWhen previewing Settings (or any dock item with children), omit the current page's secondary header/after-items and use opaque chrome so module content cannot bleed into the overlay.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "20a8305",
+        "message": "keep app-bar rail on canvas-family colors in dark mode",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.102",
+    "timestamp": 1786025224,
+    "commits": [
+      {
         "id": "16b4567",
         "message": "export missing composer types, drop stale test suppressions",
         "group": "Fixed",

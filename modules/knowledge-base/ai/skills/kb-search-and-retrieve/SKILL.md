@@ -21,7 +21,9 @@ Use this skill when answering questions from Knowledge Base content, finding pag
 - List available KBs with `kb_list` when the user asks which KBs exist, says "all knowledge bases", needs a `kb_id`, or the current scope is ambiguous.
 - If the UI context pins a specific `kb_id`, use that id for reads unless the user asks for another KB.
 - If the UI context has `kb_chat_scope: "all"`, call `kb_list`, then query each returned `kb_id` explicitly. Do not silently use the default KB.
-- If a write target is ambiguous, ask which KB to modify before running a write.
+- If a write target is ambiguous, ask which KB to modify before running a write —
+  with `requestDecision` (one choice per candidate KB) when your tools include
+  it, in plain prose otherwise. Never invent a tool for this.
 
 ## Search Modes
 

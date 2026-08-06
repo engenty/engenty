@@ -696,7 +696,8 @@
       "drawer": "Drawer",
       "modal": "Modal",
       "floating": "Floating",
-      "sidebar": "Sidebar"
+      "sidebar": "Sidebar",
+      "fullscreen": "Full Screen"
     },
     "progress": {
       "runStarted": "Run started",

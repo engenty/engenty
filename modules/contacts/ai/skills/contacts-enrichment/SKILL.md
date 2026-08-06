@@ -21,7 +21,7 @@ Use this skill when enriching an existing organisation contact from public data,
 - Check all relevant field groups before summarizing: company main info, address, legal and registration, and tax.
 - Prefer official and registry sources, then company-controlled sources such as the official website or impressum pages, then broader web context.
 - Use `web_search` for official websites, registry and public context, news, leadership, or first-party legal pages, including Austrian organisations when you have a company name, legal name, VAT id, or website URL.
-- If sources diverge, prefer the source that is clearly newer only when the evidence shows freshness. Otherwise ask the user to choose.
+- If sources diverge, prefer the source that is clearly newer only when the evidence shows freshness. Otherwise ask the user to choose (one choice per candidate value via `requestDecision` when your tools include it, plain prose otherwise).
 
 ## Suggestions
 
@@ -34,4 +34,4 @@ Use this skill when enriching an existing organisation contact from public data,
 - Use `address_info` for the additional address field.
 - Use `vat_id` for VAT/UID values and `tax_id` only for separate tax identifiers.
 - Keep `website_contact` and `website_impress` distinct when both are known.
-- When multiple registry candidates match, publish candidates or ask the user to choose instead of guessing.
+- When multiple registry candidates match, publish candidates or ask the user to choose instead of guessing (see the chooser note above).

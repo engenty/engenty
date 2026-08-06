@@ -299,3 +299,106 @@ describe("SessionAgUiConverter", () => {
     expect(deltas).toEqual(["Hello from parts", "!"]);
   });
 });
+
+// A hallucinated tool name never dispatches, so Mastra emits START/ARGS/END and
+// then nothing — the run ends with the call unanswered. The converter has to
+// surface those so the executor can answer them; otherwise the chat card spins
+// forever and the model is never told its tool does not exist.
+describe("SessionAgUiConverter unresolved tool calls", () => {
+  it("reports a call that never received a tool_end", () => {
+    const converter = new SessionAgUiConverter();
+    converter.convert({
+      message: { content: [], id: "m1", role: "assistant" },
+      type: "message_update",
+    });
+    converter.convert({
+      args: { question: "Which provider?" },
+      toolCallId: "call_1",
+      toolName: "ask_user",
+      type: "tool_start",
+    });
+
+    expect(converter.getUnresolvedToolCalls()).toEqual([
+      { toolCallId: "call_1", toolName: "ask_user" },
+    ]);
+  });
+
+  it("does not report calls that completed or suspended", () => {
+    const converter = new SessionAgUiConverter();
+    converter.convert({
+      toolCallId: "done",
+      toolName: "engenty_tools_search",
+      type: "tool_start",
+    });
+    converter.convert({
+      result: { ok: true },
+      toolCallId: "done",
+      type: "tool_end",
+    });
+    // A parked frontend tool / approval gate is legitimately resultless: the
+    // resume completes it. Reporting it would fail an interrupt the user is
+    // still looking at.
+    converter.convert({
+      toolCallId: "parked",
+      toolName: "navigate",
+      type: "tool_start",
+    });
+    converter.convert({ toolCallId: "parked", type: "tool_suspended" });
+
+    expect(converter.getUnresolvedToolCalls()).toEqual([]);
+  });
+
+  it("reports nameless calls under the placeholder name it opened them with", () => {
+    const converter = new SessionAgUiConverter();
+    converter.convert({ toolCallId: "c1", toolName: "", type: "tool_start" });
+
+    expect(converter.getUnresolvedToolCalls()).toEqual([
+      { toolCallId: "c1", toolName: "tool" },
+    ]);
+  });
+});
+
+describe("closeUnresolvedToolCalls", () => {
+  it("closes a dangling call with END then an unknown_tool RESULT", () => {
+    const converter = new SessionAgUiConverter();
+    converter.convert({
+      message: { content: [], id: "m1", role: "assistant" },
+      type: "message_update",
+    });
+    converter.convert({
+      toolCallId: "call_1",
+      toolName: "ask_user",
+      type: "tool_start",
+    });
+
+    const out = converter.closeUnresolvedToolCalls({
+      knownToolNames: ["requestDecision"],
+    }) as unknown as Ev[];
+
+    expect(out.map((e) => e.type)).toEqual([
+      "TOOL_CALL_END",
+      "TOOL_CALL_RESULT",
+    ]);
+    // The card must attach to the assistant message, like every other tool row.
+    expect(out[1]?.messageId).toBe("m1");
+    expect(JSON.parse(String(out[1]?.content))).toMatchObject({
+      code: "unknown_tool",
+      ok: false,
+      tool_name: "ask_user",
+    });
+    // Idempotent: a second call has nothing left to close.
+    expect(converter.closeUnresolvedToolCalls()).toEqual([]);
+  });
+
+  it("closes nothing when every call completed or parked", () => {
+    const converter = new SessionAgUiConverter();
+    converter.convert({
+      toolCallId: "a",
+      toolName: "navigate",
+      type: "tool_start",
+    });
+    converter.convert({ toolCallId: "a", type: "tool_suspended" });
+
+    expect(converter.closeUnresolvedToolCalls()).toEqual([]);
+  });
+});

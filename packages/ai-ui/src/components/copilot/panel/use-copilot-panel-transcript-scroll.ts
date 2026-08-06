@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { COT_SUPPRESS_AUTOSCROLL_ATTR } from "../../ai-elements/chain-of-thought";
 import type { CopilotPanelContentProps } from "./copilot-panel-content-types";
 import {
   buildCopilotAutoScrollSignature,
@@ -103,6 +104,9 @@ export function useCopilotPanelTranscriptScroll(input: {
     };
     const handleViewportContentChange = () => {
       updateChromeOnly();
+      if (viewport.hasAttribute(COT_SUPPRESS_AUTOSCROLL_ATTR)) {
+        return;
+      }
       if (!shouldAutoScrollRef.current) {
         return;
       }

@@ -60,50 +60,34 @@ export function createThreadStore(client: SupabaseClient) {
   const db = client.schema(AI_SCHEMA);
 
   return {
+    // One RPC, not two writes: the thread row and its owner participant row
+    // must commit together. Split across two PostgREST calls they commit at
+    // different LSNs, and Supabase Realtime — which evaluates thread_select as
+    // the SUBSCRIBER, and that policy requires a participant row — drops the
+    // thread INSERT for every other window when it lands in the gap. Symptom
+    // was a new chat never appearing in a second tab. See migration
+    // 20260806120000_ai_thread_owner_atomic.sql.
     async upsertThread(
       input: CreateThreadInput
     ): Promise<{ thread: ThreadRow }> {
       const { data: thread, error } = await db
-        .from("thread")
-        .upsert(
-          {
-            ...(input.id ? { id: input.id } : {}),
-            tenant_id: input.tenantId,
-            agent_id: input.agentId,
-            created_by_user_id: input.createdByUserId,
-            title: input.title ?? null,
-            metadata: input.metadata ?? {},
-            route_context: input.routeContext ?? {},
-            status: input.status ?? "idle",
-            summary: input.summary ?? null,
-            workspace_key: input.workspaceKey ?? null,
-          },
-          { onConflict: "id" }
-        )
-        .select()
+        .rpc("upsert_thread_with_owner", {
+          p_agent_id: input.agentId,
+          p_created_by_user_id: input.createdByUserId,
+          p_id: input.id ?? null,
+          p_metadata: input.metadata ?? {},
+          p_route_context: input.routeContext ?? {},
+          p_status: input.status ?? "idle",
+          p_summary: input.summary ?? null,
+          p_tenant_id: input.tenantId,
+          p_title: input.title ?? null,
+          p_workspace_key: input.workspaceKey ?? null,
+        })
         .single();
       if (error) {
         throw new Error(`thread upsert: ${error.message}`);
       }
-      const row = mapThreadRow(thread as DbThreadRow);
-      // A service-created thread has no human owner; the participant row's
-      // principal types only cover users and groups, so it gets none.
-      if (input.createdByUserId) {
-        const { error: pError } = await db.from("thread_participant").upsert(
-          {
-            tenant_id: input.tenantId,
-            thread_id: row.id,
-            principal_type: "user" satisfies ThreadPrincipalType,
-            principal_id: input.createdByUserId,
-            role: "owner" satisfies ThreadParticipantRole,
-          },
-          { onConflict: "thread_id,principal_type,principal_id" }
-        );
-        if (pError) {
-          throw new Error(`thread_participant upsert: ${pError.message}`);
-        }
-      }
-      return { thread: row };
+      return { thread: mapThreadRow(thread as DbThreadRow) };
     },
 
     async createThread(

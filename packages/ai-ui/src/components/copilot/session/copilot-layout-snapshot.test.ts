@@ -93,4 +93,29 @@ describe("copilot-layout-snapshot", () => {
     });
     expect(s?.compactStatusFlapHeight).toBe(320);
   });
+
+  it("parses and merges floatingDockedToCorner", () => {
+    const s = parseCopilotLayoutSnapshot({
+      v: 1,
+      open: false,
+      preferredDockMode: "floating",
+      floatingDockedToCorner: false,
+      floatingPosition: { x: 120, y: 340 },
+    });
+    expect(s?.floatingDockedToCorner).toBe(false);
+    expect(s?.floatingPosition).toEqual({ x: 120, y: 340 });
+
+    const merged = mergeCopilotLayoutSnapshot(
+      {
+        v: 1,
+        open: false,
+        preferredDockMode: "floating",
+        floatingDockedToCorner: true,
+        floatingPosition: { x: 10, y: 20 },
+      },
+      { floatingDockedToCorner: false }
+    );
+    expect(merged.floatingDockedToCorner).toBe(false);
+    expect(merged.floatingPosition).toEqual({ x: 10, y: 20 });
+  });
 });

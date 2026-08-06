@@ -37,8 +37,13 @@ export interface CopilotLayoutSnapshotV1 {
   fabAnchor?: CopilotFabAnchor;
   /** Legacy absolute FAB position (superseded by `fabAnchor`). */
   fabPosition?: { x: number; y: number };
+  /**
+   * When true, the floating launcher re-pins to the bottom-right corner as its
+   * measured height settles. Cleared after the user drags it away.
+   */
+  floatingDockedToCorner?: boolean;
   floatingPosition?: { x: number; y: number };
-  floatingSize?: { width: number; height: number };
+  floatingSize?: { height: number; width: number };
   open: boolean;
   panelMode?: CopilotPersistedPanelMode;
   preferredDockMode: CopilotLayoutPersistDockMode | null;

@@ -4,11 +4,13 @@
  */
 :root {
   /* ==========================================================================
-     1. THE 3 CORE INPUT SEEDS (Hex inputs set by JS with default fallbacks)
+     1. CORE INPUT SEEDS (Hex inputs set by JS with default fallbacks)
      ========================================================================== */
   --raw-primary: #e0531b;
   --raw-secondary: #f1f3f5;
   --raw-background: #faf8f5;
+  /* App-bar rail seed. Light default is white; dark overrides below so the
+     rail tracks the canvas family when JS clears the inline variable. */
   --raw-sidebar: #ffffff;
 
   --contrast: 1;
@@ -218,6 +220,13 @@
    3. SEMANTIC TOKEN OVERRIDES (Dark Mode)
    ========================================================================== */
 .dark {
+  /* App-bar seed when JS does not set an absolute rail hex: same lift as
+     paper-2 so the rail sits slightly above canvas instead of staying white. */
+  --raw-sidebar: oklch(
+    from var(--raw-background) calc(0.15 + (0.02 * var(--contrast)))
+      calc(c * 1.2) h
+  );
+
   /* Surfaces */
   --paper: oklch(
     from var(--raw-background) calc(0.12 + (0.03 * var(--contrast))) c h

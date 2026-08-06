@@ -696,7 +696,8 @@
       "drawer": "Drawer",
       "modal": "Modal",
       "floating": "Schwebend",
-      "sidebar": "Seitenleiste"
+      "sidebar": "Seitenleiste",
+      "fullscreen": "Vollbild"
     },
     "progress": {
       "runStarted": "Lauf gestartet",

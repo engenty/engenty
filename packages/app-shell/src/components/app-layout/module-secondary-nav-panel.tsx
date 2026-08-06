@@ -14,15 +14,24 @@ import { matchesPath } from "../../lib/navigation";
 import type { SecondaryNavLinkItem } from "./types";
 
 export function ModuleSecondaryNavPanel(props: {
+  /** When false, skip page-header `secondaryNavAfterItems` (foreign dock preview). */
+  includeAfterItems?: boolean;
   onNavigate?: () => void;
   pathname: string;
   search: string;
   secondaryItems: SecondaryNavLinkItem[];
 }) {
-  const { onNavigate, pathname, search, secondaryItems } = props;
+  const {
+    includeAfterItems = true,
+    onNavigate,
+    pathname,
+    search,
+    secondaryItems,
+  } = props;
   const { secondaryNavAfterItems, secondaryNavSearchResultsOnly } =
     usePageHeader();
   const hideContactsExtras = secondaryNavSearchResultsOnly;
+  const afterItems = includeAfterItems ? secondaryNavAfterItems : null;
   const panelRef = useRef<HTMLDivElement>(null);
   const onSecondaryNavKeyDownCapture = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -124,7 +133,7 @@ export function ModuleSecondaryNavPanel(props: {
           })}
         </div>
       ) : null}
-      {secondaryNavAfterItems ? (
+      {afterItems ? (
         <div
           className="flex min-h-0 flex-1 flex-col"
           onClickCapture={(e) => {
@@ -137,7 +146,7 @@ export function ModuleSecondaryNavPanel(props: {
             }
           }}
         >
-          {secondaryNavAfterItems}
+          {afterItems}
         </div>
       ) : null}
     </div>

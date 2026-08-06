@@ -59,6 +59,7 @@ import {
   emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
+
 import {
   finishParkedResume,
   isParkedResumeInFlight,
@@ -448,6 +449,16 @@ export async function resumeConversationRun(
     }
 
     for (const agui of converter.finish()) {
+      emit(agui);
+    }
+    // A tool the model invented DURING the continuation dangles exactly as it
+    // does on a fresh turn (no dispatch → no `tool_end` → a card that spins
+    // forever). Answer it here too. No tool-name list is passed on purpose:
+    // this lane can only see the parked frontend tools, and a partial list
+    // would report real server tools as nonexistent. The next fresh turn's
+    // history repair, which does have the full list, writes the precise
+    // correction the model reads.
+    for (const agui of converter.closeUnresolvedToolCalls()) {
       emit(agui);
     }
     if (runError) {

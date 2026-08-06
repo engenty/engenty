@@ -12,6 +12,7 @@ import { useMediaQuery } from "../../hooks/use-media-query";
 import { getSecondaryNavItems } from "../../lib/navigation";
 import { createSecondaryNavHoverCloseController } from "../../lib/secondary-nav-hover-close";
 import {
+  isForeignDockSecondaryNavPreview,
   isSecondaryNavHoverOverlayOpen,
   shouldMountSecondaryNavHoverOverlay,
   shouldSkipSecondaryNavPinOpenTransition,
@@ -129,6 +130,8 @@ export function useSecondaryNavLayout(
   );
 
   const overlayLinkList = hoveredNavItem?.children ?? shellSecondaryLinks;
+  const foreignDockPreview = isForeignDockSecondaryNavPreview(hoveredNavItem);
+  const overlayIncludePageSlots = !foreignDockPreview;
   const overlayOpen = isSecondaryNavHoverOverlayOpen({
     hoveredNavItem,
     secondaryNavHoverOpen,
@@ -289,10 +292,12 @@ export function useSecondaryNavLayout(
     closeNavItemHover,
     closeSecondaryNavPinned,
     hasSecondaryNav,
+    hoveredNavItem: foreignDockPreview ? hoveredNavItem : null,
     mobileOpen,
     moduleRootNavItem,
     openHoverPanel,
     openNavItemHover,
+    overlayIncludePageSlots,
     overlayLinkList,
     overlayOpen,
     pathname,

@@ -76,7 +76,9 @@ Product chat identity and thread lists are owned by `@engenty/ai-ui` hooks (`use
 
 ## Tool-call timeline (ChainOfThought)
 
-`CopilotMessageContent` (`transcript/copilot-message-content.tsx`) groups an assistant turn's **tool** parts into a collapsible [`ChainOfThought`](../ai-elements/#components) timeline rendered *above* the assistant text. It opens while the run streams ("Working…") and auto-collapses when done ("Used N tools").
+`CopilotMessageContent` (`transcript/copilot-message-content.tsx`) groups an assistant turn's **tool** parts into a collapsible [`ChainOfThought`](../ai-elements/#components) timeline rendered *above* the assistant text — an expandable **list of tool steps** (AI Elements [chain-of-thought](https://elements.ai-sdk.dev/components/chain-of-thought) pattern). It opens while the run streams ("Working…") and auto-collapses when done ("Used N tools").
+
+Regular tools stay in that list even when text parts sit between them (e.g. a mid-turn "Working…" placeholder). Only HITL choosers and standalone cards (sub-agent, object render, A2UI, …) escape the timeline.
 
 This is the **chain of tool calls** — distinct from the **chain of thoughts** (model reasoning text), which is a parked server vertical that emits no `REASONING_*` events. Reasoning parts are deliberately excluded from the timeline so the header count stays tool-accurate. See `docs/content/wip/roadmap/enhancing-copilot/` (`index.md` Ch.2 + `reasoning-vertical.md`).
 
@@ -86,16 +88,24 @@ Per-tool steps live in `transcript/chain-of-thought-steps.tsx`:
 
 | Renderer | Used for | Shows |
 |----------|----------|-------|
-| `WebSearchStep` | tools whose resolved name contains `web_search` | label `Search: <query>`, result-count description, host/title chips, any images |
-| `GenericToolStep` | every other tool | resolved label, secondary scope/path descriptor, images + a prose snippet |
+| `WebSearchStep` | tools whose resolved name contains `web_search` | label `Searching for "…"`, result-count description, host/title chips, any images |
+| `SkillStep` | workspace `skill` tool | label `Skill: "…"`, skill body preview (≤4 lines) |
+| `GenericToolStep` | every other tool | type icon, resolved label, scope metadata, **brief** result line (counts / mutations), images + prose |
 
-Each completed step's expanded body is built by `resolveStepContent(part)`:
+Details under each step are **always visible** (clamped to ~4 lines) — there is no per-step Show/Hide toggle. Full input/output stays in the expandable `ToolCallCard`.
 
-- **Error detection first** — `detectToolOutputError` (`tool-call/tool-call-card-utils.ts`) recognises an output that *looks* successful (output present → `getToolState` = completed) but actually carries a failure: a Zod issue array, `{errors|issues: […]}`, `{ok:false}`, or `{error: "…"}`. When found, the step flips to **error** status (red ✕) and shows the message instead of a misleading green check.
-- **Images** — `collectToolImages` walks the output for image URLs / data-URIs / `{url, caption}` records, rendered via `ChainOfThoughtImage`.
-- **Prose snippet** — `extractProseSnippet` surfaces *only* a real sentence from a `summary`/`message`/`text`/… field (requires whitespace, so bare IDs are skipped). ID dumps and stringified JSON are **never** shown here — the full structured input/output stays in the expandable `ToolCallCard`.
+Each completed step's body is built by `resolveStepContent(part)` plus `summarizeToolStepBrief`:
+
+- **Brief summary** — list/search → `N accounts` / `N results`; create → entity name; update → meaningful fields (`backfill_days: 60`). Opaque UUIDs / `*_id` keys are never shown.
+- **Error detection first** — `detectToolOutputError` (`tool-call/tool-call-card-utils.ts`) recognises an output that *looks* successful (output present → `getToolState` = completed) but actually carries a failure: a Zod issue array, `{errors|issues: […]}`, `{ok:false}`, or `{error: "…"}`. When found, the step flips to **error** status and shows the message inline.
+- **Images** — `collectToolImages` walks the output for image URLs / data-URIs / `{url, caption}` records.
+- **Prose snippet** — `extractProseSnippet` surfaces *only* a real sentence from a `summary`/`message`/`text`/… field (requires whitespace, rejects stringified JSON). ID dumps and JSON blobs are **never** shown in the timeline — structured input/output stays in the expandable `ToolCallCard`.
+
+Step rows use **type icons** (Search / BookOpen / Zap / …) on a vertical history line (AI Elements layout) — not status checkmarks. Status only tints the row (active shimmer, error red).
 
 Streaming (still-running) steps suppress the body and show only the shimmer label.
+
+Opening/closing the timeline pins the header in the scroll viewport so the transcript does not jump to the message end.
 
 ### Extending
 

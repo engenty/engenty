@@ -22,6 +22,7 @@ import {
   InspectorJsonTree,
 } from "./ag-ui-inspector-json-tree.js";
 import {
+  buildToolCallNameIndex,
   eventSummary,
   formatJson,
   type InspectorInitialPrompt,
@@ -67,6 +68,7 @@ function buildTimelineRows(input: {
       tone: "message",
     })
   );
+  const toolCallNames = buildToolCallNameIndex(input.events);
   const eventRows = input.events
     .slice()
     .reverse()
@@ -74,7 +76,7 @@ function buildTimelineRows(input: {
       const label = agUiEventType(event);
       return {
         count: 1,
-        detail: eventSummary(event),
+        detail: eventSummary(event, toolCallNames),
         id: `event-${input.events.length - index}-${label}`,
         label,
         tone: "event",

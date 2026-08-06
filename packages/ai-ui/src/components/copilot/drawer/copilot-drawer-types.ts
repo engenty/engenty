@@ -108,6 +108,8 @@ export interface CopilotDrawerProps {
   positionButtonLabel?: string;
   positionDrawerLabel?: string;
   positionFloatingLabel?: string;
+  /** Full-page chat (`/mdl/engenty-copilot/chat`). */
+  positionFullscreenLabel?: string;
   positionHeadingLabel?: string;
   /** Bottom-dock ⋮ menu: aria label for the position trigger. */
   positionMenuAriaLabel?: string;

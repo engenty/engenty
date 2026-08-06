@@ -55,6 +55,7 @@ export function pendingInterruptFromTranscript(
           choices: artifact.choices,
           interrupt_id: artifact.interruptId ?? artifact.artifactId,
           kind: "decision",
+          ...(artifact.multiSelect ? { multi_select: true } : {}),
           title: artifact.title,
           tool_call_id: toolCallId,
         };

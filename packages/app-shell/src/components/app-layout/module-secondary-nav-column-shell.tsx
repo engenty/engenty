@@ -5,11 +5,19 @@ import {
 } from "@engenty/ui-core";
 import { usePageHeader } from "@engenty/ui-plugin-sdk";
 import { PanelLeft, PanelLeftClose, Pin } from "lucide-react";
+import type { ReactNode } from "react";
 import { ModuleSecondaryNavPanel } from "./module-secondary-nav-panel";
 import type { SecondaryNavLinkItem } from "./types";
 
 export function ModuleSecondaryNavColumnShell(props: {
   bodyMinWidthPx: number;
+  /**
+   * When false, do not mount page-header sidebar chrome (`secondaryNavHeaderSlot`
+   * / `secondaryNavAfterItems`). Used for foreign dock previews (Settings, etc.).
+   */
+  includePageSlots?: boolean;
+  /** Header override when `includePageSlots` is false (e.g. Settings label). */
+  headerSlot?: ReactNode;
   onNavigate?: () => void;
   onToggle: () => void;
   pathname: string;
@@ -21,6 +29,8 @@ export function ModuleSecondaryNavColumnShell(props: {
 }) {
   const {
     bodyMinWidthPx,
+    includePageSlots = true,
+    headerSlot,
     onNavigate,
     onToggle,
     pathname,
@@ -31,13 +41,19 @@ export function ModuleSecondaryNavColumnShell(props: {
     forceHover = false,
   } = props;
   const { secondaryNavHeaderSlot, topbarChrome } = usePageHeader();
-  const contentBlend = topbarChrome === "contentBlend";
+  const contentBlend = includePageSlots && topbarChrome === "contentBlend";
+  // Foreign dock previews need opaque floating chrome so page content cannot
+  // bleed through the translucent pinOpen blend surface.
+  const blendSurface = includePageSlots && toggleMode === "pinOpen";
+  const resolvedHeaderSlot = includePageSlots
+    ? secondaryNavHeaderSlot
+    : headerSlot;
 
   return (
     <div
       className={cn(
         "flex min-h-0 flex-1 flex-col overflow-hidden",
-        toggleMode === "pinOpen" ? "bg-transparent" : "ui-canvas-floating"
+        blendSurface ? "bg-transparent" : "ui-canvas-floating"
       )}
       data-engenty-region="sidebar"
     >
@@ -46,7 +62,7 @@ export function ModuleSecondaryNavColumnShell(props: {
           "flex shrink-0 items-center gap-1",
           contentBlend ? "px-2" : "px-3",
           contentBlend ? "h-11" : "h-[52px] border-border/30 border-b",
-          toggleMode === "pinOpen" ? "bg-transparent" : "ui-canvas-floating"
+          blendSurface ? "bg-transparent" : "ui-canvas-floating"
         )}
       >
         {showToggle ? (
@@ -92,14 +108,14 @@ export function ModuleSecondaryNavColumnShell(props: {
           </div>
         ) : null}
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          {secondaryNavHeaderSlot ? (
+          {resolvedHeaderSlot ? (
             <div
               className={cn(
                 "min-w-0 flex-1 overflow-hidden",
                 !showToggle && sidebarColumnContentInsetClassName
               )}
             >
-              {secondaryNavHeaderSlot}
+              {resolvedHeaderSlot}
             </div>
           ) : null}
         </div>
@@ -108,11 +124,12 @@ export function ModuleSecondaryNavColumnShell(props: {
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col overflow-y-auto",
-          toggleMode === "pinOpen" ? "bg-transparent" : "ui-canvas-floating"
+          blendSurface ? "bg-transparent" : "ui-canvas-floating"
         )}
         style={{ minWidth: bodyMinWidthPx }}
       >
         <ModuleSecondaryNavPanel
+          includeAfterItems={includePageSlots}
           onNavigate={onNavigate}
           pathname={pathname}
           search={search}

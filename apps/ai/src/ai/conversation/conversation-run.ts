@@ -13,6 +13,7 @@ import {
   type AGUIEvent,
   EventType,
   type RunAgentInput,
+  readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
 import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
@@ -63,6 +64,7 @@ import {
   emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
 import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
+import { repairDanglingToolCallsInHistory } from "./repair-dangling-tool-calls.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
 import { parkSessionRun } from "./session-park.js";
 import { patchThreadStatus } from "./thread-status.js";
@@ -315,6 +317,48 @@ export async function startConversationRun(
       ...(input.workspace ? { workspace: input.workspace } : {}),
     });
 
+    // Every tool name this run can actually dispatch. `listTools()` excludes
+    // browser tools by contract, so union it with the ones we inject ourselves.
+    // Used to tell a hallucinated tool name apart from a real tool that merely
+    // failed — and to name valid alternatives in the correction.
+    let knownToolNames: string[] = [];
+    try {
+      knownToolNames = [
+        ...new Set([
+          ...Object.keys(await agent.listTools()),
+          ...Object.keys(extraTools),
+        ]),
+      ];
+    } catch (err) {
+      // An empty set degrades the correction to "did not complete" rather than
+      // wrongly asserting a tool does not exist. Never fail the turn for it.
+      console.error("[conversation] listTools failed:", err);
+    }
+
+    // Answer tool calls left dangling by EARLIER turns (a hallucinated tool name
+    // is persisted at state:"call" and never resolves on its own). Doing it here
+    // — before the session reads history — is what puts the correction in front
+    // of the model. The open interrupt's own call is deliberately left alone:
+    // it is waiting on the user, not broken.
+    const openInterruptToolCallId =
+      readAgUiOpenInterrupt(input.sessionMetadata)?.tool_call_id ?? "";
+    const repaired = await repairDanglingToolCallsInHistory({
+      knownToolNames,
+      scope: input.scope,
+      ...(openInterruptToolCallId
+        ? { skipToolCallIds: [openInterruptToolCallId] }
+        : {}),
+      store: input.store,
+      threadId: input.threadId,
+    });
+    if (repaired.length > 0) {
+      console.warn(
+        `[conversation ${input.runId}] answered ${repaired.length} dangling tool call(s): ${repaired
+          .map((call) => call.toolName)
+          .join(", ")}`
+      );
+    }
+
     // The same runtime-context system message the control plane injects, set as
     // the controller's per-run instructions (the controller is constructed per run).
     const runtimeInstructions = (
@@ -556,6 +600,15 @@ export async function startConversationRun(
     }
 
     for (const agui of converter.finish()) {
+      emit(agui);
+    }
+    // The run reached its end with tool calls still open — a call the model
+    // invented never dispatched, so no `tool_end` ever arrived. Without a
+    // result the card spins forever in the live window. Emit the same error
+    // payload the history repair writes, so this window and the next reload
+    // agree. (Suspends/parks returned above; nothing legitimately pending
+    // reaches here.)
+    for (const agui of converter.closeUnresolvedToolCalls({ knownToolNames })) {
       emit(agui);
     }
     // Fold any native sub-agent progress lines onto the persisted delegation

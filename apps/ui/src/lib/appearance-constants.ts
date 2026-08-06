@@ -152,11 +152,21 @@ export function applyFontSize(sizeId: string) {
   document.documentElement.style.removeProperty("font-size");
 }
 
+/** Default light app-bar seed — matches `--raw-sidebar` in ember-primitives.css. */
+export const DEFAULT_LIGHT_SIDEBAR = "#ffffff";
+
+/**
+ * Warm dark rail for Ember when CSS `.dark --raw-sidebar` is overridden by JS.
+ * Sits slightly above the dark canvas (same family as paper-2).
+ */
+export const DEFAULT_DARK_SIDEBAR = "#1c1917";
+
 export interface ColorSet {
   dark: {
     primary: string;
     secondary: string;
     background: string;
+    /** Required — never fall back to the light sidebar hex in dark mode. */
     sidebar: string;
   };
   id: string;
@@ -177,13 +187,14 @@ export const COLOR_SETS_PRESETS: readonly ColorSet[] = [
       primary: "#e0531b",
       secondary: "#f1f3f5",
       background: "#faf8f5",
-      sidebar: "#ffffff",
+      sidebar: DEFAULT_LIGHT_SIDEBAR,
     },
     dark: {
+      // Empty primary/secondary/background → CSS dark formulas own those seeds.
       primary: "",
       secondary: "",
       background: "",
-      sidebar: "",
+      sidebar: DEFAULT_DARK_SIDEBAR,
     },
   },
   {
@@ -193,7 +204,7 @@ export const COLOR_SETS_PRESETS: readonly ColorSet[] = [
       primary: "#0284C5",
       secondary: "#B3CCE6",
       background: "#EDF2F7",
-      sidebar: "#ffffff",
+      sidebar: DEFAULT_LIGHT_SIDEBAR,
     },
     dark: {
       primary: "#0ea5e9",
@@ -252,6 +263,18 @@ export const COLOR_SETS_PRESETS: readonly ColorSet[] = [
   },
 ] as const;
 
+function normalizeHex(hex: string): string {
+  return hex.trim().toLowerCase();
+}
+
+/** Light-mode default rail (white / unset / named white) — not a branded pick. */
+export function isDefaultLightSidebar(hex: string): boolean {
+  const n = normalizeHex(hex);
+  return (
+    n === "" || n === "default" || n === "white" || n === DEFAULT_LIGHT_SIDEBAR
+  );
+}
+
 export function applyCustomColors(
   primary?: string,
   secondary?: string,
@@ -300,8 +323,8 @@ export function applySidebarColor(colorId: string) {
   } else {
     let hex = colorId;
     const presets: Record<string, string> = {
-      white: "#ffffff",
-      dark: "#1e1e1e",
+      white: DEFAULT_LIGHT_SIDEBAR,
+      dark: DEFAULT_DARK_SIDEBAR,
       cobalt: "#1e40af",
       moss: "#065f46",
       rose: "#9f1239",
@@ -344,13 +367,28 @@ export function syncThemeStyles() {
         activePreset.dark.secondary || activePreset.light.secondary;
       finalBackground =
         activePreset.dark.background || activePreset.light.background;
-      finalSidebar = activePreset.dark.sidebar || activePreset.light.sidebar;
+
+      // Map the preset's light rail → dark rail. Keep a custom (non-default,
+      // non-preset-light) pick as an absolute branded color in both modes.
+      const usingPresetLightSidebar =
+        isDefaultLightSidebar(rawSidebar) ||
+        normalizeHex(rawSidebar) === normalizeHex(activePreset.light.sidebar);
+
+      finalSidebar = usingPresetLightSidebar
+        ? activePreset.dark.sidebar
+        : rawSidebar;
     } else {
       finalPrimary = activePreset.light.primary;
       finalSecondary = activePreset.light.secondary;
       finalBackground = activePreset.light.background;
-      finalSidebar = activePreset.light.sidebar;
+      finalSidebar = rawSidebar || activePreset.light.sidebar;
     }
+  }
+
+  // Never paint the light default white rail in dark mode — clear so CSS
+  // `.dark { --raw-sidebar }` (canvas-family) can take over.
+  if (isDark && isDefaultLightSidebar(finalSidebar)) {
+    finalSidebar = "";
   }
 
   // Inject variables as raw inputs for the CSS relative OKLCH engine
@@ -376,7 +414,8 @@ export function syncThemeStyles() {
     html.style.removeProperty("--raw-background");
   }
 
-  if (finalSidebar && finalSidebar !== "") {
+  // Light white / empty → CSS :root default. Dark empty → CSS .dark canvas-family.
+  if (finalSidebar && !isDefaultLightSidebar(finalSidebar)) {
     html.style.setProperty("--raw-sidebar", finalSidebar);
   } else {
     html.style.removeProperty("--raw-sidebar");

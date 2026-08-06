@@ -143,6 +143,7 @@ export {
   copilotChatSubRunPath,
   defaultCopilotSessionPath,
   readCopilotSubRunToolCallId,
+  resolveFullscreenCopilotChatPath,
 } from "./copilot/copilot-chat-paths.js";
 export {
   registerCopilotComposerDraftSetter,

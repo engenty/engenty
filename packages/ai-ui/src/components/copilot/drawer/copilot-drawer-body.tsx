@@ -4,6 +4,8 @@ import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { useUiCoreMediaQuery } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { resolveFullscreenCopilotChatPath } from "../../../copilot/copilot-chat-paths.js";
+import { useCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
 import { useMentionAgentCandidates } from "../../../hooks/use-mention-agent-candidates.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
@@ -79,6 +81,7 @@ export function CopilotDrawerBody({
   positionButtonLabel = "Avatar",
   positionDrawerLabel = "Drawer",
   positionFloatingLabel = "Modal",
+  positionFullscreenLabel = "Full Screen",
   positionHeadingLabel = "Position",
   positionSidebarLabel = "Sidebar",
   agentChooserLabels,
@@ -105,6 +108,7 @@ export function CopilotDrawerBody({
   }
   const session = injectedSession;
   const realtimeVoice = useCopilotVoice();
+  const threadBinding = useCopilotThreadBinding();
   const isMobile = useUiCoreMediaQuery("(max-width: 767px)");
   const serviceBaseUrl = (serviceBaseUrlProp ?? "").trim().replace(/\/$/, "");
   const appsAiSessionsApi =
@@ -371,15 +375,24 @@ export function CopilotDrawerBody({
     onCopyThread: handleCopyThread,
   } as const;
 
+  const handleSelectFullscreen = useCallback(() => {
+    const path = resolveFullscreenCopilotChatPath(session.activeThreadId);
+    threadBinding.navigate?.(path);
+  }, [session.activeThreadId, threadBinding.navigate]);
+
   const copilotPositionDropdown = setPreferredDockMode ? (
     <CopilotDrawerPositionMenu
       {...positionMenuCopyProps}
       compactTrigger={headerChrome === "contentBlend"}
       onSelectDockPosition={layout.handleDockPositionSelect}
+      onSelectFullscreen={
+        threadBinding.navigate ? handleSelectFullscreen : undefined
+      }
       positionBottomLabel={positionBottomLabel}
       positionButtonLabel={positionButtonLabel}
       positionDrawerLabel={positionDrawerLabel}
       positionFloatingLabel={positionFloatingLabel}
+      positionFullscreenLabel={positionFullscreenLabel}
       positionHeadingLabel={positionHeadingLabel}
       positionMenuAriaLabel={positionMenuAriaLabel}
       positionSidebarLabel={positionSidebarLabel}
@@ -395,10 +408,14 @@ export function CopilotDrawerBody({
       gripLabel="Drag to move"
       gripPointerDown={layout.handleBottomDockGripPointerDown}
       onSelectDockPosition={layout.handleDockPositionSelect}
+      onSelectFullscreen={
+        threadBinding.navigate ? handleSelectFullscreen : undefined
+      }
       positionBottomLabel={positionBottomLabel}
       positionButtonLabel={positionButtonLabel}
       positionDrawerLabel={positionDrawerLabel}
       positionFloatingLabel={positionFloatingLabel}
+      positionFullscreenLabel={positionFullscreenLabel}
       positionHeadingLabel={positionHeadingLabel}
       positionMenuAriaLabel={positionMenuAriaLabel}
       positionSidebarLabel={positionSidebarLabel}
