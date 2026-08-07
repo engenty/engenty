@@ -4,6 +4,24 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "e5c2316",
+        "message": "exit on SIGTERM instead of waiting to be killed",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.106",
+    "timestamp": 1786084685,
+    "commits": [
+      {
+        "id": "506776a",
+        "message": "Revert \"feat(ai): publish window route state as a Mastra state signal (server half)\"\n\nThis reverts commit d0ad65a13.\n\nParking the move to native state signals. The publish half works — lanes,\ndedupe and ifIdle:'persist' were all verified live — but the signals never\nreach the model, and the reason is structural rather than a missing tweak:\nresolveStateSignalHistory is reachable only from \"[Processor:<id>]\ncomputeStateSignal\". Mastra does not inject state signals into a prompt on its\nown. Consuming them means writing an input processor that renders state into\nthe prompt — which is the job formatAgentUiStateHarnessInstructions already\ndoes today, with four migrations of setup around it and nothing deleted in\nexchange.\n\nSo this removes a POST /ai/v1/threads/:threadId/state that no client calls. An\nunreachable write endpoint on the AI service is a surface to defend, not a\nhead start, and a dead code path rots faster than it would cost to retype.\n\nDeliberately NOT reverted, because they are bugs on their own merits and were\nonly found through this work:\n  18d275c80  ai.thread_message dropped ALL Mastra content.metadata\n  85ec327d7  storage coerced role \"signal\" into \"system\"\nThe enum value and the metadata column stay: they make our storage a faithful\nMastra store, whether or not we ever send a state signal.\n\nStill worth revisiting if Mastra starts injecting state signals natively, or\nfor a coordinator that must observe a user's navigation between turns — the one\nproperty our per-run instruction block genuinely cannot provide.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
         "id": "85ec327",
         "message": "preserve Mastra's \"signal\" message role",
         "group": "Fixed",
@@ -13,6 +31,12 @@
         "id": "18d275c",
         "message": "stop discarding Mastra message metadata",
         "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d0ad65a",
+        "message": "publish window route state as a Mastra state signal (server half)",
+        "group": "Added",
         "breaking": false
       },
       {
