@@ -91,21 +91,33 @@ export function isSandboxExecuteCommandToolName(toolName: string): boolean {
   return toolName === SANDBOX_EXECUTE_COMMAND_TOOL_NAME;
 }
 
+/**
+ * The persisted form of an open interrupt — the value alone, with the TTL
+ * defaulted. Prefer this plus a single-key metadata merge over rebuilding the
+ * whole metadata object: a merge computed here is merged onto a row read
+ * earlier, so any key written in between is reverted on write.
+ */
+export function buildAgUiOpenInterruptValue(
+  open: AgUiOpenInterruptMetadata
+): AgUiOpenInterruptMetadata {
+  return {
+    ...open,
+    expires_at:
+      open.expires_at ??
+      buildAgUiOpenInterruptExpiresAt(
+        Date.now(),
+        agUiOpenInterruptTtlMsForKind(open.kind)
+      ),
+  };
+}
+
 export function mergeAgUiOpenInterruptMetadata(
   metadata: Record<string, unknown>,
   open: AgUiOpenInterruptMetadata | null
 ): Record<string, unknown> {
   const next = { ...metadata };
   if (open) {
-    next[AG_UI_OPEN_INTERRUPT_METADATA_KEY] = {
-      ...open,
-      expires_at:
-        open.expires_at ??
-        buildAgUiOpenInterruptExpiresAt(
-          Date.now(),
-          agUiOpenInterruptTtlMsForKind(open.kind)
-        ),
-    };
+    next[AG_UI_OPEN_INTERRUPT_METADATA_KEY] = buildAgUiOpenInterruptValue(open);
   } else {
     const { [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: _removed, ...rest } = next;
     return rest;

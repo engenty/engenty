@@ -1,5 +1,8 @@
 import type { Message, RunAgentInput } from "@engenty/ag-ui-bridge";
-import { mergeActiveArtifactMetadata } from "@engenty/ag-ui-bridge";
+import {
+  ACTIVE_ARTIFACT_METADATA_KEY,
+  mergeActiveArtifactMetadata,
+} from "@engenty/ag-ui-bridge";
 import type { AiEffort } from "@engenty/ai-core";
 import {
   type AgentWorkspaceConfig,
@@ -718,14 +721,54 @@ export function createThreadService(opts: ThreadServiceOptions) {
               },
               threadId: input.threadId,
             });
-      // `metadata` (full replace) and `activeArtifactId` (single-key merge)
-      // are composable: start from an explicit metadata override if given,
-      // else the current row, then fold the artifact key on top so this call
-      // never clobbers unrelated keys (HITL interrupt/grants included).
+      // Artifact-only update: fold the key in the DATABASE, against the row as
+      // it is at write time. Doing it here would mean merging onto `session`,
+      // read at the top of this function — and every metadata write that
+      // commits in the gap (Mastra's own metadata.mastra state-signal
+      // tracking, the HITL interrupt, approval grants) would be reverted.
+      // Lost update, not a merge. See migration
+      // 20260807090000_ai_thread_metadata_atomic_merge.sql.
+      if (
+        input.activeArtifactId !== undefined &&
+        input.metadata === undefined
+      ) {
+        const merged = await getRequiredStore().mergeThreadMetadataForUser({
+          tenantId: input.scope.tenantId,
+          threadId: input.threadId,
+          userId: input.scope.userId,
+          ...(input.activeArtifactId === null
+            ? { removeKeys: [ACTIVE_ARTIFACT_METADATA_KEY] }
+            : {
+                patch: {
+                  [ACTIVE_ARTIFACT_METADATA_KEY]: {
+                    artifact_id: input.activeArtifactId,
+                    shown_at: new Date().toISOString(),
+                  },
+                },
+              }),
+        });
+        if (!merged.thread) {
+          throw new AiSessionError("agent_threads.notFound");
+        }
+        // Only metadata was requested — nothing else to write.
+        if (
+          input.agentId === undefined &&
+          routeContext === undefined &&
+          input.status === undefined &&
+          input.summary === undefined &&
+          input.title === undefined &&
+          input.workspaceKey === undefined &&
+          input.archived === undefined
+        ) {
+          return { thread: merged.thread };
+        }
+      }
+      // An explicit `metadata` is a deliberate full replace; the artifact key
+      // rides along on top of what the caller supplied.
       const metadataWithActiveArtifact =
-        input.activeArtifactId === undefined
+        input.activeArtifactId === undefined || input.metadata === undefined
           ? input.metadata
-          : mergeActiveArtifactMetadata(input.metadata ?? session.metadata, {
+          : mergeActiveArtifactMetadata(input.metadata, {
               artifactId: input.activeArtifactId,
               shownAt: new Date().toISOString(),
             });

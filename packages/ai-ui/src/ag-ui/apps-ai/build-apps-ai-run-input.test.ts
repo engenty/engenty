@@ -89,7 +89,11 @@ describe("buildAppsAiRunInput", () => {
     expect(input.forwardedProps).toEqual({ engenty: {} });
   });
 
-  it("passes route scope in forwardedProps when present", () => {
+  // forwardedProps carries only what the server reads (effort, model_id).
+  // Route scope used to be sent here and was read on no code path; the agent's
+  // route facts come from `state` and `context`. Pinned so it does not drift
+  // back in unnoticed — an unread key on every run is pure wire weight.
+  it("does not send route scope in forwardedProps", () => {
     const input = buildAppsAiRunInput({
       frontendTools: [],
       message: { id: "user-1", role: "user", content: "Hello" },
@@ -103,9 +107,7 @@ describe("buildAppsAiRunInput", () => {
       state: {},
     });
 
-    expect(input.forwardedProps).toEqual({
-      engenty: { scope: { kb_id: "kb-1" } },
-    });
+    expect(input.forwardedProps).toEqual({ engenty: {} });
   });
 
   it("uses the provided app-shell state snapshot", () => {

@@ -205,9 +205,14 @@ describe("createSessionAgentStateChannel", () => {
       getThread: vi.fn(async (p: { threadId: string }) => ({
         metadata: rows.get(p.threadId) ?? {},
       })),
-      updateThreadForUser: vi.fn(
-        async (p: { metadata?: Record<string, unknown>; threadId: string }) => {
-          rows.set(p.threadId, p.metadata ?? {});
+      // Models the RPC: the patch is folded into the row in the database, so
+      // the channel can only ever affect its own key.
+      mergeThreadMetadataForUser: vi.fn(
+        async (p: { patch?: Record<string, unknown>; threadId: string }) => {
+          rows.set(p.threadId, {
+            ...(rows.get(p.threadId) ?? {}),
+            ...(p.patch ?? {}),
+          });
           return { thread: {} };
         }
       ),
@@ -225,7 +230,7 @@ describe("createSessionAgentStateChannel", () => {
   it("throws loudly when the ownership-checked update rejects", async () => {
     const store = {
       getThread: async () => ({ metadata: {} }),
-      updateThreadForUser: async () => ({ thread: null }),
+      mergeThreadMetadataForUser: async () => ({ thread: null }),
     };
     const channel = createSessionAgentStateChannel(() => store);
     await expect(channel.persist(CONTEXT, { k: 1 })).rejects.toThrow(

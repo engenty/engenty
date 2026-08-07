@@ -93,6 +93,7 @@ function makeSessionStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
         role: "assistant",
       }),
     })),
+    mergeThreadMetadataForUser: vi.fn(async () => ({ thread })),
     updateThreadForUser: vi.fn(async () => ({ thread })),
     upsertThread: vi.fn(async () => ({ thread })),
     ...overrides,

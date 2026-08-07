@@ -1,43 +1,22 @@
 "use client";
 
-import { useTranslation } from "@engenty/i18n/ui";
-import { useEffect, useRef } from "react";
-import { toast } from "sonner";
 import {
   type EffortResolvedFlash,
   useEffortResolvedFlash,
 } from "./effort-resolved-flash.js";
 
 /**
- * Subscribe to Auto effort flashes for a host: toast when the resolved
- * tier/model changes, and return the active flash for the effort selector.
+ * Subscribe to Auto effort flashes for a host and return the active flash for
+ * the effort selector.
+ *
+ * Deliberately silent: this used to also raise a toast. A toast is the wrong
+ * weight for "Auto picked a tier" — it is ambient information about a control
+ * the user can see, it fired on every Auto turn, and being bottom-anchored it
+ * sat on top of the composer's own submit button. The selector shows the
+ * resolution in place instead.
  */
 export function useEffortResolvedFeedback(
   hostKey: string
 ): EffortResolvedFlash | null {
-  const { t } = useTranslation("ai-ui");
-  const flash = useEffortResolvedFlash(hostKey);
-  const lastToastedKey = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!flash) {
-      return;
-    }
-    const key = `${flash.effort}|${flash.modelId?.trim() || ""}`;
-    if (lastToastedKey.current === key) {
-      return;
-    }
-    lastToastedKey.current = key;
-    const effortLabel = t(`effort.choice.${flash.effort}.label`);
-    const model = flash.modelId?.trim();
-    if (model) {
-      toast.message(
-        t("effort.autoResolvedWithModel", { effort: effortLabel, model })
-      );
-    } else {
-      toast.message(t("effort.autoResolved", { effort: effortLabel }));
-    }
-  }, [flash, t]);
-
-  return flash;
+  return useEffortResolvedFlash(hostKey);
 }

@@ -171,8 +171,8 @@ describe("isOpenInterruptOrphaned", () => {
 describe("reconcileOrphanedInterrupt", () => {
   let store: {
     listMessagesOrdered: ReturnType<typeof vi.fn>;
+    mergeThreadMetadataForUser: ReturnType<typeof vi.fn>;
     updateMessageParts: ReturnType<typeof vi.fn>;
-    updateThreadForUser: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -193,10 +193,10 @@ describe("reconcileOrphanedInterrupt", () => {
           ],
         },
       ]),
-      updateMessageParts: vi.fn(async () => ({ message: null })),
-      updateThreadForUser: vi.fn(async () => ({
+      mergeThreadMetadataForUser: vi.fn(async () => ({
         thread: { metadata: {} },
       })),
+      updateMessageParts: vi.fn(async () => ({ message: null })),
     };
   });
 
@@ -237,7 +237,7 @@ describe("reconcileOrphanedInterrupt", () => {
         userId: "u1",
       });
       expect(result).toBeNull();
-      expect(store.updateThreadForUser).not.toHaveBeenCalled();
+      expect(store.mergeThreadMetadataForUser).not.toHaveBeenCalled();
       expect(store.updateMessageParts).not.toHaveBeenCalled();
     } finally {
       takeParkedSessionRun("run-R");
@@ -262,7 +262,7 @@ describe("reconcileOrphanedInterrupt", () => {
     expect(result).toBeNull();
     expect(listSuspendedRuns).toHaveBeenCalled();
     // The interrupt and its dangling tool steps are left intact for the resume.
-    expect(store.updateThreadForUser).not.toHaveBeenCalled();
+    expect(store.mergeThreadMetadataForUser).not.toHaveBeenCalled();
     expect(store.updateMessageParts).not.toHaveBeenCalled();
   });
 
@@ -290,6 +290,6 @@ describe("reconcileOrphanedInterrupt", () => {
       userId: "u1",
     });
     expect(result).toBeNull();
-    expect(store.updateThreadForUser).not.toHaveBeenCalled();
+    expect(store.mergeThreadMetadataForUser).not.toHaveBeenCalled();
   });
 });

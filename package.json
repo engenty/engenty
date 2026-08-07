@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.105",
+  "version": "0.1.106",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -231,7 +231,7 @@
       "mermaid": ">=11.15.0"
     },
     "patchedDependencies": {
-      "@mastra/core@1.55.0": "patches/@mastra__core@1.55.0.patch",
+      "@mastra/core@1.57.0": "patches/@mastra__core@1.57.0.patch",
       "@rivet-dev/agentos-apps@0.2.14": "patches/@rivet-dev__agentos-apps@0.2.14.patch"
     },
     "ignoredBuiltDependencies": [

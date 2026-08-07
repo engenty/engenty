@@ -21,10 +21,11 @@ import {
 } from "../../../ai/tools/engenty-tools/index.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
 import {
+  AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+  buildAgUiOpenInterruptValue,
   buildFrontendToolOpenInterruptFromPayload,
   buildSessionInterruptOutcome,
   type FrontendToolInterruptPayload,
-  mergeAgUiOpenInterruptMetadata,
   type SessionInterruptPayload,
 } from "../sessions/interrupts.js";
 import {
@@ -98,8 +99,10 @@ export async function emitFrontendToolInterrupt(input: {
   };
   const open = buildFrontendToolOpenInterruptFromPayload(interrupt);
   try {
-    await input.store.updateThreadForUser({
-      metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, open),
+    await input.store.mergeThreadMetadataForUser({
+      patch: {
+        [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: buildAgUiOpenInterruptValue(open),
+      },
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
       userId: input.scope.userId,
@@ -164,8 +167,10 @@ export async function emitToolApprovalInterrupt(input: {
   // by — if this write fails, the interrupt is NOT resumable, so fail the run
   // loudly (the caller emits RUN_ERROR) instead of emitting an approval card
   // whose answer can never be applied.
-  await input.store.updateThreadForUser({
-    metadata: mergeAgUiOpenInterruptMetadata(input.sessionMetadata, open),
+  await input.store.mergeThreadMetadataForUser({
+    patch: {
+      [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: buildAgUiOpenInterruptValue(open),
+    },
     tenantId: input.scope.tenantId,
     threadId: input.threadId,
     userId: input.scope.userId,
@@ -263,11 +268,12 @@ export async function emitArtifactInterrupt(input: {
     return false;
   }
   try {
-    await input.store.updateThreadForUser({
-      metadata: mergeAgUiOpenInterruptMetadata(
-        input.sessionMetadata,
-        artifactOpenInterrupt(interrupt)
-      ),
+    await input.store.mergeThreadMetadataForUser({
+      patch: {
+        [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: buildAgUiOpenInterruptValue(
+          artifactOpenInterrupt(interrupt)
+        ),
+      },
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
       userId: input.scope.userId,

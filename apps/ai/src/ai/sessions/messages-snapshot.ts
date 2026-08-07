@@ -106,13 +106,21 @@ export function buildSessionMessagesSnapshotFromRows(params: {
     threadId: params.threadId,
   });
   return buildAgUiMessagesFromSessionMessages(
-    orderedRows.map((row) => ({
-      author_user_id: row.author_user_id,
-      created_at: row.created_at,
-      id: row.id,
-      parts: row.parts,
-      role: row.role,
-    })),
+    // `signal` rows are agent-facing state (Mastra state/notification signals),
+    // never conversation turns — they must not surface as chat bubbles.
+    orderedRows.flatMap((row) =>
+      row.role === "signal"
+        ? []
+        : [
+            {
+              author_user_id: row.author_user_id,
+              created_at: row.created_at,
+              id: row.id,
+              parts: row.parts,
+              role: row.role,
+            },
+          ]
+    ),
     { preserveInputOrder: true }
   );
 }

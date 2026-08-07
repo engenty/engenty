@@ -242,6 +242,7 @@ export {
 export { EngentyCanvasPageChrome } from "./features/agents-workspace/engenty-catalog-page-chrome.js";
 export { useAgentsWorkspaceShellNav } from "./features/agents-workspace/use-agents-workspace-shell-nav.js";
 export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-nav-data.js";
+export { useEffortLastResolved } from "./features/ai-effort/effort-resolved-flash.js";
 // Grant lookup is Tier 2: it reads the tenant usage policy over the admin HTTP
 // client, which the embed entry deliberately does not pull in.
 export { useEffortGrant } from "./features/ai-effort/use-effort-grant.js";

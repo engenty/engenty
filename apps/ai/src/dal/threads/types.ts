@@ -8,7 +8,17 @@ export type ThreadPrincipalType = "user" | "group";
 
 export type ThreadParticipantRole = "owner" | "member" | "viewer";
 
-export type ThreadMessageRole = "system" | "user" | "assistant" | "tool";
+/**
+ * `signal` is Mastra's state/notification signal, not a conversation turn.
+ * Mastra reconstructs signals with a hard `role === "signal"` filter, so the
+ * role must survive the round trip — but transcripts must exclude it.
+ */
+export type ThreadMessageRole =
+  | "system"
+  | "user"
+  | "assistant"
+  | "tool"
+  | "signal";
 
 export interface ThreadRow {
   agent_id: string;
@@ -30,6 +40,12 @@ export interface ThreadMessageRow {
   author_user_id: string | null;
   created_at: string;
   id: string;
+  /**
+   * Mastra `content.metadata` verbatim — carries state-signal identity.
+   * Optional because rows are also synthesized in-memory (snapshot healing,
+   * placeholder assistant rows) where there is nothing to carry.
+   */
+  metadata?: Record<string, unknown> | null;
   parts: unknown;
   role: ThreadMessageRole;
   tenant_id: string;

@@ -43,6 +43,8 @@ export interface AppendThreadMessageInput {
   // an idempotent upsert keyed on id — re-saving the same message is a no-op
   // instead of a duplicate row, and `updateMessages` can find it by id.
   id?: string;
+  /** Mastra `content.metadata`. Dropping it loses state-signal identity. */
+  metadata?: Record<string, unknown> | null;
   parts: unknown;
   role: ThreadMessageRole;
   tenantId: string;
@@ -184,6 +186,45 @@ export function createThreadStore(client: SupabaseClient) {
       return { thread: mapThreadRow(data as DbThreadRow) };
     },
 
+    // Fold keys into metadata against the CURRENT row, in one statement.
+    // `updateThreadForUser` takes a whole metadata object and replaces the
+    // column, so a caller that only wants to change one key has to read first
+    // — and anything committed between that read and the write is lost.
+    // Mastra rewrites this column too (state-signal tracking lives at
+    // metadata.mastra), as do the HITL interrupt and approval-grant lanes.
+    // See migration 20260807090000_ai_thread_metadata_atomic_merge.sql.
+    async mergeThreadMetadataForUser(params: {
+      /**
+       * `{key: [values]}` — union these into the array already at that key,
+       * evaluated against the current row. For list-valued keys (the tool
+       * approval grants) a `patch` would replace the whole array with one
+       * computed from a stale read and drop concurrent entries.
+       */
+      appendSets?: Record<string, readonly string[]>;
+      patch?: Record<string, unknown>;
+      removeKeys?: string[];
+      tenantId: string;
+      threadId: string;
+      userId: string;
+    }): Promise<{ thread: ThreadRow | null }> {
+      const { data, error } = await db
+        .rpc("merge_thread_metadata", {
+          p_append_sets: params.appendSets ?? {},
+          p_patch: params.patch ?? {},
+          p_remove_keys: params.removeKeys ?? [],
+          p_tenant_id: params.tenantId,
+          p_thread_id: params.threadId,
+          p_user_id: params.userId,
+        })
+        .maybeSingle();
+      if (error) {
+        throw new Error(`thread metadata merge: ${error.message}`);
+      }
+      // Zero rows = not owned by this user (or gone); same not-found contract
+      // the read-then-write path had.
+      return { thread: data ? mapThreadRow(data as DbThreadRow) : null };
+    },
+
     async listMessagesOrdered(params: {
       tenantId: string;
       threadId: string;
@@ -213,6 +254,7 @@ export function createThreadStore(client: SupabaseClient) {
         role: input.role,
         parts: input.parts,
         author_user_id: input.authorUserId ?? null,
+        metadata: input.metadata ?? {},
       };
 
       // With a caller id, upsert idempotently: a re-save of the same message id

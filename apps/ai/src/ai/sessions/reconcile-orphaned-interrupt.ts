@@ -27,7 +27,10 @@ import {
   isParkedResumeInFlight,
   isSessionRunParked,
 } from "../conversation/session-park.js";
-import { mergeAgUiOpenInterruptMetadata } from "./interrupts.js";
+import {
+  AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+  mergeAgUiOpenInterruptMetadata,
+} from "./interrupts.js";
 import {
   hasResumableSnapshot,
   type ResumableSnapshotProbe,
@@ -196,15 +199,18 @@ export async function reconcileOrphanedInterrupt(input: {
     threadId: input.threadId,
     toolCallId: open.tool_call_id,
   });
-  const nextMetadata = mergeAgUiOpenInterruptMetadata(input.metadata, null);
+  // Clear only our key: `input.metadata` was read before the orphan checks
+  // (which hit storage), so rebuilding the whole object here would revert
+  // anything written in that window.
+  const fallbackMetadata = mergeAgUiOpenInterruptMetadata(input.metadata, null);
   try {
-    const updated = await input.store.updateThreadForUser({
-      metadata: nextMetadata,
+    const updated = await input.store.mergeThreadMetadataForUser({
+      removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
       userId: input.userId,
     });
-    return updated.thread?.metadata ?? nextMetadata;
+    return updated.thread?.metadata ?? fallbackMetadata;
   } catch (error) {
     console.error(
       "[reconcile-interrupt] failed to clear orphaned interrupt:",

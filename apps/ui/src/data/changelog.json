@@ -4,6 +4,48 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "85ec327",
+        "message": "preserve Mastra's \"signal\" message role",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "18d275c",
+        "message": "stop discarding Mastra message metadata",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "08498d8",
+        "message": "stop rebuilding thread metadata from stale reads across the HITL lane",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b6317ab",
+        "message": "stop sending unread route scope on every run",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "71842af",
+        "message": "merge thread metadata in the database, not across a stale read",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ec80d78",
+        "message": "report Auto effort in the control, not a toast",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.105",
+    "timestamp": 1786049680,
+    "commits": [
+      {
         "id": "446162e",
         "message": "drop stale time-tracking dnd-kit entries from lockfile",
         "group": "Fixed",

@@ -43,6 +43,7 @@ import {
   mergeApprovalGrants,
 } from "../ai/sessions/connection-approval-grants.js";
 import {
+  AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   type AgUiResumeEntry,
   mergeAgUiOpenInterruptMetadata,
   readAgUiOpenInterrupt,
@@ -61,6 +62,8 @@ import { auditToolApprovalDecision } from "../ai/sessions/tool-approval-audit.js
 import {
   clearOnceToolApprovalGrants,
   readToolApprovalGrants,
+  TOOL_APPROVAL_GRANTS_METADATA_KEY,
+  TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
   withToolApprovalGrant,
   withToolApprovalGrantOnce,
 } from "../ai/sessions/tool-approval-grants.js";
@@ -559,12 +562,19 @@ export function registerThreadRunRoutes(
           userId: scope.scope.userId,
         });
         if (once || always) {
+          // The local copy feeds this request's in-process gate re-check; the
+          // DB write unions just the one grant, so a grant added concurrently
+          // (or Mastra's own metadata) is not reverted by a whole-blob write.
           resumeSessionMetadata = always
             ? withToolApprovalGrant(session.metadata, operationId)
             : withToolApprovalGrantOnce(session.metadata, operationId);
           try {
-            await conversationStore.updateThreadForUser({
-              metadata: resumeSessionMetadata,
+            await conversationStore.mergeThreadMetadataForUser({
+              appendSets: {
+                [always
+                  ? TOOL_APPROVAL_GRANTS_METADATA_KEY
+                  : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: [operationId],
+              },
               tenantId: scope.scope.tenantId,
               threadId,
               userId: scope.scope.userId,
@@ -706,8 +716,8 @@ export function registerThreadRunRoutes(
           null
         );
         try {
-          await conversationStore.updateThreadForUser({
-            metadata: hsSessionMetadata,
+          await conversationStore.mergeThreadMetadataForUser({
+            removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
             tenantId: scope.scope.tenantId,
             threadId,
             userId: scope.scope.userId,
@@ -734,8 +744,8 @@ export function registerThreadRunRoutes(
           null
         );
         try {
-          await conversationStore.updateThreadForUser({
-            metadata: hsSessionMetadata,
+          await conversationStore.mergeThreadMetadataForUser({
+            removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
             tenantId: scope.scope.tenantId,
             threadId,
             userId: scope.scope.userId,
@@ -758,8 +768,11 @@ export function registerThreadRunRoutes(
           hsSessionMetadata = reset;
           hsApprovalGrants = readToolApprovalGrants(hsSessionMetadata);
           try {
-            await conversationStore.updateThreadForUser({
-              metadata: hsSessionMetadata,
+            await conversationStore.mergeThreadMetadataForUser({
+              removeKeys: [
+                AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+                TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
+              ],
               tenantId: scope.scope.tenantId,
               threadId,
               userId: scope.scope.userId,

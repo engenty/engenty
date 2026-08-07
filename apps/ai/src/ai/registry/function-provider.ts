@@ -112,8 +112,8 @@ export interface AgentStateSessionStore {
     tenantId: string;
     threadId: string;
   }): Promise<{ metadata?: Record<string, unknown> | null } | null>;
-  updateThreadForUser(params: {
-    metadata?: Record<string, unknown>;
+  mergeThreadMetadataForUser(params: {
+    patch?: Record<string, unknown>;
     tenantId: string;
     threadId: string;
     userId: string;
@@ -125,9 +125,10 @@ const AGENT_STATE_KEY = "agent_state";
 /**
  * Production state channel: hook state lives under ONE metadata key
  * (`metadata.agent_state`) so session-service metadata healing never touches
- * individual entries. Persist is read-merge-write through the ownership-
- * checked `updateSessionForUser`; a rejected write (foreign thread) throws
- * loudly — a transition tool must fail visibly, never lose state silently.
+ * individual entries. Persist writes that single key through the ownership-
+ * checked merge, so a concurrent write to any other key survives; a rejected
+ * write (foreign thread) throws loudly — a transition tool must fail visibly,
+ * never lose state silently.
  */
 export function createSessionAgentStateChannel(
   getStore: () => AgentStateSessionStore | null
@@ -146,12 +147,11 @@ export function createSessionAgentStateChannel(
       if (!store) {
         throw new Error("agent_state persist: no thread store behind this run");
       }
-      const thread = await store.getThread({
-        tenantId: context.tenantId,
-        threadId: context.threadId,
-      });
-      const { thread: updated } = await store.updateThreadForUser({
-        metadata: { ...(thread?.metadata ?? {}), [AGENT_STATE_KEY]: state },
+      // Write only this key. The read-then-spread this replaced rebuilt the
+      // whole metadata object from a row read a moment earlier and reverted
+      // anything written in between.
+      const { thread: updated } = await store.mergeThreadMetadataForUser({
+        patch: { [AGENT_STATE_KEY]: state },
         tenantId: context.tenantId,
         threadId: context.threadId,
         userId: context.userId,

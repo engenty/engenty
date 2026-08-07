@@ -23,8 +23,8 @@ import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import { auditToolApprovalDecision } from "../ai/sessions/tool-approval-audit.js";
 import {
   readToolApprovalGrants,
-  withToolApprovalGrant,
-  withToolApprovalGrantOnce,
+  TOOL_APPROVAL_GRANTS_METADATA_KEY,
+  TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
 } from "../ai/sessions/tool-approval-grants.js";
 import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
@@ -213,16 +213,14 @@ export function registerRealtimeToolRoutes(
     }
 
     try {
-      const session = await store.getThread({
-        tenantId: scope.scope.tenantId,
-        threadId: body.data.thread_id,
-      });
-      const nextMetadata =
-        decision === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS
-          ? withToolApprovalGrant(session?.metadata, operationId)
-          : withToolApprovalGrantOnce(session?.metadata, operationId);
-      await store.updateThreadForUser({
-        metadata: nextMetadata,
+      // Union the grant into the list in the database. Reading the thread to
+      // build the new array first would drop any grant added in between.
+      await store.mergeThreadMetadataForUser({
+        appendSets: {
+          [decision === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS
+            ? TOOL_APPROVAL_GRANTS_METADATA_KEY
+            : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: [operationId],
+        },
         tenantId: scope.scope.tenantId,
         threadId: body.data.thread_id,
         userId: scope.scope.userId,

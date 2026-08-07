@@ -92,6 +92,11 @@ function buildAppsAiRunInputBase(params: {
       { description: "Engenty route key", value: routeKey },
       { description: "Engenty route", value: pathname },
     ],
+    // Only what the server actually reads. `scope` used to ride along here and
+    // was never read on any code path — the route facts the agent uses come
+    // from `state` (the AgentUiStateSnapshot, which the prompt header declares
+    // authoritative) and `context` above. Re-adding a key here is only useful
+    // once something consumes it.
     forwardedProps: {
       engenty: {
         // Effort travels *alongside* model_id, never instead of it: a
@@ -99,9 +104,6 @@ function buildAppsAiRunInputBase(params: {
         // winning over the tier the composer suggests.
         ...(params.effort ? { effort: params.effort } : {}),
         ...(modelId ? { model_id: modelId } : {}),
-        ...(routeContext.scope && Object.keys(routeContext.scope).length > 0
-          ? { scope: routeContext.scope }
-          : {}),
       },
     },
     messages: [...params.messages],

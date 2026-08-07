@@ -423,6 +423,11 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
           role,
           parts,
           authorUserId,
+          // Mastra hangs meaning off content.metadata — a state signal's
+          // identity lives there, and without it getActiveStateSignals cannot
+          // reconstruct the signal on load. author_user_id is a projection on
+          // read, so it is deliberately not stored in here.
+          metadata: extractMastraMessageMetadata(message),
           // Preserve the message id (a uuid) so re-saves are idempotent
           // and updateMessages can match by id — fixes durable-run duplicate rows.
           ...(insertId ? { id: insertId } : {}),
@@ -612,6 +617,24 @@ export function isEngentySessionThreadId(threadId: string): boolean {
   return UUID_PATTERN.test(threadId);
 }
 
+/**
+ * Mastra's `content.metadata`, minus the key we project from a column.
+ * Returns undefined when there is nothing worth storing so rows keep the
+ * column default instead of `{}` written explicitly.
+ */
+function extractMastraMessageMetadata(
+  message: MastraDBMessage
+): Record<string, unknown> | undefined {
+  const metadata = (
+    message.content as { metadata?: Record<string, unknown> } | undefined
+  )?.metadata;
+  if (!metadata) {
+    return;
+  }
+  const { author_user_id: _projected, ...rest } = metadata;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
 export function rowToMastraMessage(
   row: ThreadMessageRow
 ): MastraDBMessage | null {
@@ -629,6 +652,7 @@ export function rowToMastraMessage(
       format: 2,
       parts,
       metadata: {
+        ...(row.metadata ?? {}),
         author_user_id: row.author_user_id,
       },
     },
@@ -709,9 +733,10 @@ function resolveUpdatedParts(
 function mastraRoleToSessionRole(
   role: MastraDBMessage["role"]
 ): ThreadMessageRole {
-  if (role === "signal") {
-    return "system";
-  }
+  // `signal` used to be folded into `system` because the enum had no such
+  // value. That silently broke state signals: Mastra rebuilds them with a hard
+  // `role === "signal"` filter (dbMessagesToStateSignals), so a coerced row is
+  // never recognised and the agent cannot see the state at all.
   return role;
 }
 

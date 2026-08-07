@@ -1,8 +1,7 @@
-diff --git a/dist/agent-0y2cApTZ.js b/dist/agent-0y2cApTZ.js
-index 286c5cc..d3ae6de 100644
---- a/dist/agent-0y2cApTZ.js
-+++ b/dist/agent-0y2cApTZ.js
-@@ -21638,7 +21638,7 @@ var ChatChannelOutputProcessor = class {
+diff --git a/dist/agent-DCD4MApC.cjs b/dist/agent-DCD4MApC.cjs
+--- a/dist/agent-DCD4MApC.cjs
++++ b/dist/agent-DCD4MApC.cjs
+@@ -19056,7 +19056,7 @@
  				startedAt: existing?.startedAt ?? Date.now()
  			});
  		}
@@ -11,7 +10,7 @@ index 286c5cc..d3ae6de 100644
  			queue,
  			driverPromise: (render.streaming.enabled ? runStreamingDriver({
  				stream: wrapped,
-@@ -21671,6 +21671,14 @@ var ChatChannelOutputProcessor = class {
+@@ -19089,6 +19089,14 @@
  				throw err;
  			})
  		};
@@ -26,11 +25,10 @@ index 286c5cc..d3ae6de 100644
  	}
  };
  //#endregion
-diff --git a/dist/agent-um2LJs-0.cjs b/dist/agent-um2LJs-0.cjs
-index 1a76ecf..9b16661 100644
---- a/dist/agent-um2LJs-0.cjs
-+++ b/dist/agent-um2LJs-0.cjs
-@@ -21642,7 +21642,7 @@ var ChatChannelOutputProcessor = class {
+diff --git a/dist/agent-Dj30gJa3.js b/dist/agent-Dj30gJa3.js
+--- a/dist/agent-Dj30gJa3.js
++++ b/dist/agent-Dj30gJa3.js
+@@ -19053,7 +19053,7 @@
  				startedAt: existing?.startedAt ?? Date.now()
  			});
  		}
@@ -39,7 +37,7 @@ index 1a76ecf..9b16661 100644
  			queue,
  			driverPromise: (render.streaming.enabled ? runStreamingDriver({
  				stream: wrapped,
-@@ -21675,6 +21675,14 @@ var ChatChannelOutputProcessor = class {
+@@ -19086,6 +19086,14 @@
  				throw err;
  			})
  		};

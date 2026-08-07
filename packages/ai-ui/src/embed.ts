@@ -219,6 +219,7 @@ export {
   resolveEffortChoice,
   toEffortGrant,
 } from "./features/ai-effort/effort-choices.js";
+export { useEffortLastResolved } from "./features/ai-effort/effort-resolved-flash.js";
 export {
   EffortSelector,
   type EffortSelectorProps,

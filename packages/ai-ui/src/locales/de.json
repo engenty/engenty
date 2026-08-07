@@ -176,8 +176,8 @@
       "hint": "Self-Hosted- und Experten-Installationen können weiterhin ein Modell je Zweck festpinnen. Ein gepinntes Modell schlägt die Aufwandsstufe.",
       "pickModel": "Modell wählen…"
     },
-    "autoResolved": "{{effort}}-Aufwand aktiv",
-    "autoResolvedWithModel": "{{effort}} · {{model}}"
+    "autoResolvedInline": "Auto: {{effort}}",
+    "autoActiveHint": "derzeit aktiv"
   },
   "picker": {
     "title": "Modell für {{purpose}} wählen",

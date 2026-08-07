@@ -25,6 +25,7 @@ function makeSession(metadata: Record<string, unknown> = {}): ThreadRow {
 }
 
 function makeStore(initialMetadata: Record<string, unknown> = {}): {
+  mergeThreadMetadataForUser: ReturnType<typeof vi.fn>;
   store: ThreadStore;
   updateThreadForUser: ReturnType<typeof vi.fn>;
 } {
@@ -34,83 +35,147 @@ function makeStore(initialMetadata: Record<string, unknown> = {}): {
       thread: makeSession(params.metadata ?? session.metadata),
     })
   );
+  const mergeThreadMetadataForUser = vi.fn(async () => ({
+    thread: makeSession(session.metadata),
+  }));
   const store = {
     getThread: vi.fn(async () => session),
+    mergeThreadMetadataForUser,
     updateThreadForUser,
   } as unknown as ThreadStore;
-  return { store, updateThreadForUser };
+  return { mergeThreadMetadataForUser, store, updateThreadForUser };
 }
 
-describe("createThreadService.updateThread — activeArtifactId merge", () => {
-  it("merges the active-artifact key into the CURRENT row's metadata, leaving other keys untouched", async () => {
-    const { store, updateThreadForUser } = makeStore({
-      source: "test",
-      ag_ui_open_interrupt: { kind: "decision" },
-    });
-    const service = createThreadService({
-      getStore: () => store,
-      getUsageStore: () => null,
-      mastra: {} as never,
-    });
+function makeService(store: ThreadStore) {
+  return createThreadService({
+    getStore: () => store,
+    getUsageStore: () => null,
+    mastra: {} as never,
+  });
+}
 
-    await service.updateThread({
+describe("createThreadService.updateThread — activeArtifactId", () => {
+  it("folds the key in the database instead of rewriting the whole blob", async () => {
+    const { mergeThreadMetadataForUser, store, updateThreadForUser } =
+      makeStore({ source: "test" });
+
+    await makeService(store).updateThread({
       activeArtifactId: "artifact-1",
       scope: { tenantId, userId },
       threadId,
     });
 
-    expect(updateThreadForUser).toHaveBeenCalledWith(
+    expect(mergeThreadMetadataForUser).toHaveBeenCalledWith(
       expect.objectContaining({
-        metadata: expect.objectContaining({
-          source: "test",
-          ag_ui_open_interrupt: { kind: "decision" },
+        patch: {
           active_artifact: expect.objectContaining({
             artifact_id: "artifact-1",
           }),
-        }),
+        },
+        tenantId,
+        threadId,
+        userId,
       })
     );
+    // The whole-column writer must not be involved: it would send metadata
+    // built from a row read before the write and revert concurrent keys.
+    expect(updateThreadForUser).not.toHaveBeenCalled();
   });
 
-  it("clears the key when activeArtifactId is null", async () => {
-    const { store, updateThreadForUser } = makeStore({
-      active_artifact: { artifact_id: "artifact-1", shown_at: "x" },
-    });
-    const service = createThreadService({
-      getStore: () => store,
-      getUsageStore: () => null,
-      mastra: {} as never,
+  it("never carries keys read from the row — the lost-update guard", async () => {
+    // Whatever the pre-read row happened to contain (Mastra's own
+    // metadata.mastra state-signal tracking, an open HITL interrupt, approval
+    // grants), none of it may ride along in the write. If any does, a write
+    // that commits between the read and this one is silently reverted.
+    const { mergeThreadMetadataForUser, store } = makeStore({
+      ag_ui_open_interrupt: { kind: "decision" },
+      mastra: { stateSignals: { "route:win-a": { version: 2 } } },
+      source: "test",
     });
 
-    await service.updateThread({
+    await makeService(store).updateThread({
+      activeArtifactId: "artifact-1",
+      scope: { tenantId, userId },
+      threadId,
+    });
+
+    const { patch } = mergeThreadMetadataForUser.mock.calls[0]?.[0] as {
+      patch: Record<string, unknown>;
+    };
+    expect(Object.keys(patch)).toEqual(["active_artifact"]);
+  });
+
+  it("clears the key by removal, not by writing a null", async () => {
+    const { mergeThreadMetadataForUser, store } = makeStore({
+      active_artifact: { artifact_id: "artifact-1", shown_at: "x" },
+    });
+
+    await makeService(store).updateThread({
       activeArtifactId: null,
       scope: { tenantId, userId },
       threadId,
     });
 
-    expect(updateThreadForUser).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.not.objectContaining({
-          active_artifact: expect.anything(),
-        }),
-      })
-    );
+    const call = mergeThreadMetadataForUser.mock.calls[0]?.[0] as {
+      patch?: unknown;
+      removeKeys?: string[];
+    };
+    expect(call.removeKeys).toEqual(["active_artifact"]);
+    expect(call.patch).toBeUndefined();
   });
 
-  it("does not touch metadata at all when activeArtifactId is omitted", async () => {
-    const { store, updateThreadForUser } = makeStore({ source: "test" });
-    const service = createThreadService({
-      getStore: () => store,
-      getUsageStore: () => null,
-      mastra: {} as never,
-    });
+  it("still writes the other fields when they accompany the artifact key", async () => {
+    const { mergeThreadMetadataForUser, store, updateThreadForUser } =
+      makeStore();
 
-    await service.updateThread({
+    await makeService(store).updateThread({
+      activeArtifactId: "artifact-1",
       scope: { tenantId, userId },
       threadId,
       title: "Renamed",
     });
 
+    expect(mergeThreadMetadataForUser).toHaveBeenCalled();
+    expect(updateThreadForUser).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Renamed" })
+    );
+  });
+
+  it("treats an explicit metadata object as the deliberate full replace it is", async () => {
+    const { mergeThreadMetadataForUser, store, updateThreadForUser } =
+      makeStore({ stale: true });
+
+    await makeService(store).updateThread({
+      activeArtifactId: "artifact-1",
+      metadata: { replaced: true },
+      scope: { tenantId, userId },
+      threadId,
+    });
+
+    expect(mergeThreadMetadataForUser).not.toHaveBeenCalled();
+    expect(updateThreadForUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          active_artifact: expect.objectContaining({
+            artifact_id: "artifact-1",
+          }),
+          replaced: true,
+        },
+      })
+    );
+  });
+
+  it("does not touch metadata at all when activeArtifactId is omitted", async () => {
+    const { mergeThreadMetadataForUser, store, updateThreadForUser } =
+      makeStore({ source: "test" });
+
+    await makeService(store).updateThread({
+      scope: { tenantId, userId },
+      threadId,
+      title: "Renamed",
+    });
+
+    expect(mergeThreadMetadataForUser).not.toHaveBeenCalled();
     expect(updateThreadForUser).toHaveBeenCalledWith(
       expect.not.objectContaining({ metadata: expect.anything() })
     );

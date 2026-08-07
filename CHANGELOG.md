@@ -4,6 +4,14 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.106] - 2026-08-07
+- CHANGED **[ai-ui]** Stop sending unread route scope on every run
+- FIXED **[ai]** Preserve Mastra's "signal" message role
+- FIXED **[ai]** Stop discarding Mastra message metadata
+- FIXED **[ai]** Stop rebuilding thread metadata from stale reads across the HITL lane
+- FIXED **[ai]** Merge thread metadata in the database, not across a stale read
+- FIXED **[ai-ui]** Report Auto effort in the control, not a toast
+
 ## [0.1.105] - 2026-08-06
 - FIXED **[deps]** Drop stale time-tracking dnd-kit entries from lockfile
 

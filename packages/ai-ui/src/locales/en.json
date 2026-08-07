@@ -176,8 +176,8 @@
       "hint": "Self-hosted and expert installs can still pin a model per purpose. A pinned model wins over the effort tier.",
       "pickModel": "Pick a model…"
     },
-    "autoResolved": "Using {{effort}} effort",
-    "autoResolvedWithModel": "Using {{effort}} · {{model}}"
+    "autoResolvedInline": "Auto: {{effort}}",
+    "autoActiveHint": "currently active"
   },
   "picker": {
     "title": "Choose a model for {{purpose}}",

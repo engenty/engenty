@@ -72,6 +72,7 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
         role: "assistant",
       }),
     })),
+    mergeThreadMetadataForUser: vi.fn(async () => ({ thread })),
     updateThreadForUser: vi.fn(async () => ({ thread })),
     upsertThread: vi.fn(async () => ({ thread })),
     ...overrides,
@@ -515,7 +516,12 @@ describe("EngentySessionMemoryStorage", () => {
     );
   });
 
-  it("keeps a non-user signal as a system message", async () => {
+  // Was: "keeps a non-user signal as a system message". That coercion silently
+  // broke state signals — Mastra rebuilds them with a hard `role === "signal"`
+  // filter (dbMessagesToStateSignals), so a row stored as `system` is never
+  // recognised and the agent cannot see the state at all. The role and the
+  // signal metadata must both survive the write.
+  it("preserves the signal role and its metadata", async () => {
     const store = makeStore();
     const storage = createEngentySessionMemoryStorage({
       agentId: "engenty.copilot",
@@ -541,7 +547,11 @@ describe("EngentySessionMemoryStorage", () => {
     });
 
     expect(store.appendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ role: "system", authorUserId: null })
+      expect.objectContaining({
+        authorUserId: null,
+        metadata: { signal: { id: "s2", type: "state" } },
+        role: "signal",
+      })
     );
   });
 

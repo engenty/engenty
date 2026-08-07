@@ -1,0 +1,12 @@
+-- Let ai.thread_message hold Mastra's "signal" role.
+--
+-- Mastra reconstructs state signals with a hard role filter:
+--   messages.filter(m => m.role === "signal")
+-- (dbMessagesToStateSignals). Our storage coerced signal -> system because the
+-- enum had no such value, so on load nothing matched and the signals were never
+-- rebuilt — the agent could not see them even though the rows and their
+-- metadata were both intact.
+--
+-- Signals are not conversation turns. Anything that renders a transcript must
+-- exclude this role rather than treat it as a system message.
+alter type ai.session_message_role add value if not exists 'signal';

@@ -4,6 +4,7 @@ import {
   useAgentHost,
   useAgentHostConfig,
   useDeveloperModeEnabled,
+  useEffortLastResolved,
   useEffortModelBindings,
   useEffortResolvedFeedback,
   useEngentyAIContext,
@@ -37,6 +38,7 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
   const developerMode = useDeveloperModeEnabled();
   const modelByEffort = useEffortModelBindings(developerMode);
   const resolvedFlash = useEffortResolvedFeedback(ENGENTY_COPILOT_HOST_KEY);
+  const lastResolved = useEffortLastResolved(ENGENTY_COPILOT_HOST_KEY);
   const {
     allowedEfforts,
     effort,
@@ -67,6 +69,7 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
   return (
     <>
       <EffortSelector
+        activeResolvedEffort={lastResolved?.effort ?? null}
         allowedEfforts={allowedEfforts}
         disabled={disabled}
         footer={
@@ -86,7 +89,9 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
           resolvedFlash
             ? {
                 effort: resolvedFlash.effort,
-                modelId: resolvedFlash.modelId,
+                // Same line the menu draws: a model id is plumbing, shown only
+                // where the user asked to see plumbing.
+                modelId: developerMode ? resolvedFlash.modelId : null,
               }
             : null
         }

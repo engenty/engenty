@@ -44,7 +44,7 @@ import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
 } from "../sessions/connection-approval-grants.js";
-import { mergeAgUiOpenInterruptMetadata } from "../sessions/interrupts.js";
+import { AG_UI_OPEN_INTERRUPT_METADATA_KEY } from "../sessions/interrupts.js";
 import { resolveToolCallResultInHistory } from "../sessions/resolve-tool-call-history.js";
 import {
   markRunDone,
@@ -151,11 +151,8 @@ async function clearOpenInterrupt(
   input: ResumeConversationRunInput
 ): Promise<void> {
   try {
-    await input.store.updateThreadForUser({
-      metadata: mergeAgUiOpenInterruptMetadata(
-        input.sessionMetadata ?? {},
-        null
-      ),
+    await input.store.mergeThreadMetadataForUser({
+      removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
       userId: input.scope.userId,

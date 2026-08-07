@@ -29,6 +29,13 @@ const CHOICE_ICON: Record<
 };
 
 export interface EffortSelectorProps {
+  /**
+   * The tier Auto is currently running, with no expiry — marked in the menu so
+   * "Auto" answers "auto *what*?" on every open, not only during the flash.
+   * Ignored unless the stored choice is `auto`: for a fixed tier the radio
+   * check already says it.
+   */
+  activeResolvedEffort?: AiEffort | null;
   /** Plan grant (`allowed_efforts`); null/empty = every tier. */
   allowedEfforts?: readonly string[] | null;
   className?: string;
@@ -45,6 +52,8 @@ export interface EffortSelectorProps {
   /**
    * When Auto just resolved a turn, briefly show that tier (and optional model)
    * on the trigger with a highlight ring — without changing the stored value.
+   * `modelId` is the caller's decision: pass it only where a model id is
+   * something the user asked to see (developer mode), never by default.
    */
   resolvedFlash?: {
     effort: AiEffort;
@@ -56,6 +65,7 @@ export interface EffortSelectorProps {
 }
 
 export function EffortSelector({
+  activeResolvedEffort,
   allowedEfforts,
   className,
   disabled,
@@ -85,9 +95,16 @@ export function EffortSelector({
           flashing ? "border-primary ring-2 ring-primary/30" : "",
         ].join(" ");
 
-  const label = flashing
-    ? t(`effort.choice.${displayValue}.label`)
-    : t(`effort.choice.${value}.label`);
+  // While flashing, an Auto pick reads as "Auto: Low" rather than a bare "Low".
+  // Showing only the resolved tier makes the control look like the stored
+  // choice changed to that tier — it didn't, and the next turn may resolve
+  // differently. Any other stored choice is its own label; it never resolves.
+  const label =
+    flashing && value === "auto"
+      ? t("effort.autoResolvedInline", {
+          effort: t(`effort.choice.${displayValue}.label`),
+        })
+      : t(`effort.choice.${value}.label`);
   const flashModel = resolvedFlash?.modelId?.trim();
 
   return (
@@ -118,13 +135,16 @@ export function EffortSelector({
               option.value === "auto"
                 ? undefined
                 : modelByEffort?.[option.value];
-            const isResolvedOption =
-              flashing && option.value === resolvedFlash?.effort;
+            // Only meaningful under Auto — a fixed pick is already checked.
+            const isActiveResolved =
+              value === "auto" &&
+              option.value !== "auto" &&
+              option.value === activeResolvedEffort;
             return (
               <DropdownMenuRadioItem
                 className={[
                   "items-start py-2",
-                  isResolvedOption ? "bg-primary/5" : "",
+                  isActiveResolved ? "bg-primary/5" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -133,8 +153,19 @@ export function EffortSelector({
                 value={option.value}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="leading-tight">
+                  <span className="flex items-center gap-1.5 leading-tight">
                     {t(`effort.choice.${option.value}.label`)}
+                    {isActiveResolved ? (
+                      <>
+                        <span
+                          aria-hidden
+                          className="size-1.5 shrink-0 rounded-full bg-primary"
+                        />
+                        <span className="font-normal text-[11px] text-muted-foreground">
+                          {t("effort.autoActiveHint")}
+                        </span>
+                      </>
+                    ) : null}
                   </span>
                   <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
                     {option.allowed
