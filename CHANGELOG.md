@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.108] - 2026-08-07
+- FIXED **[release]** Strip closed plugins when snapshot-publishing the mirror
+- PERFORMANCE **[deploy]** Install dependencies before copying source
+
 ## [0.1.107] - 2026-08-07
 - FIXED **[ai]** Exit on SIGTERM instead of waiting to be killed
 

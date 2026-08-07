@@ -4,6 +4,24 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "0d54e15",
+        "message": "strip closed plugins when snapshot-publishing the mirror",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "516e91a",
+        "message": "install dependencies before copying source",
+        "group": "Performance",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.107",
+    "timestamp": 1786096856,
+    "commits": [
+      {
         "id": "e5c2316",
         "message": "exit on SIGTERM instead of waiting to be killed",
         "group": "Fixed",

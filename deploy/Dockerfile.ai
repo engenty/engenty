@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1-labs
 FROM node:24-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -6,32 +6,58 @@ RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 WORKDIR /app
 
 FROM base AS deps
-# scripts/ is needed by the root postinstall hook; the build warm-up it does is
-# redundant here (turbo builds below), so skip it.
+# The postinstall build warm-up is redundant here (turbo builds below).
 ENV ENGENTY_SKIP_INSTALL_BUILD=1
 # `pnpm fetch` resolves + downloads every dependency into the local store using
 # ONLY the lockfile (no package.json/source needed), so this layer stays cached
-# across ANY source change and only busts when pnpm-lock.yaml changes. Without
-# this split, copying full source before `pnpm install` invalidated the install
-# layer on every commit, forcing a full network re-resolve each build.
+# across ANY source change and only busts when pnpm-lock.yaml changes.
 COPY pnpm-lock.yaml ./
 # The lockfile records a patched dependency, so `pnpm fetch` resolves the patch
 # and dies with ERR_PNPM_PATCH_NOT_FOUND unless patches/ is already present.
 # This is what broke every deploy image from v0.1.75 onward.
 COPY patches ./patches
 RUN pnpm fetch
-COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+# Manifests ONLY above the install — never source.
+#
+# `pnpm install` produces the ~3.7 GB node_modules that dominates this image
+# (~1 GB compressed; everything that actually changes per release is under
+# 90 MB). BuildKit gives that COPY a fresh digest whenever the layer is
+# rebuilt, so ANY per-commit input landing above it means production
+# re-downloads the whole gigabyte on every release — and Coolify pulls AFTER
+# removing the old containers, so that download happens with the site already
+# down. Measured on v0.1.107: 188s of a 239s outage.
+#
+# --parents keeps each manifest at its own workspace path (hence the -labs
+# frontend). The providers glob is a real workspace root — see pnpm-workspace.yaml.
+COPY package.json pnpm-workspace.yaml ./
+COPY --parents \
+  apps/*/package.json \
+  packages/*/package.json \
+  modules/*/package.json \
+  modules/*/providers/*/package.json \
+  ./
+# The root postinstall hook imports scripts/lib at module scope even though
+# ENGENTY_SKIP_INSTALL_BUILD short-circuits it, so scripts/ must exist. It
+# changes rarely; when it does we pay one extra full pull. That is the price of
+# not passing --ignore-scripts, which would also skip dependencies' own native
+# build scripts.
 COPY scripts ./scripts
-COPY apps ./apps
-COPY packages ./packages
-COPY modules ./modules
-RUN pnpm install --frozen-lockfile --offline
+# @engenty/docs is the one workspace with an install hook (fumadocs-mdx), and it
+# codegens from apps/docs/source.config.ts — source this stage deliberately does
+# not have. None of the deploy images build docs, so exclude the workspace
+# rather than drag its source above the install and re-break the caching this
+# reorder exists to fix. Excluding it also keeps its deps out of the store.
+RUN pnpm install --frozen-lockfile --offline --filter='!@engenty/docs'
 
 FROM deps AS build
 # Lower on memory-constrained builders (each parallel tsup/tsc worker is heavy).
 ARG TURBO_BUILD_CONCURRENCY=10
 # @engenty/ai plus all modules (the AI runtime loads module plugins whose
 # dists must exist); '...' dependents would drag in the whole UI build.
+COPY turbo.json tsconfig.base.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY modules ./modules
 RUN pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter=@engenty/ai --filter='./modules/*'
 
 FROM node:24-bookworm-slim AS runtime

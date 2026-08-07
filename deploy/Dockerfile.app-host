@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1-labs
 #
 # apps/app-host — runtime for tenant-authored engenty Apps.
 #
@@ -32,15 +32,44 @@ COPY pnpm-lock.yaml ./
 # ordering broke every deploy image build from v0.1.75 onward.
 COPY patches ./patches
 RUN pnpm fetch
-COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+# Manifests ONLY above the install — never source.
+#
+# `pnpm install` produces the ~3.7 GB node_modules that dominates this image
+# (~1 GB compressed; everything that actually changes per release is under
+# 90 MB). BuildKit gives that COPY a fresh digest whenever the layer is
+# rebuilt, so ANY per-commit input landing above it means production
+# re-downloads the whole gigabyte on every release — and Coolify pulls AFTER
+# removing the old containers, so that download happens with the site already
+# down. Measured on v0.1.107: 188s of a 239s outage.
+#
+# --parents keeps each manifest at its own workspace path (hence the -labs
+# frontend). The providers glob is a real workspace root — see pnpm-workspace.yaml.
+COPY package.json pnpm-workspace.yaml ./
+COPY --parents \
+  apps/*/package.json \
+  packages/*/package.json \
+  modules/*/package.json \
+  modules/*/providers/*/package.json \
+  ./
+# The root postinstall hook imports scripts/lib at module scope even though
+# ENGENTY_SKIP_INSTALL_BUILD short-circuits it, so scripts/ must exist. It
+# changes rarely; when it does we pay one extra full pull. That is the price of
+# not passing --ignore-scripts, which would also skip dependencies' own native
+# build scripts.
 COPY scripts ./scripts
-COPY apps ./apps
-COPY packages ./packages
-COPY modules ./modules
-RUN pnpm install --frozen-lockfile --offline
+# @engenty/docs is the one workspace with an install hook (fumadocs-mdx), and it
+# codegens from apps/docs/source.config.ts — source this stage deliberately does
+# not have. None of the deploy images build docs, so exclude the workspace
+# rather than drag its source above the install and re-break the caching this
+# reorder exists to fix. Excluding it also keeps its deps out of the store.
+RUN pnpm install --frozen-lockfile --offline --filter='!@engenty/docs'
 
 FROM deps AS build
 ARG TURBO_BUILD_CONCURRENCY=4
+COPY turbo.json tsconfig.base.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY modules ./modules
 RUN pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter=@engenty/app-host
 
 FROM node:24-bookworm-slim AS runtime

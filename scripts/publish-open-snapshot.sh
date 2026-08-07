@@ -78,6 +78,18 @@ if [[ -n "$pub_workflows" ]]; then
   GIT_INDEX_FILE="$tmp_index" git read-tree --prefix=.github/workflows/ "$pub_workflows"
 fi
 
+# The public tree has no closed modules, so engenty.plugins must not list them:
+# the mirror's own `pnpm plugins:check` resolves every slug to an on-disk plugin
+# and fails otherwise. It did, on every release — 5 pro-only slugs, exit 1.
+# publish-open.sh has always stripped them; this script never did, and this is
+# the script CI actually runs.
+#
+# Rewritten IN THE INDEX, because this script deliberately leaves the working
+# tree untouched.
+stripped_pkg="$(git show "$SOURCE:package.json" | node scripts/strip-closed-plugins-stdin.mjs)"
+pkg_blob="$(printf '%s' "$stripped_pkg" | git hash-object -w --stdin)"
+GIT_INDEX_FILE="$tmp_index" git update-index --cacheinfo "100644,$pkg_blob,package.json"
+
 tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
 
 # Safety: refuse if any excluded path survived into the tree.
@@ -85,6 +97,24 @@ leak="$(git ls-tree -r --name-only "$tree" \
   | grep -E "^($(IFS='|'; echo "${EXCLUDES[*]}"))(/|$)" || true)"
 if [[ -n "$leak" ]]; then
   printf 'REFUSING to publish — excluded paths present in tree:\n%s\n' "$leak" >&2
+  exit 1
+fi
+
+# Same idea for the manifest: a closed slug surviving here does not leak code,
+# but it red-lines the public repo's CI on every release, which is how this went
+# unnoticed for so long — the failure was over on the mirror, not here.
+plugin_leak="$(git show "$tree:package.json" | node -e "
+const chunks = [];
+process.stdin.on('data', (c) => chunks.push(c));
+process.stdin.on('end', async () => {
+  const { CLOSED_PLUGIN_SLUGS } = await import('./scripts/lib/closed-plugin-slugs.mjs');
+  const pkg = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  const listed = Object.keys(pkg?.engenty?.plugins ?? {});
+  console.log(CLOSED_PLUGIN_SLUGS.filter((s) => listed.includes(s)).join('\n'));
+});
+")"
+if [[ -n "$plugin_leak" ]]; then
+  printf 'REFUSING to publish — closed plugins still in engenty.plugins:\n%s\n' "$plugin_leak" >&2
   exit 1
 fi
 

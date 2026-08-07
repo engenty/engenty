@@ -1,4 +1,10 @@
 node_modules
+# A bare `node_modules` only matches the root one — Docker does not apply it to
+# nested paths. The deploy images install dependencies BEFORE copying source, so
+# a workspace's own node_modules riding in from the build context would land on
+# top of the installed tree and corrupt pnpm's links. It also keeps the context
+# small.
+**/node_modules
 .git
 .turbo
 **/.next
