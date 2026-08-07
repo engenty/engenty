@@ -22,6 +22,20 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 WORKDIR /app
 
+# `pnpm release` bumps `version` in the ROOT package.json on every single
+# release, and the deps stage below copies that file — so the ~3.7 GB install
+# layer was invalidated by the release process itself, forever. v0.1.108 moved
+# the install above the source copy and still re-pulled ~1 GB on v0.1.109
+# (`RUN pnpm install` executed, ~614s for ai) for exactly this reason.
+#
+# Normalise the version here and copy the RESULT into deps: BuildKit keys
+# `COPY --from` on the CONTENT of the copied path, so deps sees a byte-identical
+# manifest across releases and stays cached. This stage re-runs every release
+# and costs nothing. The real version is restored in the runtime stage.
+FROM base AS manifests
+COPY package.json ./package.json
+RUN sed -i 's/"version": *"[^"]*"/"version": "0.0.0-cache"/' ./package.json
+
 FROM base AS deps
 ENV ENGENTY_SKIP_INSTALL_BUILD=1
 COPY pnpm-lock.yaml ./
@@ -44,7 +58,8 @@ RUN pnpm fetch
 #
 # --parents keeps each manifest at its own workspace path (hence the -labs
 # frontend). The providers glob is a real workspace root — see pnpm-workspace.yaml.
-COPY package.json pnpm-workspace.yaml ./
+COPY --from=manifests /app/package.json ./package.json
+COPY pnpm-workspace.yaml ./
 COPY --parents \
   apps/*/package.json \
   packages/*/package.json \
@@ -79,8 +94,6 @@ RUN apt-get update \
     curl \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/app-host/package.json ./apps/app-host/
 COPY --from=deps /app/node_modules ./node_modules
 # pnpm links workspace deps inside the importer's own node_modules, so ship
 # that link dir and the packages/ tree it points into.
@@ -108,6 +121,16 @@ RUN SIDECAR="$(find /app/node_modules/.pnpm -type f -name agentos-sidecar | head
   && test -n "$SIDECAR" && test -x "$SIDECAR" \
   && echo "agentos-sidecar present: $SIDECAR" \
   || (echo "agentos-sidecar binary missing — this image must be built for its target architecture" && exit 1)
+
+# Root package.json changes every release (the version bump), so it MUST land
+# BELOW the multi-gigabyte node_modules copies above. A changed layer forces
+# every later layer in the stage to be rebuilt, and a rebuilt layer gets a
+# fresh digest — which is production re-downloading the whole image. Keeping
+# it last is what lets the big layers stay byte-identical between releases.
+# The real version also matters here: prod is verified with
+# `docker exec ... head -3 /app/package.json`.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/app-host/package.json ./apps/app-host/
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0

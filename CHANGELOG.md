@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.110] - 2026-08-07
+- PERFORMANCE **[deploy]** Keep the dependency layer stable across releases
+
 ## [0.1.109] - 2026-08-07
 - ADDED **[copilot]** Add ui guide presentations and richer inputs
 - ADDED **[copilot]** Add show_ui_guide spotlight frontend tools

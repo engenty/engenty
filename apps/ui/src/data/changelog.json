@@ -4,6 +4,18 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "91ba2e3",
+        "message": "keep the dependency layer stable across releases",
+        "group": "Performance",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.109",
+    "timestamp": 1786109890,
+    "commits": [
+      {
         "id": "95ede14",
         "message": "add ui guide presentations and richer inputs",
         "group": "Added",
