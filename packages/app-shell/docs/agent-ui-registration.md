@@ -20,7 +20,8 @@ Wire shapes and size limits are defined in `@engenty/ag-ui-bridge` — see [Agen
 | `useRegisterAgentUiSlice(id, slice)` | Register `page` / `selection` / `draft` partials for the current route |
 | `useFrontendTool(definition, handler)` | Register a browser tool the agent can invoke |
 | `useRegisterAgentUiDialog(id, opener)` | Named target for global `openDialog` tool |
-| `useRegisterAgentUiField(id, refOrFocus)` | Named focus target for global `focusField` tool |
+| `useRegisterAgentUiField(id, refOrFocus)` | Named focus target for global `focusField` / `show_ui_guide` (`field_id`). Prefer a **ref** when guides need a DOM anchor. Function-only handlers still work for focus; guide targeting resolves via `data-agent-ui-field`, then form `name` (last id segment) inside `[data-engenty-region="main"]` — never the copilot composer. |
+| `useAgentUiFieldElement()` | Resolve a registered field to an `HTMLElement` (for guides / overlays) |
 | `useAgentUiStateSnapshot()` | Read merged snapshot for debugging or local observers |
 | `useAgentUiFrontendTools()` | List registered tool definitions |
 | `useAgentUiFrontendToolExecutor()` | Execute a tool call from copilot UI (apps/ui drawer layer) |

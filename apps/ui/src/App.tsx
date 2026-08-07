@@ -39,6 +39,7 @@ import { LiveDataSync } from "@/components/live-data-sync";
 import { NavigationPrefetchRoot } from "@/components/navigation-prefetch-root";
 import { AppActiveCopilotProvider } from "@/copilot/app-active-copilot-provider";
 import { CopilotShellUiHost } from "@/copilot/copilot-shell-ui-host";
+import { GuideOverlayHostWithBridge } from "@/copilot/guide-overlay-host-with-bridge";
 import { DesktopBridge } from "@/desktop/DesktopBridge";
 import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
 import { switchCurrentTenant } from "@/lib/api/client";
@@ -392,7 +393,12 @@ function App() {
                   onAboutClick: () => setAboutOpen(true),
                 },
               }}
-              shellUiHost={<CopilotShellUiHost />}
+              shellUiHost={
+                <>
+                  <CopilotShellUiHost />
+                  <GuideOverlayHostWithBridge />
+                </>
+              }
             >
               <NavigationPrefetchRoot
                 navigationPrefetch={contributions.navigationPrefetch}

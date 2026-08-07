@@ -1,10 +1,17 @@
 import type { ObjectRef } from "@engenty/ai-core/browser";
 
-/** Width of the floating context card beside the chat column. */
+/** Width of the floating context card (sticky, top-right of chat). */
 export const THREAD_CONTEXT_FLOAT_WIDTH_PX = 240;
 
-/** Gutter between the chat thread and the floating context card. */
+/** Gutter between chat content and the floating context card (and page edge). */
 export const THREAD_CONTEXT_FLOAT_GAP_PX = 12;
+
+/**
+ * CSS custom property set on the chat surface when the floating card is
+ * inline. Inner transcript/composer padding reads it so content clears the
+ * card without shrinking the main column into a sidebar lane.
+ */
+export const THREAD_CONTEXT_INLINE_PAD_VAR = "--thread-context-inline-pad";
 
 /** @deprecated Use {@link THREAD_CONTEXT_FLOAT_WIDTH_PX}. */
 export const THREAD_CONTEXT_PANE_WIDTH_PX = THREAD_CONTEXT_FLOAT_WIDTH_PX;

@@ -16,6 +16,7 @@ import {
   useRegisterShellSetThemeFrontendTool,
 } from "./shell-set-theme/register.js";
 import { useRegisterShowArtifactFrontendTool } from "./show-artifact/register.js";
+import { useRegisterUiGuideFrontendTools } from "./ui-guide/register.js";
 
 export interface RegisterCopilotFrontendToolsOptions {
   changeLanguage: (locale: CopilotLocale) => Promise<unknown>;
@@ -45,6 +46,7 @@ export function useRegisterCopilotFrontendTools(
   });
   useRegisterOpenDialogFrontendTool();
   useRegisterFocusFieldFrontendTool();
+  useRegisterUiGuideFrontendTools();
   useRegisterShellSetThemeFrontendTool({
     invalidateWorkspaceContext: options.invalidateWorkspaceContext,
     persistAppearance: options.persistAppearance,
@@ -87,3 +89,4 @@ export {
   useRegisterShellSetThemeFrontendTool,
 } from "./shell-set-theme/register.js";
 export { useRegisterShowArtifactFrontendTool } from "./show-artifact/register.js";
+export { useRegisterUiGuideFrontendTools } from "./ui-guide/register.js";

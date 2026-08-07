@@ -278,24 +278,21 @@ export function CopilotChatPage() {
       title={t("chat.moduleErrorTitle")}
     >
       <ObjectDisplayIntentProvider value={objectDisplayIntent}>
-        <div
-          className="relative flex h-full min-h-0 w-full flex-1 flex-row overflow-hidden bg-transparent"
+        <ThreadContextPane
+          hostKey={ENGENTY_COPILOT_HOST_KEY}
           key={host.threadResetKey}
         >
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {subRunToolCallId ? (
-              <SubAgentRunFullPage
-                labels={subRunLabels}
-                messages={host.copilotMessages}
-                onBack={handleSubRunBack}
-                toolCallId={subRunToolCallId}
-              />
-            ) : (
-              <ChatPanel />
-            )}
-          </div>
-          <ThreadContextPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
-        </div>
+          {subRunToolCallId ? (
+            <SubAgentRunFullPage
+              labels={subRunLabels}
+              messages={host.copilotMessages}
+              onBack={handleSubRunBack}
+              toolCallId={subRunToolCallId}
+            />
+          ) : (
+            <ChatPanel />
+          )}
+        </ThreadContextPane>
         <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
       </ObjectDisplayIntentProvider>
     </CopilotModuleErrorBoundary>

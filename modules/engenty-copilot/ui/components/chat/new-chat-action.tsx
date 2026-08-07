@@ -1,5 +1,4 @@
 import {
-  ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
   ThreadContextMenuItem,
   ThreadContextToggle,
@@ -56,7 +55,6 @@ export function ChatTopbarActions() {
         {tc("copilot.newChat")}
       </Button>
       <ThreadContextToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
-      <ArtifactPaneToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       <AlertDialog
         onOpenChange={(open) => {
           setClearAllOpen(open);

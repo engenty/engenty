@@ -48,6 +48,9 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "setCopilotDockMode",
       "openDialog",
       "focusField",
+      "show_ui_guide",
+      "update_ui_guide",
+      "dismiss_ui_guide",
       "offer_file_downloads",
       "show_artifact",
     ]);

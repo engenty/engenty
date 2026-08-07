@@ -84,6 +84,18 @@ Client-registered tools under `modules/engenty-copilot/ai/frontend-tools/browser
 | `browser_screenshot` | **Last resort** — text viewport inventory for visual/layout questions the DOM cannot answer (not pixels). |
 | `browser_click` / `browser_hover` / `browser_focus` / `browser_input` / `browser_scroll` | Drive the UI using selectors from a DOM snapshot. |
 
+## UI guide (spotlight / highlight / modal)
+
+Base-catalog tools `show_ui_guide` / `update_ui_guide` / `dismiss_ui_guide`:
+
+| `presentation` | Behavior |
+|----------------|----------|
+| `spotlight` (default) | Dimmed backdrop + cutout + anchored popout; `target` required |
+| `highlight` | Ring around target, no dimming; anchored popout; `target` required |
+| `modal` | Centered dialog + full backdrop; `target` optional (soft ring when set) |
+
+Action area: button row (`actions`, default OK) plus optional `input` (label / text\|textarea / required) or `inputs[]` for several named fields. `show_dismiss` defaults true. Default `wait: false` returns after show; `wait: true` holds until the user acts (3 min execution timeout). Non-wait actions inject a `[ui_guide] …` user message into the active copilot lane.
+
 Shell marks regions with `data-engenty-region` (`app-bar`, `sidebar`, `topbar`, `main`). Modules should mark list/detail roots. See [Agent UI registration](../app-shell/agent-ui-registration#dom-regions-data-engenty-region).
 
 ## Related

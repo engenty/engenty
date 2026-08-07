@@ -4,6 +4,36 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "95ede14",
+        "message": "add ui guide presentations and richer inputs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8fe6644",
+        "message": "float thread context card without a sidebar lane",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "643e5e3",
+        "message": "add show_ui_guide spotlight frontend tools",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "87925f1",
+        "message": "remove ArtifactPaneToggle and restructure chat layout",
+        "group": "Changed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.108",
+    "timestamp": 1786101720,
+    "commits": [
+      {
         "id": "0d54e15",
         "message": "strip closed plugins when snapshot-publishing the mirror",
         "group": "Fixed",

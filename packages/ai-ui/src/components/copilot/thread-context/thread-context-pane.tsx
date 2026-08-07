@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { useArtifacts } from "../../../artifacts/artifact-store.js";
 import { ThreadContextBox } from "./thread-context-box.js";
 import {
@@ -11,17 +17,30 @@ import {
   THREAD_CONTEXT_FLOAT_GAP_PX,
   THREAD_CONTEXT_FLOAT_WIDTH_PX,
   THREAD_CONTEXT_INLINE_MIN_WIDTH_PX,
+  THREAD_CONTEXT_INLINE_PAD_VAR,
 } from "./thread-context-types.js";
 import { useThreadContextSummary } from "./use-thread-context-summary.js";
 
+/** Card width + left gutter (vs chat) + right page gutter. */
+const FLOAT_RESERVE_PX =
+  THREAD_CONTEXT_FLOAT_WIDTH_PX + THREAD_CONTEXT_FLOAT_GAP_PX * 2;
+
 /**
- * Full-page thread context card as a sticky flex sibling of the chat column —
- * the thread shrinks to clear the box (no overlay). When the artifact pane is
- * open or the content stack is too narrow, collapses behind the topbar icon.
+ * Floating thread-context card over the chat surface — not a sidebar column.
+ * When space allows (and the artifact pane is closed), the card pins top-right
+ * and sets {@link THREAD_CONTEXT_INLINE_PAD_VAR} so inner chat content pads
+ * right (full-bleed background, no reserved lane). Otherwise the same content
+ * lives behind the topbar Layers / ⋯ menu.
  *
- * Mount as a flex sibling of the chat column inside a horizontal flex row.
+ * Wrap the chat column as children.
  */
-export function ThreadContextPane({ hostKey }: { hostKey: string }) {
+export function ThreadContextPane({
+  children,
+  hostKey,
+}: {
+  children: ReactNode;
+  hostKey: string;
+}) {
   const summary = useThreadContextSummary(hostKey);
   const { paneOpen } = useArtifacts(hostKey);
   const [enoughWidth, setEnoughWidth] = useState(true);
@@ -77,19 +96,33 @@ export function ThreadContextPane({ hostKey }: { hostKey: string }) {
     []
   );
 
-  if (summary.isEmpty || !showFloating) {
-    return null;
-  }
+  const rootStyle = showFloating
+    ? ({
+        [THREAD_CONTEXT_INLINE_PAD_VAR]: `${FLOAT_RESERVE_PX}px`,
+      } as CSSProperties)
+    : undefined;
 
   return (
     <div
-      className="sticky top-0 z-20 flex max-h-full shrink-0 flex-col self-start overflow-y-auto pt-3 pr-3 pb-3"
-      style={{
-        width: THREAD_CONTEXT_FLOAT_WIDTH_PX + THREAD_CONTEXT_FLOAT_GAP_PX,
-        paddingLeft: THREAD_CONTEXT_FLOAT_GAP_PX,
-      }}
+      className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-transparent"
+      style={rootStyle}
     >
-      <ThreadContextBox hostKey={hostKey} summary={summary} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </div>
+      {showFloating ? (
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 z-20 flex justify-end pt-3 pr-3 pb-3"
+          style={{ width: FLOAT_RESERVE_PX }}
+        >
+          <div
+            className="pointer-events-auto sticky top-3 max-h-full overflow-y-auto self-start"
+            style={{ width: THREAD_CONTEXT_FLOAT_WIDTH_PX }}
+          >
+            <ThreadContextBox hostKey={hostKey} summary={summary} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

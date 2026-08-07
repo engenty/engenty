@@ -12,13 +12,15 @@ import {
 } from "@engenty/ui-core";
 import { Layers } from "lucide-react";
 import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
+import { useArtifacts } from "../../../artifacts/artifact-store.js";
 import { ThreadContextBox } from "./thread-context-box.js";
 import { useThreadContextUi } from "./thread-context-store.js";
 import { useThreadContextSummary } from "./use-thread-context-summary.js";
 
 /**
  * Topbar icon for the thread context box when it cannot show inline
- * (artifact pane open or narrow content stack). Owns the collapsed popover.
+ * (artifact pane open or narrow content stack). Opens the collapsed popover;
+ * artefact rows inside still activate the full artifact pane.
  */
 export function ThreadContextToggle({
   className,
@@ -30,10 +32,14 @@ export function ThreadContextToggle({
   const { t } = useTranslation("ai-ui");
   const { mode, overlayOpen, setOverlayOpen } = useThreadContextUi();
   const summary = useThreadContextSummary(hostKey);
+  const { unseenCount } = useArtifacts(hostKey);
 
   if (mode !== "collapsed" || summary.isEmpty) {
     return null;
   }
+
+  const badgeLabel =
+    unseenCount > 99 ? "99+" : unseenCount > 0 ? String(unseenCount) : null;
 
   return (
     <Popover onOpenChange={setOverlayOpen} open={overlayOpen}>
@@ -42,7 +48,7 @@ export function ThreadContextToggle({
           aria-label={t("threadContext.open")}
           className={cn(
             topbarIconButtonClassName,
-            "!size-7 !w-7 !min-w-7 !px-0",
+            "!size-7 !w-7 !min-w-7 !px-0 relative",
             className
           )}
           size="icon"
@@ -50,6 +56,14 @@ export function ThreadContextToggle({
           variant="ghost"
         >
           <Layers className="size-4" />
+          {badgeLabel ? (
+            <span
+              aria-hidden
+              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground leading-none"
+            >
+              {badgeLabel}
+            </span>
+          ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent

@@ -43,14 +43,18 @@ export {
   type PaneTabStripProps,
   PaneTopBar,
 } from "./components/pane/pane";
+export type {
+  AgentUiBaseSnapshotInput,
+  AgentUiDialogOpener,
+  AgentUiFieldElementGetter,
+  AgentUiFieldFocusHandler,
+  AgentUiFrontendToolHandler,
+  AgentUiStateSlice,
+} from "./context/agent-ui-state-context";
 export {
-  type AgentUiBaseSnapshotInput,
-  type AgentUiDialogOpener,
-  type AgentUiFieldFocusHandler,
-  type AgentUiFrontendToolHandler,
   AgentUiStateProvider,
-  type AgentUiStateSlice,
   useAgentUiDialogOpener,
+  useAgentUiFieldElement,
   useAgentUiFieldFocuser,
   useAgentUiFrontendToolExecutor,
   useAgentUiFrontendToolHandler,
@@ -73,9 +77,46 @@ export {
   ShellSecondaryNavProvider,
   useShellSecondaryNav,
 } from "./context/shell-secondary-nav-context";
+export {
+  DEFAULT_UI_GUIDE_ACTIONS,
+  dismissUiGuideSession,
+  formatUiGuideFollowUpMessage,
+  GuideOverlayHost,
+  type GuideOverlayHostProps,
+  getUiGuideSession,
+  type ResolveUiGuideTargetHelpers,
+  resetUiGuideSessionForTests,
+  resolveUiGuideAction,
+  resolveUiGuideTarget,
+  showUiGuideSession,
+  subscribeUiGuide,
+  UI_GUIDE_SPOTLIGHT_PADDING_PX,
+  type UiGuideAction,
+  type UiGuideActionVariant,
+  type UiGuideInputConfig,
+  type UiGuideInputField,
+  type UiGuideInputType,
+  type UiGuidePlacement,
+  type UiGuidePresentation,
+  type UiGuideResolvedResult,
+  type UiGuideSession,
+  type UiGuideShowConfig,
+  type UiGuideShownResult,
+  type UiGuideShowResult,
+  type UiGuideTarget,
+  type UiGuideUpdateConfig,
+  updateUiGuideSession,
+} from "./guide";
 export type { PersistedEwResizePaneWidthOptions } from "./hooks/use-persisted-ew-resize-pane-width";
 export { usePersistedEwResizePaneWidth } from "./hooks/use-persisted-ew-resize-pane-width";
 export { useShellSecondaryNavWidth } from "./hooks/use-shell-secondary-nav-width";
+export {
+  AGENT_UI_FIELD_ATTR,
+  agentUiFieldFormName,
+  agentUiFieldSelector,
+  isPlausibleAgentUiFieldActiveElement,
+  queryAgentUiFieldElement,
+} from "./lib/agent-ui-field-element";
 export {
   SHELL_SECONDARY_NAV_ITEM_ATTR,
   shellSecondaryNavItemProps,

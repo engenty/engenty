@@ -2,7 +2,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { ThreadContextMode } from "./thread-context-types.js";
 
 /**
- * Coordinates full-page thread context chrome: whether the side box is
+ * Coordinates full-page thread context chrome: whether the floating card is
  * inline vs collapsed, and whether the collapsed popover is open. Mirrors
  * the artifact pane store pattern so topbar actions (outside the page
  * React tree via `usePageConfig`) stay in sync with the pane.

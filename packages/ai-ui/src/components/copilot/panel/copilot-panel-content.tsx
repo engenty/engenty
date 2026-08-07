@@ -2,6 +2,7 @@
 
 import { cn, ScrollArea } from "@engenty/ui-core";
 import { CopilotToolCallActionsProvider } from "../interrupts/copilot-tool-call-actions";
+import { THREAD_CONTEXT_INLINE_PAD_VAR } from "../thread-context/thread-context-types";
 import { CopilotTranscript } from "../transcript/copilot-transcript";
 import { CopilotTranscriptLoading } from "../transcript/copilot-transcript-loading";
 import {
@@ -240,6 +241,12 @@ export function CopilotPanelContent({
       ? "size-full px-1 pt-4"
       : "size-full px-3";
   const showTranscriptScrollTopFade = !(compact || transcriptScrollHidden);
+  // Inline style paddingRight replaces Tailwind's px-* right edge — keep the
+  // same base gutter, then add ThreadContextPane's float reserve when set.
+  const bodyPadRightBase =
+    !compact && composerDockStyle && contentBodyGutter === "flush"
+      ? "0px"
+      : "0.75rem";
 
   const body = (
     <div
@@ -254,6 +261,11 @@ export function CopilotPanelContent({
               )
             : "flex min-h-0 flex-1 flex-col gap-4 px-3 pt-0 pb-3"
       }
+      style={{
+        // When ThreadContextPane sets the var, transcript + composer clear the
+        // floating card via inner pad — main surface stays full-bleed.
+        paddingRight: `calc(var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px) + ${bodyPadRightBase})`,
+      }}
     >
       {!minimalChrome &&
         routeStatusLabel &&

@@ -29,6 +29,7 @@
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
+    "@floating-ui/dom": "^1.7.6",
     "clsx": "^2.1.1",
     "lucide-react": "^1.21.0",
     "react-router-dom": "^7.18.0",

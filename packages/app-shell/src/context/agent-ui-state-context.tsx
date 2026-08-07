@@ -24,6 +24,10 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  isPlausibleAgentUiFieldActiveElement,
+  queryAgentUiFieldElement,
+} from "../lib/agent-ui-field-element.js";
 
 export type AgentUiStateSlice = Partial<
   Pick<
@@ -46,22 +50,33 @@ export type AgentUiDialogOpener = (
   payload?: Record<string, JsonValue>
 ) => void | Promise<void>;
 export type AgentUiFieldFocusHandler = () => void;
+export type AgentUiFieldElementGetter = () => HTMLElement | null;
 
 interface RegisteredFrontendTool {
   definition: FrontendToolDefinition;
   handler: AgentUiFrontendToolHandler;
 }
 
+interface RegisteredAgentUiField {
+  focus: AgentUiFieldFocusHandler;
+  getElement?: AgentUiFieldElementGetter;
+}
+
 interface AgentUiStateContextValue {
   focusRegisteredField: (fieldId: string) => boolean;
   frontendToolDefinitions: FrontendToolDefinition[];
   getFrontendToolHandler: (name: string) => AgentUiFrontendToolHandler | null;
+  getRegisteredFieldElement: (fieldId: string) => HTMLElement | null;
   openRegisteredDialog: (
     dialogId: string,
     payload?: Record<string, JsonValue>
   ) => Promise<boolean>;
   registerDialog: (id: string, opener: AgentUiDialogOpener) => () => void;
-  registerField: (id: string, focus: AgentUiFieldFocusHandler) => () => void;
+  registerField: (
+    id: string,
+    focus: AgentUiFieldFocusHandler,
+    getElement?: AgentUiFieldElementGetter
+  ) => () => void;
   registerFrontendTool: (
     definition: FrontendToolDefinition,
     handler: AgentUiFrontendToolHandler
@@ -134,9 +149,7 @@ export function AgentUiStateProvider({
   const sliceSerialsRef = useRef(new Map<string, string>());
   const toolsRef = useRef(new Map<string, RegisteredFrontendTool>());
   const dialogOpenersRef = useRef(new Map<string, AgentUiDialogOpener>());
-  const fieldFocusHandlersRef = useRef(
-    new Map<string, AgentUiFieldFocusHandler>()
-  );
+  const fieldsRef = useRef(new Map<string, RegisteredAgentUiField>());
   const [revision, setRevision] = useState(0);
 
   const bumpRevision = useCallback(() => {
@@ -210,11 +223,15 @@ export function AgentUiStateProvider({
   );
 
   const registerField = useCallback(
-    (id: string, focus: AgentUiFieldFocusHandler) => {
-      fieldFocusHandlersRef.current.set(id, focus);
+    (
+      id: string,
+      focus: AgentUiFieldFocusHandler,
+      getElement?: AgentUiFieldElementGetter
+    ) => {
+      fieldsRef.current.set(id, { focus, getElement });
       bumpRevision();
       return () => {
-        if (fieldFocusHandlersRef.current.delete(id)) {
+        if (fieldsRef.current.delete(id)) {
           bumpRevision();
         }
       };
@@ -273,12 +290,35 @@ export function AgentUiStateProvider({
     []
   );
   const focusRegisteredField = useCallback((fieldId: string) => {
-    const focus = fieldFocusHandlersRef.current.get(fieldId);
-    if (!focus) {
+    const entry = fieldsRef.current.get(fieldId);
+    if (!entry) {
       return false;
     }
-    focus();
+    entry.focus();
     return true;
+  }, []);
+
+  const getRegisteredFieldElement = useCallback((fieldId: string) => {
+    const entry = fieldsRef.current.get(fieldId);
+    if (!entry) {
+      return null;
+    }
+    const fromGetter = entry.getElement?.() ?? null;
+    if (fromGetter?.isConnected) {
+      return fromGetter;
+    }
+    // Prefer DOM markers / form `name` inside main — never trust sync
+    // activeElement after setFocus (composer often still focused).
+    const fromDom = queryAgentUiFieldElement(fieldId);
+    if (fromDom) {
+      return fromDom;
+    }
+    entry.focus();
+    const active = document.activeElement;
+    if (isPlausibleAgentUiFieldActiveElement(fieldId, active)) {
+      return active;
+    }
+    return null;
   }, []);
 
   const value = useMemo<AgentUiStateContextValue>(
@@ -286,6 +326,7 @@ export function AgentUiStateProvider({
       focusRegisteredField,
       frontendToolDefinitions,
       getFrontendToolHandler,
+      getRegisteredFieldElement,
       openRegisteredDialog,
       registerDialog,
       registerField,
@@ -297,6 +338,7 @@ export function AgentUiStateProvider({
       focusRegisteredField,
       frontendToolDefinitions,
       getFrontendToolHandler,
+      getRegisteredFieldElement,
       openRegisteredDialog,
       registerDialog,
       registerField,
@@ -392,6 +434,18 @@ export function useAgentUiFieldFocuser(): (fieldId: string) => boolean {
   return ctx.focusRegisteredField;
 }
 
+export function useAgentUiFieldElement(): (
+  fieldId: string
+) => HTMLElement | null {
+  const ctx = useContext(AgentUiStateContext);
+  if (!ctx) {
+    throw new Error(
+      "useAgentUiFieldElement must be used within AgentUiStateProvider"
+    );
+  }
+  return ctx.getRegisteredFieldElement;
+}
+
 export function useRegisterAgentUiSlice(
   id: string,
   slice: AgentUiStateSlice | null
@@ -462,10 +516,15 @@ export function useRegisterAgentUiField(
   }
   const { registerField } = ctx;
   useEffect(() => {
-    const focus =
-      typeof refOrFocus === "function"
-        ? refOrFocus
-        : () => refOrFocus.current?.focus();
-    return registerField(id, focus);
+    if (typeof refOrFocus === "function") {
+      return registerField(id, refOrFocus);
+    }
+    return registerField(
+      id,
+      () => {
+        refOrFocus.current?.focus();
+      },
+      () => refOrFocus.current
+    );
   }, [registerField, id, refOrFocus]);
 }
