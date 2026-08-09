@@ -98,7 +98,10 @@ export async function getResolvedAppearanceWithoutTenant(
   client: SupabaseClient,
   userId: string
 ): Promise<ResolvedAppearance> {
-  const userRepo = createUserSettingsRepoSupabase(client as never, userId);
+  // Read-only lane before a tenant is selected in-session; the tenant stamp is
+  // only used on writes, which never happen here (core.users.tenant_id is NOT
+  // NULL, so the rows themselves are always tenant-stamped).
+  const userRepo = createUserSettingsRepoSupabase(client as never, userId, "");
   const user = toStringMap(await userRepo.list(APPEARANCE_PREFIX));
 
   return {
@@ -139,7 +142,11 @@ export async function getResolvedAppearance(
     tenantId,
     "default"
   );
-  const userRepo = createUserSettingsRepoSupabase(client as never, userId);
+  const userRepo = createUserSettingsRepoSupabase(
+    client as never,
+    userId,
+    tenantId
+  );
 
   // Two queries total — one per scope — instead of one round trip per key.
   const [tenantEntries, userEntries] = await Promise.all([

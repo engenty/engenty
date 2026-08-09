@@ -20,7 +20,13 @@ const registerExternalConnectorsPlugin: EngentyPluginFactory = async (
   engenty
 ) => {
   const { server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
+  // Phase A seam note (PLAN-tenant-isolation-a-rls-seam.md): this provider stays
+  // on the SERVICE lane by design. module_external_connectors carries no
+  // tenant_id — it is the platform-level registry of imported connector specs
+  // (admin-managed, incl. encrypted client credentials), boot-materialized for
+  // the whole instance. Fail-closed doctrine: the tenant lane has no grants on
+  // it; tenant data never lives here.
+  const supabaseRaw = server.getServiceDb?.() ?? null;
   if (!supabaseRaw) {
     throw new Error("External connectors provider requires Supabase");
   }

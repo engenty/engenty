@@ -25,7 +25,8 @@ function makePluginApi() {
     } as unknown as PluginEventsApi,
     server: {
       callGatewayMethod: async () => null,
-      getDatabaseAdapter: () => ({}) as unknown,
+      getServiceDb: () => ({}) as unknown,
+      getTenantDb: () => ({}) as unknown,
       getStorageService: () => null,
       hasOperation: () => false,
       registerAiRegistration: (registration: PluginAiRegistration) => {

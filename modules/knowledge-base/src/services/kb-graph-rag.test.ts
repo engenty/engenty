@@ -79,7 +79,7 @@ describe("KB GraphRAG Integration & Context Graph Registration", () => {
 
       const supabase = createStubSupabase({ categories: [], articles: [] });
 
-      registerKbContextGraph({ server, supabase });
+      registerKbContextGraph({ getDb: () => supabase, server });
 
       expect(registeredSchema).not.toBeNull();
       expect(registeredSchema.moduleId).toBe("knowledge-base");
@@ -115,7 +115,7 @@ describe("KB GraphRAG Integration & Context Graph Registration", () => {
         articles: [{ id: "art-1" }, { id: "art-2" }],
       });
 
-      registerKbContextGraph({ server, supabase });
+      registerKbContextGraph({ getDb: () => supabase, server });
 
       const mockApi = {
         listEntities: vi.fn(async () => [{}, {}]),
@@ -176,7 +176,7 @@ describe("KB GraphRAG Integration & Context Graph Registration", () => {
 
       const supabase = createStubSupabase({ categories, articles });
 
-      registerKbContextGraph({ server, supabase });
+      registerKbContextGraph({ getDb: () => supabase, server });
 
       const upsertedEntities: any[] = [];
       const upsertedEdges: any[] = [];

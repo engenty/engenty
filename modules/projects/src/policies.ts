@@ -47,7 +47,8 @@ interface VisibilityDb {
  * projects and for operations with no project id.
  */
 export function createProjectVisibilityPolicy(
-  db: VisibilityDb
+  /** Tenant-locked handle factory — the policy runs on the caller's tenant. */
+  getDb: (auth: { tenantId: string }) => VisibilityDb
 ): PluginProfilePolicy {
   return async (input) => {
     if (input.moduleId !== "projects") {
@@ -67,6 +68,7 @@ export function createProjectVisibilityPolicy(
       return null;
     }
 
+    const db = getDb({ tenantId: input.auth.tenantId });
     const project = await db
       .schema("module_projects")
       .from("projects")
@@ -79,9 +81,10 @@ export function createProjectVisibilityPolicy(
       return null;
     }
 
-    // Service-role client: RLS is bypassed, so the tenant filter here is the
-    // boundary. project_team carries tenant_id since the composite-FK
-    // migration, so membership no longer has to be inferred via the project.
+    // Tenant-locked handle: RLS pins the read to the caller's tenant; the
+    // explicit tenant filter stays as defense in depth. project_team carries
+    // tenant_id since the composite-FK migration, so membership no longer has
+    // to be inferred via the project.
     const member = await db
       .schema("module_projects")
       .from("project_team")

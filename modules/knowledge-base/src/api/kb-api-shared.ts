@@ -4,12 +4,12 @@ import type {
   PluginHttpRouteContext,
   PluginServerApi,
 } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { KbRepoFactory } from "../dal/contracts.js";
 
 export type KbServerApi = Pick<
   PluginServerApi,
   | "callGatewayMethod"
-  | "getDatabaseAdapter"
   | "getStorageService"
   | "hasOperation"
   | "registerHttpRoute"
@@ -17,6 +17,19 @@ export type KbServerApi = Pick<
 >;
 
 export type GetKbRepo = (auth?: PluginAuthContext) => KbRepoFactory;
+
+/** Tenant-locked DB handle factory (engenty_server lane, RLS-enforced). */
+export type GetKbDb = (auth: { tenantId: string }) => SupabaseClient;
+
+/** DB handles threaded from the plugin factory into route registration. */
+export interface KbDbHandles {
+  /** Tenant-locked handle factory — every request-shaped read/write. */
+  getDb: GetKbDb;
+  /** Service-role client, reserved for the ONE context-less read that
+   * resolves tenancy itself: the source-webhook token → source-row lookup
+   * in kb-sources.ts. Everything else must go through `getDb`. */
+  serviceDb: SupabaseClient;
+}
 
 export function parseBody(raw: unknown): Record<string, unknown> {
   if (raw && typeof raw === "object") {

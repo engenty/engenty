@@ -2,13 +2,13 @@ import {
   agentGuardrailsConfigSchema,
   agentLimitsConfigSchema,
 } from "@engenty/ai-core";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createNonExecutableDatabaseTool } from "../../ai/registry/database-tool.js";
 import type {
   AgentConfig,
   MastraToolDefinition,
   ToolConfig,
 } from "../../ai/registry/types.js";
+import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 
 const AI_SCHEMA = "ai";
 
@@ -113,15 +113,19 @@ function mapToolRow(row: RegistryToolRow): ToolConfig {
   };
 }
 
-export function createRegistryStore(client: SupabaseClient) {
-  const db = client.schema(AI_SCHEMA);
+export function createRegistryStore(source: DbSource) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every method is
+  // tenant-keyed (ai.engenty_ai_agents / ai.engenty_ai_tools carry tenant_id)
+  // and resolves a tenant-locked handle per call.
+  const { forTenant } = normalizeDbSource(source);
+  const dbFor = (tenantId: string) => forTenant(tenantId).schema(AI_SCHEMA);
 
   return {
     async getAgentConfig(
       tenantId: string,
       agentId: string
     ): Promise<AgentConfig | undefined> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .select()
         .eq("tenant_id", tenantId)
@@ -142,7 +146,7 @@ export function createRegistryStore(client: SupabaseClient) {
       tenantId: string,
       toolId: string
     ): Promise<MastraToolDefinition | undefined> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_tools")
         .select()
         .eq("tenant_id", tenantId)
@@ -160,7 +164,7 @@ export function createRegistryStore(client: SupabaseClient) {
     },
 
     async listAgents(tenantId: string): Promise<AgentConfig[]> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .select()
         .eq("tenant_id", tenantId)
@@ -174,7 +178,7 @@ export function createRegistryStore(client: SupabaseClient) {
 
     /** Governance view: every row, with status + pending revision. */
     async listAgentRecords(tenantId: string): Promise<RegistryAgentRecord[]> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .select()
         .eq("tenant_id", tenantId);
@@ -203,7 +207,7 @@ export function createRegistryStore(client: SupabaseClient) {
       config: AgentConfig,
       options: { proposedByAgent?: string | null } = {}
     ): Promise<RegistryAgentRecord> {
-      const { data: existing, error: readError } = await db
+      const { data: existing, error: readError } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .select()
         .eq("tenant_id", tenantId)
@@ -240,7 +244,7 @@ export function createRegistryStore(client: SupabaseClient) {
               created_by_agent:
                 options.proposedByAgent ?? row?.created_by_agent ?? null,
             };
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .upsert(
           { tenant_id: tenantId, agent_id: config.id, ...patch },
@@ -269,7 +273,7 @@ export function createRegistryStore(client: SupabaseClient) {
       tenantId: string,
       agentId: string
     ): Promise<AgentConfig> {
-      const { data: existing, error: readError } = await db
+      const { data: existing, error: readError } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .select()
         .eq("tenant_id", tenantId)
@@ -293,7 +297,7 @@ export function createRegistryStore(client: SupabaseClient) {
           `approveAgent: agent '${agentId}' has nothing pending (status '${status}')`
         );
       }
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .update(patch)
         .eq("tenant_id", tenantId)
@@ -311,7 +315,7 @@ export function createRegistryStore(client: SupabaseClient) {
      * active row just drops its pending proposed_config.
      */
     async rejectAgent(tenantId: string, agentId: string): Promise<boolean> {
-      const { data: existing, error: readError } = await db
+      const { data: existing, error: readError } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .select()
         .eq("tenant_id", tenantId)
@@ -325,7 +329,7 @@ export function createRegistryStore(client: SupabaseClient) {
       }
       const row = existing as RegistryAgentRow;
       if ((row.status ?? "active") === "proposed") {
-        const { error } = await db
+        const { error } = await dbFor(tenantId)
           .from("engenty_ai_agents")
           .delete()
           .eq("tenant_id", tenantId)
@@ -336,7 +340,7 @@ export function createRegistryStore(client: SupabaseClient) {
         return true;
       }
       if (row.proposed_config) {
-        const { error } = await db
+        const { error } = await dbFor(tenantId)
           .from("engenty_ai_agents")
           .update({ proposed_config: null })
           .eq("tenant_id", tenantId)
@@ -350,7 +354,7 @@ export function createRegistryStore(client: SupabaseClient) {
     },
 
     async listTools(tenantId: string): Promise<ToolConfig[]> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_tools")
         .select()
         .eq("tenant_id", tenantId);
@@ -364,7 +368,7 @@ export function createRegistryStore(client: SupabaseClient) {
       tenantId: string,
       config: AgentConfig
     ): Promise<AgentConfig> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .upsert(
           {
@@ -397,7 +401,7 @@ export function createRegistryStore(client: SupabaseClient) {
     },
 
     async deleteAgent(tenantId: string, agentId: string): Promise<boolean> {
-      const { error } = await db
+      const { error } = await dbFor(tenantId)
         .from("engenty_ai_agents")
         .delete()
         .eq("tenant_id", tenantId)
@@ -412,7 +416,7 @@ export function createRegistryStore(client: SupabaseClient) {
       tenantId: string,
       toolId: string
     ): Promise<ToolConfig | undefined> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_tools")
         .select()
         .eq("tenant_id", tenantId)
@@ -431,7 +435,7 @@ export function createRegistryStore(client: SupabaseClient) {
       tenantId: string,
       config: ToolConfig
     ): Promise<ToolConfig> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(tenantId)
         .from("engenty_ai_tools")
         .upsert(
           {
@@ -453,7 +457,7 @@ export function createRegistryStore(client: SupabaseClient) {
     },
 
     async deleteTool(tenantId: string, toolId: string): Promise<boolean> {
-      const { error } = await db
+      const { error } = await dbFor(tenantId)
         .from("engenty_ai_tools")
         .delete()
         .eq("tenant_id", tenantId)

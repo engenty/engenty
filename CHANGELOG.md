@@ -4,6 +4,21 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.113] - 2026-08-09
+- ADDED Hard cutover — getDatabaseAdapter renamed getServiceDb, baseline emptied (WP8) **[breaking]**
+- ADDED **[ci]** Nightly live-DB tenant-isolation checks (WP7)
+- ADDED **[core,ai]** Tenant-locked core seams, apps/ai lane, retrieval + leak harness (WP5+WP6)
+- ADDED **[modules]** Convert all modules to tenant-locked DB handles (WP4 wave)
+- ADDED **[core]** SECURITY DEFINER lockdown + server-lane coverage checker (WP1 complete)
+- ADDED **[tasks]** Convert to tenant-locked DB handles (WP4 pattern-setter)
+- ADDED **[core]** Tenant-locked server lane — engenty_server role, RLS policy pair, getTenantDb seam
+- FIXED **[time-tracking]** Put saved_report_snapshots on the server lane
+- FIXED **[kb]** Hide the two remaining member-facing links into admin-only settings
+- FIXED **[kb]** Stop offering knowledge-base creation to users who cannot do it
+- FIXED Wire the boot preflight in, and make the leak sweep prove positive access
+- FIXED Close the rest of the class — audit follow-ups from the live-smoke fixes
+- FIXED Make the server lane usable end-to-end (subject, RPC grants, honest auth errors)
+
 ## [0.1.112] - 2026-08-09
 - ADDED **[deploy]** Ship the docs site as a prebuilt image
 - FIXED **[deploy]** Build the UI with the real version, not the cache sentinel

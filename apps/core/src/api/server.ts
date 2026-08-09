@@ -13,14 +13,14 @@ import {
 import { envBoolean, envNumber, envString } from "@engenty/environment/env";
 import { serve } from "@hono/node-server";
 import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cors } from "hono/cors";
 import { z as zod } from "zod";
-import { resolveSupabaseConfig } from "../dal/supabase-config.js";
 import {
   createTenantPluginOverridesDal,
   type TenantPluginOverridesDal,
 } from "../dal/tenant-plugin-overrides.js";
+import { createDatabaseAdapter } from "../infra/index.js";
 import { checkSupabaseReachable } from "../lib/supabase-startup-check.js";
 import {
   createApiLoggerFromRequestLogger,
@@ -71,10 +71,11 @@ function isAgentEscalationEnabled(config: Record<string, unknown>): boolean {
 
 /** Service-role client for core's own tables (goal grants, approval store). */
 function createCoreServiceClient(config: Record<string, unknown>) {
-  const { url, serviceRoleKey } = resolveSupabaseConfig(config);
-  return createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const client = createDatabaseAdapter(config);
+  if (!client) {
+    throw new Error("Missing Supabase service configuration.");
+  }
+  return client;
 }
 
 import {
@@ -260,18 +261,28 @@ export function createApiApp(params: CreateApiAppParams) {
       : createBootApiLogger();
   };
 
-  // One service-role client for core's own tables, shared by the approval store
-  // and the session-grant reaper below. An injected service (tests) brings its
-  // own store, so there is no client to share and no reaper to wire.
+  // Phase A seam: tenant-scoped approval/grant work runs on tenant-locked
+  // handles (registry.getTenantDb, engenty_server lane); the service client
+  // survives for the null-tenant lanes inside the approval service (superadmin
+  // queue, id-only get) and as the no-lane fallback in dev bootstraps without
+  // a JWT secret. An injected service (tests) brings its own store, so there
+  // is no client to share and no reaper to wire.
+  const getTenantDb = params.registry.getTenantDb
+    ? (auth: { tenantId: string }) =>
+        params.registry.getTenantDb?.(auth) as SupabaseClient
+    : null;
   const approvals = params.approvalService
     ? { client: null, service: params.approvalService }
     : (() => {
         const client = createCoreServiceClient(config);
-        return { client, service: createApprovalService(client) };
+        const dbFor = (tenantId: string | null) =>
+          tenantId && getTenantDb ? getTenantDb({ tenantId }) : client;
+        return { client, service: createApprovalService(dbFor) };
       })();
   const approvalService = approvals.service;
   const grantsService = createGrantsService(config, {
     getRegistry: () => params.registry.roleProfiles,
+    ...(getTenantDb ? { getDb: getTenantDb } : {}),
   });
   const authProvider = createSupabaseAuthProvider(config, {
     grants: grantsService,
@@ -288,11 +299,14 @@ export function createApiApp(params: CreateApiAppParams) {
           .resolveGrants({ kind: "agent", id: agentId }, tenantId)
           .then((g) => g.capabilities),
       listGoalGrantCapabilities: (tenantId, goalId, agentId) =>
-        listGoalGrantCapabilities(escalationClient, {
-          tenantId,
-          goalId,
-          agentId,
-        }),
+        listGoalGrantCapabilities(
+          getTenantDb?.({ tenantId }) ?? escalationClient,
+          {
+            tenantId,
+            goalId,
+            agentId,
+          }
+        ),
     });
     if (!params.registry.profilePolicies) {
       params.registry.profilePolicies = [];
@@ -392,11 +406,14 @@ export function createApiApp(params: CreateApiAppParams) {
     ...(approvals.client
       ? {
           revokeSessionApprovalGrants: (tenantId: string, sessionId: string) =>
-            revokeApprovalGrantsForSubject(approvals.client, {
-              scope: "session",
-              subjectId: sessionId,
-              tenantId,
-            }),
+            revokeApprovalGrantsForSubject(
+              getTenantDb?.({ tenantId }) ?? approvals.client,
+              {
+                scope: "session",
+                subjectId: sessionId,
+                tenantId,
+              }
+            ),
         }
       : {}),
     stores: authStores,
@@ -597,6 +614,71 @@ export function resolveDevPluginReloadWatcherRoots(
   ).sort();
 }
 
+/** How long the lane probe may take before we treat it as a failure. */
+const SERVER_LANE_PREFLIGHT_TIMEOUT_MS = 10_000;
+
+/**
+ * Verifies at boot that PostgREST actually accepts a minted engenty_server
+ * token, before the port opens.
+ *
+ * Why this exists as a boot gate rather than a runtime surprise: if the
+ * signing secret does not match the stack's, or the lane migration was never
+ * applied, then EVERY tenant-scoped query fails — but nothing else notices.
+ * The process starts, health checks pass, and the DB guards stay green because
+ * they talk to psql rather than PostgREST. The failure only shows up as broken
+ * features. (This function was written with the boot check in mind and then
+ * never called, which is exactly how that gap survived.)
+ *
+ * Policy, deliberately asymmetric:
+ *  - lane not configured → nothing to check; the loader already warns.
+ *  - configured but not verifying, in production → refuse to start. A silent
+ *    boot here means a totally broken deployment, and crash-looping is far
+ *    easier to diagnose than "the app is up but nothing loads".
+ *  - configured but not verifying, outside production → log loudly and
+ *    continue, so a half-set-up worktree stays workable.
+ */
+async function runServerLanePreflight(
+  registry: { assertServerLanePreflight?: () => Promise<void> },
+  logger: { error: (msg: string) => void; info: (msg: string) => void }
+): Promise<void> {
+  const preflight = registry.assertServerLanePreflight;
+  if (!preflight) {
+    return;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      preflight(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `no response within ${SERVER_LANE_PREFLIGHT_TIMEOUT_MS}ms`
+              )
+            ),
+          SERVER_LANE_PREFLIGHT_TIMEOUT_MS
+        );
+      }),
+    ]);
+    logger.info("Server-lane preflight OK (engenty_server tokens accepted).");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        `Refusing to start: server-lane preflight failed. Every tenant-scoped query would fail. ${detail}`
+      );
+    }
+    logger.error(
+      `Server-lane preflight FAILED — tenant-scoped queries will not work: ${detail}`
+    );
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export async function startApiServer(
   params: StartApiServerParams = {},
   attempt = 0
@@ -690,6 +772,7 @@ export async function startApiServer(
     tenantPluginOverrides,
   };
   const registry = loadPlugins(loadParams);
+  await runServerLanePreflight(registry, logger);
 
   const devPluginReloadEvents = createDevPluginReloadEventHub();
   const app = createApiApp({

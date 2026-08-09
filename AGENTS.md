@@ -135,6 +135,25 @@ Use `@engenty/query-client` (`useQuery`, `useMutation`, `useInfiniteQuery`). No 
 
 No new `@supabase/supabase-js` imports outside approved adapter locations (DAL/adapter directories such as `src/dal/*`, `apps/core/src/identity|storage/*`). Type-only imports of `SupabaseClient` are fine anywhere. Run `pnpm check:supabase-imports` to verify.
 
+## Tenant isolation (Phase A — the database is the wall)
+
+The server lane runs as the `engenty_server` Postgres role (NOBYPASSRLS): every
+query is confined to the caller's tenant by the `srv_tenant_isolation` policies,
+whether or not the code filters correctly.
+
+- **Tenant work uses `server.getTenantDb(auth)`** — a tenant-locked client per
+  request. Keep the explicit `.eq("tenant_id", …)` filters as the belt.
+- **`server.getServiceDb()` bypasses RLS** and is only for (1) reads that must
+  run before tenancy is known and ARE the tenant resolution (webhook id+secret,
+  OAuth state nonce, portal/pairing tokens, cross-tenant boot replays), or
+  (2) platform-level stores with no tenant_id. Every call site carries an
+  in-place comment naming which shape it is.
+- **Every new table with `tenant_id`** ships grants + the policy pair for
+  `engenty_server` (template in `docs/agent/rules/module-migrations.mdc`).
+  Never call `auth.jwt()`/`auth.uid()` in policies — use the `core.*` helpers.
+- Guards: `pnpm check:server-lane-coverage`, `pnpm check:leak-harness` (live
+  DB), `pnpm check:foreign-schema-scope`, `pnpm check:supabase-imports` (CI).
+
 ## File size
 
 If a file exceeds ~250 lines and mixes concerns, split before adding features.

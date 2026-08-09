@@ -36,13 +36,16 @@ const memberSchema = z
   .loose();
 
 export function registerTeamContextGraph(input: {
+  /** Tenant-locked handle factory — status/sync are invoked with an explicit
+   * tenantId, so every read runs on that tenant (engenty_server lane,
+   * RLS-enforced). */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   server: Pick<
     PluginServerApi,
     "registerContextGraphSchema" | "registerContextGraphSource"
   >;
-  supabase: SupabaseClient;
 }): void {
-  const { server, supabase } = input;
+  const { getDb, server } = input;
   if (!server.registerContextGraphSchema) {
     return;
   }
@@ -73,7 +76,7 @@ export function registerTeamContextGraph(input: {
     getStatus: async (api, tenantId) => {
       const [inGraphEntities, countResult] = await Promise.all([
         api.listEntities({ tenantId, module: "team" }),
-        supabase
+        getDb({ tenantId })
           .schema("module_team")
           .from("profiles")
           .select("id", { count: "exact", head: true })
@@ -85,7 +88,7 @@ export function registerTeamContextGraph(input: {
       };
     },
     sync: async (api, tenantId) =>
-      syncTeamToContextGraph(supabase, api, tenantId),
+      syncTeamToContextGraph(getDb({ tenantId }), api, tenantId),
   });
 }
 

@@ -16,6 +16,8 @@ export function AppLayout({
   defaultTopbarTitle,
   children,
   currentUserId = null,
+  isSuperAdmin = false,
+  isTenantAdmin = false,
   modulesReorderable,
   onModulesReorder,
   shellUiHost,
@@ -27,6 +29,8 @@ export function AppLayout({
     <WorkspaceProvider
       currentTenant={currentTenant}
       currentUserId={currentUserId}
+      isSuperAdmin={isSuperAdmin}
+      isTenantAdmin={isTenantAdmin}
     >
       <FeatureFlagsProvider fetchResolved={fetchResolvedFeatureFlags}>
         <PageHeaderProvider>

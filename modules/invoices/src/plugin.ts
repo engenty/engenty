@@ -1,4 +1,5 @@
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { invoicesAiRegistration } from "../ai/registrar.js";
 import { registerInvoicesApi } from "./api/index.js";
 import { createInvoiceRepo } from "./dal/index.js";
@@ -24,28 +25,28 @@ const registerInvoicesPlugin: EngentyPluginFactory = (engenty) => {
   ]);
   const { server } = engenty;
   const baseDir = server.resolvePath("invoices");
-  const supabase = server.getDatabaseAdapter?.() ?? null;
-  const useServerFirst = Boolean(supabase);
-  const repoOrFactory = (() => {
-    if (!useServerFirst) {
-      return createInvoiceRepo(baseDir);
-    }
-    if (!supabase) {
-      throw new Error("Supabase config required");
-    }
-    return (auth: { tenantId: string; scopeId: string }) =>
-      createInvoiceRepoSupabase(supabase, auth.tenantId, auth.scopeId, baseDir);
-  })();
-  const pdfStorageOrFactory = (() => {
-    if (!useServerFirst) {
-      return createLocalPdfStorage(baseDir);
-    }
-    if (!supabase) {
-      throw new Error("Supabase config required");
-    }
-    return (auth: { tenantId: string; scopeId: string }) =>
-      createSupabasePdfStorage(supabase, auth.tenantId, auth.scopeId);
-  })();
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). Every invoices
+  // consumer (repo, PDF storage, template preview) carries auth at call time,
+  // so the service-role client is not captured at all; without tenant handles
+  // the module falls back to the local file-based repo as before.
+  const getTenantDb = server.getTenantDb;
+  const getDb = getTenantDb
+    ? (auth: { tenantId: string }) => getTenantDb(auth) as SupabaseClient
+    : null;
+  const repoOrFactory = getDb
+    ? (auth: { tenantId: string; scopeId: string }) =>
+        createInvoiceRepoSupabase(
+          getDb(auth),
+          auth.tenantId,
+          auth.scopeId,
+          baseDir
+        )
+    : createInvoiceRepo(baseDir);
+  const pdfStorageOrFactory = getDb
+    ? (auth: { tenantId: string; scopeId: string }) =>
+        createSupabasePdfStorage(getDb(auth), auth.tenantId, auth.scopeId)
+    : createLocalPdfStorage(baseDir);
 
   // The bespoke `engenty invoices` CLI was removed: it accessed data/invoices/
   // directly, bypassing capabilities, policy, approvals, and audit. Use the

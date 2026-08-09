@@ -23,6 +23,23 @@ export class AuthVerificationError extends Error {
   }
 }
 
+/**
+ * The auth server could not be reached or did not answer in time — a timeout,
+ * a network failure, or a 5xx. The credential is NOT known to be bad, so this
+ * must never be reported as 401: doing so tells the user their session is
+ * invalid and sends everyone hunting through permissions, when the real cause
+ * is that the auth service is down. A slow local Supabase container produced
+ * exactly that dead end once.
+ */
+export class AuthUnavailableError extends Error {
+  readonly status = 503 as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthUnavailableError";
+  }
+}
+
 function readSupabaseAuthErrorMessage(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -51,14 +68,33 @@ async function fetchAuthUser(
   accessToken: string,
   authConfig: SupabaseAuthVerificationConfig
 ): Promise<User> {
-  const response = await fetch(new URL("/auth/v1/user", authConfig.url), {
-    headers: {
-      apikey: authConfig.anonKey,
-      authorization: `Bearer ${accessToken}`,
-    },
-    method: "GET",
-    signal: AbortSignal.timeout(AUTH_USER_FETCH_TIMEOUT_MS),
-  });
+  let response: Response;
+  try {
+    response = await fetch(new URL("/auth/v1/user", authConfig.url), {
+      headers: {
+        apikey: authConfig.anonKey,
+        authorization: `Bearer ${accessToken}`,
+      },
+      method: "GET",
+      signal: AbortSignal.timeout(AUTH_USER_FETCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    // Timeout or transport failure — the token was never judged.
+    throw new AuthUnavailableError(
+      `auth server unreachable at ${authConfig.url}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+  if (response.status >= 500) {
+    // The auth server itself is broken (it answers 500 when it cannot reach
+    // its database). Not a credential problem.
+    throw new AuthUnavailableError(
+      `auth server returned ${response.status}: ${readSupabaseAuthErrorMessage(
+        await response.text()
+      )}`
+    );
+  }
   if (!response.ok) {
     const message = readSupabaseAuthErrorMessage(await response.text());
     throw new AuthVerificationError(message);
@@ -109,10 +145,42 @@ export async function getTenantIdForAuthUser(
     .select("tenant_id")
     .eq("id", authUser.id)
     .maybeSingle();
-  if (row.error || !row.data) {
+  if (row.error) {
+    // A failed lookup is not "this user belongs to no tenant" — callers turn
+    // that answer into 401 Unauthorized or 403 "not yet onboarded", both of
+    // which describe the user's account rather than the outage that actually
+    // happened.
+    throw new AuthUnavailableError(
+      `could not read core.users for ${authUser.id}: ${row.error.message}`
+    );
+  }
+  if (!row.data) {
     return null;
   }
   return row.data.tenant_id as string;
+}
+
+/**
+ * Resolves the caller's tenant for the role checks below. Kept separate so a
+ * DB failure raises AuthUnavailableError instead of silently demoting the
+ * caller to "not an admin" — a security decision computed from an error.
+ */
+async function tenantIdForRoleCheck(
+  client: SupabaseClient,
+  userId: string
+): Promise<string | null> {
+  const row = await client
+    .schema("core")
+    .from("users")
+    .select("tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (row.error) {
+    throw new AuthUnavailableError(
+      `could not read core.users for ${userId}: ${row.error.message}`
+    );
+  }
+  return row.data ? (row.data.tenant_id as string) : null;
 }
 
 export async function isAuthUserAdmin(
@@ -121,14 +189,7 @@ export async function isAuthUserAdmin(
   authConfig: SupabaseAuthVerificationConfig
 ): Promise<boolean> {
   const authUser = await resolveAuthUser(client, accessToken, authConfig);
-  const row = await client
-    .schema("core")
-    .from("users")
-    .select("tenant_id")
-    .eq("id", authUser.id)
-    .maybeSingle();
-  const tenantId =
-    row.error || !row.data ? null : (row.data.tenant_id as string);
+  const tenantId = await tenantIdForRoleCheck(client, authUser.id);
   if (!tenantId) {
     return false;
   }
@@ -142,14 +203,7 @@ export async function isAuthUserSuperAdmin(
   authConfig: SupabaseAuthVerificationConfig
 ): Promise<boolean> {
   const authUser = await resolveAuthUser(client, accessToken, authConfig);
-  const row = await client
-    .schema("core")
-    .from("users")
-    .select("tenant_id")
-    .eq("id", authUser.id)
-    .maybeSingle();
-  const tenantId =
-    row.error || !row.data ? null : (row.data.tenant_id as string);
+  const tenantId = await tenantIdForRoleCheck(client, authUser.id);
   if (!tenantId) {
     return false;
   }

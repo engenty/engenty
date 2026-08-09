@@ -12,13 +12,22 @@ export type {
 } from "./src/types.js";
 
 const registerTenantSettingsPlugin: EngentyPluginFactory = (engenty) => {
-  const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every read/write here
+  // is per-tenant, so the repo resolves on a tenant-locked handle per call and
+  // no service client is captured at all.
+  const getTenantDb = engenty.server.getTenantDb;
+  if (!getTenantDb) {
     return;
   }
 
   const repoOrFactory = (auth: { tenantId: string; scopeId: string }) =>
-    createTenantSettingsRepoSupabase(supabase, auth.tenantId, auth.scopeId);
+    createTenantSettingsRepoSupabase(
+      getTenantDb(auth) as Parameters<
+        typeof createTenantSettingsRepoSupabase
+      >[0],
+      auth.tenantId,
+      auth.scopeId
+    );
 
   registerTenantSettingsApi(engenty.server, repoOrFactory);
 };

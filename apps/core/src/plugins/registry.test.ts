@@ -249,7 +249,7 @@ describe("createPluginRegistry", () => {
     const { registry, createApi } = createPluginRegistry({
       config: {},
       dataDir: "/tmp",
-      getDatabaseAdapter: () =>
+      getServiceDb: () =>
         ({
           rpc: async () => null,
           from: () => ({

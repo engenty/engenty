@@ -54,10 +54,18 @@ function uiRedirect(target: string | null): string {
 
 export function registerConnectionsOAuthRoutes(
   api: PluginServerApi,
-  repo: ConnectionsRepo,
+  repos: {
+    /** Tenant-locked repo factory — every tenant-shaped read/write. */
+    getRepo: (auth: { tenantId: string }) => ConnectionsRepo;
+    /** Service-client repo for the callback's tenant-RESOLUTION read only: an
+     * inbound OAuth callback is anonymous until the state nonce identifies the
+     * pending flow row — and with it the tenant. Same shape as a login lookup. */
+    serviceRepo: ConnectionsRepo;
+  },
   settings: ConnectionsSettingsResolver,
   options: ConnectionsOAuthRouteOptions = {}
 ): void {
+  const { getRepo, serviceRepo } = repos;
   // GET /api/connections/:connectorId/connect?sharing=personal|org&redirect_to=/settings/connections
   api.registerHttpRoute({
     method: "get",
@@ -90,7 +98,7 @@ export function registerConnectionsOAuthRoutes(
         new Set(["read", "write", "destructive"] as const)
       );
       const nonce = randomBytes(32).toString("base64url");
-      await repo.createPendingFlow({
+      await getRepo(ctx.auth).createPendingFlow({
         connector_id: connector.id,
         expires_at: new Date(Date.now() + FLOW_TTL_MS).toISOString(),
         nonce,
@@ -132,9 +140,10 @@ export function registerConnectionsOAuthRoutes(
         logger.warn("oauth callback returned error", { error: query.error });
         // Consume the flow (when the provider echoed our state) so the user
         // returns to where the flow started — e.g. the in-chat popup
-        // completion page — instead of the settings fallback.
+        // completion page — instead of the settings fallback. Service-lane
+        // read: the caller is anonymous, the state row itself is the tenancy.
         const flow = query.state
-          ? await repo.consumePendingFlow(query.state)
+          ? await serviceRepo.consumePendingFlow(query.state)
           : null;
         const connectorParam = flow
           ? `&connector=${encodeURIComponent(flow.connector_id)}`
@@ -148,7 +157,10 @@ export function registerConnectionsOAuthRoutes(
       if (!(query?.code && query?.state)) {
         return hono.json({ error: "Missing code or state" }, 400);
       }
-      const flow = await repo.consumePendingFlow(query.state);
+      // Pre-tenant serviceRepo read (Phase A doctrine): the callback carries no
+      // auth — the single-use state nonce resolves the pending flow row, and the
+      // flow row names the tenant. Everything after runs on that tenant's handle.
+      const flow = await serviceRepo.consumePendingFlow(query.state);
       if (!flow) {
         return hono.json({ error: "Invalid or expired OAuth state" }, 400);
       }
@@ -187,7 +199,7 @@ export function registerConnectionsOAuthRoutes(
             });
           }
         }
-        await repo.upsertConnectionWithTokens({
+        await getRepo({ tenantId: flow.tenant_id }).upsertConnectionWithTokens({
           accessToken: tokens.accessToken,
           connectorId: connector.id,
           expiresAt: tokens.expiresAt,

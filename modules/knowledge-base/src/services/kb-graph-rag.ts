@@ -19,13 +19,15 @@ const categorySchema = z
   .loose();
 
 export function registerKbContextGraph(input: {
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — the
+   * status/sync hooks receive their tenant from the context-graph host. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   server: Pick<
     PluginServerApi,
     "registerContextGraphSchema" | "registerContextGraphSource"
   >;
-  supabase: SupabaseClient;
 }): void {
-  const { server, supabase } = input;
+  const { getDb, server } = input;
   if (!server.registerContextGraphSchema) {
     return;
   }
@@ -80,7 +82,7 @@ export function registerKbContextGraph(input: {
     getStatus: async (api, tenantId) => {
       const [inGraphEntities, countResult] = await Promise.all([
         api.listEntities({ tenantId, module: "knowledge-base" }),
-        supabase
+        getDb({ tenantId })
           .schema("module_kb")
           .from("articles")
           .select("id", { count: "exact", head: true })
@@ -93,8 +95,9 @@ export function registerKbContextGraph(input: {
       };
     },
     sync: async (api, tenantId) => {
+      const db = getDb({ tenantId });
       // 1. Fetch and upsert categories
-      const { data: categoryRows, error: catErr } = await supabase
+      const { data: categoryRows, error: catErr } = await db
         .schema("module_kb")
         .from("categories")
         .select("id, name, slug, description, parent_category_id")
@@ -124,7 +127,7 @@ export function registerKbContextGraph(input: {
       }
 
       // 2. Fetch and upsert articles
-      const { data: articleRows, error: artErr } = await supabase
+      const { data: articleRows, error: artErr } = await db
         .schema("module_kb")
         .from("articles")
         .select("id, title, slug, summary, category_id, parent_article_id")

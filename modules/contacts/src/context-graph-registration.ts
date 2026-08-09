@@ -48,25 +48,29 @@ const relationAttrs = z
   .loose();
 
 export function registerContactsContextGraph(input: {
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — the
+   * event loaders, status, and sync callbacks all carry a tenant id. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   server: Pick<
     PluginServerApi,
     "registerContextGraphSchema" | "registerContextGraphSource"
   >;
-  supabase: SupabaseClient;
 }): void {
-  const { server, supabase } = input;
+  const { getDb, server } = input;
   if (!server.registerContextGraphSchema) {
     return;
   }
-  const contacts = () => supabase.schema("module_contacts").from("contacts");
-  const relations = () =>
-    supabase.schema("module_contacts").from("contact_relations");
+  const contacts = (db: SupabaseClient) =>
+    db.schema("module_contacts").from("contacts");
+  const relations = (db: SupabaseClient) =>
+    db.schema("module_contacts").from("contact_relations");
 
   async function loadContact(
     tenantId: string,
     contactId: string
   ): Promise<{ contact: ContactRow; relations: RelationRow[] } | null> {
-    const { data: contact, error } = await contacts()
+    const db = getDb({ tenantId });
+    const { data: contact, error } = await contacts(db)
       .select("id, type, display_name, notes")
       .eq("tenant_id", tenantId)
       .eq("id", contactId)
@@ -74,7 +78,7 @@ export function registerContactsContextGraph(input: {
     if (error || !contact) {
       return null;
     }
-    const { data: rel } = await relations()
+    const { data: rel } = await relations(db)
       .select("from_contact_id, to_contact_id, relation_type")
       .eq("tenant_id", tenantId)
       .or(`from_contact_id.eq.${contactId},to_contact_id.eq.${contactId}`);
@@ -151,7 +155,7 @@ export function registerContactsContextGraph(input: {
     getStatus: async (api, tenantId) => {
       const [inGraphEntities, countResult] = await Promise.all([
         api.listEntities({ tenantId, module: "contacts" }),
-        supabase
+        getDb({ tenantId })
           .schema("module_contacts")
           .from("contacts")
           .select("id", { count: "exact", head: true })
@@ -163,7 +167,8 @@ export function registerContactsContextGraph(input: {
       };
     },
     sync: async (api, tenantId) => {
-      const { data: contactRows, error: contactErr } = await supabase
+      const db = getDb({ tenantId });
+      const { data: contactRows, error: contactErr } = await db
         .schema("module_contacts")
         .from("contacts")
         .select("id, type, display_name, notes")
@@ -188,7 +193,7 @@ export function registerContactsContextGraph(input: {
         entities++;
       }
 
-      const { data: relRows, error: relErr } = await supabase
+      const { data: relRows, error: relErr } = await db
         .schema("module_contacts")
         .from("contact_relations")
         .select("from_contact_id, to_contact_id, relation_type")

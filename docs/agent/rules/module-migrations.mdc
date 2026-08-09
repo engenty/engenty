@@ -30,6 +30,35 @@ Enabled modules are declared in root **`package.json` → `engenty.plugins`**. C
 
 After clone: **`pnpm engenty setup --local`**. When changing the module set or module SQL: **`pnpm engenty setup`** then **`pnpm db:migrate`** (or **`pnpm db:init`** on a fresh DB).
 
+## Tenant isolation (server lane) — REQUIRED for every new table
+
+The module/gateway lane runs as the `engenty_server` role (NOBYPASSRLS): row-level
+security is the tenant wall, not the `.eq("tenant_id", …)` filters (those are the
+belt). Every new table carrying `tenant_id` MUST ship this block in its migration
+(CI: `pnpm check:server-lane-coverage`):
+
+```sql
+alter table module_x.things enable row level security;
+grant select, insert, update, delete on module_x.things to engenty_server;
+grant select on module_x.things to authenticated; -- only if the browser lane reads it
+create policy srv_tenant_isolation on module_x.things
+  as permissive for all to engenty_server
+  using (tenant_id = (select core.current_tenant_id()))
+  with check (tenant_id = (select core.current_tenant_id()));
+```
+
+Rules that go with it:
+
+- **Never call `auth.jwt()` / `auth.uid()` in a policy.** Schema `auth` is unreachable
+  for migration-managed roles, and policies are OR-combined — one such policy breaks
+  its whole table for the server lane at plan time. Use `core.current_jwt()`,
+  `core.current_user_id()`, `core.current_tenant_id()`, `core.has_scope()`.
+- **SECURITY DEFINER functions**: Postgres grants EXECUTE to PUBLIC by default —
+  always `revoke all on function … from public;` and grant only the intended role.
+  Never leave a definer function in `public` executable by `authenticated`/`anon`.
+- The `(select …)` wrapper around the helper call is deliberate (initplan caching —
+  evaluated once per statement, not per row). Keep it.
+
 ## Do / Don't
 
 ```bash

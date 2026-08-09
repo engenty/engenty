@@ -9,6 +9,7 @@
 import { createKbRepoFactory } from "@engenty/knowledge-base/dal/supabase";
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerKbSyncApi } from "./api/index.js";
 import { kbBasePrefix, resolveKbSyncConfig } from "./config.js";
 import {
@@ -32,10 +33,19 @@ interface EntityPayload {
 
 const registerKbFilesystemSyncPlugin: EngentyPluginFactory = (engenty) => {
   const { config, events, server } = engenty;
-  const supabase = server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
-    throw new Error("KB Filesystem Sync requires a database adapter");
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every read/write runs
+  // on a tenant-locked handle (engenty_server lane, RLS-enforced). HTTP routes
+  // resolve it from ctx.auth; event handlers resolve it from the payload's own
+  // tenant_id (all knowledge-base.* events are tenantScoped). No context-less
+  // lane remains, so the service-role client is not captured at all.
+  const getTenantDb = server.getTenantDb;
+  if (!getTenantDb) {
+    throw new Error(
+      "KB Filesystem Sync requires the tenant-locked database seam"
+    );
   }
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   const syncConfig = resolveKbSyncConfig(config.pluginConfig);
   const storage = server.getStorageService?.(syncConfig.bucket) ?? null;
@@ -47,13 +57,13 @@ const registerKbFilesystemSyncPlugin: EngentyPluginFactory = (engenty) => {
   }
 
   const repoFactory = (tenantId: string, scopeId: string) =>
-    createKbRepoFactory(supabase, tenantId, scopeId);
+    createKbRepoFactory(getDb({ tenantId }), tenantId, scopeId);
 
   registerKbSyncApi(server, {
     config: syncConfig,
+    getDb,
     repoFactory,
     storage,
-    supabase,
   });
 
   // Resolve the per-(tenant, kb) sync context for an event payload.

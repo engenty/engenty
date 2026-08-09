@@ -17,7 +17,7 @@ import {
   TopbarActionLabel,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
-import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { useCanAdministerTenant, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { ArrowRight, BookOpen, Eye, Pencil } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -90,6 +90,7 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   const isEditMode = mode === "edit";
   const { t } = useTranslation("kb");
   const { t: tc } = useTranslation("common");
+  const canAdministerTenant = useCanAdministerTenant();
   const navigate = useNavigate();
   const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
   const [searchParams] = useSearchParams();
@@ -353,12 +354,20 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
         <div className="max-w-md space-y-1">
           <h1 className="font-semibold text-lg">{t("hub.empty_title")}</h1>
           <p className="text-muted-foreground text-sm">
-            {t("hub.empty_description")}
+            {canAdministerTenant
+              ? t("hub.empty_description")
+              : t("hub.empty_no_permission")}
           </p>
         </div>
-        <Button asChild>
-          <Link to="/settings/knowledge-base">{t("hub.empty_cta")}</Link>
-        </Button>
+        {/* Creating a knowledge base lives on /settings/knowledge-base, which
+            the router treats as admin-only and redirects away from silently.
+            Offering the button to a member sent them to the copilot chat with
+            no explanation, so only show it to someone who can act on it. */}
+        {canAdministerTenant ? (
+          <Button asChild>
+            <Link to="/settings/knowledge-base">{t("hub.empty_cta")}</Link>
+          </Button>
+        ) : null}
       </section>
     );
   }

@@ -32,6 +32,10 @@ import type { SearchIndexRegistry } from "@engenty/search-index";
 import { createJiti } from "jiti";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
 import { createDatabaseAdapter } from "../infra/index.js";
+import {
+  createTenantDbFactory,
+  resolveTenantDbConfig,
+} from "../infra/tenant-db.js";
 import { createBootApiLogger, initEvlog } from "../observability/evlog.js";
 import { registerCoreRoleProfiles } from "../security/role-profiles.js";
 import { resolvePluginCapability } from "./capability-resolver.js";
@@ -327,13 +331,25 @@ function createPluginApi(params: {
         // acceptable provenance until a core-owned boot registration exists.
         let service = params.registry.retrievalService;
         if (!service) {
-          const supabase = params.pluginApi.server.getDatabaseAdapter?.();
+          const supabase = params.pluginApi.server.getServiceDb?.();
           if (!supabase) {
             throw new Error(
               "registerRetrievalSource requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
             );
           }
-          service = createRetrievalService({ supabase: supabase as never });
+          // Phase A seam: with the tenant lane available the service runs
+          // document/chunk/query work tenant-locked; the service client
+          // remains for the platform visibility registry (and as the whole
+          // source in no-lane dev bootstraps).
+          const getTenantDb = params.pluginApi.server.getTenantDb;
+          service = createRetrievalService({
+            supabase: getTenantDb
+              ? ({
+                  getDb: getTenantDb,
+                  serviceDb: supabase,
+                } as never)
+              : (supabase as never),
+          });
           params.registry.retrievalService = service;
         }
         // Keep exactly one live `core_workspace_search`, re-homed to the
@@ -813,13 +829,27 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
 
   const resolvePath = (p: string) => path.resolve(dataDir, p);
   const databaseAdapter = createDatabaseAdapter(config);
-  const getDatabaseAdapter = () => databaseAdapter;
+  const getServiceDb = () => databaseAdapter;
+  const tenantDbConfig = resolveTenantDbConfig(config);
+  const tenantDbFactory = tenantDbConfig
+    ? createTenantDbFactory(tenantDbConfig)
+    : null;
+  if (databaseAdapter && !tenantDbFactory) {
+    logger.warn(
+      "Tenant-locked DB lane unavailable (missing anon key or JWT secret); modules fall back to getServiceDb. See PLAN-tenant-isolation-a-rls-seam.md."
+    );
+  }
+  const getTenantDb = tenantDbFactory
+    ? (auth: { tenantId: string }) => tenantDbFactory.getTenantDb(auth)
+    : undefined;
   const eventsRuntime = createPluginEventsRuntime();
 
   const { registry } = createPluginRegistry({
+    assertServerLanePreflight: tenantDbFactory?.assertServerLanePreflight,
     config,
     dataDir,
-    getDatabaseAdapter,
+    getServiceDb,
+    getTenantDb,
     resolvePath,
     logger,
   });

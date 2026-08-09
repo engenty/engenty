@@ -641,6 +641,7 @@ export {
 export { useContributionRegistry } from "./use-contribution-registry.jsx";
 export type { WorkspaceTenant } from "./workspace-context.jsx";
 export {
+  useCanAdministerTenant,
   useWorkspaceContext,
   WorkspaceProvider,
 } from "./workspace-context.jsx";

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 import type { AgentRunEventRow, AgentRunRow, AgentRunStatus } from "./types.js";
 
 const AI_SCHEMA = "ai";
@@ -33,12 +33,19 @@ export interface AppendAgentRunEventInput {
   threadId: string;
 }
 
-export function createAgentRunStore(client: SupabaseClient) {
-  const db = client.schema(AI_SCHEMA);
+export function createAgentRunStore(source: DbSource) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): tenant-keyed methods
+  // resolve a tenant-locked handle per call. The service client remains for
+  // exactly two lanes, each commented in place: the ai.model catalog read
+  // (global platform table, no tenant_id → no tenant-lane grants) and the
+  // boot-time cross-tenant sweepStalledRuns.
+  const { forTenant, service } = normalizeDbSource(source);
+  const dbFor = (tenantId: string) => forTenant(tenantId).schema(AI_SCHEMA);
+  const serviceDb = () => service.schema(AI_SCHEMA);
 
   return {
     async createRun(input: CreateAgentRunInput): Promise<{ run: AgentRunRow }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(input.tenantId)
         .from("agent_run")
         .insert({
           id: input.id,
@@ -62,7 +69,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       runId: string;
       tenantId: string;
     }): Promise<AgentRunRow | null> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -80,7 +87,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       tenantId: string;
     }): Promise<AgentRunRow[]> {
       const limit = params.limit ?? 50;
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -124,7 +131,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       startedAt: string;
       status: string;
     } | null> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .select(
           "id, model_id, prompt_tokens, completion_tokens, started_at, finished_at, status"
@@ -169,7 +176,10 @@ export function createAgentRunStore(client: SupabaseClient) {
       let inputPerMtokMicros: number | null = null;
       let outputPerMtokMicros: number | null = null;
       if (run.model_id) {
-        const { data: model, error: modelError } = await db
+        // SERVICE lane: ai.model is the global platform model catalog — no
+        // tenant_id column, so the tenant lane has no grants on it
+        // (fail-closed by the Phase A migration).
+        const { data: model, error: modelError } = await serviceDb()
           .from("model")
           .select(
             "context_tokens, display_name, input_per_mtok_micros, output_per_mtok_micros"
@@ -213,7 +223,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       tenantId: string;
     }): Promise<AgentRunRow[]> {
       const limit = params.limit ?? 50;
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -233,7 +243,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       tenantId: string;
     }): Promise<AgentRunRow[]> {
       const limit = params.limit ?? 50;
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -266,7 +276,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       }
       // An explicit cancel is terminal: the executor's completion (racing in
       // after the abort) must not overwrite `cancelled` with `completed`.
-      const { data, error } = await db
+      const { data, error } = await dbFor(input.tenantId)
         .from("agent_run")
         .update(patch)
         .eq("tenant_id", input.tenantId)
@@ -309,7 +319,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       ) {
         return { run: existing };
       }
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .update({
           cancelled_at: new Date().toISOString(),
@@ -336,7 +346,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       status: AgentRunStatus;
       tenantId: string;
     }): Promise<{ run: AgentRunRow | null }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .update({ status: params.status })
         .eq("tenant_id", params.tenantId)
@@ -353,7 +363,7 @@ export function createAgentRunStore(client: SupabaseClient) {
     async appendRunEvent(
       input: AppendAgentRunEventInput
     ): Promise<{ event: AgentRunEventRow }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(input.tenantId)
         .from("agent_run_event")
         .insert({
           tenant_id: input.tenantId,
@@ -382,6 +392,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       // client stuck "running" forever. Page through with .range() until drained.
       const PAGE = 1000;
       const all: AgentRunEventRow[] = [];
+      const db = dbFor(params.tenantId);
       for (let offset = 0; ; offset += PAGE) {
         let query = db
           .from("agent_run_event")
@@ -410,7 +421,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       runId: string;
       tenantId: string;
     }): Promise<{ deleted: boolean }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .delete()
         .eq("tenant_id", params.tenantId)
@@ -424,8 +435,12 @@ export function createAgentRunStore(client: SupabaseClient) {
 
     // D6: on process restart, any run still "running" cannot have a live executor.
     // Finish them as failed/executor_lost so clients don't hang waiting on zombies.
+    // SERVICE lane (Phase A residual): boot-time sweep across EVERY tenant —
+    // there is no per-tenant principal to mint for; the sweep pattern
+    // (enumerate + per-tenant handles) is not worth a round-trip per tenant
+    // for a hygiene update keyed only on status.
     async sweepStalledRuns(): Promise<{ swept: number }> {
-      const { data, error } = await db
+      const { data, error } = await serviceDb()
         .from("agent_run")
         .update({
           status: "failed",
@@ -446,7 +461,7 @@ export function createAgentRunStore(client: SupabaseClient) {
       agentId: string;
       tenantId: string;
     }): Promise<{ deleted: number }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .delete()
         .eq("tenant_id", params.tenantId)

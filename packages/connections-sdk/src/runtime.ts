@@ -68,13 +68,13 @@ export function withAccountParam(schema: ZodType): ZodType {
 function buildActionOperation(params: {
   action: ConnectorAction;
   connector: ConnectorDefinition;
-  supabase: SupabaseClient;
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced). */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   clientEnv: (tenantId: string | null) => ClientEnvResolver;
 }): PluginServerOperation {
-  const { action, connector, supabase, clientEnv } = params;
+  const { action, connector, getDb, clientEnv } = params;
   const contract = ACTION_GROUP_CONTRACTS[action.group];
   const operationId = connectorOperationId(connector, action.id);
-  const repo = createConnectionsRepo(supabase);
 
   return {
     description: `${action.description} (external connection: ${connector.name})`,
@@ -83,6 +83,9 @@ function buildActionOperation(params: {
       if (!auth) {
         throw new Error("connection_auth_required");
       }
+      // Per-call repo on the caller's tenant handle — projected actions are
+      // request-shaped, so the database itself confines every read/write.
+      const repo = createConnectionsRepo(getDb(auth));
       let account: string | null = null;
       let actionInput = input;
       if (input && typeof input === "object" && !Array.isArray(input)) {
@@ -138,18 +141,27 @@ export function registerConnectorModule(
   engenty: EngentyPluginApi,
   def: ConnectorDefinition
 ): void {
-  const supabaseRaw = engenty.server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced) — every projected
+  // action handler resolves getDb(auth) per call. The service client remains ONLY
+  // for the OAuth client-credential resolver: platform-level settings rows carry
+  // tenant_id NULL, which the tenant lane cannot see by design (platform settings
+  // are core service-lane work; the resolver is tenant-parameterized per lookup).
+  const serviceDb = (engenty.server.getServiceDb?.() ??
+    null) as SupabaseClient | null;
+  const getTenantDb = engenty.server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     throw new Error(
-      `Connector module ${def.moduleId} requires a database adapter`
+      `Connector module ${def.moduleId} requires a database adapter and tenant-locked handles (server.getTenantDb)`
     );
   }
-  const supabase = supabaseRaw as SupabaseClient;
-  const clientEnv = createConnectorClientEnv(supabase);
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
+  const clientEnv = createConnectorClientEnv(serviceDb);
   registerConnectorDefinition(def);
   for (const action of def.actions) {
     engenty.server.registerOperation(
-      buildActionOperation({ action, connector: def, supabase, clientEnv })
+      buildActionOperation({ action, connector: def, getDb, clientEnv })
     );
   }
   registerConnectorRoleProfiles(engenty, def);

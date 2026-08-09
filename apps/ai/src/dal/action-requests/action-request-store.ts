@@ -2,7 +2,7 @@
 // (Phase 5). One row per invocation, bound to a subject `(context_type,
 // context_id)`. Drives per-subject dedup (an in-flight row blocks a second run on
 // the same subject) and the per-subject run history the ActionButton reads.
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 
 const SCHEMA = "ai";
 
@@ -73,13 +73,16 @@ export interface ActionRequestStore {
   }): Promise<void>;
 }
 
-export function createActionRequestStore(
-  client: SupabaseClient
-): ActionRequestStore {
-  const table = () => client.schema(SCHEMA).from("action_request");
+export function createActionRequestStore(source: DbSource): ActionRequestStore {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every method is
+  // tenant-keyed (ai.action_request carries tenant_id) and resolves a
+  // tenant-locked handle per call.
+  const { forTenant } = normalizeDbSource(source);
+  const table = (tenantId: string) =>
+    forTenant(tenantId).schema(SCHEMA).from("action_request");
   return {
     async create(input) {
-      const { data, error } = await table()
+      const { data, error } = await table(input.tenantId)
         .insert({
           action_id: input.actionId,
           agent_id: input.agentId,
@@ -102,7 +105,7 @@ export function createActionRequestStore(
     },
 
     async finish(input) {
-      const { error } = await table()
+      const { error } = await table(input.tenantId)
         .update({
           reason: input.reason ?? null,
           status: input.status,
@@ -116,7 +119,7 @@ export function createActionRequestStore(
     },
 
     async setStatus(input) {
-      const { error } = await table()
+      const { error } = await table(input.tenantId)
         .update({ status: input.status, updated_at: new Date().toISOString() })
         .eq("id", input.id)
         .eq("tenant_id", input.tenantId);
@@ -129,7 +132,7 @@ export function createActionRequestStore(
       const staleCutoff = new Date(
         Date.now() - DISPATCH_STALE_MS
       ).toISOString();
-      let q = table()
+      let q = table(input.tenantId)
         .select("*")
         .eq("tenant_id", input.tenantId)
         .eq("action_id", input.actionId)
@@ -158,7 +161,7 @@ export function createActionRequestStore(
     },
 
     async list(input) {
-      let q = table()
+      let q = table(input.tenantId)
         .select("*")
         .eq("tenant_id", input.tenantId)
         .eq("action_id", input.actionId);

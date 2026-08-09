@@ -29,15 +29,26 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
     },
   ]);
   const { events, server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // remains ONLY for the two context-less lanes that resolve tenancy themselves:
+  // the anonymous OAuth callback's state-row lookup (serviceRepo, commented in
+  // oauth-routes.ts) and the client-credential resolver (platform-level settings
+  // rows carry tenant_id NULL — unreachable from the tenant lane by design).
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     throw new Error(
-      "Connections module requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+      "Connections module requires Supabase (supabaseUrl and supabaseServiceRoleKey) and tenant-locked handles (server.getTenantDb)"
     );
   }
-  const repo = createConnectionsRepo(supabaseRaw as SupabaseClient);
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
+  const getRepo = (auth: { tenantId: string }) =>
+    createConnectionsRepo(getDb(auth));
+  const serviceRepo = createConnectionsRepo(serviceDb);
   // Tenant/platform-aware OAuth client-credential overrides (Setup UI).
-  const settings = createConnectionsSettingsResolver(supabaseRaw);
+  const settings = createConnectionsSettingsResolver(serviceDb);
 
   // NOTE: nothing subscribes to `connections.connected` today. This comment
   // used to claim chat connect cards, task re-dispatch, and notification
@@ -58,10 +69,12 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
       { tenantId: event.tenantId }
     );
   };
-  registerConnectionsOAuthRoutes(server, repo, settings, { onConnected });
-  registerConnectionsCredentialsRoutes(server, repo, { onConnected });
+  registerConnectionsOAuthRoutes(server, { getRepo, serviceRepo }, settings, {
+    onConnected,
+  });
+  registerConnectionsCredentialsRoutes(server, getRepo, { onConnected });
 
-  registerConnectionsOperations(server, repo, {
+  registerConnectionsOperations(server, getRepo, {
     settings,
     // task_id/operation_id ride along so the tasks module can resume the
     // blocked run the approval was really about (subscriber pattern — no
@@ -91,7 +104,7 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // the deduped request in core.approval_requests + emits `approval.requested`.
   // The onAutonomousAsk hook that wrote module_connections.approval_requests
   // here is gone with the second ledger it fed.
-  server.registerProfilePolicy(createConnectionsProfilePolicy(repo));
+  server.registerProfilePolicy(createConnectionsProfilePolicy(getRepo));
 };
 
 export default registerConnectionsPlugin;

@@ -98,7 +98,7 @@ describe("contacts retrieval source — buildDocument", () => {
       contacts: [CONTACT_ROW, OTHER_ROW],
     });
     const source = createContactsRetrievalSource({
-      supabase: supabase as never,
+      getDb: () => supabase as never,
     });
 
     const document = await source.buildDocument({
@@ -125,7 +125,7 @@ describe("contacts retrieval source — buildDocument", () => {
   it("returns null for a missing (or soft-deleted) contact", async () => {
     const supabase = createFakeSupabase({ contacts: [] });
     const source = createContactsRetrievalSource({
-      supabase: supabase as never,
+      getDb: () => supabase as never,
     });
     await expect(
       source.buildDocument({ doc_id: "missing", tenant_id: "tenant-1" })
@@ -135,7 +135,7 @@ describe("contacts retrieval source — buildDocument", () => {
 
 describe("contacts retrieval source — mapFilters", () => {
   const source = createContactsRetrievalSource({
-    supabase: createFakeSupabase({}) as never,
+    getDb: () => createFakeSupabase({}) as never,
   });
   const mapFilters = source.retriever?.mapFilters;
   if (!mapFilters) {
@@ -182,7 +182,7 @@ describe("contacts retrieval source — hydrate", () => {
       contacts: [CONTACT_ROW],
     });
     const source = createContactsRetrievalSource({
-      supabase: supabase as never,
+      getDb: () => supabase as never,
     });
 
     const results = await source.retriever?.hydrate?.(
@@ -213,7 +213,7 @@ describe("contacts retrieval source — hydrate", () => {
       contacts: [CONTACT_ROW],
     });
     const source = createContactsRetrievalSource({
-      supabase: supabase as never,
+      getDb: () => supabase as never,
     });
 
     const results = await source.retriever?.hydrate?.(

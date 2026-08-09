@@ -43,9 +43,14 @@ interface ActResult {
  * the group contract does all the governance.
  */
 export function createBrowserConnector(deps: {
-  repo: BrowserBridgeRepo;
+  /** Tenant-locked repo factory (Phase A): every action resolves its repo from
+   * the connection row's own tenant — the row was already read on the caller's
+   * tenant handle upstream, so this cannot widen the scope. */
+  getRepo: (auth: { tenantId: string }) => BrowserBridgeRepo;
 }): ConnectorDefinition {
-  const { repo } = deps;
+  const { getRepo } = deps;
+  const repoFor = (ctx: ConnectorActionContext) =>
+    getRepo({ tenantId: ctx.connection.tenant_id });
 
   /**
    * Server-side origin-allowlist enforcement for `navigate`. The allowlist
@@ -58,7 +63,7 @@ export function createBrowserConnector(deps: {
     ctx: ConnectorActionContext,
     url: string
   ): Promise<void> {
-    const installation = await repo.getInstallationByConnection(
+    const installation = await repoFor(ctx).getInstallationByConnection(
       ctx.connection.id
     );
     const allowed = installation?.allowed_origins ?? [];
@@ -89,7 +94,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input: args,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           });
         },
         id: "navigate",
@@ -107,7 +112,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           }),
         id: "reload",
         inputSchema: reloadInputSchema,
@@ -124,7 +129,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           })) as ObserveResult;
           return { ...result, outline: wrapUntrustedContent(result.outline) };
         },
@@ -142,7 +147,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           }),
         id: "tabs",
         inputSchema: tabsInputSchema,
@@ -159,7 +164,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           }),
         id: "wait_for",
         inputSchema: waitForInputSchema,
@@ -176,7 +181,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           })) as ActResult;
           return result.observe
             ? { ...result, observe: wrapUntrustedContent(result.observe) }
@@ -197,7 +202,7 @@ export function createBrowserConnector(deps: {
             connection: ctx.connection,
             input,
             log: ctx.log,
-            repo,
+            repo: repoFor(ctx),
           })) as ActResult;
           return result.observe
             ? { ...result, observe: wrapUntrustedContent(result.observe) }

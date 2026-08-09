@@ -75,31 +75,27 @@ function input(
 
 describe("createProjectVisibilityPolicy", () => {
   it("abstains for tenant-visible projects", async () => {
-    const policy = createProjectVisibilityPolicy(
-      fakeDb({ p1: "tenant" }, {}) as never
-    );
+    const policy = createProjectVisibilityPolicy((() =>
+      fakeDb({ p1: "tenant" }, {})) as never);
     expect(await policy(input({}))).toBeNull();
   });
 
   it("denies a non-member on a members-only project", async () => {
-    const policy = createProjectVisibilityPolicy(
-      fakeDb({ p1: "members" }, { p1: ["u2"] }) as never
-    );
+    const policy = createProjectVisibilityPolicy((() =>
+      fakeDb({ p1: "members" }, { p1: ["u2"] })) as never);
     const decision = await policy(input({ principalId: "u1" }));
     expect(decision?.action).toBe("deny");
   });
 
   it("allows a team member on a members-only project", async () => {
-    const policy = createProjectVisibilityPolicy(
-      fakeDb({ p1: "members" }, { p1: ["u1"] }) as never
-    );
+    const policy = createProjectVisibilityPolicy((() =>
+      fakeDb({ p1: "members" }, { p1: ["u1"] })) as never);
     expect(await policy(input({ principalId: "u1" }))).toBeNull();
   });
 
   it("lets tenant admins and moderators bypass", async () => {
-    const policy = createProjectVisibilityPolicy(
-      fakeDb({ p1: "members" }, {}) as never
-    );
+    const policy = createProjectVisibilityPolicy((() =>
+      fakeDb({ p1: "members" }, {})) as never);
     expect(await policy(input({ capabilities: ["*"] }))).toBeNull();
     expect(
       await policy(input({ capabilities: ["module.projects.moderate"] }))
@@ -107,18 +103,16 @@ describe("createProjectVisibilityPolicy", () => {
   });
 
   it("abstains for operations with no project id (e.g. list)", async () => {
-    const policy = createProjectVisibilityPolicy(
-      fakeDb({ p1: "members" }, {}) as never
-    );
+    const policy = createProjectVisibilityPolicy((() =>
+      fakeDb({ p1: "members" }, {})) as never);
     expect(
       await policy(input({ operationId: "projects_list", inputObj: {} }))
     ).toBeNull();
   });
 
   it("abstains for other modules", async () => {
-    const policy = createProjectVisibilityPolicy(
-      fakeDb({ p1: "members" }, {}) as never
-    );
+    const policy = createProjectVisibilityPolicy((() =>
+      fakeDb({ p1: "members" }, {})) as never);
     const other = { ...input({}), moduleId: "contacts" } as PluginPolicyInput;
     expect(await policy(other)).toBeNull();
   });

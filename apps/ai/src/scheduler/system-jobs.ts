@@ -145,10 +145,14 @@ export async function runSystemJob(
   if (!job) {
     throw new Error(`unknown system job: ${jobId}`);
   }
-  const { createAiDatabaseAdapter } = await import("../infra/database.js");
-  const db = createAiDatabaseAdapter();
-  if (!db) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): the scheduler is the
+  // sweep pattern — tenants are ENUMERATED on the service lane
+  // (scheduler/tenants.ts), but each job execution here is already scoped to
+  // one tenantId, so its DB work runs on a tenant-locked handle.
+  const { getTenantDbFactoryFromEnv } = await import("../infra/tenant-db.js");
+  const factory = getTenantDbFactoryFromEnv();
+  if (!factory) {
     return "skipped: no database";
   }
-  return job.execute({ db, tenantId });
+  return job.execute({ db: factory.getTenantDb({ tenantId }), tenantId });
 }

@@ -6,7 +6,7 @@ import {
   ENGENTY_COPILOT_SOUL_KEY,
 } from "@engenty/ai-core";
 import { createInstructionOverridesStore } from "../../dal/instructions/instruction-overrides-store.js";
-import { createAiDatabaseAdapter } from "../../infra/database.js";
+import { createDbSourceFromEnv } from "../../infra/tenant-db.js";
 import { agentInstructionDocumentKey } from "./base-documents.js";
 
 export interface AgentInstructionExtras {
@@ -56,11 +56,14 @@ export async function resolveAgentInstructionExtras(params: {
     skillsOverrideBody: null,
     soulOverrideBody: null,
   };
-  const db = createAiDatabaseAdapter();
-  if (!db) {
+  // Phase A seam: the override reads below are tenant-keyed and ride
+  // tenant-locked handles; only the store's change-history lane (unused here)
+  // keeps the service client.
+  const source = createDbSourceFromEnv();
+  if (!source) {
     return empty;
   }
-  const store = createInstructionOverridesStore(db);
+  const store = createInstructionOverridesStore(source);
   const agentsKey = agentInstructionDocumentKey(params.agentId);
   const isCopilot = params.agentId === "engenty.copilot";
   const soulKey = isCopilot

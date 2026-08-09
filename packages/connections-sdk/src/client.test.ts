@@ -122,10 +122,11 @@ describe("createConnectionsModuleClientFromRepo", () => {
   it("lists only active connections", async () => {
     registerGmail();
     const client = createConnectionsModuleClientFromRepo(
-      fakeRepo([
-        connection({ id: "c-1" }),
-        connection({ id: "c-2", status: "error" }),
-      ]),
+      () =>
+        fakeRepo([
+          connection({ id: "c-1" }),
+          connection({ id: "c-2", status: "error" }),
+        ]),
       { moduleId: "inbox" }
     );
     const listed = await client.listConnections({ tenantId: "tenant-1" });
@@ -135,7 +136,7 @@ describe("createConnectionsModuleClientFromRepo", () => {
   it("calls a read action on a read_only connection autonomously", async () => {
     registerGmail();
     const client = createConnectionsModuleClientFromRepo(
-      fakeRepo([connection({ id: "c-1" })]),
+      () => fakeRepo([connection({ id: "c-1" })]),
       { moduleId: "inbox" }
     );
     const output = await client.callAction({
@@ -152,7 +153,7 @@ describe("createConnectionsModuleClientFromRepo", () => {
   it("denies the same call when autonomous_mode is off", async () => {
     registerGmail();
     const client = createConnectionsModuleClientFromRepo(
-      fakeRepo([connection({ autonomous_mode: "off", id: "c-1" })]),
+      () => fakeRepo([connection({ autonomous_mode: "off", id: "c-1" })]),
       { moduleId: "inbox" }
     );
     await expect(
@@ -181,7 +182,7 @@ describe("createConnectionsModuleClientFromRepo", () => {
         status: "pending",
       };
     };
-    const client = createConnectionsModuleClientFromRepo(repo, {
+    const client = createConnectionsModuleClientFromRepo(() => repo, {
       moduleId: "inbox",
     });
     await expect(
@@ -201,7 +202,7 @@ describe("createConnectionsModuleClientFromRepo", () => {
     const { pull } = registerGmail();
     const audit = vi.fn();
     const client = createConnectionsModuleClientFromRepo(
-      fakeRepo([connection({ id: "c-1" })]),
+      () => fakeRepo([connection({ id: "c-1" })]),
       { moduleId: "inbox", recordAuditEvent: audit }
     );
     const result = await client.pullStream({
@@ -228,7 +229,7 @@ describe("createConnectionsModuleClientFromRepo", () => {
   it("denies stream pulls when autonomous_mode is off", async () => {
     registerGmail();
     const client = createConnectionsModuleClientFromRepo(
-      fakeRepo([connection({ autonomous_mode: "off", id: "c-1" })]),
+      () => fakeRepo([connection({ autonomous_mode: "off", id: "c-1" })]),
       { moduleId: "inbox" }
     );
     await expect(
@@ -246,7 +247,7 @@ describe("createConnectionsModuleClientFromRepo", () => {
     __resetConnectorRegistryForTests();
     registerConnectorDefinition(withoutStream as ConnectorDefinition);
     const client = createConnectionsModuleClientFromRepo(
-      fakeRepo([connection({ id: "c-1" })]),
+      () => fakeRepo([connection({ id: "c-1" })]),
       { moduleId: "inbox" }
     );
     await expect(

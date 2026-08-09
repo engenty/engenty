@@ -32,13 +32,20 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     },
   ]);
   const { events, server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // remains ONLY for the connections client's OAuth client-credential resolver:
+  // it reads PLATFORM-level settings rows (tenant override → platform → env)
+  // that carry tenant_id NULL, which a tenant-locked handle cannot see by design.
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     throw new Error(
-      "Inbox module requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+      "Inbox module requires Supabase (supabaseUrl and supabaseServiceRoleKey) and the tenant-locked DB seam (getTenantDb)"
     );
   }
-  const supabase = supabaseRaw as SupabaseClient;
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   // `synced` (new message stored) doubles as the search re-index signal and
   // the Model-2 triage consumers' subscription point (event triggers).
@@ -62,11 +69,15 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
       "Inbox module requires a host with the central retrieval service"
     );
   }
-  server.registerRetrievalSource(createInboxRetrievalSource({ supabase }));
+  server.registerRetrievalSource(createInboxRetrievalSource({ getDb }));
 
-  const connectionsClient = createConnectionsModuleClient(supabase, {
-    moduleId: "inbox",
-  });
+  // Cross-module sanctioned client — tenant rows (connections, policies, token
+  // refresh) resolve per call on the caller's tenant-locked handle; serviceDb
+  // feeds ONLY the OAuth client-credential resolver (see the seam comment above).
+  const connectionsClient = createConnectionsModuleClient(
+    { getDb, serviceDb },
+    { moduleId: "inbox" }
+  );
 
   const repoForAuth = (auth: PluginAuthContext | undefined) => {
     if (!auth) {
@@ -77,7 +88,7 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
       auth.principalId ??
       null;
     return createInboxRepoSupabase(
-      supabase,
+      getDb(auth),
       auth.tenantId,
       auth.scopeId ?? "default",
       userId,
@@ -85,8 +96,10 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     );
   };
 
+  // "Service" = userId null (sync sees personal connections too), NOT the
+  // service-role client — the handle is still locked to the sync's tenant.
   const serviceRepoFor = (tenantId: string) =>
-    createInboxRepoSupabase(supabase, tenantId, "default", null, {
+    createInboxRepoSupabase(getDb({ tenantId }), tenantId, "default", null, {
       emitInboxEvent,
     });
 

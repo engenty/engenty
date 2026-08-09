@@ -59,10 +59,13 @@ export type InboxSearchProvider = SearchIndexProvider<
 >;
 
 export function createInboxRetrievalSource(options: {
-  supabase: SupabaseClient;
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — every
+   * entry point below (build, list, hydrate) carries the tenant it runs for. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
 }): RetrievalSourceRegistration<InboxSearchMatch> {
-  const { supabase } = options;
-  const messages = () => supabase.schema(SCHEMA).from("messages");
+  const { getDb } = options;
+  const messages = (tenantId: string) =>
+    getDb({ tenantId }).schema(SCHEMA).from("messages");
 
   async function loadMessagesByIds(
     ids: string[],
@@ -71,7 +74,7 @@ export function createInboxRetrievalSource(options: {
     if (ids.length === 0) {
       return new Map();
     }
-    const { data, error } = await messages()
+    const { data, error } = await messages(tenantId)
       .select("*")
       .eq("tenant_id", tenantId)
       .in("id", ids);
@@ -125,7 +128,7 @@ export function createInboxRetrievalSource(options: {
       };
     },
     listDocuments: async ({ limit, tenant_id }) => {
-      const { data, error } = await messages()
+      const { data, error } = await messages(tenant_id)
         .select("id, updated_at")
         .eq("tenant_id", tenant_id)
         .order("updated_at", { ascending: false })

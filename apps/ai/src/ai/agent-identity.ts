@@ -1,16 +1,17 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureCoreAgentId } from "../dal/registry/core-agent-link.js";
-import { createAiDatabaseAdapter } from "../infra/database.js";
+import { getTenantDbFactoryFromEnv } from "../infra/tenant-db.js";
 
 /**
  * Best-effort resolution of the core.agents principal uuid for a run's agent
- * key. Null (no service-role DB, provisioning failure) means agent identity is
+ * key. Null (no tenant-lane DB, provisioning failure) means agent identity is
  * simply not forwarded to core — tools keep working as before, only the
  * agent-aware policy gates stay dormant. Never throws: identity forwarding
  * must not take down a chat run.
+ *
+ * Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): both tables touched
+ * (ai.engenty_ai_agents, core.agents) carry tenant_id, so the lookup rides a
+ * tenant-locked handle minted for the run's tenant.
  */
-
-let serviceClient: SupabaseClient | null | undefined;
 
 export async function resolveCoreAgentId(
   tenantId: string | null | undefined,
@@ -19,14 +20,16 @@ export async function resolveCoreAgentId(
   if (!(tenantId && agentKey)) {
     return null;
   }
-  if (serviceClient === undefined) {
-    serviceClient = createAiDatabaseAdapter();
-  }
-  if (!serviceClient) {
+  const factory = getTenantDbFactoryFromEnv();
+  if (!factory) {
     return null;
   }
   try {
-    return await ensureCoreAgentId(serviceClient, tenantId, agentKey);
+    return await ensureCoreAgentId(
+      factory.getTenantDb({ tenantId }),
+      tenantId,
+      agentKey
+    );
   } catch (err) {
     console.error("resolveCoreAgentId failed", err);
     return null;

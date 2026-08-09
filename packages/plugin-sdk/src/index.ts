@@ -45,6 +45,9 @@ export {
   foreignSelect,
   type TenantScope,
 } from "./foreign-schema.js";
+
+import type { TenantScope } from "./foreign-schema.js";
+
 export { ownershipPolicy } from "./ownership-policy.js";
 export type { PluginCategory } from "./plugin-category.js";
 export {
@@ -610,8 +613,6 @@ export interface PluginServerApi {
     get(id: string): ContextGraphSourceRegistration | undefined;
     list(): ContextGraphSourceRegistration[];
   };
-  /** Database adapter provided by the host for backend modules that own DAL factories. */
-  getDatabaseAdapter?: () => unknown | null;
   /** Queue service for background job processing when the host wires pgmq. */
   getQueueService?: () => QueueServiceLike | null;
   /**
@@ -629,8 +630,34 @@ export interface PluginServerApi {
    */
   /** Shared retrieval service handle (null until the first source registers). */
   getRetrievalService?: () => RetrievalServiceLike | null;
+  /**
+   * SERVICE-ROLE client — BYPASSES row-level security. This is never the
+   * default: tenant work uses `getTenantDb(auth)`, where the database itself
+   * confines every query to the caller's tenant. Reach for this accessor only
+   * for the two sanctioned shapes, and leave an in-place comment saying which:
+   *
+   * 1. A read that must run BEFORE tenancy is known and IS the tenant
+   *    resolution (webhook id+secret lookup, OAuth state-nonce lookup,
+   *    portal/pairing token lookup, cross-tenant boot replay).
+   * 2. A platform-level store that carries no tenant_id by design
+   *    (external-connectors registry, OAuth client env).
+   *
+   * `pnpm check:leak-harness` and review both treat an uncommented call site
+   * as a defect. (Renamed from getDatabaseAdapter in the Phase A hard cutover
+   * — PLAN-tenant-isolation-a-rls-seam.md WP8.)
+   */
+  getServiceDb?: () => unknown | null;
   /** Storage service for a bucket. Injected by core when database adapter is available. */
   getStorageService?: (bucket: string) => StorageService | null;
+  /**
+   * Tenant-locked database handle for the server lane. The returned client runs as
+   * the `engenty_server` role (NOBYPASSRLS) under a short-lived JWT carrying
+   * `auth.tenantId`, so RLS confines every query — scoped or not — to that tenant.
+   * Keep the explicit `.eq("tenant_id", …)` filters in DALs as the belt; this is
+   * the wall. Returns `unknown` for the same reason as `getServiceDb`:
+   * plugin-sdk keeps no runtime dependency on supabase-js.
+   */
+  getTenantDb?: (auth: TenantScope | { tenantId: string }) => unknown | null;
   /** Check whether a module operation is registered in the current backend registry. */
   hasOperation: (operationId: string) => boolean;
   /** Register orchestrator agents, actions, skills, and triggers for this module. */

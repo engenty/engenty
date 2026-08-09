@@ -1082,6 +1082,7 @@
   "hub": {
     "empty_title": "No knowledge bases yet",
     "empty_description": "Create your first knowledge base to start adding articles, FAQs, and sources.",
+    "empty_no_permission": "No knowledge base yet — ask an administrator to create one.",
     "empty_cta": "Create knowledge base",
     "title": "Knowledge Base",
     "search_placeholder": "Search articles…",

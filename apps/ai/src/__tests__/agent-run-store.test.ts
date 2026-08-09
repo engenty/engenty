@@ -1,5 +1,6 @@
 import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it, vi } from "vitest";
+import { createRecordingDbSource } from "./helpers/recording-db-source.js";
 
 describe("createSessionRunTracker text coalescing", () => {
   it("coalesces text deltas to DB but publishes every delta to the bus", async () => {
@@ -317,7 +318,8 @@ describe("createAgentRunStore", () => {
     const { createAgentRunStore } = await import(
       "../dal/threads/agent-run-store.js"
     );
-    const store = createAgentRunStore(client as never);
+    const db = createRecordingDbSource(client);
+    const store = createAgentRunStore(db.source as never);
     await store.createRun({
       id: "00000000-0000-4000-8000-000000000010",
       tenantId: "00000000-0000-4000-8000-000000000001",
@@ -400,7 +402,8 @@ describe("createAgentRunStore", () => {
     const { createAgentRunStore } = await import(
       "../dal/threads/agent-run-store.js"
     );
-    const store = createAgentRunStore(client as never);
+    const db = createRecordingDbSource(client);
+    const store = createAgentRunStore(db.source as never);
     const { run } = await store.finishRun({
       runId: "00000000-0000-4000-8000-000000000020",
       tenantId: "00000000-0000-4000-8000-000000000001",
@@ -445,7 +448,8 @@ describe("listRunEvents pagination", () => {
     const { createAgentRunStore } = await import(
       "../dal/threads/agent-run-store.js"
     );
-    const store = createAgentRunStore(client as never);
+    const db = createRecordingDbSource(client);
+    const store = createAgentRunStore(db.source as never);
     const events = await store.listRunEvents({
       runId: "00000000-0000-4000-8000-000000000010",
       tenantId: "00000000-0000-4000-8000-000000000001",
@@ -460,6 +464,48 @@ describe("listRunEvents pagination", () => {
       [1000, 1999],
       [2000, 2999],
     ]);
+  });
+});
+
+describe("tenant binding (Phase A)", () => {
+  it("resolves the tenant-locked handle for the caller's tenant, not the service lane", async () => {
+    const TENANT = "00000000-0000-4000-8000-0000000000aa";
+    const client = {
+      schema: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+            }),
+          }),
+        }),
+      }),
+    };
+    // A DISTINCT service client: if the store reaches for the service lane on a
+    // tenant-keyed read, it gets this one and the test says so loudly.
+    const serviceClient = {
+      schema: () => {
+        throw new Error("tenant-keyed read must not use the service lane");
+      },
+    };
+
+    const { createAgentRunStore } = await import(
+      "../dal/threads/agent-run-store.js"
+    );
+    const db = createRecordingDbSource(client, serviceClient);
+    const store = createAgentRunStore(db.source as never);
+    await store.getRun({
+      runId: "00000000-0000-4000-8000-000000000010",
+      tenantId: TENANT,
+    });
+
+    // The assertion the old plain-client tests could not make: the store asked
+    // for a handle, and asked for THIS tenant. With a bare SupabaseClient,
+    // normalizeDbSource discards the tenantId and every one of these passes
+    // even if the binding is dropped entirely.
+    expect(db.usedTenantLane()).toBe(true);
+    expect(db.tenantCalls).toEqual([TENANT]);
+    db.assertOnlyTenant(TENANT);
   });
 });
 
@@ -491,7 +537,8 @@ describe("sweepStalledRuns (D6 startup sweep)", () => {
     const { createAgentRunStore } = await import(
       "../dal/threads/agent-run-store.js"
     );
-    const store = createAgentRunStore(client as never);
+    const db = createRecordingDbSource(client);
+    const store = createAgentRunStore(db.source as never);
     const result = await store.sweepStalledRuns();
 
     expect(result.swept).toBe(2);

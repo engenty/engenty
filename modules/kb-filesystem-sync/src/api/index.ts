@@ -23,9 +23,11 @@ import { walkKeys } from "../storage/storage-ops.js";
 
 export interface KbSyncApiDeps {
   config: KbSyncConfig;
+  /** Tenant-locked DB handle factory (engenty_server lane, RLS-enforced) —
+   * resolved per request from the caller's auth. */
+  getDb: (auth: { tenantId: string }) => unknown;
   repoFactory: (tenantId: string, scopeId: string) => KbRepoFactory;
   storage: StorageService;
-  supabase: unknown;
 }
 
 const kbIdBody = z.object({ kb_id: z.string().min(1) });
@@ -81,7 +83,11 @@ export function registerKbSyncApi(
       const auth = requireAuth(ctx);
       const { kb_id } = kbIdBody.parse(ctx.body);
       const base = kbBasePrefix(config, auth.tenantId, kb_id);
-      const store = createOkfStore(deps.supabase, auth.tenantId, auth.scopeId);
+      const store = createOkfStore(
+        deps.getDb(auth),
+        auth.tenantId,
+        auth.scopeId
+      );
       return await importKb({ base, storage, store }, kb_id);
     },
   });

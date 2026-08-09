@@ -3,7 +3,6 @@ import type {
   PluginHttpRouteContext,
   PluginServerApi,
 } from "@engenty/plugin-sdk";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function ensureClientRoleOnEntity(
   hasOperation: PluginServerApi["hasOperation"],
@@ -70,7 +69,6 @@ type PortalDAL = ReturnType<typeof createPortalDAL>;
 
 interface RegisterProjectsApiOpts {
   portalDAL?: PortalDAL;
-  supabase?: SupabaseClient;
 }
 
 export function registerProjectsApi(
@@ -216,9 +214,9 @@ export function registerProjectsApi(
       200: { description: "Briefing snapshot", schema: z.any() },
     },
     handler: async (ctx) => {
-      if (!(opts?.supabase && ctx.auth)) {
+      if (!ctx.auth) {
         return new Response(
-          JSON.stringify({ error: "Briefing requires database adapter" }),
+          JSON.stringify({ error: "Briefing requires auth context" }),
           { status: 500, headers: { "content-type": "application/json" } }
         );
       }

@@ -352,6 +352,8 @@ function App() {
                 currentUserId={workspaceContext.userId}
                 defaultTopbarTitle={t("navigation.dashboard")}
                 fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
+                isSuperAdmin={isSuperAdmin}
+                isTenantAdmin={isTenantAdmin}
                 modulesReorderable={isTenantAdmin || isSuperAdmin}
                 onModulesReorder={dockModuleOrderPersistence.setOrder}
                 secondaryNavPersistence={secondaryNavPersistence}

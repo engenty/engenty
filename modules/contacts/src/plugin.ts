@@ -36,15 +36,20 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
     },
   ]);
   const { events, server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). Every contacts
+  // consumer (repo, retrieval-source callbacks, context-graph loaders/sync)
+  // carries a tenant id at call time, so the service-role client is not
+  // captured at all. The plugin SDK contract is adapter-agnostic (`unknown`);
+  // contacts is intentionally Supabase-bound, hence the single cast here.
+  const getTenantDb = server.getTenantDb;
+  if (!getTenantDb) {
     throw new Error(
-      "Contacts module requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+      "Contacts module requires tenant-locked DB handles (server.getTenantDb)"
     );
   }
-  // Core injects the supabase service-role client. The plugin SDK contract is
-  // adapter-agnostic (`unknown`); contacts is intentionally Supabase-bound.
-  const supabase = supabaseRaw as SupabaseClient;
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   // `contacts.contact` is a managed retrieval source (retrieval-service
   // Phase 4): the central service owns embeddings/fusion/status/backfill;
@@ -59,7 +64,7 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
       "Contacts module requires a host with the central retrieval service"
     );
   }
-  server.registerRetrievalSource(createContactsRetrievalSource({ supabase }));
+  server.registerRetrievalSource(createContactsRetrievalSource({ getDb }));
   const searchProvider = server
     .getRetrievalService()
     ?.getProvider(
@@ -79,7 +84,7 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
   };
 
   const repoFactory = (auth: { tenantId: string; scopeId: string }) =>
-    createContactRepoSupabase(supabase, auth.tenantId, auth.scopeId, {
+    createContactRepoSupabase(getDb(auth), auth.tenantId, auth.scopeId, {
       emitContactEvent,
       searchProvider,
     });
@@ -189,7 +194,7 @@ vat_id: Use null for most records. If set, MUST match: ATU + 8 digits (e.g. ATU1
   // into the typed context graph (`contacts.person|organisation` + the
   // three relation edge types). Idempotent — re-running on every update
   // just re-upserts on the same external ref.
-  registerContactsContextGraph({ supabase, server });
+  registerContactsContextGraph({ getDb, server });
 };
 
 export default registerContactsPlugin;

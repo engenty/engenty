@@ -37,10 +37,17 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     },
   ]);
   const { server } = engenty;
-  const supabase = server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // remains ONLY for the two context-less reads that resolve tenancy themselves:
+  // webhook trigger lookup by id+secret, and the boot-time resource replay.
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     return;
   }
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   const { invokeOperation } = createPluginServerGatewayCaller(server);
   server.registerAiRegistration(
@@ -60,7 +67,7 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     },
     scope: { scopeId: string; tenantId: string }
   ) => {
-    const { data } = await (supabase as SupabaseClient)
+    const { data } = await getDb({ tenantId: scope.tenantId })
       .schema("module_tasks")
       .from("task_contexts")
       .select("context_type, context_id")
@@ -91,15 +98,10 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
       detail?: Record<string, unknown>;
     }) => void
   ) =>
-    createTasksRepoSupabase(
-      supabase as SupabaseClient,
-      auth.tenantId,
-      auth.scopeId,
-      {
-        onActivity: emitTaskActivity,
-        ...(recordAuditEvent ? { recordAuditEvent } : {}),
-      }
-    );
+    createTasksRepoSupabase(getDb(auth), auth.tenantId, auth.scopeId, {
+      onActivity: emitTaskActivity,
+      ...(recordAuditEvent ? { recordAuditEvent } : {}),
+    });
 
   // Queue powers agent-task auto-dispatch (phase 2); without it, tasks assigned
   // to agents sit in `todo` forever — say so loudly instead of skipping silently.
@@ -109,20 +111,18 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
       "queue service unavailable — agent task auto-dispatch disabled"
     );
   }
-  const triggersRepoFactory = createTriggersRepoFactory(
-    supabase as SupabaseClient
-  );
+  const triggersRepoFactory = createTriggersRepoFactory(getDb);
   // Tool approvals live in core.approval_grants — the ONE grant store. The
   // task-row grant columns this used to dual-write were dropped in
   // 20260803210000; the task DTO's approval_grants fields are hydrated from
   // core on read.
   const coreGrantsFactory = (auth: { tenantId: string }) =>
-    createCoreGrantsWriter(supabase as SupabaseClient, auth.tenantId);
+    createCoreGrantsWriter(getDb(auth), auth.tenantId);
   registerTasksApi(server, repoOrFactory, {
     coreGrantsFactory,
     queue,
     reapGoalGrants: (auth, goalId) =>
-      revokeGoalGrants(supabase as SupabaseClient, {
+      revokeGoalGrants(getDb(auth), {
         goalId,
         tenantId: auth.tenantId,
       }),
@@ -135,8 +135,9 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
   // createApp deadlocks the loader).
   const eventSubscriber = createTriggerEventSubscriber({
     events: engenty.events,
+    getDb,
     queue,
-    supabase: supabase as SupabaseClient,
+    serviceDb,
   });
   setTimeout(() => {
     eventSubscriber.replayFromDatabase().catch((error: unknown) => {
@@ -147,21 +148,22 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     });
   }, 3000);
   registerTriggerWebhookRoute(server, {
+    getDb,
     queue,
-    supabase: supabase as SupabaseClient,
+    serviceDb,
   });
 
   // Approving a task-linked connections request resumes the blocked task.
   subscribeConnectionsApprovalResume({
     events: engenty.events,
+    getDb,
     queue,
-    supabase: supabase as SupabaseClient,
   });
 
   registerTriggerGatewayMethods(server, triggersRepoFactory, {
+    getDb,
     onEventResourceAdded: eventSubscriber.ensureSubscribed,
     queue,
-    supabase: supabase as SupabaseClient,
   });
 };
 

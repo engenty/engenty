@@ -54,20 +54,20 @@ const writeOp = {
 };
 
 export interface TriggerGatewayOptions {
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced). */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   /** Ensure the module-event bus listener covers a trigger's resource — the
    * subscriber's `ensureSubscribed`, called on event-trigger create/update. */
   onEventResourceAdded?: (resource: string) => void;
   /** Queue for auto-dispatching agent tasks materialized by a fire. */
   queue?: QueueServiceLike | null;
-  /** Service client for the shared fire path (tenant/scope come from the trigger row). */
-  supabase: SupabaseClient;
 }
 
 export function createTriggersRepoFactory(
-  supabase: Parameters<typeof createTriggersRepoSupabase>[0]
+  getDb: (auth: { tenantId: string }) => SupabaseClient
 ): TriggersRepoFactory {
   return (auth) =>
-    createTriggersRepoSupabase(supabase, auth.tenantId, auth.scopeId);
+    createTriggersRepoSupabase(getDb(auth), auth.tenantId, auth.scopeId);
 }
 
 export function registerTriggerGatewayMethods(
@@ -266,7 +266,7 @@ export function registerTriggerGatewayMethods(
       return fireTrigger({
         createdByUserId: actorUserIdFromAuth(auth),
         queue: options.queue ?? null,
-        supabase: options.supabase,
+        supabase: options.getDb({ tenantId: auth.tenantId }),
         trigger,
       });
     },

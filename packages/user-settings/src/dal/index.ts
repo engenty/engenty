@@ -15,7 +15,10 @@ export type UserSettingsRepoSupabase = ReturnType<
 
 export function createUserSettingsRepoSupabase(
   adapter: unknown,
-  userId: string
+  userId: string,
+  /** Stamped on writes; required since core.user_settings gained tenant_id
+   * (20260809230000). The composite FK pins it to the owning user's tenant. */
+  tenantId: string
 ) {
   const supabase = adapter as SupabaseClient;
   const table = () => supabase.schema(SCHEMA).from(TABLE);
@@ -42,6 +45,7 @@ export function createUserSettingsRepoSupabase(
   function buildRow(input: UserSettingValue): Record<string, unknown> {
     const row: Record<string, unknown> = {
       user_id: userId,
+      tenant_id: tenantId,
       name: input.name,
       type: input.type,
       value_string: null,

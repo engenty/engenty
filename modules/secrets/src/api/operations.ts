@@ -77,10 +77,9 @@ interface SecretCryptoRow {
  */
 export function registerSecretsOperations(
   api: PluginServerApi,
-  supabase: SupabaseClient
+  /** Tenant-locked handle factory (Phase A) — resolved per call from ctx.auth. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient
 ): void {
-  const db = () => supabase.schema(SCHEMA);
-
   api.registerOperation({
     operationId: "secrets_list",
     moduleId: "secrets",
@@ -94,16 +93,18 @@ export function registerSecretsOperations(
         throw new Error("unauthorized");
       }
       const inp = (input ?? {}) as NonNullable<z.infer<typeof listInput>>;
-      // RLS clamps to tenant+scope. payload_enc excluded by column grant, but we
-      // also select an explicit column list so nothing leaks even service-side.
+      const auth = ctx.auth;
+      const db = () => getDb(auth).schema(SCHEMA);
+      // RLS clamps to tenant (engenty_server lane). payload_enc excluded by
+      // column grant, but we also select an explicit column list so nothing
+      // leaks even server-side.
       let q = db()
         .from("secrets")
         .select(
           "id, owner_scope, owner_id, name, kind, url, description, created_by, created_at, updated_at"
         )
-        // RLS is bypassed by the service-role client, so the tenant boundary
-        // must be enforced explicitly here (BUG-1). Every service-role read in
-        // this module carries this filter.
+        // The tenant-locked handle already confines this read; the explicit
+        // filter stays as the belt (Phase A doctrine).
         .eq("tenant_id", ctx.auth.tenantId)
         .is("deleted_at", null);
       if (inp.owner_scope) {
@@ -137,6 +138,7 @@ export function registerSecretsOperations(
       }
       const input = rawInput as z.infer<typeof createInput>;
       const { tenantId } = ctx.auth;
+      const db = () => getDb({ tenantId }).schema(SCHEMA);
       const id = crypto.randomUUID();
       const { key, dekId } = await staticKeyWrapper.keyForEncrypt(tenantId);
       const payload_enc = encryptPayload(
@@ -200,6 +202,8 @@ export function registerSecretsOperations(
       }
       const input = rawInput as z.infer<typeof revealInput>;
       const { tenantId, principalId } = ctx.auth;
+      const tenantDb = getDb(ctx.auth);
+      const db = () => tenantDb.schema(SCHEMA);
 
       const { data, error } = await db()
         .from("secrets")
@@ -222,9 +226,9 @@ export function registerSecretsOperations(
       if (!isAgent) {
         const principal: Principal = { kind: "user", id: principalId };
         const allowed = await canReadSecret(
-          supabase,
+          tenantDb,
           { tenantId, principal, secret },
-          buildResolveDeps(supabase, ctx.auth)
+          buildResolveDeps(tenantDb, ctx.auth)
         );
         if (!allowed) {
           throw new Error("secrets_reveal: forbidden");
@@ -278,6 +282,7 @@ export function registerSecretsOperations(
       }
       const input = rawInput as z.infer<typeof updateInput>;
       const { tenantId } = ctx.auth;
+      const db = () => getDb({ tenantId }).schema(SCHEMA);
       // Load current row (RLS + explicit tenant check) to get owner for AAD.
       const { data, error: loadErr } = await db()
         .from("secrets")
@@ -357,6 +362,8 @@ export function registerSecretsOperations(
         throw new Error("unauthorized");
       }
       const input = rawInput as z.infer<typeof deleteInput>;
+      const auth = ctx.auth;
+      const db = () => getDb(auth).schema(SCHEMA);
       const { error } = await db()
         .from("secrets")
         .update({ deleted_at: new Date().toISOString() })
@@ -384,6 +391,7 @@ export function registerSecretsOperations(
       }
       const input = rawInput as z.infer<typeof moveInput>;
       const { tenantId } = ctx.auth;
+      const db = () => getDb({ tenantId }).schema(SCHEMA);
       const { data, error: loadErr } = await db()
         .from("secrets")
         .select("id, tenant_id, owner_scope, owner_id, payload_enc, dek_id")

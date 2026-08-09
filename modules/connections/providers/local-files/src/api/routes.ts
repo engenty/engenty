@@ -42,9 +42,16 @@ interface Hono {
  */
 export function registerLocalFilesRoutes(
   server: PluginServerApi,
-  deps: { connectionsRepo: ConnectionsRepo; repo: LocalFilesRepo }
+  deps: {
+    getConnectionsRepo: (auth: { tenantId: string }) => ConnectionsRepo;
+    getRepo: (auth: { tenantId: string }) => LocalFilesRepo;
+  }
 ): void {
-  const { connectionsRepo, repo } = deps;
+  // Every route below guards ctx.auth before touching a repo, so the handles
+  // resolve tenant-locked per request (Phase A seam).
+  const repoFor = (auth: { tenantId: string }) => deps.getRepo(auth);
+  const connectionsRepoFor = (auth: { tenantId: string }) =>
+    deps.getConnectionsRepo(auth);
 
   // Register a browser-granted directory as a connection ("account").
   server.registerHttpRoute({
@@ -58,14 +65,18 @@ export function registerLocalFilesRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof registerDirBody>;
-      const existing = await repo.getInstallation(body.installation_id);
+      const existing = await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).getInstallation(body.installation_id);
       if (existing && existing.user_id !== ctx.auth.principalId) {
         return hono.json(
           { error: "installation belongs to another user" },
           403
         );
       }
-      await repo.upsertInstallationHeartbeat({
+      await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).upsertInstallationHeartbeat({
         deviceLabel: body.device_label ?? null,
         installationId: body.installation_id,
         tenantId: ctx.auth.tenantId,
@@ -75,7 +86,9 @@ export function registerLocalFilesRoutes(
       const label = body.device_label
         ? `${body.directory_name} — ${body.device_label} · ${idTag}`
         : `${body.directory_name} · ${idTag}`;
-      const connection = await connectionsRepo.upsertConnectionWithTokens({
+      const connection = await connectionsRepoFor({
+        tenantId: ctx.auth.tenantId,
+      }).upsertConnectionWithTokens({
         accessToken: "",
         authKind: "browser",
         connectorId: CONNECTOR_ID,
@@ -87,7 +100,7 @@ export function registerLocalFilesRoutes(
         sharing: "personal",
         tenantId: ctx.auth.tenantId,
       });
-      await repo.upsertDirectory({
+      await repoFor({ tenantId: ctx.auth.tenantId }).upsertDirectory({
         connection_id: connection.id,
         directory_name: body.directory_name,
         installation_id: body.installation_id,
@@ -116,14 +129,18 @@ export function registerLocalFilesRoutes(
       if (!connectionId) {
         return hono.json({ error: "missing connectionId" }, 400);
       }
-      const connection = await connectionsRepo.getConnection({
+      const connection = await connectionsRepoFor({
+        tenantId: ctx.auth.tenantId,
+      }).getConnection({
         connectionId,
         tenantId: ctx.auth.tenantId,
       });
       if (!connection || connection.owner_user_id !== ctx.auth.principalId) {
         return hono.json({ error: "not found" }, 404);
       }
-      await connectionsRepo.setConnectionStatus({
+      await connectionsRepoFor({
+        tenantId: ctx.auth.tenantId,
+      }).setConnectionStatus({
         connectionId,
         errorMessage: null,
         status: "active",
@@ -145,14 +162,18 @@ export function registerLocalFilesRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof heartbeatBody>;
-      const existing = await repo.getInstallation(body.installation_id);
+      const existing = await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).getInstallation(body.installation_id);
       if (existing && existing.user_id !== ctx.auth.principalId) {
         return hono.json(
           { error: "installation belongs to another user" },
           403
         );
       }
-      await repo.upsertInstallationHeartbeat({
+      await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).upsertInstallationHeartbeat({
         deviceLabel: body.device_label ?? null,
         installationId: body.installation_id,
         tenantId: ctx.auth.tenantId,
@@ -174,11 +195,15 @@ export function registerLocalFilesRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof claimBody>;
-      const installation = await repo.getInstallation(body.installation_id);
+      const installation = await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).getInstallation(body.installation_id);
       if (!installation || installation.user_id !== ctx.auth.principalId) {
         return hono.json({ requests: [] });
       }
-      const rows = await repo.listClaimableRequests(body.installation_id);
+      const rows = await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).listClaimableRequests(body.installation_id);
       return hono.json({
         requests: rows.map((r) => ({
           action: r.action,
@@ -202,15 +227,19 @@ export function registerLocalFilesRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof respondBody>;
-      const installation = await repo.getInstallation(body.installation_id);
+      const installation = await repoFor({
+        tenantId: ctx.auth.tenantId,
+      }).getInstallation(body.installation_id);
       if (!installation || installation.user_id !== ctx.auth.principalId) {
         return hono.json({ error: "unknown installation" }, 403);
       }
-      const request = await repo.getRequest(body.request_id);
+      const request = await repoFor({ tenantId: ctx.auth.tenantId }).getRequest(
+        body.request_id
+      );
       if (!request || request.installation_id !== body.installation_id) {
         return hono.json({ error: "unknown request" }, 404);
       }
-      await repo.completeRequest({
+      await repoFor({ tenantId: ctx.auth.tenantId }).completeRequest({
         errorCode: body.error_code ?? null,
         errorText: body.error ?? null,
         id: body.request_id,
@@ -220,7 +249,9 @@ export function registerLocalFilesRoutes(
       // A lost File System Access permission takes the whole connection offline
       // until the user re-grants it.
       if (!body.ok && body.error_code === LOCAL_FILES_ERROR.permissionLost) {
-        await connectionsRepo.setConnectionStatus({
+        await connectionsRepoFor({
+          tenantId: ctx.auth.tenantId,
+        }).setConnectionStatus({
           connectionId: request.connection_id,
           errorMessage:
             "Browser access to this folder was revoked; re-grant it.",

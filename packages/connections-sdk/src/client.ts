@@ -53,7 +53,7 @@ export interface ConnectionsModuleClientOptions {
   /**
    * Tenant-aware OAuth client-credential resolver for token refresh (so a
    * tenant's own OAuth app is used). Auto-built by
-   * {@link createConnectionsModuleClient} from its supabase client; omit on the
+   * {@link createConnectionsModuleClient} from its `serviceDb`; omit on the
    * from-repo variant to fall back to process.env.
    */
   clientEnv?: (tenantId: string | null) => ClientEnvResolver;
@@ -99,6 +99,24 @@ export interface ModulePullStreamParams {
   tenantId: string;
 }
 
+/** DB handles for {@link createConnectionsModuleClient} (Phase A seam). */
+export interface ConnectionsModuleClientDb {
+  /**
+   * Tenant-locked handle factory (engenty_server lane, RLS-enforced). Every
+   * tenant-row path — connection/account listing, policy reads, token
+   * refresh writes — resolves a repo on `getDb({ tenantId })` per call, so
+   * the database itself confines each call to the caller's tenant.
+   */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
+  /**
+   * Service-role client — feeds ONLY the OAuth client-credential resolver:
+   * platform-level settings rows carry tenant_id NULL, which the tenant lane
+   * cannot see by design (platform settings are core service-lane work; the
+   * resolver is tenant-parameterized per lookup).
+   */
+  serviceDb: SupabaseClient;
+}
+
 /**
  * Sanctioned server-side consumption API for modules (inbox, KB, customer
  * care): the same consent rules as the gateway path — policy is NOT bypassed,
@@ -106,21 +124,25 @@ export interface ModulePullStreamParams {
  * durable approval request surfaced as a typed `ConnectionsActionError`.
  */
 export function createConnectionsModuleClient(
-  supabase: SupabaseClient,
+  db: ConnectionsModuleClientDb,
   options: ConnectionsModuleClientOptions
 ) {
   return createConnectionsModuleClientFromRepo(
-    createConnectionsRepo(supabase),
+    (tenantId) => createConnectionsRepo(db.getDb({ tenantId })),
     {
-      clientEnv: createConnectorClientEnv(supabase),
+      clientEnv: createConnectorClientEnv(db.serviceDb),
       ...options,
     }
   );
 }
 
-/** Same client over an existing repo (module composition, tests). */
+/**
+ * Same client over a per-tenant repo factory (module composition, tests).
+ * Every method carries a `tenantId` and resolves its repo through `getRepo`
+ * at call time — nothing tenant-shaped is captured at construction.
+ */
 export function createConnectionsModuleClientFromRepo(
-  repo: ConnectionsRepo,
+  getRepo: (tenantId: string) => ConnectionsRepo,
   options: ConnectionsModuleClientOptions
 ) {
   function requireConnector(connectorId: string): ConnectorDefinition {
@@ -140,7 +162,7 @@ export function createConnectionsModuleClientFromRepo(
       connectorId?: string;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
-      const all = await repo.listConnections(params);
+      const all = await getRepo(params.tenantId).listConnections(params);
       return all.filter((c) => c.status === "active");
     },
 
@@ -148,7 +170,9 @@ export function createConnectionsModuleClientFromRepo(
     async listFileSources(params: {
       tenantId: string;
     }): Promise<FileSourceConnection[]> {
-      const all = await repo.listConnections({ tenantId: params.tenantId });
+      const all = await getRepo(params.tenantId).listConnections({
+        tenantId: params.tenantId,
+      });
       const sources: FileSourceConnection[] = [];
       for (const connection of all) {
         if (connection.status !== "active") {
@@ -217,6 +241,7 @@ export function createConnectionsModuleClientFromRepo(
     },
 
     async callAction(params: ModuleCallActionParams): Promise<unknown> {
+      const repo = getRepo(params.tenantId);
       let connector: ConnectorDefinition;
       if (params.connectionId) {
         const connection = await repo.getConnection({
@@ -259,6 +284,11 @@ export function createConnectionsModuleClientFromRepo(
           ? { recordAuditEvent: options.recordAuditEvent }
           : {}),
         repo,
+        // Tenant's own OAuth app for token refresh (same resolver pullStream
+        // uses; without it refresh silently fell back to process.env only).
+        ...(options.clientEnv
+          ? { resolveEnv: options.clientEnv(params.tenantId) }
+          : {}),
         taskId: params.taskId ?? null,
         tenantId: params.tenantId,
       });
@@ -273,6 +303,7 @@ export function createConnectionsModuleClientFromRepo(
     async pullStream(
       params: ModulePullStreamParams
     ): Promise<StreamPullResult> {
+      const repo = getRepo(params.tenantId);
       const connection = await repo.getConnection({
         connectionId: params.connectionId,
         tenantId: params.tenantId,

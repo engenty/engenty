@@ -1,13 +1,11 @@
 import { capabilityCovers } from "@engenty/plugin-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import { createClient } from "@supabase/supabase-js";
 import { createCoreUsersDal } from "../../dal/core-users.js";
 import {
   assignRole,
   listAssignmentsForTenant,
   unassignRole,
 } from "../../dal/role-assignments.js";
-import { resolveSupabaseConfig } from "../../dal/supabase-config.js";
 import {
   createTenantRole,
   deleteTenantRole,
@@ -15,6 +13,7 @@ import {
   listTenantRoles,
   updateTenantRole,
 } from "../../dal/tenant-roles.js";
+import { createDatabaseAdapter } from "../../infra/index.js";
 import type { PluginRegistry } from "../../plugins/registry.js";
 import type { SecurityAuditLogAdapter } from "../../security/audit-adapter.js";
 import { recordCoreAuditEvent } from "../../security/audit-service.js";
@@ -66,10 +65,11 @@ export function registerAuthzRoutes(params: {
   const { app, config, registry, grants, auditLog } = params;
 
   const serviceClient = () => {
-    const { url, serviceRoleKey } = resolveSupabaseConfig(config);
-    return createClient(url, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const client = createDatabaseAdapter(config);
+    if (!client) {
+      throw new Error("authz routes require Supabase configuration.");
+    }
+    return client;
   };
 
   // Can the caller manage role assignments? Superadmin, an explicit manage

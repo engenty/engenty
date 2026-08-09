@@ -60,15 +60,19 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
     },
   ]);
   const { events, server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // remains ONLY for the one context-less read that resolves tenancy itself:
+  // the source-webhook token → source-row lookup in kb-sources.ts.
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     throw new Error(
-      "Knowledge Base module requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+      "Knowledge Base module requires Supabase (supabaseUrl and supabaseServiceRoleKey) and the tenant-locked DB seam"
     );
   }
-  // Core injects the supabase service-role client. The plugin SDK contract
-  // is adapter-agnostic (`unknown`); KB is intentionally Supabase-bound.
-  const supabase = supabaseRaw as SupabaseClient;
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   const emitArticleEvent: EmitArticleEvent = async (verb, payload) => {
     await events.modules.emit<ArticleEntityPayload>(
@@ -109,9 +113,11 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
   };
 
   // Per-tenant repo factory shared by HTTP routes, gateway operations, and
-  // the search provider's verifier / multi-KB fan-out paths.
+  // the search provider's verifier / multi-KB fan-out paths. Every caller
+  // knows its tenant (auth, retrieval context, or webhook-resolved row), so
+  // the repos always ride a tenant-locked handle.
   const repoFactory = (tenantId: string, scopeId: string) =>
-    createKbRepoFactory(supabase, tenantId, scopeId, {
+    createKbRepoFactory(getDb({ tenantId }), tenantId, scopeId, {
       emitArticleEvent,
       emitCategoryEvent,
       emitKbEvent,
@@ -129,7 +135,7 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
     );
   }
   const kbSource = createKbRetrievalSource({
-    supabase,
+    getDb,
     resolveRepos: (tenantId, scopeId) => ({
       settings: repoFactory(tenantId, scopeId).settings,
     }),
@@ -143,10 +149,13 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
     throw new Error("kb.article retrieval source produced no provider");
   }
 
-  registerKbApi(server, events, repoFactory, searchProvider);
+  registerKbApi(server, events, repoFactory, searchProvider, {
+    getDb,
+    serviceDb,
+  });
 
   // Register Context Graph schemas and sources for GraphRAG context enrichment
-  registerKbContextGraph({ server, supabase });
+  registerKbContextGraph({ server, getDb });
   registerKbGraphRagSearchOperation(server, repoFactory);
 
   const { invokeOperation } = createPluginServerGatewayCaller(server);

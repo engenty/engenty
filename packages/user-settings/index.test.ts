@@ -8,18 +8,20 @@ describe("registerUserSettingsPlugin", () => {
 
   it("registers HTTP routes when a database adapter exists", () => {
     const registerHttpRoute = vi.fn();
-    const getDatabaseAdapter = vi.fn(() => ({}));
+    const getServiceDb = vi.fn(() => ({}));
+    const getTenantDb = vi.fn(() => ({}));
     registerUserSettingsPlugin({
-      server: { getDatabaseAdapter, registerHttpRoute },
+      server: { getServiceDb, getTenantDb, registerHttpRoute },
     } as never);
     expect(registerHttpRoute).toHaveBeenCalledTimes(5);
   });
 
   it("no-ops when database adapter is missing", () => {
     const registerHttpRoute = vi.fn();
-    const getDatabaseAdapter = vi.fn(() => null);
+    const getServiceDb = vi.fn(() => null);
+    // no getTenantDb: the tenant lane is what gates registration now
     registerUserSettingsPlugin({
-      server: { getDatabaseAdapter, registerHttpRoute },
+      server: { getServiceDb, registerHttpRoute },
     } as never);
     expect(registerHttpRoute).not.toHaveBeenCalled();
   });

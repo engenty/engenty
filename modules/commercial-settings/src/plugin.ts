@@ -1,4 +1,5 @@
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerCommercialSettingsApi } from "./api/index.js";
 import { createCommercialSettingsRepoSupabase } from "./dal/index.js";
 
@@ -19,12 +20,24 @@ const registerCommercialSettingsPlugin: EngentyPluginFactory = (engenty) => {
       ],
     },
   ]);
-  const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // is only probed for availability here — every read/write resolves a
+  // per-tenant handle at call time.
+  const serviceDb = (engenty.server.getServiceDb?.() ??
+    null) as SupabaseClient | null;
+  const getTenantDb = engenty.server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     return;
   }
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
   const repoOrFactory = (auth: { tenantId: string; scopeId: string }) =>
-    createCommercialSettingsRepoSupabase(supabase, auth.tenantId, auth.scopeId);
+    createCommercialSettingsRepoSupabase(
+      getDb(auth),
+      auth.tenantId,
+      auth.scopeId
+    );
   registerCommercialSettingsApi(engenty.server, repoOrFactory);
 };
 

@@ -1,9 +1,14 @@
 // Tenant enumeration for the multi-tenant scheduler. The scheduler is
 // platform infrastructure: it reconciles triggers and system-job schedules
 // for EVERY tenant, minting a per-tenant service token for each. The list
-// comes straight off core.tenants via the service-role client — the one
-// Supabase client apps/ai owns — because there is no per-tenant principal to
-// ask on the AI runtime's own behalf.
+// comes straight off core.tenants via the service-role client because there
+// is no per-tenant principal to ask on the AI runtime's own behalf.
+//
+// SERVICE lane (Phase A residual, on purpose): this is the sweep pattern —
+// ENUMERATE tenants on the service client, then do each tenant's work on a
+// tenant-locked handle (see system-jobs.ts). A tenant handle could never list
+// other tenants: core.tenants only exposes the caller's own row to the
+// engenty_server role.
 import { createLogger } from "@engenty/telemetry";
 import { createAiDatabaseAdapter } from "../infra/database.js";
 

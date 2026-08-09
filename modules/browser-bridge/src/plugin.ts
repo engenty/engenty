@@ -15,16 +15,27 @@ import { createBrowserBridgeRepo } from "./repo.js";
  */
 const registerBrowserBridgePlugin: EngentyPluginFactory = (engenty) => {
   const { server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
-    throw new Error("Browser Bridge requires Supabase");
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). Every bridge lane
+  // carries tenancy at call time — routes via ctx.auth, connector actions via the
+  // resolved connection row's tenant_id — so the service-role client is not
+  // captured at all. (registerConnectorModule resolves its own handles from the
+  // same seam.)
+  const getTenantDb = server.getTenantDb;
+  if (!getTenantDb) {
+    throw new Error(
+      "Browser Bridge requires tenant-locked DB handles (server.getTenantDb)"
+    );
   }
-  const supabase = supabaseRaw as SupabaseClient;
-  const repo = createBrowserBridgeRepo(supabase);
-  const connectionsRepo = createConnectionsRepo(supabase);
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
+  const getRepo = (auth: { tenantId: string }) =>
+    createBrowserBridgeRepo(getDb(auth));
+  const getConnectionsRepo = (auth: { tenantId: string }) =>
+    createConnectionsRepo(getDb(auth));
 
-  registerConnectorModule(engenty, createBrowserConnector({ repo }));
-  registerBrowserBridgeRoutes(server, { connectionsRepo, repo });
+  registerConnectorModule(engenty, createBrowserConnector({ getRepo }));
+  registerBrowserBridgeRoutes(server, { getConnectionsRepo, getRepo });
 };
 
 export default registerBrowserBridgePlugin;

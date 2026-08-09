@@ -96,12 +96,15 @@ export function registerInvoicesPdfTemplateServerProvider(
     inputSchema: invoicePdfTemplateInputSchema,
     buildSampleData: () => toInvoiceTemplateData(sampleInvoice),
     resolvePreviewData: async ({ auth, recordId }) => {
-      const supabase = server.getDatabaseAdapter?.();
-      if (!supabase) {
-        throw new Error("Database adapter unavailable");
+      // Phase A seam: the preview runs per request with the caller's auth, so
+      // it resolves a tenant-locked handle (engenty_server lane, RLS-enforced)
+      // instead of the service-role client.
+      const tenantDb = server.getTenantDb?.(auth) ?? null;
+      if (!tenantDb) {
+        throw new Error("Tenant-locked database handle unavailable");
       }
       const repo = createInvoiceRepoSupabase(
-        supabase,
+        tenantDb,
         auth.tenantId,
         auth.scopeId,
         server.resolvePath("invoices")

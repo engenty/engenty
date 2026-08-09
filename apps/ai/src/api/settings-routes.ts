@@ -20,7 +20,7 @@ import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { Hono } from "hono";
 import { resolveAgentMaxStepsWithSource } from "../ai/sessions/max-steps.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import { createAiDatabaseAdapter } from "../infra/database.js";
+import { getTenantDbFactoryFromEnv } from "../infra/tenant-db.js";
 import { type AiScopeResolver, resolveScope } from "./http.js";
 
 const logger = createLogger({ name: "apps/ai/settings-routes" });
@@ -68,12 +68,18 @@ function resolveModelEntry(
 }
 
 async function loadTenantSettings(tenantId: string): Promise<TenantAiSettings> {
-  const adapter = createAiDatabaseAdapter();
-  if (!adapter) {
+  // Phase A seam: core.tenant_settings is tenant-keyed — read on a
+  // tenant-locked handle minted for the requesting scope's tenant.
+  const factory = getTenantDbFactoryFromEnv();
+  if (!factory) {
     return {};
   }
   try {
-    const repo = createTenantSettingsRepoSupabase(adapter, tenantId, "default");
+    const repo = createTenantSettingsRepoSupabase(
+      factory.getTenantDb({ tenantId }),
+      tenantId,
+      "default"
+    );
     const row = await repo.get(TENANT_AI_CONFIG_KEY);
     return parseTenantAiSettings(row?.value);
   } catch (err) {

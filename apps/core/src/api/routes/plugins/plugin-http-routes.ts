@@ -2,6 +2,7 @@ import { formatZodErrorForApiError, isZodError } from "@engenty/api-contracts";
 import type { createApprovalService } from "@engenty/approvals-sdk";
 import type { PluginHttpRoute } from "@engenty/plugin-sdk";
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
+import { AuthUnavailableError } from "../../../dal/core-users/auth.js";
 import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
 import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
 import type { PluginRegistry } from "../../../plugins/registry.js";
@@ -98,9 +99,24 @@ function mountPluginRoute(
 
   app.openapi(routeSpec, async (c) => {
     const logger = params.getLogger(c);
-    const auth = await params.authProvider.resolvePrincipal(
-      c.req.header("authorization")
-    );
+    let auth: Awaited<
+      ReturnType<typeof params.authProvider.resolvePrincipal>
+    >;
+    try {
+      auth = await params.authProvider.resolvePrincipal(
+        c.req.header("authorization")
+      );
+    } catch (error) {
+      if (error instanceof AuthUnavailableError) {
+        // Never 401 here: the session was not rejected, it could not be
+        // checked. Saying "Unauthorized" sends users to re-login for an
+        // outage they cannot fix.
+        return jsonApiError(c, 503, {
+          message: "Authentication service unavailable — please retry.",
+        }) as never;
+      }
+      throw error;
+    }
     if (!(auth || route.isPublic)) {
       return jsonApiError(c, 401, { message: "Unauthorized" }) as never;
     }

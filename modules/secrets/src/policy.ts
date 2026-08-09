@@ -21,7 +21,8 @@ import { buildResolveDeps } from "./api/reveal-routes.js";
  * forwarded token — this policy only governs the agent band.
  */
 export function createSecretsRevealPolicy(
-  supabase: SupabaseClient
+  /** Tenant-locked handle factory (Phase A) — resolved per evaluated call. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient
 ): PluginProfilePolicy {
   return async (input) => {
     if (input.operationId !== "secrets_reveal") {
@@ -36,9 +37,11 @@ export function createSecretsRevealPolicy(
     if (!secretId) {
       return null; // malformed; the handler will 400
     }
+    const tenantDb = getDb({ tenantId: input.auth.tenantId });
 
-    // Load owner for the resolve (service-role read).
-    const { data: secret } = await supabase
+    // Load owner for the resolve (tenant-locked read; the explicit tenant
+    // filter below stays as the belt).
+    const { data: secret } = await tenantDb
       .schema("module_secrets")
       .from("secrets")
       .select("id, owner_scope, owner_id")
@@ -56,9 +59,9 @@ export function createSecretsRevealPolicy(
       goalId: input.auth.goalId ?? null,
     };
     const allowed = await canReadSecret(
-      supabase,
+      tenantDb,
       { tenantId: input.auth.tenantId, principal, secret },
-      buildResolveDeps(supabase, input.auth)
+      buildResolveDeps(tenantDb, input.auth)
     );
     if (allowed) {
       return null; // within agent grants (± goal grants) → allow

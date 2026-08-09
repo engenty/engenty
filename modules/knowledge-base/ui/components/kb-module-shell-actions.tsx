@@ -5,6 +5,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
+import { useCanAdministerTenant } from "@engenty/ui-plugin-sdk";
 import { Settings } from "lucide-react";
 import type * as React from "react";
 import { useMemo, useState } from "react";
@@ -39,6 +40,7 @@ export function KbModuleShellActions({
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const { data: kbsRaw } = useQuery(kbsQueryOptions);
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
+  const canAdministerTenant = useCanAdministerTenant();
   const kbId = kbIdFromSlug(kbs, kbSlug);
 
   const addMenuHandlers = useMemo<KbModuleAddMenuHandlers>(
@@ -52,7 +54,10 @@ export function KbModuleShellActions({
 
   return (
     <div className="flex items-center gap-2">
-      {hideKbSettings ? null : (
+      {/* Same reason as the hub empty state: /settings/knowledge-base is
+          admin-only and redirects members away without a word, so do not show
+          them the gear at all. */}
+      {hideKbSettings || !canAdministerTenant ? null : (
         <Button
           className="h-6 w-6 border-0 p-0 text-muted-foreground shadow-none hover:border-0 hover:bg-transparent hover:text-foreground"
           onClick={() => navigate("/settings/knowledge-base")}

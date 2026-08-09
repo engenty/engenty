@@ -78,7 +78,8 @@ async function main(): Promise<void> {
     .schema("module_contacts")
     .from("contacts")
     .select("id, type, display_name, notes")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("scope_id", "default");
   if (contactErr) {
     throw new Error(`contacts query: ${contactErr.message}`);
   }
@@ -105,7 +106,8 @@ async function main(): Promise<void> {
     .schema("module_contacts")
     .from("contact_relations")
     .select("from_contact_id, to_contact_id, relation_type")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("scope_id", "default");
   if (relErr) {
     throw new Error(`contact_relations query: ${relErr.message}`);
   }

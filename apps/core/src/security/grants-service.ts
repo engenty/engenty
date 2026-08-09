@@ -1,7 +1,7 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { listAssignedRoleIds } from "../dal/role-assignments.js";
-import { resolveSupabaseConfig } from "../dal/supabase-config.js";
 import { getTenantRole } from "../dal/tenant-roles.js";
+import { createDatabaseAdapter } from "../infra/index.js";
 import {
   createAssignedRoleIdsCache,
   type GrantSubject,
@@ -24,6 +24,13 @@ export interface CreateGrantsServiceDeps {
   /** Injectable for tests. */
   client?: SupabaseClient;
   /**
+   * Tenant-locked handle factory (Phase A seam). Every read this service makes
+   * is per-tenant (role_assignments, tenant_roles), so when provided the
+   * queries run on the engenty_server lane and RLS is the wall; the service
+   * client remains only as the no-lane dev fallback.
+   */
+  getDb?: (auth: { tenantId: string }) => SupabaseClient;
+  /**
    * Lookup for role-id → RoleProfile. Pass the loaded plugin registry's
    * RoleProfileRegistry so module-contributed profiles resolve; falls back to
    * core built-ins only if omitted.
@@ -43,14 +50,18 @@ export function createGrantsService(
   const client =
     deps.client ??
     (() => {
-      const { url, serviceRoleKey } = resolveSupabaseConfig(config);
-      return createClient(url, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
+      const created = createDatabaseAdapter(config);
+      if (!created) {
+        throw new Error("Missing Supabase service configuration.");
+      }
+      return created;
     })();
+  const dbFor = (tenantId: string) =>
+    deps.getDb ? deps.getDb({ tenantId }) : client;
 
   const cache = createAssignedRoleIdsCache(
-    (tenantId, subject) => listAssignedRoleIds(client, tenantId, subject),
+    (tenantId, subject) =>
+      listAssignedRoleIds(dbFor(tenantId), tenantId, subject),
     { ttlMs: deps.cacheTtlMs }
   );
 
@@ -65,7 +76,7 @@ export function createGrantsService(
           // Phase 7: resolve tenant-defined custom.* roles not in the code
           // registry. Only invoked for ids the registry doesn't know.
           getTenantRole: (tenantId2, roleId) =>
-            getTenantRole(client, tenantId2, roleId),
+            getTenantRole(dbFor(tenantId2), tenantId2, roleId),
         },
         subject,
         tenantId

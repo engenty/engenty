@@ -17,9 +17,9 @@
 //     caller's capabilities never leak into the token.
 
 import { capabilityCovers } from "@engenty/plugin-sdk";
-import { createClient } from "@supabase/supabase-js";
 import { uuidv7 } from "uuidv7";
-import { resolveSupabaseConfig } from "../../../dal/supabase-config.js";
+import { AuthUnavailableError } from "../../../dal/core-users/auth.js";
+import { createDatabaseAdapter } from "../../../infra/index.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import { recordCoreAuditEvent } from "../../../security/audit-service.js";
 import {
@@ -56,10 +56,11 @@ export function registerActorTokenRoutes(params: {
   config: Record<string, unknown>;
   grants: GrantsService;
 }): void {
-  const { url, serviceRoleKey } = resolveSupabaseConfig(params.config);
-  const supabase = createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const supabaseOrNull = createDatabaseAdapter(params.config);
+  if (!supabaseOrNull) {
+    throw new Error("actor-token routes require Supabase configuration.");
+  }
+  const supabase = supabaseOrNull;
 
   async function tenantRoleForUser(
     userId: string,
@@ -86,9 +87,19 @@ export function registerActorTokenRoutes(params: {
     }
     // Full provider path: accepts engenty principal tokens (the AI service)
     // and Supabase JWTs (human tenant admins).
-    const caller = await params.authProvider.resolvePrincipal(
-      c.req.header("authorization")
-    );
+    let caller: Awaited<
+      ReturnType<typeof params.authProvider.resolvePrincipal>
+    >;
+    try {
+      caller = await params.authProvider.resolvePrincipal(
+        c.req.header("authorization")
+      );
+    } catch (error) {
+      if (error instanceof AuthUnavailableError) {
+        return c.json({ error: "Auth service unavailable" }, 503);
+      }
+      throw error;
+    }
     if (!caller) {
       return c.json({ error: "Unauthorized" }, 401);
     }

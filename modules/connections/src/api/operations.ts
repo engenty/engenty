@@ -33,7 +33,8 @@ export interface ConnectionsOperationHooks {
 
 export function registerConnectionsOperations(
   api: PluginServerApi,
-  repo: ConnectionsRepo,
+  /** Tenant-locked repo factory (Phase A) — every handler carries `ctx.auth`. */
+  getRepo: (auth: { tenantId: string }) => ConnectionsRepo,
   hooks: ConnectionsOperationHooks
 ): void {
   // ── Catalog: connectors + this principal's connection state ──────────────
@@ -52,6 +53,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const { principalId, tenantId } = ctx.auth;
+      const repo = getRepo(ctx.auth);
       const connectors = listConnectorDefinitions();
       const connections = await repo.listConnections({ tenantId });
       const visible = connections.filter(
@@ -155,7 +157,7 @@ export function registerConnectionsOperations(
               hooks.settings.clientEnv(ctx.auth.tenantId)
             )
           : true;
-      const candidates = await repo.listCandidateConnections({
+      const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: connector_id,
         principalId: ctx.auth.principalId,
         tenantId: ctx.auth.tenantId,
@@ -196,7 +198,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const parsed = input as { connector_id: string };
-      const candidates = await repo.listCandidateConnections({
+      const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: parsed.connector_id,
         principalId: ctx.auth.principalId,
         tenantId: ctx.auth.tenantId,
@@ -221,7 +223,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const { principalId, tenantId } = ctx.auth;
-      const connections = await repo.listConnections({ tenantId });
+      const connections = await getRepo(ctx.auth).listConnections({ tenantId });
       const targets: {
         connection_id: string;
         connector_icon: string | null;
@@ -292,6 +294,7 @@ export function registerConnectionsOperations(
         mime_type?: string | null;
         name: string;
       };
+      const repo = getRepo(ctx.auth);
       const connection = await repo.getConnection({
         connectionId: parsed.connection_id,
         tenantId: ctx.auth.tenantId,
@@ -351,6 +354,7 @@ export function registerConnectionsOperations(
         non_owner_max_group?: "read" | "write" | "destructive" | null;
         sharing?: "personal" | "org";
       };
+      const repo = getRepo(ctx.auth);
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
       if (parsed.sharing === "org") {
         const connection = await repo.getConnection({
@@ -401,6 +405,7 @@ export function registerConnectionsOperations(
         policy: "allow" | "ask" | "deny" | null;
         selector: string;
       };
+      const repo = getRepo(ctx.auth);
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
       await repo.setPolicyOverride({
         connectionId: parsed.connection_id,
@@ -431,6 +436,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const parsed = input as { connection_id: string };
+      const repo = getRepo(ctx.auth);
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
       await repo.deleteConnection({
         connectionId: parsed.connection_id,
@@ -463,7 +469,7 @@ export function registerConnectionsOperations(
         status?: "pending" | "approved" | "denied" | "expired";
       };
       return {
-        requests: await repo.listApprovalRequests({
+        requests: await getRepo(ctx.auth).listApprovalRequests({
           status: parsed.status ?? "pending",
           tenantId: ctx.auth.tenantId,
         }),
@@ -492,6 +498,7 @@ export function registerConnectionsOperations(
         grant_always?: boolean;
         request_id: string;
       };
+      const repo = getRepo(ctx.auth);
       // Owner check BEFORE deciding. It used to run after: a non-owner's
       // decide flipped the row to decided, then threw — burning the request
       // so the actual owner found nothing left to approve.
@@ -557,6 +564,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const { principalId, tenantId } = ctx.auth;
+      const repo = getRepo(ctx.auth);
       const connections = await repo.listConnections({ tenantId });
       const usable = connections.filter(
         (c) =>

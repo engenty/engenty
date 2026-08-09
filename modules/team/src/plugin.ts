@@ -25,22 +25,28 @@ const registerTeamMembersPlugin: EngentyPluginFactory = (engenty) => {
       capabilities: ["module.team.read", "module.team.write"],
     },
   ]);
-  const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every lane in this
+  // module is request- or tenant-shaped (routes carry auth, context-graph
+  // status/sync carry a tenantId), so ALL work runs on tenant-locked handles
+  // (engenty_server lane, RLS-enforced) — no service-client use remains.
+  const getTenantDb = engenty.server.getTenantDb;
+  if (!getTenantDb) {
     return;
   }
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   const repoOrFactory = (auth: { tenantId: string; scopeId: string }) =>
-    createTeamMemberRepoSupabase(supabase, auth.tenantId, auth.scopeId);
-  registerTeamModuleRoutes(engenty.server, supabase);
+    createTeamMemberRepoSupabase(getDb(auth), auth.tenantId, auth.scopeId);
+  registerTeamModuleRoutes(engenty.server, getDb);
   registerTeamHabboAvatarRoutes(engenty.server);
   registerTeamImportRoutes(engenty.server);
   registerTeamMembersApi(engenty.server, repoOrFactory);
 
   engenty.server.registerAiRegistration(teamMembersAiRegistration());
   registerTeamContextGraph({
+    getDb,
     server: engenty.server,
-    supabase: supabase as SupabaseClient,
   });
 
   const TEAM_SCHEMA_DESCRIPTION = `Team member create schema (use snake_case). REQUIRED: full_name (string).

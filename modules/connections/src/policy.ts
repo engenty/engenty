@@ -31,7 +31,8 @@ import type {
  *   for non-user principals.
  */
 export function createConnectionsProfilePolicy(
-  repo: ConnectionsRepo
+  /** Tenant-locked repo factory (Phase A) — resolved per evaluated call. */
+  getRepo: (auth: { tenantId: string }) => ConnectionsRepo
 ): PluginProfilePolicy {
   return async (input: PluginPolicyInput) => {
     const match = resolveConnectorOperation(input.operationId);
@@ -67,6 +68,7 @@ export function createConnectionsProfilePolicy(
     // unattended caller: record the approval request and answer 202.
     const isAutonomous =
       input.auth.principalType !== "user" || input.auth.callOrigin === "app";
+    const repo = getRepo({ tenantId: input.auth.tenantId });
     const candidates = await repo.listCandidateConnections({
       connectorId: connector.id,
       principalId: input.auth.principalId,

@@ -42,10 +42,13 @@ export type MemorySearchProvider = SearchIndexProvider<
 >;
 
 export function createMemoryRetrievalSource(options: {
-  supabase: SupabaseClient;
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — every
+   * retrieval entry point (buildDocument/listDocuments/hydrate) carries a
+   * tenant_id, so each read resolves the caller's own handle. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
 }): RetrievalSourceRegistration<MemorySearchMatch> {
-  const { supabase } = options;
-  const records = () => supabase.schema(SCHEMA).from("records");
+  const records = (tenantId: string) =>
+    options.getDb({ tenantId }).schema(SCHEMA).from("records");
 
   async function loadRecordsByIds(
     ids: string[],
@@ -55,7 +58,7 @@ export function createMemoryRetrievalSource(options: {
     if (ids.length === 0) {
       return map;
     }
-    const { data, error } = await records()
+    const { data, error } = await records(tenantId)
       .select("*")
       .eq("tenant_id", tenantId)
       .in("id", ids);
@@ -95,7 +98,7 @@ export function createMemoryRetrievalSource(options: {
       };
     },
     listDocuments: async ({ limit, tenant_id }) => {
-      const { data, error } = await records()
+      const { data, error } = await records(tenant_id)
         .select("id, updated_at")
         .eq("tenant_id", tenant_id)
         .eq("status", "active")

@@ -51,13 +51,20 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
   ]);
 
   const { events, server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // is only probed for availability here — every read/write (repo, retrieval
+  // source, contact-delete fan-out) carries a tenant and resolves a per-tenant
+  // handle at call time.
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     throw new Error(
-      "Memory module requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+      "Memory module requires Supabase (supabaseUrl and supabaseServiceRoleKey) with tenant-locked DB handles"
     );
   }
-  const supabase = supabaseRaw as SupabaseClient;
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   // `memory.record` is a managed retrieval source: the central service owns
   // embeddings/fusion/status/backfill; this module supplies the document
@@ -69,7 +76,7 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
       "Memory module requires a host with the central retrieval service"
     );
   }
-  const retrievalSource = createMemoryRetrievalSource({ supabase });
+  const retrievalSource = createMemoryRetrievalSource({ getDb });
   retrievalSource.operation.filtersSchema = memoryRecordSearchFiltersSchema;
   server.registerRetrievalSource(retrievalSource);
   const searchProvider = server
@@ -89,7 +96,7 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
   };
 
   const repoFactory = (auth: PluginAuthContext) =>
-    createMemoryRepoSupabase(supabase, auth.tenantId, auth.scopeId, {
+    createMemoryRepoSupabase(getDb(auth), auth.tenantId, auth.scopeId, {
       emitMemoryEvent,
     });
 
@@ -136,7 +143,7 @@ const registerMemoryPlugin: EngentyPluginFactory = (engenty) => {
         `contacts.person:${contactId}`,
         `contacts.organisation:${contactId}`,
       ];
-      const { data, error } = await supabase
+      const { data, error } = await getDb({ tenantId })
         .schema("module_memory")
         .from("records")
         .update({ status: "archived", updated_at: new Date().toISOString() })

@@ -4,6 +4,7 @@ import type {
   createApprovalService,
 } from "@engenty/approvals-sdk";
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
+import { AuthUnavailableError } from "../../../dal/core-users/auth.js";
 import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
 import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
 import type { PluginRegistry } from "../../../plugins/registry.js";
@@ -831,9 +832,24 @@ async function requireAuth(
   },
   authProvider: AuthProvider
 ) {
-  const resolved = await authProvider.resolvePrincipal(
-    c.req.header("authorization")
-  );
+  let resolved: Awaited<ReturnType<typeof authProvider.resolvePrincipal>>;
+  try {
+    resolved = await authProvider.resolvePrincipal(
+      c.req.header("authorization")
+    );
+  } catch (error) {
+    if (error instanceof AuthUnavailableError) {
+      // The session could not be checked (auth server down/slow) — 503, not
+      // 401. See AuthUnavailableError for why this distinction matters.
+      return {
+        error: jsonApiError(c, 503, {
+          message: "Authentication service unavailable — please retry.",
+        }),
+        auth: null,
+      };
+    }
+    throw error;
+  }
   if (!resolved) {
     return {
       error: jsonApiError(c, 401, { message: "Unauthorized" }),

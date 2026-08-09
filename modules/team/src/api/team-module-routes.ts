@@ -6,11 +6,18 @@ import {
 } from "../dal/team-module-supabase.js";
 import { teamMemberFieldDefinitionsPutSchema } from "../schema/member-field-definitions.js";
 
-function getDal(supabase: unknown, auth?: PluginAuthContext) {
+function getDal(
+  getDb: (auth: { tenantId: string }) => unknown,
+  auth?: PluginAuthContext
+) {
   if (!auth?.tenantId) {
     throw new Error("Tenant required");
   }
-  return createTeamModuleDal(supabase as never, auth.tenantId);
+  // Tenant-locked handle resolved per call (engenty_server lane, RLS-enforced).
+  return createTeamModuleDal(
+    getDb({ tenantId: auth.tenantId }) as never,
+    auth.tenantId
+  );
 }
 
 const taxonomyInputSchema = z.object({
@@ -35,7 +42,8 @@ const termInputSchema = z.object({
 
 export function registerTeamModuleRoutes(
   server: Pick<PluginServerApi, "registerHttpRoute">,
-  supabase: unknown
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced). */
+  getDb: (auth: { tenantId: string }) => unknown
 ) {
   const readCap = ["module.team.read"] as const;
   const writeCap = ["module.team.write"] as const;
@@ -55,7 +63,7 @@ export function registerTeamModuleRoutes(
     summary: "List taxonomies",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       return dal.listTaxonomies();
     },
   });
@@ -72,7 +80,7 @@ export function registerTeamModuleRoutes(
     summary: "Create taxonomy",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const body = taxonomyInputSchema.parse(await ctx.request.json());
       return dal.upsertTaxonomy({
         ...body,
@@ -100,7 +108,7 @@ export function registerTeamModuleRoutes(
     summary: "Update a custom taxonomy",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const slug = (ctx.params as { slug: string }).slug;
       const taxonomies = await dal.listTaxonomies();
       const existing = taxonomies.find((t) => t.slug === slug);
@@ -146,7 +154,7 @@ export function registerTeamModuleRoutes(
     summary: "Delete a custom taxonomy",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const slug = (ctx.params as { slug: string }).slug;
       const taxonomies = await dal.listTaxonomies();
       const existing = taxonomies.find((t) => t.slug === slug);
@@ -180,7 +188,7 @@ export function registerTeamModuleRoutes(
     summary: "List taxonomy terms",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const slug = (ctx.params as { slug: string }).slug;
       const taxonomies = await dal.listTaxonomies();
       const taxonomy = taxonomies.find((t) => t.slug === slug);
@@ -210,7 +218,7 @@ export function registerTeamModuleRoutes(
     summary: "Upsert taxonomy terms",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const slug = (ctx.params as { slug: string }).slug;
       const taxonomies = await dal.listTaxonomies();
       const taxonomy = taxonomies.find((t) => t.slug === slug);
@@ -245,7 +253,7 @@ export function registerTeamModuleRoutes(
     summary: "Filter options for team list",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       return dal.listFilterOptions();
     },
   });
@@ -262,7 +270,7 @@ export function registerTeamModuleRoutes(
     summary: "Org tree",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       return dal.getOrgTree();
     },
   });
@@ -279,7 +287,7 @@ export function registerTeamModuleRoutes(
     summary: "Flat org graph data with grouping metadata",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       return dal.getOrgGraphData();
     },
   });
@@ -296,7 +304,7 @@ export function registerTeamModuleRoutes(
     summary: "Update org node",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const body = z
         .object({
           reports_to_id: z.string().nullable().optional(),
@@ -322,7 +330,7 @@ export function registerTeamModuleRoutes(
     summary: "List groups",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       return dal.listGroups();
     },
   });
@@ -339,7 +347,7 @@ export function registerTeamModuleRoutes(
     summary: "Create group",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const body = z
         .object({
           name: z.string().min(1),
@@ -364,7 +372,7 @@ export function registerTeamModuleRoutes(
     summary: "List team member custom field definitions",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       return dal.listMemberFieldDefinitions();
     },
   });
@@ -381,7 +389,7 @@ export function registerTeamModuleRoutes(
     summary: "Replace team member custom field definitions",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const body = teamMemberFieldDefinitionsPutSchema.parse(
         await ctx.request.json()
       );
@@ -401,7 +409,7 @@ export function registerTeamModuleRoutes(
     summary: "Team module settings",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const taxonomies = await dal.listTaxonomies();
       const termsByTaxonomy: Record<string, unknown> = {};
       for (const taxonomy of taxonomies) {
@@ -431,7 +439,7 @@ export function registerTeamModuleRoutes(
     summary: "Set profile taxonomy assignments",
     tags: ["team"],
     handler: async (ctx) => {
-      const dal = getDal(supabase, ctx.auth);
+      const dal = getDal(getDb, ctx.auth);
       const body = z
         .record(z.string(), z.union([z.string(), z.array(z.string())]))
         .parse(await ctx.request.json());

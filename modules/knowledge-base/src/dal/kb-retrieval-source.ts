@@ -65,11 +65,15 @@ export type KbArticlesSearchProvider = SearchIndexProvider<
 >;
 
 export interface CreateKbRetrievalSourceOptions {
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced). Every
+   * retrieval hook (buildDocument, listDocuments, hydrate, verifier) receives
+   * the tenant from the central service's context, so no service-role client
+   * is needed here. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   resolveRepos: (
     tenantId: string,
     scopeId: string
   ) => { settings: KbSettingsRepo };
-  supabase: SupabaseClient;
 }
 
 interface ArticleRow {
@@ -88,9 +92,11 @@ interface ArticleRow {
 export function createKbRetrievalSource(
   options: CreateKbRetrievalSourceOptions
 ): RetrievalSourceRegistration<KbArticleSearchMatch> {
-  const { resolveRepos, supabase } = options;
-  const articles = () => supabase.schema(SCHEMA).from("articles");
-  const kbs = () => supabase.schema(SCHEMA).from("knowledge_bases");
+  const { getDb, resolveRepos } = options;
+  const articles = (tenantId: string) =>
+    getDb({ tenantId }).schema(SCHEMA).from("articles");
+  const kbs = (tenantId: string) =>
+    getDb({ tenantId }).schema(SCHEMA).from("knowledge_bases");
 
   async function resolveSettings(tenantId: string, scopeId: string) {
     try {
@@ -107,7 +113,7 @@ export function createKbRetrievalSource(
     if (ids.length === 0) {
       return new Map();
     }
-    const { data, error } = await articles()
+    const { data, error } = await articles(tenantId)
       .select(
         "id, kb_id, scope_id, slug, status, title, summary, questions_answered, content_markdown, updated_at"
       )
@@ -190,7 +196,7 @@ export function createKbRetrievalSource(
       new Set(Array.from(articleRows.values()).map((row) => String(row.kb_id)))
     );
     const { data: kbRows } = kbIds.length
-      ? await kbs().select("id, name, slug").in("id", kbIds)
+      ? await kbs(ctx.tenant_id).select("id, name, slug").in("id", kbIds)
       : { data: [] };
     const kbById = new Map(
       ((kbRows ?? []) as { id: string; name: string; slug: string }[]).map(
@@ -256,7 +262,7 @@ export function createKbRetrievalSource(
       },
     },
     listDocuments: async ({ limit, tenant_id }) => {
-      const { data, error } = await articles()
+      const { data, error } = await articles(tenant_id)
         .select("id, updated_at")
         .eq("tenant_id", tenant_id)
         .is("deleted_at", null)

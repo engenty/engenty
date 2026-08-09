@@ -6,6 +6,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 
+export {
+  createTenantDbFactory,
+  resolveTenantDbConfig,
+  SERVER_LANE_ROLE,
+  type TenantDbConfig,
+  type TenantDbFactory,
+} from "./tenant-db.js";
+
 /**
  * Create Supabase client for server-side use (service role).
  * Returns null if config is missing (e.g. optional modules like offers).

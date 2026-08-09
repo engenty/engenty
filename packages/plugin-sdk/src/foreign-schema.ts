@@ -1,7 +1,7 @@
 /**
  * Guarded reads across module schema boundaries.
  *
- * The client handed to a module by `engenty.server.getDatabaseAdapter()` is a
+ * The client handed to a module by `engenty.server.getServiceDb()` is a
  * service-role client, so it bypasses RLS. Every tenant boundary in module DAL
  * code is therefore enforced in application code — by remembering to write
  * `.eq("tenant_id", …).eq("scope_id", …)` on every query.

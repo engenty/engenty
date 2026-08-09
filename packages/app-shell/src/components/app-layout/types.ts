@@ -11,6 +11,10 @@ export interface AppLayoutProps {
   currentUserId?: string | null;
   defaultTopbarTitle?: string;
   fetchResolvedFeatureFlags: () => Promise<Record<string, boolean>>;
+  /** Published to modules via useWorkspaceContext so they can hide affordances
+   * that lead to admin-only routes instead of dead-ending non-admins. */
+  isSuperAdmin?: boolean;
+  isTenantAdmin?: boolean;
   /** Tenant admins can drag-reorder modules-rail icons. */
   modulesReorderable?: boolean;
   /** Persist modules-rail order (contribution ids) to tenant-settings. */
@@ -25,7 +29,7 @@ export interface AppLayoutProps {
 
 export type AppLayoutFrameProps = Omit<
   AppLayoutProps,
-  "currentUserId" | "shellUiHost"
+  "currentUserId" | "isSuperAdmin" | "isTenantAdmin" | "shellUiHost"
 >;
 
 export interface SecondaryNavLinkItem {

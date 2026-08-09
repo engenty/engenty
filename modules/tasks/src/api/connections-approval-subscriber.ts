@@ -43,8 +43,9 @@ export function connectionsResumeTarget(
 
 export function subscribeConnectionsApprovalResume(params: {
   events: PluginEventsApi;
+  /** Tenant-locked handle factory — the resume runs on the event's tenant. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   queue: QueueServiceLike | null;
-  supabase: SupabaseClient;
 }): void {
   params.events.modules.on(
     "connections.approval.decided",
@@ -55,9 +56,10 @@ export function subscribeConnectionsApprovalResume(params: {
       }
       const { operationId, taskId, tenantId } = target;
       try {
+        const tenantDb = params.getDb({ tenantId });
         // Cross-scope lookup: the event does not carry the task's scope, the
         // repo requires one. Tenant-pinned by the event's own tenant id.
-        const { data, error } = await params.supabase
+        const { data, error } = await tenantDb
           .schema("module_tasks")
           .from("tasks")
           .select("id, scope_id")
@@ -68,7 +70,7 @@ export function subscribeConnectionsApprovalResume(params: {
           return;
         }
         const repo = createTasksRepoSupabase(
-          params.supabase,
+          tenantDb,
           tenantId,
           (data as { scope_id: string }).scope_id
         );

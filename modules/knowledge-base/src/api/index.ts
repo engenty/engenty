@@ -8,7 +8,7 @@ import type { PluginAuthContext, PluginEventsApi } from "@engenty/plugin-sdk";
 import { registerKbAiGatewayMethods } from "../../ai/tools/kb-ai-gateway-methods.js";
 import type { KbRepoFactoryFn } from "../dal/contracts.js";
 import type { KbArticlesSearchProvider } from "../dal/kb-retrieval-source.js";
-import type { KbServerApi } from "./kb-api-shared.js";
+import type { KbDbHandles, KbServerApi } from "./kb-api-shared.js";
 import { registerKbArticleRoutes } from "./kb-articles-routes.js";
 import { registerKbAttachmentAndFaqRoutes } from "./kb-attachments-faqs-routes.js";
 import { registerKbChatRoute } from "./kb-chat.js";
@@ -27,7 +27,8 @@ export function registerKbApi(
   api: KbServerApi,
   events: PluginEventsApi,
   repoFactory: KbRepoFactoryFn,
-  searchProvider: KbArticlesSearchProvider
+  searchProvider: KbArticlesSearchProvider,
+  db: KbDbHandles
 ) {
   const getRepo = (auth?: PluginAuthContext) => {
     if (!auth) {
@@ -36,15 +37,15 @@ export function registerKbApi(
     return repoFactory(auth.tenantId, auth.scopeId);
   };
 
-  registerKbChatRoute(api, repoFactory, searchProvider);
-  registerKbSourceApi(api, getRepo, repoFactory);
+  registerKbChatRoute(api, repoFactory, searchProvider, db.getDb);
+  registerKbSourceApi(api, getRepo, repoFactory, db.serviceDb);
   registerKbKnowledgeBaseRoutes(api, getRepo);
   registerKbTaxonomyRoutes(api, getRepo);
   registerKbArticleRoutes(api, getRepo);
   registerKbAttachmentAndFaqRoutes(api, getRepo);
   registerKbInboxRoutes(api, events, getRepo);
   registerKbSettingsRoutes(api, getRepo);
-  registerKbDocumentConversionRoutes(api, getRepo);
+  registerKbDocumentConversionRoutes(api, getRepo, db.getDb);
   registerKbCoverMediaRoutes(api, getRepo);
   registerKbSearchRoutes(api, searchProvider);
   registerKbAiGatewayMethods(api, getRepo, events);

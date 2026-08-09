@@ -26,6 +26,7 @@ import {
 } from "../dal/registry/index.js";
 import { createAiUsageStore } from "../dal/usage/index.js";
 import { createAiDatabaseAdapter } from "../infra/database.js";
+import { createDbSourceFromEnv } from "../infra/tenant-db.js";
 import type { AiRegistry } from "./registry/index.js";
 import {
   type AiSessionScope,
@@ -142,26 +143,30 @@ export function createAiService(opts: AiServiceOptions): AiService {
   };
 }
 
+// Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): the env factories hand
+// the stores BOTH lanes — tenant-keyed methods mint tenant-locked handles per
+// call; each store's documented residuals keep the service client.
 export function createThreadStoreFromEnv(): ThreadStore | null {
-  const client = createAiDatabaseAdapter(
-    process.env as unknown as Record<string, unknown>
-  );
-  if (!client) {
+  const source = createDbSourceFromEnv();
+  if (!source) {
     return null;
   }
-  return createThreadStore(client);
+  return createThreadStore(source);
 }
 
 export function createAgentRunStoreFromEnv(): AgentRunStore | null {
-  const client = createAiDatabaseAdapter(
-    process.env as unknown as Record<string, unknown>
-  );
-  if (!client) {
+  const source = createDbSourceFromEnv();
+  if (!source) {
     return null;
   }
-  return createAgentRunStore(client);
+  return createAgentRunStore(source);
 }
 
+// Phase A: retrieval runs tenant-locked when the lane is configured —
+// search.source_visibility gained a read-only engenty_server policy
+// (20260809240000), so query_chunks (SECURITY INVOKER) evaluates fully under
+// RLS and p_tenant_id can only narrow. The plain-client path remains for
+// no-lane dev bootstraps.
 export function createChatSearchRetrievalFromEnv(): ChatSearchRetrieval | null {
   const client = createAiDatabaseAdapter(
     process.env as unknown as Record<string, unknown>
@@ -169,35 +174,40 @@ export function createChatSearchRetrievalFromEnv(): ChatSearchRetrieval | null {
   if (!client) {
     return null;
   }
-  return createChatSearchRetrieval({ supabase: client });
+  const source = createDbSourceFromEnv();
+  return createChatSearchRetrieval({
+    supabase: client,
+    ...(source
+      ? {
+          retrievalDb: {
+            getDb: (auth: { tenantId: string }) => source.getTenantDb(auth),
+            serviceDb: source.serviceDb,
+          },
+        }
+      : {}),
+  });
 }
 
 export function createAiUsageStoreFromEnv(): AiUsageStore | null {
-  const client = createAiDatabaseAdapter(
-    process.env as unknown as Record<string, unknown>
-  );
-  if (!client) {
+  const source = createDbSourceFromEnv();
+  if (!source) {
     return null;
   }
-  return createAiUsageStore(client);
+  return createAiUsageStore(source);
 }
 
 export function createRegistryStoreFromEnv(): RegistryStore | null {
-  const client = createAiDatabaseAdapter(
-    process.env as unknown as Record<string, unknown>
-  );
-  if (!client) {
+  const source = createDbSourceFromEnv();
+  if (!source) {
     return null;
   }
-  return createRegistryStore(client);
+  return createRegistryStore(source);
 }
 
 export function createActionRequestStoreFromEnv(): ActionRequestStore | null {
-  const client = createAiDatabaseAdapter(
-    process.env as unknown as Record<string, unknown>
-  );
-  if (!client) {
+  const source = createDbSourceFromEnv();
+  if (!source) {
     return null;
   }
-  return createActionRequestStore(client);
+  return createActionRequestStore(source);
 }

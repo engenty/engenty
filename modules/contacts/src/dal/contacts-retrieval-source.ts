@@ -65,21 +65,26 @@ export type ContactsSearchProvider = SearchIndexProvider<
 >;
 
 export function createContactsRetrievalSource(options: {
-  supabase: SupabaseClient;
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — every
+   * callback below carries the tenant id it operates for, so each read
+   * resolves a handle pinned to that tenant. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
 }): RetrievalSourceRegistration<ContactSearchMatch> {
-  const { supabase } = options;
-  const contacts = () => supabase.schema(SCHEMA).from("contacts");
-  const relations = () => supabase.schema(SCHEMA).from("contact_relations");
-  const roles = () => supabase.schema(SCHEMA).from("contact_roles");
+  const { getDb } = options;
+  const contacts = (db: SupabaseClient) => db.schema(SCHEMA).from("contacts");
+  const relations = (db: SupabaseClient) =>
+    db.schema(SCHEMA).from("contact_relations");
+  const roles = (db: SupabaseClient) => db.schema(SCHEMA).from("contact_roles");
 
   async function getRolesByContactIds(
+    db: SupabaseClient,
     ids: string[]
   ): Promise<Map<string, string[]>> {
     const map = new Map<string, string[]>();
     if (ids.length === 0) {
       return map;
     }
-    const { data } = await roles()
+    const { data } = await roles(db)
       .select("contact_id, role")
       .in("contact_id", ids);
     for (const row of data ?? []) {
@@ -102,7 +107,8 @@ export function createContactsRetrievalSource(options: {
     if (ids.length === 0) {
       return new Map();
     }
-    let query = contacts()
+    const db = getDb({ tenantId });
+    let query = contacts(db)
       .select("*")
       .eq("tenant_id", tenantId)
       .in("id", ids)
@@ -115,6 +121,7 @@ export function createContactsRetrievalSource(options: {
       throw new Error(`Failed to load contacts: ${error.message}`);
     }
     const rolesByContactId = await getRolesByContactIds(
+      db,
       (data ?? []).map((row) => String((row as { id: string }).id))
     );
     const map = new Map<string, Contact>();
@@ -136,7 +143,7 @@ export function createContactsRetrievalSource(options: {
     tenantId: string,
     scopeId: string | null
   ): Promise<string[]> {
-    let relQuery = relations()
+    let relQuery = relations(getDb({ tenantId }))
       .select("*")
       .eq("tenant_id", tenantId)
       .or(`from_contact_id.eq.${contactId},to_contact_id.eq.${contactId}`);
@@ -236,7 +243,7 @@ export function createContactsRetrievalSource(options: {
     },
     embedding: { model: DEFAULT_CONTACT_EMBEDDING_MODEL },
     listDocuments: async ({ limit, tenant_id }) => {
-      const { data, error } = await contacts()
+      const { data, error } = await contacts(getDb({ tenantId: tenant_id }))
         .select("id, updated_at")
         .eq("tenant_id", tenant_id)
         .is("deleted_at", null)

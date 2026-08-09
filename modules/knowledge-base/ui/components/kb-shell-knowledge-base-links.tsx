@@ -6,6 +6,7 @@
 import { useShellSecondaryNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { type ContextPopoverRenderLink, cn } from "@engenty/ui-core";
+import { useCanAdministerTenant } from "@engenty/ui-plugin-sdk";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -66,6 +67,7 @@ export function KbShellKnowledgeBaseLinks({
     [secondaryNavOpenProp, setSecondaryNavHoverMenuOpen]
   );
 
+  const canAdministerTenant = useCanAdministerTenant();
   const activeKb = useMemo(
     () => kbs.find((k) => k.id === activeKbId) ?? kbs[0],
     [kbs, activeKbId]
@@ -76,6 +78,15 @@ export function KbShellKnowledgeBaseLinks({
   }
 
   if (kbs.length === 0) {
+    // The settings path is admin-only and redirects members away in silence,
+    // so for them this is plain text rather than a link to nowhere.
+    if (!canAdministerTenant) {
+      return (
+        <span className="min-w-0 truncate font-semibold text-foreground text-sm">
+          {t("menu.knowledge_base")}
+        </span>
+      );
+    }
     return (
       <Link
         className="min-w-0 truncate font-semibold text-foreground text-sm hover:opacity-70"

@@ -23,7 +23,8 @@ interface Hono {
  */
 export function registerConnectionsCredentialsRoutes(
   server: PluginServerApi,
-  repo: ConnectionsRepo,
+  /** Tenant-locked repo factory (Phase A) — the handler carries `ctx.auth`. */
+  getRepo: (auth: { tenantId: string }) => ConnectionsRepo,
   options: ConnectionsOAuthRouteOptions = {}
 ): void {
   server.registerHttpRoute({
@@ -79,7 +80,7 @@ export function registerConnectionsCredentialsRoutes(
         );
       }
 
-      const connection = await repo.upsertConnectionWithTokens({
+      const connection = await getRepo(ctx.auth).upsertConnectionWithTokens({
         accessToken: JSON.stringify(credentials),
         authKind: "api_key",
         connectorId: connector.id,

@@ -32,9 +32,11 @@ function toEntry(entry: LocalFileEntry): ConnectorFileEntry {
  * mounts both flow through here.
  */
 export function createLocalFilesConnector(deps: {
-  repo: LocalFilesRepo;
+  /** Tenant-locked repo factory; each file action resolves on the connection
+   * row's own tenant (the row was read on the caller's handle upstream). */
+  getRepo: (auth: { tenantId: string }) => LocalFilesRepo;
 }): ConnectorDefinition {
-  const { repo } = deps;
+  const { getRepo } = deps;
 
   return defineConnector({
     actions: [],
@@ -56,7 +58,7 @@ export function createLocalFilesConnector(deps: {
             path: input.folder_ref ?? "",
           },
           log: ctx.log,
-          repo,
+          repo: getRepo({ tenantId: ctx.connection.tenant_id }),
         })) as LocalListResult;
         return {
           entries: result.entries.map(toEntry),
@@ -70,7 +72,7 @@ export function createLocalFilesConnector(deps: {
           connection: ctx.connection,
           input: { max_bytes: input.max_bytes, path: input.file_ref },
           log: ctx.log,
-          repo,
+          repo: getRepo({ tenantId: ctx.connection.tenant_id }),
         })) as LocalReadResult;
         if (result.encoding === "base64") {
           return {
@@ -102,7 +104,7 @@ export function createLocalFilesConnector(deps: {
             query: input.query,
           },
           log: ctx.log,
-          repo,
+          repo: getRepo({ tenantId: ctx.connection.tenant_id }),
         })) as LocalSearchResult;
         return {
           entries: result.matches.map(toEntry),
@@ -116,7 +118,7 @@ export function createLocalFilesConnector(deps: {
           connection: ctx.connection,
           input: { path: input.ref },
           log: ctx.log,
-          repo,
+          repo: getRepo({ tenantId: ctx.connection.tenant_id }),
         })) as LocalFileEntry;
         return toEntry(entry);
       },

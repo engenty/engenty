@@ -5,7 +5,6 @@ import type {
   SearchEmbedder,
   SearchIndexProvider,
 } from "@engenty/search-index";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { runBackfill } from "./backfill.js";
 import type {
   RetrievalBackfillInput,
@@ -20,12 +19,14 @@ import { ingestById } from "./ingest.js";
 import { createManagedProvider } from "./provider-factory.js";
 import { type QueryDeps, runQuery } from "./query.js";
 import { scanIndexState } from "./status.js";
-import { createRetrievalStore } from "./store.js";
+import { createRetrievalStore, type RetrievalDbSource } from "./store.js";
 
 export interface CreateRetrievalServiceOptions {
   /** Test seam: swap the embedder factory (unit tests inject deterministic vectors). */
   createEmbedder?: (modelId: string) => SearchEmbedder;
-  supabase: SupabaseClient;
+  /** A plain client serves both lanes (tests/scripts); the handle pair runs
+   * tenant work on the engenty_server lane (Phase A seam). */
+  supabase: RetrievalDbSource;
 }
 
 export interface RetrievalServiceWithProviders extends RetrievalService {

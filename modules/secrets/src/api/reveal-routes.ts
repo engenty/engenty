@@ -68,10 +68,9 @@ export function buildGoalGrantRow(input: {
  */
 export function registerSecretsRevealRoutes(
   server: PluginServerApi,
-  supabase: SupabaseClient
+  /** Tenant-locked handle factory (Phase A) — resolved per call from ctx.auth. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient
 ): void {
-  const db = () => supabase.schema(SCHEMA);
-
   server.registerHttpRoute({
     method: "post",
     path: "/api/secrets/:id/reveal",
@@ -85,9 +84,11 @@ export function registerSecretsRevealRoutes(
       if (!secretId) {
         return hono.json({ error: "Missing id" }, 400);
       }
+      const tenantDb = getDb(ctx.auth);
+      const db = () => tenantDb.schema(SCHEMA);
 
-      // RLS (tenant+scope) applies via the request's forwarded token elsewhere;
-      // here we use the service-role client and re-check tenant explicitly.
+      // Tenant-locked handle: RLS confines the read; the explicit tenant
+      // re-check below stays as the belt (Phase A doctrine).
       const { data: secret, error } = await db()
         .from("secrets")
         .select(
@@ -106,9 +107,9 @@ export function registerSecretsRevealRoutes(
       const principal: Principal = { kind: "user", id: ctx.auth.principalId };
 
       const allowed = await canReadSecret(
-        supabase,
+        tenantDb,
         { tenantId: ctx.auth.tenantId, principal, secret },
-        buildResolveDeps(supabase, ctx.auth)
+        buildResolveDeps(tenantDb, ctx.auth)
       );
       if (!allowed) {
         return hono.json({ error: "Forbidden" }, 403);
@@ -169,6 +170,8 @@ export function registerSecretsRevealRoutes(
       if (!secretId) {
         return hono.json({ error: "Missing id" }, 400);
       }
+      const tenantDb = getDb(ctx.auth);
+      const db = () => tenantDb.schema(SCHEMA);
 
       const { data: secret, error } = await db()
         .from("secrets")
@@ -184,9 +187,9 @@ export function registerSecretsRevealRoutes(
       // an approval can delegate the user's own access, never exceed it.
       const principal: Principal = { kind: "user", id: ctx.auth.principalId };
       const allowed = await canReadSecret(
-        supabase,
+        tenantDb,
         { tenantId: ctx.auth.tenantId, principal, secret },
-        buildResolveDeps(supabase, ctx.auth)
+        buildResolveDeps(tenantDb, ctx.auth)
       );
       if (!allowed) {
         return hono.json({ error: "Forbidden" }, 403);
@@ -199,7 +202,7 @@ export function registerSecretsRevealRoutes(
         tenantId: ctx.auth.tenantId,
       });
       try {
-        await grantCapabilityForGoal(supabase, {
+        await grantCapabilityForGoal(tenantDb, {
           agentId: row.agent_id,
           capability: row.capability,
           expiresAt: row.expires_at,
@@ -262,10 +265,10 @@ export function buildResolveDeps(
     //
     // Tenant boundary: `module_projects.project_team` carries tenant_id and
     // scope_id of its own, held equal to the parent project by a composite FK
-    // (see 20260809120000_plugin_module_projects_project_team_tenant.sql). The
-    // client here is service-role and bypasses RLS, so these filters ARE the
-    // boundary — without them a project id from another tenant reads as
-    // membership and grants a secret reveal.
+    // (see 20260809120000_plugin_module_projects_project_team_tenant.sql).
+    // Phase A: callers now pass a tenant-locked handle, so RLS is the wall —
+    // these foreignSelect filters stay as the belt (and remain the boundary
+    // for any caller that still hands in a service client).
     async isProjectMember(userId: string, projectId: string) {
       if (!scope) {
         return false;

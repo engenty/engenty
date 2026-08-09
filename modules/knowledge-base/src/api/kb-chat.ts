@@ -17,6 +17,7 @@ import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 import type { KbRepoFactoryFn } from "../dal/contracts.js";
 import type { KbArticlesSearchProvider } from "../dal/kb-retrieval-source.js";
+import type { GetKbDb } from "./kb-api-shared.js";
 
 const kbChatBodySchema = z.object({
   kb_id: z.string().min(1),
@@ -31,9 +32,11 @@ function badRequest(msg: string) {
 }
 
 export function registerKbChatRoute(
-  api: Pick<PluginServerApi, "getDatabaseAdapter" | "registerHttpRoute">,
+  api: Pick<PluginServerApi, "registerHttpRoute">,
   repoFactory: KbRepoFactoryFn,
-  searchProvider: KbArticlesSearchProvider
+  searchProvider: KbArticlesSearchProvider,
+  /** Tenant-locked handle factory — the settings read runs as the caller's tenant. */
+  getDb: GetKbDb
 ) {
   api.registerHttpRoute({
     method: "post",
@@ -68,18 +71,10 @@ export function registerKbChatRoute(
         );
       }
 
-      const adapter = api.getDatabaseAdapter?.();
-      if (!adapter) {
-        return new Response(
-          JSON.stringify({ ok: false, error: "Database not available" }),
-          { status: 500, headers: { "content-type": "application/json" } }
-        );
-      }
-
       let tenantModelId: string | undefined;
       try {
         const repo = createTenantSettingsRepoSupabase(
-          adapter,
+          getDb(auth),
           auth.tenantId,
           auth.scopeId
         );

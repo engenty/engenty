@@ -1,4 +1,6 @@
+import { AuthUnavailableError } from "../../dal/core-users/auth.js";
 import { createCoreUsersDal } from "../../dal/core-users.js";
+import { log } from "../../observability/evlog.js";
 import type { PrincipalContext } from "../../security/auth.js";
 import { getSecuritySecret, verifyAccessToken } from "../../security/auth.js";
 import { jsonApiError } from "./api-response.js";
@@ -85,16 +87,44 @@ export async function resolveRouteAuth(
       principalType: "user",
       capabilities: [],
     };
-  } catch {
+  } catch (error) {
+    // "Could not reach the auth server" must not masquerade as "your session
+    // is invalid" — that reads as a permissions problem and sends people
+    // hunting through roles during an outage. Let it out so the require*
+    // helpers below answer 503; log anything else instead of vanishing.
+    if (error instanceof AuthUnavailableError) {
+      throw error;
+    }
+    log.error(
+      "authz",
+      `route auth resolution failed (returning 401): ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
     return null;
   }
+}
+
+/** 503 body for "the session could not be checked", never 401. */
+function authUnavailableError(c: RouteContext): Response {
+  return jsonApiError(c, 503, {
+    message: "Authentication service unavailable — please retry.",
+  });
 }
 
 export async function requireAuth(
   c: RouteContext,
   config: Record<string, unknown>
 ): Promise<{ auth: ResolvedRouteAuth } | { error: Response }> {
-  const auth = await resolveRouteAuth(c, config);
+  let auth: ResolvedRouteAuth | null;
+  try {
+    auth = await resolveRouteAuth(c, config);
+  } catch (error) {
+    if (error instanceof AuthUnavailableError) {
+      return { error: authUnavailableError(c) };
+    }
+    throw error;
+  }
   if (!auth) {
     return { error: jsonApiError(c, 401, { message: "Unauthorized" }) };
   }
@@ -105,7 +135,15 @@ export async function requireSuperAdmin(
   c: RouteContext,
   config: Record<string, unknown>
 ): Promise<{ auth: ResolvedRouteAuth } | { error: Response }> {
-  const auth = await resolveRouteAuth(c, config);
+  let auth: ResolvedRouteAuth | null;
+  try {
+    auth = await resolveRouteAuth(c, config);
+  } catch (error) {
+    if (error instanceof AuthUnavailableError) {
+      return { error: authUnavailableError(c) };
+    }
+    throw error;
+  }
   if (!auth) {
     return { error: jsonApiError(c, 401, { message: "Unauthorized" }) };
   }
@@ -124,7 +162,15 @@ export async function requirePlatformSuperAdmin(
   c: RouteContext,
   config: Record<string, unknown>
 ): Promise<{ auth: ResolvedRouteAuth } | { error: Response }> {
-  const auth = await resolveRouteAuth(c, config);
+  let auth: ResolvedRouteAuth | null;
+  try {
+    auth = await resolveRouteAuth(c, config);
+  } catch (error) {
+    if (error instanceof AuthUnavailableError) {
+      return { error: authUnavailableError(c) };
+    }
+    throw error;
+  }
   if (!auth) {
     return { error: jsonApiError(c, 401, { message: "Unauthorized" }) };
   }

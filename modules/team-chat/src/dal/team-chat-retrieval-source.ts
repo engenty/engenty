@@ -42,17 +42,20 @@ interface MessageRow {
 }
 
 export function createTeamChatRetrievalSource(options: {
-  supabase: SupabaseClient;
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — every
+   * entry point below (build, list, hydrate) carries the tenant it runs for. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
 }): RetrievalSourceRegistration<TeamChatSearchMatch> {
-  const { supabase } = options;
-  const messages = () => supabase.schema(SCHEMA).from("messages");
+  const { getDb } = options;
+  const messages = (tenantId: string) =>
+    getDb({ tenantId }).schema(SCHEMA).from("messages");
 
   async function loadMessage(
     docId: string,
     tenantId: string
   ): Promise<MessageRow | null> {
     const { conversationId, ts } = parseDocId(docId);
-    const { data, error } = await messages()
+    const { data, error } = await messages(tenantId)
       .select(
         "conversation_id, ts, text, user_id, deleted_at, updated_at, conversations!inner(type, scope_id)"
       )
@@ -89,7 +92,7 @@ export function createTeamChatRetrievalSource(options: {
       };
     },
     listDocuments: async ({ limit, tenant_id }) => {
-      const { data, error } = await messages()
+      const { data, error } = await messages(tenant_id)
         .select("conversation_id, ts, updated_at, conversations!inner(type)")
         .eq("tenant_id", tenant_id)
         .is("deleted_at", null)

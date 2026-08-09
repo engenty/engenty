@@ -56,7 +56,7 @@ function memoryRow(overrides: Record<string, unknown> = {}) {
 describe("memory retrieval source — buildDocument", () => {
   it("builds title+body documents with scope filter metadata", async () => {
     const source = createMemoryRetrievalSource({
-      supabase: createFakeSupabase([memoryRow()]) as any,
+      getDb: () => createFakeSupabase([memoryRow()]) as any,
     });
     const doc = await source.buildDocument({
       doc_id: "m1",
@@ -79,9 +79,10 @@ describe("memory retrieval source — buildDocument", () => {
 
   it("omits scope_ref metadata for org records (null ref)", async () => {
     const source = createMemoryRetrievalSource({
-      supabase: createFakeSupabase([
-        memoryRow({ scope_kind: "org", scope_ref: null }),
-      ]) as any,
+      getDb: () =>
+        createFakeSupabase([
+          memoryRow({ scope_kind: "org", scope_ref: null }),
+        ]) as any,
     });
     const doc = await source.buildDocument({
       doc_id: "m1",
@@ -95,7 +96,7 @@ describe("memory retrieval source — buildDocument", () => {
     "archived",
   ])("returns null for %s records so they drop from the index", async (status) => {
     const source = createMemoryRetrievalSource({
-      supabase: createFakeSupabase([memoryRow({ status })]) as any,
+      getDb: () => createFakeSupabase([memoryRow({ status })]) as any,
     });
     const doc = await source.buildDocument({
       doc_id: "m1",
@@ -107,7 +108,7 @@ describe("memory retrieval source — buildDocument", () => {
 
 describe("memory retrieval source — mapFilters", () => {
   const source = createMemoryRetrievalSource({
-    supabase: createFakeSupabase([]) as any,
+    getDb: () => createFakeSupabase([]) as any,
   });
 
   it("maps scope and kind filters to chunk metadata", () => {
@@ -142,10 +143,11 @@ describe("memory retrieval source — hydrate", () => {
 
   it("hydrates matches into records, dropping non-active rows and dupes", async () => {
     const source = createMemoryRetrievalSource({
-      supabase: createFakeSupabase([
-        memoryRow(),
-        memoryRow({ id: "m2", slug: "acme-tone", status: "archived" }),
-      ]) as any,
+      getDb: () =>
+        createFakeSupabase([
+          memoryRow(),
+          memoryRow({ id: "m2", slug: "acme-tone", status: "archived" }),
+        ]) as any,
     });
     const results = await source.retriever?.hydrate?.(
       [match("m1"), match("m1"), match("m2")],

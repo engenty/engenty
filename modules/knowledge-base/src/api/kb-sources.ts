@@ -12,6 +12,7 @@ import {
   type PluginHttpRouteContext,
   type PluginServerApi,
 } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { KbRepoFactory, KbRepoFactoryFn } from "../dal/contracts.js";
 import { SCHEMA } from "../dal/shared.js";
 import type { KbSource, KbSourceSchedule } from "../schema/sources.js";
@@ -167,16 +168,15 @@ async function persistInitialIndexedItems(
   }
 }
 
+// Service-role read by design: an inbound source webhook is anonymous until
+// the token hash identifies the source row — and with it the tenant. Same
+// shape as a login lookup. The run itself resolves tenant-locked repos from
+// the row's own tenant_id/scope_id.
 async function findSourceByWebhookToken(
-  api: Pick<PluginServerApi, "getDatabaseAdapter">,
+  serviceDb: unknown,
   token: string
 ): Promise<Record<string, unknown> | null> {
-  const adapter = api.getDatabaseAdapter?.() as
-    | WebhookLookupAdapter
-    | undefined;
-  if (!adapter) {
-    throw new Error("Database not available");
-  }
+  const adapter = serviceDb as WebhookLookupAdapter;
   const tokenHash = hashDocumentSourceWebhookToken(token);
   const { data, error } = await adapter
     .schema(SCHEMA)
@@ -199,13 +199,16 @@ export function registerKbSourceApi(
   api: Pick<
     PluginServerApi,
     | "callGatewayMethod"
-    | "getDatabaseAdapter"
     | "getStorageService"
     | "hasOperation"
     | "registerHttpRoute"
   >,
   getRepo: GetRepo,
-  repoFactory: KbRepoFactoryFn
+  repoFactory: KbRepoFactoryFn,
+  /** Service client for the tenant-RESOLUTION read only — see
+   * `findSourceByWebhookToken`. Every other route runs on the tenant-locked
+   * repos supplied by `getRepo`/`repoFactory`. */
+  serviceDb: SupabaseClient
 ) {
   api.registerHttpRoute({
     method: "get",
@@ -796,10 +799,12 @@ export function registerKbSourceApi(
     path: "/api/kb/source-webhooks/:token",
     handler: async (ctx) => {
       const params = ctx.params as { token: string };
-      const sourceRow = await findSourceByWebhookToken(api, params.token);
+      const sourceRow = await findSourceByWebhookToken(serviceDb, params.token);
       if (!sourceRow) {
         return jsonError(401, "invalid_source_webhook_token", "Invalid token");
       }
+      // Tenant-locked from here on: repoFactory resolves getTenantDb from the
+      // row's own tenant.
       const repos = repoFactory(
         String(sourceRow.tenant_id),
         String(sourceRow.scope_id)

@@ -58,16 +58,16 @@ function createStubSupabase(input: {
       from: (table: string) =>
         table === "contacts" ? contactsQuery() : relationsQuery(),
     }),
-  } as unknown as Parameters<
-    typeof registerContactsContextGraph
-  >[0]["supabase"];
+  } as unknown as ReturnType<
+    Parameters<typeof registerContactsContextGraph>[0]["getDb"]
+  >;
 }
 
 describe("registerContactsContextGraph", () => {
   it("registers contacts.person, contacts.organisation, and three edge types", () => {
     const captured: ContextGraphSchemaRegistration[] = [];
     registerContactsContextGraph({
-      supabase: createStubSupabase({ contact: null, relations: [] }),
+      getDb: () => createStubSupabase({ contact: null, relations: [] }),
       server: {
         registerContextGraphSchema: (input) => {
           captured.push(input);
@@ -113,7 +113,7 @@ describe("registerContactsContextGraph", () => {
       ],
     });
     registerContactsContextGraph({
-      supabase,
+      getDb: () => supabase,
       server: {
         registerContextGraphSchema: (input) => {
           captured.push(input);
@@ -148,7 +148,7 @@ describe("registerContactsContextGraph", () => {
   it("delete binding externalRef() resolves the contact's external ref", () => {
     const captured: ContextGraphSchemaRegistration[] = [];
     registerContactsContextGraph({
-      supabase: createStubSupabase({ contact: null, relations: [] }),
+      getDb: () => createStubSupabase({ contact: null, relations: [] }),
       server: {
         registerContextGraphSchema: (input) => {
           captured.push(input);

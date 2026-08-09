@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.112",
+  "version": "0.1.113",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -118,6 +118,8 @@
     "check:ui-core-imports": "node scripts/check-ui-core-imports.mjs",
     "check:supabase-imports": "node scripts/check-supabase-imports.mjs",
     "check:rls-coverage": "node scripts/check-rls-coverage.mjs",
+    "check:server-lane-coverage": "node scripts/check-server-lane-coverage.mjs",
+    "check:leak-harness": "node scripts/leak-harness.mjs",
     "check:foreign-schema-scope": "node scripts/check-foreign-schema-scope.mjs",
     "check:grants-coverage": "node scripts/check-grants-coverage.mjs",
     "ai:check": "node scripts/ai-check.mjs",

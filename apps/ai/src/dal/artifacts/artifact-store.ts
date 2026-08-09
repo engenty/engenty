@@ -1,7 +1,10 @@
 import { createLogger } from "@engenty/telemetry";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getArtifactType } from "../../ai/artifacts/artifact-types.js";
-import { createAiDatabaseAdapter } from "../../infra/database.js";
+import {
+  createDbSourceFromEnv,
+  type DbSource,
+  normalizeDbSource,
+} from "../../infra/tenant-db.js";
 import {
   createArtifactSearchRetrieval,
   withArtifactIndexing,
@@ -69,14 +72,18 @@ export interface AddArtifactVersionInput {
   tenantId: string;
 }
 
-export function createArtifactStore(client: SupabaseClient) {
-  const db = client.schema(AI_SCHEMA);
+export function createArtifactStore(source: DbSource) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every method here is
+  // tenant-keyed (ai.artifact / ai.artifact_version / ai.artifact_storage_binding
+  // all carry tenant_id) and resolves a tenant-locked handle per call.
+  const { forTenant } = normalizeDbSource(source);
+  const dbFor = (tenantId: string) => forTenant(tenantId).schema(AI_SCHEMA);
 
   async function getArtifactRow(params: {
     tenantId: string;
     artifactId: string;
   }): Promise<ArtifactRow | null> {
-    const { data, error } = await db
+    const { data, error } = await dbFor(params.tenantId)
       .from("artifact")
       .select()
       .eq("tenant_id", params.tenantId)
@@ -96,6 +103,7 @@ export function createArtifactStore(client: SupabaseClient) {
       getArtifactType(input.type).validate(input.content);
       assertInlineSize(input.content);
 
+      const db = dbFor(input.tenantId);
       const { data: artifact, error: aError } = await db
         .from("artifact")
         .insert({
@@ -155,7 +163,7 @@ export function createArtifactStore(client: SupabaseClient) {
         return null;
       }
       const targetVersion = params.version ?? artifact.current_version;
-      const { data: version, error } = await db
+      const { data: version, error } = await dbFor(params.tenantId)
         .from("artifact_version")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -177,7 +185,7 @@ export function createArtifactStore(client: SupabaseClient) {
       scopeId: string;
       includeArchived?: boolean;
     }): Promise<ArtifactRow[]> {
-      let query = db
+      let query = dbFor(params.tenantId)
         .from("artifact")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -245,7 +253,10 @@ export function createArtifactStore(client: SupabaseClient) {
       includeArchived?: boolean;
       limit?: number;
     }): Promise<ArtifactRow[]> {
-      let query = db.from("artifact").select().eq("tenant_id", params.tenantId);
+      let query = dbFor(params.tenantId)
+        .from("artifact")
+        .select()
+        .eq("tenant_id", params.tenantId);
       if (!params.includeArchived) {
         query = query.eq("status", "active");
       }
@@ -261,6 +272,7 @@ export function createArtifactStore(client: SupabaseClient) {
     async addVersion(
       input: AddArtifactVersionInput
     ): Promise<{ artifact: ArtifactRow; version: ArtifactVersionRow }> {
+      const db = dbFor(input.tenantId);
       const artifact = await getArtifactRow(input);
       if (!artifact) {
         throw new Error("artifact not found");
@@ -330,7 +342,7 @@ export function createArtifactStore(client: SupabaseClient) {
       scopeType: ArtifactScopeType;
       scopeId: string;
     }): Promise<ArtifactRow | null> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("artifact")
         .update({
           scope_type: params.scopeType,
@@ -357,7 +369,7 @@ export function createArtifactStore(client: SupabaseClient) {
       if (!row) {
         return null;
       }
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("artifact")
         .update({
           metadata: { ...row.metadata, ...params.patch },
@@ -378,7 +390,7 @@ export function createArtifactStore(client: SupabaseClient) {
       scopeType: ArtifactScopeType;
       scopeId: string;
     }): Promise<ArtifactStorageBindingRow | null> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("artifact_storage_binding")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -400,6 +412,7 @@ export function createArtifactStore(client: SupabaseClient) {
       folderRef?: string | null;
       createdBy?: string | null;
     }): Promise<ArtifactStorageBindingRow | null> {
+      const db = dbFor(params.tenantId);
       if (!params.connectionId) {
         const { error } = await db
           .from("artifact_storage_binding")
@@ -439,7 +452,7 @@ export function createArtifactStore(client: SupabaseClient) {
       artifactId: string;
       status: "active" | "archived";
     }): Promise<ArtifactRow | null> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("artifact")
         .update({
           status: params.status,
@@ -469,15 +482,22 @@ let envStore: ArtifactStore | null | undefined;
  */
 export function createArtifactStoreFromEnv(): ArtifactStore | null {
   if (envStore === undefined) {
-    const client = createAiDatabaseAdapter(
-      process.env as unknown as Record<string, unknown>
-    );
-    if (client) {
-      const base = createArtifactStore(client);
+    const source = createDbSourceFromEnv();
+    if (source) {
+      const base = createArtifactStore(source);
       try {
+        // Phase A: indexing + queries run tenant-locked (the visibility
+        // registry gained a read-only engenty_server policy, 20260809240000);
+        // the source's own ai.* reads keep the handles they already resolve.
         envStore = withArtifactIndexing(
           base,
-          createArtifactSearchRetrieval({ supabase: client }),
+          createArtifactSearchRetrieval({
+            supabase: source.serviceDb,
+            retrievalDb: {
+              getDb: (auth: { tenantId: string }) => source.getTenantDb(auth),
+              serviceDb: source.serviceDb,
+            },
+          }),
           (message, data) => indexingLogger.warn(message, data ?? {})
         );
       } catch {

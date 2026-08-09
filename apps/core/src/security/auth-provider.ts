@@ -1,3 +1,4 @@
+import { AuthUnavailableError } from "../dal/core-users/auth.js";
 import { createCoreUsersDal } from "../dal/core-users.js";
 import { log } from "../observability/evlog.js";
 import type { PrincipalContext } from "./auth.js";
@@ -72,6 +73,10 @@ export function createSupabaseAuthProvider(
         const authUser = await dal.resolveAuthUser(sessionToken);
         const tenantId = await dal.getTenantIdForAuthUser(sessionToken);
         if (!tenantId) {
+          log.error(
+            "auth-provider",
+            `session fallback: no tenant resolved for auth user ${authUser?.id ?? "(unknown)"} — returning 401`
+          );
           return null;
         }
         const isAdmin = await dal.isAuthUserAdmin(sessionToken);
@@ -131,7 +136,24 @@ export function createSupabaseAuthProvider(
           audience: [],
           transport: "http" as const,
         };
-      } catch {
+      } catch (error) {
+        // "Could not verify" is not "invalid credential". Let the unavailable
+        // case reach the route so it answers 503; only a genuine rejection
+        // falls through to 401. A swallowed failure here used to become a bare
+        // 401 with nothing in the log, which is indistinguishable from bad
+        // credentials — so log the cause either way.
+        if (error instanceof AuthUnavailableError) {
+          log.error("auth-provider", `auth unavailable: ${error.message}`);
+          throw error;
+        }
+        log.error(
+          "auth-provider",
+          `session fallback failed (returning 401): ${
+            error instanceof Error
+              ? `${error.message}\n${error.stack ?? ""}`
+              : String(error)
+          }`
+        );
         return null;
       }
     },
@@ -159,7 +181,18 @@ export function createSupabaseAuthProvider(
             sessionToken
           )) ?? null
         );
-      } catch {
+      } catch (error) {
+        // Same rule as resolveAdminFallback above: an unreachable auth server
+        // is not a tenantless session.
+        if (error instanceof AuthUnavailableError) {
+          throw error;
+        }
+        log.error(
+          "auth-provider",
+          `tenant-for-session lookup failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
         return null;
       }
     },

@@ -76,11 +76,13 @@ function connection(
   } as ConnectionSummary;
 }
 
-function repo(conn = connection()): ConnectionsRepo {
-  return {
+/** Tenant-locked repo factory, as the Phase A policy signature expects. */
+function repo(conn = connection()): () => ConnectionsRepo {
+  const stub = {
     listCandidateConnections: () => Promise.resolve([conn]),
     listPolicyOverrides: () => Promise.resolve([]),
   } as unknown as ConnectionsRepo;
+  return () => stub;
 }
 
 function policyInput(overrides: {

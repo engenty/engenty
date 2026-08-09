@@ -1,5 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { sessionMatchesHostKey } from "../../ai/sessions/thread-host-key.js";
+import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 import type {
   AgentSessionStatus,
   ThreadMessageRole,
@@ -58,8 +58,13 @@ export interface UpdateThreadMessagePartsInput {
   threadId: string;
 }
 
-export function createThreadStore(client: SupabaseClient) {
-  const db = client.schema(AI_SCHEMA);
+export function createThreadStore(source: DbSource) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every tenant-keyed
+  // method resolves a tenant-locked handle per call; only getThreadGlobally
+  // stays on the service client (it EXISTS to resolve the tenant).
+  const { forTenant, service } = normalizeDbSource(source);
+  const dbFor = (tenantId: string) => forTenant(tenantId).schema(AI_SCHEMA);
+  const serviceDb = () => service.schema(AI_SCHEMA);
 
   return {
     // One RPC, not two writes: the thread row and its owner participant row
@@ -72,6 +77,7 @@ export function createThreadStore(client: SupabaseClient) {
     async upsertThread(
       input: CreateThreadInput
     ): Promise<{ thread: ThreadRow }> {
+      const db = dbFor(input.tenantId);
       const { data: thread, error } = await db
         .rpc("upsert_thread_with_owner", {
           p_agent_id: input.agentId,
@@ -102,7 +108,7 @@ export function createThreadStore(client: SupabaseClient) {
       tenantId: string;
       threadId: string;
     }): Promise<ThreadRow | null> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("thread")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -114,10 +120,14 @@ export function createThreadStore(client: SupabaseClient) {
       return (data ? mapThreadRow(data as DbThreadRow) : null) ?? null;
     },
 
+    // SERVICE lane (Phase A residual, commented on purpose): this lookup
+    // resolves WHICH tenant a thread belongs to (guest chatbot auth in
+    // app.ts's scope resolver) — there is no tenant to mint a handle for
+    // until it returns. Cross-tenant by definition.
     async getThreadGlobally(params: {
       threadId: string;
     }): Promise<ThreadRow | null> {
-      const { data, error } = await db
+      const { data, error } = await serviceDb()
         .from("thread")
         .select()
         .eq("id", params.threadId)
@@ -173,7 +183,7 @@ export function createThreadStore(client: SupabaseClient) {
       if (params.archived !== undefined) {
         patch.archived_at = params.archived ? new Date().toISOString() : null;
       }
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("thread")
         .update(patch)
         .eq("tenant_id", params.tenantId)
@@ -207,7 +217,7 @@ export function createThreadStore(client: SupabaseClient) {
       threadId: string;
       userId: string;
     }): Promise<{ thread: ThreadRow | null }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .rpc("merge_thread_metadata", {
           p_append_sets: params.appendSets ?? {},
           p_patch: params.patch ?? {},
@@ -231,7 +241,7 @@ export function createThreadStore(client: SupabaseClient) {
       limit?: number;
     }): Promise<ThreadMessageRow[]> {
       const lim = params.limit ?? 500;
-      const { data, error } = await db
+      const { data, error } = await dbFor(params.tenantId)
         .from("thread_message")
         .select()
         .eq("tenant_id", params.tenantId)
@@ -248,6 +258,7 @@ export function createThreadStore(client: SupabaseClient) {
     async appendMessage(
       input: AppendThreadMessageInput
     ): Promise<{ message: ThreadMessageRow }> {
+      const db = dbFor(input.tenantId);
       const record = {
         tenant_id: input.tenantId,
         thread_id: input.threadId,
@@ -302,7 +313,7 @@ export function createThreadStore(client: SupabaseClient) {
     async updateMessageParts(
       input: UpdateThreadMessagePartsInput
     ): Promise<{ message: ThreadMessageRow }> {
-      const { data, error } = await db
+      const { data, error } = await dbFor(input.tenantId)
         .from("thread_message")
         .update({ parts: input.parts })
         .eq("tenant_id", input.tenantId)
@@ -324,6 +335,7 @@ export function createThreadStore(client: SupabaseClient) {
       tenantId: string;
       userId: string;
     }): Promise<ThreadRow[]> {
+      const db = dbFor(params.tenantId);
       const lim = params.limit ?? 50;
       const { data: participation, error: pErr } = await db
         .from("thread_participant")
@@ -380,6 +392,7 @@ export function createThreadStore(client: SupabaseClient) {
       tenantId: string;
       userId: string;
     }): Promise<{ deleted: boolean }> {
+      const db = dbFor(params.tenantId);
       const thread = await this.getThread({
         tenantId: params.tenantId,
         threadId: params.threadId,
@@ -418,6 +431,7 @@ export function createThreadStore(client: SupabaseClient) {
       tenantId: string;
       userId: string;
     }): Promise<{ deleted: number }> {
+      const db = dbFor(params.tenantId);
       const { data: participation, error: pErr } = await db
         .from("thread_participant")
         .select("thread_id, role")

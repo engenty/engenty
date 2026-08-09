@@ -40,13 +40,19 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
   ]);
 
   const { events, server } = engenty;
-  const supabaseRaw = server.getDatabaseAdapter?.() ?? null;
-  if (!supabaseRaw) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every DB consumer in this
+  // factory is request- or event-shaped and carries a tenant at call time, so ALL
+  // work runs on tenant-locked handles (engenty_server lane, RLS-enforced) — no
+  // service-role client use remains here. (getTenantDb is undefined when the host
+  // has no Supabase, so this bail also covers the missing-DB case.)
+  const getTenantDb = server.getTenantDb;
+  if (!getTenantDb) {
     throw new Error(
-      "Team-chat module requires Supabase (supabaseUrl and supabaseServiceRoleKey)"
+      "Team-chat module requires Supabase (supabaseUrl and supabaseServiceRoleKey) and the tenant-locked DB seam (getTenantDb)"
     );
   }
-  const supabase = supabaseRaw as SupabaseClient;
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   // `posted` is the activity/bridge/search feed; verbs mirror the Slack
   // Events API semantics (message / message_changed / message_deleted).
@@ -67,7 +73,7 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
       auth.principalId ??
       null;
     return createTeamChatRepoSupabase(
-      supabase,
+      getDb(auth),
       auth.tenantId,
       auth.scopeId ?? "default",
       userId,
@@ -77,7 +83,7 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
 
   // Phase 5: channel messages join the central retrieval store (workspace
   // search + agent search tool; DMs excluded in the source itself).
-  server.registerRetrievalSource?.(createTeamChatRetrievalSource({ supabase }));
+  server.registerRetrievalSource?.(createTeamChatRetrievalSource({ getDb }));
 
   const queue = server.getQueueService?.() ?? null;
   registerTeamChatGatewayMethods(server, { queue, repoForAuth });
@@ -99,8 +105,11 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
         if (!(project && tenantId)) {
           return;
         }
+        // Event-shaped lane: the bus payload carries the tenant, so the
+        // system post runs on that tenant's locked handle (userId null only
+        // means "no acting user", not service-role).
         const serviceRepo = createTeamChatRepoSupabase(
-          supabase,
+          getDb({ tenantId }),
           tenantId,
           (payload.scope_id as string) ?? "default",
           null,

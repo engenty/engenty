@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
+import { createRecordingDbSource } from "./helpers/recording-db-source.js";
 import {
   ARTIFACT_INLINE_CONTENT_MAX_BYTES,
   ArtifactContentTooLargeError,
@@ -61,7 +62,8 @@ describe("artifact store logic", () => {
         current_version: 3,
       },
     });
-    const store = createArtifactStore(client);
+    const db = createRecordingDbSource(client);
+    const store = createArtifactStore(db.source as never);
 
     await expect(
       store.addVersion({
@@ -78,7 +80,8 @@ describe("artifact store logic", () => {
 
   it("rejects content over the inline size limit", async () => {
     const { client } = makeFake({});
-    const store = createArtifactStore(client);
+    const db = createRecordingDbSource(client);
+    const store = createArtifactStore(db.source as never);
     const tooBig = "a".repeat(ARTIFACT_INLINE_CONTENT_MAX_BYTES + 1);
 
     await expect(
@@ -96,7 +99,8 @@ describe("artifact store logic", () => {
 
   it("rejects an unknown artifact type", async () => {
     const { client } = makeFake({});
-    const store = createArtifactStore(client);
+    const db = createRecordingDbSource(client);
+    const store = createArtifactStore(db.source as never);
 
     await expect(
       store.create({
@@ -113,7 +117,8 @@ describe("artifact store logic", () => {
 
   it("writes both the artifact and its first version on create", async () => {
     const { client, inserts } = makeFake({});
-    const store = createArtifactStore(client);
+    const db = createRecordingDbSource(client);
+    const store = createArtifactStore(db.source as never);
 
     await store.create({
       tenantId,

@@ -24,6 +24,7 @@ import type {
   RetrievalSourceRegistration,
   RetrievalSourceScores,
 } from "./contracts.js";
+import type { RetrievalDbSource } from "./store.js";
 
 const SCHEMA = "search";
 const DEFAULT_PAGE_SIZE = 25;
@@ -39,7 +40,9 @@ export interface QueryDeps {
     tenantId: string
   ): Promise<SearchEmbedder>;
   sources: Map<string, RetrievalSourceRegistration>;
-  supabase: SupabaseClient;
+  /** Plain client (tests) or the Phase A handle pair — the RPC resolves the
+   * tenant-locked handle from the request's own tenant_id. */
+  supabase: RetrievalDbSource;
 }
 
 function countQueryTerms(query: string): number {
@@ -190,26 +193,35 @@ export async function runQuery(
       vectorThreshold = Math.min(vectorThreshold, resolved);
     }
   }
-  const { data, error } = await deps.supabase
-    .schema(SCHEMA)
-    .rpc("query_chunks", {
-      p_embedding_model: embeddingModel,
-      p_limit: limit,
-      p_metadata: filters.metadata ?? null,
-      p_modules: filters.modules?.length ? filters.modules : null,
-      p_occurred_after: filters.occurred_after ?? null,
-      p_occurred_before: filters.occurred_before ?? null,
-      p_offset: offset,
-      p_query: query,
-      p_query_embedding: queryEmbedding ? JSON.stringify(queryEmbedding) : null,
-      p_scope_id: filters.scope_id?.trim() || "default",
-      p_source_types: sources.map((source) => source.source_type),
-      p_tenant_id: tenantId,
-      p_trigram_threshold: DEFAULT_TRIGRAM_THRESHOLD,
-      p_use_trigram: useTrigram,
-      p_user_id: filters.user_id ?? null,
-      p_vector_threshold: vectorThreshold,
-    });
+  // Tenant-locked when the deps carry the handle pair: query_chunks is
+  // SECURITY INVOKER, so under engenty_server the RPC's own reads run inside
+  // RLS and the p_tenant_id parameter can only narrow, never widen.
+  const queryDb: SupabaseClient =
+    typeof (deps.supabase as { getDb?: unknown }).getDb === "function"
+      ? (
+          deps.supabase as {
+            getDb: (auth: { tenantId: string }) => SupabaseClient;
+          }
+        ).getDb({ tenantId })
+      : (deps.supabase as SupabaseClient);
+  const { data, error } = await queryDb.schema(SCHEMA).rpc("query_chunks", {
+    p_embedding_model: embeddingModel,
+    p_limit: limit,
+    p_metadata: filters.metadata ?? null,
+    p_modules: filters.modules?.length ? filters.modules : null,
+    p_occurred_after: filters.occurred_after ?? null,
+    p_occurred_before: filters.occurred_before ?? null,
+    p_offset: offset,
+    p_query: query,
+    p_query_embedding: queryEmbedding ? JSON.stringify(queryEmbedding) : null,
+    p_scope_id: filters.scope_id?.trim() || "default",
+    p_source_types: sources.map((source) => source.source_type),
+    p_tenant_id: tenantId,
+    p_trigram_threshold: DEFAULT_TRIGRAM_THRESHOLD,
+    p_use_trigram: useTrigram,
+    p_user_id: filters.user_id ?? null,
+    p_vector_threshold: vectorThreshold,
+  });
   if (error) {
     throw new Error(`retrieval query failed: ${error.message}`);
   }

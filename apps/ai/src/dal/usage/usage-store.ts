@@ -6,7 +6,6 @@ import type {
   UsagePeriodTotalRecord,
   UserUsagePolicyRecord,
 } from "@engenty/ai-core";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AiGatewayModelStore,
   GatewayModelAvailabilityFlags,
@@ -17,6 +16,7 @@ import type {
   GatewayModelUpsertInput,
   ModelBindingRecord,
 } from "../../gateway-models.js";
+import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 
 const AI_SCHEMA = "ai";
 
@@ -349,19 +349,32 @@ function emptyModelSummary(row: Record<string, unknown>) {
 }
 
 export function createAiUsageStore(
-  client: SupabaseClient
+  source: DbSource
 ): AiUsageStore & AiGatewayModelStore {
-  const db = client.schema(AI_SCHEMA);
-  const coreDb = client.schema("core");
-  const pricing = () => db.from("model_pricing");
-  const gatewayModels = () => db.from("model");
-  const gatewayModelSyncRuns = () => db.from("gateway_model_sync_run");
-  const gatewayModelSyncSettings = () => db.from("gateway_model_sync_settings");
-  const events = () => db.from("usage_event");
-  const totals = () => db.from("usage_period_total");
-  const modelBindings = () => db.from("model_binding");
-  const tenantPolicies = () => db.from("tenant_usage_policy");
-  const userPolicies = () => db.from("user_usage_policy");
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): tenant-keyed tables
+  // (ai.usage_event, ai.usage_period_total, ai.tenant_usage_policy,
+  // ai.user_usage_policy) resolve a tenant-locked handle per call. The
+  // SERVICE client remains for the global platform tables — ai.model_pricing,
+  // ai.model, ai.gateway_model_sync_run, ai.gateway_model_sync_settings,
+  // ai.model_binding have NO tenant_id column, so the tenant lane has no
+  // grants on them (fail-closed) — plus the two commented cross-tenant reads.
+  const { forTenant, service } = normalizeDbSource(source);
+  const dbFor = (tenantId: string) => forTenant(tenantId).schema(AI_SCHEMA);
+  const serviceDb = service.schema(AI_SCHEMA);
+  const coreDb = service.schema("core");
+  const pricing = () => serviceDb.from("model_pricing");
+  const gatewayModels = () => serviceDb.from("model");
+  const gatewayModelSyncRuns = () => serviceDb.from("gateway_model_sync_run");
+  const gatewayModelSyncSettings = () =>
+    serviceDb.from("gateway_model_sync_settings");
+  const events = (tenantId: string) => dbFor(tenantId).from("usage_event");
+  const totals = (tenantId: string) =>
+    dbFor(tenantId).from("usage_period_total");
+  const modelBindings = () => serviceDb.from("model_binding");
+  const tenantPolicies = (tenantId: string) =>
+    dbFor(tenantId).from("tenant_usage_policy");
+  const userPolicies = (tenantId: string) =>
+    dbFor(tenantId).from("user_usage_policy");
 
   return {
     async listModelBindings(scope = "platform") {
@@ -429,7 +442,7 @@ export function createAiUsageStore(
     },
 
     async getPeriodTotals(params) {
-      const { data, error } = await totals()
+      const { data, error } = await totals(params.tenant_id)
         .select("*")
         .eq("tenant_id", params.tenant_id)
         .eq("user_id", params.user_id)
@@ -442,7 +455,7 @@ export function createAiUsageStore(
     },
 
     async getAgentPeriodCostMicros(params) {
-      const { data, error } = await events()
+      const { data, error } = await events(params.tenant_id)
         .select("cost_micros")
         .eq("tenant_id", params.tenant_id)
         .eq("agent_id", params.agent_id)
@@ -458,7 +471,7 @@ export function createAiUsageStore(
     },
 
     async getTenantPolicy(tenantId) {
-      const { data, error } = await tenantPolicies()
+      const { data, error } = await tenantPolicies(tenantId)
         .select("*")
         .eq("tenant_id", tenantId)
         .maybeSingle();
@@ -469,7 +482,7 @@ export function createAiUsageStore(
     },
 
     async getUserPolicy(params) {
-      const { data, error } = await userPolicies()
+      const { data, error } = await userPolicies(params.tenant_id)
         .select("*")
         .eq("tenant_id", params.tenant_id)
         .eq("user_id", params.user_id)
@@ -481,7 +494,14 @@ export function createAiUsageStore(
     },
 
     async insertEvent(input) {
-      const { data, error } = await events().insert(input).select("*").single();
+      // Tenant events ride the tenant lane. The rare tenant-less event
+      // (platform-lane usage with no tenant dimension; tenant_id is nullable
+      // in the contract) keeps the SERVICE client — a NULL tenant_id can
+      // never pass the srv_tenant_isolation WITH CHECK.
+      const table = input.tenant_id
+        ? events(input.tenant_id)
+        : serviceDb.from("usage_event");
+      const { data, error } = await table.insert(input).select("*").single();
       if (error) {
         throw new Error(`usage event insert: ${error.message}`);
       }
@@ -489,19 +509,22 @@ export function createAiUsageStore(
     },
 
     async bumpPeriodTotals(input) {
-      const { error } = await db.rpc("bump_usage_period_total", {
-        p_tenant_id: input.tenant_id,
-        p_user_id: input.user_id,
-        p_period_start: input.period_start,
-        p_period_end: input.period_end,
-        p_input_tokens: input.input_tokens,
-        p_output_tokens: input.output_tokens,
-        p_cached_tokens: input.cached_tokens,
-        p_reasoning_tokens: input.reasoning_tokens,
-        p_cost_micros: input.cost_micros,
-        p_currency: input.currency,
-        p_occurred_at: input.occurred_at,
-      });
+      const { error } = await dbFor(input.tenant_id).rpc(
+        "bump_usage_period_total",
+        {
+          p_tenant_id: input.tenant_id,
+          p_user_id: input.user_id,
+          p_period_start: input.period_start,
+          p_period_end: input.period_end,
+          p_input_tokens: input.input_tokens,
+          p_output_tokens: input.output_tokens,
+          p_cached_tokens: input.cached_tokens,
+          p_reasoning_tokens: input.reasoning_tokens,
+          p_cost_micros: input.cost_micros,
+          p_currency: input.currency,
+          p_occurred_at: input.occurred_at,
+        }
+      );
       if (error) {
         throw new Error(`usage totals bump: ${error.message}`);
       }
@@ -531,8 +554,12 @@ export function createAiUsageStore(
     },
 
     async listUsedModelPricing() {
-      const { data: eventRows, error: eventError } =
-        await events().select("pricing_version_id");
+      // SERVICE lane (Phase A residual): superadmin diagnostics — which
+      // pricing versions any tenant's events reference. Cross-tenant by
+      // design; the pricing rows themselves are global platform data.
+      const { data: eventRows, error: eventError } = await serviceDb
+        .from("usage_event")
+        .select("pricing_version_id");
       if (eventError) {
         throw new Error(`used pricing event list: ${eventError.message}`);
       }
@@ -756,7 +783,7 @@ export function createAiUsageStore(
     },
 
     async listUserPolicies(tenantId) {
-      const { data, error } = await userPolicies()
+      const { data, error } = await userPolicies(tenantId)
         .select("*")
         .eq("tenant_id", tenantId);
       if (error) {
@@ -768,7 +795,7 @@ export function createAiUsageStore(
     },
 
     async summarizeUsageByModel(params) {
-      let query = events()
+      let query = events(params.tenant_id)
         .select(
           "model_id, feature, input_tokens, output_tokens, cached_tokens, reasoning_tokens, cost_micros"
         )
@@ -804,7 +831,7 @@ export function createAiUsageStore(
     },
 
     async summarizeUsageByThread(params) {
-      const { data, error } = await events()
+      const { data, error } = await events(params.tenant_id)
         .select(
           "input_tokens, output_tokens, cached_tokens, reasoning_tokens, cost_micros, currency"
         )
@@ -842,7 +869,7 @@ export function createAiUsageStore(
     },
 
     async summarizeUsageByUser(params) {
-      const { data, error } = await events()
+      const { data, error } = await events(params.tenant_id)
         .select(
           "user_id, input_tokens, output_tokens, cached_tokens, reasoning_tokens, cost_micros"
         )
@@ -893,6 +920,9 @@ export function createAiUsageStore(
         .map((row) => row.user_id)
         .filter((value): value is string => !!value);
       if (userIds.length > 0) {
+        // SERVICE lane: core.users is the global user table (no tenant_id
+        // column → no tenant-lane grants). Only ids already present in this
+        // tenant's usage events are looked up.
         const { data: users, error: usersError } = await coreDb
           .from("users")
           .select("id, email, display_name")
@@ -921,7 +951,7 @@ export function createAiUsageStore(
     },
 
     async upsertTenantPolicy(record) {
-      const { data, error } = await tenantPolicies()
+      const { data, error } = await tenantPolicies(record.tenant_id)
         .upsert(record, { onConflict: "tenant_id" })
         .select("*")
         .single();
@@ -932,7 +962,7 @@ export function createAiUsageStore(
     },
 
     async upsertUserPolicy(record) {
-      const { data, error } = await userPolicies()
+      const { data, error } = await userPolicies(record.tenant_id)
         .upsert(record, { onConflict: "tenant_id,user_id" })
         .select("*")
         .single();

@@ -3,12 +3,12 @@
 // they are derived from the registry (see ai/instructions/base-documents.ts).
 
 import { randomUUID } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AiInstructionChange,
   AiInstructionDocument,
   InstructionEditScope,
 } from "../../ai/instructions/types.js";
+import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 
 const AI_SCHEMA = "ai";
 const OVERRIDES_TABLE = "engenty_instruction_overrides";
@@ -70,9 +70,18 @@ export type InstructionOverridesStore = ReturnType<
   typeof createInstructionOverridesStore
 >;
 
-export function createInstructionOverridesStore(client: SupabaseClient) {
-  const table = () => client.schema(AI_SCHEMA).from(OVERRIDES_TABLE);
-  const changes = () => client.schema(AI_SCHEMA).from(CHANGES_TABLE);
+export function createInstructionOverridesStore(source: DbSource) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): override reads/writes
+  // are tenant-keyed (ai.engenty_instruction_overrides carries tenant_id) and
+  // resolve a tenant-locked handle per call. The change history stays on the
+  // SERVICE lane: ai.engenty_instruction_changes has NO tenant_id column, so
+  // the tenant lane has no grants on it (fail-closed by the Phase A
+  // migration) — tenancy there hangs off the FK to the overrides row.
+  const { forTenant, service } = normalizeDbSource(source);
+  const tableFor = (tenantId: string) =>
+    forTenant(tenantId).schema(AI_SCHEMA).from(OVERRIDES_TABLE);
+  const serviceTable = () => service.schema(AI_SCHEMA).from(OVERRIDES_TABLE);
+  const changes = () => service.schema(AI_SCHEMA).from(CHANGES_TABLE);
 
   const store = {
     /** Active tenant overrides plus the caller's own user overrides. */
@@ -83,14 +92,14 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
       if (params.tenantId == null) {
         return [];
       }
-      const tenantQuery = table()
+      const tenantQuery = tableFor(params.tenantId)
         .select("*")
         .eq("is_active", true)
         .eq("tenant_id", params.tenantId)
         .eq("layer", "tenant_override")
         .order("version", { ascending: false });
       const userQuery = params.userId
-        ? table()
+        ? tableFor(params.tenantId)
             .select("*")
             .eq("is_active", true)
             .eq("tenant_id", params.tenantId)
@@ -169,7 +178,7 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
       if (params.tenantId == null) {
         return null;
       }
-      let query = table()
+      let query = tableFor(params.tenantId)
         .select("*")
         .eq("document_key", params.documentKey)
         .eq("is_active", true)
@@ -208,7 +217,14 @@ export function createInstructionOverridesStore(client: SupabaseClient) {
         metadata: record.metadata ?? {},
         updated_at: new Date().toISOString(),
       };
-      const { data, error } = await table()
+      // Tenant lane when the record names its tenant (route writes and
+      // deactivation always do). tenant_id is nullable in the schema, so a
+      // tenant-less row can only live on the service client — a NULL
+      // tenant_id never passes the srv_tenant_isolation WITH CHECK.
+      const table = record.tenant_id
+        ? tableFor(record.tenant_id)
+        : serviceTable();
+      const { data, error } = await table
         .upsert(payload, { onConflict: "id" })
         .select("*")
         .single();

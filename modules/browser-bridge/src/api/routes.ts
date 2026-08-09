@@ -76,16 +76,19 @@ function normalizeOrigins(origins: string[]): string[] {
 export function registerBrowserBridgeRoutes(
   server: PluginServerApi,
   deps: {
-    connectionsRepo: ConnectionsRepo;
-    repo: BrowserBridgeRepo;
+    /** Tenant-locked repo factories (Phase A) — every route carries ctx.auth,
+     * so each call resolves repos on the caller's own tenant handle. */
+    getConnectionsRepo: (auth: { tenantId: string }) => ConnectionsRepo;
+    getRepo: (auth: { tenantId: string }) => BrowserBridgeRepo;
     /** Test override for the claim long-poll cadence. */
     claimPollMs?: number;
   }
 ): void {
-  const { connectionsRepo, repo } = deps;
+  const { getConnectionsRepo, getRepo } = deps;
   const claimPollMs = deps.claimPollMs ?? CLAIM_POLL_MS;
 
   async function requireOwnedInstallation(
+    repo: BrowserBridgeRepo,
     installationId: string,
     principalId: string
   ): Promise<InstallationRow | null> {
@@ -112,9 +115,12 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof linkBody>;
+      const repo = getRepo(ctx.auth);
       const installationId = crypto.randomUUID();
       const idTag = installationId.slice(0, 8);
-      const connection = await connectionsRepo.upsertConnectionWithTokens({
+      const connection = await getConnectionsRepo(
+        ctx.auth
+      ).upsertConnectionWithTokens({
         accessToken: "",
         authKind: "browser",
         connectorId: CONNECTOR_ID,
@@ -163,7 +169,9 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof heartbeatBody>;
+      const repo = getRepo(ctx.auth);
       const installation = await requireOwnedInstallation(
+        repo,
         body.installation_id,
         ctx.auth.principalId
       );
@@ -195,7 +203,9 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof claimBody>;
+      const repo = getRepo(ctx.auth);
       const installation = await requireOwnedInstallation(
+        repo,
         body.installation_id,
         ctx.auth.principalId
       );
@@ -237,7 +247,9 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof respondBody>;
+      const repo = getRepo(ctx.auth);
       const installation = await requireOwnedInstallation(
+        repo,
         body.installation_id,
         ctx.auth.principalId
       );
@@ -261,7 +273,7 @@ export function registerBrowserBridgeRoutes(
         body.error_code === BROWSER_BRIDGE_ERROR.permissionLost ||
         body.error_code === BROWSER_BRIDGE_ERROR.windowClosed;
       if (!body.ok && fatal) {
-        await connectionsRepo.setConnectionStatus({
+        await getConnectionsRepo(ctx.auth).setConnectionStatus({
           connectionId: request.connection_id,
           errorMessage:
             body.error_code === BROWSER_BRIDGE_ERROR.windowClosed
@@ -287,7 +299,9 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof sessionThreadBody>;
+      const repo = getRepo(ctx.auth);
       const installation = await requireOwnedInstallation(
+        repo,
         body.installation_id,
         ctx.auth.principalId
       );
@@ -314,7 +328,9 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof disconnectBody>;
+      const repo = getRepo(ctx.auth);
       const installation = await requireOwnedInstallation(
+        repo,
         body.installation_id,
         ctx.auth.principalId
       );
@@ -323,7 +339,7 @@ export function registerBrowserBridgeRoutes(
       }
       await repo.endSession(body.installation_id);
       if (installation.connection_id) {
-        await connectionsRepo.setConnectionStatus({
+        await getConnectionsRepo(ctx.auth).setConnectionStatus({
           connectionId: installation.connection_id,
           errorMessage: null,
           status: "revoked",
@@ -353,7 +369,9 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof allowlistBody>;
+      const repo = getRepo(ctx.auth);
       const installation = await requireOwnedInstallation(
+        repo,
         body.installation_id,
         ctx.auth.principalId
       );
@@ -382,8 +400,10 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const query = (ctx.query ?? {}) as { installation_id?: string };
+      const repo = getRepo(ctx.auth);
       const installation = query.installation_id
         ? await requireOwnedInstallation(
+            repo,
             query.installation_id,
             ctx.auth.principalId
           )

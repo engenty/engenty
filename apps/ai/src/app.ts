@@ -191,6 +191,8 @@ export async function createApp(options: CreateAppOptions = {}) {
   // core.platform_settings into process.env so the synchronous env readers and
   // the Vercel AI SDK transparently pick up any Setup-UI override. Platform
   // scope only — a change made in the UI takes effect on the next restart.
+  // SERVICE lane (Phase A residual, on purpose): platform settings have no
+  // tenant dimension — there is no tenant to mint a handle for at boot.
   if (!skipBackgroundTasks) {
     try {
       const [{ createAiDatabaseAdapter }, { hydratePlatformSettingsIntoEnv }] =
@@ -303,7 +305,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     logger.info("agent session store ready", { schema: "ai" });
   } else if (!("threadStore" in options)) {
     logger.warn(
-      "agent session store unavailable — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+      "agent session store unavailable — set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY and SUPABASE_JWT_SECRET (or ENGENTY_SECURITY_JWT_SECRET)"
     );
   }
   if (agentRunStore) {
@@ -562,7 +564,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     });
   } else if (!("artifactStore" in options)) {
     logger.warn(
-      "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+      "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY and SUPABASE_JWT_SECRET (or ENGENTY_SECURITY_JWT_SECRET)"
     );
   }
   if (registryStore?.listTools) {
@@ -741,14 +743,17 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   registerWorkFilesRoutes(app, { scopeResolver });
   {
-    const { createAiDatabaseAdapter } = await import("./infra/database.js");
-    const actionDb = createAiDatabaseAdapter();
+    // Phase A seam: the instruction store's override lane is tenant-keyed and
+    // rides tenant-locked handles; its change-history lane keeps the service
+    // client (documented in the store).
+    const { createDbSourceFromEnv } = await import("./infra/tenant-db.js");
+    const instructionDbSource = createDbSourceFromEnv();
     {
       const { createInstructionOverridesStore } = await import(
         "./dal/instructions/instruction-overrides-store.js"
       );
-      const instructionStore = actionDb
-        ? createInstructionOverridesStore(actionDb)
+      const instructionStore = instructionDbSource
+        ? createInstructionOverridesStore(instructionDbSource)
         : null;
       registerInstructionRoutes(app, {
         getRegistry: (tenantId) =>
@@ -845,6 +850,10 @@ export async function createApp(options: CreateAppOptions = {}) {
       "usageStore" in options
     )
   ) {
+    // SERVICE lane (Phase A residual, on purpose): the queue rides the
+    // public.pgmq_* wrapper RPCs, which the Phase A migration locks to
+    // service_role only — queues are cross-tenant core infrastructure and the
+    // tenant lane is deliberately barred from them.
     const queueAdapter = (
       await import("./infra/database.js")
     ).createAiDatabaseAdapter();

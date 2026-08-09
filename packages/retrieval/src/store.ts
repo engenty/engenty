@@ -1,12 +1,35 @@
-// Write/read layer over the central `search` schema (service-role client).
-// All reads used for searching flow through the fusion RPC (query.ts); this
-// module owns document/chunk persistence and the status/backfill scans.
+// Write/read layer over the central `search` schema. All reads used for
+// searching flow through the fusion RPC (query.ts); this module owns
+// document/chunk persistence and the status/backfill scans.
+//
+// Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every document/chunk
+// method carries a tenant, so with handle-pair input those queries run on
+// tenant-locked clients (engenty_server lane, RLS-enforced). The one
+// tenant-less method — registerSourceVisibility, a platform registry upsert at
+// plugin boot — runs on the service client. A plain SupabaseClient input keeps
+// serving both lanes (tests, scripts).
 
 import type { SearchChunk } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RetrievalDocument, VisibilityKind } from "./contracts.js";
 
 const SCHEMA = "search";
+
+export interface RetrievalDbHandles {
+  /** Tenant-locked handle factory (engenty_server lane). */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
+  /** Service client for the platform visibility registry only. */
+  serviceDb: SupabaseClient;
+}
+
+export type RetrievalDbSource = SupabaseClient | RetrievalDbHandles;
+
+function isHandles(source: RetrievalDbSource): source is RetrievalDbHandles {
+  return (
+    typeof (source as RetrievalDbHandles).getDb === "function" &&
+    Boolean((source as RetrievalDbHandles).serviceDb)
+  );
+}
 
 export interface ChunkUpsertInput {
   chunks: SearchChunk[];
@@ -23,21 +46,28 @@ export interface IndexedDocState {
   indexed_at: string;
 }
 
-export function createRetrievalStore(supabase: SupabaseClient) {
-  const documents = () => supabase.schema(SCHEMA).from("documents");
-  const chunks = () => supabase.schema(SCHEMA).from("chunks");
-  const sourceVisibility = () =>
-    supabase.schema(SCHEMA).from("source_visibility");
+export function createRetrievalStore(source: RetrievalDbSource) {
+  const dbFor = (tenantId: string): SupabaseClient =>
+    isHandles(source) ? source.getDb({ tenantId }) : source;
+  const serviceDb = (): SupabaseClient =>
+    isHandles(source) ? source.serviceDb : source;
+  const documents = (tenantId: string) =>
+    dbFor(tenantId).schema(SCHEMA).from("documents");
+  const chunks = (tenantId: string) =>
+    dbFor(tenantId).schema(SCHEMA).from("chunks");
 
   async function registerSourceVisibility(
     sourceType: string,
     module: string,
     visibility: VisibilityKind
   ): Promise<void> {
-    const { error } = await sourceVisibility().upsert(
-      { module, source_type: sourceType, visibility },
-      { onConflict: "source_type" }
-    );
+    const { error } = await serviceDb()
+      .schema(SCHEMA)
+      .from("source_visibility")
+      .upsert(
+        { module, source_type: sourceType, visibility },
+        { onConflict: "source_type" }
+      );
     if (error) {
       throw new Error(
         `Failed to register source visibility for ${sourceType}: ${error.message}`
@@ -59,7 +89,7 @@ export function createRetrievalStore(supabase: SupabaseClient) {
       source_type: input.sourceType,
       tenant_id: document.tenant_id,
     };
-    const { error: docError } = await documents().upsert(
+    const { error: docError } = await documents(document.tenant_id).upsert(
       {
         ...base,
         content_updated_at: document.source_updated_at,
@@ -79,7 +109,7 @@ export function createRetrievalStore(supabase: SupabaseClient) {
       );
     }
     // Shrinking documents leave stale tail chunks behind — drop them first.
-    const { error: trimError } = await chunks()
+    const { error: trimError } = await chunks(document.tenant_id)
       .delete()
       .eq("tenant_id", document.tenant_id)
       .eq("source_type", input.sourceType)
@@ -103,9 +133,12 @@ export function createRetrievalStore(supabase: SupabaseClient) {
       text: chunk.text,
       updated_at: now,
     }));
-    const { error: chunkError } = await chunks().upsert(rows, {
-      onConflict: "tenant_id,id",
-    });
+    const { error: chunkError } = await chunks(document.tenant_id).upsert(
+      rows,
+      {
+        onConflict: "tenant_id,id",
+      }
+    );
     if (chunkError) {
       throw new Error(
         `Failed to upsert search chunks for ${document.doc_id}: ${chunkError.message}`
@@ -119,7 +152,7 @@ export function createRetrievalStore(supabase: SupabaseClient) {
     tenantId: string;
   }): Promise<void> {
     // Chunks cascade from the documents FK.
-    const { error } = await documents()
+    const { error } = await documents(input.tenantId)
       .delete()
       .eq("tenant_id", input.tenantId)
       .eq("source_type", input.sourceType)
@@ -142,7 +175,7 @@ export function createRetrievalStore(supabase: SupabaseClient) {
     const MAX_PAGES = 20;
     const map = new Map<string, IndexedDocState>();
     for (let page = 0; page < MAX_PAGES; page++) {
-      const { data, error } = await documents()
+      const { data, error } = await documents(tenantId)
         .select("doc_id, content_updated_at, indexed_at")
         .eq("tenant_id", tenantId)
         .eq("source_type", sourceType)

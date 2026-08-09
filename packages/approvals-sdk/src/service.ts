@@ -92,10 +92,21 @@ const GRANT_TTL_MS = {
  */
 const DEFAULT_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Resolves the DB handle per call (Phase A seam,
+ * PLAN-tenant-isolation-a-rls-seam.md): a tenant id yields a tenant-locked
+ * client (engenty_server lane, RLS-enforced); `null` yields the core service
+ * client for the two lanes that legitimately span tenants — the superadmin
+ * queue (`listPendingAllTenants`) and the id-only `get`, whose one internal
+ * use belt-checks tenant_id on the returned row.
+ */
+export type ApprovalDbResolver = (tenantId: string | null) => SupabaseClient;
+
 export function createApprovalService(
-  db: SupabaseClient,
+  db: SupabaseClient | ApprovalDbResolver,
   ttlMs = DEFAULT_REQUEST_TTL_MS
 ) {
+  const dbFor: ApprovalDbResolver = typeof db === "function" ? db : () => db;
   return {
     /**
      * File a request, or return the live pending one for the same
@@ -110,7 +121,7 @@ export function createApprovalService(
       reason: string;
       context?: Record<string, unknown>;
     }): Promise<ApprovalRequest> {
-      const existing = await findPendingApprovalRequest(db, {
+      const existing = await findPendingApprovalRequest(dbFor(input.tenantId), {
         actorId: input.actorId,
         moduleId: input.moduleId,
         operationId: input.operationId,
@@ -119,7 +130,7 @@ export function createApprovalService(
       if (existing) {
         return toRequest(existing);
       }
-      const row = await insertApprovalRequest(db, {
+      const row = await insertApprovalRequest(dbFor(input.tenantId), {
         actorId: input.actorId,
         expiresAt: new Date(Date.now() + ttlMs).toISOString(),
         moduleId: input.moduleId,
@@ -133,18 +144,18 @@ export function createApprovalService(
 
     /** Pending requests for one tenant — the filter is applied in SQL. */
     async listPending(tenantId: string): Promise<ApprovalRequest[]> {
-      const rows = await listPendingApprovalRequests(db, tenantId);
+      const rows = await listPendingApprovalRequests(dbFor(tenantId), tenantId);
       return rows.map((row) => toRequest(row));
     },
 
     /** Every tenant's pending requests — the superadmin queue only. */
     async listPendingAllTenants(): Promise<ApprovalRequest[]> {
-      const rows = await listPendingApprovalRequests(db, null);
+      const rows = await listPendingApprovalRequests(dbFor(null), null);
       return rows.map((row) => toRequest(row));
     },
 
     async get(id: string): Promise<ApprovalRequest | null> {
-      const row = await getApprovalRequest(db, id);
+      const row = await getApprovalRequest(dbFor(null), id);
       return row ? toRequest(row) : null;
     },
 
@@ -161,7 +172,7 @@ export function createApprovalService(
       decidedBy: string;
       sessionId?: string;
     }): Promise<ApprovalRequest | null> {
-      const decided = await decideApprovalRequest(db, {
+      const decided = await decideApprovalRequest(dbFor(input.tenantId), {
         decidedAt: new Date().toISOString(),
         decidedBy: input.decidedBy,
         decision: input.decision,
@@ -170,7 +181,7 @@ export function createApprovalService(
       });
       if (!decided) {
         // Either the request does not exist, or it was already decided/expired.
-        const existing = await getApprovalRequest(db, input.requestId);
+        const existing = await getApprovalRequest(dbFor(null), input.requestId);
         return existing && existing.tenant_id === input.tenantId
           ? toRequest(existing)
           : null;
@@ -178,7 +189,7 @@ export function createApprovalService(
       if (input.decision !== "deny") {
         const scope = DECISION_SCOPE[input.decision];
         const ttlMsForScope = scope === "policy" ? null : GRANT_TTL_MS[scope];
-        await insertApprovalGrant(db, {
+        await insertApprovalGrant(dbFor(input.tenantId), {
           actorId: decided.actor_id,
           expiresAt: ttlMsForScope
             ? new Date(Date.now() + ttlMsForScope).toISOString()
@@ -205,7 +216,7 @@ export function createApprovalService(
        * a subject-bound grant may match. */
       subjectIds?: string[];
     }): Promise<boolean> {
-      return await consumeApprovalGrant(db, {
+      return await consumeApprovalGrant(dbFor(input.tenantId), {
         actorId: input.actorId,
         moduleId: input.moduleId,
         operationId: input.operationId,

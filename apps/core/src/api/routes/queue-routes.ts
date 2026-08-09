@@ -3,7 +3,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createClient } from "@supabase/supabase-js";
 import type { PluginRegistry } from "../../plugins/registry.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
-import { requireAuth } from "./authz.js";
+import { requireSuperAdmin } from "./authz.js";
 
 const logger = createLogger({ name: "queue-routes" });
 
@@ -27,9 +27,17 @@ export function registerQueueRoutes(params: {
     return createClient(supabaseUrl, supabaseServiceRoleKey);
   }
 
+  // Every route here reads GLOBAL pgmq state through a service-role client:
+  // the queues are not tenant-partitioned, and a peeked message body carries
+  // whichever tenant's payload happens to be enqueued (that is how consumers
+  // resolve their tenant handle). So these are platform diagnostics and must
+  // be superadmin-only — under the previous `requireAuth` gate any member of
+  // any tenant could enumerate the queues and read other tenants' payloads.
+  // Nothing in the product calls these; they exist for operators.
+
   // ── GET /api/queues — list all pgmq queues with message counts ──
   app.get("/api/queues", async (c) => {
-    const authResult = await requireAuth(c, config);
+    const authResult = await requireSuperAdmin(c, config);
     if ("error" in authResult) {
       return authResult.error;
     }
@@ -57,7 +65,7 @@ export function registerQueueRoutes(params: {
 
   // ── GET /api/queues/meta — queue display metadata registered by plugins ──
   app.get("/api/queues/meta", async (c) => {
-    const authResult = await requireAuth(c, config);
+    const authResult = await requireSuperAdmin(c, config);
     if ("error" in authResult) {
       return authResult.error;
     }
@@ -75,7 +83,7 @@ export function registerQueueRoutes(params: {
 
   // ── GET /api/queues/:name/messages — peek at messages in a queue ──
   app.get("/api/queues/:name/messages", async (c) => {
-    const authResult = await requireAuth(c, config);
+    const authResult = await requireSuperAdmin(c, config);
     if ("error" in authResult) {
       return authResult.error;
     }

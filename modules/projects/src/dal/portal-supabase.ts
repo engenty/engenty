@@ -79,16 +79,26 @@ function toPublicTask(task: {
 export function createPortalDAL(
   adapter: unknown,
   deps: {
+    /** Tenant-locked handle factory — every read that runs AFTER the project
+     * row resolved the tenant goes through this (engenty_server lane,
+     * RLS-enforced). */
+    getDb: (auth: { tenantId: string }) => SupabaseClient;
     invokeOperation: PluginServerGatewayCaller["invokeOperation"];
   }
 ) {
-  const supabase = adapter as SupabaseClient;
+  // Service client for the pre-tenant project-row lookups ONLY: a portal
+  // visitor is anonymous, and the projectId from the public URL (plus
+  // portal_enabled / the portal password) is what identifies the project row —
+  // and with it the tenant. Same shape as a login lookup; all follow-on work
+  // runs on the resolved tenant via deps.getDb.
+  const serviceDb = adapter as SupabaseClient;
   const schema = "module_projects";
-  const { invokeOperation } = deps;
+  const { getDb, invokeOperation } = deps;
 
   return {
     async getPortalSettings(projectId: string): Promise<PortalSettings | null> {
-      const { data, error } = await supabase
+      // Pre-tenant read (see serviceDb note above).
+      const { data, error } = await serviceDb
         .schema(schema)
         .from("projects")
         .select("portal_enabled, portal_password, portal_intro_text")
@@ -107,7 +117,9 @@ export function createPortalDAL(
     async getPublicProjectInfo(
       projectId: string
     ): Promise<PublicProjectInfo | null> {
-      const { data, error } = await supabase
+      // Pre-tenant read (see serviceDb note above); tenant_id is selected so
+      // the client-entity lookup below can run tenant-locked.
+      const { data, error } = await serviceDb
         .schema(schema)
         .from("projects")
         .select(
@@ -128,16 +140,22 @@ export function createPortalDAL(
         // The portal visitor is anonymous, so the tenant boundary comes from
         // the project row itself: `client_id` is a plain text column with no
         // foreign key, so nothing but these filters keeps this read inside the
-        // project's own tenant. The adapter is service-role and bypasses RLS.
+        // project's own tenant. Belt AND braces — the handle is tenant-locked
+        // (engenty_server lane, RLS-enforced) and foreignSelect still requires
+        // the scope explicitly.
         const scope: TenantScope = {
           scopeId: String(project.scope_id),
           tenantId: String(project.tenant_id),
         };
-        const { data: contactData } = await foreignSelect(supabase, scope, {
-          columns: "display_name",
-          schema: "module_contacts",
-          table: "contacts",
-        })
+        const { data: contactData } = await foreignSelect(
+          getDb({ tenantId: scope.tenantId }),
+          scope,
+          {
+            columns: "display_name",
+            schema: "module_contacts",
+            table: "contacts",
+          }
+        )
           .eq("id", clientId)
           .maybeSingle();
         const contact = contactData as ForeignContactRow | null;
@@ -161,7 +179,9 @@ export function createPortalDAL(
     },
 
     async getPublicPhasesAndTasks(projectId: string): Promise<PublicPhase[]> {
-      const { data: phasesData, error: phasesError } = await supabase
+      // Pre-tenant read (see serviceDb note above): the phase rows carry the
+      // tenant the linked-task reads then run on.
+      const { data: phasesData, error: phasesError } = await serviceDb
         .schema(schema)
         .from("project_phases")
         .select(
@@ -183,7 +203,7 @@ export function createPortalDAL(
         const tenantId = String(p.tenant_id);
         const scopeId = String(p.scope_id);
         const phaseTasks = await listProjectLinkedTasks(
-          supabase,
+          getDb({ tenantId }),
           tenantId,
           scopeId,
           projectId,
@@ -203,7 +223,8 @@ export function createPortalDAL(
     },
 
     async getPublicGeneralTasks(projectId: string): Promise<PublicTask[]> {
-      const { data: proj, error } = await supabase
+      // Pre-tenant read (see serviceDb note above).
+      const { data: proj, error } = await serviceDb
         .schema(schema)
         .from("projects")
         .select("tenant_id, scope_id")
@@ -215,7 +236,7 @@ export function createPortalDAL(
       const tenantId = String((proj as { tenant_id: string }).tenant_id);
       const scopeId = String((proj as { scope_id: string }).scope_id);
       const tasks = await listProjectLinkedTasks(
-        supabase,
+        getDb({ tenantId }),
         tenantId,
         scopeId,
         projectId,
@@ -242,7 +263,9 @@ export function createPortalDAL(
       projectId: string,
       input: { title: string; content: string | null }
     ): Promise<Record<string, unknown> | null> {
-      const { data: proj, error: projErr } = await supabase
+      // Pre-tenant read (see serviceDb note above); the create itself goes
+      // through the tasks operation with an explicit tenant-pinned auth below.
+      const { data: proj, error: projErr } = await serviceDb
         .schema(schema)
         .from("projects")
         .select("id, tenant_id, scope_id")
@@ -315,7 +338,8 @@ export function createPortalDAL(
       projectId: string,
       taskId: string
     ): Promise<PublicTask | null> {
-      const { data: proj, error } = await supabase
+      // Pre-tenant read (see serviceDb note above).
+      const { data: proj, error } = await serviceDb
         .schema(schema)
         .from("projects")
         .select("tenant_id, scope_id")
@@ -327,7 +351,7 @@ export function createPortalDAL(
       const tenantId = String((proj as { tenant_id: string }).tenant_id);
       const scopeId = String((proj as { scope_id: string }).scope_id);
       const linked = await listProjectLinkedTasks(
-        supabase,
+        getDb({ tenantId }),
         tenantId,
         scopeId,
         projectId,

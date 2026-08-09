@@ -6,6 +6,7 @@
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { matchesPath } from "@engenty/app-shell/navigation";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useCanAdministerTenant } from "@engenty/ui-plugin-sdk";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -74,6 +75,7 @@ export function KbModuleScopedNavLinks({
   secondaryOnly?: boolean;
 } = {}) {
   const { t } = useTranslation("kb");
+  const canAdministerTenant = useCanAdministerTenant();
   const { pathname, search } = useLocation();
   const slug = kbSlug?.trim() ?? "";
 
@@ -125,9 +127,18 @@ export function KbModuleScopedNavLinks({
             <KbScopedNavLinkRow {...rowProps} Icon={Network} to={graphTo}>
               {t("inbox.nav_graph")}
             </KbScopedNavLinkRow>
-            <KbScopedNavLinkRow {...rowProps} Icon={Settings} to={settingsTo}>
-              {settingsLabel}
-            </KbScopedNavLinkRow>
+            {/* With a slug this is the per-KB module page (fine for anyone);
+                without one it falls back to /settings/knowledge-base, which is
+                admin-only and redirects members away silently — so hide it. */}
+            {slug || canAdministerTenant ? (
+              <KbScopedNavLinkRow
+                {...rowProps}
+                Icon={Settings}
+                to={settingsTo}
+              >
+                {settingsLabel}
+              </KbScopedNavLinkRow>
+            ) : null}
           </SidebarNavList>
         </SidebarGroupContent>
       </SidebarGroup>

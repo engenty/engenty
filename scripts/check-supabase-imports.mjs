@@ -75,9 +75,13 @@ function findTsFiles(dir, base = dir, acc = []) {
 }
 
 function hasRuntimeSupabaseImport(content) {
+  // Anchored to line starts: an unanchored match can begin at the word
+  // "import" inside a comment and swallow everything down to a real
+  // type-only import, misclassifying it as runtime (found live on
+  // kb-filesystem-sync's okf-store).
   const statements =
     content.match(
-      /(?:import|export)\s[^;]*?from\s*["']@supabase\/supabase-js["']/g
+      /^(?:import|export)\s[^;]*?from\s*["']@supabase\/supabase-js["']/gm
     ) ?? [];
   if (statements.some((s) => !/^(?:import|export)\s+type\b/.test(s))) {
     return true;

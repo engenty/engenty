@@ -3,6 +3,7 @@ import {
   createPluginServerGatewayCaller,
   type EngentyPluginFactory,
 } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectsAiRegistration } from "../ai/registrar.js";
 import { registerProjectsApi } from "./api/index.js";
 import { createPortalDAL } from "./dal/portal-supabase.js";
@@ -11,10 +12,17 @@ import { createProjectVisibilityPolicy } from "./policies.js";
 
 const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
   const { server } = engenty;
-  const supabase = server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // remains ONLY for the portal's context-less project-row lookups, which resolve
+  // tenancy themselves (anonymous visitor + projectId from a public URL).
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
+  if (!(serviceDb && getTenantDb)) {
     return;
   }
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
   const { invokeOperation } = createPluginServerGatewayCaller(server);
 
@@ -30,7 +38,7 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
       detail?: Record<string, unknown>;
     }) => void
   ) =>
-    createProjectRepoSupabase(supabase, auth.tenantId, auth.scopeId, {
+    createProjectRepoSupabase(getDb(auth), auth.tenantId, auth.scopeId, {
       invokeTasks: (operationId, input) =>
         invokeOperation(operationId, input, { auth }),
       audit: recordAuditEvent ? { recordAuditEvent } : undefined,
@@ -44,7 +52,7 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
         ),
       },
     });
-  const portalDAL = createPortalDAL(supabase, { invokeOperation });
+  const portalDAL = createPortalDAL(serviceDb, { getDb, invokeOperation });
   server.registerAiRegistration(
     projectsAiRegistration({ invokeProjectsOperation: invokeOperation })
   );
@@ -52,9 +60,10 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
   // Phase 2 — project visibility: deny per-project operations on members-only
   // projects to non-members (admins/moderators bypass). List visibility is
   // additionally filtered in the DAL; this gates direct project access.
-  server.registerProfilePolicy(
-    createProjectVisibilityPolicy(supabase as never)
-  );
+  // Cast mirrors the previous `supabase as never`: the SupabaseClient satisfies
+  // the policy's minimal VisibilityDb shape, but its thenable builders aren't
+  // structural Promises.
+  server.registerProfilePolicy(createProjectVisibilityPolicy(getDb as never));
   // Role bundles contributed by the projects module.
   server.registerRoleProfiles([
     {
@@ -80,7 +89,6 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
 
   registerProjectsApi(server, repoOrFactory, {
     portalDAL,
-    supabase: supabase as never,
   });
 };
 

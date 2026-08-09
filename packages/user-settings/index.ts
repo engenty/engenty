@@ -18,12 +18,19 @@ export {
 } from "./src/favorites-nav.js";
 
 const registerUserSettingsPlugin: EngentyPluginFactory = (engenty) => {
-  const supabase = engenty.server.getDatabaseAdapter?.() ?? null;
-  if (!supabase) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): user settings are
+  // tenant-stamped rows (20260809230000); the repo resolves a tenant-locked
+  // handle per call. Per-user scoping stays code-enforced belt inside the repo.
+  const getTenantDb = engenty.server.getTenantDb;
+  if (!getTenantDb) {
     return;
   }
-  const repoOrFactory = (auth: { principalId: string }) =>
-    createUserSettingsRepoSupabase(supabase, auth.principalId);
+  const repoOrFactory = (auth: { principalId: string; tenantId: string }) =>
+    createUserSettingsRepoSupabase(
+      getTenantDb(auth),
+      auth.principalId,
+      auth.tenantId
+    );
   registerUserSettingsApi(engenty.server, repoOrFactory);
 };
 

@@ -40,14 +40,22 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
   // apps/core/src/api/routes/file-storage-routes.ts. Here we add the DB-backed
   // file manager (folders + entries) that powers per-owner file spaces such as
   // the projects "Files" tab.
-  const adapter = server.getDatabaseAdapter?.() ?? null;
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
+  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
+  // remains ONLY for the connections client's OAuth client-credential resolver
+  // (platform-level settings rows carry tenant_id NULL, which the tenant lane
+  // cannot see by design).
+  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  const getTenantDb = server.getTenantDb;
   const storage = server.getStorageService?.(FILE_MANAGER_BUCKET) ?? null;
-  if (!(adapter && storage)) {
+  if (!(serviceDb && getTenantDb && storage)) {
     // CLI/boot contexts without a database adapter: file manager is unavailable.
     return;
   }
+  const getDb = (auth: { tenantId: string }) =>
+    getTenantDb(auth) as SupabaseClient;
 
-  const { folders, entries } = createFileManagerStores(adapter);
+  const { folders, entries } = createFileManagerStores(getDb);
   const blobs: NativeBlobStore = {
     delete: (key) => storage.delete?.(key) ?? Promise.resolve(),
     getUrl: (key, options) => storage.getUrl(key, options),
@@ -58,11 +66,14 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
   // Connector mounts: connected external folders (Drive, OneDrive, S3, local
   // browser dirs) browsable inside file spaces. Every provider call goes
   // through the connections module client, so per-connection policies apply.
+  // Tenant rows (connections, policies, token refresh) resolve per call on the
+  // caller's tenant-locked handle; serviceDb feeds ONLY the SDK's OAuth
+  // client-credential resolver (see the seam comment above).
   const connectionsClient = createConnectionsModuleClient(
-    adapter as SupabaseClient,
+    { getDb, serviceDb },
     { moduleId: "files" }
   );
-  const mounts = createFileMountStore(adapter);
+  const mounts = createFileMountStore(getDb);
   const getMount = async (
     ctx: Parameters<typeof mounts.get>[0],
     folderId: string

@@ -8,9 +8,9 @@ import { makeMockApi, makeMockTeamMemberRepo } from "./test-helpers.js";
 /** Mirrors plugin.ts registration order — module routes must precede /api/team/:id. */
 function registerTeamRoutesLikePlugin(
   api: ReturnType<typeof makeMockApi>["api"],
-  supabase: unknown
+  db: unknown
 ) {
-  registerTeamModuleRoutes(api, supabase);
+  registerTeamModuleRoutes(api, () => db);
   registerTeamHabboAvatarRoutes(api);
   registerTeamImportRoutes(api);
   registerTeamMembersApi(api, makeMockTeamMemberRepo());

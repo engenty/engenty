@@ -5,14 +5,16 @@ import {
 } from "@engenty/file-storage";
 import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
-import type { GetKbRepo, KbServerApi } from "./kb-api-shared.js";
+import type { GetKbDb, GetKbRepo, KbServerApi } from "./kb-api-shared.js";
 import { badRequest } from "./kb-api-shared.js";
 
 const logger = createLogger({ name: "kb-api" });
 
 export function registerKbDocumentConversionRoutes(
   api: KbServerApi,
-  getRepo: GetKbRepo
+  getRepo: GetKbRepo,
+  /** Tenant-locked handle factory — the converter-config read runs as the caller's tenant. */
+  getDb: GetKbDb
 ) {
   /* ── Document Conversion ── */
 
@@ -59,11 +61,10 @@ export function registerKbDocumentConversionRoutes(
             | import("@engenty/doc-converter").ConverterConfig
             | undefined;
           const auth = ctx.auth;
-          const databaseAdapter = api.getDatabaseAdapter?.();
-          if (auth && databaseAdapter) {
+          if (auth) {
             try {
               const repo = createTenantSettingsRepoSupabase(
-                databaseAdapter,
+                getDb(auth),
                 auth.tenantId,
                 auth.scopeId
               );

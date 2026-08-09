@@ -268,7 +268,14 @@ export interface PluginRegistry {
   /** Process-shared database adapter accessor; required when wiring shared
    * server-side singletons (e.g. context-graph) that need the same handle
    * the plugin APIs use. */
-  getDatabaseAdapter?: () => unknown | null;
+  getServiceDb?: () => unknown | null;
+  /** Tenant-locked database handle factory (engenty_server lane, RLS-enforced).
+   * See PLAN-tenant-isolation-a-rls-seam.md. */
+  getTenantDb?: (auth: { tenantId: string }) => unknown | null;
+  /** Boot probe for the lane above: verifies PostgREST actually accepts a
+   * minted engenty_server token. Present only when the lane is configured;
+   * awaited by startApiServer before the port opens. */
+  assertServerLanePreflight?: () => Promise<void>;
   httpRoutes: Array<{
     pluginId: string;
     route: PluginHttpRoute;
@@ -424,10 +431,12 @@ export interface RemoveOwnedRegistrationsResult {
 }
 
 export interface CreateRegistryParams {
+  assertServerLanePreflight?: () => Promise<void>;
   config: Record<string, unknown>;
   dataDir: string;
   generationId?: number;
-  getDatabaseAdapter?: () => unknown | null;
+  getServiceDb?: () => unknown | null;
+  getTenantDb?: (auth: { tenantId: string }) => unknown | null;
   logger: {
     info: (msg: string) => void;
     warn: (msg: string) => void;
@@ -704,8 +713,10 @@ export function createPluginRegistry(params: CreateRegistryParams): {
 } {
   const generationId = params.generationId ?? 1;
   const registry: PluginRegistry = {
+    assertServerLanePreflight: params.assertServerLanePreflight,
     generationId,
-    getDatabaseAdapter: params.getDatabaseAdapter,
+    getServiceDb: params.getServiceDb,
+    getTenantDb: params.getTenantDb,
     plugins: [],
     aiRegistrations: [],
     cliRegistrars: [],
@@ -1262,7 +1273,7 @@ export function createPluginRegistry(params: CreateRegistryParams): {
     };
 
     const getStorageService = (bucket: string) => {
-      const adapter = params.getDatabaseAdapter?.();
+      const adapter = params.getServiceDb?.();
       if (!adapter) {
         return null;
       }
@@ -1274,7 +1285,7 @@ export function createPluginRegistry(params: CreateRegistryParams): {
     };
 
     const getQueueService = () => {
-      const adapter = params.getDatabaseAdapter?.();
+      const adapter = params.getServiceDb?.();
       if (!adapter) {
         return null;
       }
@@ -1352,7 +1363,8 @@ export function createPluginRegistry(params: CreateRegistryParams): {
 
     const server: PluginServerApi = {
       callGatewayMethod,
-      getDatabaseAdapter: params.getDatabaseAdapter,
+      getServiceDb: params.getServiceDb,
+      getTenantDb: params.getTenantDb,
       getQueueService,
       getStorageService,
       hasOperation: (operationId: string) =>

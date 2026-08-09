@@ -179,7 +179,7 @@ describe("memory loop round-trip: reflection write → next-task recall", () => 
     // Next task: the same row indexes (buildDocument non-null) with scope
     // metadata, and a search hit hydrates back to the exact record.
     const source = createMemoryRetrievalSource({
-      supabase: createFakeSupabase(rows) as never,
+      getDb: () => createFakeSupabase(rows) as never,
     });
 
     const doc = await source.buildDocument({
@@ -228,7 +228,7 @@ describe("memory loop round-trip: reflection write → next-task recall", () => 
     expect(proposed.status).toBe("proposed");
 
     const source = createMemoryRetrievalSource({
-      supabase: createFakeSupabase(rows) as never,
+      getDb: () => createFakeSupabase(rows) as never,
     });
 
     // Governance ↔ recall interlock: proposed records never index.

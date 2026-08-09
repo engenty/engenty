@@ -1,6 +1,9 @@
 import { parseTenantAiSettings, TENANT_AI_CONFIG_KEY } from "@engenty/ai-core";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
-import { createAiDatabaseAdapter } from "../infra/database.js";
+import {
+  createTenantDbFactory,
+  resolveTenantDbConfig,
+} from "../infra/tenant-db.js";
 import type { AiSessionScope, RuntimeModelConfigInput } from "./sessions.js";
 
 export type TenantModelConfigResolver = (
@@ -10,13 +13,16 @@ export type TenantModelConfigResolver = (
 export function createTenantModelConfigResolverFromEnv(
   env: Record<string, unknown> = process.env as Record<string, unknown>
 ): TenantModelConfigResolver | null {
-  const adapter = createAiDatabaseAdapter(env);
-  if (!adapter) {
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): core.tenant_settings
+  // is tenant-keyed — every resolve rides a tenant-locked handle.
+  const config = resolveTenantDbConfig(env);
+  if (!config) {
     return null;
   }
+  const { getTenantDb } = createTenantDbFactory(config);
   return async (scope) => {
     const repo = createTenantSettingsRepoSupabase(
-      adapter,
+      getTenantDb({ tenantId: scope.tenantId }),
       scope.tenantId,
       "default"
     );

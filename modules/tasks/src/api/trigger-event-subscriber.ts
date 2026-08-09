@@ -64,8 +64,14 @@ export interface TriggerEventSubscriber {
 
 export function createTriggerEventSubscriber(options: {
   events: PluginEventsApi;
+  /** Tenant-locked handle factory — every per-event read/write runs on the
+   * event's own tenant (engenty_server lane, RLS-enforced). */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   queue?: QueueServiceLike | null;
-  supabase: SupabaseClient;
+  /** Service client for exactly one read: the boot-time replay of DISTINCT
+   * listened resources, which is cross-tenant by nature (resource names only,
+   * no tenant data). */
+  serviceDb: SupabaseClient;
 }): TriggerEventSubscriber {
   const subscribed = new Set<string>();
 
@@ -81,7 +87,8 @@ export function createTriggerEventSubscriber(options: {
       // no tenancy to match triggers against.
       return;
     }
-    const triggers = await listEventTriggersForEvent(options.supabase, {
+    const tenantDb = options.getDb({ tenantId });
+    const triggers = await listEventTriggersForEvent(tenantDb, {
       providerId: MODULE_EVENTS_PROVIDER_ID,
       resource,
       tenantId,
@@ -95,7 +102,7 @@ export function createTriggerEventSubscriber(options: {
           eventContext: record,
           firedBy: `module event ${resource}`,
           queue: options.queue ?? null,
-          supabase: options.supabase,
+          supabase: tenantDb,
           trigger,
         });
         logger.info("event trigger fired", {
@@ -125,7 +132,7 @@ export function createTriggerEventSubscriber(options: {
   return {
     ensureSubscribed,
     async replayFromDatabase() {
-      const resources = await listDistinctEventResources(options.supabase);
+      const resources = await listDistinctEventResources(options.serviceDb);
       for (const resource of resources) {
         ensureSubscribed(resource);
       }

@@ -1082,6 +1082,7 @@
   "hub": {
     "empty_title": "Noch keine Wissensdatenbank",
     "empty_description": "Legen Sie Ihre erste Wissensdatenbank an, um Artikel, FAQs und Quellen hinzuzufügen.",
+    "empty_no_permission": "Noch keine Wissensdatenbank — bitten Sie eine Administratorin oder einen Administrator, eine anzulegen.",
     "empty_cta": "Wissensdatenbank anlegen",
     "title": "Wissensdatenbank",
     "search_placeholder": "Artikel suchen…",

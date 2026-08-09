@@ -25,6 +25,13 @@ export function resolveWorkspaceStorageBucket(): string {
 }
 
 function createSupabaseWorkspaceFilesAdapter(): Adapter {
+  // SERVICE lane (Phase A residual, on purpose): this client talks to the
+  // Supabase STORAGE API (bucket objects), not PostgREST tables. The
+  // engenty_server role has no grants on the storage schema (the Phase A
+  // migration covers module_*/core/ai/search/context_graph/public only), so a
+  // tenant-locked handle would fail closed here. Tenant containment is the
+  // `tenants/<tenantId>/…` prefix set in createWorkspaceFilesClient; moving
+  // storage onto the tenant lane needs storage.objects policies of its own.
   const supabaseClient = createAiDatabaseAdapter();
   if (!supabaseClient) {
     throw new Error(

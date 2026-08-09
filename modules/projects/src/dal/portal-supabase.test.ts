@@ -17,9 +17,11 @@ const PROJECT_ROW = {
  * assert the tenant boundary rather than the returned rows.
  *
  * `getPublicProjectInfo` resolves a client name out of `module_contacts`, a
- * schema this module does not own, through a service-role client that bypasses
- * RLS. The portal visitor is anonymous, so the filters asserted here are the
- * only thing keeping another tenant's contact name off a public portal page.
+ * schema this module does not own. Since Phase A that read runs on a
+ * tenant-locked handle (RLS-enforced) AND carries explicit filters; the portal
+ * visitor is anonymous, so both are asserted here — the filters, and that the
+ * handle was resolved for the project's own tenant rather than the service
+ * lane.
  */
 function makeRecordingSupabase(rows: Record<string, unknown> = {}) {
   const queries: {
@@ -60,15 +62,23 @@ function makeRecordingSupabase(rows: Record<string, unknown> = {}) {
 
 function makeDAL(rows: Record<string, unknown>) {
   const recording = makeRecordingSupabase(rows);
+  // Every tenantId a tenant-locked handle was requested for. The service
+  // client and the tenant handle share one recording fake so the `eq` filters
+  // above stay observable either way — this list is what distinguishes them.
+  const tenantHandles: string[] = [];
   const dal = createPortalDAL(recording.client, {
+    getDb: ({ tenantId }: { tenantId: string }) => {
+      tenantHandles.push(tenantId);
+      return recording.client as never;
+    },
     invokeOperation: () => Promise.resolve(null),
   });
-  return { ...recording, dal };
+  return { ...recording, dal, tenantHandles };
 }
 
 describe("portal client lookup is tenant-scoped", () => {
   it("scopes the module_contacts read to the project's own tenant", async () => {
-    const { dal, filtersFor } = makeDAL({
+    const { dal, filtersFor, tenantHandles } = makeDAL({
       "module_projects.projects": PROJECT_ROW,
       "module_contacts.contacts": { display_name: "Contacts GmbH" },
     });
@@ -76,6 +86,8 @@ describe("portal client lookup is tenant-scoped", () => {
     const info = await dal.getPublicProjectInfo("project-1");
 
     expect(info?.entity).toEqual({ display_name: "Contacts GmbH" });
+    // Resolved a handle for the project's own tenant — not the service lane.
+    expect(tenantHandles).toEqual(["tenant-1"]);
     const filters = filtersFor("module_contacts", "contacts");
     expect(filters).toEqual(
       expect.arrayContaining([

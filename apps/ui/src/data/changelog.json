@@ -4,6 +4,90 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "9d683a6",
+        "message": "put saved_report_snapshots on the server lane",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "43fadf1",
+        "message": "hide the two remaining member-facing links into admin-only settings",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2ec4775",
+        "message": "stop offering knowledge-base creation to users who cannot do it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "be21b6a",
+        "message": "wire the boot preflight in, and make the leak sweep prove positive access",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9aac80d",
+        "message": "close the rest of the class — audit follow-ups from the live-smoke fixes",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f45bd6e",
+        "message": "make the server lane usable end-to-end (subject, RPC grants, honest auth errors)",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "89c7fab",
+        "message": "hard cutover — getDatabaseAdapter renamed getServiceDb, baseline emptied (WP8)",
+        "group": "Added",
+        "breaking": true
+      },
+      {
+        "id": "5f8c8df",
+        "message": "nightly live-DB tenant-isolation checks (WP7)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a3bfac6",
+        "message": "tenant-locked core seams, apps/ai lane, retrieval + leak harness (WP5+WP6)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6943385",
+        "message": "convert all modules to tenant-locked DB handles (WP4 wave)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3d66b49",
+        "message": "SECURITY DEFINER lockdown + server-lane coverage checker (WP1 complete)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d2145ec",
+        "message": "convert to tenant-locked DB handles (WP4 pattern-setter)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d1ea35b",
+        "message": "tenant-locked server lane — engenty_server role, RLS policy pair, getTenantDb seam",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.112",
+    "timestamp": 1786314132,
+    "commits": [
+      {
         "id": "1a9ae93",
         "message": "ship the docs site as a prebuilt image",
         "group": "Added",

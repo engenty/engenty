@@ -74,13 +74,19 @@ function toEntryRow(row: EntryDbRow): FileEntryRow {
   };
 }
 
-export function createFileManagerStores(adapter: unknown): {
+export function createFileManagerStores(
+  /** Tenant-locked handle factory (engenty_server lane, RLS-enforced) — every
+   * store method carries a FileSourceContext, so each query resolves the
+   * calling tenant's own handle. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient
+): {
   entries: NativeEntryStore;
   folders: NativeFolderStore;
 } {
-  const supabase = adapter as SupabaseClient;
-  const foldersTable = () => supabase.schema(SCHEMA).from("file_folders");
-  const entriesTable = () => supabase.schema(SCHEMA).from("file_entries");
+  const foldersTable = (ctx: FileSourceContext) =>
+    getDb({ tenantId: ctx.tenantId }).schema(SCHEMA).from("file_folders");
+  const entriesTable = (ctx: FileSourceContext) =>
+    getDb({ tenantId: ctx.tenantId }).schema(SCHEMA).from("file_entries");
 
   const scope = (ctx: FileSourceContext) => ({
     tenant_id: ctx.tenantId,
@@ -90,7 +96,7 @@ export function createFileManagerStores(adapter: unknown): {
 
   const folders: NativeFolderStore = {
     async list(ctx, parentId) {
-      let query = foldersTable()
+      let query = foldersTable(ctx)
         .select(FOLDER_COLUMNS)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -107,7 +113,7 @@ export function createFileManagerStores(adapter: unknown): {
     },
 
     async get(ctx, id) {
-      const { data, error } = await foldersTable()
+      const { data, error } = await foldersTable(ctx)
         .select(FOLDER_COLUMNS)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -121,7 +127,7 @@ export function createFileManagerStores(adapter: unknown): {
     },
 
     async create(ctx, input: NativeFolderCreateInput) {
-      const { data, error } = await foldersTable()
+      const { data, error } = await foldersTable(ctx)
         .insert({
           ...scope(ctx),
           parent_id: input.parentId,
@@ -146,7 +152,7 @@ export function createFileManagerStores(adapter: unknown): {
       if (patch.parentId !== undefined) {
         updates.parent_id = patch.parentId;
       }
-      const { data, error } = await foldersTable()
+      const { data, error } = await foldersTable(ctx)
         .update(updates)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -161,7 +167,7 @@ export function createFileManagerStores(adapter: unknown): {
     },
 
     async delete(ctx, id) {
-      const { error } = await foldersTable()
+      const { error } = await foldersTable(ctx)
         .delete()
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -179,7 +185,7 @@ export function createFileManagerStores(adapter: unknown): {
       const folderIds: string[] = [id];
       let frontier: string[] = [id];
       while (frontier.length > 0) {
-        const { data, error } = await foldersTable()
+        const { data, error } = await foldersTable(ctx)
           .select("id")
           .eq("tenant_id", ctx.tenantId)
           .eq("owner_type", ctx.owner.type)
@@ -194,7 +200,7 @@ export function createFileManagerStores(adapter: unknown): {
         folderIds.push(...next);
         frontier = next;
       }
-      const { data, error } = await entriesTable()
+      const { data, error } = await entriesTable(ctx)
         .select("storage_key")
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -211,7 +217,7 @@ export function createFileManagerStores(adapter: unknown): {
 
   const entries: NativeEntryStore = {
     async list(ctx, folderId) {
-      let query = entriesTable()
+      let query = entriesTable(ctx)
         .select(
           "id, folder_id, storage_key, filename, mime_type, size_bytes, status, created_at, updated_at"
         )
@@ -230,7 +236,7 @@ export function createFileManagerStores(adapter: unknown): {
     },
 
     async get(ctx, id) {
-      const { data, error } = await entriesTable()
+      const { data, error } = await entriesTable(ctx)
         .select(
           "id, folder_id, storage_key, filename, mime_type, size_bytes, status, created_at, updated_at"
         )
@@ -246,7 +252,7 @@ export function createFileManagerStores(adapter: unknown): {
     },
 
     async createPending(ctx, input: NativeEntryCreateInput) {
-      const { data, error } = await entriesTable()
+      const { data, error } = await entriesTable(ctx)
         .insert({
           ...scope(ctx),
           folder_id: input.folderId,
@@ -289,7 +295,7 @@ export function createFileManagerStores(adapter: unknown): {
       if (patch.storageKey !== undefined) {
         updates.storage_key = patch.storageKey;
       }
-      const { data, error } = await entriesTable()
+      const { data, error } = await entriesTable(ctx)
         .update(updates)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -306,7 +312,7 @@ export function createFileManagerStores(adapter: unknown): {
     },
 
     async delete(ctx, id) {
-      const { error } = await entriesTable()
+      const { error } = await entriesTable(ctx)
         .delete()
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -340,13 +346,16 @@ export interface FileMountStore {
   get(ctx: FileSourceContext, folderId: string): Promise<FileFolderRow | null>;
 }
 
-export function createFileMountStore(adapter: unknown): FileMountStore {
-  const supabase = adapter as SupabaseClient;
-  const foldersTable = () => supabase.schema(SCHEMA).from("file_folders");
+export function createFileMountStore(
+  /** Tenant-locked handle factory — mounts resolve on the caller's tenant. */
+  getDb: (auth: { tenantId: string }) => SupabaseClient
+): FileMountStore {
+  const foldersTable = (ctx: FileSourceContext) =>
+    getDb({ tenantId: ctx.tenantId }).schema(SCHEMA).from("file_folders");
 
   return {
     async get(ctx, folderId) {
-      const { data, error } = await foldersTable()
+      const { data, error } = await foldersTable(ctx)
         .select(FOLDER_COLUMNS)
         .eq("tenant_id", ctx.tenantId)
         .eq("owner_type", ctx.owner.type)
@@ -362,7 +371,7 @@ export function createFileMountStore(adapter: unknown): FileMountStore {
     },
 
     async create(ctx, input) {
-      const { data, error } = await foldersTable()
+      const { data, error } = await foldersTable(ctx)
         .insert({
           tenant_id: ctx.tenantId,
           owner_type: ctx.owner.type,

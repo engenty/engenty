@@ -286,9 +286,19 @@ export interface ChatSearchRetrieval {
 }
 
 export function createChatSearchRetrieval(options: {
+  /** Serves the source's own ai.* reads (service lane where noted inline). */
   supabase: SupabaseClient;
+  /** Phase A seam: when provided, the retrieval service runs document/chunk
+   * work and query_chunks tenant-locked (search.source_visibility got a
+   * read-only engenty_server policy in 20260809240000). */
+  retrievalDb?: {
+    getDb: (auth: { tenantId: string }) => SupabaseClient;
+    serviceDb: SupabaseClient;
+  };
 }): ChatSearchRetrieval {
-  const service = createRetrievalService({ supabase: options.supabase });
+  const service = createRetrievalService({
+    supabase: options.retrievalDb ?? options.supabase,
+  });
   service.registerSource(createChatSessionRetrievalSource(options));
   const managed = service.getProvider(AI_CHAT_SESSION_SOURCE_TYPE);
   if (!managed) {

@@ -31,7 +31,15 @@ function json(status: number, body: Record<string, unknown>): Response {
 
 export function registerTriggerWebhookRoute(
   api: Pick<PluginServerApi, "registerHttpRoute">,
-  options: { queue?: QueueServiceLike | null; supabase: SupabaseClient }
+  options: {
+    /** Tenant-locked handle factory; the fire runs on the trigger's tenant. */
+    getDb: (auth: { tenantId: string }) => SupabaseClient;
+    queue?: QueueServiceLike | null;
+    /** Service client for the tenant-RESOLUTION read only: an inbound webhook
+     * is anonymous until the (triggerId, secret) pair identifies the trigger
+     * row — and with it the tenant. Same shape as a login lookup. */
+    serviceDb: SupabaseClient;
+  }
 ): void {
   api.registerHttpRoute({
     method: "post",
@@ -44,7 +52,7 @@ export function registerTriggerWebhookRoute(
     handler: async (ctx) => {
       const params = ctx.params as { secret: string; triggerId: string };
       const trigger = await getTriggerByIdUnscoped(
-        options.supabase,
+        options.serviceDb,
         params.triggerId
       ).catch(() => null);
       // One generic 401 for every reject reason — a probe cannot distinguish
@@ -68,7 +76,7 @@ export function registerTriggerWebhookRoute(
         eventContext: payload,
         firedBy: "webhook",
         queue: options.queue ?? null,
-        supabase: options.supabase,
+        supabase: options.getDb({ tenantId: trigger.tenant_id }),
         trigger,
       });
       logger.info("webhook trigger fired", {

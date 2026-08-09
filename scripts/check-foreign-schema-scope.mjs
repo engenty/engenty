@@ -2,7 +2,7 @@
 /**
  * Guardrail: a cross-schema read must be tenant-scoped.
  *
- * Module DAL code runs on a service-role client (`getDatabaseAdapter()`), which
+ * Module DAL code runs on a service-role client (`getServiceDb()`), which
  * bypasses RLS. Tenant isolation is therefore enforced in application code, by
  * writing `.eq("tenant_id", …).eq("scope_id", …)` on every query. Inside a
  * module's own schema that habit is reinforced by the surrounding code; at a
@@ -58,11 +58,10 @@ const SHARED_SCHEMAS = new Set(["public", "storage", "auth"]);
  * Delete entries as they are fixed; the check fails if an entry no longer
  * matches a violation, so the list cannot rot into a lie.
  */
-const BASELINE = new Set([
-  // One-off backfill scripts, run by an operator against a known tenant.
-  "packages/context-graph/scripts/backfill-contacts.ts:module_contacts.contacts",
-  "packages/context-graph/scripts/backfill-contacts.ts:module_contacts.contact_relations",
-]);
+// Emptied 2026-08-09 (Phase A WP8): the last three findings were fixed —
+// the portal's contact lookup goes through foreignSelect on a tenant-locked
+// handle, and the backfill script scopes both reads. Keep it empty.
+const BASELINE = new Set([]);
 
 function findSourceFiles(dir, acc = []) {
   let entries;

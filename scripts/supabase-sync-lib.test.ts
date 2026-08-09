@@ -149,8 +149,23 @@ ${renderApiSchemasBlock(BASE_API_SCHEMAS)}
   });
 
   it("repo config.toml resolves to the real container name", () => {
+    // Derive the expectation from the same config the resolver reads: the
+    // gitignored supabase/config.toml when present (worktrees with a dedicated
+    // stack use a unique project_id — see the release skill's mode d), else
+    // the committed example's project_id.
+    const localConfig = path.join(repoRoot, "supabase", "config.toml");
+    const exampleConfig = path.join(
+      repoRoot,
+      "supabase",
+      "config.toml.example"
+    );
+    const source = fs.existsSync(localConfig) ? localConfig : exampleConfig;
+    const projectId = fs
+      .readFileSync(source, "utf-8")
+      .match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
+    expect(projectId).toBeTruthy();
     expect(resolveSupabaseDbContainerName(repoRoot)).toBe(
-      "supabase_db_engenty-local"
+      `supabase_db_${projectId}`
     );
   });
 });
