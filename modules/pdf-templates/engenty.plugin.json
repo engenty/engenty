@@ -13,7 +13,7 @@
   ],
   "capabilities": {
     "operations": true,
-    "ai": false,
+    "ai": true,
     "frontendTools": false
   },
   "supabase": {

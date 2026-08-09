@@ -310,6 +310,7 @@ export function CopilotDrawerSurfaceTree({
             setDraft={injected.setDraft}
             status={injected.status}
             submitMessage={injected.submitMessage}
+            threadId={injected.activeThreadId}
           />
         </div>
       </>
@@ -413,6 +414,11 @@ export function CopilotDrawerSurfaceTree({
                 onNewChat={panelContentProps.onNewChat}
                 setDraft={injected.setDraft}
                 showStarterPrompts={false}
+                // The bottom-dock composer is the SAME component the panel
+                // uses, but it was not forwarded the command catalog — so
+                // typing "/" in the docked chat opened no menu while the full
+                // page worked. The catalog already rides on panelContentProps.
+                slashCommands={panelContentProps.slashCommands}
                 status={injected.status}
                 submitMessage={injected.submitMessage}
               />

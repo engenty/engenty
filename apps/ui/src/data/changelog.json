@@ -4,6 +4,252 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "c778245",
+        "message": "raise the open-file limit for `pnpm dev` too",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d4092ae",
+        "message": "raise the open-file limit before starting the dev stack",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0123e8f",
+        "message": "document every module and the cross-cutting agent operations",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "410c092",
+        "message": "scope turbo env hashing to the manage portal build",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "cae605b",
+        "message": "stop env edits from busting every package build cache",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d4961f4",
+        "message": "keep the settings page in sync with out-of-band writes",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1916e2a",
+        "message": "add the module's missing skills",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2914713",
+        "message": "full template lifecycle in the AI catalog, plus authoring skills",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "caa62a8",
+        "message": "collection-scoped write operations for the AI catalog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "613dd5e",
+        "message": "make backend tools the only write path in the instructions",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ccf9141",
+        "message": "show usage on every copilot surface and stop the flap opening empty",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9f6e936",
+        "message": "stop navigate from reporting success for routes that do not exist",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e21d034",
+        "message": "split report detail page and snapshots dialog",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "ff6d515",
+        "message": "implement report snapshots functionality",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "43623ea",
+        "message": "raise summary token budget and polish report settings",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7af4de1",
+        "message": "professional sectioned report layout with table breaks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "648b70b",
+        "message": "fix build issue",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8d7c920",
+        "message": "route report summaries through tenant AI settings",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1276cfc",
+        "message": "stop a snapshot resume re-persisting the user turn it is resuming",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b85debc",
+        "message": "mark the seam where the inspector timeline reverses direction",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "40f601c",
+        "message": "add report type, entry descriptions, and on-demand LLM summaries",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e57df97",
+        "message": "open the context meter's prompt number into a size breakdown",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f391560",
+        "message": "route the decision card by tool name, not by tool output",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "53ae5f4",
+        "message": "stop the native decision suspend from losing and duplicating its turn",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a456d7d",
+        "message": "give the resume lanes the executor's post-run pass",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a9fe6b5",
+        "message": "make the snapshot resume exclusive and rebuild its agent context",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9f52053",
+        "message": "scope the portal client lookup to the project's tenant",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c934295",
+        "message": "add free-text notes to a saved report",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "72454c1",
+        "message": "give tenantless join tables a real tenant boundary",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ba8487b",
+        "message": "declare the nuqs dependency",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "4dedf19",
+        "message": "fail loudly when a snapshot resume cannot finish",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "caf00ed",
+        "message": "continue the run after a snapshot resume re-suspends",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "aacaf23",
+        "message": "rework report filters into searchable rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "10c5654",
+        "message": "keep the doc-sidebar overlay sheet viewport-fixed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f809e24",
+        "message": "add full list controls to saved reports",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "679c0b9",
+        "message": "refine the saved-reports UI",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8b9e784",
+        "message": "rebuild the workspace when resuming from a snapshot",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "65ca3e7",
+        "message": "create many tasks in one approved call",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f30acd2",
+        "message": "let Code Mode write behind the approval gate",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "99050fc",
+        "message": "add saved reports and reporting UI",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.110",
+    "timestamp": 1786114015,
+    "commits": [
+      {
         "id": "91ba2e3",
         "message": "keep the dependency layer stable across releases",
         "group": "Performance",

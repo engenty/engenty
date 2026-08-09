@@ -223,6 +223,8 @@ export function createKbSourceRepo(
     async listSourceItemLinks(sourceItemId) {
       const { data, error } = await links()
         .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("source_item_id", sourceItemId)
         .order("position", { ascending: true });
       if (error) {
@@ -238,6 +240,8 @@ export function createKbSourceRepo(
     async listSourceItemMedia(sourceItemId) {
       const { data, error } = await media()
         .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("source_item_id", sourceItemId)
         .order("position", { ascending: true });
       if (error) {
@@ -253,6 +257,8 @@ export function createKbSourceRepo(
     async listSourceItemSections(sourceItemId) {
       const { data, error } = await sections()
         .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("source_item_id", sourceItemId)
         .order("position", { ascending: true });
       if (error) {
@@ -434,6 +440,8 @@ export function createKbSourceRepo(
     async replaceSourceItemLinks(sourceItemId, inputLinks) {
       const { error: deleteError } = await links()
         .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("source_item_id", sourceItemId);
       if (deleteError) {
         throw new Error(
@@ -447,7 +455,9 @@ export function createKbSourceRepo(
         .insert(
           inputLinks.map((link) => ({
             id: uuidv7(),
+            scope_id: scopeId,
             source_item_id: sourceItemId,
+            tenant_id: tenantId,
             href: link.href,
             normalized_href: link.normalized_href,
             link_type: link.link_type,
@@ -473,6 +483,8 @@ export function createKbSourceRepo(
     async replaceSourceItemMedia(sourceItemId, inputMedia) {
       const { error: deleteError } = await media()
         .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("source_item_id", sourceItemId);
       if (deleteError) {
         throw new Error(
@@ -486,7 +498,9 @@ export function createKbSourceRepo(
         .insert(
           inputMedia.map((m) => ({
             id: uuidv7(),
+            scope_id: scopeId,
             source_item_id: sourceItemId,
+            tenant_id: tenantId,
             source_url: m.source_url,
             storage_object_key: m.storage_object_key ?? null,
             media_type: m.media_type,
@@ -518,6 +532,8 @@ export function createKbSourceRepo(
     async replaceSourceItemSections(sourceItemId, inputSections) {
       const { error: deleteError } = await sections()
         .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("source_item_id", sourceItemId);
       if (deleteError) {
         throw new Error(
@@ -531,7 +547,9 @@ export function createKbSourceRepo(
         .insert(
           inputSections.map((section) => ({
             id: uuidv7(),
+            scope_id: scopeId,
             source_item_id: sourceItemId,
+            tenant_id: tenantId,
             kind: section.kind,
             title: section.title ?? null,
             locator: section.locator ?? null,

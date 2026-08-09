@@ -1,8 +1,11 @@
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { CreditCard } from "lucide-react";
+import { commercialSettingsLiveBinding } from "./commercial-settings-live-binding.js";
 import { CommercialSettingsPage } from "./pages/index.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
+  engenty.UI.registerLiveBinding(commercialSettingsLiveBinding);
+
   engenty.i18n.registerNamespace({
     pluginId: "commercial-settings",
     namespace: "commercial-settings",

@@ -47,6 +47,13 @@ export function getRepo(
   return repoOrFactory;
 }
 
+/**
+ * Ceiling for one bulk task create. High enough for a whole project plan in a
+ * single approval, low enough that the sequential fan-out to the tasks module
+ * cannot hold a request open indefinitely.
+ */
+const MAX_BULK_TASKS = 100;
+
 const op = (read: boolean) => ({
   moduleId: "projects",
   requiredCapabilities: [
@@ -272,6 +279,82 @@ export function registerProjectsGatewayMethods(
         project_id,
         status,
       });
+    },
+  });
+
+  api.registerOperation({
+    operationId: "projects_create_tasks",
+    summary: "Create several tasks in a project in one call",
+    ...op(false),
+    inputSchema: z.object({
+      project_id: z.string().min(1),
+      tasks: z
+        .array(phaseTaskInputSchema.omit({ project_id: true }))
+        .min(1)
+        .max(MAX_BULK_TASKS),
+    }),
+    outputSchema: z.object({
+      created: z.array(phaseTaskSchema),
+      created_count: z.number(),
+      failed: z.array(
+        z.object({
+          error: z.string(),
+          index: z.number(),
+          title: z.string().optional(),
+        })
+      ),
+      failed_count: z.number(),
+    }),
+    handler: async (input, ctx) => {
+      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
+      const { project_id, tasks } = input as {
+        project_id: string;
+        tasks: z.infer<typeof phaseTaskInputSchema>[];
+      };
+      // Settings are fetched ONCE for the whole batch — the per-task operation
+      // re-reads them on every call, which is most of its cost when an agent
+      // creates a project plan task by task.
+      const settings = await repo.getSettings();
+      const validStatuses = new Set(
+        settings.task_status_definitions.map((d) => d.id)
+      );
+
+      const created: Awaited<ReturnType<typeof repo.createTask>>[] = [];
+      const failed: { error: string; index: number; title?: string }[] = [];
+
+      // Sequential and non-transactional: `createTask` fans out to the tasks
+      // module per row, so there is no single statement to wrap. A partial
+      // batch is reported rather than rolled back — the caller gets the ids it
+      // did create instead of losing the work to one bad row.
+      for (const [index, task] of tasks.entries()) {
+        const status = task.status ?? "todo";
+        if (!validStatuses.has(status)) {
+          failed.push({
+            error: `Invalid task status: ${status}`,
+            index,
+            ...(task.title ? { title: task.title } : {}),
+          });
+          continue;
+        }
+        try {
+          created.push(
+            await repo.createTask(project_id, { ...task, project_id, status })
+          );
+        } catch (error) {
+          failed.push({
+            error: error instanceof Error ? error.message : String(error),
+            index,
+            ...(task.title ? { title: task.title } : {}),
+          });
+        }
+      }
+
+      return {
+        created,
+        created_count: created.length,
+        failed,
+        failed_count: failed.length,
+      };
     },
   });
 

@@ -4,6 +4,48 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.111] - 2026-08-09
+- ADDED **[company-profile]** Add the module's missing skills
+- ADDED **[pdf-templates]** Full template lifecycle in the AI catalog, plus authoring skills
+- ADDED **[commercial-settings]** Collection-scoped write operations for the AI catalog
+- ADDED **[time-tracking]** Implement report snapshots functionality
+- ADDED **[time-tracking]** Professional sectioned report layout with table breaks
+- ADDED **[time-tracking]** Add report type, entry descriptions, and on-demand LLM summaries
+- ADDED **[ai]** Open the context meter's prompt number into a size breakdown
+- ADDED **[time-tracking]** Add free-text notes to a saved report
+- ADDED **[time-tracking]** Rework report filters into searchable rows
+- ADDED **[time-tracking]** Add full list controls to saved reports
+- ADDED **[time-tracking]** Refine the saved-reports UI
+- ADDED **[projects]** Create many tasks in one approved call
+- ADDED **[ai]** Let Code Mode write behind the approval gate
+- ADDED **[time-tracking]** Add saved reports and reporting UI
+- CHANGED **[time-tracking]** Split report detail page and snapshots dialog
+- DOCS **[user]** Document every module and the cross-cutting agent operations
+- FIXED **[dev]** Raise the open-file limit for `pnpm dev` too
+- FIXED **[dev]** Raise the open-file limit before starting the dev stack
+- FIXED **[manage]** Scope turbo env hashing to the manage portal build
+- FIXED **[turbo]** Stop env edits from busting every package build cache
+- FIXED **[commercial-settings]** Keep the settings page in sync with out-of-band writes
+- FIXED **[copilot]** Make backend tools the only write path in the instructions
+- FIXED **[ai-ui]** Show usage on every copilot surface and stop the flap opening empty
+- FIXED **[copilot]** Stop navigate from reporting success for routes that do not exist
+- FIXED **[time-tracking]** Raise summary token budget and polish report settings
+- FIXED Fix build issue
+- FIXED **[time-tracking]** Route report summaries through tenant AI settings
+- FIXED **[ai]** Stop a snapshot resume re-persisting the user turn it is resuming
+- FIXED **[ai-ui]** Mark the seam where the inspector timeline reverses direction
+- FIXED **[ai-ui]** Route the decision card by tool name, not by tool output
+- FIXED **[ai]** Stop the native decision suspend from losing and duplicating its turn
+- FIXED **[ai]** Give the resume lanes the executor's post-run pass
+- FIXED **[ai]** Make the snapshot resume exclusive and rebuild its agent context
+- FIXED **[security]** Scope the portal client lookup to the project's tenant
+- FIXED **[security]** Give tenantless join tables a real tenant boundary
+- FIXED **[time-tracking]** Declare the nuqs dependency
+- FIXED **[ai]** Fail loudly when a snapshot resume cannot finish
+- FIXED **[ai]** Continue the run after a snapshot resume re-suspends
+- FIXED **[ui-core]** Keep the doc-sidebar overlay sheet viewport-fixed
+- FIXED **[ai]** Rebuild the workspace when resuming from a snapshot
+
 ## [0.1.110] - 2026-08-07
 - PERFORMANCE **[deploy]** Keep the dependency layer stable across releases
 

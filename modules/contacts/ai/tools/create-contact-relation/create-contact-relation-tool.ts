@@ -1,10 +1,10 @@
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { contactRelationCreateInputSchema } from "../../../src/schema/contact-relations.js";
 
 export function buildCreateContactRelationTool(
   invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"]
-) {
+): Tool {
   return tool({
     description:
       "Create a typed relation between two contacts, for example a person working at an organisation.",

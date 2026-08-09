@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_CLASSIFIER_MODEL_ID,
+} from "../model-defaults.js";
 import { resolvePurposeModel } from "../model-purposes.js";
 import {
   AI_PLATFORM_ROLES,
@@ -32,6 +36,15 @@ describe("seedBindings", () => {
     );
     expect(seeded.every((b) => b.modelId.length > 0)).toBe(true);
     expect(seeded.every((b) => b.gateway === "vercel")).toBe(true);
+    expect(seeded.find((b) => b.role === "model.medium")?.modelId).toBe(
+      DEFAULT_AI_CHAT_MODEL_ID
+    );
+    expect(seeded.find((b) => b.role === "model.low")?.modelId).toBe(
+      DEFAULT_AI_CLASSIFIER_MODEL_ID
+    );
+    expect(seeded.find((b) => b.role === "router")?.modelId).toBe(
+      DEFAULT_AI_CLASSIFIER_MODEL_ID
+    );
   });
 
   it("carries legacy env values across the upgrade", () => {
@@ -53,7 +66,7 @@ describe("seedBindings", () => {
       k === "AI_CHAT_MODEL" ? "   " : undefined
     );
     expect(seeded.find((b) => b.role === "model.medium")?.modelId).toBe(
-      "openai/gpt-5-mini"
+      DEFAULT_AI_CHAT_MODEL_ID
     );
   });
 });
@@ -65,7 +78,7 @@ describe("resolvePurposeModel with bindings", () => {
       modelId: "anthropic/claude-sonnet-5",
       role: "model.medium",
     },
-    { gateway: "vercel", modelId: "openai/gpt-5-nano", role: "router" },
+    { gateway: "vercel", modelId: "vendor/fixture-router", role: "router" },
   ]);
 
   it("uses the bound model as the platform layer", () => {

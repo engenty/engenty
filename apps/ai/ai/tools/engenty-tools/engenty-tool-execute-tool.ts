@@ -31,6 +31,12 @@ export const toolApprovalSuspendSchema = z.object({
   // raw tool input (it may hold sensitive values and this lands in metadata).
   secret_id: z.string().uuid().optional(),
   title: z.string().optional(),
+  // Bulk pre-approval (engenty_tools_preapprove): every operation this ONE
+  // card covers — approving persists a grant for each. `operation_id` stays
+  // the primary op so existing single-op parsing keeps working.
+  operation_ids: z.array(z.string()).optional(),
+  // Agent-authored plan summary shown in the card body (bulk cards only).
+  body: z.string().optional(),
 });
 
 export type ToolApprovalSuspendPayload = z.infer<
@@ -128,6 +134,45 @@ function approvalUnavailableResult(operationId: string) {
   };
 }
 
+/**
+ * Sandbox (Code Mode) result for a gated operation with no covering grant. A
+ * program cannot suspend for a human mid-flight, so the call fails INTO the
+ * program with the recovery path spelled out: get the grant first (one bulk
+ * pre-approval card in chat), then re-run the program.
+ */
+function sandboxApprovalRequiredResult(
+  operationId: string,
+  riskLevel: ToolRiskLevel
+) {
+  return {
+    ok: false as const,
+    error: "approval_required",
+    message:
+      `Operation ${operationId} (${riskLevel} risk) needs the user's approval before it can run from a sandbox program. ` +
+      "From chat, call engenty_tools_preapprove with EVERY write operation the program will use (one approval card covers them all), " +
+      "or run the operation once via engenty_tool_execute so the user can approve it; then re-run the program.",
+  };
+}
+
+/**
+ * The sandbox gate mirrors core's unattended-principal rule: a program runs
+ * without a human watching each call, so anything explicitly approval-gated or
+ * high/critical risk needs a pre-existing grant. Deliberately STRICTER than the
+ * interactive pre-gate (which only gates on `requiresApproval` and lets core
+ * decide risk) — bulk mutation from generated code earns the extra bar. Core
+ * remains authoritative behind it either way.
+ */
+function sandboxRequiresGrant(input: {
+  requiresApproval: boolean;
+  riskLevel: ToolRiskLevel;
+}): boolean {
+  return (
+    input.requiresApproval ||
+    input.riskLevel === "high" ||
+    input.riskLevel === "critical"
+  );
+}
+
 function approvalDeniedResult(operationId: string) {
   return {
     ok: false as const,
@@ -178,13 +223,21 @@ function emptyToolInputResult(operationId: string, required: string[]) {
 /**
  * Handle an operation that requires approval, per the run's approval policy:
  * suspend the Mastra run (interactive chat — the resume re-executes this tool
- * with the decision), return the decision artifact (voice drives its own
- * approve flow), or return a clear denial (leaf runs: delegated children and
- * headless jobs have no interactive channel).
+ * with the decision), return the decision artifact (voice AND the interactive
+ * start lane, which gates under "artifact" and re-runs with the grant), or
+ * return a clear denial (leaf runs: delegated children and headless jobs have
+ * no interactive channel).
+ *
+ * `operationIds`/`body` make it a BULK card (engenty_tools_preapprove): one
+ * decision covering several operations, with the agent's plan as the body.
+ * Exported so the preapprove tool shares this exact cascade — a second copy
+ * would drift on the next policy change.
  */
-async function gateRequiresApproval(input: {
+export async function gateRequiresApproval(input: {
+  body?: string;
   context: ToolRequestContextCarrier<ToolApprovalSuspendPayload> | undefined;
   operationId: string;
+  operationIds?: string[];
   requiresApproval: boolean;
   riskLevel: ToolRiskLevel;
   secretId?: string;
@@ -195,12 +248,15 @@ async function gateRequiresApproval(input: {
   if (policy === "request") {
     // Durable run with a needs-input channel: record the request and end
     // gracefully. The workflow surfaces the inbox notification + task comment;
-    // a human approves and the task re-dispatches.
-    ctx.onApprovalRequired?.({
-      operationId: input.operationId,
-      riskLevel: input.riskLevel,
-      ...(input.title ? { title: input.title } : {}),
-    });
+    // a human approves and the task re-dispatches. Bulk: one request per
+    // operation, so each grant lands individually.
+    for (const operationId of input.operationIds ?? [input.operationId]) {
+      ctx.onApprovalRequired?.({
+        operationId,
+        riskLevel: input.riskLevel,
+        ...(input.title ? { title: input.title } : {}),
+      });
+    }
     return approvalPendingResult(input.operationId);
   }
   const suspend = input.context?.agent?.suspend;
@@ -211,6 +267,10 @@ async function gateRequiresApproval(input: {
       requires_approval: input.requiresApproval,
       risk_level: input.riskLevel,
       ...(input.secretId ? { secret_id: input.secretId } : {}),
+      ...(input.operationIds?.length
+        ? { operation_ids: input.operationIds }
+        : {}),
+      ...(input.body ? { body: input.body } : {}),
       ...(input.title ? { title: input.title } : {}),
     } satisfies ToolApprovalSuspendPayload);
     // Unreachable once resumed (execute re-runs with resumeData set), but Mastra
@@ -225,6 +285,10 @@ async function gateRequiresApproval(input: {
       ...(input.secretId
         ? { grantContext: { secret_id: input.secretId } }
         : {}),
+      ...(input.operationIds?.length
+        ? { operationIds: input.operationIds }
+        : {}),
+      ...(input.body ? { body: input.body } : {}),
       ...(input.title ? { title: input.title } : {}),
     });
   }
@@ -238,8 +302,15 @@ export async function executeEngentyTool(
     | ReturnType<typeof getCurrentEngentyToolsClient>
     | undefined,
   options?: {
-    /** Code Mode: only read-only operations (low risk, no approval) may run. */
-    enforceReadOnly?: boolean;
+    /**
+     * Code Mode: the call comes from a running sandbox program, which cannot
+     * suspend for a human. Gated operations (requiresApproval, or high/critical
+     * risk) run only when a pre-existing grant covers them; otherwise they fail
+     * into the program with the pre-approval recovery path. Core stays
+     * authoritative behind this gate (the 202 backstop maps to the same
+     * result instead of suspending).
+     */
+    sandbox?: boolean;
   }
 ) {
   const executionContext =
@@ -267,15 +338,18 @@ export async function executeEngentyTool(
     const contract = await client.client.describeTool(parsed.id);
     const entry = normalizeToolContract(contract);
     operationId = entry.tool.toolId;
-    if (options?.enforceReadOnly && !entry.execution.readOnly) {
-      return {
-        ok: false as const,
-        error: "code_mode_read_only",
-        message: `Operation ${operationId} is not read-only and cannot run from Code Mode. Call it as a regular chat tool instead (engenty_tool_execute), where approvals apply.`,
-      };
-    }
     if (APP_AUTHORING_OPERATIONS.has(operationId)) {
       return appAuthoringRedirectResult(operationId);
+    }
+    if (
+      options?.sandbox &&
+      sandboxRequiresGrant(entry.auth) &&
+      !getEngentyToolsRunContext().approvalGrants?.includes(entry.tool.toolId)
+    ) {
+      return sandboxApprovalRequiredResult(
+        entry.tool.toolId,
+        entry.auth.riskLevel
+      );
     }
     if (resumedApproval && !resumedApproval.approved) {
       return approvalDeniedResult(operationId);
@@ -362,6 +436,13 @@ export async function executeEngentyTool(
           });
         }
         return approvalPendingResult(operationId, err.message);
+      }
+      if (options?.sandbox) {
+        // Program dispatch cannot suspend; fail into the program with the
+        // recovery path (core stayed authoritative — its 202 lands here even
+        // when the local sandbox gate let the call through, e.g. stale
+        // contract metadata or a policy only core can evaluate).
+        return sandboxApprovalRequiredResult(operationId, "high");
       }
       return gateRequiresApproval({
         context: executionContext,

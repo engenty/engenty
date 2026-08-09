@@ -1,0 +1,19 @@
+{
+  "title": "Modules",
+  "pages": [
+    "index",
+    "offers",
+    "invoices",
+    "commercial-settings",
+    "company-profile",
+    "pdf-templates",
+    "projects",
+    "tasks",
+    "time-tracking",
+    "contacts",
+    "team",
+    "inbox",
+    "team-chat",
+    "knowledge-base"
+  ]
+}

@@ -43,7 +43,7 @@ export async function initLangfuseOtel(): Promise<void> {
 
 /**
  * Synchronous check: whether Langfuse OTel is configured (LANGFUSE_SECRET_KEY set).
- * Use to decide whether to pass experimental_telemetry to AI SDK calls.
+ * Use to decide whether to pass telemetry to AI SDK calls.
  */
 export function isLangfuseOtelConfigured(): boolean {
   return envIsDefined("LANGFUSE_SECRET_KEY");

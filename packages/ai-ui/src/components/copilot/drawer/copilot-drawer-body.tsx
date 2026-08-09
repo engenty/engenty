@@ -10,7 +10,10 @@ import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
 import { useMentionAgentCandidates } from "../../../hooks/use-mention-agent-candidates.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
-import { CopilotOpenInterruptBanner } from "../interrupts/copilot-open-interrupt-banner";
+import {
+  CopilotOpenInterruptBanner,
+  hasRenderableOpenInterrupt,
+} from "../interrupts/copilot-open-interrupt-banner";
 import { pendingInterruptFromTranscript } from "../interrupts/pending-interrupt-from-transcript";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotPanelContent } from "../panel/copilot-panel-content";
@@ -46,6 +49,7 @@ export function CopilotDrawerBody({
   onApplySuccess,
   onApplySuggestions,
   title,
+  slashCommands,
   starterPrompts,
   startMode = "manual",
   panelMode: controlledPanelMode,
@@ -487,6 +491,9 @@ export function CopilotDrawerBody({
             activeCopilotContext?.routeKey ?? routeKey
           ),
     title: title ?? "Enhance",
+    // Omitting this left the usage meter mounted but inert (threadId defaults
+    // to null) on every panel surface: sidebar, drawer, modal.
+    threadId: activeThreadId,
     error: session.error ?? null,
     mentionAgentCandidates,
     messages: drawerMessages,
@@ -498,6 +505,7 @@ export function CopilotDrawerBody({
     setDraft: session.setDraft,
     submitMessage: session.submitMessage,
     composerPlaceholder,
+    slashCommands,
     starterPrompts,
     reviewPromptLabel,
     thinkingLabel,
@@ -594,44 +602,48 @@ export function CopilotDrawerBody({
   // launcher). Sourcing both from the same node is what makes the approval card
   // appear in the bottom dock — the compact surfaces have no transcript of
   // their own to fall back on.
-  const interruptBanner = dockInterrupt ? (
-    <CopilotOpenInterruptBanner
-      onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) => {
-        session.respond?.(dockInterrupt.tool_call_id, {
-          artifactId,
-          choiceId,
-          choiceLabel,
-          interruptId,
-        });
-      }}
-      onFeedbackSubmit={(artifactId, feedback, interruptId) => {
-        session.respond?.(dockInterrupt.tool_call_id, {
-          artifactId,
-          choiceId: "feedback_submit",
-          choiceLabel: feedback,
-          interruptId,
-          payload: { feedback },
-        });
-      }}
-      onSandboxCommandApprove={(open: AgUiOpenInterruptMetadata) => {
-        if (onSandboxCommandInterruptApprove) {
-          void onSandboxCommandInterruptApprove(open);
-        }
-      }}
-      onSandboxCommandReject={(open: AgUiOpenInterruptMetadata) => {
-        if (onSandboxCommandInterruptReject) {
-          onSandboxCommandInterruptReject(open);
-        } else if (open.tool_name) {
-          session.resumeInterrupt?.({
-            approved: false,
-            interruptId: open.interrupt_id,
-            toolName: open.tool_name,
+  // Gated on renderability: the banner renders null for interrupts it has no
+  // card for, and both consumers treat a non-null element as "there is
+  // something to show" — which slid the status flap open around nothing.
+  const interruptBanner =
+    dockInterrupt && hasRenderableOpenInterrupt(dockInterrupt) ? (
+      <CopilotOpenInterruptBanner
+        onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) => {
+          session.respond?.(dockInterrupt.tool_call_id, {
+            artifactId,
+            choiceId,
+            choiceLabel,
+            interruptId,
           });
-        }
-      }}
-      open={dockInterrupt}
-    />
-  ) : null;
+        }}
+        onFeedbackSubmit={(artifactId, feedback, interruptId) => {
+          session.respond?.(dockInterrupt.tool_call_id, {
+            artifactId,
+            choiceId: "feedback_submit",
+            choiceLabel: feedback,
+            interruptId,
+            payload: { feedback },
+          });
+        }}
+        onSandboxCommandApprove={(open: AgUiOpenInterruptMetadata) => {
+          if (onSandboxCommandInterruptApprove) {
+            void onSandboxCommandInterruptApprove(open);
+          }
+        }}
+        onSandboxCommandReject={(open: AgUiOpenInterruptMetadata) => {
+          if (onSandboxCommandInterruptReject) {
+            onSandboxCommandInterruptReject(open);
+          } else if (open.tool_name) {
+            session.resumeInterrupt?.({
+              approved: false,
+              interruptId: open.interrupt_id,
+              toolName: open.tool_name,
+            });
+          }
+        }}
+        open={dockInterrupt}
+      />
+    ) : null;
 
   // No padding wrapper: the composer dock flap (shell `dockContent`) provides
   // the attached card surface and its own padding.

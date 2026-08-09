@@ -1,17 +1,22 @@
+import { DEFAULT_AI_CHAT_MODEL_ID } from "@engenty/ai-core/browser";
 import { describe, expect, it } from "vitest";
 import type { CustomAgentConfig } from "../../lib/admin/ai-runtime-api";
 import {
   buildAgentConfigFromDraft,
   createAgentDraft,
+  createEmptyAgentDraft,
   parseAgentSubAgentsInput,
   validateAgentDraft,
 } from "./agent-draft";
+
+/** Opaque fixture id — not the package default; round-trip only. */
+const FIXTURE_MODEL = "openai/test-agent-model";
 
 const config: CustomAgentConfig = {
   description: "Handles research requests.",
   id: "tenant.research-agent",
   instructions: "Research the question and summarize evidence.",
-  model: "openai/gpt-5-mini",
+  model: FIXTURE_MODEL,
   name: "Research agent",
   skillIds: ["research", "summarize"],
   subAgents: [{ alias: "tools", id: "engenty_tools" }],
@@ -19,6 +24,10 @@ const config: CustomAgentConfig = {
 };
 
 describe("agent-draft", () => {
+  it("seeds new drafts with the package chat default", () => {
+    expect(createEmptyAgentDraft().model).toBe(DEFAULT_AI_CHAT_MODEL_ID);
+  });
+
   it("round-trips an agent config through the form draft", () => {
     const draft = createAgentDraft(config);
 

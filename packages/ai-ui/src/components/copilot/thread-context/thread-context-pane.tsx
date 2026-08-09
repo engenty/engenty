@@ -116,7 +116,7 @@ export function ThreadContextPane({
           style={{ width: FLOAT_RESERVE_PX }}
         >
           <div
-            className="pointer-events-auto sticky top-3 max-h-full overflow-y-auto self-start"
+            className="pointer-events-auto sticky top-3 max-h-full self-start overflow-y-auto"
             style={{ width: THREAD_CONTEXT_FLOAT_WIDTH_PX }}
           >
             <ThreadContextBox hostKey={hostKey} summary={summary} />

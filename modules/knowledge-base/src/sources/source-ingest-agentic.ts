@@ -10,7 +10,7 @@ import {
   readAiGatewayApiKeyFromEnv,
   resolveChatModelId,
 } from "@engenty/ai-core";
-import { generateText, stepCountIs, tool } from "ai";
+import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 import type { KbRepoFactory } from "../dal/contracts.js";
 
@@ -373,10 +373,10 @@ export async function ingestKbSourceAgentic(
 
   const result = await generateText({
     model: resolveChatModelId({ purpose: "chat" }),
-    system: systemPrompt,
+    instructions: systemPrompt,
     prompt: userPrompt,
     tools: agentTools,
-    stopWhen: stepCountIs(40),
+    stopWhen: isStepCount(40),
     maxRetries: 1,
   });
 

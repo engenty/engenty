@@ -184,11 +184,16 @@ export function createProjectRepoSupabase(
     }>
   ): Promise<void> {
     const seen = new Set<string>();
+    // tenant_id/scope_id are NOT NULL and bound to the parent project by a
+    // composite FK — Postgres rejects the insert if they disagree with the
+    // project row, so these cannot drift into a second source of truth.
     const rows: Array<{
       project_id: string;
-      user_id: string;
       role: ProjectMemberRole;
       role_name: string | null;
+      scope_id: string;
+      tenant_id: string;
+      user_id: string;
     }> = [];
     for (const m of members) {
       if (!m.user_id?.trim() || seen.has(m.user_id)) {
@@ -197,9 +202,11 @@ export function createProjectRepoSupabase(
       seen.add(m.user_id);
       rows.push({
         project_id: projectId,
-        user_id: m.user_id,
         role: m.role ?? "project-member",
         role_name: m.role_name ?? null,
+        scope_id: scopeId,
+        tenant_id: tenantId,
+        user_id: m.user_id,
       });
     }
     if (rows.length === 0) {
@@ -216,6 +223,8 @@ export function createProjectRepoSupabase(
   ): Promise<string[]> {
     const { data, error } = await projectTeamMembers()
       .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .eq("project_id", projectId);
     if (error) {
       throw new Error(`Failed to list project team members: ${error.message}`);
@@ -310,6 +319,8 @@ export function createProjectRepoSupabase(
     }
     const { error: delErr } = await projectTeamMembers()
       .delete()
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .eq("project_id", projectId);
     if (delErr) {
       throw new Error(
@@ -419,8 +430,12 @@ export function createProjectRepoSupabase(
       // tenant-visible projects plus those they are a team member of. Done as
       // two queries because PostgREST can't take a subquery inside `in.(...)`.
       if (viewer && !viewer.seesAllProjects) {
+        // Without the tenant/scope filters this returns every project the
+        // same user_id sits on in ANY tenant — user ids are global.
         const { data: teamRows, error: teamError } = await projectTeamMembers()
           .select("project_id")
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
           .eq("user_id", viewer.userId);
         if (teamError) {
           throw new Error(

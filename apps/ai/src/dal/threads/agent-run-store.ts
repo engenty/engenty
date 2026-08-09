@@ -93,6 +93,120 @@ export function createAgentRunStore(client: SupabaseClient) {
       return (data as AgentRunRow[]) ?? [];
     },
 
+    /**
+     * Context-window usage for a thread: the newest run that actually reported
+     * a prompt size, joined to its model's window.
+     *
+     * The newest run is NOT necessarily the right one — a run that failed, was
+     * cancelled, or is still streaming has `prompt_tokens` null, and reading
+     * that as "0 tokens used" would make a full window look empty. Skipping to
+     * the last *measured* run keeps the indicator on the last known truth.
+     *
+     * `model_id` is plain text with no FK to `ai.model`, so this is two round
+     * trips rather than a PostgREST embed. A model missing from the catalog
+     * yields a null window: the UI then shows the token count without a
+     * percentage instead of inventing a denominator.
+     */
+    async getThreadContextUsage(params: {
+      tenantId: string;
+      threadId: string;
+    }): Promise<{
+      completionTokens: number | null;
+      contextTokens: number | null;
+      durationMs: number | null;
+      finishedAt: string | null;
+      inputPerMtokMicros: number | null;
+      modelDisplayName: string | null;
+      modelId: string | null;
+      outputPerMtokMicros: number | null;
+      promptTokens: number;
+      runId: string;
+      startedAt: string;
+      status: string;
+    } | null> {
+      const { data, error } = await db
+        .from("agent_run")
+        .select(
+          "id, model_id, prompt_tokens, completion_tokens, started_at, finished_at, status"
+        )
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .not("prompt_tokens", "is", null)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`agent_run context usage: ${error.message}`);
+      }
+      if (!data) {
+        return null;
+      }
+      const run = data as {
+        completion_tokens: number | null;
+        finished_at: string | null;
+        id: string;
+        model_id: string | null;
+        prompt_tokens: number;
+        started_at: string;
+        status: string;
+      };
+
+      // Wall-clock for the run. Computed server-side from two timestamps that
+      // share a clock; deriving it in the browser would subtract the server's
+      // `started_at` from the client's `Date.now()` and drift by the clock skew
+      // between them. Null while the run is still open — an elapsed-so-far
+      // number would keep changing without the UI knowing to refetch.
+      const durationMs = run.finished_at
+        ? Math.max(
+            0,
+            new Date(run.finished_at).getTime() -
+              new Date(run.started_at).getTime()
+          )
+        : null;
+
+      let contextTokens: number | null = null;
+      let modelDisplayName: string | null = null;
+      let inputPerMtokMicros: number | null = null;
+      let outputPerMtokMicros: number | null = null;
+      if (run.model_id) {
+        const { data: model, error: modelError } = await db
+          .from("model")
+          .select(
+            "context_tokens, display_name, input_per_mtok_micros, output_per_mtok_micros"
+          )
+          .eq("model_id", run.model_id)
+          .maybeSingle();
+        // A catalog miss is not a failure — degrade to "no window known".
+        if (!modelError && model) {
+          const row = model as {
+            context_tokens: number | null;
+            display_name: string | null;
+            input_per_mtok_micros: number | null;
+            output_per_mtok_micros: number | null;
+          };
+          contextTokens = row.context_tokens;
+          modelDisplayName = row.display_name;
+          inputPerMtokMicros = row.input_per_mtok_micros;
+          outputPerMtokMicros = row.output_per_mtok_micros;
+        }
+      }
+
+      return {
+        completionTokens: run.completion_tokens,
+        contextTokens,
+        durationMs,
+        finishedAt: run.finished_at,
+        inputPerMtokMicros,
+        modelDisplayName,
+        modelId: run.model_id,
+        outputPerMtokMicros,
+        promptTokens: run.prompt_tokens,
+        runId: run.id,
+        startedAt: run.started_at,
+        status: run.status,
+      };
+    },
+
     async listRunsForAgent(params: {
       agentId: string;
       limit?: number;

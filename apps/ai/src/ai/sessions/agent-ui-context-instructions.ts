@@ -56,7 +56,7 @@ function buildFrontendToolInstructions(
     // Scoped to navigation on purpose. Read as a general discouragement, this
     // line helped push a model into inventing an "ask the user" tool of its own
     // — asking with requestDecision is correct everywhere else.
-    '- For page-opening/navigation requests, use the "navigate" tool with {"to":"/mdl/<moduleId>"} (an internal path). When a likely page or module route is known, navigate instead of asking which page to open.',
+    '- For page-opening/navigation requests, use the "navigate" tool with an internal path such as {"to":"/mdl/<moduleId>/<page>"}. When a likely page or module route is known, navigate instead of asking which page to open. If navigate errors, it lists the routes that actually exist — pick one of those rather than rephrasing. Report a page as open only when navigate returned it in "to"; when it returns "resolved_from", the path you asked for was a prefix and "to" is where the user actually landed.',
   ];
   if (hasDomTools) {
     lines.push(

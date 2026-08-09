@@ -73,7 +73,7 @@
     "@mastra/core": "1.49.0",
     "@mastra/rag": "2.3.0",
     "@supabase/supabase-js": "^2.108.2",
-    "ai": "6.0.116",
+    "ai": "7.0.58",
     "cytoscape": "^3.34.0",
     "cytoscape-fcose": "^2.2.0",
     "graphology": "^0.26.0",

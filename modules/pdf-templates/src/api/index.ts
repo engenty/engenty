@@ -54,6 +54,27 @@ async function buildProviderPreviewData(
   };
 }
 
+/** Shared by the HTTP preview route and the `pdf_templates_preview` operation. */
+async function buildTemplatePreview(
+  body: z.infer<typeof pdfTemplatePreviewRequestSchema>,
+  auth: PluginAuthContext
+) {
+  const { provider, renderData } = await buildProviderPreviewData(body, auth);
+  const preview = await preparePdfTemplatePreview({
+    data: renderData,
+    documentTemplateXml: body.document_template,
+    styling: body.stylesheet_template,
+  });
+  return {
+    input_schema_json: z.toJSONSchema(provider.inputSchema) as Record<
+      string,
+      unknown
+    >,
+    rendered_xml: preview.renderedXml,
+    template_data: renderData,
+  };
+}
+
 const FILES_BUCKET = "files";
 
 export function registerPdfTemplatesApi(
@@ -88,7 +109,9 @@ export function registerPdfTemplatesApi(
     },
   });
 
-  registerPdfTemplatesGatewayMethods(api, repoOrFactory);
+  registerPdfTemplatesGatewayMethods(api, repoOrFactory, {
+    buildPreview: buildTemplatePreview,
+  });
 
   api.registerHttpRoute({
     method: "post",
@@ -210,25 +233,10 @@ export function registerPdfTemplatesApi(
       if (!ctx.auth) {
         throw new Error("Auth context required");
       }
-      const body = ctx.body as z.infer<typeof pdfTemplatePreviewRequestSchema>;
-      const { provider, renderData } = await buildProviderPreviewData(
-        body,
+      return buildTemplatePreview(
+        ctx.body as z.infer<typeof pdfTemplatePreviewRequestSchema>,
         ctx.auth
       );
-      const preview = await preparePdfTemplatePreview({
-        data: renderData,
-        documentTemplateXml: body.document_template,
-        styling: body.stylesheet_template,
-      });
-
-      return {
-        template_data: renderData,
-        rendered_xml: preview.renderedXml,
-        input_schema_json: z.toJSONSchema(provider.inputSchema) as Record<
-          string,
-          unknown
-        >,
-      };
     },
   });
 

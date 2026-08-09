@@ -8,8 +8,8 @@ export const THREAD_CONTEXT_FLOAT_GAP_PX = 12;
 
 /**
  * CSS custom property set on the chat surface when the floating card is
- * inline. Inner transcript/composer padding reads it so content clears the
- * card without shrinking the main column into a sidebar lane.
+ * inline. Applied to scroll *content* and the composer (not the ScrollArea
+ * shell) so the scrollbar stays on the far right of the main surface.
  */
 export const THREAD_CONTEXT_INLINE_PAD_VAR = "--thread-context-inline-pad";
 

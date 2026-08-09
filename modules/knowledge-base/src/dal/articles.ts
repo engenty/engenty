@@ -300,13 +300,19 @@ export function createArticleRepo(
 
       if (tagIds && tagIds.length > 0) {
         await artTags().insert(
-          tagIds.map((tid) => ({ article_id: id, tag_id: tid }))
+          tagIds.map((tid) => ({
+            article_id: id,
+            scope_id: scopeId,
+            tag_id: tid,
+            tenant_id: tenantId,
+          }))
         );
       }
 
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "article_tags",
         "article_id",
         [id]
@@ -382,6 +388,7 @@ export function createArticleRepo(
         const tagsMap = await getTagsForIds(
           supabase,
           tenantId,
+          scopeId,
           "article_tags",
           "article_id",
           ids
@@ -435,8 +442,12 @@ export function createArticleRepo(
 
       // Tag filtering: get article IDs that have ALL requested tags
       if (params.tag_ids && params.tag_ids.length > 0) {
+        // Tag ids arrive from the caller. Unfiltered, this maps them to
+        // article ids across every tenant that happens to hold the same id.
         const { data: tagRows } = await artTags()
           .select("article_id")
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
           .in("tag_id", params.tag_ids);
         const articleIds = [
           ...new Set(
@@ -477,6 +488,7 @@ export function createArticleRepo(
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "article_tags",
         "article_id",
         ids
@@ -532,6 +544,7 @@ export function createArticleRepo(
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "article_tags",
         "article_id",
         [realId]
@@ -932,6 +945,7 @@ export function createArticleRepo(
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "article_tags",
         "article_id",
         [id]
@@ -994,10 +1008,19 @@ export function createArticleRepo(
     },
 
     async setTags(articleId: string, tagIds: string[]): Promise<void> {
-      await artTags().delete().eq("article_id", articleId);
+      await artTags()
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("article_id", articleId);
       if (tagIds.length > 0) {
         await artTags().insert(
-          tagIds.map((tid) => ({ article_id: articleId, tag_id: tid }))
+          tagIds.map((tid) => ({
+            article_id: articleId,
+            scope_id: scopeId,
+            tag_id: tid,
+            tenant_id: tenantId,
+          }))
         );
       }
     },
@@ -1019,6 +1042,8 @@ export function createArticleRepo(
         .schema(SCHEMA)
         .from("article_tags" as never)
         .select("article_id, tag_id")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .in("article_id", ids);
 
       const tagMap = new Map<string, string[]>();

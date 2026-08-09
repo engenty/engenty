@@ -16,11 +16,7 @@ import {
   type RunAgentInput,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
-import {
-  type AiEffort,
-  type AiUsageStore,
-  recordAiUsage,
-} from "@engenty/ai-core";
+import type { AiEffort, AiUsageStore } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
@@ -69,7 +65,9 @@ import {
   emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
 import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
+import { persistTurnTranscript } from "./persist-turn-transcript.js";
 import { repairDanglingToolCallsInHistory } from "./repair-dangling-tool-calls.js";
+import { recordSessionUsage, usageFromSession } from "./run-usage.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
 import { parkSessionRun } from "./session-park.js";
 import { patchThreadStatus } from "./thread-status.js";
@@ -85,32 +83,6 @@ interface SuspendedTool {
 
 const MASTRA_SESSION_NOTE =
   "You are running on the Mastra `Session` chat substrate (AgentController), the target chat runtime.";
-
-/** Map a Mastra `TokenUsage` to the `recordAiUsage` usage shape. */
-function usageFromSession(usage: unknown): {
-  cached?: number | null;
-  input?: number | null;
-  output?: number | null;
-  reasoning?: number | null;
-} | null {
-  if (!usage || typeof usage !== "object") {
-    return null;
-  }
-  const u = usage as {
-    cachedInputTokens?: unknown;
-    completionTokens?: unknown;
-    promptTokens?: unknown;
-    reasoningTokens?: unknown;
-  };
-  const num = (v: unknown) =>
-    typeof v === "number" && Number.isFinite(v) ? v : null;
-  return {
-    cached: num(u.cachedInputTokens),
-    input: num(u.promptTokens),
-    output: num(u.completionTokens),
-    reasoning: num(u.reasoningTokens),
-  };
-}
 
 export interface StartConversationRunInput {
   agentId: string;
@@ -269,6 +241,11 @@ export async function startConversationRun(
   let parkedForResume = false;
   // Terminal thread status written in `finally` so session-list dots stay in sync.
   let threadStatus: AgentSessionStatus = "completed";
+  // Why the run failed, stamped onto the durable run row in `finally`. Without
+  // it a failed run stores status alone: an upstream provider failure (rate
+  // limit, content-policy block, timeout) left `error_message` NULL, so the one
+  // place you look after the fact could not tell you what happened.
+  let failureMessage: string | null = null;
   await patchThreadStatus({ ...input, status: "running" });
   try {
     const { memory } = createEngentySessionMemoryRuntime({
@@ -477,6 +454,15 @@ export async function startConversationRun(
           result: typed.result,
           toolCallId: typed.toolCallId ?? "",
         };
+        // Settle the DURABLE part before aborting — this tool_end never reaches
+        // the converter (we return below), so without it the persisted turn
+        // keeps the call at `input-streaming` and the next turn cannot see what
+        // was asked or which choices were offered.
+        converter.recordToolResultPart({
+          result: typed.result,
+          toolCallId: typed.toolCallId ?? "",
+          ...(typed.toolName ? { toolName: typed.toolName } : {}),
+        });
         // Stop the run so the model doesn't continue past the interrupt; skip
         // converting this tool_end to a plain TOOL_CALL_RESULT.
         session.abort();
@@ -528,6 +514,11 @@ export async function startConversationRun(
       // parallel tool calls AND is immune to that bug. Frontend/sandbox HITL tools
       // still suspend via their own execute (a different mechanism, unaffected).
       approvalPolicy: "artifact" as const,
+      // This run parks on a suspend and a human answer resumes it, so
+      // `requestDecision` may suspend natively instead of returning an artifact
+      // the executor has to abort on. Headless/child runs leave this unset and
+      // keep the artifact behaviour (nothing there could answer a suspend).
+      canSuspendForInteraction: true,
       goalId: input.threadId,
       // Thread-scoped tools (e.g. artifacts) read the active thread from here.
       orchestratorThreadId: input.threadId,
@@ -580,6 +571,44 @@ export async function startConversationRun(
           mergedDefinitions,
           session,
           threadId: input.threadId,
+          // Hand the sandbox's lifecycle to the park along with the controller:
+          // the parked Workspace keeps using this instance on resume, so the
+          // finally below must not destroy it.
+          ...(input.sandboxProvider
+            ? { sandboxProvider: input.sandboxProvider }
+            : {}),
+        });
+        parkedForResume = true;
+        threadStatus = "waiting";
+        return { runId: input.runId };
+      }
+      // `requestDecision` suspends natively (see native-request-decision.ts), so
+      // its card arrives as a SUSPEND payload rather than a tool result. Emit the
+      // interactive interrupt carrying the parked run id and park the session —
+      // the answer resumes this run in place instead of re-running the turn.
+      if (isDecisionArtifactPayload(sus.suspendPayload)) {
+        await emitArtifactInterrupt({
+          busRunId: input.runId,
+          emit,
+          result: sus.suspendPayload,
+          resumeRunId: sus.runId,
+          scope: input.scope,
+          sessionMetadata: input.sessionMetadata ?? {},
+          store: input.store,
+          threadId: input.threadId,
+          toolCallId: sus.toolCallId,
+        });
+        parkSessionRun(sus.runId, {
+          controller,
+          mergedDefinitions,
+          session,
+          threadId: input.threadId,
+          // Hand the sandbox's lifecycle to the park along with the controller:
+          // the parked Workspace keeps using this instance on resume, so the
+          // finally below must not destroy it.
+          ...(input.sandboxProvider
+            ? { sandboxProvider: input.sandboxProvider }
+            : {}),
         });
         parkedForResume = true;
         threadStatus = "waiting";
@@ -606,6 +635,12 @@ export async function startConversationRun(
           mergedDefinitions,
           session,
           threadId: input.threadId,
+          // Hand the sandbox's lifecycle to the park along with the controller:
+          // the parked Workspace keeps using this instance on resume, so the
+          // finally below must not destroy it.
+          ...(input.sandboxProvider
+            ? { sandboxProvider: input.sandboxProvider }
+            : {}),
         });
         parkedForResume = true;
         threadStatus = "waiting";
@@ -658,6 +693,7 @@ export async function startConversationRun(
     if (runError && !abort.abortSignal.aborted) {
       emit({ message: runError, type: EventType.RUN_ERROR });
       threadStatus = "failed";
+      failureMessage = runError;
       return { runId: input.runId };
     }
 
@@ -683,7 +719,33 @@ export async function startConversationRun(
     console.error(`[conversation ${input.runId}] failed:`, error);
     emit({ message, type: EventType.RUN_ERROR });
     threadStatus = "failed";
+    failureMessage = message;
   } finally {
+    // Shared teardown: persist this turn on EVERY exit path. Memory flushes at
+    // end-of-generation and when a run PARKS on a native suspend; the paths it
+    // still misses (an artifact that aborts the run, a mid-stream failure, a
+    // cancel) used to leave the thread with no messages at all, and the next
+    // turn read an empty history and re-asked the question the user had already
+    // answered.
+    //
+    // `parkedForResume` is exactly the natively-suspended set, and writing there
+    // too would DUPLICATE the turn rather than rescue it: memory's row and ours
+    // carry the same tool call under different message ids and different part
+    // shapes, so the chat renders two cards — and only memory's is ever resolved
+    // by `resolveToolCallResultInHistory`, leaving ours spinning forever.
+    await persistTurnTranscript({
+      memoryFlushedAssistant: threadStatus === "completed" || parkedForResume,
+      prompt: input.prompt,
+      runId: input.runId,
+      scope: input.scope,
+      store: input.store,
+      threadId: input.threadId,
+      transcriptParts: converterRef?.getTranscriptParts() ?? [],
+      ...(input.attachmentParts
+        ? { attachmentParts: input.attachmentParts }
+        : {}),
+      ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+    });
     await patchThreadStatus({ ...input, status: threadStatus });
     if (tracker) {
       // Close the durable run row so recovery/other windows see a settled run.
@@ -704,6 +766,12 @@ export async function startConversationRun(
                   : "completed",
           completionTokens: usage?.output ?? null,
           promptTokens: usage?.input ?? null,
+          ...(threadStatus === "failed" && failureMessage
+            ? {
+                errorCode: "run_error",
+                errorMessage: failureMessage.slice(0, 2000),
+              }
+            : {}),
         })
         .catch((error) => {
           console.error(
@@ -717,8 +785,15 @@ export async function startConversationRun(
     // Tear down the run's root sandbox — destroy() runs syncOut, persisting staged
     // /shared + /home to file storage. Delegated child runs own + tear down their
     // own sandboxes (runDelegatedConversation), so this only covers the root.
+    //
+    // A PARKED run is not over: its Session (and that Session's Workspace, which
+    // holds this very sandbox instance) stays alive for the resume. Destroying
+    // the instance here left the resume with a permanently dead sandbox —
+    // `execute_typescript` after an approval threw SandboxNotReadyError with no
+    // container ever created. Keep it alive and let the park dispose it, exactly
+    // as the controller below is already handled.
     await destroyRunSandboxes({
-      keepParentSandboxAlive: false,
+      keepParentSandboxAlive: parkedForResume,
       subAgentSandboxProviders: [],
       ...(input.sandboxProvider
         ? { sandboxProvider: input.sandboxProvider }
@@ -738,37 +813,4 @@ export async function startConversationRun(
     }
   }
   return { runId: input.runId };
-}
-
-async function recordSessionUsage(input: {
-  agentId: string;
-  modelId: string | null;
-  runId: string;
-  scope: AiSessionScope;
-  threadId: string;
-  usage: unknown;
-  usageStore: AiUsageStore | null | undefined;
-}): Promise<void> {
-  if (!input.usageStore) {
-    return;
-  }
-  const usage = usageFromSession(input.usage);
-  if (!usage) {
-    return;
-  }
-  try {
-    await recordAiUsage({
-      agent_id: input.agentId,
-      feature: "copilot",
-      model_id: input.modelId ?? "unknown",
-      run_id: input.runId,
-      store: input.usageStore,
-      tenant_id: input.scope.tenantId,
-      thread_id: input.threadId,
-      usage,
-      user_id: input.scope.userId,
-    });
-  } catch (error) {
-    console.error(`[conversation ${input.runId}] usage failed:`, error);
-  }
 }

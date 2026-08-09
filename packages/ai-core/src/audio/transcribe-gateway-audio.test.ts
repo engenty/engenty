@@ -5,7 +5,7 @@ import {
 } from "./transcribe-gateway-audio.js";
 
 vi.mock("ai", () => ({
-  experimental_transcribe: vi.fn(async () => ({ text: " hello " })),
+  transcribe: vi.fn(async () => ({ text: " hello " })),
 }));
 
 vi.mock("@ai-sdk/openai", () => ({
@@ -37,10 +37,8 @@ describe("transcribeGatewayAudio", () => {
 
   it("wraps transcription failures", async () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-    const { experimental_transcribe } = await import("ai");
-    vi.mocked(experimental_transcribe).mockRejectedValueOnce(
-      new Error("gateway down")
-    );
+    const { transcribe } = await import("ai");
+    vi.mocked(transcribe).mockRejectedValueOnce(new Error("gateway down"));
 
     await expect(
       transcribeGatewayAudio(new Uint8Array([1, 2, 3]))

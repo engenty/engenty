@@ -44,12 +44,28 @@ export const DEFAULT_MODEL_PRICING_SEEDS: readonly ModelPricingSeed[] = [
     reasoning_per_mtok_micros: 2_000_000,
   },
   {
+    model_id: "openai/gpt-5.6-luna",
+    currency: USD,
+    input_per_mtok_micros: 200_000,
+    output_per_mtok_micros: 1_200_000,
+    cached_input_per_mtok_micros: 20_000,
+    reasoning_per_mtok_micros: 1_200_000,
+  },
+  {
     model_id: "openai/gpt-5-nano",
     currency: USD,
     input_per_mtok_micros: 50_000,
     output_per_mtok_micros: 400_000,
     cached_input_per_mtok_micros: 5000,
     reasoning_per_mtok_micros: 400_000,
+  },
+  {
+    model_id: "openai/gpt-oss-20b",
+    currency: USD,
+    input_per_mtok_micros: 70_000,
+    output_per_mtok_micros: 300_000,
+    cached_input_per_mtok_micros: 7000,
+    reasoning_per_mtok_micros: 300_000,
   },
   {
     model_id: "openai/gpt-4.1",

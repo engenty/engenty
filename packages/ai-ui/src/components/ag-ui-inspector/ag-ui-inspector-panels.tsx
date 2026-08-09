@@ -23,7 +23,10 @@ import {
 } from "./ag-ui-inspector-json-tree.js";
 import {
   buildToolCallNameIndex,
+  eventFullText,
+  eventIdentifiers,
   eventSummary,
+  foldStreamedDeltas,
   formatJson,
   type InspectorInitialPrompt,
   type InspectorToolCall,
@@ -33,9 +36,13 @@ import {
 interface TimelineRow {
   count: number;
   detail: string;
+  /** Complete payload — what expanding and copying show. */
+  full: string;
   id: string;
+  /** messageId / toolCallId / runId, shown muted only when expanded. */
+  identifiers: string | null;
   label: string;
-  tone: "event" | "message";
+  tone: "divider" | "event" | "message";
 }
 
 function compactTimelineRows(rows: TimelineRow[]): TimelineRow[] {
@@ -50,6 +57,7 @@ function compactTimelineRows(rows: TimelineRow[]): TimelineRow[] {
       previous.count += row.count;
       return out;
     }
+
     out.push({ ...row });
     return out;
   }, []);
@@ -63,26 +71,52 @@ function buildTimelineRows(input: {
     (message): TimelineRow => ({
       count: 1,
       detail: messagePreview(message),
+      full: messagePreview(message),
       id: `message-${message.id}`,
+      identifiers: message.id ? `message ${message.id}` : null,
       label: message.role,
       tone: "message",
     })
   );
   const toolCallNames = buildToolCallNameIndex(input.events);
-  const eventRows = input.events
+  // Fold BEFORE reversing: runs are adjacent in arrival order, and newest-first
+  // would otherwise assemble every streamed value backwards.
+  const folded = foldStreamedDeltas(input.events);
+  const eventRows = folded
     .slice()
     .reverse()
-    .map((event, index): TimelineRow => {
+    .map(({ chunks, event }, index): TimelineRow => {
       const label = agUiEventType(event);
       return {
-        count: 1,
+        count: chunks,
         detail: eventSummary(event, toolCallNames),
-        id: `event-${input.events.length - index}-${label}`,
+        full: eventFullText(event),
+        id: `event-${folded.length - index}-${label}`,
+        identifiers: eventIdentifiers(event),
         label,
         tone: "event",
       };
     });
-  return compactTimelineRows([...messageRows, ...eventRows]);
+  if (messageRows.length === 0 || eventRows.length === 0) {
+    return compactTimelineRows([...messageRows, ...eventRows]);
+  }
+  // The two halves run in OPPOSITE directions and used to sit in one unbroken
+  // list, which reads as a thread that lost its ordering (or replayed itself).
+  // Messages are a conversation, so oldest-first; raw events are a live tail, so
+  // newest-first — both are right, and the seam between them has to say so.
+  return compactTimelineRows([
+    ...messageRows,
+    {
+      count: 1,
+      detail: "newest first ↑ — the conversation above runs oldest first",
+      full: "",
+      id: "divider-events",
+      identifiers: null,
+      label: "raw events",
+      tone: "divider",
+    },
+    ...eventRows,
+  ]);
 }
 
 function copyText(value: string) {
@@ -181,13 +215,30 @@ export function TimelinePanel({
   messages: readonly EngentyAgUiMessage[];
 }) {
   const rows = buildTimelineRows({ events, messages });
+  // The whole stream as text, oldest-first — the order you want when pasting it
+  // into an issue or handing it to someone to read.
+  const transcript = rows
+    .filter((row) => row.tone !== "divider")
+    .reverse()
+    .map((row) =>
+      [
+        `${row.label}${row.count > 1 ? ` ×${row.count}` : ""}`,
+        row.full || row.detail,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    )
+    .join("\n\n");
 
   return (
     <ScrollArea className="h-full">
-      <div className="border-border/60 border-b px-3 py-2">
+      <div className="flex items-center justify-between gap-2 border-border/60 border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Application stream
         </p>
+        {rows.length > 0 ? (
+          <CopyButton reveal="always" value={transcript} />
+        ) : null}
       </div>
       {rows.length === 0 ? (
         <PanelEmpty>No messages or AG-UI events yet.</PanelEmpty>
@@ -204,11 +255,25 @@ export function TimelinePanel({
 
 function TimelineRowView({ row }: { row: TimelineRow }) {
   const [expanded, setExpanded] = useState(false);
+  if (row.tone === "divider") {
+    return (
+      <div className="bg-muted/40 px-3 py-1.5">
+        <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+          {row.label} · {row.detail}
+        </p>
+      </div>
+    );
+  }
   const labelClass =
     row.tone === "message"
       ? timelineMessageClassName(row.label)
       : timelineEventClassName(row.label);
-  const canExpand = row.detail.length > 72;
+  // Expandable when there is MORE to see than the inline summary — a folded
+  // args run is short in preview but carries the whole assembled JSON.
+  const canExpand =
+    row.detail.length > 72 ||
+    row.full.length > row.detail.length ||
+    Boolean(row.identifiers);
 
   return (
     <div className="group px-3 py-2 hover:bg-muted/30">
@@ -234,7 +299,20 @@ function TimelineRowView({ row }: { row: TimelineRow }) {
           onClick={() => canExpand && setExpanded((v) => !v)}
           type="button"
         >
-          {expanded ? row.detail || "…" : truncateInline(row.detail || "…", 72)}
+          {expanded ? (
+            <span className="block">
+              <span className="block whitespace-pre-wrap break-words">
+                {row.full || row.detail || "…"}
+              </span>
+              {row.identifiers ? (
+                <span className="mt-1 block break-all text-[10px] text-muted-foreground/70">
+                  {row.identifiers}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            truncateInline(row.detail || "…", 72)
+          )}
         </button>
         <span className="flex shrink-0 items-center gap-1">
           {row.count > 1 ? (
@@ -245,7 +323,7 @@ function TimelineRowView({ row }: { row: TimelineRow }) {
               ×{row.count}
             </Badge>
           ) : null}
-          <CopyButton value={`${row.label} ${row.detail}`} />
+          <CopyButton value={`${row.label}\n${row.full || row.detail}`} />
         </span>
       </div>
     </div>

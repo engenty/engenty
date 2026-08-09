@@ -5,7 +5,14 @@
     "moduleResolution": "NodeNext",
     "jsx": "react-jsx",
     "outDir": "dist",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["index.ts", "src", "ui"]
+  "include": [
+    "ai",
+    "index.ts",
+    "src",
+    "ui"
+  ]
 }

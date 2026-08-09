@@ -1,6 +1,6 @@
 # `@engenty/ai` (`apps/ai`)
 
-Experimental AI service: **Hono** + **Mastra** (`@mastra/hono`) + **Vercel AI SDK v7 beta** (`ai@7.0.0-beta.x`). The rest of the monorepo stays on **AI SDK 6** via root `pnpm.overrides`; only `@engenty/ai` is overridden to v7 (`@engenty/ai>ai` in root `package.json`).
+Experimental AI service: **Hono** + **Mastra** (`@mastra/hono`) + **Vercel AI SDK v7** (`ai@7`).
 
 ## Run
 

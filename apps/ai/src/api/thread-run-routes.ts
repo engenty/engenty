@@ -165,6 +165,42 @@ function toFrontendToolResumeData(
   return { output: payload.output ?? { ok: true } };
 }
 
+/**
+ * The user's chooser answer, in the shape the suspended `requestDecision` tool
+ * resumes with. Must NOT go through `toFrontendToolResumeData` — that maps any
+ * payload to `{output:{ok:true}}`, which would silently discard the choice and
+ * hand the model a successful-but-empty answer.
+ */
+function toDecisionResumeData(
+  entry: AgUiResumeEntry | undefined
+): Record<string, unknown> {
+  if (entry?.status === "cancelled") {
+    return { cancelled: true };
+  }
+  const payload =
+    entry?.payload &&
+    typeof entry.payload === "object" &&
+    !Array.isArray(entry.payload)
+      ? (entry.payload as Record<string, unknown>)
+      : {};
+  const text =
+    typeof payload.text === "string"
+      ? payload.text
+      : typeof payload.answer === "string"
+        ? payload.answer
+        : undefined;
+  return {
+    ...(typeof payload.choice_id === "string"
+      ? { choice_id: payload.choice_id }
+      : {}),
+    ...(typeof payload.choice_label === "string"
+      ? { choice_label: payload.choice_label }
+      : {}),
+    ...(Array.isArray(payload.choices) ? { choices: payload.choices } : {}),
+    ...(text ? { text } : {}),
+  };
+}
+
 // Latest user-turn text for the durable path. Native memory recalls prior
 // history from the thread, so the durable run only needs the current turn.
 function latestUserText(input: RunAgentInput): string {
@@ -470,11 +506,24 @@ export function registerThreadRunRoutes(
       openInterrupt != null &&
       Boolean(openInterrupt.run_id) &&
       isToolApprovalArtifactId(openInterrupt.artifact_id);
+    // `requestDecision` now suspends natively, so its interrupt carries a
+    // `run_id` and resumes the parked run in place — the user's choice is handed
+    // to the suspended tool and becomes its result. A decision interrupt WITHOUT
+    // a run_id is still the artifact shape (tool-approval cards, and headless
+    // runs that cannot suspend) and keeps the re-run path below.
+    const isParkedDecisionResume =
+      isResumeRun &&
+      openInterrupt != null &&
+      Boolean(openInterrupt.run_id) &&
+      openInterrupt.kind === "decision" &&
+      !isToolApprovalArtifactId(openInterrupt.artifact_id);
     const isParkedResume =
       isResumeRun &&
       openInterrupt != null &&
       Boolean(openInterrupt.run_id) &&
-      (isFrontendToolOpenInterrupt(openInterrupt) || isParkedApprovalResume);
+      (isFrontendToolOpenInterrupt(openInterrupt) ||
+        isParkedApprovalResume ||
+        isParkedDecisionResume);
     const isArtifactResume =
       isResumeRun &&
       !isParkedResume &&
@@ -529,8 +578,12 @@ export function registerThreadRunRoutes(
         );
       }
       markRunLive(runId);
-      let resumeData: FrontendToolResumeData | ToolApprovalResumeData =
-        toFrontendToolResumeData(resumeEntries[0]);
+      let resumeData:
+        | FrontendToolResumeData
+        | ToolApprovalResumeData
+        | Record<string, unknown> = isParkedDecisionResume
+        ? toDecisionResumeData(resumeEntries[0])
+        : toFrontendToolResumeData(resumeEntries[0]);
       // Metadata the resume writes back when it clears the interrupt — must
       // include a grant persisted below, or the write-back would erase it.
       let resumeSessionMetadata = session.metadata;
@@ -541,6 +594,20 @@ export function registerThreadRunRoutes(
         // re-execution passes via the resume data itself.
         const operationId =
           parseToolApprovalOperationId(openInterrupt?.artifact_id) ?? "";
+        // A bulk pre-approval card (engenty_tools_preapprove) covers several
+        // operations — the full set rides the artifact id's grant context, and
+        // ONE approve persists a grant for each. Single-op cards carry none;
+        // the primary operation id alone is granted.
+        const grantContext = parseToolApprovalGrantContext(
+          openInterrupt?.artifact_id
+        );
+        const grantOperationIds = Array.from(
+          new Set(
+            [operationId, ...(grantContext?.operation_ids ?? [])].filter(
+              Boolean
+            )
+          )
+        );
         const resolution = resumeEntries[0]
           ? resolveDecisionResumeChoice(
               resumeEntries[0],
@@ -557,23 +624,30 @@ export function registerThreadRunRoutes(
         auditToolApprovalDecision({
           decision: always ? "approve_always" : once ? "approve_once" : "deny",
           operationId,
+          ...(grantOperationIds.length > 1
+            ? { operationIds: grantOperationIds }
+            : {}),
           tenantId: scope.scope.tenantId,
           threadId,
           userId: scope.scope.userId,
         });
         if (once || always) {
           // The local copy feeds this request's in-process gate re-check; the
-          // DB write unions just the one grant, so a grant added concurrently
+          // DB write unions just these grants, so a grant added concurrently
           // (or Mastra's own metadata) is not reverted by a whole-blob write.
-          resumeSessionMetadata = always
-            ? withToolApprovalGrant(session.metadata, operationId)
-            : withToolApprovalGrantOnce(session.metadata, operationId);
+          resumeSessionMetadata = grantOperationIds.reduce(
+            (metadata, id) =>
+              always
+                ? withToolApprovalGrant(metadata, id)
+                : withToolApprovalGrantOnce(metadata, id),
+            session.metadata as Record<string, unknown>
+          );
           try {
             await conversationStore.mergeThreadMetadataForUser({
               appendSets: {
                 [always
                   ? TOOL_APPROVAL_GRANTS_METADATA_KEY
-                  : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: [operationId],
+                  : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: grantOperationIds,
               },
               tenantId: scope.scope.tenantId,
               threadId,
@@ -585,10 +659,7 @@ export function registerThreadRunRoutes(
           // Approving an agent's secret reveal also persists the durable
           // goal-scoped grant in core (goal = this conversation thread). Must
           // land BEFORE the resume re-invokes, or core re-gates the reveal.
-          const grantContext = parseToolApprovalGrantContext(
-            openInterrupt?.artifact_id
-          );
-          if (operationId === "secrets_reveal" && grantContext) {
+          if (operationId === "secrets_reveal" && grantContext?.secret_id) {
             await persistSecretsGoalGrant({
               coreBaseUrl: opts.coreBaseUrl,
               goalId: threadId,
@@ -602,6 +673,24 @@ export function registerThreadRunRoutes(
           ...(choice ? { choice_id: choice } : {}),
         };
       }
+      // Snapshot lane only: the re-assembled agent has no model pick of its
+      // own, so without this the continuation can answer on a different model
+      // than the first half of the same turn. Resolved here rather than in the
+      // executor because only the route knows the request's effort/override.
+      let resumeModelConfig: Awaited<
+        ReturnType<typeof opts.aiService.threads.resolveRunModelConfig>
+      > | null = null;
+      try {
+        resumeModelConfig = await opts.aiService.threads.resolveRunModelConfig({
+          agentId: session.agent_id,
+          scope: scope.scope,
+        });
+      } catch (err) {
+        console.error(
+          "conversation resume model config resolution failed",
+          err
+        );
+      }
       void resumeConversationRun({
         agentId: session.agent_id,
         // Snapshot lane only: a re-assembled agent has no browser tools unless
@@ -610,18 +699,40 @@ export function registerThreadRunRoutes(
         // Only used if the in-process park is gone: they let the resume
         // re-assemble the agent and continue from the stored snapshot.
         mastra: opts.aiService.mastra,
+        modelConfig: resumeModelConfig?.modelConfig ?? null,
+        // Metering: an approval-gated turn runs its expensive half AFTER the
+        // gate, and this lane never billed any of it.
+        modelId: resumeModelConfig?.modelId ?? null,
         newRunId: runId,
         ...(opts.createRegistry
           ? { registry: opts.createRegistry(scope.scope) }
           : {}),
         resolvedToolCallId: openInterrupt?.tool_call_id ?? "",
+        // Snapshot lane only, and called lazily: the parked lane's Session
+        // already carries the live Workspace, so resolving here unconditionally
+        // would build a second sandbox and syncIn over the same staging dir.
+        // Without it a post-restart continuation has no `ctx.workspace.sandbox`
+        // and Code Mode / file / skill tools vanish mid-conversation.
+        resolveWorkspace: () =>
+          opts.aiService.threads.resolveRunWorkspaces({
+            runId,
+            scope: scope.scope,
+            session,
+            threadId,
+          }),
         resumeData,
+        // Snapshot lane only: the runtime instructions the start lane sets on
+        // its controller. `route_context` carries the user's UI language, so
+        // without it the continuation answers a German user in English.
+        routeContext: session.route_context,
+        runContext: body.data.context,
         runStore,
         scope: scope.scope,
         sessionMetadata: resumeSessionMetadata,
         store: conversationStore,
         suspendedRunId: openInterrupt?.run_id ?? "",
         threadId,
+        usageStore: opts.getUsageStore?.() ?? null,
       }).catch((err) => {
         console.error("conversation resume failed", err);
       });
@@ -655,6 +766,17 @@ export function registerThreadRunRoutes(
           resumeEntries[0]?.interruptId ?? openInterrupt?.artifact_id;
         const operationId =
           parseToolApprovalOperationId(answeredArtifactId) ?? "";
+        // Bulk pre-approval: the answered card may cover several operations
+        // (grant context on the artifact id). One approve grants each.
+        const hsGrantContext =
+          parseToolApprovalGrantContext(answeredArtifactId);
+        const hsGrantOperationIds = Array.from(
+          new Set(
+            [operationId, ...(hsGrantContext?.operation_ids ?? [])].filter(
+              Boolean
+            )
+          )
+        );
         // Choices come from the OPEN interrupt; when a stale card is answered
         // (answered id != open id) there are none to match against, so an
         // id-only payload lands in `unresolved` and is rejected rather than
@@ -675,24 +797,42 @@ export function registerThreadRunRoutes(
         auditToolApprovalDecision({
           decision: always ? "approve_always" : once ? "approve_once" : "deny",
           operationId,
+          ...(hsGrantOperationIds.length > 1
+            ? { operationIds: hsGrantOperationIds }
+            : {}),
           tenantId: scope.scope.tenantId,
           threadId,
           userId: scope.scope.userId,
         });
+        // Grant to UNION into the durable metadata below. The in-memory copy
+        // alone only carries the approval through THIS request's re-runs — once
+        // they finish it is gone, so the same operation prompts again on a later
+        // turn and "approve always" silently means "approve this once". The
+        // parked branch above has always persisted; this branch (the one
+        // interactive chat actually takes, because the start run gates under
+        // approvalPolicy "artifact") did not.
+        let grantAppendSets: Record<string, string[]> | undefined;
         if (once || always) {
-          hsSessionMetadata = always
-            ? withToolApprovalGrant(hsSessionMetadata, operationId)
-            : withToolApprovalGrantOnce(hsSessionMetadata, operationId);
+          hsSessionMetadata = hsGrantOperationIds.reduce(
+            (metadata, id) =>
+              always
+                ? withToolApprovalGrant(metadata, id)
+                : withToolApprovalGrantOnce(metadata, id),
+            hsSessionMetadata as Record<string, unknown>
+          );
+          grantAppendSets = {
+            [always
+              ? TOOL_APPROVAL_GRANTS_METADATA_KEY
+              : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: hsGrantOperationIds,
+          };
           // Approving an agent's secret reveal also persists the durable
           // goal-scoped grant in core (goal = this conversation thread), or core
           // re-gates the reveal on the re-run's agent-forwarded invoke.
-          const grantContext =
-            parseToolApprovalGrantContext(answeredArtifactId);
-          if (operationId === "secrets_reveal" && grantContext) {
+          if (operationId === "secrets_reveal" && hsGrantContext?.secret_id) {
             await persistSecretsGoalGrant({
               coreBaseUrl: opts.coreBaseUrl,
               goalId: threadId,
-              secretId: grantContext.secret_id,
+              secretId: hsGrantContext.secret_id,
               accessToken: scopeAccessToken(scope.scope),
             });
           }
@@ -701,22 +841,36 @@ export function registerThreadRunRoutes(
         // result; mark it resolved so the model reads a completed interaction and
         // does not re-emit the same card, then steer the continuation.
         await resolveToolCallResultInHistory({
-          result: { approved: once || always, operation_id: operationId },
+          result: {
+            approved: once || always,
+            operation_id: operationId,
+            ...(hsGrantOperationIds.length > 1
+              ? { operation_ids: hsGrantOperationIds }
+              : {}),
+          },
           scope: scope.scope,
           store: conversationStore,
           threadId,
           toolCallId: openInterrupt?.tool_call_id ?? "",
         });
+        const hsOpsLabel =
+          hsGrantOperationIds.length > 1
+            ? hsGrantOperationIds.map((id) => `"${id}"`).join(", ")
+            : `"${operationId}"`;
         hsPrompt =
           once || always
-            ? `Approved: you may now run "${operationId}". Proceed with the operation.`
-            : `The user denied "${operationId}". Do not run it; continue without that operation.`;
+            ? `Approved: you may now run ${hsOpsLabel}. Proceed with the operation.`
+            : `The user denied ${hsOpsLabel}. Do not run it; continue without that operation.`;
         hsSessionMetadata = mergeAgUiOpenInterruptMetadata(
           hsSessionMetadata,
           null
         );
         try {
+          // One statement: union the grant AND drop the answered interrupt. The
+          // RPC applies patch → append → remove against the CURRENT row, so a
+          // concurrent writer to another key is not reverted.
           await conversationStore.mergeThreadMetadataForUser({
+            ...(grantAppendSets ? { appendSets: grantAppendSets } : {}),
             removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
             tenantId: scope.scope.tenantId,
             threadId,

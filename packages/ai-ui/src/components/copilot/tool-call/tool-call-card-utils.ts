@@ -261,9 +261,40 @@ const PROSE_OUTPUT_KEYS = [
   "stdout",
 ] as const;
 
+/**
+ * The workspace file-read protocol: a `path (N bytes)` header and/or numbered
+ * `1->` content lines. It is tool OUTPUT, not prose, but it has whitespace and
+ * does not start with `{`/`[`, so `looksLikeJsonBlob` waved it through and a
+ * 224 KB JSON file landed in the always-visible timeline body under "Ran tool".
+ * The dump still belongs in the expandable card detail — only the CoT snippet
+ * has to refuse it.
+ *
+ * Both arrow spellings are matched: fixtures use ASCII `->`, and a ligature
+ * font renders that as `→`, so the two are easy to confuse when reading a
+ * screenshot.
+ */
+const FILE_DUMP_HEADER = /^.*\(\s*\d+\s*bytes\s*\)\s*$/m;
+const FILE_DUMP_LINE = /^\s*\d+\s*(?:->|→)/m;
+
+export function looksLikeNumberedFileDump(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (FILE_DUMP_LINE.test(trimmed)) {
+    return true;
+  }
+  return FILE_DUMP_HEADER.test(trimmed.split("\n")[0] ?? "");
+}
+
 function isUsableProse(text: string): boolean {
   const trimmed = text.trim();
-  return Boolean(trimmed && /\s/.test(trimmed) && !looksLikeJsonBlob(trimmed));
+  return Boolean(
+    trimmed &&
+      /\s/.test(trimmed) &&
+      !looksLikeJsonBlob(trimmed) &&
+      !looksLikeNumberedFileDump(trimmed)
+  );
 }
 
 export function extractProseSnippet(output: unknown): string | null {
@@ -593,6 +624,46 @@ function isNoiseArgKey(key: string): boolean {
   return ID_KEY_RE.test(key) || key === "account" || key === "id";
 }
 
+export function basenamePath(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const segments = normalized.split("/").filter(Boolean);
+  return segments.at(-1) ?? path;
+}
+
+/** `path/to/file.json (224634 bytes)` → `file.json`. */
+export function readFileDumpBasename(output: unknown): string | null {
+  const coerced = coerceToolOutput(output);
+  if (typeof coerced !== "string" || !looksLikeNumberedFileDump(coerced)) {
+    return null;
+  }
+  const header = coerced.trim().split("\n")[0] ?? "";
+  const path = header.replace(/\(\s*\d+\s*bytes\s*\)\s*$/, "").trim();
+  return path ? basenamePath(path) : null;
+}
+
+/**
+ * `Read <basename>` for a workspace file read — the informative alternative to
+ * dumping 224 KB of file content into the timeline.
+ */
+export function summarizeFileReadBrief(input: {
+  input?: Record<string, unknown> | null;
+  output?: unknown;
+  toolName?: string;
+}): string | null {
+  const fromDump = readFileDumpBasename(input.output);
+  if (fromDump) {
+    return `Read ${fromDump}`;
+  }
+  const toolName = (input.toolName ?? "").toLowerCase();
+  if (!toolName.includes("read")) {
+    return null;
+  }
+  const path = input.input?.path;
+  return typeof path === "string" && path.trim()
+    ? `Read ${basenamePath(path.trim())}`
+    : null;
+}
+
 /**
  * Brief one-liner for a tool step: list counts, search queries, or the
  * meaningful create/update fields — never raw UUID dumps.
@@ -621,6 +692,17 @@ export function summarizeToolStepBrief(input: {
       : null;
   const toolName = (executeId ?? input.toolName ?? "").toLowerCase();
   const meta = input.metadata?.trim() || null;
+
+  // A file read has no count and no entity name, so without this it falls all
+  // the way through to "no brief" and the step reads as a bare "Ran tool".
+  const readBrief = summarizeFileReadBrief({
+    input: inputRecord,
+    output: input.output,
+    toolName,
+  });
+  if (readBrief) {
+    return readBrief;
+  }
 
   const looksLikeList =
     /\b(list|search|find|query|get_many|index)\b/.test(toolName) ||

@@ -220,7 +220,7 @@ async function classifyWithRouter(params: {
         maxOutputTokens: 8,
         model,
         prompt,
-        system: SYSTEM_PROMPT,
+        instructions: SYSTEM_PROMPT,
         temperature: 0,
       }),
       sleepReject(params.timeoutMs),

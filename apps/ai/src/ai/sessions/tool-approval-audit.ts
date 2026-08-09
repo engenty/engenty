@@ -9,6 +9,8 @@
 export interface ToolApprovalAuditEvent {
   decision: "approve_once" | "approve_always" | "deny";
   operationId: string;
+  /** Bulk pre-approval: every operation the ONE decision covered. */
+  operationIds?: string[];
   tenantId: string;
   threadId: string;
   userId: string;
@@ -22,6 +24,9 @@ export function auditToolApprovalDecision(event: ToolApprovalAuditEvent): void {
       type: "approval.decided",
       decision: event.decision,
       operation_id: event.operationId,
+      ...(event.operationIds?.length
+        ? { operation_ids: event.operationIds }
+        : {}),
       tenant_id: event.tenantId,
       user_id: event.userId,
       thread_id: event.threadId,

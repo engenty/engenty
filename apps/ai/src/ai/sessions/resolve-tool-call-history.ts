@@ -10,12 +10,40 @@ import type { ThreadStore } from "../../dal/threads/index.js";
 import type { AiSessionScope } from "./types.js";
 
 interface ToolInvocationPart {
+  output?: unknown;
+  state?: string;
+  toolCallId?: string;
   toolInvocation?: {
     result?: unknown;
     state?: string;
     toolCallId?: string;
   };
   type?: string;
+}
+
+/**
+ * Patch one part if it is the tool call we answered, in either persisted shape:
+ * `tool-invocation` (what Mastra memory writes) or `dynamic-tool` (what the
+ * executor's own transcript write produces on the paths memory cannot flush —
+ * an aborted artifact turn or a mid-stream failure). Matching only the first
+ * left the second spinning at `input-available` forever.
+ */
+function resolvePart(
+  part: ToolInvocationPart,
+  toolCallId: string,
+  result: unknown
+): ToolInvocationPart | null {
+  const ti = part?.toolInvocation;
+  if (part?.type === "tool-invocation" && ti?.toolCallId === toolCallId) {
+    return {
+      ...part,
+      toolInvocation: { ...ti, result, state: "result" },
+    };
+  }
+  if (part?.type === "dynamic-tool" && part.toolCallId === toolCallId) {
+    return { ...part, output: result, state: "output-available" };
+  }
+  return null;
 }
 
 export async function resolveToolCallResultInHistory(input: {
@@ -39,18 +67,12 @@ export async function resolveToolCallResultInHistory(input: {
       }
       let changed = false;
       const parts = (row.parts as ToolInvocationPart[]).map((part) => {
-        const ti = part?.toolInvocation;
-        if (
-          part?.type === "tool-invocation" &&
-          ti?.toolCallId === input.toolCallId
-        ) {
-          changed = true;
-          return {
-            ...part,
-            toolInvocation: { ...ti, result: input.result, state: "result" },
-          };
+        const resolved = resolvePart(part, input.toolCallId, input.result);
+        if (!resolved) {
+          return part;
         }
-        return part;
+        changed = true;
+        return resolved;
       });
       if (!changed) {
         continue;
@@ -61,7 +83,9 @@ export async function resolveToolCallResultInHistory(input: {
         tenantId: input.scope.tenantId,
         threadId: input.threadId,
       });
-      return;
+      // Every row carrying this call, not just the first. A tool call ids one
+      // interaction, so a second row holding it is a duplicate of the same
+      // question — and stopping early left that copy spinning forever.
     }
   } catch (error) {
     console.error(

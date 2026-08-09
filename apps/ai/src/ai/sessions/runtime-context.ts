@@ -57,7 +57,8 @@ export async function buildRuntimeContextInstructions(input: {
       .map((plugin) => {
         const summary = toolSummaries.get(plugin.id);
         return {
-          baseUrl: `/mdl/${plugin.id}`,
+          // Prefix, not page — see engenty-tools-modules-tool.ts.
+          routePrefix: `/mdl/${plugin.id}`,
           description: plugin.description,
           moduleId: plugin.id,
           name: plugin.name ?? plugin.id,
@@ -70,7 +71,9 @@ export async function buildRuntimeContextInstructions(input: {
     if (modules.length === 0) {
       lines.push("- active_modules: none reported by core");
     } else {
-      lines.push("- active_modules:");
+      lines.push(
+        "- active_modules (routePrefix is where a module's pages live, not a page — pass it to `navigate`, which resolves it against the real route table or returns the routes that exist):"
+      );
       for (const module of modules.slice(0, 30)) {
         lines.push(`  Module: ${module.name}`);
         lines.push(`   - name: ${module.moduleId}`);
@@ -79,7 +82,7 @@ export async function buildRuntimeContextInstructions(input: {
             `   - description: ${truncateForPrompt(module.description, 180)}`
           );
         }
-        lines.push(`   - baseURL: ${module.baseUrl}`);
+        lines.push(`   - routePrefix: ${module.routePrefix}`);
         if (module.toolIds.length > 0) {
           lines.push(`   - apiTools: ${module.toolIds.join(", ")}`);
         }

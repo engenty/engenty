@@ -514,12 +514,13 @@ describe("createEngentyToolExecuteTool", () => {
     });
   }
 
-  it("Code Mode read-only: rejects a non-read-only op, executes a read-only one", async () => {
+  it("Code Mode sandbox: gates an ungranted write, executes it with a grant, reads pass", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const { executeEngentyTool } = await import(
       "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js"
     );
-    // Gated op (requiresApproval, critical) — denied before any gate/invoke.
+    // Gated op (requiresApproval, critical) with NO covering grant — fails into
+    // the program with the pre-approval recovery path, before any invoke.
     const gatedFetch = vi.fn().mockResolvedValueOnce(gatedDescribeResponse());
     vi.stubGlobal("fetch", gatedFetch);
     const denied = (await engentyToolsRunAls.run(
@@ -528,14 +529,36 @@ describe("createEngentyToolExecuteTool", () => {
         executeEngentyTool(
           { id: "contacts_contact_delete", input: { id: "c1" } },
           undefined,
-          { enforceReadOnly: true }
+          { sandbox: true }
         )
-    )) as { error?: string; ok?: boolean };
+    )) as { error?: string; message?: string; ok?: boolean };
     expect(denied.ok).toBe(false);
-    expect(denied.error).toBe("code_mode_read_only");
+    expect(denied.error).toBe("approval_required");
+    expect(denied.message).toContain("engenty_tools_preapprove");
     expect(gatedFetch).toHaveBeenCalledTimes(1);
 
-    // Read-only op (low risk, no approval) — executes normally.
+    // Same gated op WITH a covering grant (user pre-approved) — invokes.
+    const grantedFetch = vi
+      .fn()
+      .mockResolvedValueOnce(gatedDescribeResponse())
+      .mockResolvedValueOnce(Response.json({ ok: true, data: { deleted: 1 } }));
+    vi.stubGlobal("fetch", grantedFetch);
+    const granted = await engentyToolsRunAls.run(
+      {
+        accessToken: "user-token",
+        approvalGrants: ["contacts_contact_delete"],
+        approvalPolicy: "suspend",
+      },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_contact_delete", input: { id: "c1" } },
+          undefined,
+          { sandbox: true }
+        )
+    );
+    expect(granted).toEqual({ ok: true, data: { deleted: 1 } });
+
+    // Read-only op (low risk, no approval) — executes without any grant.
     const readFetch = vi
       .fn()
       .mockResolvedValueOnce(
@@ -565,10 +588,65 @@ describe("createEngentyToolExecuteTool", () => {
         executeEngentyTool(
           { id: "contacts_contact_search", input: { query: "x" } },
           undefined,
-          { enforceReadOnly: true }
+          { sandbox: true }
         )
     );
     expect(result).toEqual({ ok: true, data: { items: [] } });
+  });
+
+  it("Code Mode sandbox: core's 202 backstop maps to approval_required (never suspends)", async () => {
+    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
+    const { executeEngentyTool } = await import(
+      "../../ai/tools/engenty-tools/engenty-tool-execute-tool.js"
+    );
+    // Contract says medium/no-approval (passes the local sandbox gate), but
+    // core still 202s — the authoritative decision fails into the program.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            auth: {
+              requiredCapabilities: [],
+              requiredPermissions: [],
+              requiredScopes: [],
+              requiresApproval: false,
+              riskLevel: "medium",
+            },
+            inputSchema: { type: "zod" },
+            moduleId: "contacts",
+            pluginId: "contacts",
+            summary: "Update contact",
+            toolId: "contacts_contact_update",
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            ok: false,
+            error: {
+              code: "approval_required",
+              message: "operation requires human approval",
+            },
+          },
+          { status: 202 }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = (await engentyToolsRunAls.run(
+      { approvalPolicy: "suspend", accessToken: "user-token" },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_contact_update", input: { id: "c1" } },
+          undefined,
+          { sandbox: true }
+        )
+    )) as { error?: string; message?: string; ok?: boolean };
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("approval_required");
+    expect(result.message).toContain("engenty_tools_preapprove");
   });
 
   it("rejects an EMPTY input for an operation with required fields (never invokes, never gates)", async () => {

@@ -17,7 +17,7 @@
     "routingModel": "Routing-Modell",
     "routingModelPlaceholder": "z. B. openai/gpt-5-mini",
     "classifierModel": "Klassifikations-Modell",
-    "classifierModelPlaceholder": "z. B. openai/gpt-5-nano",
+    "classifierModelPlaceholder": "z. B. openai/gpt-oss-20b",
     "maxPriceTier": "Max. Preisstufe",
     "modelSearchEmpty": "Keine Modelle gefunden.",
     "modelSearchPlaceholder": "Modelle suchen…",

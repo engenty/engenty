@@ -124,7 +124,14 @@ describe("project visibility DAL filter", () => {
   it("shows members-only projects to a team member", async () => {
     const supabase = makeFakeSupabase({
       projects,
-      project_team: [{ project_id: "p-members", user_id: "u-member" }],
+      project_team: [
+        {
+          project_id: "p-members",
+          scope_id: "s1",
+          tenant_id: "t1",
+          user_id: "u-member",
+        },
+      ],
     });
     const repo = createProjectRepoSupabase(supabase, "t1", "s1", {
       ...deps,
@@ -135,6 +142,49 @@ describe("project visibility DAL filter", () => {
       "p-members",
       "p-tenant",
     ]);
+  });
+
+  it("ignores a membership row from another tenant", async () => {
+    // user ids are global, so the same person can sit on a project in another
+    // tenant. Before project_team carried tenant_id/scope_id this read had no
+    // boundary at all and that foreign membership widened visibility here.
+    const supabase = makeFakeSupabase({
+      projects,
+      project_team: [
+        {
+          project_id: "p-members",
+          scope_id: "s1",
+          tenant_id: "other-tenant",
+          user_id: "u-member",
+        },
+      ],
+    });
+    const repo = createProjectRepoSupabase(supabase, "t1", "s1", {
+      ...deps,
+      viewer: { userId: "u-member", seesAllProjects: false },
+    });
+    const list = await repo.listPaginated({});
+    expect(list.data.map((p) => p.id)).toEqual(["p-tenant"]);
+  });
+
+  it("ignores a membership row from another scope", async () => {
+    const supabase = makeFakeSupabase({
+      projects,
+      project_team: [
+        {
+          project_id: "p-members",
+          scope_id: "other-scope",
+          tenant_id: "t1",
+          user_id: "u-member",
+        },
+      ],
+    });
+    const repo = createProjectRepoSupabase(supabase, "t1", "s1", {
+      ...deps,
+      viewer: { userId: "u-member", seesAllProjects: false },
+    });
+    const list = await repo.listPaginated({});
+    expect(list.data.map((p) => p.id)).toEqual(["p-tenant"]);
   });
 
   it("shows everything to a caller who sees all projects", async () => {

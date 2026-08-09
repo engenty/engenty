@@ -53,6 +53,8 @@ export async function usageFromOutput(value: unknown): Promise<{
   return {
     input: toUsageNumber(typed.inputTokens),
     output: toUsageNumber(typed.outputTokens),
+    // AI SDK 7 moved these off the top-level usage object; keep legacy
+    // fallbacks for Mastra / older provider payloads.
     cached:
       toUsageNumber(typed.inputTokenDetails?.cacheReadTokens) ??
       toUsageNumber(typed.cachedInputTokens),

@@ -9,6 +9,7 @@ import {
 } from "../interrupts/decision-artifact";
 import { getInteractiveToolStatus } from "../interrupts/interactive-tool-status";
 import type { ToolCallCardProps } from "./tool-call-card.types";
+import { ToolCallGenericCard } from "./tool-call-generic-card";
 
 /**
  * One status-driven render per decision tool call (CopilotKit `renderAndWaitForResponse`
@@ -25,11 +26,24 @@ export function DecisionArtifactToolCallCard(props: ToolCallCardProps) {
   } = useCopilotToolCallActions();
   const artifact = resolveDecisionArtifactForToolCall(
     props.output,
-    openInterrupt
+    openInterrupt,
+    props.toolCallId
   );
   if (!artifact) {
-    return null;
+    // This card is now routed by TOOL NAME (a suspended `requestDecision` has no
+    // output to match on), so it also sees answered and dangling calls whose
+    // choices are gone. Those still deserve their transcript row — returning
+    // null here erased the tool call from the turn entirely.
+    return <ToolCallGenericCard {...props} />;
   }
+
+  // The open interrupt naming this call IS the agent waiting on it. Reload
+  // clears `pendingInterruptToolCallIds` (it is populated from RUN_FINISHED, and
+  // a reload replays no stream), which used to flip an unanswered chooser to
+  // "Decision submitted" — a card the user never answered, reported as answered.
+  const isOpenHere =
+    Boolean(props.toolCallId) &&
+    openInterrupt?.tool_call_id === props.toolCallId;
 
   const { status, resolvedLabel } = getInteractiveToolStatus({
     toolCallId: props.toolCallId,
@@ -39,7 +53,7 @@ export function DecisionArtifactToolCallCard(props: ToolCallCardProps) {
     optimisticInterruptResults: optimisticInterruptResults ?? {},
   });
 
-  if (status === "complete") {
+  if (status === "complete" && !(isOpenHere && !resolvedLabel)) {
     return (
       <DecisionArtifactResolvedCard
         artifact={artifact}

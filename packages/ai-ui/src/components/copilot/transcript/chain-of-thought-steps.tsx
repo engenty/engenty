@@ -21,6 +21,7 @@ import {
   type ChainOfThoughtStepStatus,
 } from "../../ai-elements/chain-of-thought";
 import {
+  asRecord,
   coerceToolOutput,
   collectToolImages,
   collectWebSearchResults,
@@ -28,6 +29,7 @@ import {
   extractProseSnippet,
   findFirstStringDeep,
   formatHost,
+  summarizeFileReadBrief,
   summarizeToolStepBrief,
 } from "../tool-call/tool-call-card-utils";
 import {
@@ -160,7 +162,19 @@ export function resolveToolStepLabel(
     input: part.input,
     output: coerceToolOutput(part.output),
   });
-  return resolved.displayLabel;
+  if (resolved.displayLabel && resolved.displayLabel !== "Ran tool") {
+    return resolved.displayLabel;
+  }
+  // Still the placeholder: the wire name never arrived and nothing above could
+  // recover it. A file-read dump names the file itself, so "Ran tool" can at
+  // least become "Read <basename>".
+  return (
+    summarizeFileReadBrief({
+      input: asRecord(part.input),
+      output: part.output,
+      toolName: wireName,
+    }) ?? resolved.displayLabel
+  );
 }
 
 function ChainOfThoughtImageGrid({

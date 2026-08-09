@@ -1,0 +1,16 @@
+{
+  "$schema": "https://v2-9-16.turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.local",
+        "$TURBO_ROOT$/.env.*.local",
+        ".env*"
+      ],
+      "env": ["ENV", "VITE_*"]
+    }
+  }
+}

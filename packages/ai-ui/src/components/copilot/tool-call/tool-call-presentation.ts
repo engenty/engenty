@@ -60,11 +60,10 @@ function clamp(text: string, max: number): string {
   return `${text.slice(0, max - 1)}…`;
 }
 
-export function basenamePath(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  const segments = normalized.split("/").filter(Boolean);
-  return segments.at(-1) ?? path;
-}
+// Lives in tool-call-card-utils (the lower-level module) so the brief/prose
+// helpers there can use it without importing this file back — re-exported here
+// because this is where callers and tests already look for it.
+export { basenamePath } from "./tool-call-card-utils";
 
 export function formatLineRange(
   input: Record<string, unknown> | null

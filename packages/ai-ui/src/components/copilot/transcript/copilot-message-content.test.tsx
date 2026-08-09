@@ -454,3 +454,48 @@ describe("CopilotMessageContent object renders", () => {
     expect(screen.queryByText("Used 1 tool")).toBeNull();
   });
 });
+
+describe("CopilotMessageContent file-read dump", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const DUMP =
+    'cli-runs/run-001/time_tracking_plan.json (224634 bytes)\n 1->{\n 2->  "generated_at": "2026-08-08",\n 3->  "people": []';
+
+  it("does not dump file content into the timeline, and names the read", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          messages={[{ id: "assistant-1" }]}
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "r1",
+                toolName: "tool",
+                state: "output-available",
+                input: { path: "cli-runs/run-001/time_tracking_plan.json" },
+                output: DUMP,
+              },
+            ],
+          }}
+          status="ready"
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("Used 1 tool"));
+
+    // The protocol body must not be visible in the timeline, even expanded.
+    expect(screen.queryByText(/generated_at/)).toBeNull();
+    expect(screen.queryByText(/1->/)).toBeNull();
+    // …and the placeholder label is recovered from the dump header.
+    expect(
+      screen.getAllByText(/time_tracking_plan\.json/).length
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("Ran tool")).toBeNull();
+  });
+});

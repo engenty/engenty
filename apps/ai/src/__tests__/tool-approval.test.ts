@@ -3,6 +3,7 @@ import {
   buildToolApprovalArtifact,
   buildToolApprovalArtifactId,
   isToolApprovalArtifactId,
+  parseToolApprovalGrantContext,
   parseToolApprovalOperationId,
   resolveToolApprovalDecision,
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
@@ -102,6 +103,49 @@ describe("tool-approval artifact", () => {
     );
     expect(parseToolApprovalOperationId("decision-123")).toBeNull();
     expect(parseToolApprovalOperationId(undefined)).toBeNull();
+  });
+
+  it("bulk card: round-trips every covered operation id and speaks run/chat scope", () => {
+    const artifact = buildToolApprovalArtifact({
+      body: "Create 200 dummy time entries",
+      operationId: "log_time_entry",
+      operationIds: ["log_time_entry", "update_time_entry"],
+      requiresApproval: true,
+      riskLevel: "critical",
+      title: "bulk write access",
+    });
+    expect(isDecisionArtifactPayload(artifact)).toBe(true);
+    expect(artifact.body).toContain("Create 200 dummy time entries");
+    expect(artifact.body).toContain("log_time_entry, update_time_entry");
+    expect(artifact.choices.map((c) => c.label)).toEqual([
+      "Approve for this run",
+      "Approve for this chat",
+      "Deny",
+    ]);
+    const context = parseToolApprovalGrantContext(artifact.artifact_id);
+    expect(context?.operation_ids).toEqual([
+      "log_time_entry",
+      "update_time_entry",
+    ]);
+    expect(parseToolApprovalOperationId(artifact.artifact_id)).toBe(
+      "log_time_entry"
+    );
+  });
+
+  it("bulk grant context: drops malformed operation ids, never partially trusts", () => {
+    const forged = `tool-approval|${encodeURIComponent("log_time_entry")}|${encodeURIComponent(
+      JSON.stringify({
+        operation_ids: ["ok_op", "bad op with spaces", 42, "also.ok"],
+      })
+    )}`;
+    expect(parseToolApprovalGrantContext(forged)?.operation_ids).toEqual([
+      "ok_op",
+      "also.ok",
+    ]);
+    const empty = `tool-approval|${encodeURIComponent("x")}|${encodeURIComponent(
+      JSON.stringify({ operation_ids: ["   "] })
+    )}`;
+    expect(parseToolApprovalGrantContext(empty)).toBeNull();
   });
 });
 

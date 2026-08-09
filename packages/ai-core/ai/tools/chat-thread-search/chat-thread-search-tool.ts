@@ -4,7 +4,7 @@
  * then runs search. When the index is degraded or missing, streams a small UI artifact and
  * returns notices so the model can caveat results.
  */
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { z } from "zod";
 import { CHAT_THREAD_INDEX_STATUS_ARTIFACT_ID } from "../../artifacts/chat-thread-index-status.js";
 import type { ToolExecutionContext } from "../context/types.js";
@@ -154,7 +154,7 @@ async function runChatSessionSearchTool(
   }
 }
 
-export function buildChatThreadSearchTool(ctx: ToolExecutionContext) {
+export function buildChatThreadSearchTool(ctx: ToolExecutionContext): Tool {
   return tool({
     description: chatThreadSearchToolDescription,
     inputSchema: aiChatsSearchInputSchema,

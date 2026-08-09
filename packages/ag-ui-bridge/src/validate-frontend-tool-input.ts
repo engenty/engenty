@@ -15,7 +15,7 @@ export function getFrontendToolInputValidationError(
     const record = readRecord(input);
     const to = typeof record?.to === "string" ? record.to.trim() : "";
     if (!to) {
-      return 'navigate requires input {"to":"/mdl/<moduleId>"} (internal path).';
+      return 'navigate requires input {"to":"/mdl/<moduleId>/<page>"} (internal path).';
     }
     if (!to.startsWith("/") || to.startsWith("//")) {
       return "Only internal application paths are allowed.";

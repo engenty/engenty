@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { experimental_transcribe } from "ai";
+import { transcribe } from "ai";
 import { readAiGatewayApiKeyFromEnv } from "../config/ai-gateway-api-key.js";
 
 const DEFAULT_WHISPER_MODEL = "whisper-1";
@@ -69,7 +69,7 @@ export async function transcribeGatewayAudio(
 
   try {
     const whisperLanguage = resolveWhisperLanguage(options.language);
-    const result = await experimental_transcribe({
+    const result = await transcribe({
       model: openai.transcription(resolveWhisperModelId(options.modelId)),
       audio: await toAudioPayload(audio),
       providerOptions: whisperLanguage

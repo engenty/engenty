@@ -127,7 +127,7 @@ export function registerImportAiMapRoute(
         const result = await generateText({
           model: resolveChatModelId({ purpose: "chat" }),
           prompt,
-          experimental_telemetry: { isEnabled: true },
+          telemetry: { isEnabled: true },
         });
 
         const cleaned = result.text

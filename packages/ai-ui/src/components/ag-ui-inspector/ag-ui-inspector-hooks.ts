@@ -4,7 +4,7 @@ import {
   isEngentyDevelopmentEnvironment,
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { EngentyAgUiEvent } from "../../ag-ui/conversation.js";
 
 const DEBUG_EVENT_LIMIT = 600;
@@ -25,11 +25,28 @@ export function useDeveloperModeEnabled() {
   return enabled;
 }
 
+/**
+ * `/ai/cpk-debug-events` is a SERVER-WIDE firehose: it carries every run's
+ * events, not this thread's. Without a reset the panel accumulates the last 600
+ * events across every chat the server handled, so opening a new chat still
+ * showed the previous conversation's stream — indistinguishable from "the new
+ * run replayed old messages". `resetKey` (the active thread id) drops the
+ * buffer whenever the user switches or starts a chat; `clear` is the manual
+ * escape hatch for a long-running thread.
+ */
 export function useAgUiDebugEvents(
   serviceBaseUrl: string,
-  enabled: boolean
-): EngentyAgUiEvent[] {
+  enabled: boolean,
+  resetKey?: string | null
+): { clear: () => void; events: EngentyAgUiEvent[] } {
   const [events, setEvents] = useState<EngentyAgUiEvent[]>([]);
+  const clear = useCallback(() => setEvents([]), []);
+
+  // Separate from the stream effect: re-subscribing on every thread switch
+  // would drop events mid-run for no reason — only the buffer resets.
+  useEffect(() => {
+    setEvents([]);
+  }, [resetKey]);
 
   useEffect(() => {
     if (!(enabled && serviceBaseUrl)) {
@@ -87,5 +104,5 @@ export function useAgUiDebugEvents(
     return () => abort.abort();
   }, [enabled, serviceBaseUrl]);
 
-  return events;
+  return { clear, events };
 }

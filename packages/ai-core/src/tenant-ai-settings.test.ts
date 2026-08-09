@@ -5,14 +5,14 @@ describe("parseTenantAiSettings", () => {
   it("keeps gateway model ids and trims whitespace", () => {
     expect(
       parseTenantAiSettings({
-        chat_model_id: " openai/gpt-5-mini ",
-        classifier_model_id: "openai/gpt-5-nano",
-        coordinator_model_id: "anthropic/claude-sonnet-4.5",
+        chat_model_id: " openai/fixture-chat ",
+        classifier_model_id: "openai/fixture-classifier",
+        coordinator_model_id: "anthropic/fixture-coordinator",
       })
     ).toMatchObject({
-      chat_model_id: "openai/gpt-5-mini",
-      classifier_model_id: "openai/gpt-5-nano",
-      coordinator_model_id: "anthropic/claude-sonnet-4.5",
+      chat_model_id: "openai/fixture-chat",
+      classifier_model_id: "openai/fixture-classifier",
+      coordinator_model_id: "anthropic/fixture-coordinator",
     });
   });
 
@@ -31,21 +31,21 @@ describe("parseTenantAiSettings", () => {
   it("accepts routing_model_id and prefers it over coordinator_model_id", () => {
     expect(
       parseTenantAiSettings({
-        routing_model_id: "openai/gpt-5-nano",
-        coordinator_model_id: "anthropic/claude-sonnet-4.5",
+        routing_model_id: "openai/fixture-routing",
+        coordinator_model_id: "anthropic/fixture-coordinator",
       })
     ).toMatchObject({
-      coordinator_model_id: "openai/gpt-5-nano",
+      coordinator_model_id: "openai/fixture-routing",
     });
   });
 
   it("falls back from routing_model_id to coordinator_model_id", () => {
     expect(
       parseTenantAiSettings({
-        coordinator_model_id: "openai/gpt-5-mini",
+        coordinator_model_id: "openai/fixture-coordinator",
       })
     ).toMatchObject({
-      coordinator_model_id: "openai/gpt-5-mini",
+      coordinator_model_id: "openai/fixture-coordinator",
     });
   });
 

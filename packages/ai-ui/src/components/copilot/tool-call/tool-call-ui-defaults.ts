@@ -62,7 +62,16 @@ export function registerDefaultToolCallUiCards() {
   registerToolCallUi({
     id: "core.decision-artifact",
     priority: 50,
-    match: (ctx) => matchesDecisionArtifactOutput(ctx.output),
+    // Output OR tool name. `requestDecision` suspends the run natively now
+    // (apps/ai native-request-decision.ts) and hands its artifact over as the
+    // SUSPEND payload, so the call has no output to match on — matching output
+    // alone routed every suspended chooser to the generic card, which rendered a
+    // spinning "Decision needed" row and no way to answer it. Tool-approval
+    // cards still arrive as an output artifact under a different tool name, so
+    // both arms are load-bearing.
+    match: (ctx) =>
+      ctx.toolName === "requestDecision" ||
+      matchesDecisionArtifactOutput(ctx.output),
     Card: DecisionArtifactToolCallCard,
   });
   registerToolCallUi({

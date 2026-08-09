@@ -13,6 +13,10 @@
     "./ui/plugin": {
       "types": "./dist/ui/plugin.d.ts",
       "default": "./dist/ui/plugin.js"
+    },
+    "./ai/registrar": {
+      "types": "./dist/ai/registrar.d.ts",
+      "default": "./dist/ai/registrar.js"
     }
   },
   "engenty": {
@@ -26,6 +30,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@engenty/ai-core": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/file-storage": "workspace:*",
     "@engenty/i18n": "workspace:*",

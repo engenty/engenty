@@ -25,6 +25,7 @@ import { filterAgentUiFrontendToolsForScope } from "../frontend-tool-gating/filt
 import {
   assertEngentyNativeMastraMemoryConfigured,
   createEngentyAgentExecutionOptions,
+  createEngentyMastraResourceId,
   createEngentySessionMemoryRuntime,
 } from "../memory/index.js";
 import {
@@ -47,6 +48,10 @@ import {
   buildNativeMastraModelInput,
   findCurrentUserTurn,
 } from "./native-mastra-input.js";
+import {
+  buildThreadPromptPreview,
+  type ThreadPromptPreview,
+} from "./prompt-preview.js";
 import { reconcileOrphanedInterrupt } from "./reconcile-orphaned-interrupt.js";
 import {
   createSessionRunTracker,
@@ -832,6 +837,53 @@ export function createThreadService(opts: ThreadServiceOptions) {
       threadId: string;
     }) {
       await resolveAgentForSessionMemory(input);
+    },
+
+    /**
+     * Break down the prompt a NEXT run on this thread would send (developer
+     * inspection behind `/ai/v1/threads/:id/prompt-preview`).
+     *
+     * Assembled WITHOUT a `runId` on purpose. A run id is what makes
+     * `resolveAgentForSessionMemory` write an `ai.agent_run` row and provision
+     * workspaces and sandboxes — side effects a GET that only reads sizes has no
+     * business causing. The cost is that workspace-provided tools (skill search,
+     * file access) are absent from the tool section, which is why that goes out
+     * as a caveat instead of quietly shrinking the total.
+     */
+    async getThreadPromptPreview(input: {
+      scope: AiSessionScope;
+      threadId: string;
+    }): Promise<ThreadPromptPreview> {
+      const { agent, modelId, rootConfig, session } =
+        await resolveAgentForSessionMemory(input);
+      const memory = await assertEngentyNativeMastraMemoryConfigured(agent, {
+        agent_id: session.agent_id,
+        thread_id: input.threadId,
+      });
+      const caveats = [
+        "Reconstructed for the NEXT run on this thread — not a capture of the last one, so it will not match that run's recorded prompt tokens.",
+        "Token figures are estimated from character counts; the real count is the provider's and only lands on the run row afterwards.",
+        "Assembled without a run id, so no workspace is attached and workspace tools (skills, files) are missing from the tool list.",
+        "Mastra adds its own working-memory block and per-step framing to the system prompt at request time; that is not included here.",
+      ];
+      if (rootConfig?.subAgents?.length) {
+        // The `agent-*` tools ARE in the list, but they got there via Mastra's
+        // own sub-agent mechanism; a real run turns that off (`skipSubAgents`)
+        // and registers its own delegation tools instead. Same names, so the
+        // section is not missing weight — the schemas can differ slightly.
+        caveats.push(
+          "Sub-agent `agent-*` delegation tools come from the static sub-agent config here; a real run registers its own equivalents, so their schemas may differ slightly."
+        );
+      }
+      return buildThreadPromptPreview({
+        agent,
+        agentId: session.agent_id,
+        caveats,
+        memory,
+        modelId,
+        resourceId: createEngentyMastraResourceId({ scope: input.scope }),
+        threadId: input.threadId,
+      });
     },
 
     async generate(input: {

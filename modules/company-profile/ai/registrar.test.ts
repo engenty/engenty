@@ -76,3 +76,30 @@ describe("companyProfileAiRegistration", () => {
     ).resolves.toEqual({ company_name: "Engenty" });
   });
 });
+
+describe("company profile skills", () => {
+  it("ships the playbooks the copilot loads for this module", () => {
+    // The module had an agent and tools but no SKILL.md, so the copilot got no
+    // guidance for it — unlike offers and invoices.
+    const registration = companyProfileAiRegistration({
+      invokeCompanyProfileOperation: async () => null,
+    });
+    expect(
+      (registration.skills ?? []).map((skill) => skill.name).sort()
+    ).toEqual([
+      "company-profile-branding-assets",
+      "company-profile-research-and-fill",
+    ]);
+  });
+
+  it("tells the profile skill never to research bank details", () => {
+    // An IBAN found on the web is either wrong or someone else's, and it lands
+    // on invoices the tenant sends.
+    const registration = companyProfileAiRegistration({
+      invokeCompanyProfileOperation: async () => null,
+    });
+    expect(
+      registration.dynamic?.skills?.["company-profile-research-and-fill"]
+    ).toMatch(/Never research bank details/i);
+  });
+});

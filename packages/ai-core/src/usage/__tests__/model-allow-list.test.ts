@@ -80,7 +80,7 @@ describe("isModelAllowed", () => {
       allowed_providers: ["openai"],
     };
     expect(isModelAllowed("anthropic/claude-sonnet-5", policy)).toBe(true);
-    expect(isModelAllowed("openai/gpt-5-nano", policy)).toBe(true);
+    expect(isModelAllowed("openai/fixture-model", policy)).toBe(true);
     expect(isModelAllowed("google/gemini-3-pro", policy)).toBe(false);
   });
 

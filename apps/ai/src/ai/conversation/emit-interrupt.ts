@@ -5,10 +5,12 @@
 //   `execute`); the suspend surfaces as a `tool_suspended` event. We persist the open
 //   interrupt (keyed by the suspended run id so the resume reattaches) and emit a
 //   RUN_FINISHED whose `outcome` tells the client which tool call is suspended.
-// - A decision/feedback artifact arrives as a tool RESULT (not a suspend): the tool
-//   returns the artifact and the run would otherwise keep talking. We persist the open
-//   interrupt and emit RUN_FINISHED with the interrupt outcome so the chat shows the
-//   interactive picker/form (not a "submitted" final state).
+// - A decision/feedback artifact reaches us one of two ways. `requestDecision`
+//   SUSPENDS and hands its artifact over as the suspend payload; `requestFeedback`
+//   (and any run that cannot service an interrupt) still returns it as a tool
+//   RESULT. Either way we persist the open interrupt and emit RUN_FINISHED with the
+//   interrupt outcome so the chat shows the interactive picker/form (not a
+//   "submitted" final state).
 import type {
   AGUIEvent,
   AgUiOpenInterruptMetadata,
@@ -151,6 +153,13 @@ export async function emitToolApprovalInterrupt(input: {
     ...(input.payload.secret_id
       ? { grantContext: { secret_id: input.payload.secret_id } }
       : {}),
+    // Bulk pre-approval (engenty_tools_preapprove): one card covering several
+    // operations — the ids ride the artifact id so approving grants each, and
+    // the agent's plan summary becomes the card body.
+    ...(input.payload.operation_ids?.length
+      ? { operationIds: input.payload.operation_ids }
+      : {}),
+    ...(input.payload.body ? { body: input.payload.body } : {}),
     ...(input.payload.title ? { title: input.payload.title } : {}),
   });
   const interrupt: SessionInterruptPayload = {
@@ -242,6 +251,14 @@ export async function emitArtifactInterrupt(input: {
   busRunId: string;
   emit: (event: AGUIEvent) => void;
   result: unknown;
+  /**
+   * Set when the artifact came from a native SUSPEND (requestDecision) rather
+   * than a tool result: it makes the persisted interrupt a PARKED one, which is
+   * how the resume route knows to continue this run in place instead of
+   * re-running the turn. Omitted for the artifact paths that still re-run
+   * (tool-approval cards, requestFeedback).
+   */
+  resumeRunId?: string;
   scope: AiSessionScope;
   sessionMetadata: Record<string, unknown>;
   store: ThreadStore;
@@ -267,12 +284,14 @@ export async function emitArtifactInterrupt(input: {
   if (!interrupt) {
     return false;
   }
+  const open: AgUiOpenInterruptMetadata = {
+    ...artifactOpenInterrupt(interrupt),
+    ...(input.resumeRunId ? { run_id: input.resumeRunId } : {}),
+  };
   try {
     await input.store.mergeThreadMetadataForUser({
       patch: {
-        [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: buildAgUiOpenInterruptValue(
-          artifactOpenInterrupt(interrupt)
-        ),
+        [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: buildAgUiOpenInterruptValue(open),
       },
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
@@ -284,6 +303,13 @@ export async function emitArtifactInterrupt(input: {
       error
     );
   }
+  // The card's CONTENT only reaches a live client through this event. The
+  // RUN_FINISHED outcome carries an id and a title, not the choices, and the
+  // transcript fallback (`pendingInterruptFromTranscript`) reads the artifact
+  // off the tool RESULT — which a natively-suspended `requestDecision` never
+  // produces. Without this the chat shows a spinning "Decision needed" row and
+  // no chooser until (and unless) a session-metadata refetch lands.
+  emitOpenInterruptEvent(input.emit, open);
   input.emit({
     outcome: buildSessionInterruptOutcome(interrupt),
     runId: input.busRunId,

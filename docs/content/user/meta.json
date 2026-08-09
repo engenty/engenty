@@ -7,6 +7,8 @@
     "README",
     "getting-started",
     "model-effort",
+    "modules",
+    "agent-operations",
     "connect-slack",
     "memory"
   ]

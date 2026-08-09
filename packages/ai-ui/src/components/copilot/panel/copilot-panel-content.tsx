@@ -241,12 +241,11 @@ export function CopilotPanelContent({
       ? "size-full px-1 pt-4"
       : "size-full px-3";
   const showTranscriptScrollTopFade = !(compact || transcriptScrollHidden);
-  // Inline style paddingRight replaces Tailwind's px-* right edge — keep the
-  // same base gutter, then add ThreadContextPane's float reserve when set.
-  const bodyPadRightBase =
-    !compact && composerDockStyle && contentBodyGutter === "flush"
-      ? "0px"
-      : "0.75rem";
+  // Pad scroll *content* + composer (not the ScrollArea shell) so the
+  // scrollbar stays on the far right while messages clear the float card.
+  const threadContextFloatPad = {
+    paddingRight: `var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px)`,
+  } as const;
 
   const body = (
     <div
@@ -261,11 +260,6 @@ export function CopilotPanelContent({
               )
             : "flex min-h-0 flex-1 flex-col gap-4 px-3 pt-0 pb-3"
       }
-      style={{
-        // When ThreadContextPane sets the var, transcript + composer clear the
-        // floating card via inner pad — main surface stays full-bleed.
-        paddingRight: `calc(var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px) + ${bodyPadRightBase})`,
-      }}
     >
       {!minimalChrome &&
         routeStatusLabel &&
@@ -331,6 +325,7 @@ export function CopilotPanelContent({
                       })
                     )
             )}
+            style={threadContextFloatPad}
           >
             {!minimalChrome &&
               messages.length === 0 &&
@@ -439,38 +434,40 @@ export function CopilotPanelContent({
           suggestedUpdatesLabel={suggestedUpdatesLabel}
         />
       ) : null}
-      <CopilotPanelComposerBlock
-        autoExpand={resolvedAutoExpand}
-        centerEmptyLanding={centerEmptyLanding}
-        compact={compact}
-        compactContextControl={compactContextControl}
-        composerDockStyle={composerDockStyle}
-        composerFocusKey={composerFocusKey}
-        composerLeadingControl={composerLeadingControl}
-        composerOverride={composerOverride}
-        composerPlaceholder={composerPlaceholder}
-        composerWrapperClassName={composerWrapperClassName}
-        dockedSurface={dockedInterruptSurface}
-        draft={draft}
-        emptyStateSubtitle={emptyStateSubtitle}
-        emptyStateTitle={emptyStateTitle}
-        enableStatusFlap={enableStatusFlap && !dockedInterruptSurface}
-        error={error}
-        mentionAgentCandidates={mentionAgentCandidates}
-        mentionRefSearch={mentionRefSearch}
-        messages={messages}
-        onComposerMentionAgent={onComposerMentionAgent}
-        onStop={onStop ?? onCancel}
-        setDraft={setDraft}
-        slashCommands={slashCommands}
-        starterPrompts={starterPrompts}
-        status={status}
-        submitMessage={submitMessage}
-        threadId={threadId}
-        transcribeAudio={transcribeAudio}
-        voiceInputEnabled={voiceInputEnabled}
-        voiceInputLang={voiceInputLang}
-      />
+      <div style={threadContextFloatPad}>
+        <CopilotPanelComposerBlock
+          autoExpand={resolvedAutoExpand}
+          centerEmptyLanding={centerEmptyLanding}
+          compact={compact}
+          compactContextControl={compactContextControl}
+          composerDockStyle={composerDockStyle}
+          composerFocusKey={composerFocusKey}
+          composerLeadingControl={composerLeadingControl}
+          composerOverride={composerOverride}
+          composerPlaceholder={composerPlaceholder}
+          composerWrapperClassName={composerWrapperClassName}
+          dockedSurface={dockedInterruptSurface}
+          draft={draft}
+          emptyStateSubtitle={emptyStateSubtitle}
+          emptyStateTitle={emptyStateTitle}
+          enableStatusFlap={enableStatusFlap && !dockedInterruptSurface}
+          error={error}
+          mentionAgentCandidates={mentionAgentCandidates}
+          mentionRefSearch={mentionRefSearch}
+          messages={messages}
+          onComposerMentionAgent={onComposerMentionAgent}
+          onStop={onStop ?? onCancel}
+          setDraft={setDraft}
+          slashCommands={slashCommands}
+          starterPrompts={starterPrompts}
+          status={status}
+          submitMessage={submitMessage}
+          threadId={threadId}
+          transcribeAudio={transcribeAudio}
+          voiceInputEnabled={voiceInputEnabled}
+          voiceInputLang={voiceInputLang}
+        />
+      </div>
     </div>
   );
 

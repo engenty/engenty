@@ -133,6 +133,10 @@ if [[ -z "${RESOLVED_DOMAIN}" ]]; then
   TURBO_TASKS+=(studio)
 fi
 
+# shellcheck source=./dev-open-file-limit.sh
+source "$ROOT/scripts/dev-open-file-limit.sh"
+raise_open_file_limit
+
 # Turbo's TUI ("ui": "tui") puts the terminal into raw mode + alt screen. If a
 # run crashes or is Ctrl-C'd, Turbo can fail to restore cooked mode, leaving the
 # shell in "staircase" mode (newlines with no carriage return). Snapshot the tty

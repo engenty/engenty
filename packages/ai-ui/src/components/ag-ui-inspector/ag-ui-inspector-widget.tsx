@@ -10,7 +10,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@engenty/ui-core";
-import { Activity, Bug, Maximize2, Minimize2, X } from "lucide-react";
+import { Activity, Bug, Eraser, Maximize2, Minimize2, X } from "lucide-react";
 import {
   type PointerEvent,
   type ReactNode,
@@ -213,7 +213,11 @@ export function AgUiAgentInspectorWidget({
 }: AgUiAgentInspectorWidgetProps) {
   const developerModeEnabled = useDeveloperModeEnabled();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
-  const debugEvents = useAgUiDebugEvents(serviceBaseUrl, developerModeEnabled);
+  const { clear: clearDebugEvents, events: debugEvents } = useAgUiDebugEvents(
+    serviceBaseUrl,
+    developerModeEnabled,
+    host.threadId
+  );
   const [layout, setLayout] = useState(readLayout);
   const dragRef = useRef<{
     height: number;
@@ -389,6 +393,20 @@ export function AgUiAgentInspectorWidget({
             agent: {host.config.agentId}
           </span>
         </span>
+        <Button
+          className="size-7"
+          onClick={(event) => {
+            event.stopPropagation();
+            clearDebugEvents();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          size="icon"
+          title="Clear captured events"
+          type="button"
+          variant="ghost"
+        >
+          <Eraser className="size-3.5" />
+        </Button>
         <Button
           className="size-7"
           onClick={(event) => {

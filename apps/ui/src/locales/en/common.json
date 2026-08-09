@@ -618,8 +618,11 @@
     "toolApproval": {
       "title": "Approve {{action}}?",
       "body": "This action requires your approval before it runs. Operation: {{operation}}",
+      "bodyBulk": "These actions require your approval before they run. Operations: {{operations}}",
       "approveOnce": "Approve once",
       "approveAlways": "Approve always (this chat)",
+      "approveRun": "Approve for this run",
+      "approveChat": "Approve for this chat",
       "deny": "Deny"
     },
     "sidebar": {

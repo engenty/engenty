@@ -52,6 +52,8 @@ export interface CopilotCompactLauncherProps {
     text: string,
     options?: { requestedAgentId?: string }
   ) => void;
+  /** Active thread — the usage meter renders nothing without it. */
+  threadId?: string | null;
 }
 
 export function CopilotCompactLauncher({
@@ -76,6 +78,7 @@ export function CopilotCompactLauncher({
   setDraft,
   status,
   submitMessage,
+  threadId = null,
 }: CopilotCompactLauncherProps) {
   const [isMultiline, setIsMultiline] = useState(false);
 
@@ -129,6 +132,7 @@ export function CopilotCompactLauncher({
       messages={agentTickerMessages}
       onCompactStatusFlapHeightChange={onCompactStatusFlapHeightChange}
       pendingUserText={pendingUserText}
+      threadId={threadId}
       variant="dock"
     >
       <PromptInputProvider initialInput={draft}>

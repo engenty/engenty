@@ -2,6 +2,7 @@ import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { ReactNode } from "react";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import type { StarterPromptItem } from "../composer/copilot-composer";
+import type { ChatSlashCommand } from "../composer/copilot-slash-command";
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
 import type {
   CopilotHeaderChrome,
@@ -44,6 +45,7 @@ export interface BuildCopilotDrawerPanelContentPropsInput {
   selectedCompactContextId: string;
   selectedCountLabel: string;
   shouldHideSuggestionsReview: boolean;
+  slashCommands?: ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   startMode: "manual" | "auto";
   suggestedUpdatesLabel: string;
@@ -90,6 +92,7 @@ export function buildCopilotDrawerPanelContentProps(
     setDraft: input.injected.setDraft,
     submitMessage: input.injected.submitMessage,
     composerPlaceholder: input.composerPlaceholder,
+    slashCommands: input.slashCommands,
     starterPrompts: input.starterPrompts,
     reviewPromptLabel: input.reviewPromptLabel,
     thinkingLabel: input.thinkingLabel,

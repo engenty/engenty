@@ -6,6 +6,7 @@ import type {
 import type { MutableRefObject, ReactNode } from "react";
 import type { CopilotAgentThreadChooserThread } from "../composer/copilot-agent-thread-chooser.js";
 import type { StarterPromptItem } from "../composer/copilot-composer.js";
+import type { ChatSlashCommand } from "../composer/copilot-slash-command.js";
 import type { CopilotHeaderChrome } from "../panel/copilot-panel-content.js";
 import type { CopilotChatOnFinish } from "../session/copilot-chat-types.js";
 import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snapshot.js";
@@ -142,6 +143,12 @@ export interface CopilotDrawerProps {
   serviceBaseUrl?: string;
   /** Set preferred dock mode. From useCopilotShell. */
   setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
+  /**
+   * Slash-command catalog for the composer. Optional, exactly like
+   * `starterPrompts` — omit it and the "/" menu simply does not open, which is
+   * what the docked chat did before this was plumbed through.
+   */
+  slashCommands?: ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   startMode?: "manual" | "auto";
   suggestedUpdatesLabel?: string;

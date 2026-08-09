@@ -92,7 +92,8 @@ describe("runNavigateFrontendTool", () => {
   it("navigates to an internal path", () => {
     const navigate = vi.fn();
     const result = runNavigateFrontendTool({ to: "/contacts" }, navigate);
-    expect(result).toEqual({ ok: true });
+    // The result names where it landed so the agent can report it accurately.
+    expect(result).toEqual({ ok: true, to: "/contacts" });
     expect(navigate).toHaveBeenCalledWith("/contacts", { replace: false });
   });
 
@@ -102,7 +103,7 @@ describe("runNavigateFrontendTool", () => {
     const result = runNavigateFrontendTool({ to: "/contacts" }, navigate, {
       onNavigate,
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, to: "/contacts" });
     expect(navigate).toHaveBeenCalledWith("/contacts", { replace: false });
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });

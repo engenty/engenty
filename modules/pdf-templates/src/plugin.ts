@@ -1,4 +1,5 @@
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
+import { pdfTemplatesAiRegistration } from "../ai/registrar.js";
 import { registerPdfTemplatesApi } from "./api/index.js";
 import { createPdfTemplatesRepoSupabase } from "./dal/index.js";
 
@@ -25,6 +26,7 @@ const registerPdfTemplatesPlugin: EngentyPluginFactory = (engenty) => {
     createPdfTemplatesRepoSupabase(supabase, auth.tenantId, auth.scopeId);
 
   registerPdfTemplatesApi(engenty.server, repoOrFactory);
+  engenty.server.registerAiRegistration(pdfTemplatesAiRegistration());
 };
 
 export default registerPdfTemplatesPlugin;

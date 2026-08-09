@@ -121,12 +121,12 @@ describe("resolvePurposeModel governance allow-list", () => {
     expect(
       resolvePurposeModel({
         purpose: "chat",
-        allowedModels: ["openai/gpt-5-mini"],
+        allowedModels: [DEFAULT_AI_CHAT_MODEL_ID],
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
       })
     ).toEqual({
       purpose: "chat",
-      value: "openai/gpt-5-mini",
+      value: DEFAULT_AI_CHAT_MODEL_ID,
       source: "default",
     });
   });

@@ -51,7 +51,7 @@
     "@mastra/memory": "1.24.0",
     "@mastra/pg": "1.18.1",
     "@supabase/supabase-js": "^2.108.2",
-    "ai": "7.0.0-beta.116",
+    "ai": "7.0.58",
     "files-sdk": "^1.9.0",
     "hono": "^4.12.26",
     "pg": "8.22.0",

@@ -23,6 +23,11 @@ export {
   listEngentyToolModules,
 } from "./engenty-tools-modules-tool.js";
 export {
+  createEngentyToolsPreapproveTool,
+  ENGENTY_TOOLS_PREAPPROVE_TOOL_ID,
+  engentyToolsPreapproveTool,
+} from "./engenty-tools-preapprove-tool.js";
+export {
   engentyToolsSearchTool,
   searchEngentyTools,
 } from "./engenty-tools-search-tool.js";

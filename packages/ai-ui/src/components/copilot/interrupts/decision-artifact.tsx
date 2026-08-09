@@ -5,14 +5,22 @@ import { isFrontendToolOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, Input } from "@engenty/ui-core";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { parseToolApprovalArtifactId } from "./tool-approval-artifact-id.js";
 
 /** Server tool-approval artifacts use stable ids — localize their display
  *  client-side (the server builds English strings; the choice labels SENT
  *  back stay canonical so the model/audit trail is unaffected). */
-const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
 const TOOL_APPROVAL_CHOICE_LABEL_KEYS: Record<string, string> = {
   approve_always: "copilot.toolApproval.approveAlways",
   approve_once: "copilot.toolApproval.approveOnce",
+  deny: "copilot.toolApproval.deny",
+};
+// A BULK pre-approval covers several operations at once, so "once"/"always"
+// (which read as "this one action" / "this action forever") are the wrong
+// promise: the grants are scoped to the RUN and to the CHAT respectively.
+const TOOL_APPROVAL_BULK_CHOICE_LABEL_KEYS: Record<string, string> = {
+  approve_always: "copilot.toolApproval.approveChat",
+  approve_once: "copilot.toolApproval.approveRun",
   deny: "copilot.toolApproval.deny",
 };
 
@@ -84,16 +92,32 @@ function openInterruptMatchesToolOutput(
   );
 }
 
-/** Prefer transcript output; fall back to session open-interrupt metadata after reload. */
+/**
+ * Prefer transcript output; fall back to the open-interrupt metadata.
+ *
+ * The fallback is no longer just a post-reload nicety: `requestDecision`
+ * SUSPENDS the run (apps/ai native-request-decision.ts), so the artifact never
+ * arrives as this call's output at all and the open interrupt is the only place
+ * the choices exist.
+ *
+ * `toolCallId` scopes that fallback to the call the interrupt actually names.
+ * Without it every unanswered `requestDecision` row in the thread would render
+ * whatever chooser is currently open — the same question twice, only one of
+ * which resolves.
+ */
 export function resolveDecisionArtifactForToolCall(
   output: unknown,
-  open: AgUiOpenInterruptMetadata | null | undefined
+  open: AgUiOpenInterruptMetadata | null | undefined,
+  toolCallId?: string
 ): DecisionArtifact | null {
   const fromOutput = parseDecisionArtifact(output);
   if (fromOutput) {
     return fromOutput;
   }
   if (!open || isFrontendToolOpenInterrupt(open)) {
+    return null;
+  }
+  if (toolCallId && open.tool_call_id && open.tool_call_id !== toolCallId) {
     return null;
   }
   if (output != null && !openInterruptMatchesToolOutput(open, output)) {
@@ -220,13 +244,11 @@ export function DecisionArtifactCard(props: {
 
   // Localized DISPLAY strings for the server-built tool-approval artifact
   // (title/body/choices arrive as English). Anything sent back on choose()
-  // keeps the canonical server label.
-  const toolApprovalOperation = props.artifact.artifactId.startsWith(
-    TOOL_APPROVAL_ARTIFACT_PREFIX
-  )
-    ? props.artifact.artifactId.slice(TOOL_APPROVAL_ARTIFACT_PREFIX.length)
-    : null;
-  const displayTitle = toolApprovalOperation
+  // keeps the canonical server label. The artifact id also carries INTERNAL
+  // grant context after the operation id — parsed, never printed raw.
+  const toolApproval = parseToolApprovalArtifactId(props.artifact.artifactId);
+  const isBulkApproval = (toolApproval?.operationIds.length ?? 0) > 1;
+  const displayTitle = toolApproval
     ? t("copilot.toolApproval.title", {
         action: props.artifact.title
           .replace(/^Approve\s+/, "")
@@ -234,16 +256,31 @@ export function DecisionArtifactCard(props: {
         defaultValue: props.artifact.title,
       })
     : props.artifact.title;
-  const displayBody = toolApprovalOperation
-    ? t("copilot.toolApproval.body", {
-        operation: toolApprovalOperation,
-        defaultValue: props.artifact.body ?? "",
-      })
+  // The server's own body already carries the agent's plan summary for a bulk
+  // card; keep it and append the operation LIST rather than replacing it with
+  // the single-operation sentence.
+  const displayBody = toolApproval
+    ? t(
+        isBulkApproval
+          ? "copilot.toolApproval.bodyBulk"
+          : "copilot.toolApproval.body",
+        {
+          count: toolApproval.operationIds.length,
+          operation: toolApproval.operationId,
+          operations: toolApproval.operationIds.join(", "),
+          defaultValue: props.artifact.body ?? "",
+        }
+      )
     : props.artifact.body;
   const displayChoiceLabel = (choice: DecisionArtifactChoice) => {
-    const key = toolApprovalOperation
-      ? TOOL_APPROVAL_CHOICE_LABEL_KEYS[choice.id]
-      : undefined;
+    if (!toolApproval) {
+      return choice.label;
+    }
+    const key = (
+      isBulkApproval
+        ? TOOL_APPROVAL_BULK_CHOICE_LABEL_KEYS
+        : TOOL_APPROVAL_CHOICE_LABEL_KEYS
+    )[choice.id];
     return key ? t(key, { defaultValue: choice.label }) : choice.label;
   };
 

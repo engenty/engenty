@@ -54,7 +54,10 @@ export async function listEngentyToolModules(
         .map((plugin) => {
           const stats = statsByModule.get(plugin.id);
           return {
-            baseUrl: `/mdl/${plugin.id}`,
+            // A prefix, not a page: core reports `routesCount`, never route
+            // paths, so this is a convention we cannot verify here. `navigate`
+            // checks it against the router's real table.
+            routePrefix: `/mdl/${plugin.id}`,
             description: plugin.description,
             moduleId: plugin.id,
             name: plugin.name ?? plugin.id,
@@ -66,6 +69,8 @@ export async function listEngentyToolModules(
         })
         .sort((a, b) => a.moduleId.localeCompare(b.moduleId)),
       next: "Use one of these moduleId values exactly with engenty_tools_search, then run the selected tool with engenty_tool_execute.",
+      routing:
+        "routePrefix is where a module's pages live, not a page itself. Pass it to `navigate` and it resolves to the module's page when there is exactly one, or fails listing the real routes. Never state you opened a page unless navigate returned that path in `to`.",
     };
   } catch (err) {
     return coreErrorToToolResult(err);

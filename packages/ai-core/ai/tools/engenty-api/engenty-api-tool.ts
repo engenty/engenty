@@ -2,7 +2,7 @@
  * Build an Engenty API GET tool for use by specialists (e.g. widget generation, agentic runtime).
  * The host injects a request function so ai-core stays free of Hono/HTTP.
  */
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { z } from "zod";
 
 /** Scope key for injecting the API request function. Set by the route when calling runAgentOnce. */
@@ -42,7 +42,7 @@ export interface BuildEngentyApiToolParams {
 const defaultDescription =
   "Fetch data from Engenty API. Use for: current user (/api/users/u-self), team members (/api/team), invoices (/api/invoices), contacts (/api/contacts). Set contextKey to the state path root (e.g. user, teamMembers, invoices). Add params for pagination/sorting.";
 
-export function buildEngentyApiTool(params: BuildEngentyApiToolParams) {
+export function buildEngentyApiTool(params: BuildEngentyApiToolParams): Tool {
   const { request, description = defaultDescription } = params;
 
   return tool({

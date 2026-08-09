@@ -1,5 +1,6 @@
 // Draft state + validation for the custom-agent form (create + edit).
 
+import { DEFAULT_AI_CHAT_MODEL_ID } from "@engenty/ai-core/browser";
 import type { CustomAgentConfig } from "../../lib/admin/ai-runtime-api";
 
 export interface AgentDraft {
@@ -13,7 +14,7 @@ export interface AgentDraft {
   toolIds: string[];
 }
 
-const DEFAULT_AGENT_MODEL = "openai/gpt-5-mini";
+const DEFAULT_AGENT_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
 
 export function createEmptyAgentDraft(): AgentDraft {
   return {

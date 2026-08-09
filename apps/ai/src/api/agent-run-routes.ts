@@ -27,6 +27,14 @@ import {
 const runsBase = `${AI_BASE_PATH}/v1/runs`;
 const sessionsBase = `${AI_BASE_PATH}/v1/threads`;
 
+/**
+ * Prompt preview is a developer tool, not a product surface. Same switch the
+ * AG-UI debug firehose uses, so both dev-only routes disappear together.
+ */
+export function isPromptPreviewEnabled(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
 const listRunsQuerySchema = z.object({
   agent_id: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
@@ -119,6 +127,109 @@ export function registerAgentRunRoutes(
         "list session runs failed",
         "agent_runs.listFailed",
         err
+      );
+    }
+  });
+
+  // Context-window usage for the thread's last measured run. Separate from
+  // `/runs` because the chat polls this on every turn and does not want a
+  // 50-run payload to render one bar.
+  app.get(`${sessionsBase}/:threadId/context-usage`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const threadId = c.req.param("threadId");
+    if (!uuidString.safeParse(threadId).success) {
+      return c.json({ error: "agent_runs.invalidThreadId" }, 400);
+    }
+    const runStore = opts.getRunStore();
+    if (!runStore) {
+      return c.json({ error: "agent_runs.unconfiguredDatabase" }, 503);
+    }
+    try {
+      // Enforces the caller's read access to the thread before any usage
+      // numbers leak; the store query itself is tenant-scoped only.
+      await opts.aiService.threads.getThread({
+        scope: scope.scope,
+        threadId,
+      });
+      const usage = await runStore.getThreadContextUsage({
+        tenantId: scope.scope.tenantId,
+        threadId,
+      });
+      if (!usage) {
+        return c.json({ usage: null });
+      }
+      return c.json({
+        usage: {
+          completion_tokens: usage.completionTokens,
+          context_tokens: usage.contextTokens,
+          duration_ms: usage.durationMs,
+          finished_at: usage.finishedAt,
+          input_per_mtok_micros: usage.inputPerMtokMicros,
+          model_display_name: usage.modelDisplayName,
+          model_id: usage.modelId,
+          output_per_mtok_micros: usage.outputPerMtokMicros,
+          prompt_tokens: usage.promptTokens,
+          run_id: usage.runId,
+          started_at: usage.startedAt,
+          status: usage.status,
+        },
+      });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "thread context usage failed",
+        "agent_runs.contextUsageFailed",
+        err
+      );
+    }
+  });
+
+  // The breakdown BEHIND the context-usage number: what the next run on this
+  // thread would send, split into system / history / tool schemas. Reconstructed
+  // per request rather than captured per run — see prompt-preview.ts for why.
+  //
+  // Developer-mode only, matching the client gate (`useDeveloperModeEnabled`
+  // requires a development build), and 404 in production rather than 403: the
+  // route does not exist there, and saying so invites nobody to go looking.
+  app.get(`${sessionsBase}/:threadId/prompt-preview`, async (c) => {
+    if (!isPromptPreviewEnabled()) {
+      return c.json({ error: "agent_runs.promptPreviewDisabled" }, 404);
+    }
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const threadId = c.req.param("threadId");
+    if (!uuidString.safeParse(threadId).success) {
+      return c.json({ error: "agent_runs.invalidThreadId" }, 400);
+    }
+    try {
+      // Read access to the thread is checked before any of its content is
+      // assembled — the preview is the conversation, verbatim.
+      await opts.aiService.threads.getThread({
+        scope: scope.scope,
+        threadId,
+      });
+      const preview = await opts.aiService.threads.getThreadPromptPreview({
+        scope: scope.scope,
+        threadId,
+      });
+      return c.json({ preview });
+    } catch (err) {
+      // The message goes in the BODY here, unlike every other route. This one is
+      // developer-only and its whole job is explaining an assembly; a bare
+      // `promptPreviewFailed` would send the reader hunting through server logs
+      // for the one fact the panel could have shown them.
+      console.error("[prompt-preview] failed:", err);
+      return c.json(
+        {
+          error: "agent_runs.promptPreviewFailed",
+          message: err instanceof Error ? err.message : String(err),
+        },
+        500
       );
     }
   });

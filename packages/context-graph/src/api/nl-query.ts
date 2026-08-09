@@ -151,7 +151,7 @@ async function planQuery(
   const result = await generateText({
     model: resolveChatModelId({ purpose: "routing" }),
     prompt,
-    experimental_telemetry: { isEnabled: true },
+    telemetry: { isEnabled: true },
   });
   const parsed = planSchema.parse(JSON.parse(stripFences(result.text)));
   return parsed;
@@ -374,7 +374,7 @@ async function phraseRanked(input: {
   const result = await generateText({
     model: resolveChatModelId({ purpose: "chat" }),
     prompt,
-    experimental_telemetry: { isEnabled: true },
+    telemetry: { isEnabled: true },
   });
   return result.text.trim();
 }
@@ -400,7 +400,7 @@ async function phraseAnswer(input: {
   const result = await generateText({
     model: resolveChatModelId({ purpose: "chat" }),
     prompt,
-    experimental_telemetry: { isEnabled: true },
+    telemetry: { isEnabled: true },
   });
   return result.text.trim();
 }

@@ -34,7 +34,7 @@
     "@hono/zod-openapi": "^1.4.0",
     "@supabase/supabase-js": "^2.108.2",
     "@xyflow/react": "^12.11.0",
-    "ai": "6.0.116",
+    "ai": "7.0.58",
     "graphology": "^0.26.0",
     "graphology-layout": "^0.6.1",
     "graphology-layout-forceatlas2": "^0.10.1",

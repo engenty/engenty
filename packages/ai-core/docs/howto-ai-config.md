@@ -38,7 +38,7 @@ Stored under key `ai.config`. Parsed fields include:
 
 - `chat_model_id`, `coordinator_model_id` (routing model; legacy JSON key) — copilot chat and supervisor/routing
 - `routing_model_id` — optional alias read by parsers; persisted settings still use `coordinator_model_id`
-- `classifier_model_id` — intended for fast single-shot classification (e.g. inbox document scan); default in UI is `openai/gpt-5-nano`
+- `classifier_model_id` — intended for fast single-shot classification (e.g. inbox document scan); default in UI is `openai/gpt-oss-20b`
 
 Legacy keys such as `identity_prompt` / `soul_prompt` may still exist in stored JSON but are ignored by the API and UI.
 

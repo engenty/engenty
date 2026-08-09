@@ -1,4 +1,8 @@
-import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
+import {
+  foreignSelect,
+  type PluginServerGatewayCaller,
+  type TenantScope,
+} from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   createProjectLinkedTask,
@@ -39,6 +43,15 @@ export interface PublicTask {
   order_index: number;
   status: string;
   title: string;
+}
+
+/**
+ * A `module_contacts.contacts` row. Cross-schema reads come back untyped —
+ * their shape is the owning module's contract, not ours — so the one column
+ * this file relies on is named explicitly at the boundary.
+ */
+interface ForeignContactRow {
+  display_name: string | null;
 }
 
 function toPublicTask(task: {
@@ -98,7 +111,7 @@ export function createPortalDAL(
         .schema(schema)
         .from("projects")
         .select(
-          "id, title, portal_intro_text, client_id, client_name, portal_password"
+          "id, title, portal_intro_text, client_id, client_name, portal_password, tenant_id, scope_id"
         )
         .eq("id", projectId)
         .eq("portal_enabled", true)
@@ -112,18 +125,24 @@ export function createPortalDAL(
       const clientName = project.client_name as string | null;
       let entity: { display_name: string } | null = null;
       if (clientId) {
-        const { data: entityData } = await supabase
-          .schema("module_contacts")
-          .from("entities")
-          .select("display_name")
+        // The portal visitor is anonymous, so the tenant boundary comes from
+        // the project row itself: `client_id` is a plain text column with no
+        // foreign key, so nothing but these filters keeps this read inside the
+        // project's own tenant. The adapter is service-role and bypasses RLS.
+        const scope: TenantScope = {
+          scopeId: String(project.scope_id),
+          tenantId: String(project.tenant_id),
+        };
+        const { data: contactData } = await foreignSelect(supabase, scope, {
+          columns: "display_name",
+          schema: "module_contacts",
+          table: "contacts",
+        })
           .eq("id", clientId)
-          .single();
-        if (
-          entityData &&
-          typeof entityData === "object" &&
-          "display_name" in entityData
-        ) {
-          entity = { display_name: String(entityData.display_name) };
+          .maybeSingle();
+        const contact = contactData as ForeignContactRow | null;
+        if (contact?.display_name) {
+          entity = { display_name: String(contact.display_name) };
         }
       }
       if (!entity && clientName?.trim()) {

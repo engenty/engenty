@@ -1,6 +1,6 @@
 import type { ToolExecutionContext } from "@engenty/ai-core";
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { z } from "zod";
 import { resolveScopedContactId } from "../resolve-contact-id.js";
 
@@ -11,7 +11,7 @@ const loadContactToolInputSchema = z.object({
 export function buildLoadContactTool(
   invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"],
   ctx: ToolExecutionContext
-) {
+): Tool {
   return tool({
     description:
       "Load the current contact record. Defaults to the current scoped contact.",

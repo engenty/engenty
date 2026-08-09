@@ -253,6 +253,8 @@ export function createTasksRepoSupabase(
   async function loadCollaboratorIds(taskId: string): Promise<string[]> {
     const { data, error } = await collaborators()
       .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .eq("task_id", taskId);
     if (error) {
       throw new Error(`Failed to load collaborators: ${error.message}`);
@@ -266,6 +268,8 @@ export function createTasksRepoSupabase(
   ): Promise<void> {
     const { error: delError } = await collaborators()
       .delete()
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .eq("task_id", taskId);
     if (delError) {
       throw new Error(`Failed to clear collaborators: ${delError.message}`);
@@ -274,7 +278,12 @@ export function createTasksRepoSupabase(
       return;
     }
     const { error: insError } = await collaborators().insert(
-      userIds.map((user_id) => ({ task_id: taskId, user_id }))
+      userIds.map((user_id) => ({
+        scope_id: scopeId,
+        task_id: taskId,
+        tenant_id: tenantId,
+        user_id,
+      }))
     );
     if (insError) {
       throw new Error(`Failed to set collaborators: ${insError.message}`);
@@ -449,8 +458,12 @@ export function createTasksRepoSupabase(
           ? principalUserId
           : (params.assigned_to ?? undefined);
       if (filterUserId) {
+        // user ids are global, so without the tenant/scope filters this
+        // returns every task that user collaborates on in ANY tenant.
         const { data: collabRows } = await collaborators()
           .select("task_id")
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
           .eq("user_id", filterUserId);
         const collabIds = new Set(
           (collabRows ?? []).map((r) =>

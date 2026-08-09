@@ -376,6 +376,22 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
       let existing = stableId
         ? rows.find((row) => row.id === stableId)
         : undefined;
+      // A user turn's DURABLE identity is its signal id, not `message.id`.
+      // Mastra delivers user turns as signal messages, and the id of the signal
+      // MESSAGE is not stable across runs: the start run persists the row under
+      // one id, and a snapshot resume — which rebuilds the turn from Mastra's
+      // own workflow state rather than from our rows — re-saves the same turn
+      // under another. Matching on `message.id` alone found nothing and inserted
+      // a SECOND copy of the question the user already asked, so the model read
+      // it twice on every later turn and the chat showed it twice on reload.
+      // The signal id survives both paths and is already persisted in metadata.
+      if (!existing && role === "user") {
+        const signalId = userSignalId(message);
+        existing = signalId
+          ? rows.find((row) => userSignalIdOfRow(row) === signalId)
+          : undefined;
+      }
+
       // The current turn's NEW user message adopts the client-assigned id so
       // the durable row matches what the run stream and every lane render.
       // History user messages loaded from our own rows hit `existing` above
@@ -617,6 +633,29 @@ export function isEngentySessionThreadId(threadId: string): boolean {
   return UUID_PATTERN.test(threadId);
 }
 
+/** The `content.metadata.signal.id` of a Mastra user-signal message. */
+export function userSignalId(message: MastraDBMessage): string | null {
+  const id = (
+    message.content as { metadata?: { signal?: { id?: unknown } } } | undefined
+  )?.metadata?.signal?.id;
+  return typeof id === "string" && id ? id : null;
+}
+
+/**
+ * The same identity as persisted on one of our rows.
+ *
+ * Role-gated: assistant rows have their own re-save path, and folding a user
+ * turn onto one would overwrite the model's answer with the question.
+ */
+export function userSignalIdOfRow(row: ThreadMessageRow): string | null {
+  if (row.role !== "user") {
+    return null;
+  }
+  const id = (row.metadata as { signal?: { id?: unknown } } | null | undefined)
+    ?.signal?.id;
+  return typeof id === "string" && id ? id : null;
+}
+
 /**
  * Mastra's `content.metadata`, minus the key we project from a column.
  * Returns undefined when there is nothing worth storing so rows keep the
@@ -684,15 +723,46 @@ function isEngentyAttachmentPart(part: unknown): boolean {
   return isRecord(meta) && "engenty_attachment" in meta;
 }
 
+/**
+ * A persisted tool part with no arguments replays as a `tool_calls` entry whose
+ * `function.arguments` is undefined, and the provider rejects the WHOLE request:
+ *
+ *   <400> InternalError.Algo.InvalidParameter: If tool_calls are present in the
+ *   message, function.arguments must be defined.
+ *
+ * That poisons the thread permanently — every later turn resends the same
+ * history and fails again, with no way for the user to recover. Default the
+ * arguments to `{}` on the way to the model. Writers should never produce this
+ * (see the bridge's #resolveToolInput), but recall is the last gate before the
+ * provider and the only thing that can heal rows already on disk.
+ */
+function withDefinedToolArguments(part: unknown): unknown {
+  if (!isRecord(part)) {
+    return part;
+  }
+  if (part.type === "dynamic-tool" && part.input === undefined) {
+    return { ...part, input: {} };
+  }
+  const invocation = part.toolInvocation;
+  if (
+    part.type === "tool-invocation" &&
+    isRecord(invocation) &&
+    invocation.args === undefined
+  ) {
+    return { ...part, toolInvocation: { ...invocation, args: {} } };
+  }
+  return part;
+}
+
 function sessionPartsToMastraParts(
   row: ThreadMessageRow
 ): MastraDBMessage["content"]["parts"] {
   if (!Array.isArray(row.parts)) {
     return [{ type: "text", text: partsToText(row.parts) }];
   }
-  return row.parts.filter(
-    (part) => !isEngentyAttachmentPart(part)
-  ) as MastraDBMessage["content"]["parts"];
+  return row.parts
+    .filter((part) => !isEngentyAttachmentPart(part))
+    .map(withDefinedToolArguments) as MastraDBMessage["content"]["parts"];
 }
 
 function mergeMastraMessageContent(

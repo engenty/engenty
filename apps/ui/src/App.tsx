@@ -25,7 +25,10 @@ import {
 import { isFullPageCopilotChatRoute } from "@engenty/engenty-copilot/paths";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
-import type { UiBrandInfo } from "@engenty/ui-plugin-sdk";
+import {
+  type UiBrandInfo,
+  UiContributionsProvider,
+} from "@engenty/ui-plugin-sdk";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
@@ -340,75 +343,80 @@ function App() {
                 useBrand={contributions.brandSource}
               />
             )}
-            <AppLayout
-              appMenuActions={appMenuActions}
-              currentUserId={workspaceContext.userId}
-              defaultTopbarTitle={t("navigation.dashboard")}
-              fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
-              modulesReorderable={isTenantAdmin || isSuperAdmin}
-              onModulesReorder={dockModuleOrderPersistence.setOrder}
-              secondaryNavPersistence={secondaryNavPersistence}
-              sections={orderedSections}
-              shell={{
-                appTitle: t("sidebar.brand"),
-                appSubtitle: workspaceContext.planLabel || t("sidebar.plan"),
-                searchPlaceholder: t("sidebar.search", {
-                  context: "placeholder",
-                }),
-                searchShortcut: "K",
-                userMenu: (compact) => <SidebarUserMenu compact={compact} />,
-                tenantSwitcher: {
-                  currentTenant: workspaceContext.currentTenant,
-                  availableTenants: workspaceContext.tenants,
-                  canSwitchTenant:
-                    workspaceContext.canSwitchTenant && isSuperAdmin,
-                  onSwitchTenant: async (tenantId: string) => {
-                    await switchCurrentTenant(tenantId);
-                    try {
-                      await refreshSupabaseAuthSession();
-                    } catch {
-                      toast.error(
-                        "Tenant switched, but live updates need a fresh sign-in. Please reload or sign in again."
-                      );
-                    }
-                    await queryClient.invalidateQueries({
-                      queryKey: ["workspace-context"],
-                    });
-                    await queryClient.invalidateQueries({
-                      queryKey: ["tasks"],
-                    });
-                    await queryClient.invalidateQueries({
-                      queryKey: ["engenty-copilot", "agent-sessions"],
-                    });
+            {/* Wraps the layout, not just the routes: `shellUiHost` mounts the
+                copilot beside `AuthenticatedRoutes`, and its `navigate` tool
+                needs the route table to check paths against. */}
+            <UiContributionsProvider contributions={contributions}>
+              <AppLayout
+                appMenuActions={appMenuActions}
+                currentUserId={workspaceContext.userId}
+                defaultTopbarTitle={t("navigation.dashboard")}
+                fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
+                modulesReorderable={isTenantAdmin || isSuperAdmin}
+                onModulesReorder={dockModuleOrderPersistence.setOrder}
+                secondaryNavPersistence={secondaryNavPersistence}
+                sections={orderedSections}
+                shell={{
+                  appTitle: t("sidebar.brand"),
+                  appSubtitle: workspaceContext.planLabel || t("sidebar.plan"),
+                  searchPlaceholder: t("sidebar.search", {
+                    context: "placeholder",
+                  }),
+                  searchShortcut: "K",
+                  userMenu: (compact) => <SidebarUserMenu compact={compact} />,
+                  tenantSwitcher: {
+                    currentTenant: workspaceContext.currentTenant,
+                    availableTenants: workspaceContext.tenants,
+                    canSwitchTenant:
+                      workspaceContext.canSwitchTenant && isSuperAdmin,
+                    onSwitchTenant: async (tenantId: string) => {
+                      await switchCurrentTenant(tenantId);
+                      try {
+                        await refreshSupabaseAuthSession();
+                      } catch {
+                        toast.error(
+                          "Tenant switched, but live updates need a fresh sign-in. Please reload or sign in again."
+                        );
+                      }
+                      await queryClient.invalidateQueries({
+                        queryKey: ["workspace-context"],
+                      });
+                      await queryClient.invalidateQueries({
+                        queryKey: ["tasks"],
+                      });
+                      await queryClient.invalidateQueries({
+                        queryKey: ["engenty-copilot", "agent-sessions"],
+                      });
+                    },
+                    brandLabel: brandName,
+                    logoUrl: brandLogoUrl,
+                    planLabel: workspaceContext.planLabel || t("sidebar.plan"),
+                    noTenantLabel: t("sidebar.tenantSwitcher.noTenant"),
+                    switchTenantAriaLabel: t("sidebar.appMenu.aria"),
+                    appVersion,
+                    settingsLabel: t("sidebar.appMenu.settings"),
+                    onOpenSettings: () => navigate("/settings"),
+                    aboutLabel: t("sidebar.appMenu.about"),
+                    onAboutClick: () => setAboutOpen(true),
                   },
-                  brandLabel: brandName,
-                  logoUrl: brandLogoUrl,
-                  planLabel: workspaceContext.planLabel || t("sidebar.plan"),
-                  noTenantLabel: t("sidebar.tenantSwitcher.noTenant"),
-                  switchTenantAriaLabel: t("sidebar.appMenu.aria"),
-                  appVersion,
-                  settingsLabel: t("sidebar.appMenu.settings"),
-                  onOpenSettings: () => navigate("/settings"),
-                  aboutLabel: t("sidebar.appMenu.about"),
-                  onAboutClick: () => setAboutOpen(true),
-                },
-              }}
-              shellUiHost={
-                <>
-                  <CopilotShellUiHost />
-                  <GuideOverlayHostWithBridge />
-                </>
-              }
-            >
-              <NavigationPrefetchRoot
-                navigationPrefetch={contributions.navigationPrefetch}
-              />
-              <AuthenticatedRoutes
-                contributions={contributions}
-                isSuperAdmin={isSuperAdmin}
-                isTenantAdmin={isTenantAdmin}
-              />
-            </AppLayout>
+                }}
+                shellUiHost={
+                  <>
+                    <CopilotShellUiHost />
+                    <GuideOverlayHostWithBridge />
+                  </>
+                }
+              >
+                <NavigationPrefetchRoot
+                  navigationPrefetch={contributions.navigationPrefetch}
+                />
+                <AuthenticatedRoutes
+                  contributions={contributions}
+                  isSuperAdmin={isSuperAdmin}
+                  isTenantAdmin={isTenantAdmin}
+                />
+              </AppLayout>
+            </UiContributionsProvider>
             <AboutDialog
               brandLabel={t("sidebar.brand")}
               logoUrl={brandLogoUrl}

@@ -174,13 +174,25 @@ export const pdfTemplateInputSchema = z.object({
   settings_json: pdfTemplateSettingsSchema,
 });
 
+// `is_default` and `schema_version` are dropped and re-added without their
+// defaults for the same reason `document_template` never had one: zod fills
+// defaults for absent keys even inside a `.partial()`, so a name-only patch
+// arrived carrying `is_default: false`. `updateTemplate` guards on
+// `!== undefined`, so the guard never fired and renaming a template cleared its
+// default flag — and reset schema_version to 1.
 export const pdfTemplateUpdateInputSchema = pdfTemplateInputSchema
   .omit({
     document_key: true,
     engine: true,
+    is_default: true,
     module_key: true,
+    schema_version: true,
   })
-  .partial();
+  .partial()
+  .extend({
+    is_default: z.boolean().optional(),
+    schema_version: z.number().int().min(1).optional(),
+  });
 
 export const pdfTemplateSchema = z.object({
   id: z.string().min(1),

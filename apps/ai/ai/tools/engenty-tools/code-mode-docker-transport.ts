@@ -28,6 +28,7 @@ import {
   FRAME_PREFIX,
 } from "@mastra/core/tools";
 import type { WorkspaceSandbox } from "@mastra/core/workspace";
+import { capCodeModeOutcome } from "./code-mode-result-budget.js";
 
 interface CodeModeRunOptions {
   abortSignal?: AbortSignal;
@@ -55,6 +56,21 @@ type Frame =
   | { type: "log"; message: string }
   | { type: "done"; ok: boolean; result?: unknown; error?: unknown }
   | { type: "rpc"; id: number; tool: string; args: unknown };
+
+/**
+ * Docker reports a vanished container as `(HTTP code 404) no such container`.
+ * Matched on the message because the sandbox wraps the dockerode error and does
+ * not re-expose a status code.
+ */
+export function isMissingContainerError(error: unknown): boolean {
+  const message = (
+    error instanceof Error ? error.message : String(error ?? "")
+  ).toLowerCase();
+  return (
+    message.includes("no such container") ||
+    (message.includes("404") && message.includes("container"))
+  );
+}
 
 function sanitizeExternalName(id: string): string {
   const cleaned = id.replace(/[^A-Za-z0-9_$]/g, "_");
@@ -162,9 +178,8 @@ export class DockerCodeModeTransport {
     });
 
     try {
-      const handle = await processes.spawn(
-        `bun ${path.posix.join(containerDir, runnerName)}`,
-        {
+      const spawnRunner = () =>
+        processes.spawn(`bun ${path.posix.join(containerDir, runnerName)}`, {
           cwd: containerDir,
           ...(abortSignal ? { abortSignal } : {}),
           onStdout: (chunk: string) => {
@@ -183,8 +198,24 @@ export class DockerCodeModeTransport {
               idx = stdoutBuffer.indexOf("\n");
             }
           },
+        });
+
+      // `lifecycle.status` is a CACHED field. When the container is removed out
+      // from under a live sandbox object — reaped, pruned, Docker restarted —
+      // it still reads "running", the pre-flight start() above is skipped, and
+      // the exec fails with `(HTTP code 404) no such container`. Recover by
+      // starting for real and spawning once more; start() is race-safe, so a
+      // concurrent run doing the same thing is fine.
+      let handle: Awaited<ReturnType<typeof spawnRunner>>;
+      try {
+        handle = await spawnRunner();
+      } catch (error) {
+        if (!(isMissingContainerError(error) && lifecycle.start)) {
+          throw error;
         }
-      );
+        await lifecycle.start();
+        handle = await spawnRunner();
+      }
 
       const respond = async (
         id: number,
@@ -278,7 +309,10 @@ export class DockerCodeModeTransport {
       if (!done) {
         await exitPromise;
       }
-      return (
+      // Capped here rather than in the tool wrapper: this is the single point
+      // every successful program passes through, and the value flows straight
+      // into thread history from the caller.
+      return capCodeModeOutcome(
         done ?? {
           error: {
             message: "Program exited without returning a result",

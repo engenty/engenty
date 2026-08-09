@@ -65,18 +65,29 @@ const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
 
 /**
  * Narrow, allow-listed context an approval carries so the approve hook can
- * persist a DURABLE goal-scoped grant (core.agent_goal_grants), not just the
- * chat grant. Deliberately NOT the raw tool input: arbitrary inputs may hold
- * sensitive values and the artifact id lands in chat history. Only the
- * secret's uuid rides along, encoded as an extra `|`-segment of the artifact
- * id (opaque to the client, round-trips through metadata and the resume POST).
+ * persist grants beyond the single primary operation. Deliberately NOT the raw
+ * tool input: arbitrary inputs may hold sensitive values and the artifact id
+ * lands in chat history. Two allow-listed fields ride along, encoded as an
+ * extra `|`-segment of the artifact id (opaque to the client, round-trips
+ * through metadata and the resume POST):
+ *   - `secret_id` — the secret a secrets_reveal approval covers, so approving
+ *     can persist a durable goal-scoped grant (core.agent_goal_grants).
+ *   - `operation_ids` — bulk pre-approval (engenty_tools_preapprove): every
+ *     operation this ONE card covers, so approving persists a grant for each.
  */
 export interface ToolApprovalGrantContext {
-  secret_id: string;
+  operation_ids?: string[];
+  secret_id?: string;
 }
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Operation ids as core registers them — conservative charset, bounded length. */
+const OPERATION_ID_REGEX = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+
+/** Hard cap on ops one pre-approval card may cover (artifact id stays bounded). */
+export const TOOL_APPROVAL_MAX_BULK_OPERATIONS = 20;
 
 export interface ToolApprovalDecisionArtifact {
   artifact_id: string;
@@ -124,9 +135,9 @@ export function parseToolApprovalOperationId(
 }
 
 /**
- * Recover the grant context (secret_id) from a tool-approval artifact id.
- * Strictly validated — a malformed or non-uuid segment yields null, never a
- * partially-trusted value.
+ * Recover the grant context from a tool-approval artifact id. Strictly
+ * validated field by field — a malformed segment, non-uuid secret, or invalid
+ * operation id yields null / is dropped, never a partially-trusted value.
  */
 export function parseToolApprovalGrantContext(
   artifactId: string | undefined | null
@@ -145,12 +156,28 @@ export function parseToolApprovalGrantContext(
   }
   try {
     const parsed = JSON.parse(decodeURIComponent(segment)) as {
+      operation_ids?: unknown;
       secret_id?: unknown;
     };
-    return typeof parsed.secret_id === "string" &&
-      UUID_REGEX.test(parsed.secret_id)
-      ? { secret_id: parsed.secret_id }
-      : null;
+    const secretId =
+      typeof parsed.secret_id === "string" && UUID_REGEX.test(parsed.secret_id)
+        ? parsed.secret_id
+        : undefined;
+    const operationIds = Array.isArray(parsed.operation_ids)
+      ? parsed.operation_ids
+          .filter(
+            (id): id is string =>
+              typeof id === "string" && OPERATION_ID_REGEX.test(id)
+          )
+          .slice(0, TOOL_APPROVAL_MAX_BULK_OPERATIONS)
+      : [];
+    if (!secretId && operationIds.length === 0) {
+      return null;
+    }
+    return {
+      ...(secretId ? { secret_id: secretId } : {}),
+      ...(operationIds.length > 0 ? { operation_ids: operationIds } : {}),
+    };
   } catch {
     return null;
   }
@@ -166,34 +193,62 @@ export function isToolApprovalArtifactId(
  * Build the decision-shaped artifact the gate returns INSTEAD of invoking. The
  * user sees Approve once / Approve always / Deny. "Once" runs this turn only;
  * "always" also persists a thread grant; both re-run so the tool executes.
+ *
+ * A BULK card (`operationIds` set — engenty_tools_preapprove) covers several
+ * operations at once: the grant context carries every id so the approve hook
+ * persists each, and the choice labels speak in run/chat scope ("once" grants
+ * clear on the next fresh user turn, which is exactly "this run").
  */
 export function buildToolApprovalArtifact(input: {
+  body?: string;
   grantContext?: ToolApprovalGrantContext | null;
   operationId: string;
+  operationIds?: string[];
   requiresApproval: boolean;
   riskLevel: ToolRiskLevel;
   title?: string;
 }): ToolApprovalDecisionArtifact {
+  const bulkIds =
+    input.operationIds && input.operationIds.length > 0
+      ? Array.from(new Set([input.operationId, ...input.operationIds]))
+      : null;
   const artifactId = buildToolApprovalArtifactId(
     input.operationId,
-    input.grantContext
+    bulkIds
+      ? { ...input.grantContext, operation_ids: bulkIds }
+      : input.grantContext
   );
   const label = input.title?.trim() || input.operationId;
   const reason = input.requiresApproval
     ? "This action requires your approval before it runs."
     : `This action is ${input.riskLevel}-risk and needs your approval before it runs.`;
+  const body = bulkIds
+    ? `${input.body?.trim() || reason}\n\nOperations: ${bulkIds.join(", ")}`
+    : `${input.body?.trim() || reason}\n\nOperation: ${input.operationId}`;
   return {
     artifact_id: artifactId,
     artifact_type: "decision",
-    body: `${reason}\n\nOperation: ${input.operationId}`,
-    choices: [
-      { id: TOOL_APPROVAL_CHOICE_APPROVE_ONCE, label: "Approve once" },
-      {
-        id: TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
-        label: "Approve always (this chat)",
-      },
-      { id: TOOL_APPROVAL_CHOICE_DENY, label: "Deny" },
-    ],
+    body,
+    choices: bulkIds
+      ? [
+          {
+            id: TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
+            label: "Approve for this run",
+          },
+          {
+            id: TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
+            label: "Approve for this chat",
+          },
+          { id: TOOL_APPROVAL_CHOICE_DENY, label: "Deny" },
+        ]
+      : [
+          { id: TOOL_APPROVAL_CHOICE_APPROVE_ONCE, label: "Approve once" },
+          {
+            id: TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
+            label: "Approve always (this chat)",
+          },
+          { id: TOOL_APPROVAL_CHOICE_DENY, label: "Deny" },
+        ],
     interrupt_id: artifactId,
     title: `Approve ${label}?`,
   };

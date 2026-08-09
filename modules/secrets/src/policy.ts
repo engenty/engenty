@@ -58,7 +58,7 @@ export function createSecretsRevealPolicy(
     const allowed = await canReadSecret(
       supabase,
       { tenantId: input.auth.tenantId, principal, secret },
-      buildResolveDeps(supabase, input.auth.tenantId)
+      buildResolveDeps(supabase, input.auth)
     );
     if (allowed) {
       return null; // within agent grants (± goal grants) → allow

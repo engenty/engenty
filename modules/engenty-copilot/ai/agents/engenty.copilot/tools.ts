@@ -6,6 +6,7 @@ export const ENGENTY_CATALOG_TOOL_IDS = [
   "engenty_tools_discover",
   "engenty_tools_modules",
   "engenty_tool_execute",
+  "engenty_tools_preapprove",
   "engenty_tools_search",
 ];
 

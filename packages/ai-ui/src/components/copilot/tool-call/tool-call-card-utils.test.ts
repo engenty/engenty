@@ -3,6 +3,7 @@ import {
   collectToolImages,
   detectToolOutputError,
   extractProseSnippet,
+  looksLikeNumberedFileDump,
   summarizeToolStepBrief,
   unwrapEngentyToolExecuteOutput,
 } from "./tool-call-card-utils";
@@ -188,5 +189,69 @@ describe("summarizeToolStepBrief", () => {
         output: { ok: true, data: { id: "c-1", name: "Ada Lovelace" } },
       })
     ).toBe("Ada Lovelace");
+  });
+});
+
+describe("file-read dump never reaches the timeline snippet", () => {
+  // The screenshot: a 224 KB JSON file rendered as always-visible body under
+  // "Used 1 tool → Ran tool". It is tool output, not prose.
+  const DUMP =
+    'cli-runs/run-001/time_tracking_plan.json (224634 bytes)\n 1->{\n 2->  "generated_at": "2026-08-08",';
+
+  it("rejects the dump as prose", () => {
+    expect(extractProseSnippet(DUMP)).toBeNull();
+  });
+
+  it("rejects it under a prose key too", () => {
+    expect(extractProseSnippet({ content: DUMP })).toBeNull();
+    expect(extractProseSnippet({ data: { stdout: DUMP } })).toBeNull();
+  });
+
+  it("recognises both arrow spellings", () => {
+    expect(looksLikeNumberedFileDump("README.md (12 bytes)\n 1->hi")).toBe(
+      true
+    );
+    expect(looksLikeNumberedFileDump("README.md (12 bytes)\n 1→hi")).toBe(true);
+  });
+
+  it("recognises a bare header with no numbered lines", () => {
+    expect(looksLikeNumberedFileDump("notes/plan.json (224634 bytes)")).toBe(
+      true
+    );
+  });
+
+  it("still lets genuine prose through", () => {
+    expect(
+      extractProseSnippet("Created 3 team members in the workspace.")
+    ).toBe("Created 3 team members in the workspace.");
+    // Prose that merely mentions bytes is not a dump.
+    expect(
+      extractProseSnippet("The upload finished and the file is 224634 bytes.")
+    ).toContain("224634");
+  });
+
+  it("summarises the read instead of dumping it", () => {
+    expect(summarizeToolStepBrief({ output: DUMP })).toBe(
+      "Read time_tracking_plan.json"
+    );
+  });
+
+  it("summarises from the input path when the tool name says read", () => {
+    expect(
+      summarizeToolStepBrief({
+        input: { path: "/sandbox/src/agents/assemble.ts" },
+        toolName: "mastra_workspace_read_file",
+      })
+    ).toBe("Read assemble.ts");
+  });
+
+  it("does not hijack briefs for non-read tools", () => {
+    expect(
+      summarizeToolStepBrief({
+        input: { path: "/sandbox/a.ts" },
+        output: { ok: true, data: { results: [1, 2] } },
+        toolName: "contacts_list",
+      })
+    ).not.toContain("Read ");
   });
 });

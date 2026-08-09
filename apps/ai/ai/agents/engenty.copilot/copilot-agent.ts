@@ -1,6 +1,5 @@
 import {
   buildProposeUpdatesTool,
-  buildRequestDecisionTool,
   buildRequestFeedbackTool,
   buildSetStateTool,
 } from "@engenty/ai-core";
@@ -19,6 +18,7 @@ import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
 import { createMemoryTools } from "../../tools/memory-tools/index.js";
 import { registryAgentsListTool } from "../../tools/registry-agents-list-tool.js";
+import { createNativeRequestDecisionTool } from "../../tools/request-decision/native-request-decision.js";
 import { createShowObjectsTool } from "../../tools/show-objects-tool.js";
 import { createShowUiTool } from "../../tools/show-ui-tool.js";
 import { createShowWidgetTool } from "../../tools/show-widget-tool.js";
@@ -33,7 +33,11 @@ const convertImageTool = createConvertImageTool();
 const webSearchTool = createWebSearchTool();
 
 export const proposeUpdatesTool = buildProposeUpdatesTool(createTool);
-export const requestDecisionTool = buildRequestDecisionTool(createTool);
+// Native Mastra suspend (parks the run, resumes with the user's choice as this
+// tool's result) instead of the artifact+abort path — see
+// native-request-decision.ts. It degrades to the artifact for runs with no human
+// channel, so headless jobs behave exactly as before.
+export const requestDecisionTool = createNativeRequestDecisionTool();
 export const requestFeedbackTool = buildRequestFeedbackTool(createTool);
 export const setStateTool = buildSetStateTool(createTool);
 

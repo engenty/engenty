@@ -1,10 +1,10 @@
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { contactCreateInputSchema } from "../../../src/schema/zod.js";
 
 export function buildCreateContactTool(
   invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"]
-) {
+): Tool {
   return tool({
     description:
       "Create a new contact after checking duplicates first. Requires display_name and type.",

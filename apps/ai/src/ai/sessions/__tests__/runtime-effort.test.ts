@@ -7,24 +7,34 @@ const scope: AiSessionScope = {
   userId: "00000000-0000-4000-8000-000000000002",
 };
 
+/**
+ * Opaque binding fixtures — distinct ids per graded role so assertions prove
+ * effort→role→binding resolution. These are NOT package seed defaults; using
+ * DEFAULT_AI_* here would couple the test to product defaults and hide bugs
+ * when seeds change but binding lookup is wrong.
+ */
+const LOW = "vendor/fixture-low";
+const MEDIUM = "vendor/fixture-medium";
+const HIGH = "vendor/fixture-high";
+
 const BINDINGS = [
   {
     gateway: "vercel",
-    model_id: "openai/gpt-5-nano",
+    model_id: LOW,
     role: "model.low",
     scope: "platform",
     updated_at: "",
   },
   {
     gateway: "vercel",
-    model_id: "openai/gpt-5-mini",
+    model_id: MEDIUM,
     role: "model.medium",
     scope: "platform",
     updated_at: "",
   },
   {
     gateway: "vercel",
-    model_id: "anthropic/claude-opus-5",
+    model_id: HIGH,
     role: "model.high",
     scope: "platform",
     updated_at: "",
@@ -57,7 +67,7 @@ describe("effort resolution", () => {
       null,
       "high"
     );
-    expect(config.chatModelId).toBe("anthropic/claude-opus-5");
+    expect(config.chatModelId).toBe(HIGH);
   });
 
   it("degrades to the plan ceiling instead of refusing", async () => {
@@ -68,7 +78,7 @@ describe("effort resolution", () => {
       null,
       "high"
     );
-    expect(config.chatModelId).toBe("openai/gpt-5-nano");
+    expect(config.chatModelId).toBe(LOW);
   });
 
   it("lets an explicit model pin beat the effort pick", async () => {
@@ -89,6 +99,6 @@ describe("effort resolution", () => {
       null,
       null
     );
-    expect(config.chatModelId).toBe("openai/gpt-5-mini");
+    expect(config.chatModelId).toBe(MEDIUM);
   });
 });

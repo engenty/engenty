@@ -56,6 +56,7 @@ describe("registerProjectsApi", () => {
       "projects_update_phase",
       "projects_delete_phase",
       "projects_create_task",
+      "projects_create_tasks",
       "projects_update_task",
       "projects_delete_task",
       "projects_list_tasks",

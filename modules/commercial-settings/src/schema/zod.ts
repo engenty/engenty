@@ -36,24 +36,15 @@ export const taxDeductionRuleSchema = z.object({
   description: z.string().optional(),
 });
 
-export const commercialSettingsSchema = z
-  .object({
-    default_locale: z.string().nullable().optional(),
-    number_locale: z.string().nullable().optional(),
-    currency: z.string().nullable().optional(),
-    currency_symbol: z.string().nullable().optional(),
-    tax_rates: z.array(taxRateSchema).nullable().optional(),
-    no_tax_reason: z.string().nullable().optional(),
-    units: z.array(unitSchema).nullable().optional(),
-    disciplines: z.array(disciplineSchema).nullable().optional(),
-    expense_categories: z.array(expenseCategorySchema).nullable().optional(),
-    tax_deduction_rules: z.array(taxDeductionRuleSchema).nullable().optional(),
-  })
-  .superRefine((data, ctx) => {
-    const rates = data.tax_rates;
-    if (!rates?.length) {
-      return;
-    }
+/**
+ * Lives on the array, not on the settings object, so the collection-scoped
+ * `commercial_settings_tax_rates_set` operation validates identically to a full
+ * settings write. Nested in the object below, zod prefixes these paths with
+ * `tax_rates`, so the messages the UI reads are unchanged.
+ */
+export const taxRatesSchema = z
+  .array(taxRateSchema)
+  .superRefine((rates, ctx) => {
     const seen = new Set<string>();
     let defaultCount = 0;
     for (let i = 0; i < rates.length; i++) {
@@ -63,7 +54,7 @@ export const commercialSettingsSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Duplicate tax rate abbreviation",
-          path: ["tax_rates", i, "name"],
+          path: [i, "name"],
         });
       }
       seen.add(key);
@@ -75,9 +66,36 @@ export const commercialSettingsSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Only one standard tax rate allowed",
-        path: ["tax_rates"],
+        path: [],
       });
     }
   });
+
+export const disciplinesSchema = z.array(disciplineSchema);
+export const unitsSchema = z.array(unitSchema);
+export const expenseCategoriesSchema = z.array(expenseCategorySchema);
+export const taxDeductionRulesSchema = z.array(taxDeductionRuleSchema);
+
+export const commercialSettingsSchema = z.object({
+  default_locale: z.string().nullable().optional(),
+  number_locale: z.string().nullable().optional(),
+  currency: z.string().nullable().optional(),
+  currency_symbol: z.string().nullable().optional(),
+  tax_rates: taxRatesSchema.nullable().optional(),
+  no_tax_reason: z.string().nullable().optional(),
+  units: unitsSchema.nullable().optional(),
+  disciplines: disciplinesSchema.nullable().optional(),
+  expense_categories: expenseCategoriesSchema.nullable().optional(),
+  tax_deduction_rules: taxDeductionRulesSchema.nullable().optional(),
+});
+
+/** Scalars only — the collections each have their own operation. */
+export const commercialDefaultsInputSchema = z.object({
+  currency: z.string().nullable().optional(),
+  currency_symbol: z.string().nullable().optional(),
+  default_locale: z.string().nullable().optional(),
+  no_tax_reason: z.string().nullable().optional(),
+  number_locale: z.string().nullable().optional(),
+});
 
 export const commercialSettingsInputSchema = commercialSettingsSchema;

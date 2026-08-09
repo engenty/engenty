@@ -23,6 +23,32 @@ import {
   useSetCommercialSettingsMutation,
 } from "../queries.js";
 
+/** Server payload -> the shape the form holds, with built-ins filtered out. */
+function toFormValues(data: CommercialSettings) {
+  return {
+    currency: data.currency ?? "",
+    currencySymbol: data.currency_symbol ?? "",
+    defaultLocale: data.default_locale ?? "",
+    disciplines: (data.disciplines as Discipline[]) ?? [],
+    expenseCategories: (data.expense_categories as ExpenseCategory[]) ?? [],
+    noTaxReason: data.no_tax_reason ?? "",
+    numberLocale: data.number_locale ?? "",
+    taxRates: parseTaxRatesFromApi(data.tax_rates).filter(
+      (r) => r.value !== 0 || r.name !== BUILT_IN_NO_TAX.name
+    ),
+    units: ((data.units as Unit[]) ?? []).filter(
+      (u) =>
+        !BUILT_IN_UNIT_KEYS.includes(
+          u.name as (typeof BUILT_IN_UNIT_KEYS)[number]
+        )
+    ),
+  };
+}
+
+type CommercialFormValues = ReturnType<typeof toFormValues>;
+
+const snapshot = (values: CommercialFormValues) => JSON.stringify(values);
+
 export function CommercialSettingsPage() {
   const { t } = useTranslation("commercial-settings");
   useCommercialSettingsAgentUiSlice();
@@ -41,56 +67,58 @@ export function CommercialSettingsPage() {
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(
     []
   );
-  const initialSyncedRef = useRef(false);
+  // Snapshot of the server state the form currently mirrors. Seeding once and
+  // never again meant a write from anywhere else — the copilot's
+  // commercial_settings_*_set operations, another tab — refreshed the query but
+  // left these inputs showing the values they were mounted with.
+  const adoptedRef = useRef<string | null>(null);
+
+  const originalValues = query.data ? toFormValues(query.data) : null;
+
+  const currentValues: CommercialFormValues = {
+    currency,
+    currencySymbol,
+    defaultLocale,
+    disciplines,
+    expenseCategories,
+    noTaxReason,
+    numberLocale,
+    taxRates,
+    units,
+  };
+  // Read inside the effect without making it a dependency; re-running this on
+  // every keystroke would fight the user for the input.
+  const currentSnapshotRef = useRef(snapshot(currentValues));
+  currentSnapshotRef.current = snapshot(currentValues);
 
   useEffect(() => {
-    if (!query.data || initialSyncedRef.current) {
+    if (!query.data) {
       return;
     }
-    initialSyncedRef.current = true;
-    const data = query.data;
-    const filteredTaxRates = parseTaxRatesFromApi(data.tax_rates).filter(
-      (r) => r.value !== 0 || r.name !== BUILT_IN_NO_TAX.name
-    );
-    setCurrency(data.currency ?? "");
-    setCurrencySymbol(data.currency_symbol ?? "");
-    setNumberLocale(data.number_locale ?? "");
-    setDefaultLocale(data.default_locale ?? "");
-    setTaxRates(filteredTaxRates);
-    setNoTaxReason(data.no_tax_reason ?? "");
-    setUnits(
-      ((data.units as Unit[]) ?? []).filter(
-        (u) =>
-          !BUILT_IN_UNIT_KEYS.includes(
-            u.name as (typeof BUILT_IN_UNIT_KEYS)[number]
-          )
-      )
-    );
-    setDisciplines((data.disciplines as Discipline[]) ?? []);
-    setExpenseCategories((data.expense_categories as ExpenseCategory[]) ?? []);
+    const incoming = snapshot(toFormValues(query.data));
+    if (incoming === adoptedRef.current) {
+      return;
+    }
+    // Unsaved local edits win: adopting here would delete what the user is
+    // still typing. They keep editing and their save overwrites, as before.
+    if (
+      adoptedRef.current !== null &&
+      currentSnapshotRef.current !== adoptedRef.current
+    ) {
+      return;
+    }
+    adoptedRef.current = incoming;
+    const next = toFormValues(query.data);
+    setCurrency(next.currency);
+    setCurrencySymbol(next.currencySymbol);
+    setNumberLocale(next.numberLocale);
+    setDefaultLocale(next.defaultLocale);
+    setTaxRates(next.taxRates);
+    setNoTaxReason(next.noTaxReason);
+    setUnits(next.units);
+    setDisciplines(next.disciplines);
+    setExpenseCategories(next.expenseCategories);
   }, [query.data]);
-
-  const originalValues = query.data
-    ? {
-        currency: query.data.currency ?? "",
-        currencySymbol: query.data.currency_symbol ?? "",
-        numberLocale: query.data.number_locale ?? "",
-        defaultLocale: query.data.default_locale ?? "",
-        taxRates: parseTaxRatesFromApi(query.data.tax_rates).filter(
-          (r) => r.value !== 0 || r.name !== BUILT_IN_NO_TAX.name
-        ),
-        noTaxReason: query.data.no_tax_reason ?? "",
-        units: ((query.data.units as Unit[]) ?? []).filter(
-          (u) =>
-            !BUILT_IN_UNIT_KEYS.includes(
-              u.name as (typeof BUILT_IN_UNIT_KEYS)[number]
-            )
-        ),
-        disciplines: (query.data.disciplines as Discipline[]) ?? [],
-        expenseCategories:
-          (query.data.expense_categories as ExpenseCategory[]) ?? [],
-      }
-    : null;
 
   const hasChanges = useMemo(() => {
     if (!originalValues || loading) {

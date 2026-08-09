@@ -21,7 +21,9 @@ import {
   EventType,
   type FrontendToolDefinition,
 } from "@engenty/ag-ui-bridge";
+import type { AiUsageStore } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
+import type { Workspace } from "@mastra/core/workspace";
 import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
 import {
   createNativeFrontendTools,
@@ -39,12 +41,29 @@ import type { AgentRunStore, ThreadStore } from "../../dal/threads/index.js";
 import type { AgentSessionStatus } from "../../dal/threads/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { DurableAgUiConverter } from "../durable/durable-agui-bridge.js";
-import { type AiRegistry, assembleDynamicAgent } from "../registry/index.js";
+import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
+import {
+  type AiRegistry,
+  type AssembleDynamicAgentOptions,
+  assembleDynamicAgent,
+  type RuntimeModelConfig,
+} from "../registry/index.js";
+import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
+import { persistTurnTranscript } from "./persist-turn-transcript.js";
+import { recordSessionUsage, usageFromSession } from "./run-usage.js";
+
+/** The instruction-override slice of the assembler's options. */
+type AssembleInstructionExtras = NonNullable<
+  AssembleDynamicAgentOptions["instructionExtras"]
+>;
+
+import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
 } from "../sessions/connection-approval-grants.js";
 import { AG_UI_OPEN_INTERRUPT_METADATA_KEY } from "../sessions/interrupts.js";
+import { readMastraStreamFailure } from "../sessions/mastra-stream-failure.js";
 import { resolveToolCallResultInHistory } from "../sessions/resolve-tool-call-history.js";
 import {
   markRunDone,
@@ -53,16 +72,19 @@ import {
 } from "../sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../sessions/run-tracking.js";
 import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
+import { isDecisionArtifactPayload } from "../sessions/transcript.js";
 import { type AiSessionScope, scopeAccessToken } from "../sessions/types.js";
 import {
+  emitArtifactInterrupt,
   emitFrontendToolInterrupt,
   emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
 import { SessionAgUiConverter } from "./session-agui-bridge.js";
 
 import {
+  claimResumeInFlight,
+  disposeParkedSessionRun,
   finishParkedResume,
-  isParkedResumeInFlight,
   parkSessionRun,
   takeParkedSessionRun,
 } from "./session-park.js";
@@ -90,13 +112,50 @@ export interface ResumeConversationRunInput {
   // is gone). The parked path needs neither — the live Session already holds an
   // assembled agent — so a caller that omits them simply loses crash recovery.
   mastra?: Mastra;
+  /**
+   * SNAPSHOT lane only: the tenant/override-aware model pick for this thread.
+   * A re-assembled agent otherwise falls back to the agent config's default,
+   * so the second half of one turn could answer on a different model than the
+   * first. The parked lane's Session already holds the resolved model.
+   */
+  modelConfig?: RuntimeModelConfig | null;
+  /** Attribution model id for this turn's usage row. */
+  modelId?: string | null;
   // The new run id the client attached to for this resume POST.
   newRunId: string;
   registry?: AiRegistry;
   // The just-resolved interrupt's toolCallId (the suspended tool).
   resolvedToolCallId: string;
+  /**
+   * SNAPSHOT lane only: resolve the run's workspace + sandbox for the
+   * re-assembled agent. Same class of gap as `agentUi.frontend_tools` above —
+   * the parked lane's Session still carries the original Workspace (and the
+   * sandbox instance attached to it), but a brand-new agent has none, so
+   * `ctx.workspace.sandbox` is undefined and Code Mode / file / skill tools
+   * silently drop out of a post-restart continuation.
+   *
+   * Deliberately LAZY: the parked lane must never call it. Resolving eagerly
+   * would build a second sandbox provider and run its `syncIn` over the staging
+   * dir the live one is already using.
+   */
+  resolveWorkspace?: () => Promise<
+    | {
+        sandboxProvider?: EngentySandboxProvider;
+        workspace?: Workspace;
+      }
+    | undefined
+  >;
   // The browser's frontend-tool result, or the user's approval decision.
   resumeData: FrontendToolResumeData | ToolApprovalResumeData;
+  /**
+   * SNAPSHOT lane only: the thread's persisted route context, which is where
+   * the user's UI language lives. Without it a post-restart continuation
+   * answers in English to a German user — the most visible symptom of the
+   * re-assembled agent losing the start lane's runtime instructions.
+   */
+  routeContext?: unknown;
+  /** SNAPSHOT lane only: this request's chat context entries (see agentUi). */
+  runContext?: unknown;
   // Durable run tracking for the continuation run (see StartConversationRunInput).
   runStore?: AgentRunStore | null;
   scope: AiSessionScope;
@@ -105,6 +164,23 @@ export interface ResumeConversationRunInput {
   // The suspended session run id (from the open interrupt's `run_id`).
   suspendedRunId: string;
   threadId: string;
+  /**
+   * Metering sink. A gated turn does its cheap half before the approval and its
+   * expensive half after — only the first half was ever billed, because neither
+   * resume lane recorded usage at all.
+   */
+  usageStore?: AiUsageStore | null;
+}
+
+/**
+ * What the post-run pass needs from whichever converter drove this resume.
+ * `SessionAgUiConverter` (parked) and `DurableAgUiConverter` (snapshot) both
+ * satisfy it — the point of this type is that the teardown does not care which.
+ */
+interface ResumeConverter {
+  getSubAgentProgressLines(): ReadonlyMap<string, string[]>;
+  getTranscriptParts(): readonly unknown[];
+  readonly lastUsage: unknown;
 }
 
 /**
@@ -133,6 +209,11 @@ async function buildResumeToolsRunContext(input: ResumeConversationRunInput) {
       })
     ),
     approvalPolicy: "suspend" as const,
+    // The continuation parks and resumes exactly like the start run, so a
+    // follow-up `requestDecision` may suspend too. Without this it would fall
+    // back to returning an artifact mid-conversation — two mechanisms in one
+    // thread, and the artifact would never be surfaced as a card.
+    canSuspendForInteraction: true,
     goalId: input.threadId,
     // Thread-scoped tools (e.g. artifacts) read the active thread from here.
     orchestratorThreadId: input.threadId,
@@ -166,80 +247,376 @@ async function clearOpenInterrupt(
 }
 
 /**
+ * Read Mastra's `tool-call-suspended` chunk. Its payload is
+ * `{ toolCallId, toolName, suspendPayload, args, resumeSchema }` — the snapshot
+ * lane's equivalent of the parked lane's `tool_suspended` session event.
+ */
+function readSuspendedToolChunk(chunk: unknown): SuspendedAgain | undefined {
+  const typed = chunk as
+    | { payload?: Record<string, unknown>; type?: string }
+    | undefined;
+  if (typed?.type !== "tool-call-suspended") {
+    return;
+  }
+  const payload = typed.payload ?? {};
+  const toolCallId =
+    typeof payload.toolCallId === "string" ? payload.toolCallId : "";
+  if (!toolCallId) {
+    return;
+  }
+  return {
+    args: payload.args,
+    suspendPayload: payload.suspendPayload,
+    toolCallId,
+    toolName: typeof payload.toolName === "string" ? payload.toolName : "",
+  };
+}
+
+/**
+ * Read Mastra's in-band `error` chunk. `DurableAgUiConverter` has no case for
+ * it, so without this the continuation's failure reached neither the client nor
+ * the run row and the run reported success.
+ */
+function readErrorChunk(chunk: unknown): Error | undefined {
+  const typed = chunk as
+    | { payload?: Record<string, unknown>; type?: string }
+    | undefined;
+  if (typed?.type !== "error") {
+    return;
+  }
+  const raw = typed.payload?.error ?? typed.payload;
+  if (raw instanceof Error) {
+    return raw;
+  }
+  const message =
+    typeof raw === "string"
+      ? raw
+      : typeof (raw as { message?: unknown })?.message === "string"
+        ? (raw as { message: string }).message
+        : "Agent run error";
+  return new Error(message);
+}
+
+/** Name a re-suspended tool for an error message. */
+function suspendedAgainLabel(suspended: SuspendedAgain): string {
+  return suspended.toolName
+    ? `${suspended.toolName} (${suspended.toolCallId})`
+    : `tool call ${suspended.toolCallId}`;
+}
+
+/**
+ * Rebuild the instruction layers the START lane gives its agent: the persisted
+ * soul / skills / agents overrides, plus the per-run runtime instructions the
+ * controller carries there. A re-assembled agent has neither, so a post-restart
+ * continuation dropped the tenant's persona AND the user's language mid-turn.
+ *
+ * `appendBodies` is the seam — `assembleDynamicAgent` joins it after the base
+ * prompt, which is where the controller's per-run instructions land too.
+ *
+ * Best-effort by design: instructions are a quality degradation, while throwing
+ * here would strand a recoverable interrupt.
+ */
+async function resolveResumeInstructionExtras(
+  input: ResumeConversationRunInput
+): Promise<AssembleInstructionExtras | undefined> {
+  if (!input.agentId) {
+    return;
+  }
+  try {
+    const [
+      { resolveAgentInstructionExtras },
+      { buildSessionRuntimeInstructions },
+    ] = await Promise.all([
+      import("../instructions/resolve-agent-instruction-extras.js"),
+      import("../sessions/runtime-instructions.js"),
+    ]);
+    const extras = await resolveAgentInstructionExtras({
+      agentId: input.agentId,
+      tenantId: input.scope.tenantId,
+      userId: input.scope.userId,
+    });
+    const runtime = (
+      await buildSessionRuntimeInstructions({
+        agentId: input.agentId,
+        // `AgentUiProducerContext.frontend_tools` is required; this input's is
+        // optional (a client may declare none), so normalize rather than cast.
+        agentUi: input.agentUi
+          ? {
+              ...input.agentUi,
+              frontend_tools: input.agentUi.frontend_tools ?? [],
+            }
+          : null,
+        routeContext: (input.routeContext ?? null) as never,
+        runContext: input.runContext as never,
+        scope: input.scope,
+        threadId: input.threadId,
+      })
+    ).trim();
+    if (!runtime) {
+      return extras;
+    }
+    return {
+      ...extras,
+      appendBodies: [...(extras?.appendBodies ?? []), runtime],
+    };
+  } catch (error) {
+    console.error(
+      `[conversation-resume ${input.newRunId}] instruction extras failed:`,
+      error
+    );
+    return;
+  }
+}
+
+/**
+ * What a snapshot resume did, so the caller can finish or re-interrupt. The
+ * converter is NOT here on purpose — it reaches the caller through
+ * `onConverterReady`, which also fires on the paths that throw.
+ */
+interface SnapshotResumeResult {
+  /** The browser tools declared for this resume — needed to name a re-suspend. */
+  mergedDefinitions: readonly FrontendToolDefinition[];
+  /** True once the stored snapshot was found and the continuation ran. */
+  resumed: boolean;
+  /** A SECOND tool suspended inside the continuation (see the caller). */
+  suspendedAgain?: SuspendedAgain;
+}
+
+/**
  * Crash-recovery lane: continue a suspended run straight from Mastra's workflow
  * snapshot storage when the in-process park is gone. Complements the park
  * (which stays the fast path for same-process resumes) — it does not replace it.
  *
- * Returns false when the caller gave us no registry/mastra to assemble with, or
- * storage has no suspended snapshot for this run; the caller then reports the
+ * `resumed: false` when the caller gave us no registry/mastra to assemble with,
+ * or storage has no suspended snapshot for this run; the caller then reports the
  * unrecoverable error as before.
  */
 async function resumeFromSnapshot(
   input: ResumeConversationRunInput,
-  emit: (event: AGUIEvent) => void
-): Promise<boolean> {
+  emit: (event: AGUIEvent) => void,
+  // Handed over the moment it exists, NOT via the return value: a continuation
+  // that dies mid-stream throws out of here, and a converter the caller only
+  // learns about on a clean return leaves the post-run pass with nothing —
+  // dropping the half-answer, the sub-agent log and the token count for exactly
+  // the failure the pass exists to salvage.
+  onConverterReady: (converter: ResumeConverter) => void
+): Promise<SnapshotResumeResult> {
+  // Merged up front (not just for the stream) so the caller can resolve a
+  // re-suspended frontend tool to its declaration even on an early bail.
+  const mergedDefinitions = mergeFrontendToolDefinitions(
+    input.agentUi?.frontend_tools,
+    { includeServerTools: !input.agentId?.startsWith("chatbot.") }
+  );
   if (
     !(input.registry && input.mastra && input.suspendedRunId && input.agentId)
   ) {
-    return false;
+    return { mergedDefinitions, resumed: false };
   }
-  const agent = await assembleDynamicAgent(input.registry, input.agentId, {
-    mastra: input.mastra,
-    resolveContext: {
-      tenantId: input.scope.tenantId,
+  // A FRESH workspace, never a recycled one. The sandbox container is keyed by
+  // lifecycle scope (`engenty-session-<threadId>`), so a new instance reconnects
+  // to the same container by label — which is what makes rebuilding it cheap and
+  // safe. Reusing a torn-down instance would not work at all: Mastra latches
+  // `status = "destroyed"` and `ensureRunning()` then throws
+  // SandboxNotReadyError without ever reaching Docker.
+  //
+  // Never fail the resume over this: continuing without the sandbox is a
+  // degraded turn, while throwing here would strand a recoverable interrupt.
+  let resolved:
+    | { sandboxProvider?: EngentySandboxProvider; workspace?: Workspace }
+    | undefined;
+  try {
+    resolved = await input.resolveWorkspace?.();
+  } catch (error) {
+    console.error(
+      `[conversation-resume ${input.newRunId}] snapshot workspace resolution failed:`,
+      error
+    );
+  }
+  // Nothing is parked on this lane, so this run owns the sandbox outright:
+  // whatever it resolved must be torn down before returning, on EVERY exit
+  // (including the no-snapshot bail below) or the container leaks and the
+  // provider's syncOut never persists staged /shared + /home.
+  // Everything the START lane feeds the agent beyond its base config. A
+  // re-assembled agent has none of it, and the parked lane never notices
+  // because its live Session still holds the originals. Best-effort: a
+  // degraded continuation beats a stranded interrupt.
+  const instructionExtras = await resolveResumeInstructionExtras(input);
+  try {
+    const agent = await assembleDynamicAgent(input.registry, input.agentId, {
+      ...(instructionExtras ? { instructionExtras } : {}),
+      mastra: input.mastra,
+      ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
+      // The parked lane's agent gets memory from its AgentController
+      // (`agent.__setMemory`); a re-assembled one has none, and an agent with no
+      // MastraMemory instance neither recalls the thread nor PERSISTS what the
+      // continuation produces — Mastra logs "No memory is configured but
+      // resourceId and threadId were passed in args" and writes zero
+      // `ai.mastra_messages` rows, so a post-restart answer vanished on reload.
+      memory: createEngentySessionMemoryRuntime({
+        agentId: input.agentId,
+        scope: input.scope,
+        store: input.store,
+        threadId: input.threadId,
+      }).memory,
+      resolveContext: {
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+        userId: input.scope.userId,
+      },
+      ...(resolved?.workspace ? { workspace: resolved.workspace } : {}),
+    });
+    // Storage is the authority here: without a suspended snapshot there is
+    // nothing to continue, and the resume would fail less legibly.
+    //
+    // Same question the thread-load reconciler asks via `hasResumableSnapshot`;
+    // it is inlined here rather than shared because this path already holds the
+    // assembled agent and sharing would assemble a second one.
+    const { runs } = await agent.listSuspendedRuns({
       threadId: input.threadId,
-      userId: input.scope.userId,
+    });
+    if (!runs.some((run) => run.runId === input.suspendedRunId)) {
+      return { mergedDefinitions, resumed: false };
+    }
+
+    const toolsRunContext = await buildResumeToolsRunContext(input);
+    const converter = new DurableAgUiConverter();
+    onConverterReady(converter);
+    // Re-declare the browser's tools for the continuation. `startConversationRun`
+    // does the same merge; here it must be redone because the assembled agent is
+    // brand new. Without it the resumed turn answers "that tool isn't available"
+    // — the run continues, but the conversation visibly degrades.
+    const frontendTools = createNativeFrontendTools(mergedDefinitions);
+    // A SECOND tool suspending inside the continuation is the normal shape here:
+    // this lane runs under `approvalPolicy: "suspend"`, so any gated tool the
+    // model reaches for parks the run again. Mastra signals it with a
+    // `tool-call-suspended` chunk and then ENDS the stream — no `tool-call`
+    // chunk, no text. Left unhandled the resume looked like a run that finished
+    // with nothing to say, and the caller cleared the open interrupt on a run
+    // that was in fact waiting for input.
+    let suspendedAgain: SuspendedAgain | undefined;
+    let streamError: Error | undefined;
+    await engentyToolsRunAls.run(toolsRunContext, async () => {
+      // `untilIdle` keeps the outer stream open across continuations a background
+      // task may trigger. (`resumeStreamUntilIdle` is the deprecated spelling.)
+      const stream = await agent.resumeStream(input.resumeData, {
+        ...(Object.keys(frontendTools).length > 0
+          ? { clientTools: frontendTools }
+          : {}),
+        memory: {
+          resource: input.scope.userId,
+          thread: input.threadId,
+        },
+        runId: input.suspendedRunId,
+        untilIdle: true,
+        ...(input.resolvedToolCallId
+          ? { toolCallId: input.resolvedToolCallId }
+          : {}),
+      });
+      for await (const chunk of stream.fullStream) {
+        const suspend = readSuspendedToolChunk(chunk);
+        if (suspend) {
+          suspendedAgain = suspend;
+        }
+        const failure = readErrorChunk(chunk);
+        if (failure && !streamError) {
+          streamError = failure;
+        }
+        for (const event of converter.convert(chunk as never)) {
+          emit(event);
+        }
+      }
+      // Mastra can also END a stream with `finishReason: "error"` and never
+      // throw (gateway context_length_exceeded is the common one), which reads
+      // as a clean finish from the chunk loop alone.
+      const finishFailure = await readMastraStreamFailure(stream);
+      if (finishFailure && !streamError) {
+        streamError = finishFailure;
+      }
+    });
+    // An in-band failure must not be reported as a completed run: the caller
+    // would write a success into history and CLEAR the open interrupt, deleting
+    // the only pointer back to a turn that never produced an answer. The parked
+    // lane gets this from the session's `error` event; here it is the error
+    // chunk plus the finishReason.
+    if (streamError) {
+      throw streamError;
+    }
+    for (const event of converter.finish()) {
+      emit(event);
+    }
+    // A tool the model invented DURING the continuation dangles exactly as on
+    // the parked lane: no result chunk, so the card spins forever and the
+    // persisted part stays at `state:"call"`. A tool that SUSPENDED is not
+    // dangling — the converter tracks those separately, because the user is
+    // going to answer it.
+    for (const event of converter.closeUnresolvedToolCalls()) {
+      emit(event);
+    }
+    return {
+      mergedDefinitions,
+      resumed: true,
+      ...(suspendedAgain ? { suspendedAgain } : {}),
+    };
+  } finally {
+    await resolved?.sandboxProvider?.destroy().catch((error: unknown) => {
+      console.error(
+        `[conversation-resume ${input.newRunId}] snapshot sandbox teardown failed:`,
+        error
+      );
+    });
+  }
+}
+
+/**
+ * Turn a re-suspend on the SNAPSHOT lane into the next AG-UI interrupt. Same
+ * three-way split the parked lane does after `respondToToolSuspension`, against
+ * the same helpers — only the resume target differs: the parked lane points the
+ * next answer at the live session's new run id, while here the run kept its id
+ * (Mastra resumed it in place), so the next answer re-enters this lane.
+ *
+ * Returns false when the payload names no interrupt we can render; the caller
+ * then finishes the run rather than leaving the thread waiting on nothing.
+ */
+async function emitSnapshotSuspendInterrupt(args: {
+  emit: (event: AGUIEvent) => void;
+  input: ResumeConversationRunInput;
+  mergedDefinitions: readonly FrontendToolDefinition[];
+  suspendedAgain: SuspendedAgain;
+}): Promise<boolean> {
+  const { emit, input, suspendedAgain } = args;
+  const common = {
+    busRunId: input.newRunId,
+    emit,
+    resumeRunId: input.suspendedRunId,
+    scope: input.scope,
+    sessionMetadata: input.sessionMetadata ?? {},
+    store: input.store,
+    threadId: input.threadId,
+  };
+  if (isToolApprovalSuspendPayload(suspendedAgain.suspendPayload)) {
+    await emitToolApprovalInterrupt({
+      ...common,
+      payload: suspendedAgain.suspendPayload,
+      toolCallId: suspendedAgain.toolCallId,
+    });
+    return true;
+  }
+  if (isDecisionArtifactPayload(suspendedAgain.suspendPayload)) {
+    return await emitArtifactInterrupt({
+      ...common,
+      result: suspendedAgain.suspendPayload,
+      toolCallId: suspendedAgain.toolCallId,
+    });
+  }
+  return await emitFrontendToolInterrupt({
+    ...common,
+    mergedDefinitions: args.mergedDefinitions,
+    payload: {
+      args: suspendedAgain.args,
+      toolCallId: suspendedAgain.toolCallId,
+      toolName: suspendedAgain.toolName,
     },
   });
-  // Storage is the authority here: without a suspended snapshot there is
-  // nothing to continue, and the resume would fail less legibly.
-  //
-  // Same question the thread-load reconciler asks via `hasResumableSnapshot`;
-  // it is inlined here rather than shared because this path already holds the
-  // assembled agent and sharing would assemble a second one.
-  const { runs } = await agent.listSuspendedRuns({ threadId: input.threadId });
-  if (!runs.some((run) => run.runId === input.suspendedRunId)) {
-    return false;
-  }
-
-  const toolsRunContext = await buildResumeToolsRunContext(input);
-  const converter = new DurableAgUiConverter();
-  // Re-declare the browser's tools for the continuation. `startConversationRun`
-  // does the same merge; here it must be redone because the assembled agent is
-  // brand new. Without it the resumed turn answers "that tool isn't available"
-  // — the run continues, but the conversation visibly degrades.
-  const frontendTools = createNativeFrontendTools(
-    mergeFrontendToolDefinitions(input.agentUi?.frontend_tools, {
-      includeServerTools: !input.agentId.startsWith("chatbot."),
-    })
-  );
-  await engentyToolsRunAls.run(toolsRunContext, async () => {
-    // `untilIdle` keeps the outer stream open across continuations a background
-    // task may trigger. (`resumeStreamUntilIdle` is the deprecated spelling.)
-    const stream = await agent.resumeStream(input.resumeData, {
-      ...(Object.keys(frontendTools).length > 0
-        ? { clientTools: frontendTools }
-        : {}),
-      memory: {
-        resource: input.scope.userId,
-        thread: input.threadId,
-      },
-      runId: input.suspendedRunId,
-      untilIdle: true,
-      ...(input.resolvedToolCallId
-        ? { toolCallId: input.resolvedToolCallId }
-        : {}),
-    });
-    for await (const chunk of stream.fullStream) {
-      for (const event of converter.convert(chunk as never)) {
-        emit(event);
-      }
-    }
-  });
-  for (const event of converter.finish()) {
-    emit(event);
-  }
-  return true;
 }
 
 export async function resumeConversationRun(
@@ -276,6 +653,19 @@ export async function resumeConversationRun(
     ? takeParkedSessionRun(input.suspendedRunId)
     : undefined;
   let reParked = false;
+  // The continuation ended on a SECOND native suspend (either lane). Mastra
+  // flushes the assistant turn when a run parks, so the post-run pass must not
+  // write it a second time — see the `finally` below.
+  let parkedAgain = false;
+  // Set when THIS call claimed the in-flight marker for the snapshot lane, so
+  // the `finally` releases only its own claim (the parked lane's claim is made
+  // and owned by `takeParkedSessionRun`).
+  let claimedResume = false;
+  // Whichever lane ran; the post-run pass in `finally` reads it.
+  let converterRef: ResumeConverter | undefined;
+  // Stamped onto the durable run row. Without it a failed resume stored
+  // `error_message = NULL` — the one place you look after the fact was blank.
+  let failureMessage: string | null = null;
   let threadStatus: AgentSessionStatus = "completed";
   await patchThreadStatus({ ...input, status: "running" });
   try {
@@ -283,20 +673,29 @@ export async function resumeConversationRun(
       // Distinguish a duplicate answer racing the live resume (recoverable —
       // the in-flight resume will re-park or finish) from a lost park (server
       // restart / TTL expiry — the suspended state is genuinely gone).
-      if (
-        input.suspendedRunId &&
-        isParkedResumeInFlight(input.suspendedRunId)
-      ) {
-        throw new Error(
-          `A resume for run ${input.suspendedRunId} is already in progress; this duplicate answer was ignored.`
-        );
+      //
+      // Claiming rather than merely asking is what makes this lane exclusive:
+      // `takeParkedSessionRun` claims implicitly, but on the snapshot lane it
+      // returns nothing, so two answers used to run the SAME run concurrently —
+      // both resolving and then destroying the one session-scoped sandbox, and
+      // both invisible to the thread-load reconciler, which reads this marker
+      // as proof an interrupt is still live.
+      if (input.suspendedRunId) {
+        if (!claimResumeInFlight(input.suspendedRunId)) {
+          throw new Error(
+            `A resume for run ${input.suspendedRunId} is already in progress; this duplicate answer was ignored.`
+          );
+        }
+        claimedResume = true;
       }
       // The park is gone (server restart / TTL expiry) — but Mastra also wrote
       // the suspension to workflow snapshot storage, which survives both. Try
       // to continue the run from there before giving up. Verified end-to-end
       // across two processes on 1.55.0 (see PLAN-mastra-durable-chat Phase 2).
-      const resumedFromSnapshot = await resumeFromSnapshot(input, emit);
-      if (resumedFromSnapshot) {
+      const snapshot = await resumeFromSnapshot(input, emit, (converter) => {
+        converterRef = converter;
+      });
+      if (snapshot.resumed) {
         // Close the suspended tool step in PERSISTED history. The parked lane
         // gets this from the live Session's memory write; a snapshot resume
         // leaves the original row at `state:"call"`, so on the next thread load
@@ -308,6 +707,34 @@ export async function resumeConversationRun(
           threadId: input.threadId,
           toolCallId: input.resolvedToolCallId,
         });
+        // A SECOND tool suspended in the continuation — surface it as the next
+        // interrupt instead of finishing. There is no live session to re-park
+        // here: Mastra resumed under the SAME run id and wrote the new
+        // suspension back to snapshot storage, so the next answer comes straight
+        // back down this lane with `resumeRunId` unchanged.
+        if (snapshot.suspendedAgain) {
+          const handled = await emitSnapshotSuspendInterrupt({
+            emit,
+            input,
+            mergedDefinitions: snapshot.mergedDefinitions,
+            suspendedAgain: snapshot.suspendedAgain,
+          });
+          if (handled) {
+            parkedAgain = true;
+            threadStatus = "waiting";
+            return { runId: input.newRunId };
+          }
+          // Nothing could render it (e.g. a frontend tool this POST did not
+          // declare), yet Mastra still holds the suspension. Falling through to
+          // RUN_FINISHED would report success AND clear the open interrupt —
+          // deleting the only pointer back to a run that is genuinely waiting.
+          // Fail loudly instead and leave the interrupt alone; the parked lane's
+          // `finally` rescues this case via `suspensions.hasPending()`, which
+          // this lane has no live session to ask.
+          throw new Error(
+            `The recovered run suspended again on ${suspendedAgainLabel(snapshot.suspendedAgain)}, which this resume cannot surface as an interrupt.`
+          );
+        }
         await clearOpenInterrupt(input);
         emit({
           runId: input.newRunId,
@@ -335,6 +762,9 @@ export async function resumeConversationRun(
         mergedDefinitions: parked.mergedDefinitions,
         session: parked.session,
         threadId: parked.threadId,
+        ...(parked.sandboxProvider
+          ? { sandboxProvider: parked.sandboxProvider }
+          : {}),
       });
       reParked = true;
       throw new Error(
@@ -342,6 +772,7 @@ export async function resumeConversationRun(
       );
     }
     const converter = new SessionAgUiConverter();
+    converterRef = converter;
     let runError: string | null = null;
     let suspendedAgain: SuspendedAgain | null = null;
     // A second suspend in the continuation leaves respondToToolSuspension pending
@@ -415,6 +846,20 @@ export async function resumeConversationRun(
           toolCallId: again.toolCallId,
         });
         handled = true;
+      } else if (isDecisionArtifactPayload(again.suspendPayload)) {
+        // Another `requestDecision` in the continuation — emit its card against
+        // the SAME re-parked session so the next answer resumes in place too.
+        handled = await emitArtifactInterrupt({
+          busRunId: input.newRunId,
+          emit,
+          result: again.suspendPayload,
+          resumeRunId: reRunId,
+          scope: input.scope,
+          sessionMetadata: input.sessionMetadata ?? {},
+          store: input.store,
+          threadId: input.threadId,
+          toolCallId: again.toolCallId,
+        });
       } else {
         handled = await emitFrontendToolInterrupt({
           busRunId: input.newRunId,
@@ -438,7 +883,11 @@ export async function resumeConversationRun(
           mergedDefinitions: parked.mergedDefinitions,
           session: parked.session,
           threadId: input.threadId,
+          ...(parked.sandboxProvider
+            ? { sandboxProvider: parked.sandboxProvider }
+            : {}),
         });
+        parkedAgain = true;
         reParked = true;
         threadStatus = "waiting";
         return { runId: input.newRunId };
@@ -461,6 +910,7 @@ export async function resumeConversationRun(
     if (runError) {
       emit({ message: runError, type: EventType.RUN_ERROR });
       threadStatus = "failed";
+      failureMessage = runError;
       return { runId: input.newRunId };
     }
     // The interrupt is resolved — clear it from session metadata.
@@ -474,13 +924,52 @@ export async function resumeConversationRun(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     threadStatus = reParked ? "waiting" : "failed";
+    failureMessage = message;
     console.error(`[conversation-resume ${input.newRunId}] failed:`, error);
     emit({ message, type: EventType.RUN_ERROR });
   } finally {
-    // Only the resume that actually TOOK the parked run owns the in-flight
-    // marker — a duplicate that found nothing parked must not clear the
-    // marker out from under the live resume.
-    if (parked && input.suspendedRunId) {
+    // The post-run pass the START executor has always done and neither resume
+    // lane did. It belongs in `finally` because the cases that need it most are
+    // the ones that never reach end-of-generation — a mid-stream failure or a
+    // cancelled continuation — where without this the whole continuation is lost
+    // and the next turn re-asks the question the user already answered.
+    if (converterRef) {
+      // Fold the sub-agent Log back onto the persisted delegation part; Mastra
+      // memory drops app-level `progressLines`, so the card is empty on reload.
+      await persistSubAgentProgress({
+        progressByToolCallId: converterRef.getSubAgentProgressLines(),
+        scope: input.scope,
+        store: input.store,
+        threadId: input.threadId,
+      });
+      // No `prompt`: a resume carries no new user turn — the user's message was
+      // persisted by the run that suspended. `parkedAgain` counts as flushed:
+      // Mastra writes the assistant turn when the run parks, and writing it
+      // again here would persist the same tool call twice under two message ids.
+      await persistTurnTranscript({
+        memoryFlushedAssistant: threadStatus === "completed" || parkedAgain,
+        prompt: "",
+        runId: input.newRunId,
+        scope: input.scope,
+        store: input.store,
+        threadId: input.threadId,
+        transcriptParts: converterRef.getTranscriptParts(),
+      });
+      await recordSessionUsage({
+        agentId: input.agentId ?? "unknown",
+        modelId: input.modelId ?? null,
+        runId: input.newRunId,
+        scope: input.scope,
+        threadId: input.threadId,
+        usage: converterRef.lastUsage,
+        usageStore: input.usageStore,
+      });
+    }
+    // Only the resume that CLAIMED the marker may release it — a duplicate
+    // that was turned away must not clear it out from under the live resume.
+    // The parked lane's claim is made inside `takeParkedSessionRun`; the
+    // snapshot lane's is `claimedResume`.
+    if ((parked || claimedResume) && input.suspendedRunId) {
       finishParkedResume(input.suspendedRunId);
     }
     if (!reParked) {
@@ -494,24 +983,36 @@ export async function resumeConversationRun(
           mergedDefinitions: parked.mergedDefinitions,
           session: parked.session,
           threadId: parked.threadId,
+          ...(parked.sandboxProvider
+            ? { sandboxProvider: parked.sandboxProvider }
+            : {}),
         });
         threadStatus = "waiting";
-      } else {
-        await parked?.controller.destroy().catch(() => {
-          // best-effort cleanup
-        });
+      } else if (parked) {
+        // The run is finally over — release the controller AND the sandbox whose
+        // teardown the park took ownership of when the run suspended.
+        await disposeParkedSessionRun(parked);
       }
     }
     await patchThreadStatus({ ...input, status: threadStatus });
     if (tracker) {
+      const usage = usageFromSession(converterRef?.lastUsage);
       await tracker
         .complete({
+          completionTokens: usage?.output ?? null,
+          promptTokens: usage?.input ?? null,
           status:
             threadStatus === "waiting"
               ? "requires_action"
               : threadStatus === "failed"
                 ? "failed"
                 : "completed",
+          ...(threadStatus === "failed" && failureMessage
+            ? {
+                errorCode: "run_error",
+                errorMessage: failureMessage.slice(0, 2000),
+              }
+            : {}),
         })
         .catch((error) => {
           console.error(

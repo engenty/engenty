@@ -1,0 +1,14 @@
+{
+  "title": "Agent operations",
+  "pages": [
+    "index",
+    "search",
+    "connections",
+    "connected-services",
+    "memory",
+    "secrets",
+    "apps",
+    "remote-channels",
+    "browser"
+  ]
+}

@@ -78,6 +78,8 @@ export function createContactRepoSupabase(
     }
     const { data, error } = await contactRoles()
       .select("contact_id, role")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .in("contact_id", ids);
     if (error) {
       return map;
@@ -547,8 +549,15 @@ export function createContactRepoSupabase(
 
       let contactIdsWithRole: string[] | null = null;
       if (params.role) {
+        // Without the tenant/scope filters this returns contact ids from
+        // every tenant that uses this role name. They happen to be narrowed by
+        // the tenant-filtered contacts read below, but an unbounded
+        // cross-tenant scan feeding an authorization-shaped filter is the exact
+        // shape that produced the secrets reveal leak — filter at the source.
         const { data: roleData } = await contactRoles()
           .select("contact_id")
+          .eq("tenant_id", tenantId)
+          .eq("scope_id", scopeId)
           .eq("role", params.role);
         contactIdsWithRole = (roleData ?? []).map((r) =>
           String((r as { contact_id: string }).contact_id)
@@ -857,7 +866,7 @@ export function createContactRepoSupabase(
         return false;
       }
       const { error } = await contactRoles().upsert(
-        { contact_id: contactId, role },
+        { contact_id: contactId, role, scope_id: scopeId, tenant_id: tenantId },
         { onConflict: "contact_id,role" }
       );
       if (!error) {
@@ -876,6 +885,8 @@ export function createContactRepoSupabase(
       }
       const { error } = await contactRoles()
         .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("contact_id", contactId)
         .eq("role", role);
       if (!error) {

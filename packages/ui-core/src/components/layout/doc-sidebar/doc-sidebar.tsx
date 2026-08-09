@@ -203,8 +203,14 @@ export function DocSidebarLayout({
         {mode === "overlay" ? (
           <Sheet onOpenChange={setOverlayOpen} open={open}>
             <SheetContent
+              // No `relative` here: SheetContent is `fixed`, and tailwind-merge
+              // treats the two as conflicting position utilities — passing
+              // `relative` silently strips `fixed`, dropping the sheet out of
+              // viewport positioning (left-aligned, mid-page, overflowing the
+              // bottom). `fixed` already establishes the containing block that
+              // the absolutely-positioned resize handle needs.
               className={cn(
-                "relative gap-0 overflow-y-auto",
+                "gap-0 overflow-y-auto",
                 resizable ? "w-full sm:max-w-none" : "w-full sm:max-w-sm"
               )}
               side="right"

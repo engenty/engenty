@@ -20,8 +20,9 @@ describe("destroyRunSandboxes", () => {
       id,
       provider: "docker",
       runCommand: vi.fn(),
-      syncIn: vi.fn(),
-      syncOut: vi.fn(),
+      syncIn: vi.fn(async () => undefined),
+      // Promise-returning, like the real provider — the teardown awaits these.
+      syncOut: vi.fn(async () => undefined),
     };
   }
 
@@ -37,6 +38,23 @@ describe("destroyRunSandboxes", () => {
 
     expect(parent.destroy).not.toHaveBeenCalled();
     expect(cli.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("still persists the kept-alive parent's workspace", async () => {
+    // Keeping the instance alive for a parked resume must not cost durability:
+    // `destroy()` was what ran `syncOut`, so skipping it wholesale would leave
+    // everything staged into /shared + /home before the suspend unsaved until
+    // the resume — and lost outright if the process died while parked.
+    const parent = makeProvider("parent");
+
+    await destroyRunSandboxes({
+      keepParentSandboxAlive: true,
+      sandboxProvider: parent,
+      subAgentSandboxProviders: [],
+    });
+
+    expect(parent.syncOut).toHaveBeenCalledOnce();
+    expect(parent.destroy).not.toHaveBeenCalled();
   });
 
   it("destroys parent and sub-agent sandboxes on normal run completion", async () => {

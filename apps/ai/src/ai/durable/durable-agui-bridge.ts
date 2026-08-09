@@ -9,9 +9,14 @@
 // Sub-agent/interrupt/frontend-tool handling is layered on later, once the
 // vertical slice is wired.
 import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
+import { buildUnresolvedToolCallResult } from "../conversation/unresolved-tool-call.js";
 import {
+  appendOrReplaceTranscriptToolPart,
+  appendTextDeltaToTranscriptParts,
+  buildRunningToolPart,
   formatSubAgentProgressLine,
   isSubAgentDelegationToolName,
+  toolResultPayloadToAssistantDynamicToolPart,
 } from "../sessions/transcript.js";
 
 interface DurableChunk {
@@ -35,12 +40,110 @@ export class DurableAgUiConverter {
   // agent-execution-event-* chunks belong to it, so progress lines attach there.
   #activeSubAgentDelegationToolCallId: string | null = null;
   readonly #startedToolCalls = new Set<string>();
+  // Calls that produced a result, and calls that parked the run. Everything
+  // STARTED but in neither set dangles: the client's card spins forever and the
+  // persisted part stays at `state:"call"`. See closeUnresolvedToolCalls().
+  readonly #resolvedToolCalls = new Set<string>();
+  readonly #suspendedToolCalls = new Set<string>();
+  readonly #toolCallNames = new Map<string, string>();
+  readonly #toolCallArgs = new Map<string, unknown>();
   // Accumulated sub-agent progress lines per delegation toolCallId. The live
   // CUSTOM events only patch the in-flight message; Mastra memory persists the
   // tool part WITHOUT these app-level lines, so the executor folds them back onto
   // the saved part after the run (else the sub-agent card's Log + drill-in are
   // empty on reload). See getSubAgentProgressLines().
   readonly #subAgentProgressLines = new Map<string, string[]>();
+  // The turn so far as durable message parts. A resumed turn that ends on a
+  // second suspend never reaches end-of-generation, so Mastra memory flushes
+  // NOTHING — without this the whole continuation is lost and the next turn
+  // re-asks what the user already answered. Mirrors SessionAgUiConverter.
+  #transcriptParts: unknown[] = [];
+  // Token usage reported by the run's `finish` chunk, for metering + the
+  // durable run row. Every resumed turn was previously unbilled.
+  #lastUsage: unknown;
+
+  /** Token usage from the last `finish` chunk, or undefined if none arrived. */
+  get lastUsage(): unknown {
+    return this.#lastUsage;
+  }
+
+  /** The assistant turn so far, as durable message parts. */
+  getTranscriptParts(): readonly unknown[] {
+    return this.#transcriptParts;
+  }
+
+  /**
+   * Tool calls that STARTED and never settled — neither a result nor a suspend.
+   * A tool the model invents mid-continuation lands here.
+   */
+  getUnresolvedToolCalls(): { toolCallId: string; toolName: string }[] {
+    const out: { toolCallId: string; toolName: string }[] = [];
+    for (const toolCallId of this.#startedToolCalls) {
+      if (
+        this.#resolvedToolCalls.has(toolCallId) ||
+        this.#suspendedToolCalls.has(toolCallId)
+      ) {
+        continue;
+      }
+      out.push({
+        toolCallId,
+        toolName: this.#toolCallNames.get(toolCallId) ?? "tool",
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Answer every dangling call with an explicit error, on the wire AND in the
+   * durable transcript. Without it the card spins forever in the live window
+   * and the model never learns the call failed, so it re-invents the same tool
+   * on the next turn.
+   */
+  closeUnresolvedToolCalls(params?: {
+    knownToolNames?: readonly string[];
+  }): AGUIEvent[] {
+    const out: AGUIEvent[] = [];
+    for (const { toolCallId, toolName } of this.getUnresolvedToolCalls()) {
+      const result = buildUnresolvedToolCallResult({
+        toolName,
+        ...(params?.knownToolNames
+          ? { knownToolNames: params.knownToolNames }
+          : {}),
+      });
+      this.#resolvedToolCalls.add(toolCallId);
+      this.#recordToolResultPart({
+        isError: true,
+        result,
+        toolCallId,
+        toolName,
+      });
+      out.push({
+        content: str(result),
+        messageId: this.#messageId || toolCallId,
+        toolCallId,
+        type: EventType.TOOL_CALL_RESULT,
+      });
+    }
+    return out;
+  }
+
+  #recordToolResultPart(payload: {
+    isError?: boolean;
+    result: unknown;
+    toolCallId: string;
+    toolName: string;
+  }): void {
+    this.#transcriptParts = appendOrReplaceTranscriptToolPart(
+      this.#transcriptParts,
+      toolResultPayloadToAssistantDynamicToolPart({
+        args: this.#toolCallArgs.get(payload.toolCallId) ?? {},
+        result: payload.result,
+        toolCallId: payload.toolCallId,
+        toolName: payload.toolName,
+        ...(payload.isError ? { isError: true } : {}),
+      })
+    );
+  }
 
   #ensureTextStarted(out: AGUIEvent[]): void {
     if (this.#textOpen) {
@@ -82,11 +185,18 @@ export class DurableAgUiConverter {
       }
       case "text-delta": {
         this.#ensureTextStarted(out);
+        const delta = typeof payload.text === "string" ? payload.text : "";
         out.push({
           type: EventType.TEXT_MESSAGE_CONTENT,
-          delta: typeof payload.text === "string" ? payload.text : "",
+          delta,
           messageId: this.#messageId,
         });
+        if (delta) {
+          this.#transcriptParts = appendTextDeltaToTranscriptParts(
+            this.#transcriptParts,
+            delta
+          );
+        }
         break;
       }
       case "text-end":
@@ -111,6 +221,22 @@ export class DurableAgUiConverter {
           break;
         }
         this.#startedToolCalls.add(toolCallId);
+        this.#toolCallNames.set(toolCallId, toolName);
+        const toolInput = payload.args ?? payload.input;
+        if (toolInput !== undefined) {
+          this.#toolCallArgs.set(toolCallId, toolInput);
+        }
+        // Persist the call itself, not only its result: a turn that ends before
+        // the result (a second suspend, a failure) still has to show WHAT was
+        // asked, or the next turn cannot see it happened.
+        this.#transcriptParts = appendOrReplaceTranscriptToolPart(
+          this.#transcriptParts,
+          buildRunningToolPart({
+            input: toolInput ?? {},
+            toolCallId,
+            toolName,
+          })
+        );
         // A sub-agent delegation (`agent-*`) — its nested progress chunks attach
         // to this tool call until it finalizes.
         if (isSubAgentDelegationToolName(toolName)) {
@@ -144,9 +270,22 @@ export class DurableAgUiConverter {
         if (typeof toolCallId !== "string") {
           break;
         }
+        const result = payload.result ?? payload.output ?? payload;
+        this.#resolvedToolCalls.add(toolCallId);
+        if (payload.args !== undefined) {
+          this.#toolCallArgs.set(toolCallId, payload.args);
+        }
+        this.#recordToolResultPart({
+          result,
+          toolCallId,
+          toolName:
+            (typeof payload.toolName === "string" ? payload.toolName : "") ||
+            this.#toolCallNames.get(toolCallId) ||
+            "tool",
+        });
         out.push({
           type: EventType.TOOL_CALL_RESULT,
-          content: str(payload.result ?? payload.output ?? payload),
+          content: str(result),
           messageId: this.#messageId || toolCallId,
           toolCallId,
         });
@@ -188,6 +327,26 @@ export class DurableAgUiConverter {
         // The delegation tool-result chunk renders the outcome; just stop
         // attaching further progress to this (now finished) delegation.
         this.#activeSubAgentDelegationToolCallId = null;
+        break;
+      case "tool-call-suspended": {
+        // A tool parked the run. Mastra ends the stream right after this chunk
+        // and emits no `tool-call` for it, so there is nothing to render here —
+        // the caller turns the suspension into an AG-UI interrupt. Close any
+        // open text message so the partial answer before the suspend is still
+        // well-formed (START → CONTENT* → END).
+        this.#endText(out);
+        // Parked, not dangling: it must not be answered with an error by
+        // `closeUnresolvedToolCalls` — the user is going to answer it.
+        if (typeof payload.toolCallId === "string") {
+          this.#suspendedToolCalls.add(payload.toolCallId);
+        }
+        break;
+      }
+      case "finish":
+        // Terminal chunk: token usage for metering and the durable run row.
+        if (payload.usage !== undefined) {
+          this.#lastUsage = payload.usage;
+        }
         break;
       default:
         break;

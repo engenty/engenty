@@ -79,10 +79,14 @@ export function createProjectVisibilityPolicy(
       return null;
     }
 
+    // Service-role client: RLS is bypassed, so the tenant filter here is the
+    // boundary. project_team carries tenant_id since the composite-FK
+    // migration, so membership no longer has to be inferred via the project.
     const member = await db
       .schema("module_projects")
       .from("project_team")
       .select("user_id")
+      .eq("tenant_id", input.auth.tenantId)
       .eq("project_id", projectId)
       .eq("user_id", input.auth.principalId)
       .maybeSingle();

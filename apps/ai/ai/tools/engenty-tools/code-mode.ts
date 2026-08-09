@@ -1,13 +1,16 @@
-// Code Mode over the engenty tool catalog (read-only).
+// Code Mode over the engenty tool catalog.
 //
 // One `execute_typescript` tool: the model writes a single TypeScript program
 // that orchestrates tools as `external_*` functions in the run's workspace
 // sandbox — batching, filtering, and aggregation happen in code instead of N
-// chat round-trips. v1 exposes the DISCOVERY meta-tools plus a READ-ONLY
-// execute variant; write operations must go through the regular chat tool
-// where the native approval gate applies. (The gate could not suspend from
-// inside a program anyway — Code Mode dispatch has no agent context, so a
-// gated op would just be denied.)
+// chat round-trips. The sandbox exposes the DISCOVERY search plus a
+// sandbox-gated execute: reads and grant-covered writes run; a gated write
+// with no covering grant fails INTO the program with the recovery path
+// (engenty_tools_preapprove in chat → one card grants the program's write set
+// → re-run). The gate cannot suspend from inside a program — Code Mode
+// dispatch has no agent context — which is exactly why grants must pre-exist;
+// core stays authoritative behind the local gate either way (its 202 maps to
+// the same structured error).
 //
 // Typed per-operation stubs generated from contract JSON schemas
 // (jsonSchemaToTsString) are a later enhancement; the meta-tool loop already
@@ -15,21 +18,25 @@
 import type { ToolExecutionContext } from "@mastra/core/tools";
 import { createCodeMode, createTool } from "@mastra/core/tools";
 import { DockerCodeModeTransport } from "./code-mode-docker-transport.js";
+import { CODE_MODE_PLAN_INSTRUCTIONS } from "./code-mode-plan-instructions.js";
 import { executeEngentyTool } from "./engenty-tool-execute-tool.js";
 import { engentyToolsSearchTool } from "./engenty-tools-search-tool.js";
 import { runInputSchema } from "./schema/schemas.js";
 
-/** Read-only execute: same contract-driven pipeline as engenty_tool_execute,
- * but non-read-only operations (risk above low, or approval-gated) are
- * rejected server-side — the allow-list is enforced here, not in the prompt. */
-const engentyToolExecuteReadOnlyTool = createTool({
-  id: "engenty_tool_execute_readonly",
+/** Sandbox execute: same contract-driven pipeline as engenty_tool_execute, but
+ * gated operations (requiresApproval, or high/critical risk) run only when a
+ * pre-existing grant covers them — the gate is enforced here, not in the
+ * prompt, and it cannot prompt (no suspend from a running program). */
+const engentyToolExecuteSandboxTool = createTool({
+  id: "engenty_tool_execute",
   description:
-    "Execute a READ-ONLY Engenty tool by id (low risk, no approval). Use engenty_tools_search first to find tool ids. Write operations are rejected — run those as regular chat tools.",
+    "Execute an Engenty tool by id. Reads run directly; write operations need a grant — " +
+    "request one BEFORE running the program via engenty_tools_preapprove in chat. " +
+    "Use engenty_tools_search first to find tool ids.",
   inputSchema: runInputSchema,
   execute: async (input, context) =>
     executeEngentyTool(input, context as ToolExecutionContext | undefined, {
-      enforceReadOnly: true,
+      sandbox: true,
     }),
 });
 
@@ -37,7 +44,7 @@ const codeMode = createCodeMode(
   {
     id: "execute_typescript",
     tools: {
-      engenty_tool_execute_readonly: engentyToolExecuteReadOnlyTool,
+      engenty_tool_execute: engentyToolExecuteSandboxTool,
       engenty_tools_search: engentyToolsSearchTool,
     },
     // No explicit sandbox: the tool resolves `ctx.workspace.sandbox` at run
@@ -50,4 +57,9 @@ const codeMode = createCodeMode(
 );
 
 export const engentyCodeModeTool = codeMode.tool;
-export const engentyCodeModeInstructions = codeMode.instructions;
+
+// Mastra's generated instructions describe HOW to write a program; they cannot
+// know that this deployment's dispatch is read-only. Without the plan-then-apply
+// doctrine the model treats the return value as a data channel and hands the
+// next turn an entire dataset.
+export const engentyCodeModeInstructions = `${codeMode.instructions}\n\n${CODE_MODE_PLAN_INSTRUCTIONS}`;

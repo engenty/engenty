@@ -4,7 +4,7 @@
  * then runs search. When the index is degraded or missing, returns notices so the model
  * can caveat results.
  */
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { z } from "zod";
 import type { ToolExecutionContext } from "../context/types.js";
 
@@ -148,7 +148,7 @@ async function runChatSessionSearchTool(
   }
 }
 
-export function buildChatSessionSearchTool(ctx: ToolExecutionContext) {
+export function buildChatSessionSearchTool(ctx: ToolExecutionContext): Tool {
   return tool({
     description: chatSessionSearchToolDescription,
     inputSchema: aiChatsSearchInputSchema,

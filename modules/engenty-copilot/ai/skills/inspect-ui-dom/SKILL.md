@@ -16,7 +16,7 @@ Use when you need live controls on the current page (find a button, confirm a fi
    - Primary app rail → `app_bar`
    - Breadcrumbs / page chrome → `topbar`
 3. If a region selector is missing, fall back to `main` (`[data-engenty-region="main"]`).
-4. Use **browser_click** / **browser_focus** / **browser_input** / **browser_scroll** with selectors from the snapshot.
+4. Use **browser_click** / **browser_focus** / **browser_input** / **browser_scroll** with selectors from the snapshot — to move around the page (open a panel, switch a tab, scroll, put the cursor somewhere), not to enter or save record data. Creates, updates and deletes go through catalog tools; a form filled and saved this way skips validation and reports nothing back.
 5. Call **browser_screenshot** only for visual/layout questions the DOM cannot answer (overlap, spacing). It returns a text inventory, not pixels.
 
 Do not snapshot `document.body` unless the question is about whole-page chrome.

@@ -28,6 +28,54 @@ function parseJsonArray<T>(raw: unknown, fallback: T[]): T[] {
   }
 }
 
+/** Settings field -> its column. JSON columns hold a serialized array. */
+const COLUMN_BY_FIELD = {
+  currency: "currency",
+  currency_symbol: "currency_symbol",
+  default_locale: "default_locale",
+  disciplines: "disciplines_json",
+  expense_categories: "expense_categories_json",
+  no_tax_reason: "no_tax_reason",
+  number_locale: "number_locale",
+  tax_deduction_rules: "tax_deduction_rules_json",
+  tax_rates: "tax_rates_json",
+  units: "units_json",
+} as const;
+
+const JSON_FIELDS = new Set<string>([
+  "disciplines",
+  "expense_categories",
+  "tax_deduction_rules",
+  "tax_rates",
+  "units",
+]);
+
+/**
+ * Columns for the fields the caller actually supplied.
+ *
+ * An absent field is left untouched; `null` clears it. Writing every column on
+ * every call — which is what this did — meant a caller sending only
+ * `disciplines` also wiped tax rates, units, expense categories and deduction
+ * rules. The UI never hit it because it GETs the whole object and PATCHes it
+ * back whole, but the collection-scoped operations are partial by design.
+ */
+function buildSettingsRow(input: CommercialSettingsInput) {
+  const row: Record<string, unknown> = {};
+  for (const [field, column] of Object.entries(COLUMN_BY_FIELD)) {
+    if (!(field in input)) {
+      continue;
+    }
+    const value = (input as Record<string, unknown>)[field];
+    row[column] =
+      value == null
+        ? null
+        : JSON_FIELDS.has(field)
+          ? JSON.stringify(value)
+          : value;
+  }
+  return row;
+}
+
 export function createCommercialSettingsRepoSupabase(
   adapter: unknown,
   tenantId: string,
@@ -70,28 +118,12 @@ export function createCommercialSettingsRepoSupabase(
       };
     },
 
+    /** Partial: only the supplied fields are written. See {@link buildSettingsRow}. */
     async set(input: CommercialSettingsInput): Promise<CommercialSettings> {
       const row = {
         tenant_id: tenantId,
         scope_id: scopeId,
-        default_locale: input.default_locale ?? null,
-        number_locale: input.number_locale ?? null,
-        currency: input.currency ?? null,
-        currency_symbol: input.currency_symbol ?? null,
-        tax_rates_json: input.tax_rates
-          ? JSON.stringify(input.tax_rates)
-          : null,
-        no_tax_reason: input.no_tax_reason ?? null,
-        units_json: input.units ? JSON.stringify(input.units) : null,
-        disciplines_json: input.disciplines
-          ? JSON.stringify(input.disciplines)
-          : null,
-        expense_categories_json: input.expense_categories
-          ? JSON.stringify(input.expense_categories)
-          : null,
-        tax_deduction_rules_json: input.tax_deduction_rules
-          ? JSON.stringify(input.tax_deduction_rules)
-          : null,
+        ...buildSettingsRow(input),
         updated_at: new Date().toISOString(),
       };
 

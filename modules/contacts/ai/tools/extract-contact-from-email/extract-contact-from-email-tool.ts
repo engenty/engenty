@@ -1,6 +1,6 @@
 import { extractEmailContactInfo } from "@engenty/ai-core";
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { z } from "zod";
 
 const extractContactFromEmailToolInputSchema = z.object({
@@ -41,7 +41,7 @@ async function searchMatches(
 
 export function buildExtractContactFromEmailTool(
   invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"]
-) {
+): Tool {
   return tool({
     description:
       "Extract a person and company from an email body, search for existing matches, and prepare a linking proposal.",

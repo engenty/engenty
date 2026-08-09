@@ -13,7 +13,7 @@ import type {
   PluginServerApi,
 } from "@engenty/plugin-sdk";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
-import { generateText, stepCountIs, tool } from "ai";
+import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 import type { KbRepoFactoryFn } from "../dal/contracts.js";
 import type { KbArticlesSearchProvider } from "../dal/kb-retrieval-source.js";
@@ -168,7 +168,7 @@ export function registerKbChatRoute(
 
       const result = await generateText({
         model: modelId,
-        system: [
+        instructions: [
           "You are a concise knowledge base assistant.",
           "You must answer using tool results only for factual claims about the KB.",
           `The active knowledge base id is: ${kbId}.`,
@@ -176,7 +176,7 @@ export function registerKbChatRoute(
         ].join("\n"),
         tools,
         prompt: message,
-        stopWhen: stepCountIs(8),
+        stopWhen: isStepCount(8),
       });
 
       return Response.json({

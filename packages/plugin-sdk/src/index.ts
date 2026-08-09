@@ -40,6 +40,11 @@ export type {
   ExternalRef,
   PluginContextGraphServerApi,
 } from "./context-graph-registration.js";
+export {
+  type ForeignTableRef,
+  foreignSelect,
+  type TenantScope,
+} from "./foreign-schema.js";
 export { ownershipPolicy } from "./ownership-policy.js";
 export type { PluginCategory } from "./plugin-category.js";
 export {

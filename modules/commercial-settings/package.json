@@ -35,6 +35,7 @@
     "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
+    "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/ui-core": "workspace:*",

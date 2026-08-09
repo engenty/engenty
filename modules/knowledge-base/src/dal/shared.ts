@@ -338,9 +338,17 @@ export function rowToFaq(row: Record<string, unknown>, tags?: Tag[]): Faq {
 }
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+/**
+ * `tenantId`/`scopeId` are the tenant boundary, not decoration: the client here
+ * is service-role and bypasses RLS, and the tag-join tables are reachable by id
+ * alone. They carry their own tenant columns as of
+ * 20260809142000_plugin_module_kb_tag_joins_tenant.sql — before that this
+ * function took `tenantId` and had nowhere to put it.
+ */
 export async function getTagsForIds(
   supabase: SupabaseClient,
   tenantId: string,
+  scopeId: string,
   tableName: "article_tags" | "faq_tags",
   idCol: "article_id" | "faq_id",
   ids: string[]
@@ -357,6 +365,8 @@ export async function getTagsForIds(
     .schema(SCHEMA)
     .from(tableName as any)
     .select(`${idCol}, tags(*)`)
+    .eq("tenant_id", tenantId)
+    .eq("scope_id", scopeId)
     .in(idCol, ids);
 
   if (!error && data) {

@@ -155,6 +155,8 @@ async function loadProjectTaskContexts(
     .schema(TASKS_SCHEMA)
     .from("task_collaborators")
     .select("task_id, user_id")
+    .eq("tenant_id", tenantId)
+    .eq("scope_id", scopeId)
     .in("task_id", taskIds);
   const collabByTask = new Map<string, string[]>();
   for (const row of collabRows ?? []) {
@@ -382,6 +384,8 @@ export async function updateProjectLinkedTask(
       .schema(TASKS_SCHEMA)
       .from("tasks")
       .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .eq("id", taskId)
       .maybeSingle();
     if (error || !taskRow) {
@@ -394,6 +398,8 @@ export async function updateProjectLinkedTask(
     .schema(TASKS_SCHEMA)
     .from("task_collaborators")
     .select("user_id")
+    .eq("tenant_id", tenantId)
+    .eq("scope_id", scopeId)
     .eq("task_id", taskId);
   const collabIds =
     input.team_member_ids ??
@@ -550,6 +556,8 @@ export async function listProjectTasksPaginated(
       .schema(TASKS_SCHEMA)
       .from("task_contexts")
       .select("task_id, context_type, context_id, metadata")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
       .eq("context_type", PROJECT_CONTEXT_TYPE)
       .in("task_id", taskIds);
     if (ctxErr) {

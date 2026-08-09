@@ -104,17 +104,17 @@ describe("projects task consumer contract", () => {
     const { listProjectTasksPaginated } = await import(
       "../lib/project-tasks-bridge.js"
     );
+    // Chainable: the bridge now filters tenant_id and scope_id before the
+    // row key, so a builder with a fixed number of `eq` links ends too early.
+    const emptyResult = { data: [], error: null };
+    const chain: Record<string, unknown> = {
+      eq: () => chain,
+      in: async () => emptyResult,
+      // biome-ignore lint/suspicious/noThenProperty: mirrors PostgrestFilterBuilder
+      then: (resolve: (value: unknown) => unknown) => resolve(emptyResult),
+    };
     const supabase = {
-      schema: () => ({
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              in: async () => ({ data: [], error: null }),
-            }),
-            in: async () => ({ data: [], error: null }),
-          }),
-        }),
-      }),
+      schema: () => ({ from: () => ({ select: () => chain }) }),
     };
 
     await listProjectTasksPaginated(
@@ -200,14 +200,13 @@ describe("projects task consumer contract", () => {
             };
           }
           if (table === "task_collaborators") {
-            return {
-              select: () => ({
-                eq: async () => ({
-                  data: [{ user_id: "user-c" }],
-                  error: null,
-                }),
-              }),
+            const result = { data: [{ user_id: "user-c" }], error: null };
+            const chain: Record<string, unknown> = {
+              eq: () => chain,
+              // biome-ignore lint/suspicious/noThenProperty: mirrors PostgrestFilterBuilder
+              then: (resolve: (value: unknown) => unknown) => resolve(result),
             };
+            return { select: () => chain };
           }
           return {
             select: () => ({
@@ -381,11 +380,11 @@ describe("projects task consumer contract", () => {
             };
           }
           if (table === "task_collaborators") {
-            return {
-              select: () => ({
-                in: () => Promise.resolve({ data: [], error: null }),
-              }),
+            const chain: Record<string, unknown> = {
+              eq: () => chain,
+              in: () => Promise.resolve({ data: [], error: null }),
             };
+            return { select: () => chain };
           }
           throw new Error(`Unexpected table: ${table}`);
         },

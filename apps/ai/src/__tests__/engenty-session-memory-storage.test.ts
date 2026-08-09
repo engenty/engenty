@@ -908,3 +908,77 @@ describe("EngentySessionMemoryStorage", () => {
     ).toBe(true);
   });
 });
+
+describe("tool parts recalled with defined arguments", () => {
+  // A persisted tool part with no args replays as a tool_calls entry with no
+  // function.arguments; the provider rejects the WHOLE request with
+  // "<400> InternalError.Algo.InvalidParameter: If tool_calls are present in
+  // the message, function.arguments must be defined." Every later turn resends
+  // the same history, so the thread is stuck for good — recall is the last gate
+  // that can heal rows already written.
+  it("defaults a dynamic-tool part with no input to {}", () => {
+    const message = rowToMastraMessage(
+      makeMessage({
+        role: "assistant",
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolName: "engenty_tools_search",
+            toolCallId: "c1",
+            state: "output-available",
+            output: { ok: true },
+          },
+        ],
+      })
+    );
+
+    const part = message?.content.parts[0] as { input?: unknown };
+    expect(part).toHaveProperty("input");
+    expect(part.input).toEqual({});
+  });
+
+  it("defaults a tool-invocation part with no args to {}", () => {
+    const message = rowToMastraMessage(
+      makeMessage({
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-invocation",
+            toolInvocation: {
+              state: "result",
+              toolCallId: "c1",
+              toolName: "engenty_tools_search",
+              result: { ok: true },
+            },
+          },
+        ],
+      })
+    );
+
+    const part = message?.content.parts[0] as {
+      toolInvocation?: { args?: unknown };
+    };
+    expect(part.toolInvocation).toHaveProperty("args");
+    expect(part.toolInvocation?.args).toEqual({});
+  });
+
+  it("leaves real arguments untouched", () => {
+    const message = rowToMastraMessage(
+      makeMessage({
+        role: "assistant",
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolName: "engenty_tools_search",
+            toolCallId: "c1",
+            state: "output-available",
+            input: { query: "time tracking" },
+          },
+        ],
+      })
+    );
+
+    const part = message?.content.parts[0] as { input?: unknown };
+    expect(part.input).toEqual({ query: "time tracking" });
+  });
+});

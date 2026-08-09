@@ -98,6 +98,21 @@ export type {
   MentionRefSearch,
 } from "./components/copilot/composer/use-copilot-composer-mention.js";
 export {
+  ContextUsageIndicator,
+  type ContextUsageIndicatorProps,
+  type ContextUsageLevel,
+  contextUsageCostUsd,
+  contextUsageLevel,
+  contextUsageRatio,
+  fetchThreadContextUsage,
+  formatContextUsageLabel,
+  formatCostUsd,
+  formatTokenCount,
+  type ThreadContextUsage,
+  threadContextUsageQueryKey,
+  useCopilotContextUsage,
+} from "./components/copilot/context-usage/index.js";
+export {
   SubAgentRunFullPage,
   type SubAgentRunFullPageLabels,
   type SubAgentRunFullPageProps,

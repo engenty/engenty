@@ -801,6 +801,16 @@ export function useEngentyAgUiAppsAiSession(
               setAwaitingInterrupt(false);
               setPendingInterruptToolCallIds(new Set());
               setOpenInterruptFromStream(null);
+              // A failed run ENDS the turn exactly like RUN_FINISHED does — and
+              // must release the composer the same way. Without this the send
+              // state stays in-flight forever ("Wird gesendet…", submit stuck on
+              // Stop) and the thread reads as hung, so a transient provider
+              // failure (e.g. an upstream content-policy block) looked like a
+              // dead chat the user could only escape by reloading.
+              submitInFlightRef.current = false;
+              setSubmitStatus("ready");
+              clearPendingSend();
+              invalidateQueries(params.threadId);
               applyEventRef.current({
                 ...(event as Record<string, unknown>),
                 message: runErrorMessage,

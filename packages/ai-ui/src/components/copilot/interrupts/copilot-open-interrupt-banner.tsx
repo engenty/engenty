@@ -12,6 +12,22 @@ import {
 } from "./feedback-artifact";
 import { SandboxCommandConfirmCard } from "./sandbox-command-confirm-card";
 
+/**
+ * Whether the banner would render a card at all. It returns null for interrupts
+ * it has no UI for (frontend-tool suspends, artifacts without choices), and
+ * callers gate the composer status flap on the element being non-null — so
+ * without this check the flap slid open around nothing.
+ */
+export function hasRenderableOpenInterrupt(
+  open: AgUiOpenInterruptMetadata
+): boolean {
+  return (
+    isSandboxCommandOpenInterrupt(open) ||
+    feedbackArtifactFromOpenInterrupt(open) != null ||
+    decisionArtifactFromOpenInterrupt(open) != null
+  );
+}
+
 export function CopilotOpenInterruptBanner(props: {
   className?: string;
   onDecisionChoose: (

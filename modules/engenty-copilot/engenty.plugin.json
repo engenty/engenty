@@ -44,8 +44,8 @@
         "secret": true
       },
       {
-        "description": "Default model routed through the AI Gateway (e.g. anthropic/claude-sonnet-4-6).",
-        "defaultValue": "anthropic/claude-sonnet-4-6",
+        "description": "Default model routed through the AI Gateway (e.g. openai/gpt-5.6-luna).",
+        "defaultValue": "openai/gpt-5.6-luna",
         "feature": "ai",
         "group": "AI",
         "key": "AI_GATEWAY_DEFAULT_MODEL",

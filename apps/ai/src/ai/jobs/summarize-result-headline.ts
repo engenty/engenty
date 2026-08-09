@@ -52,7 +52,7 @@ export async function summarizeTaskResultHeadline(
   return await generateHeadline({
     ...params,
     prompt: params.resultText,
-    system: SYSTEM_PROMPT,
+    instructions: SYSTEM_PROMPT,
   });
 }
 
@@ -83,15 +83,15 @@ export async function summarizeApprovalRequest(
     ]
       .filter(Boolean)
       .join("\n\n"),
-    system: APPROVAL_SYSTEM_PROMPT,
+    instructions: APPROVAL_SYSTEM_PROMPT,
     taskRef: params.taskRef,
   });
 }
 
 async function generateHeadline(params: {
+  instructions: string;
   modelId?: string;
   prompt: string;
-  system: string;
   taskRef: string;
 }): Promise<string | null> {
   const trimmed = params.prompt.trim();
@@ -104,7 +104,7 @@ async function generateHeadline(params: {
       maxOutputTokens: 40,
       model,
       prompt: trimmed.slice(0, MAX_INPUT_CHARS),
-      system: params.system,
+      instructions: params.instructions,
       temperature: 0.2,
     });
     const headline = text

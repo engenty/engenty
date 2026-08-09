@@ -180,7 +180,16 @@ describe("okf store default-category fallback", () => {
         upserts.push({ table: name, row });
         return Promise.resolve({ error: null });
       },
-      delete: () => ({ eq: () => Promise.resolve({}) }),
+      delete: () => {
+        // Chainable: deletes now filter tenant_id and scope_id before the
+        // row key, so a single-shot `eq` would end the chain too early.
+        const builder = {
+          eq: () => builder,
+          // biome-ignore lint/suspicious/noThenProperty: mirrors PostgrestFilterBuilder
+          then: (resolve: (value: unknown) => unknown) => resolve({}),
+        };
+        return builder;
+      },
       select: () => {
         const builder = {
           eq: () => builder,

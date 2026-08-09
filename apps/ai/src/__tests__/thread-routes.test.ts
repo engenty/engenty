@@ -117,6 +117,7 @@ function makeRunRouteHarness({
     return { message: makeMessage(), text: "ok" };
   }),
   getRunStore,
+  store,
 }: {
   assertNativeMemoryAvailable?: ReturnType<typeof vi.fn>;
   /** Enable the conversation-substrate branch (createRegistry + getStore). */
@@ -130,6 +131,12 @@ function makeRunRouteHarness({
     userId: string;
   }) => Promise<void>;
   streamGenerate?: ReturnType<typeof vi.fn>;
+  /**
+   * Conversation store the route writes through. Defaults to `{}` (the route's
+   * metadata writes are best-effort and swallowed), so pass a real fake when the
+   * assertion is about what got PERSISTED.
+   */
+  store?: unknown;
 } = {}) {
   const app = new Hono();
   registerThreadRunRoutes(app as never, {
@@ -153,7 +160,7 @@ function makeRunRouteHarness({
     ...(conversation
       ? {
           createRegistry: () => ({}) as never,
-          getStore: () => ({}) as never,
+          getStore: () => (store ?? {}) as never,
         }
       : {}),
   });
@@ -670,6 +677,137 @@ describe("apps/ai session routes", () => {
       } finally {
         finishParkedResume(suspendedRunId);
       }
+    });
+
+    // An ARTIFACT approval interrupt: no `run_id`, because interactive chat's
+    // start run gates under approvalPolicy "artifact" (a gated op returns the
+    // Approve/Deny card as a tool result instead of suspending). This is the
+    // branch real chats take for the FIRST approval of a turn.
+    function makeArtifactApprovalSession(): ThreadRow {
+      return {
+        ...makeSession(),
+        metadata: {
+          ag_ui_open_interrupt: {
+            artifact_id: "tool-approval|op_a",
+            choices: [
+              { id: "approve_always", label: "Approve always" },
+              { id: "approve_once", label: "Approve once" },
+            ],
+            interrupt_id: "tool-approval|op_a",
+            kind: "decision",
+            title: "Approve op_a?",
+            tool_call_id: "call-a",
+          },
+        },
+      };
+    }
+
+    function makeArtifactApprovalHarness() {
+      const merges: Record<string, unknown>[] = [];
+      const store = {
+        listMessagesOrdered: vi.fn(async () => []),
+        mergeThreadMetadataForUser: vi.fn(
+          async (params: Record<string, unknown>) => {
+            merges.push(params);
+            return { thread: makeArtifactApprovalSession() };
+          }
+        ),
+        updateMessageParts: vi.fn(async () => ({ message: makeMessage() })),
+      };
+      const { app } = makeRunRouteHarness({
+        conversation: true,
+        getThread: vi.fn(async () => ({
+          thread: makeArtifactApprovalSession(),
+        })),
+        store,
+      });
+      return { app, merges };
+    }
+
+    // Regression: "approve always" was folded into the in-memory metadata handed
+    // to the re-run, but NEVER written to the thread. It therefore lasted only
+    // for that request's runs — the next turn re-prompted the same operation, so
+    // "always" silently behaved like "once" (observed live: two approve_always
+    // audits for one operation, and `ai.thread.metadata` with no grants key).
+    // The parked branch has always persisted; this one did not.
+    it("persists an approve_always grant, and it survives clearing the interrupt", async () => {
+      auditToolApprovalDecision.mockClear();
+      const { app, merges } = makeArtifactApprovalHarness();
+
+      const res = await app.request(
+        `http://localhost/ai/v1/threads/${threadId}/runs`,
+        {
+          body: JSON.stringify(
+            makeRunInput({
+              messages: [],
+              resume: [
+                {
+                  interruptId: "tool-approval|op_a",
+                  payload: { choice_id: "approve_always" },
+                  status: "resolved",
+                },
+              ],
+            })
+          ),
+          headers: {
+            Authorization: "Bearer token",
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        }
+      );
+
+      expect(res.status).not.toBe(400);
+      expect(auditToolApprovalDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ decision: "approve_always" })
+      );
+
+      const granting = merges.find(
+        (merge) =>
+          (merge.appendSets as Record<string, string[]> | undefined)
+            ?.engenty_tool_approval_grants
+      );
+      expect(granting).toBeDefined();
+      expect(
+        (granting?.appendSets as Record<string, string[]>)
+          .engenty_tool_approval_grants
+      ).toEqual(["op_a"]);
+      // Same statement drops the answered interrupt — the point of the fix is
+      // that the grant is not lost to that clear. (The RPC applies
+      // append-then-remove against the current row.)
+      expect(granting?.removeKeys).toContain("ag_ui_open_interrupt");
+    });
+
+    it("records a DENY without granting anything", async () => {
+      auditToolApprovalDecision.mockClear();
+      const { app, merges } = makeArtifactApprovalHarness();
+
+      await app.request(`http://localhost/ai/v1/threads/${threadId}/runs`, {
+        body: JSON.stringify(
+          makeRunInput({
+            messages: [],
+            resume: [
+              {
+                interruptId: "tool-approval|op_a",
+                payload: {},
+                status: "cancelled",
+              },
+            ],
+          })
+        ),
+        headers: {
+          Authorization: "Bearer token",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      expect(auditToolApprovalDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ decision: "deny" })
+      );
+      expect(merges.some((merge) => merge.appendSets !== undefined)).toBe(
+        false
+      );
     });
   });
 });

@@ -57,13 +57,19 @@ export function createFaqRepo(
 
       if (tagIds && tagIds.length > 0) {
         await faqTagsTable().insert(
-          tagIds.map((tid) => ({ faq_id: id, tag_id: tid }))
+          tagIds.map((tid) => ({
+            faq_id: id,
+            scope_id: scopeId,
+            tag_id: tid,
+            tenant_id: tenantId,
+          }))
         );
       }
 
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "faq_tags",
         "faq_id",
         [id]
@@ -123,6 +129,7 @@ export function createFaqRepo(
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "faq_tags",
         "faq_id",
         ids
@@ -148,6 +155,7 @@ export function createFaqRepo(
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "faq_tags",
         "faq_id",
         [id]
@@ -178,6 +186,7 @@ export function createFaqRepo(
       const tagsMap = await getTagsForIds(
         supabase,
         tenantId,
+        scopeId,
         "faq_tags",
         "faq_id",
         [id]
@@ -202,10 +211,19 @@ export function createFaqRepo(
     },
 
     async setTags(faqId: string, tagIds: string[]): Promise<void> {
-      await faqTagsTable().delete().eq("faq_id", faqId);
+      await faqTagsTable()
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("faq_id", faqId);
       if (tagIds.length > 0) {
         await faqTagsTable().insert(
-          tagIds.map((tid) => ({ faq_id: faqId, tag_id: tid }))
+          tagIds.map((tid) => ({
+            faq_id: faqId,
+            scope_id: scopeId,
+            tag_id: tid,
+            tenant_id: tenantId,
+          }))
         );
       }
     },

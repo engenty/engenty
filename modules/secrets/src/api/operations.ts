@@ -224,7 +224,7 @@ export function registerSecretsOperations(
         const allowed = await canReadSecret(
           supabase,
           { tenantId, principal, secret },
-          buildResolveDeps(supabase, tenantId)
+          buildResolveDeps(supabase, ctx.auth)
         );
         if (!allowed) {
           throw new Error("secrets_reveal: forbidden");

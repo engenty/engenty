@@ -1,4 +1,4 @@
-import { tool } from "ai";
+import { type Tool, tool } from "ai";
 import { z } from "zod";
 import type { ToolExecutionContext } from "../context/types.js";
 
@@ -106,7 +106,7 @@ export type EngentyApiCatalogResult = z.infer<
 
 export const ENGENTY_API_CATALOG_TOOL_ID = "core_api_catalog_search";
 
-export function buildEngentyApiCatalogTool(ctx: ToolExecutionContext) {
+export function buildEngentyApiCatalogTool(ctx: ToolExecutionContext): Tool {
   return tool({
     description:
       'Discover Engenty APIs before fetching data. Prefer searching with kind "tool" first to find callable tools/actions; broaden to kind "all" only when no suitable tool exists. Returns matching HTTP routes and tools with request hints, response schema summaries, and auth metadata.',

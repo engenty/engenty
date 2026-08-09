@@ -253,9 +253,17 @@ export async function runDelegatedConversation(
       ...getEngentyToolsRunContext(),
       ...(childCoreAgentId ? { agentId: childCoreAgentId } : {}),
       agentTypeKey: input.childAgentId,
-      // Durable task/routine grants for the "request" pre-gate; empty for
-      // in-chat delegation (grants there live on the parent's session).
-      approvalGrants: input.approvalGrants ?? [],
+      // Durable task/routine grants for the "request" pre-gate (headless task
+      // jobs pass them explicitly). In-chat delegation inherits the PARENT
+      // run's grants instead: an operation the user already approved for this
+      // conversation ("Approve always" / bulk pre-approval) must not re-gate
+      // just because a sub-agent executes it — the child still has no way to
+      // ASK (policy "deny"), so without the pass-down every granted write dies
+      // in the leaf.
+      approvalGrants:
+        input.approvalGrants ??
+        getEngentyToolsRunContext().approvalGrants ??
+        [],
       // Leaf run — no interactive channel: a gated operation is denied with a
       // clear result instead of suspending (which would deadlock the parent).
       // Task jobs override to "defer" (core decides) or "request" (report a

@@ -30,7 +30,7 @@ function getOperation(
 }
 
 describe("registerCommercialSettingsGatewayMethods", () => {
-  it("registers commercial settings operations through the server operation API", () => {
+  it("registers a read plus one write per collection and the scalar defaults", () => {
     const { server, serverOperations } = makeMockApi();
 
     registerCommercialSettingsGatewayMethods(server, {
@@ -40,6 +40,12 @@ describe("registerCommercialSettingsGatewayMethods", () => {
 
     expect(serverOperations.map((operation) => operation.operationId)).toEqual([
       "commercial_settings_get",
+      "commercial_settings_disciplines_set",
+      "commercial_settings_units_set",
+      "commercial_settings_tax_rates_set",
+      "commercial_settings_expense_categories_set",
+      "commercial_settings_tax_deduction_rules_set",
+      "commercial_settings_defaults_set",
     ]);
     expect(
       getOperation(serverOperations, "commercial_settings_get")
@@ -51,6 +57,86 @@ describe("registerCommercialSettingsGatewayMethods", () => {
       dryRunSupported: false,
       requiresApproval: false,
     });
+  });
+
+  it("gates the money-bearing collections behind approval", () => {
+    // Tax rates, expense deductibility and currency price everything written
+    // afterwards; disciplines and units are catalog data.
+    const { server, serverOperations } = makeMockApi();
+    registerCommercialSettingsGatewayMethods(server, {
+      get: async () => ({}),
+      set: async () => ({}),
+    } as any);
+
+    expect(
+      Object.fromEntries(
+        serverOperations.map((operation) => [
+          operation.operationId,
+          operation.requiresApproval,
+        ])
+      )
+    ).toEqual({
+      commercial_settings_defaults_set: true,
+      commercial_settings_disciplines_set: false,
+      commercial_settings_expense_categories_set: true,
+      commercial_settings_get: false,
+      commercial_settings_tax_deduction_rules_set: true,
+      commercial_settings_tax_rates_set: true,
+      commercial_settings_units_set: false,
+    });
+  });
+
+  it("writes ONLY its own collection", async () => {
+    // The reason these are collection-scoped: a whole-settings write let a
+    // caller that only cared about disciplines erase the tax rates.
+    const writes: unknown[] = [];
+    const { server, serverOperations } = makeMockApi();
+    registerCommercialSettingsGatewayMethods(server, {
+      get: async () => ({}),
+      set: async (input: unknown) => {
+        writes.push(input);
+        return {};
+      },
+    } as any);
+
+    await getOperation(
+      serverOperations,
+      "commercial_settings_disciplines_set"
+    ).handler(
+      { disciplines: [{ name: "UX Design", rate: 140, short: "UX" }] },
+      {
+        auth: { principalId: "user-1", scopeId: "default", tenantId: "t1" },
+      } as any
+    );
+
+    expect(writes).toEqual([
+      { disciplines: [{ name: "UX Design", rate: 140, short: "UX" }] },
+    ]);
+  });
+
+  it("rejects a tax rate list with two defaults", async () => {
+    const { server, serverOperations } = makeMockApi();
+    registerCommercialSettingsGatewayMethods(server, {
+      get: async () => ({}),
+      set: async () => ({}),
+    } as any);
+
+    await expect(
+      getOperation(
+        serverOperations,
+        "commercial_settings_tax_rates_set"
+      ).handler(
+        {
+          tax_rates: [
+            { is_default: true, label: "A", name: "a", value: 10 },
+            { is_default: true, label: "B", name: "b", value: 20 },
+          ],
+        },
+        {
+          auth: { principalId: "user-1", scopeId: "default", tenantId: "t1" },
+        } as any
+      )
+    ).rejects.toThrow();
   });
 
   it("preserves the commercial settings get handler", async () => {

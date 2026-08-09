@@ -19,7 +19,7 @@ export const ENGENTY_TOOLS_SEARCH_TOOL_ID = "engenty_tools_search";
 export const engentyToolsSearchTool = createTool({
   id: ENGENTY_TOOLS_SEARCH_TOOL_ID,
   description:
-    'Search or list Engenty tools available from core. This is API/tool discovery only; it does not fetch app data or app records. Use this before choosing how to read or change Engenty data. If the correct moduleId is unknown, call engenty_tools_modules first. For user content queries, search by moduleId only when the module is known, then call engenty_tool_execute with the returned data tool and pass the user query there. Search with kind "tool" first and omit method unless you explicitly need HTTP routes. The returned matches include input and output schemas so you can execute the tool directly.',
+    'Search or list Engenty tools available from core. This is API/tool discovery only; it does not fetch app data or app records. Use this before choosing how to read or change Engenty data. If the correct moduleId is unknown, call engenty_tools_modules first. For user content queries, search by moduleId only when the module is known, then call engenty_tool_execute with the returned data tool and pass the user query there. Search with kind "tool" first and omit method unless you explicitly need HTTP routes. Matches include the input schema so you can execute the tool directly; the output shape comes back with the actual result. Prefer ONE narrow search over several broad ones — each result is added to the conversation permanently.',
   inputSchema: searchInputSchema,
   execute: async (input, context) => searchEngentyTools(input, context),
 });
@@ -116,13 +116,18 @@ export async function searchEngentyTools(
       usedFallback = entries.length > 0;
     }
 
+    const fitted = fitMatchesToBudget(
+      entries.map((entry) => projectContract(entry))
+    );
     return {
       ok: true,
       catalog_only: true,
-      matches: entries.map((entry) => projectContract(entry)),
+      matches: fitted.matches,
       message: usedFallback
         ? "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search."
-        : "Catalog discovery completed. These matches are tool contracts, not app data results.",
+        : fitted.compacted > 0
+          ? `Catalog discovery completed. These matches are tool contracts, not app data results. ${fitted.compacted} lower-ranked match(es) list only their parameter names to keep this result small — narrow the query if you need their full schema.`
+          : "Catalog discovery completed. These matches are tool contracts, not app data results.",
       next:
         entries.length > 0
           ? "Use engenty_tool_execute with the selected id to fetch or change app data."
@@ -133,15 +138,78 @@ export async function searchEngentyTools(
   }
 }
 
+/**
+ * Byte budget for the projected matches. A discovery result is a means to an
+ * end — it exists so the agent can pick a tool and call it. Emitting the full
+ * contracts blew past 20 KB for a single search, and several of those in one
+ * thread pushed the prompt to ~56k tokens of mostly JSON Schema, at which point
+ * the model stopped calling tools at all and just narrated. Overflow degrades to
+ * a compact signature rather than being dropped, and the result says so.
+ */
+const MATCHES_BYTE_BUDGET = 8000;
+
 function projectContract(contract: EngentyToolContract) {
-  // Preserve the legacy LLM-facing shape: name + description + flat
-  // input/output JSON Schema so the agent has everything it needs to
-  // call the tool directly via `engenty_tool_execute`.
+  // `outputSchema` is deliberately NOT included: it is not needed to CALL a
+  // tool, and the agent receives the real output when it does. It was roughly
+  // half the payload.
   const id = contract.toolId ?? contract.operationId ?? contract.methodName;
   return {
     name: id,
     description: contract.description ?? contract.summary ?? "",
     inputSchema: contract.inputSchema?.jsonSchema ?? {},
-    outputSchema: contract.outputSchema?.jsonSchema ?? {},
   };
+}
+
+type ProjectedMatch = ReturnType<typeof projectContract>;
+
+/** Property names + required list — enough to know the call shape, ~20x smaller. */
+function compactSignature(schema: unknown): Record<string, unknown> {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return {};
+  }
+  const record = schema as Record<string, unknown>;
+  const properties =
+    record.properties && typeof record.properties === "object"
+      ? Object.keys(record.properties as Record<string, unknown>)
+      : [];
+  const required = Array.isArray(record.required)
+    ? record.required.filter(
+        (value): value is string => typeof value === "string"
+      )
+    : [];
+  return {
+    ...(properties.length > 0 ? { properties } : {}),
+    ...(required.length > 0 ? { required } : {}),
+    schema_omitted: "Call the tool to see the full contract.",
+  };
+}
+
+/**
+ * Keep full input schemas while they fit the budget; compact the rest. Ordering
+ * is preserved and relevance-ranked by core, so the matches the agent is most
+ * likely to want keep their detail.
+ */
+export function fitMatchesToBudget(
+  matches: readonly ProjectedMatch[],
+  budget = MATCHES_BYTE_BUDGET
+): { matches: ProjectedMatch[]; compacted: number } {
+  const out: ProjectedMatch[] = [];
+  let used = 0;
+  let compacted = 0;
+  for (const match of matches) {
+    const full = JSON.stringify(match).length;
+    if (used + full <= budget) {
+      out.push(match);
+      used += full;
+      continue;
+    }
+    const slim = {
+      ...match,
+      inputSchema: compactSignature(match.inputSchema),
+    };
+    out.push(slim);
+    used += JSON.stringify(slim).length;
+    compacted += 1;
+  }
+  return { compacted, matches: out };
 }

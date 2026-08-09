@@ -50,6 +50,17 @@ export interface EngentyToolsRunContext {
   // consults these to skip re-prompting an already-approved gated operation.
   approvalGrants?: readonly string[];
   approvalPolicy?: EngentyToolApprovalPolicy;
+  /**
+   * This run can PARK on a Mastra suspend and be resumed by a human answer, so
+   * interaction tools (`requestDecision`) may suspend instead of returning an
+   * artifact. Set only by the interactive conversation executor and its resume.
+   *
+   * Absent — headless task jobs, delegated child runs, realtime voice — means
+   * nobody can answer a suspend, and suspending would hang the run forever.
+   * Distinct from `approvalPolicy`, which decides how a GATED OPERATION is
+   * cleared; this is about whether the run has a human channel at all.
+   */
+  canSuspendForInteraction?: boolean;
   coreBaseUrl?: string;
   fetchImpl?: typeof fetch;
   // Goal the agent is pursuing — the conversation thread id for chat runs.

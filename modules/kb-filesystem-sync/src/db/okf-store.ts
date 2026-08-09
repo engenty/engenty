@@ -144,17 +144,25 @@ export function createOkfStore(
       const slugs = Array.isArray(rawTags)
         ? rawTags.filter((t): t is string => typeof t === "string")
         : [];
-      await table("article_tags").delete().eq("article_id", articleId);
+      await table("article_tags")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("article_id", articleId);
       if (slugs.length === 0 || !kbId) {
         return;
       }
       const { data } = await table("tags")
         .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
         .eq("kb_id", kbId)
         .in("slug", slugs);
       const rows = (data ?? []).map((r: { id: string }) => ({
         article_id: articleId,
+        scope_id: scopeId,
         tag_id: String(r.id),
+        tenant_id: tenantId,
       }));
       if (rows.length > 0) {
         await table("article_tags").insert(rows);

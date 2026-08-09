@@ -9,7 +9,7 @@ vi.mock("@engenty/ai-core", async (importOriginal) => {
   return {
     ...actual,
     readAiGatewayApiKeyFromEnv,
-    resolveChatModelId: () => "openai/gpt-5-nano",
+    resolveChatModelId: () => "vendor/fixture-router",
   };
 });
 

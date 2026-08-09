@@ -2,7 +2,7 @@ import {
   grantCapabilityForGoal,
   listGoalGrantCapabilities,
 } from "@engenty/approvals-sdk";
-import type { PluginServerApi } from "@engenty/plugin-sdk";
+import { foreignSelect, type PluginServerApi } from "@engenty/plugin-sdk";
 import {
   canReadSecret,
   decryptPayload,
@@ -108,7 +108,7 @@ export function registerSecretsRevealRoutes(
       const allowed = await canReadSecret(
         supabase,
         { tenantId: ctx.auth.tenantId, principal, secret },
-        buildResolveDeps(supabase, ctx.auth.tenantId)
+        buildResolveDeps(supabase, ctx.auth)
       );
       if (!allowed) {
         return hono.json({ error: "Forbidden" }, 403);
@@ -186,7 +186,7 @@ export function registerSecretsRevealRoutes(
       const allowed = await canReadSecret(
         supabase,
         { tenantId: ctx.auth.tenantId, principal, secret },
-        buildResolveDeps(supabase, ctx.auth.tenantId)
+        buildResolveDeps(supabase, ctx.auth)
       );
       if (!allowed) {
         return hono.json({ error: "Forbidden" }, 403);
@@ -219,9 +219,24 @@ export function registerSecretsRevealRoutes(
  * Wires resolve.ts to concrete membership sources. R4: isAssignedToClient /
  * isProjectMember point at the membership source decided in Phase 0. Stubs here
  * default-deny (safe) until wired.
+ *
+ * `scopeId` is optional because the two caller kinds differ: route and
+ * operation handlers carry a concrete `ctx.auth.scopeId`, while the profile
+ * policy sees a `PrincipalContext` that has none. That is safe rather than a
+ * hole — the policy path only ever resolves an *agent* principal, and
+ * `canReadSecret` reaches the membership checks below only for `kind: "user"`
+ * (see secrets-sdk resolve.ts). Without a scope the membership checks
+ * default-deny outright, so a future caller that does reach them with no scope
+ * fails closed instead of reading across scopes.
  */
-export function buildResolveDeps(supabase: SupabaseClient, tenantId: string) {
+export function buildResolveDeps(
+  supabase: SupabaseClient,
+  auth: { scopeId?: string; tenantId: string }
+) {
+  const { tenantId } = auth;
   const db = () => supabase.schema(SCHEMA);
+  /** Tenant boundary for cross-schema reads, or null when unscoped → deny. */
+  const scope = auth.scopeId ? { scopeId: auth.scopeId, tenantId } : null;
   return {
     async hasSecretGrant(secretId: string, p: Principal) {
       const col = p.kind === "agent" ? "agent_id" : "user_id";
@@ -244,41 +259,57 @@ export function buildResolveDeps(supabase: SupabaseClient, tenantId: string) {
     // direct secret_grants path above. Managed via UI/mass-edit.
     // Coupling note: these query module_projects; if that module isn't
     // installed the schema is absent → treat as no membership (default deny).
+    //
+    // Tenant boundary: `module_projects.project_team` carries tenant_id and
+    // scope_id of its own, held equal to the parent project by a composite FK
+    // (see 20260809120000_plugin_module_projects_project_team_tenant.sql). The
+    // client here is service-role and bypasses RLS, so these filters ARE the
+    // boundary — without them a project id from another tenant reads as
+    // membership and grants a secret reveal.
     async isProjectMember(userId: string, projectId: string) {
+      if (!scope) {
+        return false;
+      }
       try {
-        const { data } = await supabase
-          .schema("module_projects")
-          .from("project_team")
-          .select("user_id")
+        const { data } = await foreignSelect(supabase, scope, {
+          columns: "user_id",
+          schema: "module_projects",
+          table: "project_team",
+        })
           .eq("project_id", projectId)
           .eq("user_id", userId)
           .limit(1);
-        return (data ?? []).length > 0;
+        return ((data ?? []) as unknown[]).length > 0;
       } catch {
         return false;
       }
     },
     async isAssignedToClient(userId: string, clientId: string) {
+      if (!scope) {
+        return false;
+      }
       try {
-        // project_team.project_id → projects (client_id = clientId, in tenant)
-        const { data: projects } = await supabase
-          .schema("module_projects")
-          .from("projects")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .eq("client_id", clientId);
-        const projectIds = (projects ?? []).map((p) => p.id as string);
+        // project_team.project_id → projects (client_id = clientId, in scope)
+        const { data: projects } = await foreignSelect(supabase, scope, {
+          columns: "id",
+          schema: "module_projects",
+          table: "projects",
+        }).eq("client_id", clientId);
+        const projectIds = ((projects ?? []) as { id: string }[]).map(
+          (p) => p.id
+        );
         if (projectIds.length === 0) {
           return false;
         }
-        const { data } = await supabase
-          .schema("module_projects")
-          .from("project_team")
-          .select("project_id")
+        const { data } = await foreignSelect(supabase, scope, {
+          columns: "project_id",
+          schema: "module_projects",
+          table: "project_team",
+        })
           .eq("user_id", userId)
           .in("project_id", projectIds)
           .limit(1);
-        return (data ?? []).length > 0;
+        return ((data ?? []) as unknown[]).length > 0;
       } catch {
         return false;
       }

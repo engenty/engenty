@@ -23,7 +23,7 @@
     "@engenty/web-ingest": "workspace:*",
     "@llamaindex/liteparse": "^2.1.2",
     "@llamaindex/llama-cloud": "^2.9.0",
-    "ai": "6.0.116",
+    "ai": "7.0.58",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5"
   },

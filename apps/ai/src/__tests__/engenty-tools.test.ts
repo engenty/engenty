@@ -316,7 +316,7 @@ describe("Engenty Mastra tools helpers", () => {
       catalog_only: true,
       modules: [
         {
-          baseUrl: "/mdl/contacts",
+          routePrefix: "/mdl/contacts",
           description: "Manage contacts.",
           moduleId: "contacts",
           name: "Contacts",
@@ -326,7 +326,7 @@ describe("Engenty Mastra tools helpers", () => {
           toolCount: 2,
         },
         {
-          baseUrl: "/mdl/knowledge-base",
+          routePrefix: "/mdl/knowledge-base",
           description: "Manage knowledge.",
           moduleId: "knowledge-base",
           name: "Knowledge Base",
