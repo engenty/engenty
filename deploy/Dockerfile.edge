@@ -72,6 +72,13 @@ ARG VITE_ENGENTY_AI_BASE_URL=http://127.0.0.1:8787
 # Lower on memory-constrained builders (each parallel tsup/tsc worker is heavy).
 ARG TURBO_BUILD_CONCURRENCY=10
 COPY turbo.json tsconfig.base.json ./
+# apps/ui and apps/manage bake the version into their bundles from this file
+# (see apps/ui/vite.config.ts), so the deps stage's normalised 0.0.0-cache must
+# not survive into the build — v0.1.110 and v0.1.111 both shipped an About
+# dialog reading "0.0.0-cache". Restoring it here leaves the cached install
+# layer above untouched; everything below it rebuilds on any source change
+# anyway.
+COPY package.json ./package.json
 COPY apps ./apps
 COPY packages ./packages
 COPY modules ./modules
@@ -103,6 +110,9 @@ RUN if [ -d apps/manage ]; then \
       pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter=@engenty/manage; \
     fi; \
     mkdir -p apps/manage/dist
+# The sentinel is invisible until someone opens the About dialog in production;
+# fail the build instead.
+RUN ! grep -rqF "0.0.0-cache" apps/ui/dist apps/manage/dist
 
 FROM node:24-bookworm-slim AS runtime
 ENV PNPM_HOME="/pnpm"

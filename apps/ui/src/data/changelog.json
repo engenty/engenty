@@ -4,6 +4,36 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "1a9ae93",
+        "message": "ship the docs site as a prebuilt image",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a0d77b7",
+        "message": "build the UI with the real version, not the cache sentinel",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ed43c87",
+        "message": "assert the copilot's write rule by substance, not its old wording",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e291560",
+        "message": "list the snapshot operations in the catalog guards",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.111",
+    "timestamp": 1786307668,
+    "commits": [
+      {
         "id": "c778245",
         "message": "raise the open-file limit for `pnpm dev` too",
         "group": "Fixed",

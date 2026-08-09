@@ -6,8 +6,13 @@
 # for local/manual builds. The server's Docker daemon must be logged in to
 # ghcr.io with a token that has read:packages (the images are private).
 #
-# The optional studio/docs profile services still build locally on the server
-# (they are rarely enabled and small compared to edge/ai).
+# The optional studio profile service still builds locally on the server (it is
+# rarely enabled and small compared to edge/ai). Docs is prebuilt like the rest:
+# it is a full monorepo install plus a Next build, far too heavy for the VPS.
+#
+# Profile services need COMPOSE_PROFILES set in the deployment's environment —
+# Coolify has no --profile flag. Without it the service is silently skipped, and
+# ENGENTY_GATEWAY_DOCS_ENABLED=true then makes every /docs URL a 502.
 
 name: engenty
 
@@ -189,9 +194,8 @@ services:
   engenty-docs:
     profiles:
       - docs
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.docs
+    image: ghcr.io/engenty/engenty-docs:latest
+    pull_policy: always
     restart: unless-stopped
     environment:
       NODE_ENV: production

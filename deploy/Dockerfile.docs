@@ -15,9 +15,19 @@ COPY packages ./packages
 COPY modules ./modules
 COPY docs/content ./docs/content
 COPY changelog.json ./changelog.json
+# The lockfile records a patched dependency; without patches/ present the
+# install dies with ENOENT on the patch file (same trap the other deploy
+# images hit from v0.1.75 onward).
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
+# Next inlines NEXT_PUBLIC_* at build time, so this has to be the real site URL
+# here — setting it in compose only affects the runtime, too late for the
+# metadataBase (canonical/OG) URLs baked into every page. Empty is safe: the app
+# falls back to its localhost default.
+ARG NEXT_PUBLIC_DOCS_SITE_URL
+ENV NEXT_PUBLIC_DOCS_SITE_URL=$NEXT_PUBLIC_DOCS_SITE_URL
 RUN pnpm exec turbo run build --filter=@engenty/docs
 
 FROM node:24-bookworm-slim AS runtime
@@ -27,6 +37,11 @@ RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 WORKDIR /app/apps/docs
 
 COPY --from=deps /app/node_modules /app/node_modules
+# pnpm puts a workspace's own bins and dep links in its OWN node_modules, so the
+# root tree alone leaves `next` unresolvable — the container exited 254 with
+# ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL. The links point back into the root
+# .pnpm store copied above.
+COPY --from=deps /app/apps/docs/node_modules ./node_modules
 COPY --from=build /app/apps/docs/.next ./.next
 COPY --from=build /app/apps/docs/public ./public
 COPY --from=build /app/apps/docs/package.json ./package.json

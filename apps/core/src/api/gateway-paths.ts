@@ -31,6 +31,12 @@ export function isDocsGatewayPath(pathname: string): boolean {
   if (pathname.startsWith("/og/docs")) {
     return true;
   }
+  // The docs site's own nav links here (apps/docs/lib/layout.shared.tsx) and the
+  // page lives outside its /docs tree, in the (home) route group — so without
+  // this the link lands on the SPA, which has no such route.
+  if (pathname === "/changelog") {
+    return true;
+  }
   if (pathname === "/llms-full.txt" || pathname.startsWith("/llms")) {
     return true;
   }

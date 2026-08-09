@@ -795,7 +795,12 @@ describe("dynamic AI registry", () => {
     );
     expect(agent.config.instructions).toContain("dynamic plugin contributions");
     expect(agent.config.instructions).toContain("requestDecision");
-    expect(agent.config.instructions).toContain("Prefer backend APIs");
+    // The catalog-only write rule (AGENTS.md rule 1). Asserted on the rule's
+    // substance, not its old phrasing: it was "Prefer backend APIs" until the
+    // instructions were tightened to make catalog operations the ONLY write path.
+    expect(agent.config.instructions).toContain(
+      "Backend tools are the only way you write data"
+    );
     expect(agent.config.backgroundTasks).toBeUndefined();
     // All specialists declared in engentyCopilotAgentConfig.subAgents:
     // engenty_cli (CLI/sandbox work), file_analyst (tiered attachments), and

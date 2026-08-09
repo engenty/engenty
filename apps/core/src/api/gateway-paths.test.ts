@@ -23,6 +23,13 @@ describe("gateway-paths", () => {
     expect(isDocsGatewayPath("/api/users")).toBe(false);
   });
 
+  it("the docs Changelog page routes to docs, not the SPA", () => {
+    expect(resolveGatewayTarget("/changelog")).toBe("docs");
+    // Only the exact path — nothing else may be taken from the UI.
+    expect(resolveGatewayTarget("/changelog/x")).toBe("ui");
+    expect(resolveGatewayTarget("/changelogs")).toBe("ui");
+  });
+
   it("root favicons fall through to the UI app, not docs", () => {
     // Regression: /favicon.svg + /favicon.ico were diverted to docs for
     // every gateway host, 404ing on the main SPA (docs serves them only

@@ -89,6 +89,11 @@ Optional flags in `deploy/.env`:
 
 - `ENGENTY_GATEWAY_DOCS_ENABLED=true` + start `--profile docs`
 - `ENGENTY_GATEWAY_STUDIO_ENABLED=true` + start `--profile studio`
+
+> Both halves are required. The gateway flag alone points `/docs` at a container
+> that was never started, so every docs URL returns 502 — which is exactly how
+> prod ran until v0.1.112. On Coolify there is no `--profile` flag: set
+> `COMPOSE_PROFILES=docs` in the application's environment instead.
 - `ENGENTY_GATEWAY_STUDIO_BASIC_AUTH=operator:secret` — HTTP basic auth on `/studio`
 
 **Inbox OAuth:** redirect URI `https://<host>/api/inbox/oauth/callback` in Google/Azure; set `GMAIL_*` / `OUTLOOK_*` on `engenty-edge`.

@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.112] - 2026-08-09
+- ADDED **[deploy]** Ship the docs site as a prebuilt image
+- FIXED **[deploy]** Build the UI with the real version, not the cache sentinel
+- FIXED **[ai]** Assert the copilot's write rule by substance, not its old wording
+- FIXED **[time-tracking]** List the snapshot operations in the catalog guards
+
 ## [0.1.111] - 2026-08-09
 - ADDED **[company-profile]** Add the module's missing skills
 - ADDED **[pdf-templates]** Full template lifecycle in the AI catalog, plus authoring skills

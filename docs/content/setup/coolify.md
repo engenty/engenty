@@ -175,10 +175,13 @@ Coolify will build the images and start the stack (the `engenty-edge`,
 
 ### Optional: docs and the agent playground
 
-Two extras are off by default and enabled with compose **profiles**:
+Two extras are off by default and enabled with compose **profiles**. Both halves
+matter: the gateway flag alone points the route at a container that was never
+started, and every request to it then returns 502.
 
 - **Docs** (`/docs`): set `ENGENTY_GATEWAY_DOCS_ENABLED=true` and enable the
-  `docs` profile in Coolify.
+  `docs` profile in Coolify by adding `COMPOSE_PROFILES=docs` to the
+  application's environment variables (Coolify has no `--profile` flag).
 - **Studio** (`/studio`): set `ENGENTY_GATEWAY_STUDIO_ENABLED=true` and
   `ENGENTY_GATEWAY_STUDIO_BASIC_AUTH=operator:change-me`, then enable the
   `studio` profile. Studio is protected by HTTP basic auth.
