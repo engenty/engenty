@@ -32,8 +32,11 @@ portless_proxy_responds() {
     scheme="https"
   fi
   local headers
+  # --max-time too, not just --connect-timeout: under heavy load the proxy can
+  # accept the connection and then take arbitrarily long to answer — without a
+  # response deadline this check (and dev:portless behind it) looks hung.
   headers="$(
-    curl -skI --connect-timeout 2 "${scheme}://127.0.0.1:${port}/" 2>/dev/null || true
+    curl -skI --connect-timeout 2 --max-time 10 "${scheme}://127.0.0.1:${port}/" 2>/dev/null || true
   )"
   echo "${headers}" | grep -qi '^x-portless:[[:space:]]*1'
 }

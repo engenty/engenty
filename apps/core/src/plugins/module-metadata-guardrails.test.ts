@@ -550,9 +550,11 @@ describe("module metadata guardrails", () => {
           `${moduleName}: package export must point at dist/ui/plugin.js`
         );
       }
-      if (packagePluginExport.types !== "./dist/ui/plugin.d.ts") {
+      // Internal-packages convention (v0.1.117): builds no longer emit .d.ts —
+      // `types` points at the plugin SOURCE, which consumers type-check directly.
+      if (packagePluginExport.types !== "./ui/plugin.ts") {
         offenders.push(
-          `${moduleName}: package types must point at dist/ui/plugin.d.ts`
+          `${moduleName}: package types must point at the ui/plugin.ts source`
         );
       }
     }

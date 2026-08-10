@@ -27,14 +27,15 @@ export const kbCategoryArticleListSourceSchema = z.enum([
   "manual_pick",
 ]);
 
-// z.custom keeps the `custom:${string}` template-literal type;
-// z.string().startsWith() would widen the inferred output to plain `string`.
+// The cast (not z.custom) keeps the `custom:${string}` template-literal type
+// while the runtime schema stays a plain ZodString: the OpenAPI generator can
+// only serialize known zod types — a z.custom here 500'd /api/openapi.json in
+// prod, and the edge healthcheck probing that endpoint turned it into a full
+// outage (v0.1.117/118).
 export const kbCategoryCollectionSortBySchema = z
   .enum(["created_at", "name", "sort_order", "updated_at"])
   .or(
-    z.custom<`custom:${string}`>(
-      (v) => typeof v === "string" && v.startsWith("custom:")
-    )
+    z.string().startsWith("custom:") as unknown as z.ZodType<`custom:${string}`>
   );
 
 export type KbPageBlockType = "articles" | "categories" | "content" | "faqs";

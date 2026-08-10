@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.1.119",
+    "timestamp": 1786379138,
+    "commits": [
+      {
+        "id": "288e94f",
+        "message": "serialize the custom: sort-by schema for OpenAPI",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bdf05bd",
+        "message": "probe / instead of /api/openapi.json in the edge healthcheck",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.118",
-    "timestamp": 1786375694,
+    "timestamp": 1786375696,
     "commits": [
       {
         "id": "f3223de",

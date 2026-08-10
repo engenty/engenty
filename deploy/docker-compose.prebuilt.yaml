@@ -74,7 +74,7 @@ services:
       test:
         - CMD-SHELL
         - >-
-          node -e "fetch('http://127.0.0.1:8787/api/openapi.json').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          node -e "fetch('http://127.0.0.1:8787/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       timeout: 8s
     environment:
       NODE_ENV: production
