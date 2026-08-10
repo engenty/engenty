@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.118] - 2026-08-10
+- FIXED **[deploy]** Prefer the SSH pre-pull path over the Coolify API
+
 ## [0.1.117] - 2026-08-10
 - ADDED **[ui]** Move audit logs and users off the admin rail
 - FIXED **[release]** Attribute About changelog commits to the new tag

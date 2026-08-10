@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.1.118",
+    "timestamp": 1786375694,
+    "commits": [
+      {
+        "id": "f3223de",
+        "message": "prefer the SSH pre-pull path over the Coolify API",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.117",
-    "timestamp": 1786374187,
+    "timestamp": 1786374189,
     "commits": [
       {
         "id": "2ad3779",
