@@ -43,9 +43,18 @@ export interface TeamMemberListItem {
 
 export type TeamMemberCreateInput = Omit<
   TeamMemberListItem,
-  "id" | "tenant_id" | "scope_id" | "created_at" | "updated_at" | "member_type"
+  | "id"
+  | "tenant_id"
+  | "scope_id"
+  | "created_at"
+  | "updated_at"
+  | "member_type"
+  | "import_id"
+  | "last_imported_at"
 > & {
   member_type?: MemberType;
+  import_id?: string | null;
+  last_imported_at?: string | null;
   invite_email?: string;
   invite_password?: string;
   invite_role?: "admin" | "member";

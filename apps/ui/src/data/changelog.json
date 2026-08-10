@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.1.123",
+    "timestamp": 1786393581,
+    "commits": [
+      {
+        "id": "0a51a88",
+        "message": "finish the typecheck pass for modules/team",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "dad087d",
+        "message": "move the holiday add/edit form into a modal",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.122",
-    "timestamp": 1786391710,
+    "timestamp": 1786391712,
     "commits": [
       {
         "id": "d69fbeb",

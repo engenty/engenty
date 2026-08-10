@@ -57,11 +57,11 @@ const isUuid = (v: string | null | undefined): v is string =>
  */
 export function draftsToTaxonomyTermsForSave(
   drafts: Array<
-    TaxonomyTermDraft & { _key: string; parent_term_id?: string | null }
+    TaxonomyTermDraft & { _key?: string; parent_term_id?: string | null }
   >
 ) {
   const terms: Array<{
-    id: string;
+    id: string | undefined;
     term_slug: string;
     label: string;
     parent_term_id: string | null;

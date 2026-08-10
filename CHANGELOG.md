@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.123] - 2026-08-10
+- ADDED **[team-hr]** Move the holiday add/edit form into a modal
+- FIXED **[team]** Finish the typecheck pass for modules/team
+
 ## [0.1.122] - 2026-08-10
 - ADDED **[team-hr]** Group holidays by month, add a type, edit from a row menu
 - ADDED **[team-hr]** Manage public holidays in team settings

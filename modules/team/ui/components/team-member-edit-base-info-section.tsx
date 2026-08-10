@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@engenty/ui-core";
-import { type Control, useWatch } from "react-hook-form";
+import { type Control, type Path, useWatch } from "react-hook-form";
 import { useTeamMemberTaxonomyTerms } from "../hooks/use-team-member-taxonomy-terms.js";
 import {
   previewDisplayNameFromForm,
@@ -31,6 +31,12 @@ export type TeamMemberEditBaseInfoValues = TeamProfileNameFormFields & {
   reports_to_id: string;
   role_term_id: string;
 };
+
+function baseInfoField<T extends TeamMemberEditBaseInfoValues>(
+  name: keyof TeamMemberEditBaseInfoValues & string
+): Path<T> {
+  return name as Path<T>;
+}
 
 interface TeamMemberEditBaseInfoSectionProps<
   T extends TeamMemberEditBaseInfoValues,
@@ -90,12 +96,16 @@ export function TeamMemberEditBaseInfoSection<
         <Card variant="form">
           <FormField
             control={control}
-            name={"email" as keyof T & string}
+            name={baseInfoField<T>("email")}
             render={({ field }) => (
               <FormItem variant="row">
                 <FormLabel>{t("email")}</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} value={field.value ?? ""} />
+                  <Input
+                    type="email"
+                    {...field}
+                    value={(field.value as string | null) ?? ""}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -103,11 +113,14 @@ export function TeamMemberEditBaseInfoSection<
           />
           <FormField
             control={control}
-            name={"role_term_id" as keyof T & string}
+            name={baseInfoField<T>("role_term_id")}
             render={({ field }) => (
               <FormItem variant="row">
                 <FormLabel>{t("profileRole")}</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value as string}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={resolvedRoleLabel} />
@@ -128,11 +141,14 @@ export function TeamMemberEditBaseInfoSection<
           />
           <FormField
             control={control}
-            name={"location_term_id" as keyof T & string}
+            name={baseInfoField<T>("location_term_id")}
             render={({ field }) => (
               <FormItem variant="row">
                 <FormLabel>{t("location")}</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value as string}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={resolvedLocationLabel} />
@@ -156,7 +172,7 @@ export function TeamMemberEditBaseInfoSection<
           <TeamMemberReportsToField
             control={control}
             excludeProfileId={excludeProfileId}
-            name="reports_to_id"
+            name={baseInfoField<T>("reports_to_id")}
             t={t}
           />
         </Card>

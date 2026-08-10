@@ -511,15 +511,6 @@ function TeamSidebarListSettings({
       <PopoverContent
         align="start"
         className="z-[100] w-[320px] overflow-hidden rounded-lg p-0"
-        onPointerDownOutside={(event) => {
-          const target = event.target;
-          if (
-            target instanceof Element &&
-            target.closest('[data-slot="select-content"]')
-          ) {
-            event.preventDefault();
-          }
-        }}
       >
         {/* Group by */}
         <div className="space-y-1.5 p-2">

@@ -309,8 +309,7 @@ function TermList({ terms, onTermsChange, supportsHierarchy }: TermListProps) {
       }
     } else {
       const children = childrenOf(currentTerm._key);
-      const lastItemToSkip =
-        children.length > 0 ? children.at(-1) : currentTerm;
+      const lastItemToSkip = children.at(-1) ?? currentTerm;
       const idx = terms.findIndex((t) => t._key === lastItemToSkip._key);
       if (idx >= 0) {
         const updated = [...terms];

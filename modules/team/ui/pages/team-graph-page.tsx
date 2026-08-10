@@ -9,7 +9,6 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
-// @ts-expect-error CSS side-effect import for React Flow
 import "@xyflow/react/dist/style.css";
 import { useCallback, useMemo, useState } from "react";
 import type { TeamGroup, TeamOrgGraphFlatNode } from "../api.js";

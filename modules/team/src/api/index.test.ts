@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { TeamMember } from "../schema/types.js";
+import { teamMemberInputForCreate } from "../services/team-member-input.js";
 import { registerTeamMembersApi } from "./index.js";
 import {
   getRoute,
@@ -92,7 +94,7 @@ describe("registerTeamMembersApi", () => {
     expect(updateOp?.requiresApproval).toBe(true);
     expect(deleteOp?.requiresApproval).toBe(true);
 
-    const created = await serverOperations
+    const created = (await serverOperations
       .find((operation) => operation.operationId === "team_create")
       ?.handler(
         {
@@ -100,7 +102,7 @@ describe("registerTeamMembersApi", () => {
           department: "Ops",
         },
         { auth: defaultAuth } as any
-      );
+      )) as TeamMember;
 
     const listed = await listOp?.handler({}, { auth: defaultAuth } as any);
     expect(listed).toMatchObject({
@@ -152,10 +154,12 @@ describe("registerTeamMembersApi", () => {
 
     expect(await listOp?.handler({}, { auth: defaultAuth } as any)).toEqual([]);
 
-    await repo.create({
-      full_name: "Bridge User",
-      user_id: "user-99",
-    });
+    await repo.create(
+      teamMemberInputForCreate({
+        full_name: "Bridge User",
+        user_id: "user-99",
+      })
+    );
     const catalog = await listOp?.handler({}, { auth: defaultAuth } as any);
     expect(catalog).toEqual(
       expect.arrayContaining([
@@ -430,17 +434,19 @@ describe("registerTeamMembersApi", () => {
     });
     registerTeamMembersApi(api, repo);
 
-    const created = await repo.create({
-      full_name: "Laura Becker",
-      member_type: "internal",
-      user_id: null,
-      initials: null,
-      phone: null,
-      email: "laura.becker@engenty.localhost",
-      position: null,
-      department: null,
-      location: null,
-    });
+    const created = await repo.create(
+      teamMemberInputForCreate({
+        full_name: "Laura Becker",
+        member_type: "internal",
+        user_id: null,
+        initials: null,
+        phone: null,
+        email: "laura.becker@engenty.localhost",
+        position: null,
+        department: null,
+        location: null,
+      })
+    );
 
     const patchRoute = getRoute(httpRoutes, "patch", "/api/team/:id");
     const res = await patchRoute.handler({

@@ -156,8 +156,8 @@ export function useTeamAgentDetailAgentUiSlice(
         team_agent_snapshot: {
           id: agent.id,
           label: title,
-          module_id: agent.module_id,
-          role: agent.role,
+          module_id: agent.module_id ?? null,
+          role: agent.role ?? null,
         },
       },
       selection: {
