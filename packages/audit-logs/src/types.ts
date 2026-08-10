@@ -18,6 +18,7 @@ export interface AuditLogEvent {
     id: string;
     full_name: string;
     avatar_url: string | null;
+    initials?: string | null;
   } | null;
 }
 

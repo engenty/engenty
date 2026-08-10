@@ -13,6 +13,8 @@ import {
   fileApprovalRequest,
 } from "../../../security/approval-gate.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
+import { enrichAuditEventsWithUsers } from "../../../security/audit-enrich.js";
+import { buildExecutedAuditDetail } from "../../../security/audit-relevance.js";
 import {
   recordCoreAuditEvent,
   recordModuleAuditEvent,
@@ -669,14 +671,13 @@ export async function invokeOperation(params: {
       reason: gate.reason,
     });
   }
-  recordModuleAuditEvent(auditLog, moduleId, {
-    type: "policy.allow",
-    actorId: auth.principalId,
-    tenantId: auth.tenantId,
-    moduleId,
+  const auditRelevance = {
+    audit: op.audit,
     operationId,
-    detail: { reason: decision.reason },
-  });
+    requiredCapabilities: op.requiredCapabilities,
+    requiresApproval: op.requiresApproval,
+    riskLevel: op.riskLevel,
+  };
   const recordAuditEvent = (event: {
     type: string;
     detail?: Record<string, unknown>;
@@ -758,13 +759,26 @@ export async function invokeOperation(params: {
         reason: resultDecision.reason,
       });
     }
-    recordModuleAuditEvent(auditLog, moduleId, {
-      type: "operation.executed",
-      actorId: auth.principalId,
-      tenantId: auth.tenantId,
+    recordModuleAuditEvent(
+      auditLog,
       moduleId,
-      operationId,
-    });
+      {
+        type: "operation.executed",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId,
+        detail: buildExecutedAuditDetail({
+          transport,
+          riskLevel: op.riskLevel,
+          principalType: auth.principalType,
+          agentId: auth.agentId,
+          goalId: auth.goalId,
+        }),
+      },
+      undefined,
+      auditRelevance
+    );
     await emitCoreOperationEvent({
       auth,
       eventName: "operation.afterInvoke",
@@ -1209,14 +1223,13 @@ export async function executeModuleOperation(params: {
     });
   }
 
-  recordModuleAuditEvent(params.auditLog, moduleId, {
-    type: "policy.allow",
-    actorId: auth.principalId,
-    tenantId: auth.tenantId,
-    moduleId,
+  const auditRelevance = {
+    audit: op.audit,
     operationId: params.operationId,
-    detail: { reason: decision.reason },
-  });
+    requiredCapabilities: op.requiredCapabilities,
+    requiresApproval: op.requiresApproval,
+    riskLevel: op.riskLevel,
+  };
 
   const recordAuditEvent = (event: {
     type: string;
@@ -1302,13 +1315,26 @@ export async function executeModuleOperation(params: {
         details: { reason: resultDecision.reason },
       });
     }
-    recordModuleAuditEvent(params.auditLog, moduleId, {
-      type: "operation.executed",
-      actorId: auth.principalId,
-      tenantId: auth.tenantId,
+    recordModuleAuditEvent(
+      params.auditLog,
       moduleId,
-      operationId: params.operationId,
-    });
+      {
+        type: "operation.executed",
+        actorId: auth.principalId,
+        tenantId: auth.tenantId,
+        moduleId,
+        operationId: params.operationId,
+        detail: buildExecutedAuditDetail({
+          transport,
+          riskLevel: op.riskLevel,
+          principalType: auth.principalType,
+          agentId: auth.agentId,
+          goalId: auth.goalId,
+        }),
+      },
+      undefined,
+      auditRelevance
+    );
     await emitCoreOperationEvent({
       auth,
       eventName: "operation.afterInvoke",
@@ -1681,8 +1707,11 @@ export function registerApprovalRoutes(params: {
       ...r,
       detail: r.detail ? (JSON.parse(r.detail) as Record<string, unknown>) : {},
     }));
+    const enriched = await enrichAuditEventsWithUsers(params.config, mapped, {
+      tenantId: tenant_id,
+    });
     return jsonApiSuccess(c, {
-      events: mapped,
+      events: enriched,
       has_more: page * limit + events.length < total,
       total,
     });

@@ -160,7 +160,9 @@ command behind.
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| `Could not query the database for the schema cache` (queue/AI logs) | Supabase stack not fully up. `supabase stop && supabase start`, confirm `supabase status` is healthy, then `pnpm dev`. |
+| `Could not query the database for the schema cache` (queue/AI logs) | Supabase stack not fully up. `pnpm supabase:stop && pnpm db:up`, confirm `pnpm supabase:status` is healthy, then `pnpm dev`. |
 | `Cannot connect to the Docker daemon` | Docker not running. Start Docker Desktop and re-run (`setup --local` tries to start it for you on macOS). |
 | CI `frozen-lockfile` fails after adding a module | The new workspace package isn't committed, or the lockfile is stale — commit it and run `pnpm install`. |
 | `2 need attention` in `env check` after setup | Supabase keys are still placeholders — re-run `pnpm dev:env:init` once Supabase is up. |
+| App returns `Unauthorized` for a valid login; PostgREST 504s; `docker stats` hangs | Not an auth bug — the container runtime is saturated, and auth is simply not answering in time. Usually several Supabase stacks running at once. Stop the ones you are not using (`pnpm supabase:stop` in that checkout — data is preserved) and start the rest with `pnpm db:up` so Studio and the log pipeline stay off. Confirm with `docker stats`: if Postgres is idle in `pg_stat_activity` while everything times out, it is the host, not the app. |
+| Every request 500s with `current transaction is aborted` (`25P02`) | PostgREST's connection pool is poisoned and stays that way. `docker restart supabase_rest_<project_id>`. |

@@ -10,6 +10,7 @@ import {
   createNoopAuditLog,
   type SecurityAuditLogAdapter,
 } from "../../security/audit-adapter.js";
+import { enrichAuditEventsWithUsers } from "../../security/audit-enrich.js";
 import { recordCoreAuditEvent } from "../../security/audit-service.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
@@ -546,8 +547,11 @@ export function registerSuperadminRoutes(params: {
         ? (JSON.parse(row.detail) as Record<string, unknown>)
         : {},
     }));
+    const enriched = await enrichAuditEventsWithUsers(params.config, mapped, {
+      tenantId: options.tenant_id,
+    });
     return jsonApiSuccess(c, {
-      events: mapped,
+      events: enriched,
       has_more: page * limit + events.length < total,
       total,
     });

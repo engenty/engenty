@@ -155,6 +155,7 @@ export function registerLocalFilesRoutes(
     method: "post",
     path: "/api/local-files/heartbeat",
     summary: "Heartbeat a browser installation's liveness",
+    operation: { riskLevel: "low", audit: "never" },
     request: { body: heartbeatBody },
     async handler(ctx) {
       const hono = ctx.hono as Hono;
@@ -188,6 +189,7 @@ export function registerLocalFilesRoutes(
     method: "post",
     path: "/api/local-files/bridge/claim",
     summary: "Claim pending local-file requests for a browser installation",
+    operation: { riskLevel: "low", audit: "never" },
     request: { body: claimBody },
     async handler(ctx) {
       const hono = ctx.hono as Hono;

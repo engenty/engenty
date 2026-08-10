@@ -162,6 +162,7 @@ export function registerBrowserBridgeRoutes(
     method: "post",
     path: "/api/browser-bridge/heartbeat",
     summary: "Heartbeat an extension installation's liveness",
+    operation: { riskLevel: "low", audit: "never" },
     request: { body: heartbeatBody },
     async handler(ctx) {
       const hono = ctx.hono as Hono;
@@ -196,6 +197,7 @@ export function registerBrowserBridgeRoutes(
     method: "post",
     path: "/api/browser-bridge/claim",
     summary: "Claim pending browser commands for an extension installation",
+    operation: { riskLevel: "low", audit: "never" },
     request: { body: claimBody },
     async handler(ctx) {
       const hono = ctx.hono as Hono;

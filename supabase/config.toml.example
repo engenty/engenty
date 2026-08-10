@@ -84,7 +84,10 @@ enabled = true
 # max_header_length = 4096
 
 [studio]
-enabled = true
+# OFF by default: Studio plus the Kong traffic it generates measured ~137% CPU on an
+# idle stack, more than the database itself. Start it when you want it:
+#   pnpm db:up --studio
+enabled = false
 # Port to use for Supabase Studio.
 port = 54323
 # External URL of the API server that frontend connects to.
@@ -345,7 +348,11 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 [analytics]
-enabled = true
+# OFF by default: this is the Logflare log pipeline, and enabling it also starts the
+# `vector` container, which tails EVERY container's logs through the Docker API.
+# Together ~85% CPU on an idle stack, to power Studio's Logs tab. Turn on with:
+#   pnpm db:up --logs
+enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"

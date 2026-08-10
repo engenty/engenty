@@ -11,6 +11,7 @@ import {
   fileApprovalRequest,
 } from "../../../security/approval-gate.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
+import { buildExecutedAuditDetail } from "../../../security/audit-relevance.js";
 import { recordModuleAuditEvent } from "../../../security/audit-service.js";
 import type { AuthProvider } from "../../../security/auth-provider.js";
 import { InProcessPolicyError } from "../../../security/in-process-gate.js";
@@ -38,6 +39,7 @@ import {
 } from "./plugin-http-response.js";
 
 interface RouteOperationMeta {
+  audit?: "always" | "never";
   moduleId?: string;
   operationId?: string;
   requiredCapabilities?: string[];
@@ -319,21 +321,20 @@ function mountPluginRoute(
         },
       }) as never;
     }
-    recordModuleAuditEvent(
-      params.auditLog,
-      operation?.moduleId ?? params.pluginId,
-      {
-        type: "policy.allow",
-        actorId: auth!.principalId,
-        tenantId: auth!.tenantId,
-        moduleId: operation?.moduleId ?? params.pluginId,
-        operationId,
-        detail: { reason: policy.reason },
-      },
-      { component: "plugin-http" }
-    );
 
     const moduleId = operation?.moduleId ?? params.pluginId;
+    const riskLevel = operation?.riskLevel ?? "medium";
+    const requiresApproval = operation?.requiresApproval ?? false;
+    const requiredCapabilities = operation?.requiredCapabilities ?? [];
+    const auditRelevance = {
+      audit: operation?.audit,
+      method: route.method,
+      operationId,
+      path: route.path,
+      requiredCapabilities,
+      requiresApproval,
+      riskLevel,
+    };
     const recordAuditEvent = (event: {
       type: string;
       detail?: Record<string, unknown>;
@@ -467,8 +468,16 @@ function mountPluginRoute(
           tenantId: auth.tenantId,
           moduleId: operation?.moduleId ?? params.pluginId,
           operationId,
+          detail: buildExecutedAuditDetail({
+            transport: "http",
+            riskLevel,
+            principalType: auth.principalType,
+            agentId: auth.agentId,
+            goalId: auth.goalId,
+          }),
         },
-        { component: "plugin-http" }
+        { component: "plugin-http" },
+        auditRelevance
       );
       return result as never;
     }
@@ -519,8 +528,16 @@ function mountPluginRoute(
         tenantId: auth.tenantId,
         moduleId: operation?.moduleId ?? params.pluginId,
         operationId,
+        detail: buildExecutedAuditDetail({
+          transport: "http",
+          riskLevel,
+          principalType: auth.principalType,
+          agentId: auth.agentId,
+          goalId: auth.goalId,
+        }),
       },
-      { component: "plugin-http" }
+      { component: "plugin-http" },
+      auditRelevance
     );
     return (await serializePluginRouteResult(route, result)) as never;
   });

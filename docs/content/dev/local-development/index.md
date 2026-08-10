@@ -44,7 +44,13 @@ pnpm dev
 
 `pnpm dev` runs **`dev:check`** (Docker, Supabase, generated artifacts) and **`predev`** (build workspace packages/modules, regenerate UI plugin artifacts). You do not need a separate `pnpm build` before local dev.
 
-This starts core, UI (Vite), AI, and docs together.
+This starts core, UI (Vite), AI, and docs together. **Mastra Studio is not among
+them** — it is opt-in, because it is a second dev server most runs never look at:
+
+```bash
+pnpm dev:studio                              # instead of pnpm dev
+pnpm dev:portless --domain=<name> --studio   # with Portless
+```
 
 **Open [http://localhost:5173](http://localhost:5173)** — the Vite dev server serves
 the UI with hot reload. `/api`, `/ai`, and `/docs` are proxied to the other apps on
@@ -67,6 +73,37 @@ pnpm dev:portless         # env sync, routes, dev stack (+ ready URL announcer)
 
 See [Portless local URLs](../../../dev/portless-local-urls.md) for worktrees, env URLs, and
 troubleshooting (`pnpm portless:proxy:check`, loopback `ENGENTY_CORE_BASE_URL`, …).
+
+## The Supabase stack: lean by default
+
+`supabase start` brings up around a dozen containers, and the two heaviest at idle are
+not the database:
+
+| | why it costs | flag |
+|---|---|---|
+| **Supabase Studio** | the table-browser UI, plus the gateway traffic its polling generates | `--studio` |
+| **Logflare + Vector** | the log pipeline behind Studio's *Logs* tab: Vector tails **every** container's logs through the Docker API and ships them to Logflare, which writes them into Postgres | `--logs` |
+
+Together they measured well over ten times the database's own idle CPU. Both are off by
+default, so start the stack with `db:up` and add what you actually want:
+
+```bash
+pnpm db:up                   # lean
+pnpm db:up --studio          # + Supabase Studio
+pnpm db:up --logs            # + log pipeline
+pnpm db:up --studio --logs   # everything
+```
+
+The flags are not passed to the Supabase CLI (it has none) — they set `enabled` under
+`[studio]` / `[analytics]` in your local `supabase/config.toml`, which is read at start.
+So **stop the stack first** (`pnpm supabase:stop`) if it is already running. Vector has no
+flag of its own: it exists only to feed Logflare, so `--logs` covers both.
+
+Why this matters beyond tidiness: **the failure mode is disguised.** Run two or three
+worktree stacks at once and the machine saturates — auth stops answering within its
+timeout and the app reports `Unauthorized`, PostgREST returns 504s, and `docker stats`
+itself hangs. If Postgres shows an idle `pg_stat_activity` while everything times out, the
+problem is the container runtime, not the app.
 
 ## Dev origins
 

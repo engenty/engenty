@@ -325,6 +325,12 @@ export type PluginOperationRisk = "low" | "medium" | "high" | "critical";
 
 export interface PluginOperationMeta {
   /**
+   * Audit persistence override. Default: core classifier (mutations / high risk /
+   * denials). `"never"` skips operation.executed for infra noise (heartbeats);
+   * `"always"` forces a row even for low-risk reads.
+   */
+  audit?: "always" | "never";
+  /**
    * Whether operation supports dry-run execution.
    */
   dryRunSupported?: boolean;

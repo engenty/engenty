@@ -17,6 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 export interface SearchableSelectOption {
   badgeLabel?: string;
   description?: string;
+  /** Extra classes for the description line (e.g. `font-mono`). */
+  descriptionClassName?: string;
   disabled?: boolean;
   keywords?: string;
   label: string;
@@ -90,7 +92,12 @@ function SearchableSelectOptionContent({
           ) : null}
         </div>
         {option.description ? (
-          <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+          <p
+            className={cn(
+              "mt-0.5 text-muted-foreground text-xs leading-snug",
+              option.descriptionClassName
+            )}
+          >
             {option.description}
           </p>
         ) : null}

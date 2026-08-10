@@ -47,6 +47,7 @@ CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core ex
 - **First clone:** `pnpm engenty setup --local` — prompts for plugins, composes artifacts, starts Supabase, applies migrations, initializes `.env.local` (each step skippable; non-interactive takes the default)
 - **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
 - **Local DB:** `pnpm db:init` (fresh), `pnpm db:migrate`, `pnpm db:reset`, `pnpm db:snapshot`, `pnpm db:restore` — thin aliases for `engenty db *`
+- **Starting the Supabase stack:** `pnpm db:up` — lean by default; `--studio` adds Supabase Studio, `--logs` adds the Logflare/Vector pipeline. Both cost far more idle CPU than Postgres itself, and several stacks at once saturate the host — which surfaces as bogus `Unauthorized` from auth, not as slowness. Stop the stack before changing the flags (they are written into `supabase/config.toml`)
 - **Local env:** `pnpm dev:env` (menu), `pnpm dev:env:init`, `pnpm dev:env:check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
 - **Deploy env:** copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
 - **Portless (required for agent preview):** `pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless` (sudo proxy), `pnpm dev:portless`, `pnpm dev:portless --domain=<name>`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)

@@ -171,7 +171,7 @@ export function AuditLogViewer({
             </Empty>
           ) : (
             <>
-              <div className="sticky top-0 z-10 grid grid-cols-[7rem_6rem_2.5rem_1fr_auto] items-center gap-4 border-border/60 border-b bg-muted/60 px-4 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider backdrop-blur-sm">
+              <div className="sticky top-0 z-10 grid grid-cols-[7rem_6rem_minmax(7rem,9rem)_1fr_auto] items-center gap-4 border-border/60 border-b bg-muted/60 px-4 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider backdrop-blur-sm">
                 <span>{columnTime}</span>
                 <span>{columnStatus}</span>
                 <span>{columnActor}</span>

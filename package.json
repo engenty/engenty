@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.115",
+  "version": "0.1.116",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -102,6 +102,7 @@
     "predev": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/**",
     "dev:check": "bash scripts/predev-check.sh",
     "dev": "bash scripts/dev.sh",
+    "dev:studio": "bash scripts/dev.sh --studio",
     "predev:portless": "pnpm dev:check && turbo run build --filter=./packages/* --filter=./modules/**",
     "dev:portless": "bash scripts/dev-portless.sh",
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
@@ -138,6 +139,7 @@
     "portless": "bash scripts/portless-proxy-start.sh",
     "portless:proxy:check": "bash scripts/portless-proxy-check.sh",
     "supabase:start": "supabase start",
+    "db:up": "node scripts/db-up.mjs",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:config:check": "node scripts/check-committed-supabase-config.mjs",

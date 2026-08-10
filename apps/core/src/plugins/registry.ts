@@ -302,6 +302,7 @@ export interface PluginRegistry {
         | "requiresApproval"
       >
     > & {
+      audit?: PluginOperationMeta["audit"];
       requiredCapabilities: string[];
     };
     outputSchema?: PluginServerOperation["outputSchema"];
@@ -891,6 +892,7 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       idempotent: operation.idempotent ?? false,
       dryRunSupported: operation.dryRunSupported ?? false,
       requiresApproval: operation.requiresApproval ?? false,
+      ...(operation.audit ? { audit: operation.audit } : {}),
     } as const;
     // Phase 5 audit: a gateway method with no explicit requiredCapabilities
     // falls back to inferred module.read/module.write, which any default agent

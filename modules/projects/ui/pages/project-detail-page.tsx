@@ -21,6 +21,7 @@ import {
 import { PhaseFormDialog } from "../components/phase-form-dialog.js";
 import { ProjectDetailHeader } from "../components/project-detail-header.js";
 import { ProjectDetailPageActions } from "../components/project-detail-page-actions.js";
+import { ProjectDetailSkeleton } from "../components/project-detail-skeleton.js";
 import { ProjectPlanningTab } from "../components/project-planning-tab.js";
 import { ProjectSettingsPanel } from "../components/project-settings-panel.js";
 import { ProjectTabsConfigDialog } from "../components/project-tabs-config-dialog.js";
@@ -204,9 +205,10 @@ export function ProjectDetailPage() {
   const breadcrumbs = useMemo(
     () => [
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: project?.title ?? id ?? "..." },
+      // Prefer the title; while loading avoid flashing the raw UUID in the crumb.
+      { label: project?.title ?? (loading ? "…" : (id ?? "…")) },
     ],
-    [moduleRootCrumb, project?.title, id]
+    [moduleRootCrumb, project?.title, loading, id]
   );
 
   const handleCopyPortalLink = useCallback(
@@ -335,7 +337,7 @@ export function ProjectDetailPage() {
     return null;
   }
   if (loading) {
-    return <p className="p-page text-muted-foreground text-sm">Loading...</p>;
+    return <ProjectDetailSkeleton />;
   }
   if (error) {
     return <p className="p-page text-red-600 text-sm">{error}</p>;

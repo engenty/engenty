@@ -25,11 +25,17 @@ import {
   unassignRole,
 } from "@/lib/authz-admin-api";
 import { Pill } from "./pills";
+import { RoleOptionLabel } from "./role-option-label";
 
 export const ASSIGNMENTS_QUERY_KEY = ["authz-admin", "assignments"];
 
 interface Props {
   tenantId: string;
+}
+
+interface RoleOption {
+  id: string;
+  title: string;
 }
 
 /** Compact labelled field: small label above the control, grouped left. */
@@ -75,12 +81,22 @@ export function AssignmentsTab({ tenantId }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const roleOptions = useMemo(() => {
-    const ids = [
-      ...(rolesQuery.data ?? []).map((r) => r.id),
-      ...(customQuery.data ?? []).map((r) => r.role_id),
-    ];
-    return [...new Set(ids)].sort();
+    const byId = new Map<string, RoleOption>();
+    for (const r of rolesQuery.data ?? []) {
+      byId.set(r.id, { id: r.id, title: r.title || r.id });
+    }
+    for (const r of customQuery.data ?? []) {
+      byId.set(r.role_id, {
+        id: r.role_id,
+        title: r.title || r.role_id,
+      });
+    }
+    return [...byId.values()].sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+    );
   }, [rolesQuery.data, customQuery.data]);
+
+  const selectedRoleTitle = roleOptions.find((r) => r.id === roleId)?.title;
 
   const userLabel = useMemo(() => {
     const map = new Map<string, string>();
@@ -174,15 +190,21 @@ export function AssignmentsTab({ tenantId }: Props) {
             )}
           </Field>
 
-          <Field className="min-w-48 flex-1" label="Grant role">
-            <Select onValueChange={setRoleId} value={roleId}>
-              <SelectTrigger className="ui-canvas-field h-8">
-                <SelectValue placeholder="Select a role" />
+          <Field className="min-w-56 flex-1" label="Grant role">
+            <Select onValueChange={setRoleId} value={roleId || undefined}>
+              <SelectTrigger className="ui-canvas-field h-8 w-full min-w-0 max-w-full overflow-hidden">
+                <SelectValue placeholder="Select a role">
+                  {selectedRoleTitle}
+                </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                {roleOptions.map((id) => (
-                  <SelectItem key={id} value={id}>
-                    {id}
+              <SelectContent className="max-w-[min(28rem,calc(100vw-2rem))]">
+                {roleOptions.map((r) => (
+                  <SelectItem
+                    className="items-start py-2"
+                    key={r.id}
+                    value={r.id}
+                  >
+                    <RoleOptionLabel id={r.id} title={r.title} />
                   </SelectItem>
                 ))}
               </SelectContent>

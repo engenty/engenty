@@ -1,6 +1,7 @@
 // Roles tab: every role profile the system knows — core built-ins, module
 // viewer/editor bundles, and tenant-defined custom roles — grouped by source,
-// each group its own section. Tenant admins create/delete custom.* roles.
+// each group its own section. Custom.* roles are create/edit/delete here;
+// system profiles stay code-owned (role-profiles.ts + module plugins).
 
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
@@ -15,7 +16,7 @@ import {
   SettingsFormCard,
   Textarea,
 } from "@engenty/ui-core";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   type AuthzRole,
@@ -24,6 +25,7 @@ import {
   listRoles,
   listTenantRoles,
   type TenantRole,
+  updateTenantRole,
 } from "@/lib/authz-admin-api";
 import { Pill } from "./pills";
 
@@ -34,6 +36,13 @@ interface Props {
   newRoleOpen: boolean;
   onNewRoleOpenChange: (open: boolean) => void;
   tenantId: string;
+}
+
+function parseCapabilities(text: string): string[] {
+  return text
+    .split(/[\s,]+/)
+    .map((c) => c.trim())
+    .filter(Boolean);
 }
 
 function Caps({ capabilities }: { capabilities: string[] }) {
@@ -107,18 +116,34 @@ export function RolesListTab({
   const [capsText, setCapsText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const [editing, setEditing] = useState<TenantRole | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCapsText, setEditCapsText] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
   const invalidate = () =>
     void queryClient.invalidateQueries({ queryKey: TENANT_ROLES_QUERY_KEY });
+
+  const openEdit = (role: TenantRole) => {
+    setEditing(role);
+    setEditTitle(role.title);
+    setEditDescription(role.description ?? "");
+    setEditCapsText(role.capabilities.join("\n"));
+    setEditError(null);
+  };
+
+  const closeEdit = () => {
+    setEditing(null);
+    setEditError(null);
+  };
 
   const createMutation = useMutation({
     mutationFn: () =>
       createTenantRole(tenantId, {
         roleId: roleId.trim(),
         title: title.trim(),
-        capabilities: capsText
-          .split(/[\s,]+/)
-          .map((c) => c.trim())
-          .filter(Boolean),
+        capabilities: parseCapabilities(capsText),
       }),
     onSuccess: () => {
       onNewRoleOpenChange(false);
@@ -130,6 +155,25 @@ export function RolesListTab({
     },
     onError: (e: unknown) =>
       setError(e instanceof Error ? e.message : "Failed to create role"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      if (!editing) {
+        throw new Error("No role selected");
+      }
+      return updateTenantRole(tenantId, editing.role_id, {
+        title: editTitle.trim(),
+        description: editDescription.trim() ? editDescription.trim() : null,
+        capabilities: parseCapabilities(editCapsText),
+      });
+    },
+    onSuccess: () => {
+      closeEdit();
+      invalidate();
+    },
+    onError: (e: unknown) =>
+      setEditError(e instanceof Error ? e.message : "Failed to update role"),
   });
 
   const deleteMutation = useMutation({
@@ -155,7 +199,8 @@ export function RolesListTab({
     <div className="space-y-5">
       <p className="text-muted-foreground text-sm">
         Named capability bundles assigned to users or agents on the Assignments
-        tab. Custom roles are tenant-defined and explicit — no wildcards.
+        tab. Custom roles are tenant-defined and editable here (explicit caps,
+        no wildcards). System profiles are code-owned and read-only.
       </p>
 
       {customRoles.length > 0 && (
@@ -165,17 +210,29 @@ export function RolesListTab({
             {customRoles.map((role) => (
               <RoleRow
                 action={
-                  <Button
-                    aria-label={`Delete ${role.role_id}`}
-                    className="h-7 w-7 shrink-0 p-0 text-muted-foreground"
-                    disabled={deleteMutation.isPending}
-                    onClick={() => deleteMutation.mutate(role.role_id)}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex shrink-0 items-start gap-0.5">
+                    <Button
+                      aria-label={`Edit ${role.role_id}`}
+                      className="h-7 w-7 p-0 text-muted-foreground"
+                      onClick={() => openEdit(role)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      aria-label={`Delete ${role.role_id}`}
+                      className="h-7 w-7 p-0 text-muted-foreground"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate(role.role_id)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 }
                 badge={<Pill tone="accent">custom</Pill>}
                 capabilities={role.capabilities}
@@ -259,6 +316,79 @@ export function RolesListTab({
               type="button"
             >
               Create role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            closeEdit();
+          }
+        }}
+        open={editing !== null}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit custom role</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-role-id">Role id</Label>
+                <Input
+                  disabled
+                  id="edit-role-id"
+                  readOnly
+                  value={editing.role_id}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-role-title">Title</Label>
+                <Input
+                  id="edit-role-title"
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  value={editTitle}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-role-description">Description</Label>
+                <Input
+                  id="edit-role-description"
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Optional"
+                  value={editDescription}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-role-caps">Capabilities</Label>
+                <Textarea
+                  id="edit-role-caps"
+                  onChange={(e) => setEditCapsText(e.target.value)}
+                  rows={5}
+                  value={editCapsText}
+                />
+                <p className="text-muted-foreground text-xs">
+                  One per line. No wildcards; each must be a real capability you
+                  hold (see the Capabilities tab).
+                </p>
+              </div>
+              {editError && (
+                <p className="text-destructive text-sm">{editError}</p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={closeEdit} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button
+              disabled={updateMutation.isPending || !editTitle.trim()}
+              onClick={() => updateMutation.mutate()}
+              type="button"
+            >
+              Save changes
             </Button>
           </DialogFooter>
         </DialogContent>

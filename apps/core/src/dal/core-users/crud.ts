@@ -49,6 +49,41 @@ export async function getUserById(
   } as CoreUser;
 }
 
+/** Batch-load users by auth id (optional tenant filter). First row wins per id. */
+export async function getUsersByIds(
+  client: SupabaseClient,
+  ids: string[],
+  options?: { tenantId?: string }
+): Promise<Map<string, CoreUser>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const byId = new Map<string, CoreUser>();
+  if (unique.length === 0) {
+    return byId;
+  }
+  let query = client.schema("core").from("users").select("*").in("id", unique);
+  if (options?.tenantId) {
+    query = query.eq("tenant_id", options.tenantId);
+  }
+  const rows = await query;
+  if (rows.error) {
+    throw rows.error;
+  }
+  for (const row of rows.data ?? []) {
+    const id = String((row as { id: string }).id);
+    if (byId.has(id)) {
+      continue;
+    }
+    byId.set(id, {
+      ...row,
+      role: coerceRole((row as { role: unknown }).role),
+      is_super_admin: coerceIsSuperAdmin(
+        (row as { is_super_admin: unknown }).is_super_admin
+      ),
+    } as CoreUser);
+  }
+  return byId;
+}
+
 export async function getTenantById(
   client: SupabaseClient,
   id: string

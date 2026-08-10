@@ -4,6 +4,7 @@
 # Usage:
 #   pnpm dev:portless
 #   pnpm dev:portless --domain=tab-ui
+#   pnpm dev:portless --studio          # + Mastra Studio (off by default)
 #
 # Requires the HTTPS proxy from `pnpm portless` (sudo) in a separate Terminal step.
 set -euo pipefail
@@ -13,6 +14,9 @@ cd "$ROOT"
 
 PORTLESS="$ROOT/node_modules/.bin/portless"
 DOMAIN_ARG=""
+# Mastra Studio is OFF by default. It is a second dev server nobody looks at on
+# most runs, and with several worktrees running at once the idle cost is real.
+WITH_STUDIO=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,12 +32,16 @@ while [[ $# -gt 0 ]]; do
       DOMAIN_ARG="${1#--domain=}"
       shift
       ;;
+    --studio)
+      WITH_STUDIO=1
+      shift
+      ;;
     -h | --help)
-      sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
-      echo "Unknown option: $1 (try --domain=)" >&2
+      echo "Unknown option: $1 (try --domain= or --studio)" >&2
       exit 1
       ;;
   esac
@@ -129,7 +137,10 @@ PORTS_LIST="$(node -e \
 node "$ROOT/scripts/dev-port-check.mjs" --ports="$PORTS_LIST" --cwd="$ROOT"
 
 TURBO_TASKS=(dev:portless dev:portless:ready)
-if [[ -z "${RESOLVED_DOMAIN}" ]]; then
+# Opt-in only. Previously this ran whenever no --domain was passed, which meant
+# the main checkout always paid for a Studio it rarely used while every worktree
+# silently did without one.
+if [[ "$WITH_STUDIO" == "1" ]]; then
   TURBO_TASKS+=(studio)
 fi
 

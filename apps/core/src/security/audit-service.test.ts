@@ -52,9 +52,14 @@ describe("audit-service", () => {
         type: "operation.executed",
         actorId: "u1",
         tenantId: "t1",
-        operationId: "invoices_list",
+        operationId: "invoices_create",
       },
-      { component: "plugin-http" }
+      { component: "plugin-http" },
+      {
+        operationId: "invoices_create",
+        riskLevel: "medium",
+        requiredCapabilities: ["module.invoices.write"],
+      }
     );
 
     expect(pushed).toHaveLength(1);
@@ -63,5 +68,17 @@ describe("audit-service", () => {
     expect(event.source_module_id).toBe("invoices");
     expect(event.moduleId).toBe("invoices");
     expect(event.source_component).toBe("plugin-http");
+  });
+
+  it("recordModuleAuditEvent drops policy.allow", () => {
+    const pushed: unknown[] = [];
+    const adapter = { push: (e: unknown) => pushed.push(e) };
+
+    recordModuleAuditEvent(adapter as never, "invoices", {
+      type: "policy.allow",
+      operationId: "invoices_create",
+    });
+
+    expect(pushed).toHaveLength(0);
   });
 });

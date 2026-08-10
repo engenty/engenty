@@ -169,17 +169,9 @@ export async function enforceInProcessPolicy(
     deps
   );
   if (decision.action === "allow") {
-    auditDecision(deps, call, principal, {
-      type: "policy.allow",
-      detail: { reason: decision.reason },
-    });
     return;
   }
   if (decision.action === "require_approval" && linked?.approvedEdge) {
-    auditDecision(deps, call, principal, {
-      type: "policy.allow",
-      detail: { reason: "approved outer edge", approvedEdge: true },
-    });
     return;
   }
   auditDecision(deps, call, principal, {

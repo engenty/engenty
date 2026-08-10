@@ -12,6 +12,12 @@ export interface AuditLogEvent {
   tenant_id: string | null;
   timestamp: string;
   type: string;
+  user?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    initials?: string | null;
+  } | null;
 }
 
 export interface AuditLogFiltersParams {

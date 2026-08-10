@@ -4,6 +4,42 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "92043a6",
+        "message": "optimized setup ( dev runs )",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "a7387d9",
+        "message": "show audit actor display names",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fd49492",
+        "message": "inspect roles and edit custom roles in setup console",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f7eb2a2",
+        "message": "keep audit logs relevant and readable",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f2f31b9",
+        "message": "replace detail loading text with layout skeleton",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.115",
+    "timestamp": 1786360564,
+    "commits": [
+      {
         "id": "259d728",
         "message": "create user accounts when linking team members",
         "group": "Added",

@@ -100,6 +100,22 @@ pnpm dev                                # start the whole stack
 pnpm engenty setup && pnpm db:migrate   # ONLY after changing installed modules or SQL (new schemas need a Supabase restart)
 ```
 
+**Keep the local stack lean.** A local Supabase is a dozen containers, and the two
+heaviest at idle are not the database: Supabase Studio (plus the gateway traffic it
+generates) and the Logflare/Vector log pipeline that powers Studio's Logs tab. Both are
+off by default — measured together they cost well over ten times what Postgres does, and
+with two or three worktree stacks up they saturate the machine (the symptom is not "slow":
+auth stops answering and the app reports `Unauthorized`).
+
+```bash
+pnpm db:up                   # lean — no Studio, no log pipeline
+pnpm db:up --studio          # + Supabase Studio (the table browser)
+pnpm db:up --logs            # + Logflare/Vector (Studio's Logs tab)
+```
+
+Stop the stack first (`pnpm supabase:stop`) if it is already running — the flags are
+written into `supabase/config.toml`, which is read at start.
+
 **Before you commit** (this is exactly what CI checks — see [Release & ship](#release--ship)):
 
 ```bash
@@ -126,6 +142,16 @@ pnpm dev:portless        # env sync + routes + dev stack
 ```
 
 Open **https://engenty.localhost**. Parallel worktrees: `pnpm dev:portless --domain=<name>`.
+
+**Mastra Studio is opt-in**, in both modes — it is a second dev server most runs never
+look at. Add `--studio` (or use `pnpm dev:studio` without Portless):
+
+```bash
+pnpm dev:portless --domain=<name> --studio
+```
+
+Note this is a different thing from *Supabase* Studio above: one is a node process, the
+other a container in the Supabase stack.
 See [docs/dev/portless-local-urls.md](./docs/dev/portless-local-urls.md).
 
 | App | URL |
@@ -134,7 +160,7 @@ See [docs/dev/portless-local-urls.md](./docs/dev/portless-local-urls.md).
 | App Backend (Hono) | https://engenty.localhost/api |
 | Agent Backend | https://engenty.localhost/ai |
 | Docs | https://engenty.localhost/docs |
-| Mastra Studio | https://engenty.localhost/studio |
+| Mastra Studio | https://engenty.localhost/studio — only with `--studio`, see below |
 | OpenAPI (Scalar) | https://engenty.localhost/api/docs |
 
 Direct upstream (debug): https://ai.engenty.localhost · https://docs.engenty.localhost

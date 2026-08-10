@@ -9,6 +9,7 @@ import type {
 } from "./audit-types.js";
 
 const DEFAULT_MAX_ROWS = 100_000;
+const DEFAULT_RETENTION_DAYS = 30;
 
 function toRow(
   event: PushEventInput,
@@ -48,9 +49,14 @@ function mapRow(row: Record<string, unknown>): AuditEventRow {
   };
 }
 
+/** Escape a value for PostgREST `or=(…ilike.…)` filters. */
+function searchPattern(raw: string): string {
+  return `%${raw.replace(/[,()]/g, " ").trim()}%`;
+}
+
 export function createAuditStoreSupabase(
   config: Record<string, unknown>,
-  options?: { maxRows?: number }
+  options?: { maxRows?: number; retentionDays?: number }
 ) {
   const { url, serviceRoleKey } = resolveSupabaseConfig(config);
   const client = createClient(url, serviceRoleKey, {
@@ -58,6 +64,7 @@ export function createAuditStoreSupabase(
   });
   const table = () => client.schema("core").from("audit_events");
   const maxRows = options?.maxRows ?? DEFAULT_MAX_ROWS;
+  const retentionDays = options?.retentionDays ?? DEFAULT_RETENTION_DAYS;
 
   return {
     async push(event: PushEventInput) {
@@ -68,6 +75,14 @@ export function createAuditStoreSupabase(
       if (error) {
         throw new Error(`Audit push failed: ${error.message}`);
       }
+
+      if (retentionDays > 0) {
+        const cutoff = new Date(
+          Date.now() - retentionDays * 24 * 60 * 60 * 1000
+        ).toISOString();
+        await table().delete().lt("timestamp", cutoff);
+      }
+
       const { count } = await table().select("*", {
         count: "exact",
         head: true,
@@ -114,7 +129,8 @@ export function createAuditStoreSupabase(
         q = q.lte("timestamp", opts.to);
       }
       if (opts.search) {
-        q = q.ilike("type", `%${opts.search}%`);
+        const pattern = searchPattern(opts.search);
+        q = q.or(`type.ilike.${pattern},operation_id.ilike.${pattern}`);
       }
       const { data, error } = await q;
       if (error) {
@@ -144,7 +160,8 @@ export function createAuditStoreSupabase(
         q = q.lte("timestamp", opts.to);
       }
       if (opts.search) {
-        q = q.ilike("type", `%${opts.search}%`);
+        const pattern = searchPattern(opts.search);
+        q = q.or(`type.ilike.${pattern},operation_id.ilike.${pattern}`);
       }
       const { count, error } = await q;
       if (error) {

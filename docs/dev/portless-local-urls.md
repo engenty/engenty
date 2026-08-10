@@ -89,8 +89,17 @@ pnpm dev:portless
 Main checkout (`engenty-pro/`) with no `--domain` → **https://engenty.localhost** (slot 0).
 
 Port slots are stored in gitignored `.engenty/dev-slots.json` so domains keep stable
-ports across restarts. **Mastra Studio is not started in worktrees** — use the main
-checkout for `/studio`.
+ports across restarts, Mastra Studio's included.
+
+**Mastra Studio is opt-in** — pass `--studio` in any checkout, worktrees included:
+
+```bash
+pnpm dev:portless --domain=tab-ui --studio
+```
+
+It used to start automatically in the main checkout and never in a worktree; now the
+rule is the same everywhere. It is a second dev server most runs never look at, and with
+several worktrees up the idle cost adds up.
 
 | Domain | Gateway URL | Loopback ports (example slot 1) |
 |--------|-------------|----------------------------------|
@@ -109,7 +118,7 @@ Single-origin via the dev gateway:
 | Main (UI + API gateway) | `https://engenty.localhost` | Vite `:5173` + core `:8787` |
 | AI / Copilot | `https://engenty.localhost/ai` | `:8790` |
 | Docs | `https://engenty.localhost/docs` | `:3002` |
-| Mastra Studio | `https://engenty.localhost/studio` | `:43111` (main checkout only) |
+| Mastra Studio | `https://engenty.localhost/studio` | `:43111` (only with `--studio`) |
 | OpenAPI (Scalar) | `https://engenty.localhost/api/docs` | core `:8787` |
 
 Direct upstream (bypass gateway, for debugging):

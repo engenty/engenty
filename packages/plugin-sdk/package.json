@@ -9,11 +9,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./capability-match": {
+      "types": "./dist/capability-match.d.ts",
+      "default": "./dist/capability-match.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/capability-match.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/capability-match.ts --format esm --dts --watch",
     "test": "vitest run --config vitest.config.ts",
     "lint": "echo 'No lint yet'",
     "typecheck": "tsc --noEmit"

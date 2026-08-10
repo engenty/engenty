@@ -189,7 +189,7 @@ describe("enforceInProcessPolicy", () => {
     ).rejects.toThrow(/requires human approval/);
   });
 
-  it("audits allow and deny with the in-process component", async () => {
+  it("audits deny with the in-process component (skips routine allow)", async () => {
     const pushed: Record<string, unknown>[] = [];
     const auditLog = {
       ...createNoopAuditLog(),
@@ -207,7 +207,7 @@ describe("enforceInProcessPolicy", () => {
         }
       )
     ).rejects.toBeInstanceOf(InProcessPolicyError);
-    expect(pushed.map((e) => e.type)).toEqual(["policy.allow", "policy.deny"]);
+    expect(pushed.map((e) => e.type)).toEqual(["policy.deny"]);
     expect(pushed.every((e) => e.source_component === "in-process")).toBe(true);
   });
 });

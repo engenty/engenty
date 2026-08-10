@@ -13,7 +13,9 @@ source of the 30–40 minute debugging loops this skill exists to prevent.
 ## 0. Decide the domain
 
 - Main checkout (`engenty-pro/`, no worktree) → no `--domain`, opens
-  `https://engenty.localhost` (slot 0). Studio (`/studio`) only works here.
+  `https://engenty.localhost` (slot 0).
+- Mastra Studio (`/studio`) is opt-in in every checkout: add `--studio`. Leave it off
+  unless you are actually going to look at it.
 - A worktree → `--domain=<short-name>` (recommended explicit; matches the
   worktree's purpose, not necessarily its directory name).
 

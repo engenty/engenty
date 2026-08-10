@@ -226,6 +226,14 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
     "@engenty/telemetry": path.join(appRoot, "src", "telemetry-stub.ts"),
     // Offers module imports pdf-templates/core; resolve subpath to source for dev
     "@engenty/pdf-templates/core": path.join(pdfTemplates, "core.ts"),
+    // Authz inspector — tiny matcher only (avoid the plugin-sdk barrel in the UI)
+    "@engenty/plugin-sdk/capability-match": path.join(
+      repoRoot,
+      "packages",
+      "plugin-sdk",
+      "src",
+      "capability-match.ts"
+    ),
   };
 
   const modulesRoot = path.join(repoRoot, "modules");

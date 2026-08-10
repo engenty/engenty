@@ -6,6 +6,10 @@
 
 import { requestApiJson } from "@engenty/api-client";
 
+// Tiny subpath — same matcher the server enforces (not the barrel, which would
+// pull the whole plugin-sdk bundle into the UI).
+export { capabilityCovers } from "@engenty/plugin-sdk/capability-match";
+
 export interface AuthzRole {
   capabilities: string[];
   description: string | null;
@@ -136,28 +140,24 @@ export function createTenantRole(
   ).then((r) => r.role);
 }
 
-export function deleteTenantRole(tenantId: string, roleId: string) {
-  return requestApiJson<{ ok: boolean }>(
-    `/api/tenants/${tenantId}/roles/${roleId}`,
-    { method: "DELETE" }
-  );
+export function updateTenantRole(
+  tenantId: string,
+  roleId: string,
+  input: {
+    title?: string;
+    description?: string | null;
+    capabilities?: string[];
+  }
+) {
+  return requestApiJson<{ role: TenantRole }>(
+    `/api/tenants/${tenantId}/roles/${encodeURIComponent(roleId)}`,
+    { method: "PATCH", body: input }
+  ).then((r) => r.role);
 }
 
-/**
- * Client-side mirror of the shared plugin-sdk capabilityCovers matcher, so the
- * inspector's "can they …?" answer can't drift from server enforcement.
- */
-export function capabilityCovers(granted: string[], required: string): boolean {
-  if (
-    granted.includes("*") ||
-    granted.includes("core.superadmin") ||
-    granted.includes("core.*")
-  ) {
-    return true;
-  }
-  if (granted.includes(required)) {
-    return true;
-  }
-  const [prefix] = required.split(".");
-  return granted.includes(`${prefix}.*`);
+export function deleteTenantRole(tenantId: string, roleId: string) {
+  return requestApiJson<{ ok: boolean }>(
+    `/api/tenants/${tenantId}/roles/${encodeURIComponent(roleId)}`,
+    { method: "DELETE" }
+  );
 }
