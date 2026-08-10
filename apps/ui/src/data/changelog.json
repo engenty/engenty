@@ -1,7 +1,37 @@
 [
   {
+    "version": "v0.1.120",
+    "timestamp": 1786380891,
+    "commits": [
+      {
+        "id": "466f640",
+        "message": "one toolbar for the timesheet and the calendar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1ef3bc0",
+        "message": "stop clipping the entry notes popover",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f318d7f",
+        "message": "show newly added rows in weeks with no entries",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "20673b7",
+        "message": "probe every 2s during container startup (start_interval)",
+        "group": "Performance",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.119",
-    "timestamp": 1786379138,
+    "timestamp": 1786379139,
     "commits": [
       {
         "id": "288e94f",

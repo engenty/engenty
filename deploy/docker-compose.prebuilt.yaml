@@ -70,6 +70,11 @@ services:
     healthcheck:
       interval: 10s
       retries: 3
+      # Probe every 2s during the start window (Docker 25+): the server is up
+      # in ~5s, but without this the FIRST probe fires only after `interval`
+      # (10s) — and one missed probe meant ~25-30s of running-but-not-routed,
+      # since Traefik waits for the first passing check.
+      start_interval: 2s
       start_period: 15s
       test:
         - CMD-SHELL
@@ -138,6 +143,11 @@ services:
     healthcheck:
       interval: 10s
       retries: 3
+      # Probe every 2s during the start window (Docker 25+): the server is up
+      # in ~5s, but without this the FIRST probe fires only after `interval`
+      # (10s) — and one missed probe meant ~25-30s of running-but-not-routed,
+      # since Traefik waits for the first passing check.
+      start_interval: 2s
       start_period: 15s
       test:
         - CMD-SHELL

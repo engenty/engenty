@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.120] - 2026-08-10
+- ADDED **[time-tracking]** One toolbar for the timesheet and the calendar
+- FIXED **[time-tracking]** Stop clipping the entry notes popover
+- FIXED **[time-tracking]** Show newly added rows in weeks with no entries
+- PERFORMANCE **[deploy]** Probe every 2s during container startup (start_interval)
+
 ## [0.1.119] - 2026-08-10
 - FIXED **[kb]** Serialize the custom: sort-by schema for OpenAPI
 - FIXED **[deploy]** Probe / instead of /api/openapi.json in the edge healthcheck
