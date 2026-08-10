@@ -235,6 +235,10 @@ export interface PluginRegistry {
     pluginId: string;
     sourceInfo?: PluginSourceInfo;
   }>;
+  /** Boot probe for the lane above: verifies PostgREST actually accepts a
+   * minted engenty_server token. Present only when the lane is configured;
+   * awaited by startApiServer before the port opens. */
+  assertServerLanePreflight?: () => Promise<void>;
   cliRegistrars: CliRegistration[];
   // Context-graph host installed by the `@engenty/context-graph` plugin via
   // `engenty.server.registerContextGraphHost(...)`. Core delegates the
@@ -272,10 +276,6 @@ export interface PluginRegistry {
   /** Tenant-locked database handle factory (engenty_server lane, RLS-enforced).
    * See PLAN-tenant-isolation-a-rls-seam.md. */
   getTenantDb?: (auth: { tenantId: string }) => unknown | null;
-  /** Boot probe for the lane above: verifies PostgREST actually accepts a
-   * minted engenty_server token. Present only when the lane is configured;
-   * awaited by startApiServer before the port opens. */
-  assertServerLanePreflight?: () => Promise<void>;
   httpRoutes: Array<{
     pluginId: string;
     route: PluginHttpRoute;

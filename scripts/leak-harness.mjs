@@ -207,13 +207,13 @@ for (const table of tables) {
   // app comes back empty.
   if (expectedOwn === 0) {
     unproven.push(table);
-  } else if (visibleOwn !== expectedOwn) {
+  } else if (visibleOwn === expectedOwn) {
+    proven++;
+  } else {
     leaks.push(
       `${table}: lane sees ${visibleOwn}/${expectedOwn} of tenant A's OWN rows — ` +
         "policy denies the lane its own tenant (wrong role scope, or a using(false))"
     );
-  } else {
-    proven++;
   }
 }
 
@@ -259,7 +259,7 @@ if (leaks.length > 0) {
 // were. Seed data for a table to move it out of this list.
 console.log(
   `leak-harness: table sweep OK — ${tables.length} tenant tables, ` +
-    `no foreign-tenant rows visible; own-tenant access positively verified on ` +
+    "no foreign-tenant rows visible; own-tenant access positively verified on " +
     `${proven}; cross-tenant write rejected.`
 );
 if (unproven.length > 0) {

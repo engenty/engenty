@@ -22,12 +22,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TenantScopedDbSource } from "../../infra/tenant-db.js";
 
 export interface RecordingDbSource {
-  /** Every tenantId the store resolved a handle for, in call order. */
-  readonly tenantCalls: string[];
-  /** The source to hand to the store factory. */
-  source: TenantScopedDbSource;
   /** Fails the expectation unless the ONLY tenant bound was this one. */
   assertOnlyTenant(tenantId: string): void;
+  /** The source to hand to the store factory. */
+  source: TenantScopedDbSource;
+  /** Every tenantId the store resolved a handle for, in call order. */
+  readonly tenantCalls: string[];
   /** True when the store never resolved a tenant handle (service-lane only). */
   usedTenantLane(): boolean;
 }

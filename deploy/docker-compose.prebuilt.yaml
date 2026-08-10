@@ -1,5 +1,15 @@
 # Engenty production stack — prebuilt-image variant for Coolify.
 #
+# The tenant-locked server lane needs a signing key this project's PostgREST
+# trusts. On Supabase Cloud after the JWT-signing-keys migration there is no
+# shared secret to sign with, so ENGENTY_SERVER_LANE_PRIVATE_KEY +
+# ENGENTY_SERVER_LANE_KEY_ID must name an EC P-256 key imported into the
+# project's signing keys (standby is enough — it is advertised in the JWKS, so
+# tokens verify without rotating, and Supabase Auth keeps signing user sessions
+# with its own key). Missing or wrong ⇒ the boot preflight refuses to start
+# rather than serve an app whose every tenant query would fail; that is what
+# 503'd prod on v0.1.113, when the lane could only sign HS256.
+#
 # Identical topology to docker-compose.yaml, but pulls images built by the
 # `build-images` GitHub Actions workflow from GHCR instead of building on the
 # server. Point Coolify's compose file at this one; keep docker-compose.yaml
@@ -59,6 +69,10 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      # Server-lane signing key — see the header note. Unset on stacks that
+      # still verify the symmetric secret (local, self-hosted).
+      ENGENTY_SERVER_LANE_PRIVATE_KEY: ${ENGENTY_SERVER_LANE_PRIVATE_KEY:-}
+      ENGENTY_SERVER_LANE_KEY_ID: ${ENGENTY_SERVER_LANE_KEY_ID:-}
       # Registers the agent escalation policy (role grants ∪ goal grants;
       # escalate on the gap). On by default: it was written as the gate that
       # governs agent runs, but shipped registered nowhere.
@@ -111,6 +125,11 @@ services:
       ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      # apps/ai mints its own server-lane tokens (WP6) — same key as core.
+      ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      ENGENTY_SERVER_LANE_PRIVATE_KEY: ${ENGENTY_SERVER_LANE_PRIVATE_KEY:-}
+      ENGENTY_SERVER_LANE_KEY_ID: ${ENGENTY_SERVER_LANE_KEY_ID:-}
       # Direct Postgres connection for the Mastra store (inbox notifications,
       # suspend/resume) and the notification pg pools (web push, email).
       SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}

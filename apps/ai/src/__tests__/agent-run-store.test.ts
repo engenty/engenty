@@ -475,7 +475,9 @@ describe("tenant binding (Phase A)", () => {
         from: () => ({
           select: () => ({
             eq: () => ({
-              eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
             }),
           }),
         }),

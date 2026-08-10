@@ -96,6 +96,29 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
+      "Private key the tenant-locked server lane signs its engenty_server JWTs with, as a PKCS8 PEM or that PEM base64-encoded. Set this ONLY when the Supabase project verifies asymmetric keys — Supabase Cloud after the JWT-signing-keys migration publishes a JWKS and keeps its own private key, so there is no shared secret to sign with and HS256 tokens are rejected outright. Generate an EC P-256 key, import it into the project's JWT signing keys, and keep the private half here. Leave unset on local/self-hosted stacks, which still verify the symmetric secret. Must be set together with ENGENTY_SERVER_LANE_KEY_ID.",
+    group: "API security",
+    key: "ENGENTY_SERVER_LANE_PRIVATE_KEY",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: true,
+  },
+
+  {
+    description:
+      "Key id (`kid`) of the imported signing key above — the project's JWKS holds several keys and the verifier needs to know which one to try. Must be set together with ENGENTY_SERVER_LANE_PRIVATE_KEY; setting one without the other fails at boot rather than silently falling back to HS256.",
+    exampleValue: "engenty-server-lane",
+    group: "API security",
+    key: "ENGENTY_SERVER_LANE_KEY_ID",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+  },
+
+  {
+    description:
       "Registers the agent escalation policy: an agent-driven operation whose required capabilities fall outside the agent's role grants ∪ its goal grants escalates to approval instead of running. Ship it on — the 2026-08-03 audit found this policy cited as a governing gate while being registered nowhere, so agent runs were left to the blanket escalation alone. Set to anything but `true` only to debug that policy.",
     exampleValue: "true",
     group: "API security",

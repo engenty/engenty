@@ -99,9 +99,7 @@ function mountPluginRoute(
 
   app.openapi(routeSpec, async (c) => {
     const logger = params.getLogger(c);
-    let auth: Awaited<
-      ReturnType<typeof params.authProvider.resolvePrincipal>
-    >;
+    let auth: Awaited<ReturnType<typeof params.authProvider.resolvePrincipal>>;
     try {
       auth = await params.authProvider.resolvePrincipal(
         c.req.header("authorization")

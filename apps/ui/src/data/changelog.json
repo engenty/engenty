@@ -4,6 +4,36 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "6bd157a",
+        "message": "unpin prod and pass the server-lane signing key through",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "15b494e",
+        "message": "let the server lane sign ES256 for asymmetric projects",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bd4ff7e",
+        "message": "keep the 0.1.113 migrator while apps roll back to 0.1.112",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "36062ad",
+        "message": "pin prod to v0.1.112 to restore service",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.113",
+    "timestamp": 1786315207,
+    "commits": [
+      {
         "id": "9d683a6",
         "message": "put saved_report_snapshots on the server lane",
         "group": "Fixed",

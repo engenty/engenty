@@ -6,7 +6,6 @@
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { matchesPath } from "@engenty/app-shell/navigation";
 import { useTranslation } from "@engenty/i18n/ui";
-import { useCanAdministerTenant } from "@engenty/ui-plugin-sdk";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -16,6 +15,7 @@ import {
   SidebarRowLeadingIcon,
   SidebarSectionLabel,
 } from "@engenty/ui-core";
+import { useCanAdministerTenant } from "@engenty/ui-plugin-sdk";
 import type { LucideIcon } from "lucide-react";
 import {
   Database,
@@ -131,11 +131,7 @@ export function KbModuleScopedNavLinks({
                 without one it falls back to /settings/knowledge-base, which is
                 admin-only and redirects members away silently — so hide it. */}
             {slug || canAdministerTenant ? (
-              <KbScopedNavLinkRow
-                {...rowProps}
-                Icon={Settings}
-                to={settingsTo}
-              >
+              <KbScopedNavLinkRow {...rowProps} Icon={Settings} to={settingsTo}>
                 {settingsLabel}
               </KbScopedNavLinkRow>
             ) : null}

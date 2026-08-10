@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { createRecordingDbSource } from "./helpers/recording-db-source.js";
 import {
   ARTIFACT_INLINE_CONTENT_MAX_BYTES,
   ArtifactContentTooLargeError,
   ArtifactVersionConflictError,
   createArtifactStore,
 } from "../dal/artifacts/artifact-store.js";
+import { createRecordingDbSource } from "./helpers/recording-db-source.js";
 
 const tenantId = "tenant-1";
 
