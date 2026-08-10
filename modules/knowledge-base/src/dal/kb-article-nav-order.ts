@@ -6,6 +6,7 @@
 export interface KbNavArticleRow {
   id: string;
   parent_article_id: string | null;
+  slug: string;
   sort_order: number;
   title: string;
 }
@@ -48,11 +49,15 @@ function buildArticleForest(bucketArticles: KbNavArticleRow[]): ArticleNode[] {
 
 function flattenForestPreorder(
   forest: ArticleNode[]
-): Array<{ id: string; title: string }> {
-  const out: Array<{ id: string; title: string }> = [];
+): Array<{ id: string; title: string; slug: string }> {
+  const out: Array<{ id: string; title: string; slug: string }> = [];
   const walk = (nodes: ArticleNode[]) => {
     for (const n of nodes) {
-      out.push({ id: n.article.id, title: n.article.title });
+      out.push({
+        id: n.article.id,
+        title: n.article.title,
+        slug: n.article.slug,
+      });
       walk(n.children);
     }
   };
@@ -63,6 +68,6 @@ function flattenForestPreorder(
 /** Flat ids in the same order as the KB sidebar article list (all articles in the KB). */
 export function flattenKbArticleReadingOrder(
   articles: KbNavArticleRow[]
-): Array<{ id: string; title: string }> {
+): Array<{ id: string; title: string; slug: string }> {
   return flattenForestPreorder(buildArticleForest(articles));
 }

@@ -62,8 +62,6 @@ const ADMIN_MENU_SORT_RANK_BY_ID: Record<string, number> = {
   // Engenty workspace — first in the bottom admin rail (above Vault / Settings).
   ai_ui_admin_menu: 100,
   files_admin_menu: 110,
-  audit_logs_menu: 120,
-  user_management_menu: 130,
 };
 
 function resolveContributionLabel(
@@ -114,14 +112,6 @@ function buildCopilotNavItems(
   return [...copilotApps]
     .sort((left, right) => (left.order ?? 10_000) - (right.order ?? 10_000))
     .map((app) => mapCopilotAppToNavItem(app, t));
-}
-
-function buildSectionItems(
-  entries: UiContributions["adminMenuItems"],
-  t: TranslateFn
-): NavigationItem[] {
-  const topLevel = entries.filter((entry) => !entry.parentId);
-  return topLevel.map((entry) => mapTopLevelEntryToNavItem(entry, entries, t));
 }
 
 function adminMenuContributionSortKey(entry: AdminMenuEntry): number {
@@ -205,9 +195,11 @@ export function buildNavigationSections(
     mapTopLevelEntryToNavItem(entry, moduleMenuEntries, t)
   );
   const copilotNavItems = buildCopilotNavItems(contributions.copilotApps, t);
-  // Admin-section entries (/admin/* consoles: Engenty, users, audit logs, files,
-  // context graph) are tenant-admin surfaces — hidden for members. Engenty is
-  // ordered first via ADMIN_MENU_SORT_RANK_BY_ID (not the primary top rail).
+  // Admin-section entries (/admin/* consoles: Engenty, files, context graph)
+  // are tenant-admin surfaces — hidden for members. Engenty is ordered first
+  // via ADMIN_MENU_SORT_RANK_BY_ID (not the primary top rail). Audit logs are
+  // reachable from the Setup overview only; users from the Settings overview
+  // (`/settings/users`) — neither gets a rail or secondary-nav slot.
   const adminMenuEntries = isAdmin
     ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
     : [];

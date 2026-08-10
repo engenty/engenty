@@ -4,17 +4,17 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     }
   },
   "engenty": {},
   "scripts": {
-    "build": "tsup src/plugin.ts --format esm --dts --clean --out-dir dist/src",
-    "dev": "tsup src/plugin.ts --format esm --dts --watch --out-dir dist/src",
+    "build": "tsup src/plugin.ts --format esm --clean --out-dir dist/src",
+    "dev": "tsup src/plugin.ts --format esm --watch --out-dir dist/src",
     "test": "vitest run --root ../../../.. modules/connections/providers/hubspot/",
     "lint": "echo 'No lint yet'"
   },

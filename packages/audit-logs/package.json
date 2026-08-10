@@ -4,24 +4,25 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./plugin": {
-      "types": "./dist/plugin.d.ts",
+      "types": "./src/plugin.tsx",
       "default": "./dist/plugin.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/plugin.tsx --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/plugin.tsx --format esm --dts --watch",
+    "build": "tsup src/index.ts src/plugin.tsx --format esm --clean",
+    "dev": "tsup src/index.ts src/plugin.tsx --format esm --watch",
     "test": "vitest run --root ../.. --passWithNoTests packages/audit-logs/",
     "lint": "echo 'No lint yet'"
   },
   "dependencies": {
+    "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/query-client": "workspace:*",

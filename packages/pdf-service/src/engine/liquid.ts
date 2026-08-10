@@ -49,14 +49,24 @@ export async function resolveStyling(
     return styling as PdfStyleObject;
   }
 
-  const inputData = {
-    ...data,
-    ...(styling.data ?? {}),
+  // `in` cannot discriminate the index-signature member of the union, so the
+  // guard above leaves `styling` as `PdfStyleObject | {template?, ...}`.
+  const structured = styling as {
+    template?: string;
+    styles?: PdfStyleObject;
+    data?: TemplateData;
   };
 
-  const fromTemplate = styling.template
-    ? parseJsonStyles(await renderLiquidTemplate(styling.template, inputData))
+  const inputData = {
+    ...data,
+    ...(structured.data ?? {}),
+  };
+
+  const fromTemplate = structured.template
+    ? parseJsonStyles(
+        await renderLiquidTemplate(structured.template, inputData)
+      )
     : {};
 
-  return deepMerge(fromTemplate, styling.styles ?? {});
+  return deepMerge(fromTemplate, structured.styles ?? {});
 }

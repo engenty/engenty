@@ -32,7 +32,7 @@ const Slot = ({
     ...props,
     ...child.props,
     className: cn(className, child.props.className),
-    ref: ref ?? child.ref,
+    ref: ref ?? child.props.ref,
   });
 };
 Slot.displayName = "Slot";

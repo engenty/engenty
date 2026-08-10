@@ -4,30 +4,30 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui": {
-      "types": "./dist/ui/index.d.ts",
+      "types": "./ui/index.ts",
       "default": "./dist/ui/index.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./ui/public-plugin": {
-      "types": "./dist/ui/public-plugin.d.ts",
+      "types": "./ui/public-plugin.ts",
       "default": "./dist/ui/public-plugin.js"
     },
     "./ui/portal": {
-      "types": "./dist/ui/portal.d.ts",
+      "types": "./ui/portal.ts",
       "default": "./dist/ui/portal.js"
     },
     "./ai/registrar": {
-      "types": "./dist/ai/registrar.d.ts",
+      "types": "./ai/registrar.ts",
       "default": "./dist/ai/registrar.js"
     }
   },
@@ -35,8 +35,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "lint": "echo 'No lint yet'"
   },

@@ -14,3 +14,4 @@ export type {
 export { ProfileSettingsPage } from "./routes/profile-settings-page.js";
 export { UserEditPage } from "./routes/user-edit-page.js";
 export { UsersListPage } from "./routes/users-list-page.js";
+export { USERS_LEGACY_PATH, USERS_PATH } from "./users-paths.js";

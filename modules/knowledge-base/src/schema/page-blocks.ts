@@ -27,9 +27,15 @@ export const kbCategoryArticleListSourceSchema = z.enum([
   "manual_pick",
 ]);
 
+// z.custom keeps the `custom:${string}` template-literal type;
+// z.string().startsWith() would widen the inferred output to plain `string`.
 export const kbCategoryCollectionSortBySchema = z
   .enum(["created_at", "name", "sort_order", "updated_at"])
-  .or(z.string().startsWith("custom:"));
+  .or(
+    z.custom<`custom:${string}`>(
+      (v) => typeof v === "string" && v.startsWith("custom:")
+    )
+  );
 
 export type KbPageBlockType = "articles" | "categories" | "content" | "faqs";
 

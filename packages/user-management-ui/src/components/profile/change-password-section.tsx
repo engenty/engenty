@@ -101,7 +101,9 @@ export function ChangePasswordSection({
           <PasswordInput
             className="rounded-sm"
             id="confirm_password"
-            onChange={(e) => setPasswordField("confirmPassword", e.target.value)}
+            onChange={(e) =>
+              setPasswordField("confirmPassword", e.target.value)
+            }
             showGenerate={false}
             showStrength={false}
             value={form.watch("confirmPassword")}

@@ -80,7 +80,11 @@ export function RoutineCard({
         isHovered={isHovered}
         isRunning={runMutation.isPending}
         onDelete={
-          isCustom ? () => deleteMutation.mutateAsync(routine.id) : undefined
+          isCustom
+            ? async () => {
+                await deleteMutation.mutateAsync(routine.id);
+              }
+            : undefined
         }
         onEdit={isCustom && onEdit ? () => onEdit(routine) : undefined}
         onRun={() => runMutation.mutate(routine.id)}

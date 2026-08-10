@@ -26,11 +26,6 @@ interface AdminValues {
   password: string;
 }
 
-interface TenantValues {
-  company: string;
-  slug: string;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Derive a URL-safe slug from a company name. */

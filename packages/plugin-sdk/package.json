@@ -4,20 +4,20 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./capability-match": {
-      "types": "./dist/capability-match.d.ts",
+      "types": "./src/capability-match.ts",
       "default": "./dist/capability-match.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/capability-match.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/capability-match.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/capability-match.ts --format esm --clean",
+    "dev": "tsup src/index.ts src/capability-match.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "lint": "echo 'No lint yet'",
     "typecheck": "tsc --noEmit"

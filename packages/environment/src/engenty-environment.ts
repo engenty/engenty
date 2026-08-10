@@ -2,6 +2,10 @@
  * Workspace `ENV` tier from `.env` / process (Node) or Vite `import.meta.env` (browser).
  * Use {@link isEngentyDevelopmentEnvironment} for gating developer-only UI and APIs.
  */
+// `types` resolves via this package's tsconfig only when WE compile; consumers
+// type-check this source directly (types -> src), so the reference must travel
+// with the file.
+/// <reference types="vite/client" />
 
 function readImportMetaEnv(): string | undefined {
   try {

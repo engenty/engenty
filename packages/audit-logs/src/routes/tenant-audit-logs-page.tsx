@@ -1,3 +1,4 @@
+import { useSetupSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
@@ -38,10 +39,16 @@ export function TenantAuditLogsPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const tenantId = currentTenant?.id ?? null;
   const labels = useAuditLogLabels(t);
+  const { moduleRootCrumb, secondaryNavHeaderSlot } = useSetupSecondaryShellNav(
+    t("navigation.setup")
+  );
 
   const breadcrumbs = useMemo(
-    () => [{ label: t("navigation.admin") }, { label: t("menu.auditLogs") }],
-    [t]
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("menu.auditLogs") },
+    ],
+    [moduleRootCrumb, t]
   );
 
   const handleRefresh = useCallback(() => {
@@ -61,6 +68,7 @@ export function TenantAuditLogsPage() {
 
   usePageConfig({
     breadcrumbs,
+    secondaryNavHeaderSlot,
     actions: (
       <Button
         className="h-8 w-8 p-0"

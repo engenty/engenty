@@ -12,16 +12,16 @@
   "exports": {
     ".": "./dist/index.js",
     "./cli": {
-      "types": "./dist/cli.d.ts",
+      "types": "./src/cli.ts",
       "default": "./dist/cli.js"
     },
     "./infra": {
-      "types": "./dist/infra/index.d.ts",
+      "types": "./src/infra/index.ts",
       "default": "./dist/infra/index.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts src/api-entry.ts src/infra/index.ts --format esm --dts --clean --external pdfjs-dist --external sharp --external @napi-rs/canvas",
+    "build": "tsup src/index.ts src/cli.ts src/api-entry.ts src/infra/index.ts --format esm --clean --external pdfjs-dist --external sharp --external @napi-rs/canvas",
     "api": "bash ../../scripts/portless-dev.sh",
     "api:app": "ENV=development ENGENTY_DEV_GATEWAY=1 ENGENTY_CORE_PORT=${ENGENTY_CORE_PORT:-8787} tsx watch --clear-screen=false --exclude \"**/node_modules/**\" --exclude \"**/.git/**\" --exclude \"**/.turbo/**\" --exclude \"**/coverage/**\" --exclude \"../../packages/**/dist/**\" --exclude \"../../modules/**/dist/**\" src/api-entry.ts",
     "dev:portless": "pnpm run api:app",

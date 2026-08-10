@@ -8,6 +8,7 @@ import {
   Cable,
   ChevronRightIcon,
   KeyRound,
+  ScrollText,
   ShieldCheck,
 } from "lucide-react";
 import { useMemo } from "react";
@@ -46,6 +47,13 @@ const SETUP_ROWS: SetupOverviewRow[] = [
     descriptionKey: "setup.rolesDescription",
     Icon: ShieldCheck,
     tone: "cobalt",
+  },
+  {
+    to: "/setup/audit-logs",
+    labelKey: "menu.auditLogs",
+    descriptionKey: "setup.auditLogsDescription",
+    Icon: ScrollText,
+    tone: "amber",
   },
   {
     to: "/setup/connectors",

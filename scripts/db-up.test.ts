@@ -40,8 +40,8 @@ describe("db-up config patching", () => {
   });
 
   it("fails loudly rather than starting a stack that ignores the flag", () => {
-    expect(() => setSectionEnabled("[db]\nport = 5432\n", "studio", false)).toThrow(
-      /no \[studio\] enabled key/
-    );
+    expect(() =>
+      setSectionEnabled("[db]\nport = 5432\n", "studio", false)
+    ).toThrow(/no \[studio\] enabled key/);
   });
 });

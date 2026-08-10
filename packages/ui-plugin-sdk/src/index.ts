@@ -13,7 +13,10 @@ export {
 } from "@engenty/plugin-sdk";
 
 export type UiPluginId = string;
-export type UiIconComponent = ComponentType<{ className?: string }>;
+export type UiIconComponent = ComponentType<{
+  className?: string;
+  "aria-hidden"?: boolean;
+}>;
 
 /** Route context passed to copilot contribution matching. */
 export interface CopilotMatchContext {

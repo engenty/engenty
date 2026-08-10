@@ -4,18 +4,18 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui": {
-      "types": "./dist/ui/index.d.ts",
+      "types": "./ui/index.ts",
       "default": "./dist/ui/index.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     }
   },
@@ -23,8 +23,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts --format esm --watch",
     "test": "vitest run --root ../.. modules/commercial-settings/",
     "lint": "echo 'No lint yet'",
     "typecheck": "tsc --noEmit"

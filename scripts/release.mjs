@@ -270,8 +270,19 @@ async function main() {
   }
 
   // Write changelog + structured JSON + slim UI copy for About → Changelog.
+  // Stamp the new tag onto cliff's still-unreleased context section — the
+  // annotated tag does not exist yet, so plain `--context` would leave these
+  // commits under "Unreleased" in the About dialog.
   prependToChangelog(block);
-  writeFileSync(CHANGELOG_JSON, cliff(["--context"]), "utf8");
+  const context = JSON.parse(cliff(["--context"]));
+  const stampedAt = Math.floor(Date.now() / 1000);
+  for (const release of context) {
+    if (release.version == null) {
+      release.version = tag;
+      release.timestamp = stampedAt;
+    }
+  }
+  writeFileSync(CHANGELOG_JSON, `${JSON.stringify(context)}\n`, "utf8");
   execFileSync(
     process.execPath,
     [path.join(ROOT, "scripts", "write-about-data.mjs"), "--changelog"],

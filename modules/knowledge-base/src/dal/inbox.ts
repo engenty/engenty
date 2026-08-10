@@ -5,11 +5,11 @@ import type {
   InboxItem,
   InboxItemInput,
   InboxItemUpdateInput,
+  InboxQueryParams,
   KbActivityLogEntry,
   SourceReference,
 } from "../schema/types.js";
 import type {
-  InboxQueryParams,
   InboxRepo,
   KbActivityLogRepo,
   SourceReferenceRepo,

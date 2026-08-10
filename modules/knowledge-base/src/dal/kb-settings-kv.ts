@@ -158,6 +158,10 @@ function getScopeNullableString(rows: KbKvRow[], name: string): string | null {
 /** Assemble aggregate KB settings from scoped KV rows (for tests + repo). */
 export function kbSettingsFromKvRows(rows: KbKvRow[]): KbSettings {
   return {
+    // No KV keys exist for chunking yet — defaults are the effective values.
+    chunk_strategy: DEFAULT_KB_SETTINGS.chunk_strategy,
+    chunk_max_length: DEFAULT_KB_SETTINGS.chunk_max_length,
+    chunk_overlap: DEFAULT_KB_SETTINGS.chunk_overlap,
     default_kb_id: getScopeNullableString(rows, KB_KV_KEY.defaultKbId),
     embedding_model: getScopeString(
       rows,

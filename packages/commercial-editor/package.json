@@ -4,24 +4,24 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./placeholders": {
-      "types": "./dist/placeholders.d.ts",
+      "types": "./src/placeholders.ts",
       "default": "./dist/placeholders.js"
     },
     "./blocks": {
-      "types": "./dist/blocks-normalize.d.ts",
+      "types": "./src/blocks-normalize.ts",
       "default": "./dist/blocks-normalize.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/placeholders.ts src/blocks-normalize.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/placeholders.ts src/blocks-normalize.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/placeholders.ts src/blocks-normalize.ts --format esm --clean",
+    "dev": "tsup src/index.ts src/placeholders.ts src/blocks-normalize.ts --format esm --watch",
     "test": "vitest run --root ../.. packages/commercial-editor/",
     "lint": "echo 'No lint yet'"
   },

@@ -1,22 +1,16 @@
-import { DockAuditLogsIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { TenantAuditLogsPage } from "./routes/tenant-audit-logs-page.js";
+
+/** Install-owner setup area (platform-wide ops; not tenant Settings). */
+export const AUDIT_LOGS_PATH = "/setup/audit-logs";
+/** Former admin-rail URL — keep a redirect for bookmarks. */
+export const AUDIT_LOGS_LEGACY_PATH = "/admin/audit-logs";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerRoute({
     id: "audit_logs_tenant",
-    path: "/admin/audit-logs",
+    path: AUDIT_LOGS_PATH,
     component: TenantAuditLogsPage,
     order: 210,
-  });
-
-  engenty.UI.registerAdminMenuItem({
-    id: "audit_logs_menu",
-    section: "admin",
-    label: "Audit Logs",
-    labelKey: "menu.auditLogs",
-    to: "/admin/audit-logs",
-    icon: DockAuditLogsIcon,
-    order: 120,
   });
 }

@@ -4,20 +4,20 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./index.ts",
       "default": "./dist/index.js"
     },
     "./plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.tsx",
       "default": "./dist/ui/plugin.js"
     }
   },
   "scripts": {
-    "build": "tsup index.ts ui/plugin.tsx --format esm --dts --clean",
-    "dev": "tsup index.ts ui/plugin.tsx --format esm --dts --watch",
+    "build": "tsup index.ts ui/plugin.tsx --format esm --clean",
+    "dev": "tsup index.ts ui/plugin.tsx --format esm --watch",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },

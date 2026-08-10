@@ -18,8 +18,10 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Full-page chat | `/chat`, `/chat/<threadId>` |",
     "| App settings | `/settings`, `/settings/appearance` |",
     "| AI models & usage (settings) | `/settings/ai` |",
+    "| Users (settings) | `/settings/users` |",
     "| Tenant plugins (setup) | `/setup/plugins` |",
     "| Roles & permissions (setup) | `/setup/roles` |",
+    "| Audit logs (setup) | `/setup/audit-logs` |",
     "| Agents / AI workspace | `/admin/engenty` (sessions, agents, skills, actions under this prefix) |",
     // A prefix is not a page: over half the modules register no bare
     // `/mdl/<module-folder>` route, and it fell through to the catch-all.

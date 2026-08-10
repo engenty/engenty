@@ -42,7 +42,7 @@ export function MobileNavSheet(props: {
           "flex max-w-[100vw] flex-row gap-0 border-none bg-transparent p-0 shadow-none md:hidden",
           hasSecondaryNav ? "w-80 sm:max-w-none" : MOBILE_NAV_RAIL_WIDTH_CLASS
         )}
-        hideCloseButton
+        showCloseButton={false}
         side="left"
       >
         <SheetTitle className="sr-only">Main navigation</SheetTitle>

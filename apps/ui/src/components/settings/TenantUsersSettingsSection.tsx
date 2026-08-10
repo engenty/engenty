@@ -5,6 +5,7 @@ import {
   SettingsFormSection,
   Skeleton,
 } from "@engenty/ui-core";
+import { USERS_PATH } from "@engenty/user-management-ui";
 import { ChevronRightIcon, UsersIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUserListQuery } from "@/hooks/use-user-list-query";
@@ -70,7 +71,7 @@ export function TenantUsersSettingsSection() {
               <Link
                 className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
                 key={user.id}
-                to={`/admin/users/${user.id}`}
+                to={`${USERS_PATH}/${user.id}`}
               >
                 <Avatar className="size-8">
                   <AvatarFallback className="bg-primary/5 font-bold text-[10px] text-primary">
@@ -116,7 +117,7 @@ export function TenantUsersSettingsSection() {
         )}
         <Link
           className="flex items-center justify-center gap-2 px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
-          to="/admin/users"
+          to={USERS_PATH}
         >
           <UsersIcon className="size-3" />
           {t("settings.users.manageAll")}

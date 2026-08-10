@@ -3,6 +3,9 @@
  * used across Engenty server code. In non-Node contexts, helpers return
  * `undefined` / defaults without throwing.
  */
+// Consumers type-check this source directly (types -> src); browser-leaning
+// programs without node in their tsconfig `types` still need `process` typed.
+/// <reference types="node" />
 
 /** Standard log levels recognized by {@link getLogLevel}. */
 export type LogLevel = "debug" | "info" | "warn" | "error";

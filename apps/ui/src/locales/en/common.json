@@ -133,6 +133,7 @@
     "platformDescription": "Keys, credentials, and platform defaults.",
     "pluginsDescription": "Activate and configure plugins for the install.",
     "rolesDescription": "Roles, capabilities, and assignments.",
+    "auditLogsDescription": "Review tenant events, policy decisions, and operations.",
     "connectorsDescription": "Import and manage external connectors."
   },
   "plugins": {

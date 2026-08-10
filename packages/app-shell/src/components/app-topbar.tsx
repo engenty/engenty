@@ -104,7 +104,6 @@ export function AppTopbar({
   onToggleSidebarHidden,
   onSecondaryNavHoverEnter,
   onSecondaryNavHoverLeave,
-  shell,
 }: AppTopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();

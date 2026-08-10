@@ -5,38 +5,38 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./ui/api": {
-      "types": "./dist/ui/api.d.ts",
+      "types": "./ui/api.ts",
       "default": "./dist/ui/api.js"
     },
     "./ui/assignee": {
-      "types": "./dist/ui/assignee.d.ts",
+      "types": "./ui/assignee.ts",
       "default": "./dist/ui/assignee.js"
     },
     "./ui/comments": {
-      "types": "./dist/ui/comments.d.ts",
+      "types": "./ui/comments.ts",
       "default": "./dist/ui/comments.js"
     },
     "./lib/task-workspace": {
-      "types": "./dist/src/lib/task-workspace.d.ts",
+      "types": "./src/lib/task-workspace.ts",
       "default": "./dist/src/lib/task-workspace.js"
     },
     "./lib/routine-ref": {
-      "types": "./dist/src/lib/routine-ref.d.ts",
+      "types": "./src/lib/routine-ref.ts",
       "default": "./dist/src/lib/routine-ref.js"
     },
     "./lib/routine-workspace": {
-      "types": "./dist/src/lib/routine-workspace.d.ts",
+      "types": "./src/lib/routine-workspace.ts",
       "default": "./dist/src/lib/routine-workspace.js"
     }
   },
@@ -44,8 +44,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "biome check ."

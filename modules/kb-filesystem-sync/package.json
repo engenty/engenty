@@ -5,10 +5,10 @@
   "private": true,
   "type": "module",
   "main": "./dist/plugin.js",
-  "types": "./dist/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/plugin.js"
     }
   },
@@ -16,8 +16,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/api/index.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/api/index.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/api/index.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/api/index.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"

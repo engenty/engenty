@@ -53,6 +53,11 @@ export const DEFAULT_KB_SETTINGS: KbSettings = {
   embedding_model: "openai/text-embedding-3-small",
   auto_generate_summary: true,
   auto_generate_questions: true,
+  // Mirrors the kbSettingsSchema zod defaults; there is no KV storage for
+  // chunking yet, so these are the effective values everywhere.
+  chunk_strategy: "recursive",
+  chunk_max_length: 1000,
+  chunk_overlap: 100,
   search_vector_min_similarity: 0.45,
   search_verifier_min_query_terms: 3,
   search_verifier_max_candidates: 6,

@@ -6,7 +6,6 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { type AsChildProps, isButtonLike, resolveAsChildRender } from "../../lib/as-child";
 import { Slot } from "../../lib/slot";
 import { cn } from "../../lib/utils";
-import { Button } from "./button";
 
 const PopoverAnchorContext =
   React.createContext<React.RefObject<Element | null> | null>(null);

@@ -4,26 +4,26 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui": {
-      "types": "./dist/ui/index.d.ts",
+      "types": "./ui/index.ts",
       "default": "./dist/ui/index.js"
     },
     "./schema": {
-      "types": "./dist/src/schema/index.d.ts",
+      "types": "./src/schema/index.ts",
       "default": "./dist/src/schema/index.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./ai/registrar": {
-      "types": "./dist/ai/registrar.d.ts",
+      "types": "./ai/registrar.ts",
       "default": "./dist/ai/registrar.js"
     }
   },
@@ -31,8 +31,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/invoices-manager.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/invoices-manager.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/invoices-manager.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts ui/index.ts ui/plugin.ts ai/registrar.ts ai/invoices-manager.ts --format esm --watch",
     "test": "vitest run --root ../.. modules/invoices/",
     "lint": "echo 'No lint yet'"
   },

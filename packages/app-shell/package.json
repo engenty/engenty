@@ -4,20 +4,20 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./navigation": {
-      "types": "./dist/navigation.d.ts",
+      "types": "./src/navigation.ts",
       "default": "./dist/navigation.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/navigation.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/navigation.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/navigation.ts --format esm --clean",
+    "dev": "tsup src/index.ts src/navigation.ts --format esm --watch",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },

@@ -18,7 +18,7 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const editorRef = useRef<{
     focus: () => void;
-    getAction: (id: string) => { run: () => void } | undefined;
+    getAction: (id: string) => { run: () => void } | null | undefined;
     getValue: () => string;
     setValue: (nextValue: string) => void;
   } | null>(null);

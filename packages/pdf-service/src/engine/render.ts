@@ -17,17 +17,17 @@ function normalizeStyleNames(input?: string | string[]): string[] {
   return Array.isArray(input) ? input : [input];
 }
 
+type ResolvedStyle = ReturnType<typeof StyleSheet.create>[string];
+
 function resolveStyle(
   names: string | string[] | undefined,
   styles: ReturnType<typeof StyleSheet.create>
-): unknown {
+): ResolvedStyle | ResolvedStyle[] | undefined {
   const keys = normalizeStyleNames(names);
   if (!keys.length) {
     return;
   }
-  const resolved = keys
-    .map((key) => (styles as Record<string, unknown>)[key])
-    .filter(Boolean);
+  const resolved = keys.map((key) => styles[key]).filter(Boolean);
   if (!resolved.length) {
     return;
   }

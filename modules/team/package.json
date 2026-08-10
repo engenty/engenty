@@ -4,22 +4,22 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui": {
-      "types": "./dist/ui/index.d.ts",
+      "types": "./ui/index.ts",
       "default": "./dist/ui/index.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./photos": {
-      "types": "./dist/src/schema/member-photos.d.ts",
+      "types": "./src/schema/member-photos.ts",
       "default": "./dist/src/schema/member-photos.js"
     }
   },
@@ -27,8 +27,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/api/habbo-avatar-routes.ts src/lib/habbo-avatar-prompt.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/api/habbo-avatar-routes.ts src/lib/habbo-avatar-prompt.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/api/habbo-avatar-routes.ts src/lib/habbo-avatar-prompt.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/team-module-supabase.ts src/api/index.ts src/api/team-module-routes.ts src/api/habbo-avatar-routes.ts src/lib/habbo-avatar-prompt.ts src/schema/types.ts src/schema/zod.ts src/schema/taxonomies.ts src/schema/member-photos.ts src/services/org-tree.ts src/services/taxonomy-resolver.ts src/services/profile-name.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --watch",
     "test": "vitest run --root ../.. modules/team/",
     "lint": "echo 'No lint yet'"
   },

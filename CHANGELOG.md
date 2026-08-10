@@ -4,6 +4,12 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.117] - 2026-08-10
+- ADDED **[ui]** Move audit logs and users off the admin rail
+- FIXED **[release]** Attribute About changelog commits to the new tag
+- PERFORMANCE **[build]** Drop dts generation — internal packages read types from source
+- PERFORMANCE **[deploy]** Pre-pull images on the VPS before queueing the deploy
+
 ## [0.1.116] - 2026-08-10
 - ADDED **[authz]** Inspect roles and edit custom roles in setup console
 - FIXED **[manage]** Show audit actor display names

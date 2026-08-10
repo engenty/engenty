@@ -4,17 +4,17 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     }
   },
   "engenty": {},
   "scripts": {
-    "build": "tsup src/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts --format esm --watch",
     "test": "vitest run --root ../../../.. modules/connections/providers/slack/",
     "lint": "echo 'No lint yet'"
   },

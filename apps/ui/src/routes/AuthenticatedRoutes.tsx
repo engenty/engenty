@@ -11,7 +11,13 @@ import {
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
 import { useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
 import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
@@ -46,6 +52,13 @@ const PERSONAL_SETTINGS_PREFIXES = [
 // Where a member lands when they hit an admin-only settings page. Profile is
 // always present (user-management) and personal.
 const MEMBER_SETTINGS_HOME = "/settings/profile";
+
+function LegacyAdminUserRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return (
+    <Navigate replace to={id ? `/settings/users/${id}` : "/settings/users"} />
+  );
+}
 
 export function AuthenticatedRoutes({
   contributions,
@@ -117,6 +130,15 @@ export function AuthenticatedRoutes({
           element={<Navigate replace to="/setup/plugins" />}
           path="/admin/plugins"
         />
+        <Route
+          element={<Navigate replace to="/setup/audit-logs" />}
+          path="/admin/audit-logs"
+        />
+        <Route
+          element={<Navigate replace to="/settings/users" />}
+          path="/admin/users"
+        />
+        <Route element={<LegacyAdminUserRedirect />} path="/admin/users/:id" />
         <Route
           element={
             isAdmin ? (
@@ -245,10 +267,10 @@ export function AuthenticatedRoutes({
         />
         {contributions.routes.map((pluginRoute) => {
           const PluginPage = pluginRoute.component;
-          // Admin surfaces: any /admin/* console (agents workspace, users, audit
-          // logs, files, context graph) plus tenant-config /settings/* pages
-          // outside the personal allowlist. A contribution can override the
-          // default either way via `requiresAdmin`.
+          // Admin surfaces: any /admin/* console (agents workspace, users,
+          // files, context graph) plus tenant-config /settings/* pages
+          // outside the personal allowlist. Audit logs live under Setup.
+          // A contribution can override the default either way via `requiresAdmin`.
           const isPersonalSettings = PERSONAL_SETTINGS_PREFIXES.some((prefix) =>
             pluginRoute.path.startsWith(prefix)
           );

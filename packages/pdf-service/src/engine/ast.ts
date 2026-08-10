@@ -1,4 +1,4 @@
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMParser, type Element } from "@xmldom/xmldom";
 import type { NodeAST } from "../types";
 
 function splitStyleMaybe(value?: string | null): string | string[] | undefined {

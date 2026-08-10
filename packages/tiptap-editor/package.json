@@ -4,18 +4,18 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./base": {
-      "types": "./dist/base/index.d.ts",
+      "types": "./src/base/index.tsx",
       "default": "./dist/base/index.js"
     },
     "./rich": {
-      "types": "./dist/rich/index.d.ts",
+      "types": "./src/rich/index.tsx",
       "default": "./dist/rich/index.js"
     },
     "./styles.css": {

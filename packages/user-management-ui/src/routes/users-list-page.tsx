@@ -1,8 +1,10 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import {
   isImpersonating,
   startImpersonation,
   useCoreAuthSession,
 } from "@engenty/auth-ui";
+import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
@@ -31,12 +33,16 @@ import {
   listUsers,
   updateUserProfile,
 } from "../lib/user-management-api.js";
+import { USERS_PATH } from "../users-paths.js";
 
 export function UsersListPage() {
+  const { t } = useTranslation("common");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { session } = useCoreAuthSession();
   const { isSuperAdmin } = useWorkspaceContext();
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("navigation.settings"));
   const columns = useMemo(() => getUserTableColumns(), []);
   const [users, setUsers] = useState<Awaited<ReturnType<typeof listUsers>>>([]);
   const [loading, setLoading] = useState(false);
@@ -184,12 +190,16 @@ export function UsersListPage() {
   );
 
   const breadcrumbs = useMemo(
-    () => (session ? [{ label: "Users" }] : []),
-    [session]
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      ...(session ? [{ label: t("menu.users") }] : []),
+    ],
+    [moduleRootCrumb, session, t]
   );
 
   usePageConfig({
     breadcrumbs,
+    secondaryNavHeaderSlot,
     actions: pageActions,
   });
 
@@ -245,7 +255,7 @@ export function UsersListPage() {
           isAdmin={isAdmin}
           onLoginAs={handleLoginAs}
           onNavigate={navigate}
-          onOpenUser={(userId) => navigate(`/admin/users/${userId}`)}
+          onOpenUser={(userId) => navigate(`${USERS_PATH}/${userId}`)}
           onRoleChange={handleRoleChange}
           onToggleSelectAll={selection.toggleSelectAll}
           onToggleSelectOne={selection.toggleSelectOne}

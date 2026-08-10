@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "main": "./dist/ui/plugin.js",
-  "types": "./dist/ui/plugin.d.ts",
+  "types": "./ui/plugin.ts",
   "exports": {
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./ui/file-manager": {
-      "types": "./dist/ui/file-manager.d.ts",
+      "types": "./ui/file-manager.tsx",
       "default": "./dist/ui/file-manager.js"
     }
   },
@@ -19,8 +19,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --dts --watch",
+    "build": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --clean",
+    "dev": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --watch",
     "lint": "biome check .",
     "test": "vitest run --root ../.. modules/files/"
   },

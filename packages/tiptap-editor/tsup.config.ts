@@ -8,7 +8,6 @@ export default defineConfig({
     "inline-editable/index": "src/inline-editable/index.tsx",
   },
   format: ["esm"],
-  dts: true,
   clean: true,
   external: ["react", "react-dom"],
   splitting: false,

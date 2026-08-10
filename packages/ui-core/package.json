@@ -4,17 +4,17 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
     "check:imports": "node ../../scripts/check-ui-core-imports.mjs",
-    "build": "tsup src/index.ts --format esm --dts --clean --external @engenty/environment --external @engenty/i18n --external @engenty/ui-icons --external @ai-sdk/react",
-    "dev": "tsup src/index.ts --format esm --dts --watch --external @engenty/environment --external @engenty/i18n --external @engenty/ui-icons --external @ai-sdk/react",
+    "build": "tsup src/index.ts --format esm --clean --external @engenty/environment --external @engenty/i18n --external @engenty/ui-icons --external @ai-sdk/react",
+    "dev": "tsup src/index.ts --format esm --watch --external @engenty/environment --external @engenty/i18n --external @engenty/ui-icons --external @ai-sdk/react",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },

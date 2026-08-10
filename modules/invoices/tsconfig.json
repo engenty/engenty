@@ -1,8 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "moduleResolution": "nodenext",
-    "module": "NodeNext",
     "jsx": "react-jsx",
     "outDir": "dist",
     "types": ["node"]

@@ -265,13 +265,6 @@ describe("navigation", () => {
             icon: EngentyIcon,
           },
           {
-            id: "user_management_menu",
-            label: "Users",
-            pluginId: "user-management",
-            section: "admin" as const,
-            to: "/admin/users",
-          },
-          {
             id: "files_admin_menu",
             label: "Vault",
             pluginId: "files",
@@ -323,7 +316,6 @@ describe("navigation", () => {
       expect(adminRail).toEqual([
         "/admin/engenty",
         "/admin/files",
-        "/admin/users",
         "/settings",
       ]);
 
@@ -661,11 +653,11 @@ describe("navigation", () => {
         routes: [],
         adminMenuItems: [
           {
-            id: "user_management_menu",
-            label: "Users",
-            pluginId: "user-management",
+            id: "files_admin_menu",
+            label: "Vault",
+            pluginId: "files",
             section: "admin" as const,
-            to: "/admin/users",
+            to: "/admin/files",
           },
         ],
         copilotApps: [],
@@ -684,7 +676,7 @@ describe("navigation", () => {
         .map((item) => item.to);
       // Members keep the Settings gear (at /settings, so the secondary nav
       // resolves) but no /admin/* console.
-      expect(memberTopLevel).not.toContain("/admin/users");
+      expect(memberTopLevel).not.toContain("/admin/files");
       expect(memberTopLevel).toContain("/settings");
       // Their settings hold no tenant-wide surfaces — not even Appearance
       // (that's the tenant branding editor); AI models/usage and roles are out
@@ -704,9 +696,10 @@ describe("navigation", () => {
       })
         .flatMap((section) => section.items)
         .map((item) => item.to);
-      expect(adminTargets).toContain("/admin/users");
+      expect(adminTargets).toContain("/admin/files");
       expect(adminTargets).toContain("/settings");
       expect(adminTargets).not.toContain("/setup");
+      expect(adminTargets).not.toContain("/admin/users");
 
       const setupChildren =
         buildNavigationSections(contributions, { isSuperAdmin: true })

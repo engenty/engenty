@@ -4,18 +4,18 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./protocol": {
-      "types": "./dist/src/protocol.d.ts",
+      "types": "./src/protocol.ts",
       "default": "./dist/src/protocol.js"
     }
   },
@@ -23,8 +23,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts ui/plugin.ts src/protocol.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts ui/plugin.ts src/protocol.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts ui/plugin.ts src/protocol.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts ui/plugin.ts src/protocol.ts --format esm --watch",
     "test": "vitest run",
     "lint": "echo 'No lint yet'"
   },

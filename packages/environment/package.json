@@ -4,24 +4,24 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./env": {
-      "types": "./dist/env.d.ts",
+      "types": "./src/env.ts",
       "default": "./dist/env.js"
     },
     "./engenty-modules": {
-      "types": "./dist/engenty-modules.d.ts",
+      "types": "./src/engenty-modules.ts",
       "default": "./dist/engenty-modules.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/env.ts src/engenty-modules.ts src/dev-service-urls.ts src/dev-service-urls.fixture.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/env.ts src/engenty-modules.ts src/dev-service-urls.ts src/dev-service-urls.fixture.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/env.ts src/engenty-modules.ts src/dev-service-urls.ts src/dev-service-urls.fixture.ts --format esm --clean",
+    "dev": "tsup src/index.ts src/env.ts src/engenty-modules.ts src/dev-service-urls.ts src/dev-service-urls.fixture.ts --format esm --watch",
     "test": "vitest run",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"

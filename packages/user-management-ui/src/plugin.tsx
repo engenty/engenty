@@ -7,6 +7,9 @@ import {
 import { ProfileSettingsPage } from "./routes/profile-settings-page.js";
 import { UserEditPage } from "./routes/user-edit-page.js";
 import { UsersListPage } from "./routes/users-list-page.js";
+import { USERS_PATH } from "./users-paths.js";
+
+export { USERS_LEGACY_PATH, USERS_PATH } from "./users-paths.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   resetUserManagementListHooks();
@@ -15,17 +18,16 @@ export default function plugin(engenty: EngentyPluginContext) {
     registerListEnricher: registerUserManagementListEnricher,
   });
 
-  // Canonical routes
   engenty.UI.registerRoute({
     id: "user_management_users",
-    path: "/admin/users",
+    path: USERS_PATH,
     component: UsersListPage,
     order: 200,
   });
 
   engenty.UI.registerRoute({
     id: "user_management_users_detail",
-    path: "/admin/users/:id",
+    path: `${USERS_PATH}/:id`,
     component: UserEditPage,
     order: 201,
   });

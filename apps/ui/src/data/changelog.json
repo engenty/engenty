@@ -1,7 +1,37 @@
 [
   {
-    "version": null,
-    "timestamp": null,
+    "version": "v0.1.117",
+    "timestamp": 1786374187,
+    "commits": [
+      {
+        "id": "2ad3779",
+        "message": "drop dts generation — internal packages read types from source",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "fdb1cae",
+        "message": "pre-pull images on the VPS before queueing the deploy",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "efeb011",
+        "message": "move audit logs and users off the admin rail",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4814192",
+        "message": "attribute About changelog commits to the new tag",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.116",
+    "timestamp": 1786366961,
     "commits": [
       {
         "id": "92043a6",

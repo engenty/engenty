@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./mastra-splitter": {
-      "types": "./dist/mastra-splitter.d.ts",
+      "types": "./src/mastra-splitter.ts",
       "default": "./dist/mastra-splitter.js"
     }
   },
@@ -19,8 +19,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/mastra-splitter.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/mastra-splitter.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/mastra-splitter.ts --format esm --clean",
+    "dev": "tsup src/index.ts src/mastra-splitter.ts --format esm --watch",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "lint": "echo 'No lint yet'"

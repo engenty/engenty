@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import {
   isImpersonating,
   startImpersonation,
@@ -19,6 +20,7 @@ import { PrivateProfileSection } from "../components/profile/private-profile-sec
 import { PublicProfileSection } from "../components/profile/public-profile-section.js";
 import { type UserRecord, updateUserProfileSchema } from "../lib/schemas.js";
 import { listUsers, updateUserProfile } from "../lib/user-management-api.js";
+import { USERS_PATH } from "../users-paths.js";
 
 type UpdateProfileFormValues = z.infer<typeof updateUserProfileSchema>;
 
@@ -28,6 +30,8 @@ export function UserEditPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { session } = useCoreAuthSession();
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(t("navigation.settings"));
   const { isSuperAdmin, currentUserId } = useWorkspaceContext();
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<UserRecord | null>(null);
@@ -150,12 +154,17 @@ export function UserEditPage() {
   );
 
   const breadcrumbs = useMemo(
-    () => [{ label: "Users", to: "/admin/users" }, { label: title }],
-    [title]
+    () => [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("menu.users"), to: USERS_PATH },
+      { label: title },
+    ],
+    [moduleRootCrumb, t, title]
   );
 
   usePageConfig({
     breadcrumbs,
+    secondaryNavHeaderSlot,
     actions: loading || !member ? null : pageActions,
   });
 

@@ -5,23 +5,23 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ai/registrar": {
-      "types": "./dist/ai/registrar.d.ts",
+      "types": "./ai/registrar.ts",
       "default": "./dist/ai/registrar.js"
     }
   },
   "scripts": {
-    "build": "tsup src/plugin.ts ai/registrar.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts ai/registrar.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts ai/registrar.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts ai/registrar.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "lint": "biome check ."
   },

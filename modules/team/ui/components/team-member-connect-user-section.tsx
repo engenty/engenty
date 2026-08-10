@@ -207,7 +207,10 @@ export function TeamMemberConnectUserSection({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-(--anchor-width) p-0">
+                <PopoverContent
+                  align="start"
+                  className="w-(--anchor-width) p-0"
+                >
                   <Command shouldFilter>
                     <CommandInput placeholder={t("searchPlaceholder")} />
                     <CommandList>

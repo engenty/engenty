@@ -1,3 +1,6 @@
+// Ambient declarations for react-syntax-highlighter's untyped subpaths only
+// enter a compilation via this reference (types -> src consumers included).
+/// <reference path="./react-syntax-highlighter.d.ts" />
 import { cn } from "@engenty/ui-core";
 import { useEffect, useState } from "react";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";

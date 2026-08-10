@@ -327,17 +327,6 @@ export {
   InputGroupInput,
   InputGroupTextarea,
 } from "./components/ui/input-group";
-export type {
-  PasswordInputLabels,
-  PasswordInputProps,
-} from "./components/ui/password-input";
-export { PasswordInput } from "./components/ui/password-input";
-export {
-  generateRandomPassword,
-  type PasswordStrength,
-  type PasswordStrengthLevel,
-  scorePasswordStrength,
-} from "./lib/password-input";
 export { Label } from "./components/ui/label";
 export {
   ListFilterChip,
@@ -382,6 +371,11 @@ export {
   type MultiSelectRef,
 } from "./components/ui/multi-select";
 export { NumberStepper } from "./components/ui/number-stepper";
+export type {
+  PasswordInputLabels,
+  PasswordInputProps,
+} from "./components/ui/password-input";
+export { PasswordInput } from "./components/ui/password-input";
 export {
   Popover,
   PopoverAnchor,
@@ -476,4 +470,10 @@ export {
   formFieldSingleLineHeightClassName,
   formFieldSingleLineMetricsClassName,
 } from "./lib/form-field-chrome";
+export {
+  generateRandomPassword,
+  type PasswordStrength,
+  type PasswordStrengthLevel,
+  scorePasswordStrength,
+} from "./lib/password-input";
 export { cn } from "./utils";

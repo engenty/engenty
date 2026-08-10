@@ -394,7 +394,7 @@ export function registerTeamMembersApi(
 
       const updated = await repo.update(params.id, {
         ...rest,
-        ...(user_id !== undefined ? { user_id } : {}),
+        ...(user_id === undefined ? {} : { user_id }),
       });
       if (!updated) {
         return new Response(

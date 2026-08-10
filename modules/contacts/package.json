@@ -4,22 +4,22 @@
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
-  "types": "./dist/src/plugin.d.ts",
+  "types": "./src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/plugin.d.ts",
+      "types": "./src/plugin.ts",
       "default": "./dist/src/plugin.js"
     },
     "./ui": {
-      "types": "./dist/ui/index.d.ts",
+      "types": "./ui/index.ts",
       "default": "./dist/ui/index.js"
     },
     "./ui/plugin": {
-      "types": "./dist/ui/plugin.d.ts",
+      "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
     },
     "./ai/registrar": {
-      "types": "./dist/ai/registrar.d.ts",
+      "types": "./ai/registrar.ts",
       "default": "./dist/ai/registrar.js"
     }
   },
@@ -27,8 +27,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts src/schema/contacts-types.ts src/services/contact-name.ts src/services/contact-input.ts ai/registrar.ts ai/artifacts/contacts-suggestion-artifact.ts ai/schema/contact-suggestion-schema.ts ui/index.ts ui/plugin.ts --format esm --dts --clean",
-    "dev": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts src/schema/contacts-types.ts ai/registrar.ts ai/artifacts/contacts-suggestion-artifact.ts ai/schema/contact-suggestion-schema.ts ui/index.ts ui/plugin.ts --format esm --dts --watch",
+    "build": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts src/schema/contacts-types.ts src/services/contact-name.ts src/services/contact-input.ts ai/registrar.ts ai/artifacts/contacts-suggestion-artifact.ts ai/schema/contact-suggestion-schema.ts ui/index.ts ui/plugin.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/cli/index.ts src/dal/index.ts src/dal/supabase.ts src/dal/pathing.ts src/api/index.ts src/schema/index.ts src/schema/types.ts src/schema/zod.ts src/schema/contacts-types.ts ai/registrar.ts ai/artifacts/contacts-suggestion-artifact.ts ai/schema/contact-suggestion-schema.ts ui/index.ts ui/plugin.ts --format esm --watch",
     "test": "vitest run --root ../.. modules/contacts/",
     "lint": "echo 'No lint yet'"
   },

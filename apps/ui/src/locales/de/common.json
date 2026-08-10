@@ -133,6 +133,7 @@
     "platformDescription": "Schlüssel, Zugangsdaten und Plattform-Standards.",
     "pluginsDescription": "Plugins für die Installation aktivieren und konfigurieren.",
     "rolesDescription": "Rollen, Capabilities und Zuweisungen.",
+    "auditLogsDescription": "Tenant-Ereignisse, Policy-Entscheidungen und Operationen prüfen.",
     "connectorsDescription": "Externe Connectors importieren und verwalten."
   },
   "plugins": {
