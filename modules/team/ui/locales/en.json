@@ -504,6 +504,16 @@
     "noHolidays": "No public holidays registered",
     "actions": "Actions",
     "saveSuccess": "Timesheet saved successfully",
-    "saveError": "Failed to save timesheet"
+    "saveError": "Failed to save timesheet",
+    "entitlement": "Entitlement",
+    "carryover": "Carryover",
+    "consumed": "Consumed",
+    "startBalance": "Start Balance",
+    "yearTarget": "Year Target",
+    "yearActual": "Year Actual",
+    "carerLeave": "Carer Leave",
+    "specialLeave": "Special Leave",
+    "unpaidLeave": "Unpaid",
+    "daysThisYear": "days this year"
   }
 }

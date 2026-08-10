@@ -504,6 +504,16 @@
     "noHolidays": "Keine Feiertage eingetragen",
     "actions": "Aktionen",
     "saveSuccess": "Arbeitszeitaufzeichnung erfolgreich gespeichert",
-    "saveError": "Fehler beim Speichern der Arbeitszeitaufzeichnung"
+    "saveError": "Fehler beim Speichern der Arbeitszeitaufzeichnung",
+    "entitlement": "Anspruch",
+    "carryover": "Übertrag",
+    "consumed": "Verbraucht",
+    "startBalance": "Startsaldo",
+    "yearTarget": "Jahres-Soll",
+    "yearActual": "Jahres-Ist",
+    "carerLeave": "Pflegeurlaub",
+    "specialLeave": "Sonderurlaub",
+    "unpaidLeave": "Unbezahlt",
+    "daysThisYear": "Tage dieses Jahr"
   }
 }

@@ -1,7 +1,37 @@
 [
   {
+    "version": "v0.1.122",
+    "timestamp": 1786391710,
+    "commits": [
+      {
+        "id": "d69fbeb",
+        "message": "group holidays by month, add a type, edit from a row menu",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f38526a",
+        "message": "manage public holidays in team settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "57cdcb5",
+        "message": "edit regular working hours inline instead of in a dialog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7882624",
+        "message": "move module settings under /settings/contacts",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.121",
-    "timestamp": 1786384373,
+    "timestamp": 1786384375,
     "commits": [
       {
         "id": "ef10c5c",

@@ -7,6 +7,7 @@ import {
 } from "@engenty/ui-core";
 import { MoreVertical, Settings, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { CONTACTS_SETTINGS_PATH } from "../contacts-paths.js";
 
 export interface ContactsOverflowMenuProps {
   importLabel: string;
@@ -33,7 +34,7 @@ export function ContactsOverflowMenu({
           <Upload className="mr-2 h-4 w-4" />
           {importLabel}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/mdl/contacts/settings")}>
+        <DropdownMenuItem onClick={() => navigate(CONTACTS_SETTINGS_PATH)}>
           <Settings className="mr-2 h-4 w-4" />
           {settingsLabel}
         </DropdownMenuItem>

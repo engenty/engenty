@@ -1,9 +1,14 @@
 import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Tabs, TabsList, TabsTrigger } from "@engenty/ui-core";
-import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import type { ReactNode } from "react";
+import {
+  useContributionRegistry,
+  useFeatureFlags,
+  usePageConfig,
+} from "@engenty/ui-plugin-sdk";
+import { type ReactNode, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { teamGlobalSettingsTabRegistry } from "../global-settings-tabs.js";
 import {
   TEAM_GLOBAL_SETTINGS_FIELDS_PATH,
   TEAM_GLOBAL_SETTINGS_TAXONOMIES_PATH,
@@ -23,9 +28,30 @@ export function TeamGlobalSettingsLayout({
 }) {
   const { t } = useTranslation("team");
   const { pathname } = useLocation();
-  const activeTab = pathname.startsWith(TEAM_GLOBAL_SETTINGS_TAXONOMIES_PATH)
-    ? TAXONOMIES_TAB
-    : FIELDS_TAB;
+
+  // Tabs contributed by extensions (e.g. team-hr's public holidays) — registered
+  // at plugin init, which can land after this layout mounted, hence the registry
+  // subscription rather than a synchronous read.
+  const contributedTabs = useContributionRegistry(
+    teamGlobalSettingsTabRegistry
+  );
+  const { resolved: featureFlags } = useFeatureFlags();
+  const visibleContributedTabs = useMemo(
+    () =>
+      contributedTabs.filter((tab) =>
+        tab.isVisible ? tab.isVisible({ featureFlags }) : true
+      ),
+    [contributedTabs, featureFlags]
+  );
+
+  const activeContributedTab = visibleContributedTabs.find((tab) =>
+    pathname.startsWith(tab.path)
+  );
+  const activeTab =
+    activeContributedTab?.id ??
+    (pathname.startsWith(TEAM_GLOBAL_SETTINGS_TAXONOMIES_PATH)
+      ? TAXONOMIES_TAB
+      : FIELDS_TAB);
 
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(t("globalSettings.breadcrumb_settings"));
@@ -54,16 +80,27 @@ export function TeamGlobalSettingsLayout({
                   className="-mb-px h-auto w-fit border-0 bg-transparent p-0"
                   variant="line"
                 >
-                  <TabsTrigger asChild value={FIELDS_TAB}>
-                    <Link to={TEAM_GLOBAL_SETTINGS_FIELDS_PATH}>
-                      {t("globalSettings.tabs.fields")}
-                    </Link>
+                  <TabsTrigger
+                    render={<Link to={TEAM_GLOBAL_SETTINGS_FIELDS_PATH} />}
+                    value={FIELDS_TAB}
+                  >
+                    {t("globalSettings.tabs.fields")}
                   </TabsTrigger>
-                  <TabsTrigger asChild value={TAXONOMIES_TAB}>
-                    <Link to={TEAM_GLOBAL_SETTINGS_TAXONOMIES_PATH}>
-                      {t("globalSettings.tabs.taxonomies")}
-                    </Link>
+                  <TabsTrigger
+                    render={<Link to={TEAM_GLOBAL_SETTINGS_TAXONOMIES_PATH} />}
+                    value={TAXONOMIES_TAB}
+                  >
+                    {t("globalSettings.tabs.taxonomies")}
                   </TabsTrigger>
+                  {visibleContributedTabs.map((tab) => (
+                    <TabsTrigger
+                      key={tab.id}
+                      render={<Link to={tab.path} />}
+                      value={tab.id}
+                    >
+                      {t(tab.labelKey, { defaultValue: tab.labelDefault })}
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
               </div>
             </div>

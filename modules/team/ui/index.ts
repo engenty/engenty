@@ -6,11 +6,22 @@ export type {
 // Shared member-detail surface reused by extensions that contribute a tab/page
 // (e.g. the team-hr module). All core team primitives — not HR-specific — so an
 // extension renders inside the member detail without reaching into internals.
+export { TeamGlobalSettingsLayout } from "./components/team-global-settings-layout.js";
 export { TeamMemberConnectUserSection } from "./components/team-member-connect-user-section.js";
 export { TeamMemberDetailHeader } from "./components/team-member-detail-header.js";
 export { TeamMemberProfileHeader } from "./components/team-member-profile-header.js";
 export { TeamMemberSubNav } from "./components/team-member-sub-nav.js";
 export { TeamModulePageScroll } from "./components/team-module-page-scroll.js";
+// Tenant-settings tab seam — extensions contribute a tab to `/settings/team/*`
+// (e.g. team-hr's public holidays) instead of team hardcoding their routes.
+export type {
+  TeamGlobalSettingsTab,
+  TeamGlobalSettingsTabContext,
+} from "./global-settings-tabs.js";
+export {
+  getTeamGlobalSettingsTabs,
+  registerTeamGlobalSettingsTab,
+} from "./global-settings-tabs.js";
 export {
   useTeamMemberDetailTabNav,
   useVisibleTeamMemberDetailTabs,

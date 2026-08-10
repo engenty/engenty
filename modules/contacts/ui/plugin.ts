@@ -18,6 +18,7 @@ import {
 import { ContactChooser } from "./components/contact-chooser.js";
 import { ContactsShortcutsWidget } from "./components/dashboard/contacts-shortcuts-widget.js";
 import { contactsLiveBinding } from "./contacts-live-binding.js";
+import { CONTACTS_SETTINGS_PATH } from "./contacts-paths.js";
 import { contactsCopilotContribution } from "./copilot-contribution.js";
 import {
   ContactDetailPage,
@@ -71,9 +72,12 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 120,
   });
 
+  // Module settings live under /settings/* like every other module's settings
+  // page — that is what puts the settings nav in the secondary column instead of
+  // the contacts role rail.
   engenty.UI.registerRoute({
     id: "contacts_module_settings",
-    path: "/mdl/contacts/settings",
+    path: CONTACTS_SETTINGS_PATH,
     component: ContactsSettingsPage,
     order: 130,
   });
@@ -185,7 +189,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     id: "contacts_settings_menu",
     label: "Contacts",
     labelKey: "contacts:menu.contacts",
-    to: "/mdl/contacts/settings",
+    to: CONTACTS_SETTINGS_PATH,
     icon: DockContactsIcon,
     // Within work category
     order: 10,
