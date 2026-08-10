@@ -6,6 +6,17 @@ export {
 } from "./lib/api-client";
 export { useCoreAuthSession } from "./lib/auth-session";
 export {
+  clearImpersonationState,
+  getImpersonationState,
+  IMPERSONATION_STORAGE_KEY,
+  type ImpersonationState,
+  type ImpersonationUserLabel,
+  isImpersonating,
+  signOutClearingImpersonation,
+  startImpersonation,
+  stopImpersonation,
+} from "./lib/impersonation";
+export {
   ensureCurrentWorkspaceUser,
   initializeWorkspaceAdmin,
   isInitialSetupRequired,

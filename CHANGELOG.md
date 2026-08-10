@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.115] - 2026-08-10
+- ADDED **[team,ui-core]** Create user accounts when linking team members
+- ADDED **[auth]** Add superadmin Login as with switch-back
+- FIXED **[projects]** Keep client picker popover readable from icon trigger
+- FIXED **[tasks]** Let inbox clear stale error and approval notifications
+- FIXED **[deploy]** Give the healthcheck time for node's own startup
+- FIXED **[env]** Regenerate .env.example for the server-lane key vars
+- PERFORMANCE **[deploy]** Stop serialising the whole stack behind every deploy
+
 ## [0.1.114] - 2026-08-10
 - ADDED **[core,ai]** Let the server lane sign ES256 for asymmetric projects
 - FIXED **[deploy]** Unpin prod and pass the server-lane signing key through

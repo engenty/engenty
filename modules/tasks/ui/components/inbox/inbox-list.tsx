@@ -270,11 +270,16 @@ function InboxItem({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label={t("inbox.markSeen")}
+            aria-label={failure ? t("inbox.dismiss") : t("inbox.markSeen")}
             className="group h-6 w-6 shrink-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
             disabled={markMutation.isPending}
             onClick={() =>
-              markMutation.mutate({ action: "seen", id: notification.id })
+              markMutation.mutate({
+                // Errors are announcements to clear; mark-seen would leave them
+                // in the open inbox forever. HITL / updates stay mark-seen.
+                action: failure ? "dismiss" : "seen",
+                id: notification.id,
+              })
             }
             size="icon"
             variant="ghost"
@@ -282,7 +287,9 @@ function InboxItem({
             <AnimatedCheckIcon aria-hidden play="hover" size="sm" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">{t("inbox.markSeen")}</TooltipContent>
+        <TooltipContent side="left">
+          {failure ? t("inbox.dismiss") : t("inbox.markSeen")}
+        </TooltipContent>
       </Tooltip>
     </li>
   );
@@ -382,18 +389,39 @@ export function InboxList({
   };
 
   // Filtered or flat views stay a single lane; grouped "all" keeps sections.
+  // Errors + HITL can pile up as stale announcements — offer the same dismiss
+  // bulk clear Updates already had (notification only; does not decide approvals).
   if (!grouped || kindFilter !== "all") {
+    const canClearFiltered =
+      kindFilter === "errors" ||
+      kindFilter === "hitl" ||
+      filtered.every((n) => isError(n) || isHitl(n));
     return (
       <TooltipProvider delayDuration={300}>
-        <ul className="flex flex-col gap-2">
-          {filtered.map((notification) => (
-            <InboxItem
-              key={notification.id}
-              locale={locale}
-              notification={notification}
-            />
-          ))}
-        </ul>
+        <div className="space-y-2">
+          {canClearFiltered && filtered.length > 0 ? (
+            <div className="flex justify-end">
+              <Button
+                className="h-6 gap-1 px-1.5 text-muted-foreground text-xs"
+                onClick={() => clearAll(filtered)}
+                size="sm"
+                variant="ghost"
+              >
+                <Trash2 className="h-3 w-3" />
+                {t("inbox.clearAll")}
+              </Button>
+            </div>
+          ) : null}
+          <ul className="flex flex-col gap-2">
+            {filtered.map((notification) => (
+              <InboxItem
+                key={notification.id}
+                locale={locale}
+                notification={notification}
+              />
+            ))}
+          </ul>
+        </div>
       </TooltipProvider>
     );
   }
@@ -405,6 +433,7 @@ export function InboxList({
           icon={ShieldCheck}
           locale={locale}
           notifications={hitl}
+          onClearAll={clearAll}
           title={t("inbox.needsApproval")}
           tone="primary"
         />
@@ -412,6 +441,7 @@ export function InboxList({
           icon={AlertTriangle}
           locale={locale}
           notifications={errors}
+          onClearAll={clearAll}
           title={t("inbox.errors")}
           tone="destructive"
         />

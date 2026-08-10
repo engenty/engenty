@@ -1,9 +1,17 @@
+import {
+  isImpersonating,
+  startImpersonation,
+  useCoreAuthSession,
+} from "@engenty/auth-ui";
+import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
-import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { LogIn } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { z } from "zod";
 import { AccessLevelSection } from "../components/profile/access-level-section.js";
 import { ChangePasswordSection } from "../components/profile/change-password-section.js";
@@ -15,10 +23,17 @@ import { listUsers, updateUserProfile } from "../lib/user-management-api.js";
 type UpdateProfileFormValues = z.infer<typeof updateUserProfileSchema>;
 
 export function UserEditPage() {
+  const { t } = useTranslation("common");
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { session } = useCoreAuthSession();
+  const { isSuperAdmin, currentUserId } = useWorkspaceContext();
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<UserRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loggingInAs, setLoggingInAs] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [role, setRole] = useState<"admin" | "member">("member");
   const form = useForm({
     resolver: zodResolver(updateUserProfileSchema),
@@ -29,6 +44,12 @@ export function UserEditPage() {
     },
   });
   const resetForm = form.reset;
+
+  const showLoginAs =
+    isSuperAdmin &&
+    !isImpersonating() &&
+    Boolean(id) &&
+    id !== (currentUserId ?? session?.user?.id ?? null);
 
   useEffect(() => {
     if (!id) {
@@ -57,6 +78,7 @@ export function UserEditPage() {
         return;
       }
       setSaving(true);
+      setActionError(null);
       try {
         await updateUserProfile(id, { ...values, role });
         resetForm(values);
@@ -76,6 +98,25 @@ export function UserEditPage() {
     [id, resetForm, role]
   );
 
+  const handleLoginAs = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+    setLoggingInAs(true);
+    setActionError(null);
+    try {
+      await startImpersonation(id);
+      await queryClient.invalidateQueries();
+      navigate("/");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to login as user."
+      );
+    } finally {
+      setLoggingInAs(false);
+    }
+  }, [id, navigate, queryClient]);
+
   const title = useMemo(
     () => member?.display_name ?? "User",
     [member?.display_name]
@@ -84,13 +125,28 @@ export function UserEditPage() {
     form.formState.isDirty || role !== (member?.role ?? "member");
 
   const pageActions = (
-    <Button
-      disabled={saving || !hasChanges}
-      onClick={form.handleSubmit(handleSave)}
-      size="sm"
-    >
-      {saving ? "Saving..." : "Save"}
-    </Button>
+    <div className="flex items-center gap-2">
+      {showLoginAs ? (
+        <Button
+          disabled={loggingInAs}
+          onClick={() => {
+            void handleLoginAs();
+          }}
+          size="sm"
+          variant="outline"
+        >
+          <LogIn className="mr-1.5 size-3.5" />
+          {loggingInAs ? "…" : t("usersTable.loginAs")}
+        </Button>
+      ) : null}
+      <Button
+        disabled={saving || !hasChanges}
+        onClick={form.handleSubmit(handleSave)}
+        size="sm"
+      >
+        {saving ? "Saving..." : "Save"}
+      </Button>
+    </div>
   );
 
   const breadcrumbs = useMemo(
@@ -119,6 +175,11 @@ export function UserEditPage() {
   return (
     <div className="container mx-auto max-w-5xl space-y-6 p-4">
       <h1 className="font-semibold text-xl">{title}</h1>
+      {actionError ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+          {actionError}
+        </div>
+      ) : null}
 
       <PublicProfileSection form={form} />
       <PrivateProfileSection form={form} />

@@ -50,8 +50,32 @@ services:
     # Pin which network's IP Traefik targets — see docker-compose.yaml.
     labels:
       - traefik.docker.network=coolify
-    ports:
-      - "${EDGE_PUBLISH_PORT:-8787}:8787"
+    # No host port publish ON PURPOSE. Traefik routes to this container over the
+    # `coolify` network by label and infers 8787 from the image's EXPOSE, so the
+    # publish bought nothing — while a bound host port makes it impossible for a
+    # second edge container to exist, which is what forces every deploy to be
+    # stop-old-then-start-new (i.e. a full outage). Use `docker exec` or a
+    # temporary `-p` for host-level debugging instead of re-adding this.
+    #
+    # Faster than the image's 30s/60s defaults: Docker only marks a container
+    # healthy on the first passing check, so a 30s interval kept a
+    # ready-in-seconds container "starting" for half a minute, and Traefik will
+    # not route to it until then. This is pure added downtime.
+    #
+    # The timeout must clear NODE'S STARTUP, not the app's response time: there
+    # is no curl/wget in the image, and `node -e` costs ~3.8s to boot here. A 3s
+    # timeout made every probe fail on a perfectly healthy container — the app
+    # answered 200 instantly while Docker reported `unhealthy` and Traefik
+    # served 503.
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_period: 15s
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8787/api/openapi.json').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      timeout: 8s
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -94,8 +118,13 @@ services:
     depends_on:
       engenty-migrate:
         condition: service_completed_successfully
+      # service_STARTED, not service_healthy: core only proxies to ai at request
+      # time (ENGENTY_GATEWAY_AI_URL), so waiting for ai to pass a health check
+      # put ai's entire boot inside the window where the site is down — for a
+      # dependency core does not need in order to serve. /ai/* briefly 502s
+      # while ai finishes; everything else is up.
       engenty-ai:
-        condition: service_healthy
+        condition: service_started
       gotenberg:
         condition: service_started
     networks:
@@ -105,6 +134,16 @@ services:
     image: ghcr.io/engenty/engenty-ai:latest
     pull_policy: always
     restart: unless-stopped
+    # Same reasoning as core's: detect readiness in seconds, not half-minutes.
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_period: 15s
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8790/ai/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      timeout: 8s
     depends_on:
       engenty-migrate:
         condition: service_completed_successfully

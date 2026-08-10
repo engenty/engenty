@@ -107,8 +107,8 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "Key id (`kid`) of the imported signing key above — the project's JWKS holds several keys and the verifier needs to know which one to try. Must be set together with ENGENTY_SERVER_LANE_PRIVATE_KEY; setting one without the other fails at boot rather than silently falling back to HS256.",
-    exampleValue: "engenty-server-lane",
+      "Key id (`kid`) of the imported signing key above — the project's JWKS holds several keys and the verifier needs to know which one to try. Supabase requires this to be a UUID and rejects the import otherwise, so generate one (`uuidgen`) and use the same value in the imported JWK and here. Must be set together with ENGENTY_SERVER_LANE_PRIVATE_KEY; setting one without the other fails at boot rather than silently falling back to HS256.",
+    exampleValue: "208398c6-7a4c-467e-b222-8f9f6e45a0dc",
     group: "API security",
     key: "ENGENTY_SERVER_LANE_KEY_ID",
     obtain: { kind: "manual" },

@@ -4,7 +4,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  Input,
+  PasswordInput,
   Select,
   SelectContent,
   SelectItem,
@@ -56,10 +56,16 @@ export function TeamMemberCreateUserAccountFields({
               <FormItem>
                 <FormLabel>{t("password")}</FormLabel>
                 <FormControl>
-                  <Input
-                    autoComplete="new-password"
+                  <PasswordInput
+                    labels={{
+                      generate: t("passwordGenerate"),
+                      hide: t("passwordHide"),
+                      medium: t("passwordStrengthMedium"),
+                      show: t("passwordShow"),
+                      strong: t("passwordStrengthStrong"),
+                      weak: t("passwordStrengthWeak"),
+                    }}
                     placeholder={t("passwordPlaceholder")}
-                    type="password"
                     {...field}
                   />
                 </FormControl>

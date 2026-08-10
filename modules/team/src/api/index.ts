@@ -47,6 +47,90 @@ function canCreateInvitedUserAccount(
   return server.hasOperation("core_users_create_in_tenant");
 }
 
+type InviteUserResult =
+  | { ok: true; userId: string }
+  | { ok: false; response: Response };
+
+/**
+ * Creates a tenant Auth/core user for a team-member invite. Shared by POST
+ * create and PATCH link-or-create so invite fields are not a silent no-op on
+ * update.
+ */
+async function createInvitedUserAccount(opts: {
+  auth: PluginAuthContext | undefined;
+  displayName: string;
+  inviteEmail: string;
+  invitePassword: string;
+  inviteRole?: "admin" | "member";
+  invokeOperation: (
+    methodName: string,
+    input?: unknown,
+    options?: { auth?: PluginAuthContext }
+  ) => Promise<unknown | null>;
+  server: Pick<PluginServerApi, "hasOperation">;
+}): Promise<InviteUserResult> {
+  // The nested core_users_create_in_tenant call runs through the in-process
+  // gateway caller, which skips the policy gate — so the capability that
+  // operation demands must be checked here, or module.team.write alone would
+  // mint user accounts.
+  if (!capabilityCovers(opts.auth?.capabilities ?? [], "core.users.manage")) {
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({
+          error:
+            "Creating a user account requires the core.users.manage capability.",
+        }),
+        { status: 403, headers: { "content-type": "application/json" } }
+      ),
+    };
+  }
+  if (!canCreateInvitedUserAccount(opts.server)) {
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({
+          error:
+            "Creating a user account with the team member is not available.",
+        }),
+        { status: 501, headers: { "content-type": "application/json" } }
+      ),
+    };
+  }
+  try {
+    const result = (await opts.invokeOperation(
+      "core_users_create_in_tenant",
+      {
+        display_name: opts.displayName,
+        email: opts.inviteEmail.trim(),
+        password: opts.invitePassword,
+        role: opts.inviteRole ?? "member",
+      },
+      { auth: opts.auth }
+    )) as { id: string };
+    if (!result?.id) {
+      return {
+        ok: false,
+        response: new Response(
+          JSON.stringify({ error: "Failed to create user account" }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        ),
+      };
+    }
+    return { ok: true, userId: result.id };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to create user account";
+    return {
+      ok: false,
+      response: new Response(JSON.stringify({ error: message }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      }),
+    };
+  }
+}
+
 export function registerTeamMembersApi(
   server: Pick<
     PluginServerApi,
@@ -223,59 +307,26 @@ export function registerTeamMembersApi(
       const body = ctx.body as z.infer<typeof teamMemberInputSchema>;
       const { invite_email, invite_password, invite_role, ...rest } = body;
       const { full_name: displayName } = resolveProfileNameForWrite(rest);
-      let user_id: string | null = null;
+      let user_id: string | null = rest.user_id ?? null;
       if (invite_email && invite_password?.trim()) {
-        // The nested core_users_create_in_tenant call runs through the
-        // in-process gateway caller, which skips the policy gate — so the
-        // capability that operation demands must be checked here, or
-        // module.team.write alone would mint user accounts.
-        if (
-          !capabilityCovers(ctx.auth?.capabilities ?? [], "core.users.manage")
-        ) {
-          return new Response(
-            JSON.stringify({
-              error:
-                "Creating a user account requires the core.users.manage capability.",
-            }),
-            { status: 403, headers: { "content-type": "application/json" } }
-          );
+        const invited = await createInvitedUserAccount({
+          auth: ctx.auth,
+          displayName,
+          inviteEmail: invite_email,
+          invitePassword: invite_password,
+          inviteRole: invite_role,
+          invokeOperation,
+          server,
+        });
+        if (!invited.ok) {
+          return invited.response;
         }
-        if (!canCreateInvitedUserAccount(server)) {
-          return new Response(
-            JSON.stringify({
-              error:
-                "Creating a user account with the team member is not available.",
-            }),
-            { status: 501, headers: { "content-type": "application/json" } }
-          );
-        }
-        try {
-          const result = (await invokeOperation(
-            "core_users_create_in_tenant",
-            {
-              display_name: displayName,
-              email: invite_email.trim(),
-              password: invite_password,
-              role: invite_role ?? "member",
-            },
-            { auth: ctx.auth }
-          )) as { id: string };
-          user_id = result?.id ?? null;
-        } catch (err) {
-          const message =
-            err instanceof Error
-              ? err.message
-              : "Failed to create user account";
-          return new Response(JSON.stringify({ error: message }), {
-            status: 400,
-            headers: { "content-type": "application/json" },
-          });
-        }
+        user_id = invited.userId;
       }
       const created = await repo.create(
         teamMemberInputForCreate({
           ...rest,
-          user_id: user_id ?? rest.user_id ?? null,
+          user_id,
         })
       );
       return new Response(JSON.stringify(created), {
@@ -308,7 +359,43 @@ export function registerTeamMembersApi(
       const repo = getRepo(repoOrFactory, ctx.auth);
       const params = ctx.params as z.infer<typeof teamMemberIdParamsSchema>;
       const patch = ctx.body as z.infer<typeof teamMemberUpdateSchema>;
-      const updated = await repo.update(params.id, patch);
+      const { invite_email, invite_password, invite_role, ...rest } = patch;
+
+      let user_id = rest.user_id;
+      if (invite_email && invite_password?.trim()) {
+        const existing = await repo.getById(params.id);
+        if (!existing) {
+          return new Response(
+            JSON.stringify({ error: "Team member not found" }),
+            {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            }
+          );
+        }
+        const { full_name: displayName } = resolveProfileNameForWrite({
+          ...existing,
+          ...rest,
+        });
+        const invited = await createInvitedUserAccount({
+          auth: ctx.auth,
+          displayName,
+          inviteEmail: invite_email,
+          invitePassword: invite_password,
+          inviteRole: invite_role,
+          invokeOperation,
+          server,
+        });
+        if (!invited.ok) {
+          return invited.response;
+        }
+        user_id = invited.userId;
+      }
+
+      const updated = await repo.update(params.id, {
+        ...rest,
+        ...(user_id !== undefined ? { user_id } : {}),
+      });
       if (!updated) {
         return new Response(
           JSON.stringify({ error: "Team member not found" }),

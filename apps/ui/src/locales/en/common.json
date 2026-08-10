@@ -54,7 +54,8 @@
     "you": "You",
     "member": "Member",
     "admin": "Admin",
-    "viewUser": "View user"
+    "viewUser": "View user",
+    "loginAs": "Login as"
   },
   "dashboard": {
     "greetingMorning": "Good morning",
@@ -801,7 +802,10 @@
     "developerMode": "Developer mode",
     "developerTools": "Developer Tools",
     "agUiInspector": "AG-UI Inspector",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "switchBack": "Switch back",
+    "actingAs": "Acting as {{name}}",
+    "impersonationBadge": "Simulated session"
   },
   "deviceApproval": {
     "title": "Device login approval",

@@ -4,6 +4,54 @@
     "timestamp": null,
     "commits": [
       {
+        "id": "259d728",
+        "message": "create user accounts when linking team members",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "eff3abc",
+        "message": "keep client picker popover readable from icon trigger",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "633064a",
+        "message": "let inbox clear stale error and approval notifications",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1916b64",
+        "message": "add superadmin Login as with switch-back",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0082013",
+        "message": "give the healthcheck time for node's own startup",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ef3eb9d",
+        "message": "stop serialising the whole stack behind every deploy",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "06eacb7",
+        "message": "regenerate .env.example for the server-lane key vars",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.1.114",
+    "timestamp": 1786343306,
+    "commits": [
+      {
         "id": "6bd157a",
         "message": "unpin prod and pass the server-lane signing key through",
         "group": "Fixed",

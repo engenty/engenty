@@ -1,9 +1,14 @@
-import { useCoreAuthSession } from "@engenty/auth-ui";
+import {
+  isImpersonating,
+  startImpersonation,
+  useCoreAuthSession,
+} from "@engenty/auth-ui";
+import { useQueryClient } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
-import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { getUserTableColumns } from "../components/users/columns.js";
@@ -29,7 +34,9 @@ import {
 
 export function UsersListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { session } = useCoreAuthSession();
+  const { isSuperAdmin } = useWorkspaceContext();
   const columns = useMemo(() => getUserTableColumns(), []);
   const [users, setUsers] = useState<Awaited<ReturnType<typeof listUsers>>>([]);
   const [loading, setLoading] = useState(false);
@@ -47,6 +54,23 @@ export function UsersListPage() {
     searchQuery: "",
     roleFilter: "all",
   });
+  const showLoginAs = isSuperAdmin && !isImpersonating();
+
+  const handleLoginAs = useCallback(
+    async (userId: string) => {
+      setLoadError(null);
+      try {
+        await startImpersonation(userId);
+        await queryClient.invalidateQueries();
+        navigate("/");
+      } catch (error) {
+        setLoadError(
+          error instanceof Error ? error.message : "Failed to login as user."
+        );
+      }
+    },
+    [navigate, queryClient]
+  );
 
   const inviteForm = useForm({
     resolver: zodResolver(inviteUserSchema),
@@ -219,12 +243,14 @@ export function UsersListPage() {
           currentUserId={currentUserId}
           enrichments={enrichments}
           isAdmin={isAdmin}
+          onLoginAs={handleLoginAs}
           onNavigate={navigate}
           onOpenUser={(userId) => navigate(`/admin/users/${userId}`)}
           onRoleChange={handleRoleChange}
           onToggleSelectAll={selection.toggleSelectAll}
           onToggleSelectOne={selection.toggleSelectOne}
           selectedIds={selection.selectedIds}
+          showLoginAs={showLoginAs}
           someSelected={selection.someSelected}
           tableSize={tableSize}
           users={filteredUsers}

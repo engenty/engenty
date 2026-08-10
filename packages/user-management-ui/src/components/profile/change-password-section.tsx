@@ -1,7 +1,7 @@
 import { getSupabaseAuthClient } from "@engenty/auth-ui";
-import { Badge, Button, Card, Input, Label, Progress } from "@engenty/ui-core";
+import { Button, Card, Label, PasswordInput } from "@engenty/ui-core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -30,8 +30,6 @@ export function ChangePasswordSection({
   embedded = false,
   onSuccess,
 }: ChangePasswordSectionProps) {
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -40,44 +38,11 @@ export function ChangePasswordSection({
     defaultValues: { newPassword: "", confirmPassword: "" },
   });
 
-  const passwordStrength = (() => {
-    const password = form.watch("newPassword") || "";
-    let strength = 0;
-    if (password.length >= 8) {
-      strength += 25;
-    }
-    if (password.length >= 12) {
-      strength += 25;
-    }
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
-      strength += 20;
-    }
-    if (/\d/.test(password)) {
-      strength += 15;
-    }
-    if (/[^a-zA-Z0-9]/.test(password)) {
-      strength += 15;
-    }
-    if (strength >= 75) {
-      return { strength, label: "Strong", color: "bg-green-500" };
-    }
-    if (strength >= 50) {
-      return { strength, label: "Medium", color: "bg-yellow-500" };
-    }
-    return { strength, label: "Weak", color: "bg-red-500" };
-  })();
-
-  const generatePassword = () => {
-    const charset =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let value = "";
-    for (let i = 0; i < 16; i += 1) {
-      value += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    form.setValue("newPassword", value);
-    form.setValue("confirmPassword", value);
-    setShowNewPassword(true);
-    setShowConfirmPassword(true);
+  const setPasswordField = (
+    key: "newPassword" | "confirmPassword",
+    value: string
+  ) => {
+    form.setValue(key, value, { shouldValidate: true, shouldDirty: true });
   };
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -101,8 +66,6 @@ export function ChangePasswordSection({
         await updateTenantUserPassword(userId, values.newPassword);
       }
       form.reset({ newPassword: "", confirmPassword: "" });
-      setShowNewPassword(false);
-      setShowConfirmPassword(false);
       setSuccess(true);
       onSuccess?.();
     } catch (err) {
@@ -120,81 +83,29 @@ export function ChangePasswordSection({
         <Label className="w-32 text-sm" htmlFor="new_password">
           New Password
         </Label>
-        <div className="flex-1 space-y-2">
-          <div className="relative">
-            <Input
-              className="rounded-sm pr-20"
-              id="new_password"
-              type={showNewPassword ? "text" : "password"}
-              {...form.register("newPassword")}
-            />
-            <div className="absolute top-0 right-0 flex h-full items-center gap-1 pr-1">
-              <Button
-                className="h-8 w-8"
-                onClick={generatePassword}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button
-                className="h-8 w-8"
-                onClick={() => setShowNewPassword((prev) => !prev)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                {showNewPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-          {form.watch("newPassword") && (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Progress
-                  className="h-2 flex-1"
-                  value={passwordStrength.strength}
-                />
-                <Badge
-                  className={`${passwordStrength.color} border-0 text-white`}
-                  variant="outline"
-                >
-                  {passwordStrength.label}
-                </Badge>
-              </div>
-            </div>
-          )}
+        <div className="flex-1">
+          <PasswordInput
+            className="rounded-sm"
+            id="new_password"
+            onChange={(e) => setPasswordField("newPassword", e.target.value)}
+            onGenerate={(next) => setPasswordField("confirmPassword", next)}
+            value={form.watch("newPassword")}
+          />
         </div>
       </div>
       <div className="flex items-center gap-4">
         <Label className="w-32 text-sm" htmlFor="confirm_password">
           Confirm Password
         </Label>
-        <div className="relative flex-1">
-          <Input
-            className="rounded-sm pr-10"
+        <div className="flex-1">
+          <PasswordInput
+            className="rounded-sm"
             id="confirm_password"
-            type={showConfirmPassword ? "text" : "password"}
-            {...form.register("confirmPassword")}
+            onChange={(e) => setPasswordField("confirmPassword", e.target.value)}
+            showGenerate={false}
+            showStrength={false}
+            value={form.watch("confirmPassword")}
           />
-          <Button
-            className="absolute top-0 right-0 h-full px-3"
-            onClick={() => setShowConfirmPassword((prev) => !prev)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            {showConfirmPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </Button>
         </div>
       </div>
       {submitError ? (

@@ -81,7 +81,10 @@ export function ProjectClientPicker({
           </button>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-(--anchor-width) p-0">
+      <PopoverContent
+        align="start"
+        className="w-(--anchor-width) min-w-72 p-0"
+      >
         <div className="p-1">
           <Input
             autoFocus

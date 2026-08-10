@@ -54,7 +54,8 @@
     "you": "Sie",
     "member": "Mitglied",
     "admin": "Admin",
-    "viewUser": "Benutzer anzeigen"
+    "viewUser": "Benutzer anzeigen",
+    "loginAs": "Anmelden als"
   },
   "dashboard": {
     "greetingMorning": "Guten Morgen",
@@ -801,7 +802,10 @@
     "developerMode": "Developer Modus",
     "developerTools": "Developer Tools",
     "agUiInspector": "AG-UI Inspector",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "switchBack": "Zurückwechseln",
+    "actingAs": "Angemeldet als {{name}}",
+    "impersonationBadge": "Simulierte Sitzung"
   },
   "deviceApproval": {
     "title": "Geräte-Login bestätigen",

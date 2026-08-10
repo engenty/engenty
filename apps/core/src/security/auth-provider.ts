@@ -80,11 +80,12 @@ export function createSupabaseAuthProvider(
           return null;
         }
         const isAdmin = await dal.isAuthUserAdmin(sessionToken);
+        const isSuperAdmin = await dal.isAuthUserSuperAdmin(sessionToken);
         // Static built-in bundle: used when no grants service is wired
         // (tests/CLI) and as a resilient fallback if grant resolution fails.
         const staticGrants = () => ({
           capabilities: capabilitiesForUser({
-            isSuperAdmin: false,
+            isSuperAdmin,
             tenantRole: isAdmin ? "admin" : "member",
           }),
           roleProfiles: [] as string[],
@@ -101,7 +102,7 @@ export function createSupabaseAuthProvider(
               {
                 kind: "user",
                 id: authUser.id,
-                isSuperAdmin: false,
+                isSuperAdmin,
                 tenantRole: isAdmin ? "admin" : "member",
               },
               tenantId

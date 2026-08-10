@@ -415,6 +415,62 @@ describe("registerTeamMembersApi", () => {
     expect(created.full_name).toBe("Invited User");
   });
 
+  it("links a newly created user when PATCH includes invite fields", async () => {
+    const repo = makeMockTeamMemberRepo();
+    const linkedUserId = "core-user-uuid-patch";
+    const { api, httpRoutes, defaultAuth } = makeMockApi({
+      hasOperation: (operationId) =>
+        operationId === "core_users_create_in_tenant",
+      invokeGateway: async (methodName) => {
+        if (methodName === "core_users_create_in_tenant") {
+          return { id: linkedUserId };
+        }
+        return null;
+      },
+    });
+    registerTeamMembersApi(api, repo);
+
+    const created = await repo.create({
+      full_name: "Laura Becker",
+      member_type: "internal",
+      user_id: null,
+      initials: null,
+      phone: null,
+      email: "laura.becker@engenty.localhost",
+      position: null,
+      department: null,
+      location: null,
+    });
+
+    const patchRoute = getRoute(httpRoutes, "patch", "/api/team/:id");
+    const res = await patchRoute.handler({
+      request: new Request(`http://localhost/api/team/${created.id}`),
+      hono: {},
+      config: {},
+      pluginConfig: {},
+      dataDir: "",
+      resolvePath: (p: string) => p,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+      params: { id: created.id },
+      query: {},
+      headers: {},
+      auth: { ...defaultAuth, capabilities: ["core.users.manage"] },
+      body: {
+        invite_email: "laura.becker@engenty.localhost",
+        invite_password: "password123",
+        invite_role: "member",
+      },
+    });
+
+    expect(res).not.toBeInstanceOf(Response);
+    expect((res as { user_id: string | null }).user_id).toBe(linkedUserId);
+  });
+
   it("returns 404 for get non-existent member", async () => {
     const repo = makeMockTeamMemberRepo();
     const { api, httpRoutes, defaultAuth } = makeMockApi();

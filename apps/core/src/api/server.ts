@@ -109,6 +109,7 @@ import { registerAgentAuthDiscoveryRoutes } from "./routes/auth/agent-auth-disco
 import { registerAuthRoutes } from "./routes/auth/auth-routes.js";
 import { registerDevLoginRoutes } from "./routes/auth/dev-login-routes.js";
 import { registerDeviceFlowRoutes } from "./routes/auth/device-flow-routes.js";
+import { registerImpersonateRoutes } from "./routes/auth/impersonate-routes.js";
 import { registerBillingRoutes } from "./routes/billing-routes.js";
 import { registerCoreAiRemovedRoutes } from "./routes/core-ai-removed-routes.js";
 import { registerDashboardRoutes } from "./routes/dashboard/index.js";
@@ -439,6 +440,14 @@ export function createApiApp(params: CreateApiAppParams) {
     authProvider,
     config,
     grants: grantsService,
+  });
+  // Browser “Login as” for platform superadmins — mints a real Supabase
+  // session for the target user (distinct from short-lived actor tokens).
+  registerImpersonateRoutes({
+    app,
+    auditLog: securityAuditLog,
+    authProvider,
+    config,
   });
   registerAgentAuthDiscoveryRoutes({ app });
   registerDeviceFlowRoutes({

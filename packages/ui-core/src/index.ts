@@ -327,6 +327,17 @@ export {
   InputGroupInput,
   InputGroupTextarea,
 } from "./components/ui/input-group";
+export type {
+  PasswordInputLabels,
+  PasswordInputProps,
+} from "./components/ui/password-input";
+export { PasswordInput } from "./components/ui/password-input";
+export {
+  generateRandomPassword,
+  type PasswordStrength,
+  type PasswordStrengthLevel,
+  scorePasswordStrength,
+} from "./lib/password-input";
 export { Label } from "./components/ui/label";
 export {
   ListFilterChip,

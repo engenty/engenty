@@ -18,7 +18,7 @@ import {
   TableSelectionCell,
   TableSelectionHeader,
 } from "@engenty/ui-core";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, LogIn } from "lucide-react";
 import { useMemo } from "react";
 import type { UserListEnrichmentState } from "../../hooks/use-user-list-enrichments.js";
 import type { UserRecord } from "../../lib/schemas.js";
@@ -33,12 +33,15 @@ interface UsersTableProps {
   currentUserId: string | null;
   enrichments: UserListEnrichmentState;
   isAdmin: boolean;
+  onLoginAs?: (userId: string) => void;
   onNavigate: (to: string) => void;
   onOpenUser: (userId: string) => void;
   onRoleChange: (userId: string, role: "admin" | "member") => void;
   onToggleSelectAll: (checked: boolean | "indeterminate") => void;
   onToggleSelectOne: (userId: string, checked: boolean) => void;
   selectedIds: Set<string>;
+  /** Show “Login as” for other users (platform superadmin, not already impersonating). */
+  showLoginAs?: boolean;
   someSelected: boolean;
   tableSize?: "compact" | "normal";
   users: UserRecord[];
@@ -53,6 +56,7 @@ export function UsersTable({
   allSelected,
   someSelected,
   isAdmin,
+  showLoginAs = false,
   enrichments,
   columnVisibility,
   columnOrder,
@@ -60,6 +64,7 @@ export function UsersTable({
   onToggleSelectOne,
   onRoleChange,
   onOpenUser,
+  onLoginAs,
   onNavigate,
 }: UsersTableProps) {
   const { t } = useTranslation("common");
@@ -244,6 +249,17 @@ export function UsersTable({
                       <ExternalLink className="mr-2 h-4 w-4" />
                       {t("usersTable.viewUser")}
                     </DropdownMenuItem>
+                    {showLoginAs && onLoginAs && user.id !== currentUserId ? (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLoginAs(user.id);
+                        }}
+                      >
+                        <LogIn className="mr-2 h-4 w-4" />
+                        {t("usersTable.loginAs")}
+                      </DropdownMenuItem>
+                    ) : null}
                   </TableRowActions>
                 )}
               </TableRow>

@@ -76,8 +76,11 @@ services:
     depends_on:
       engenty-migrate:
         condition: service_completed_successfully
+      # service_STARTED, not service_healthy — core only proxies to ai at
+      # request time, so gating boot on ai's health check put ai's whole
+      # startup inside the deploy outage. See docker-compose.prebuilt.yaml.
       engenty-ai:
-        condition: service_healthy
+        condition: service_started
       gotenberg:
         condition: service_started
     networks:

@@ -1,5 +1,9 @@
 import { openAgUiAgentInspector } from "@engenty/ai-ui";
-import { getSupabaseAuthClient } from "@engenty/auth-ui";
+import {
+  getImpersonationState,
+  signOutClearingImpersonation,
+  stopImpersonation,
+} from "@engenty/auth-ui";
 import {
   getDeveloperModePreference,
   isEngentyDevelopmentEnvironment,
@@ -32,6 +36,7 @@ import {
   Moon,
   Settings,
   Sun,
+  Undo2,
   Wrench,
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -55,6 +60,39 @@ function invalidateWorkspaceAppearance(queryClient: QueryClient) {
   void queryClient.invalidateQueries({
     queryKey: workspaceContextOptions.queryKey,
   });
+}
+
+function UserAvatar({
+  initials,
+  impersonating,
+  size,
+}: {
+  initials: string;
+  impersonating: boolean;
+  size: "sm" | "md";
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="relative shrink-0">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full border-[2.5px] font-semibold",
+          size === "md" ? "size-8 text-sm" : "size-6 text-xs",
+          impersonating
+            ? "border-amber-700/90 bg-amber-100 text-amber-950 dark:border-amber-300/85 dark:bg-amber-950/55 dark:text-amber-50"
+            : "border-slate-900/85 bg-emerald-100 text-slate-900 dark:border-slate-200/85 dark:bg-emerald-950/45 dark:text-slate-50"
+        )}
+      >
+        {initials}
+      </div>
+      {impersonating ? (
+        <span
+          className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background bg-amber-500"
+          title={t("userMenu.impersonationBadge")}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
@@ -83,6 +121,11 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
     initials: userInitial,
     email: userEmail,
   } = useCurrentUserProfile();
+  const [, setImpersonationEpoch] = useState(0);
+  // Read stash every render so Login-as (query invalidate + navigate) and
+  // Switch-back (epoch bump below) both update the badge without a remount.
+  const impersonation = getImpersonationState();
+  const isSimulating = impersonation !== null;
 
   // Developer mode is a superadmin tool — the toggle only appears for them.
   const workspace = useWorkspaceContextQuery(true);
@@ -101,10 +144,18 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
     });
   }, [showDeveloperMenu]);
 
+  const actorLabel =
+    impersonation?.actor.display_name?.trim() ||
+    impersonation?.actor.email ||
+    "";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          aria-label={
+            isSimulating ? t("userMenu.impersonationBadge") : undefined
+          }
           className={cn(
             "flex w-full items-center gap-2 rounded-md text-sm outline-none transition-colors",
             "hover:bg-background/80 data-[state=open]:bg-background/80",
@@ -114,15 +165,23 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
           ref={triggerRef}
           type="button"
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full border-[2.5px] border-slate-900/85 bg-emerald-100 font-semibold text-slate-900 text-sm dark:border-slate-200/85 dark:bg-emerald-950/45 dark:text-slate-50">
-            {userInitial}
-          </div>
+          <UserAvatar
+            impersonating={isSimulating}
+            initials={userInitial}
+            size="md"
+          />
           {!compact && (
             <>
               <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{userDisplayName}</span>
                 <span className="truncate text-muted-foreground text-xs">
-                  {userEmail}
+                  {isSimulating
+                    ? t("userMenu.actingAs", {
+                        name:
+                          impersonation.target.display_name?.trim() ||
+                          impersonation.target.email,
+                      })
+                    : userEmail}
                 </span>
               </div>
               <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
@@ -140,14 +199,25 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
       >
         <DropdownMenuLabel className="p-2 pt-1 font-normal">
           <div className="flex items-center gap-3">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-full border-[2.5px] border-slate-900/85 bg-emerald-100 font-semibold text-slate-900 text-xs dark:border-slate-200/85 dark:bg-emerald-950/45 dark:text-slate-50">
-              {userInitial}
-            </div>
+            <UserAvatar
+              impersonating={isSimulating}
+              initials={userInitial}
+              size="sm"
+            />
             <div className="min-w-0">
               <p className="truncate font-medium text-sm">{userDisplayName}</p>
               <p className="truncate text-muted-foreground text-xs">
                 {userEmail}
               </p>
+              {isSimulating ? (
+                <p className="mt-0.5 truncate text-[11px] text-amber-700 dark:text-amber-400">
+                  {t("userMenu.actingAs", {
+                    name:
+                      impersonation.target.display_name?.trim() ||
+                      impersonation.target.email,
+                  })}
+                </p>
+              ) : null}
             </div>
           </div>
         </DropdownMenuLabel>
@@ -327,12 +397,32 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
         ) : null}
 
         <DropdownMenuSeparator className="my-0 mb-1 bg-sidebar-border" />
+        {isSimulating ? (
+          <DropdownMenuItem
+            data-agent-user-menu-item-switch-back
+            onClick={async () => {
+              await stopImpersonation();
+              setImpersonationEpoch((n) => n + 1);
+              await queryClient.invalidateQueries();
+              navigate("/");
+            }}
+          >
+            <Undo2 className="mr-2 size-4" />
+            <span className="truncate">
+              {actorLabel
+                ? `${t("userMenu.switchBack")} (${actorLabel})`
+                : t("userMenu.switchBack")}
+            </span>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           data-agent-user-menu-item-logout
           onClick={async () => {
             // Scope "local" ends only this browser's session; the default
-            // "global" would log the user out everywhere.
-            await getSupabaseAuthClient().auth.signOut({ scope: "local" });
+            // "global" would log the user out everywhere. Clear any stashed
+            // admin session so Logout while impersonating does not restore.
+            await signOutClearingImpersonation();
+            setImpersonationEpoch((n) => n + 1);
             navigate("/auth/login");
           }}
         >

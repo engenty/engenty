@@ -168,7 +168,17 @@ export const teamMemberCreateInputSchema = z
 
 export const teamMemberUpdateSchema = teamMemberInputSchemaBase
   .partial()
-  .superRefine(refineProfileName);
+  .superRefine(refineProfileName)
+  .refine(
+    (data) =>
+      !data.invite_email ||
+      (data.invite_password && data.invite_password.length >= 6),
+    {
+      message:
+        "Password is required when creating a user account (min 6 characters)",
+      path: ["invite_password"],
+    }
+  );
 
 export const teamMemberIdParamsSchema = z.object({
   id: z.string().min(1),
